@@ -14,10 +14,9 @@
 #include "mem-types.h"
 
 enum gf_changelog_mem_types {
-        gf_gfid_access_mt_priv_t = gf_common_mt_end + 1,
-        gf_gfid_access_mt_gfid_t,
-        gf_gfid_access_mt_end
+    gf_gfid_access_mt_priv_t = gf_common_mt_end + 1,
+    gf_gfid_access_mt_gfid_t,
+    gf_gfid_access_mt_end
 };
 
 #endif
-

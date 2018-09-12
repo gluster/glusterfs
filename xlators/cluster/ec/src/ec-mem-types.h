@@ -13,8 +13,7 @@
 
 #include "mem-types.h"
 
-enum gf_ec_mem_types_
-{
+enum gf_ec_mem_types_ {
     ec_mt_ec_t = gf_common_mt_end + 1,
     ec_mt_xlator_t,
     ec_mt_ec_inode_t,

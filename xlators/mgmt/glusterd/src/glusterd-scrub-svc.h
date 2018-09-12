@@ -15,31 +15,31 @@
 
 typedef struct glusterd_scrubsvc_ glusterd_scrubsvc_t;
 
-struct glusterd_scrubsvc_{
-        glusterd_svc_t      svc;
-        gf_store_handle_t   *handle;
+struct glusterd_scrubsvc_ {
+    glusterd_svc_t svc;
+    gf_store_handle_t *handle;
 };
 
 void
-glusterd_scrubsvc_build (glusterd_svc_t *svc);
+glusterd_scrubsvc_build(glusterd_svc_t *svc);
 
 int
-glusterd_scrubsvc_init (glusterd_svc_t *svc);
+glusterd_scrubsvc_init(glusterd_svc_t *svc);
 
 int
-glusterd_scrubsvc_manager (glusterd_svc_t *svc, void *data, int flags);
+glusterd_scrubsvc_manager(glusterd_svc_t *svc, void *data, int flags);
 
 int
-glusterd_scrubsvc_start (glusterd_svc_t *svc, int flags);
+glusterd_scrubsvc_start(glusterd_svc_t *svc, int flags);
 
 int
-glusterd_scrubsvc_stop (glusterd_svc_t *svc, int sig);
+glusterd_scrubsvc_stop(glusterd_svc_t *svc, int sig);
 
 int
-glusterd_scrubsvc_reconfigure ();
+glusterd_scrubsvc_reconfigure();
 
 void
-glusterd_scrubsvc_build_volfile_path (char *server, char *workdir,
-                                     char *volfile, size_t len);
+glusterd_scrubsvc_build_volfile_path(char *server, char *workdir, char *volfile,
+                                     size_t len);
 
 #endif

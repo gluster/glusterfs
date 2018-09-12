@@ -15,37 +15,37 @@
 
 typedef struct glusterd_conn_ glusterd_conn_t;
 
-typedef int (*glusterd_conn_notify_t)
-                (glusterd_conn_t *conn, rpc_clnt_event_t event);
+typedef int (*glusterd_conn_notify_t)(glusterd_conn_t *conn,
+                                      rpc_clnt_event_t event);
 
 struct glusterd_conn_ {
-        struct rpc_clnt *rpc;
-        char sockpath[PATH_MAX];
-        int frame_timeout;
-        /* Existing daemons tend to specialize their respective
-         * notify implementations, so ... */
-        glusterd_conn_notify_t notify;
+    struct rpc_clnt *rpc;
+    char sockpath[PATH_MAX];
+    int frame_timeout;
+    /* Existing daemons tend to specialize their respective
+     * notify implementations, so ... */
+    glusterd_conn_notify_t notify;
 };
 
 int
-glusterd_conn_init (glusterd_conn_t *conn, char *sockpath,
-                    int frame_timeout, glusterd_conn_notify_t notify);
+glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
+                   glusterd_conn_notify_t notify);
 
 int
-glusterd_conn_term (glusterd_conn_t *conn);
+glusterd_conn_term(glusterd_conn_t *conn);
 
 int
-glusterd_conn_connect (glusterd_conn_t *conn);
+glusterd_conn_connect(glusterd_conn_t *conn);
 
 int
-glusterd_conn_disconnect (glusterd_conn_t *conn);
+glusterd_conn_disconnect(glusterd_conn_t *conn);
 
 int
-glusterd_conn_common_notify (struct rpc_clnt *rpc, void *mydata,
-                             rpc_clnt_event_t event, void *data);
+glusterd_conn_common_notify(struct rpc_clnt *rpc, void *mydata,
+                            rpc_clnt_event_t event, void *data);
 
 int32_t
-glusterd_conn_build_socket_filepath (char *rundir, uuid_t uuid,
-                                     char *socketpath, int len);
+glusterd_conn_build_socket_filepath(char *rundir, uuid_t uuid, char *socketpath,
+                                    int len);
 
 #endif

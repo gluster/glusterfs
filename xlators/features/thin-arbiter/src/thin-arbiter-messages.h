@@ -23,8 +23,6 @@
  * glfs-message-id.h.
  */
 
-GLFS_MSGID(TA,
-        TA_MSG_INVALID_FOP
-);
+GLFS_MSGID(TA, TA_MSG_INVALID_FOP);
 
 #endif /* !_TA_MESSAGES_H_ */

@@ -13,7 +13,7 @@
 
 #include <pthread.h>
 
-#if defined (GF_DARWIN_HOST_OS)
+#if defined(GF_DARWIN_HOST_OS)
 #include <libkern/OSAtomic.h>
 #define pthread_spinlock_t OSSpinLock
 #define pthread_spin_lock(l) OSSpinLockLock(l)
@@ -22,11 +22,11 @@
 #define pthread_spin_init(l, v) (*l = v)
 #endif
 
-#if defined (HAVE_SPINLOCK)
+#if defined(HAVE_SPINLOCK)
 
 typedef union {
-        pthread_spinlock_t      spinlock;
-        pthread_mutex_t         mutex;
+    pthread_spinlock_t spinlock;
+    pthread_mutex_t mutex;
 } gf_lock_t;
 
 #if !defined(LOCKING_IMPL)
@@ -47,25 +47,25 @@ extern int use_spinlocks;
  * worth the extra complexity, but for now this way seems preferable.
  */
 
-#define LOCK_INIT(x)    (use_spinlocks \
-                                ? pthread_spin_init  (&((x)->spinlock), 0) \
-                                : pthread_mutex_init (&((x)->mutex), 0))
+#define LOCK_INIT(x)                                                           \
+    (use_spinlocks ? pthread_spin_init(&((x)->spinlock), 0)                    \
+                   : pthread_mutex_init(&((x)->mutex), 0))
 
-#define LOCK(x)         (use_spinlocks \
-                                ? pthread_spin_lock  (&((x)->spinlock)) \
-                                : pthread_mutex_lock (&((x)->mutex)))
+#define LOCK(x)                                                                \
+    (use_spinlocks ? pthread_spin_lock(&((x)->spinlock))                       \
+                   : pthread_mutex_lock(&((x)->mutex)))
 
-#define TRY_LOCK(x)     (use_spinlocks \
-                                ? pthread_spin_trylock  (&((x)->spinlock)) \
-                                : pthread_mutex_trylock (&((x)->mutex)))
+#define TRY_LOCK(x)                                                            \
+    (use_spinlocks ? pthread_spin_trylock(&((x)->spinlock))                    \
+                   : pthread_mutex_trylock(&((x)->mutex)))
 
-#define UNLOCK(x)       (use_spinlocks \
-                                ? pthread_spin_unlock  (&((x)->spinlock)) \
-                                : pthread_mutex_unlock (&((x)->mutex)))
+#define UNLOCK(x)                                                              \
+    (use_spinlocks ? pthread_spin_unlock(&((x)->spinlock))                     \
+                   : pthread_mutex_unlock(&((x)->mutex)))
 
-#define LOCK_DESTROY(x) (use_spinlocks \
-                                ? pthread_spin_destroy  (&((x)->spinlock)) \
-                                : pthread_mutex_destroy (&((x)->mutex)))
+#define LOCK_DESTROY(x)                                                        \
+    (use_spinlocks ? pthread_spin_destroy(&((x)->spinlock))                    \
+                   : pthread_mutex_destroy(&((x)->mutex)))
 
 #endif
 
@@ -73,13 +73,12 @@ extern int use_spinlocks;
 
 typedef pthread_mutex_t gf_lock_t;
 
-#define LOCK_INIT(x)    pthread_mutex_init (x, 0)
-#define LOCK(x)         pthread_mutex_lock (x)
-#define TRY_LOCK(x)     pthread_mutex_trylock (x)
-#define UNLOCK(x)       pthread_mutex_unlock (x)
-#define LOCK_DESTROY(x) pthread_mutex_destroy (x)
+#define LOCK_INIT(x) pthread_mutex_init(x, 0)
+#define LOCK(x) pthread_mutex_lock(x)
+#define TRY_LOCK(x) pthread_mutex_trylock(x)
+#define UNLOCK(x) pthread_mutex_unlock(x)
+#define LOCK_DESTROY(x) pthread_mutex_destroy(x)
 
 #endif /* HAVE_SPINLOCK */
-
 
 #endif /* _LOCKING_H */

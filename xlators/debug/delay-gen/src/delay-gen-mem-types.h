@@ -8,15 +8,14 @@
  *   cases as published by the Free Software Foundation.
  */
 
-
 #ifndef __DELAY_GEN_MEM_TYPES_H__
 #define __DELAY_GEN_MEM_TYPES_H__
 
 #include "mem-types.h"
 
 enum gf_delay_gen_mem_types_ {
-        gf_delay_gen_mt_dg_t = gf_common_mt_end + 1,
-        gf_delay_gen_mt_end
+    gf_delay_gen_mt_dg_t = gf_common_mt_end + 1,
+    gf_delay_gen_mt_end
 };
 
 #endif /* __DELAY_GEN_MEM_TYPES_H__ */

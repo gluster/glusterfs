@@ -13,8 +13,7 @@
 #include "mem-types.h"
 
 enum gf_selinux_mem_types_ {
-        gf_selinux_mt_selinux_priv_t = gf_common_mt_end + 1,
-        gf_selinux_mt_end
+    gf_selinux_mt_selinux_priv_t = gf_common_mt_end + 1,
+    gf_selinux_mt_end
 };
 #endif
-

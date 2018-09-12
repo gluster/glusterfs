@@ -14,11 +14,10 @@
 #include "mem-types.h"
 
 typedef enum gf_posix_acl_mem_types_ {
-        gf_posix_acl_mt_ctx_t   =  gf_common_mt_end + 1,
-        gf_posix_acl_mt_posix_ace_t,
-        gf_posix_acl_mt_char,
-        gf_posix_acl_mt_conf_t,
-        gf_posix_acl_mt_end
+    gf_posix_acl_mt_ctx_t = gf_common_mt_end + 1,
+    gf_posix_acl_mt_posix_ace_t,
+    gf_posix_acl_mt_char,
+    gf_posix_acl_mt_conf_t,
+    gf_posix_acl_mt_end
 } gf_posix_acl_mem_types_t;
 #endif
-

@@ -14,14 +14,14 @@
 #include "mem-types.h"
 
 enum gf_qr_mem_types_ {
-        gf_qr_mt_qr_inode_t   = gf_common_mt_end + 1,
-	gf_qr_mt_content_t,
-        gf_qr_mt_qr_fd_ctx_t,
-        gf_qr_mt_iovec,
-        gf_qr_mt_qr_conf_t,
-        gf_qr_mt_qr_priority_t,
-        gf_qr_mt_qr_private_t,
-        gf_qr_mt_qr_unlink_ctx_t,
-        gf_qr_mt_end
+    gf_qr_mt_qr_inode_t = gf_common_mt_end + 1,
+    gf_qr_mt_content_t,
+    gf_qr_mt_qr_fd_ctx_t,
+    gf_qr_mt_iovec,
+    gf_qr_mt_qr_conf_t,
+    gf_qr_mt_qr_priority_t,
+    gf_qr_mt_qr_private_t,
+    gf_qr_mt_qr_unlink_ctx_t,
+    gf_qr_mt_end
 };
 #endif

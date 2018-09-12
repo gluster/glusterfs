@@ -14,13 +14,12 @@
 #include "mem-types.h"
 
 enum gf_meta_mem_types_ {
-        gf_meta_mt_priv_t = gf_common_mt_end + 1,
-	gf_meta_mt_fd_t,
-	gf_meta_mt_fd_data_t,
-	gf_meta_mt_strfd_t,
-	gf_meta_mt_dirents_t,
-	gf_meta_mt_local_t,
-        gf_meta_mt_end
+    gf_meta_mt_priv_t = gf_common_mt_end + 1,
+    gf_meta_mt_fd_t,
+    gf_meta_mt_fd_data_t,
+    gf_meta_mt_strfd_t,
+    gf_meta_mt_dirents_t,
+    gf_meta_mt_local_t,
+    gf_meta_mt_end
 };
 #endif
-

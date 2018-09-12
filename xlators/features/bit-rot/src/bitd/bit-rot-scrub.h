@@ -14,24 +14,33 @@
 #include "xlator.h"
 #include "bit-rot.h"
 
-void *br_fsscanner (void *);
-
-int32_t br_fsscan_schedule (xlator_t *);
-int32_t br_fsscan_reschedule (xlator_t *);
-int32_t br_fsscan_activate (xlator_t *);
-int32_t br_fsscan_deactivate (xlator_t *);
-int32_t br_fsscan_ondemand (xlator_t *);
-
-int32_t br_scrubber_handle_options (xlator_t *, br_private_t *, dict_t *);
+void *
+br_fsscanner(void *);
 
 int32_t
-br_scrubber_monitor_init (xlator_t *, br_private_t *);
+br_fsscan_schedule(xlator_t *);
+int32_t
+br_fsscan_reschedule(xlator_t *);
+int32_t
+br_fsscan_activate(xlator_t *);
+int32_t
+br_fsscan_deactivate(xlator_t *);
+int32_t
+br_fsscan_ondemand(xlator_t *);
 
-int32_t br_scrubber_init (xlator_t *, br_private_t *);
+int32_t
+br_scrubber_handle_options(xlator_t *, br_private_t *, dict_t *);
 
-int32_t br_collect_bad_objects_from_children (xlator_t *this, dict_t *dict);
+int32_t
+br_scrubber_monitor_init(xlator_t *, br_private_t *);
+
+int32_t
+br_scrubber_init(xlator_t *, br_private_t *);
+
+int32_t
+br_collect_bad_objects_from_children(xlator_t *this, dict_t *dict);
 
 void
-br_child_set_scrub_state (br_child_t *, gf_boolean_t);
+br_child_set_scrub_state(br_child_t *, gf_boolean_t);
 
 #endif /* __BIT_ROT_SCRUB_H__ */

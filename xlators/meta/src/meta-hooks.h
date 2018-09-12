@@ -12,7 +12,9 @@
 #define __META_HOOKS_H
 #include "xlator.h"
 
-#define DECLARE_HOOK(name) int meta_##name##_hook (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+#define DECLARE_HOOK(name)                                                     \
+    int meta_##name##_hook(call_frame_t *frame, xlator_t *this, loc_t *loc,    \
+                           dict_t *xdata)
 
 DECLARE_HOOK(root_dir);
 DECLARE_HOOK(graphs_dir);

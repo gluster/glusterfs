@@ -20,59 +20,58 @@
 struct changelog_clnt;
 
 typedef struct changelog_rpc_clnt {
-        xlator_t *this;
+    xlator_t *this;
 
-        gf_lock_t lock;
+    gf_lock_t lock;
 
-        gf_atomic_t   ref;
-        gf_boolean_t  disconnected;
+    gf_atomic_t ref;
+    gf_boolean_t disconnected;
 
-        unsigned int filter;
-        char sock[UNIX_PATH_MAX];
+    unsigned int filter;
+    char sock[UNIX_PATH_MAX];
 
-        struct changelog_clnt *c_clnt;   /* back pointer to list holder */
+    struct changelog_clnt *c_clnt; /* back pointer to list holder */
 
-        struct rpc_clnt *rpc;            /* RPC client endpoint */
+    struct rpc_clnt *rpc; /* RPC client endpoint */
 
-        struct list_head list;           /* ->pending, ->waitq, ->active */
+    struct list_head list; /* ->pending, ->waitq, ->active */
 
-        void (*cleanup)
-        (struct changelog_rpc_clnt *);   /* cleanup handler */
+    void (*cleanup)(struct changelog_rpc_clnt *); /* cleanup handler */
 } changelog_rpc_clnt_t;
 
 static inline void
-changelog_rpc_clnt_ref (changelog_rpc_clnt_t *crpc)
+changelog_rpc_clnt_ref(changelog_rpc_clnt_t *crpc)
 {
-        GF_ATOMIC_INC (crpc->ref);
+    GF_ATOMIC_INC(crpc->ref);
 }
 
 static inline void
-changelog_set_disconnect_flag (changelog_rpc_clnt_t *crpc, gf_boolean_t flag)
+changelog_set_disconnect_flag(changelog_rpc_clnt_t *crpc, gf_boolean_t flag)
 {
-        crpc->disconnected = flag;
+    crpc->disconnected = flag;
 }
 
 static inline int
-changelog_rpc_clnt_is_disconnected (changelog_rpc_clnt_t *crpc)
+changelog_rpc_clnt_is_disconnected(changelog_rpc_clnt_t *crpc)
 {
-        return (crpc->disconnected == _gf_true);
+    return (crpc->disconnected == _gf_true);
 }
 
 static inline void
-changelog_rpc_clnt_unref (changelog_rpc_clnt_t *crpc)
+changelog_rpc_clnt_unref(changelog_rpc_clnt_t *crpc)
 {
-        gf_boolean_t gone = _gf_false;
-        uint64_t     ref  = 0;
+    gf_boolean_t gone = _gf_false;
+    uint64_t ref = 0;
 
-        ref = GF_ATOMIC_DEC (crpc->ref);
+    ref = GF_ATOMIC_DEC(crpc->ref);
 
-        if (!ref && changelog_rpc_clnt_is_disconnected (crpc)) {
-                list_del (&crpc->list);
-                gone = _gf_true;
-        }
+    if (!ref && changelog_rpc_clnt_is_disconnected(crpc)) {
+        list_del(&crpc->list);
+        gone = _gf_true;
+    }
 
-        if (gone)
-                crpc->cleanup (crpc);
+    if (gone)
+        crpc->cleanup(crpc);
 }
 
 /**
@@ -100,35 +99,36 @@ changelog_rpc_clnt_unref (changelog_rpc_clnt_t *crpc)
  */
 
 typedef struct changelog_clnt {
-        xlator_t *this;
+    xlator_t *this;
 
-        /* pending connections */
-        pthread_mutex_t pending_lock;
-        pthread_cond_t pending_cond;
-        struct list_head pending;
+    /* pending connections */
+    pthread_mutex_t pending_lock;
+    pthread_cond_t pending_cond;
+    struct list_head pending;
 
-        /* current active connections */
-        gf_lock_t active_lock;
-        struct list_head active;
+    /* current active connections */
+    gf_lock_t active_lock;
+    struct list_head active;
 
-        gf_lock_t wait_lock;
-        struct list_head waitq;
+    gf_lock_t wait_lock;
+    struct list_head waitq;
 
-        /* consumer part of rot-buffs */
-        rbuf_t *rbuf;
-        unsigned long sequence;
+    /* consumer part of rot-buffs */
+    rbuf_t *rbuf;
+    unsigned long sequence;
 } changelog_clnt_t;
 
-void *changelog_ev_connector (void *);
+void *
+changelog_ev_connector(void *);
 
-void *changelog_ev_dispatch (void *);
+void *
+changelog_ev_dispatch(void *);
 
 /* APIs */
 void
-changelog_ev_queue_connection (changelog_clnt_t *, changelog_rpc_clnt_t *);
+changelog_ev_queue_connection(changelog_clnt_t *, changelog_rpc_clnt_t *);
 
 void
-changelog_ev_cleanup_connections (xlator_t *, changelog_clnt_t *);
+changelog_ev_cleanup_connections(xlator_t *, changelog_clnt_t *);
 
 #endif
-

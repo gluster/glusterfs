@@ -14,31 +14,31 @@
 typedef struct glusterd_proc_ glusterd_proc_t;
 
 enum proc_flags {
-        PROC_NONE = 0,
-        PROC_START,
-        PROC_START_NO_WAIT,
-        PROC_STOP,
-        PROC_STOP_FORCE
+    PROC_NONE = 0,
+    PROC_START,
+    PROC_START_NO_WAIT,
+    PROC_STOP,
+    PROC_STOP_FORCE
 };
 
 struct glusterd_proc_ {
-        char name[PATH_MAX];
-        char pidfile[PATH_MAX];
-        char logdir[PATH_MAX];
-        char logfile[PATH_MAX];
-        char volfile[PATH_MAX];
-        char volfileserver[PATH_MAX];
-        char volfileid[256];
+    char name[PATH_MAX];
+    char pidfile[PATH_MAX];
+    char logdir[PATH_MAX];
+    char logfile[PATH_MAX];
+    char volfile[PATH_MAX];
+    char volfileserver[PATH_MAX];
+    char volfileid[256];
 };
 
 int
-glusterd_proc_init (glusterd_proc_t *proc, char *name, char *pidfile,
-                    char *logdir, char *logfile, char *volfile, char *volfileid,
-                    char *volfileserver);
+glusterd_proc_init(glusterd_proc_t *proc, char *name, char *pidfile,
+                   char *logdir, char *logfile, char *volfile, char *volfileid,
+                   char *volfileserver);
 
 int
-glusterd_proc_stop (glusterd_proc_t *proc, int sig, int flags);
+glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags);
 
 int
-glusterd_proc_is_running (glusterd_proc_t *proc);
+glusterd_proc_is_running(glusterd_proc_t *proc);
 #endif

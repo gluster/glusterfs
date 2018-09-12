@@ -16,9 +16,9 @@
 #include "quotad-aggregator.h"
 
 void
-quotad_aggregator_free_state (quotad_aggregator_state_t *state);
+quotad_aggregator_free_state(quotad_aggregator_state_t *state);
 
 call_frame_t *
-quotad_aggregator_get_frame_from_req (rpcsvc_request_t *req);
+quotad_aggregator_get_frame_from_req(rpcsvc_request_t *req);
 
 #endif

@@ -13,8 +13,5 @@
 
 #include "mem-types.h"
 
-enum gf_dc_mem_types_ {
-        gf_dc_mt_rsp_t              = gf_common_mt_end + 1,
-        gf_dc_mt_end
-};
+enum gf_dc_mem_types_ { gf_dc_mt_rsp_t = gf_common_mt_end + 1, gf_dc_mt_end };
 #endif

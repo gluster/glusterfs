@@ -18,34 +18,33 @@
 #include "cloudsync-common.h"
 #include "libcloudsyncs3-mem-types.h"
 
-
-char*
+char *
 aws_b64_encode(const unsigned char *input, int length);
 
 size_t
 aws_write_callback(void *dlbuf, size_t size, size_t nitems, void *mainframe);
 
 int
-aws_download_s3 (call_frame_t *frame, void *config);
+aws_download_s3(call_frame_t *frame, void *config);
 
 int
-aws_dlwritev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int op_ret, int op_errno, struct iatt *prebuf,
-                 struct iatt *postbuf, dict_t *xdata);
+aws_dlwritev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+                 int op_errno, struct iatt *prebuf, struct iatt *postbuf,
+                 dict_t *xdata);
 
 void *
-aws_init (xlator_t *this);
+aws_init(xlator_t *this);
 
 int
-aws_reconfigure (xlator_t *this, dict_t *options);
+aws_reconfigure(xlator_t *this, dict_t *options);
 
 char *
-aws_form_request (char *resource, char **date, char *reqtype, char *bucketid,
-                  char *filepath);
+aws_form_request(char *resource, char **date, char *reqtype, char *bucketid,
+                 char *filepath);
 char *
 aws_sign_request(char *const str, char *awssekey);
 
 void
-aws_fini (void *config);
+aws_fini(void *config);
 
 #endif

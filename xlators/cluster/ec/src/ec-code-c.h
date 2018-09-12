@@ -13,12 +13,15 @@
 
 #include "ec-types.h"
 
-void ec_code_c_prepare(ec_gf_t *gf, uint32_t *values, uint32_t count);
+void
+ec_code_c_prepare(ec_gf_t *gf, uint32_t *values, uint32_t count);
 
-void ec_code_c_linear(void *dst, void *src, uint64_t offset, uint32_t *values,
+void
+ec_code_c_linear(void *dst, void *src, uint64_t offset, uint32_t *values,
+                 uint32_t count);
+
+void
+ec_code_c_interleaved(void *dst, void **src, uint64_t offset, uint32_t *values,
                       uint32_t count);
-
-void ec_code_c_interleaved(void *dst, void **src, uint64_t offset,
-                           uint32_t *values, uint32_t count);
 
 #endif /* __EC_CODE_C_H__ */

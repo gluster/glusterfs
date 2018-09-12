@@ -14,17 +14,16 @@
 #include "mem-types.h"
 
 enum gf_fuse_mem_types_ {
-        gf_fuse_mt_iovec  = gf_common_mt_end + 1,
-        gf_fuse_mt_fuse_private_t,
-        gf_fuse_mt_char,
-        gf_fuse_mt_iov_base,
-        gf_fuse_mt_fuse_state_t,
-        gf_fuse_mt_fd_ctx_t,
-        gf_fuse_mt_graph_switch_args_t,
-	gf_fuse_mt_gids_t,
-        gf_fuse_mt_invalidate_node_t,
-        gf_fuse_mt_pthread_t,
-        gf_fuse_mt_end
+    gf_fuse_mt_iovec = gf_common_mt_end + 1,
+    gf_fuse_mt_fuse_private_t,
+    gf_fuse_mt_char,
+    gf_fuse_mt_iov_base,
+    gf_fuse_mt_fuse_state_t,
+    gf_fuse_mt_fd_ctx_t,
+    gf_fuse_mt_graph_switch_args_t,
+    gf_fuse_mt_gids_t,
+    gf_fuse_mt_invalidate_node_t,
+    gf_fuse_mt_pthread_t,
+    gf_fuse_mt_end
 };
 #endif
-

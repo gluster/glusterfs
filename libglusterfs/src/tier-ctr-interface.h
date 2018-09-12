@@ -33,12 +33,12 @@
  *
  */
 typedef struct gfdb_ipc_ctr_params {
-        gf_boolean_t is_promote;
-        int write_freq_threshold;
-        int read_freq_threshold;
-        gfdb_time_t time_stamp;
-        int query_limit;
-        gf_boolean_t emergency_demote;
+    gf_boolean_t is_promote;
+    int write_freq_threshold;
+    int read_freq_threshold;
+    gfdb_time_t time_stamp;
+    int query_limit;
+    gf_boolean_t emergency_demote;
 } gfdb_ipc_ctr_params_t;
 
 #endif

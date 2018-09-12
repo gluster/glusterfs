@@ -8,19 +8,18 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #ifndef __RA_MEM_TYPES_H__
 #define __RA_MEM_TYPES_H__
 
 #include "mem-types.h"
 
 enum gf_ra_mem_types_ {
-        gf_ra_mt_ra_file_t   = gf_common_mt_end + 1,
-        gf_ra_mt_ra_conf_t,
-        gf_ra_mt_ra_page_t,
-        gf_ra_mt_ra_waitq_t,
-        gf_ra_mt_ra_fill_t,
-        gf_ra_mt_iovec,
-        gf_ra_mt_end
+    gf_ra_mt_ra_file_t = gf_common_mt_end + 1,
+    gf_ra_mt_ra_conf_t,
+    gf_ra_mt_ra_page_t,
+    gf_ra_mt_ra_waitq_t,
+    gf_ra_mt_ra_fill_t,
+    gf_ra_mt_iovec,
+    gf_ra_mt_end
 };
 #endif

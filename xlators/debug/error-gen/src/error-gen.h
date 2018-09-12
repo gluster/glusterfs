@@ -22,29 +22,29 @@
  * range.
  */
 enum GF_PSEUDO_ERRORS {
-	GF_ERROR_SHORT_WRITE = 1000,	/* short writev return value */
-	GF_ERROR_MAX
+    GF_ERROR_SHORT_WRITE = 1000, /* short writev return value */
+    GF_ERROR_MAX
 };
 
 typedef struct {
-        int enable[GF_FOP_MAXVALUE];
-        int op_count;
-        /*
-         * This is only an iteration number in the random-failure case.  For
-         * the normal controlled-probability case, it's actually a numerator
-         * for the failure probability (see FAILURE_GRANULARITY declaration).
-         * It's just not worth blowing up the diff by changing it.
-         */
-        int failure_iter_no;
-        char *error_no;
-        int error_no_int;
-        gf_boolean_t random_failure;
-        gf_lock_t lock;
+    int enable[GF_FOP_MAXVALUE];
+    int op_count;
+    /*
+     * This is only an iteration number in the random-failure case.  For
+     * the normal controlled-probability case, it's actually a numerator
+     * for the failure probability (see FAILURE_GRANULARITY declaration).
+     * It's just not worth blowing up the diff by changing it.
+     */
+    int failure_iter_no;
+    char *error_no;
+    int error_no_int;
+    gf_boolean_t random_failure;
+    gf_lock_t lock;
 } eg_t;
 
 typedef struct {
-        int error_no_count;
-	int error_no[20];
+    int error_no_count;
+    int error_no[20];
 } sys_error_t;
 
 #endif

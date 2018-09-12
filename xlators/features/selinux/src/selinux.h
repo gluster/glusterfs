@@ -16,7 +16,7 @@
 #define SELINUX_GLUSTER_XATTR "trusted.glusterfs.selinux"
 
 struct selinux_priv {
-        gf_boolean_t    selinux_enabled;
+    gf_boolean_t selinux_enabled;
 };
 
 typedef struct selinux_priv selinux_priv_t;

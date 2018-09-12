@@ -10,7 +10,6 @@
 #ifndef __GFDB_DATA_STORE_H
 #define __GFDB_DATA_STORE_H
 
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
@@ -32,9 +31,6 @@
  * */
 typedef struct gfdb_conn_node_t gfdb_conn_node_t;
 
-
-
-
 /*Libgfdb API Function: Used to initialize db connection
  * Arguments:
  *      args         :  Dictionary containing database specific parameters
@@ -46,11 +42,8 @@ typedef struct gfdb_conn_node_t gfdb_conn_node_t;
 gfdb_conn_node_t *
 init_db(dict_t *arg, gfdb_db_type_t db_type);
 
-typedef gfdb_conn_node_t * (*init_db_t) (dict_t *args,
-                                         gfdb_db_type_t gfdb_db_type);
-
-
-
+typedef gfdb_conn_node_t *(*init_db_t)(dict_t *args,
+                                       gfdb_db_type_t gfdb_db_type);
 
 /*Libgfdb API Function: Used to terminate/de-initialize db connection
  *                      (Destructor function for db connection object)
@@ -61,9 +54,7 @@ typedef gfdb_conn_node_t * (*init_db_t) (dict_t *args,
 int
 fini_db(gfdb_conn_node_t *);
 
-typedef int (*fini_db_t) (gfdb_conn_node_t *_conn_node);
-
-
+typedef int (*fini_db_t)(gfdb_conn_node_t *_conn_node);
 
 /*Libgfdb API Function: Used to insert/updated records in the database
  *                      NOTE: In current gfdb_sqlite plugin we use that
@@ -83,9 +74,6 @@ typedef int (*fini_db_t) (gfdb_conn_node_t *_conn_node);
 int
 insert_record(gfdb_conn_node_t *, gfdb_db_record_t *gfdb_db_record);
 
-
-
-
 /*Libgfdb API Function: Used to delete record from the database
  *                      NOTE: In the current gfdb_sqlite3 plugin
  *                      implementation this function is dummy.
@@ -98,10 +86,6 @@ insert_record(gfdb_conn_node_t *, gfdb_db_record_t *gfdb_db_record);
  *          -ve value in case of failure*/
 int
 delete_record(gfdb_conn_node_t *, gfdb_db_record_t *gfdb_db_record);
-
-
-
-
 
 /*Libgfdb API Function: Query all the records from the database
  * Arguments:
@@ -116,17 +100,13 @@ delete_record(gfdb_conn_node_t *, gfdb_db_record_t *gfdb_db_record);
  *
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
-int find_all(gfdb_conn_node_t *, gf_query_callback_t query_callback,
-                void *_query_cbk_args,
-                int query_limit);
+int
+find_all(gfdb_conn_node_t *, gf_query_callback_t query_callback,
+         void *_query_cbk_args, int query_limit);
 
-typedef int (*find_all_t) (gfdb_conn_node_t *,
-                           gf_query_callback_t query_callback,
-                           void *_query_cbk_args,
-                           int query_limit);
-
-
-
+typedef int (*find_all_t)(gfdb_conn_node_t *,
+                          gf_query_callback_t query_callback,
+                          void *_query_cbk_args, int query_limit);
 
 /*Libgfdb API Function: Query records/files that have not changed/accessed
  *                      from a time in past to current time
@@ -140,17 +120,14 @@ typedef int (*find_all_t) (gfdb_conn_node_t *,
  *                                changed/accessed
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
-int find_unchanged_for_time(gfdb_conn_node_t *,
-                        gf_query_callback_t query_callback,
+int
+find_unchanged_for_time(gfdb_conn_node_t *, gf_query_callback_t query_callback,
                         void *_query_cbk_args, gfdb_time_t *for_time);
 
-typedef int (*find_unchanged_for_time_t) (gfdb_conn_node_t *_conn_node,
-                                          gf_query_callback_t query_callback,
-                                          void *_query_cbk_args,
-                                          gfdb_time_t *for_time);
-
-
-
+typedef int (*find_unchanged_for_time_t)(gfdb_conn_node_t *_conn_node,
+                                         gf_query_callback_t query_callback,
+                                         void *_query_cbk_args,
+                                         gfdb_time_t *for_time);
 
 /*Libgfdb API Function: Query records/files that have changed/accessed from a
  *                      time in past to current time
@@ -164,17 +141,15 @@ typedef int (*find_unchanged_for_time_t) (gfdb_conn_node_t *_conn_node,
  *                                changed/accessed
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
-int find_recently_changed_files(gfdb_conn_node_t *_conn,
-                gf_query_callback_t query_callback, void *_query_cbk_args,
-                gfdb_time_t *from_time);
+int
+find_recently_changed_files(gfdb_conn_node_t *_conn,
+                            gf_query_callback_t query_callback,
+                            void *_query_cbk_args, gfdb_time_t *from_time);
 
-typedef int (*find_recently_changed_files_t) (gfdb_conn_node_t *_conn_node,
-                                              gf_query_callback_t query_callback,
-                                              void *_query_cbk_args,
-                                              gfdb_time_t *from_time);
-
-
-
+typedef int (*find_recently_changed_files_t)(gfdb_conn_node_t *_conn_node,
+                                             gf_query_callback_t query_callback,
+                                             void *_query_cbk_args,
+                                             gfdb_time_t *from_time);
 
 /*Libgfdb API Function: Query records/files that have not changed/accessed
  *                      from a time in past to current time, with
@@ -193,24 +168,17 @@ typedef int (*find_recently_changed_files_t) (gfdb_conn_node_t *_conn_node,
  *                                all files.
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
-int find_unchanged_for_time_freq(gfdb_conn_node_t *_conn,
-                                        gf_query_callback_t query_callback,
-                                        void *_query_cbk_args,
-                                        gfdb_time_t *for_time,
-                                        int write_freq_thresold,
-                                        int read_freq_thresold,
-                                        gf_boolean_t _clear_counters);
+int
+find_unchanged_for_time_freq(gfdb_conn_node_t *_conn,
+                             gf_query_callback_t query_callback,
+                             void *_query_cbk_args, gfdb_time_t *for_time,
+                             int write_freq_thresold, int read_freq_thresold,
+                             gf_boolean_t _clear_counters);
 
-typedef int (*find_unchanged_for_time_freq_t) (gfdb_conn_node_t *_conn_node,
-                                               gf_query_callback_t query_callback,
-                                               void *_query_cbk_args,
-                                               gfdb_time_t *for_time,
-                                               int write_freq_thresold,
-                                               int read_freq_thresold,
-                                               gf_boolean_t _clear_counters);
-
-
-
+typedef int (*find_unchanged_for_time_freq_t)(
+    gfdb_conn_node_t *_conn_node, gf_query_callback_t query_callback,
+    void *_query_cbk_args, gfdb_time_t *for_time, int write_freq_thresold,
+    int read_freq_thresold, gf_boolean_t _clear_counters);
 
 /*Libgfdb API Function: Query records/files that have changed/accessed from a
  *                      time in past to current time, with
@@ -229,24 +197,20 @@ typedef int (*find_unchanged_for_time_freq_t) (gfdb_conn_node_t *_conn_node,
  *                                all files.
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
-int find_recently_changed_files_freq(gfdb_conn_node_t *_conn,
-                                gf_query_callback_t query_callback,
-                                void *_query_cbk_args,
-                                gfdb_time_t *from_time,
-                                int write_freq_thresold,
-                                int read_freq_thresold,
-                                gf_boolean_t _clear_counters);
+int
+find_recently_changed_files_freq(gfdb_conn_node_t *_conn,
+                                 gf_query_callback_t query_callback,
+                                 void *_query_cbk_args, gfdb_time_t *from_time,
+                                 int write_freq_thresold,
+                                 int read_freq_thresold,
+                                 gf_boolean_t _clear_counters);
 
-typedef int (*find_recently_changed_files_freq_t) (gfdb_conn_node_t *_conn_node,
-                                                   gf_query_callback_t query_callback,
-                                                   void *_query_cbk_args,
-                                                   gfdb_time_t *from_time,
-                                                   int write_freq_thresold,
-                                                   int read_freq_thresold,
-                                                   gf_boolean_t _clear_counters);
+typedef int (*find_recently_changed_files_freq_t)(
+    gfdb_conn_node_t *_conn_node, gf_query_callback_t query_callback,
+    void *_query_cbk_args, gfdb_time_t *from_time, int write_freq_thresold,
+    int read_freq_thresold, gf_boolean_t _clear_counters);
 
-typedef const
-char *(*get_db_path_key_t)();
+typedef const char *(*get_db_path_key_t)();
 
 /*Libgfdb API Function: Clear the heat for all the files
  *
@@ -257,11 +221,9 @@ char *(*get_db_path_key_t)();
  *          -ve value in case of failure
  **/
 int
-clear_files_heat (gfdb_conn_node_t *_conn_node);
+clear_files_heat(gfdb_conn_node_t *_conn_node);
 
-typedef int (*clear_files_heat_t) (gfdb_conn_node_t *_conn_node);
-
-
+typedef int (*clear_files_heat_t)(gfdb_conn_node_t *_conn_node);
 
 /* Libgfdb API Function: Function to extract version of the db
  *  Arguments:
@@ -275,11 +237,9 @@ typedef int (*clear_files_heat_t) (gfdb_conn_node_t *_conn_node);
  *      On failure return -1
  * */
 int
-get_db_version (gfdb_conn_node_t *_conn_node, char **version);
+get_db_version(gfdb_conn_node_t *_conn_node, char **version);
 
-typedef int (*get_db_version_t)(gfdb_conn_node_t *_conn_node,
-                                        char **version);
-
+typedef int (*get_db_version_t)(gfdb_conn_node_t *_conn_node, char **version);
 
 /* Libgfdb API Function: Function to extract param from the db
  *  Arguments:
@@ -294,14 +254,11 @@ typedef int (*get_db_version_t)(gfdb_conn_node_t *_conn_node,
  *      On failure return -1
  * */
 int
-get_db_params (gfdb_conn_node_t *_conn_node,
-                char *param_key,
-                char **param_value);
+get_db_params(gfdb_conn_node_t *_conn_node, char *param_key,
+              char **param_value);
 
-typedef int (*get_db_params_t)(gfdb_conn_node_t *db_conn,
-                                     char *param_key,
-                                     char **param_value);
-
+typedef int (*get_db_params_t)(gfdb_conn_node_t *db_conn, char *param_key,
+                               char **param_value);
 
 /* Libgfdb API Function: Function to set db params
  * Arguments:
@@ -313,13 +270,10 @@ typedef int (*get_db_params_t)(gfdb_conn_node_t *db_conn,
  *      On failure return -1
  * */
 int
-set_db_params (gfdb_conn_node_t *_conn_node,
-                char *param_key,
-                char *param_value);
+set_db_params(gfdb_conn_node_t *_conn_node, char *param_key, char *param_value);
 
-typedef int (*set_db_params_t)(gfdb_conn_node_t *db_conn,
-                                     char *param_key,
-                                     char *param_value);
+typedef int (*set_db_params_t)(gfdb_conn_node_t *db_conn, char *param_key,
+                               char *param_value);
 
 /*Libgfdb API Function: Compact the database.
  *
@@ -330,48 +284,48 @@ typedef int (*set_db_params_t)(gfdb_conn_node_t *db_conn,
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
 int
-compact_db (gfdb_conn_node_t *_conn_node, gf_boolean_t _compact_active,
-            gf_boolean_t _compact_mode_switched);
+compact_db(gfdb_conn_node_t *_conn_node, gf_boolean_t _compact_active,
+           gf_boolean_t _compact_mode_switched);
 
 typedef int (*compact_db_t)(gfdb_conn_node_t *db_conn,
                             gf_boolean_t compact_active,
                             gf_boolean_t compact_mode_switched);
 
-
 typedef struct gfdb_methods_s {
-        init_db_t                       init_db;
-        fini_db_t                       fini_db;
-        find_all_t                      find_all;
-        find_unchanged_for_time_t       find_unchanged_for_time;
-        find_recently_changed_files_t   find_recently_changed_files;
-        find_unchanged_for_time_freq_t  find_unchanged_for_time_freq;
-        find_recently_changed_files_freq_t find_recently_changed_files_freq;
-        clear_files_heat_t              clear_files_heat;
-        get_db_version_t                get_db_version;
-        get_db_params_t                 get_db_params;
-        set_db_params_t                 set_db_params;
-        /* Do not expose dbpath directly. Expose it via an */
-        /* access function: get_db_path_key(). */
-        char                            *dbpath;
-        get_db_path_key_t               get_db_path_key;
+    init_db_t init_db;
+    fini_db_t fini_db;
+    find_all_t find_all;
+    find_unchanged_for_time_t find_unchanged_for_time;
+    find_recently_changed_files_t find_recently_changed_files;
+    find_unchanged_for_time_freq_t find_unchanged_for_time_freq;
+    find_recently_changed_files_freq_t find_recently_changed_files_freq;
+    clear_files_heat_t clear_files_heat;
+    get_db_version_t get_db_version;
+    get_db_params_t get_db_params;
+    set_db_params_t set_db_params;
+    /* Do not expose dbpath directly. Expose it via an */
+    /* access function: get_db_path_key(). */
+    char *dbpath;
+    get_db_path_key_t get_db_path_key;
 
-        /* Query Record related functions */
-        gfdb_query_record_new_t         gfdb_query_record_new;
-        gfdb_query_record_free_t        gfdb_query_record_free;
-        gfdb_add_link_to_query_record_t gfdb_add_link_to_query_record;
-        gfdb_write_query_record_t       gfdb_write_query_record;
-        gfdb_read_query_record_t        gfdb_read_query_record;
+    /* Query Record related functions */
+    gfdb_query_record_new_t gfdb_query_record_new;
+    gfdb_query_record_free_t gfdb_query_record_free;
+    gfdb_add_link_to_query_record_t gfdb_add_link_to_query_record;
+    gfdb_write_query_record_t gfdb_write_query_record;
+    gfdb_read_query_record_t gfdb_read_query_record;
 
-        /* Link info related functions */
-        gfdb_link_info_new_t            gfdb_link_info_new;
-        gfdb_link_info_free_t           gfdb_link_info_free;
+    /* Link info related functions */
+    gfdb_link_info_new_t gfdb_link_info_new;
+    gfdb_link_info_free_t gfdb_link_info_free;
 
-        /* Compaction related functions */
-        compact_db_t                    compact_db;
+    /* Compaction related functions */
+    compact_db_t compact_db;
 } gfdb_methods_t;
 
-void get_gfdb_methods (gfdb_methods_t *methods);
+void
+get_gfdb_methods(gfdb_methods_t *methods);
 
-typedef void (*get_gfdb_methods_t) (gfdb_methods_t *methods);
+typedef void (*get_gfdb_methods_t)(gfdb_methods_t *methods);
 
 #endif

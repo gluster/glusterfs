@@ -19,36 +19,35 @@
 #include "dict.h"
 #include "nfs.h"
 
-#define GF_NG GF_NFS"-netgroup"
+#define GF_NG GF_NFS "-netgroup"
 
 #define NG_FILE_PARSE_REGEX "([a-zA-Z0-9.(,)-]+)"
 #define NG_HOST_PARSE_REGEX "([a-zA-Z0-9.-]+)"
 
 struct netgroup_host {
-        char *hostname;         /* Hostname of entry */
-        char *user;             /* User field in the entry */
-        char *domain;           /* Domain field in the entry */
+    char *hostname; /* Hostname of entry */
+    char *user;     /* User field in the entry */
+    char *domain;   /* Domain field in the entry */
 };
 
 struct netgroup_entry {
-        char    *netgroup_name;         /* Name of the netgroup */
-        dict_t  *netgroup_ngs;          /* Dict of netgroups in this netgroup */
-        dict_t  *netgroup_hosts;        /* Dict of hosts in this netgroup. */
+    char *netgroup_name;    /* Name of the netgroup */
+    dict_t *netgroup_ngs;   /* Dict of netgroups in this netgroup */
+    dict_t *netgroup_hosts; /* Dict of hosts in this netgroup. */
 };
 
 struct netgroups_file {
-        char    *filename;         /* Filename on disk */
-        dict_t  *ng_file_dict;   /* Dict of netgroup entries */
+    char *filename;       /* Filename on disk */
+    dict_t *ng_file_dict; /* Dict of netgroup entries */
 };
 
 struct netgroups_file *
-ng_file_parse (const char *filepath);
+ng_file_parse(const char *filepath);
 
 struct netgroup_entry *
-ng_file_get_netgroup (const struct netgroups_file *ngfile,
-                      const char *netgroup);
+ng_file_get_netgroup(const struct netgroups_file *ngfile, const char *netgroup);
 
 void
-ng_file_deinit (struct netgroups_file *ngfile);
+ng_file_deinit(struct netgroups_file *ngfile);
 
 #endif /* _NETGROUPS_H */

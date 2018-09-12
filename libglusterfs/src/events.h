@@ -15,21 +15,20 @@
 
 #ifdef USE_EVENTS
 int
-_gf_event (eventtypes_t event, const char *fmt, ...)
-           __attribute__ ((__format__ (__printf__, 2, 3)));
+_gf_event(eventtypes_t event, const char *fmt, ...)
+    __attribute__((__format__(__printf__, 2, 3)));
 #else
-__attribute__ ((__format__ (__printf__, 2, 3)))
-static inline int
-_gf_event (eventtypes_t event, const char *fmt, ...)
+__attribute__((__format__(__printf__, 2, 3))) static inline int
+_gf_event(eventtypes_t event, const char *fmt, ...)
 {
-        return 0;
+    return 0;
 }
 #endif /* USE_EVENTS */
 
-#define gf_event(event, fmt...)                         \
-        do {                                            \
-                FMT_WARN(fmt);                          \
-                _gf_event (event, ##fmt);               \
-        } while (0)
+#define gf_event(event, fmt...)                                                \
+    do {                                                                       \
+        FMT_WARN(fmt);                                                         \
+        _gf_event(event, ##fmt);                                               \
+    } while (0)
 
 #endif /* __EVENTS_H__ */

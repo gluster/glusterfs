@@ -13,8 +13,9 @@
 
 #define PROC "/proc"
 
-pid_t pidinfo (pid_t pid, char **name);
+pid_t
+pidinfo(pid_t pid, char **name);
 
-int prociter (int (*proch) (pid_t pid, pid_t ppid, char *name, void *data),
-              void *data);
-
+int
+prociter(int (*proch)(pid_t pid, pid_t ppid, char *name, void *data),
+         void *data);

@@ -13,18 +13,17 @@
 #include "mem-types.h"
 
 enum gf_quota_mem_types_ {
-        gf_quota_mt_quota_priv_t = gf_common_mt_end + 1,
-        gf_quota_mt_quota_inode_ctx_t,
-        gf_quota_mt_loc_t,
-        gf_quota_mt_char,
-        gf_quota_mt_int64_t,
-        gf_quota_mt_int32_t,
-        gf_quota_mt_limits_t,
-        gf_quota_mt_quota_dentry_t,
-        gf_quota_mt_quota_limits_level_t,
-        gf_quota_mt_qd_vols_conf_t,
-        gf_quota_mt_aggregator_state_t,
-        gf_quota_mt_end
+    gf_quota_mt_quota_priv_t = gf_common_mt_end + 1,
+    gf_quota_mt_quota_inode_ctx_t,
+    gf_quota_mt_loc_t,
+    gf_quota_mt_char,
+    gf_quota_mt_int64_t,
+    gf_quota_mt_int32_t,
+    gf_quota_mt_limits_t,
+    gf_quota_mt_quota_dentry_t,
+    gf_quota_mt_quota_limits_level_t,
+    gf_quota_mt_qd_vols_conf_t,
+    gf_quota_mt_aggregator_state_t,
+    gf_quota_mt_end
 };
 #endif
-

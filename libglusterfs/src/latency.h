@@ -14,10 +14,10 @@
 #include "glusterfs.h"
 
 typedef struct fop_latency {
-        double min;           /* min time for the call (microseconds) */
-        double max;           /* max time for the call (microseconds) */
-	double total;           /* total time (microseconds) */
-        uint64_t count;
+    double min;   /* min time for the call (microseconds) */
+    double max;   /* max time for the call (microseconds) */
+    double total; /* total time (microseconds) */
+    uint64_t count;
 } fop_latency_t;
 
 #endif /* __LATENCY_H__ */

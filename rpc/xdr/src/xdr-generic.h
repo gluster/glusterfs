@@ -17,12 +17,14 @@
 
 #include "compat.h"
 
-#define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
-#define xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
-#define xdr_encoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
-#define xdr_decoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
+#define xdr_decoded_remaining_addr(xdr) ((&xdr)->x_private)
+#define xdr_decoded_remaining_len(xdr) ((&xdr)->x_handy)
+#define xdr_encoded_length(xdr)                                                \
+    (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
+#define xdr_decoded_length(xdr)                                                \
+    (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
 
-#define XDR_BYTES_PER_UNIT      4
+#define XDR_BYTES_PER_UNIT 4
 
 /*
   On OSX > 10.9
@@ -47,29 +49,28 @@
 */
 
 #if defined(__NetBSD__)
-#define  PROC(xdr, res)  proc(xdr, res)
+#define PROC(xdr, res) proc(xdr, res)
 #else
-#define  PROC(xdr, res)  proc(xdr, res, 0)
+#define PROC(xdr, res) proc(xdr, res, 0)
 #endif
 
 ssize_t
-xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc);
+xdr_serialize_generic(struct iovec outmsg, void *res, xdrproc_t proc);
 
 ssize_t
-xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc);
+xdr_to_generic(struct iovec inmsg, void *args, xdrproc_t proc);
 
 ssize_t
-xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
-                        struct iovec *pendingpayload);
-
+xdr_to_generic_payload(struct iovec inmsg, void *args, xdrproc_t proc,
+                       struct iovec *pendingpayload);
 
 extern int
-xdr_bytes_round_up (struct iovec *vec, size_t bufsize);
+xdr_bytes_round_up(struct iovec *vec, size_t bufsize);
 
 extern ssize_t
-xdr_length_round_up (size_t len, size_t bufsize);
+xdr_length_round_up(size_t len, size_t bufsize);
 
 void
-xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count);
+xdr_vector_round_up(struct iovec *vec, int vcount, uint32_t count);
 
 #endif /* !_XDR_GENERIC_H */

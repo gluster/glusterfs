@@ -17,21 +17,20 @@
 #include "inode.h"
 
 typedef struct {
-        void          *pool;
-        xlator_t      *this;
-	xlator_t      *active_subvol;
-        inode_table_t *itable;
-        loc_t          loc;
-        dict_t        *xdata;
+    void *pool;
+    xlator_t *this;
+    xlator_t *active_subvol;
+    inode_table_t *itable;
+    loc_t loc;
+    dict_t *xdata;
 } quotad_aggregator_state_t;
 
-typedef int (*quotad_aggregator_lookup_cbk_t) (xlator_t *this,
-                                               call_frame_t *frame,
-                                               void *rsp);
+typedef int (*quotad_aggregator_lookup_cbk_t)(xlator_t *this,
+                                              call_frame_t *frame, void *rsp);
 int
-qd_nameless_lookup (xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
-                    dict_t *xdata, quotad_aggregator_lookup_cbk_t lookup_cbk);
+qd_nameless_lookup(xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
+                   dict_t *xdata, quotad_aggregator_lookup_cbk_t lookup_cbk);
 int
-quotad_aggregator_init (xlator_t *this);
+quotad_aggregator_init(xlator_t *this);
 
 #endif
