@@ -1,5 +1,6 @@
 #!/bin/bash
 
+dhthashdebugxattr="dht.file.hashed-subvol."
 
 function get_layout()
 {
@@ -132,4 +133,42 @@ function is_dht_linkfile()
 
         echo $retval
         return $retval
+}
+
+
+# Given an existing directory on the volume, get the hashed subvol for a file
+# in that directory
+# Input: filename dirpath_on_mount
+
+function dht_get_hash_subvol()
+{
+        local hashed_subvol
+        hashed_subvol=$(getfattr --only-values -n "$dhthashdebugxattr$1" $2 2>/dev/null)
+        echo $hashed_subvol
+}
+
+
+# Find the first filename that hashes to the same subvol
+# as $1
+# Input: subvol_name dirpath_on_mount file_pattern
+
+function dht_first_filename_with_hashsubvol()
+{
+        local in_subvol=$1
+        local in_path=$2
+        local in_hash_subvol
+        local file_pattern=$3
+        local filename
+
+        for i in {1..50}
+        do
+               filename="$file_pattern$i"
+               in_hash_subvol=$(dht_get_hash_subvol "$filename" "$in_path")
+        #       echo $in_hash_subvol
+               if [ "$in_subvol" == "$in_hash_subvol" ]; then
+                        fn_return_val=$filename
+                        return 0
+               fi
+        done
+        return 1
 }
