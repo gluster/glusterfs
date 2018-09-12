@@ -408,6 +408,7 @@ F: rpc/xdr/
 Snapshot
 M: Raghavendra Bhat <raghavendra@redhat.com>
 P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Sunny Kumar <sunkumar@redhat.com>
 S: Maintained
 F: xlators/mgmt/glusterd/src/glusterd-snap*
 F: extras/snap-scheduler.py
