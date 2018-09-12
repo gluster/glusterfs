@@ -14,19 +14,19 @@
 #include "glusterd.h"
 
 void
-glusterd_svc_build_snapd_rundir (glusterd_volinfo_t *volinfo,
-                                 char *path, int path_len);
+glusterd_svc_build_snapd_rundir(glusterd_volinfo_t *volinfo, char *path,
+                                int path_len);
 
 void
-glusterd_svc_build_snapd_socket_filepath (glusterd_volinfo_t *volinfo,
-                                          char *path, int path_len);
+glusterd_svc_build_snapd_socket_filepath(glusterd_volinfo_t *volinfo,
+                                         char *path, int path_len);
 
 void
-glusterd_svc_build_snapd_pidfile (glusterd_volinfo_t *volinfo,
-                                  char *path, int path_len);
+glusterd_svc_build_snapd_pidfile(glusterd_volinfo_t *volinfo, char *path,
+                                 int path_len);
 
 void
-glusterd_svc_build_snapd_volfile (glusterd_volinfo_t *volinfo,
-                                  char *path, int path_len);
+glusterd_svc_build_snapd_volfile(glusterd_volinfo_t *volinfo, char *path,
+                                 int path_len);
 
 #endif

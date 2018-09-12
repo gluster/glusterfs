@@ -8,24 +8,23 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #ifndef __CRYPT_MEM_TYPES_H__
 #define __CRYPT_MEM_TYPES_H__
 
 #include "mem-types.h"
 
 enum gf_crypt_mem_types_ {
-	gf_crypt_mt_priv = gf_common_mt_end + 1,
-	gf_crypt_mt_inode,
-	gf_crypt_mt_data,
-	gf_crypt_mt_mtd,
-	gf_crypt_mt_loc,
-	gf_crypt_mt_iatt,
-	gf_crypt_mt_key,
-	gf_crypt_mt_iovec,
-	gf_crypt_mt_char,
-	gf_crypt_mt_local,
-	gf_crypt_mt_end,
+    gf_crypt_mt_priv = gf_common_mt_end + 1,
+    gf_crypt_mt_inode,
+    gf_crypt_mt_data,
+    gf_crypt_mt_mtd,
+    gf_crypt_mt_loc,
+    gf_crypt_mt_iatt,
+    gf_crypt_mt_key,
+    gf_crypt_mt_iovec,
+    gf_crypt_mt_char,
+    gf_crypt_mt_local,
+    gf_crypt_mt_end,
 };
 
 #endif /* __CRYPT_MEM_TYPES_H__ */
@@ -40,6 +39,3 @@ enum gf_crypt_mem_types_ {
   scroll-step: 1
   End:
 */
-
-
-

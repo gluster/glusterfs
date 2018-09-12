@@ -8,14 +8,12 @@
  *   cases as published by the Free Software Foundation.
  */
 
-
 #ifndef __LIBAWS_MEM_TYPES_H__
 #define __LIBAWS_MEM_TYPES_H__
 
 #include "mem-types.h"
 enum libaws_mem_types_ {
-        gf_libaws_mt_aws_private_t = gf_common_mt_end + 1,
-        gf_libaws_mt_end
+    gf_libaws_mt_aws_private_t = gf_common_mt_end + 1,
+    gf_libaws_mt_end
 };
 #endif /* __CLOUDSYNC_MEM_TYPES_H__ */
-

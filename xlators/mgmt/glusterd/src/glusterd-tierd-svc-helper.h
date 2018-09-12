@@ -14,24 +14,24 @@
 #include "glusterd.h"
 
 void
-glusterd_svc_build_tierd_rundir (glusterd_volinfo_t *volinfo,
-                                 char *path, int path_len);
+glusterd_svc_build_tierd_rundir(glusterd_volinfo_t *volinfo, char *path,
+                                int path_len);
 
 void
-glusterd_svc_build_tierd_socket_filepath (glusterd_volinfo_t *volinfo,
-                                          char *path, int path_len);
+glusterd_svc_build_tierd_socket_filepath(glusterd_volinfo_t *volinfo,
+                                         char *path, int path_len);
 
 void
-glusterd_svc_build_tierd_pidfile (glusterd_volinfo_t *volinfo,
-                                  char *path, int path_len);
+glusterd_svc_build_tierd_pidfile(glusterd_volinfo_t *volinfo, char *path,
+                                 int path_len);
 
 void
-glusterd_svc_build_tierd_volfile_path (glusterd_volinfo_t *volinfo,
-                                       char *path, int path_len);
+glusterd_svc_build_tierd_volfile_path(glusterd_volinfo_t *volinfo, char *path,
+                                      int path_len);
 
 void
-glusterd_svc_build_tierd_logdir (char *logdir, char *volname, size_t len);
+glusterd_svc_build_tierd_logdir(char *logdir, char *volname, size_t len);
 
 void
-glusterd_svc_build_tierd_logfile (char *logfile, char *logdir, size_t len);
+glusterd_svc_build_tierd_logfile(char *logfile, char *logdir, size_t len);
 #endif

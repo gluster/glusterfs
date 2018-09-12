@@ -8,9 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #define RPC_DEFAULT_PING_TIMEOUT 30
 void
-rpc_clnt_check_and_start_ping (struct rpc_clnt *rpc_ptr);
+rpc_clnt_check_and_start_ping(struct rpc_clnt *rpc_ptr);
 int
-rpc_clnt_remove_ping_timer_locked (struct rpc_clnt *rpc);
+rpc_clnt_remove_ping_timer_locked(struct rpc_clnt *rpc);

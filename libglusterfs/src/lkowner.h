@@ -15,79 +15,79 @@
 
 /* LKOWNER to string functions */
 static inline void
-lkowner_unparse (gf_lkowner_t *lkowner, char *buf, int buf_len)
+lkowner_unparse(gf_lkowner_t *lkowner, char *buf, int buf_len)
 {
-        int i = 0;
-        int j = 0;
+    int i = 0;
+    int j = 0;
 
-        for (i = 0; i < lkowner->len; i++) {
-                if (i && !(i % 8)) {
-                        buf[j] = '-';
-                        j++;
-                }
-                sprintf (&buf[j], "%02hhx", lkowner->data[i]);
-                j += 2;
-                if (j == buf_len)
-                        break;
+    for (i = 0; i < lkowner->len; i++) {
+        if (i && !(i % 8)) {
+            buf[j] = '-';
+            j++;
         }
-        if (j < buf_len)
-                buf[j] = '\0';
+        sprintf(&buf[j], "%02hhx", lkowner->data[i]);
+        j += 2;
+        if (j == buf_len)
+            break;
+    }
+    if (j < buf_len)
+        buf[j] = '\0';
 }
 
 static inline void
-set_lk_owner_from_ptr (gf_lkowner_t *lkowner, void *data)
+set_lk_owner_from_ptr(gf_lkowner_t *lkowner, void *data)
 {
-        int i = 0;
-        int j = 0;
+    int i = 0;
+    int j = 0;
 
-        lkowner->len = sizeof (unsigned long);
-        for (i = 0, j = 0; i < lkowner->len; i++, j += 8) {
-                lkowner->data[i] =  (char)((((unsigned long)data) >> j) & 0xff);
-        }
+    lkowner->len = sizeof(unsigned long);
+    for (i = 0, j = 0; i < lkowner->len; i++, j += 8) {
+        lkowner->data[i] = (char)((((unsigned long)data) >> j) & 0xff);
+    }
 }
 
 static inline void
-set_lk_owner_from_uint64 (gf_lkowner_t *lkowner, uint64_t data)
+set_lk_owner_from_uint64(gf_lkowner_t *lkowner, uint64_t data)
 {
-        int i = 0;
-        int j = 0;
+    int i = 0;
+    int j = 0;
 
-        lkowner->len = 8;
-        for (i = 0, j = 0; i < lkowner->len; i++, j += 8) {
-                lkowner->data[i] =  (char)((data >> j) & 0xff);
-        }
+    lkowner->len = 8;
+    for (i = 0, j = 0; i < lkowner->len; i++, j += 8) {
+        lkowner->data[i] = (char)((data >> j) & 0xff);
+    }
 }
 
 /* Return true if the locks have the same owner */
 static inline int
-is_same_lkowner (gf_lkowner_t *l1, gf_lkowner_t *l2)
+is_same_lkowner(gf_lkowner_t *l1, gf_lkowner_t *l2)
 {
-        return ((l1->len == l2->len) && !memcmp(l1->data, l2->data, l1->len));
+    return ((l1->len == l2->len) && !memcmp(l1->data, l2->data, l1->len));
 }
 
 static inline int
-is_lk_owner_null (gf_lkowner_t *lkowner)
+is_lk_owner_null(gf_lkowner_t *lkowner)
 {
-        int is_null = 1;
-        int i       = 0;
+    int is_null = 1;
+    int i = 0;
 
-        if (lkowner == NULL || lkowner->len == 0)
-                goto out;
+    if (lkowner == NULL || lkowner->len == 0)
+        goto out;
 
-        for (i = 0; i < lkowner->len; i++) {
-                if (lkowner->data[i] != 0) {
-                        is_null = 0;
-                        break;
-                }
+    for (i = 0; i < lkowner->len; i++) {
+        if (lkowner->data[i] != 0) {
+            is_null = 0;
+            break;
         }
+    }
 out:
-        return is_null;
+    return is_null;
 }
 
 static inline void
-lk_owner_copy (gf_lkowner_t *dst, gf_lkowner_t *src)
+lk_owner_copy(gf_lkowner_t *dst, gf_lkowner_t *src)
 {
-        dst->len = src->len;
-        memcpy(dst->data, src->data, src->len);
+    dst->len = src->len;
+    memcpy(dst->data, src->data, src->len);
 }
 #endif /* _LK_OWNER_H */

@@ -20,15 +20,18 @@
 // Maximum number of completed IO operations to reap per getevents syscall
 #define POSIX_AIO_MAX_NR_GETEVENTS 16
 
+int
+posix_aio_on(xlator_t *this);
+int
+posix_aio_off(xlator_t *this);
 
-int posix_aio_on (xlator_t *this);
-int posix_aio_off (xlator_t *this);
+int
+posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+            off_t offset, uint32_t flags, dict_t *xdata);
 
-int posix_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-		 off_t offset, uint32_t flags, dict_t *xdata);
-
-int posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		  struct iovec *vector, int32_t count, off_t offset,
-		  uint32_t flags, struct iobref *iobref, dict_t *xdata);
+int
+posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
+             struct iovec *vector, int32_t count, off_t offset, uint32_t flags,
+             struct iobref *iobref, dict_t *xdata);
 
 #endif /* !_POSIX_AIO_H */

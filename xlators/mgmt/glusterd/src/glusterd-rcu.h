@@ -29,8 +29,8 @@
  * Use this in place of struct rcu_head when embedding into another struct
  */
 typedef struct glusterd_rcu_head_ {
-        struct rcu_head head;
-        xlator_t *this;
+    struct rcu_head head;
+    xlator_t *this;
 } gd_rcu_head;
 
 #endif /* _GLUSTERD_RCU_H */

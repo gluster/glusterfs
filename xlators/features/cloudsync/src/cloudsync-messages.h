@@ -8,12 +8,9 @@
  *   cases as published by the Free Software Foundation.
  */
 
-
 #ifndef __CLOUDSYNC_MESSAGES_H__
 #define __CLOUDSYNC_MESSAGES_H__
 
 /*TODO: define relevant message ids */
 
-
 #endif /* __CLOUDSYNC_MESSAGES_H__ */
-

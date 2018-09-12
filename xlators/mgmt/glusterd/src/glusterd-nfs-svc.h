@@ -14,12 +14,12 @@
 #include "glusterd-svc-mgmt.h"
 
 void
-glusterd_nfssvc_build (glusterd_svc_t *svc);
+glusterd_nfssvc_build(glusterd_svc_t *svc);
 
 int
-glusterd_nfssvc_init (glusterd_svc_t *svc);
+glusterd_nfssvc_init(glusterd_svc_t *svc);
 
 int
-glusterd_nfssvc_reconfigure ();
+glusterd_nfssvc_reconfigure();
 
 #endif

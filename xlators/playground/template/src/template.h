@@ -17,8 +17,8 @@
 #include "defaults.h"
 
 struct template_private {
-        /* Add all the relevant fields you need here */
-        int32_t dummy;
+    /* Add all the relevant fields you need here */
+    int32_t dummy;
 };
 
 typedef struct template_private template_private_t;
@@ -27,8 +27,8 @@ typedef struct template_private template_private_t;
 #include "mem-types.h"
 
 enum gf_template_mem_types_ {
-        gf_template_mt_private_t = gf_common_mt_end + 1,
-        gf_template_mt_end,
+    gf_template_mt_private_t = gf_common_mt_end + 1,
+    gf_template_mt_end,
 };
 
 /* This normally goes to another file 'template-messages.h",
@@ -38,9 +38,6 @@ enum gf_template_mem_types_ {
  */
 #include "glfs-message-id.h"
 
-GLFS_MSGID(TEMPLATE,
-           TEMPLATE_MSG_NO_MEMORY,
-           TEMPLATE_MSG_NO_GRAPH
-        );
+GLFS_MSGID(TEMPLATE, TEMPLATE_MSG_NO_MEMORY, TEMPLATE_MSG_NO_GRAPH);
 
 #endif /* __TEMPLATE_H__ */

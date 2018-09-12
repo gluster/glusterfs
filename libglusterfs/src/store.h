@@ -14,96 +14,96 @@
 #include "glusterfs.h"
 
 struct gf_store_handle_ {
-        char    *path;
-        int     fd;
-        int     tmp_fd;
-        FILE    *read;
-        int     locked;   /* state of lockf() */
+    char *path;
+    int fd;
+    int tmp_fd;
+    FILE *read;
+    int locked; /* state of lockf() */
 };
 
 typedef struct gf_store_handle_ gf_store_handle_t;
 
 struct gf_store_iter_ {
-        FILE    *file;
-        char    filepath[PATH_MAX];
+    FILE *file;
+    char filepath[PATH_MAX];
 };
 
 typedef struct gf_store_iter_ gf_store_iter_t;
 
 typedef enum {
-        GD_STORE_SUCCESS,
-        GD_STORE_KEY_NULL,
-        GD_STORE_VALUE_NULL,
-        GD_STORE_KEY_VALUE_NULL,
-        GD_STORE_EOF,
-        GD_STORE_ENOMEM,
-        GD_STORE_STAT_FAILED
+    GD_STORE_SUCCESS,
+    GD_STORE_KEY_NULL,
+    GD_STORE_VALUE_NULL,
+    GD_STORE_KEY_VALUE_NULL,
+    GD_STORE_EOF,
+    GD_STORE_ENOMEM,
+    GD_STORE_STAT_FAILED
 } gf_store_op_errno_t;
 
 int32_t
-gf_store_mkdir (char *path);
+gf_store_mkdir(char *path);
 
 int32_t
-gf_store_handle_create_on_absence (gf_store_handle_t **shandle, char *path);
+gf_store_handle_create_on_absence(gf_store_handle_t **shandle, char *path);
 
 int32_t
-gf_store_mkstemp (gf_store_handle_t *shandle);
+gf_store_mkstemp(gf_store_handle_t *shandle);
 
 int
-gf_store_sync_direntry (char *path);
+gf_store_sync_direntry(char *path);
 
 int32_t
-gf_store_rename_tmppath (gf_store_handle_t *shandle);
+gf_store_rename_tmppath(gf_store_handle_t *shandle);
 
 int32_t
-gf_store_unlink_tmppath (gf_store_handle_t *shandle);
+gf_store_unlink_tmppath(gf_store_handle_t *shandle);
 
 int
-gf_store_read_and_tokenize (FILE *file, char *str, int size, char **iter_key,
-                            char **iter_val, gf_store_op_errno_t *store_errno);
+gf_store_read_and_tokenize(FILE *file, char *str, int size, char **iter_key,
+                           char **iter_val, gf_store_op_errno_t *store_errno);
 
 int32_t
-gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value);
+gf_store_retrieve_value(gf_store_handle_t *handle, char *key, char **value);
 
 int32_t
-gf_store_save_value (int fd, char *key, char *value);
+gf_store_save_value(int fd, char *key, char *value);
 
 int32_t
-gf_store_handle_new (const char *path, gf_store_handle_t **handle);
+gf_store_handle_new(const char *path, gf_store_handle_t **handle);
 
 int
-gf_store_handle_retrieve (char *path, gf_store_handle_t **handle);
+gf_store_handle_retrieve(char *path, gf_store_handle_t **handle);
 
 int32_t
-gf_store_handle_destroy (gf_store_handle_t *handle);
+gf_store_handle_destroy(gf_store_handle_t *handle);
 
 int32_t
-gf_store_iter_new (gf_store_handle_t  *shandle, gf_store_iter_t  **iter);
+gf_store_iter_new(gf_store_handle_t *shandle, gf_store_iter_t **iter);
 
 int32_t
-gf_store_validate_key_value (char *storepath, char *key, char *val,
-                             gf_store_op_errno_t *op_errno);
+gf_store_validate_key_value(char *storepath, char *key, char *val,
+                            gf_store_op_errno_t *op_errno);
 
 int32_t
-gf_store_iter_get_next (gf_store_iter_t *iter, char **key, char **value,
-                        gf_store_op_errno_t *op_errno);
+gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
+                       gf_store_op_errno_t *op_errno);
 
 int32_t
-gf_store_iter_get_matching (gf_store_iter_t *iter, char *key, char **value);
+gf_store_iter_get_matching(gf_store_iter_t *iter, char *key, char **value);
 
 int32_t
-gf_store_iter_destroy (gf_store_iter_t *iter);
+gf_store_iter_destroy(gf_store_iter_t *iter);
 
-char*
-gf_store_strerror (gf_store_op_errno_t op_errno);
+char *
+gf_store_strerror(gf_store_op_errno_t op_errno);
 
 int
-gf_store_lock (gf_store_handle_t *sh);
+gf_store_lock(gf_store_handle_t *sh);
 
 void
-gf_store_unlock (gf_store_handle_t *sh);
+gf_store_unlock(gf_store_handle_t *sh);
 
 int
-gf_store_locked_local (gf_store_handle_t *sh);
+gf_store_locked_local(gf_store_handle_t *sh);
 
 #endif

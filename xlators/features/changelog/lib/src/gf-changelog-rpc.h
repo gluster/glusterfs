@@ -16,11 +16,13 @@
 #include "gf-changelog-helpers.h"
 #include "changelog-rpc-common.h"
 
-struct rpc_clnt *gf_changelog_rpc_init (xlator_t *, gf_changelog_t *);
+struct rpc_clnt *
+gf_changelog_rpc_init(xlator_t *, gf_changelog_t *);
 
-int gf_changelog_invoke_rpc (xlator_t *, gf_changelog_t *, int);
+int
+gf_changelog_invoke_rpc(xlator_t *, gf_changelog_t *, int);
 
 rpcsvc_t *
-gf_changelog_reborp_init_rpc_listner (xlator_t *, char *, char *, void *);
+gf_changelog_reborp_init_rpc_listner(xlator_t *, char *, char *, void *);
 
 #endif

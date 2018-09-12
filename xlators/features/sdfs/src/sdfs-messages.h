@@ -39,16 +39,14 @@
  *    holes.
  */
 
-#define GLFS_SDFS_BASE                     GLFS_MSGID_COMP_SDFS
-#define GLFS_SDFS_NUM_MESSAGES             2
-#define GLFS_MSGID_END                    (GLFS_SDFS_BASE + \
-                                           GLFS_SDFS_NUM_MESSAGES + 1)
+#define GLFS_SDFS_BASE GLFS_MSGID_COMP_SDFS
+#define GLFS_SDFS_NUM_MESSAGES 2
+#define GLFS_MSGID_END (GLFS_SDFS_BASE + GLFS_SDFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
-#define glfs_msg_start_x  GLFS_DFS_BASE, "Invalid: Start of messages"
+#define glfs_msg_start_x GLFS_DFS_BASE, "Invalid: Start of messages"
 /*------------*/
 
-
-#define SDFS_MSG_ENTRYLK_ERROR             (GLFS_SDFS_BASE + 1)
+#define SDFS_MSG_ENTRYLK_ERROR (GLFS_SDFS_BASE + 1)
 /*!
  * @messageid
  * @diagnosis
@@ -56,7 +54,7 @@
  *
  */
 
-#define SDFS_MSG_MKDIR_ERROR               (GLFS_SDFS_BASE + 2)
+#define SDFS_MSG_MKDIR_ERROR (GLFS_SDFS_BASE + 2)
 /*!
  * @messageid
  * @diagnosis

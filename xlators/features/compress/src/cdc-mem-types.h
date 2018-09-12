@@ -14,10 +14,10 @@
 #include "mem-types.h"
 
 enum gf_cdc_mem_types {
-        gf_cdc_mt_priv_t         = gf_common_mt_end + 1,
-        gf_cdc_mt_vec_t          = gf_common_mt_end + 2,
-        gf_cdc_mt_gzip_trailer_t = gf_common_mt_end + 3,
-        gf_cdc_mt_end            = gf_common_mt_end + 4,
+    gf_cdc_mt_priv_t = gf_common_mt_end + 1,
+    gf_cdc_mt_vec_t = gf_common_mt_end + 2,
+    gf_cdc_mt_gzip_trailer_t = gf_common_mt_end + 3,
+    gf_cdc_mt_end = gf_common_mt_end + 4,
 };
 
 #endif

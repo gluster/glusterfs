@@ -15,12 +15,18 @@
 
 #include "ec-types.h"
 
-ec_gf_t *ec_gf_prepare(uint32_t bits, uint32_t mod);
-void ec_gf_destroy(ec_gf_t *gf);
+ec_gf_t *
+ec_gf_prepare(uint32_t bits, uint32_t mod);
+void
+ec_gf_destroy(ec_gf_t *gf);
 
-uint32_t ec_gf_add(ec_gf_t *gf, uint32_t a, uint32_t b);
-uint32_t ec_gf_mul(ec_gf_t *gf, uint32_t a, uint32_t b);
-uint32_t ec_gf_div(ec_gf_t *gf, uint32_t a, uint32_t b);
-uint32_t ec_gf_exp(ec_gf_t *gf, uint32_t a, uint32_t b);
+uint32_t
+ec_gf_add(ec_gf_t *gf, uint32_t a, uint32_t b);
+uint32_t
+ec_gf_mul(ec_gf_t *gf, uint32_t a, uint32_t b);
+uint32_t
+ec_gf_div(ec_gf_t *gf, uint32_t a, uint32_t b);
+uint32_t
+ec_gf_exp(ec_gf_t *gf, uint32_t a, uint32_t b);
 
 #endif /* __EC_GALOIS_H__ */

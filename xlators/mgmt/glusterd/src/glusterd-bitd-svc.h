@@ -16,25 +16,25 @@
 #define bitd_svc_name "bitd"
 
 void
-glusterd_bitdsvc_build (glusterd_svc_t *svc);
+glusterd_bitdsvc_build(glusterd_svc_t *svc);
 
 int
-glusterd_bitdsvc_init (glusterd_svc_t *svc);
+glusterd_bitdsvc_init(glusterd_svc_t *svc);
 
 int
-glusterd_bitdsvc_manager (glusterd_svc_t *svc, void *data, int flags);
+glusterd_bitdsvc_manager(glusterd_svc_t *svc, void *data, int flags);
 
 int
-glusterd_bitdsvc_start (glusterd_svc_t *svc, int flags);
+glusterd_bitdsvc_start(glusterd_svc_t *svc, int flags);
 
 int
-glusterd_bitdsvc_stop (glusterd_svc_t *svc, int sig);
+glusterd_bitdsvc_stop(glusterd_svc_t *svc, int sig);
 
 int
-glusterd_bitdsvc_reconfigure ();
+glusterd_bitdsvc_reconfigure();
 
 void
-glusterd_bitdsvc_build_volfile_path (char *server, char *workdir,
-                                     char *volfile, size_t len);
+glusterd_bitdsvc_build_volfile_path(char *server, char *workdir, char *volfile,
+                                    size_t len);
 
 #endif

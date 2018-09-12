@@ -24,7 +24,7 @@
 /* Determines the maximum size of the matrix used to encode/decode data */
 #define EC_METHOD_MAX_FRAGMENTS 16
 /* Determines the maximum number of usable elements in the Galois Field */
-#define EC_METHOD_MAX_NODES     (EC_GF_SIZE - 1)
+#define EC_METHOD_MAX_NODES (EC_GF_SIZE - 1)
 
 #define EC_METHOD_WORD_SIZE 64
 
@@ -34,7 +34,8 @@ int32_t
 ec_method_init(xlator_t *xl, ec_matrix_list_t *list, uint32_t columns,
                uint32_t rows, uint32_t max, const char *gen);
 
-void ec_method_fini(ec_matrix_list_t *list);
+void
+ec_method_fini(ec_matrix_list_t *list);
 
 int32_t
 ec_method_update(xlator_t *xl, ec_matrix_list_t *list, const char *gen);

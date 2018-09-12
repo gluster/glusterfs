@@ -18,14 +18,12 @@
 #define MAX_GFID2PATH_LINK_SUP 500
 
 int32_t
-posix_set_gfid2path_xattr (xlator_t *, const char *, uuid_t,
-                           const char *);
+posix_set_gfid2path_xattr(xlator_t *, const char *, uuid_t, const char *);
 int32_t
-posix_remove_gfid2path_xattr (xlator_t *, const char *, uuid_t,
-                              const char *);
+posix_remove_gfid2path_xattr(xlator_t *, const char *, uuid_t, const char *);
 gf_boolean_t
-posix_is_gfid2path_xattr (const char *name);
+posix_is_gfid2path_xattr(const char *name);
 int32_t
-posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
-                     int *op_errno, dict_t *dict);
+posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
+                    int *op_errno, dict_t *dict);
 #endif /* _POSIX_GFID_PATH_H */

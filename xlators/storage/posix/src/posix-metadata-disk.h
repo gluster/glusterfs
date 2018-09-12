@@ -12,20 +12,20 @@
 #define _POSIX_METADATA_DISK_H
 
 typedef struct gf_timespec_disk {
-        uint64_t tv_sec;
-        uint64_t tv_nsec;
+    uint64_t tv_sec;
+    uint64_t tv_nsec;
 } gf_timespec_disk_t;
 
 /* posix_mdata_t on disk structure */
 
-typedef struct __attribute__ ((__packed__)) posix_mdata_disk {
-        /* version of structure, bumped up if any new member is added */
-        uint8_t version;
-        /* flags indicates valid fields in the structure */
-        uint64_t flags;
-        gf_timespec_disk_t ctime;
-        gf_timespec_disk_t mtime;
-        gf_timespec_disk_t atime;
+typedef struct __attribute__((__packed__)) posix_mdata_disk {
+    /* version of structure, bumped up if any new member is added */
+    uint8_t version;
+    /* flags indicates valid fields in the structure */
+    uint64_t flags;
+    gf_timespec_disk_t ctime;
+    gf_timespec_disk_t mtime;
+    gf_timespec_disk_t atime;
 } posix_mdata_disk_t;
 
 #endif /* _POSIX_METADATA_DISK_H */

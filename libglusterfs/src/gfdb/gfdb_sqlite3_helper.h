@@ -10,7 +10,6 @@
 #ifndef __GFDB_SQLITE3_HELPER_H
 #define __GFDB_SQLITE3_HELPER_H
 
-
 #include "gfdb_sqlite3.h"
 
 /******************************************************************************
@@ -19,27 +18,21 @@
  *
  * ****************************************************************************/
 
+int
+gf_sql_insert_wind(gf_sql_connection_t *sql_conn,
+                   gfdb_db_record_t *gfdb_db_record);
 
 int
-gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
-                   gfdb_db_record_t     *gfdb_db_record);
+gf_sql_insert_unwind(gf_sql_connection_t *sql_conn,
+                     gfdb_db_record_t *gfdb_db_record);
 
 int
-gf_sql_insert_unwind (gf_sql_connection_t  *sql_conn,
-                     gfdb_db_record_t     *gfdb_db_record);
-
-
-int
-gf_sql_update_delete_wind (gf_sql_connection_t  *sql_conn,
-                          gfdb_db_record_t     *gfdb_db_record);
+gf_sql_update_delete_wind(gf_sql_connection_t *sql_conn,
+                          gfdb_db_record_t *gfdb_db_record);
 
 int
-gf_sql_delete_unwind (gf_sql_connection_t  *sql_conn,
-                          gfdb_db_record_t     *gfdb_db_record);
-
-
-
-
+gf_sql_delete_unwind(gf_sql_connection_t *sql_conn,
+                     gfdb_db_record_t *gfdb_db_record);
 
 /******************************************************************************
  *
@@ -47,13 +40,12 @@ gf_sql_delete_unwind (gf_sql_connection_t  *sql_conn,
  *
  * ****************************************************************************/
 
+int
+gf_sql_query_function(sqlite3_stmt *prep_stmt,
+                      gf_query_callback_t query_callback,
+                      void *_query_cbk_args);
 
 int
-gf_sql_query_function (sqlite3_stmt              *prep_stmt,
-                      gf_query_callback_t       query_callback,
-                      void                      *_query_cbk_args);
-
-int
-gf_sql_clear_counters (gf_sql_connection_t *sql_conn);
+gf_sql_clear_counters(gf_sql_connection_t *sql_conn);
 
 #endif

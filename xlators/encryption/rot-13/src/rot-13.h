@@ -11,8 +11,8 @@
 #define __ROT_13_H__
 
 typedef struct {
-	gf_boolean_t encrypt_write;
-	gf_boolean_t decrypt_read;
+    gf_boolean_t encrypt_write;
+    gf_boolean_t decrypt_read;
 } rot_13_private_t;
 
 #endif /* __ROT_13_H__ */

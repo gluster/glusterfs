@@ -16,36 +16,34 @@
 
 #include "changelog-helpers.h"
 
-#define CHANGELOG_STORE_ASCII(priv, buf, off, gfid, gfid_len, cld) do { \
-                CHANGELOG_FILL_BUFFER (buffer, off,                     \
-                                       priv->maps[cld->cld_type], 1);   \
-                CHANGELOG_FILL_BUFFER (buffer,                          \
-                                       off, gfid, gfid_len);            \
-        } while (0)
+#define CHANGELOG_STORE_ASCII(priv, buf, off, gfid, gfid_len, cld)             \
+    do {                                                                       \
+        CHANGELOG_FILL_BUFFER(buffer, off, priv->maps[cld->cld_type], 1);      \
+        CHANGELOG_FILL_BUFFER(buffer, off, gfid, gfid_len);                    \
+    } while (0)
 
-#define CHANGELOG_STORE_BINARY(priv, buf, off, gfid, cld) do {          \
-                CHANGELOG_FILL_BUFFER (buffer, off,                     \
-                                       priv->maps[cld->cld_type], 1);   \
-                CHANGELOG_FILL_BUFFER (buffer,                          \
-                                       off, gfid, sizeof (uuid_t));     \
-        } while (0)
+#define CHANGELOG_STORE_BINARY(priv, buf, off, gfid, cld)                      \
+    do {                                                                       \
+        CHANGELOG_FILL_BUFFER(buffer, off, priv->maps[cld->cld_type], 1);      \
+        CHANGELOG_FILL_BUFFER(buffer, off, gfid, sizeof(uuid_t));              \
+    } while (0)
 
 size_t
-entry_fn (void *data, char *buffer, gf_boolean_t encode);
+entry_fn(void *data, char *buffer, gf_boolean_t encode);
 size_t
-del_entry_fn (void *data, char *buffer, gf_boolean_t encode);
+del_entry_fn(void *data, char *buffer, gf_boolean_t encode);
 size_t
-fop_fn (void *data, char *buffer, gf_boolean_t encode);
+fop_fn(void *data, char *buffer, gf_boolean_t encode);
 size_t
-number_fn (void *data, char *buffer, gf_boolean_t encode);
+number_fn(void *data, char *buffer, gf_boolean_t encode);
 void
-entry_free_fn (void *data);
+entry_free_fn(void *data);
 void
-del_entry_free_fn (void *data);
+del_entry_free_fn(void *data);
 int
-changelog_encode_binary (xlator_t *, changelog_log_data_t *);
+changelog_encode_binary(xlator_t *, changelog_log_data_t *);
 int
-changelog_encode_ascii (xlator_t *, changelog_log_data_t *);
+changelog_encode_ascii(xlator_t *, changelog_log_data_t *);
 void
 changelog_encode_change(changelog_priv_t *);
 

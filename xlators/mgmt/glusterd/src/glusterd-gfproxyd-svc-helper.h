@@ -14,38 +14,38 @@
 #include "glusterd.h"
 
 void
-glusterd_svc_build_gfproxyd_rundir (glusterd_volinfo_t *volinfo,
-                                    char *path, int path_len);
+glusterd_svc_build_gfproxyd_rundir(glusterd_volinfo_t *volinfo, char *path,
+                                   int path_len);
 
 void
-glusterd_svc_build_gfproxyd_socket_filepath (glusterd_volinfo_t *volinfo,
-                                             char *path, int path_len);
+glusterd_svc_build_gfproxyd_socket_filepath(glusterd_volinfo_t *volinfo,
+                                            char *path, int path_len);
 
 void
-glusterd_svc_build_gfproxyd_pidfile (glusterd_volinfo_t *volinfo,
-                                     char *path, int path_len);
+glusterd_svc_build_gfproxyd_pidfile(glusterd_volinfo_t *volinfo, char *path,
+                                    int path_len);
 
 void
-glusterd_svc_build_gfproxyd_volfile_path (glusterd_volinfo_t *volinfo,
-                                          char *path, int path_len);
+glusterd_svc_build_gfproxyd_volfile_path(glusterd_volinfo_t *volinfo,
+                                         char *path, int path_len);
 
 void
-glusterd_svc_build_gfproxyd_logdir (char *logdir, char *volname, size_t len);
+glusterd_svc_build_gfproxyd_logdir(char *logdir, char *volname, size_t len);
 
 void
-glusterd_svc_build_gfproxyd_logfile (char *logfile, char *logdir, size_t len);
+glusterd_svc_build_gfproxyd_logfile(char *logfile, char *logdir, size_t len);
 
 int
-glusterd_svc_check_gfproxyd_volfile_identical (char *svc_name,
+glusterd_svc_check_gfproxyd_volfile_identical(char *svc_name,
+                                              glusterd_volinfo_t *volinfo,
+                                              gf_boolean_t *identical);
+int
+glusterd_svc_check_gfproxyd_topology_identical(char *svc_name,
                                                glusterd_volinfo_t *volinfo,
                                                gf_boolean_t *identical);
 int
-glusterd_svc_check_gfproxyd_topology_identical (char *svc_name,
-                                                glusterd_volinfo_t *volinfo,
-                                                gf_boolean_t *identical);
-int
-glusterd_is_gfproxyd_enabled (glusterd_volinfo_t *volinfo);
+glusterd_is_gfproxyd_enabled(glusterd_volinfo_t *volinfo);
 
 glusterd_volinfo_t *
-glusterd_gfproxyd_volinfo_from_svc (glusterd_svc_t *svc);
+glusterd_gfproxyd_volinfo_from_svc(glusterd_svc_t *svc);
 #endif

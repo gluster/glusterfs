@@ -16,7 +16,9 @@
 #define CACHE_INVALIDATION_TIMEOUT "60"
 
 /* xlator options */
-gf_boolean_t is_cache_invalidation_enabled(xlator_t *this);
-int32_t get_cache_invalidation_timeout(xlator_t *this);
+gf_boolean_t
+is_cache_invalidation_enabled(xlator_t *this);
+int32_t
+get_cache_invalidation_timeout(xlator_t *this);
 
 #endif /* __UPCALL_CACHE_INVALIDATION_H__ */

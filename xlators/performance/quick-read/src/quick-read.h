@@ -29,66 +29,63 @@
 #include <fnmatch.h>
 #include "quick-read-mem-types.h"
 
-
 struct qr_inode {
-	void             *data;
-	size_t            size;
-        int               priority;
-	uint32_t          ia_mtime;
-	uint32_t          ia_mtime_nsec;
-        uint32_t          ia_ctime;
-	uint32_t          ia_ctime_nsec;
-        uint32_t          gen_rollover;
-	struct iatt       buf;
-        struct timeval    last_refresh;
-        struct list_head  lru;
-        uint64_t          gen;
-        uint64_t          invalidation_time;
+    void *data;
+    size_t size;
+    int priority;
+    uint32_t ia_mtime;
+    uint32_t ia_mtime_nsec;
+    uint32_t ia_ctime;
+    uint32_t ia_ctime_nsec;
+    uint32_t gen_rollover;
+    struct iatt buf;
+    struct timeval last_refresh;
+    struct list_head lru;
+    uint64_t gen;
+    uint64_t invalidation_time;
 };
 typedef struct qr_inode qr_inode_t;
 
-
 struct qr_priority {
-        char             *pattern;
-        int32_t           priority;
-        struct list_head  list;
+    char *pattern;
+    int32_t priority;
+    struct list_head list;
 };
 typedef struct qr_priority qr_priority_t;
 
 struct qr_conf {
-        uint64_t         max_file_size;
-        int32_t          cache_timeout;
-        uint64_t         cache_size;
-        int              max_pri;
-        gf_boolean_t     qr_invalidation;
-        gf_boolean_t     ctime_invalidation;
-        struct list_head priority_list;
+    uint64_t max_file_size;
+    int32_t cache_timeout;
+    uint64_t cache_size;
+    int max_pri;
+    gf_boolean_t qr_invalidation;
+    gf_boolean_t ctime_invalidation;
+    struct list_head priority_list;
 };
 typedef struct qr_conf qr_conf_t;
 
 struct qr_inode_table {
-        uint64_t          cache_used;
-        struct list_head *lru;
-        gf_lock_t         lock;
+    uint64_t cache_used;
+    struct list_head *lru;
+    gf_lock_t lock;
 };
 typedef struct qr_inode_table qr_inode_table_t;
 
 struct qr_statistics {
-        gf_atomic_t cache_hit;
-        gf_atomic_t cache_miss;
-        gf_atomic_t file_data_invals; /* No. of invalidates received from upcall */
-        gf_atomic_t files_cached;
+    gf_atomic_t cache_hit;
+    gf_atomic_t cache_miss;
+    gf_atomic_t file_data_invals; /* No. of invalidates received from upcall */
+    gf_atomic_t files_cached;
 };
 
 struct qr_private {
-        qr_conf_t         conf;
-        qr_inode_table_t  table;
-        time_t last_child_down;
-        gf_lock_t lock;
-        struct qr_statistics qr_counter;
-        gf_atomic_int32_t generation;
+    qr_conf_t conf;
+    qr_inode_table_t table;
+    time_t last_child_down;
+    gf_lock_t lock;
+    struct qr_statistics qr_counter;
+    gf_atomic_int32_t generation;
 };
 typedef struct qr_private qr_private_t;
-
 
 #endif /* #ifndef __QUICK_READ_H */

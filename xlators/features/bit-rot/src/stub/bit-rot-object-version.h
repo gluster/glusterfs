@@ -15,16 +15,16 @@
  * on-disk formats for ongoing version and object signature.
  */
 typedef struct br_version {
-        unsigned long ongoingversion;
-        uint32_t timebuf[2];
+    unsigned long ongoingversion;
+    uint32_t timebuf[2];
 } br_version_t;
 
-typedef struct __attribute__ ((__packed__)) br_signature {
-        int8_t signaturetype;
+typedef struct __attribute__((__packed__)) br_signature {
+    int8_t signaturetype;
 
-        unsigned long signedversion;
+    unsigned long signedversion;
 
-        char signature[0];
+    char signature[0];
 } br_signature_t;
 
 #endif

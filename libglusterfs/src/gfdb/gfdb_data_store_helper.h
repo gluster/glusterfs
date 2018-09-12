@@ -22,8 +22,7 @@
 #include "byte-order.h"
 #include "libglusterfs-messages.h"
 
-
-#define GFDB_DATA_STORE               "gfdbdatastore"
+#define GFDB_DATA_STORE "gfdbdatastore"
 
 /*******************************************************************************
  *
@@ -39,71 +38,50 @@
 
 /*Structure to hold the link information*/
 typedef struct gfdb_link_info {
-        uuid_t                          pargfid;
-        char                            file_name[GF_NAME_MAX];
-        struct list_head                list;
+    uuid_t pargfid;
+    char file_name[GF_NAME_MAX];
+    struct list_head list;
 } gfdb_link_info_t;
-
 
 /*Structure used for querying purpose*/
 typedef struct gfdb_query_record {
-        uuid_t                          gfid;
-        /*This is the hardlink list*/
-        struct list_head                link_list;
-        int                             link_count;
+    uuid_t gfid;
+    /*This is the hardlink list*/
+    struct list_head link_list;
+    int link_count;
 } gfdb_query_record_t;
 
 /*Create a single link info structure*/
-gfdb_link_info_t *gfdb_link_info_new ();
-typedef gfdb_link_info_t *(*gfdb_link_info_new_t) ();
+gfdb_link_info_t *
+gfdb_link_info_new();
+typedef gfdb_link_info_t *(*gfdb_link_info_new_t)();
 
 /*Destroy a link info structure*/
 void
-gfdb_link_info_free (gfdb_link_info_t *gfdb_link_info);
-typedef void
-(*gfdb_link_info_free_t) (gfdb_link_info_t *gfdb_link_info);
+gfdb_link_info_free(gfdb_link_info_t *gfdb_link_info);
+typedef void (*gfdb_link_info_free_t)(gfdb_link_info_t *gfdb_link_info);
 
 /* Function to create the query_record */
 gfdb_query_record_t *
 gfdb_query_record_new();
-typedef gfdb_query_record_t *
-(*gfdb_query_record_new_t)();
-
-
-
+typedef gfdb_query_record_t *(*gfdb_query_record_new_t)();
 
 /* Function to add linkinfo to query record */
 int
-gfdb_add_link_to_query_record (gfdb_query_record_t      *gfdb_query_record,
-                           uuid_t                   pgfid,
-                           char               *base_name);
-typedef int
-(*gfdb_add_link_to_query_record_t) (gfdb_query_record_t *, uuid_t, char *);
-
-
-
+gfdb_add_link_to_query_record(gfdb_query_record_t *gfdb_query_record,
+                              uuid_t pgfid, char *base_name);
+typedef int (*gfdb_add_link_to_query_record_t)(gfdb_query_record_t *, uuid_t,
+                                               char *);
 
 /*Function to destroy query record*/
 void
-gfdb_query_record_free (gfdb_query_record_t *gfdb_query_record);
-typedef void
-(*gfdb_query_record_free_t) (gfdb_query_record_t *);
-
-
-
-
-
+gfdb_query_record_free(gfdb_query_record_t *gfdb_query_record);
+typedef void (*gfdb_query_record_free_t)(gfdb_query_record_t *);
 
 /* Function to write query record to file */
 int
-gfdb_write_query_record (int fd,
-                        gfdb_query_record_t *gfdb_query_record);
-typedef int
-(*gfdb_write_query_record_t) (int, gfdb_query_record_t *);
-
-
-
-
+gfdb_write_query_record(int fd, gfdb_query_record_t *gfdb_query_record);
+typedef int (*gfdb_write_query_record_t)(int, gfdb_query_record_t *);
 
 /* Function to read query record from file.
  * Allocates memory to query record and return 0 when successful
@@ -111,10 +89,7 @@ typedef int
  * Return 0 when EOF.
  * */
 int
-gfdb_read_query_record (int fd,
-                        gfdb_query_record_t **gfdb_query_record);
-typedef int
-(*gfdb_read_query_record_t) (int, gfdb_query_record_t **);
-
+gfdb_read_query_record(int fd, gfdb_query_record_t **gfdb_query_record);
+typedef int (*gfdb_read_query_record_t)(int, gfdb_query_record_t **);
 
 #endif

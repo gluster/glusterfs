@@ -16,11 +16,14 @@
 #include "glusterfs.h"
 #include "glusterfs-acl.h"
 
-struct posix_acl *posix_acl_from_xattr (xlator_t *this, const char *buf, int size);
+struct posix_acl *
+posix_acl_from_xattr(xlator_t *this, const char *buf, int size);
 
-int posix_acl_to_xattr (xlator_t *this, struct posix_acl *acl, char *buf, int size);
+int
+posix_acl_to_xattr(xlator_t *this, struct posix_acl *acl, char *buf, int size);
 
-int posix_acl_matches_xattr (xlator_t *this, struct posix_acl *acl, const char *buf, int size);
-
+int
+posix_acl_matches_xattr(xlator_t *this, struct posix_acl *acl, const char *buf,
+                        int size);
 
 #endif /* !_POSIX_ACL_XATTR_H */

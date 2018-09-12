@@ -14,7 +14,7 @@
 #include "mem-types.h"
 
 enum gf_error_gen_mem_types_ {
-        gf_error_gen_mt_eg_t = gf_common_mt_end + 1,
-        gf_error_gen_mt_end
+    gf_error_gen_mt_eg_t = gf_common_mt_end + 1,
+    gf_error_gen_mt_end
 };
 #endif

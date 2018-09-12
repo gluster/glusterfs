@@ -18,7 +18,7 @@
 #include <sys/time.h>
 
 /* GF follows the Linux XATTR definition, which differs in Darwin. */
-#define GF_XATTR_CREATE  0x1 /* set value, fail if attr already exists */
+#define GF_XATTR_CREATE 0x1  /* set value, fail if attr already exists */
 #define GF_XATTR_REPLACE 0x2 /* set value, fail if attr does not exist */
 
 /* Linux kernel version 2.6.x don't have these defined
@@ -26,151 +26,150 @@
 
 #ifndef XATTR_SECURITY_PREFIX
 #define XATTR_SECURITY_PREFIX "security."
-#define XATTR_SECURITY_PREFIX_LEN (sizeof (XATTR_SECURITY_PREFIX) - 1)
+#define XATTR_SECURITY_PREFIX_LEN (sizeof(XATTR_SECURITY_PREFIX) - 1)
 #endif
 
 #ifndef XATTR_SYSTEM_PREFIX
 #define XATTR_SYSTEM_PREFIX "system."
-#define XATTR_SYSTEM_PREFIX_LEN (sizeof (XATTR_SYSTEM_PREFIX) - 1)
+#define XATTR_SYSTEM_PREFIX_LEN (sizeof(XATTR_SYSTEM_PREFIX) - 1)
 #endif
 
 #ifndef XATTR_TRUSTED_PREFIX
 #define XATTR_TRUSTED_PREFIX "trusted."
-#define XATTR_TRUSTED_PREFIX_LEN (sizeof (XATTR_TRUSTED_PREFIX) - 1)
+#define XATTR_TRUSTED_PREFIX_LEN (sizeof(XATTR_TRUSTED_PREFIX) - 1)
 #endif
 
 #ifndef XATTR_USER_PREFIX
 #define XATTR_USER_PREFIX "user."
-#define XATTR_USER_PREFIX_LEN (sizeof (XATTR_USER_PREFIX) - 1)
+#define XATTR_USER_PREFIX_LEN (sizeof(XATTR_USER_PREFIX) - 1)
 #endif
 
 #if defined(GF_DARWIN_HOST_OS)
 #include <sys/xattr.h>
 #define XATTR_DARWIN_NOSECURITY XATTR_NOSECURITY
-#define XATTR_DARWIN_NODEFAULT  XATTR_NODEFAULT
+#define XATTR_DARWIN_NODEFAULT XATTR_NODEFAULT
 #define XATTR_DARWIN_SHOWCOMPRESSION XATTR_SHOWCOMPRESSION
 #endif
 
+int
+sys_lstat(const char *path, struct stat *buf);
 
 int
-sys_lstat (const char *path, struct stat *buf);
+sys_stat(const char *path, struct stat *buf);
 
 int
-sys_stat (const char *path, struct stat *buf);
+sys_fstat(int fd, struct stat *buf);
 
 int
-sys_fstat (int fd, struct stat *buf);
+sys_fstatat(int dirfd, const char *pathname, struct stat *buf, int flags);
 
 int
-sys_fstatat (int dirfd, const char *pathname, struct stat *buf,
-             int flags);
+sys_open(const char *pathname, int flags, int mode);
 
 int
-sys_open (const char *pathname, int flags, int mode);
+sys_openat(int dirfd, const char *pathname, int flags, int mode);
 
-int
-sys_openat (int dirfd, const char *pathname, int flags, int mode);
-
-DIR *sys_opendir (const char *name);
+DIR *
+sys_opendir(const char *name);
 
 struct dirent *
-sys_readdir (DIR *dir, struct dirent *de);
+sys_readdir(DIR *dir, struct dirent *de);
 
 ssize_t
-sys_readlink (const char *path, char *buf, size_t bufsiz);
+sys_readlink(const char *path, char *buf, size_t bufsiz);
 
 int
-sys_closedir (DIR *dir);
+sys_closedir(DIR *dir);
 
 int
-sys_mknod (const char *pathname, mode_t mode, dev_t dev);
+sys_mknod(const char *pathname, mode_t mode, dev_t dev);
 
 int
-sys_mkdir (const char *pathname, mode_t mode);
+sys_mkdir(const char *pathname, mode_t mode);
 
 int
-sys_mkdirat (int dirfd, const char *pathname, mode_t mode);
+sys_mkdirat(int dirfd, const char *pathname, mode_t mode);
 
 int
-sys_unlink (const char *pathname);
+sys_unlink(const char *pathname);
 
 int
-sys_rmdir (const char *pathname);
+sys_rmdir(const char *pathname);
 
 int
-sys_symlink (const char *oldpath, const char *newpath);
+sys_symlink(const char *oldpath, const char *newpath);
 
 int
-sys_rename (const char *oldpath, const char *newpath);
+sys_rename(const char *oldpath, const char *newpath);
 
 int
-sys_link (const char *oldpath, const char *newpath);
+sys_link(const char *oldpath, const char *newpath);
 
 int
-sys_chmod (const char *path, mode_t mode);
+sys_chmod(const char *path, mode_t mode);
 
 int
-sys_fchmod (int fd, mode_t mode);
+sys_fchmod(int fd, mode_t mode);
 
 int
-sys_chown (const char *path, uid_t owner, gid_t group);
+sys_chown(const char *path, uid_t owner, gid_t group);
 
 int
-sys_fchown (int fd, uid_t owner, gid_t group);
+sys_fchown(int fd, uid_t owner, gid_t group);
 
 int
-sys_lchown (const char *path, uid_t owner, gid_t group);
+sys_lchown(const char *path, uid_t owner, gid_t group);
 
 int
-sys_truncate (const char *path, off_t length);
+sys_truncate(const char *path, off_t length);
 
 int
-sys_ftruncate (int fd, off_t length);
+sys_ftruncate(int fd, off_t length);
 
 int
-sys_utimes (const char *filename, const struct timeval times[2]);
+sys_utimes(const char *filename, const struct timeval times[2]);
 
 #if defined(HAVE_UTIMENSAT)
 int
-sys_utimensat (int dirfd, const char *filename, const struct timespec times[2],
-               int flags);
+sys_utimensat(int dirfd, const char *filename, const struct timespec times[2],
+              int flags);
 #endif
 
 int
-sys_futimes (int fd, const struct timeval times[2]);
+sys_futimes(int fd, const struct timeval times[2]);
 
 int
-sys_creat (const char *pathname, mode_t mode);
+sys_creat(const char *pathname, mode_t mode);
 
 ssize_t
-sys_readv (int fd, const struct iovec *iov, int iovcnt);
+sys_readv(int fd, const struct iovec *iov, int iovcnt);
 
 ssize_t
-sys_writev (int fd, const struct iovec *iov, int iovcnt);
+sys_writev(int fd, const struct iovec *iov, int iovcnt);
 
 ssize_t
-sys_read (int fd, void *buf, size_t count);
+sys_read(int fd, void *buf, size_t count);
 
 ssize_t
-sys_write (int fd, const void *buf, size_t count);
+sys_write(int fd, const void *buf, size_t count);
 
 off_t
-sys_lseek (int fd, off_t offset, int whence);
+sys_lseek(int fd, off_t offset, int whence);
 
 int
-sys_statvfs (const char *path, struct statvfs *buf);
+sys_statvfs(const char *path, struct statvfs *buf);
 
 int
-sys_fstatvfs (int fd, struct statvfs *buf);
+sys_fstatvfs(int fd, struct statvfs *buf);
 
 int
-sys_close (int fd);
+sys_close(int fd);
 
 int
-sys_fsync (int fd);
+sys_fsync(int fd);
 
 int
-sys_fdatasync (int fd);
+sys_fdatasync(int fd);
 
 void
 gf_add_prefix(const char *ns, const char *key, char **newkey);
@@ -179,42 +178,42 @@ void
 gf_remove_prefix(const char *ns, const char *key, char **newkey);
 
 int
-sys_lsetxattr (const char *path, const char *name, const void *value,
-               size_t size, int flags);
+sys_lsetxattr(const char *path, const char *name, const void *value,
+              size_t size, int flags);
 
 ssize_t
-sys_llistxattr (const char *path, char *list, size_t size);
+sys_llistxattr(const char *path, char *list, size_t size);
 
 ssize_t
-sys_lgetxattr (const char *path, const char *name, void *value, size_t size);
+sys_lgetxattr(const char *path, const char *name, void *value, size_t size);
 
 ssize_t
-sys_fgetxattr (int filedes, const char *name, void *value, size_t size);
+sys_fgetxattr(int filedes, const char *name, void *value, size_t size);
 
 int
-sys_fsetxattr (int filedes, const char *name, const void *value,
-               size_t size, int flags);
+sys_fsetxattr(int filedes, const char *name, const void *value, size_t size,
+              int flags);
 
 ssize_t
-sys_flistxattr (int filedes, char *list, size_t size);
+sys_flistxattr(int filedes, char *list, size_t size);
 
 int
-sys_lremovexattr (const char *path, const char *name);
+sys_lremovexattr(const char *path, const char *name);
 
 int
-sys_fremovexattr (int filedes, const char *name);
+sys_fremovexattr(int filedes, const char *name);
 
 int
-sys_access (const char *pathname, int mode);
+sys_access(const char *pathname, int mode);
 
 int
 sys_fallocate(int fd, int mode, off_t offset, off_t len);
 
 ssize_t
-sys_preadv (int fd, const struct iovec *iov, int iovcnt, off_t offset);
+sys_preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset);
 
 ssize_t
-sys_pwritev (int fd, const struct iovec *iov, int iovcnt, off_t offset);
+sys_pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset);
 
 ssize_t
 sys_pread(int fd, void *buf, size_t count, off_t offset);

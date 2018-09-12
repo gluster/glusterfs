@@ -10,7 +10,6 @@
 #ifndef _LIBXLATOR_H
 #define _LIBXLATOR_H
 
-
 #include "xlator.h"
 #include "logging.h"
 #include "defaults.h"
@@ -18,29 +17,26 @@
 #include "compat.h"
 #include "compat-errno.h"
 
-
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"
-#define XTIME               "xtime"
-#define VOLUME_MARK         "volume-mark"
+#define XTIME "xtime"
+#define VOLUME_MARK "volume-mark"
 #define GF_XATTR_MARKER_KEY MARKER_XATTR_PREFIX "." VOLUME_MARK
 #define UUID_SIZE 36
-#define MARKER_UUID_TYPE    1
-#define MARKER_XTIME_TYPE   2
+#define MARKER_UUID_TYPE 1
+#define MARKER_XTIME_TYPE 2
 
-typedef int32_t (*xlator_specf_unwind_t) (call_frame_t *frame,
-                                          int op_ret, int op_errno,
-                                          dict_t *dict, dict_t *xdata);
-
+typedef int32_t (*xlator_specf_unwind_t)(call_frame_t *frame, int op_ret,
+                                         int op_errno, dict_t *dict,
+                                         dict_t *xdata);
 
 struct volume_mark {
-        uint8_t major;
-        uint8_t minor;
-        uint8_t uuid[16];
-        uint8_t retval;
-        uint32_t sec;
-        uint32_t usec;
-}__attribute__ ((__packed__));
-
+    uint8_t major;
+    uint8_t minor;
+    uint8_t uuid[16];
+    uint8_t retval;
+    uint32_t sec;
+    uint32_t usec;
+} __attribute__((__packed__));
 
 /*
  * The enumerated type here
@@ -92,58 +88,58 @@ struct volume_mark {
  */
 
 typedef enum {
-        MCNT_FOUND,
-        MCNT_NOTFOUND,
-        MCNT_ENODATA,
-        MCNT_ENOTCONN,
-        MCNT_ENOENT,
-        MCNT_EOTHER,
-        MCNT_MAX
+    MCNT_FOUND,
+    MCNT_NOTFOUND,
+    MCNT_ENODATA,
+    MCNT_ENOTCONN,
+    MCNT_ENOENT,
+    MCNT_EOTHER,
+    MCNT_MAX
 } marker_result_idx_t;
 
 extern int marker_xtime_default_gauge[];
 extern int marker_uuid_default_gauge[];
 
 struct marker_str {
-        struct volume_mark    *volmark;
-        data_t                *data;
+    struct volume_mark *volmark;
+    data_t *data;
 
-        uint32_t               host_timebuf[2];
-        uint32_t               net_timebuf[2];
-        int32_t                call_count;
-        int                    gauge[MCNT_MAX];
-        int                    count[MCNT_MAX];
+    uint32_t host_timebuf[2];
+    uint32_t net_timebuf[2];
+    int32_t call_count;
+    int gauge[MCNT_MAX];
+    int count[MCNT_MAX];
 
-        xlator_specf_unwind_t  xl_specf_unwind;
-        void                  *xl_local;
-        char                  *vol_uuid;
-        uint8_t                retval;
+    xlator_specf_unwind_t xl_specf_unwind;
+    void *xl_local;
+    char *vol_uuid;
+    uint8_t retval;
 };
 
 typedef struct marker_str xl_marker_local_t;
 
 int32_t
-cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
-
-int32_t
-cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
 
-int
-cluster_handle_marker_getxattr (call_frame_t *frame, loc_t *loc,
-                                const char *name, char *vol_uuid,
-                                xlator_specf_unwind_t unwind,
-                                int (*populate_args) (call_frame_t *frame,
-                                                      int type, int *gauge,
-                                                      xlator_t **subvols));
-int
-match_uuid_local (const char *name, char *uuid);
+int32_t
+cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
 
 int
-gf_get_min_stime (xlator_t *this, dict_t *dst, char *key, data_t *value);
+cluster_handle_marker_getxattr(call_frame_t *frame, loc_t *loc,
+                               const char *name, char *vol_uuid,
+                               xlator_specf_unwind_t unwind,
+                               int (*populate_args)(call_frame_t *frame,
+                                                    int type, int *gauge,
+                                                    xlator_t **subvols));
+int
+match_uuid_local(const char *name, char *uuid);
 
 int
-gf_get_max_stime (xlator_t *this, dict_t *dst, char *key, data_t *value);
+gf_get_min_stime(xlator_t *this, dict_t *dst, char *key, data_t *value);
+
+int
+gf_get_max_stime(xlator_t *this, dict_t *dst, char *key, data_t *value);
 
 #endif /* !_LIBXLATOR_H */

@@ -19,15 +19,15 @@
 
 /* unused as of now - may be you would need it later */
 typedef struct changelog_rt {
-        gf_lock_t lock;
+    gf_lock_t lock;
 } changelog_rt_t;
 
 int
-changelog_rt_init (xlator_t *this, changelog_dispatcher_t *cd);
+changelog_rt_init(xlator_t *this, changelog_dispatcher_t *cd);
 int
-changelog_rt_fini (xlator_t *this, changelog_dispatcher_t *cd);
+changelog_rt_fini(xlator_t *this, changelog_dispatcher_t *cd);
 int
-changelog_rt_enqueue (xlator_t *this, changelog_priv_t *priv, void *cbatch,
-                      changelog_log_data_t *cld_0, changelog_log_data_t *cld_1);
+changelog_rt_enqueue(xlator_t *this, changelog_priv_t *priv, void *cbatch,
+                     changelog_log_data_t *cld_0, changelog_log_data_t *cld_1);
 
 #endif /* _CHANGELOG_RT_H */

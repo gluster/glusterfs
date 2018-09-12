@@ -23,8 +23,6 @@
  * glfs-message-id.h.
  */
 
-GLFS_MSGID(POSIX_ACL,
-        POSIX_ACL_MSG_EACCES
-);
+GLFS_MSGID(POSIX_ACL, POSIX_ACL_MSG_EACCES);
 
 #endif /* !_POSIX_ACL_MESSAGES_H_ */

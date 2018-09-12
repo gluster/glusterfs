@@ -18,23 +18,23 @@
 #define ACL3_SETACL 2
 #define ACL3_PROC_COUNT 3
 
-#define GF_ACL3_PORT            38469
-#define GF_ACL                  GF_NFS"-ACL"
+#define GF_ACL3_PORT 38469
+#define GF_ACL GF_NFS "-ACL"
 
 /* Flags for the getacl/setacl mode */
-#define NFS_ACL                 0x0001
-#define NFS_ACLCNT              0x0002
-#define NFS_DFACL               0x0004
-#define NFS_DFACLCNT            0x0008
+#define NFS_ACL 0x0001
+#define NFS_ACLCNT 0x0002
+#define NFS_DFACL 0x0004
+#define NFS_DFACLCNT 0x0008
 
 /*
  * NFSv3, identifies the default ACL by NFS_ACL_DEFAULT. Gluster
  * NFS needs to mask it OFF before sending it up to POSIX layer
  * or File system layer.
  */
-#define NFS_ACL_DEFAULT             0x1000
+#define NFS_ACL_DEFAULT 0x1000
 
-#define NFS_ACL_MAX_ENTRIES         1024
+#define NFS_ACL_MAX_ENTRIES 1024
 
 rpcsvc_program_t *
 acl3svc_init(xlator_t *nfsx);

@@ -35,44 +35,70 @@
  *    holes.
  */
 
-#define GLFS_COMP_BASE          1000
-#define GLFS_NUM_MESSAGES       19
-#define GLFS_MSGID_END          (GLFS_COMP_BASE + GLFS_NUM_MESSAGES + 1)
+#define GLFS_COMP_BASE 1000
+#define GLFS_NUM_MESSAGES 19
+#define GLFS_MSGID_END (GLFS_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
 /*------------*/
-#define logchecks_msg_1 (GLFS_COMP_BASE + 1), "Informational: Testing logging" \
-                                " in gluster"
-#define logchecks_msg_2 (GLFS_COMP_BASE + 2), "Informational: Format testing:" \
-                                " %d:%s:%x"
-#define logchecks_msg_3 (GLFS_COMP_BASE + 3), "Critical: Testing logging" \
-                                " in gluster"
-#define logchecks_msg_4 (GLFS_COMP_BASE + 4), "Critical: Format testing:" \
-                                " %d:%s:%x"
+#define logchecks_msg_1                                                        \
+    (GLFS_COMP_BASE + 1),                                                      \
+        "Informational: Testing logging"                                       \
+        " in gluster"
+#define logchecks_msg_2                                                        \
+    (GLFS_COMP_BASE + 2),                                                      \
+        "Informational: Format testing:"                                       \
+        " %d:%s:%x"
+#define logchecks_msg_3                                                        \
+    (GLFS_COMP_BASE + 3),                                                      \
+        "Critical: Testing logging"                                            \
+        " in gluster"
+#define logchecks_msg_4                                                        \
+    (GLFS_COMP_BASE + 4),                                                      \
+        "Critical: Format testing:"                                            \
+        " %d:%s:%x"
 #define logchecks_msg_5 (GLFS_COMP_BASE + 5), "Critical: Rotated the log"
 #define logchecks_msg_6 (GLFS_COMP_BASE + 6), "Critical: Flushed the log"
 #define logchecks_msg_7 (GLFS_COMP_BASE + 7), "Informational: gf_msg_callingfn"
-#define logchecks_msg_8 (GLFS_COMP_BASE + 8), "Informational: " \
-                                "gf_msg_callingfn: Format testing: %d:%s:%x"
+#define logchecks_msg_8                                                        \
+    (GLFS_COMP_BASE + 8),                                                      \
+        "Informational: "                                                      \
+        "gf_msg_callingfn: Format testing: %d:%s:%x"
 #define logchecks_msg_9 (GLFS_COMP_BASE + 9), "Critical: gf_msg_callingfn"
-#define logchecks_msg_10 (GLFS_COMP_BASE + 10), "Critical: " \
-                                "gf_msg_callingfn: Format testing: %d:%s:%x"
+#define logchecks_msg_10                                                       \
+    (GLFS_COMP_BASE + 10),                                                     \
+        "Critical: "                                                           \
+        "gf_msg_callingfn: Format testing: %d:%s:%x"
 #define logchecks_msg_11 (GLFS_COMP_BASE + 11), "=========================="
-#define logchecks_msg_12 (GLFS_COMP_BASE + 12), "Test 1: Only stderr and" \
-                                " partial syslog"
-#define logchecks_msg_13 (GLFS_COMP_BASE + 13), "Test 2: Only checklog and" \
-                                " partial syslog"
-#define logchecks_msg_14 (GLFS_COMP_BASE + 14), "Test 5: Changing to" \
-                                " traditional format"
-#define logchecks_msg_15 (GLFS_COMP_BASE + 15), "Test 6: Changing log level" \
-                                " to critical and above"
+#define logchecks_msg_12                                                       \
+    (GLFS_COMP_BASE + 12),                                                     \
+        "Test 1: Only stderr and"                                              \
+        " partial syslog"
+#define logchecks_msg_13                                                       \
+    (GLFS_COMP_BASE + 13),                                                     \
+        "Test 2: Only checklog and"                                            \
+        " partial syslog"
+#define logchecks_msg_14                                                       \
+    (GLFS_COMP_BASE + 14),                                                     \
+        "Test 5: Changing to"                                                  \
+        " traditional format"
+#define logchecks_msg_15                                                       \
+    (GLFS_COMP_BASE + 15),                                                     \
+        "Test 6: Changing log level"                                           \
+        " to critical and above"
 #define logchecks_msg_16 (GLFS_COMP_BASE + 16), "Test 7: Only to syslog"
-#define logchecks_msg_17 (GLFS_COMP_BASE + 17), "Test 8: Only to syslog," \
-                                " traditional format"
-#define logchecks_msg_18 (GLFS_COMP_BASE + 18), "Test 9: Only to syslog," \
-                                " only critical and above"
-#define logchecks_msg_19 (GLFS_COMP_BASE + 19), "Pre init message, not to be" \
-                                " seen in logs"
+#define logchecks_msg_17                                                       \
+    (GLFS_COMP_BASE + 17),                                                     \
+        "Test 8: Only to syslog,"                                              \
+        " traditional format"
+#define logchecks_msg_18                                                       \
+    (GLFS_COMP_BASE + 18),                                                     \
+        "Test 9: Only to syslog,"                                              \
+        " only critical and above"
+#define logchecks_msg_19                                                       \
+    (GLFS_COMP_BASE + 19),                                                     \
+        "Pre init message, not to be"                                          \
+        " seen in logs"
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 

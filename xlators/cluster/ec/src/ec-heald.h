@@ -16,10 +16,10 @@
 #include "ec-types.h"
 
 int
-ec_xl_op (xlator_t *this, dict_t *input, dict_t *output);
+ec_xl_op(xlator_t *this, dict_t *input, dict_t *output);
 
 int
-ec_selfheal_daemon_init (xlator_t *this);
+ec_selfheal_daemon_init(xlator_t *this);
 
 void
 ec_shd_index_healer_wake(ec_t *ec);

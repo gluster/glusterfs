@@ -14,9 +14,9 @@
 #include "mem-types.h"
 
 enum gf_ob_mem_types_ {
-        gf_ob_mt_fd_t   = gf_common_mt_end + 1,
-	gf_ob_mt_conf_t,
-        gf_ob_mt_inode_t,
-        gf_ob_mt_end
+    gf_ob_mt_fd_t = gf_common_mt_end + 1,
+    gf_ob_mt_conf_t,
+    gf_ob_mt_inode_t,
+    gf_ob_mt_end
 };
 #endif

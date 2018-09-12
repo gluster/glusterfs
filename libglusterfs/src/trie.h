@@ -18,29 +18,35 @@ struct trie;
 typedef struct trie trie_t;
 
 struct trienodevec {
-        trienode_t **nodes;
-        unsigned cnt;
+    trienode_t **nodes;
+    unsigned cnt;
 };
 
+trie_t *
+trie_new();
 
-trie_t *trie_new ();
+int
+trie_add(trie_t *trie, const char *word);
 
-int trie_add (trie_t *trie, const char *word);
+void
+trie_destroy(trie_t *trie);
 
-void trie_destroy (trie_t *trie);
+void
+trie_destroy_bynode(trienode_t *node);
 
-void trie_destroy_bynode (trienode_t *node);
+int
+trie_measure(trie_t *trie, const char *word, trienode_t **nodes, int nodecnt);
 
-int trie_measure (trie_t *trie, const char *word, trienode_t **nodes,
-                  int nodecnt);
+int
+trie_measure_vec(trie_t *trie, const char *word, struct trienodevec *nodevec);
 
-int trie_measure_vec (trie_t *trie, const char *word,
-                      struct trienodevec *nodevec);
+void
+trie_reset_search(trie_t *trie);
 
-void trie_reset_search (trie_t *trie);
+int
+trienode_get_dist(trienode_t *node);
 
-int trienode_get_dist (trienode_t *node);
-
-int trienode_get_word (trienode_t *node, char **buf);
+int
+trienode_get_word(trienode_t *node, char **buf);
 
 #endif

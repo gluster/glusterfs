@@ -17,7 +17,7 @@
 #include <time.h>
 
 void
-gl_timespec_get (struct timespec *ts);
+gl_timespec_get(struct timespec *ts);
 void
 utime_update_attribute_flags(call_frame_t *frame, glusterfs_fop_t fop);
 

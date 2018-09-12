@@ -14,7 +14,7 @@
 #include "mem-types.h"
 
 enum gf_barrier_mem_types_ {
-        gf_barrier_mt_priv_t = gf_common_mt_end + 1,
-        gf_barrier_mt_end
+    gf_barrier_mt_priv_t = gf_common_mt_end + 1,
+    gf_barrier_mt_end
 };
 #endif

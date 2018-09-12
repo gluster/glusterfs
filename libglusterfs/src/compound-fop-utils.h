@@ -16,20 +16,21 @@
 #include "mem-types.h"
 #include "dict.h"
 
-#define COMPOUND_PACK_ARGS(fop, fop_enum, args, counter, params ...) do {    \
-        args->enum_list[counter] = fop_enum;                                 \
-        args_##fop##_store (&args->req_list[counter], params);               \
-} while (0)
+#define COMPOUND_PACK_ARGS(fop, fop_enum, args, counter, params...)            \
+    do {                                                                       \
+        args->enum_list[counter] = fop_enum;                                   \
+        args_##fop##_store(&args->req_list[counter], params);                  \
+    } while (0)
 
-compound_args_t*
-compound_fop_alloc (int length, glusterfs_compound_fop_t fop, dict_t *xdata);
-
-void
-compound_args_cleanup (compound_args_t *args);
+compound_args_t *
+compound_fop_alloc(int length, glusterfs_compound_fop_t fop, dict_t *xdata);
 
 void
-compound_args_cbk_cleanup (compound_args_cbk_t *args_cbk);
+compound_args_cleanup(compound_args_t *args);
 
-compound_args_cbk_t*
-compound_args_cbk_alloc (int length, dict_t *xdata);
+void
+compound_args_cbk_cleanup(compound_args_cbk_t *args_cbk);
+
+compound_args_cbk_t *
+compound_args_cbk_alloc(int length, dict_t *xdata);
 #endif /* __COMPOUND_FOP_UTILS_H__ */

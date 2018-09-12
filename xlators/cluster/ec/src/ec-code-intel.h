@@ -76,109 +76,116 @@ enum _ec_code_vex_opcode {
 struct _ec_code_intel_buffer {
     uint32_t bytes;
     union {
-        uint8_t  data[4];
+        uint8_t data[4];
         uint32_t value;
     };
 };
 
 struct _ec_code_intel_sib {
     gf_boolean_t present;
-    uint32_t     base;
-    uint32_t     index;
-    uint32_t     scale;
+    uint32_t base;
+    uint32_t index;
+    uint32_t scale;
 };
 
 struct _ec_code_intel_modrm {
     gf_boolean_t present;
-    uint32_t     mod;
-    uint32_t     rm;
-    uint32_t     reg;
+    uint32_t mod;
+    uint32_t rm;
+    uint32_t reg;
 };
 
 struct _ec_code_intel_rex {
     gf_boolean_t present;
-    uint32_t     w;
-    uint32_t     r;
-    uint32_t     x;
-    uint32_t     b;
+    uint32_t w;
+    uint32_t r;
+    uint32_t x;
+    uint32_t b;
 };
 
 struct _ec_code_intel {
-    gf_boolean_t           invalid;
+    gf_boolean_t invalid;
     ec_code_intel_buffer_t prefix;
     ec_code_intel_buffer_t opcode;
     ec_code_intel_buffer_t offset;
     ec_code_intel_buffer_t immediate;
     ec_code_intel_buffer_t vex;
-    ec_code_intel_rex_t    rex;
-    ec_code_intel_modrm_t  modrm;
-    ec_code_intel_sib_t    sib;
-    uint32_t               reg;
+    ec_code_intel_rex_t rex;
+    ec_code_intel_modrm_t modrm;
+    ec_code_intel_sib_t sib;
+    uint32_t reg;
 };
 
-void ec_code_intel_op_push_r(ec_code_builder_t *builder,
-                             ec_code_intel_reg_t reg);
-void ec_code_intel_op_pop_r(ec_code_builder_t *builder,
-                            ec_code_intel_reg_t reg);
-void ec_code_intel_op_ret(ec_code_builder_t *builder, uint32_t size);
+void
+ec_code_intel_op_push_r(ec_code_builder_t *builder, ec_code_intel_reg_t reg);
+void
+ec_code_intel_op_pop_r(ec_code_builder_t *builder, ec_code_intel_reg_t reg);
+void
+ec_code_intel_op_ret(ec_code_builder_t *builder, uint32_t size);
 
-void ec_code_intel_op_mov_r2r(ec_code_builder_t *builder,
-                              ec_code_intel_reg_t src,
-                              ec_code_intel_reg_t dst);
-void ec_code_intel_op_mov_r2m(ec_code_builder_t *builder,
-                              ec_code_intel_reg_t src,
-                              ec_code_intel_reg_t base,
-                              ec_code_intel_reg_t index, uint32_t scale,
-                              int32_t offset);
-void ec_code_intel_op_mov_m2r(ec_code_builder_t *builder,
-                              ec_code_intel_reg_t base,
-                              ec_code_intel_reg_t index, uint32_t scale,
-                              int32_t offset, ec_code_intel_reg_t dst);
-void ec_code_intel_op_xor_r2r(ec_code_builder_t *builder,
-                              ec_code_intel_reg_t src,
-                              ec_code_intel_reg_t dst);
-void ec_code_intel_op_xor_m2r(ec_code_builder_t *builder,
-                              ec_code_intel_reg_t base,
-                              ec_code_intel_reg_t index, uint32_t scale,
-                              int32_t offset, ec_code_intel_reg_t dst);
-void ec_code_intel_op_add_i2r(ec_code_builder_t *builder, int32_t value,
-                              ec_code_intel_reg_t reg);
-void ec_code_intel_op_test_i2r(ec_code_builder_t *builder, uint32_t value,
-                               ec_code_intel_reg_t reg);
-void ec_code_intel_op_jne(ec_code_builder_t *builder, uint32_t address);
+void
+ec_code_intel_op_mov_r2r(ec_code_builder_t *builder, ec_code_intel_reg_t src,
+                         ec_code_intel_reg_t dst);
+void
+ec_code_intel_op_mov_r2m(ec_code_builder_t *builder, ec_code_intel_reg_t src,
+                         ec_code_intel_reg_t base, ec_code_intel_reg_t index,
+                         uint32_t scale, int32_t offset);
+void
+ec_code_intel_op_mov_m2r(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                         ec_code_intel_reg_t index, uint32_t scale,
+                         int32_t offset, ec_code_intel_reg_t dst);
+void
+ec_code_intel_op_xor_r2r(ec_code_builder_t *builder, ec_code_intel_reg_t src,
+                         ec_code_intel_reg_t dst);
+void
+ec_code_intel_op_xor_m2r(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                         ec_code_intel_reg_t index, uint32_t scale,
+                         int32_t offset, ec_code_intel_reg_t dst);
+void
+ec_code_intel_op_add_i2r(ec_code_builder_t *builder, int32_t value,
+                         ec_code_intel_reg_t reg);
+void
+ec_code_intel_op_test_i2r(ec_code_builder_t *builder, uint32_t value,
+                          ec_code_intel_reg_t reg);
+void
+ec_code_intel_op_jne(ec_code_builder_t *builder, uint32_t address);
 
-void ec_code_intel_op_mov_sse2sse(ec_code_builder_t *builder, uint32_t src,
-                                  uint32_t dst);
-void ec_code_intel_op_mov_sse2m(ec_code_builder_t *builder, uint32_t src,
-                                ec_code_intel_reg_t base,
-                                ec_code_intel_reg_t index, uint32_t scale,
-                                int32_t offset);
-void ec_code_intel_op_mov_m2sse(ec_code_builder_t *builder,
-                                ec_code_intel_reg_t base,
-                                ec_code_intel_reg_t index, uint32_t scale,
-                                int32_t offset, uint32_t dst);
-void ec_code_intel_op_xor_sse2sse(ec_code_builder_t *builder, uint32_t src,
-                                  uint32_t dst);
-void ec_code_intel_op_xor_m2sse(ec_code_builder_t *builder,
-                                ec_code_intel_reg_t base,
-                                ec_code_intel_reg_t index, uint32_t scale,
-                                int32_t offset, uint32_t dst);
+void
+ec_code_intel_op_mov_sse2sse(ec_code_builder_t *builder, uint32_t src,
+                             uint32_t dst);
+void
+ec_code_intel_op_mov_sse2m(ec_code_builder_t *builder, uint32_t src,
+                           ec_code_intel_reg_t base, ec_code_intel_reg_t index,
+                           uint32_t scale, int32_t offset);
+void
+ec_code_intel_op_mov_m2sse(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst);
+void
+ec_code_intel_op_xor_sse2sse(ec_code_builder_t *builder, uint32_t src,
+                             uint32_t dst);
+void
+ec_code_intel_op_xor_m2sse(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst);
 
-void ec_code_intel_op_mov_avx2avx(ec_code_builder_t *builder, uint32_t src,
-                                  uint32_t dst);
-void ec_code_intel_op_mov_avx2m(ec_code_builder_t *builder, uint32_t src,
-                                ec_code_intel_reg_t base,
-                                ec_code_intel_reg_t index, uint32_t scale,
-                                int32_t offset);
-void ec_code_intel_op_mov_m2avx(ec_code_builder_t *builder,
-                                ec_code_intel_reg_t base,
-                                ec_code_intel_reg_t index, uint32_t scale,
-                                int32_t offset, uint32_t dst);
-void ec_code_intel_op_xor_avx2avx(ec_code_builder_t *builder, uint32_t src,
-                                  uint32_t dst);
-void ec_code_intel_op_xor_m2avx(ec_code_builder_t *builder,
-                                ec_code_intel_reg_t base,
-                                ec_code_intel_reg_t index, uint32_t scale,
-                                int32_t offset, uint32_t dst);
+void
+ec_code_intel_op_mov_avx2avx(ec_code_builder_t *builder, uint32_t src,
+                             uint32_t dst);
+void
+ec_code_intel_op_mov_avx2m(ec_code_builder_t *builder, uint32_t src,
+                           ec_code_intel_reg_t base, ec_code_intel_reg_t index,
+                           uint32_t scale, int32_t offset);
+void
+ec_code_intel_op_mov_m2avx(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst);
+void
+ec_code_intel_op_xor_avx2avx(ec_code_builder_t *builder, uint32_t src,
+                             uint32_t dst);
+void
+ec_code_intel_op_xor_m2avx(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst);
 
 #endif /* __EC_CODE_INTEL_H__ */

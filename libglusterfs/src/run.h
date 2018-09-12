@@ -14,12 +14,12 @@
 #define RUN_PIPE -1
 
 struct runner {
-        char **argv;
-        unsigned argvlen;
-        int runerr;
-        pid_t chpid;
-        int chfd[3];
-        FILE *chio[3];
+    char **argv;
+    unsigned argvlen;
+    int runerr;
+    pid_t chpid;
+    int chfd[3];
+    FILE *chio[3];
 };
 
 typedef struct runner runner_t;
@@ -29,7 +29,8 @@ typedef struct runner runner_t;
  *
  * @param runner pointer to runner_t instance
  */
-void runinit (runner_t *runner);
+void
+runinit(runner_t *runner);
 
 /**
  * get FILE pointer to which child's stdio is redirected.
@@ -40,7 +41,8 @@ void runinit (runner_t *runner);
  *
  * @see runner_redir()
  */
-FILE *runner_chio (runner_t *runner, int fd);
+FILE *
+runner_chio(runner_t *runner, int fd);
 
 /**
  * add an argument.
@@ -52,7 +54,8 @@ FILE *runner_chio (runner_t *runner, int fd);
  * @param runner pointer to runner_t instance
  * @param arg    command line argument
  */
-void runner_add_arg (runner_t *runner, const char *arg);
+void
+runner_add_arg(runner_t *runner, const char *arg);
 
 /**
  * add a sequence of arguments.
@@ -66,7 +69,8 @@ void runner_add_arg (runner_t *runner, const char *arg);
  *
  * @see runner_add_arg()
  */
-void runner_add_args (runner_t *runner, ...);
+void
+runner_add_args(runner_t *runner, ...);
 
 /**
  * add an argument with printf style formatting.
@@ -76,7 +80,8 @@ void runner_add_args (runner_t *runner, ...);
  * @param runner pointer to runner_t instance
  * @param format printf style format specifier
  */
-void runner_argprintf (runner_t *runner, const char *format, ...);
+void
+runner_argprintf(runner_t *runner, const char *format, ...);
 
 /**
  * log a message about the command to be run.
@@ -89,8 +94,9 @@ void runner_argprintf (runner_t *runner, const char *format, ...);
  *
  * @see gf_log()
  */
-void runner_log (runner_t *runner, const char *dom, gf_loglevel_t lvl,
-                 const char *msg);
+void
+runner_log(runner_t *runner, const char *dom, gf_loglevel_t lvl,
+           const char *msg);
 
 /**
  * set up redirection for child.
@@ -111,7 +117,7 @@ void runner_log (runner_t *runner, const char *dom, gf_loglevel_t lvl,
  * @see  runner_start(), dup(2), runner_chio(), runner_start()
  */
 void
-runner_redir (runner_t *runner, int fd, int tgt_fd);
+runner_redir(runner_t *runner, int fd, int tgt_fd);
 
 /**
  * spawn child with accumulated arg list.
@@ -123,7 +129,8 @@ runner_redir (runner_t *runner, int fd, int tgt_fd);
  *
  * @see runner_cout()
  */
-int runner_start (runner_t *runner);
+int
+runner_start(runner_t *runner);
 
 /**
  * complete operation and free resources.
@@ -140,7 +147,8 @@ int runner_start (runner_t *runner);
  *
  * @see waitpid(2)
  */
-int runner_end (runner_t *runner);
+int
+runner_end(runner_t *runner);
 
 /**
  * variant of runner_end() which does not free internal data
@@ -148,7 +156,8 @@ int runner_end (runner_t *runner);
  *
  * @see runner_end()
  */
-int runner_end_reuse (runner_t *runner);
+int
+runner_end_reuse(runner_t *runner);
 
 /**
  * spawn and child, take it to completion and free resources.
@@ -163,13 +172,15 @@ int runner_end_reuse (runner_t *runner);
  *
  * @see runner_start(), runner_end()
  */
-int runner_run (runner_t *runner);
+int
+runner_run(runner_t *runner);
 
 /**
  * variant for runner_run() which does not wait for acknowledgement
  * from child, and always assumes it succeeds.
  */
-int runner_run_nowait (runner_t *runner);
+int
+runner_run_nowait(runner_t *runner);
 
 /**
  * variant of runner_run() which does not free internal data
@@ -177,7 +188,8 @@ int runner_run_nowait (runner_t *runner);
  *
  * @see runner_run()
  */
-int runner_run_reuse (runner_t *runner);
+int
+runner_run_reuse(runner_t *runner);
 
 /**
  * run a command with args.
@@ -189,6 +201,7 @@ int runner_run_reuse (runner_t *runner);
  * @return 0 on success
  *         -1 on failure
  */
-int runcmd (const char *arg, ...);
+int
+runcmd(const char *arg, ...);
 
 #endif

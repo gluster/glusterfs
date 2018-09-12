@@ -13,6 +13,8 @@
 
 #define DEVNULLPATH "/dev/null"
 
-int os_daemon_return(int nochdir, int noclose);
-int os_daemon(int nochdir, int noclose);
+int
+os_daemon_return(int nochdir, int noclose);
+int
+os_daemon(int nochdir, int noclose);
 #endif /*_DAEMON_H */

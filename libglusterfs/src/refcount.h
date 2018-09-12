@@ -17,7 +17,8 @@
  * http://lists.iptel.org/pipermail/semsdev/2010-October/005075.html
  * this is sufficient for RHEL5 i386 builds
  */
-#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) && !defined(__i386__)
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) &&                \
+    !defined(__i386__)
 #undef REFCOUNT_NEEDS_LOCK
 #else
 #define REFCOUNT_NEEDS_LOCK
@@ -28,22 +29,21 @@ typedef void (*gf_ref_release_t)(void *data);
 
 struct _gf_ref {
 #ifdef REFCOUNT_NEEDS_LOCK
-        gf_lock_t          lk;      /* lock for atomically adjust cnt */
+    gf_lock_t lk; /* lock for atomically adjust cnt */
 #endif
-        unsigned int       cnt;     /* number of users, free on 0 */
+    unsigned int cnt; /* number of users, free on 0 */
 
-        gf_ref_release_t   release; /* cleanup when cnt == 0 */
-        void              *data;    /* parameter passed to release() */
+    gf_ref_release_t release; /* cleanup when cnt == 0 */
+    void *data;               /* parameter passed to release() */
 };
 typedef struct _gf_ref gf_ref_t;
-
 
 /* _gf_ref_get -- increase the refcount
  *
  * @return: greater then 0 when a reference was taken, 0 when not
  */
 void *
-_gf_ref_get (gf_ref_t *ref);
+_gf_ref_get(gf_ref_t *ref);
 
 /* _gf_ref_put -- decrease the refcount
  *
@@ -51,7 +51,7 @@ _gf_ref_get (gf_ref_t *ref);
  *          should be done, gf_ref_release_t is called on cleanup
  */
 unsigned int
-_gf_ref_put (gf_ref_t *ref);
+_gf_ref_put(gf_ref_t *ref);
 
 /* _gf_ref_init -- initialize an embedded refcount object
  *
@@ -59,8 +59,7 @@ _gf_ref_put (gf_ref_t *ref);
  * @data: parameter to be passed to @release
  */
 void
-_gf_ref_init (gf_ref_t *ref, gf_ref_release_t release, void *data);
-
+_gf_ref_init(gf_ref_t *ref, gf_ref_release_t release, void *data);
 
 /*
  * Strong suggestion to use the simplified GF_REF_* API.
@@ -75,7 +74,7 @@ _gf_ref_init (gf_ref_t *ref, gf_ref_release_t release, void *data);
  *       ... // additional members
  *   };
  */
-#define GF_REF_DECL         gf_ref_t _ref
+#define GF_REF_DECL gf_ref_t _ref
 
 /* GF_REF_INIT -- initialize a GF_REF_DECL structure
  *
@@ -84,20 +83,19 @@ _gf_ref_init (gf_ref_t *ref, gf_ref_release_t release, void *data);
  *
  * Sets the refcount to 1.
  */
-#define GF_REF_INIT(p, d)   _gf_ref_init (&(p)->_ref, (gf_ref_release_t) d, p)
+#define GF_REF_INIT(p, d) _gf_ref_init(&(p)->_ref, (gf_ref_release_t)d, p)
 
 /* GF_REF_GET -- increase the refcount of a GF_REF_DECL structure
  *
  * @return: greater then 0 when a reference was taken, 0 when not
  */
-#define GF_REF_GET(p)       _gf_ref_get (&(p)->_ref)
+#define GF_REF_GET(p) _gf_ref_get(&(p)->_ref)
 
 /* GF_REF_PUT -- decrease the refcount of a GF_REF_DECL structure
  *
  * @return: greater then 0 when there are still references, 0 when cleanup
  *          should be done, gf_ref_release_t is called on cleanup
  */
-#define GF_REF_PUT(p)       _gf_ref_put (&(p)->_ref)
-
+#define GF_REF_PUT(p) _gf_ref_put(&(p)->_ref)
 
 #endif /* _REFCOUNT_H */

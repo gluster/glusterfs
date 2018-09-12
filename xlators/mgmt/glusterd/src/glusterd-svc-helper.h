@@ -16,30 +16,30 @@
 #include "glusterd-volgen.h"
 
 int
-glusterd_svcs_reconfigure ();
+glusterd_svcs_reconfigure();
 
 int
-glusterd_svcs_stop ();
+glusterd_svcs_stop();
 
 int
-glusterd_svcs_manager (glusterd_volinfo_t *volinfo);
+glusterd_svcs_manager(glusterd_volinfo_t *volinfo);
 
 int
-glusterd_svc_check_volfile_identical (char *svc_name,
+glusterd_svc_check_volfile_identical(char *svc_name,
+                                     glusterd_graph_builder_t builder,
+                                     gf_boolean_t *identical);
+int
+glusterd_svc_check_topology_identical(char *svc_name,
                                       glusterd_graph_builder_t builder,
                                       gf_boolean_t *identical);
-int
-glusterd_svc_check_topology_identical (char *svc_name,
-                                       glusterd_graph_builder_t builder,
-                                       gf_boolean_t *identical);
 
 int
-glusterd_svc_check_tier_volfile_identical (char *svc_name,
+glusterd_svc_check_tier_volfile_identical(char *svc_name,
+                                          glusterd_volinfo_t *volinfo,
+                                          gf_boolean_t *identical);
+int
+glusterd_svc_check_tier_topology_identical(char *svc_name,
                                            glusterd_volinfo_t *volinfo,
                                            gf_boolean_t *identical);
-int
-glusterd_svc_check_tier_topology_identical (char *svc_name,
-                                            glusterd_volinfo_t *volinfo,
-                                            gf_boolean_t *identical);
 
 #endif

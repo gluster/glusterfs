@@ -11,45 +11,44 @@
 #ifndef _SYNCOP_UTILS_H
 #define _SYNCOP_UTILS_H
 
-typedef int (*syncop_dir_scan_fn_t) (xlator_t *subvol, gf_dirent_t *entry,
-                                     loc_t *parent, void *data);
+typedef int (*syncop_dir_scan_fn_t)(xlator_t *subvol, gf_dirent_t *entry,
+                                    loc_t *parent, void *data);
 int
-syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
-            int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
-                       void *data));
+syncop_ftw(xlator_t *subvol, loc_t *loc, int pid, void *data,
+           int (*fn)(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                     void *data));
 
 int
-syncop_mt_dir_scan (call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
-                    void *data, syncop_dir_scan_fn_t fn, dict_t *xdata,
-                    uint32_t max_jobs, uint32_t max_qlen);
+syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
+                   void *data, syncop_dir_scan_fn_t fn, dict_t *xdata,
+                   uint32_t max_jobs, uint32_t max_qlen);
 
 int
-syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
-                 int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
-                            void *data));
+syncop_dir_scan(xlator_t *subvol, loc_t *loc, int pid, void *data,
+                int (*fn)(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                          void *data));
 
 int
-syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid);
+syncop_dirfd(xlator_t *subvol, loc_t *loc, fd_t **fd, int pid);
 
 int
-syncop_is_subvol_local (xlator_t *this, loc_t *loc, gf_boolean_t *is_local);
+syncop_is_subvol_local(xlator_t *this, loc_t *loc, gf_boolean_t *is_local);
 
 int
-syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
-                     char **path_p);
+syncop_gfid_to_path(inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
+                    char **path_p);
 
 int
-syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
-                     int (*fn) (xlator_t *subvol, gf_dirent_t *entry,
-                                loc_t *parent, void *data),
-                     int count, int sleep_time);
+syncop_ftw_throttle(xlator_t *subvol, loc_t *loc, int pid, void *data,
+                    int (*fn)(xlator_t *subvol, gf_dirent_t *entry,
+                              loc_t *parent, void *data),
+                    int count, int sleep_time);
 int
-syncop_inode_find (xlator_t *this, xlator_t *subvol,
-                   uuid_t gfid, inode_t **inode,
-                   dict_t *xdata, dict_t **rsp_dict);
+syncop_inode_find(xlator_t *this, xlator_t *subvol, uuid_t gfid,
+                  inode_t **inode, dict_t *xdata, dict_t **rsp_dict);
 
 int
-syncop_gfid_to_path_hard (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
-                          inode_t *inode, char **path_p,
-                          gf_boolean_t hard_resolve);
+syncop_gfid_to_path_hard(inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
+                         inode_t *inode, char **path_p,
+                         gf_boolean_t hard_resolve);
 #endif /* _SYNCOP_H */

@@ -14,18 +14,18 @@
 #include "glusterd-svc-mgmt.h"
 
 void
-glusterd_quotadsvc_build (glusterd_svc_t *svc);
+glusterd_quotadsvc_build(glusterd_svc_t *svc);
 
 int
-glusterd_quotadsvc_init (glusterd_svc_t *svc);
+glusterd_quotadsvc_init(glusterd_svc_t *svc);
 
 int
-glusterd_quotadsvc_start (glusterd_svc_t *svc, int flags);
+glusterd_quotadsvc_start(glusterd_svc_t *svc, int flags);
 
 int
-glusterd_quotadsvc_manager (glusterd_svc_t *svc, void *data, int flags);
+glusterd_quotadsvc_manager(glusterd_svc_t *svc, void *data, int flags);
 
 int
-glusterd_quotadsvc_reconfigure ();
+glusterd_quotadsvc_reconfigure();
 
 #endif

@@ -19,59 +19,59 @@
 
 #include <pthread.h>
 
-#define GF_RBTHASH_MEMPOOL      16384 //1048576
-#define GF_RBTHASH              "rbthash"
+#define GF_RBTHASH_MEMPOOL 16384  // 1048576
+#define GF_RBTHASH "rbthash"
 
 struct rbthash_bucket {
-        struct rb_table *bucket;
-        gf_lock_t       bucketlock;
+    struct rb_table *bucket;
+    gf_lock_t bucketlock;
 };
 
 typedef struct rbthash_entry {
-        void            *data;
-        void            *key;
-        int              keylen;
-        uint32_t         keyhash;
-        struct list_head list;
+    void *data;
+    void *key;
+    int keylen;
+    uint32_t keyhash;
+    struct list_head list;
 } rbthash_entry_t;
 
-typedef uint32_t (*rbt_hasher_t) (void *data, int len);
-typedef void (*rbt_data_destroyer_t) (void *data);
-typedef void (*rbt_traverse_t) (void *data, void *mydata);
+typedef uint32_t (*rbt_hasher_t)(void *data, int len);
+typedef void (*rbt_data_destroyer_t)(void *data);
+typedef void (*rbt_traverse_t)(void *data, void *mydata);
 
 typedef struct rbthash_table {
-        int                     size;
-        int                     numbuckets;
-        struct mem_pool         *entrypool;
-        gf_lock_t               tablelock;
-        struct rbthash_bucket   *buckets;
-        rbt_hasher_t            hashfunc;
-        rbt_data_destroyer_t    dfunc;
-        gf_boolean_t            pool_alloced;
-        struct list_head        list;
+    int size;
+    int numbuckets;
+    struct mem_pool *entrypool;
+    gf_lock_t tablelock;
+    struct rbthash_bucket *buckets;
+    rbt_hasher_t hashfunc;
+    rbt_data_destroyer_t dfunc;
+    gf_boolean_t pool_alloced;
+    struct list_head list;
 } rbthash_table_t;
 
 extern rbthash_table_t *
-rbthash_table_init (glusterfs_ctx_t *ctx, int buckets, rbt_hasher_t hfunc,
-                    rbt_data_destroyer_t dfunc, unsigned long expected_entries,
-                    struct mem_pool *entrypool);
+rbthash_table_init(glusterfs_ctx_t *ctx, int buckets, rbt_hasher_t hfunc,
+                   rbt_data_destroyer_t dfunc, unsigned long expected_entries,
+                   struct mem_pool *entrypool);
 
 extern int
-rbthash_insert (rbthash_table_t *tbl, void *data, void *key, int keylen);
+rbthash_insert(rbthash_table_t *tbl, void *data, void *key, int keylen);
 
 extern void *
-rbthash_get (rbthash_table_t *tbl, void *key, int keylen);
+rbthash_get(rbthash_table_t *tbl, void *key, int keylen);
 
 extern void *
-rbthash_remove (rbthash_table_t *tbl, void *key, int keylen);
+rbthash_remove(rbthash_table_t *tbl, void *key, int keylen);
 
 extern void *
-rbthash_replace (rbthash_table_t *tbl, void *key, int keylen, void *newdata);
+rbthash_replace(rbthash_table_t *tbl, void *key, int keylen, void *newdata);
 
 extern void
-rbthash_table_destroy (rbthash_table_t *tbl);
+rbthash_table_destroy(rbthash_table_t *tbl);
 
 extern void
-rbthash_table_traverse (rbthash_table_t *tbl, rbt_traverse_t traverse,
-                        void *mydata);
+rbthash_table_traverse(rbthash_table_t *tbl, rbt_traverse_t traverse,
+                       void *mydata);
 #endif

@@ -8,19 +8,17 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #ifndef __WB_MEM_TYPES_H__
 #define __WB_MEM_TYPES_H__
 
 #include "mem-types.h"
 
 enum gf_wb_mem_types_ {
-        gf_wb_mt_wb_file_t   = gf_common_mt_end + 1,
-        gf_wb_mt_wb_request_t,
-        gf_wb_mt_iovec,
-        gf_wb_mt_wb_conf_t,
-        gf_wb_mt_wb_inode_t,
-        gf_wb_mt_end
+    gf_wb_mt_wb_file_t = gf_common_mt_end + 1,
+    gf_wb_mt_wb_request_t,
+    gf_wb_mt_iovec,
+    gf_wb_mt_wb_conf_t,
+    gf_wb_mt_wb_inode_t,
+    gf_wb_mt_end
 };
 #endif
-

@@ -23,10 +23,6 @@
  * glfs-message-id.h.
  */
 
-GLFS_MSGID(component,
-        message id,
-        message id,
-        ...
-);
+GLFS_MSGID(component, message id, message id, ...);
 
 #endif /* !_component_MESSAGES_H_ */

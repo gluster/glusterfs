@@ -8,17 +8,15 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #ifndef __CTR_MEM_TYPES_H__
 #define __CTR_MEM_TYPES_H__
 
 #include "gfdb_mem-types.h"
 
 enum gf_ctr_mem_types_ {
-        gf_ctr_mt_private_t = gfdb_mt_end + 1,
-        gf_ctr_mt_xlator_ctx,
-        gf_ctr_mt_hard_link_t,
-        gf_ctr_mt_end
+    gf_ctr_mt_private_t = gfdb_mt_end + 1,
+    gf_ctr_mt_xlator_ctx,
+    gf_ctr_mt_hard_link_t,
+    gf_ctr_mt_end
 };
 #endif
-
