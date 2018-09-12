@@ -54,19 +54,18 @@
  * For external use.
  */
 struct mnt3_auth_params *
-mnt3_auth_params_init (struct mount3_state *ms)
+mnt3_auth_params_init(struct mount3_state *ms)
 {
-        struct mnt3_auth_params *auth_params = NULL;
+    struct mnt3_auth_params *auth_params = NULL;
 
-        auth_params = GF_MALLOC (sizeof (*auth_params),
-                                 gf_nfs_mt_mnt3_auth_params);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, auth_params, out);
+    auth_params = GF_MALLOC(sizeof(*auth_params), gf_nfs_mt_mnt3_auth_params);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, auth_params, out);
 
-        auth_params->ngfile = NULL;
-        auth_params->expfile = NULL;
-        auth_params->ms = ms;
+    auth_params->ngfile = NULL;
+    auth_params->expfile = NULL;
+    auth_params->ms = ms;
 out:
-        return auth_params;
+    return auth_params;
 }
 
 /**
@@ -77,23 +76,23 @@ out:
  * For external use.
  */
 void
-mnt3_auth_params_deinit (struct mnt3_auth_params *auth_params)
+mnt3_auth_params_deinit(struct mnt3_auth_params *auth_params)
 {
-        if (!auth_params)
-                goto out;
+    if (!auth_params)
+        goto out;
 
-        /* Atomically set the auth params in the mount state to NULL
-         * so subsequent fops will be denied while the auth params
-         * are being cleaned up.
-         */
-        (void)__sync_lock_test_and_set (&auth_params->ms->auth_params, NULL);
+    /* Atomically set the auth params in the mount state to NULL
+     * so subsequent fops will be denied while the auth params
+     * are being cleaned up.
+     */
+    (void)__sync_lock_test_and_set(&auth_params->ms->auth_params, NULL);
 
-        ng_file_deinit (auth_params->ngfile);
-        exp_file_deinit (auth_params->expfile);
-        auth_params->ms = NULL;
-        GF_FREE (auth_params);
+    ng_file_deinit(auth_params->ngfile);
+    exp_file_deinit(auth_params->expfile);
+    auth_params->ms = NULL;
+    GF_FREE(auth_params);
 out:
-        return;
+    return;
 }
 
 /**
@@ -108,32 +107,33 @@ out:
  * For external use.
  */
 int
-mnt3_auth_set_exports_auth (struct mnt3_auth_params *auth_params,
-                            const char *filename)
+mnt3_auth_set_exports_auth(struct mnt3_auth_params *auth_params,
+                           const char *filename)
 {
-        struct exports_file *expfile = NULL;
-        struct exports_file *oldfile = NULL;
-        int                  ret     = -EINVAL;
+    struct exports_file *expfile = NULL;
+    struct exports_file *oldfile = NULL;
+    int ret = -EINVAL;
 
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, auth_params, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, filename, out);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, auth_params, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, filename, out);
 
-        /* Parse the exports file and set the auth parameter */
-        ret = exp_file_parse (filename, &expfile, auth_params->ms);
-        if (ret < 0) {
-                gf_msg (GF_MNT_AUTH, GF_LOG_ERROR, 0, NFS_MSG_LOAD_PARSE_ERROR,
-                        "Failed to load & parse file"
-                        " %s, see logs for more information", filename);
-                goto out;
-        }
+    /* Parse the exports file and set the auth parameter */
+    ret = exp_file_parse(filename, &expfile, auth_params->ms);
+    if (ret < 0) {
+        gf_msg(GF_MNT_AUTH, GF_LOG_ERROR, 0, NFS_MSG_LOAD_PARSE_ERROR,
+               "Failed to load & parse file"
+               " %s, see logs for more information",
+               filename);
+        goto out;
+    }
 
-        /* Atomically set the file pointer */
-        oldfile = __sync_lock_test_and_set (&auth_params->expfile, expfile);
-        exp_file_deinit (oldfile);
-        ret = 0;
+    /* Atomically set the file pointer */
+    oldfile = __sync_lock_test_and_set(&auth_params->expfile, expfile);
+    exp_file_deinit(oldfile);
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -148,32 +148,33 @@ out:
  * For external use.
  */
 int
-mnt3_auth_set_netgroups_auth (struct mnt3_auth_params *auth_params,
-                              const char *filename)
+mnt3_auth_set_netgroups_auth(struct mnt3_auth_params *auth_params,
+                             const char *filename)
 {
-        struct netgroups_file *ngfile  = NULL;
-        struct netgroups_file *oldfile = NULL;
-        int                    ret     = -EINVAL;
+    struct netgroups_file *ngfile = NULL;
+    struct netgroups_file *oldfile = NULL;
+    int ret = -EINVAL;
 
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, auth_params, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, filename, out);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, auth_params, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, filename, out);
 
-        ngfile = ng_file_parse (filename);
-        if (!ngfile) {
-                gf_msg (GF_MNT_AUTH, GF_LOG_ERROR, 0, NFS_MSG_LOAD_PARSE_ERROR,
-                        "Failed to load file %s, see logs for more "
-                        "information", filename);
-                ret = -1;
-                goto out;
-        }
+    ngfile = ng_file_parse(filename);
+    if (!ngfile) {
+        gf_msg(GF_MNT_AUTH, GF_LOG_ERROR, 0, NFS_MSG_LOAD_PARSE_ERROR,
+               "Failed to load file %s, see logs for more "
+               "information",
+               filename);
+        ret = -1;
+        goto out;
+    }
 
-        /* Atomically set the file pointer */
-        oldfile = __sync_lock_test_and_set (&auth_params->ngfile, ngfile);
-        ng_file_deinit (oldfile);
-        ret = 0;
+    /* Atomically set the file pointer */
+    oldfile = __sync_lock_test_and_set(&auth_params->ngfile, ngfile);
+    ng_file_deinit(oldfile);
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /* Struct used to pass parameters to
@@ -181,8 +182,8 @@ out:
  * checks if an IP matches a subnet
  */
 struct _mnt3_subnet_match_s {
-        char                  *ip;   /* IP address to match */
-        struct export_item   **host; /* Host structure to set */
+    char *ip;                  /* IP address to match */
+    struct export_item **host; /* Host structure to set */
 };
 
 /**
@@ -196,40 +197,40 @@ struct _mnt3_subnet_match_s {
  *
  */
 static int
-_mnt3_auth_subnet_match (dict_t *dict, char *key, data_t *val, void *tmp)
+_mnt3_auth_subnet_match(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        struct  _mnt3_subnet_match_s *match = NULL;
+    struct _mnt3_subnet_match_s *match = NULL;
 
-        match = (struct _mnt3_subnet_match_s *)tmp;
+    match = (struct _mnt3_subnet_match_s *)tmp;
 
-        if (!match)
-                return 0;
-
-        if (!match->host)
-                return 0;
-
-        if (!match->ip)
-                return 0;
-
-        /* Already found the host */
-        if (*(match->host))
-                return 0;
-
-        /* Don't process anything that's not in CIDR */
-        if (!strchr (key, '/'))
-                return 0;
-
-        /* Strip out leading whitespaces */
-        while (*key == ' ')
-                key++;
-
-        /* If we found that the IP was in the network, set the host
-         * to point to the value in the dict.
-         */
-        if (gf_is_ip_in_net (key, match->ip)) {
-                *(match->host) = (struct export_item *)val->data;
-        }
+    if (!match)
         return 0;
+
+    if (!match->host)
+        return 0;
+
+    if (!match->ip)
+        return 0;
+
+    /* Already found the host */
+    if (*(match->host))
+        return 0;
+
+    /* Don't process anything that's not in CIDR */
+    if (!strchr(key, '/'))
+        return 0;
+
+    /* Strip out leading whitespaces */
+    while (*key == ' ')
+        key++;
+
+    /* If we found that the IP was in the network, set the host
+     * to point to the value in the dict.
+     */
+    if (gf_is_ip_in_net(key, match->ip)) {
+        *(match->host) = (struct export_item *)val->data;
+    }
+    return 0;
 }
 
 /**
@@ -256,67 +257,69 @@ _mnt3_auth_subnet_match (dict_t *dict, char *key, data_t *val, void *tmp)
  * Not for external use.
  */
 static struct export_item *
-_mnt3_auth_check_host_in_export (const struct exports_file *file,
-                                 const char *dir, const char *host,
-                                 struct nfs3_fh *fh)
+_mnt3_auth_check_host_in_export(const struct exports_file *file,
+                                const char *dir, const char *host,
+                                struct nfs3_fh *fh)
 {
-        struct export_dir           *expdir = NULL;
-        struct export_item          *host_s = NULL;
-        struct _mnt3_subnet_match_s  snet_match_s = {0, };
+    struct export_dir *expdir = NULL;
+    struct export_item *host_s = NULL;
+    struct _mnt3_subnet_match_s snet_match_s = {
+        0,
+    };
 
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, file, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, host, out);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, file, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, host, out);
 
-        /* If the filehandle is defined, use that to perform authentication.
-         * All file operations that need authentication must follow this
-         * code path.
-         */
-        if (fh) {
-                expdir = exp_file_dir_from_uuid (file, fh->mountid);
-                if (!expdir)
-                        goto out;
-        } else {
-                /* Get the exports directory from the exports file */
-                expdir = exp_file_get_dir (file, dir);
-                if (!expdir)
-                        goto out;
-        }
+    /* If the filehandle is defined, use that to perform authentication.
+     * All file operations that need authentication must follow this
+     * code path.
+     */
+    if (fh) {
+        expdir = exp_file_dir_from_uuid(file, fh->mountid);
+        if (!expdir)
+            goto out;
+    } else {
+        /* Get the exports directory from the exports file */
+        expdir = exp_file_get_dir(file, dir);
+        if (!expdir)
+            goto out;
+    }
 
-        /* Extract the host from the export directory */
-        host_s = exp_dir_get_host (expdir, host);
-        if (!host_s)
-                goto subnet_match;
-        else
-                goto out;
+    /* Extract the host from the export directory */
+    host_s = exp_dir_get_host(expdir, host);
+    if (!host_s)
+        goto subnet_match;
+    else
+        goto out;
 
-        /* If the host is not found, we need to walk through the hosts
-         * in the exports directory and see if any of the "hosts" are actually
-         * networks (e.g. 10.5.153.0/24). If they are we should match the
-         * incoming network.
-         */
+    /* If the host is not found, we need to walk through the hosts
+     * in the exports directory and see if any of the "hosts" are actually
+     * networks (e.g. 10.5.153.0/24). If they are we should match the
+     * incoming network.
+     */
 subnet_match:
-        if (!expdir->hosts)
-                goto out;
-        snet_match_s.ip = (char *)host;
-        snet_match_s.host = &host_s;
-        dict_foreach (expdir->hosts, _mnt3_auth_subnet_match, &snet_match_s);
+    if (!expdir->hosts)
+        goto out;
+    snet_match_s.ip = (char *)host;
+    snet_match_s.host = &host_s;
+    dict_foreach(expdir->hosts, _mnt3_auth_subnet_match, &snet_match_s);
 out:
-        return host_s;
+    return host_s;
 }
 
 /* This struct represents all the parameters necessary to search through a
  * netgroups file to find a host.
  */
 struct ng_auth_search {
-        const char                  *search_for; /* strings to search for */
-        gf_boolean_t                 found;      /* mark true once found */
-        const struct netgroups_file *file;       /* netgroups file to search */
-        const char                  *expdir;
-        struct export_item          *expitem;    /* pointer to the export */
-        const struct exports_file   *expfile;
-        gf_boolean_t                 _is_host_dict; /* searching a host dict? */
-        struct netgroup_entry       *found_entry;   /* the entry we found! */
+    const char *search_for;            /* strings to search for */
+    gf_boolean_t found;                /* mark true once found */
+    const struct netgroups_file *file; /* netgroups file to search */
+    const char *expdir;
+    struct export_item *expitem; /* pointer to the export */
+    const struct exports_file *expfile;
+    gf_boolean_t _is_host_dict;         /* searching a host dict? */
+    struct netgroup_entry *found_entry; /* the entry we found! */
 };
 
 /**
@@ -332,65 +335,65 @@ struct ng_auth_search {
  * Not for external use.
  */
 static int
-__netgroup_dict_search (dict_t *dict, char *key, data_t *val, void *data)
+__netgroup_dict_search(dict_t *dict, char *key, data_t *val, void *data)
 {
-        struct ng_auth_search *ngsa    = NULL;
-        struct netgroup_entry *ngentry = NULL;
-        data_t                *hdata   = NULL;
+    struct ng_auth_search *ngsa = NULL;
+    struct netgroup_entry *ngentry = NULL;
+    data_t *hdata = NULL;
 
-        /* 'ngsa' is the search params */
-        ngsa    = (struct ng_auth_search *)data;
-        ngentry = (struct netgroup_entry *)val->data;
+    /* 'ngsa' is the search params */
+    ngsa = (struct ng_auth_search *)data;
+    ngentry = (struct netgroup_entry *)val->data;
 
-        if (ngsa->_is_host_dict) {
-                /* If are on a host dict, we can simply hash the search key
-                 * against the host dict and see if we find anything.
-                 */
-                hdata = dict_get (dict, (char *)ngsa->search_for);
-                if (hdata) {
-                        /* If it was found, log the message, mark the search
-                         * params dict as found and return.
-                         */
-                        gf_msg_debug (GF_MNT_AUTH, errno, "key %s was hashed "
-                                      "and found", key);
-                        ngsa->found = _gf_true;
-                        ngsa->found_entry = (struct netgroup_entry *)hdata->data;
-                        goto out;
-                }
-        }
-
-        /* If the key is what we are searching for, mark the item as
-         * found and return.
+    if (ngsa->_is_host_dict) {
+        /* If are on a host dict, we can simply hash the search key
+         * against the host dict and see if we find anything.
          */
-        if (strcmp (key, ngsa->search_for) == 0) {
-                ngsa->found = _gf_true;
-                ngsa->found_entry = ngentry;
-                goto out;
+        hdata = dict_get(dict, (char *)ngsa->search_for);
+        if (hdata) {
+            /* If it was found, log the message, mark the search
+             * params dict as found and return.
+             */
+            gf_msg_debug(GF_MNT_AUTH, errno,
+                         "key %s was hashed "
+                         "and found",
+                         key);
+            ngsa->found = _gf_true;
+            ngsa->found_entry = (struct netgroup_entry *)hdata->data;
+            goto out;
         }
+    }
 
-        /* If we have a netgroup hosts dict, then search the dict using this
-         * same function.
-         */
-        if (ngentry->netgroup_hosts) {
-                ngsa->_is_host_dict = _gf_true;
-                dict_foreach (ngentry->netgroup_hosts, __netgroup_dict_search,
-                                                        ngsa);
-        }
+    /* If the key is what we are searching for, mark the item as
+     * found and return.
+     */
+    if (strcmp(key, ngsa->search_for) == 0) {
+        ngsa->found = _gf_true;
+        ngsa->found_entry = ngentry;
+        goto out;
+    }
 
-        /* If that search was successful, just return */
-        if (ngsa->found)
-                goto out;
+    /* If we have a netgroup hosts dict, then search the dict using this
+     * same function.
+     */
+    if (ngentry->netgroup_hosts) {
+        ngsa->_is_host_dict = _gf_true;
+        dict_foreach(ngentry->netgroup_hosts, __netgroup_dict_search, ngsa);
+    }
 
-        /* If we have a netgroup dict, then search the dict using this same
-         * function.
-         */
-        if (ngentry->netgroup_ngs) {
-                ngsa->_is_host_dict = _gf_false;
-                dict_foreach (ngentry->netgroup_ngs, __netgroup_dict_search,
-                                                        ngsa);
-        }
+    /* If that search was successful, just return */
+    if (ngsa->found)
+        goto out;
+
+    /* If we have a netgroup dict, then search the dict using this same
+     * function.
+     */
+    if (ngentry->netgroup_ngs) {
+        ngsa->_is_host_dict = _gf_false;
+        dict_foreach(ngentry->netgroup_ngs, __netgroup_dict_search, ngsa);
+    }
 out:
-        return 0;
+    return 0;
 }
 
 /**
@@ -416,54 +419,51 @@ out:
  * Not for external use.
  */
 static int
-__export_dir_lookup_netgroup (dict_t *dict, char *key, data_t *val,
-                                void *data)
+__export_dir_lookup_netgroup(dict_t *dict, char *key, data_t *val, void *data)
 {
-        struct ng_auth_search *ngsa    = NULL; /* Search params */
-        struct netgroups_file *nfile   = NULL; /* Netgroups file to search */
-        struct netgroup_entry *ngentry = NULL; /* Entry in the netgroups file */
-        struct export_dir     *tmpdir  = NULL;
+    struct ng_auth_search *ngsa = NULL;    /* Search params */
+    struct netgroups_file *nfile = NULL;   /* Netgroups file to search */
+    struct netgroup_entry *ngentry = NULL; /* Entry in the netgroups file */
+    struct export_dir *tmpdir = NULL;
 
-        ngsa  = (struct ng_auth_search *)data;
-        nfile = (struct netgroups_file *)ngsa->file;
+    ngsa = (struct ng_auth_search *)data;
+    nfile = (struct netgroups_file *)ngsa->file;
 
-        GF_ASSERT ((*key == '@'));
+    GF_ASSERT((*key == '@'));
 
-        /* We use ++key here because keys start with '@' for ngs */
-        ngentry = ng_file_get_netgroup (nfile, (key + 1));
-        if (!ngentry) {
-                gf_msg_debug (GF_MNT_AUTH, 0, "%s not found in %s",
-                              key, nfile->filename);
-                goto out;
-        }
+    /* We use ++key here because keys start with '@' for ngs */
+    ngentry = ng_file_get_netgroup(nfile, (key + 1));
+    if (!ngentry) {
+        gf_msg_debug(GF_MNT_AUTH, 0, "%s not found in %s", key,
+                     nfile->filename);
+        goto out;
+    }
 
-        tmpdir = exp_file_get_dir (ngsa->expfile, ngsa->expdir);
-        if (!tmpdir)
-                goto out;
+    tmpdir = exp_file_get_dir(ngsa->expfile, ngsa->expdir);
+    if (!tmpdir)
+        goto out;
 
-        ngsa->expitem = exp_dir_get_netgroup (tmpdir, key);
-        if (!ngsa->expitem)
-                goto out;
+    ngsa->expitem = exp_dir_get_netgroup(tmpdir, key);
+    if (!ngsa->expitem)
+        goto out;
 
-        /* Run through the host dict */
-        if (ngentry->netgroup_hosts) {
-                ngsa->_is_host_dict = _gf_true;
-                dict_foreach (ngentry->netgroup_hosts, __netgroup_dict_search,
-                              ngsa);
-        }
+    /* Run through the host dict */
+    if (ngentry->netgroup_hosts) {
+        ngsa->_is_host_dict = _gf_true;
+        dict_foreach(ngentry->netgroup_hosts, __netgroup_dict_search, ngsa);
+    }
 
-        /* If the above search was successful, just return */
-        if (ngsa->found)
-                goto out;
+    /* If the above search was successful, just return */
+    if (ngsa->found)
+        goto out;
 
-        /* Run through the netgroups dict */
-        if (ngentry->netgroup_ngs) {
-                ngsa->_is_host_dict = _gf_false;
-                dict_foreach (ngentry->netgroup_ngs, __netgroup_dict_search,
-                              ngsa);
-        }
+    /* Run through the netgroups dict */
+    if (ngentry->netgroup_ngs) {
+        ngsa->_is_host_dict = _gf_false;
+        dict_foreach(ngentry->netgroup_ngs, __netgroup_dict_search, ngsa);
+    }
 out:
-        return 0;
+    return 0;
 }
 
 /**
@@ -476,25 +476,26 @@ out:
  * @nfile : The netgroups file to set
  *
  */
-void _mnt3_auth_setup_search_params (struct ng_auth_search *params,
-                                     const char *host, const char *dir,
-                                     const struct netgroups_file *nfile,
-                                     const struct exports_file *expfile)
+void
+_mnt3_auth_setup_search_params(struct ng_auth_search *params, const char *host,
+                               const char *dir,
+                               const struct netgroups_file *nfile,
+                               const struct exports_file *expfile)
 {
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, params, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, host, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, nfile, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, params, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, host, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, nfile, out);
 
-        params->search_for = host;
-        params->found = _gf_false;
-        params->file = nfile;
-        params->_is_host_dict = _gf_false;
-        params->found_entry = NULL;
-        params->expitem = NULL;
-        params->expfile = expfile;
-        params->expdir = dir;
+    params->search_for = host;
+    params->found = _gf_false;
+    params->file = nfile;
+    params->_is_host_dict = _gf_false;
+    params->found_entry = NULL;
+    params->expitem = NULL;
+    params->expfile = expfile;
+    params->expdir = dir;
 out:
-        return;
+    return;
 }
 
 /**
@@ -521,43 +522,44 @@ out:
  * Not for external use.
  */
 static struct netgroup_entry *
-_mnt3_auth_check_host_in_netgroup (const struct mnt3_auth_params *auth_params,
-                                   struct nfs3_fh *fh, const char *host,
-                                   const char *dir, struct export_item **item)
+_mnt3_auth_check_host_in_netgroup(const struct mnt3_auth_params *auth_params,
+                                  struct nfs3_fh *fh, const char *host,
+                                  const char *dir, struct export_item **item)
 {
-        struct export_dir     *expdir      = NULL;
-        struct ng_auth_search  ngsa        = {0, };
-        struct netgroup_entry *found_entry = NULL;
-        struct exports_file   *efile       = auth_params->expfile;
-        struct netgroups_file *nfile       = auth_params->ngfile;
+    struct export_dir *expdir = NULL;
+    struct ng_auth_search ngsa = {
+        0,
+    };
+    struct netgroup_entry *found_entry = NULL;
+    struct exports_file *efile = auth_params->expfile;
+    struct netgroups_file *nfile = auth_params->ngfile;
 
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, nfile, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, efile, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, host, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, item, out);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, nfile, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, efile, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, host, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, item, out);
 
-        if (fh) {
-                expdir = exp_file_dir_from_uuid (efile, fh->mountid);
-                if (!expdir)
-                        goto out;
-        } else {
-                /* Get the exports directory */
-                expdir = exp_file_get_dir (efile, dir);
-                if (!expdir)
-                        goto out;
-        }
+    if (fh) {
+        expdir = exp_file_dir_from_uuid(efile, fh->mountid);
+        if (!expdir)
+            goto out;
+    } else {
+        /* Get the exports directory */
+        expdir = exp_file_get_dir(efile, dir);
+        if (!expdir)
+            goto out;
+    }
 
-        /* Setup search struct */
-        _mnt3_auth_setup_search_params (&ngsa, host, expdir->dir_name, nfile,
-                                        efile);
+    /* Setup search struct */
+    _mnt3_auth_setup_search_params(&ngsa, host, expdir->dir_name, nfile, efile);
 
-        /* Do the search */
-        dict_foreach (expdir->netgroups, __export_dir_lookup_netgroup, &ngsa);
-        found_entry = ngsa.found_entry;
-        *item = ngsa.expitem;
+    /* Do the search */
+    dict_foreach(expdir->netgroups, __export_dir_lookup_netgroup, &ngsa);
+    found_entry = ngsa.found_entry;
+    *item = ngsa.expitem;
 out:
-        return found_entry;
+    return found_entry;
 }
 
 /**
@@ -570,22 +572,22 @@ out:
  *
  */
 int
-check_rw_access (struct export_item *item)
+check_rw_access(struct export_item *item)
 {
-        struct export_options *opts   = NULL;
-        int                    ret    = -EROFS;
+    struct export_options *opts = NULL;
+    int ret = -EROFS;
 
-        if (!item)
-                goto out;
+    if (!item)
+        goto out;
 
-        opts = item->opts;
-        if (!opts)
-                goto out;
+    opts = item->opts;
+    if (!opts)
+        goto out;
 
-        if (opts->rw)
-                ret = 0;
+    if (opts->rw)
+        ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -609,36 +611,32 @@ out:
  *          -EROFS  for unauthorized write operations (rm, mkdir, write)  *
  */
 int
-mnt3_auth_host (const struct mnt3_auth_params *auth_params, const char *host,
-                struct nfs3_fh *fh, const char *dir, gf_boolean_t is_write_op,
-                struct export_item **save_item)
+mnt3_auth_host(const struct mnt3_auth_params *auth_params, const char *host,
+               struct nfs3_fh *fh, const char *dir, gf_boolean_t is_write_op,
+               struct export_item **save_item)
 {
-        int                  auth_status_code = -EACCES;
-        struct export_item  *item             = NULL;
+    int auth_status_code = -EACCES;
+    struct export_item *item = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, auth_params, out);
-        GF_VALIDATE_OR_GOTO (GF_MNT_AUTH, host, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, auth_params, out);
+    GF_VALIDATE_OR_GOTO(GF_MNT_AUTH, host, out);
 
-        /* Find the host in the exports file */
-        item = _mnt3_auth_check_host_in_export (auth_params->expfile, dir,
-                                                    host, fh);
-        if (item) {
-                auth_status_code = (is_write_op) ?
-                                   check_rw_access (item) : 0;
-                goto out;
-        }
+    /* Find the host in the exports file */
+    item = _mnt3_auth_check_host_in_export(auth_params->expfile, dir, host, fh);
+    if (item) {
+        auth_status_code = (is_write_op) ? check_rw_access(item) : 0;
+        goto out;
+    }
 
-        /* Find the host in the netgroups file for the exports directory */
-        if (_mnt3_auth_check_host_in_netgroup (auth_params, fh, host, dir,
-                                               &item)) {
-                auth_status_code = (is_write_op) ?
-                                   check_rw_access (item) : 0;
-                goto out;
-        }
+    /* Find the host in the netgroups file for the exports directory */
+    if (_mnt3_auth_check_host_in_netgroup(auth_params, fh, host, dir, &item)) {
+        auth_status_code = (is_write_op) ? check_rw_access(item) : 0;
+        goto out;
+    }
 
 out:
-        if (save_item)
-                *save_item = item;
+    if (save_item)
+        *save_item = item;
 
-        return auth_status_code;
+    return auth_status_code;
 }

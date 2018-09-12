@@ -23,3330 +23,3003 @@
 
 /* based on nfs_fix_aux_groups() */
 int
-gid_resolve (server_conf_t *conf, call_stack_t *root)
+gid_resolve(server_conf_t *conf, call_stack_t *root)
 {
-        int               ret = 0;
-        struct passwd     mypw;
-        char              mystrs[1024];
-        struct passwd    *result;
-        gid_t            *mygroups = NULL;
-        gid_list_t        gl;
-        int               ngroups;
-        const gid_list_t *agl;
+    int ret = 0;
+    struct passwd mypw;
+    char mystrs[1024];
+    struct passwd *result;
+    gid_t *mygroups = NULL;
+    gid_list_t gl;
+    int ngroups;
+    const gid_list_t *agl;
 
-        agl = gid_cache_lookup (&conf->gid_cache, root->uid, 0, 0);
-        if (agl) {
-                root->ngrps = agl->gl_count;
-
-                if (root->ngrps > 0) {
-                        ret = call_stack_alloc_groups (root, agl->gl_count);
-                        if (ret == 0) {
-                                memcpy (root->groups, agl->gl_list,
-                                        sizeof (gid_t) * agl->gl_count);
-                        }
-                }
-
-                gid_cache_release (&conf->gid_cache, agl);
-
-                return ret;
-        }
-
-        ret = getpwuid_r (root->uid, &mypw, mystrs, sizeof(mystrs), &result);
-        if (ret != 0) {
-                gf_msg ("gid-cache", GF_LOG_ERROR, errno,
-                        PS_MSG_GET_UID_FAILED, "getpwuid_r(%u) failed",
-                        root->uid);
-                return -1;
-        }
-
-        if (!result) {
-                gf_msg ("gid-cache", GF_LOG_ERROR, 0, PS_MSG_UID_NOT_FOUND,
-                        "getpwuid_r(%u) found nothing", root->uid);
-                return -1;
-        }
-
-        gf_msg_trace ("gid-cache", 0, "mapped %u => %s", root->uid,
-                      result->pw_name);
-
-        ngroups = gf_getgrouplist (result->pw_name, root->gid, &mygroups);
-        if (ngroups == -1) {
-                gf_msg ("gid-cache", GF_LOG_ERROR, 0, PS_MSG_MAPPING_ERROR,
-                        "could not map %s to group list (%d gids)",
-                        result->pw_name, root->ngrps);
-                return -1;
-        }
-        root->ngrps = (uint16_t) ngroups;
-
-        /* setup a full gid_list_t to add it to the gid_cache */
-        gl.gl_id = root->uid;
-        gl.gl_uid = root->uid;
-        gl.gl_gid = root->gid;
-        gl.gl_count = root->ngrps;
-
-        gl.gl_list = GF_MALLOC (root->ngrps * sizeof(gid_t),
-                                gf_common_mt_groups_t);
-        if (gl.gl_list)
-                memcpy (gl.gl_list, mygroups,
-                        sizeof(gid_t) * root->ngrps);
-        else {
-                GF_FREE (mygroups);
-                return -1;
-        }
+    agl = gid_cache_lookup(&conf->gid_cache, root->uid, 0, 0);
+    if (agl) {
+        root->ngrps = agl->gl_count;
 
         if (root->ngrps > 0) {
-                call_stack_set_groups (root, root->ngrps, &mygroups);
+            ret = call_stack_alloc_groups(root, agl->gl_count);
+            if (ret == 0) {
+                memcpy(root->groups, agl->gl_list,
+                       sizeof(gid_t) * agl->gl_count);
+            }
         }
 
-        if (gid_cache_add (&conf->gid_cache, &gl) != 1)
-                GF_FREE (gl.gl_list);
+        gid_cache_release(&conf->gid_cache, agl);
 
         return ret;
-}
+    }
 
-int
-server_resolve_groups (call_frame_t *frame, rpcsvc_request_t *req)
-{
-        xlator_t      *this = NULL;
-        server_conf_t *conf = NULL;
-
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
-        GF_VALIDATE_OR_GOTO ("server", req, out);
-
-        this = req->trans->xl;
-        conf = this->private;
-
-        return gid_resolve (conf, frame->root);
-out:
+    ret = getpwuid_r(root->uid, &mypw, mystrs, sizeof(mystrs), &result);
+    if (ret != 0) {
+        gf_msg("gid-cache", GF_LOG_ERROR, errno, PS_MSG_GET_UID_FAILED,
+               "getpwuid_r(%u) failed", root->uid);
         return -1;
+    }
+
+    if (!result) {
+        gf_msg("gid-cache", GF_LOG_ERROR, 0, PS_MSG_UID_NOT_FOUND,
+               "getpwuid_r(%u) found nothing", root->uid);
+        return -1;
+    }
+
+    gf_msg_trace("gid-cache", 0, "mapped %u => %s", root->uid, result->pw_name);
+
+    ngroups = gf_getgrouplist(result->pw_name, root->gid, &mygroups);
+    if (ngroups == -1) {
+        gf_msg("gid-cache", GF_LOG_ERROR, 0, PS_MSG_MAPPING_ERROR,
+               "could not map %s to group list (%d gids)", result->pw_name,
+               root->ngrps);
+        return -1;
+    }
+    root->ngrps = (uint16_t)ngroups;
+
+    /* setup a full gid_list_t to add it to the gid_cache */
+    gl.gl_id = root->uid;
+    gl.gl_uid = root->uid;
+    gl.gl_gid = root->gid;
+    gl.gl_count = root->ngrps;
+
+    gl.gl_list = GF_MALLOC(root->ngrps * sizeof(gid_t), gf_common_mt_groups_t);
+    if (gl.gl_list)
+        memcpy(gl.gl_list, mygroups, sizeof(gid_t) * root->ngrps);
+    else {
+        GF_FREE(mygroups);
+        return -1;
+    }
+
+    if (root->ngrps > 0) {
+        call_stack_set_groups(root, root->ngrps, &mygroups);
+    }
+
+    if (gid_cache_add(&conf->gid_cache, &gl) != 1)
+        GF_FREE(gl.gl_list);
+
+    return ret;
 }
 
 int
-server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
+server_resolve_groups(call_frame_t *frame, rpcsvc_request_t *req)
 {
-        int     i = 0;
+    xlator_t *this = NULL;
+    server_conf_t *conf = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
-        GF_VALIDATE_OR_GOTO ("server", req, out);
+    GF_VALIDATE_OR_GOTO("server", frame, out);
+    GF_VALIDATE_OR_GOTO("server", req, out);
 
-        if (call_stack_alloc_groups (frame->root, req->auxgidcount) != 0)
-                return -1;
+    this = req->trans->xl;
+    conf = this->private;
 
-        frame->root->ngrps = req->auxgidcount;
-        if (frame->root->ngrps == 0)
-                return 0;
-
-	/* ngrps cannot be bigger than USHRT_MAX(65535) */
-        if (frame->root->ngrps > GF_MAX_AUX_GROUPS)
-                return -1;
-
-        for (; i < frame->root->ngrps; ++i)
-                frame->root->groups[i] = req->auxgids[i];
+    return gid_resolve(conf, frame->root);
 out:
+    return -1;
+}
+
+int
+server_decode_groups(call_frame_t *frame, rpcsvc_request_t *req)
+{
+    int i = 0;
+
+    GF_VALIDATE_OR_GOTO("server", frame, out);
+    GF_VALIDATE_OR_GOTO("server", req, out);
+
+    if (call_stack_alloc_groups(frame->root, req->auxgidcount) != 0)
+        return -1;
+
+    frame->root->ngrps = req->auxgidcount;
+    if (frame->root->ngrps == 0)
         return 0;
-}
 
+    /* ngrps cannot be bigger than USHRT_MAX(65535) */
+    if (frame->root->ngrps > GF_MAX_AUX_GROUPS)
+        return -1;
+
+    for (; i < frame->root->ngrps; ++i)
+        frame->root->groups[i] = req->auxgids[i];
+out:
+    return 0;
+}
 
 void
-server_loc_wipe (loc_t *loc)
+server_loc_wipe(loc_t *loc)
 {
-        if (loc->parent) {
-                inode_unref (loc->parent);
-                loc->parent = NULL;
-        }
+    if (loc->parent) {
+        inode_unref(loc->parent);
+        loc->parent = NULL;
+    }
 
-        if (loc->inode) {
-                inode_unref (loc->inode);
-                loc->inode = NULL;
-        }
+    if (loc->inode) {
+        inode_unref(loc->inode);
+        loc->inode = NULL;
+    }
 
-        GF_FREE ((void *)loc->path);
+    GF_FREE((void *)loc->path);
 }
-
 
 void
-server_resolve_wipe (server_resolve_t *resolve)
+server_resolve_wipe(server_resolve_t *resolve)
 {
-        GF_FREE ((void *)resolve->path);
+    GF_FREE((void *)resolve->path);
 
-        GF_FREE ((void *)resolve->bname);
+    GF_FREE((void *)resolve->bname);
 
-        loc_wipe (&resolve->resolve_loc);
+    loc_wipe(&resolve->resolve_loc);
 }
-
 
 void
-free_state (server_state_t *state)
+free_state(server_state_t *state)
 {
-        if (state->fd) {
-                fd_unref (state->fd);
-                state->fd = NULL;
-        }
+    if (state->fd) {
+        fd_unref(state->fd);
+        state->fd = NULL;
+    }
 
-        if (state->params) {
-                dict_unref (state->params);
-                state->params = NULL;
-        }
+    if (state->params) {
+        dict_unref(state->params);
+        state->params = NULL;
+    }
 
-        if (state->iobref) {
-                iobref_unref (state->iobref);
-                state->iobref = NULL;
-        }
+    if (state->iobref) {
+        iobref_unref(state->iobref);
+        state->iobref = NULL;
+    }
 
-        if (state->iobuf) {
-                iobuf_unref (state->iobuf);
-                state->iobuf = NULL;
-        }
+    if (state->iobuf) {
+        iobuf_unref(state->iobuf);
+        state->iobuf = NULL;
+    }
 
-        if (state->dict) {
-                dict_unref (state->dict);
-                state->dict = NULL;
-        }
+    if (state->dict) {
+        dict_unref(state->dict);
+        state->dict = NULL;
+    }
 
-        if (state->xdata) {
-                dict_unref (state->xdata);
-                state->xdata = NULL;
-        }
+    if (state->xdata) {
+        dict_unref(state->xdata);
+        state->xdata = NULL;
+    }
 
-        GF_FREE ((void *)state->volume);
+    GF_FREE((void *)state->volume);
 
-        GF_FREE ((void *)state->name);
+    GF_FREE((void *)state->name);
 
-        server_loc_wipe (&state->loc);
-        server_loc_wipe (&state->loc2);
+    server_loc_wipe(&state->loc);
+    server_loc_wipe(&state->loc2);
 
-        server_resolve_wipe (&state->resolve);
-        server_resolve_wipe (&state->resolve2);
+    server_resolve_wipe(&state->resolve);
+    server_resolve_wipe(&state->resolve2);
 
-        compound_args_cleanup (state->args);
+    compound_args_cleanup(state->args);
 
-        /* Call rpc_trnasport_unref to avoid crashes at last after free
-           all resources because of server_rpc_notify (for transport destroy)
-           call's xlator_mem_cleanup if all xprt are destroyed that internally
-           call's inode_table_destroy.
-        */
-        if (state->xprt) {
-                rpc_transport_unref (state->xprt);
-                state->xprt = NULL;
-        }
+    /* Call rpc_trnasport_unref to avoid crashes at last after free
+       all resources because of server_rpc_notify (for transport destroy)
+       call's xlator_mem_cleanup if all xprt are destroyed that internally
+       call's inode_table_destroy.
+    */
+    if (state->xprt) {
+        rpc_transport_unref(state->xprt);
+        state->xprt = NULL;
+    }
 
-
-        GF_FREE (state);
+    GF_FREE(state);
 }
-
 
 static int
-server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
-                                     xlator_t *this, int32_t op_ret,
-                                     int32_t op_errno, dict_t *xdata)
+server_connection_cleanup_flush_cbk(call_frame_t *frame, void *cookie,
+                                    xlator_t *this, int32_t op_ret,
+                                    int32_t op_errno, dict_t *xdata)
 {
-        int32_t    ret    = -1;
-        fd_t      *fd     = NULL;
-        client_t  *client = NULL;
+    int32_t ret = -1;
+    fd_t *fd = NULL;
+    client_t *client = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
+    GF_VALIDATE_OR_GOTO("server", this, out);
+    GF_VALIDATE_OR_GOTO("server", frame, out);
 
-        fd = frame->local;
-        client = frame->root->client;
+    fd = frame->local;
+    client = frame->root->client;
 
-        fd_unref (fd);
-        frame->local = NULL;
+    fd_unref(fd);
+    frame->local = NULL;
 
-        gf_client_unref (client);
-        STACK_DESTROY (frame->root);
+    gf_client_unref(client);
+    STACK_DESTROY(frame->root);
 
-        ret = 0;
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
-
 
 static int
-do_fd_cleanup (xlator_t *this, client_t* client, fdentry_t *fdentries, int fd_count)
+do_fd_cleanup(xlator_t *this, client_t *client, fdentry_t *fdentries,
+              int fd_count)
 {
-        fd_t               *fd = NULL;
-        int                 i = 0, ret = -1;
-        call_frame_t       *tmp_frame = NULL;
-        xlator_t           *bound_xl = NULL;
-        char               *path     = NULL;
+    fd_t *fd = NULL;
+    int i = 0, ret = -1;
+    call_frame_t *tmp_frame = NULL;
+    xlator_t *bound_xl = NULL;
+    char *path = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", fdentries, out);
+    GF_VALIDATE_OR_GOTO("server", this, out);
+    GF_VALIDATE_OR_GOTO("server", fdentries, out);
 
-        bound_xl = client->bound_xl;
-        for (i = 0;i < fd_count; i++) {
-                fd = fdentries[i].fd;
+    bound_xl = client->bound_xl;
+    for (i = 0; i < fd_count; i++) {
+        fd = fdentries[i].fd;
 
-                if (fd != NULL) {
-                        tmp_frame = create_frame (this, this->ctx->pool);
-                        if (tmp_frame == NULL) {
-                                goto out;
-                        }
+        if (fd != NULL) {
+            tmp_frame = create_frame(this, this->ctx->pool);
+            if (tmp_frame == NULL) {
+                goto out;
+            }
 
-                        GF_ASSERT (fd->inode);
+            GF_ASSERT(fd->inode);
 
-                        ret = inode_path (fd->inode, NULL, &path);
+            ret = inode_path(fd->inode, NULL, &path);
 
-                        if (ret > 0) {
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        PS_MSG_FD_CLEANUP,
-                                        "fd cleanup on %s", path);
-                                GF_FREE (path);
-                        }  else {
+            if (ret > 0) {
+                gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FD_CLEANUP,
+                       "fd cleanup on %s", path);
+                GF_FREE(path);
+            } else {
+                gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FD_CLEANUP,
+                       "fd cleanup on inode with gfid %s",
+                       uuid_utoa(fd->inode->gfid));
+            }
 
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        PS_MSG_FD_CLEANUP,
-                                        "fd cleanup on inode with gfid %s",
-                                        uuid_utoa (fd->inode->gfid));
-                        }
+            tmp_frame->local = fd;
+            tmp_frame->root->pid = 0;
+            gf_client_ref(client);
+            tmp_frame->root->client = client;
+            memset(&tmp_frame->root->lk_owner, 0, sizeof(gf_lkowner_t));
 
-                        tmp_frame->local = fd;
-                        tmp_frame->root->pid = 0;
-                        gf_client_ref (client);
-                        tmp_frame->root->client = client;
-                        memset (&tmp_frame->root->lk_owner, 0,
-                                sizeof (gf_lkowner_t));
-
-                        STACK_WIND (tmp_frame,
-                                    server_connection_cleanup_flush_cbk,
-                                    bound_xl, bound_xl->fops->flush, fd, NULL);
-                }
+            STACK_WIND(tmp_frame, server_connection_cleanup_flush_cbk, bound_xl,
+                       bound_xl->fops->flush, fd, NULL);
         }
+    }
 
-        GF_FREE (fdentries);
-        ret = 0;
+    GF_FREE(fdentries);
+    ret = 0;
 
 out:
-        return ret;
+    return ret;
 }
-
 
 int
-server_connection_cleanup (xlator_t *this, client_t *client,
-                           int32_t flags)
+server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags)
 {
-        server_ctx_t        *serv_ctx  = NULL;
-        fdentry_t           *fdentries = NULL;
-        uint32_t             fd_count  = 0;
-        int                  cd_ret    = 0;
-        int                  ret       = 0;
+    server_ctx_t *serv_ctx = NULL;
+    fdentry_t *fdentries = NULL;
+    uint32_t fd_count = 0;
+    int cd_ret = 0;
+    int ret = 0;
 
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, client, out);
-        GF_VALIDATE_OR_GOTO (this->name, flags, out);
+    GF_VALIDATE_OR_GOTO("server", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, client, out);
+    GF_VALIDATE_OR_GOTO(this->name, flags, out);
 
-        serv_ctx = server_ctx_get (client, client->this);
+    serv_ctx = server_ctx_get(client, client->this);
 
-        if (serv_ctx == NULL) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
-                        "failed");
-                goto out;
-        }
+    if (serv_ctx == NULL) {
+        gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED,
+               "server_ctx_get() "
+               "failed");
+        goto out;
+    }
 
-        LOCK (&serv_ctx->fdtable_lock);
-        {
-                if (serv_ctx->fdtable && (flags & POSIX_LOCKS))
-                        fdentries = gf_fd_fdtable_get_all_fds (serv_ctx->fdtable,
-                                                               &fd_count);
-        }
-        UNLOCK (&serv_ctx->fdtable_lock);
+    LOCK(&serv_ctx->fdtable_lock);
+    {
+        if (serv_ctx->fdtable && (flags & POSIX_LOCKS))
+            fdentries = gf_fd_fdtable_get_all_fds(serv_ctx->fdtable, &fd_count);
+    }
+    UNLOCK(&serv_ctx->fdtable_lock);
 
-        if (client->bound_xl == NULL)
-                goto out;
+    if (client->bound_xl == NULL)
+        goto out;
 
-        if (flags & INTERNAL_LOCKS) {
-                cd_ret = gf_client_disconnect (client);
-        }
+    if (flags & INTERNAL_LOCKS) {
+        cd_ret = gf_client_disconnect(client);
+    }
 
-        if (fdentries != NULL) {
-                gf_msg_debug (this->name, 0, "Performing cleanup on %d "
-                              "fdentries", fd_count);
-                ret = do_fd_cleanup (this, client, fdentries, fd_count);
-        }
-        else
-                gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL,
-                        "no fdentries to clean");
+    if (fdentries != NULL) {
+        gf_msg_debug(this->name, 0,
+                     "Performing cleanup on %d "
+                     "fdentries",
+                     fd_count);
+        ret = do_fd_cleanup(this, client, fdentries, fd_count);
+    } else
+        gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL,
+               "no fdentries to clean");
 
-        if (cd_ret || ret)
-                ret = -1;
+    if (cd_ret || ret)
+        ret = -1;
 
 out:
-        return ret;
+    return ret;
 }
-
 
 static call_frame_t *
-server_alloc_frame (rpcsvc_request_t *req)
+server_alloc_frame(rpcsvc_request_t *req)
 {
-        call_frame_t    *frame  = NULL;
-        server_state_t  *state  = NULL;
-        client_t        *client = NULL;
+    call_frame_t *frame = NULL;
+    server_state_t *state = NULL;
+    client_t *client = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", req, out);
-        GF_VALIDATE_OR_GOTO ("server", req->trans, out);
-        GF_VALIDATE_OR_GOTO ("server", req->svc, out);
-        GF_VALIDATE_OR_GOTO ("server", req->svc->ctx, out);
+    GF_VALIDATE_OR_GOTO("server", req, out);
+    GF_VALIDATE_OR_GOTO("server", req->trans, out);
+    GF_VALIDATE_OR_GOTO("server", req->svc, out);
+    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
 
-        client = req->trans->xl_private;
-        GF_VALIDATE_OR_GOTO ("server", client, out);
+    client = req->trans->xl_private;
+    GF_VALIDATE_OR_GOTO("server", client, out);
 
-        frame = create_frame (client->this, req->svc->ctx->pool);
-        if (!frame)
-                goto out;
+    frame = create_frame(client->this, req->svc->ctx->pool);
+    if (!frame)
+        goto out;
 
-        state = GF_CALLOC (1, sizeof (*state), gf_server_mt_state_t);
-        if (!state)
-                goto out;
+    state = GF_CALLOC(1, sizeof(*state), gf_server_mt_state_t);
+    if (!state)
+        goto out;
 
-        if (client->bound_xl)
-                state->itable = client->bound_xl->itable;
+    if (client->bound_xl)
+        state->itable = client->bound_xl->itable;
 
-        state->xprt  = rpc_transport_ref (req->trans);
-        state->resolve.fd_no = -1;
-        state->resolve2.fd_no = -1;
+    state->xprt = rpc_transport_ref(req->trans);
+    state->resolve.fd_no = -1;
+    state->resolve2.fd_no = -1;
 
-        frame->root->client  = client;
-        frame->root->state = state;        /* which socket */
-        frame->root->unique = 0;           /* which call */
+    frame->root->client = client;
+    frame->root->state = state; /* which socket */
+    frame->root->unique = 0;    /* which call */
 
-        frame->this = client->this;
+    frame->this = client->this;
 out:
-        return frame;
+    return frame;
 }
-
 
 call_frame_t *
-get_frame_from_request (rpcsvc_request_t *req)
+get_frame_from_request(rpcsvc_request_t *req)
 {
-        call_frame_t  *frame = NULL;
-        client_t      *client = NULL;
-        client_t      *tmp_client = NULL;
-        xlator_t  *this = NULL;
-        server_conf_t *priv = NULL;
-        clienttable_t *clienttable = NULL;
-        unsigned int   i           = 0;
-        rpc_transport_t *trans = NULL;
-        server_state_t  *state = NULL;
+    call_frame_t *frame = NULL;
+    client_t *client = NULL;
+    client_t *tmp_client = NULL;
+    xlator_t *this = NULL;
+    server_conf_t *priv = NULL;
+    clienttable_t *clienttable = NULL;
+    unsigned int i = 0;
+    rpc_transport_t *trans = NULL;
+    server_state_t *state = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", req, out);
+    GF_VALIDATE_OR_GOTO("server", req, out);
 
-        client = req->trans->xl_private;
+    client = req->trans->xl_private;
 
-        frame = server_alloc_frame (req);
-        if (!frame)
-                goto out;
+    frame = server_alloc_frame(req);
+    if (!frame)
+        goto out;
 
-        frame->root->op       = req->procnum;
+    frame->root->op = req->procnum;
 
-        frame->root->unique   = req->xid;
+    frame->root->unique = req->xid;
 
-        client = req->trans->xl_private;
-        this = req->trans->xl;
-        priv = this->private;
-        clienttable = this->ctx->clienttable;
+    client = req->trans->xl_private;
+    this = req->trans->xl;
+    priv = this->private;
+    clienttable = this->ctx->clienttable;
 
-        for (i = 0; i < clienttable->max_clients; i++) {
-                tmp_client = clienttable->cliententries[i].client;
-                if (client == tmp_client) {
-                        /* for non trusted clients username and password
-                           would not have been set. So for non trusted clients
-                           (i.e clients not from the same machine as the brick,
-                           and clients from outside the storage pool)
-                           do the root-squashing.
-                           TODO: If any client within the storage pool (i.e
-                           mounting within a machine from the pool but using
-                           other machine's ip/hostname from the same pool)
-                           is present treat it as a trusted client
-                        */
-                        if (!client->auth.username && req->pid != NFS_PID)
-                                RPC_AUTH_ROOT_SQUASH (req);
+    for (i = 0; i < clienttable->max_clients; i++) {
+        tmp_client = clienttable->cliententries[i].client;
+        if (client == tmp_client) {
+            /* for non trusted clients username and password
+               would not have been set. So for non trusted clients
+               (i.e clients not from the same machine as the brick,
+               and clients from outside the storage pool)
+               do the root-squashing.
+               TODO: If any client within the storage pool (i.e
+               mounting within a machine from the pool but using
+               other machine's ip/hostname from the same pool)
+               is present treat it as a trusted client
+            */
+            if (!client->auth.username && req->pid != NFS_PID)
+                RPC_AUTH_ROOT_SQUASH(req);
 
-                        /* Problem: If we just check whether the client is
-                           trusted client and do not do root squashing for
-                           them, then for smb clients and UFO clients root
-                           squashing will never happen as they use the fuse
-                           mounts done within the trusted pool (i.e they are
-                           trusted clients).
-                           Solution: To fix it, do root squashing for trusted
-                           clients also. If one wants to have a client within
-                           the storage pool for which root-squashing does not
-                           happen, then the client has to be mounted with
-                           --no-root-squash option. But for defrag client and
-                           gsyncd client do not do root-squashing.
-                        */
-                        if (client->auth.username &&
-                            req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
-                            req->pid != GF_CLIENT_PID_GSYNCD &&
-                            req->pid != GF_CLIENT_PID_DEFRAG &&
-                            req->pid != GF_CLIENT_PID_SELF_HEALD &&
-                            req->pid != GF_CLIENT_PID_QUOTA_MOUNT)
-                                RPC_AUTH_ROOT_SQUASH (req);
+            /* Problem: If we just check whether the client is
+               trusted client and do not do root squashing for
+               them, then for smb clients and UFO clients root
+               squashing will never happen as they use the fuse
+               mounts done within the trusted pool (i.e they are
+               trusted clients).
+               Solution: To fix it, do root squashing for trusted
+               clients also. If one wants to have a client within
+               the storage pool for which root-squashing does not
+               happen, then the client has to be mounted with
+               --no-root-squash option. But for defrag client and
+               gsyncd client do not do root-squashing.
+            */
+            if (client->auth.username &&
+                req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
+                req->pid != GF_CLIENT_PID_GSYNCD &&
+                req->pid != GF_CLIENT_PID_DEFRAG &&
+                req->pid != GF_CLIENT_PID_SELF_HEALD &&
+                req->pid != GF_CLIENT_PID_QUOTA_MOUNT)
+                RPC_AUTH_ROOT_SQUASH(req);
 
-                        /* For nfs clients the server processes will be running
-                           within the trusted storage pool machines. So if we
-                           do not do root-squashing for nfs servers, thinking
-                           that its a trusted client, then root-squashing won't
-                           work for nfs clients.
-                        */
-                        if (req->pid == NFS_PID)
-                                RPC_AUTH_ROOT_SQUASH (req);
-                }
+            /* For nfs clients the server processes will be running
+               within the trusted storage pool machines. So if we
+               do not do root-squashing for nfs servers, thinking
+               that its a trusted client, then root-squashing won't
+               work for nfs clients.
+            */
+            if (req->pid == NFS_PID)
+                RPC_AUTH_ROOT_SQUASH(req);
         }
+    }
 
-        /* Add a ref for this fop */
-        if (client)
-                gf_client_ref (client);
+    /* Add a ref for this fop */
+    if (client)
+        gf_client_ref(client);
 
-        frame->root->uid      = req->uid;
-        frame->root->gid      = req->gid;
-        frame->root->pid      = req->pid;
-        frame->root->client   = client;
-        frame->root->lk_owner = req->lk_owner;
+    frame->root->uid = req->uid;
+    frame->root->gid = req->gid;
+    frame->root->pid = req->pid;
+    frame->root->client = client;
+    frame->root->lk_owner = req->lk_owner;
 
-        if (priv->server_manage_gids)
-            server_resolve_groups (frame, req);
-        else
-            server_decode_groups (frame, req);
-        trans = req->trans;
-        if (trans) {
-                memcpy (&frame->root->identifier, trans->peerinfo.identifier,
-                        sizeof (trans->peerinfo.identifier));
-        }
+    if (priv->server_manage_gids)
+        server_resolve_groups(frame, req);
+    else
+        server_decode_groups(frame, req);
+    trans = req->trans;
+    if (trans) {
+        memcpy(&frame->root->identifier, trans->peerinfo.identifier,
+               sizeof(trans->peerinfo.identifier));
+    }
 
-        /* more fields, for the clients which are 3.x series this will be 0 */
-        frame->root->flags = req->flags;
-        frame->root->ctime = req->ctime;
+    /* more fields, for the clients which are 3.x series this will be 0 */
+    frame->root->flags = req->flags;
+    frame->root->ctime = req->ctime;
 
-        frame->local = req;
+    frame->local = req;
 
-        state = CALL_STATE (frame);
-        state->client = client;
+    state = CALL_STATE(frame);
+    state->client = client;
 out:
-        return frame;
+    return frame;
 }
-
 
 int
-server_build_config (xlator_t *this, server_conf_t *conf)
+server_build_config(xlator_t *this, server_conf_t *conf)
 {
-        data_t     *data = NULL;
-        int         ret = -1;
-        struct stat buf = {0,};
+    data_t *data = NULL;
+    int ret = -1;
+    struct stat buf = {
+        0,
+    };
 
-        GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", conf, out);
+    GF_VALIDATE_OR_GOTO("server", this, out);
+    GF_VALIDATE_OR_GOTO("server", conf, out);
 
-        ret = dict_get_int32 (this->options, "inode-lru-limit",
-                              &conf->inode_lru_limit);
-        if (ret < 0) {
-                conf->inode_lru_limit = 16384;
+    ret = dict_get_int32(this->options, "inode-lru-limit",
+                         &conf->inode_lru_limit);
+    if (ret < 0) {
+        conf->inode_lru_limit = 16384;
+    }
+
+    conf->verify_volfile = 1;
+    data = dict_get(this->options, "verify-volfile-checksum");
+    if (data) {
+        ret = gf_string2boolean(data->data, &conf->verify_volfile);
+        if (ret != 0) {
+            gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
+                   "wrong value for '"
+                   "verify-volfile-checksum', Neglecting option");
+        }
+    }
+
+    data = dict_get(this->options, "trace");
+    if (data) {
+        ret = gf_string2boolean(data->data, &conf->trace);
+        if (ret != 0) {
+            gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
+                   "'trace' takes on only "
+                   "boolean values. Neglecting option");
+        }
+    }
+
+    /* TODO: build_rpc_config (); */
+    ret = dict_get_int32(this->options, "limits.transaction-size",
+                         &conf->rpc_conf.max_block_size);
+    if (ret < 0) {
+        gf_msg_trace(this->name, 0,
+                     "defaulting limits.transaction-"
+                     "size to %d",
+                     DEFAULT_BLOCK_SIZE);
+        conf->rpc_conf.max_block_size = DEFAULT_BLOCK_SIZE;
+    }
+
+    data = dict_get(this->options, "config-directory");
+    if (data) {
+        /* Check whether the specified directory exists,
+           or directory specified is non standard */
+        ret = sys_stat(data->data, &buf);
+        if ((ret != 0) || !S_ISDIR(buf.st_mode)) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_DIR_NOT_FOUND,
+                   "Directory '%s' doesn't "
+                   "exist, exiting.",
+                   data->data);
+            ret = -1;
+            goto out;
+        }
+        /* Make sure that conf-dir doesn't contain ".." in path */
+        if ((gf_strstr(data->data, "/", "..")) == -1) {
+            ret = -1;
+            gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_CONF_DIR_INVALID,
+                   "%s: invalid conf_dir", data->data);
+            goto out;
         }
 
-        conf->verify_volfile = 1;
-        data = dict_get (this->options, "verify-volfile-checksum");
-        if (data) {
-                ret = gf_string2boolean(data->data, &conf->verify_volfile);
-                if (ret != 0) {
-                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
-                                PS_MSG_INVALID_ENTRY, "wrong value for '"
-                                "verify-volfile-checksum', Neglecting option");
-                }
-        }
-
-        data = dict_get (this->options, "trace");
-        if (data) {
-                ret = gf_string2boolean (data->data, &conf->trace);
-                if (ret != 0) {
-                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
-                                PS_MSG_INVALID_ENTRY, "'trace' takes on only "
-                                "boolean values. Neglecting option");
-                }
-        }
-
-        /* TODO: build_rpc_config (); */
-        ret = dict_get_int32 (this->options, "limits.transaction-size",
-                              &conf->rpc_conf.max_block_size);
-        if (ret < 0) {
-                gf_msg_trace (this->name, 0, "defaulting limits.transaction-"
-                              "size to %d", DEFAULT_BLOCK_SIZE);
-                conf->rpc_conf.max_block_size = DEFAULT_BLOCK_SIZE;
-        }
-
-        data = dict_get (this->options, "config-directory");
-        if (data) {
-                /* Check whether the specified directory exists,
-                   or directory specified is non standard */
-                ret = sys_stat (data->data, &buf);
-                if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                PS_MSG_DIR_NOT_FOUND, "Directory '%s' doesn't "
-                                "exist, exiting.", data->data);
-                        ret = -1;
-                        goto out;
-                }
-                /* Make sure that conf-dir doesn't contain ".." in path */
-                if ((gf_strstr (data->data, "/", "..")) == -1) {
-                        ret = -1;
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                PS_MSG_CONF_DIR_INVALID,
-                                "%s: invalid conf_dir", data->data);
-                        goto out;
-                }
-
-                conf->conf_dir = gf_strdup (data->data);
-        }
-        ret = 0;
+        conf->conf_dir = gf_strdup(data->data);
+    }
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
-
 void
-print_caller (char *str, int size, call_frame_t *frame)
+print_caller(char *str, int size, call_frame_t *frame)
 {
-        server_state_t  *state = NULL;
+    server_state_t *state = NULL;
 
-        GF_VALIDATE_OR_GOTO ("server", str, out);
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
+    GF_VALIDATE_OR_GOTO("server", str, out);
+    GF_VALIDATE_OR_GOTO("server", frame, out);
 
-        state = CALL_STATE (frame);
+    state = CALL_STATE(frame);
 
-        snprintf (str, size,
-                  " Callid=%"PRId64", Client=%s",
-                  frame->root->unique,
-                  state->xprt->peerinfo.identifier);
+    snprintf(str, size, " Callid=%" PRId64 ", Client=%s", frame->root->unique,
+             state->xprt->peerinfo.identifier);
 
 out:
+    return;
+}
+
+void
+server_print_resolve(char *str, int size, server_resolve_t *resolve)
+{
+    int filled = 0;
+
+    GF_VALIDATE_OR_GOTO("server", str, out);
+
+    if (!resolve) {
+        snprintf(str, size, "<nul>");
         return;
-}
+    }
 
+    filled += snprintf(str + filled, size - filled, " Resolve={");
+    if (resolve->fd_no != -1)
+        filled += snprintf(str + filled, size - filled, "fd=%" PRId64 ",",
+                           (uint64_t)resolve->fd_no);
+    if (resolve->bname)
+        filled += snprintf(str + filled, size - filled, "bname=%s,",
+                           resolve->bname);
+    if (resolve->path)
+        filled += snprintf(str + filled, size - filled, "path=%s",
+                           resolve->path);
 
-void
-server_print_resolve (char *str, int size, server_resolve_t *resolve)
-{
-        int filled = 0;
-
-        GF_VALIDATE_OR_GOTO ("server", str, out);
-
-        if (!resolve) {
-                snprintf (str, size, "<nul>");
-                return;
-        }
-
-        filled += snprintf (str + filled, size - filled,
-                            " Resolve={");
-        if (resolve->fd_no != -1)
-                filled += snprintf (str + filled, size - filled,
-                                    "fd=%"PRId64",", (uint64_t) resolve->fd_no);
-        if (resolve->bname)
-                filled += snprintf (str + filled, size - filled,
-                                    "bname=%s,", resolve->bname);
-        if (resolve->path)
-                filled += snprintf (str + filled, size - filled,
-                                    "path=%s", resolve->path);
-
-        snprintf (str + filled, size - filled, "}");
+    snprintf(str + filled, size - filled, "}");
 out:
-        return;
+    return;
 }
 
-
 void
-server_print_loc (char *str, int size, loc_t *loc)
+server_print_loc(char *str, int size, loc_t *loc)
 {
-        int filled = 0;
+    int filled = 0;
 
-        GF_VALIDATE_OR_GOTO ("server", str, out);
+    GF_VALIDATE_OR_GOTO("server", str, out);
 
-        if (!loc) {
-                snprintf (str, size, "<nul>");
-                return;
-        }
+    if (!loc) {
+        snprintf(str, size, "<nul>");
+        return;
+    }
 
-        filled += snprintf (str + filled, size - filled,
-                            " Loc={");
+    filled += snprintf(str + filled, size - filled, " Loc={");
 
-        if (loc->path)
-                filled += snprintf (str + filled, size - filled,
-                                    "path=%s,", loc->path);
-        if (loc->inode)
-                filled += snprintf (str + filled, size - filled,
-                                    "inode=%p,", loc->inode);
-        if (loc->parent)
-                filled += snprintf (str + filled, size - filled,
-                                    "parent=%p", loc->parent);
+    if (loc->path)
+        filled += snprintf(str + filled, size - filled, "path=%s,", loc->path);
+    if (loc->inode)
+        filled += snprintf(str + filled, size - filled, "inode=%p,",
+                           loc->inode);
+    if (loc->parent)
+        filled += snprintf(str + filled, size - filled, "parent=%p",
+                           loc->parent);
 
-        snprintf (str + filled, size - filled, "}");
+    snprintf(str + filled, size - filled, "}");
 out:
-        return;
+    return;
 }
 
-
 void
-server_print_params (char *str, int size, server_state_t *state)
+server_print_params(char *str, int size, server_state_t *state)
 {
-        int filled = 0;
+    int filled = 0;
 
-        GF_VALIDATE_OR_GOTO ("server", str, out);
+    GF_VALIDATE_OR_GOTO("server", str, out);
 
-        filled += snprintf (str + filled, size - filled,
-                            " Params={");
+    filled += snprintf(str + filled, size - filled, " Params={");
 
-        if (state->fd)
-                filled += snprintf (str + filled, size - filled,
-                                    "fd=%p,", state->fd);
-        if (state->valid)
-                filled += snprintf (str + filled, size - filled,
-                                    "valid=%d,", state->valid);
-        if (state->flags)
-                filled += snprintf (str + filled, size - filled,
-                                    "flags=%d,", state->flags);
-        if (state->wbflags)
-                filled += snprintf (str + filled, size - filled,
-                                    "wbflags=%d,", state->wbflags);
-        if (state->size)
-                filled += snprintf (str + filled, size - filled,
-                                    "size=%zu,", state->size);
-        if (state->offset)
-                filled += snprintf (str + filled, size - filled,
-                                    "offset=%"PRId64",", state->offset);
-        if (state->cmd)
-                filled += snprintf (str + filled, size - filled,
-                                    "cmd=%d,", state->cmd);
-        if (state->type)
-                filled += snprintf (str + filled, size - filled,
-                                    "type=%d,", state->type);
-        if (state->name)
-                filled += snprintf (str + filled, size - filled,
-                                    "name=%s,", state->name);
-        if (state->mask)
-                filled += snprintf (str + filled, size - filled,
-                                    "mask=%d,", state->mask);
-        if (state->volume)
-                filled += snprintf (str + filled, size - filled,
-                                    "volume=%s,", state->volume);
+    if (state->fd)
+        filled += snprintf(str + filled, size - filled, "fd=%p,", state->fd);
+    if (state->valid)
+        filled += snprintf(str + filled, size - filled, "valid=%d,",
+                           state->valid);
+    if (state->flags)
+        filled += snprintf(str + filled, size - filled, "flags=%d,",
+                           state->flags);
+    if (state->wbflags)
+        filled += snprintf(str + filled, size - filled, "wbflags=%d,",
+                           state->wbflags);
+    if (state->size)
+        filled += snprintf(str + filled, size - filled, "size=%zu,",
+                           state->size);
+    if (state->offset)
+        filled += snprintf(str + filled, size - filled, "offset=%" PRId64 ",",
+                           state->offset);
+    if (state->cmd)
+        filled += snprintf(str + filled, size - filled, "cmd=%d,", state->cmd);
+    if (state->type)
+        filled += snprintf(str + filled, size - filled, "type=%d,",
+                           state->type);
+    if (state->name)
+        filled += snprintf(str + filled, size - filled, "name=%s,",
+                           state->name);
+    if (state->mask)
+        filled += snprintf(str + filled, size - filled, "mask=%d,",
+                           state->mask);
+    if (state->volume)
+        filled += snprintf(str + filled, size - filled, "volume=%s,",
+                           state->volume);
 
 /* FIXME
         snprintf (str + filled, size - filled,
                   "bound_xl=%s}", state->client->bound_xl->name);
 */
 out:
-        return;
+    return;
 }
-
 
 int
-server_resolve_is_empty (server_resolve_t *resolve)
+server_resolve_is_empty(server_resolve_t *resolve)
 {
-        if (resolve->fd_no != -1)
-                return 0;
+    if (resolve->fd_no != -1)
+        return 0;
 
-        if (resolve->path != 0)
-                return 0;
+    if (resolve->path != 0)
+        return 0;
 
-        if (resolve->bname != 0)
-                return 0;
+    if (resolve->bname != 0)
+        return 0;
 
-        return 1;
+    return 1;
 }
 
-
 void
-server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
+server_print_reply(call_frame_t *frame, int op_ret, int op_errno)
 {
-        server_conf_t   *conf = NULL;
-        server_state_t  *state = NULL;
-        xlator_t        *this = NULL;
-        char             caller[512];
-        char             fdstr[32];
-        char            *op = "UNKNOWN";
+    server_conf_t *conf = NULL;
+    server_state_t *state = NULL;
+    xlator_t *this = NULL;
+    char caller[512];
+    char fdstr[32];
+    char *op = "UNKNOWN";
 
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
+    GF_VALIDATE_OR_GOTO("server", frame, out);
 
-        this = frame->this;
-        conf = this->private;
+    this = frame->this;
+    conf = this->private;
 
-        GF_VALIDATE_OR_GOTO ("server", conf, out);
-        GF_VALIDATE_OR_GOTO ("server", conf->trace, out);
+    GF_VALIDATE_OR_GOTO("server", conf, out);
+    GF_VALIDATE_OR_GOTO("server", conf->trace, out);
 
-        state = CALL_STATE (frame);
+    state = CALL_STATE(frame);
 
-        print_caller (caller, 256, frame);
+    print_caller(caller, 256, frame);
 
-        switch (frame->root->type) {
+    switch (frame->root->type) {
         case GF_OP_TYPE_FOP:
-                op = (char *)gf_fop_list[frame->root->op];
-                break;
+            op = (char *)gf_fop_list[frame->root->op];
+            break;
         default:
-                op = "";
-        }
+            op = "";
+    }
 
-        fdstr[0] = '\0';
-        if (state->fd)
-                snprintf (fdstr, 32, " fd=%p", state->fd);
+    fdstr[0] = '\0';
+    if (state->fd)
+        snprintf(fdstr, 32, " fd=%p", state->fd);
 
-        gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_MSG,
-                "%s%s => (%d, %d)%s", op, caller, op_ret, op_errno, fdstr);
+    gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_MSG,
+           "%s%s => (%d, %d)%s", op, caller, op_ret, op_errno, fdstr);
 out:
-        return;
+    return;
 }
 
-
 void
-server_print_request (call_frame_t *frame)
+server_print_request(call_frame_t *frame)
 {
-        server_conf_t   *conf  = NULL;
-        xlator_t        *this  = NULL;
-        server_state_t  *state = NULL;
-        char            *op    = "UNKNOWN";
-        char             resolve_vars[256];
-        char             resolve2_vars[256];
-        char             loc_vars[256];
-        char             loc2_vars[256];
-        char             other_vars[512];
-        char             caller[512];
+    server_conf_t *conf = NULL;
+    xlator_t *this = NULL;
+    server_state_t *state = NULL;
+    char *op = "UNKNOWN";
+    char resolve_vars[256];
+    char resolve2_vars[256];
+    char loc_vars[256];
+    char loc2_vars[256];
+    char other_vars[512];
+    char caller[512];
 
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
+    GF_VALIDATE_OR_GOTO("server", frame, out);
 
-        this = frame->this;
-        conf = this->private;
+    this = frame->this;
+    conf = this->private;
 
-        GF_VALIDATE_OR_GOTO ("server", conf, out);
+    GF_VALIDATE_OR_GOTO("server", conf, out);
 
-        if (!conf->trace)
+    if (!conf->trace)
+        goto out;
+
+    state = CALL_STATE(frame);
+
+    memset(resolve_vars, '\0', 256);
+    memset(resolve2_vars, '\0', 256);
+    memset(loc_vars, '\0', 256);
+    memset(loc2_vars, '\0', 256);
+    memset(other_vars, '\0', 256);
+
+    print_caller(caller, 256, frame);
+
+    if (!server_resolve_is_empty(&state->resolve)) {
+        server_print_resolve(resolve_vars, 256, &state->resolve);
+        server_print_loc(loc_vars, 256, &state->loc);
+    }
+
+    if (!server_resolve_is_empty(&state->resolve2)) {
+        server_print_resolve(resolve2_vars, 256, &state->resolve2);
+        server_print_loc(loc2_vars, 256, &state->loc2);
+    }
+
+    server_print_params(other_vars, 512, state);
+
+    switch (frame->root->type) {
+        case GF_OP_TYPE_FOP:
+            op = (char *)gf_fop_list[frame->root->op];
+            break;
+        default:
+            op = "";
+            break;
+    }
+
+    gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_MSG, "%s%s%s%s%s%s%s", op,
+           caller, resolve_vars, loc_vars, resolve2_vars, loc2_vars,
+           other_vars);
+out:
+    return;
+}
+
+int
+serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
+{
+    gf_dirent_t *entry = NULL;
+    gfs3_dirplist *trav = NULL;
+    gfs3_dirplist *prev = NULL;
+    int ret = -1;
+    int temp = 0;
+
+    GF_VALIDATE_OR_GOTO("server", entries, out);
+    GF_VALIDATE_OR_GOTO("server", rsp, out);
+
+    list_for_each_entry(entry, &entries->list, list)
+    {
+        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        if (!trav)
+            goto out;
+
+        trav->d_ino = entry->d_ino;
+        trav->d_off = entry->d_off;
+        trav->d_len = entry->d_len;
+        trav->d_type = entry->d_type;
+        trav->name = entry->d_name;
+
+        gf_stat_from_iatt(&trav->stat, &entry->d_stat);
+
+        /* if 'dict' is present, pack it */
+        if (entry->dict) {
+            temp = dict_serialized_length(entry->dict);
+
+            if (temp < 0) {
+                gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
+                       "failed to get "
+                       "serialized length of reply dict");
+                errno = EINVAL;
+                trav->dict.dict_len = 0;
                 goto out;
+            }
+            trav->dict.dict_len = temp;
 
-        state = CALL_STATE (frame);
+            trav->dict.dict_val = GF_CALLOC(1, trav->dict.dict_len,
+                                            gf_server_mt_rsp_buf_t);
+            if (!trav->dict.dict_val) {
+                errno = ENOMEM;
+                trav->dict.dict_len = 0;
+                goto out;
+            }
 
-        memset (resolve_vars, '\0', 256);
-        memset (resolve2_vars, '\0', 256);
-        memset (loc_vars, '\0', 256);
-        memset (loc2_vars, '\0', 256);
-        memset (other_vars, '\0', 256);
-
-        print_caller (caller, 256, frame);
-
-        if (!server_resolve_is_empty (&state->resolve)) {
-                server_print_resolve (resolve_vars, 256, &state->resolve);
-                server_print_loc (loc_vars, 256, &state->loc);
+            ret = dict_serialize(entry->dict, trav->dict.dict_val);
+            if (ret < 0) {
+                gf_msg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_DICT_SERIALIZE_FAIL,
+                       "failed to serialize reply dict");
+                errno = -ret;
+                trav->dict.dict_len = 0;
+                goto out;
+            }
         }
 
-        if (!server_resolve_is_empty (&state->resolve2)) {
-                server_print_resolve (resolve2_vars, 256, &state->resolve2);
-                server_print_loc (loc2_vars, 256, &state->loc2);
-        }
+        if (prev)
+            prev->nextentry = trav;
+        else
+            rsp->reply = trav;
 
-        server_print_params (other_vars, 512, state);
-
-        switch (frame->root->type) {
-        case GF_OP_TYPE_FOP:
-                op = (char *)gf_fop_list[frame->root->op];
-                break;
-        default:
-                op = "";
-                break;
-        }
-
-        gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_MSG,
-                "%s%s%s%s%s%s%s", op, caller,
-                resolve_vars, loc_vars, resolve2_vars, loc2_vars, other_vars);
-out:
-        return;
-}
-
-
-int
-serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
-{
-        gf_dirent_t         *entry = NULL;
-        gfs3_dirplist       *trav  = NULL;
-        gfs3_dirplist       *prev  = NULL;
-        int                  ret   = -1;
-        int                  temp  = 0;
-
-        GF_VALIDATE_OR_GOTO ("server", entries, out);
-        GF_VALIDATE_OR_GOTO ("server", rsp, out);
-
-        list_for_each_entry (entry, &entries->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
-                if (!trav)
-                        goto out;
-
-                trav->d_ino  = entry->d_ino;
-                trav->d_off  = entry->d_off;
-                trav->d_len  = entry->d_len;
-                trav->d_type = entry->d_type;
-                trav->name   = entry->d_name;
-
-                gf_stat_from_iatt (&trav->stat, &entry->d_stat);
-
-                /* if 'dict' is present, pack it */
-                if (entry->dict) {
-                        temp = dict_serialized_length (entry->dict);
-
-                        if (temp < 0) {
-                                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
-                                        PS_MSG_INVALID_ENTRY, "failed to get "
-                                        "serialized length of reply dict");
-                                errno = EINVAL;
-                                trav->dict.dict_len = 0;
-                                goto out;
-                        }
-                        trav->dict.dict_len = temp;
-
-                        trav->dict.dict_val = GF_CALLOC (1, trav->dict.dict_len,
-                                                         gf_server_mt_rsp_buf_t);
-                        if (!trav->dict.dict_val) {
-                                errno = ENOMEM;
-                                trav->dict.dict_len = 0;
-                                goto out;
-                        }
-
-                        ret = dict_serialize (entry->dict, trav->dict.dict_val);
-                        if (ret < 0) {
-                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                                        PS_MSG_DICT_SERIALIZE_FAIL,
-                                        "failed to serialize reply dict");
-                                errno = -ret;
-                                trav->dict.dict_len = 0;
-                                goto out;
-                        }
-                }
-
-                if (prev)
-                        prev->nextentry = trav;
-                else
-                        rsp->reply = trav;
-
-                prev = trav;
-                trav = NULL;
-        }
-
-        ret = 0;
-out:
-        GF_FREE (trav);
-
-        return ret;
-}
-
-
-int
-serialize_rsp_direntp_v2 (gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
-{
-        gf_dirent_t        *entry = NULL;
-        gfx_dirplist       *trav  = NULL;
-        gfx_dirplist       *prev  = NULL;
-        int                 ret   = -1;
-
-        GF_VALIDATE_OR_GOTO ("server", entries, out);
-        GF_VALIDATE_OR_GOTO ("server", rsp, out);
-
-        list_for_each_entry (entry, &entries->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
-                if (!trav)
-                        goto out;
-
-                trav->d_ino  = entry->d_ino;
-                trav->d_off  = entry->d_off;
-                trav->d_len  = entry->d_len;
-                trav->d_type = entry->d_type;
-                trav->name   = entry->d_name;
-
-                gfx_stat_from_iattx (&trav->stat, &entry->d_stat);
-                dict_to_xdr (entry->dict, &trav->dict);
-
-                if (prev)
-                        prev->nextentry = trav;
-                else
-                        rsp->reply = trav;
-
-                prev = trav;
-                trav = NULL;
-        }
-
-        ret = 0;
-out:
-        GF_FREE (trav);
-
-        return ret;
-}
-
-
-int
-serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
-{
-        gf_dirent_t   *entry = NULL;
-        gfs3_dirlist  *trav  = NULL;
-        gfs3_dirlist  *prev  = NULL;
-        int           ret    = -1;
-
-        GF_VALIDATE_OR_GOTO ("server", rsp, out);
-        GF_VALIDATE_OR_GOTO ("server", entries, out);
-
-        list_for_each_entry (entry, &entries->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
-                if (!trav)
-                        goto out;
-                trav->d_ino  = entry->d_ino;
-                trav->d_off  = entry->d_off;
-                trav->d_len  = entry->d_len;
-                trav->d_type = entry->d_type;
-                trav->name   = entry->d_name;
-                if (prev)
-                        prev->nextentry = trav;
-                else
-                        rsp->reply = trav;
-
-                prev = trav;
-        }
-
-        ret = 0;
-out:
-        return ret;
-}
-
-int
-serialize_rsp_dirent_v2 (gf_dirent_t *entries, gfx_readdir_rsp *rsp)
-{
-        gf_dirent_t  *entry = NULL;
-        gfx_dirlist  *trav  = NULL;
-        gfx_dirlist  *prev  = NULL;
-        int           ret    = -1;
-
-        GF_VALIDATE_OR_GOTO ("server", rsp, out);
-        GF_VALIDATE_OR_GOTO ("server", entries, out);
-
-        list_for_each_entry (entry, &entries->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
-                if (!trav)
-                        goto out;
-                trav->d_ino  = entry->d_ino;
-                trav->d_off  = entry->d_off;
-                trav->d_len  = entry->d_len;
-                trav->d_type = entry->d_type;
-                trav->name   = entry->d_name;
-                if (prev)
-                        prev->nextentry = trav;
-                else
-                        rsp->reply = trav;
-
-                prev = trav;
-        }
-
-        ret = 0;
-out:
-        return ret;
-}
-
-
-
-int
-readdir_rsp_cleanup (gfs3_readdir_rsp *rsp)
-{
-        gfs3_dirlist  *prev = NULL;
-        gfs3_dirlist  *trav = NULL;
-
-        trav = rsp->reply;
         prev = trav;
-        while (trav) {
-                trav = trav->nextentry;
-                GF_FREE (prev);
-                prev = trav;
-        }
+        trav = NULL;
+    }
 
-        return 0;
-}
+    ret = 0;
+out:
+    GF_FREE(trav);
 
-
-int
-readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
-{
-        gfs3_dirplist *prev = NULL;
-        gfs3_dirplist *trav = NULL;
-
-        trav = rsp->reply;
-        prev = trav;
-        while (trav) {
-                trav = trav->nextentry;
-                GF_FREE (prev->dict.dict_val);
-                GF_FREE (prev);
-                prev = trav;
-        }
-
-        return 0;
+    return ret;
 }
 
 int
-readdir_rsp_cleanup_v2 (gfx_readdir_rsp *rsp)
+serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
 {
-        gfx_dirlist  *prev = NULL;
-        gfx_dirlist  *trav = NULL;
+    gf_dirent_t *entry = NULL;
+    gfx_dirplist *trav = NULL;
+    gfx_dirplist *prev = NULL;
+    int ret = -1;
 
-        trav = rsp->reply;
+    GF_VALIDATE_OR_GOTO("server", entries, out);
+    GF_VALIDATE_OR_GOTO("server", rsp, out);
+
+    list_for_each_entry(entry, &entries->list, list)
+    {
+        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        if (!trav)
+            goto out;
+
+        trav->d_ino = entry->d_ino;
+        trav->d_off = entry->d_off;
+        trav->d_len = entry->d_len;
+        trav->d_type = entry->d_type;
+        trav->name = entry->d_name;
+
+        gfx_stat_from_iattx(&trav->stat, &entry->d_stat);
+        dict_to_xdr(entry->dict, &trav->dict);
+
+        if (prev)
+            prev->nextentry = trav;
+        else
+            rsp->reply = trav;
+
         prev = trav;
-        while (trav) {
-                trav = trav->nextentry;
-                GF_FREE (prev);
-                prev = trav;
-        }
+        trav = NULL;
+    }
 
-        return 0;
+    ret = 0;
+out:
+    GF_FREE(trav);
+
+    return ret;
 }
-
 
 int
-readdirp_rsp_cleanup_v2 (gfx_readdirp_rsp *rsp)
+serialize_rsp_dirent(gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
 {
-        gfx_dirplist *prev = NULL;
-        gfx_dirplist *trav = NULL;
+    gf_dirent_t *entry = NULL;
+    gfs3_dirlist *trav = NULL;
+    gfs3_dirlist *prev = NULL;
+    int ret = -1;
 
-        trav = rsp->reply;
+    GF_VALIDATE_OR_GOTO("server", rsp, out);
+    GF_VALIDATE_OR_GOTO("server", entries, out);
+
+    list_for_each_entry(entry, &entries->list, list)
+    {
+        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        if (!trav)
+            goto out;
+        trav->d_ino = entry->d_ino;
+        trav->d_off = entry->d_off;
+        trav->d_len = entry->d_len;
+        trav->d_type = entry->d_type;
+        trav->name = entry->d_name;
+        if (prev)
+            prev->nextentry = trav;
+        else
+            rsp->reply = trav;
+
         prev = trav;
-        while (trav) {
-                trav = trav->nextentry;
-                GF_FREE (prev->dict.pairs.pairs_val);
-                GF_FREE (prev);
-                prev = trav;
-        }
+    }
 
-        return 0;
+    ret = 0;
+out:
+    return ret;
 }
 
+int
+serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
+{
+    gf_dirent_t *entry = NULL;
+    gfx_dirlist *trav = NULL;
+    gfx_dirlist *prev = NULL;
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO("server", rsp, out);
+    GF_VALIDATE_OR_GOTO("server", entries, out);
+
+    list_for_each_entry(entry, &entries->list, list)
+    {
+        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        if (!trav)
+            goto out;
+        trav->d_ino = entry->d_ino;
+        trav->d_off = entry->d_off;
+        trav->d_len = entry->d_len;
+        trav->d_type = entry->d_type;
+        trav->name = entry->d_name;
+        if (prev)
+            prev->nextentry = trav;
+        else
+            rsp->reply = trav;
+
+        prev = trav;
+    }
+
+    ret = 0;
+out:
+    return ret;
+}
+
+int
+readdir_rsp_cleanup(gfs3_readdir_rsp *rsp)
+{
+    gfs3_dirlist *prev = NULL;
+    gfs3_dirlist *trav = NULL;
+
+    trav = rsp->reply;
+    prev = trav;
+    while (trav) {
+        trav = trav->nextentry;
+        GF_FREE(prev);
+        prev = trav;
+    }
+
+    return 0;
+}
+
+int
+readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp)
+{
+    gfs3_dirplist *prev = NULL;
+    gfs3_dirplist *trav = NULL;
+
+    trav = rsp->reply;
+    prev = trav;
+    while (trav) {
+        trav = trav->nextentry;
+        GF_FREE(prev->dict.dict_val);
+        GF_FREE(prev);
+        prev = trav;
+    }
+
+    return 0;
+}
+
+int
+readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp)
+{
+    gfx_dirlist *prev = NULL;
+    gfx_dirlist *trav = NULL;
+
+    trav = rsp->reply;
+    prev = trav;
+    while (trav) {
+        trav = trav->nextentry;
+        GF_FREE(prev);
+        prev = trav;
+    }
+
+    return 0;
+}
+
+int
+readdirp_rsp_cleanup_v2(gfx_readdirp_rsp *rsp)
+{
+    gfx_dirplist *prev = NULL;
+    gfx_dirplist *trav = NULL;
+
+    trav = rsp->reply;
+    prev = trav;
+    while (trav) {
+        trav = trav->nextentry;
+        GF_FREE(prev->dict.pairs.pairs_val);
+        GF_FREE(prev);
+        prev = trav;
+    }
+
+    return 0;
+}
 
 static int
-common_rsp_locklist (lock_migration_info_t *locklist,
-                     gfs3_locklist **reply) {
-        lock_migration_info_t   *tmp    = NULL;
-        gfs3_locklist           *trav   = NULL;
-        gfs3_locklist           *prev   = NULL;
-        int                     ret     = -1;
+common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
+{
+    lock_migration_info_t *tmp = NULL;
+    gfs3_locklist *trav = NULL;
+    gfs3_locklist *prev = NULL;
+    int ret = -1;
 
-        GF_VALIDATE_OR_GOTO ("server", locklist, out);
+    GF_VALIDATE_OR_GOTO("server", locklist, out);
 
-        list_for_each_entry (tmp, &locklist->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_lock_mig_t);
-                if (!trav)
-                        goto out;
+    list_for_each_entry(tmp, &locklist->list, list)
+    {
+        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_lock_mig_t);
+        if (!trav)
+            goto out;
 
-                switch (tmp->flock.l_type) {
-                case F_RDLCK:
-                        tmp->flock.l_type = GF_LK_F_RDLCK;
-                        break;
-                case F_WRLCK:
-                        tmp->flock.l_type = GF_LK_F_WRLCK;
-                        break;
-                case F_UNLCK:
-                        tmp->flock.l_type = GF_LK_F_UNLCK;
-                        break;
+        switch (tmp->flock.l_type) {
+            case F_RDLCK:
+                tmp->flock.l_type = GF_LK_F_RDLCK;
+                break;
+            case F_WRLCK:
+                tmp->flock.l_type = GF_LK_F_WRLCK;
+                break;
+            case F_UNLCK:
+                tmp->flock.l_type = GF_LK_F_UNLCK;
+                break;
 
-                default:
-                        gf_msg (THIS->name, GF_LOG_ERROR, 0, PS_MSG_LOCK_ERROR,
-                                "Unknown lock type: %"PRId32"!",
-                                tmp->flock.l_type);
-                        break;
-                }
-
-                gf_proto_flock_from_flock (&trav->flock, &tmp->flock);
-
-                trav->lk_flags = tmp->lk_flags;
-
-                trav->client_uid = tmp->client_uid;
-
-                if (prev)
-                        prev->nextentry = trav;
-                else
-                        *reply = trav;
-
-                prev = trav;
-                trav = NULL;
+            default:
+                gf_msg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_LOCK_ERROR,
+                       "Unknown lock type: %" PRId32 "!", tmp->flock.l_type);
+                break;
         }
 
+        gf_proto_flock_from_flock(&trav->flock, &tmp->flock);
+
+        trav->lk_flags = tmp->lk_flags;
+
+        trav->client_uid = tmp->client_uid;
+
+        if (prev)
+            prev->nextentry = trav;
+        else
+            *reply = trav;
+
+        prev = trav;
+        trav = NULL;
+    }
+
+    ret = 0;
+out:
+    GF_FREE(trav);
+    return ret;
+}
+
+int
+serialize_rsp_locklist(lock_migration_info_t *locklist,
+                       gfs3_getactivelk_rsp *rsp)
+{
+    int ret = 0;
+
+    GF_VALIDATE_OR_GOTO("server", rsp, out);
+    ret = common_rsp_locklist(locklist, &rsp->reply);
+out:
+    return ret;
+}
+int
+serialize_rsp_locklist_v2(lock_migration_info_t *locklist,
+                          gfx_getactivelk_rsp *rsp)
+{
+    int ret = 0;
+
+    GF_VALIDATE_OR_GOTO("server", rsp, out);
+    ret = common_rsp_locklist(locklist, &rsp->reply);
+out:
+    return ret;
+}
+
+int
+getactivelkinfo_rsp_cleanup(gfs3_getactivelk_rsp *rsp)
+{
+    gfs3_locklist *prev = NULL;
+    gfs3_locklist *trav = NULL;
+
+    trav = rsp->reply;
+    prev = trav;
+
+    while (trav) {
+        trav = trav->nextentry;
+        GF_FREE(prev);
+        prev = trav;
+    }
+
+    return 0;
+}
+int
+getactivelkinfo_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp)
+{
+    gfs3_locklist *prev = NULL;
+    gfs3_locklist *trav = NULL;
+
+    trav = rsp->reply;
+    prev = trav;
+
+    while (trav) {
+        trav = trav->nextentry;
+        GF_FREE(prev);
+        prev = trav;
+    }
+
+    return 0;
+}
+
+int
+gf_server_check_getxattr_cmd(call_frame_t *frame, const char *key)
+{
+    server_conf_t *conf = NULL;
+    rpc_transport_t *xprt = NULL;
+
+    conf = frame->this->private;
+    if (!conf)
+        return 0;
+
+    if (fnmatch("*list*mount*point*", key, 0) == 0) {
+        /* list all the client protocol connecting to this process */
+        pthread_mutex_lock(&conf->mutex);
+        {
+            list_for_each_entry(xprt, &conf->xprt_list, list)
+            {
+                gf_msg("mount-point-list", GF_LOG_INFO, 0, PS_MSG_MOUNT_PT_FAIL,
+                       "%s", xprt->peerinfo.identifier);
+            }
+        }
+        pthread_mutex_unlock(&conf->mutex);
+    }
+
+    /* Add more options/keys here */
+
+    return 0;
+}
+
+int
+gf_server_check_setxattr_cmd(call_frame_t *frame, dict_t *dict)
+{
+    server_conf_t *conf = NULL;
+    rpc_transport_t *xprt = NULL;
+    uint64_t total_read = 0;
+    uint64_t total_write = 0;
+
+    conf = frame->this->private;
+    if (!conf || !dict)
+        return 0;
+
+    if (dict_foreach_fnmatch(dict, "*io*stat*dump", dict_null_foreach_fn,
+                             NULL) > 0) {
+        list_for_each_entry(xprt, &conf->xprt_list, list)
+        {
+            total_read += xprt->total_bytes_read;
+            total_write += xprt->total_bytes_write;
+        }
+        gf_msg("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT,
+               "total-read %" PRIu64 ", total-write %" PRIu64, total_read,
+               total_write);
+    }
+
+    return 0;
+}
+
+server_ctx_t *
+server_ctx_get(client_t *client, xlator_t *xlator)
+{
+    void *tmp = NULL;
+    server_ctx_t *ctx = NULL;
+    server_ctx_t *setted_ctx = NULL;
+
+    client_ctx_get(client, xlator, &tmp);
+
+    ctx = tmp;
+
+    if (ctx != NULL)
+        goto out;
+
+    ctx = GF_CALLOC(1, sizeof(server_ctx_t), gf_server_mt_server_conf_t);
+
+    if (ctx == NULL)
+        goto out;
+
+    ctx->fdtable = gf_fd_fdtable_alloc();
+
+    if (ctx->fdtable == NULL) {
+        GF_FREE(ctx);
+        ctx = NULL;
+        goto out;
+    }
+
+    LOCK_INIT(&ctx->fdtable_lock);
+
+    setted_ctx = client_ctx_set(client, xlator, ctx);
+    if (ctx != setted_ctx) {
+        LOCK_DESTROY(&ctx->fdtable_lock);
+        GF_FREE(ctx->fdtable);
+        GF_FREE(ctx);
+        ctx = setted_ctx;
+    }
+
+out:
+    return ctx;
+}
+
+int
+auth_set_username_passwd(dict_t *input_params, dict_t *config_params,
+                         client_t *client)
+{
+    int ret = 0;
+    data_t *allow_user = NULL;
+    data_t *passwd_data = NULL;
+    char *username = NULL;
+    char *password = NULL;
+    char *brick_name = NULL;
+    char *searchstr = NULL;
+    char *username_str = NULL;
+    char *tmp = NULL;
+    char *username_cpy = NULL;
+
+    ret = dict_get_str(input_params, "username", &username);
+    if (ret) {
+        gf_msg_debug("auth/login", 0,
+                     "username not found, returning "
+                     "DONT-CARE");
+        /* For non trusted clients username and password
+           will not be there. So don't reject the client.
+        */
         ret = 0;
-out:
-        GF_FREE (trav);
-        return ret;
-}
+        goto out;
+    }
 
-int
-serialize_rsp_locklist (lock_migration_info_t *locklist,
-                        gfs3_getactivelk_rsp *rsp)
-{
-        int ret = 0;
+    ret = dict_get_str(input_params, "password", &password);
+    if (ret) {
+        gf_msg("auth/login", GF_LOG_WARNING, 0, PS_MSG_DICT_GET_FAILED,
+               "password not found, returning DONT-CARE");
+        goto out;
+    }
 
-        GF_VALIDATE_OR_GOTO ("server", rsp, out);
-        ret = common_rsp_locklist (locklist, &rsp->reply);
-out:
-        return ret;
-}
-int
-serialize_rsp_locklist_v2 (lock_migration_info_t *locklist,
-                           gfx_getactivelk_rsp *rsp)
-{
-        int ret = 0;
+    ret = dict_get_str(input_params, "remote-subvolume", &brick_name);
+    if (ret) {
+        gf_msg("auth/login", GF_LOG_ERROR, 0, PS_MSG_DICT_GET_FAILED,
+               "remote-subvolume not specified");
+        ret = -1;
+        goto out;
+    }
 
-        GF_VALIDATE_OR_GOTO ("server", rsp, out);
-        ret = common_rsp_locklist (locklist, &rsp->reply);
-out:
-        return ret;
-}
+    ret = gf_asprintf(&searchstr, "auth.login.%s.allow", brick_name);
+    if (-1 == ret) {
+        ret = 0;
+        goto out;
+    }
 
+    allow_user = dict_get(config_params, searchstr);
+    GF_FREE(searchstr);
 
-int
-getactivelkinfo_rsp_cleanup (gfs3_getactivelk_rsp  *rsp)
-{
-        gfs3_locklist  *prev = NULL;
-        gfs3_locklist  *trav = NULL;
+    if (allow_user) {
+        username_cpy = gf_strdup(allow_user->data);
+        if (!username_cpy)
+            goto out;
 
-        trav = rsp->reply;
-        prev = trav;
+        username_str = strtok_r(username_cpy, " ,", &tmp);
 
-        while (trav) {
-                trav = trav->nextentry;
-                GF_FREE (prev);
-                prev = trav;
-        }
+        while (username_str) {
+            if (!fnmatch(username_str, username, 0)) {
+                ret = gf_asprintf(&searchstr, "auth.login.%s.password",
+                                  username);
+                if (-1 == ret)
+                    goto out;
 
-        return 0;
-}
-int
-getactivelkinfo_rsp_cleanup_v2 (gfx_getactivelk_rsp  *rsp)
-{
-        gfs3_locklist  *prev = NULL;
-        gfs3_locklist  *trav = NULL;
+                passwd_data = dict_get(config_params, searchstr);
+                GF_FREE(searchstr);
 
-        trav = rsp->reply;
-        prev = trav;
-
-        while (trav) {
-                trav = trav->nextentry;
-                GF_FREE (prev);
-                prev = trav;
-        }
-
-        return 0;
-}
-
-int
-gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
-{
-
-        server_conf_t    *conf = NULL;
-        rpc_transport_t  *xprt = NULL;
-
-        conf = frame->this->private;
-        if (!conf)
-                return 0;
-
-        if (fnmatch ("*list*mount*point*", key, 0) == 0) {
-                /* list all the client protocol connecting to this process */
-                pthread_mutex_lock (&conf->mutex);
-                {
-                        list_for_each_entry (xprt, &conf->xprt_list, list) {
-                                gf_msg ("mount-point-list", GF_LOG_INFO, 0,
-                                        PS_MSG_MOUNT_PT_FAIL,
-                                        "%s", xprt->peerinfo.identifier);
-                        }
+                if (!passwd_data) {
+                    gf_msg("auth/login", GF_LOG_ERROR, 0, PS_MSG_LOGIN_ERROR,
+                           "wrong "
+                           "username/password "
+                           "combination");
+                    ret = -1;
+                    goto out;
                 }
-                pthread_mutex_unlock (&conf->mutex);
-        }
 
-        /* Add more options/keys here */
-
-        return 0;
-}
-
-
-int
-gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
-{
-
-        server_conf_t    *conf        = NULL;
-        rpc_transport_t  *xprt        = NULL;
-        uint64_t          total_read  = 0;
-        uint64_t          total_write = 0;
-
-        conf = frame->this->private;
-        if (!conf || !dict)
-                return 0;
-
-        if (dict_foreach_fnmatch (dict, "*io*stat*dump",
-                                  dict_null_foreach_fn, NULL ) > 0) {
-                list_for_each_entry (xprt, &conf->xprt_list, list) {
-                        total_read  += xprt->total_bytes_read;
-                        total_write += xprt->total_bytes_write;
+                ret = strcmp(data_to_str(passwd_data), password);
+                if (!ret) {
+                    client->auth.username = gf_strdup(username);
+                    client->auth.passwd = gf_strdup(password);
+                } else {
+                    gf_msg("auth/login", GF_LOG_ERROR, 0, PS_MSG_LOGIN_ERROR,
+                           "wrong "
+                           "password for user %s",
+                           username);
                 }
-                gf_msg ("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT,
-                        "total-read %"PRIu64", total-write %"PRIu64,
-                        total_read, total_write);
+                break;
+            }
+            username_str = strtok_r(NULL, " ,", &tmp);
         }
-
-        return 0;
-}
-
-server_ctx_t*
-server_ctx_get (client_t *client, xlator_t *xlator)
-{
-        void *tmp = NULL;
-        server_ctx_t *ctx = NULL;
-        server_ctx_t *setted_ctx = NULL;
-
-        client_ctx_get (client, xlator, &tmp);
-
-        ctx = tmp;
-
-        if (ctx != NULL)
-                goto out;
-
-        ctx = GF_CALLOC (1, sizeof (server_ctx_t), gf_server_mt_server_conf_t);
-
-        if (ctx == NULL)
-                goto out;
-
-        ctx->fdtable = gf_fd_fdtable_alloc ();
-
-        if (ctx->fdtable == NULL) {
-                GF_FREE (ctx);
-                ctx = NULL;
-                goto out;
-        }
-
-        LOCK_INIT (&ctx->fdtable_lock);
-
-        setted_ctx = client_ctx_set (client, xlator, ctx);
-        if (ctx != setted_ctx) {
-                LOCK_DESTROY (&ctx->fdtable_lock);
-                GF_FREE (ctx->fdtable);
-                GF_FREE (ctx);
-                ctx = setted_ctx;
-        }
+    }
 
 out:
-        return ctx;
-}
+    GF_FREE(username_cpy);
 
-int
-auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
-                          client_t *client)
-{
-        int      ret           = 0;
-        data_t  *allow_user    = NULL;
-        data_t  *passwd_data   = NULL;
-        char    *username      = NULL;
-        char    *password      = NULL;
-        char    *brick_name    = NULL;
-        char    *searchstr     = NULL;
-        char    *username_str  = NULL;
-        char    *tmp           = NULL;
-        char    *username_cpy  = NULL;
-
-        ret = dict_get_str (input_params, "username", &username);
-        if (ret) {
-                gf_msg_debug ("auth/login", 0, "username not found, returning "
-                              "DONT-CARE");
-                /* For non trusted clients username and password
-                   will not be there. So don't reject the client.
-                */
-                ret = 0;
-                goto out;
-        }
-
-        ret = dict_get_str (input_params, "password", &password);
-        if (ret) {
-                gf_msg ("auth/login", GF_LOG_WARNING, 0,
-                        PS_MSG_DICT_GET_FAILED,
-                        "password not found, returning DONT-CARE");
-                goto out;
-        }
-
-        ret = dict_get_str (input_params, "remote-subvolume", &brick_name);
-        if (ret) {
-                gf_msg ("auth/login", GF_LOG_ERROR, 0, PS_MSG_DICT_GET_FAILED,
-                        "remote-subvolume not specified");
-                ret = -1;
-                goto out;
-        }
-
-        ret = gf_asprintf (&searchstr, "auth.login.%s.allow", brick_name);
-        if (-1 == ret) {
-                ret = 0;
-                goto out;
-        }
-
-        allow_user = dict_get (config_params, searchstr);
-        GF_FREE (searchstr);
-
-        if (allow_user) {
-                username_cpy = gf_strdup (allow_user->data);
-                if (!username_cpy)
-                        goto out;
-
-                username_str = strtok_r (username_cpy, " ,", &tmp);
-
-                while (username_str) {
-                        if (!fnmatch (username_str, username, 0)) {
-                                ret = gf_asprintf (&searchstr,
-                                                   "auth.login.%s.password",
-                                                   username);
-                                if (-1 == ret)
-                                        goto out;
-
-                                passwd_data = dict_get (config_params,
-                                                        searchstr);
-                                GF_FREE (searchstr);
-
-                                if (!passwd_data) {
-                                        gf_msg ("auth/login", GF_LOG_ERROR, 0,
-                                                PS_MSG_LOGIN_ERROR, "wrong "
-                                                "username/password "
-                                                "combination");
-                                        ret = -1;
-                                        goto out;
-                                }
-
-                                ret = strcmp (data_to_str (passwd_data),
-                                              password);
-                                if (!ret) {
-                                        client->auth.username =
-                                                gf_strdup (username);
-                                        client->auth.passwd =
-                                                gf_strdup (password);
-                                } else {
-                                        gf_msg ("auth/login", GF_LOG_ERROR, 0,
-                                                PS_MSG_LOGIN_ERROR, "wrong "
-                                                "password for user %s",
-                                                username);
-                                }
-                                break;
-                        }
-                        username_str = strtok_r (NULL, " ,", &tmp);
-                }
-        }
-
-out:
-        GF_FREE (username_cpy);
-
-        return ret;
+    return ret;
 }
 
 inode_t *
-server_inode_new (inode_table_t *itable, uuid_t gfid) {
-        if (__is_root_gfid (gfid))
-                return itable->root;
-        else
-                return inode_new (itable);
+server_inode_new(inode_table_t *itable, uuid_t gfid)
+{
+    if (__is_root_gfid(gfid))
+        return itable->root;
+    else
+        return inode_new(itable);
 }
 
 int
-unserialize_req_locklist (gfs3_setactivelk_req *req,
-                          lock_migration_info_t *lmi)
+unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi)
 {
-        struct gfs3_locklist            *trav      = NULL;
-        lock_migration_info_t           *temp    = NULL;
-        int                             ret       = -1;
+    struct gfs3_locklist *trav = NULL;
+    lock_migration_info_t *temp = NULL;
+    int ret = -1;
 
-        trav = req->request;
+    trav = req->request;
 
-        INIT_LIST_HEAD (&lmi->list);
+    INIT_LIST_HEAD(&lmi->list);
 
-        while (trav) {
-                temp = GF_CALLOC (1, sizeof (*lmi), gf_common_mt_lock_mig);
-                if (temp == NULL) {
-                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
-                        goto out;
-                }
-
-                INIT_LIST_HEAD (&temp->list);
-
-                gf_proto_flock_to_flock (&trav->flock, &temp->flock);
-
-                temp->lk_flags = trav->lk_flags;
-
-                temp->client_uid =  gf_strdup (trav->client_uid);
-
-                list_add_tail (&temp->list, &lmi->list);
-
-                trav = trav->nextentry;
+    while (trav) {
+        temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
+        if (temp == NULL) {
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
+            goto out;
         }
 
-        ret = 0;
+        INIT_LIST_HEAD(&temp->list);
+
+        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
+
+        temp->lk_flags = trav->lk_flags;
+
+        temp->client_uid = gf_strdup(trav->client_uid);
+
+        list_add_tail(&temp->list, &lmi->list);
+
+        trav = trav->nextentry;
+    }
+
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 int
-unserialize_req_locklist_v2 (gfx_setactivelk_req *req,
-                          lock_migration_info_t *lmi)
+unserialize_req_locklist_v2(gfx_setactivelk_req *req,
+                            lock_migration_info_t *lmi)
 {
-        struct gfs3_locklist            *trav      = NULL;
-        lock_migration_info_t           *temp    = NULL;
-        int                             ret       = -1;
+    struct gfs3_locklist *trav = NULL;
+    lock_migration_info_t *temp = NULL;
+    int ret = -1;
 
-        trav = req->request;
+    trav = req->request;
 
-        INIT_LIST_HEAD (&lmi->list);
+    INIT_LIST_HEAD(&lmi->list);
 
-        while (trav) {
-                temp = GF_CALLOC (1, sizeof (*lmi), gf_common_mt_lock_mig);
-                if (temp == NULL) {
-                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
-                        goto out;
-                }
-
-                INIT_LIST_HEAD (&temp->list);
-
-                gf_proto_flock_to_flock (&trav->flock, &temp->flock);
-
-                temp->lk_flags = trav->lk_flags;
-
-                temp->client_uid =  gf_strdup (trav->client_uid);
-
-                list_add_tail (&temp->list, &lmi->list);
-
-                trav = trav->nextentry;
+    while (trav) {
+        temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
+        if (temp == NULL) {
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
+            goto out;
         }
 
-        ret = 0;
+        INIT_LIST_HEAD(&temp->list);
+
+        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
+
+        temp->lk_flags = trav->lk_flags;
+
+        temp->client_uid = gf_strdup(trav->client_uid);
+
+        list_add_tail(&temp->list, &lmi->list);
+
+        trav = trav->nextentry;
+    }
+
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 int
-server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
-                                  default_args_t *this_args,
-                                  int index)
+server_populate_compound_request(gfs3_compound_req *req, call_frame_t *frame,
+                                 default_args_t *this_args, int index)
 {
-        int                     op_errno    = 0;
-        int                     ret         = -1;
-        dict_t                 *xdata       = NULL;
-        dict_t                 *xattr       = NULL;
-        struct iovec req_iovec[MAX_IOVEC]   = { {0,} };
-        compound_req            *this_req   = NULL;
-        server_state_t          *state      = CALL_STATE (frame);
+    int op_errno = 0;
+    int ret = -1;
+    dict_t *xdata = NULL;
+    dict_t *xattr = NULL;
+    struct iovec req_iovec[MAX_IOVEC] = {{
+        0,
+    }};
+    compound_req *this_req = NULL;
+    server_state_t *state = CALL_STATE(frame);
 
-        this_req = &req->compound_req_array.compound_req_array_val[index];
+    this_req = &req->compound_req_array.compound_req_array_val[index];
 
-        switch (this_req->fop_enum) {
-        case GF_FOP_STAT:
-        {
-                gfs3_stat_req *args = NULL;
+    switch (this_req->fop_enum) {
+        case GF_FOP_STAT: {
+            gfs3_stat_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_stat_req;
+            args = &this_req->compound_req_u.compound_stat_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_stat_store (this_args, &state->loc, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_stat_store(this_args, &state->loc, xdata);
+            break;
         }
-        case GF_FOP_READLINK:
-        {
-                gfs3_readlink_req *args = NULL;
+        case GF_FOP_READLINK: {
+            gfs3_readlink_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_readlink_req;
+            args = &this_req->compound_req_u.compound_readlink_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_readlink_store (this_args, &state->loc, args->size, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_readlink_store(this_args, &state->loc, args->size, xdata);
+            break;
         }
-        case GF_FOP_MKNOD:
-        {
-                gfs3_mknod_req *args = NULL;
+        case GF_FOP_MKNOD: {
+            gfs3_mknod_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_mknod_req;
+            args = &this_req->compound_req_u.compound_mknod_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_mknod_store (this_args, &state->loc, args->mode, args->dev,
-                                  args->umask, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_mknod_store(this_args, &state->loc, args->mode, args->dev,
+                             args->umask, xdata);
+            break;
         }
-        case GF_FOP_MKDIR:
-        {
-                gfs3_mkdir_req *args = NULL;
+        case GF_FOP_MKDIR: {
+            gfs3_mkdir_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_mkdir_req;
+            args = &this_req->compound_req_u.compound_mkdir_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_mkdir_store (this_args, &state->loc, args->mode,
-                                  args->umask, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_mkdir_store(this_args, &state->loc, args->mode, args->umask,
+                             xdata);
+            break;
         }
-        case GF_FOP_UNLINK:
-        {
-                gfs3_unlink_req *args = NULL;
+        case GF_FOP_UNLINK: {
+            gfs3_unlink_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_unlink_req;
+            args = &this_req->compound_req_u.compound_unlink_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_unlink_store (this_args, &state->loc, args->xflags, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_unlink_store(this_args, &state->loc, args->xflags, xdata);
+            break;
         }
-        case GF_FOP_RMDIR:
-        {
-                gfs3_rmdir_req *args = NULL;
+        case GF_FOP_RMDIR: {
+            gfs3_rmdir_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_rmdir_req;
+            args = &this_req->compound_req_u.compound_rmdir_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_rmdir_store (this_args, &state->loc, args->xflags, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_rmdir_store(this_args, &state->loc, args->xflags, xdata);
+            break;
         }
-        case GF_FOP_SYMLINK:
-        {
-                gfs3_symlink_req *args = NULL;
+        case GF_FOP_SYMLINK: {
+            gfs3_symlink_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_symlink_req;
+            args = &this_req->compound_req_u.compound_symlink_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_symlink_store (this_args, args->linkname, &state->loc,
-                                    args->umask, xdata);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_symlink_store(this_args, args->linkname, &state->loc,
+                               args->umask, xdata);
 
-                this_args->loc.inode = inode_new (state->itable);
+            this_args->loc.inode = inode_new(state->itable);
 
-                break;
+            break;
         }
-        case GF_FOP_RENAME:
-        {
-                gfs3_rename_req *args = NULL;
+        case GF_FOP_RENAME: {
+            gfs3_rename_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_rename_req;
+            args = &this_req->compound_req_u.compound_rename_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                args_rename_store (this_args, &state->loc, &state->loc2, xdata);
-                break;
+            args_rename_store(this_args, &state->loc, &state->loc2, xdata);
+            break;
         }
-        case GF_FOP_LINK:
-        {
-                gfs3_link_req *args = NULL;
+        case GF_FOP_LINK: {
+            gfs3_link_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_link_req;
+            args = &this_req->compound_req_u.compound_link_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_link_store (this_args, &state->loc, &state->loc2, xdata);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_link_store(this_args, &state->loc, &state->loc2, xdata);
 
-                this_args->loc2.inode = inode_ref (this_args->loc.inode);
+            this_args->loc2.inode = inode_ref(this_args->loc.inode);
 
-                break;
+            break;
         }
-        case GF_FOP_TRUNCATE:
-        {
-                gfs3_truncate_req *args = NULL;
+        case GF_FOP_TRUNCATE: {
+            gfs3_truncate_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_truncate_req;
+            args = &this_req->compound_req_u.compound_truncate_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_truncate_store (this_args, &state->loc, args->offset,
-                                     xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_truncate_store(this_args, &state->loc, args->offset, xdata);
+            break;
         }
-        case GF_FOP_OPEN:
-        {
-                gfs3_open_req *args = NULL;
+        case GF_FOP_OPEN: {
+            gfs3_open_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_open_req;
+            args = &this_req->compound_req_u.compound_open_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_open_store (this_args, &state->loc, args->flags, state->fd,
-                                 xdata);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_open_store(this_args, &state->loc, args->flags, state->fd,
+                            xdata);
 
-                this_args->fd = fd_create (this_args->loc.inode,
-                                           frame->root->pid);
-                this_args->fd->flags = this_args->flags;
+            this_args->fd = fd_create(this_args->loc.inode, frame->root->pid);
+            this_args->fd->flags = this_args->flags;
 
-                break;
+            break;
         }
-        case GF_FOP_READ:
-        {
-                gfs3_read_req *args = NULL;
+        case GF_FOP_READ: {
+            gfs3_read_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_read_req;
+            args = &this_req->compound_req_u.compound_read_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_readv_store (this_args, state->fd, args->size,
-                                  args->offset, args->flag, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_readv_store(this_args, state->fd, args->size, args->offset,
+                             args->flag, xdata);
+            break;
         }
-        case GF_FOP_WRITE:
-        {
-                gfs3_write_req *args = NULL;
+        case GF_FOP_WRITE: {
+            gfs3_write_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_write_req;
+            args = &this_req->compound_req_u.compound_write_req;
 
-                /*TODO : What happens when payload count is more than one? */
-                req_iovec[0].iov_base = state->payload_vector[0].iov_base +
-                                        state->write_length;
-                req_iovec[0].iov_len  = args->size;
+            /*TODO : What happens when payload count is more than one? */
+            req_iovec[0].iov_base = state->payload_vector[0].iov_base +
+                                    state->write_length;
+            req_iovec[0].iov_len = args->size;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                /* The way writev fop works :
-                 * xdr args of write along with other args contains
-                 * write length not count. But when the call is wound to posix,
-                 * this length is not used. It is taken from the request
-                 * write vector that is passed down. Posix needs the vector
-                 * count to determine the amount of write to be done.
-                 * This count for writes that come as part of compound fops
-                 * will be 1. The vectors are merged into one under
-                 * GF_FOP_WRITE section of client_handle_fop_requirements()
-                 * in protocol client.
-                 */
-                args_writev_store (this_args, state->fd, req_iovec, 1,
-                                   args->offset, args->flag, state->iobref,
-                                   xdata);
-                state->write_length += req_iovec[0].iov_len;
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            /* The way writev fop works :
+             * xdr args of write along with other args contains
+             * write length not count. But when the call is wound to posix,
+             * this length is not used. It is taken from the request
+             * write vector that is passed down. Posix needs the vector
+             * count to determine the amount of write to be done.
+             * This count for writes that come as part of compound fops
+             * will be 1. The vectors are merged into one under
+             * GF_FOP_WRITE section of client_handle_fop_requirements()
+             * in protocol client.
+             */
+            args_writev_store(this_args, state->fd, req_iovec, 1, args->offset,
+                              args->flag, state->iobref, xdata);
+            state->write_length += req_iovec[0].iov_len;
+            break;
         }
-        case GF_FOP_STATFS:
-        {
-                gfs3_statfs_req *args = NULL;
+        case GF_FOP_STATFS: {
+            gfs3_statfs_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_statfs_req;
+            args = &this_req->compound_req_u.compound_statfs_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_statfs_store (this_args, &state->loc, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_statfs_store(this_args, &state->loc, xdata);
+            break;
         }
-        case GF_FOP_FLUSH:
-        {
-                gfs3_flush_req *args = NULL;
+        case GF_FOP_FLUSH: {
+            gfs3_flush_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_flush_req;
+            args = &this_req->compound_req_u.compound_flush_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_flush_store (this_args, state->fd, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_flush_store(this_args, state->fd, xdata);
+            break;
         }
-        case GF_FOP_FSYNC:
-        {
-                gfs3_fsync_req *args = NULL;
+        case GF_FOP_FSYNC: {
+            gfs3_fsync_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fsync_req;
+            args = &this_req->compound_req_u.compound_fsync_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_fsync_store (this_args, state->fd, args->data, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_fsync_store(this_args, state->fd, args->data, xdata);
+            break;
         }
-        case GF_FOP_SETXATTR:
-        {
-                gfs3_setxattr_req *args = NULL;
+        case GF_FOP_SETXATTR: {
+            gfs3_setxattr_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_setxattr_req;
+            args = &this_req->compound_req_u.compound_setxattr_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xattr, args->dict.dict_val,
-                                              args->dict.dict_len, ret,
-                                              op_errno, out);
-                args_setxattr_store (this_args, &state->loc, xattr, args->flags,
-                                     xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xattr, args->dict.dict_val,
+                args->dict.dict_len, ret, op_errno, out);
+            args_setxattr_store(this_args, &state->loc, xattr, args->flags,
+                                xdata);
+            break;
         }
-        case GF_FOP_GETXATTR:
-        {
-                gfs3_getxattr_req *args = NULL;
+        case GF_FOP_GETXATTR: {
+            gfs3_getxattr_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_getxattr_req;
+            args = &this_req->compound_req_u.compound_getxattr_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                gf_server_check_getxattr_cmd (frame, args->name);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            gf_server_check_getxattr_cmd(frame, args->name);
 
-                args_getxattr_store (this_args, &state->loc, args->name, xdata);
-                break;
+            args_getxattr_store(this_args, &state->loc, args->name, xdata);
+            break;
         }
-        case GF_FOP_REMOVEXATTR:
-        {
-                gfs3_removexattr_req *args = NULL;
+        case GF_FOP_REMOVEXATTR: {
+            gfs3_removexattr_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_removexattr_req;
+            args = &this_req->compound_req_u.compound_removexattr_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_removexattr_store (this_args, &state->loc, args->name,
-                                        xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_removexattr_store(this_args, &state->loc, args->name, xdata);
+            break;
         }
-        case GF_FOP_OPENDIR:
-        {
-                gfs3_opendir_req *args = NULL;
+        case GF_FOP_OPENDIR: {
+            gfs3_opendir_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_opendir_req;
+            args = &this_req->compound_req_u.compound_opendir_req;
 
-                this_args->fd = fd_create (this_args->loc.inode,
-                                           frame->root->pid);
-                if (!this_args->fd) {
-                        gf_msg ("server", GF_LOG_ERROR, 0,
-                                PS_MSG_FD_CREATE_FAILED,
-                                "could not create the fd");
-                        goto out;
-                }
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata,
-                                              args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_opendir_store (this_args, &state->loc, state->fd, xdata);
-                break;
+            this_args->fd = fd_create(this_args->loc.inode, frame->root->pid);
+            if (!this_args->fd) {
+                gf_msg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED,
+                       "could not create the fd");
+                goto out;
+            }
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_opendir_store(this_args, &state->loc, state->fd, xdata);
+            break;
         }
-        case GF_FOP_FSYNCDIR:
-        {
-                gfs3_fsyncdir_req *args = NULL;
+        case GF_FOP_FSYNCDIR: {
+            gfs3_fsyncdir_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fsyncdir_req;
+            args = &this_req->compound_req_u.compound_fsyncdir_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_fsyncdir_store (this_args, state->fd, args->data, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_fsyncdir_store(this_args, state->fd, args->data, xdata);
+            break;
         }
-        case GF_FOP_ACCESS:
-        {
-                gfs3_access_req *args = NULL;
+        case GF_FOP_ACCESS: {
+            gfs3_access_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_access_req;
+            args = &this_req->compound_req_u.compound_access_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_access_store (this_args, &state->loc, args->mask, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_access_store(this_args, &state->loc, args->mask, xdata);
+            break;
         }
-        case GF_FOP_CREATE:
-        {
-                gfs3_create_req *args = NULL;
+        case GF_FOP_CREATE: {
+            gfs3_create_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_create_req;
+            args = &this_req->compound_req_u.compound_create_req;
 
-                state->loc.inode = inode_new (state->itable);
+            state->loc.inode = inode_new(state->itable);
 
-                state->fd = fd_create (state->loc.inode, frame->root->pid);
-                if (!state->fd) {
-                        gf_msg ("server", GF_LOG_ERROR, 0,
-                                PS_MSG_FD_CREATE_FAILED,
-                                "fd creation for the inode %s failed",
-                                state->loc.inode ?
-                                uuid_utoa (state->loc.inode->gfid):NULL);
-                        goto out;
-                }
-                state->fd->flags = state->flags;
+            state->fd = fd_create(state->loc.inode, frame->root->pid);
+            if (!state->fd) {
+                gf_msg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED,
+                       "fd creation for the inode %s failed",
+                       state->loc.inode ? uuid_utoa(state->loc.inode->gfid)
+                                        : NULL);
+                goto out;
+            }
+            state->fd->flags = state->flags;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_create_store (this_args, &state->loc, args->flags,
-                                   args->mode, args->umask, state->fd, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_create_store(this_args, &state->loc, args->flags, args->mode,
+                              args->umask, state->fd, xdata);
+            break;
         }
-        case GF_FOP_FTRUNCATE:
-        {
-                gfs3_ftruncate_req *args = NULL;
+        case GF_FOP_FTRUNCATE: {
+            gfs3_ftruncate_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_ftruncate_req;
+            args = &this_req->compound_req_u.compound_ftruncate_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_ftruncate_store (this_args, state->fd, args->offset,
-                                      xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_ftruncate_store(this_args, state->fd, args->offset, xdata);
+            break;
         }
-        case GF_FOP_FSTAT:
-        {
-                gfs3_fstat_req *args = NULL;
+        case GF_FOP_FSTAT: {
+            gfs3_fstat_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fstat_req;
+            args = &this_req->compound_req_u.compound_fstat_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_fstat_store (this_args, state->fd, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_fstat_store(this_args, state->fd, xdata);
+            break;
         }
-        case GF_FOP_LK:
-        {
-                gfs3_lk_req *args = NULL;
+        case GF_FOP_LK: {
+            gfs3_lk_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_lk_req;
+            args = &this_req->compound_req_u.compound_lk_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                switch (args->cmd) {
+            switch (args->cmd) {
                 case GF_LK_GETLK:
-                        this_args->cmd = F_GETLK;
-                        break;
+                    this_args->cmd = F_GETLK;
+                    break;
                 case GF_LK_SETLK:
-                        this_args->cmd = F_SETLK;
-                        break;
+                    this_args->cmd = F_SETLK;
+                    break;
                 case GF_LK_SETLKW:
-                        this_args->cmd = F_SETLKW;
-                        break;
+                    this_args->cmd = F_SETLKW;
+                    break;
                 case GF_LK_RESLK_LCK:
-                        this_args->cmd = F_RESLK_LCK;
-                        break;
+                    this_args->cmd = F_RESLK_LCK;
+                    break;
                 case GF_LK_RESLK_LCKW:
-                        this_args->cmd = F_RESLK_LCKW;
-                        break;
+                    this_args->cmd = F_RESLK_LCKW;
+                    break;
                 case GF_LK_RESLK_UNLCK:
-                        this_args->cmd = F_RESLK_UNLCK;
-                        break;
+                    this_args->cmd = F_RESLK_UNLCK;
+                    break;
                 case GF_LK_GETLK_FD:
-                        this_args->cmd = F_GETLK_FD;
-                        break;
-                }
+                    this_args->cmd = F_GETLK_FD;
+                    break;
+            }
 
-                gf_proto_flock_to_flock (&args->flock, &this_args->lock);
+            gf_proto_flock_to_flock(&args->flock, &this_args->lock);
 
-                switch (args->type) {
+            switch (args->type) {
                 case GF_LK_F_RDLCK:
-                        this_args->lock.l_type = F_RDLCK;
-                        break;
+                    this_args->lock.l_type = F_RDLCK;
+                    break;
                 case GF_LK_F_WRLCK:
-                        this_args->lock.l_type = F_WRLCK;
-                        break;
+                    this_args->lock.l_type = F_WRLCK;
+                    break;
                 case GF_LK_F_UNLCK:
-                        this_args->lock.l_type = F_UNLCK;
-                        break;
+                    this_args->lock.l_type = F_UNLCK;
+                    break;
                 default:
-                        gf_msg (frame->root->client->bound_xl->name,
-                                GF_LOG_ERROR,
-                                0, PS_MSG_LOCK_ERROR, "fd - %"PRId64" (%s):"
-                                " Unknown "
-                                "lock type: %"PRId32"!", state->resolve.fd_no,
-                                uuid_utoa (state->fd->inode->gfid),
-                                args->type);
-                        break;
-                }
-                args_lk_store (this_args, state->fd, this_args->cmd,
-                               &this_args->lock, xdata);
-                break;
+                    gf_msg(frame->root->client->bound_xl->name, GF_LOG_ERROR, 0,
+                           PS_MSG_LOCK_ERROR,
+                           "fd - %" PRId64
+                           " (%s):"
+                           " Unknown "
+                           "lock type: %" PRId32 "!",
+                           state->resolve.fd_no,
+                           uuid_utoa(state->fd->inode->gfid), args->type);
+                    break;
+            }
+            args_lk_store(this_args, state->fd, this_args->cmd,
+                          &this_args->lock, xdata);
+            break;
         }
-        case GF_FOP_LOOKUP:
-        {
-                gfs3_lookup_req *args = NULL;
+        case GF_FOP_LOOKUP: {
+            gfs3_lookup_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_lookup_req;
+            args = &this_req->compound_req_u.compound_lookup_req;
 
-                if (this_args->loc.inode)
-                        this_args->loc.inode = server_inode_new (state->itable,
-                                                             state->loc.gfid);
-                else
-                        state->is_revalidate = 1;
+            if (this_args->loc.inode)
+                this_args->loc.inode = server_inode_new(state->itable,
+                                                        state->loc.gfid);
+            else
+                state->is_revalidate = 1;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_lookup_store (this_args, &state->loc, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_lookup_store(this_args, &state->loc, xdata);
+            break;
         }
-        case GF_FOP_READDIR:
-        {
-                gfs3_readdir_req *args = NULL;
+        case GF_FOP_READDIR: {
+            gfs3_readdir_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_readdir_req;
+            args = &this_req->compound_req_u.compound_readdir_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_readdir_store (this_args, state->fd, args->size,
-                                    args->offset, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_readdir_store(this_args, state->fd, args->size, args->offset,
+                               xdata);
+            break;
         }
-        case GF_FOP_INODELK:
-        {
-                gfs3_inodelk_req *args = NULL;
+        case GF_FOP_INODELK: {
+            gfs3_inodelk_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_inodelk_req;
+            args = &this_req->compound_req_u.compound_inodelk_req;
 
-                switch (args->cmd) {
+            switch (args->cmd) {
                 case GF_LK_GETLK:
-                        this_args->cmd = F_GETLK;
-                        break;
+                    this_args->cmd = F_GETLK;
+                    break;
                 case GF_LK_SETLK:
-                        this_args->cmd = F_SETLK;
-                        break;
+                    this_args->cmd = F_SETLK;
+                    break;
                 case GF_LK_SETLKW:
-                        this_args->cmd = F_SETLKW;
-                        break;
-                }
+                    this_args->cmd = F_SETLKW;
+                    break;
+            }
 
-                gf_proto_flock_to_flock (&args->flock, &this_args->lock);
+            gf_proto_flock_to_flock(&args->flock, &this_args->lock);
 
-                switch (args->type) {
+            switch (args->type) {
                 case GF_LK_F_RDLCK:
-                        this_args->lock.l_type = F_RDLCK;
-                        break;
+                    this_args->lock.l_type = F_RDLCK;
+                    break;
                 case GF_LK_F_WRLCK:
-                        this_args->lock.l_type = F_WRLCK;
-                        break;
+                    this_args->lock.l_type = F_WRLCK;
+                    break;
                 case GF_LK_F_UNLCK:
-                        this_args->lock.l_type = F_UNLCK;
-                        break;
-                }
+                    this_args->lock.l_type = F_UNLCK;
+                    break;
+            }
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_inodelk_store (this_args, args->volume, &state->loc,
-                                    this_args->cmd, &this_args->lock, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_inodelk_store(this_args, args->volume, &state->loc,
+                               this_args->cmd, &this_args->lock, xdata);
+            break;
         }
-        case GF_FOP_FINODELK:
-        {
-                gfs3_finodelk_req *args = NULL;
+        case GF_FOP_FINODELK: {
+            gfs3_finodelk_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_finodelk_req;
+            args = &this_req->compound_req_u.compound_finodelk_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                switch (args->cmd) {
+            switch (args->cmd) {
                 case GF_LK_GETLK:
-                        this_args->cmd = F_GETLK;
-                        break;
+                    this_args->cmd = F_GETLK;
+                    break;
                 case GF_LK_SETLK:
-                        this_args->cmd = F_SETLK;
-                        break;
+                    this_args->cmd = F_SETLK;
+                    break;
                 case GF_LK_SETLKW:
-                        this_args->cmd = F_SETLKW;
-                        break;
-                }
+                    this_args->cmd = F_SETLKW;
+                    break;
+            }
 
-                gf_proto_flock_to_flock (&args->flock, &this_args->lock);
+            gf_proto_flock_to_flock(&args->flock, &this_args->lock);
 
-                switch (args->type) {
+            switch (args->type) {
                 case GF_LK_F_RDLCK:
-                        this_args->lock.l_type = F_RDLCK;
-                        break;
+                    this_args->lock.l_type = F_RDLCK;
+                    break;
                 case GF_LK_F_WRLCK:
-                        this_args->lock.l_type = F_WRLCK;
-                        break;
+                    this_args->lock.l_type = F_WRLCK;
+                    break;
                 case GF_LK_F_UNLCK:
-                        this_args->lock.l_type = F_UNLCK;
-                        break;
-                }
-                args_finodelk_store (this_args, args->volume, state->fd,
-                                     this_args->cmd, &this_args->lock, xdata);
-                        break;
+                    this_args->lock.l_type = F_UNLCK;
+                    break;
+            }
+            args_finodelk_store(this_args, args->volume, state->fd,
+                                this_args->cmd, &this_args->lock, xdata);
+            break;
         }
-        case GF_FOP_ENTRYLK:
-        {
-                gfs3_entrylk_req *args = NULL;
+        case GF_FOP_ENTRYLK: {
+            gfs3_entrylk_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_entrylk_req;
+            args = &this_req->compound_req_u.compound_entrylk_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_entrylk_store (this_args, args->volume, &state->loc,
-                                    args->name, args->cmd, args->type, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_entrylk_store(this_args, args->volume, &state->loc, args->name,
+                               args->cmd, args->type, xdata);
+            break;
         }
-        case GF_FOP_FENTRYLK:
-        {
-                gfs3_fentrylk_req *args = NULL;
+        case GF_FOP_FENTRYLK: {
+            gfs3_fentrylk_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fentrylk_req;
+            args = &this_req->compound_req_u.compound_fentrylk_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_fentrylk_store (this_args, args->volume, state->fd,
-                                     args->name, args->cmd, args->type, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_fentrylk_store(this_args, args->volume, state->fd, args->name,
+                                args->cmd, args->type, xdata);
+            break;
         }
-        case GF_FOP_XATTROP:
-        {
-                gfs3_xattrop_req *args = NULL;
+        case GF_FOP_XATTROP: {
+            gfs3_xattrop_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_xattrop_req;
+            args = &this_req->compound_req_u.compound_xattrop_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xattr, (args->dict.dict_val),
-                                              (args->dict.dict_len), ret,
-                                               op_errno, out);
-                args_xattrop_store (this_args, &state->loc, args->flags,
-                                    xattr, xdata);
-                break;
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xattr, (args->dict.dict_val),
+                (args->dict.dict_len), ret, op_errno, out);
+            args_xattrop_store(this_args, &state->loc, args->flags, xattr,
+                               xdata);
+            break;
         }
-        case GF_FOP_FXATTROP:
-        {
-                gfs3_fxattrop_req *args = NULL;
+        case GF_FOP_FXATTROP: {
+            gfs3_fxattrop_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fxattrop_req;
+            args = &this_req->compound_req_u.compound_fxattrop_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xattr, (args->dict.dict_val),
-                                              (args->dict.dict_len), ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xattr, (args->dict.dict_val),
+                (args->dict.dict_len), ret, op_errno, out);
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                args_fxattrop_store (this_args, state->fd, args->flags, xattr,
-                                     xdata);
-                break;
+            args_fxattrop_store(this_args, state->fd, args->flags, xattr,
+                                xdata);
+            break;
         }
-        case GF_FOP_FGETXATTR:
-        {
-                gfs3_fgetxattr_req *args = NULL;
+        case GF_FOP_FGETXATTR: {
+            gfs3_fgetxattr_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fgetxattr_req;
+            args = &this_req->compound_req_u.compound_fgetxattr_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                args_fgetxattr_store (this_args, state->fd, args->name, xdata);
-                break;
+            args_fgetxattr_store(this_args, state->fd, args->name, xdata);
+            break;
         }
-        case GF_FOP_FSETXATTR:
-        {
-                gfs3_fsetxattr_req *args = NULL;
+        case GF_FOP_FSETXATTR: {
+            gfs3_fsetxattr_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_fsetxattr_req;
+            args = &this_req->compound_req_u.compound_fsetxattr_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xattr, (args->dict.dict_val),
-                                              (args->dict.dict_len), ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xattr, (args->dict.dict_val),
+                (args->dict.dict_len), ret, op_errno, out);
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                args_fsetxattr_store (this_args, state->fd, xattr, args->flags,
-                                      xdata);
-                break;
-        }
-        case GF_FOP_RCHECKSUM:
-        {
-                gfs3_rchecksum_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_rchecksum_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-
-                args_rchecksum_store (this_args, state->fd, args->offset,
-                                      args->len, xdata);
-                break;
-        }
-        case GF_FOP_SETATTR:
-        {
-                gfs3_setattr_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_setattr_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-
-                gf_stat_to_iatt (&args->stbuf, &this_args->stat);
-
-                args_setattr_store (this_args, &state->loc, &this_args->stat,
-                                    args->valid, xdata);
-                break;
-        }
-        case GF_FOP_FSETATTR:
-        {
-                gfs3_fsetattr_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_fsetattr_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-
-                gf_stat_to_iatt (&args->stbuf, &this_args->stat);
-
-                args_fsetattr_store (this_args, state->fd, &this_args->stat,
-                                     args->valid, xdata);
-                break;
-        }
-        case GF_FOP_READDIRP:
-        {
-                gfs3_readdirp_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_readdirp_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xattr, (args->dict.dict_val),
-                                              (args->dict.dict_len), ret,
-                                              op_errno, out);
-
-                args_readdirp_store (this_args, state->fd, args->size,
-                                     args->offset, xattr);
-                break;
-        }
-        case GF_FOP_FREMOVEXATTR:
-        {
-                gfs3_fremovexattr_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_fremovexattr_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-
-                args_fremovexattr_store (this_args, state->fd, args->name,
-                                         xdata);
-                break;
-        }
-	case GF_FOP_FALLOCATE:
-        {
-                gfs3_fallocate_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_fallocate_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_fallocate_store (this_args, state->fd, args->flags,
-                                      args->offset, args->size, xdata);
-                break;
-        }
-	case GF_FOP_DISCARD:
-        {
-                gfs3_discard_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_discard_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-
-                args_discard_store (this_args, state->fd, args->offset,
-                                    args->size, xdata);
-                break;
-        }
-        case GF_FOP_ZEROFILL:
-        {
-                gfs3_zerofill_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_zerofill_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_zerofill_store (this_args, state->fd, args->offset,
-                                     args->size, xdata);
-                break;
-        }
-        case GF_FOP_SEEK:
-        {
-                gfs3_seek_req *args = NULL;
-
-                args = &this_req->compound_req_u.compound_seek_req;
-
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
-                args_seek_store (this_args, state->fd, args->offset, args->what,
+            args_fsetxattr_store(this_args, state->fd, xattr, args->flags,
                                  xdata);
-                break;
+            break;
         }
-        case GF_FOP_LEASE:
-        {
-                gfs3_lease_req *args = NULL;
+        case GF_FOP_RCHECKSUM: {
+            gfs3_rchecksum_req *args = NULL;
 
-                args = &this_req->compound_req_u.compound_lease_req;
+            args = &this_req->compound_req_u.compound_rchecksum_req;
 
-                GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              xdata, args->xdata.xdata_val,
-                                              args->xdata.xdata_len, ret,
-                                              op_errno, out);
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
 
-                gf_proto_lease_to_lease (&args->lease, &state->lease);
+            args_rchecksum_store(this_args, state->fd, args->offset, args->len,
+                                 xdata);
+            break;
+        }
+        case GF_FOP_SETATTR: {
+            gfs3_setattr_req *args = NULL;
 
-                args_lease_store (this_args, &state->loc, &state->lease, xdata);
-                break;
+            args = &this_req->compound_req_u.compound_setattr_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+
+            gf_stat_to_iatt(&args->stbuf, &this_args->stat);
+
+            args_setattr_store(this_args, &state->loc, &this_args->stat,
+                               args->valid, xdata);
+            break;
+        }
+        case GF_FOP_FSETATTR: {
+            gfs3_fsetattr_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_fsetattr_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+
+            gf_stat_to_iatt(&args->stbuf, &this_args->stat);
+
+            args_fsetattr_store(this_args, state->fd, &this_args->stat,
+                                args->valid, xdata);
+            break;
+        }
+        case GF_FOP_READDIRP: {
+            gfs3_readdirp_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_readdirp_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xattr, (args->dict.dict_val),
+                (args->dict.dict_len), ret, op_errno, out);
+
+            args_readdirp_store(this_args, state->fd, args->size, args->offset,
+                                xattr);
+            break;
+        }
+        case GF_FOP_FREMOVEXATTR: {
+            gfs3_fremovexattr_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_fremovexattr_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+
+            args_fremovexattr_store(this_args, state->fd, args->name, xdata);
+            break;
+        }
+        case GF_FOP_FALLOCATE: {
+            gfs3_fallocate_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_fallocate_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_fallocate_store(this_args, state->fd, args->flags,
+                                 args->offset, args->size, xdata);
+            break;
+        }
+        case GF_FOP_DISCARD: {
+            gfs3_discard_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_discard_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+
+            args_discard_store(this_args, state->fd, args->offset, args->size,
+                               xdata);
+            break;
+        }
+        case GF_FOP_ZEROFILL: {
+            gfs3_zerofill_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_zerofill_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_zerofill_store(this_args, state->fd, args->offset, args->size,
+                                xdata);
+            break;
+        }
+        case GF_FOP_SEEK: {
+            gfs3_seek_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_seek_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+            args_seek_store(this_args, state->fd, args->offset, args->what,
+                            xdata);
+            break;
+        }
+        case GF_FOP_LEASE: {
+            gfs3_lease_req *args = NULL;
+
+            args = &this_req->compound_req_u.compound_lease_req;
+
+            GF_PROTOCOL_DICT_UNSERIALIZE(
+                frame->root->client->bound_xl, xdata, args->xdata.xdata_val,
+                args->xdata.xdata_len, ret, op_errno, out);
+
+            gf_proto_lease_to_lease(&args->lease, &state->lease);
+
+            args_lease_store(this_args, &state->loc, &state->lease, xdata);
+            break;
         }
         default:
-                return ENOTSUP;
-        }
+            return ENOTSUP;
+    }
 out:
-        if (xattr)
-                dict_unref (xattr);
-        if (xdata)
-                dict_unref (xdata);
-        return op_errno;
+    if (xattr)
+        dict_unref(xattr);
+    if (xdata)
+        dict_unref(xdata);
+    return op_errno;
 }
 
 int
-server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
-                                   call_frame_t *frame,
-                                   compound_args_cbk_t *args_cbk, int index)
+server_populate_compound_response(xlator_t *this, gfs3_compound_rsp *rsp,
+                                  call_frame_t *frame,
+                                  compound_args_cbk_t *args_cbk, int index)
 {
-        int                     op_errno    = EINVAL;
-        default_args_cbk_t      *this_args_cbk = NULL;
-        compound_rsp            *this_rsp   = NULL;
-        server_state_t          *state      = NULL;
-        int                     ret         = 0;
+    int op_errno = EINVAL;
+    default_args_cbk_t *this_args_cbk = NULL;
+    compound_rsp *this_rsp = NULL;
+    server_state_t *state = NULL;
+    int ret = 0;
 
-        state = CALL_STATE (frame);
-        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
+    state = CALL_STATE(frame);
+    this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
 
-        this_args_cbk = &args_cbk->rsp_list[index];
-        this_rsp->fop_enum = args_cbk->enum_list[index];
+    this_args_cbk = &args_cbk->rsp_list[index];
+    this_rsp->fop_enum = args_cbk->enum_list[index];
 
-        switch (this_rsp->fop_enum) {
-        case GF_FOP_STAT:
-        {
-                gfs3_stat_rsp *rsp_args = NULL;
+    switch (this_rsp->fop_enum) {
+        case GF_FOP_STAT: {
+            gfs3_stat_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_stat_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_stat_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (!this_args_cbk->op_ret) {
-                        server_post_stat (state, rsp_args,
-                                          &this_args_cbk->stat);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (!this_args_cbk->op_ret) {
+                server_post_stat(state, rsp_args, &this_args_cbk->stat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_READLINK: {
+            gfs3_readlink_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_readlink_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (this_args_cbk->op_ret >= 0) {
+                server_post_readlink(rsp_args, &this_args_cbk->stat,
+                                     this_args_cbk->buf);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            if (!rsp_args->path)
+                rsp_args->path = "";
+            break;
+        }
+        case GF_FOP_MKNOD: {
+            gfs3_mknod_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_mknod_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (!this_args_cbk->op_ret) {
+                server_post_mknod(state, rsp_args, &this_args_cbk->stat,
+                                  &this_args_cbk->preparent,
+                                  &this_args_cbk->postparent,
+                                  this_args_cbk->inode);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_MKDIR: {
+            gfs3_mkdir_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_mkdir_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_mkdir(
+                    state, rsp_args, this_args_cbk->inode, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent,
+                    this_args_cbk->xdata);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_UNLINK: {
+            gfs3_unlink_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_unlink_rsp;
+
+            if (gf_replace_old_iatt_in_dict(this_args_cbk->xdata)) {
+                rsp_args->op_errno = errno;
+                rsp_args->op_ret = -1;
+                goto out;
+            }
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (!this_args_cbk->op_ret) {
+                server_post_unlink(state, rsp_args, &this_args_cbk->preparent,
+                                   &this_args_cbk->postparent);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_RMDIR: {
+            gfs3_rmdir_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_rmdir_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (!this_args_cbk->op_ret) {
+                server_post_rmdir(state, rsp_args, &this_args_cbk->preparent,
+                                  &this_args_cbk->postparent);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_SYMLINK: {
+            gfs3_symlink_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_symlink_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_symlink(
+                    state, rsp_args, this_args_cbk->inode, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent,
+                    this_args_cbk->xdata);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_RENAME: {
+            gfs3_rename_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_rename_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_rename(
+                    frame, state, rsp_args, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent,
+                    &this_args_cbk->preparent2, &this_args_cbk->postparent2);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_LINK: {
+            gfs3_link_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_link_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_link(
+                    state, rsp_args, this_args_cbk->inode, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent,
+                    this_args_cbk->xdata);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_TRUNCATE: {
+            gfs3_truncate_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_truncate_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_truncate(rsp_args, &this_args_cbk->prestat,
+                                     &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_OPEN: {
+            gfs3_open_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_open_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_open(frame, this, rsp_args, this_args_cbk->fd);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_READ: {
+            gfs3_read_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_read_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (this_args_cbk->op_ret >= 0) {
+                server_post_readv(rsp_args, &this_args_cbk->stat,
+                                  this_args_cbk->op_ret);
+
+                if (!state->rsp_iobref) {
+                    state->rsp_iobref = this_args_cbk->iobref;
+                    state->rsp_count = 0;
                 }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+                iobref_merge(state->rsp_iobref, this_args_cbk->iobref);
+                memcpy(&state->rsp_vector[state->rsp_count],
+                       this_args_cbk->vector,
+                       (this_args_cbk->count * sizeof(state->rsp_vector[0])));
+                state->rsp_count += this_args_cbk->count;
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_READLINK:
-        {
-                gfs3_readlink_rsp *rsp_args = NULL;
+        case GF_FOP_WRITE: {
+            gfs3_write_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_readlink_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_write_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (this_args_cbk->op_ret >= 0) {
-                        server_post_readlink (rsp_args, &this_args_cbk->stat,
-                                              this_args_cbk->buf);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (this_args_cbk->op_ret >= 0) {
+                server_post_writev(rsp_args, &this_args_cbk->prestat,
+                                   &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_STATFS: {
+            gfs3_statfs_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_statfs_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (!this_args_cbk->op_ret) {
+                server_post_statfs(rsp_args, &this_args_cbk->statvfs);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FLUSH: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_flush_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FSYNC: {
+            gfs3_fsync_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fsync_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_fsync(rsp_args, &this_args_cbk->prestat,
+                                  &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_SETXATTR: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
+
+            if (gf_replace_old_iatt_in_dict(this_args_cbk->xdata)) {
+                rsp_args->op_errno = errno;
+                rsp_args->op_ret = -1;
+                goto out;
+            }
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_GETXATTR: {
+            gfs3_getxattr_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_getxattr_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (-1 != this_args_cbk->op_ret) {
+                GF_PROTOCOL_DICT_SERIALIZE(
+                    this, this_args_cbk->xattr, &rsp_args->dict.dict_val,
+                    rsp_args->dict.dict_len, rsp_args->op_errno, out);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_REMOVEXATTR: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_removexattr_rsp;
+
+            if (gf_replace_old_iatt_in_dict(this_args_cbk->xdata)) {
+                rsp_args->op_errno = errno;
+                rsp_args->op_ret = -1;
+                goto out;
+            }
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_OPENDIR: {
+            gfs3_opendir_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_opendir_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_opendir(frame, this, rsp_args, this_args_cbk->fd);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FSYNCDIR: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fsyncdir_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_ACCESS: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_access_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_CREATE: {
+            gfs3_create_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_create_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+
+            if (!this_args_cbk->op_ret) {
+                rsp_args->op_ret = server_post_create(
+                    frame, rsp_args, state, this, this_args_cbk->fd,
+                    this_args_cbk->inode, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent);
+                if (rsp_args->op_ret) {
+                    rsp_args->op_errno = -rsp_args->op_ret;
+                    rsp_args->op_ret = -1;
                 }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                if (!rsp_args->path)
-                        rsp_args->path = "";
-                break;
+            }
+            break;
         }
-        case GF_FOP_MKNOD:
-        {
-                gfs3_mknod_rsp *rsp_args = NULL;
+        case GF_FOP_FTRUNCATE: {
+            gfs3_ftruncate_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_mknod_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_ftruncate_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (!this_args_cbk->op_ret) {
-                        server_post_mknod (state, rsp_args,
-                                           &this_args_cbk->stat,
-                                           &this_args_cbk->preparent,
-                                           &this_args_cbk->postparent,
-                                           this_args_cbk->inode);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_ftruncate(rsp_args, &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FSTAT: {
+            gfs3_fstat_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fstat_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            if (!this_args_cbk->op_ret) {
+                server_post_fstat(state, rsp_args, &this_args_cbk->stat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_LK: {
+            gfs3_lk_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_lk_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_lk(this, rsp_args, &this_args_cbk->lock);
+            }
+
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_LOOKUP: {
+            gfs3_lookup_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_lookup_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_lookup(rsp_args, frame, state, this_args_cbk->inode,
+                                   &this_args_cbk->stat,
+                                   &this_args_cbk->postparent);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_READDIR: {
+            gfs3_readdir_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_readdir_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+
+            if (this_args_cbk->op_ret > 0) {
+                ret = server_post_readdir(rsp_args, &this_args_cbk->entries);
+                if (ret < 0) {
+                    rsp_args->op_ret = ret;
+                    rsp_args->op_errno = ENOMEM;
                 }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            }
+            break;
         }
-        case GF_FOP_MKDIR:
-        {
-                gfs3_mkdir_rsp *rsp_args = NULL;
+        case GF_FOP_INODELK: {
+            gf_common_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_mkdir_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_inodelk_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FINODELK: {
+            gf_common_rsp *rsp_args = NULL;
 
-                if (!this_args_cbk->op_ret) {
-                        server_post_mkdir (state, rsp_args,
-                                           this_args_cbk->inode,
-                                           &this_args_cbk->stat,
-                                           &this_args_cbk->preparent,
-                                           &this_args_cbk->postparent,
-                                           this_args_cbk->xdata);
+            rsp_args = &this_rsp->compound_rsp_u.compound_finodelk_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_ENTRYLK: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_entrylk_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FENTRYLK: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fentrylk_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_XATTROP: {
+            gfs3_xattrop_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_xattrop_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                GF_PROTOCOL_DICT_SERIALIZE(
+                    this, this_args_cbk->xattr, &rsp_args->dict.dict_val,
+                    rsp_args->dict.dict_len, rsp_args->op_errno, out);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FXATTROP: {
+            gfs3_fxattrop_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fxattrop_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                GF_PROTOCOL_DICT_SERIALIZE(
+                    this, this_args_cbk->xattr, &rsp_args->dict.dict_val,
+                    rsp_args->dict.dict_len, rsp_args->op_errno, out);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FGETXATTR: {
+            gfs3_fgetxattr_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fgetxattr_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (-1 != this_args_cbk->op_ret) {
+                GF_PROTOCOL_DICT_SERIALIZE(
+                    this, this_args_cbk->xattr, &rsp_args->dict.dict_val,
+                    rsp_args->dict.dict_len, rsp_args->op_errno, out);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FSETXATTR: {
+            gf_common_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
+
+            if (gf_replace_old_iatt_in_dict(this_args_cbk->xdata)) {
+                rsp_args->op_errno = errno;
+                rsp_args->op_ret = -1;
+                goto out;
+            }
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_RCHECKSUM: {
+            gfs3_rchecksum_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_rchecksum_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_rchecksum(rsp_args, this_args_cbk->weak_checksum,
+                                      this_args_cbk->strong_checksum);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_SETATTR: {
+            gfs3_setattr_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_setattr_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_setattr(rsp_args, &this_args_cbk->prestat,
+                                    &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_FSETATTR: {
+            gfs3_fsetattr_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_fsetattr_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_fsetattr(rsp_args, &this_args_cbk->prestat,
+                                     &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_READDIRP: {
+            gfs3_readdirp_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_u.compound_readdirp_rsp;
+
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (this_args_cbk->op_ret > 0) {
+                ret = server_post_readdirp(rsp_args, &this_args_cbk->entries);
+                if (ret < 0) {
+                    rsp_args->op_ret = ret;
+                    rsp_args->op_errno = ENOMEM;
+                    goto out;
                 }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+                gf_link_inodes_from_dirent(this, state->fd->inode,
+                                           &this_args_cbk->entries);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_UNLINK:
-        {
-                gfs3_unlink_rsp *rsp_args = NULL;
+        case GF_FOP_FREMOVEXATTR: {
+            gf_common_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_unlink_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_fremovexattr_rsp;
 
-                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
-                        rsp_args->op_errno = errno;
-                        rsp_args->op_ret = -1;
-                        goto out;
-                }
+            if (gf_replace_old_iatt_in_dict(this_args_cbk->xdata)) {
+                rsp_args->op_errno = errno;
+                rsp_args->op_ret = -1;
+                goto out;
+            }
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (!this_args_cbk->op_ret) {
-                        server_post_unlink (state, rsp_args,
-                                            &this_args_cbk->preparent,
-                                            &this_args_cbk->postparent);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_RMDIR:
-        {
-                gfs3_rmdir_rsp *rsp_args = NULL;
+        case GF_FOP_FALLOCATE: {
+            gfs3_fallocate_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_rmdir_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_fallocate_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (!this_args_cbk->op_ret) {
-                        server_post_rmdir (state, rsp_args,
-                                            &this_args_cbk->preparent,
-                                            &this_args_cbk->postparent);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+
+            if (!this_args_cbk->op_ret) {
+                server_post_fallocate(rsp_args, &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_SYMLINK:
-        {
-                gfs3_symlink_rsp *rsp_args = NULL;
+        case GF_FOP_DISCARD: {
+            gfs3_discard_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_symlink_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_discard_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
 
-                if (!this_args_cbk->op_ret) {
-                        server_post_symlink (state, rsp_args,
-                                             this_args_cbk->inode,
-                                             &this_args_cbk->stat,
-                                             &this_args_cbk->preparent,
-                                             &this_args_cbk->postparent,
-                                             this_args_cbk->xdata);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            if (!this_args_cbk->op_ret) {
+                server_post_discard(rsp_args, &this_args_cbk->prestat,
+                                    &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_RENAME:
-        {
-                gfs3_rename_rsp *rsp_args = NULL;
+        case GF_FOP_ZEROFILL: {
+            gfs3_zerofill_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_rename_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_zerofill_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
 
-                if (!this_args_cbk->op_ret) {
-                        server_post_rename (frame, state, rsp_args,
-                                            &this_args_cbk->stat,
-                                            &this_args_cbk->preparent,
-                                            &this_args_cbk->postparent,
-                                            &this_args_cbk->preparent2,
-                                            &this_args_cbk->postparent2);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            if (!this_args_cbk->op_ret) {
+                server_post_zerofill(rsp_args, &this_args_cbk->prestat,
+                                     &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_LINK:
-        {
-                gfs3_link_rsp *rsp_args = NULL;
+        case GF_FOP_SEEK: {
+            gfs3_seek_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_link_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_seek_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_link (state, rsp_args,
-                                          this_args_cbk->inode,
-                                          &this_args_cbk->stat,
-                                          &this_args_cbk->preparent,
-                                          &this_args_cbk->postparent,
-                                          this_args_cbk->xdata);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_TRUNCATE:
-        {
-                gfs3_truncate_rsp *rsp_args = NULL;
+        case GF_FOP_LEASE: {
+            gfs3_lease_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_truncate_rsp;
+            rsp_args = &this_rsp->compound_rsp_u.compound_lease_rsp;
 
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
+            GF_PROTOCOL_DICT_SERIALIZE(
+                this, this_args_cbk->xdata, &rsp_args->xdata.xdata_val,
+                rsp_args->xdata.xdata_len, rsp_args->op_errno, out);
 
-                if (!this_args_cbk->op_ret) {
-                        server_post_truncate (rsp_args,
-                                              &this_args_cbk->prestat,
-                                              &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_OPEN:
-        {
-                gfs3_open_rsp *rsp_args = NULL;
+            if (!this_args_cbk->op_ret) {
+                server_post_lease(rsp_args, &this_args_cbk->lease);
+            }
 
-                rsp_args = &this_rsp->compound_rsp_u.compound_open_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_open (frame, this, rsp_args,
-                                          this_args_cbk->fd);
-
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno = gf_errno_to_error
-                                     (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_READ:
-        {
-                gfs3_read_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_read_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (this_args_cbk->op_ret >= 0) {
-                        server_post_readv (rsp_args, &this_args_cbk->stat,
-                                           this_args_cbk->op_ret);
-
-                        if (!state->rsp_iobref) {
-                                state->rsp_iobref = this_args_cbk->iobref;
-                                state->rsp_count = 0;
-                        }
-                        iobref_merge (state->rsp_iobref,
-                                      this_args_cbk->iobref);
-                        memcpy (&state->rsp_vector[state->rsp_count],
-                                this_args_cbk->vector,
-                                (this_args_cbk->count *
-                                 sizeof(state->rsp_vector[0])));
-                        state->rsp_count += this_args_cbk->count;
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno = gf_errno_to_error
-                                     (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_WRITE:
-        {
-                gfs3_write_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_write_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (this_args_cbk->op_ret >= 0) {
-                        server_post_writev (rsp_args,
-                                              &this_args_cbk->prestat,
-                                              &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_STATFS:
-        {
-                gfs3_statfs_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_statfs_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (!this_args_cbk->op_ret) {
-                        server_post_statfs (rsp_args,
-                                            &this_args_cbk->statvfs);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FLUSH:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_flush_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FSYNC:
-        {
-                gfs3_fsync_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fsync_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_fsync (rsp_args,
-                                            &this_args_cbk->prestat,
-                                            &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_SETXATTR:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
-
-                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
-                        rsp_args->op_errno = errno;
-                        rsp_args->op_ret = -1;
-                        goto out;
-                }
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_GETXATTR:
-        {
-                gfs3_getxattr_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_getxattr_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (-1 != this_args_cbk->op_ret) {
-                        GF_PROTOCOL_DICT_SERIALIZE (this,
-                                                    this_args_cbk->xattr,
-                                                    &rsp_args->dict.dict_val,
-                                                    rsp_args->dict.dict_len,
-                                                    rsp_args->op_errno, out);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_REMOVEXATTR:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_removexattr_rsp;
-
-                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
-                        rsp_args->op_errno = errno;
-                        rsp_args->op_ret = -1;
-                        goto out;
-                }
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_OPENDIR:
-        {
-                gfs3_opendir_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_opendir_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_opendir (frame, this, rsp_args,
-                                          this_args_cbk->fd);
-
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno = gf_errno_to_error
-                                     (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FSYNCDIR:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fsyncdir_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_ACCESS:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_access_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_CREATE:
-        {
-                gfs3_create_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_create_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-
-                if (!this_args_cbk->op_ret) {
-                        rsp_args->op_ret = server_post_create (frame,
-                                                rsp_args, state, this,
-                                                this_args_cbk->fd,
-                                                this_args_cbk->inode,
-                                                &this_args_cbk->stat,
-                                                &this_args_cbk->preparent,
-                                                &this_args_cbk->postparent);
-                        if (rsp_args->op_ret) {
-                                rsp_args->op_errno = -rsp_args->op_ret;
-                                rsp_args->op_ret = -1;
-                        }
-                }
-                break;
-        }
-        case GF_FOP_FTRUNCATE:
-        {
-                gfs3_ftruncate_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_ftruncate_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_ftruncate (rsp_args,
-                                              &this_args_cbk->prestat,
-                                              &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FSTAT:
-        {
-                gfs3_fstat_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fstat_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                if (!this_args_cbk->op_ret) {
-                        server_post_fstat (state, rsp_args,
-                                           &this_args_cbk->stat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_LK:
-        {
-                gfs3_lk_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_lk_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_lk (this, rsp_args, &this_args_cbk->lock);
-                }
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_LOOKUP:
-        {
-                gfs3_lookup_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_lookup_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_lookup (rsp_args, frame, state,
-                                            this_args_cbk->inode,
-                                            &this_args_cbk->stat,
-                                            &this_args_cbk->postparent);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_READDIR:
-        {
-                gfs3_readdir_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_readdir_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-
-                if (this_args_cbk->op_ret > 0) {
-                        ret = server_post_readdir (rsp_args,
-                                                   &this_args_cbk->entries);
-                        if (ret < 0) {
-                                rsp_args->op_ret = ret;
-                                rsp_args->op_errno = ENOMEM;
-                        }
-                }
-                break;
-        }
-        case GF_FOP_INODELK:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_inodelk_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FINODELK:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_finodelk_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_ENTRYLK:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_entrylk_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FENTRYLK:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fentrylk_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_XATTROP:
-        {
-                gfs3_xattrop_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_xattrop_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        GF_PROTOCOL_DICT_SERIALIZE (this,
-                                                    this_args_cbk->xattr,
-                                                    &rsp_args->dict.dict_val,
-                                                    rsp_args->dict.dict_len,
-                                                    rsp_args->op_errno, out);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FXATTROP:
-        {
-                gfs3_fxattrop_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fxattrop_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        GF_PROTOCOL_DICT_SERIALIZE (this,
-                                                    this_args_cbk->xattr,
-                                                    &rsp_args->dict.dict_val,
-                                                    rsp_args->dict.dict_len,
-                                                    rsp_args->op_errno, out);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FGETXATTR:
-        {
-                gfs3_fgetxattr_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fgetxattr_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (-1 != this_args_cbk->op_ret) {
-                        GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xattr,
-                                                    &rsp_args->dict.dict_val,
-                                                    rsp_args->dict.dict_len,
-                                                    rsp_args->op_errno, out);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FSETXATTR:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
-
-                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
-                        rsp_args->op_errno = errno;
-                        rsp_args->op_ret = -1;
-                        goto out;
-                }
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_RCHECKSUM:
-        {
-                gfs3_rchecksum_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_rchecksum_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_rchecksum (rsp_args,
-                                               this_args_cbk->weak_checksum,
-                                               this_args_cbk->strong_checksum);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_SETATTR:
-        {
-                gfs3_setattr_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_setattr_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_setattr (rsp_args,
-                                             &this_args_cbk->prestat,
-                                             &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FSETATTR:
-        {
-                gfs3_fsetattr_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fsetattr_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_fsetattr (rsp_args, &this_args_cbk->prestat,
-                                              &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_READDIRP:
-        {
-                gfs3_readdirp_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_readdirp_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (this_args_cbk->op_ret > 0) {
-                        ret = server_post_readdirp (rsp_args,
-                                                   &this_args_cbk->entries);
-                        if (ret < 0) {
-                                rsp_args->op_ret = ret;
-                                rsp_args->op_errno = ENOMEM;
-                                goto out;
-                        }
-                        gf_link_inodes_from_dirent (this, state->fd->inode,
-                                                    &this_args_cbk->entries);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_FREMOVEXATTR:
-        {
-                gf_common_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fremovexattr_rsp;
-
-                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
-                        rsp_args->op_errno = errno;
-                        rsp_args->op_ret = -1;
-                        goto out;
-                }
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-	case GF_FOP_FALLOCATE:
-        {
-                gfs3_fallocate_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_fallocate_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_fallocate (rsp_args,
-                                               &this_args_cbk->prestat,
-                                               &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-	case GF_FOP_DISCARD:
-        {
-                gfs3_discard_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_discard_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_discard (rsp_args,
-                                             &this_args_cbk->prestat,
-                                             &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_ZEROFILL:
-        {
-                gfs3_zerofill_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_zerofill_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_zerofill (rsp_args,
-                                              &this_args_cbk->prestat,
-                                              &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_SEEK:
-        {
-                gfs3_seek_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_seek_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_LEASE:
-        {
-                gfs3_lease_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_u.compound_lease_rsp;
-
-                GF_PROTOCOL_DICT_SERIALIZE (this, this_args_cbk->xdata,
-                                            &rsp_args->xdata.xdata_val,
-                                            rsp_args->xdata.xdata_len,
-                                            rsp_args->op_errno, out);
-
-                if (!this_args_cbk->op_ret) {
-                        server_post_lease (rsp_args, &this_args_cbk->lease);
-                }
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
         default:
-                return ENOTSUP;
-        }
-        op_errno = 0;
+            return ENOTSUP;
+    }
+    op_errno = 0;
 out:
-        return op_errno;
+    return op_errno;
 }
 /* This works only when the compound fop acts on one loc/inode/gfid.
  * If compound fops on more than one inode is required, multiple
@@ -3355,1957 +3028,1825 @@ out:
  * This can be added for future enhancements.
  */
 int
-server_get_compound_resolve (server_state_t *state, gfs3_compound_req *req)
+server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
 {
-        int           i     = 0;
-        compound_req *array = &req->compound_req_array.compound_req_array_val[i];
+    int i = 0;
+    compound_req *array = &req->compound_req_array.compound_req_array_val[i];
 
-        switch (array->fop_enum) {
-        case GF_FOP_STAT:
-        {
-                gfs3_stat_req this_req = { {0,} };
+    switch (array->fop_enum) {
+        case GF_FOP_STAT: {
+            gfs3_stat_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_stat_req;
+            this_req = array[i].compound_req_u.compound_stat_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_READLINK:
-        {
-                gfs3_readlink_req this_req = { {0,} };
+        case GF_FOP_READLINK: {
+            gfs3_readlink_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_readlink_req;
+            this_req = array[i].compound_req_u.compound_readlink_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_MKNOD:
-        {
-                gfs3_mknod_req this_req = { {0,} };
+        case GF_FOP_MKNOD: {
+            gfs3_mknod_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_mknod_req;
+            this_req = array[i].compound_req_u.compound_mknod_req;
 
-                state->resolve.type    = RESOLVE_NOT;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_NOT;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_MKDIR:
-        {
-                gfs3_mkdir_req this_req = { {0,} };
+        case GF_FOP_MKDIR: {
+            gfs3_mkdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_mkdir_req;
+            this_req = array[i].compound_req_u.compound_mkdir_req;
 
-                state->resolve.type    = RESOLVE_NOT;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_NOT;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_UNLINK:
-        {
-                gfs3_unlink_req this_req = { {0,} };
+        case GF_FOP_UNLINK: {
+            gfs3_unlink_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_unlink_req;
+            this_req = array[i].compound_req_u.compound_unlink_req;
 
-                state->resolve.type    = RESOLVE_MUST;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_RMDIR:
-        {
-                gfs3_rmdir_req this_req = { {0,} };
+        case GF_FOP_RMDIR: {
+            gfs3_rmdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_rmdir_req;
+            this_req = array[i].compound_req_u.compound_rmdir_req;
 
-                state->resolve.type    = RESOLVE_MUST;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_SYMLINK:
-        {
-                gfs3_symlink_req this_req = { {0,} };
+        case GF_FOP_SYMLINK: {
+            gfs3_symlink_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_symlink_req;
+            this_req = array[i].compound_req_u.compound_symlink_req;
 
-                state->resolve.type   = RESOLVE_NOT;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_NOT;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_RENAME:
-        {
-                gfs3_rename_req this_req = { {0,} };
+        case GF_FOP_RENAME: {
+            gfs3_rename_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_rename_req;
+            this_req = array[i].compound_req_u.compound_rename_req;
 
-                state->resolve.type   = RESOLVE_MUST;
-                state->resolve.bname = gf_strdup
-                                       (this_req.oldbname);
-                memcpy (state->resolve.pargfid, this_req.oldgfid, 16);
+            state->resolve.type = RESOLVE_MUST;
+            state->resolve.bname = gf_strdup(this_req.oldbname);
+            memcpy(state->resolve.pargfid, this_req.oldgfid, 16);
 
-                state->resolve2.type  = RESOLVE_MAY;
-                state->resolve2.bname = gf_strdup
-                                       (this_req.newbname);
-                memcpy (state->resolve2.pargfid, this_req.newgfid, 16);
-                break;
+            state->resolve2.type = RESOLVE_MAY;
+            state->resolve2.bname = gf_strdup(this_req.newbname);
+            memcpy(state->resolve2.pargfid, this_req.newgfid, 16);
+            break;
         }
-        case GF_FOP_LINK:
-        {
-                gfs3_link_req this_req = { {0,} };
+        case GF_FOP_LINK: {
+            gfs3_link_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_link_req;
+            this_req = array[i].compound_req_u.compound_link_req;
 
-                state->resolve.type    = RESOLVE_MUST;
-                memcpy (state->resolve.gfid, this_req.oldgfid, 16);
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.oldgfid, 16);
 
-                state->resolve2.type   = RESOLVE_NOT;
-                state->resolve2.bname = gf_strdup
-                                       (this_req.newbname);
-                memcpy (state->resolve2.pargfid, this_req.newgfid, 16);
-                break;
+            state->resolve2.type = RESOLVE_NOT;
+            state->resolve2.bname = gf_strdup(this_req.newbname);
+            memcpy(state->resolve2.pargfid, this_req.newgfid, 16);
+            break;
         }
-        case GF_FOP_TRUNCATE:
-        {
-                gfs3_truncate_req this_req = { {0,} };
+        case GF_FOP_TRUNCATE: {
+            gfs3_truncate_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_truncate_req;
+            this_req = array[i].compound_req_u.compound_truncate_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_OPEN:
-        {
-                gfs3_open_req this_req = { {0,} };
+        case GF_FOP_OPEN: {
+            gfs3_open_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_open_req;
+            this_req = array[i].compound_req_u.compound_open_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_READ:
-        {
-                gfs3_read_req this_req = { {0,} };
+        case GF_FOP_READ: {
+            gfs3_read_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_read_req;
+            this_req = array[i].compound_req_u.compound_read_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_WRITE:
-        {
-                gfs3_write_req this_req = { {0,} };
+        case GF_FOP_WRITE: {
+            gfs3_write_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_write_req;
+            this_req = array[i].compound_req_u.compound_write_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_STATFS:
-        {
-                gfs3_statfs_req this_req = { {0,} };
+        case GF_FOP_STATFS: {
+            gfs3_statfs_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_statfs_req;
+            this_req = array[i].compound_req_u.compound_statfs_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FLUSH:
-        {
-                gfs3_flush_req this_req = { {0,} };
+        case GF_FOP_FLUSH: {
+            gfs3_flush_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_flush_req;
+            this_req = array[i].compound_req_u.compound_flush_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FSYNC:
-        {
-                gfs3_fsync_req this_req = { {0,} };
+        case GF_FOP_FSYNC: {
+            gfs3_fsync_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fsync_req;
+            this_req = array[i].compound_req_u.compound_fsync_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_SETXATTR:
-        {
-                gfs3_setxattr_req this_req = { {0,} };
+        case GF_FOP_SETXATTR: {
+            gfs3_setxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_setxattr_req;
+            this_req = array[i].compound_req_u.compound_setxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_GETXATTR:
-        {
-                gfs3_getxattr_req this_req = { {0,} };
+        case GF_FOP_GETXATTR: {
+            gfs3_getxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_getxattr_req;
+            this_req = array[i].compound_req_u.compound_getxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_REMOVEXATTR:
-        {
-                gfs3_removexattr_req this_req = { {0,} };
+        case GF_FOP_REMOVEXATTR: {
+            gfs3_removexattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_removexattr_req;
+            this_req = array[i].compound_req_u.compound_removexattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_OPENDIR:
-        {
-                gfs3_opendir_req this_req = { {0,} };
+        case GF_FOP_OPENDIR: {
+            gfs3_opendir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_opendir_req;
+            this_req = array[i].compound_req_u.compound_opendir_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FSYNCDIR:
-        {
-                gfs3_fsyncdir_req this_req = { {0,} };
+        case GF_FOP_FSYNCDIR: {
+            gfs3_fsyncdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fsyncdir_req;
+            this_req = array[i].compound_req_u.compound_fsyncdir_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_ACCESS:
-        {
-                gfs3_access_req this_req = { {0,} };
+        case GF_FOP_ACCESS: {
+            gfs3_access_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_access_req;
+            this_req = array[i].compound_req_u.compound_access_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_CREATE:
-        {
-                gfs3_create_req this_req = { {0,} };
+        case GF_FOP_CREATE: {
+            gfs3_create_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_create_req;
+            this_req = array[i].compound_req_u.compound_create_req;
 
-                state->flags = gf_flags_to_flags (this_req.flags);
-                if (state->flags & O_EXCL) {
-                        state->resolve.type = RESOLVE_NOT;
-                } else {
-                        state->resolve.type = RESOLVE_DONTCARE;
-                }
+            state->flags = gf_flags_to_flags(this_req.flags);
+            if (state->flags & O_EXCL) {
+                state->resolve.type = RESOLVE_NOT;
+            } else {
+                state->resolve.type = RESOLVE_DONTCARE;
+            }
 
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_FTRUNCATE:
-        {
-                gfs3_ftruncate_req this_req = { {0,} };
+        case GF_FOP_FTRUNCATE: {
+            gfs3_ftruncate_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_ftruncate_req;
+            this_req = array[i].compound_req_u.compound_ftruncate_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FSTAT:
-        {
-                gfs3_fstat_req this_req = { {0,} };
+        case GF_FOP_FSTAT: {
+            gfs3_fstat_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fstat_req;
+            this_req = array[i].compound_req_u.compound_fstat_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_LK:
-        {
-                gfs3_lk_req this_req = { {0,} };
+        case GF_FOP_LK: {
+            gfs3_lk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_lk_req;
+            this_req = array[i].compound_req_u.compound_lk_req;
 
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_LOOKUP:
-        {
-                gfs3_lookup_req this_req = { {0,} };
+        case GF_FOP_LOOKUP: {
+            gfs3_lookup_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_lookup_req;
-                state->resolve.type   = RESOLVE_DONTCARE;
+            this_req = array[i].compound_req_u.compound_lookup_req;
+            state->resolve.type = RESOLVE_DONTCARE;
 
-                if (this_req.bname && strcmp (this_req.bname, "")) {
-                        memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                        state->resolve.bname = gf_strdup
-                                               (this_req.bname);
-                } else {
-                        memcpy (state->resolve.gfid, this_req.gfid, 16);
-                }
-                break;
+            if (this_req.bname && strcmp(this_req.bname, "")) {
+                memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+                state->resolve.bname = gf_strdup(this_req.bname);
+            } else {
+                memcpy(state->resolve.gfid, this_req.gfid, 16);
+            }
+            break;
         }
-        case GF_FOP_READDIR:
-        {
-                gfs3_readdir_req this_req = { {0,} };
+        case GF_FOP_READDIR: {
+            gfs3_readdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_readdir_req;
+            this_req = array[i].compound_req_u.compound_readdir_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_INODELK:
-        {
-                gfs3_inodelk_req this_req = { {0,} };
+        case GF_FOP_INODELK: {
+            gfs3_inodelk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_inodelk_req;
+            this_req = array[i].compound_req_u.compound_inodelk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FINODELK:
-        {
-                gfs3_finodelk_req this_req = { {0,} };
+        case GF_FOP_FINODELK: {
+            gfs3_finodelk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_finodelk_req;
+            this_req = array[i].compound_req_u.compound_finodelk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_ENTRYLK:
-        {
-                gfs3_entrylk_req this_req = { {0,} };
+        case GF_FOP_ENTRYLK: {
+            gfs3_entrylk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_entrylk_req;
+            this_req = array[i].compound_req_u.compound_entrylk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FENTRYLK:
-        {
-                gfs3_fentrylk_req this_req = { {0,} };
+        case GF_FOP_FENTRYLK: {
+            gfs3_fentrylk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fentrylk_req;
+            this_req = array[i].compound_req_u.compound_fentrylk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_XATTROP:
-        {
-                gfs3_xattrop_req this_req = { {0,} };
+        case GF_FOP_XATTROP: {
+            gfs3_xattrop_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_xattrop_req;
+            this_req = array[i].compound_req_u.compound_xattrop_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FXATTROP:
-        {
-                gfs3_fxattrop_req this_req = { {0,} };
+        case GF_FOP_FXATTROP: {
+            gfs3_fxattrop_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fxattrop_req;
+            this_req = array[i].compound_req_u.compound_fxattrop_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FGETXATTR:
-        {
-                gfs3_fgetxattr_req this_req = { {0,} };
+        case GF_FOP_FGETXATTR: {
+            gfs3_fgetxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fgetxattr_req;
+            this_req = array[i].compound_req_u.compound_fgetxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FSETXATTR:
-        {
-                gfs3_fsetxattr_req this_req = { {0,} };
+        case GF_FOP_FSETXATTR: {
+            gfs3_fsetxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fsetxattr_req;
+            this_req = array[i].compound_req_u.compound_fsetxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_RCHECKSUM:
-        {
-                gfs3_rchecksum_req this_req = {0,};
+        case GF_FOP_RCHECKSUM: {
+            gfs3_rchecksum_req this_req = {
+                0,
+            };
 
-                this_req = array[i].compound_req_u.compound_rchecksum_req;
+            this_req = array[i].compound_req_u.compound_rchecksum_req;
 
-                state->resolve.type  = RESOLVE_MAY;
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MAY;
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_SETATTR:
-        {
-                gfs3_setattr_req this_req = { {0,} };
+        case GF_FOP_SETATTR: {
+            gfs3_setattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_setattr_req;
+            this_req = array[i].compound_req_u.compound_setattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FSETATTR:
-        {
-                gfs3_fsetattr_req this_req = {0,};
+        case GF_FOP_FSETATTR: {
+            gfs3_fsetattr_req this_req = {
+                0,
+            };
 
-                this_req = array[i].compound_req_u.compound_fsetattr_req;
+            this_req = array[i].compound_req_u.compound_fsetattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_READDIRP:
-        {
-                gfs3_readdirp_req this_req = { {0,} };
+        case GF_FOP_READDIRP: {
+            gfs3_readdirp_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_readdirp_req;
+            this_req = array[i].compound_req_u.compound_readdirp_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FREMOVEXATTR:
-        {
-                gfs3_fremovexattr_req this_req = { {0,} };
+        case GF_FOP_FREMOVEXATTR: {
+            gfs3_fremovexattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fremovexattr_req;
+            this_req = array[i].compound_req_u.compound_fremovexattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FALLOCATE:
-        {
-                gfs3_fallocate_req this_req = { {0,} };
+        case GF_FOP_FALLOCATE: {
+            gfs3_fallocate_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_fallocate_req;
+            this_req = array[i].compound_req_u.compound_fallocate_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_DISCARD:
-        {
-                gfs3_discard_req this_req = { {0,} };
+        case GF_FOP_DISCARD: {
+            gfs3_discard_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_discard_req;
+            this_req = array[i].compound_req_u.compound_discard_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_ZEROFILL:
-        {
-                gfs3_zerofill_req this_req = { {0,} };
+        case GF_FOP_ZEROFILL: {
+            gfs3_zerofill_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_zerofill_req;
+            this_req = array[i].compound_req_u.compound_zerofill_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_SEEK:
-        {
-                gfs3_seek_req this_req = { {0,} };
+        case GF_FOP_SEEK: {
+            gfs3_seek_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_seek_req;
+            this_req = array[i].compound_req_u.compound_seek_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_LEASE:
-        {
-                gfs3_lease_req this_req = { {0,} };
+        case GF_FOP_LEASE: {
+            gfs3_lease_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_u.compound_lease_req;
+            this_req = array[i].compound_req_u.compound_lease_req;
 
-                state->resolve.type = RESOLVE_MUST;
-                memcpy (state->resolve.gfid, this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
         default:
-                return ENOTSUP;
-        }
-        return 0;
+            return ENOTSUP;
+    }
+    return 0;
 }
 
 void
-server_compound_rsp_cleanup (gfs3_compound_rsp *rsp, compound_args_cbk_t *args)
+server_compound_rsp_cleanup(gfs3_compound_rsp *rsp, compound_args_cbk_t *args)
 {
-        int                     i, len          = 0;
-        compound_rsp            *this_rsp       = NULL;
+    int i, len = 0;
+    compound_rsp *this_rsp = NULL;
 
-        if (!rsp->compound_rsp_array.compound_rsp_array_val)
-                return;
-
-        len = rsp->compound_rsp_array.compound_rsp_array_len;
-
-        for (i = 0; i < len; i++) {
-                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
-                switch (args->enum_list[i]) {
-                case GF_FOP_STAT:
-                        SERVER_FOP_RSP_CLEANUP (rsp, stat, i);
-                        break;
-                case GF_FOP_MKNOD:
-                        SERVER_FOP_RSP_CLEANUP (rsp, mknod, i);
-                        break;
-                case GF_FOP_MKDIR:
-                        SERVER_FOP_RSP_CLEANUP (rsp, mkdir, i);
-                        break;
-                case GF_FOP_UNLINK:
-                        SERVER_FOP_RSP_CLEANUP (rsp, unlink, i);
-                        break;
-                case GF_FOP_RMDIR:
-                        SERVER_FOP_RSP_CLEANUP (rsp, rmdir, i);
-                        break;
-                case GF_FOP_SYMLINK:
-                        SERVER_FOP_RSP_CLEANUP (rsp, symlink, i);
-                        break;
-                case GF_FOP_RENAME:
-                        SERVER_FOP_RSP_CLEANUP (rsp, rename, i);
-                        break;
-                case GF_FOP_LINK:
-                        SERVER_FOP_RSP_CLEANUP (rsp, link, i);
-                        break;
-                case GF_FOP_TRUNCATE:
-                        SERVER_FOP_RSP_CLEANUP (rsp, truncate, i);
-                        break;
-                case GF_FOP_OPEN:
-                        SERVER_FOP_RSP_CLEANUP (rsp, open, i);
-                        break;
-                case GF_FOP_READ:
-                        SERVER_FOP_RSP_CLEANUP (rsp, read, i);
-                        break;
-                case GF_FOP_WRITE:
-                        SERVER_FOP_RSP_CLEANUP (rsp, write, i);
-                        break;
-                case GF_FOP_STATFS:
-                        SERVER_FOP_RSP_CLEANUP (rsp, statfs, i);
-                        break;
-                case GF_FOP_FSYNC:
-                        SERVER_FOP_RSP_CLEANUP (rsp, fsync, i);
-                        break;
-                case GF_FOP_OPENDIR:
-                        SERVER_FOP_RSP_CLEANUP (rsp, opendir, i);
-                        break;
-                case GF_FOP_CREATE:
-                        SERVER_FOP_RSP_CLEANUP (rsp, create, i);
-                        break;
-                case GF_FOP_FTRUNCATE:
-                        SERVER_FOP_RSP_CLEANUP (rsp, ftruncate, i);
-                        break;
-                case GF_FOP_FSTAT:
-                        SERVER_FOP_RSP_CLEANUP (rsp, fstat, i);
-                        break;
-                case GF_FOP_LK:
-                        SERVER_FOP_RSP_CLEANUP (rsp, lk, i);
-                        break;
-                case GF_FOP_LOOKUP:
-                        SERVER_FOP_RSP_CLEANUP (rsp, lookup, i);
-                        break;
-                case GF_FOP_SETATTR:
-                        SERVER_FOP_RSP_CLEANUP (rsp, setattr, i);
-                        break;
-                case GF_FOP_FSETATTR:
-                        SERVER_FOP_RSP_CLEANUP (rsp, fsetattr, i);
-                        break;
-                case GF_FOP_FALLOCATE:
-                        SERVER_FOP_RSP_CLEANUP (rsp, fallocate, i);
-                        break;
-                case GF_FOP_DISCARD:
-                        SERVER_FOP_RSP_CLEANUP (rsp, discard, i);
-                        break;
-                case GF_FOP_ZEROFILL:
-                        SERVER_FOP_RSP_CLEANUP (rsp, zerofill, i);
-                        break;
-                case GF_FOP_IPC:
-                        SERVER_FOP_RSP_CLEANUP (rsp, ipc, i);
-                        break;
-                case GF_FOP_SEEK:
-                        SERVER_FOP_RSP_CLEANUP (rsp, seek, i);
-                        break;
-                case GF_FOP_LEASE:
-                        SERVER_FOP_RSP_CLEANUP (rsp, lease, i);
-                        break;
-                /* fops that use gf_common_rsp */
-                case GF_FOP_FLUSH:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, flush, i);
-                        break;
-                case GF_FOP_SETXATTR:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, setxattr, i);
-                        break;
-                case GF_FOP_REMOVEXATTR:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, removexattr, i);
-                        break;
-                case GF_FOP_FSETXATTR:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, fsetxattr, i);
-                        break;
-                case GF_FOP_FREMOVEXATTR:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, fremovexattr, i);
-                        break;
-                case GF_FOP_FSYNCDIR:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, fsyncdir, i);
-                        break;
-                case GF_FOP_ACCESS:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, access, i);
-                        break;
-                case GF_FOP_INODELK:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, inodelk, i);
-                        break;
-                case GF_FOP_FINODELK:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, finodelk, i);
-                        break;
-                case GF_FOP_ENTRYLK:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, entrylk, i);
-                        break;
-                case GF_FOP_FENTRYLK:
-                        SERVER_COMMON_RSP_CLEANUP (rsp, fentrylk, i);
-                        break;
-                case GF_FOP_READLINK:
-                        SERVER_FOP_RSP_CLEANUP (rsp, readlink, i);
-                        break;
-                case GF_FOP_RCHECKSUM:
-                        SERVER_FOP_RSP_CLEANUP (rsp, rchecksum, i);
-                        break;
-                /* fops that need extra cleanup */
-                case GF_FOP_XATTROP:
-                {
-                        gfs3_xattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                    xattrop);
-                        SERVER_FOP_RSP_CLEANUP (rsp, xattrop, i);
-                        GF_FREE (tmp_rsp->dict.dict_val);
-                        break;
-                }
-                case GF_FOP_FXATTROP:
-                {
-                        gfs3_fxattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     fxattrop);
-                        SERVER_FOP_RSP_CLEANUP (rsp, fxattrop, i);
-                        GF_FREE (tmp_rsp->dict.dict_val);
-                        break;
-                }
-                case GF_FOP_READDIR:
-                {
-                        gfs3_readdir_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                    readdir);
-                        SERVER_FOP_RSP_CLEANUP (rsp, readdir, i);
-                        readdir_rsp_cleanup (tmp_rsp);
-                        break;
-                }
-                case GF_FOP_READDIRP:
-                {
-                        gfs3_readdirp_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     readdirp);
-                        SERVER_FOP_RSP_CLEANUP (rsp, readdir, i);
-                        readdirp_rsp_cleanup (tmp_rsp);
-                        break;
-                }
-                case GF_FOP_GETXATTR:
-                {
-                        gfs3_getxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     getxattr);
-                        SERVER_FOP_RSP_CLEANUP (rsp, getxattr, i);
-                        GF_FREE (tmp_rsp->dict.dict_val);
-                        break;
-                }
-                case GF_FOP_FGETXATTR:
-                {
-                        gfs3_fgetxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                      fgetxattr);
-                        SERVER_FOP_RSP_CLEANUP (rsp, fgetxattr, i);
-                        GF_FREE (tmp_rsp->dict.dict_val);
-                        break;
-                }
-                default:
-                        break;
-                }
-        }
-        GF_FREE (rsp->compound_rsp_array.compound_rsp_array_val);
+    if (!rsp->compound_rsp_array.compound_rsp_array_val)
         return;
+
+    len = rsp->compound_rsp_array.compound_rsp_array_len;
+
+    for (i = 0; i < len; i++) {
+        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
+        switch (args->enum_list[i]) {
+            case GF_FOP_STAT:
+                SERVER_FOP_RSP_CLEANUP(rsp, stat, i);
+                break;
+            case GF_FOP_MKNOD:
+                SERVER_FOP_RSP_CLEANUP(rsp, mknod, i);
+                break;
+            case GF_FOP_MKDIR:
+                SERVER_FOP_RSP_CLEANUP(rsp, mkdir, i);
+                break;
+            case GF_FOP_UNLINK:
+                SERVER_FOP_RSP_CLEANUP(rsp, unlink, i);
+                break;
+            case GF_FOP_RMDIR:
+                SERVER_FOP_RSP_CLEANUP(rsp, rmdir, i);
+                break;
+            case GF_FOP_SYMLINK:
+                SERVER_FOP_RSP_CLEANUP(rsp, symlink, i);
+                break;
+            case GF_FOP_RENAME:
+                SERVER_FOP_RSP_CLEANUP(rsp, rename, i);
+                break;
+            case GF_FOP_LINK:
+                SERVER_FOP_RSP_CLEANUP(rsp, link, i);
+                break;
+            case GF_FOP_TRUNCATE:
+                SERVER_FOP_RSP_CLEANUP(rsp, truncate, i);
+                break;
+            case GF_FOP_OPEN:
+                SERVER_FOP_RSP_CLEANUP(rsp, open, i);
+                break;
+            case GF_FOP_READ:
+                SERVER_FOP_RSP_CLEANUP(rsp, read, i);
+                break;
+            case GF_FOP_WRITE:
+                SERVER_FOP_RSP_CLEANUP(rsp, write, i);
+                break;
+            case GF_FOP_STATFS:
+                SERVER_FOP_RSP_CLEANUP(rsp, statfs, i);
+                break;
+            case GF_FOP_FSYNC:
+                SERVER_FOP_RSP_CLEANUP(rsp, fsync, i);
+                break;
+            case GF_FOP_OPENDIR:
+                SERVER_FOP_RSP_CLEANUP(rsp, opendir, i);
+                break;
+            case GF_FOP_CREATE:
+                SERVER_FOP_RSP_CLEANUP(rsp, create, i);
+                break;
+            case GF_FOP_FTRUNCATE:
+                SERVER_FOP_RSP_CLEANUP(rsp, ftruncate, i);
+                break;
+            case GF_FOP_FSTAT:
+                SERVER_FOP_RSP_CLEANUP(rsp, fstat, i);
+                break;
+            case GF_FOP_LK:
+                SERVER_FOP_RSP_CLEANUP(rsp, lk, i);
+                break;
+            case GF_FOP_LOOKUP:
+                SERVER_FOP_RSP_CLEANUP(rsp, lookup, i);
+                break;
+            case GF_FOP_SETATTR:
+                SERVER_FOP_RSP_CLEANUP(rsp, setattr, i);
+                break;
+            case GF_FOP_FSETATTR:
+                SERVER_FOP_RSP_CLEANUP(rsp, fsetattr, i);
+                break;
+            case GF_FOP_FALLOCATE:
+                SERVER_FOP_RSP_CLEANUP(rsp, fallocate, i);
+                break;
+            case GF_FOP_DISCARD:
+                SERVER_FOP_RSP_CLEANUP(rsp, discard, i);
+                break;
+            case GF_FOP_ZEROFILL:
+                SERVER_FOP_RSP_CLEANUP(rsp, zerofill, i);
+                break;
+            case GF_FOP_IPC:
+                SERVER_FOP_RSP_CLEANUP(rsp, ipc, i);
+                break;
+            case GF_FOP_SEEK:
+                SERVER_FOP_RSP_CLEANUP(rsp, seek, i);
+                break;
+            case GF_FOP_LEASE:
+                SERVER_FOP_RSP_CLEANUP(rsp, lease, i);
+                break;
+            /* fops that use gf_common_rsp */
+            case GF_FOP_FLUSH:
+                SERVER_COMMON_RSP_CLEANUP(rsp, flush, i);
+                break;
+            case GF_FOP_SETXATTR:
+                SERVER_COMMON_RSP_CLEANUP(rsp, setxattr, i);
+                break;
+            case GF_FOP_REMOVEXATTR:
+                SERVER_COMMON_RSP_CLEANUP(rsp, removexattr, i);
+                break;
+            case GF_FOP_FSETXATTR:
+                SERVER_COMMON_RSP_CLEANUP(rsp, fsetxattr, i);
+                break;
+            case GF_FOP_FREMOVEXATTR:
+                SERVER_COMMON_RSP_CLEANUP(rsp, fremovexattr, i);
+                break;
+            case GF_FOP_FSYNCDIR:
+                SERVER_COMMON_RSP_CLEANUP(rsp, fsyncdir, i);
+                break;
+            case GF_FOP_ACCESS:
+                SERVER_COMMON_RSP_CLEANUP(rsp, access, i);
+                break;
+            case GF_FOP_INODELK:
+                SERVER_COMMON_RSP_CLEANUP(rsp, inodelk, i);
+                break;
+            case GF_FOP_FINODELK:
+                SERVER_COMMON_RSP_CLEANUP(rsp, finodelk, i);
+                break;
+            case GF_FOP_ENTRYLK:
+                SERVER_COMMON_RSP_CLEANUP(rsp, entrylk, i);
+                break;
+            case GF_FOP_FENTRYLK:
+                SERVER_COMMON_RSP_CLEANUP(rsp, fentrylk, i);
+                break;
+            case GF_FOP_READLINK:
+                SERVER_FOP_RSP_CLEANUP(rsp, readlink, i);
+                break;
+            case GF_FOP_RCHECKSUM:
+                SERVER_FOP_RSP_CLEANUP(rsp, rchecksum, i);
+                break;
+            /* fops that need extra cleanup */
+            case GF_FOP_XATTROP: {
+                gfs3_xattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp, xattrop);
+                SERVER_FOP_RSP_CLEANUP(rsp, xattrop, i);
+                GF_FREE(tmp_rsp->dict.dict_val);
+                break;
+            }
+            case GF_FOP_FXATTROP: {
+                gfs3_fxattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp, fxattrop);
+                SERVER_FOP_RSP_CLEANUP(rsp, fxattrop, i);
+                GF_FREE(tmp_rsp->dict.dict_val);
+                break;
+            }
+            case GF_FOP_READDIR: {
+                gfs3_readdir_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp, readdir);
+                SERVER_FOP_RSP_CLEANUP(rsp, readdir, i);
+                readdir_rsp_cleanup(tmp_rsp);
+                break;
+            }
+            case GF_FOP_READDIRP: {
+                gfs3_readdirp_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp, readdirp);
+                SERVER_FOP_RSP_CLEANUP(rsp, readdir, i);
+                readdirp_rsp_cleanup(tmp_rsp);
+                break;
+            }
+            case GF_FOP_GETXATTR: {
+                gfs3_getxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp, getxattr);
+                SERVER_FOP_RSP_CLEANUP(rsp, getxattr, i);
+                GF_FREE(tmp_rsp->dict.dict_val);
+                break;
+            }
+            case GF_FOP_FGETXATTR: {
+                gfs3_fgetxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                             fgetxattr);
+                SERVER_FOP_RSP_CLEANUP(rsp, fgetxattr, i);
+                GF_FREE(tmp_rsp->dict.dict_val);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    GF_FREE(rsp->compound_rsp_array.compound_rsp_array_val);
+    return;
 }
 
 void
-server_compound_req_cleanup (gfs3_compound_req *req, int len)
+server_compound_req_cleanup(gfs3_compound_req *req, int len)
 {
-        int             i        = 0;
-        compound_req   *curr_req = NULL;
+    int i = 0;
+    compound_req *curr_req = NULL;
 
-
-        if (!req->compound_req_array.compound_req_array_val)
-                return;
-
-        for (i = 0; i < len; i++) {
-                curr_req = &req->compound_req_array.compound_req_array_val[i];
-
-                switch (curr_req->fop_enum) {
-                case GF_FOP_STAT:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, stat);
-                        break;
-                case GF_FOP_READLINK:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, readlink);
-                        break;
-                case GF_FOP_MKNOD:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, mknod);
-                        break;
-                case GF_FOP_MKDIR:
-                {
-                        gfs3_mkdir_req *args = &CPD_REQ_FIELD (curr_req, mkdir);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, mkdir);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_UNLINK:
-                {
-                        gfs3_unlink_req *args = &CPD_REQ_FIELD (curr_req,
-                                                unlink);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, unlink);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_RMDIR:
-                {
-                        gfs3_rmdir_req *args = &CPD_REQ_FIELD (curr_req,
-                                               rmdir);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, rmdir);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_SYMLINK:
-                {
-                        gfs3_symlink_req *args = &CPD_REQ_FIELD (curr_req,
-                                                 symlink);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, symlink);
-                        free (args->bname);
-                        free (args->linkname);
-                        break;
-                }
-                case GF_FOP_RENAME:
-                {
-                        gfs3_rename_req *args = &CPD_REQ_FIELD (curr_req,
-                                                rename);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, rename);
-                        free (args->oldbname);
-                        free (args->newbname);
-                        break;
-                }
-                case GF_FOP_LINK:
-                {
-                        gfs3_link_req *args = &CPD_REQ_FIELD (curr_req,
-                                              link);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, link);
-                        free (args->newbname);
-                        break;
-                }
-                case GF_FOP_TRUNCATE:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, truncate);
-                        break;
-                case GF_FOP_OPEN:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, open);
-                        break;
-                case GF_FOP_READ:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, read);
-                        break;
-                case GF_FOP_WRITE:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, write);
-                        break;
-                case GF_FOP_STATFS:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, statfs);
-                        break;
-                case GF_FOP_FLUSH:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, flush);
-                        break;
-                case GF_FOP_FSYNC:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fsync);
-                        break;
-                case GF_FOP_SETXATTR:
-                {
-                        gfs3_setxattr_req *args = &CPD_REQ_FIELD (curr_req,
-                                                  setxattr);
-
-                        free (args->dict.dict_val);
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, setxattr);
-                        break;
-                }
-                case GF_FOP_GETXATTR:
-                {
-                        gfs3_getxattr_req *args = &CPD_REQ_FIELD (curr_req,
-                                                  getxattr);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, getxattr);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_REMOVEXATTR:
-                {
-                        gfs3_removexattr_req *args = &CPD_REQ_FIELD (curr_req,
-                                                     removexattr);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, removexattr);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_OPENDIR:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, opendir);
-                        break;
-                case GF_FOP_FSYNCDIR:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fsyncdir);
-                        break;
-                case GF_FOP_ACCESS:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, access);
-                        break;
-                case GF_FOP_CREATE:
-                {
-                        gfs3_create_req *args = &CPD_REQ_FIELD (curr_req,
-                                                create);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, create);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_FTRUNCATE:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, ftruncate);
-                        break;
-                case GF_FOP_FSTAT:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fstat);
-                        break;
-                case GF_FOP_LK:
-                {
-                        gfs3_lk_req *args = &CPD_REQ_FIELD (curr_req, lk);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, lk);
-                        free (args->flock.lk_owner.lk_owner_val);
-                        break;
-                }
-                case GF_FOP_LOOKUP:
-                {
-                        gfs3_lookup_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                lookup);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, lookup);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_READDIR:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, readdir);
-                        break;
-                case GF_FOP_INODELK:
-                {
-                        gfs3_inodelk_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                 inodelk);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, inodelk);
-                        free (args->volume);
-                        free (args->flock.lk_owner.lk_owner_val);
-                        break;
-                }
-                case GF_FOP_FINODELK:
-                {
-                        gfs3_finodelk_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                  finodelk);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, finodelk);
-                        free (args->volume);
-                        free (args->flock.lk_owner.lk_owner_val);
-                        break;
-                }
-                case GF_FOP_ENTRYLK:
-                {
-                        gfs3_entrylk_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                 entrylk);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, entrylk);
-                        free (args->volume);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_FENTRYLK:
-                {
-                        gfs3_fentrylk_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                  fentrylk);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fentrylk);
-                        free (args->volume);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_XATTROP:
-                {
-                        gfs3_xattrop_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                 xattrop);
-
-                        free (args->dict.dict_val);
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, xattrop);
-                        break;
-                }
-                case GF_FOP_FXATTROP:
-                {
-                        gfs3_fxattrop_req *args = &CPD_REQ_FIELD (curr_req,
-                                                                  fxattrop);
-
-                        free (args->dict.dict_val);
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fxattrop);
-                        break;
-                }
-                case GF_FOP_FGETXATTR:
-                {
-                        gfs3_fgetxattr_req *args = &CPD_REQ_FIELD (curr_req,
-                                                   fgetxattr);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fgetxattr);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_FSETXATTR:
-                {
-                        gfs3_fsetxattr_req *args = &CPD_REQ_FIELD(curr_req,
-                                                   fsetxattr);
-
-                        free (args->dict.dict_val);
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fsetxattr);
-                        break;
-                }
-                case GF_FOP_RCHECKSUM:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, rchecksum);
-                        break;
-                case GF_FOP_SETATTR:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, setattr);
-                        break;
-                case GF_FOP_FSETATTR:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fsetattr);
-                        break;
-                case GF_FOP_READDIRP:
-                {
-                        gfs3_readdirp_req *args = &CPD_REQ_FIELD (curr_req,
-                                                  readdirp);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fremovexattr);
-                        free (args->dict.dict_val);
-                        break;
-                }
-                case GF_FOP_FREMOVEXATTR:
-                {
-                        gfs3_fremovexattr_req *args = &CPD_REQ_FIELD(curr_req,
-                                                      fremovexattr);
-
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fremovexattr);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_FALLOCATE:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, fallocate);
-                        break;
-                case GF_FOP_DISCARD:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, discard);
-                        break;
-                case GF_FOP_ZEROFILL:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, zerofill);
-                        break;
-                case GF_FOP_IPC:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, ipc);
-                        break;
-                case GF_FOP_SEEK:
-                        SERVER_COMPOUND_FOP_CLEANUP (curr_req, seek);
-                        break;
-                default:
-                        break;
-                }
-        }
-
+    if (!req->compound_req_array.compound_req_array_val)
         return;
+
+    for (i = 0; i < len; i++) {
+        curr_req = &req->compound_req_array.compound_req_array_val[i];
+
+        switch (curr_req->fop_enum) {
+            case GF_FOP_STAT:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, stat);
+                break;
+            case GF_FOP_READLINK:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, readlink);
+                break;
+            case GF_FOP_MKNOD:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, mknod);
+                break;
+            case GF_FOP_MKDIR: {
+                gfs3_mkdir_req *args = &CPD_REQ_FIELD(curr_req, mkdir);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, mkdir);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_UNLINK: {
+                gfs3_unlink_req *args = &CPD_REQ_FIELD(curr_req, unlink);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, unlink);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_RMDIR: {
+                gfs3_rmdir_req *args = &CPD_REQ_FIELD(curr_req, rmdir);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, rmdir);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_SYMLINK: {
+                gfs3_symlink_req *args = &CPD_REQ_FIELD(curr_req, symlink);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, symlink);
+                free(args->bname);
+                free(args->linkname);
+                break;
+            }
+            case GF_FOP_RENAME: {
+                gfs3_rename_req *args = &CPD_REQ_FIELD(curr_req, rename);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, rename);
+                free(args->oldbname);
+                free(args->newbname);
+                break;
+            }
+            case GF_FOP_LINK: {
+                gfs3_link_req *args = &CPD_REQ_FIELD(curr_req, link);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, link);
+                free(args->newbname);
+                break;
+            }
+            case GF_FOP_TRUNCATE:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, truncate);
+                break;
+            case GF_FOP_OPEN:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, open);
+                break;
+            case GF_FOP_READ:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, read);
+                break;
+            case GF_FOP_WRITE:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, write);
+                break;
+            case GF_FOP_STATFS:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, statfs);
+                break;
+            case GF_FOP_FLUSH:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, flush);
+                break;
+            case GF_FOP_FSYNC:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fsync);
+                break;
+            case GF_FOP_SETXATTR: {
+                gfs3_setxattr_req *args = &CPD_REQ_FIELD(curr_req, setxattr);
+
+                free(args->dict.dict_val);
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, setxattr);
+                break;
+            }
+            case GF_FOP_GETXATTR: {
+                gfs3_getxattr_req *args = &CPD_REQ_FIELD(curr_req, getxattr);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, getxattr);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_REMOVEXATTR: {
+                gfs3_removexattr_req *args = &CPD_REQ_FIELD(curr_req,
+                                                            removexattr);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, removexattr);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_OPENDIR:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, opendir);
+                break;
+            case GF_FOP_FSYNCDIR:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fsyncdir);
+                break;
+            case GF_FOP_ACCESS:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, access);
+                break;
+            case GF_FOP_CREATE: {
+                gfs3_create_req *args = &CPD_REQ_FIELD(curr_req, create);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, create);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_FTRUNCATE:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, ftruncate);
+                break;
+            case GF_FOP_FSTAT:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fstat);
+                break;
+            case GF_FOP_LK: {
+                gfs3_lk_req *args = &CPD_REQ_FIELD(curr_req, lk);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, lk);
+                free(args->flock.lk_owner.lk_owner_val);
+                break;
+            }
+            case GF_FOP_LOOKUP: {
+                gfs3_lookup_req *args = &CPD_REQ_FIELD(curr_req, lookup);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, lookup);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_READDIR:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, readdir);
+                break;
+            case GF_FOP_INODELK: {
+                gfs3_inodelk_req *args = &CPD_REQ_FIELD(curr_req, inodelk);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, inodelk);
+                free(args->volume);
+                free(args->flock.lk_owner.lk_owner_val);
+                break;
+            }
+            case GF_FOP_FINODELK: {
+                gfs3_finodelk_req *args = &CPD_REQ_FIELD(curr_req, finodelk);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, finodelk);
+                free(args->volume);
+                free(args->flock.lk_owner.lk_owner_val);
+                break;
+            }
+            case GF_FOP_ENTRYLK: {
+                gfs3_entrylk_req *args = &CPD_REQ_FIELD(curr_req, entrylk);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, entrylk);
+                free(args->volume);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_FENTRYLK: {
+                gfs3_fentrylk_req *args = &CPD_REQ_FIELD(curr_req, fentrylk);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fentrylk);
+                free(args->volume);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_XATTROP: {
+                gfs3_xattrop_req *args = &CPD_REQ_FIELD(curr_req, xattrop);
+
+                free(args->dict.dict_val);
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, xattrop);
+                break;
+            }
+            case GF_FOP_FXATTROP: {
+                gfs3_fxattrop_req *args = &CPD_REQ_FIELD(curr_req, fxattrop);
+
+                free(args->dict.dict_val);
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fxattrop);
+                break;
+            }
+            case GF_FOP_FGETXATTR: {
+                gfs3_fgetxattr_req *args = &CPD_REQ_FIELD(curr_req, fgetxattr);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fgetxattr);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_FSETXATTR: {
+                gfs3_fsetxattr_req *args = &CPD_REQ_FIELD(curr_req, fsetxattr);
+
+                free(args->dict.dict_val);
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fsetxattr);
+                break;
+            }
+            case GF_FOP_RCHECKSUM:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, rchecksum);
+                break;
+            case GF_FOP_SETATTR:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, setattr);
+                break;
+            case GF_FOP_FSETATTR:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fsetattr);
+                break;
+            case GF_FOP_READDIRP: {
+                gfs3_readdirp_req *args = &CPD_REQ_FIELD(curr_req, readdirp);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fremovexattr);
+                free(args->dict.dict_val);
+                break;
+            }
+            case GF_FOP_FREMOVEXATTR: {
+                gfs3_fremovexattr_req *args = &CPD_REQ_FIELD(curr_req,
+                                                             fremovexattr);
+
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fremovexattr);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_FALLOCATE:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, fallocate);
+                break;
+            case GF_FOP_DISCARD:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, discard);
+                break;
+            case GF_FOP_ZEROFILL:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, zerofill);
+                break;
+            case GF_FOP_IPC:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, ipc);
+                break;
+            case GF_FOP_SEEK:
+                SERVER_COMPOUND_FOP_CLEANUP(curr_req, seek);
+                break;
+            default:
+                break;
+        }
+    }
+
+    return;
 }
 
 /* compound v2 */
 int
-server_populate_compound_request_v2 (gfx_compound_req *req, call_frame_t *frame,
-                                     default_args_t *this_args,
-                                     int index)
+server_populate_compound_request_v2(gfx_compound_req *req, call_frame_t *frame,
+                                    default_args_t *this_args, int index)
 {
-        int                     op_errno    = 0;
-        dict_t                 *xdata       = NULL;
-        dict_t                 *xattr       = NULL;
-        struct iovec req_iovec[MAX_IOVEC]   = { {0,} };
-        compound_req_v2        *this_req   = NULL;
-        server_state_t          *state      = CALL_STATE (frame);
+    int op_errno = 0;
+    dict_t *xdata = NULL;
+    dict_t *xattr = NULL;
+    struct iovec req_iovec[MAX_IOVEC] = {{
+        0,
+    }};
+    compound_req_v2 *this_req = NULL;
+    server_state_t *state = CALL_STATE(frame);
 
-        this_req = &req->compound_req_array.compound_req_array_val[index];
+    this_req = &req->compound_req_array.compound_req_array_val[index];
 
-        switch (this_req->fop_enum) {
-        case GF_FOP_STAT:
-        {
-                gfx_stat_req *args = NULL;
+    switch (this_req->fop_enum) {
+        case GF_FOP_STAT: {
+            gfx_stat_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_stat_req;
+            args = &this_req->compound_req_v2_u.compound_stat_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_stat_store (this_args, &state->loc, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_stat_store(this_args, &state->loc, xdata);
+            break;
         }
-        case GF_FOP_READLINK:
-        {
-                gfx_readlink_req *args = NULL;
+        case GF_FOP_READLINK: {
+            gfx_readlink_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_readlink_req;
+            args = &this_req->compound_req_v2_u.compound_readlink_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_readlink_store (this_args, &state->loc, args->size, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_readlink_store(this_args, &state->loc, args->size, xdata);
+            break;
         }
-        case GF_FOP_MKNOD:
-        {
-                gfx_mknod_req *args = NULL;
+        case GF_FOP_MKNOD: {
+            gfx_mknod_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_mknod_req;
+            args = &this_req->compound_req_v2_u.compound_mknod_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_mknod_store (this_args, &state->loc, args->mode, args->dev,
-                                  args->umask, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_mknod_store(this_args, &state->loc, args->mode, args->dev,
+                             args->umask, xdata);
+            break;
         }
-        case GF_FOP_MKDIR:
-        {
-                gfx_mkdir_req *args = NULL;
+        case GF_FOP_MKDIR: {
+            gfx_mkdir_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_mkdir_req;
+            args = &this_req->compound_req_v2_u.compound_mkdir_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_mkdir_store (this_args, &state->loc, args->mode,
-                                  args->umask, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_mkdir_store(this_args, &state->loc, args->mode, args->umask,
+                             xdata);
+            break;
         }
-        case GF_FOP_UNLINK:
-        {
-                gfx_unlink_req *args = NULL;
+        case GF_FOP_UNLINK: {
+            gfx_unlink_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_unlink_req;
+            args = &this_req->compound_req_v2_u.compound_unlink_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_unlink_store (this_args, &state->loc, args->xflags, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_unlink_store(this_args, &state->loc, args->xflags, xdata);
+            break;
         }
-        case GF_FOP_RMDIR:
-        {
-                gfx_rmdir_req *args = NULL;
+        case GF_FOP_RMDIR: {
+            gfx_rmdir_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_rmdir_req;
+            args = &this_req->compound_req_v2_u.compound_rmdir_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_rmdir_store (this_args, &state->loc, args->xflags, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_rmdir_store(this_args, &state->loc, args->xflags, xdata);
+            break;
         }
-        case GF_FOP_SYMLINK:
-        {
-                gfx_symlink_req *args = NULL;
+        case GF_FOP_SYMLINK: {
+            gfx_symlink_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_symlink_req;
+            args = &this_req->compound_req_v2_u.compound_symlink_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_symlink_store (this_args, args->linkname, &state->loc,
-                                    args->umask, xdata);
+            xdr_to_dict(&args->xdata, &xdata);
+            args_symlink_store(this_args, args->linkname, &state->loc,
+                               args->umask, xdata);
 
-                this_args->loc.inode = inode_new (state->itable);
+            this_args->loc.inode = inode_new(state->itable);
 
-                break;
+            break;
         }
-        case GF_FOP_RENAME:
-        {
-                gfx_rename_req *args = NULL;
+        case GF_FOP_RENAME: {
+            gfx_rename_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_rename_req;
+            args = &this_req->compound_req_v2_u.compound_rename_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                args_rename_store (this_args, &state->loc, &state->loc2, xdata);
-                break;
+            args_rename_store(this_args, &state->loc, &state->loc2, xdata);
+            break;
         }
-        case GF_FOP_LINK:
-        {
-                gfx_link_req *args = NULL;
+        case GF_FOP_LINK: {
+            gfx_link_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_link_req;
+            args = &this_req->compound_req_v2_u.compound_link_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_link_store (this_args, &state->loc, &state->loc2, xdata);
+            xdr_to_dict(&args->xdata, &xdata);
+            args_link_store(this_args, &state->loc, &state->loc2, xdata);
 
-                this_args->loc2.inode = inode_ref (this_args->loc.inode);
+            this_args->loc2.inode = inode_ref(this_args->loc.inode);
 
-                break;
+            break;
         }
-        case GF_FOP_TRUNCATE:
-        {
-                gfx_truncate_req *args = NULL;
+        case GF_FOP_TRUNCATE: {
+            gfx_truncate_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_truncate_req;
+            args = &this_req->compound_req_v2_u.compound_truncate_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_truncate_store (this_args, &state->loc, args->offset,
-                                     xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_truncate_store(this_args, &state->loc, args->offset, xdata);
+            break;
         }
-        case GF_FOP_OPEN:
-        {
-                gfx_open_req *args = NULL;
+        case GF_FOP_OPEN: {
+            gfx_open_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_open_req;
+            args = &this_req->compound_req_v2_u.compound_open_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_open_store (this_args, &state->loc, args->flags, state->fd,
-                                 xdata);
+            xdr_to_dict(&args->xdata, &xdata);
+            args_open_store(this_args, &state->loc, args->flags, state->fd,
+                            xdata);
 
-                this_args->fd = fd_create (this_args->loc.inode,
-                                           frame->root->pid);
-                this_args->fd->flags = this_args->flags;
+            this_args->fd = fd_create(this_args->loc.inode, frame->root->pid);
+            this_args->fd->flags = this_args->flags;
 
-                break;
+            break;
         }
-        case GF_FOP_READ:
-        {
-                gfx_read_req *args = NULL;
+        case GF_FOP_READ: {
+            gfx_read_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_read_req;
+            args = &this_req->compound_req_v2_u.compound_read_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_readv_store (this_args, state->fd, args->size,
-                                  args->offset, args->flag, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_readv_store(this_args, state->fd, args->size, args->offset,
+                             args->flag, xdata);
+            break;
         }
-        case GF_FOP_WRITE:
-        {
-                gfx_write_req *args = NULL;
+        case GF_FOP_WRITE: {
+            gfx_write_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_write_req;
+            args = &this_req->compound_req_v2_u.compound_write_req;
 
-                /*TODO : What happens when payload count is more than one? */
-                req_iovec[0].iov_base = state->payload_vector[0].iov_base +
-                                        state->write_length;
-                req_iovec[0].iov_len  = args->size;
+            /*TODO : What happens when payload count is more than one? */
+            req_iovec[0].iov_base = state->payload_vector[0].iov_base +
+                                    state->write_length;
+            req_iovec[0].iov_len = args->size;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                /* The way writev fop works :
-                 * xdr args of write along with other args contains
-                 * write length not count. But when the call is wound to posix,
-                 * this length is not used. It is taken from the request
-                 * write vector that is passed down. Posix needs the vector
-                 * count to determine the amount of write to be done.
-                 * This count for writes that come as part of compound fops
-                 * will be 1. The vectors are merged into one under
-                 * GF_FOP_WRITE section of client_handle_fop_requirements()
-                 * in protocol client.
-                 */
-                args_writev_store (this_args, state->fd, req_iovec, 1,
-                                   args->offset, args->flag, state->iobref,
-                                   xdata);
-                state->write_length += req_iovec[0].iov_len;
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            /* The way writev fop works :
+             * xdr args of write along with other args contains
+             * write length not count. But when the call is wound to posix,
+             * this length is not used. It is taken from the request
+             * write vector that is passed down. Posix needs the vector
+             * count to determine the amount of write to be done.
+             * This count for writes that come as part of compound fops
+             * will be 1. The vectors are merged into one under
+             * GF_FOP_WRITE section of client_handle_fop_requirements()
+             * in protocol client.
+             */
+            args_writev_store(this_args, state->fd, req_iovec, 1, args->offset,
+                              args->flag, state->iobref, xdata);
+            state->write_length += req_iovec[0].iov_len;
+            break;
         }
-        case GF_FOP_STATFS:
-        {
-                gfx_statfs_req *args = NULL;
+        case GF_FOP_STATFS: {
+            gfx_statfs_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_statfs_req;
+            args = &this_req->compound_req_v2_u.compound_statfs_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_statfs_store (this_args, &state->loc, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_statfs_store(this_args, &state->loc, xdata);
+            break;
         }
-        case GF_FOP_FLUSH:
-        {
-                gfx_flush_req *args = NULL;
+        case GF_FOP_FLUSH: {
+            gfx_flush_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_flush_req;
+            args = &this_req->compound_req_v2_u.compound_flush_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_flush_store (this_args, state->fd, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_flush_store(this_args, state->fd, xdata);
+            break;
         }
-        case GF_FOP_FSYNC:
-        {
-                gfx_fsync_req *args = NULL;
+        case GF_FOP_FSYNC: {
+            gfx_fsync_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fsync_req;
+            args = &this_req->compound_req_v2_u.compound_fsync_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_fsync_store (this_args, state->fd, args->data, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_fsync_store(this_args, state->fd, args->data, xdata);
+            break;
         }
-        case GF_FOP_SETXATTR:
-        {
-                gfx_setxattr_req *args = NULL;
+        case GF_FOP_SETXATTR: {
+            gfx_setxattr_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_setxattr_req;
+            args = &this_req->compound_req_v2_u.compound_setxattr_req;
 
-                xdr_to_dict (&args->dict, &xattr);
-                xdr_to_dict (&args->xdata, &xdata);
-                args_setxattr_store (this_args, &state->loc, xattr, args->flags,
-                                     xdata);
-                break;
+            xdr_to_dict(&args->dict, &xattr);
+            xdr_to_dict(&args->xdata, &xdata);
+            args_setxattr_store(this_args, &state->loc, xattr, args->flags,
+                                xdata);
+            break;
         }
-        case GF_FOP_GETXATTR:
-        {
-                gfx_getxattr_req *args = NULL;
+        case GF_FOP_GETXATTR: {
+            gfx_getxattr_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_getxattr_req;
+            args = &this_req->compound_req_v2_u.compound_getxattr_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                gf_server_check_getxattr_cmd (frame, args->name);
+            xdr_to_dict(&args->xdata, &xdata);
+            gf_server_check_getxattr_cmd(frame, args->name);
 
-                args_getxattr_store (this_args, &state->loc, args->name, xdata);
-                break;
+            args_getxattr_store(this_args, &state->loc, args->name, xdata);
+            break;
         }
-        case GF_FOP_REMOVEXATTR:
-        {
-                gfx_removexattr_req *args = NULL;
+        case GF_FOP_REMOVEXATTR: {
+            gfx_removexattr_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_removexattr_req;
+            args = &this_req->compound_req_v2_u.compound_removexattr_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_removexattr_store (this_args, &state->loc, args->name,
-                                        xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_removexattr_store(this_args, &state->loc, args->name, xdata);
+            break;
         }
-        case GF_FOP_OPENDIR:
-        {
-                gfx_opendir_req *args = NULL;
+        case GF_FOP_OPENDIR: {
+            gfx_opendir_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_opendir_req;
+            args = &this_req->compound_req_v2_u.compound_opendir_req;
 
-                this_args->fd = fd_create (this_args->loc.inode,
-                                           frame->root->pid);
-                if (!this_args->fd) {
-                        gf_msg ("server", GF_LOG_ERROR, 0,
-                                PS_MSG_FD_CREATE_FAILED,
-                                "could not create the fd");
-                        goto out;
-                }
-                xdr_to_dict (&args->xdata, &xdata);
+            this_args->fd = fd_create(this_args->loc.inode, frame->root->pid);
+            if (!this_args->fd) {
+                gf_msg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED,
+                       "could not create the fd");
+                goto out;
+            }
+            xdr_to_dict(&args->xdata, &xdata);
 
-                args_opendir_store (this_args, &state->loc, state->fd, xdata);
-                break;
+            args_opendir_store(this_args, &state->loc, state->fd, xdata);
+            break;
         }
-        case GF_FOP_FSYNCDIR:
-        {
-                gfx_fsyncdir_req *args = NULL;
+        case GF_FOP_FSYNCDIR: {
+            gfx_fsyncdir_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fsyncdir_req;
+            args = &this_req->compound_req_v2_u.compound_fsyncdir_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_fsyncdir_store (this_args, state->fd, args->data, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_fsyncdir_store(this_args, state->fd, args->data, xdata);
+            break;
         }
-        case GF_FOP_ACCESS:
-        {
-                gfx_access_req *args = NULL;
+        case GF_FOP_ACCESS: {
+            gfx_access_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_access_req;
+            args = &this_req->compound_req_v2_u.compound_access_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_access_store (this_args, &state->loc, args->mask, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_access_store(this_args, &state->loc, args->mask, xdata);
+            break;
         }
-        case GF_FOP_CREATE:
-        {
-                gfx_create_req *args = NULL;
+        case GF_FOP_CREATE: {
+            gfx_create_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_create_req;
+            args = &this_req->compound_req_v2_u.compound_create_req;
 
-                state->loc.inode = inode_new (state->itable);
+            state->loc.inode = inode_new(state->itable);
 
-                state->fd = fd_create (state->loc.inode, frame->root->pid);
-                if (!state->fd) {
-                        gf_msg ("server", GF_LOG_ERROR, 0,
-                                PS_MSG_FD_CREATE_FAILED,
-                                "fd creation for the inode %s failed",
-                                state->loc.inode ?
-                                uuid_utoa (state->loc.inode->gfid):NULL);
-                        goto out;
-                }
-                state->fd->flags = state->flags;
+            state->fd = fd_create(state->loc.inode, frame->root->pid);
+            if (!state->fd) {
+                gf_msg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED,
+                       "fd creation for the inode %s failed",
+                       state->loc.inode ? uuid_utoa(state->loc.inode->gfid)
+                                        : NULL);
+                goto out;
+            }
+            state->fd->flags = state->flags;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_create_store (this_args, &state->loc, args->flags,
-                                   args->mode, args->umask, state->fd, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_create_store(this_args, &state->loc, args->flags, args->mode,
+                              args->umask, state->fd, xdata);
+            break;
         }
-        case GF_FOP_FTRUNCATE:
-        {
-                gfx_ftruncate_req *args = NULL;
+        case GF_FOP_FTRUNCATE: {
+            gfx_ftruncate_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_ftruncate_req;
+            args = &this_req->compound_req_v2_u.compound_ftruncate_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_ftruncate_store (this_args, state->fd, args->offset,
-                                      xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_ftruncate_store(this_args, state->fd, args->offset, xdata);
+            break;
         }
-        case GF_FOP_FSTAT:
-        {
-                gfx_fstat_req *args = NULL;
+        case GF_FOP_FSTAT: {
+            gfx_fstat_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fstat_req;
+            args = &this_req->compound_req_v2_u.compound_fstat_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_fstat_store (this_args, state->fd, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_fstat_store(this_args, state->fd, xdata);
+            break;
         }
-        case GF_FOP_LK:
-        {
-                gfx_lk_req *args = NULL;
+        case GF_FOP_LK: {
+            gfx_lk_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_lk_req;
+            args = &this_req->compound_req_v2_u.compound_lk_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                switch (args->cmd) {
+            switch (args->cmd) {
                 case GF_LK_GETLK:
-                        this_args->cmd = F_GETLK;
-                        break;
+                    this_args->cmd = F_GETLK;
+                    break;
                 case GF_LK_SETLK:
-                        this_args->cmd = F_SETLK;
-                        break;
+                    this_args->cmd = F_SETLK;
+                    break;
                 case GF_LK_SETLKW:
-                        this_args->cmd = F_SETLKW;
-                        break;
+                    this_args->cmd = F_SETLKW;
+                    break;
                 case GF_LK_RESLK_LCK:
-                        this_args->cmd = F_RESLK_LCK;
-                        break;
+                    this_args->cmd = F_RESLK_LCK;
+                    break;
                 case GF_LK_RESLK_LCKW:
-                        this_args->cmd = F_RESLK_LCKW;
-                        break;
+                    this_args->cmd = F_RESLK_LCKW;
+                    break;
                 case GF_LK_RESLK_UNLCK:
-                        this_args->cmd = F_RESLK_UNLCK;
-                        break;
+                    this_args->cmd = F_RESLK_UNLCK;
+                    break;
                 case GF_LK_GETLK_FD:
-                        this_args->cmd = F_GETLK_FD;
-                        break;
-                }
+                    this_args->cmd = F_GETLK_FD;
+                    break;
+            }
 
-                gf_proto_flock_to_flock (&args->flock, &this_args->lock);
+            gf_proto_flock_to_flock(&args->flock, &this_args->lock);
 
-                switch (args->type) {
+            switch (args->type) {
                 case GF_LK_F_RDLCK:
-                        this_args->lock.l_type = F_RDLCK;
-                        break;
+                    this_args->lock.l_type = F_RDLCK;
+                    break;
                 case GF_LK_F_WRLCK:
-                        this_args->lock.l_type = F_WRLCK;
-                        break;
+                    this_args->lock.l_type = F_WRLCK;
+                    break;
                 case GF_LK_F_UNLCK:
-                        this_args->lock.l_type = F_UNLCK;
-                        break;
+                    this_args->lock.l_type = F_UNLCK;
+                    break;
                 default:
-                        gf_msg (frame->root->client->bound_xl->name,
-                                GF_LOG_ERROR,
-                                0, PS_MSG_LOCK_ERROR, "fd - %"PRId64" (%s):"
-                                " Unknown "
-                                "lock type: %"PRId32"!", state->resolve.fd_no,
-                                uuid_utoa (state->fd->inode->gfid),
-                                args->type);
-                        break;
-                }
-                args_lk_store (this_args, state->fd, this_args->cmd,
-                               &this_args->lock, xdata);
-                break;
+                    gf_msg(frame->root->client->bound_xl->name, GF_LOG_ERROR, 0,
+                           PS_MSG_LOCK_ERROR,
+                           "fd - %" PRId64
+                           " (%s):"
+                           " Unknown "
+                           "lock type: %" PRId32 "!",
+                           state->resolve.fd_no,
+                           uuid_utoa(state->fd->inode->gfid), args->type);
+                    break;
+            }
+            args_lk_store(this_args, state->fd, this_args->cmd,
+                          &this_args->lock, xdata);
+            break;
         }
-        case GF_FOP_LOOKUP:
-        {
-                gfx_lookup_req *args = NULL;
+        case GF_FOP_LOOKUP: {
+            gfx_lookup_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_lookup_req;
+            args = &this_req->compound_req_v2_u.compound_lookup_req;
 
-                if (this_args->loc.inode)
-                        this_args->loc.inode = server_inode_new (state->itable,
-                                                             state->loc.gfid);
-                else
-                        state->is_revalidate = 1;
+            if (this_args->loc.inode)
+                this_args->loc.inode = server_inode_new(state->itable,
+                                                        state->loc.gfid);
+            else
+                state->is_revalidate = 1;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_lookup_store (this_args, &state->loc, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_lookup_store(this_args, &state->loc, xdata);
+            break;
         }
-        case GF_FOP_READDIR:
-        {
-                gfx_readdir_req *args = NULL;
+        case GF_FOP_READDIR: {
+            gfx_readdir_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_readdir_req;
+            args = &this_req->compound_req_v2_u.compound_readdir_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_readdir_store (this_args, state->fd, args->size,
-                                    args->offset, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_readdir_store(this_args, state->fd, args->size, args->offset,
+                               xdata);
+            break;
         }
-        case GF_FOP_INODELK:
-        {
-                gfx_inodelk_req *args = NULL;
+        case GF_FOP_INODELK: {
+            gfx_inodelk_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_inodelk_req;
+            args = &this_req->compound_req_v2_u.compound_inodelk_req;
 
-                switch (args->cmd) {
+            switch (args->cmd) {
                 case GF_LK_GETLK:
-                        this_args->cmd = F_GETLK;
-                        break;
+                    this_args->cmd = F_GETLK;
+                    break;
                 case GF_LK_SETLK:
-                        this_args->cmd = F_SETLK;
-                        break;
+                    this_args->cmd = F_SETLK;
+                    break;
                 case GF_LK_SETLKW:
-                        this_args->cmd = F_SETLKW;
-                        break;
-                }
+                    this_args->cmd = F_SETLKW;
+                    break;
+            }
 
-                gf_proto_flock_to_flock (&args->flock, &this_args->lock);
+            gf_proto_flock_to_flock(&args->flock, &this_args->lock);
 
-                switch (args->type) {
+            switch (args->type) {
                 case GF_LK_F_RDLCK:
-                        this_args->lock.l_type = F_RDLCK;
-                        break;
+                    this_args->lock.l_type = F_RDLCK;
+                    break;
                 case GF_LK_F_WRLCK:
-                        this_args->lock.l_type = F_WRLCK;
-                        break;
+                    this_args->lock.l_type = F_WRLCK;
+                    break;
                 case GF_LK_F_UNLCK:
-                        this_args->lock.l_type = F_UNLCK;
-                        break;
-                }
+                    this_args->lock.l_type = F_UNLCK;
+                    break;
+            }
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_inodelk_store (this_args, args->volume, &state->loc,
-                                    this_args->cmd, &this_args->lock, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_inodelk_store(this_args, args->volume, &state->loc,
+                               this_args->cmd, &this_args->lock, xdata);
+            break;
         }
-        case GF_FOP_FINODELK:
-        {
-                gfx_finodelk_req *args = NULL;
+        case GF_FOP_FINODELK: {
+            gfx_finodelk_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_finodelk_req;
+            args = &this_req->compound_req_v2_u.compound_finodelk_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                switch (args->cmd) {
+            switch (args->cmd) {
                 case GF_LK_GETLK:
-                        this_args->cmd = F_GETLK;
-                        break;
+                    this_args->cmd = F_GETLK;
+                    break;
                 case GF_LK_SETLK:
-                        this_args->cmd = F_SETLK;
-                        break;
+                    this_args->cmd = F_SETLK;
+                    break;
                 case GF_LK_SETLKW:
-                        this_args->cmd = F_SETLKW;
-                        break;
-                }
+                    this_args->cmd = F_SETLKW;
+                    break;
+            }
 
-                gf_proto_flock_to_flock (&args->flock, &this_args->lock);
+            gf_proto_flock_to_flock(&args->flock, &this_args->lock);
 
-                switch (args->type) {
+            switch (args->type) {
                 case GF_LK_F_RDLCK:
-                        this_args->lock.l_type = F_RDLCK;
-                        break;
+                    this_args->lock.l_type = F_RDLCK;
+                    break;
                 case GF_LK_F_WRLCK:
-                        this_args->lock.l_type = F_WRLCK;
-                        break;
+                    this_args->lock.l_type = F_WRLCK;
+                    break;
                 case GF_LK_F_UNLCK:
-                        this_args->lock.l_type = F_UNLCK;
-                        break;
-                }
-                args_finodelk_store (this_args, args->volume, state->fd,
-                                     this_args->cmd, &this_args->lock, xdata);
-                        break;
+                    this_args->lock.l_type = F_UNLCK;
+                    break;
+            }
+            args_finodelk_store(this_args, args->volume, state->fd,
+                                this_args->cmd, &this_args->lock, xdata);
+            break;
         }
-        case GF_FOP_ENTRYLK:
-        {
-                gfx_entrylk_req *args = NULL;
+        case GF_FOP_ENTRYLK: {
+            gfx_entrylk_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_entrylk_req;
+            args = &this_req->compound_req_v2_u.compound_entrylk_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_entrylk_store (this_args, args->volume, &state->loc,
-                                    args->name, args->cmd, args->type, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_entrylk_store(this_args, args->volume, &state->loc, args->name,
+                               args->cmd, args->type, xdata);
+            break;
         }
-        case GF_FOP_FENTRYLK:
-        {
-                gfx_fentrylk_req *args = NULL;
+        case GF_FOP_FENTRYLK: {
+            gfx_fentrylk_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fentrylk_req;
+            args = &this_req->compound_req_v2_u.compound_fentrylk_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_fentrylk_store (this_args, args->volume, state->fd,
-                                     args->name, args->cmd, args->type, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_fentrylk_store(this_args, args->volume, state->fd, args->name,
+                                args->cmd, args->type, xdata);
+            break;
         }
-        case GF_FOP_XATTROP:
-        {
-                gfx_xattrop_req *args = NULL;
+        case GF_FOP_XATTROP: {
+            gfx_xattrop_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_xattrop_req;
+            args = &this_req->compound_req_v2_u.compound_xattrop_req;
 
-                xdr_to_dict (&args->dict, &xattr);
+            xdr_to_dict(&args->dict, &xattr);
 
-                xdr_to_dict (&args->xdata, &xdata);
-                args_xattrop_store (this_args, &state->loc, args->flags,
-                                    xattr, xdata);
-                break;
+            xdr_to_dict(&args->xdata, &xdata);
+            args_xattrop_store(this_args, &state->loc, args->flags, xattr,
+                               xdata);
+            break;
         }
-        case GF_FOP_FXATTROP:
-        {
-                gfx_fxattrop_req *args = NULL;
+        case GF_FOP_FXATTROP: {
+            gfx_fxattrop_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fxattrop_req;
+            args = &this_req->compound_req_v2_u.compound_fxattrop_req;
 
-                xdr_to_dict (&args->dict, &xattr);
+            xdr_to_dict(&args->dict, &xattr);
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                args_fxattrop_store (this_args, state->fd, args->flags, xattr,
-                                     xdata);
-                break;
+            args_fxattrop_store(this_args, state->fd, args->flags, xattr,
+                                xdata);
+            break;
         }
-        case GF_FOP_FGETXATTR:
-        {
-                gfx_fgetxattr_req *args = NULL;
+        case GF_FOP_FGETXATTR: {
+            gfx_fgetxattr_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fgetxattr_req;
+            args = &this_req->compound_req_v2_u.compound_fgetxattr_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                args_fgetxattr_store (this_args, state->fd, args->name, xdata);
-                break;
+            args_fgetxattr_store(this_args, state->fd, args->name, xdata);
+            break;
         }
-        case GF_FOP_FSETXATTR:
-        {
-                gfx_fsetxattr_req *args = NULL;
+        case GF_FOP_FSETXATTR: {
+            gfx_fsetxattr_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_fsetxattr_req;
+            args = &this_req->compound_req_v2_u.compound_fsetxattr_req;
 
-                xdr_to_dict (&args->dict, &xattr);
+            xdr_to_dict(&args->dict, &xattr);
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                args_fsetxattr_store (this_args, state->fd, xattr, args->flags,
-                                      xdata);
-                break;
-        }
-        case GF_FOP_RCHECKSUM:
-        {
-                gfx_rchecksum_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_rchecksum_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-
-                args_rchecksum_store (this_args, state->fd, args->offset,
-                                      args->len, xdata);
-                break;
-        }
-        case GF_FOP_SETATTR:
-        {
-                gfx_setattr_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_setattr_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-
-                gfx_stat_to_iattx (&args->stbuf, &this_args->stat);
-
-                args_setattr_store (this_args, &state->loc, &this_args->stat,
-                                    args->valid, xdata);
-                break;
-        }
-        case GF_FOP_FSETATTR:
-        {
-                gfx_fsetattr_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_fsetattr_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-
-                gfx_stat_to_iattx (&args->stbuf, &this_args->stat);
-
-                args_fsetattr_store (this_args, state->fd, &this_args->stat,
-                                     args->valid, xdata);
-                break;
-        }
-        case GF_FOP_READDIRP:
-        {
-                gfx_readdirp_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_readdirp_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-
-                args_readdirp_store (this_args, state->fd, args->size,
-                                     args->offset, xattr);
-                break;
-        }
-        case GF_FOP_FREMOVEXATTR:
-        {
-                gfx_fremovexattr_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_fremovexattr_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-
-                args_fremovexattr_store (this_args, state->fd, args->name,
-                                         xdata);
-                break;
-        }
-	case GF_FOP_FALLOCATE:
-        {
-                gfx_fallocate_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_fallocate_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-                args_fallocate_store (this_args, state->fd, args->flags,
-                                      args->offset, args->size, xdata);
-                break;
-        }
-	case GF_FOP_DISCARD:
-        {
-                gfx_discard_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_discard_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-
-                args_discard_store (this_args, state->fd, args->offset,
-                                    args->size, xdata);
-                break;
-        }
-        case GF_FOP_ZEROFILL:
-        {
-                gfx_zerofill_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_zerofill_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-                args_zerofill_store (this_args, state->fd, args->offset,
-                                     args->size, xdata);
-                break;
-        }
-        case GF_FOP_SEEK:
-        {
-                gfx_seek_req *args = NULL;
-
-                args = &this_req->compound_req_v2_u.compound_seek_req;
-
-                xdr_to_dict (&args->xdata, &xdata);
-                args_seek_store (this_args, state->fd, args->offset, args->what,
+            args_fsetxattr_store(this_args, state->fd, xattr, args->flags,
                                  xdata);
-                break;
+            break;
         }
-        case GF_FOP_LEASE:
-        {
-                gfx_lease_req *args = NULL;
+        case GF_FOP_RCHECKSUM: {
+            gfx_rchecksum_req *args = NULL;
 
-                args = &this_req->compound_req_v2_u.compound_lease_req;
+            args = &this_req->compound_req_v2_u.compound_rchecksum_req;
 
-                xdr_to_dict (&args->xdata, &xdata);
+            xdr_to_dict(&args->xdata, &xdata);
 
-                gf_proto_lease_to_lease (&args->lease, &state->lease);
+            args_rchecksum_store(this_args, state->fd, args->offset, args->len,
+                                 xdata);
+            break;
+        }
+        case GF_FOP_SETATTR: {
+            gfx_setattr_req *args = NULL;
 
-                args_lease_store (this_args, &state->loc, &state->lease, xdata);
-                break;
+            args = &this_req->compound_req_v2_u.compound_setattr_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+
+            gfx_stat_to_iattx(&args->stbuf, &this_args->stat);
+
+            args_setattr_store(this_args, &state->loc, &this_args->stat,
+                               args->valid, xdata);
+            break;
+        }
+        case GF_FOP_FSETATTR: {
+            gfx_fsetattr_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_fsetattr_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+
+            gfx_stat_to_iattx(&args->stbuf, &this_args->stat);
+
+            args_fsetattr_store(this_args, state->fd, &this_args->stat,
+                                args->valid, xdata);
+            break;
+        }
+        case GF_FOP_READDIRP: {
+            gfx_readdirp_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_readdirp_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+
+            args_readdirp_store(this_args, state->fd, args->size, args->offset,
+                                xattr);
+            break;
+        }
+        case GF_FOP_FREMOVEXATTR: {
+            gfx_fremovexattr_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_fremovexattr_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+
+            args_fremovexattr_store(this_args, state->fd, args->name, xdata);
+            break;
+        }
+        case GF_FOP_FALLOCATE: {
+            gfx_fallocate_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_fallocate_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+            args_fallocate_store(this_args, state->fd, args->flags,
+                                 args->offset, args->size, xdata);
+            break;
+        }
+        case GF_FOP_DISCARD: {
+            gfx_discard_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_discard_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+
+            args_discard_store(this_args, state->fd, args->offset, args->size,
+                               xdata);
+            break;
+        }
+        case GF_FOP_ZEROFILL: {
+            gfx_zerofill_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_zerofill_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+            args_zerofill_store(this_args, state->fd, args->offset, args->size,
+                                xdata);
+            break;
+        }
+        case GF_FOP_SEEK: {
+            gfx_seek_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_seek_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+            args_seek_store(this_args, state->fd, args->offset, args->what,
+                            xdata);
+            break;
+        }
+        case GF_FOP_LEASE: {
+            gfx_lease_req *args = NULL;
+
+            args = &this_req->compound_req_v2_u.compound_lease_req;
+
+            xdr_to_dict(&args->xdata, &xdata);
+
+            gf_proto_lease_to_lease(&args->lease, &state->lease);
+
+            args_lease_store(this_args, &state->loc, &state->lease, xdata);
+            break;
         }
         default:
-                return ENOTSUP;
-        }
+            return ENOTSUP;
+    }
 out:
-        if (xattr)
-                dict_unref (xattr);
-        if (xdata)
-                dict_unref (xdata);
-        return op_errno;
+    if (xattr)
+        dict_unref(xattr);
+    if (xdata)
+        dict_unref(xdata);
+    return op_errno;
 }
 
 int
-server_populate_compound_response_v2 (xlator_t *this, gfx_compound_rsp *rsp,
-                                      call_frame_t *frame,
-                                      compound_args_cbk_t *args_cbk, int index)
+server_populate_compound_response_v2(xlator_t *this, gfx_compound_rsp *rsp,
+                                     call_frame_t *frame,
+                                     compound_args_cbk_t *args_cbk, int index)
 {
-        int                     op_errno    = EINVAL;
-        default_args_cbk_t      *this_args_cbk = NULL;
-        compound_rsp_v2         *this_rsp   = NULL;
-        server_state_t          *state      = NULL;
-        int                     ret         = 0;
+    int op_errno = EINVAL;
+    default_args_cbk_t *this_args_cbk = NULL;
+    compound_rsp_v2 *this_rsp = NULL;
+    server_state_t *state = NULL;
+    int ret = 0;
 
-        state = CALL_STATE (frame);
-        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
+    state = CALL_STATE(frame);
+    this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
 
-        this_args_cbk = &args_cbk->rsp_list[index];
-        this_rsp->fop_enum = args_cbk->enum_list[index];
+    this_args_cbk = &args_cbk->rsp_list[index];
+    this_rsp->fop_enum = args_cbk->enum_list[index];
 
-        switch (this_rsp->fop_enum) {
+    switch (this_rsp->fop_enum) {
         case GF_FOP_FSTAT:
-        case GF_FOP_STAT:
-        {
-                gfx_common_iatt_rsp *rsp_args = NULL;
+        case GF_FOP_STAT: {
+            gfx_common_iatt_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_stat_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_stat_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                if (!this_args_cbk->op_ret) {
-                        server4_post_common_iatt (state, rsp_args,
-                                                  &this_args_cbk->stat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            if (!this_args_cbk->op_ret) {
+                server4_post_common_iatt(state, rsp_args, &this_args_cbk->stat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_READLINK:
-        {
-                gfx_readlink_rsp *rsp_args = NULL;
+        case GF_FOP_READLINK: {
+            gfx_readlink_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_readlink_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_readlink_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                if (this_args_cbk->op_ret >= 0) {
-                        server4_post_readlink (rsp_args, &this_args_cbk->stat,
-                                              this_args_cbk->buf);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                if (!rsp_args->path)
-                        rsp_args->path = "";
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            if (this_args_cbk->op_ret >= 0) {
+                server4_post_readlink(rsp_args, &this_args_cbk->stat,
+                                      this_args_cbk->buf);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            if (!rsp_args->path)
+                rsp_args->path = "";
+            break;
         }
         case GF_FOP_MKNOD:
         case GF_FOP_MKDIR:
         case GF_FOP_SYMLINK:
-        case GF_FOP_LINK:
-        {
-                gfx_common_3iatt_rsp *rsp_args = NULL;
+        case GF_FOP_LINK: {
+            gfx_common_3iatt_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_mknod_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_mknod_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                if (!this_args_cbk->op_ret) {
-                        server4_post_common_3iatt (state, rsp_args,
-                                                   this_args_cbk->inode,
-                                                   &this_args_cbk->stat,
-                                                   &this_args_cbk->preparent,
-                                                   &this_args_cbk->postparent);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            if (!this_args_cbk->op_ret) {
+                server4_post_common_3iatt(
+                    state, rsp_args, this_args_cbk->inode, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
         case GF_FOP_UNLINK:
-        case GF_FOP_RMDIR:
-        {
-                gfx_common_2iatt_rsp *rsp_args = NULL;
+        case GF_FOP_RMDIR: {
+            gfx_common_2iatt_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_unlink_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_unlink_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                if (!this_args_cbk->op_ret) {
-                        server4_post_entry_remove (state, rsp_args,
-                                                   &this_args_cbk->preparent,
-                                                   &this_args_cbk->postparent);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            if (!this_args_cbk->op_ret) {
+                server4_post_entry_remove(state, rsp_args,
+                                          &this_args_cbk->preparent,
+                                          &this_args_cbk->postparent);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_RENAME:
-        {
-                gfx_rename_rsp *rsp_args = NULL;
+        case GF_FOP_RENAME: {
+            gfx_rename_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_rename_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_rename_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (!this_args_cbk->op_ret) {
-                        server4_post_rename (frame, state, rsp_args,
-                                            &this_args_cbk->stat,
-                                            &this_args_cbk->preparent,
-                                            &this_args_cbk->postparent,
-                                            &this_args_cbk->preparent2,
-                                            &this_args_cbk->postparent2);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            if (!this_args_cbk->op_ret) {
+                server4_post_rename(
+                    frame, state, rsp_args, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent,
+                    &this_args_cbk->preparent2, &this_args_cbk->postparent2);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-	case GF_FOP_FALLOCATE:
-	case GF_FOP_ZEROFILL:
-	case GF_FOP_DISCARD:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_ZEROFILL:
+        case GF_FOP_DISCARD:
         case GF_FOP_SETATTR:
         case GF_FOP_FSETATTR:
         case GF_FOP_FTRUNCATE:
         case GF_FOP_TRUNCATE:
         case GF_FOP_WRITE:
-        case GF_FOP_FSYNC:
-        {
-                gfx_common_2iatt_rsp *rsp_args = NULL;
+        case GF_FOP_FSYNC: {
+            gfx_common_2iatt_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_truncate_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_truncate_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (!this_args_cbk->op_ret) {
-                        server4_post_common_2iatt (rsp_args,
-                                                   &this_args_cbk->prestat,
-                                                   &this_args_cbk->poststat);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            if (!this_args_cbk->op_ret) {
+                server4_post_common_2iatt(rsp_args, &this_args_cbk->prestat,
+                                          &this_args_cbk->poststat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
         case GF_FOP_OPEN:
-        case GF_FOP_OPENDIR:
-        {
-                gfx_open_rsp *rsp_args = NULL;
+        case GF_FOP_OPENDIR: {
+            gfx_open_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_open_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_open_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (!this_args_cbk->op_ret) {
-                        server4_post_open (frame, this, rsp_args,
-                                          this_args_cbk->fd);
-
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno = gf_errno_to_error
-                                     (this_args_cbk->op_errno);
-                break;
+            if (!this_args_cbk->op_ret) {
+                server4_post_open(frame, this, rsp_args, this_args_cbk->fd);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_READ:
-        {
-                gfx_read_rsp *rsp_args = NULL;
+        case GF_FOP_READ: {
+            gfx_read_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_read_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_read_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (this_args_cbk->op_ret >= 0) {
-                        server4_post_readv (rsp_args, &this_args_cbk->stat,
-                                           this_args_cbk->op_ret);
+            if (this_args_cbk->op_ret >= 0) {
+                server4_post_readv(rsp_args, &this_args_cbk->stat,
+                                   this_args_cbk->op_ret);
 
-                        if (!state->rsp_iobref) {
-                                state->rsp_iobref = this_args_cbk->iobref;
-                                state->rsp_count = 0;
-                        }
-                        iobref_merge (state->rsp_iobref,
-                                      this_args_cbk->iobref);
-                        memcpy (&state->rsp_vector[state->rsp_count],
-                                this_args_cbk->vector,
-                                (this_args_cbk->count *
-                                 sizeof(state->rsp_vector[0])));
-                        state->rsp_count += this_args_cbk->count;
+                if (!state->rsp_iobref) {
+                    state->rsp_iobref = this_args_cbk->iobref;
+                    state->rsp_count = 0;
                 }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno = gf_errno_to_error
-                                     (this_args_cbk->op_errno);
-                break;
+                iobref_merge(state->rsp_iobref, this_args_cbk->iobref);
+                memcpy(&state->rsp_vector[state->rsp_count],
+                       this_args_cbk->vector,
+                       (this_args_cbk->count * sizeof(state->rsp_vector[0])));
+                state->rsp_count += this_args_cbk->count;
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_STATFS:
-        {
-                gfx_statfs_rsp *rsp_args = NULL;
+        case GF_FOP_STATFS: {
+            gfx_statfs_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_statfs_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_statfs_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                if (!this_args_cbk->op_ret) {
-                        server4_post_statfs (rsp_args,
-                                            &this_args_cbk->statvfs);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            if (!this_args_cbk->op_ret) {
+                server4_post_statfs(rsp_args, &this_args_cbk->statvfs);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
         case GF_FOP_FLUSH:
         case GF_FOP_SETXATTR:
@@ -5317,200 +4858,173 @@ server_populate_compound_response_v2 (xlator_t *this, gfx_compound_rsp *rsp,
         case GF_FOP_INODELK:
         case GF_FOP_FINODELK:
         case GF_FOP_ENTRYLK:
-        case GF_FOP_FENTRYLK:
-        {
-                gfx_common_rsp *rsp_args = NULL;
+        case GF_FOP_FENTRYLK: {
+            gfx_common_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_flush_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_flush_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
         case GF_FOP_FGETXATTR:
         case GF_FOP_GETXATTR:
         case GF_FOP_XATTROP:
-        case GF_FOP_FXATTROP:
-        {
-                gfx_common_dict_rsp *rsp_args = NULL;
+        case GF_FOP_FXATTROP: {
+            gfx_common_dict_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_getxattr_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_getxattr_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (-1 != this_args_cbk->op_ret) {
-                        dict_to_xdr (this_args_cbk->xattr, &rsp_args->dict);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            if (-1 != this_args_cbk->op_ret) {
+                dict_to_xdr(this_args_cbk->xattr, &rsp_args->dict);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_CREATE:
-        {
-                gfx_create_rsp *rsp_args = NULL;
+        case GF_FOP_CREATE: {
+            gfx_create_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_create_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_create_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
 
-                if (!this_args_cbk->op_ret) {
-                        rsp_args->op_ret = server4_post_create (frame,
-                                                rsp_args, state, this,
-                                                this_args_cbk->fd,
-                                                this_args_cbk->inode,
-                                                &this_args_cbk->stat,
-                                                &this_args_cbk->preparent,
-                                                &this_args_cbk->postparent);
-                        if (rsp_args->op_ret) {
-                                rsp_args->op_errno = -rsp_args->op_ret;
-                                rsp_args->op_ret = -1;
-                        }
+            if (!this_args_cbk->op_ret) {
+                rsp_args->op_ret = server4_post_create(
+                    frame, rsp_args, state, this, this_args_cbk->fd,
+                    this_args_cbk->inode, &this_args_cbk->stat,
+                    &this_args_cbk->preparent, &this_args_cbk->postparent);
+                if (rsp_args->op_ret) {
+                    rsp_args->op_errno = -rsp_args->op_ret;
+                    rsp_args->op_ret = -1;
                 }
-                break;
+            }
+            break;
         }
-        case GF_FOP_LK:
-        {
-                gfx_lk_rsp *rsp_args = NULL;
+        case GF_FOP_LK: {
+            gfx_lk_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_lk_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_lk_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (!this_args_cbk->op_ret) {
-                        server4_post_lk (this, rsp_args, &this_args_cbk->lock);
+            if (!this_args_cbk->op_ret) {
+                server4_post_lk(this, rsp_args, &this_args_cbk->lock);
+            }
+
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_LOOKUP: {
+            gfx_common_2iatt_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_lookup_rsp;
+
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            gfx_stat_from_iattx(&rsp_args->poststat,
+                                &this_args_cbk->postparent);
+
+            if (!this_args_cbk->op_ret) {
+                server4_post_lookup(rsp_args, frame, state,
+                                    this_args_cbk->inode, &this_args_cbk->stat);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_READDIR: {
+            gfx_readdir_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_readdir_rsp;
+
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+
+            if (this_args_cbk->op_ret > 0) {
+                ret = server4_post_readdir(rsp_args, &this_args_cbk->entries);
+                if (ret < 0) {
+                    rsp_args->op_ret = ret;
+                    rsp_args->op_errno = ENOMEM;
                 }
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            }
+            break;
         }
-        case GF_FOP_LOOKUP:
-        {
-                gfx_common_2iatt_rsp *rsp_args = NULL;
+        case GF_FOP_RCHECKSUM: {
+            gfx_rchecksum_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_lookup_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_rchecksum_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                gfx_stat_from_iattx (&rsp_args->poststat,
-                                     &this_args_cbk->postparent);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (!this_args_cbk->op_ret) {
-                        server4_post_lookup (rsp_args, frame, state,
-                                             this_args_cbk->inode,
-                                             &this_args_cbk->stat);
+            if (!this_args_cbk->op_ret) {
+                server4_post_rchecksum(rsp_args, this_args_cbk->weak_checksum,
+                                       this_args_cbk->strong_checksum);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
+        }
+        case GF_FOP_READDIRP: {
+            gfx_readdirp_rsp *rsp_args = NULL;
+
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_readdirp_rsp;
+
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+
+            if (this_args_cbk->op_ret > 0) {
+                ret = server4_post_readdirp(rsp_args, &this_args_cbk->entries);
+                if (ret < 0) {
+                    rsp_args->op_ret = ret;
+                    rsp_args->op_errno = ENOMEM;
+                    goto out;
                 }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+                gf_link_inodes_from_dirent(this, state->fd->inode,
+                                           &this_args_cbk->entries);
+            }
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_READDIR:
-        {
-                gfx_readdir_rsp *rsp_args = NULL;
+        case GF_FOP_SEEK: {
+            gfx_seek_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_readdir_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_seek_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-
-                if (this_args_cbk->op_ret > 0) {
-                        ret = server4_post_readdir (rsp_args,
-                                                   &this_args_cbk->entries);
-                        if (ret < 0) {
-                                rsp_args->op_ret = ret;
-                                rsp_args->op_errno = ENOMEM;
-                        }
-                }
-                break;
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
-        case GF_FOP_RCHECKSUM:
-        {
-                gfx_rchecksum_rsp *rsp_args = NULL;
+        case GF_FOP_LEASE: {
+            gfx_lease_rsp *rsp_args = NULL;
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_rchecksum_rsp;
+            rsp_args = &this_rsp->compound_rsp_v2_u.compound_lease_rsp;
 
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
+            dict_to_xdr(this_args_cbk->xdata, &rsp_args->xdata);
 
-                if (!this_args_cbk->op_ret) {
-                        server4_post_rchecksum (rsp_args,
-                                               this_args_cbk->weak_checksum,
-                                               this_args_cbk->strong_checksum);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_READDIRP:
-        {
-                gfx_readdirp_rsp *rsp_args = NULL;
+            if (!this_args_cbk->op_ret) {
+                server4_post_lease(rsp_args, &this_args_cbk->lease);
+            }
 
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_readdirp_rsp;
-
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-
-                if (this_args_cbk->op_ret > 0) {
-                        ret = server4_post_readdirp (rsp_args,
-                                                   &this_args_cbk->entries);
-                        if (ret < 0) {
-                                rsp_args->op_ret = ret;
-                                rsp_args->op_errno = ENOMEM;
-                                goto out;
-                        }
-                        gf_link_inodes_from_dirent (this, state->fd->inode,
-                                                    &this_args_cbk->entries);
-                }
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_SEEK:
-        {
-                gfx_seek_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_seek_rsp;
-
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
-        }
-        case GF_FOP_LEASE:
-        {
-                gfx_lease_rsp *rsp_args = NULL;
-
-                rsp_args = &this_rsp->compound_rsp_v2_u.compound_lease_rsp;
-
-                dict_to_xdr (this_args_cbk->xdata, &rsp_args->xdata);
-
-                if (!this_args_cbk->op_ret) {
-                        server4_post_lease (rsp_args, &this_args_cbk->lease);
-                }
-
-                rsp_args->op_ret = this_args_cbk->op_ret;
-                rsp_args->op_errno  = gf_errno_to_error
-                                      (this_args_cbk->op_errno);
-                break;
+            rsp_args->op_ret = this_args_cbk->op_ret;
+            rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
+            break;
         }
         default:
-                return ENOTSUP;
-        }
-        op_errno = 0;
+            return ENOTSUP;
+    }
+    op_errno = 0;
 out:
-        return op_errno;
+    return op_errno;
 }
 /* This works only when the compound fop acts on one loc/inode/gfid.
  * If compound fops on more than one inode is required, multiple
@@ -5519,912 +5033,877 @@ out:
  * This can be added for future enhancements.
  */
 int
-server_get_compound_resolve_v2 (server_state_t *state, gfx_compound_req *req)
+server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
 {
-        int           i     = 0;
-        compound_req_v2 *array = NULL;
+    int i = 0;
+    compound_req_v2 *array = NULL;
 
-        array = &req->compound_req_array.compound_req_array_val[i];
+    array = &req->compound_req_array.compound_req_array_val[i];
 
-        switch (array->fop_enum) {
-        case GF_FOP_STAT:
-        {
-                gfx_stat_req this_req = { {0,} };
+    switch (array->fop_enum) {
+        case GF_FOP_STAT: {
+            gfx_stat_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_stat_req;
+            this_req = array[i].compound_req_v2_u.compound_stat_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_READLINK:
-        {
-                gfx_readlink_req this_req = { {0,} };
+        case GF_FOP_READLINK: {
+            gfx_readlink_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_readlink_req;
+            this_req = array[i].compound_req_v2_u.compound_readlink_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_MKNOD:
-        {
-                gfx_mknod_req this_req = { {0,} };
+        case GF_FOP_MKNOD: {
+            gfx_mknod_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_mknod_req;
+            this_req = array[i].compound_req_v2_u.compound_mknod_req;
 
-                state->resolve.type    = RESOLVE_NOT;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_NOT;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_MKDIR:
-        {
-                gfx_mkdir_req this_req = { {0,} };
+        case GF_FOP_MKDIR: {
+            gfx_mkdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_mkdir_req;
+            this_req = array[i].compound_req_v2_u.compound_mkdir_req;
 
-                state->resolve.type    = RESOLVE_NOT;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_NOT;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_UNLINK:
-        {
-                gfx_unlink_req this_req = { {0,} };
+        case GF_FOP_UNLINK: {
+            gfx_unlink_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_unlink_req;
+            this_req = array[i].compound_req_v2_u.compound_unlink_req;
 
-                state->resolve.type    = RESOLVE_MUST;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_RMDIR:
-        {
-                gfx_rmdir_req this_req = { {0,} };
+        case GF_FOP_RMDIR: {
+            gfx_rmdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_rmdir_req;
+            this_req = array[i].compound_req_v2_u.compound_rmdir_req;
 
-                state->resolve.type    = RESOLVE_MUST;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_SYMLINK:
-        {
-                gfx_symlink_req this_req = { {0,} };
+        case GF_FOP_SYMLINK: {
+            gfx_symlink_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_symlink_req;
+            this_req = array[i].compound_req_v2_u.compound_symlink_req;
 
-                state->resolve.type   = RESOLVE_NOT;
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            state->resolve.type = RESOLVE_NOT;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_RENAME:
-        {
-                gfx_rename_req this_req = { {0,} };
+        case GF_FOP_RENAME: {
+            gfx_rename_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_rename_req;
+            this_req = array[i].compound_req_v2_u.compound_rename_req;
 
-                state->resolve.type   = RESOLVE_MUST;
-                state->resolve.bname = gf_strdup
-                                       (this_req.oldbname);
-                memcpy (state->resolve.pargfid, this_req.oldgfid, 16);
+            state->resolve.type = RESOLVE_MUST;
+            state->resolve.bname = gf_strdup(this_req.oldbname);
+            memcpy(state->resolve.pargfid, this_req.oldgfid, 16);
 
-                state->resolve2.type  = RESOLVE_MAY;
-                state->resolve2.bname = gf_strdup
-                                       (this_req.newbname);
-                memcpy (state->resolve2.pargfid, this_req.newgfid, 16);
-                break;
+            state->resolve2.type = RESOLVE_MAY;
+            state->resolve2.bname = gf_strdup(this_req.newbname);
+            memcpy(state->resolve2.pargfid, this_req.newgfid, 16);
+            break;
         }
-        case GF_FOP_LINK:
-        {
-                gfx_link_req this_req = { {0,} };
+        case GF_FOP_LINK: {
+            gfx_link_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_link_req;
+            this_req = array[i].compound_req_v2_u.compound_link_req;
 
-                state->resolve.type    = RESOLVE_MUST;
-                memcpy (state->resolve.gfid, this_req.oldgfid, 16);
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.oldgfid, 16);
 
-                state->resolve2.type   = RESOLVE_NOT;
-                state->resolve2.bname = gf_strdup
-                                       (this_req.newbname);
-                memcpy (state->resolve2.pargfid, this_req.newgfid, 16);
-                break;
+            state->resolve2.type = RESOLVE_NOT;
+            state->resolve2.bname = gf_strdup(this_req.newbname);
+            memcpy(state->resolve2.pargfid, this_req.newgfid, 16);
+            break;
         }
-        case GF_FOP_TRUNCATE:
-        {
-                gfx_truncate_req this_req = { {0,} };
+        case GF_FOP_TRUNCATE: {
+            gfx_truncate_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_truncate_req;
+            this_req = array[i].compound_req_v2_u.compound_truncate_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_OPEN:
-        {
-                gfx_open_req this_req = { {0,} };
+        case GF_FOP_OPEN: {
+            gfx_open_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_open_req;
+            this_req = array[i].compound_req_v2_u.compound_open_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_READ:
-        {
-                gfx_read_req this_req = { {0,} };
+        case GF_FOP_READ: {
+            gfx_read_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_read_req;
+            this_req = array[i].compound_req_v2_u.compound_read_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_WRITE:
-        {
-                gfx_write_req this_req = { {0,} };
+        case GF_FOP_WRITE: {
+            gfx_write_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_write_req;
+            this_req = array[i].compound_req_v2_u.compound_write_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_STATFS:
-        {
-                gfx_statfs_req this_req = { {0,} };
+        case GF_FOP_STATFS: {
+            gfx_statfs_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_statfs_req;
+            this_req = array[i].compound_req_v2_u.compound_statfs_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FLUSH:
-        {
-                gfx_flush_req this_req = { {0,} };
+        case GF_FOP_FLUSH: {
+            gfx_flush_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_flush_req;
+            this_req = array[i].compound_req_v2_u.compound_flush_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FSYNC:
-        {
-                gfx_fsync_req this_req = { {0,} };
+        case GF_FOP_FSYNC: {
+            gfx_fsync_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fsync_req;
+            this_req = array[i].compound_req_v2_u.compound_fsync_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_SETXATTR:
-        {
-                gfx_setxattr_req this_req = { {0,} };
+        case GF_FOP_SETXATTR: {
+            gfx_setxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_setxattr_req;
+            this_req = array[i].compound_req_v2_u.compound_setxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_GETXATTR:
-        {
-                gfx_getxattr_req this_req = { {0,} };
+        case GF_FOP_GETXATTR: {
+            gfx_getxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_getxattr_req;
+            this_req = array[i].compound_req_v2_u.compound_getxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_REMOVEXATTR:
-        {
-                gfx_removexattr_req this_req = { {0,} };
+        case GF_FOP_REMOVEXATTR: {
+            gfx_removexattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_removexattr_req;
+            this_req = array[i].compound_req_v2_u.compound_removexattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_OPENDIR:
-        {
-                gfx_opendir_req this_req = { {0,} };
+        case GF_FOP_OPENDIR: {
+            gfx_opendir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_opendir_req;
+            this_req = array[i].compound_req_v2_u.compound_opendir_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FSYNCDIR:
-        {
-                gfx_fsyncdir_req this_req = { {0,} };
+        case GF_FOP_FSYNCDIR: {
+            gfx_fsyncdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fsyncdir_req;
+            this_req = array[i].compound_req_v2_u.compound_fsyncdir_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_ACCESS:
-        {
-                gfx_access_req this_req = { {0,} };
+        case GF_FOP_ACCESS: {
+            gfx_access_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_access_req;
+            this_req = array[i].compound_req_v2_u.compound_access_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_CREATE:
-        {
-                gfx_create_req this_req = { {0,} };
+        case GF_FOP_CREATE: {
+            gfx_create_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_create_req;
+            this_req = array[i].compound_req_v2_u.compound_create_req;
 
-                state->flags = gf_flags_to_flags (this_req.flags);
-                if (state->flags & O_EXCL) {
-                        state->resolve.type = RESOLVE_NOT;
-                } else {
-                        state->resolve.type = RESOLVE_DONTCARE;
-                }
+            state->flags = gf_flags_to_flags(this_req.flags);
+            if (state->flags & O_EXCL) {
+                state->resolve.type = RESOLVE_NOT;
+            } else {
+                state->resolve.type = RESOLVE_DONTCARE;
+            }
 
-                memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                state->resolve.bname = gf_strdup
-                                       (this_req.bname);
-                break;
+            memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+            state->resolve.bname = gf_strdup(this_req.bname);
+            break;
         }
-        case GF_FOP_FTRUNCATE:
-        {
-                gfx_ftruncate_req this_req = { {0,} };
+        case GF_FOP_FTRUNCATE: {
+            gfx_ftruncate_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_ftruncate_req;
+            this_req = array[i].compound_req_v2_u.compound_ftruncate_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FSTAT:
-        {
-                gfx_fstat_req this_req = { {0,} };
+        case GF_FOP_FSTAT: {
+            gfx_fstat_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fstat_req;
+            this_req = array[i].compound_req_v2_u.compound_fstat_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_LK:
-        {
-                gfx_lk_req this_req = { {0,} };
+        case GF_FOP_LK: {
+            gfx_lk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_lk_req;
+            this_req = array[i].compound_req_v2_u.compound_lk_req;
 
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_LOOKUP:
-        {
-                gfx_lookup_req this_req = { {0,} };
+        case GF_FOP_LOOKUP: {
+            gfx_lookup_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_lookup_req;
-                state->resolve.type   = RESOLVE_DONTCARE;
+            this_req = array[i].compound_req_v2_u.compound_lookup_req;
+            state->resolve.type = RESOLVE_DONTCARE;
 
-                if (this_req.bname && strcmp (this_req.bname, "")) {
-                        memcpy (state->resolve.pargfid, this_req.pargfid, 16);
-                        state->resolve.bname = gf_strdup
-                                               (this_req.bname);
-                } else {
-                        memcpy (state->resolve.gfid, this_req.gfid, 16);
-                }
-                break;
+            if (this_req.bname && strcmp(this_req.bname, "")) {
+                memcpy(state->resolve.pargfid, this_req.pargfid, 16);
+                state->resolve.bname = gf_strdup(this_req.bname);
+            } else {
+                memcpy(state->resolve.gfid, this_req.gfid, 16);
+            }
+            break;
         }
-        case GF_FOP_READDIR:
-        {
-                gfx_readdir_req this_req = { {0,} };
+        case GF_FOP_READDIR: {
+            gfx_readdir_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_readdir_req;
+            this_req = array[i].compound_req_v2_u.compound_readdir_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_INODELK:
-        {
-                gfx_inodelk_req this_req = { {0,} };
+        case GF_FOP_INODELK: {
+            gfx_inodelk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_inodelk_req;
+            this_req = array[i].compound_req_v2_u.compound_inodelk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FINODELK:
-        {
-                gfx_finodelk_req this_req = { {0,} };
+        case GF_FOP_FINODELK: {
+            gfx_finodelk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_finodelk_req;
+            this_req = array[i].compound_req_v2_u.compound_finodelk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_ENTRYLK:
-        {
-                gfx_entrylk_req this_req = { {0,} };
+        case GF_FOP_ENTRYLK: {
+            gfx_entrylk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_entrylk_req;
+            this_req = array[i].compound_req_v2_u.compound_entrylk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FENTRYLK:
-        {
-                gfx_fentrylk_req this_req = { {0,} };
+        case GF_FOP_FENTRYLK: {
+            gfx_fentrylk_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fentrylk_req;
+            this_req = array[i].compound_req_v2_u.compound_fentrylk_req;
 
-                state->resolve.type  = RESOLVE_EXACT;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_EXACT;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_XATTROP:
-        {
-                gfx_xattrop_req this_req = { {0,} };
+        case GF_FOP_XATTROP: {
+            gfx_xattrop_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_xattrop_req;
+            this_req = array[i].compound_req_v2_u.compound_xattrop_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FXATTROP:
-        {
-                gfx_fxattrop_req this_req = { {0,} };
+        case GF_FOP_FXATTROP: {
+            gfx_fxattrop_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fxattrop_req;
+            this_req = array[i].compound_req_v2_u.compound_fxattrop_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FGETXATTR:
-        {
-                gfx_fgetxattr_req this_req = { {0,} };
+        case GF_FOP_FGETXATTR: {
+            gfx_fgetxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fgetxattr_req;
+            this_req = array[i].compound_req_v2_u.compound_fgetxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FSETXATTR:
-        {
-                gfx_fsetxattr_req this_req = { {0,} };
+        case GF_FOP_FSETXATTR: {
+            gfx_fsetxattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fsetxattr_req;
+            this_req = array[i].compound_req_v2_u.compound_fsetxattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_RCHECKSUM:
-        {
-                gfx_rchecksum_req this_req = { {0,},};
+        case GF_FOP_RCHECKSUM: {
+            gfx_rchecksum_req this_req = {
+                {
+                    0,
+                },
+            };
 
-                this_req = array[i].compound_req_v2_u.compound_rchecksum_req;
+            this_req = array[i].compound_req_v2_u.compound_rchecksum_req;
 
-                state->resolve.type  = RESOLVE_MAY;
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MAY;
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_SETATTR:
-        {
-                gfx_setattr_req this_req = { {0,} };
+        case GF_FOP_SETATTR: {
+            gfx_setattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_setattr_req;
+            this_req = array[i].compound_req_v2_u.compound_setattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
-        case GF_FOP_FSETATTR:
-        {
-                gfx_fsetattr_req this_req = { {0,} };
+        case GF_FOP_FSETATTR: {
+            gfx_fsetattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fsetattr_req;
+            this_req = array[i].compound_req_v2_u.compound_fsetattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_READDIRP:
-        {
-                gfx_readdirp_req this_req = { {0,} };
+        case GF_FOP_READDIRP: {
+            gfx_readdirp_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_readdirp_req;
+            this_req = array[i].compound_req_v2_u.compound_readdirp_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FREMOVEXATTR:
-        {
-                gfx_fremovexattr_req this_req = { {0,} };
+        case GF_FOP_FREMOVEXATTR: {
+            gfx_fremovexattr_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fremovexattr_req;
+            this_req = array[i].compound_req_v2_u.compound_fremovexattr_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_FALLOCATE:
-        {
-                gfx_fallocate_req this_req = { {0,} };
+        case GF_FOP_FALLOCATE: {
+            gfx_fallocate_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_fallocate_req;
+            this_req = array[i].compound_req_v2_u.compound_fallocate_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_DISCARD:
-        {
-                gfx_discard_req this_req = { {0,} };
+        case GF_FOP_DISCARD: {
+            gfx_discard_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_discard_req;
+            this_req = array[i].compound_req_v2_u.compound_discard_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_ZEROFILL:
-        {
-                gfx_zerofill_req this_req = { {0,} };
+        case GF_FOP_ZEROFILL: {
+            gfx_zerofill_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_zerofill_req;
+            this_req = array[i].compound_req_v2_u.compound_zerofill_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_SEEK:
-        {
-                gfx_seek_req this_req = { {0,} };
+        case GF_FOP_SEEK: {
+            gfx_seek_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_seek_req;
+            this_req = array[i].compound_req_v2_u.compound_seek_req;
 
-                state->resolve.type  = RESOLVE_MUST;
-                memcpy (state->resolve.gfid,
-                        this_req.gfid, 16);
-                state->resolve.fd_no = this_req.fd;
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            state->resolve.fd_no = this_req.fd;
+            break;
         }
-        case GF_FOP_LEASE:
-        {
-                gfx_lease_req this_req = { {0,} };
+        case GF_FOP_LEASE: {
+            gfx_lease_req this_req = {{
+                0,
+            }};
 
-                this_req = array[i].compound_req_v2_u.compound_lease_req;
+            this_req = array[i].compound_req_v2_u.compound_lease_req;
 
-                state->resolve.type = RESOLVE_MUST;
-                memcpy (state->resolve.gfid, this_req.gfid, 16);
-                break;
+            state->resolve.type = RESOLVE_MUST;
+            memcpy(state->resolve.gfid, this_req.gfid, 16);
+            break;
         }
         default:
-                return ENOTSUP;
-        }
-        return 0;
+            return ENOTSUP;
+    }
+    return 0;
 }
 
 void
-server_compound_rsp_cleanup_v2 (gfx_compound_rsp *rsp, compound_args_cbk_t *args)
+server_compound_rsp_cleanup_v2(gfx_compound_rsp *rsp, compound_args_cbk_t *args)
 {
-        int                     i, len         = 0;
-        compound_rsp_v2        *this_rsp       = NULL;
+    int i, len = 0;
+    compound_rsp_v2 *this_rsp = NULL;
 
-        if (!rsp->compound_rsp_array.compound_rsp_array_val)
-                return;
-
-        len = rsp->compound_rsp_array.compound_rsp_array_len;
-
-        for (i = 0; i < len; i++) {
-                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
-                switch (args->enum_list[i]) {
-                case GF_FOP_STAT:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, stat, i, common_iatt);
-                        break;
-                case GF_FOP_MKNOD:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, mknod, i, common_3iatt);
-                        break;
-                case GF_FOP_MKDIR:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, mkdir, i, common_3iatt);
-                        break;
-                case GF_FOP_UNLINK:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, unlink, i, common_2iatt);
-                        break;
-                case GF_FOP_RMDIR:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, rmdir, i, common_2iatt);
-                        break;
-                case GF_FOP_SYMLINK:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, symlink, i, common_3iatt);
-                        break;
-                case GF_FOP_RENAME:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, rename, i, rename);
-                        break;
-                case GF_FOP_LINK:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, link, i, common_3iatt);
-                        break;
-                case GF_FOP_TRUNCATE:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, truncate, i, common_2iatt);
-                        break;
-                case GF_FOP_OPEN:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, open, i, open);
-                        break;
-                case GF_FOP_READ:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, read, i, read);
-                        break;
-                case GF_FOP_WRITE:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, write, i, common_2iatt);
-                        break;
-                case GF_FOP_STATFS:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, statfs, i, statfs);
-                        break;
-                case GF_FOP_FSYNC:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, fsync, i, common_2iatt);
-                        break;
-                case GF_FOP_OPENDIR:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, opendir, i, open);
-                        break;
-                case GF_FOP_CREATE:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, create, i, create);
-                        break;
-                case GF_FOP_FTRUNCATE:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, ftruncate, i, common_2iatt);
-                        break;
-                case GF_FOP_FSTAT:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, fstat, i, common_iatt);
-                        break;
-                case GF_FOP_LK:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, lk, i, lk);
-                        break;
-                case GF_FOP_LOOKUP:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, lookup, i, common_2iatt);
-                        break;
-                case GF_FOP_SETATTR:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, setattr, i, common_2iatt);
-                        break;
-                case GF_FOP_FSETATTR:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, fsetattr, i, common_2iatt);
-                        break;
-                case GF_FOP_FALLOCATE:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, fallocate, i, common_2iatt);
-                        break;
-                case GF_FOP_DISCARD:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, discard, i, common_2iatt);
-                        break;
-                case GF_FOP_ZEROFILL:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, zerofill, i, common_2iatt);
-                        break;
-                case GF_FOP_SEEK:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, seek, i, seek);
-                        break;
-                case GF_FOP_LEASE:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, lease, i, lease);
-                        break;
-                case GF_FOP_READLINK:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, readlink, i, readlink);
-                        break;
-                case GF_FOP_RCHECKSUM:
-                        SERVER4_FOP_RSP_CLEANUP (rsp, rchecksum, i, rchecksum);
-                        break;
-                /* fops that use gfx_common_rsp */
-                case GF_FOP_IPC:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, ipc, i);
-                        break;
-                case GF_FOP_FLUSH:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, flush, i);
-                        break;
-                case GF_FOP_SETXATTR:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, setxattr, i);
-                        break;
-                case GF_FOP_REMOVEXATTR:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, removexattr, i);
-                        break;
-                case GF_FOP_FSETXATTR:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, fsetxattr, i);
-                        break;
-                case GF_FOP_FREMOVEXATTR:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, fremovexattr, i);
-                        break;
-                case GF_FOP_FSYNCDIR:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, fsyncdir, i);
-                        break;
-                case GF_FOP_ACCESS:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, access, i);
-                        break;
-                case GF_FOP_INODELK:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, inodelk, i);
-                        break;
-                case GF_FOP_FINODELK:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, finodelk, i);
-                        break;
-                case GF_FOP_ENTRYLK:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, entrylk, i);
-                        break;
-                case GF_FOP_FENTRYLK:
-                        SERVER4_COMMON_RSP_CLEANUP (rsp, fentrylk, i);
-                        break;
-                /* fops that need extra cleanup */
-                case GF_FOP_XATTROP:
-                {
-                        gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
-                                                    xattrop);
-                        SERVER4_FOP_RSP_CLEANUP (rsp, xattrop, i, common_dict);
-                        GF_FREE (tmp_rsp->dict.pairs.pairs_val);
-                        break;
-                }
-                case GF_FOP_FXATTROP:
-                {
-                        gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
-                                                                      fxattrop);
-                        SERVER4_FOP_RSP_CLEANUP (rsp, fxattrop, i, common_dict);
-                        GF_FREE (tmp_rsp->dict.pairs.pairs_val);
-                        break;
-                }
-                case GF_FOP_READDIR:
-                {
-                        gfx_readdir_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
-                                                    readdir);
-                        SERVER4_FOP_RSP_CLEANUP (rsp, readdir, i, readdir);
-                        readdir_rsp_cleanup_v2 (tmp_rsp);
-                        break;
-                }
-                case GF_FOP_READDIRP:
-                {
-                        gfx_readdirp_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
-                                                     readdirp);
-                        SERVER4_FOP_RSP_CLEANUP (rsp, readdirp, i, readdirp);
-                        readdirp_rsp_cleanup_v2 (tmp_rsp);
-                        break;
-                }
-                case GF_FOP_GETXATTR:
-                {
-                        gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
-                                                     getxattr);
-                        SERVER4_FOP_RSP_CLEANUP (rsp, getxattr, i, common_dict);
-                        GF_FREE (tmp_rsp->dict.pairs.pairs_val);
-                        break;
-                }
-                case GF_FOP_FGETXATTR:
-                {
-                        gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
-                                                      fgetxattr);
-                        SERVER4_FOP_RSP_CLEANUP (rsp, fgetxattr, i, common_dict);
-                        GF_FREE (tmp_rsp->dict.pairs.pairs_val);
-                        break;
-                }
-                default:
-                        break;
-                }
-        }
-        GF_FREE (rsp->compound_rsp_array.compound_rsp_array_val);
+    if (!rsp->compound_rsp_array.compound_rsp_array_val)
         return;
+
+    len = rsp->compound_rsp_array.compound_rsp_array_len;
+
+    for (i = 0; i < len; i++) {
+        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
+        switch (args->enum_list[i]) {
+            case GF_FOP_STAT:
+                SERVER4_FOP_RSP_CLEANUP(rsp, stat, i, common_iatt);
+                break;
+            case GF_FOP_MKNOD:
+                SERVER4_FOP_RSP_CLEANUP(rsp, mknod, i, common_3iatt);
+                break;
+            case GF_FOP_MKDIR:
+                SERVER4_FOP_RSP_CLEANUP(rsp, mkdir, i, common_3iatt);
+                break;
+            case GF_FOP_UNLINK:
+                SERVER4_FOP_RSP_CLEANUP(rsp, unlink, i, common_2iatt);
+                break;
+            case GF_FOP_RMDIR:
+                SERVER4_FOP_RSP_CLEANUP(rsp, rmdir, i, common_2iatt);
+                break;
+            case GF_FOP_SYMLINK:
+                SERVER4_FOP_RSP_CLEANUP(rsp, symlink, i, common_3iatt);
+                break;
+            case GF_FOP_RENAME:
+                SERVER4_FOP_RSP_CLEANUP(rsp, rename, i, rename);
+                break;
+            case GF_FOP_LINK:
+                SERVER4_FOP_RSP_CLEANUP(rsp, link, i, common_3iatt);
+                break;
+            case GF_FOP_TRUNCATE:
+                SERVER4_FOP_RSP_CLEANUP(rsp, truncate, i, common_2iatt);
+                break;
+            case GF_FOP_OPEN:
+                SERVER4_FOP_RSP_CLEANUP(rsp, open, i, open);
+                break;
+            case GF_FOP_READ:
+                SERVER4_FOP_RSP_CLEANUP(rsp, read, i, read);
+                break;
+            case GF_FOP_WRITE:
+                SERVER4_FOP_RSP_CLEANUP(rsp, write, i, common_2iatt);
+                break;
+            case GF_FOP_STATFS:
+                SERVER4_FOP_RSP_CLEANUP(rsp, statfs, i, statfs);
+                break;
+            case GF_FOP_FSYNC:
+                SERVER4_FOP_RSP_CLEANUP(rsp, fsync, i, common_2iatt);
+                break;
+            case GF_FOP_OPENDIR:
+                SERVER4_FOP_RSP_CLEANUP(rsp, opendir, i, open);
+                break;
+            case GF_FOP_CREATE:
+                SERVER4_FOP_RSP_CLEANUP(rsp, create, i, create);
+                break;
+            case GF_FOP_FTRUNCATE:
+                SERVER4_FOP_RSP_CLEANUP(rsp, ftruncate, i, common_2iatt);
+                break;
+            case GF_FOP_FSTAT:
+                SERVER4_FOP_RSP_CLEANUP(rsp, fstat, i, common_iatt);
+                break;
+            case GF_FOP_LK:
+                SERVER4_FOP_RSP_CLEANUP(rsp, lk, i, lk);
+                break;
+            case GF_FOP_LOOKUP:
+                SERVER4_FOP_RSP_CLEANUP(rsp, lookup, i, common_2iatt);
+                break;
+            case GF_FOP_SETATTR:
+                SERVER4_FOP_RSP_CLEANUP(rsp, setattr, i, common_2iatt);
+                break;
+            case GF_FOP_FSETATTR:
+                SERVER4_FOP_RSP_CLEANUP(rsp, fsetattr, i, common_2iatt);
+                break;
+            case GF_FOP_FALLOCATE:
+                SERVER4_FOP_RSP_CLEANUP(rsp, fallocate, i, common_2iatt);
+                break;
+            case GF_FOP_DISCARD:
+                SERVER4_FOP_RSP_CLEANUP(rsp, discard, i, common_2iatt);
+                break;
+            case GF_FOP_ZEROFILL:
+                SERVER4_FOP_RSP_CLEANUP(rsp, zerofill, i, common_2iatt);
+                break;
+            case GF_FOP_SEEK:
+                SERVER4_FOP_RSP_CLEANUP(rsp, seek, i, seek);
+                break;
+            case GF_FOP_LEASE:
+                SERVER4_FOP_RSP_CLEANUP(rsp, lease, i, lease);
+                break;
+            case GF_FOP_READLINK:
+                SERVER4_FOP_RSP_CLEANUP(rsp, readlink, i, readlink);
+                break;
+            case GF_FOP_RCHECKSUM:
+                SERVER4_FOP_RSP_CLEANUP(rsp, rchecksum, i, rchecksum);
+                break;
+            /* fops that use gfx_common_rsp */
+            case GF_FOP_IPC:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, ipc, i);
+                break;
+            case GF_FOP_FLUSH:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, flush, i);
+                break;
+            case GF_FOP_SETXATTR:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, setxattr, i);
+                break;
+            case GF_FOP_REMOVEXATTR:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, removexattr, i);
+                break;
+            case GF_FOP_FSETXATTR:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, fsetxattr, i);
+                break;
+            case GF_FOP_FREMOVEXATTR:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, fremovexattr, i);
+                break;
+            case GF_FOP_FSYNCDIR:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, fsyncdir, i);
+                break;
+            case GF_FOP_ACCESS:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, access, i);
+                break;
+            case GF_FOP_INODELK:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, inodelk, i);
+                break;
+            case GF_FOP_FINODELK:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, finodelk, i);
+                break;
+            case GF_FOP_ENTRYLK:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, entrylk, i);
+                break;
+            case GF_FOP_FENTRYLK:
+                SERVER4_COMMON_RSP_CLEANUP(rsp, fentrylk, i);
+                break;
+            /* fops that need extra cleanup */
+            case GF_FOP_XATTROP: {
+                gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                               xattrop);
+                SERVER4_FOP_RSP_CLEANUP(rsp, xattrop, i, common_dict);
+                GF_FREE(tmp_rsp->dict.pairs.pairs_val);
+                break;
+            }
+            case GF_FOP_FXATTROP: {
+                gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                               fxattrop);
+                SERVER4_FOP_RSP_CLEANUP(rsp, fxattrop, i, common_dict);
+                GF_FREE(tmp_rsp->dict.pairs.pairs_val);
+                break;
+            }
+            case GF_FOP_READDIR: {
+                gfx_readdir_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp, readdir);
+                SERVER4_FOP_RSP_CLEANUP(rsp, readdir, i, readdir);
+                readdir_rsp_cleanup_v2(tmp_rsp);
+                break;
+            }
+            case GF_FOP_READDIRP: {
+                gfx_readdirp_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp, readdirp);
+                SERVER4_FOP_RSP_CLEANUP(rsp, readdirp, i, readdirp);
+                readdirp_rsp_cleanup_v2(tmp_rsp);
+                break;
+            }
+            case GF_FOP_GETXATTR: {
+                gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                               getxattr);
+                SERVER4_FOP_RSP_CLEANUP(rsp, getxattr, i, common_dict);
+                GF_FREE(tmp_rsp->dict.pairs.pairs_val);
+                break;
+            }
+            case GF_FOP_FGETXATTR: {
+                gfx_common_dict_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                               fgetxattr);
+                SERVER4_FOP_RSP_CLEANUP(rsp, fgetxattr, i, common_dict);
+                GF_FREE(tmp_rsp->dict.pairs.pairs_val);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    GF_FREE(rsp->compound_rsp_array.compound_rsp_array_val);
+    return;
 }
 
 void
-server_compound_req_cleanup_v2 (gfx_compound_req *req, int len)
+server_compound_req_cleanup_v2(gfx_compound_req *req, int len)
 {
-        int             i        = 0;
-        compound_req_v2   *curr_req = NULL;
+    int i = 0;
+    compound_req_v2 *curr_req = NULL;
 
-
-        if (!req->compound_req_array.compound_req_array_val)
-                return;
-
-        for (i = 0; i < len; i++) {
-                curr_req = &req->compound_req_array.compound_req_array_val[i];
-
-                switch (curr_req->fop_enum) {
-                case GF_FOP_MKDIR:
-                {
-                        gfx_mkdir_req *args = &CPD4_REQ_FIELD (curr_req, mkdir);
-
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_UNLINK:
-                {
-                        gfx_unlink_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                unlink);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_RMDIR:
-                {
-                        gfx_rmdir_req *args = &CPD4_REQ_FIELD (curr_req,
-                                               rmdir);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_SYMLINK:
-                {
-                        gfx_symlink_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                 symlink);
-                        free (args->bname);
-                        free (args->linkname);
-                        break;
-                }
-                case GF_FOP_RENAME:
-                {
-                        gfx_rename_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                rename);
-                        free (args->oldbname);
-                        free (args->newbname);
-                        break;
-                }
-                case GF_FOP_LINK:
-                {
-                        gfx_link_req *args = &CPD4_REQ_FIELD (curr_req,
-                                              link);
-                        free (args->newbname);
-                        break;
-                }
-                case GF_FOP_GETXATTR:
-                {
-                        gfx_getxattr_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                  getxattr);
-
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_REMOVEXATTR:
-                {
-                        gfx_removexattr_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                     removexattr);
-
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_CREATE:
-                {
-                        gfx_create_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                create);
-
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_LK:
-                {
-                        gfx_lk_req *args = &CPD4_REQ_FIELD (curr_req, lk);
-                        free (args->flock.lk_owner.lk_owner_val);
-                        break;
-                }
-                case GF_FOP_LOOKUP:
-                {
-                        gfx_lookup_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                                lookup);
-                        free (args->bname);
-                        break;
-                }
-                case GF_FOP_INODELK:
-                {
-                        gfx_inodelk_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                                 inodelk);
-
-                        free (args->volume);
-                        free (args->flock.lk_owner.lk_owner_val);
-                        break;
-                }
-                case GF_FOP_FINODELK:
-                {
-                        gfx_finodelk_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                                  finodelk);
-
-                        free (args->volume);
-                        free (args->flock.lk_owner.lk_owner_val);
-                        break;
-                }
-                case GF_FOP_ENTRYLK:
-                {
-                        gfx_entrylk_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                                 entrylk);
-
-                        free (args->volume);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_FENTRYLK:
-                {
-                        gfx_fentrylk_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                                  fentrylk);
-
-                        free (args->volume);
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_FGETXATTR:
-                {
-                        gfx_fgetxattr_req *args = &CPD4_REQ_FIELD (curr_req,
-                                                   fgetxattr);
-
-                        free (args->name);
-                        break;
-                }
-                case GF_FOP_FREMOVEXATTR:
-                {
-                        gfx_fremovexattr_req *args = &CPD4_REQ_FIELD(curr_req,
-                                                      fremovexattr);
-                        free (args->name);
-                        break;
-                }
-                default:
-                        break;
-                }
-        }
-
+    if (!req->compound_req_array.compound_req_array_val)
         return;
+
+    for (i = 0; i < len; i++) {
+        curr_req = &req->compound_req_array.compound_req_array_val[i];
+
+        switch (curr_req->fop_enum) {
+            case GF_FOP_MKDIR: {
+                gfx_mkdir_req *args = &CPD4_REQ_FIELD(curr_req, mkdir);
+
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_UNLINK: {
+                gfx_unlink_req *args = &CPD4_REQ_FIELD(curr_req, unlink);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_RMDIR: {
+                gfx_rmdir_req *args = &CPD4_REQ_FIELD(curr_req, rmdir);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_SYMLINK: {
+                gfx_symlink_req *args = &CPD4_REQ_FIELD(curr_req, symlink);
+                free(args->bname);
+                free(args->linkname);
+                break;
+            }
+            case GF_FOP_RENAME: {
+                gfx_rename_req *args = &CPD4_REQ_FIELD(curr_req, rename);
+                free(args->oldbname);
+                free(args->newbname);
+                break;
+            }
+            case GF_FOP_LINK: {
+                gfx_link_req *args = &CPD4_REQ_FIELD(curr_req, link);
+                free(args->newbname);
+                break;
+            }
+            case GF_FOP_GETXATTR: {
+                gfx_getxattr_req *args = &CPD4_REQ_FIELD(curr_req, getxattr);
+
+                free(args->name);
+                break;
+            }
+            case GF_FOP_REMOVEXATTR: {
+                gfx_removexattr_req *args = &CPD4_REQ_FIELD(curr_req,
+                                                            removexattr);
+
+                free(args->name);
+                break;
+            }
+            case GF_FOP_CREATE: {
+                gfx_create_req *args = &CPD4_REQ_FIELD(curr_req, create);
+
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_LK: {
+                gfx_lk_req *args = &CPD4_REQ_FIELD(curr_req, lk);
+                free(args->flock.lk_owner.lk_owner_val);
+                break;
+            }
+            case GF_FOP_LOOKUP: {
+                gfx_lookup_req *args = &CPD4_REQ_FIELD(curr_req, lookup);
+                free(args->bname);
+                break;
+            }
+            case GF_FOP_INODELK: {
+                gfx_inodelk_req *args = &CPD4_REQ_FIELD(curr_req, inodelk);
+
+                free(args->volume);
+                free(args->flock.lk_owner.lk_owner_val);
+                break;
+            }
+            case GF_FOP_FINODELK: {
+                gfx_finodelk_req *args = &CPD4_REQ_FIELD(curr_req, finodelk);
+
+                free(args->volume);
+                free(args->flock.lk_owner.lk_owner_val);
+                break;
+            }
+            case GF_FOP_ENTRYLK: {
+                gfx_entrylk_req *args = &CPD4_REQ_FIELD(curr_req, entrylk);
+
+                free(args->volume);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_FENTRYLK: {
+                gfx_fentrylk_req *args = &CPD4_REQ_FIELD(curr_req, fentrylk);
+
+                free(args->volume);
+                free(args->name);
+                break;
+            }
+            case GF_FOP_FGETXATTR: {
+                gfx_fgetxattr_req *args = &CPD4_REQ_FIELD(curr_req, fgetxattr);
+
+                free(args->name);
+                break;
+            }
+            case GF_FOP_FREMOVEXATTR: {
+                gfx_fremovexattr_req *args = &CPD4_REQ_FIELD(curr_req,
+                                                             fremovexattr);
+                free(args->name);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    return;
 }

@@ -14,53 +14,53 @@
 #include "daemon.h"
 
 int
-os_daemon_return (int nochdir, int noclose)
+os_daemon_return(int nochdir, int noclose)
 {
-	pid_t   pid  = -1;
-	int     ret  = -1;
-        FILE    *ptr = NULL;
+    pid_t pid = -1;
+    int ret = -1;
+    FILE *ptr = NULL;
 
-	ret = fork();
-	if (ret)
-		return ret;
+    ret = fork();
+    if (ret)
+        return ret;
 
-	pid = setsid();
+    pid = setsid();
 
-	if (pid == -1) {
-                ret = -1;
-		goto out;
-        }
+    if (pid == -1) {
+        ret = -1;
+        goto out;
+    }
 
-	if (!nochdir)
-		ret = chdir("/");
+    if (!nochdir)
+        ret = chdir("/");
 
-        if (!noclose) {
-                ptr = freopen (DEVNULLPATH, "r", stdin);
-                if (!ptr)
-                        goto out;
+    if (!noclose) {
+        ptr = freopen(DEVNULLPATH, "r", stdin);
+        if (!ptr)
+            goto out;
 
-                ptr = freopen (DEVNULLPATH, "w", stdout);
-                if (!ptr)
-                        goto out;
+        ptr = freopen(DEVNULLPATH, "w", stdout);
+        if (!ptr)
+            goto out;
 
-                ptr = freopen (DEVNULLPATH, "w", stderr);
-                if (!ptr)
-                        goto out;
-	}
+        ptr = freopen(DEVNULLPATH, "w", stderr);
+        if (!ptr)
+            goto out;
+    }
 
-        ret = 0;
+    ret = 0;
 out:
-	return ret;
+    return ret;
 }
 
 int
-os_daemon (int nochdir, int noclose)
+os_daemon(int nochdir, int noclose)
 {
-	int ret = -1;
+    int ret = -1;
 
-	ret = os_daemon_return (nochdir, noclose);
-	if (ret <= 0)
-		return ret;
+    ret = os_daemon_return(nochdir, noclose);
+    if (ret <= 0)
+        return ret;
 
-	_exit (0);
+    _exit(0);
 }

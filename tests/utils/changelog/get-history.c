@@ -27,47 +27,45 @@
 #include "changelog.h"
 
 int
-main (int argc, char **argv)
+main(int argc, char **argv)
 {
-        int     ret          = 0;
-        unsigned long end_ts = 0;
-        int start  = 0;
-        int end    = 0;
+    int ret = 0;
+    unsigned long end_ts = 0;
+    int start = 0;
+    int end = 0;
 
-        ret = gf_changelog_init (NULL);
-        if (ret) {
-                printf ("-1");
-                fflush(stdout);
-                return -1;
-        }
+    ret = gf_changelog_init(NULL);
+    if (ret) {
+        printf("-1");
+        fflush(stdout);
+        return -1;
+    }
 
-        ret = gf_changelog_register ("/d/backends/patchy0",
-                                     "/tmp/scratch_v1",
-                                     "/var/log/glusterfs/changes.log",
-                                     9, 5);
-        if (ret) {
-                printf ("-2");
-                fflush(stdout);
-                return -1;
-        }
+    ret = gf_changelog_register("/d/backends/patchy0", "/tmp/scratch_v1",
+                                "/var/log/glusterfs/changes.log", 9, 5);
+    if (ret) {
+        printf("-2");
+        fflush(stdout);
+        return -1;
+    }
 
-        start = atoi(argv[1]);
-        end = atoi(argv[2]);
+    start = atoi(argv[1]);
+    end = atoi(argv[2]);
 
-        ret = gf_history_changelog ("/d/backends/patchy0/.glusterfs/changelogs",
-                                    start, end, 3, &end_ts);
-        if (ret < 0) {
-                printf ("-3");
-                fflush(stdout);
-                return -1;
-        } else if (ret == 1) {
-                printf ("1");
-                fflush(stdout);
-                return 0;
-        }
-
-out:
-        printf ("0");
+    ret = gf_history_changelog("/d/backends/patchy0/.glusterfs/changelogs",
+                               start, end, 3, &end_ts);
+    if (ret < 0) {
+        printf("-3");
+        fflush(stdout);
+        return -1;
+    } else if (ret == 1) {
+        printf("1");
         fflush(stdout);
         return 0;
+    }
+
+out:
+    printf("0");
+    fflush(stdout);
+    return 0;
 }

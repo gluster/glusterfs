@@ -8,40 +8,34 @@
   cases as published by the Free Software Foundation.
 */
 
-
 #include "rpcsvc.h"
 #include "list.h"
 #include "dict.h"
 
+int
+auth_null_request_init(rpcsvc_request_t *req, void *priv)
+{
+    return 0;
+}
 
 int
-auth_null_request_init (rpcsvc_request_t *req, void *priv)
+auth_null_authenticate(rpcsvc_request_t *req, void *priv)
 {
-        return 0;
+    /* Always succeed. */
+    return RPCSVC_AUTH_ACCEPT;
 }
 
-int auth_null_authenticate (rpcsvc_request_t *req, void *priv)
-{
-        /* Always succeed. */
-        return RPCSVC_AUTH_ACCEPT;
-}
+rpcsvc_auth_ops_t auth_null_ops = {.transport_init = NULL,
+                                   .request_init = auth_null_request_init,
+                                   .authenticate = auth_null_authenticate};
 
-rpcsvc_auth_ops_t auth_null_ops = {
-        .transport_init              = NULL,
-        .request_init           = auth_null_request_init,
-        .authenticate           = auth_null_authenticate
-};
-
-rpcsvc_auth_t rpcsvc_auth_null = {
-        .authname       = "AUTH_NULL",
-        .authnum        = AUTH_NULL,
-        .authops        = &auth_null_ops,
-        .authprivate    = NULL
-};
-
+rpcsvc_auth_t rpcsvc_auth_null = {.authname = "AUTH_NULL",
+                                  .authnum = AUTH_NULL,
+                                  .authops = &auth_null_ops,
+                                  .authprivate = NULL};
 
 rpcsvc_auth_t *
-rpcsvc_auth_null_init (rpcsvc_t *svc, dict_t *options)
+rpcsvc_auth_null_init(rpcsvc_t *svc, dict_t *options)
 {
-        return &rpcsvc_auth_null;
+    return &rpcsvc_auth_null;
 }

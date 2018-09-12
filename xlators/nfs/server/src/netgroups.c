@@ -16,9 +16,12 @@
 #include "parse-utils.h"
 #include "nfs-messages.h"
 
-static void _nge_print (const struct netgroup_entry *nge);
-static void _netgroup_entry_deinit (struct netgroup_entry *ptr);
-static void _netgroup_host_deinit (struct netgroup_host *host);
+static void
+_nge_print(const struct netgroup_entry *nge);
+static void
+_netgroup_entry_deinit(struct netgroup_entry *ptr);
+static void
+_netgroup_host_deinit(struct netgroup_host *host);
 
 static dict_t *__deleted_entries;
 static struct parser *ng_file_parser;
@@ -31,36 +34,36 @@ static struct parser *ng_host_parser;
  *          failure: -1
  */
 static int
-_ng_init_parsers ()
+_ng_init_parsers()
 {
-        int ret = -1;
+    int ret = -1;
 
-        /* Initialize the parsers. The only reason this should
-         * ever fail is because of 1) memory allocation errors
-         * 2) the regex in netgroups.h has been changed and no
-         * longer compiles.
-         */
-        ng_file_parser = parser_init (NG_FILE_PARSE_REGEX);
-        if (!ng_file_parser)
-                goto out;
+    /* Initialize the parsers. The only reason this should
+     * ever fail is because of 1) memory allocation errors
+     * 2) the regex in netgroups.h has been changed and no
+     * longer compiles.
+     */
+    ng_file_parser = parser_init(NG_FILE_PARSE_REGEX);
+    if (!ng_file_parser)
+        goto out;
 
-        ng_host_parser = parser_init (NG_HOST_PARSE_REGEX);
-        if (!ng_host_parser)
-                goto out;
+    ng_host_parser = parser_init(NG_HOST_PARSE_REGEX);
+    if (!ng_host_parser)
+        goto out;
 
-        ret = 0;
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /**
  * _ng_deinit_parsers - Free the parsers used in this file
  */
 static void
-_ng_deinit_parsers ()
+_ng_deinit_parsers()
 {
-        parser_deinit (ng_file_parser);
-        parser_deinit (ng_host_parser);
+    parser_deinit(ng_file_parser);
+    parser_deinit(ng_host_parser);
 }
 
 /**
@@ -71,18 +74,18 @@ _ng_deinit_parsers ()
  * Not for external use.
  */
 static struct netgroups_file *
-_netgroups_file_init ()
+_netgroups_file_init()
 {
-        struct netgroups_file *file  = GF_MALLOC (sizeof (*file),
-                                                  gf_common_mt_nfs_netgroups);
+    struct netgroups_file *file = GF_MALLOC(sizeof(*file),
+                                            gf_common_mt_nfs_netgroups);
 
-        if (!file)
-                goto out;
+    if (!file)
+        goto out;
 
-        file->filename     = NULL;
-        file->ng_file_dict = NULL;
+    file->filename = NULL;
+    file->ng_file_dict = NULL;
 out:
-        return file;
+    return file;
 }
 
 /**
@@ -100,17 +103,17 @@ out:
  * Not for external use.
  */
 static int
-__ngf_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__ngf_free_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        struct netgroup_entry        *nge = NULL;
+    struct netgroup_entry *nge = NULL;
 
-        if (val) {
-                nge = (struct netgroup_entry *)val->data;
-                _netgroup_entry_deinit (nge);
-                val->data = NULL;
-                dict_del (dict, key); /* Remove the key from this dict */
-        }
-        return 0;
+    if (val) {
+        nge = (struct netgroup_entry *)val->data;
+        _netgroup_entry_deinit(nge);
+        val->data = NULL;
+        dict_del(dict, key); /* Remove the key from this dict */
+    }
+    return 0;
 }
 
 /**
@@ -128,10 +131,10 @@ __ngf_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  * Not for external use.
  */
 static int
-__deleted_entries_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__deleted_entries_free_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        dict_del (dict, key);
-        return 0;
+    dict_del(dict, key);
+    return 0;
 }
 
 /**
@@ -147,26 +150,26 @@ __deleted_entries_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  * the memory allocated when parsing the file.
  */
 void
-ng_file_deinit (struct netgroups_file *ngfile)
+ng_file_deinit(struct netgroups_file *ngfile)
 {
-        if (!ngfile) {
-                return;
-        }
-
-        __deleted_entries = dict_new ();
-        GF_VALIDATE_OR_GOTO (GF_NG, __deleted_entries, out);
-
-        GF_FREE (ngfile->filename);
-        dict_foreach (ngfile->ng_file_dict, __ngf_free_walk, NULL);
-        dict_unref (ngfile->ng_file_dict);
-        GF_FREE (ngfile);
-
-        /* Clean up temporary dict we used to store "freed" names */
-        dict_foreach (__deleted_entries, __deleted_entries_free_walk, NULL);
-        dict_unref (__deleted_entries);
-        __deleted_entries = NULL;
-out:
+    if (!ngfile) {
         return;
+    }
+
+    __deleted_entries = dict_new();
+    GF_VALIDATE_OR_GOTO(GF_NG, __deleted_entries, out);
+
+    GF_FREE(ngfile->filename);
+    dict_foreach(ngfile->ng_file_dict, __ngf_free_walk, NULL);
+    dict_unref(ngfile->ng_file_dict);
+    GF_FREE(ngfile);
+
+    /* Clean up temporary dict we used to store "freed" names */
+    dict_foreach(__deleted_entries, __deleted_entries_free_walk, NULL);
+    dict_unref(__deleted_entries);
+    __deleted_entries = NULL;
+out:
+    return;
 }
 
 /**
@@ -179,11 +182,11 @@ out:
  * Not for external use.
  */
 static struct netgroup_entry *
-_netgroup_entry_init ()
+_netgroup_entry_init()
 {
-        struct netgroup_entry *entry = GF_CALLOC (1, sizeof (*entry),
-                                                  gf_common_mt_nfs_netgroups);
-        return entry;
+    struct netgroup_entry *entry = GF_CALLOC(1, sizeof(*entry),
+                                             gf_common_mt_nfs_netgroups);
+    return entry;
 }
 
 /**
@@ -202,17 +205,17 @@ _netgroup_entry_init ()
  * Not for external use.
  */
 static int
-__ngh_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__ngh_free_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        struct netgroup_host *ngh = NULL;
+    struct netgroup_host *ngh = NULL;
 
-        if (val) {
-                ngh = (struct netgroup_host *)val->data;
-                _netgroup_host_deinit (ngh);
-                val->data = NULL;
-                dict_del (dict, key);
-        }
-        return 0;
+    if (val) {
+        ngh = (struct netgroup_host *)val->data;
+        _netgroup_host_deinit(ngh);
+        val->data = NULL;
+        dict_del(dict, key);
+    }
+    return 0;
 }
 
 /**
@@ -231,23 +234,23 @@ __ngh_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  * Not for external use.
  */
 static int
-__nge_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__nge_free_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        struct netgroup_entry *nge = NULL;
+    struct netgroup_entry *nge = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, dict, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, dict, out);
 
-        if (val) {
-                nge = (struct netgroup_entry *)val->data;
-                if (!dict_get (__deleted_entries, key)) {
-                        _netgroup_entry_deinit (nge);
-                        val->data = NULL;
-                }
-                dict_del (dict, key);
+    if (val) {
+        nge = (struct netgroup_entry *)val->data;
+        if (!dict_get(__deleted_entries, key)) {
+            _netgroup_entry_deinit(nge);
+            val->data = NULL;
         }
+        dict_del(dict, key);
+    }
 
 out:
-        return 0;
+    return 0;
 }
 
 /**
@@ -264,53 +267,53 @@ out:
  * Not for external use.
  */
 static void
-_netgroup_entry_deinit (struct netgroup_entry *ngentry)
+_netgroup_entry_deinit(struct netgroup_entry *ngentry)
 {
-        dict_t  *ng_dict   = NULL;
-        dict_t  *host_dict = NULL;
-        char    *name      = NULL;
-        data_t  *dint      = NULL;
+    dict_t *ng_dict = NULL;
+    dict_t *host_dict = NULL;
+    char *name = NULL;
+    data_t *dint = NULL;
 
-        if (!ngentry)
-                return;
+    if (!ngentry)
+        return;
 
-        ng_dict = ngentry->netgroup_ngs;
-        host_dict = ngentry->netgroup_hosts;
+    ng_dict = ngentry->netgroup_ngs;
+    host_dict = ngentry->netgroup_hosts;
 
-        if (ng_dict) {
-                /* Free the dict of netgroup entries */
-                dict_foreach (ng_dict, __nge_free_walk, NULL);
-                dict_unref (ng_dict);
-                ngentry->netgroup_ngs = NULL;
-        }
+    if (ng_dict) {
+        /* Free the dict of netgroup entries */
+        dict_foreach(ng_dict, __nge_free_walk, NULL);
+        dict_unref(ng_dict);
+        ngentry->netgroup_ngs = NULL;
+    }
 
-        if (host_dict) {
-                /* Free the dict of host entries */
-                dict_foreach (host_dict, __ngh_free_walk, NULL);
-                dict_unref (host_dict);
-                ngentry->netgroup_hosts = NULL;
-        }
+    if (host_dict) {
+        /* Free the dict of host entries */
+        dict_foreach(host_dict, __ngh_free_walk, NULL);
+        dict_unref(host_dict);
+        ngentry->netgroup_hosts = NULL;
+    }
 
-        if (ngentry->netgroup_name) {
-                /* Keep track of the netgroup names we've deallocated
-                 * We need to do this because of the nature of this data
-                 * structure. This data structure may hold multiple
-                 * pointers to an already freed object, but these are
-                 * uniquely identifiable by the name. We keep track
-                 * of these names so when we encounter a key who has
-                 * an association to an already freed object, we don't
-                 * free it twice.
-                 */
-                name = strdupa (ngentry->netgroup_name);
+    if (ngentry->netgroup_name) {
+        /* Keep track of the netgroup names we've deallocated
+         * We need to do this because of the nature of this data
+         * structure. This data structure may hold multiple
+         * pointers to an already freed object, but these are
+         * uniquely identifiable by the name. We keep track
+         * of these names so when we encounter a key who has
+         * an association to an already freed object, we don't
+         * free it twice.
+         */
+        name = strdupa(ngentry->netgroup_name);
 
-                dint = int_to_data (1);
-                dict_set (__deleted_entries, name, dint);
+        dint = int_to_data(1);
+        dict_set(__deleted_entries, name, dint);
 
-                GF_FREE (ngentry->netgroup_name);
-                ngentry->netgroup_name = NULL;
-        }
+        GF_FREE(ngentry->netgroup_name);
+        ngentry->netgroup_name = NULL;
+    }
 
-        GF_FREE (ngentry);
+    GF_FREE(ngentry);
 }
 
 /**
@@ -324,11 +327,11 @@ _netgroup_entry_deinit (struct netgroup_entry *ngentry)
  * Not for external use.
  */
 static struct netgroup_host *
-_netgroup_host_init ()
+_netgroup_host_init()
 {
-        struct netgroup_host *host = GF_CALLOC (1, sizeof (*host),
-                                                gf_common_mt_nfs_netgroups);
-        return host;
+    struct netgroup_host *host = GF_CALLOC(1, sizeof(*host),
+                                           gf_common_mt_nfs_netgroups);
+    return host;
 }
 
 /**
@@ -342,23 +345,23 @@ _netgroup_host_init ()
  * Not for external use.
  */
 static void
-_netgroup_host_deinit (struct netgroup_host *host)
+_netgroup_host_deinit(struct netgroup_host *host)
 {
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_NG, host, err);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_NG, host, err);
 
-        GF_FREE (host->hostname);
-        host->hostname = NULL;
+    GF_FREE(host->hostname);
+    host->hostname = NULL;
 
-        GF_FREE (host->user);
-        host->user = NULL;
+    GF_FREE(host->user);
+    host->user = NULL;
 
-        GF_FREE (host->domain);
-        host->domain = NULL;
+    GF_FREE(host->domain);
+    host->domain = NULL;
 
-        GF_FREE (host);
+    GF_FREE(host);
 err:
-        return;
+    return;
 }
 
 /**
@@ -377,19 +380,19 @@ err:
  * Not for external use.
  */
 static struct netgroup_entry *
-_nge_dict_get (dict_t *dict, const char *ngname)
+_nge_dict_get(dict_t *dict, const char *ngname)
 {
-        data_t *ngdata = NULL;
+    data_t *ngdata = NULL;
 
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_NG, dict, err);
-        GF_VALIDATE_OR_GOTO (GF_NG, ngname, err);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_NG, dict, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, ngname, err);
 
-        ngdata = dict_get (dict, (char *)ngname);
-        if (ngdata)
-                return (struct netgroup_entry *)ngdata->data;
+    ngdata = dict_get(dict, (char *)ngname);
+    if (ngdata)
+        return (struct netgroup_entry *)ngdata->data;
 err:
-        return NULL;
+    return NULL;
 }
 
 /**
@@ -405,17 +408,17 @@ err:
  * Not for external use.
  */
 static void
-_nge_dict_insert (dict_t *dict, struct netgroup_entry *nge)
+_nge_dict_insert(dict_t *dict, struct netgroup_entry *nge)
 {
-        data_t *ngdata = NULL;
+    data_t *ngdata = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, dict, err);
-        GF_VALIDATE_OR_GOTO (GF_NG, nge, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, dict, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, nge, err);
 
-        ngdata = bin_to_data (nge, sizeof (*nge));
-        dict_set (dict, nge->netgroup_name, ngdata);
+    ngdata = bin_to_data(nge, sizeof(*nge));
+    dict_set(dict, nge->netgroup_name, ngdata);
 err:
-        return;
+    return;
 }
 
 /**
@@ -434,21 +437,21 @@ err:
  * Externally usable.
  */
 struct netgroup_host *
-ngh_dict_get (dict_t *dict, const char *hostname)
+ngh_dict_get(dict_t *dict, const char *hostname)
 {
-        data_t *ngdata = NULL;
+    data_t *ngdata = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, dict, err);
-        GF_VALIDATE_OR_GOTO (GF_NG, hostname, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, dict, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, hostname, err);
 
-        ngdata = dict_get (dict, (char *)hostname);
-        if (!ngdata)
-                goto err;
+    ngdata = dict_get(dict, (char *)hostname);
+    if (!ngdata)
+        goto err;
 
-        return (struct netgroup_host *)ngdata->data;
+    return (struct netgroup_host *)ngdata->data;
 
 err:
-        return NULL;
+    return NULL;
 }
 
 /**
@@ -464,18 +467,18 @@ err:
  * Not for external use.
  */
 static void
-_ngh_dict_insert (dict_t *dict, struct netgroup_host *ngh)
+_ngh_dict_insert(dict_t *dict, struct netgroup_host *ngh)
 {
-        data_t *ngdata = NULL;
+    data_t *ngdata = NULL;
 
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_NG, dict, err);
-        GF_VALIDATE_OR_GOTO (GF_NG, ngh, err);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_NG, dict, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, ngh, err);
 
-        ngdata = bin_to_data (ngh, sizeof (*ngh));
-        dict_set (dict, ngh->hostname, ngdata);
+    ngdata = bin_to_data(ngh, sizeof(*ngh));
+    dict_set(dict, ngh->hostname, ngdata);
 err:
-        return;
+    return;
 }
 
 /**
@@ -489,15 +492,15 @@ err:
  * Not for external use.
  */
 static void
-_ngh_print (const struct netgroup_host *ngh)
+_ngh_print(const struct netgroup_host *ngh)
 {
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_NG, ngh, err);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_NG, ngh, err);
 
-        printf ("(%s,%s,%s)", ngh->hostname, ngh->user ? ngh->user : "",
-                ngh->domain ? ngh->domain : "");
+    printf("(%s,%s,%s)", ngh->hostname, ngh->user ? ngh->user : "",
+           ngh->domain ? ngh->domain : "");
 err:
-        return;
+    return;
 }
 
 /**
@@ -517,12 +520,12 @@ err:
  * Not for external use.
  */
 static int
-__nge_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__nge_print_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        if (val)
-                _nge_print ((struct netgroup_entry *)val->data);
+    if (val)
+        _nge_print((struct netgroup_entry *)val->data);
 
-        return 0;
+    return 0;
 }
 
 /**
@@ -543,12 +546,12 @@ __nge_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  * Not for external use.
  */
 static int
-__ngh_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__ngh_print_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        if (val)
-                _ngh_print ((struct netgroup_host *)val->data);
+    if (val)
+        _ngh_print((struct netgroup_host *)val->data);
 
-        return 0;
+    return 0;
 }
 
 /**
@@ -562,20 +565,20 @@ __ngh_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  * Not for external use.
  */
 static void
-_nge_print (const struct netgroup_entry *nge)
+_nge_print(const struct netgroup_entry *nge)
 {
-        /* Validate args */
-        GF_VALIDATE_OR_GOTO (GF_NG, nge, err);
+    /* Validate args */
+    GF_VALIDATE_OR_GOTO(GF_NG, nge, err);
 
-        printf ("%s ", nge->netgroup_name);
-        if (nge->netgroup_ngs)
-                dict_foreach (nge->netgroup_ngs, __nge_print_walk, NULL);
+    printf("%s ", nge->netgroup_name);
+    if (nge->netgroup_ngs)
+        dict_foreach(nge->netgroup_ngs, __nge_print_walk, NULL);
 
-        if (nge->netgroup_hosts)
-                dict_foreach (nge->netgroup_hosts, __ngh_print_walk, NULL);
+    if (nge->netgroup_hosts)
+        dict_foreach(nge->netgroup_hosts, __ngh_print_walk, NULL);
 
 err:
-        return;
+    return;
 }
 
 /**
@@ -596,16 +599,16 @@ err:
  * Not for external use.
  */
 static int
-__ngf_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+__ngf_print_walk(dict_t *dict, char *key, data_t *val, void *tmp)
 {
-        struct netgroup_entry *snge = NULL;
+    struct netgroup_entry *snge = NULL;
 
-        if (val) {
-                snge = (struct netgroup_entry *)val->data;
-                _nge_print (snge);
-                printf ("\n");
-        }
-        return 0;
+    if (val) {
+        snge = (struct netgroup_entry *)val->data;
+        _nge_print(snge);
+        printf("\n");
+    }
+    return 0;
 }
 
 /**
@@ -625,9 +628,9 @@ __ngf_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  * Can be called on any valid 'struct netgroups_file *' type.
  */
 void
-ng_file_print (const struct netgroups_file *ngfile)
+ng_file_print(const struct netgroups_file *ngfile)
 {
-     dict_foreach (ngfile->ng_file_dict, __ngf_print_walk, NULL);
+    dict_foreach(ngfile->ng_file_dict, __ngf_print_walk, NULL);
 }
 
 /**
@@ -646,22 +649,21 @@ ng_file_print (const struct netgroups_file *ngfile)
  * *' as the lookup key.
  */
 struct netgroup_entry *
-ng_file_get_netgroup (const struct netgroups_file *ngfile, const char *netgroup)
+ng_file_get_netgroup(const struct netgroups_file *ngfile, const char *netgroup)
 {
-        data_t *ndata = NULL;
+    data_t *ndata = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, ngfile, err);
-        GF_VALIDATE_OR_GOTO (GF_NG, netgroup, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, ngfile, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, netgroup, err);
 
-        ndata = dict_get (ngfile->ng_file_dict,
-                          (char *)netgroup);
-        if (!ndata)
-                goto err;
+    ndata = dict_get(ngfile->ng_file_dict, (char *)netgroup);
+    if (!ndata)
+        goto err;
 
-        return (struct netgroup_entry *)ndata->data;
+    return (struct netgroup_entry *)ndata->data;
 
 err:
-        return NULL;
+    return NULL;
 }
 
 /**
@@ -679,30 +681,30 @@ err:
  * Not for external use.
  */
 static gf_boolean_t
-__check_host_entry_str (const char *host_str)
+__check_host_entry_str(const char *host_str)
 {
-        unsigned int comma_count = 0;
-        unsigned int i           = 0;
-        gf_boolean_t str_valid   = _gf_true;
+    unsigned int comma_count = 0;
+    unsigned int i = 0;
+    gf_boolean_t str_valid = _gf_true;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, host_str, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, host_str, out);
 
-        for (i = 0; i < strlen (host_str); i++) {
-                if (host_str[i] == ',')
-                        comma_count++;
+    for (i = 0; i < strlen(host_str); i++) {
+        if (host_str[i] == ',')
+            comma_count++;
 
-                /* Spaces are not allowed in this string. e.g, (a,b,c) is valid
-                 * but (a, b,c) is not.
-                 */
-                if (host_str[i] == ' ') {
-                        str_valid = _gf_false;
-                        goto out;
-                }
+        /* Spaces are not allowed in this string. e.g, (a,b,c) is valid
+         * but (a, b,c) is not.
+         */
+        if (host_str[i] == ' ') {
+            str_valid = _gf_false;
+            goto out;
         }
+    }
 
-        str_valid = (comma_count == 2);
+    str_valid = (comma_count == 2);
 out:
-        return str_valid;
+    return str_valid;
 }
 
 /**
@@ -718,66 +720,65 @@ out:
  * Not for external use.
  */
 static int
-_parse_ng_host (char *ng_str, struct netgroup_host **ngh)
+_parse_ng_host(char *ng_str, struct netgroup_host **ngh)
 {
-        struct netgroup_host *ng_host  = NULL;
-        unsigned int          parts    = 0;
-        char                 *match    = NULL;
-        int                   ret      = -EINVAL;
+    struct netgroup_host *ng_host = NULL;
+    unsigned int parts = 0;
+    char *match = NULL;
+    int ret = -EINVAL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, ng_str, out);
-        GF_VALIDATE_OR_GOTO (GF_NG, ngh, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, ng_str, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, ngh, out);
 
-        if (!__check_host_entry_str (ng_str)) {
-                ret = 1; /* Parse failed */
-                goto out;
-        }
+    if (!__check_host_entry_str(ng_str)) {
+        ret = 1; /* Parse failed */
+        goto out;
+    }
 
-        ret = parser_set_string (ng_host_parser, ng_str);
-        if (ret < 0)
-                goto out;
+    ret = parser_set_string(ng_host_parser, ng_str);
+    if (ret < 0)
+        goto out;
 
-        gf_msg_trace (GF_NG, 0, "parsing host string: %s", ng_str);
+    gf_msg_trace(GF_NG, 0, "parsing host string: %s", ng_str);
 
-        ng_host = _netgroup_host_init ();
-        GF_CHECK_ALLOC (ng_host, ret, free_and_out); /* Sets ret to -ENOMEM on
-                                                      * failure.
-                                                      */
-        while ((match = parser_get_next_match (ng_host_parser)) != NULL) {
-                gf_msg_trace (GF_NG, 0, "found match: %s (parts=%d)", match,
-                              parts);
+    ng_host = _netgroup_host_init();
+    GF_CHECK_ALLOC(ng_host, ret, free_and_out); /* Sets ret to -ENOMEM on
+                                                 * failure.
+                                                 */
+    while ((match = parser_get_next_match(ng_host_parser)) != NULL) {
+        gf_msg_trace(GF_NG, 0, "found match: %s (parts=%d)", match, parts);
 
-                switch (parts) {
-                case 0:
-                        ng_host->hostname = match;
-                        break;
-                case 1:
-                        ng_host->user = match;
-                        break;
-                case 2:
-                        ng_host->domain = match;
-                        break;
-                default:
-                        GF_FREE (match);
-                        break;
-                };
+        switch (parts) {
+            case 0:
+                ng_host->hostname = match;
+                break;
+            case 1:
+                ng_host->user = match;
+                break;
+            case 2:
+                ng_host->domain = match;
+                break;
+            default:
+                GF_FREE(match);
+                break;
+        };
 
-                /* We only allow three parts in the host string;
-                 * The format for the string is (a,b,c)
-                 */
-                parts++;
-                if (parts > 2)
-                        break;
-        }
+        /* We only allow three parts in the host string;
+         * The format for the string is (a,b,c)
+         */
+        parts++;
+        if (parts > 2)
+            break;
+    }
 
-        /* Set the parameter */
-        *ngh = ng_host;
-        ret = 0;
+    /* Set the parameter */
+    *ngh = ng_host;
+    ret = 0;
 
 free_and_out:
-        parser_unset_string (ng_host_parser);
+    parser_unset_string(ng_host_parser);
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -796,50 +797,47 @@ out:
  * Not for external use.
  */
 static int
-_ng_handle_host_part (char *match, struct netgroup_entry *ngp)
+_ng_handle_host_part(char *match, struct netgroup_entry *ngp)
 {
-        struct netgroup_host *ngh = NULL;
-        int                   ret = -EINVAL;
+    struct netgroup_host *ngh = NULL;
+    int ret = -EINVAL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, match, out);
-        GF_VALIDATE_OR_GOTO (GF_NG, ngp, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, match, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, ngp, out);
 
-        if (!ngp->netgroup_name) {
-                gf_msg (GF_NG, GF_LOG_WARNING, EINVAL, NFS_MSG_INVALID_ENTRY,
-                        "Invalid: Line starts with hostname!");
-                goto out;
-        }
+    if (!ngp->netgroup_name) {
+        gf_msg(GF_NG, GF_LOG_WARNING, EINVAL, NFS_MSG_INVALID_ENTRY,
+               "Invalid: Line starts with hostname!");
+        goto out;
+    }
 
-        /* Parse the host string and get a struct for it */
-        ret = _parse_ng_host (match, &ngh);
-        if (ret < 0) {
-                gf_msg (GF_NG, GF_LOG_CRITICAL, -ret, NFS_MSG_PARSE_FAIL,
-                        "Critical error : %s", strerror (-ret));
-                goto out;
-        }
-        if (ret != 0) {
-                /* Cannot change to gf_msg
-                 * gf_msg not giving output to STDOUT
-                 * Bug id : BZ1215017
-                 */
-                gf_log (GF_NG, GF_LOG_WARNING,
-                        "Parse error for: %s", match);
-                goto out;
-        }
+    /* Parse the host string and get a struct for it */
+    ret = _parse_ng_host(match, &ngh);
+    if (ret < 0) {
+        gf_msg(GF_NG, GF_LOG_CRITICAL, -ret, NFS_MSG_PARSE_FAIL,
+               "Critical error : %s", strerror(-ret));
+        goto out;
+    }
+    if (ret != 0) {
+        /* Cannot change to gf_msg
+         * gf_msg not giving output to STDOUT
+         * Bug id : BZ1215017
+         */
+        gf_log(GF_NG, GF_LOG_WARNING, "Parse error for: %s", match);
+        goto out;
+    }
 
+    /* Make dict for the parent entry's netgroup hosts */
+    if (!ngp->netgroup_hosts) {
+        ngp->netgroup_hosts = dict_new();
+        GF_CHECK_ALLOC(ngp->netgroup_hosts, ret, out);
+    }
 
-        /* Make dict for the parent entry's netgroup hosts */
-        if (!ngp->netgroup_hosts) {
-                ngp->netgroup_hosts = dict_new ();
-                GF_CHECK_ALLOC (ngp->netgroup_hosts, ret,
-                                out);
-        }
-
-        /* Insert this entry into the parent netgroup dict */
-        _ngh_dict_insert (ngp->netgroup_hosts, ngh);
+    /* Insert this entry into the parent netgroup dict */
+    _ngh_dict_insert(ngp->netgroup_hosts, ngh);
 
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -861,29 +859,29 @@ out:
  * Not for external use.
  */
 static int
-_ng_setup_netgroup_entry (char *match, struct netgroups_file *file,
-                          struct netgroup_entry **ng_entry)
+_ng_setup_netgroup_entry(char *match, struct netgroups_file *file,
+                         struct netgroup_entry **ng_entry)
 {
-        struct netgroup_entry *nge           = NULL;
-        int                    ret           = -EINVAL;
+    struct netgroup_entry *nge = NULL;
+    int ret = -EINVAL;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, match, out);
-        GF_VALIDATE_OR_GOTO (GF_NG, file, out);
-        GF_VALIDATE_OR_GOTO (GF_NG, ng_entry, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, match, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, file, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, ng_entry, out);
 
-        nge = _netgroup_entry_init ();
-        GF_CHECK_ALLOC (nge, ret, out);
+    nge = _netgroup_entry_init();
+    GF_CHECK_ALLOC(nge, ret, out);
 
-        nge->netgroup_name = match;
+    nge->netgroup_name = match;
 
-        /* Insert this new entry into the file dict */
-        _nge_dict_insert (file->ng_file_dict, nge);
+    /* Insert this new entry into the file dict */
+    _nge_dict_insert(file->ng_file_dict, nge);
 
-        *ng_entry = nge;
+    *ng_entry = nge;
 
-        ret = 0;
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -952,119 +950,118 @@ out:
  * Not for external use.
  */
 static int
-_parse_ng_line (char *ng_str, struct netgroups_file *file,
-                struct netgroup_entry **ng_entry)
+_parse_ng_line(char *ng_str, struct netgroups_file *file,
+               struct netgroup_entry **ng_entry)
 {
-        struct netgroup_entry  *ngp         = NULL; /* Parent netgroup entry */
-        struct netgroup_entry  *nge         = NULL; /* Generic netgroup entry */
-        char                   *match       = NULL;
-        int                     ret         = -EINVAL;
-        unsigned int            num_entries = 0;
+    struct netgroup_entry *ngp = NULL; /* Parent netgroup entry */
+    struct netgroup_entry *nge = NULL; /* Generic netgroup entry */
+    char *match = NULL;
+    int ret = -EINVAL;
+    unsigned int num_entries = 0;
 
-        /* Validate arguments */
-        GF_VALIDATE_OR_GOTO (GF_NG, ng_str, out);
-        GF_VALIDATE_OR_GOTO (GF_NG, file, out);
+    /* Validate arguments */
+    GF_VALIDATE_OR_GOTO(GF_NG, ng_str, out);
+    GF_VALIDATE_OR_GOTO(GF_NG, file, out);
 
-        if (*ng_str == ' ' || *ng_str == '\0' || *ng_str == '\n') {
-                ret = 0;
-                goto out;
-        }
-
-        ret = parser_set_string (ng_file_parser, ng_str);
-        if (ret < 0)
-                goto out;
-
-        /* This is the first name in the line, and should be the
-         * parent netgroup entry.
-         */
-        match = parser_get_next_match (ng_file_parser);
-        if (!match) {
-                ret = 1;
-                gf_msg (GF_NG, GF_LOG_WARNING, 0,
-                        NFS_MSG_FIND_FIRST_MATCH_FAIL, "Unable to find "
-                        "first match.");
-                gf_msg (GF_NG, GF_LOG_WARNING, 0, NFS_MSG_PARSE_FAIL,
-                        "Error parsing str: %s", ng_str);
-                goto out;
-        }
-
-        /* Lookup to see if the match already exists,
-         * if not, set the parent.
-         */
-        ngp = _nge_dict_get (file->ng_file_dict, match);
-        if (!ngp) {
-                ret = _ng_setup_netgroup_entry (match, file, &ngp);
-                if (ret < 0) {
-                        /* Bubble up error to caller. We don't need to free ngp
-                         * here because this can only fail if allocating the
-                         * struct fails.
-                         */
-                        goto out;
-                }
-        } else
-                GF_FREE (match);
-
-        if (!ngp->netgroup_ngs) {
-                /* If a netgroup dict has not been allocated
-                 * for this parent, allocate it.
-                 */
-                ngp->netgroup_ngs = dict_new ();
-                GF_CHECK_ALLOC (ngp->netgroup_ngs, ret, out);
-                /* No need to free anything here since ngp is already
-                 * a part of the file. When the file gets
-                 * deallocated, we will free ngp.
-                 */
-        }
-
-        while ((match = parser_get_next_match (ng_file_parser)) != NULL) {
-                num_entries++;
-                /* This means that we hit a host entry in the line */
-                if (*match == '(') {
-                        ret = _ng_handle_host_part (match, ngp);
-                        GF_FREE (match);
-                        if (ret != 0) {
-                                /* If parsing the host fails, bubble the error
-                                 * code up to the caller.
-                                 */
-                                goto out;
-                        }
-                } else {
-                        nge = _nge_dict_get (file->ng_file_dict, match);
-                        if (!nge) {
-                                ret = _ng_setup_netgroup_entry (match, file,
-                                                                &nge);
-                                if (ret < 0) {
-                                        /* Bubble up error to caller. We don't
-                                         * need to free nge here because this
-                                         * can only fail if allocating the
-                                         * struct fails.
-                                         */
-                                        goto out;
-                                }
-                        } else
-                                GF_FREE (match);
-
-                        /* Insert the netgroup into the parent's dict */
-                        _nge_dict_insert (ngp->netgroup_ngs, nge);
-                }
-        }
-
-        /* If there are no entries on the RHS, log an error, but continue */
-        if (!num_entries) {
-                /* Cannot change to gf_msg
-                 * gf_msg not giving output to STDOUT
-                 * Bug id : BZ1215017
-                 */
-                gf_log (GF_NG, GF_LOG_WARNING,
-                        "No netgroups were specified except for the parent.");
-        }
-
-        *ng_entry = ngp;
+    if (*ng_str == ' ' || *ng_str == '\0' || *ng_str == '\n') {
         ret = 0;
+        goto out;
+    }
+
+    ret = parser_set_string(ng_file_parser, ng_str);
+    if (ret < 0)
+        goto out;
+
+    /* This is the first name in the line, and should be the
+     * parent netgroup entry.
+     */
+    match = parser_get_next_match(ng_file_parser);
+    if (!match) {
+        ret = 1;
+        gf_msg(GF_NG, GF_LOG_WARNING, 0, NFS_MSG_FIND_FIRST_MATCH_FAIL,
+               "Unable to find "
+               "first match.");
+        gf_msg(GF_NG, GF_LOG_WARNING, 0, NFS_MSG_PARSE_FAIL,
+               "Error parsing str: %s", ng_str);
+        goto out;
+    }
+
+    /* Lookup to see if the match already exists,
+     * if not, set the parent.
+     */
+    ngp = _nge_dict_get(file->ng_file_dict, match);
+    if (!ngp) {
+        ret = _ng_setup_netgroup_entry(match, file, &ngp);
+        if (ret < 0) {
+            /* Bubble up error to caller. We don't need to free ngp
+             * here because this can only fail if allocating the
+             * struct fails.
+             */
+            goto out;
+        }
+    } else
+        GF_FREE(match);
+
+    if (!ngp->netgroup_ngs) {
+        /* If a netgroup dict has not been allocated
+         * for this parent, allocate it.
+         */
+        ngp->netgroup_ngs = dict_new();
+        GF_CHECK_ALLOC(ngp->netgroup_ngs, ret, out);
+        /* No need to free anything here since ngp is already
+         * a part of the file. When the file gets
+         * deallocated, we will free ngp.
+         */
+    }
+
+    while ((match = parser_get_next_match(ng_file_parser)) != NULL) {
+        num_entries++;
+        /* This means that we hit a host entry in the line */
+        if (*match == '(') {
+            ret = _ng_handle_host_part(match, ngp);
+            GF_FREE(match);
+            if (ret != 0) {
+                /* If parsing the host fails, bubble the error
+                 * code up to the caller.
+                 */
+                goto out;
+            }
+        } else {
+            nge = _nge_dict_get(file->ng_file_dict, match);
+            if (!nge) {
+                ret = _ng_setup_netgroup_entry(match, file, &nge);
+                if (ret < 0) {
+                    /* Bubble up error to caller. We don't
+                     * need to free nge here because this
+                     * can only fail if allocating the
+                     * struct fails.
+                     */
+                    goto out;
+                }
+            } else
+                GF_FREE(match);
+
+            /* Insert the netgroup into the parent's dict */
+            _nge_dict_insert(ngp->netgroup_ngs, nge);
+        }
+    }
+
+    /* If there are no entries on the RHS, log an error, but continue */
+    if (!num_entries) {
+        /* Cannot change to gf_msg
+         * gf_msg not giving output to STDOUT
+         * Bug id : BZ1215017
+         */
+        gf_log(GF_NG, GF_LOG_WARNING,
+               "No netgroups were specified except for the parent.");
+    }
+
+    *ng_entry = ngp;
+    ret = 0;
 
 out:
-        parser_unset_string (ng_file_parser);
-        return ret;
+    parser_unset_string(ng_file_parser);
+    return ret;
 }
 
 /**
@@ -1082,84 +1079,83 @@ out:
  * Externally facing function
  */
 struct netgroups_file *
-ng_file_parse (const char *filepath)
+ng_file_parse(const char *filepath)
 {
-        FILE                  *fp    = NULL;
-        size_t                 len   = 0;
-        size_t                 read  = 0;
-        char                  *line  = NULL;
-        struct netgroups_file *file  = NULL;
-        struct netgroup_entry *nge   = NULL;
-        int                    ret   = 0;
+    FILE *fp = NULL;
+    size_t len = 0;
+    size_t read = 0;
+    char *line = NULL;
+    struct netgroups_file *file = NULL;
+    struct netgroup_entry *nge = NULL;
+    int ret = 0;
 
-        GF_VALIDATE_OR_GOTO (GF_NG, filepath, err);
+    GF_VALIDATE_OR_GOTO(GF_NG, filepath, err);
 
-        fp = fopen (filepath, "r");
-        if (!fp)
-                goto err;
+    fp = fopen(filepath, "r");
+    if (!fp)
+        goto err;
 
-        file = _netgroups_file_init ();
-        if (!file)
-                goto err;
+    file = _netgroups_file_init();
+    if (!file)
+        goto err;
 
-        file->ng_file_dict = dict_new ();
-        if (!file->ng_file_dict) {
-                gf_msg (GF_NG, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to allocate netgroup file dict");
-                goto err;
+    file->ng_file_dict = dict_new();
+    if (!file->ng_file_dict) {
+        gf_msg(GF_NG, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
+               "Failed to allocate netgroup file dict");
+        goto err;
+    }
+
+    file->filename = gf_strdup(filepath);
+    if (!file->filename) {
+        gf_msg(GF_NG, GF_LOG_CRITICAL, errno, NFS_MSG_FILE_OP_FAILED,
+               "Failed to duplicate filename");
+        goto err;
+    }
+
+    ret = _ng_init_parsers();
+    if (ret < 0)
+        goto err;
+
+    /* Read the file line-by-line and parse it */
+    while ((read = getline(&line, &len, fp)) != -1) {
+        if (*line == '#') /* Lines starting with # are comments */
+            continue;
+
+        /* Parse the line into a netgroup entry */
+        ret = _parse_ng_line(line, file, &nge);
+        if (ret == -ENOMEM) {
+            gf_msg(GF_NG, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
+                   "Allocation error "
+                   "while parsing line!");
+            goto err;
         }
-
-        file->filename = gf_strdup (filepath);
-        if (!file->filename) {
-                gf_msg (GF_NG, GF_LOG_CRITICAL, errno, NFS_MSG_FILE_OP_FAILED,
-                        "Failed to duplicate filename");
-                goto err;
+        if (ret != 0) {
+            gf_msg_debug(GF_NG, 0, "Failed to parse line %s", line);
+            continue;
         }
+    }
 
-        ret = _ng_init_parsers ();
-        if (ret < 0)
-                goto err;
+    /* line got allocated through getline(), don't use GF_FREE() for it */
+    free(line);
 
-        /* Read the file line-by-line and parse it */
-        while ((read = getline (&line, &len, fp)) != -1) {
-                if (*line == '#') /* Lines starting with # are comments */
-                        continue;
+    if (fp)
+        fclose(fp);
 
-                /* Parse the line into a netgroup entry */
-                ret = _parse_ng_line (line, file, &nge);
-                if (ret == -ENOMEM) {
-                        gf_msg (GF_NG, GF_LOG_CRITICAL, ENOMEM,
-                                NFS_MSG_NO_MEMORY, "Allocation error "
-                                "while parsing line!");
-                        goto err;
-                }
-                if (ret != 0) {
-                        gf_msg_debug (GF_NG, 0, "Failed to parse line %s",
-                                      line);
-                        continue;
-                }
-        }
+    _ng_deinit_parsers();
 
-        /* line got allocated through getline(), don't use GF_FREE() for it */
-        free (line);
-
-        if (fp)
-                fclose(fp);
-
-        _ng_deinit_parsers ();
-
-        return file;
+    return file;
 
 err:
-        if (line)
-                free(line);
+    if (line)
+        free(line);
 
-        if (file)
-                ng_file_deinit (file);
+    if (file)
+        ng_file_deinit(file);
 
-        _ng_deinit_parsers ();
+    _ng_deinit_parsers();
 
-        if (fp)
-                fclose (fp);
-        return NULL;
+    if (fp)
+        fclose(fp);
+    return NULL;
 }

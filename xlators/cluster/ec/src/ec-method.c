@@ -88,11 +88,9 @@ ec_method_matrix_init(ec_matrix_list_t *list, ec_matrix_t *matrix,
                                  matrix->rows);
         for (i = 0; i < matrix->rows; i++) {
             matrix->row_data[i].values = matrix->values + i * matrix->columns;
-            matrix->row_data[i].func.interleaved =
-                ec_code_build_interleaved(matrix->code,
-                                          EC_METHOD_WORD_SIZE,
-                                          matrix->row_data[i].values,
-                                          matrix->columns);
+            matrix->row_data[i].func.interleaved = ec_code_build_interleaved(
+                matrix->code, EC_METHOD_WORD_SIZE, matrix->row_data[i].values,
+                matrix->columns);
         }
     } else {
         matrix->rows = list->rows;
@@ -100,10 +98,9 @@ ec_method_matrix_init(ec_matrix_list_t *list, ec_matrix_t *matrix,
                                 matrix->columns, rows, matrix->rows);
         for (i = 0; i < matrix->rows; i++) {
             matrix->row_data[i].values = matrix->values + i * matrix->columns;
-            matrix->row_data[i].func.linear =
-                ec_code_build_linear(matrix->code, EC_METHOD_WORD_SIZE,
-                                     matrix->row_data[i].values,
-                                     matrix->columns);
+            matrix->row_data[i].func.linear = ec_code_build_linear(
+                matrix->code, EC_METHOD_WORD_SIZE, matrix->row_data[i].values,
+                matrix->columns);
         }
     }
 }
@@ -266,8 +263,8 @@ ec_method_setup(xlator_t *xl, ec_matrix_list_t *list, const char *gen)
     int32_t err;
 
     matrix = GF_MALLOC(sizeof(ec_matrix_t) +
-                       sizeof(ec_matrix_row_t) * list->rows +
-                       sizeof(uint32_t) * list->columns * list->rows,
+                           sizeof(ec_matrix_row_t) * list->rows +
+                           sizeof(uint32_t) * list->columns * list->rows,
                        ec_mt_ec_matrix_t);
     if (matrix == NULL) {
         err = -ENOMEM;
@@ -310,9 +307,10 @@ ec_method_init(xlator_t *xl, ec_matrix_list_t *list, uint32_t columns,
     INIT_LIST_HEAD(&list->lru);
     int32_t err;
 
-    list->pool = mem_pool_new_fn(xl->ctx, sizeof(ec_matrix_t) +
-                                 sizeof(ec_matrix_row_t) * columns +
-                                 sizeof(uint32_t) * columns * columns,
+    list->pool = mem_pool_new_fn(xl->ctx,
+                                 sizeof(ec_matrix_t) +
+                                     sizeof(ec_matrix_row_t) * columns +
+                                     sizeof(uint32_t) * columns * columns,
                                  128, "ec_matrix_t");
     if (list->pool == NULL) {
         err = -ENOMEM;
@@ -370,8 +368,8 @@ ec_method_fini(ec_matrix_list_t *list)
 
     GF_ASSERT(list->count == 0);
 
-    if (list->pool)/*Init was successful*/
-            LOCK_DESTROY(&list->lock);
+    if (list->pool) /*Init was successful*/
+        LOCK_DESTROY(&list->lock);
 
     ec_method_matrix_release(list->encode);
     GF_FREE(list->encode);
@@ -402,9 +400,8 @@ ec_method_encode(ec_matrix_list_t *list, size_t size, void *in, void **out)
     matrix = list->encode;
     for (pos = 0; pos < size; pos += list->stripe) {
         for (i = 0; i < matrix->rows; i++) {
-            matrix->row_data[i].func.linear(out[i], in, pos,
-                                            matrix->row_data[i].values,
-                                            list->columns);
+            matrix->row_data[i].func.linear(
+                out[i], in, pos, matrix->row_data[i].values, list->columns);
             out[i] += EC_METHOD_CHUNK_SIZE;
         }
     }
@@ -424,9 +421,8 @@ ec_method_decode(ec_matrix_list_t *list, size_t size, uintptr_t mask,
     }
     for (pos = 0; pos < size; pos += EC_METHOD_CHUNK_SIZE) {
         for (i = 0; i < matrix->rows; i++) {
-            matrix->row_data[i].func.interleaved(out, in, pos,
-                                                 matrix->row_data[i].values,
-                                                 list->columns);
+            matrix->row_data[i].func.interleaved(
+                out, in, pos, matrix->row_data[i].values, list->columns);
             out += EC_METHOD_CHUNK_SIZE;
         }
     }

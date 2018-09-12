@@ -76,8 +76,8 @@ typedef enum {
  * try a solution in GD2 for this.
  */
 /* typedef int (*option_validation_fn) (glusterd_volinfo_t *volinfo, dict_t
-   *dict, char *key, char *value, char **op_errstr);
-*/
+ *dict, char *key, char *value, char **op_errstr);
+ */
 
 /* Each translator should define this structure */
 /* XXX: This structure is in use by GD2, and SHOULD NOT be modified.

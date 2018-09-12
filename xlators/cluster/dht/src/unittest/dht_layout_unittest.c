@@ -34,16 +34,16 @@ helper_xlator_init(uint32_t num_types)
     xl = test_calloc(1, sizeof(xlator_t));
     assert_non_null(xl);
     xl->mem_acct->num_types = num_types;
-    xl->mem_acct = test_calloc (sizeof(struct mem_acct)
-                                + sizeof(struct mem_acct_rec) + num_types);
+    xl->mem_acct = test_calloc(sizeof(struct mem_acct) +
+                               sizeof(struct mem_acct_rec) + num_types);
     assert_non_null(xl->mem_acct);
 
     xl->ctx = test_calloc(1, sizeof(glusterfs_ctx_t));
     assert_non_null(xl->ctx);
 
     for (i = 0; i < num_types; i++) {
-            ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
-            assert_false(ret);
+        ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
+        assert_false(ret);
     }
 
     ENSURE(num_types == xl->mem_acct.num_types);
@@ -58,8 +58,8 @@ helper_xlator_destroy(xlator_t *xl)
     int i, ret;
 
     for (i = 0; i < xl->mem_acct.num_types; i++) {
-            ret = LOCK_DESTROY(&(xl->mem_acct.rec[i].lock));
-            assert_int_equal(ret, 0);
+        ret = LOCK_DESTROY(&(xl->mem_acct.rec[i].lock));
+        assert_int_equal(ret, 0);
     }
 
     free(xl->mem_acct.rec);
@@ -76,7 +76,7 @@ test_dht_layout_new(void **state)
 {
     xlator_t *xl;
     dht_layout_t *layout;
-    dht_conf_t   *conf;
+    dht_conf_t *conf;
     int cnt;
 
     expect_assert_failure(dht_layout_new(NULL, 0));
@@ -90,7 +90,7 @@ test_dht_layout_new(void **state)
     assert_non_null(layout);
     assert_int_equal(layout->type, DHT_HASH_TYPE_DM);
     assert_int_equal(layout->cnt, cnt);
-    assert_int_equal(GF_ATOMIC_GET (layout->ref), 1);
+    assert_int_equal(GF_ATOMIC_GET(layout->ref), 1);
     assert_int_equal(layout->gen, 0);
     assert_int_equal(layout->spread_cnt, 0);
     free(layout);
@@ -107,7 +107,7 @@ test_dht_layout_new(void **state)
     assert_non_null(layout);
     assert_int_equal(layout->type, DHT_HASH_TYPE_DM);
     assert_int_equal(layout->cnt, cnt);
-    assert_int_equal(GF_ATOMIC_GET (layout->ref), 1);
+    assert_int_equal(GF_ATOMIC_GET(layout->ref), 1);
     assert_int_equal(layout->gen, conf->gen);
     assert_int_equal(layout->spread_cnt, conf->dir_spread_cnt);
     free(layout);
@@ -116,7 +116,9 @@ test_dht_layout_new(void **state)
     helper_xlator_destroy(xl);
 }
 
-int main(void) {
+int
+main(void)
+{
     const struct CMUnitTest xlator_dht_layout_tests[] = {
         unit_test(test_dht_layout_new),
     };

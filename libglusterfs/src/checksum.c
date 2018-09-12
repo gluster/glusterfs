@@ -22,24 +22,23 @@
  * data. Thus int32_t and uint32_t are sufficient
  */
 uint32_t
-gf_rsync_weak_checksum (unsigned char *buf, size_t len)
+gf_rsync_weak_checksum(unsigned char *buf, size_t len)
 {
-        return adler32 (0, buf, len);
+    return adler32(0, buf, len);
 }
-
 
 /*
  * The "strong" checksum required for the rsync algorithm.
  */
 void
-gf_rsync_strong_checksum (unsigned char *data, size_t len,
-                          unsigned char *sha256_md)
+gf_rsync_strong_checksum(unsigned char *data, size_t len,
+                         unsigned char *sha256_md)
 {
-        SHA256((const unsigned char *)data, len, sha256_md);
+    SHA256((const unsigned char *)data, len, sha256_md);
 }
 
 void
-gf_rsync_md5_checksum (unsigned char *data, size_t len, unsigned char *md5)
+gf_rsync_md5_checksum(unsigned char *data, size_t len, unsigned char *md5)
 {
-        MD5 (data, len, md5);
+    MD5(data, len, md5);
 }

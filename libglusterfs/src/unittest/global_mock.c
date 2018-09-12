@@ -18,7 +18,8 @@
 
 #include <cmocka.h>
 
-xlator_t **__glusterfs_this_location ()
+xlator_t **
+__glusterfs_this_location()
 {
     return ((xlator_t **)(uintptr_t)mock());
 }

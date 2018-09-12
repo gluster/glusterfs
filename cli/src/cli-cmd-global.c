@@ -30,111 +30,109 @@
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
 int
-cli_cmd_global_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
-                         const char **words, int wordcount);
+cli_cmd_global_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
+                        const char **words, int wordcount);
 int
-cli_cmd_get_state_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                              const char **words, int wordcount);
+cli_cmd_get_state_cbk(struct cli_state *state, struct cli_cmd_word *word,
+                      const char **words, int wordcount);
 
 struct cli_cmd global_cmds[] = {
-        { "global help",
-           cli_cmd_global_help_cbk,
-           "list global commands",
-        },
-        { "get-state [<daemon>] [[odir </path/to/output/dir/>] "
-          "[file <filename>]] [detail|volumeoptions]",
-          cli_cmd_get_state_cbk,
-          "Get local state representation of mentioned daemon",
-        },
-        {NULL,  NULL,  NULL}
-};
+    {
+        "global help",
+        cli_cmd_global_help_cbk,
+        "list global commands",
+    },
+    {
+        "get-state [<daemon>] [[odir </path/to/output/dir/>] "
+        "[file <filename>]] [detail|volumeoptions]",
+        cli_cmd_get_state_cbk,
+        "Get local state representation of mentioned daemon",
+    },
+    {NULL, NULL, NULL}};
 
 int
-cli_cmd_global_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+cli_cmd_global_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
+                        const char **words, int wordcount)
+{
+    struct cli_cmd *cmd = NULL;
+    struct cli_cmd *global_cmd = NULL;
+    int count = 0;
+
+    cmd = GF_MALLOC(sizeof(global_cmds), cli_mt_cli_cmd);
+    memcpy(cmd, global_cmds, sizeof(global_cmds));
+    count = (sizeof(global_cmds) / sizeof(struct cli_cmd));
+    cli_cmd_sort(cmd, count);
+
+    cli_out("\ngluster global commands");
+    cli_out("========================\n");
+    for (global_cmd = cmd; global_cmd->pattern; global_cmd++)
+        if (_gf_false == global_cmd->disable)
+            cli_out("%s - %s", global_cmd->pattern, global_cmd->desc);
+
+    cli_out("\n");
+    GF_FREE(cmd);
+    return 0;
+}
+
+int
+cli_cmd_global_register(struct cli_state *state)
+{
+    int ret = 0;
+    struct cli_cmd *cmd = NULL;
+    for (cmd = global_cmds; cmd->pattern; cmd++) {
+        ret = cli_cmd_register(&state->tree, cmd);
+        if (ret)
+            goto out;
+    }
+out:
+    return ret;
+}
+
+int
+cli_cmd_get_state_cbk(struct cli_state *state, struct cli_cmd_word *word,
                       const char **words, int wordcount)
 {
-        struct cli_cmd        *cmd = NULL;
-        struct cli_cmd        *global_cmd = NULL;
-        int                   count     = 0;
+    int sent = 0;
+    int parse_error = 0;
+    int ret = -1;
+    rpc_clnt_procedure_t *proc = NULL;
+    call_frame_t *frame = NULL;
+    dict_t *options = NULL;
+    cli_local_t *local = NULL;
+    char *op_errstr = NULL;
 
-        cmd = GF_MALLOC (sizeof (global_cmds), cli_mt_cli_cmd);
-        memcpy (cmd, global_cmds, sizeof (global_cmds));
-        count = (sizeof (global_cmds) / sizeof (struct cli_cmd));
-        cli_cmd_sort (cmd, count);
+    frame = create_frame(THIS, THIS->ctx->pool);
+    if (!frame)
+        goto out;
 
-        cli_out ("\ngluster global commands");
-        cli_out ("========================\n");
-        for (global_cmd = cmd; global_cmd->pattern; global_cmd++)
-                if (_gf_false == global_cmd->disable)
-                        cli_out ("%s - %s", global_cmd->pattern,
-                                 global_cmd->desc);
+    ret = cli_cmd_get_state_parse(state, words, wordcount, &options,
+                                  &op_errstr);
 
-        cli_out ("\n");
-        GF_FREE (cmd);
-        return 0;
-}
+    if (ret) {
+        if (op_errstr) {
+            cli_err("%s", op_errstr);
+            cli_usage_out(word->pattern);
+            GF_FREE(op_errstr);
+        } else
+            cli_usage_out(word->pattern);
 
-int
-cli_cmd_global_register (struct cli_state *state)
-{
-        int ret = 0;
-        struct cli_cmd *cmd =  NULL;
-        for (cmd = global_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd);
-                        if (ret)
-                                goto out;
-        }
+        parse_error = 1;
+        goto out;
+    }
+
+    CLI_LOCAL_INIT(local, words, frame, options);
+
+    proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GET_STATE];
+    if (proc->fn)
+        ret = proc->fn(frame, THIS, options);
 out:
-        return ret;
+    if (ret) {
+        cli_cmd_sent_status_get(&sent);
+        if ((sent == 0) && (parse_error == 0))
+            cli_out("Getting daemon state failed");
+    }
 
+    CLI_STACK_DESTROY(frame);
+
+    return ret;
 }
-
-int
-cli_cmd_get_state_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                       const char **words, int wordcount)
-{
-        int                     sent        =   0;
-        int                     parse_error =   0;
-        int                     ret         =  -1;
-        rpc_clnt_procedure_t    *proc       =  NULL;
-        call_frame_t            *frame      =  NULL;
-        dict_t                  *options    =  NULL;
-        cli_local_t             *local      =  NULL;
-        char                    *op_errstr  =  NULL;
-
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
-                goto out;
-
-        ret = cli_cmd_get_state_parse (state, words, wordcount, &options,
-                                       &op_errstr);
-
-        if (ret) {
-                if (op_errstr) {
-                        cli_err ("%s", op_errstr);
-                        cli_usage_out (word->pattern);
-                        GF_FREE (op_errstr);
-                } else
-                        cli_usage_out (word->pattern);
-
-                parse_error = 1;
-                goto out;
-        }
-
-        CLI_LOCAL_INIT (local, words, frame, options);
-
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GET_STATE];
-        if (proc->fn)
-                ret = proc->fn (frame, THIS, options);
-out:
-        if (ret) {
-                cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Getting daemon state failed");
-        }
-
-        CLI_STACK_DESTROY (frame);
-
-        return ret;
-}
-

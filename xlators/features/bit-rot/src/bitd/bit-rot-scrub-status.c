@@ -14,67 +14,65 @@
 #include "bit-rot-scrub-status.h"
 
 void
-br_inc_unsigned_file_count (br_scrub_stats_t *scrub_stat)
+br_inc_unsigned_file_count(br_scrub_stats_t *scrub_stat)
 {
-        if (!scrub_stat)
-                return;
+    if (!scrub_stat)
+        return;
 
-        pthread_mutex_lock (&scrub_stat->lock);
-        {
-                scrub_stat->unsigned_files++;
-        }
-        pthread_mutex_unlock (&scrub_stat->lock);
+    pthread_mutex_lock(&scrub_stat->lock);
+    {
+        scrub_stat->unsigned_files++;
+    }
+    pthread_mutex_unlock(&scrub_stat->lock);
 }
 
 void
-br_inc_scrubbed_file (br_scrub_stats_t *scrub_stat)
+br_inc_scrubbed_file(br_scrub_stats_t *scrub_stat)
 {
-        if (!scrub_stat)
-                return;
+    if (!scrub_stat)
+        return;
 
-        pthread_mutex_lock (&scrub_stat->lock);
-        {
-                scrub_stat->scrubbed_files++;
-        }
-        pthread_mutex_unlock (&scrub_stat->lock);
+    pthread_mutex_lock(&scrub_stat->lock);
+    {
+        scrub_stat->scrubbed_files++;
+    }
+    pthread_mutex_unlock(&scrub_stat->lock);
 }
 
 void
-br_update_scrub_start_time (br_scrub_stats_t *scrub_stat, struct timeval *tv)
+br_update_scrub_start_time(br_scrub_stats_t *scrub_stat, struct timeval *tv)
 {
-        if (!scrub_stat)
-                return;
+    if (!scrub_stat)
+        return;
 
-        pthread_mutex_lock (&scrub_stat->lock);
-        {
-                scrub_stat->scrub_start_tv.tv_sec = tv->tv_sec;
-        }
-        pthread_mutex_unlock (&scrub_stat->lock);
+    pthread_mutex_lock(&scrub_stat->lock);
+    {
+        scrub_stat->scrub_start_tv.tv_sec = tv->tv_sec;
+    }
+    pthread_mutex_unlock(&scrub_stat->lock);
 }
 
 void
-br_update_scrub_finish_time (br_scrub_stats_t *scrub_stat, char *timestr,
-                             struct timeval *tv)
+br_update_scrub_finish_time(br_scrub_stats_t *scrub_stat, char *timestr,
+                            struct timeval *tv)
 {
-        int lst_size = 0;
+    int lst_size = 0;
 
-        if (!scrub_stat)
-                return;
+    if (!scrub_stat)
+        return;
 
-        lst_size = sizeof (scrub_stat->last_scrub_time);
-        if (strlen (timestr)  >= lst_size)
-                return;
+    lst_size = sizeof(scrub_stat->last_scrub_time);
+    if (strlen(timestr) >= lst_size)
+        return;
 
-        pthread_mutex_lock (&scrub_stat->lock);
-        {
-                scrub_stat->scrub_end_tv.tv_sec = tv->tv_sec;
+    pthread_mutex_lock(&scrub_stat->lock);
+    {
+        scrub_stat->scrub_end_tv.tv_sec = tv->tv_sec;
 
-                scrub_stat->scrub_duration =
-                                 scrub_stat->scrub_end_tv.tv_sec -
-                                 scrub_stat->scrub_start_tv.tv_sec;
+        scrub_stat->scrub_duration = scrub_stat->scrub_end_tv.tv_sec -
+                                     scrub_stat->scrub_start_tv.tv_sec;
 
-                snprintf (scrub_stat->last_scrub_time, lst_size, "%s",
-                          timestr);
-        }
-        pthread_mutex_unlock (&scrub_stat->lock);
+        snprintf(scrub_stat->last_scrub_time, lst_size, "%s", timestr);
+    }
+    pthread_mutex_unlock(&scrub_stat->lock);
 }

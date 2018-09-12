@@ -114,10 +114,14 @@ GF_ATOMIC_TYPE(SIZEOF_LONG, uintptr); /* gf_atomic_uintptr_t */
  * builtin version depending on the size of the atomic structure. */
 #define GF_ATOMIC_CHOOSE(_atomic, _op, _args...)                               \
     ((sizeof(_atomic) > sizeof(uint64_t))                                      \
-         ? ({ GF_ATOMIC_MACRO(GF_ATOMIC_LOCK_, _op)                            \
-              (_atomic, ##_args); })      \
-         : ({ GF_ATOMIC_MACRO(GF_ATOMIC_BASE_, _op)                            \
-              (_atomic, ##_args); }))
+         ? ({                                                                  \
+               GF_ATOMIC_MACRO(GF_ATOMIC_LOCK_, _op)                           \
+               (_atomic, ##_args);                                             \
+           })                                                                  \
+         : ({                                                                  \
+               GF_ATOMIC_MACRO(GF_ATOMIC_BASE_, _op)                           \
+               (_atomic, ##_args);                                             \
+           }))
 
 /* Macros to implement the mutex-based atomics. */
 #define GF_ATOMIC_OP_PREPARE(_atomic, _name)                                   \
