@@ -464,7 +464,7 @@ afr_shd_index_sweep(struct subvol_healer *healer, char *vgfid)
     }
 
     xdata = dict_new();
-    if (!xdata || dict_set_int32(xdata, "get-gfid-type", 1)) {
+    if (!xdata || dict_set_int32_sizen(xdata, "get-gfid-type", 1)) {
         ret = -ENOMEM;
         goto out;
     }
@@ -975,6 +975,8 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
     int ret = 0;
     uint64_t count = 0;
     char key[256] = {0};
+    int keylen = 0;
+    char suffix[64] = {0};
     int xl_id = 0;
     uint64_t healed_count = 0;
     uint64_t split_brain_count = 0;
@@ -1009,8 +1011,8 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
     snprintf(key, sizeof(key), "statistics-%d-%d-count", xl_id, child);
     ret = dict_get_uint64(output, key, &count);
 
-    snprintf(key, sizeof(key), "statistics_healed_cnt-%d-%d-%" PRIu64, xl_id,
-             child, count);
+    snprintf(suffix, sizeof(suffix), "%d-%d-%" PRIu64, xl_id, child, count);
+    snprintf(key, sizeof(key), "statistics_healed_cnt-%s", suffix);
     ret = dict_set_uint64(output, key, healed_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
@@ -1018,8 +1020,7 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
         goto out;
     }
 
-    snprintf(key, sizeof(key), "statistics_sb_cnt-%d-%d-%" PRIu64, xl_id, child,
-             count);
+    snprintf(key, sizeof(key), "statistics_sb_cnt-%s", suffix);
     ret = dict_set_uint64(output, key, split_brain_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
@@ -1027,17 +1028,15 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
         goto out;
     }
 
-    snprintf(key, sizeof(key), "statistics_crawl_type-%d-%d-%" PRIu64, xl_id,
-             child, count);
-    ret = dict_set_str(output, key, crawl_type);
+    keylen = snprintf(key, sizeof(key), "statistics_crawl_type-%s", suffix);
+    ret = dict_set_strn(output, key, keylen, crawl_type);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                "Could not add statistics_crawl_type to output");
         goto out;
     }
 
-    snprintf(key, sizeof(key), "statistics_heal_failed_cnt-%d-%d-%" PRIu64,
-             xl_id, child, count);
+    snprintf(key, sizeof(key), "statistics_heal_failed_cnt-%s", suffix);
     ret = dict_set_uint64(output, key, heal_failed_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
@@ -1045,9 +1044,8 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
         goto out;
     }
 
-    snprintf(key, sizeof(key), "statistics_strt_time-%d-%d-%" PRIu64, xl_id,
-             child, count);
-    ret = dict_set_dynstr(output, key, start_time_str);
+    keylen = snprintf(key, sizeof(key), "statistics_strt_time-%s", suffix);
+    ret = dict_set_dynstrn(output, key, keylen, start_time_str);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                "Could not add statistics_crawl_start_time to output");
@@ -1061,11 +1059,10 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
     else
         progress = 0;
 
-    snprintf(key, sizeof(key), "statistics_end_time-%d-%d-%" PRIu64, xl_id,
-             child, count);
+    keylen = snprintf(key, sizeof(key), "statistics_end_time-%s", suffix);
     if (!end_time_str)
         end_time_str = gf_strdup("Could not determine the end time");
-    ret = dict_set_dynstr(output, key, end_time_str);
+    ret = dict_set_dynstrn(output, key, keylen, end_time_str);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                "Could not add statistics_crawl_end_time to output");
@@ -1074,10 +1071,9 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
         end_time_str = NULL;
     }
 
-    snprintf(key, sizeof(key), "statistics_inprogress-%d-%d-%" PRIu64, xl_id,
-             child, count);
+    keylen = snprintf(key, sizeof(key), "statistics_inprogress-%s", suffix);
 
-    ret = dict_set_int32(output, key, progress);
+    ret = dict_set_int32n(output, key, keylen, progress);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                "Could not add statistics_inprogress to output");
@@ -1104,6 +1100,8 @@ afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
     int ret = -1;
     uint64_t count = 0;
     char key[256] = {0};
+    int keylen = 0;
+    char xl_id_child_str[64] = {0};
     int xl_id = 0;
 
     ret = dict_get_int32(output, this->name, &xl_id);
@@ -1113,11 +1111,12 @@ afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
         goto out;
     }
 
-    snprintf(key, sizeof(key), "%d-%d-count", xl_id, child);
+    snprintf(xl_id_child_str, sizeof(xl_id_child_str), "%d-%d", xl_id, child);
+    snprintf(key, sizeof(key), "%s-count", xl_id_child_str);
     ret = dict_get_uint64(output, key, &count);
 
-    snprintf(key, sizeof(key), "%d-%d-%" PRIu64, xl_id, child, count);
-    ret = dict_set_dynstr(output, key, path);
+    keylen = snprintf(key, sizeof(key), "%s-%" PRIu64, xl_id_child_str, count);
+    ret = dict_set_dynstrn(output, key, keylen, path);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
@@ -1126,7 +1125,7 @@ afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
     }
 
     if (tv) {
-        snprintf(key, sizeof(key), "%d-%d-%" PRIu64 "-time", xl_id, child,
+        snprintf(key, sizeof(key), "%s-%" PRIu64 "-time", xl_id_child_str,
                  count);
         ret = dict_set_uint32(output, key, tv->tv_sec);
         if (ret) {
@@ -1136,7 +1135,7 @@ afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
         }
     }
 
-    snprintf(key, sizeof(key), "%d-%d-count", xl_id, child);
+    snprintf(key, sizeof(key), "%s-count", xl_id_child_str);
 
     ret = dict_set_uint64(output, key, count + 1);
     if (ret) {
@@ -1314,19 +1313,22 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
     struct subvol_healer *healer = NULL;
     int i = 0;
     char key[64];
+    int keylen = 0;
+    int this_name_len = 0;
     int op_ret = 0;
     uint64_t cnt = 0;
 
     priv = this->private;
     shd = &priv->shd;
 
-    ret = dict_get_int32(input, "xl-op", (int32_t *)&op);
+    ret = dict_get_int32_sizen(input, "xl-op", (int32_t *)&op);
     if (ret)
         goto out;
-    ret = dict_get_int32(input, this->name, &xl_id);
+    this_name_len = strlen(this->name);
+    ret = dict_get_int32n(input, this->name, this_name_len, &xl_id);
     if (ret)
         goto out;
-    ret = dict_set_int32(output, this->name, xl_id);
+    ret = dict_set_int32n(output, this->name, this_name_len, xl_id);
     if (ret)
         goto out;
     switch (op) {
@@ -1335,19 +1337,25 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
 
             for (i = 0; i < priv->child_count; i++) {
                 healer = &shd->index_healers[i];
-                snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
+                keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
 
                 if (!priv->child_up[i]) {
-                    ret = dict_set_str(output, key, "Brick is not connected");
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SBRICK_NOT_CONNECTED,
+                                         SLEN(SBRICK_NOT_CONNECTED));
                     op_ret = -1;
                 } else if (AFR_COUNT(priv->child_up, priv->child_count) < 2) {
-                    ret = dict_set_str(output, key,
-                                       "< 2 bricks in replica are up");
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SLESS_THAN2_BRICKS_in_REP,
+                                         SLEN(SLESS_THAN2_BRICKS_in_REP));
                     op_ret = -1;
                 } else if (!afr_shd_is_subvol_local(this, healer->subvol)) {
-                    ret = dict_set_str(output, key, "Brick is remote");
+                    ret = dict_set_nstrn(output, key, keylen, SBRICK_IS_REMOTE,
+                                         SLEN(SBRICK_IS_REMOTE));
                 } else {
-                    ret = dict_set_str(output, key, "Started self-heal");
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SSTARTED_SELF_HEAL,
+                                         SLEN(SSTARTED_SELF_HEAL));
                     afr_shd_index_healer_spawn(this, i);
                 }
             }
@@ -1357,17 +1365,23 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
 
             for (i = 0; i < priv->child_count; i++) {
                 healer = &shd->full_healers[i];
-                snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
+                keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
 
                 if (!priv->child_up[i]) {
-                    ret = dict_set_str(output, key, "Brick is not connected");
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SBRICK_NOT_CONNECTED,
+                                         SLEN(SBRICK_NOT_CONNECTED));
                 } else if (AFR_COUNT(priv->child_up, priv->child_count) < 2) {
-                    ret = dict_set_str(output, key,
-                                       "< 2 bricks in replica are up");
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SLESS_THAN2_BRICKS_in_REP,
+                                         SLEN(SLESS_THAN2_BRICKS_in_REP));
                 } else if (!afr_shd_is_subvol_local(this, healer->subvol)) {
-                    ret = dict_set_str(output, key, "Brick is remote");
+                    ret = dict_set_nstrn(output, key, keylen, SBRICK_IS_REMOTE,
+                                         SLEN(SBRICK_IS_REMOTE));
                 } else {
-                    ret = dict_set_str(output, key, "Started self-heal");
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SSTARTED_SELF_HEAL,
+                                         SLEN(SSTARTED_SELF_HEAL));
                     afr_shd_full_healer_spawn(this, i);
                     op_ret = 0;
                 }
@@ -1379,10 +1393,9 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
         case GF_SHD_OP_HEALED_FILES:
         case GF_SHD_OP_HEAL_FAILED_FILES:
             for (i = 0; i < priv->child_count; i++) {
-                snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
-                ret = dict_set_str(output, key,
-                                   "Operation Not "
-                                   "Supported");
+                keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
+                ret = dict_set_nstrn(output, key, keylen, SOP_NOT_SUPPORTED,
+                                     SLEN(SOP_NOT_SUPPORTED));
             }
             break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
@@ -1403,8 +1416,11 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
 
             for (i = 0; i < priv->child_count; i++) {
                 if (!priv->child_up[i]) {
-                    snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
-                    ret = dict_set_str(output, key, "Brick is not connected");
+                    keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id,
+                                      i);
+                    ret = dict_set_nstrn(output, key, keylen,
+                                         SBRICK_NOT_CONNECTED,
+                                         SLEN(SBRICK_NOT_CONNECTED));
                 } else {
                     snprintf(key, sizeof(key), "%d-%d-hardlinks", xl_id, i);
                     ret = afr_shd_get_index_count(this, i, &cnt);
@@ -1423,6 +1439,6 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
             break;
     }
 out:
-    dict_del(output, this->name);
+    dict_deln(output, this->name, this_name_len);
     return op_ret;
 }

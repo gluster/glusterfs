@@ -97,6 +97,27 @@
 #define SBRAIN_HEAL_NO_GO_MSG                                                  \
     "Failed to obtain replies from all bricks of "                             \
     "the replica (are they up?). Cannot resolve split-brain."
+#define SFILE_NOT_IN_SPLIT_BRAIN "File not in split-brain"
+#define SNO_BIGGER_FILE "No bigger file"
+#define SNO_DIFF_IN_MTIME "No difference in mtime"
+#define SUSE_SOURCE_BRICK_TO_HEAL                                              \
+    "Use source-brick option to heal metadata"                                 \
+    " split-brain"
+#define SINVALID_BRICK_NAME "Invalid brick name"
+#define SBRICK_IS_NOT_UP "Brick is not up"
+#define SBRICK_NOT_CONNECTED "Brick is not connected"
+#define SLESS_THAN2_BRICKS_in_REP "< 2 bricks in replica are up"
+#define SBRICK_IS_REMOTE "Brick is remote"
+#define SSTARTED_SELF_HEAL "Started self-heal"
+#define SOP_NOT_SUPPORTED "Operation Not Supported"
+#define SFILE_NOT_UNDER_DATA                                                   \
+    "The file is not under data or metadata "                                  \
+    "split-brain"
+#define SFILE_NOT_IN_SPLIT_BRAIN "File not in split-brain"
+#define SALL_BRICKS_UP_TO_RESOLVE                                              \
+    "All the bricks should be up to resolve the"                               \
+    " gfid split brain"
+#define SERROR_GETTING_SRC_BRICK "Error getting the source brick"
 int
 afr_selfheal(xlator_t *this, uuid_t gfid);
 

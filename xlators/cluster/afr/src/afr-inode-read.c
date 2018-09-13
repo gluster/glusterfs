@@ -531,12 +531,16 @@ afr_fgetxattr_clrlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int32_t callcnt = 0;
     long int cky = 0;
     int ret = 0;
+    int keylen = 0;
+    int children_keylen = 0;
 
     priv = this->private;
     children = priv->children;
 
     local = frame->local;
     cky = (long)cookie;
+    keylen = strlen(local->cont.getxattr.name);
+    children_keylen = strlen(children[cky]->name);
 
     LOCK(&frame->lock);
     {
@@ -547,11 +551,12 @@ afr_fgetxattr_clrlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local->dict)
             local->dict = dict_new();
         if (local->dict) {
-            ret = dict_get_str(dict, local->cont.getxattr.name, &tmp_report);
+            ret = dict_get_strn(dict, local->cont.getxattr.name, keylen,
+                                &tmp_report);
             if (ret)
                 goto unlock;
-            ret = dict_set_dynstr(local->dict, children[cky]->name,
-                                  gf_strdup(tmp_report));
+            ret = dict_set_dynstrn(local->dict, children[cky]->name,
+                                   children_keylen, gf_strdup(tmp_report));
             if (ret)
                 goto unlock;
         }
@@ -575,8 +580,8 @@ unlock:
         }
         if (serz_len == -1)
             snprintf(lk_summary, sizeof(lk_summary), "No locks cleared.");
-        ret = dict_set_dynstr(xattr, local->cont.getxattr.name,
-                              gf_strdup(lk_summary));
+        ret = dict_set_dynstrn(xattr, local->cont.getxattr.name, keylen,
+                               gf_strdup(lk_summary));
         if (ret) {
             op_ret = -1;
             op_errno = ENOMEM;
@@ -613,12 +618,17 @@ afr_getxattr_clrlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int32_t callcnt = 0;
     long int cky = 0;
     int ret = 0;
+    int keylen = 0;
+    int children_keylen = 0;
 
     priv = this->private;
     children = priv->children;
 
     local = frame->local;
     cky = (long)cookie;
+
+    keylen = strlen(local->cont.getxattr.name);
+    children_keylen = strlen(children[cky]->name);
 
     LOCK(&frame->lock);
     {
@@ -629,11 +639,12 @@ afr_getxattr_clrlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local->dict)
             local->dict = dict_new();
         if (local->dict) {
-            ret = dict_get_str(dict, local->cont.getxattr.name, &tmp_report);
+            ret = dict_get_strn(dict, local->cont.getxattr.name, keylen,
+                                &tmp_report);
             if (ret)
                 goto unlock;
-            ret = dict_set_dynstr(local->dict, children[cky]->name,
-                                  gf_strdup(tmp_report));
+            ret = dict_set_dynstrn(local->dict, children[cky]->name,
+                                   children_keylen, gf_strdup(tmp_report));
             if (ret)
                 goto unlock;
         }
@@ -657,8 +668,8 @@ unlock:
         }
         if (serz_len == -1)
             snprintf(lk_summary, sizeof(lk_summary), "No locks cleared.");
-        ret = dict_set_dynstr(xattr, local->cont.getxattr.name,
-                              gf_strdup(lk_summary));
+        ret = dict_set_dynstrn(xattr, local->cont.getxattr.name, keylen,
+                               gf_strdup(lk_summary));
         if (ret) {
             op_ret = -1;
             op_errno = ENOMEM;
@@ -805,8 +816,8 @@ unlock:
             GF_FREE(xattr_serz);
             goto unwind;
         }
-        ret = dict_set_dynstr(local->dict, GF_XATTR_LIST_NODE_UUIDS_KEY,
-                              xattr_serz);
+        ret = dict_set_dynstr_sizen(local->dict, GF_XATTR_LIST_NODE_UUIDS_KEY,
+                                    xattr_serz);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                    "Cannot set node_uuid key in dict");
@@ -1099,9 +1110,11 @@ afr_fgetxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = 0;
     char *xattr = NULL;
     char *xattr_serz = NULL;
+    int keylen = 0;
     char xattr_cky[1024] = {
         0,
     };
+    int xattr_cky_len = 0;
     dict_t *nxattr = NULL;
     long cky = 0;
     int32_t padding = 0;
@@ -1114,7 +1127,9 @@ afr_fgetxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
     cky = (long)cookie;
-
+    keylen = strlen(local->cont.getxattr.name);
+    xattr_cky_len = snprintf(xattr_cky, sizeof(xattr_cky), "%s-%ld",
+                             local->cont.getxattr.name, cky);
     LOCK(&frame->lock);
     {
         callcnt = --local->call_count;
@@ -1130,27 +1145,25 @@ afr_fgetxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!dict || (op_ret < 0))
             goto unlock;
 
-        if (!local->dict)
+        if (!local->dict) {
             local->dict = dict_new();
-
-        if (local->dict) {
-            ret = dict_get_str(dict, local->cont.getxattr.name, &xattr);
-            if (ret)
+            if (!local->dict)
                 goto unlock;
-
-            xattr = gf_strdup(xattr);
-
-            (void)snprintf(xattr_cky, sizeof(xattr_cky), "%s-%ld",
-                           local->cont.getxattr.name, cky);
-            ret = dict_set_dynstr(local->dict, xattr_cky, xattr);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-                       "Cannot set xattr cookie key");
-                goto unlock;
-            }
-
-            local->cont.getxattr.xattr_len += strlen(xattr) + 1;
         }
+        ret = dict_get_strn(dict, local->cont.getxattr.name, keylen, &xattr);
+        if (ret)
+            goto unlock;
+
+        xattr = gf_strdup(xattr);
+
+        ret = dict_set_dynstrn(local->dict, xattr_cky, xattr_cky_len, xattr);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
+                   "Cannot set xattr cookie key");
+            goto unlock;
+        }
+
+        local->cont.getxattr.xattr_len += strlen(xattr) + 1;
     }
 unlock:
     UNLOCK(&frame->lock);
@@ -1189,7 +1202,8 @@ unlock:
         *(xattr_serz + padding + tlen) = ')';
         *(xattr_serz + padding + tlen + 1) = '\0';
 
-        ret = dict_set_dynstr(nxattr, local->cont.getxattr.name, xattr_serz);
+        ret = dict_set_dynstrn(nxattr, local->cont.getxattr.name, keylen,
+                               xattr_serz);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                    "Cannot set pathinfo key in dict");
@@ -1222,6 +1236,8 @@ afr_getxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     char xattr_cky[1024] = {
         0,
     };
+    int keylen = 0;
+    int xattr_cky_len = 0;
     dict_t *nxattr = NULL;
     long cky = 0;
     int32_t padding = 0;
@@ -1234,7 +1250,9 @@ afr_getxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
     cky = (long)cookie;
-
+    keylen = strlen(local->cont.getxattr.name);
+    xattr_cky_len = snprintf(xattr_cky, sizeof(xattr_cky), "%s-%ld",
+                             local->cont.getxattr.name, cky);
     LOCK(&frame->lock);
     {
         callcnt = --local->call_count;
@@ -1250,28 +1268,25 @@ afr_getxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!dict || (op_ret < 0))
             goto unlock;
 
-        if (!local->dict)
+        if (!local->dict) {
             local->dict = dict_new();
-
-        if (local->dict) {
-            ret = dict_get_str(dict, local->cont.getxattr.name, &xattr);
-            if (ret)
+            if (!local->dict)
                 goto unlock;
-
-            xattr = gf_strdup(xattr);
-
-            (void)snprintf(xattr_cky, 1024, "%s-%ld", local->cont.getxattr.name,
-                           cky);
-            ret = dict_set_dynstr(local->dict, xattr_cky, xattr);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-                       "Cannot set xattr "
-                       "cookie key");
-                goto unlock;
-            }
-
-            local->cont.getxattr.xattr_len += strlen(xattr) + 1;
         }
+        ret = dict_get_strn(dict, local->cont.getxattr.name, keylen, &xattr);
+        if (ret)
+            goto unlock;
+
+        xattr = gf_strdup(xattr);
+
+        ret = dict_set_dynstrn(local->dict, xattr_cky, xattr_cky_len, xattr);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
+                   "Cannot set xattr cookie key");
+            goto unlock;
+        }
+
+        local->cont.getxattr.xattr_len += strlen(xattr) + 1;
     }
 unlock:
     UNLOCK(&frame->lock);
@@ -1310,7 +1325,8 @@ unlock:
         *(xattr_serz + padding + tlen) = ')';
         *(xattr_serz + padding + tlen + 1) = '\0';
 
-        ret = dict_set_dynstr(nxattr, local->cont.getxattr.name, xattr_serz);
+        ret = dict_set_dynstrn(nxattr, local->cont.getxattr.name, keylen,
+                               xattr_serz);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                    "Cannot set pathinfo key in dict");

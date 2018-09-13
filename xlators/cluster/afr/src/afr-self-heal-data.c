@@ -73,7 +73,7 @@ __afr_can_skip_data_block_heal(call_frame_t *frame, xlator_t *this, fd_t *fd,
     xdata = dict_new();
     if (!xdata)
         goto out;
-    if (dict_set_int32(xdata, "check-zero-filled", 1)) {
+    if (dict_set_int32_sizen(xdata, "check-zero-filled", 1)) {
         dict_unref(xdata);
         goto out;
     }

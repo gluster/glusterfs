@@ -277,9 +277,8 @@ afr_selfheal_name_gfid_mismatch_check(xlator_t *this, struct afr_reply *replies,
                                                   bname, gfid_idx_iter, i,
                                                   locked_on, gfid_idx, xdata);
                 if (!ret && *gfid_idx >= 0) {
-                    ret = dict_set_str(xdata, "gfid-heal-msg",
-                                       "GFID split-brain "
-                                       "resolved");
+                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                                                   "GFID split-brain resolved");
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                AFR_MSG_DICT_SET_FAILED,
@@ -496,7 +495,7 @@ afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
     if (!xattr)
         return -ENOMEM;
 
-    ret = dict_set_int32(xattr, GF_GFIDLESS_LOOKUP, 1);
+    ret = dict_set_int32_sizen(xattr, GF_GFIDLESS_LOOKUP, 1);
     if (ret) {
         dict_unref(xattr);
         return -1;

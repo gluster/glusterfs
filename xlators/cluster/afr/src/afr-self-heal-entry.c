@@ -149,7 +149,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
             }
             break;
         default:
-            ret = dict_set_int32(xdata, GLUSTERFS_INTERNAL_FOP_KEY, 1);
+            ret = dict_set_int32_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY, 1);
             if (ret)
                 goto out;
             ret = syncop_mknod(
@@ -551,7 +551,7 @@ afr_selfheal_entry_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
     xattr = dict_new();
     if (!xattr)
         return -ENOMEM;
-    ret = dict_set_int32(xattr, GF_GFIDLESS_LOOKUP, 1);
+    ret = dict_set_int32_sizen(xattr, GF_GFIDLESS_LOOKUP, 1);
     if (ret) {
         dict_unref(xattr);
         return -1;
