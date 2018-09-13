@@ -6806,7 +6806,7 @@ struct volume_options options[] = {
     {
         .key = {"shard-deletion-rate"},
         .type = GF_OPTION_TYPE_INT,
-        .op_version = {GD_OP_VERSION_4_2_0},
+        .op_version = {GD_OP_VERSION_5_0},
         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
         .tags = {"shard"},
         .default_value = "100",
@@ -6817,7 +6817,7 @@ struct volume_options options[] = {
     {
         .key = {"shard-lru-limit"},
         .type = GF_OPTION_TYPE_INT,
-        .op_version = {GD_OP_VERSION_4_2_0},
+        .op_version = {GD_OP_VERSION_5_0},
         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
         .tags = {"shard"},
         .default_value = "16384",
