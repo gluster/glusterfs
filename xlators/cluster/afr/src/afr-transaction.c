@@ -1713,6 +1713,7 @@ afr_changelog_populate_xdata(call_frame_t *frame, afr_xattrop_type_t op,
     int i = 0;
     int ret = 0;
     char *key = NULL;
+    int keylen = 0;
     const char *name = NULL;
     dict_t *xdata1 = NULL;
     dict_t *xdata2 = NULL;
@@ -1770,7 +1771,8 @@ afr_changelog_populate_xdata(call_frame_t *frame, afr_xattrop_type_t op,
     }
 
     if (need_entry_key_set) {
-        ret = dict_set_str(xdata1, key, (char *)name);
+        keylen = strlen(key);
+        ret = dict_set_strn(xdata1, key, keylen, (char *)name);
         if (ret)
             gf_msg(THIS->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
                    "%s/%s: Could not set %s key during xattrop",
@@ -1780,7 +1782,8 @@ afr_changelog_populate_xdata(call_frame_t *frame, afr_xattrop_type_t op,
             if (!xdata2)
                 goto out;
 
-            ret = dict_set_str(xdata2, key, (char *)local->newloc.name);
+            ret = dict_set_strn(xdata2, key, keylen,
+                                (char *)local->newloc.name);
             if (ret)
                 gf_msg(THIS->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
                        "%s/%s: Could not set %s key during "
@@ -2537,7 +2540,7 @@ afr_changelog_fsync(call_frame_t *frame, xlator_t *this)
 
     xdata = dict_new();
     if (xdata)
-        ret = dict_set_int32(xdata, "batch-fsync", 1);
+        ret = dict_set_int32_sizen(xdata, "batch-fsync", 1);
 
     for (i = 0; i < priv->child_count; i++) {
         if (!local->transaction.pre_op[i])

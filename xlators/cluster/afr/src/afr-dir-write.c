@@ -700,7 +700,7 @@ afr_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     local->cont.mkdir.mode = mode;
     local->umask = umask;
 
-    if (!xdata || !dict_get(xdata, "gfid-req")) {
+    if (!xdata || !dict_get_sizen(xdata, "gfid-req")) {
         op_errno = EPERM;
         gf_msg_callingfn(this->name, GF_LOG_WARNING, op_errno,
                          AFR_MSG_GFID_NULL,

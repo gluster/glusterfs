@@ -87,7 +87,7 @@ static void
 fix_quorum_options(xlator_t *this, afr_private_t *priv, char *qtype,
                    dict_t *options)
 {
-    if (dict_get(options, "quorum-type") == NULL) {
+    if (dict_get_sizen(options, "quorum-type") == NULL) {
         /* If user doesn't configure anything enable auto-quorum if the
          * replica has more than two subvolumes */
         if (priv->child_count > 2)

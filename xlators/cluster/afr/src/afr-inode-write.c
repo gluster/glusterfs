@@ -1059,7 +1059,7 @@ afr_emptyb_set_pending_changelog_cbk(call_frame_t *frame, void *cookie,
     local->replies[i].op_ret = op_ret;
     local->replies[i].op_errno = op_errno;
 
-    ret = dict_get_str(local->xdata_req, "replicate-brick-op", &op_type);
+    ret = dict_get_str_sizen(local->xdata_req, "replicate-brick-op", &op_type);
     if (ret)
         goto out;
 
@@ -1105,10 +1105,10 @@ out:
     return -ret;
 }
 
-int
+static int
 _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
                              int empty_index, afr_transaction_type type,
-                             char *op_type)
+                             char *op_type, const int op_type_len)
 {
     int count = 0;
     int ret = -ENOMEM;
@@ -1139,7 +1139,8 @@ _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
     if (!local->xdata_req)
         goto out;
 
-    ret = dict_set_str(local->xdata_req, "replicate-brick-op", op_type);
+    ret = dict_set_nstrn(local->xdata_req, "replicate-brick-op",
+                         SLEN("replicate-brick-op"), op_type, op_type_len);
     if (ret)
         goto out;
 
@@ -1211,12 +1212,17 @@ _afr_handle_empty_brick(void *opaque)
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
     char *op_type = NULL;
+    int op_type_len = 0;
     afr_empty_brick_args_t *data = NULL;
 
     data = opaque;
     frame = data->frame;
     empty_index = data->empty_index;
+    if (!data->op_type)
+        goto out;
+
     op_type = data->op_type;
+    op_type_len = strlen(op_type);
     this = frame->this;
     priv = this->private;
 
@@ -1230,7 +1236,8 @@ _afr_handle_empty_brick(void *opaque)
            priv->children[empty_index]->name);
 
     ret = _afr_handle_empty_brick_type(this, frame, &local->loc, empty_index,
-                                       AFR_METADATA_TRANSACTION, op_type);
+                                       AFR_METADATA_TRANSACTION, op_type,
+                                       op_type_len);
     if (ret) {
         op_errno = -ret;
         ret = -1;
@@ -1245,7 +1252,8 @@ _afr_handle_empty_brick(void *opaque)
     local->xdata_req = NULL;
 
     ret = _afr_handle_empty_brick_type(this, frame, &local->loc, empty_index,
-                                       AFR_ENTRY_TRANSACTION, op_type);
+                                       AFR_ENTRY_TRANSACTION, op_type,
+                                       op_type_len);
     if (ret) {
         op_errno = -ret;
         ret = -1;
@@ -1273,14 +1281,14 @@ afr_split_brain_resolve_do(call_frame_t *frame, xlator_t *this, loc_t *loc,
         goto out;
     }
 
-    ret = dict_set_int32(local->xdata_req, "heal-op",
-                         GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
+    ret = dict_set_int32_sizen(local->xdata_req, "heal-op",
+                               GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
     if (ret) {
         op_errno = -ret;
         ret = -1;
         goto out;
     }
-    ret = dict_set_str(local->xdata_req, "child-name", data);
+    ret = dict_set_str_sizen(local->xdata_req, "child-name", data);
     if (ret) {
         op_errno = -ret;
         ret = -1;
@@ -1470,11 +1478,11 @@ afr_handle_empty_brick(xlator_t *this, call_frame_t *frame, loc_t *loc,
     char *op_type = NULL;
     afr_empty_brick_args_t *data = NULL;
 
-    ret = dict_get_str(dict, GF_AFR_REPLACE_BRICK, &empty_brick);
+    ret = dict_get_str_sizen(dict, GF_AFR_REPLACE_BRICK, &empty_brick);
     if (!ret)
         op_type = GF_AFR_REPLACE_BRICK;
 
-    ab_ret = dict_get_str(dict, GF_AFR_ADD_BRICK, &empty_brick);
+    ab_ret = dict_get_str_sizen(dict, GF_AFR_ADD_BRICK, &empty_brick);
     if (!ab_ret)
         op_type = GF_AFR_ADD_BRICK;
 

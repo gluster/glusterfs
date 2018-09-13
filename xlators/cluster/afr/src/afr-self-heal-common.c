@@ -263,10 +263,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                "All the bricks should be up to resolve the gfid split "
                "barin");
         if (xdata) {
-            ret = dict_set_str(xdata, "gfid-heal-msg",
-                               "All the "
-                               "bricks should be up to resolve the"
-                               " gfid split barin");
+            ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                                           SALL_BRICKS_UP_TO_RESOLVE);
             if (ret)
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
                        "Error setting"
@@ -276,7 +274,7 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
     }
 
     if (xdata) {
-        ret = dict_get_int32(xdata, "heal-op", &heal_op);
+        ret = dict_get_int32_sizen(xdata, "heal-op", &heal_op);
         if (ret)
             goto fav_child;
     } else {
@@ -289,10 +287,10 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                                                            priv->child_count);
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
-                       "No bigger file");
+                       SNO_BIGGER_FILE);
                 if (xdata) {
-                    ret = dict_set_str(xdata, "gfid-heal-msg",
-                                       "No bigger file");
+                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                                                   SNO_BIGGER_FILE);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                AFR_MSG_DICT_SET_FAILED,
@@ -307,10 +305,10 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                                                             priv->child_count);
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
-                       "No difference in mtime");
+                       SNO_DIFF_IN_MTIME);
                 if (xdata) {
-                    ret = dict_set_str(xdata, "gfid-heal-msg",
-                                       "No difference in mtime");
+                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                                                   SNO_DIFF_IN_MTIME);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                AFR_MSG_DICT_SET_FAILED,
@@ -321,7 +319,7 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             break;
 
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
-            ret = dict_get_str(xdata, "child-name", &src_brick);
+            ret = dict_get_str_sizen(xdata, "child-name", &src_brick);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        "Error getting the source "
@@ -332,12 +330,10 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                                                          src_brick);
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
-                       "Error getting the source "
-                       "brick");
+                       SERROR_GETTING_SRC_BRICK);
                 if (xdata) {
-                    ret = dict_set_str(xdata, "gfid-heal-msg",
-                                       "Error getting the source "
-                                       "brick");
+                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                                                   SERROR_GETTING_SRC_BRICK);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                AFR_MSG_DICT_SET_FAILED,
@@ -909,7 +905,7 @@ afr_dict_contains_heal_op(call_frame_t *frame)
 
     local = frame->local;
     xdata_req = local->xdata_req;
-    ret = dict_get_int32(xdata_req, "heal-op", &heal_op);
+    ret = dict_get_int32_sizen(xdata_req, "heal-op", &heal_op);
     if (ret)
         return _gf_false;
     if (local->xdata_rsp == NULL) {
@@ -917,8 +913,8 @@ afr_dict_contains_heal_op(call_frame_t *frame)
         if (!local->xdata_rsp)
             return _gf_true;
     }
-    ret = dict_set_str(local->xdata_rsp, "sh-fail-msg",
-                       "File not in split-brain");
+    ret = dict_set_sizen_str_sizen(local->xdata_rsp, "sh-fail-msg",
+                                   SFILE_NOT_IN_SPLIT_BRAIN);
 
     return _gf_true;
 }
@@ -972,7 +968,8 @@ afr_mark_split_brain_source_sinks_by_heal_op(
     xdata_rsp = local->xdata_rsp;
 
     if (!afr_can_decide_split_brain_source_sinks(replies, priv->child_count)) {
-        ret = dict_set_str(xdata_rsp, "sh-fail-msg", SBRAIN_HEAL_NO_GO_MSG);
+        ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                       SBRAIN_HEAL_NO_GO_MSG);
         ret = -1;
         goto out;
     }
@@ -983,16 +980,16 @@ afr_mark_split_brain_source_sinks_by_heal_op(
     switch (heal_op) {
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
             if (type == AFR_METADATA_TRANSACTION) {
-                ret = dict_set_str(xdata_rsp, "sh-fail-msg",
-                                   "Use source-brick option to"
-                                   " heal metadata split-brain");
+                ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                               SUSE_SOURCE_BRICK_TO_HEAL);
                 if (!ret)
                     ret = -1;
                 goto out;
             }
             afr_mark_largest_file_as_source(this, sources, replies);
             if (AFR_COUNT(sources, priv->child_count) != 1) {
-                ret = dict_set_str(xdata_rsp, "sh-fail-msg", "No bigger file");
+                ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                               SNO_BIGGER_FILE);
                 if (!ret)
                     ret = -1;
                 goto out;
@@ -1000,36 +997,36 @@ afr_mark_split_brain_source_sinks_by_heal_op(
             break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
             if (type == AFR_METADATA_TRANSACTION) {
-                ret = dict_set_str(xdata_rsp, "sh-fail-msg",
-                                   "Use source-brick option to"
-                                   " heal metadata split-brain");
+                ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                               SUSE_SOURCE_BRICK_TO_HEAL);
                 if (!ret)
                     ret = -1;
                 goto out;
             }
             afr_mark_latest_mtime_file_as_source(this, sources, replies);
             if (AFR_COUNT(sources, priv->child_count) != 1) {
-                ret = dict_set_str(xdata_rsp, "sh-fail-msg",
-                                   "No difference in mtime");
+                ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                               SNO_DIFF_IN_MTIME);
                 if (!ret)
                     ret = -1;
                 goto out;
             }
             break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
-            ret = dict_get_str(xdata_req, "child-name", &name);
+            ret = dict_get_str_sizen(xdata_req, "child-name", &name);
             if (ret)
                 goto out;
             source = afr_get_child_index_from_name(this, name);
             if (source < 0) {
-                ret = dict_set_str(xdata_rsp, "sh-fail-msg",
-                                   "Invalid brick name");
+                ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                               SINVALID_BRICK_NAME);
                 if (!ret)
                     ret = -1;
                 goto out;
             }
             if (locked_on[source] != 1) {
-                ret = dict_set_str(xdata_rsp, "sh-fail-msg", "Brick is not up");
+                ret = dict_set_sizen_str_sizen(xdata_rsp, "sh-fail-msg",
+                                               SBRICK_IS_NOT_UP);
                 if (!ret)
                     ret = -1;
                 goto out;
@@ -1390,7 +1387,7 @@ afr_mark_split_brain_source_sinks(
     if (source >= 0)
         return source;
 
-    ret = dict_get_int32(xdata_req, "heal-op", &heal_op);
+    ret = dict_get_int32_sizen(xdata_req, "heal-op", &heal_op);
     if (ret)
         goto autoheal;
 
@@ -1406,7 +1403,7 @@ autoheal:
             frame, this, inode, sources, sinks, healed_sinks, locked_on,
             replies, type);
         if (source != -1) {
-            ret = dict_set_int32(xdata_req, "fav-child-policy", 1);
+            ret = dict_set_int32_sizen(xdata_req, "fav-child-policy", 1);
             if (ret)
                 return -1;
         }
@@ -1437,7 +1434,7 @@ _afr_fav_child_reset_sink_xattrs(call_frame_t *frame, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    if (!dict_get(local->xdata_req, "fav-child-policy"))
+    if (!dict_get_sizen(local->xdata_req, "fav-child-policy"))
         return 0;
 
     xdata = dict_new();

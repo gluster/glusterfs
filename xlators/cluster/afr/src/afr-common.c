@@ -98,21 +98,24 @@ afr_is_possibly_under_txn(afr_transaction_type type, afr_local_t *local,
     int tmp = 0;
     afr_private_t *priv = NULL;
     GF_UNUSED char *key = NULL;
+    int keylen = 0;
 
     priv = this->private;
 
-    if (type == AFR_ENTRY_TRANSACTION)
+    if (type == AFR_ENTRY_TRANSACTION) {
         key = GLUSTERFS_PARENT_ENTRYLK;
-    else if (type == AFR_DATA_TRANSACTION)
+        keylen = SLEN(GLUSTERFS_PARENT_ENTRYLK);
+    } else if (type == AFR_DATA_TRANSACTION) {
         /*FIXME: Use GLUSTERFS_INODELK_DOM_COUNT etc. once
          * pl_inodelk_xattr_fill supports separate keys for different
          * domains.*/
         key = GLUSTERFS_INODELK_COUNT;
-
+        keylen = SLEN(GLUSTERFS_INODELK_COUNT);
+    }
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].xdata)
             continue;
-        if (dict_get_int32(local->replies[i].xdata, key, &tmp) == 0)
+        if (dict_get_int32n(local->replies[i].xdata, key, keylen, &tmp) == 0)
             if (tmp)
                 return _gf_true;
     }
@@ -988,7 +991,7 @@ afr_accuse_smallfiles(xlator_t *this, struct afr_reply *replies,
 
     for (i = 0; i < priv->child_count; i++) {
         if (replies[i].valid && replies[i].xdata &&
-            dict_get(replies[i].xdata, GLUSTERFS_BAD_INODE))
+            dict_get_sizen(replies[i].xdata, GLUSTERFS_BAD_INODE))
             continue;
         if (data_accused[i])
             continue;
@@ -1037,7 +1040,7 @@ afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
         if (replies) { /* Lookup */
             if (!replies[i].valid || replies[i].op_ret == -1 ||
                 (replies[i].xdata &&
-                 dict_get(replies[i].xdata, GLUSTERFS_BAD_INODE))) {
+                 dict_get_sizen(replies[i].xdata, GLUSTERFS_BAD_INODE))) {
                 data_readable[i] = 0;
                 metadata_readable[i] = 0;
                 continue;
@@ -1452,12 +1455,12 @@ afr_inode_refresh_do(call_frame_t *frame, xlator_t *this)
         return 0;
     }
 
-    ret = dict_set_str(xdata, "link-count", GF_XATTROP_INDEX_COUNT);
+    ret = dict_set_sizen_str_sizen(xdata, "link-count", GF_XATTROP_INDEX_COUNT);
     if (ret) {
         gf_msg_debug(this->name, -ret, "Unable to set link-count in dict ");
     }
 
-    ret = dict_set_str(xdata, GLUSTERFS_INODELK_DOM_COUNT, this->name);
+    ret = dict_set_str_sizen(xdata, GLUSTERFS_INODELK_DOM_COUNT, this->name);
     if (ret) {
         gf_msg_debug(this->name, -ret,
                      "Unable to set inodelk-dom-count in dict ");
@@ -1555,7 +1558,7 @@ afr_xattr_req_prepare(xlator_t *this, dict_t *xattr_req)
                      "query flag");
     }
 
-    ret = dict_set_int32(xattr_req, "list-xattr", 1);
+    ret = dict_set_int32_sizen(xattr_req, "list-xattr", 1);
     if (ret) {
         gf_msg_debug(this->name, -ret, "Unable to set list-xattr in dict ");
     }
@@ -1600,7 +1603,8 @@ afr_lookup_xattr_req_prepare(afr_local_t *local, xlator_t *this,
                GLUSTERFS_PARENT_ENTRYLK);
     }
 
-    ret = dict_set_str(local->xattr_req, "link-count", GF_XATTROP_INDEX_COUNT);
+    ret = dict_set_sizen_str_sizen(local->xattr_req, "link-count",
+                                   GF_XATTROP_INDEX_COUNT);
     if (ret) {
         gf_msg_debug(this->name, -ret, "Unable to set link-count in dict ");
     }
@@ -2270,7 +2274,7 @@ afr_attempt_readsubvol_set(call_frame_t *frame, xlator_t *this,
                local->loc.path);
     }
     if (*read_subvol >= 0)
-        dict_del(local->replies[*read_subvol].xdata, GF_CONTENT_KEY);
+        dict_del_sizen(local->replies[*read_subvol].xdata, GF_CONTENT_KEY);
 }
 
 static void
@@ -2382,7 +2386,8 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         /* If we were called from glfsheal and there is still a gfid
          * mismatch, succeed the lookup and let glfsheal print the
          * response via gfid-heal-msg.*/
-        if (!dict_get_str(local->xattr_req, "gfid-heal-msg", &gfid_heal_msg))
+        if (!dict_get_str_sizen(local->xattr_req, "gfid-heal-msg",
+                                &gfid_heal_msg))
             goto cant_interpret;
 
         /* LOG ERROR */
@@ -2412,7 +2417,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
             goto cant_interpret;
         if (ret) {
             afr_inode_event_gen_reset(local->inode, this);
-            dict_del(local->replies[read_subvol].xdata, GF_CONTENT_KEY);
+            dict_del_sizen(local->replies[read_subvol].xdata, GF_CONTENT_KEY);
         }
     } else {
     cant_interpret:
@@ -2436,10 +2441,10 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         goto error;
     }
 
-    ret = dict_get_str(local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
+    ret = dict_get_str_sizen(local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
     if (!ret) {
-        ret = dict_set_str(local->replies[read_subvol].xdata, "gfid-heal-msg",
-                           gfid_heal_msg);
+        ret = dict_set_str_sizen(local->replies[read_subvol].xdata,
+                                 "gfid-heal-msg", gfid_heal_msg);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
                    "Error setting gfid-heal-msg dict");
@@ -2517,7 +2522,7 @@ afr_local_discovery_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     child_index = (int32_t)(long)cookie;
 
-    ret = dict_get_str(dict, GF_XATTR_PATHINFO_KEY, &pathinfo);
+    ret = dict_get_str_sizen(dict, GF_XATTR_PATHINFO_KEY, &pathinfo);
     if (ret != 0) {
         goto out;
     }
@@ -2605,7 +2610,7 @@ afr_lookup_sh_metadata_wrap(void *opaque)
     dict = dict_new();
     if (!dict)
         goto out;
-    ret = dict_set_str(dict, "link-count", GF_XATTROP_INDEX_COUNT);
+    ret = dict_set_sizen_str_sizen(dict, "link-count", GF_XATTROP_INDEX_COUNT);
     if (ret) {
         gf_msg_debug(this->name, -ret, "Unable to set link-count in dict ");
     }
@@ -2932,7 +2937,7 @@ afr_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
      * with ESTALE so that a fresh lookup will be sent by the top xlator.
      * So remember it.
      */
-    if (xdata && dict_get(xdata, "gfid-changed"))
+    if (xdata && dict_get_sizen(xdata, "gfid-changed"))
         local->cont.lookup.needs_fresh_lookup = _gf_true;
 
     if (xdata) {
@@ -3342,7 +3347,7 @@ afr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
     if (loc_is_nameless(loc)) {
         if (xattr_req)
-            dict_del(xattr_req, "gfid-req");
+            dict_del_sizen(xattr_req, "gfid-req");
         afr_discover(frame, this, loc, xattr_req);
         return 0;
     }
@@ -3380,7 +3385,7 @@ afr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         ret = dict_get_gfuuid(local->xattr_req, "gfid-req",
                               &local->cont.lookup.gfid_req);
         if (ret == 0) {
-            dict_del(local->xattr_req, "gfid-req");
+            dict_del_sizen(local->xattr_req, "gfid-req");
         }
     }
 
@@ -6129,8 +6134,8 @@ out:
     return ret;
 }
 
-dict_t *
-afr_set_heal_info(char *status)
+static dict_t *
+afr_set_heal_info(char *status, const int status_len)
 {
     dict_t *dict = NULL;
     int ret = -1;
@@ -6141,7 +6146,8 @@ afr_set_heal_info(char *status)
         goto out;
     }
 
-    ret = dict_set_dynstr(dict, "heal-info", status);
+    ret = dict_set_nstrn(dict, "heal-info", SLEN("heal-info"), status,
+                         status_len);
     if (ret)
         gf_msg("", GF_LOG_WARNING, -ret, AFR_MSG_DICT_SET_FAILED,
                "Failed to set heal-info key to "
@@ -6173,6 +6179,7 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     inode_t *inode = NULL;
     char *substr = NULL;
     char *status = NULL;
+    int status_len = 0;
 
     ret = afr_selfheal_locked_inspect(frame, this, loc->gfid, &inode,
                                       &entry_selfheal, &data_selfheal,
@@ -6190,19 +6197,25 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     }
 
     if (ret == -EIO) {
-        ret = gf_asprintf(&status, "split-brain%s", substr ? substr : "");
-        if (ret < 0)
+        status_len = gf_asprintf(&status, "split-brain%s",
+                                 substr ? substr : "");
+        if (status_len < 0) {
+            ret = status_len;
             goto out;
-        dict = afr_set_heal_info(status);
+        }
+        dict = afr_set_heal_info(status, status_len);
         if (!dict) {
             ret = -1;
             goto out;
         }
     } else if (ret == -EAGAIN) {
-        ret = gf_asprintf(&status, "possibly-healing%s", substr ? substr : "");
-        if (ret < 0)
+        status_len = gf_asprintf(&status, "possibly-healing%s",
+                                 substr ? substr : "");
+        if (status_len < 0) {
+            ret = status_len;
             goto out;
-        dict = afr_set_heal_info(status);
+        }
+        dict = afr_set_heal_info(status, status_len);
         if (!dict) {
             ret = -1;
             goto out;
@@ -6218,16 +6231,18 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = -1;
                 goto out;
             }
-            dict = afr_set_heal_info(status);
+            dict = afr_set_heal_info(status, strlen(status));
             if (!dict) {
                 ret = -1;
                 goto out;
             }
         } else {
-            ret = gf_asprintf(&status, "heal%s", substr ? substr : "");
-            if (ret < 0)
+            status_len = gf_asprintf(&status, "heal%s", substr ? substr : "");
+            if (status_len < 0) {
+                ret = status_len;
                 goto out;
-            dict = afr_set_heal_info(status);
+            }
+            dict = afr_set_heal_info(status, status_len);
             if (!dict) {
                 ret = -1;
                 goto out;
@@ -6242,10 +6257,12 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
          * selfheal booleans is set.
          */
         if (data_selfheal || entry_selfheal || metadata_selfheal) {
-            ret = gf_asprintf(&status, "heal%s", substr ? substr : "");
-            if (ret < 0)
+            status_len = gf_asprintf(&status, "heal%s", substr ? substr : "");
+            if (status_len < 0) {
+                ret = status_len;
                 goto out;
-            dict = afr_set_heal_info(status);
+            }
+            dict = afr_set_heal_info(status, status_len);
             if (!dict) {
                 ret = -1;
                 goto out;
@@ -6378,10 +6395,10 @@ afr_get_split_brain_status(void *opaque)
     }
 
     /* Calculation for string length :
-     * (child_count X length of child-name) + SLEN ("    Choices :")
+     * (child_count X length of child-name) + SLEN("    Choices :")
      * child-name consists of :
      * a) 251 = max characters for volname according to GD_VOLUME_NAME_MAX
-     * b) strlen ("-client-00,") assuming 16 replicas
+     * b) strlen("-client-00,") assuming 16 replicas
      */
     choices = alloca0(priv->child_count * (256 + SLEN("-client-00,")) +
                       SLEN("    Choices:"));
@@ -6390,8 +6407,8 @@ afr_get_split_brain_status(void *opaque)
     if (ret) {
         op_errno = -ret;
         if (ret == -EAGAIN) {
-            ret = dict_set_str(dict, GF_AFR_SBRAIN_STATUS,
-                               SBRAIN_HEAL_NO_GO_MSG);
+            ret = dict_set_sizen_str_sizen(dict, GF_AFR_SBRAIN_STATUS,
+                                           SBRAIN_HEAL_NO_GO_MSG);
             if (ret) {
                 gf_msg(this->name, GF_LOG_WARNING, -ret,
                        AFR_MSG_DICT_SET_FAILED,
@@ -6420,16 +6437,15 @@ afr_get_split_brain_status(void *opaque)
             op_errno = ENOMEM;
             goto out;
         }
-        ret = dict_set_dynstr(dict, GF_AFR_SBRAIN_STATUS, status);
+        ret = dict_set_dynstr_sizen(dict, GF_AFR_SBRAIN_STATUS, status);
         if (ret) {
             op_errno = -ret;
             ret = -1;
             goto out;
         }
     } else {
-        ret = dict_set_str(dict, GF_AFR_SBRAIN_STATUS,
-                           "The file is not under data or"
-                           " metadata split-brain");
+        ret = dict_set_sizen_str_sizen(dict, GF_AFR_SBRAIN_STATUS,
+                                       SFILE_NOT_UNDER_DATA);
         if (ret) {
             op_errno = -ret;
             ret = -1;
@@ -6466,7 +6482,8 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
     ret = afr_selfheal_do(frame, this, loc->gfid);
 
     if (ret == 1 || ret == 2) {
-        ret = dict_set_str(dict, "sh-fail-msg", "File not in split-brain");
+        ret = dict_set_sizen_str_sizen(dict, "sh-fail-msg",
+                                       SFILE_NOT_IN_SPLIT_BRAIN);
         if (ret)
             gf_msg(this->name, GF_LOG_WARNING, -ret, AFR_MSG_DICT_SET_FAILED,
                    "Failed to set sh-fail-msg in dict");
@@ -6670,12 +6687,14 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
     char *xattr = NULL;
     int i = 0;
     int len = 0;
+    int keylen = 0;
     size_t str_len = 0;
     int ret = -1;
 
     priv = this->private;
     local = frame->local;
 
+    keylen = strlen(local->cont.getxattr.name);
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid || local->replies[i].op_ret) {
             str_len = strlen(default_str);
@@ -6684,8 +6703,8 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
             buf[len++] = delimiter;
             buf[len] = '\0';
         } else {
-            ret = dict_get_str(local->replies[i].xattr,
-                               local->cont.getxattr.name, &xattr);
+            ret = dict_get_strn(local->replies[i].xattr,
+                                local->cont.getxattr.name, keylen, &xattr);
             if (ret) {
                 gf_msg("TEST", GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
                        "Failed to get the node_uuid of brick "
