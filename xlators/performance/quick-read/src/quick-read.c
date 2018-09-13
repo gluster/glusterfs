@@ -1613,7 +1613,7 @@ struct volume_options qr_options[] = {
         .key = {"ctime-invalidation"},
         .type = GF_OPTION_TYPE_BOOL,
         .default_value = "false",
-        .op_version = {GD_OP_VERSION_4_2_0},
+        .op_version = {GD_OP_VERSION_5_0},
         .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
         .description = "Quick-read by default uses mtime to identify changes "
                        "to file data. However there are applications like "
