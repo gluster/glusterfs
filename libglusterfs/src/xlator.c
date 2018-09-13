@@ -335,7 +335,7 @@ xlator_dynload_newway(xlator_t *xl)
 
     xlapi = dlsym(handle, "xlator_api");
     if (!xlapi) {
-        gf_msg("xlator", GF_LOG_INFO, 0, LG_MSG_DLSYM_ERROR,
+        gf_msg("xlator", GF_LOG_DEBUG, 0, LG_MSG_DLSYM_ERROR,
                "dlsym(xlator_api) on %s. "
                "Fall back to old symbols",
                dlerror());
