@@ -920,26 +920,19 @@ struct glfs_io {
     struct iovec *iov;
     int count;
     int flags;
-    gf_boolean_t oldcb;
-    union {
-        glfs_io_cbk34 fn34;
-        glfs_io_cbk fn;
-    };
+    glfs_io_cbk fn;
     void *data;
 };
 
 static int
 glfs_io_async_cbk(int op_ret, int op_errno, call_frame_t *frame, void *cookie,
-                  struct iovec *iovec, int count, struct iatt *prebuf,
-                  struct iatt *postbuf)
+                  struct iovec *iovec, int count)
 {
     struct glfs_io *gio = NULL;
     xlator_t *subvol = NULL;
     struct glfs *fs = NULL;
     struct glfs_fd *glfd = NULL;
     int ret = -1;
-    struct stat prestat = {}, *prestatp = NULL;
-    struct stat poststat = {}, *poststatp = NULL;
 
     GF_VALIDATE_OR_GOTO("gfapi", frame, inval);
     GF_VALIDATE_OR_GOTO("gfapi", cookie, inval);
@@ -970,21 +963,8 @@ glfs_io_async_cbk(int op_ret, int op_errno, call_frame_t *frame, void *cookie,
 
 out:
     errno = op_errno;
-    if (gio->oldcb) {
-        gio->fn34(gio->glfd, op_ret, gio->data);
-    } else {
-        if (prebuf) {
-            prestatp = &prestat;
-            glfs_iatt_to_stat(fs, prebuf, prestatp);
-        }
+    gio->fn(gio->glfd, op_ret, gio->data);
 
-        if (postbuf) {
-            poststatp = &poststat;
-            glfs_iatt_to_stat(fs, postbuf, poststatp);
-        }
-
-        gio->fn(gio->glfd, op_ret, prestatp, poststatp, gio->data);
-    }
 err:
     fd_unref(glfd->fd);
     /* Since the async operation is complete
@@ -1008,16 +988,15 @@ glfs_preadv_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, struct iovec *iovec, int count,
                       struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
 {
-    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, iovec, count, NULL,
-                      stbuf);
+    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, iovec, count);
 
     return 0;
 }
 
-static int
-glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
-                         int count, off_t offset, int flags, gf_boolean_t oldcb,
-                         glfs_io_cbk fn, void *data)
+int
+pub_glfs_preadv_async(struct glfs_fd *glfd, const struct iovec *iovec,
+                      int count, off_t offset, int flags, glfs_io_cbk fn,
+                      void *data)
 {
     struct glfs_io *gio = NULL;
     int ret = 0;
@@ -1074,7 +1053,6 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
     gio->count = count;
     gio->offset = offset;
     gio->flags = flags;
-    gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
 
@@ -1114,47 +1092,7 @@ invalid_fs:
     return -1;
 }
 
-int
-pub_glfs_preadv_async34(struct glfs_fd *glfd, const struct iovec *iovec,
-                        int count, off_t offset, int flags, glfs_io_cbk34 fn,
-                        void *data)
-{
-    return glfs_preadv_async_common(glfd, iovec, count, offset, flags, _gf_true,
-                                    (void *)fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_preadv_async34, glfs_preadv_async, 3.4.0);
-
-int
-pub_glfs_preadv_async(struct glfs_fd *glfd, const struct iovec *iovec,
-                      int count, off_t offset, int flags, glfs_io_cbk fn,
-                      void *data)
-{
-    return glfs_preadv_async_common(glfd, iovec, count, offset, flags,
-                                    _gf_false, fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_preadv_async, future);
-
-int
-pub_glfs_read_async34(struct glfs_fd *glfd, void *buf, size_t count, int flags,
-                      glfs_io_cbk34 fn, void *data)
-{
-    struct iovec iov = {
-        0,
-    };
-    ssize_t ret = 0;
-
-    iov.iov_base = buf;
-    iov.iov_len = count;
-
-    ret = glfs_preadv_async_common(glfd, &iov, 1, glfd->offset, flags, _gf_true,
-                                   (void *)fn, data);
-
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_read_async34, glfs_read_async, 3.4.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_preadv_async, 3.4.0);
 
 int
 pub_glfs_read_async(struct glfs_fd *glfd, void *buf, size_t count, int flags,
@@ -1168,33 +1106,12 @@ pub_glfs_read_async(struct glfs_fd *glfd, void *buf, size_t count, int flags,
     iov.iov_base = buf;
     iov.iov_len = count;
 
-    ret = glfs_preadv_async_common(glfd, &iov, 1, glfd->offset, flags,
-                                   _gf_false, fn, data);
+    ret = pub_glfs_preadv_async(glfd, &iov, 1, glfd->offset, flags, fn, data);
 
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_read_async, future);
-
-int
-pub_glfs_pread_async34(struct glfs_fd *glfd, void *buf, size_t count,
-                       off_t offset, int flags, glfs_io_cbk34 fn, void *data)
-{
-    struct iovec iov = {
-        0,
-    };
-    ssize_t ret = 0;
-
-    iov.iov_base = buf;
-    iov.iov_len = count;
-
-    ret = glfs_preadv_async_common(glfd, &iov, 1, offset, flags, _gf_true,
-                                   (void *)fn, data);
-
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_pread_async34, glfs_pread_async, 3.4.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_read_async, 3.4.0);
 
 int
 pub_glfs_pread_async(struct glfs_fd *glfd, void *buf, size_t count,
@@ -1208,26 +1125,12 @@ pub_glfs_pread_async(struct glfs_fd *glfd, void *buf, size_t count,
     iov.iov_base = buf;
     iov.iov_len = count;
 
-    ret = glfs_preadv_async_common(glfd, &iov, 1, offset, flags, _gf_false, fn,
-                                   data);
+    ret = pub_glfs_preadv_async(glfd, &iov, 1, offset, flags, fn, data);
 
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pread_async, future);
-
-int
-pub_glfs_readv_async34(struct glfs_fd *glfd, const struct iovec *iov, int count,
-                       int flags, glfs_io_cbk34 fn, void *data)
-{
-    ssize_t ret = 0;
-
-    ret = glfs_preadv_async_common(glfd, iov, count, glfd->offset, flags,
-                                   _gf_true, (void *)fn, data);
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_readv_async34, glfs_readv_async, 3.4.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pread_async, 3.4.0);
 
 int
 pub_glfs_readv_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
@@ -1235,12 +1138,12 @@ pub_glfs_readv_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
 {
     ssize_t ret = 0;
 
-    ret = glfs_preadv_async_common(glfd, iov, count, glfd->offset, flags,
-                                   _gf_false, fn, data);
+    ret = pub_glfs_preadv_async(glfd, iov, count, glfd->offset, flags, fn,
+                                data);
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readv_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readv_async, 3.4.0);
 
 static ssize_t
 glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
@@ -1414,16 +1317,15 @@ glfs_pwritev_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
 {
-    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0, prebuf,
-                      postbuf);
+    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0);
 
     return 0;
 }
 
-static int
-glfs_pwritev_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
-                          int count, off_t offset, int flags,
-                          gf_boolean_t oldcb, glfs_io_cbk fn, void *data)
+int
+pub_glfs_pwritev_async(struct glfs_fd *glfd, const struct iovec *iovec,
+                       int count, off_t offset, int flags, glfs_io_cbk fn,
+                       void *data)
 {
     struct glfs_io *gio = NULL;
     int ret = -1;
@@ -1464,7 +1366,6 @@ glfs_pwritev_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
     gio->glfd = glfd;
     gio->offset = offset;
     gio->flags = flags;
-    gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
     gio->count = 1;
@@ -1524,47 +1425,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_pwritev_async34(struct glfs_fd *glfd, const struct iovec *iovec,
-                         int count, off_t offset, int flags, glfs_io_cbk34 fn,
-                         void *data)
-{
-    return glfs_pwritev_async_common(glfd, iovec, count, offset, flags,
-                                     _gf_true, (void *)fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_pwritev_async34, glfs_pwritev_async, 3.4.0);
-
-int
-pub_glfs_pwritev_async(struct glfs_fd *glfd, const struct iovec *iovec,
-                       int count, off_t offset, int flags, glfs_io_cbk fn,
-                       void *data)
-{
-    return glfs_pwritev_async_common(glfd, iovec, count, offset, flags,
-                                     _gf_false, fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwritev_async, future);
-
-int
-pub_glfs_write_async34(struct glfs_fd *glfd, const void *buf, size_t count,
-                       int flags, glfs_io_cbk34 fn, void *data)
-{
-    struct iovec iov = {
-        0,
-    };
-    ssize_t ret = 0;
-
-    iov.iov_base = (void *)buf;
-    iov.iov_len = count;
-
-    ret = glfs_pwritev_async_common(glfd, &iov, 1, glfd->offset, flags,
-                                    _gf_true, (void *)fn, data);
-
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_write_async34, glfs_write_async, 3.4.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwritev_async, 3.4.0);
 
 int
 pub_glfs_write_async(struct glfs_fd *glfd, const void *buf, size_t count,
@@ -1578,33 +1439,12 @@ pub_glfs_write_async(struct glfs_fd *glfd, const void *buf, size_t count,
     iov.iov_base = (void *)buf;
     iov.iov_len = count;
 
-    ret = glfs_pwritev_async_common(glfd, &iov, 1, glfd->offset, flags,
-                                    _gf_false, fn, data);
+    ret = pub_glfs_pwritev_async(glfd, &iov, 1, glfd->offset, flags, fn, data);
 
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_write_async, future);
-
-int
-pub_glfs_pwrite_async34(struct glfs_fd *glfd, const void *buf, int count,
-                        off_t offset, int flags, glfs_io_cbk34 fn, void *data)
-{
-    struct iovec iov = {
-        0,
-    };
-    ssize_t ret = 0;
-
-    iov.iov_base = (void *)buf;
-    iov.iov_len = count;
-
-    ret = glfs_pwritev_async_common(glfd, &iov, 1, offset, flags, _gf_true,
-                                    (void *)fn, data);
-
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_pwrite_async34, glfs_pwrite_async, 3.4.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_write_async, 3.4.0);
 
 int
 pub_glfs_pwrite_async(struct glfs_fd *glfd, const void *buf, int count,
@@ -1618,26 +1458,12 @@ pub_glfs_pwrite_async(struct glfs_fd *glfd, const void *buf, int count,
     iov.iov_base = (void *)buf;
     iov.iov_len = count;
 
-    ret = glfs_pwritev_async_common(glfd, &iov, 1, offset, flags, _gf_false, fn,
-                                    data);
+    ret = pub_glfs_pwritev_async(glfd, &iov, 1, offset, flags, fn, data);
 
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite_async, future);
-
-int
-pub_glfs_writev_async34(struct glfs_fd *glfd, const struct iovec *iov,
-                        int count, int flags, glfs_io_cbk34 fn, void *data)
-{
-    ssize_t ret = 0;
-
-    ret = glfs_pwritev_async_common(glfd, iov, count, glfd->offset, flags,
-                                    _gf_true, (void *)fn, data);
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_writev_async34, glfs_writev_async, 3.4.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite_async, 3.4.0);
 
 int
 pub_glfs_writev_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
@@ -1645,12 +1471,12 @@ pub_glfs_writev_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
 {
     ssize_t ret = 0;
 
-    ret = glfs_pwritev_async_common(glfd, iov, count, glfd->offset, flags,
-                                    _gf_false, fn, data);
+    ret = pub_glfs_pwritev_async(glfd, iov, count, glfd->offset, flags, fn,
+                                 data);
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev_async, 3.4.0);
 
 static int
 glfs_fsync_common(struct glfs_fd *glfd, struct stat *prestat,
@@ -1738,15 +1564,14 @@ glfs_fsync_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
-    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0, prebuf,
-                      postbuf);
+    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0);
 
     return 0;
 }
 
 static int
-glfs_fsync_async_common(struct glfs_fd *glfd, gf_boolean_t oldcb,
-                        glfs_io_cbk fn, void *data, int dataonly)
+glfs_fsync_async_common(struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
+                        int dataonly)
 {
     struct glfs_io *gio = NULL;
     int ret = 0;
@@ -1790,7 +1615,6 @@ glfs_fsync_async_common(struct glfs_fd *glfd, gf_boolean_t oldcb,
     gio->op = GF_FOP_FSYNC;
     gio->glfd = glfd;
     gio->flags = dataonly;
-    gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
 
@@ -1814,24 +1638,6 @@ out:
 }
 
 int
-pub_glfs_fsync_async34(struct glfs_fd *glfd, glfs_io_cbk34 fn, void *data)
-{
-    int ret = -1;
-
-    DECLARE_OLD_THIS;
-    __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
-
-    ret = glfs_fsync_async_common(glfd, _gf_true, (void *)fn, data, 0);
-
-    __GLFS_EXIT_FS;
-
-invalid_fs:
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_fsync_async34, glfs_fsync_async, 3.4.0);
-
-int
 pub_glfs_fsync_async(struct glfs_fd *glfd, glfs_io_cbk fn, void *data)
 {
     int ret = -1;
@@ -1839,7 +1645,7 @@ pub_glfs_fsync_async(struct glfs_fd *glfd, glfs_io_cbk fn, void *data)
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
 
-    ret = glfs_fsync_async_common(glfd, _gf_false, fn, data, 0);
+    ret = glfs_fsync_async_common(glfd, fn, data, 0);
 
     __GLFS_EXIT_FS;
 
@@ -1847,7 +1653,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync_async, 3.4.0);
 
 static int
 glfs_fdatasync_common(struct glfs_fd *glfd, struct stat *prestat,
@@ -1931,24 +1737,6 @@ pub_glfs_fdatasync(struct glfs_fd *glfd, struct stat *prestat,
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync, future);
 
 int
-pub_glfs_fdatasync_async34(struct glfs_fd *glfd, glfs_io_cbk34 fn, void *data)
-{
-    int ret = -1;
-
-    DECLARE_OLD_THIS;
-    __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
-
-    ret = glfs_fsync_async_common(glfd, _gf_true, (void *)fn, data, 1);
-
-    __GLFS_EXIT_FS;
-
-invalid_fs:
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_fdatasync_async34, glfs_fdatasync_async, 3.4.0);
-
-int
 pub_glfs_fdatasync_async(struct glfs_fd *glfd, glfs_io_cbk fn, void *data)
 {
     int ret = -1;
@@ -1956,7 +1744,7 @@ pub_glfs_fdatasync_async(struct glfs_fd *glfd, glfs_io_cbk fn, void *data)
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
 
-    ret = glfs_fsync_async_common(glfd, _gf_false, fn, data, 1);
+    ret = glfs_fsync_async_common(glfd, fn, data, 1);
 
     __GLFS_EXIT_FS;
 
@@ -1964,7 +1752,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync_async, 3.4.0);
 
 static int
 glfs_ftruncate_common(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
@@ -2100,15 +1888,14 @@ glfs_ftruncate_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                          struct iatt *postbuf, dict_t *xdata)
 {
-    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0, prebuf,
-                      postbuf);
+    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0);
 
     return 0;
 }
 
-static int
-glfs_ftruncate_async_common(struct glfs_fd *glfd, off_t offset,
-                            gf_boolean_t oldcb, glfs_io_cbk fn, void *data)
+int
+pub_glfs_ftruncate_async(struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
+                         void *data)
 {
     struct glfs_io *gio = NULL;
     int ret = -1;
@@ -2152,7 +1939,6 @@ glfs_ftruncate_async_common(struct glfs_fd *glfd, off_t offset,
     gio->op = GF_FOP_FTRUNCATE;
     gio->glfd = glfd;
     gio->offset = offset;
-    gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
 
@@ -2187,24 +1973,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_ftruncate_async34(struct glfs_fd *glfd, off_t offset, glfs_io_cbk34 fn,
-                           void *data)
-{
-    return glfs_ftruncate_async_common(glfd, offset, _gf_true, (void *)fn,
-                                       data);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_ftruncate_async34, glfs_ftruncate_async, 3.4.0);
-
-int
-pub_glfs_ftruncate_async(struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
-                         void *data)
-{
-    return glfs_ftruncate_async_common(glfd, offset, _gf_false, fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate_async, 3.4.0);
 
 int
 pub_glfs_access(struct glfs *fs, const char *path, int mode)
@@ -3022,15 +2791,14 @@ glfs_discard_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        struct iatt *preop_stbuf, struct iatt *postop_stbuf,
                        dict_t *xdata)
 {
-    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0, preop_stbuf,
-                      postop_stbuf);
+    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0);
 
     return 0;
 }
 
-static int
-glfs_discard_async_common(struct glfs_fd *glfd, off_t offset, size_t len,
-                          gf_boolean_t oldcb, glfs_io_cbk fn, void *data)
+int
+pub_glfs_discard_async(struct glfs_fd *glfd, off_t offset, size_t len,
+                       glfs_io_cbk fn, void *data)
 {
     struct glfs_io *gio = NULL;
     int ret = -1;
@@ -3075,7 +2843,6 @@ glfs_discard_async_common(struct glfs_fd *glfd, off_t offset, size_t len,
     gio->glfd = glfd;
     gio->offset = offset;
     gio->count = len;
-    gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
 
@@ -3106,24 +2873,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_discard_async35(struct glfs_fd *glfd, off_t offset, size_t len,
-                         glfs_io_cbk34 fn, void *data)
-{
-    return glfs_discard_async_common(glfd, offset, len, _gf_true, (void *)fn,
-                                     data);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_discard_async35, glfs_discard_async, 3.5.0);
-
-int
-pub_glfs_discard_async(struct glfs_fd *glfd, off_t offset, size_t len,
-                       glfs_io_cbk fn, void *data)
-{
-    return glfs_discard_async_common(glfd, offset, len, _gf_false, fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_discard_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_discard_async, 3.5.0);
 
 static int
 glfs_zerofill_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -3131,15 +2881,14 @@ glfs_zerofill_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *preop_stbuf, struct iatt *postop_stbuf,
                         dict_t *xdata)
 {
-    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0, preop_stbuf,
-                      postop_stbuf);
+    glfs_io_async_cbk(op_ret, op_errno, frame, cookie, NULL, 0);
 
     return 0;
 }
 
-static int
-glfs_zerofill_async_common(struct glfs_fd *glfd, off_t offset, off_t len,
-                           gf_boolean_t oldcb, glfs_io_cbk fn, void *data)
+int
+pub_glfs_zerofill_async(struct glfs_fd *glfd, off_t offset, off_t len,
+                        glfs_io_cbk fn, void *data)
 {
     struct glfs_io *gio = NULL;
     int ret = -1;
@@ -3184,7 +2933,6 @@ glfs_zerofill_async_common(struct glfs_fd *glfd, off_t offset, off_t len,
     gio->glfd = glfd;
     gio->offset = offset;
     gio->count = len;
-    gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
 
@@ -3217,24 +2965,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_zerofill_async35(struct glfs_fd *glfd, off_t offset, off_t len,
-                          glfs_io_cbk34 fn, void *data)
-{
-    return glfs_zerofill_async_common(glfd, offset, len, _gf_true, (void *)fn,
-                                      data);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_zerofill_async35, glfs_zerofill_async, 3.5.0);
-
-int
-pub_glfs_zerofill_async(struct glfs_fd *glfd, off_t offset, off_t len,
-                        glfs_io_cbk fn, void *data)
-{
-    return glfs_zerofill_async_common(glfd, offset, len, _gf_false, fn, data);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_zerofill_async, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_zerofill_async, 3.5.0);
 
 void
 gf_dirent_to_dirent(gf_dirent_t *gf_dirent, struct dirent *dirent)
