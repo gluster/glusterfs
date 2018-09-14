@@ -915,8 +915,7 @@ cs_download_task(void *arg)
                local->remotepath);
 
         /*using dlfd as it is anonymous and have RDWR flag*/
-        ret = syncop_ftruncate(FIRST_CHILD(this), local->dlfd, 0, NULL, NULL,
-                               NULL, NULL);
+        ret = syncop_ftruncate(FIRST_CHILD(this), local->dlfd, 0, NULL, NULL);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, -ret, "ftruncate failed");
         } else {

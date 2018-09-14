@@ -4620,7 +4620,7 @@ fuse_migrate_fd(xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
         if (IA_ISDIR(oldfd->inode->ia_type))
             ret = syncop_fsyncdir(old_subvol, oldfd, 0, NULL, NULL);
         else
-            ret = syncop_fsync(old_subvol, oldfd, 0, NULL, NULL, NULL, NULL);
+            ret = syncop_fsync(old_subvol, oldfd, 0, NULL, NULL);
 
         if (ret < 0) {
             gf_log("glusterfs-fuse", GF_LOG_WARNING,

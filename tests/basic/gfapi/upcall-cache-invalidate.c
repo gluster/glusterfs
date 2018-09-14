@@ -136,7 +136,7 @@ main(int argc, char *argv[])
         LOG_ERR("glfs_lseek", ret);
 
         memset(readbuf, 0, sizeof(readbuf));
-        ret = glfs_pread(fd_tmp2, readbuf, 4, 0, 0, NULL);
+        ret = glfs_pread(fd_tmp2, readbuf, 4, 0, 0);
 
         if (ret <= 0) {
             ret = -1;

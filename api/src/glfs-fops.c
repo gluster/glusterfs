@@ -758,9 +758,9 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lseek, 3.4.0);
 
-static ssize_t
-glfs_preadv_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                   off_t offset, int flags, struct stat *poststat)
+ssize_t
+pub_glfs_preadv(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
+                off_t offset, int flags)
 {
     xlator_t *subvol = NULL;
     ssize_t ret = -1;
@@ -769,9 +769,6 @@ glfs_preadv_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     int cnt = 0;
     struct iobref *iobref = NULL;
     fd_t *fd = NULL;
-    struct iatt iatt = {
-        0,
-    };
     dict_t *fop_attr = NULL;
 
     DECLARE_OLD_THIS;
@@ -799,12 +796,9 @@ glfs_preadv_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_readv(subvol, fd, size, offset, 0, &iov, &cnt, &iobref, &iatt,
+    ret = syncop_readv(subvol, fd, size, offset, 0, &iov, &cnt, &iobref,
                        fop_attr, NULL);
     DECODE_SYNCOP_ERR(ret);
-
-    if (ret >= 0 && poststat)
-        glfs_iatt_to_stat(glfd->fs, &iatt, poststat);
 
     if (ret <= 0)
         goto out;
@@ -835,13 +829,6 @@ invalid_fs:
     return ret;
 }
 
-ssize_t
-pub_glfs_preadv(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                off_t offset, int flags)
-{
-    return glfs_preadv_common(glfd, iovec, iovcnt, offset, flags, NULL);
-}
-
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_preadv, 3.4.0);
 
 ssize_t
@@ -863,8 +850,8 @@ pub_glfs_read(struct glfs_fd *glfd, void *buf, size_t count, int flags)
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_read, 3.4.0);
 
 ssize_t
-pub_glfs_pread34(struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
-                 int flags)
+pub_glfs_pread(struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
+               int flags)
 {
     struct iovec iov = {
         0,
@@ -879,26 +866,7 @@ pub_glfs_pread34(struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC(glfs_pread34, glfs_pread, 3.4.0);
-
-ssize_t
-pub_glfs_pread(struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
-               int flags, struct stat *poststat)
-{
-    struct iovec iov = {
-        0,
-    };
-    ssize_t ret = 0;
-
-    iov.iov_base = buf;
-    iov.iov_len = count;
-
-    ret = glfs_preadv_common(glfd, &iov, 1, offset, flags, poststat);
-
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pread, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pread, 3.4.0);
 
 ssize_t
 pub_glfs_readv(struct glfs_fd *glfd, const struct iovec *iov, int count,
@@ -1145,10 +1113,9 @@ pub_glfs_readv_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readv_async, 3.4.0);
 
-static ssize_t
-glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                    off_t offset, int flags, struct stat *prestat,
-                    struct stat *poststat)
+ssize_t
+pub_glfs_pwritev(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
+                 off_t offset, int flags)
 {
     xlator_t *subvol = NULL;
     int ret = -1;
@@ -1158,13 +1125,6 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
         0,
     };
     fd_t *fd = NULL;
-    struct iatt preiatt =
-                    {
-                        0,
-                    },
-                postiatt = {
-                    0,
-                };
     dict_t *fop_attr = NULL;
 
     DECLARE_OLD_THIS;
@@ -1195,16 +1155,9 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags, &preiatt,
-                        &postiatt, fop_attr, NULL);
+    ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags, fop_attr,
+                        NULL);
     DECODE_SYNCOP_ERR(ret);
-
-    if (ret >= 0) {
-        if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
-        if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
-    }
 
     if (ret <= 0)
         goto out;
@@ -1228,13 +1181,6 @@ out:
 
 invalid_fs:
     return ret;
-}
-
-ssize_t
-pub_glfs_pwritev(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                 off_t offset, int flags)
-{
-    return glfs_pwritev_common(glfd, iovec, iovcnt, offset, flags, NULL, NULL);
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwritev, 3.4.0);
@@ -1271,8 +1217,8 @@ pub_glfs_writev(struct glfs_fd *glfd, const struct iovec *iov, int count,
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev, 3.4.0);
 
 ssize_t
-pub_glfs_pwrite34(struct glfs_fd *glfd, const void *buf, size_t count,
-                  off_t offset, int flags)
+pub_glfs_pwrite(struct glfs_fd *glfd, const void *buf, size_t count,
+                off_t offset, int flags)
 {
     struct iovec iov = {
         0,
@@ -1287,27 +1233,7 @@ pub_glfs_pwrite34(struct glfs_fd *glfd, const void *buf, size_t count,
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC(glfs_pwrite34, glfs_pwrite, 3.4.0);
-
-ssize_t
-pub_glfs_pwrite(struct glfs_fd *glfd, const void *buf, size_t count,
-                off_t offset, int flags, struct stat *prestat,
-                struct stat *poststat)
-{
-    struct iovec iov = {
-        0,
-    };
-    ssize_t ret = 0;
-
-    iov.iov_base = (void *)buf;
-    iov.iov_len = count;
-
-    ret = glfs_pwritev_common(glfd, &iov, 1, offset, flags, prestat, poststat);
-
-    return ret;
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite, 3.4.0);
 
 extern glfs_t *
 pub_glfs_from_glfd(glfs_fd_t *);
@@ -1478,20 +1404,12 @@ pub_glfs_writev_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev_async, 3.4.0);
 
-static int
-glfs_fsync_common(struct glfs_fd *glfd, struct stat *prestat,
-                  struct stat *poststat)
+int
+pub_glfs_fsync(struct glfs_fd *glfd)
 {
     int ret = -1;
     xlator_t *subvol = NULL;
     fd_t *fd = NULL;
-    struct iatt preiatt =
-                    {
-                        0,
-                    },
-                postiatt = {
-                    0,
-                };
     dict_t *fop_attr = NULL;
 
     DECLARE_OLD_THIS;
@@ -1517,15 +1435,9 @@ glfs_fsync_common(struct glfs_fd *glfd, struct stat *prestat,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_fsync(subvol, fd, 0, &preiatt, &postiatt, fop_attr, NULL);
+    ret = syncop_fsync(subvol, fd, 0, fop_attr, NULL);
     DECODE_SYNCOP_ERR(ret);
 
-    if (ret >= 0) {
-        if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
-        if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
-    }
 out:
     if (fd)
         fd_unref(fd);
@@ -1542,22 +1454,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_fsync34(struct glfs_fd *glfd)
-{
-    return glfs_fsync_common(glfd, NULL, NULL);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_fsync34, glfs_fsync, 3.4.0);
-
-int
-pub_glfs_fsync(struct glfs_fd *glfd, struct stat *prestat,
-               struct stat *poststat)
-{
-    return glfs_fsync_common(glfd, prestat, poststat);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync, 3.4.0);
 
 static int
 glfs_fsync_async_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1655,20 +1552,12 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync_async, 3.4.0);
 
-static int
-glfs_fdatasync_common(struct glfs_fd *glfd, struct stat *prestat,
-                      struct stat *poststat)
+int
+pub_glfs_fdatasync(struct glfs_fd *glfd)
 {
     int ret = -1;
     xlator_t *subvol = NULL;
     fd_t *fd = NULL;
-    struct iatt preiatt =
-                    {
-                        0,
-                    },
-                postiatt = {
-                    0,
-                };
     dict_t *fop_attr = NULL;
 
     DECLARE_OLD_THIS;
@@ -1694,15 +1583,9 @@ glfs_fdatasync_common(struct glfs_fd *glfd, struct stat *prestat,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_fsync(subvol, fd, 1, &preiatt, &postiatt, fop_attr, NULL);
+    ret = syncop_fsync(subvol, fd, 1, fop_attr, NULL);
     DECODE_SYNCOP_ERR(ret);
 
-    if (ret >= 0) {
-        if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
-        if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
-    }
 out:
     if (fd)
         fd_unref(fd);
@@ -1719,22 +1602,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_fdatasync34(struct glfs_fd *glfd)
-{
-    return glfs_fdatasync_common(glfd, NULL, NULL);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_fdatasync34, glfs_fdatasync, 3.4.0);
-
-int
-pub_glfs_fdatasync(struct glfs_fd *glfd, struct stat *prestat,
-                   struct stat *poststat)
-{
-    return glfs_fdatasync_common(glfd, prestat, poststat);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync, 3.4.0);
 
 int
 pub_glfs_fdatasync_async(struct glfs_fd *glfd, glfs_io_cbk fn, void *data)
@@ -1754,20 +1622,12 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync_async, 3.4.0);
 
-static int
-glfs_ftruncate_common(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
-                      struct stat *poststat)
+int
+pub_glfs_ftruncate(struct glfs_fd *glfd, off_t offset)
 {
     int ret = -1;
     xlator_t *subvol = NULL;
     fd_t *fd = NULL;
-    struct iatt preiatt =
-                    {
-                        0,
-                    },
-                postiatt = {
-                    0,
-                };
     dict_t *fop_attr = NULL;
 
     DECLARE_OLD_THIS;
@@ -1793,16 +1653,9 @@ glfs_ftruncate_common(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_ftruncate(subvol, fd, offset, &preiatt, &postiatt, fop_attr,
-                           NULL);
+    ret = syncop_ftruncate(subvol, fd, offset, fop_attr, NULL);
     DECODE_SYNCOP_ERR(ret);
 
-    if (ret >= 0) {
-        if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
-        if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
-    }
 out:
     if (fd)
         fd_unref(fd);
@@ -1819,22 +1672,7 @@ invalid_fs:
     return ret;
 }
 
-int
-pub_glfs_ftruncate34(struct glfs_fd *glfd, off_t offset)
-{
-    return glfs_ftruncate_common(glfd, offset, NULL, NULL);
-}
-
-GFAPI_SYMVER_PUBLIC(glfs_ftruncate34, glfs_ftruncate, 3.4.0);
-
-int
-pub_glfs_ftruncate(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
-                   struct stat *poststat)
-{
-    return glfs_ftruncate_common(glfd, offset, prestat, poststat);
-}
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate, 3.4.0);
 
 int
 pub_glfs_truncate(struct glfs *fs, const char *path, off_t length)
@@ -5237,8 +5075,7 @@ glfs_anonymous_pwritev(struct glfs *fs, struct glfs_object *object,
     iov.iov_len = size;
 
     /* TODO : set leaseid */
-    ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags, NULL, NULL,
-                        NULL, NULL);
+    ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags, NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
 
     iobuf_unref(iobuf);
@@ -5308,7 +5145,7 @@ glfs_anonymous_preadv(struct glfs *fs, struct glfs_object *object,
 
     /* TODO : set leaseid */
     ret = syncop_readv(subvol, fd, size, offset, flags, &iov, &cnt, &iobref,
-                       NULL, NULL, NULL);
+                       NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
     if (ret <= 0)
         goto out;

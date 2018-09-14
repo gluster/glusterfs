@@ -235,13 +235,3 @@ GFAPI_4.0.0 {
                 glfs_lease;
                 glfs_h_lease;
 } GFAPI_3.13.0;
-
-GFAPI_future {
-	global:
-                glfs_pread;
-                glfs_pwrite;
-                glfs_fsync;
-                glfs_fdatasync;
-                glfs_ftruncate;
-} GFAPI_4.0.0;
-

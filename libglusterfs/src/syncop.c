@@ -1909,7 +1909,6 @@ syncop_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             args->iobref = iobref_ref(iobref);
         args->vector = iov_dup(vector, count);
         args->count = count;
-        args->iatt1 = *stbuf;
     }
 
     __wake(args);
@@ -1920,7 +1919,7 @@ syncop_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int
 syncop_readv(xlator_t *subvol, fd_t *fd, size_t size, off_t off, uint32_t flags,
              struct iovec **vector, int *count, struct iobref **iobref,
-             struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out)
+             dict_t *xdata_in, dict_t **xdata_out)
 {
     struct syncargs args = {
         0,
@@ -1933,9 +1932,6 @@ syncop_readv(xlator_t *subvol, fd_t *fd, size_t size, off_t off, uint32_t flags,
         *xdata_out = args.xdata;
     else if (args.xdata)
         dict_unref(args.xdata);
-
-    if (iatt)
-        *iatt = args.iatt1;
 
     if (args.op_ret < 0)
         goto out;
@@ -1974,11 +1970,6 @@ syncop_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (xdata)
         args->xdata = dict_ref(xdata);
 
-    if (op_ret >= 0) {
-        args->iatt1 = *prebuf;
-        args->iatt2 = *postbuf;
-    }
-
     __wake(args);
 
     return 0;
@@ -1987,8 +1978,7 @@ syncop_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 int
 syncop_writev(xlator_t *subvol, fd_t *fd, const struct iovec *vector,
               int32_t count, off_t offset, struct iobref *iobref,
-              uint32_t flags, struct iatt *preiatt, struct iatt *postiatt,
-              dict_t *xdata_in, dict_t **xdata_out)
+              uint32_t flags, dict_t *xdata_in, dict_t **xdata_out)
 {
     struct syncargs args = {
         0,
@@ -1996,11 +1986,6 @@ syncop_writev(xlator_t *subvol, fd_t *fd, const struct iovec *vector,
 
     SYNCOP(subvol, (&args), syncop_writev_cbk, subvol->fops->writev, fd,
            (struct iovec *)vector, count, offset, flags, iobref, xdata_in);
-
-    if (preiatt)
-        *preiatt = args.iatt1;
-    if (postiatt)
-        *postiatt = args.iatt2;
 
     if (xdata_out)
         *xdata_out = args.xdata;
@@ -2330,19 +2315,14 @@ syncop_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (xdata)
         args->xdata = dict_ref(xdata);
 
-    if (op_ret >= 0) {
-        args->iatt1 = *prebuf;
-        args->iatt2 = *postbuf;
-    }
-
     __wake(args);
 
     return 0;
 }
 
 int
-syncop_ftruncate(xlator_t *subvol, fd_t *fd, off_t offset, struct iatt *preiatt,
-                 struct iatt *postiatt, dict_t *xdata_in, dict_t **xdata_out)
+syncop_ftruncate(xlator_t *subvol, fd_t *fd, off_t offset, dict_t *xdata_in,
+                 dict_t **xdata_out)
 {
     struct syncargs args = {
         0,
@@ -2350,11 +2330,6 @@ syncop_ftruncate(xlator_t *subvol, fd_t *fd, off_t offset, struct iatt *preiatt,
 
     SYNCOP(subvol, (&args), syncop_ftruncate_cbk, subvol->fops->ftruncate, fd,
            offset, xdata_in);
-
-    if (preiatt)
-        *preiatt = args.iatt1;
-    if (postiatt)
-        *postiatt = args.iatt2;
 
     if (xdata_out)
         *xdata_out = args.xdata;
@@ -2401,19 +2376,14 @@ syncop_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (xdata)
         args->xdata = dict_ref(xdata);
 
-    if (op_ret >= 0) {
-        args->iatt1 = *prebuf;
-        args->iatt2 = *postbuf;
-    }
-
     __wake(args);
 
     return 0;
 }
 
 int
-syncop_fsync(xlator_t *subvol, fd_t *fd, int dataonly, struct iatt *preiatt,
-             struct iatt *postiatt, dict_t *xdata_in, dict_t **xdata_out)
+syncop_fsync(xlator_t *subvol, fd_t *fd, int dataonly, dict_t *xdata_in,
+             dict_t **xdata_out)
 {
     struct syncargs args = {
         0,
@@ -2421,11 +2391,6 @@ syncop_fsync(xlator_t *subvol, fd_t *fd, int dataonly, struct iatt *preiatt,
 
     SYNCOP(subvol, (&args), syncop_fsync_cbk, subvol->fops->fsync, fd, dataonly,
            xdata_in);
-
-    if (preiatt)
-        *preiatt = args.iatt1;
-    if (postiatt)
-        *postiatt = args.iatt2;
 
     if (xdata_out)
         *xdata_out = args.xdata;
