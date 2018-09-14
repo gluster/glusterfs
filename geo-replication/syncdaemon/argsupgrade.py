@@ -268,7 +268,9 @@ def upgrade():
         p = ArgumentParser()
         p.add_argument("master")
         p.add_argument("slave")
-        p.add_argument("--config-set", nargs=2)
+        p.add_argument("--config-set", action='store_true')
+        p.add_argument("name")
+        p.add_argument("--value")
         p.add_argument("-c")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
@@ -280,8 +282,8 @@ def upgrade():
             "config-set",
             pargs.master.strip(":"),
             slave_url(pargs.slave),
-            pargs.config_set[0],
-            pargs.config_set[1]
+            "--name=%s" % pargs.name,
+            "--value=%s" % pargs.value
         ]
     elif "--config-check" in sys.argv:
         # --config-check georep_session_working_dir

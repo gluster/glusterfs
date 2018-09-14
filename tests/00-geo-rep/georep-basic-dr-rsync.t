@@ -196,6 +196,10 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_hardlink_rename_data ${slave_mnt}
 #rsnapshot usecase
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rsnapshot_data ${slave_mnt}
 
+#Test rsync-options set BUG:1629561
+TEST gluster volume geo-rep $master $slave config rsync-options "--whole-file"
+TEST "echo sampledata > $master_mnt/rsync_option_test_file"
+
 #Verify arequal for whole volume
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 arequal_checksum ${master_mnt} ${slave_mnt}
 

@@ -307,10 +307,12 @@ value=
 value=
 
 [rsync-opt-ignore-missing-args]
-value=
+value=true
+type=bool
 
 [rsync-opt-existing]
-value=
+value=true
+type=bool
 
 [log-rsync-performance]
 value=false

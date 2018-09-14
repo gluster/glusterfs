@@ -165,8 +165,8 @@ def main():
     p = sp.add_parser("config-set")
     p.add_argument("master", help="Master Volume Name")
     p.add_argument("slave", help="Slave")
-    p.add_argument("name", help="Config Name")
-    p.add_argument("value", help="Config Value")
+    p.add_argument("-n", "--name", help="Config Name")
+    p.add_argument("-v", "--value", help="Config Value")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--debug", action="store_true")
 

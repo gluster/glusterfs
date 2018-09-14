@@ -8151,8 +8151,8 @@ glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", path_list, "-c", NULL);
     runner_argprintf(&runner, "%s", conf_path);
     runner_argprintf(&runner, ":%s", master_vol->volname);
-    runner_add_args(&runner, slave, "--config-set", "session-owner", uuid_str,
-                    NULL);
+    runner_add_args(&runner, slave, "--config-set", "session-owner", NULL);
+    runner_argprintf(&runner, "--value=%s", uuid_str);
     synclock_unlock(&priv->big_lock);
     ret = runner_run(&runner);
     synclock_lock(&priv->big_lock);
