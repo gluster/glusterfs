@@ -105,11 +105,11 @@ def doJob(name, lockFile, jobFunc, volname):
             else:
                 log.info("Job %s has been processed already", name)
             fcntl.flock(f, fcntl.LOCK_UN)
-        except (OSError, IOError) as (errno, strerror):
+        except (OSError, IOError):
             log.info("Job %s is being processed by another agent", name)
         os.close(f)
-    except (OSError, IOError) as (errno, strerror):
-        log.debug("Failed to open lock file %s : %s", lockFile, strerror)
+    except (OSError, IOError) as e:
+        log.debug("Failed to open lock file %s : %s", lockFile, e)
         log.error("Failed to process job %s", name)
         success = False
 
@@ -130,12 +130,12 @@ def main():
                 f = os.open(GCRON_RELOAD_FLAG,
                             os.O_CREAT | os.O_NONBLOCK, 0o644)
                 os.close(f)
-            except OSError as (errno, strerror):
+            except OSError as e:
                 if errno != EEXIST:
                     log.error("Failed to create %s : %s",
-                              GCRON_RELOAD_FLAG, strerror)
+                              GCRON_RELOAD_FLAG, e)
                     output("Failed to create %s. Error: %s"
-                           % (GCRON_RELOAD_FLAG, strerror))
+                           % (GCRON_RELOAD_FLAG, e))
             return
 
         if not os.path.exists(GCRON_CROND_TASK):
@@ -154,9 +154,9 @@ def main():
                 if process.returncode != 0:
                     log.error("Failed to touch %s. Error: %s.",
                               GCRON_CROND_TASK, err)
-            except (IOError, OSError) as (errno, strerror):
+            except (IOError, OSError) as e:
                 log.error("Failed to touch %s. Error: %s.",
-                          GCRON_CROND_TASK, strerror)
+                          GCRON_CROND_TASK, e)
             return
         if os.lstat(GCRON_TASKS).st_mtime > \
            os.lstat(GCRON_CROND_TASK).st_mtime:
@@ -168,9 +168,9 @@ def main():
                 if process.returncode != 0:
                     log.error("Failed to touch %s. Error: %s.",
                               GCRON_CROND_TASK, err)
-            except IOError as (errno, strerror):
+            except IOError as e:
                 log.error("Failed to touch %s. Error: %s.",
-                          GCRON_CROND_TASK, strerror)
+                          GCRON_CROND_TASK, e)
         return
 
     volname = sys.argv[1]

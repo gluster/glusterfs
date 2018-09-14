@@ -209,9 +209,9 @@ def enable_scheduler():
                     f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK,
                                 0o644)
                     os.close(f)
-                except OSError as (errno, strerror):
+                except OSError as e:
                     log.error("Failed to open %s. Error: %s.",
-                              GCRON_ENABLED, strerror)
+                              GCRON_ENABLED, e)
                     ret = INTERNAL_ERROR
                     return ret
                 os.symlink(GCRON_ENABLED, GCRON_TASKS)
@@ -219,8 +219,9 @@ def enable_scheduler():
                 log.info("Snapshot scheduling is enabled")
                 output("Snapshot scheduling is enabled")
                 ret = 0
-            except OSError as (errno, strerror):
-                print_str = "Failed to enable snapshot scheduling. Error: "+strerror
+            except OSError as e:
+                print_str = ("Failed to enable snapshot scheduling."
+                             "Error: {{}}" + e)
                 log.error(print_str)
                 output(print_str)
                 ret = INTERNAL_ERROR
@@ -268,8 +269,9 @@ def disable_scheduler():
                 log.info("Snapshot scheduling is disabled")
                 output("Snapshot scheduling is disabled")
                 ret = 0
-            except OSError as (errno, strerror):
-                print_str = "Failed to disable snapshot scheduling. Error: "+strerror
+            except OSError as e:
+                print_str = ("Failed to disable snapshot scheduling. Error: "
+                             + e)
                 log.error(print_str)
                 output(print_str)
                 ret = INTERNAL_ERROR
@@ -308,8 +310,8 @@ def load_tasks_from_file():
                 tasks[jobname] = schedule+":"+volname
             f.close()
         ret = 0
-    except IOError as (errno, strerror):
-        log.error("Failed to open %s. Error: %s.", GCRON_ENABLED, strerror)
+    except IOError as e:
+        log.error("Failed to open %s. Error: %s.", GCRON_ENABLED, e)
         ret = INTERNAL_ERROR
 
     return ret
@@ -322,8 +324,8 @@ def get_current_scheduler():
             current_scheduler = f.readline().rstrip('\n')
             f.close()
         ret = 0
-    except IOError as (errno, strerror):
-        log.error("Failed to open %s. Error: %s.", CURRENT_SCHEDULER, strerror)
+    except IOError as e:
+        log.error("Failed to open %s. Error: %s.", CURRENT_SCHEDULER, e)
         ret = INTERNAL_ERROR
 
     return ret
@@ -376,8 +378,8 @@ def write_tasks_to_file():
                 f.flush()
                 os.fsync(f.fileno())
             f.close()
-    except IOError as (errno, strerror):
-        log.error("Failed to open %s. Error: %s.", TMP_FILE, strerror)
+    except IOError as e:
+        log.error("Failed to open %s. Error: %s.", TMP_FILE, e)
         ret = INTERNAL_ERROR
         return ret
 
@@ -393,8 +395,8 @@ def update_current_scheduler(data):
             f.flush()
             os.fsync(f.fileno())
             f.close()
-    except IOError as (errno, strerror):
-        log.error("Failed to open %s. Error: %s.", TMP_FILE, strerror)
+    except IOError as e:
+        log.error("Failed to open %s. Error: %s.", TMP_FILE, e)
         ret = INTERNAL_ERROR
         return ret
 
@@ -459,9 +461,9 @@ def add_schedules(jobname, schedule, volname):
                         f = os.open(job_lockfile, os.O_CREAT | os.O_NONBLOCK,
                                     0o644)
                         os.close(f)
-                    except OSError as (errno, strerror):
+                    except OSError as e:
                         log.error("Failed to open %s. Error: %s.",
-                                  job_lockfile, strerror)
+                                  job_lockfile, e)
                         ret = INTERNAL_ERROR
                         return ret
                     log.info("Successfully added snapshot schedule %s" %
@@ -489,9 +491,9 @@ def delete_schedules(jobname):
                 job_lockfile = LOCK_FILE_DIR+jobname
                 try:
                     os.remove(job_lockfile)
-                except OSError as (errno, strerror):
+                except OSError as e:
                     log.error("Failed to open %s. Error: %s.",
-                              job_lockfile, strerror)
+                              job_lockfile, e)
                     ret = INTERNAL_ERROR
                     return ret
                 log.info("Successfully deleted snapshot schedule %s"
@@ -650,8 +652,8 @@ def initialise_scheduler():
             f.flush()
             os.fsync(f.fileno())
             f.close()
-    except IOError as (errno, strerror):
-        log.error("Failed to open %s. Error: %s.", TMP_FILE, strerror)
+    except IOError as e:
+        log.error("Failed to open %s. Error: %s.", TMP_FILE, e)
         ret = INIT_FAILED
         return ret
 
@@ -661,8 +663,8 @@ def initialise_scheduler():
         try:
             f = open(GCRON_TASKS, "w", 0o644)
             f.close()
-        except IOError as (errno, strerror):
-            log.error("Failed to open %s. Error: %s.", GCRON_TASKS, strerror)
+        except IOError as e:
+            log.error("Failed to open %s. Error: %s.", GCRON_TASKS, e)
             ret = INIT_FAILED
             return ret
 
@@ -894,11 +896,11 @@ def main(argv):
     if not os.path.exists(SHARED_STORAGE_DIR+"/snaps/"):
         try:
             os.makedirs(SHARED_STORAGE_DIR+"/snaps/")
-        except OSError as (errno, strerror):
+        except OSError as e:
             if errno != EEXIST:
-                log.error("Failed to create %s : %s", SHARED_STORAGE_DIR+"/snaps/", strerror)
+                log.error("Failed to create %s : %s", SHARED_STORAGE_DIR+"/snaps/", e)
                 output("Failed to create %s. Error: %s"
-                       % (SHARED_STORAGE_DIR+"/snaps/", strerror))
+                       % (SHARED_STORAGE_DIR+"/snaps/", e))
                 return INTERNAL_ERROR
 
     if not os.path.exists(GCRON_ENABLED):
@@ -908,11 +910,11 @@ def main(argv):
     if not os.path.exists(LOCK_FILE_DIR):
         try:
             os.makedirs(LOCK_FILE_DIR)
-        except OSError as (errno, strerror):
+        except OSError as e:
             if errno != EEXIST:
-                log.error("Failed to create %s : %s", LOCK_FILE_DIR, strerror)
+                log.error("Failed to create %s : %s", LOCK_FILE_DIR, e)
                 output("Failed to create %s. Error: %s"
-                       % (LOCK_FILE_DIR, strerror))
+                       % (LOCK_FILE_DIR, e))
                 return INTERNAL_ERROR
 
     try:
@@ -921,15 +923,15 @@ def main(argv):
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             ret = perform_operation(args)
             fcntl.flock(f, fcntl.LOCK_UN)
-        except IOError as (errno, strerror):
+        except IOError:
             log.info("%s is being processed by another agent.", LOCK_FILE)
             output("Another snap_scheduler command is running. "
                    "Please try again after some time.")
             return ANOTHER_TRANSACTION_IN_PROGRESS
         os.close(f)
-    except OSError as (errno, strerror):
-        log.error("Failed to open %s : %s", LOCK_FILE, strerror)
-        output("Failed to open %s. Error: %s" % (LOCK_FILE, strerror))
+    except OSError as e:
+        log.error("Failed to open %s : %s", LOCK_FILE, e)
+        output("Failed to open %s. Error: %s" % (LOCK_FILE, e))
         return INTERNAL_ERROR
 
     return ret
