@@ -113,7 +113,7 @@ def gen_xlator():
 
         xlator_methods = fragments["XLATOR_METHODS"].replace("@XL_NAME@", xl_name)
         xlator_methods = xlator_methods.replace("@FOP_PREFIX@", fop_prefix)
-	print(xlator_methods, file=xl)
+        print(xlator_methods, file=xl)
 
         xl.close()
 

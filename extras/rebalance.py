@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from __future__ import print_function
+
 import atexit
 import copy
 import optparse
@@ -155,8 +156,8 @@ def get_score (bricks):
 
 if __name__ == "__main__":
 
-	my_usage = "%prog [options] server volume [directory]"
-	parser = optparse.OptionParser(usage=my_usage)
+        my_usage = "%prog [options] server volume [directory]"
+        parser = optparse.OptionParser(usage=my_usage)
         parser.add_option("-f", "--free-space", dest="free_space",
                           default=False, action="store_true",
                           help="use free space instead of total space")
@@ -166,7 +167,7 @@ if __name__ == "__main__":
         parser.add_option("-v", "--verbose", dest="verbose",
                           default=False, action="store_true",
                           help="verbose output")
-	options, args = parser.parse_args()
+        options, args = parser.parse_args()
 
         if len(args) == 3:
                 fix_dir = args[2]
