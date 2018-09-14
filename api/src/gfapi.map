@@ -24,14 +24,30 @@ GFAPI_3.4.0 {
 		glfs_set_xlator_option;
 		glfs_read;
 		glfs_write;
+		glfs_read_async;
+		glfs_write_async;
 		glfs_readv;
 		glfs_writev;
+		glfs_readv_async;
+		glfs_writev_async;
+		glfs_pread;
+		glfs_pwrite;
+		glfs_pread_async;
+		glfs_pwrite_async;
 		glfs_preadv;
 		glfs_pwritev;
+		glfs_preadv_async;
+		glfs_pwritev_async;
 		glfs_lseek;
+		glfs_ftruncate;
+		glfs_ftruncate_async;
 		glfs_lstat;
 		glfs_stat;
 		glfs_fstat;
+		glfs_fsync;
+		glfs_fsync_async;
+		glfs_fdatasync;
+		glfs_fdatasync_async;
 		glfs_access;
 		glfs_symlink;
 		glfs_readlink;
@@ -71,20 +87,9 @@ GFAPI_3.4.0 {
 		glfs_getcwd;
 		glfs_chdir;
 		glfs_fchdir;
+		glfs_realpath;
 		glfs_posix_lock;
 		glfs_dup;
-		glfs_pread;
-		glfs_pwrite;
-		glfs_pread_async;
-		glfs_pwrite_async;
-		glfs_ftruncate;
-		glfs_ftruncate_async;
-		glfs_fsync;
-		glfs_fsync_async;
-		glfs_fdatasync;
-		glfs_fdatasync_async;
-		glfs_realpath;
-		glfs_h_lookupat;
 } GFAPI_PRIVATE_3.4.0;
 
 GFAPI_3.4.2 {
@@ -119,7 +124,9 @@ GFAPI_3.5.0 {
 		glfs_readdirplus;
 		glfs_fallocate;
 		glfs_discard;
+		glfs_discard_async;
 		glfs_zerofill;
+		glfs_zerofill_async;
 		glfs_caller_specific_init;
 		glfs_h_setxattrs;
 } GFAPI_3.4.2;
@@ -201,7 +208,7 @@ GFAPI_3.11.0 {
 		glfs_xreaddirplus_r;
 		glfs_xreaddirplus_r_get_stat;
 		glfs_xreaddirplus_r_get_object;
-                glfs_object_copy;
+		glfs_object_copy;
 } GFAPI_3.10.7;
 
 GFAPI_PRIVATE_3.12.0 {
@@ -210,38 +217,38 @@ GFAPI_PRIVATE_3.12.0 {
 } GFAPI_3.11.0;
 
 GFAPI_3.13.0 {
-        global:
-                glfs_upcall_register;
-                glfs_upcall_unregister;
+	global:
+		glfs_upcall_register;
+		glfs_upcall_unregister;
 } GFAPI_PRIVATE_3.12.0;
 
 GFAPI_4.0.0 {
-        global:
-                glfs_setfsleaseid;
-                glfs_file_lock;
-                glfs_lease;
-                glfs_h_lease;
+	global:
+		glfs_setfsleaseid;
+		glfs_file_lock;
+		glfs_lease;
+		glfs_h_lease;
 } GFAPI_3.13.0;
 
 GFAPI_future {
 	global:
-                glfs_read_async;
-                glfs_write_async;
-                glfs_readv_async;
-                glfs_writev_async;
-                glfs_pread;
-                glfs_pwrite;
-                glfs_pread_async;
-                glfs_pwrite_async;
-                glfs_preadv_async;
-                glfs_pwritev_async;
-                glfs_fsync;
-                glfs_fsync_async;
-                glfs_fdatasync;
-                glfs_fdatasync_async;
-                glfs_ftruncate;
-                glfs_ftruncate_async;
-                glfs_discard_async;
-                glfs_zerofill_async;
+		glfs_read_async;
+		glfs_write_async;
+		glfs_readv_async;
+		glfs_writev_async;
+		glfs_pread;
+		glfs_pwrite;
+		glfs_pread_async;
+		glfs_pwrite_async;
+		glfs_preadv_async;
+		glfs_pwritev_async;
+		glfs_fsync;
+		glfs_fsync_async;
+		glfs_fdatasync;
+		glfs_fdatasync_async;
+		glfs_ftruncate;
+		glfs_ftruncate_async;
+		glfs_discard_async;
+		glfs_zerofill_async;
 } GFAPI_4.0.0;
 
