@@ -4788,7 +4788,7 @@ out:
     return ret;
 }
 
-int
+static int
 glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
                          struct gf_upcall *up_data)
 {
