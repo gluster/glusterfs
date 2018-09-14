@@ -4314,8 +4314,9 @@ glusterd_gsync_configure(glusterd_volinfo_t *volinfo, char *slave,
     runner_add_arg(&runner, slave);
     runner_argprintf(&runner, "--config-%s", subop);
     runner_add_arg(&runner, op_name);
-    if (op_value)
-        runner_add_arg(&runner, op_value);
+    if (op_value) {
+        runner_argprintf(&runner, "--value=%s", op_value);
+    }
 
     if (strcmp(op_name, "checkpoint") != 0 && strtail(subop, "set")) {
         ret = glusterd_gsync_op_already_set(master, slave, conf_path, op_name,
