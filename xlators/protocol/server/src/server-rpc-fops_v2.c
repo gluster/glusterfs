@@ -5944,6 +5944,11 @@ server4_compound_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* TODO: I assume a single 10MB payload is large, if not, we need to
        agree to valid payload */
+    if (!args_cbk) {
+        op_ret = -1;
+        goto out;
+    }
+
     if ((args_cbk->fop_length <= 0) ||
         ((args_cbk->fop_length > (10 * 1024 * 1024)))) {
         op_ret = -1;
@@ -5978,8 +5983,8 @@ out:
 
     server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
                         (xdrproc_t)xdr_gfx_compound_rsp);
-
-    server_compound_rsp_cleanup_v2(&rsp, args_cbk);
+    if (args_cbk)
+        server_compound_rsp_cleanup_v2(&rsp, args_cbk);
     GF_FREE(rsp.xdata.pairs.pairs_val);
 
     return 0;
