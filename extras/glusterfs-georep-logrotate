@@ -1,6 +1,12 @@
 /var/log/glusterfs/geo-replication/*/*.log {
     sharedscripts
-    rotate 52
+    weekly
+    maxsize 10M
+    minsize 100k
+
+    # 6 months of logs are good enough
+    rotate 26
+
     missingok
     compress
     delaycompress
@@ -15,7 +21,13 @@
 
 /var/log/glusterfs/geo-replication-slaves/*.log {
     sharedscripts
-    rotate 52
+    weekly
+    maxsize 10M
+    minsize 100k
+
+    # 6 months of logs are good enough
+    rotate 26
+
     missingok
     compress
     delaycompress
@@ -30,7 +42,13 @@
 
 /var/log/glusterfs/geo-replication-slaves/*/*.log {
     sharedscripts
-    rotate 52
+    weekly
+    maxsize 10M
+    minsize 100k
+
+    # 6 months of logs are good enough
+    rotate 26
+
     missingok
     compress
     delaycompress

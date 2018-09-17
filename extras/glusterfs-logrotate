@@ -2,7 +2,12 @@
 /var/log/glusterfs/*.log {
   sharedscripts
   weekly
-  rotate 52
+  maxsize 10M
+  minsize 100k
+
+# 6 months of logs are good enough
+  rotate 26
+
   missingok
   compress
   delaycompress
@@ -17,7 +22,12 @@
 /var/log/glusterfs/bricks/*.log {
   sharedscripts
   weekly
-  rotate 52
+  maxsize 10M
+  minsize 100k
+
+# 6 months of logs are good enough
+  rotate 26
+
   missingok
   compress
   delaycompress
