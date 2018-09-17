@@ -20,7 +20,7 @@ LANDFILL=$B0/${V0}1/.glusterfs/landfill
 
 TEST glusterd
 
-TEST $CLI volume create $V0 $H0:$B0/${V0}1
+TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2}
 TEST $CLI volume start $V0
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 

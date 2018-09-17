@@ -11,10 +11,32 @@
 #include "statedump.h"
 #include "dht-common.h"
 
-class_methods_t class_methods = {.init = dht_init,
-                                 .fini = dht_fini,
-                                 .reconfigure = dht_reconfigure,
-                                 .notify = dht_notify};
+struct xlator_fops dht_pt_fops = {
+    /* we need to keep mkdir to make sure we
+       have layout on new directory */
+    .mkdir = dht_pt_mkdir,
+    .getxattr = dht_pt_getxattr,
+    .fgetxattr = dht_pt_fgetxattr,
+
+    /* required to trace fop properly in changelog */
+    .rename = dht_pt_rename,
+
+    /* FIXME: commenting the '.lookup()' below made some of
+       the failing tests to pass. I would remove the below
+       line, but keeping it here as a reminder for people
+       to check for issues if they find concerns with DHT
+       pass-through logic  */
+    /*
+      .lookup = dht_lookup,
+      .readdir = dht_readdir,
+      .readdirp = dht_readdirp,
+    */
+    /* Keeping above as commented, mainly to support the
+       usecase of a gluster volume getting to 1x(anytype),
+       due to remove-brick (shrinking) exercise. In that case,
+       we would need above fops to be available, so we can
+       handle the case of dangling linkto files (if any) */
+};
 
 struct xlator_fops fops = {
     .ipc = dht_ipc,
@@ -74,6 +96,28 @@ struct xlator_dumpops dumpops = {
     .inodectx = dht_inodectx_dump,
 };
 
-struct xlator_cbks cbks = {.release = dht_release,
-                           //      .releasedir = dht_releasedir,
-                           .forget = dht_forget};
+struct xlator_cbks cbks = {
+    .release = dht_release,
+    //      .releasedir = dht_releasedir,
+    .forget = dht_forget,
+};
+
+extern int32_t
+mem_acct_init(xlator_t *this);
+extern struct volume_options options[];
+
+xlator_api_t xlator_api = {
+    .init = dht_init,
+    .fini = dht_fini,
+    .notify = dht_notify,
+    .reconfigure = dht_reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "distribute",
+    .pass_through_fops = &dht_pt_fops,
+    .category = GF_MAINTAINED,
+};

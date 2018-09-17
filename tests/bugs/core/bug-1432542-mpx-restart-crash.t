@@ -40,7 +40,7 @@ create_volume () {
 	local vol_name=$(printf "%s-vol%02d" $V0 $1)
 
 	local brick_base=$(get_brick_base $1)
-	local cmd="$CLI volume create $vol_name replica 2"
+	local cmd="$CLI volume create $vol_name replica 3"
 	local b
 	for b in $(seq 0 5); do
 		local this_brick=${brick_base}/brick$b

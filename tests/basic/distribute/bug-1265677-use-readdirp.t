@@ -8,8 +8,7 @@
 cleanup
 TEST glusterd
 TEST pidof glusterd
-TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..1}
-TEST $CLI volume heal $V0 disable
+TEST $CLI volume create $V0 $H0:$B0/${V0}{0..1}
 TEST $CLI volume set $V0 nfs.disable yes
 TEST $CLI volume set $V0 dht.force-readdirp yes
 TEST $CLI volume set $V0 performance.readdir-ahead off
