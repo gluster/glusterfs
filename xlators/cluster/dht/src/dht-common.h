@@ -1502,4 +1502,24 @@ dht_read_iatt_from_xdata(xlator_t *this, dict_t *xdata, struct iatt *stbuf);
 
 int
 is_permission_different(ia_prot_t *prot1, ia_prot_t *prot2);
+void
+dht_selfheal_layout_new_directory(call_frame_t *frame, loc_t *loc,
+                                  dht_layout_t *new_layout);
+
+int
+dht_pt_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
+                 dict_t *xdata);
+
+int
+dht_pt_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
+                const char *key, dict_t *xdata);
+
+int32_t
+dht_pt_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+             mode_t umask, dict_t *xdata);
+
+int
+dht_pt_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+              dict_t *xdata);
+
 #endif /* _DHT_H */

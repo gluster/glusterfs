@@ -11030,3 +11030,135 @@ dht_remove_stale_linkto_cbk(int ret, call_frame_t *sync_frame, void *data)
     DHT_STACK_DESTROY(sync_frame);
     return 0;
 }
+
+int
+dht_pt_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+                 int op_errno, inode_t *inode, struct iatt *stbuf,
+                 struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+{
+    dht_local_t *local = NULL;
+
+    local = frame->local;
+
+    if (!op_ret) {
+        dht_layout_set(this, inode, local->layout);
+    }
+
+    DHT_STACK_UNWIND(mkdir, frame, op_ret, op_errno, inode, stbuf, preparent,
+                     postparent, NULL);
+
+    return 0;
+}
+
+int32_t
+dht_pt_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+             mode_t umask, dict_t *xdata)
+{
+    dht_layout_t *layout = NULL;
+    dht_conf_t *conf = NULL;
+    dht_local_t *local = NULL;
+    bool free_xdata = false;
+    int ret = 0;
+    int op_errno = 0;
+    int32_t *disk_layout_p = NULL;
+
+    conf = this->private;
+
+    local = dht_local_init(frame, loc, NULL, GF_FOP_MKDIR);
+    if (!local) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    layout = dht_layout_new(this, conf->subvolume_cnt);
+    if (!layout)
+        goto wind;
+
+    local->layout = layout;
+
+    if (!xdata) {
+        xdata = dict_new();
+        if (!xdata)
+            goto wind;
+        free_xdata = true;
+    }
+
+    /*Set the xlator or the following will crash*/
+    layout->list[0].xlator = conf->subvolumes[0];
+
+    dht_selfheal_layout_new_directory(frame, loc, layout);
+
+    dht_disk_layout_extract(this, layout, 0, &disk_layout_p);
+
+    ret = dict_set_bin(xdata, conf->xattr_name, disk_layout_p, 4 * 4);
+    if (ret) {
+        gf_msg("dht", GF_LOG_DEBUG, EINVAL, DHT_MSG_DICT_SET_FAILED,
+               "dht layout dict set failed");
+    }
+wind:
+    STACK_WIND(frame, dht_pt_mkdir_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->mkdir, loc, mode, umask, xdata);
+    if (free_xdata)
+        dict_unref(xdata);
+    return 0;
+
+err:
+    op_errno = local ? local->op_errno : op_errno;
+    DHT_STACK_UNWIND(mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+
+    return 0;
+}
+
+static int
+dht_pt_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                    int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+{
+    dht_conf_t *conf = NULL;
+
+    conf = this->private;
+    dict_del(xattr, conf->xattr_name);
+
+    if (frame->root->pid >= 0) {
+        GF_REMOVE_INTERNAL_XATTR("trusted.glusterfs.quota*", xattr);
+        GF_REMOVE_INTERNAL_XATTR("trusted.pgfid*", xattr);
+    }
+
+    DHT_STACK_UNWIND(getxattr, frame, op_ret, op_errno, xattr, xdata);
+    return 0;
+}
+
+int
+dht_pt_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
+                const char *key, dict_t *xdata)
+{
+    STACK_WIND(frame, dht_pt_getxattr_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->getxattr, loc, key, xdata);
+    return 0;
+}
+
+static int
+dht_pt_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+{
+    dht_conf_t *conf = NULL;
+
+    conf = this->private;
+    dict_del(xattr, conf->xattr_name);
+
+    if (frame->root->pid >= 0) {
+        GF_REMOVE_INTERNAL_XATTR("trusted.glusterfs.quota*", xattr);
+        GF_REMOVE_INTERNAL_XATTR("trusted.pgfid*", xattr);
+    }
+
+    DHT_STACK_UNWIND(fgetxattr, frame, op_ret, op_errno, xattr, xdata);
+    return 0;
+}
+
+int
+dht_pt_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
+                 dict_t *xdata)
+{
+    STACK_WIND(frame, dht_pt_fgetxattr_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->fgetxattr, fd, key, xdata);
+    return 0;
+}

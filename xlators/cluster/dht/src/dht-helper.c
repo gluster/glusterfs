@@ -1162,6 +1162,10 @@ dht_init_subvolumes(xlator_t *this, dht_conf_t *conf)
         return -1;
     }
     conf->subvolume_cnt = cnt;
+    /* Doesn't make sense to do any dht layer tasks
+       if the subvol count is 1. Set it as pass_through */
+    if (cnt == 1)
+        this->pass_through = _gf_true;
 
     conf->local_subvols_cnt = 0;
 

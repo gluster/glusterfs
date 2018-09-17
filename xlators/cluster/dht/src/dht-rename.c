@@ -1828,32 +1828,13 @@ dht_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     int op_errno = -1;
     int ret = -1;
     dht_local_t *local = NULL;
-    dht_conf_t *conf = NULL;
     char gfid[GF_UUID_BUF_SIZE] = {0};
     char newgfid[GF_UUID_BUF_SIZE] = {0};
-    gf_boolean_t free_xdata = _gf_false;
 
     VALIDATE_OR_GOTO(frame, err);
     VALIDATE_OR_GOTO(this, err);
     VALIDATE_OR_GOTO(oldloc, err);
     VALIDATE_OR_GOTO(newloc, err);
-
-    conf = this->private;
-
-    if (conf->subvolume_cnt == 1) {
-        if (!IA_ISDIR(oldloc->inode->ia_type)) {
-            if (!xdata) {
-                free_xdata = _gf_true;
-            }
-            DHT_CHANGELOG_TRACK_AS_RENAME(xdata, oldloc, newloc);
-        }
-        default_rename(frame, this, oldloc, newloc, xdata);
-        if (free_xdata && xdata) {
-            dict_unref(xdata);
-            xdata = NULL;
-        }
-        return 0;
-    }
 
     gf_uuid_unparse(oldloc->inode->gfid, gfid);
 
@@ -1939,5 +1920,26 @@ err:
     DHT_STACK_UNWIND(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL,
                      NULL);
 
+    return 0;
+}
+
+int
+dht_pt_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+              dict_t *xdata)
+{
+    gf_boolean_t free_xdata = _gf_false;
+
+    /* Just a pass through */
+    if (!IA_ISDIR(oldloc->inode->ia_type)) {
+        if (!xdata) {
+            free_xdata = _gf_true;
+        }
+        DHT_CHANGELOG_TRACK_AS_RENAME(xdata, oldloc, newloc);
+    }
+    default_rename(frame, this, oldloc, newloc, xdata);
+    if (free_xdata && xdata) {
+        dict_unref(xdata);
+        xdata = NULL;
+    }
     return 0;
 }

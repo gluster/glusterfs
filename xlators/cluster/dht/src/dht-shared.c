@@ -41,7 +41,8 @@
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
 */
-struct volume_options options[];
+/* FIXME: Not sure why someone defined this here */
+/* struct volume_options options[]; */
 
 extern dht_methods_t dht_methods;
 
