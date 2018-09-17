@@ -745,7 +745,7 @@ _fcbk_conftodict(char *resbuf, size_t blen, FILE *fp, void *data)
 
     for (;;) {
         errno = 0;
-        ptr = fgets(resbuf, blen, fp);
+        ptr = fgets(resbuf, blen - 2, fp);
         if (!ptr)
             break;
         v = resbuf + strlen(resbuf) - 1;
@@ -808,7 +808,7 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
 
     for (;;) {
         errno = 0;
-        ptr = fgets(resbuf, blen, fp);
+        ptr = fgets(resbuf, blen - 2, fp);
         if (!ptr)
             break;
 
@@ -3914,7 +3914,7 @@ gd_pause_or_resume_gsync(dict_t *dict, char *master, char *slave,
 {
     int32_t ret = 0;
     int pfd = -1;
-    pid_t pid = 0;
+    long pid = 0;
     char pidfile[PATH_MAX] = {
         0,
     };
@@ -3979,8 +3979,9 @@ gd_pause_or_resume_gsync(dict_t *dict, char *master, char *slave,
         goto out;
     }
 
-    ret = sys_read(pfd, buf, sizeof(buf));
+    ret = sys_read(pfd, buf, sizeof(buf) - 1);
     if (ret > 0) {
+        buf[ret] = '\0';
         pid = strtol(buf, NULL, 10);
         if (is_pause) {
             ret = kill(-pid, SIGSTOP);
@@ -4072,7 +4073,7 @@ stop_gsync(char *master, char *slave, char **msg, char *conf_path,
 {
     int32_t ret = 0;
     int pfd = -1;
-    pid_t pid = 0;
+    long pid = 0;
     char pidfile[PATH_MAX] = {
         0,
     };
@@ -4111,8 +4112,9 @@ stop_gsync(char *master, char *slave, char **msg, char *conf_path,
     if (pfd < 0)
         goto out;
 
-    ret = sys_read(pfd, buf, sizeof(buf));
+    ret = sys_read(pfd, buf, sizeof(buf) - 1);
     if (ret > 0) {
+        buf[ret] = '\0';
         pid = strtol(buf, NULL, 10);
         ret = kill(-pid, SIGTERM);
         if (ret && !is_force) {
@@ -5479,8 +5481,9 @@ glusterd_op_copy_file(dict_t *dict, char **op_errstr)
         }
 
         do {
-            ret = sys_read(fd, buf, sizeof(buf));
+            ret = sys_read(fd, buf, sizeof(buf) - 1);
             if (ret > 0) {
+                buf[ret] = '\0';
                 memcpy(contents + bytes_read, buf, ret);
                 bytes_read += ret;
             }
