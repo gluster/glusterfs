@@ -33,16 +33,16 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 noinst_PYTHON = gen_fdl.py gen_dumper.py gen_recon.py
-EXTRA_DIST = fdl-tmpl.c dump-tmpl.c recon-tmpl.c
+EXTRA_DIST = fdl-tmpl.c.in dump-tmpl.c.in recon-tmpl.c.in
 
 CLEANFILES = $(nodist_fdl_la_SOURCES) $(nodist_gf_logdump_SOURCES) \
 	$(nodist_gf_recon_SOURCES)
 
-fdl.c: fdl-tmpl.c gen_fdl.py
-	$(PYTHON) $(srcdir)/gen_fdl.py $(srcdir)/fdl-tmpl.c > $@
+fdl.c: fdl-tmpl.c.in gen_fdl.py
+	$(PYTHON) $(srcdir)/gen_fdl.py $(srcdir)/fdl-tmpl.c.in > $@
 
-libfdl.c: dump-tmpl.c gen_dumper.py
-	$(PYTHON) $(srcdir)/gen_dumper.py $(srcdir)/dump-tmpl.c > $@
+libfdl.c: dump-tmpl.c.in gen_dumper.py
+	$(PYTHON) $(srcdir)/gen_dumper.py $(srcdir)/dump-tmpl.c.in > $@
 
-librecon.c: recon-tmpl.c gen_recon.py
-	$(PYTHON) $(srcdir)/gen_recon.py $(srcdir)/recon-tmpl.c > $@
+librecon.c: recon-tmpl.c.in gen_recon.py
+	$(PYTHON) $(srcdir)/gen_recon.py $(srcdir)/recon-tmpl.c.in > $@

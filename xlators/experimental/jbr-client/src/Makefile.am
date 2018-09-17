@@ -22,7 +22,7 @@ AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 JBRC_PREFIX	= $(top_srcdir)/xlators/experimental/jbr-client/src
 JBRC_GEN_FOPS	= $(JBRC_PREFIX)/gen-fops.py
-JBRC_TEMPLATES	= $(JBRC_PREFIX)/fop-template.c
+JBRC_TEMPLATES	= $(JBRC_PREFIX)/fop-template.c.in
 JBRC_WRAPPER	= $(JBRC_PREFIX)/jbrc.c
 noinst_PYTHON	= $(JBRC_GEN_FOPS)
 EXTRA_DIST	= $(JBRC_TEMPLATES) $(JBRC_WRAPPER)
