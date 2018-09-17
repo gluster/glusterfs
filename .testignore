@@ -32,6 +32,8 @@ extras/cliutils/README.md
 extras/command-completion/README
 extras/create_new_xlator/README.md
 extras/glusterfs.vim
+extras/glusterfs-logrotate
+extras/glusterfs-georep-logrotate
 extras/init.d/glusterd-Debian.in
 extras/init.d/glusterd-FreeBSD.in
 extras/init.d/glusterd-Redhat.in
