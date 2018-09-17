@@ -27,7 +27,7 @@ AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 JBR_PREFIX	= $(top_srcdir)/xlators/experimental/jbr-server/src
 JBR_GEN_FOPS	= $(JBR_PREFIX)/gen-fops.py
-JBR_TEMPLATES	= $(JBR_PREFIX)/all-templates.c
+JBR_TEMPLATES	= $(JBR_PREFIX)/all-templates.c.in
 JBR_WRAPPER	= $(JBR_PREFIX)/jbr.c
 noinst_PYTHON	= $(JBR_GEN_FOPS)
 EXTRA_DIST	= $(JBR_TEMPLATES) $(JBR_WRAPPER)
