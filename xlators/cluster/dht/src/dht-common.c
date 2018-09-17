@@ -6576,7 +6576,9 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     prev = cookie;
     local = frame->local;
-    itable = local->fd ? local->fd->inode->table : NULL;
+    GF_VALIDATE_OR_GOTO(this->name, local->fd, unwind);
+
+    itable = local->fd->inode->table;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, unwind);
