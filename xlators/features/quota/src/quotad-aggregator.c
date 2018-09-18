@@ -283,7 +283,8 @@ errx:
 int
 quotad_aggregator_lookup_cbk(xlator_t *this, call_frame_t *frame, void *rsp)
 {
-    quotad_aggregator_submit_reply(frame, frame->local, rsp, NULL, 0, NULL,
+    quotad_aggregator_submit_reply(frame, frame ? frame->local : NULL, rsp,
+                                   NULL, 0, NULL,
                                    (xdrproc_t)xdr_gfs3_lookup_rsp);
 
     return 0;
