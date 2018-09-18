@@ -1522,13 +1522,13 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
+    VALIDATE_OR_GOTO(fd->inode, out);
     VALIDATE_OR_GOTO(this->private, out);
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
 
-    if (fd->inode && ((fd->inode->ia_type == IA_IFBLK) ||
-                      (fd->inode->ia_type == IA_IFCHR))) {
+    if ((fd->inode->ia_type == IA_IFBLK) || (fd->inode->ia_type == IA_IFCHR)) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_INVALID_ARGUMENT,
                "readv received on a block/char file (%s)",
                uuid_utoa(fd->inode->gfid));
@@ -1798,6 +1798,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
+    VALIDATE_OR_GOTO(fd->inode, out);
     VALIDATE_OR_GOTO(vector, out);
     VALIDATE_OR_GOTO(this->private, out);
 
@@ -1806,8 +1807,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     VALIDATE_OR_GOTO(priv, out);
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
-    if (fd->inode && ((fd->inode->ia_type == IA_IFBLK) ||
-                      (fd->inode->ia_type == IA_IFCHR))) {
+    if ((fd->inode->ia_type == IA_IFBLK) || (fd->inode->ia_type == IA_IFCHR)) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_INVALID_ARGUMENT,
                "writev received on a block/char file (%s)",
                uuid_utoa(fd->inode->gfid));
