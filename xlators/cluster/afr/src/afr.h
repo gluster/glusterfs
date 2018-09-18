@@ -307,6 +307,12 @@ typedef enum {
 } afr_fop_lock_state_t;
 
 typedef struct _afr_inode_lock_t {
+        /* @num_inodelks:
+           Number of inodelks queried from the server, as queried through
+           xdata in FOPs. Currently, used to decide if eager-locking must be
+           temporarily disabled.
+        */
+        int32_t num_inodelks;
         unsigned int event_generation;
         gf_boolean_t    release;
         gf_boolean_t    acquired;
@@ -359,6 +365,8 @@ typedef struct _afr_local {
 
         uint32_t     open_fd_count;
         gf_boolean_t update_open_fd_count;
+        int32_t num_inodelks;
+        gf_boolean_t update_num_inodelks;
 
 	gf_lkowner_t  saved_lk_owner;
 
