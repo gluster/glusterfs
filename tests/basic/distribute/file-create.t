@@ -109,12 +109,12 @@ TEST stat "$brickpath_0/dir1/$newfile"
 EXPECT "1" is_dht_linkfile "$brickpath_1/dir1/$newfile"
 
 
-#force_umount $M0
-#TEST $CLI volume stop $V0
-#UMOUNT_LOOP ${B0}/${V0}{1,2}
-#rm -f ${B0}/brick{1,2}
+force_umount $M0
+TEST $CLI volume stop $V0
+UMOUNT_LOOP ${B0}/${V0}{1,2}
+rm -f ${B0}/brick{1,2}
 
 
 # Cleanup
-#cleanup
+cleanup
 
