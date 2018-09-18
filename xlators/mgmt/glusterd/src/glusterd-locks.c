@@ -686,7 +686,6 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    gf_log(THIS->name, GF_LOG_INFO, "In gd_mgmt_v3_unlock_timer_cbk");
     GF_ASSERT(NULL != data);
     key = (char *)data;
 
@@ -726,6 +725,10 @@ out:
         gf_timer_call_cancel(mgmt_lock_timer_ctx, mgmt_lock_timer->timer);
         dict_del(conf->mgmt_v3_lock_timer, bt_key);
         mgmt_lock_timer->timer = NULL;
+        gf_log(this->name, GF_LOG_INFO,
+               "unlock timer is cancelled for volume"
+               " %s",
+               name);
     }
 
 ret_function:
