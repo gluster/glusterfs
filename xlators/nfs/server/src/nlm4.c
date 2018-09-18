@@ -767,7 +767,7 @@ nlm4_test_reply(nfs3_call_state_t *cs, nlm4_stats stat, struct gf_flock *flock)
     memset(&res, 0, sizeof(res));
     res.cookie = cs->args.nlm4_testargs.cookie;
     res.stat.stat = stat;
-    if (stat == nlm4_denied)
+    if ((stat == nlm4_denied) && flock)
         nlm4_gf_flock_to_holder(&res.stat.nlm4_testrply_u.holder, flock);
 
     nlm4svc_submit_reply(cs->req, (void *)&res,
