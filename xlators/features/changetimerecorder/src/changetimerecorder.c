@@ -2098,7 +2098,7 @@ init(xlator_t *this)
     int ret_db = -1;
 
     if (!this) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_FATAL_ERROR,
+        gf_msg("ctr", GF_LOG_ERROR, 0, CTR_MSG_FATAL_ERROR,
                "FATAL: ctr this is not initialized");
         return -1;
     }
