@@ -1674,7 +1674,9 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
     pthread_mutex_lock(&conn->lock);
     {
-        if (conn->connected == 0 && !rpc->disabled) {
+        if (conn->connected == 0) {
+            if (rpc->disabled)
+                goto nosubmit;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
             if (ret < 0) {
                 gf_log(conn->name, GF_LOG_WARNING,
@@ -1685,6 +1687,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
         }
 
         ret = rpc_transport_submit_request(conn->trans, &req);
+    nosubmit:
         if (ret == -1) {
             gf_log(conn->name, GF_LOG_WARNING,
                    "failed to submit rpc-request "
