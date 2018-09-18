@@ -1916,17 +1916,28 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
 }
 
 gf_boolean_t
-afr_are_multiple_fds_opened(afr_local_t *local, xlator_t *this)
+afr_are_conflicting_ops_waiting(afr_local_t *local, xlator_t *this)
 {
+    afr_lock_t *lock = NULL;
+    lock = &local->inode_ctx->lock[local->transaction.type];
+
     /* Lets say mount1 has eager-lock(full-lock) and after the eager-lock
      * is taken mount2 opened the same file, it won't be able to
-     * perform any data operations until mount1 releases eager-lock.
+     * perform any {meta,}data operations until mount1 releases eager-lock.
      * To avoid such scenario do not enable eager-lock for this transaction
-     * if open-fd-count is > 1
+     * if open-fd-count is > 1 for metadata transactions and if num-inodelks > 1
+     * for data transactions
      */
 
-    if (local->inode_ctx->open_fd_count > 1)
-        return _gf_true;
+    if (local->transaction.type == AFR_METADATA_TRANSACTION) {
+        if (local->inode_ctx->open_fd_count > 1) {
+            return _gf_true;
+        }
+    } else if (local->transaction.type == AFR_DATA_TRANSACTION) {
+        if (lock->num_inodelks > 1) {
+            return _gf_true;
+        }
+    }
 
     return _gf_false;
 }
@@ -1947,7 +1958,7 @@ afr_is_delayed_changelog_post_op_needed(call_frame_t *frame, xlator_t *this,
         goto out;
     }
 
-    if (afr_are_multiple_fds_opened(local, this)) {
+    if (afr_are_conflicting_ops_waiting(local, this)) {
         lock->release = _gf_true;
         goto out;
     }
