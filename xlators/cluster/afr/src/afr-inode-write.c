@@ -284,6 +284,7 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
     afr_local_t *local = frame->local;
     uint32_t open_fd_count = 0;
     uint32_t write_is_append = 0;
+    int32_t num_inodelks = 0;
 
     LOCK(&frame->lock);
     {
@@ -305,6 +306,15 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
             local->open_fd_count = open_fd_count;
             local->update_open_fd_count = _gf_true;
         }
+
+        ret = dict_get_int32n(xdata, GLUSTERFS_INODELK_COUNT,
+                              SLEN(GLUSTERFS_INODELK_COUNT), &num_inodelks);
+        if (ret < 0)
+            goto unlock;
+        if (num_inodelks > local->num_inodelks) {
+            local->num_inodelks = num_inodelks;
+            local->update_num_inodelks = _gf_true;
+        }
     }
 unlock:
     UNLOCK(&frame->lock);
@@ -314,6 +324,7 @@ void
 afr_process_post_writev(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
+    afr_lock_t *lock = NULL;
 
     local = frame->local;
 
@@ -332,6 +343,11 @@ afr_process_post_writev(call_frame_t *frame, xlator_t *this)
 
     if (local->update_open_fd_count)
         local->inode_ctx->open_fd_count = local->open_fd_count;
+    if (local->update_num_inodelks &&
+        local->transaction.type == AFR_DATA_TRANSACTION) {
+        lock = &local->inode_ctx->lock[local->transaction.type];
+        lock->num_inodelks = local->num_inodelks;
+    }
 }
 
 int
@@ -508,6 +524,12 @@ afr_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         goto out;
 
     if (dict_set_uint32(local->xdata_req, GLUSTERFS_ACTIVE_FD_COUNT, 4)) {
+        op_errno = ENOMEM;
+        goto out;
+    }
+
+    if (dict_set_strn(local->xdata_req, GLUSTERFS_INODELK_DOM_COUNT,
+                      SLEN(GLUSTERFS_INODELK_DOM_COUNT), this->name)) {
         op_errno = ENOMEM;
         goto out;
     }
