@@ -2167,6 +2167,10 @@ glusterfs_volfile_fetch_one(glusterfs_ctx_t *ctx, char *volfile_id)
     }
 
     frame = create_frame(THIS, ctx->pool);
+    if (!frame) {
+        ret = -1;
+        goto out;
+    }
 
     req.key = volfile_id;
     req.flags = 0;
