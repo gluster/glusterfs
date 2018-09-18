@@ -1230,8 +1230,6 @@ pub_glfs_fini(struct glfs *fs)
 
     if (ctx->mgmt) {
         rpc_clnt_disable(ctx->mgmt);
-        rpc_clnt_unref(ctx->mgmt);
-        ctx->mgmt = NULL;
     }
 
     call_pool = fs->ctx->pool;
@@ -1347,6 +1345,13 @@ pub_glfs_fini(struct glfs *fs)
         /* Join the poller thread */
         if (event_dispatch_destroy(ctx->event_pool) < 0)
             ret = -1;
+    }
+
+    /* Avoid dispatching events to mgmt after freed,
+     * unreference mgmt after the event_dispatch_destroy */
+    if (ctx->mgmt) {
+        rpc_clnt_unref(ctx->mgmt);
+        ctx->mgmt = NULL;
     }
 
     /* log infra has to be brought down before destroying
