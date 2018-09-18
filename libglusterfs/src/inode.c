@@ -1793,7 +1793,7 @@ inode_table_destroy(inode_table_t *inode_table)
              * purge list. By this time there should not be any
              * inodes present in the active list except for root
              * inode. Its a ref_leak otherwise. */
-            if (trav != inode_table->root)
+            if (trav && (trav != inode_table->root))
                 gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
                                  LG_MSG_REF_COUNT,
                                  "Active inode(%p) with refcount"
