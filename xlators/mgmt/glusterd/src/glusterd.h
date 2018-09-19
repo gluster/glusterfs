@@ -212,7 +212,7 @@ typedef struct {
     int ping_timeout;
     uint32_t generation;
     int32_t workers;
-    uint32_t blockers;
+    gf_atomic_t blockers;
     uint32_t mgmt_v3_lock_timeout;
     gf_boolean_t restart_bricks;
 } glusterd_conf_t;

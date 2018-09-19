@@ -5426,9 +5426,7 @@ my_callback(struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
     call_frame_t *frame = v_frame;
     glusterd_conf_t *conf = frame->this->private;
 
-    synclock_lock(&conf->big_lock);
-    --(conf->blockers);
-    synclock_unlock(&conf->big_lock);
+    GF_ATOMIC_DEC(conf->blockers);
 
     STACK_DESTROY(frame->root);
     return 0;
@@ -5524,9 +5522,7 @@ attach_brick_callback(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 out:
-    synclock_lock(&conf->big_lock);
-    --(conf->blockers);
-    synclock_unlock(&conf->big_lock);
+    GF_ATOMIC_DEC(conf->blockers);
     STACK_DESTROY(frame->root);
     return 0;
 }
@@ -5613,7 +5609,7 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
         cbkfn = attach_brick_callback;
     }
     /* Send the msg */
-    ++(conf->blockers);
+    GF_ATOMIC_INC(conf->blockers);
     ret = rpc_clnt_submit(rpc, &gd_brick_prog, op, cbkfn, &iov, 1, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
     return ret;
@@ -6347,7 +6343,7 @@ glusterd_restart_bricks(void *opaque)
     }
     conf->restart_bricks = _gf_true;
 
-    ++(conf->blockers);
+    GF_ATOMIC_INC(conf->blockers);
     ret = glusterd_get_quorum_cluster_counts(this, &active_count,
                                              &quorum_count);
     if (ret)
@@ -6456,7 +6452,7 @@ glusterd_restart_bricks(void *opaque)
     ret = 0;
 
 out:
-    --(conf->blockers);
+    GF_ATOMIC_DEC(conf->blockers);
     conf->restart_done = _gf_true;
     conf->restart_bricks = _gf_false;
 
