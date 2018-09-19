@@ -6018,9 +6018,12 @@ glusterd_op_stage_validate(glusterd_op_t op, dict_t *dict, char **op_errstr,
 static void
 glusterd_wait_for_blockers(glusterd_conf_t *priv)
 {
-    while (priv->blockers) {
+    uint64_t blockers = GF_ATOMIC_GET(priv->blockers);
+
+    while (blockers) {
         synclock_unlock(&priv->big_lock);
         sleep(1);
+        blockers = GF_ATOMIC_GET(priv->blockers);
         synclock_lock(&priv->big_lock);
     }
 }

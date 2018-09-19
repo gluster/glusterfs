@@ -1976,7 +1976,7 @@ init(xlator_t *this)
         }
     }
 
-    conf->blockers = 0;
+    GF_ATOMIC_INIT(conf->blockers, 0);
     /* If the peer count is less than 2 then this would be the best time to
      * spawn process/bricks that may need (re)starting since last time
      * (this) glusterd was up. */
