@@ -25,7 +25,7 @@ TEST pidof glusterd
 
 # Create volume and enable brick multiplexing
 TEST $CLI volume create $V0 $H0:$L1 $H0:$L2 $H0:$L3
-gluster v set all cluster.brick-multiplex on
+TEST $CLI v set all cluster.brick-multiplex on
 
 # Start the volume
 TEST $CLI volume start $V0
