@@ -837,7 +837,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
                  name);
 
     /* Release owner reference which was held during lock */
-    if (mgmt_lock_timer->timer) {
+    if (mgmt_lock_timer && mgmt_lock_timer->timer) {
         ret = -1;
         mgmt_lock_timer_xl = mgmt_lock_timer->xl;
         GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_xl, out);
