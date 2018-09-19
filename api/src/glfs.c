@@ -1221,12 +1221,17 @@ pub_glfs_fini(struct glfs *fs)
 
     DECLARE_OLD_THIS;
 
-    __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
+    if (!fs) {
+        errno = EINVAL;
+        goto invalid_fs;
+    }
 
     ctx = fs->ctx;
     if (!ctx) {
         goto free_fs;
     }
+
+    THIS = fs->ctx->master;
 
     if (ctx->mgmt) {
         rpc_clnt_disable(ctx->mgmt);
