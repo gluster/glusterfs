@@ -13,3 +13,6 @@ cluster.shd-wait-qlength=10000
 features.shard=on
 user.cifs=off
 cluster.choose-local=off
+client.event-threads=4
+server.event-threads=4
+performance.client-io-threads=on
