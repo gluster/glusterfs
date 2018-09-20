@@ -597,7 +597,7 @@ __afr_selfheal_data_prepare(call_frame_t *frame, xlator_t *this, inode_t *inode,
                             unsigned char *locked_on, unsigned char *sources,
                             unsigned char *sinks, unsigned char *healed_sinks,
                             unsigned char *undid_pending,
-                            struct afr_reply *replies, gf_boolean_t *pflag)
+                            struct afr_reply *replies, unsigned char *pflag)
 {
     int ret = -1;
     int source = -1;
