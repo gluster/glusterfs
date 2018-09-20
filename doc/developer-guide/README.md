@@ -18,11 +18,9 @@ code check-in.
     the GPL v2 and the LGPL v3 or later
 -   [GlusterFS Coding Standards](./coding-standard.md)
 
-Developing
-----------
+-   If you are not sure of where to start, and what to do, we have a small
+    write-up on what you can pick. [Check it out](./options-to-contribute.md)
 
--   [Language Bindings](./Language Bindings.md) - Connect to
-    GlusterFS using various language bindings
 
 Adding File operations
 ----------------------
