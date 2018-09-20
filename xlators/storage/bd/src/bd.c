@@ -1054,6 +1054,8 @@ bd_setx_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                    FIRST_CHILD(this)->fops->setxattr, &local->loc, local->dict,
                    0, NULL);
 
+    if (copy)
+        GF_FREE(copy);
     return 0;
 
 out:
@@ -1158,6 +1160,8 @@ bd_offload_getx_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                FIRST_CHILD(this)->fops->setxattr, local->dloc, local->dict, 0,
                NULL);
 
+    if (type)
+        GF_FREE(type);
     return 0;
 
 out:
@@ -1327,6 +1331,8 @@ bd_offload(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     STACK_WIND(frame, bd_offload_dest_lookup_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->lookup, local->dloc, local->dict);
 
+    if (param_copy)
+        GF_FREE(param_copy);
     return 0;
 
 out:
