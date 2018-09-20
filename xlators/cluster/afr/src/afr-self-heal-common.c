@@ -1513,7 +1513,7 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
                             struct afr_reply *replies,
                             afr_transaction_type type, unsigned char *locked_on,
                             unsigned char *sources, unsigned char *sinks,
-                            uint64_t *witness, gf_boolean_t *pflag)
+                            uint64_t *witness, unsigned char *pflag)
 {
     afr_private_t *priv = NULL;
     int i = 0;
@@ -1541,7 +1541,7 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
         for (i = 0; i < priv->child_count; i++) {
             for (j = 0; j < priv->child_count; j++)
                 if (matrix[i][j])
-                    *pflag = _gf_true;
+                    *pflag |= PFLAG_PENDING;
             if (*pflag)
                 break;
         }
@@ -1623,6 +1623,8 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
             if (locked_on[i])
                 sinks[i] = 1;
         }
+        if (pflag)
+            *pflag |= PFLAG_SBRAIN;
     }
 
     /* One more class of witness similar to dirty in v2 is where no pending

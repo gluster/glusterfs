@@ -177,7 +177,7 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
                             struct afr_reply *replies,
                             afr_transaction_type type, unsigned char *locked_on,
                             unsigned char *sources, unsigned char *sinks,
-                            uint64_t *witness, gf_boolean_t *flag);
+                            uint64_t *witness, unsigned char *flag);
 int
 afr_selfheal_fill_matrix(xlator_t *this, int **matrix, int subvol, int idx,
                          dict_t *xdata);
@@ -284,7 +284,7 @@ __afr_selfheal_data_prepare(call_frame_t *frame, xlator_t *this, inode_t *inode,
                             unsigned char *locked_on, unsigned char *sources,
                             unsigned char *sinks, unsigned char *healed_sinks,
                             unsigned char *undid_pending,
-                            struct afr_reply *replies, gf_boolean_t *flag);
+                            struct afr_reply *replies, unsigned char *flag);
 
 int
 __afr_selfheal_metadata_prepare(call_frame_t *frame, xlator_t *this,
@@ -292,14 +292,14 @@ __afr_selfheal_metadata_prepare(call_frame_t *frame, xlator_t *this,
                                 unsigned char *sources, unsigned char *sinks,
                                 unsigned char *healed_sinks,
                                 unsigned char *undid_pending,
-                                struct afr_reply *replies, gf_boolean_t *flag);
+                                struct afr_reply *replies, unsigned char *flag);
 int
 __afr_selfheal_entry_prepare(call_frame_t *frame, xlator_t *this,
                              inode_t *inode, unsigned char *locked_on,
                              unsigned char *sources, unsigned char *sinks,
                              unsigned char *healed_sinks,
                              struct afr_reply *replies, int *source_p,
-                             gf_boolean_t *flag);
+                             unsigned char *flag);
 
 int
 afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
