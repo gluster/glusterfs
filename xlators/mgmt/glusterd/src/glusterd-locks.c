@@ -624,10 +624,18 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
 
     ret = -1;
     mgmt_lock_timer_xl = mgmt_lock_timer->xl;
-    GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_xl, out);
+    if (!mgmt_lock_timer_xl) {
+        GF_FREE(mgmt_lock_timer);
+        GF_FREE(key_dup);
+        goto out;
+    }
 
     mgmt_lock_timer_ctx = mgmt_lock_timer_xl->ctx;
-    GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_ctx, out);
+    if (!mgmt_lock_timer_ctx) {
+        GF_FREE(mgmt_lock_timer);
+        GF_FREE(key_dup);
+        goto out;
+    }
 
     mgmt_lock_timer->timer = gf_timer_call_after(
         mgmt_lock_timer_ctx, delay, gd_mgmt_v3_unlock_timer_cbk, key_dup);
@@ -637,6 +645,7 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set timer in mgmt_v3 lock");
+        GF_FREE(key_dup);
         GF_FREE(mgmt_lock_timer);
         goto out;
     }
