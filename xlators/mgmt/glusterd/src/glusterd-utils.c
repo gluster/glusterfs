@@ -6629,7 +6629,8 @@ out:
             ret = op_ret;
         }
     }
-
+    if (slave_vol)
+        GF_FREE(slave_vol);
     GF_FREE(path_list);
     GF_FREE(op_errstr);
 
