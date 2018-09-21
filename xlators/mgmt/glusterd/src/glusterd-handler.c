@@ -4988,6 +4988,7 @@ out:
                                       &rsp.dict.dict_len);
 
     glusterd_submit_reply(req, &rsp, NULL, 0, NULL, (xdrproc_t)xdr_gf_cli_rsp);
+    GF_FREE(key_fixed);
     return ret;
 }
 

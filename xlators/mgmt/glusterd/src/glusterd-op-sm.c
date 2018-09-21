@@ -1684,16 +1684,11 @@ glusterd_op_stage_reset_volume(dict_t *dict, char **op_errstr)
             goto out;
         } else if (strcmp(key, "cluster.watermark-low") == 0) {
             ret = glusterd_water_limit_check(volinfo, _gf_false, op_errstr);
-            if (ret)
-                return ret;
         } else if (strcmp(key, "cluster.watermark-hi") == 0) {
             ret = glusterd_water_limit_check(volinfo, _gf_true, op_errstr);
-            if (ret) {
-                if (key_fixed)
-                    GF_FREE(key_fixed);
-                return ret;
-            }
         }
+        if (ret)
+            goto out;
 
         if (!exists) {
             ret = snprintf(msg, sizeof(msg), "Option %s does not exist", key);

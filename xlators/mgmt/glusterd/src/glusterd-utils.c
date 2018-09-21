@@ -13137,7 +13137,7 @@ out:
     if (ret && need_free) {
         GF_FREE(def_val);
     }
-
+    GF_FREE(key_fixed);
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
 
     return ret;
