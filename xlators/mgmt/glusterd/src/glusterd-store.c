@@ -723,15 +723,8 @@ _storeslaves(dict_t *this, char *key, data_t *value, void *data)
     GF_ASSERT(shandle->fd > 0);
     GF_ASSERT(shandle->path);
     GF_ASSERT(key);
-    GF_ASSERT(value && value->data);
-
-    if ((!shandle) || (shandle->fd <= 0) || (!shandle->path))
-        return -1;
-
-    if (!key)
-        return -1;
-    if (!value || !value->data)
-        return -1;
+    GF_ASSERT(value);
+    GF_ASSERT(value->data);
 
     gf_msg_debug(xl->name, 0, "Storing in volinfo:key= %s, val=%s", key,
                  value->data);
@@ -764,15 +757,8 @@ _storeopts(dict_t *this, char *key, data_t *value, void *data)
     GF_ASSERT(shandle->fd > 0);
     GF_ASSERT(shandle->path);
     GF_ASSERT(key);
-    GF_ASSERT(value && value->data);
-
-    if ((!shandle) || (shandle->fd <= 0) || (!shandle->path))
-        return -1;
-
-    if (!key)
-        return -1;
-    if (!value || !value->data)
-        return -1;
+    GF_ASSERT(value);
+    GF_ASSERT(value->data);
 
     if (is_key_glusterd_hooks_friendly(key)) {
         exists = 1;

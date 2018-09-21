@@ -4725,7 +4725,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     if (!volinfo || (volinfo->volname[0] == '\0'))
         return 0;
 
-    if (!vme || (vme->option[0] == '\0'))
+    if (!vme || !(vme->option))
         return 0;
 
     if (!strcmp(vme->option, "!rpc-auth.addr.*.allow")) {
@@ -4851,8 +4851,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
             return -1;
     }
 
-    if ((strcmp(vme->voltype, "nfs/server") == 0) &&
-        (vme->option && vme->option[0] != '!')) {
+    if ((strcmp(vme->voltype, "nfs/server") == 0) && (vme->option[0] != '!')) {
         ret = xlator_set_option(xl, vme->option, vme->value);
         if (ret)
             return -1;
