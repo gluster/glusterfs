@@ -22,7 +22,7 @@ enum proc_flags {
 };
 
 struct glusterd_proc_ {
-    char name[PATH_MAX];
+    char name[NAME_MAX];
     char pidfile[PATH_MAX];
     char logdir[PATH_MAX];
     char logfile[PATH_MAX];

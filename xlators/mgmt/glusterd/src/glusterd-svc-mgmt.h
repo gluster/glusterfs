@@ -26,7 +26,7 @@ typedef int (*glusterd_svc_stop_t)(glusterd_svc_t *svc, int sig);
 typedef int (*glusterd_svc_reconfigure_t)(void *data);
 
 struct glusterd_svc_ {
-    char name[PATH_MAX];
+    char name[NAME_MAX];
     glusterd_conn_t conn;
     glusterd_proc_t proc;
     glusterd_svc_manager_t manager;
