@@ -1755,6 +1755,11 @@ glusterd_op_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             volinfo->quota_xattr_version--;
             ret = glusterd_store_volinfo(volinfo,
                                          GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_SET_FAIL,
+                       "Failed to store volinfo for volume %s",
+                       volinfo->volname);
+            }
         }
 
         ret = -1;
