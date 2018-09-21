@@ -6046,7 +6046,6 @@ glusterd_op_commit_perform(glusterd_op_t op, dict_t *dict, char **op_errstr,
             break;
 
         case GD_OP_STOP_VOLUME:
-            glusterd_wait_for_blockers(this->private);
             ret = glusterd_op_stop_volume(dict);
             break;
 
