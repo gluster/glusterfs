@@ -4893,6 +4893,13 @@ afr_priv_dump(xlator_t *this)
         gf_proc_dump_write("quorum-count", "%d", priv->quorum_count);
     }
     gf_proc_dump_write("up", "%u", afr_has_quorum(priv->child_up, this));
+    if (priv->thin_arbiter_count) {
+        gf_proc_dump_write("ta_child_up", "%d", priv->ta_child_up);
+        gf_proc_dump_write("ta_bad_child_index", "%d",
+                           priv->ta_bad_child_index);
+        gf_proc_dump_write("ta_notify_dom_lock_offset", "%lld",
+                           priv->ta_notify_dom_lock_offset);
+    }
 
     return 0;
 }
@@ -4904,14 +4911,19 @@ afr_priv_dump(xlator_t *this)
  */
 
 static int
-find_child_index(xlator_t *this, xlator_t *child)
+afr_find_child_index(xlator_t *this, xlator_t *child)
 {
     afr_private_t *priv = NULL;
+    int child_count = -1;
     int i = -1;
 
     priv = this->private;
+    child_count = priv->child_count;
+    if (priv->thin_arbiter_count) {
+        child_count++;
+    }
 
-    for (i = 0; i < priv->child_count; i++) {
+    for (i = 0; i < child_count; i++) {
         if ((xlator_t *)child == priv->children[i])
             break;
     }
@@ -5310,6 +5322,103 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
     priv->last_event[idx] = *event;
 }
 
+void
+afr_ta_lock_release_synctask(xlator_t *this)
+{
+    call_frame_t *ta_frame = NULL;
+    int ret = 0;
+
+    ta_frame = afr_ta_frame_create(this);
+    if (!ta_frame) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,
+               "Failed to create ta_frame");
+        return;
+    }
+
+    ret = synctask_new(this->ctx->env, afr_release_notify_lock_for_ta,
+                       afr_ta_lock_release_done, ta_frame, this);
+    if (ret) {
+        STACK_DESTROY(ta_frame->root);
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,
+               "Failed to release "
+               "AFR_TA_DOM_NOTIFY lock.");
+    }
+}
+
+static void
+afr_handle_inodelk_contention(xlator_t *this, struct gf_upcall *upcall)
+{
+    struct gf_upcall_inodelk_contention *lc = NULL;
+    unsigned int inmem_count = 0;
+    unsigned int onwire_count = 0;
+    afr_private_t *priv = this->private;
+
+    lc = upcall->data;
+
+    if (strcmp(lc->domain, AFR_TA_DOM_NOTIFY) != 0)
+        return;
+
+    if (priv->shd.iamshd) {
+        /* shd should ignore AFR_TA_DOM_NOTIFY release requests. */
+        return;
+    }
+    LOCK(&priv->lock);
+    {
+        priv->release_ta_notify_dom_lock = _gf_true;
+        inmem_count = priv->ta_in_mem_txn_count;
+        onwire_count = priv->ta_on_wire_txn_count;
+    }
+    UNLOCK(&priv->lock);
+    if (inmem_count || onwire_count)
+        /* lock release will happen in txn code path after
+         * inflight or on-wire txns are over.*/
+        return;
+
+    afr_ta_lock_release_synctask(this);
+}
+
+static void
+afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall)
+{
+    struct gf_upcall_cache_invalidation *up_ci = NULL;
+    afr_private_t *priv = this->private;
+    inode_t *inode = NULL;
+    inode_table_t *itable = NULL;
+    int i = 0;
+
+    switch (upcall->event_type) {
+        case GF_UPCALL_INODELK_CONTENTION:
+            afr_handle_inodelk_contention(this, upcall);
+            break;
+        case GF_UPCALL_CACHE_INVALIDATION:
+            up_ci = (struct gf_upcall_cache_invalidation *)upcall->data;
+
+            /* Since md-cache will be aggressively filtering
+             * lookups, the stale read issue will be more
+             * pronounced. Hence when a pending xattr is set notify
+             * all the md-cache clients to invalidate the existing
+             * stat cache and send the lookup next time */
+            if (!up_ci->dict)
+                break;
+            for (i = 0; i < priv->child_count; i++) {
+                if (!dict_get(up_ci->dict, priv->pending_key[i]))
+                    continue;
+                up_ci->flags |= UP_INVAL_ATTR;
+                itable = ((xlator_t *)this->graph->top)->itable;
+                /*Internal processes may not have itable for
+                 *top xlator*/
+                if (itable)
+                    inode = inode_find(itable, upcall->gfid);
+                if (inode)
+                    afr_inode_need_refresh_set(inode, this);
+                break;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 int32_t
 afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
 {
@@ -5327,10 +5436,6 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     dict_t *output = NULL;
     gf_boolean_t had_quorum = _gf_false;
     gf_boolean_t has_quorum = _gf_false;
-    struct gf_upcall *up_data = NULL;
-    struct gf_upcall_cache_invalidation *up_ci = NULL;
-    inode_table_t *itable = NULL;
-    inode_t *inode = NULL;
     int64_t halo_max_latency_msec = 0;
     int64_t child_latency_msec = -1;
 
@@ -5358,7 +5463,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
      * subsequent revalidate lookup happens on all the dht's subvolumes
      * which triggers afr self-heals if any.
      */
-    idx = find_child_index(this, child_xlator);
+    idx = afr_find_child_index(this, child_xlator);
     if (idx < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_CHILD_UP,
                "Received child_up from invalid subvolume");
@@ -5407,6 +5512,10 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
         goto out;
     }
 
+    if (event == GF_EVENT_UPCALL) {
+        afr_handle_upcall_event(this, data);
+    }
+
     LOCK(&priv->lock);
     {
         had_heard_from_all = __get_heard_from_all_status(this);
@@ -5416,12 +5525,22 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
                 propagate = 1;
                 break;
             case GF_EVENT_CHILD_UP:
+                if (priv->thin_arbiter_count &&
+                    (idx == AFR_CHILD_THIN_ARBITER)) {
+                    priv->ta_child_up = 1;
+                    break;
+                }
                 __afr_handle_child_up_event(this, child_xlator, idx,
                                             child_latency_msec, &event,
                                             &call_psh, &up_child);
                 break;
 
             case GF_EVENT_CHILD_DOWN:
+                if (priv->thin_arbiter_count &&
+                    (idx == AFR_CHILD_THIN_ARBITER)) {
+                    priv->ta_child_up = 0;
+                    break;
+                }
                 __afr_handle_child_down_event(this, child_xlator, idx,
                                               child_latency_msec, &event,
                                               &call_psh, &up_child);
@@ -5434,34 +5553,6 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
 
             case GF_EVENT_SOME_DESCENDENT_DOWN:
                 priv->last_event[idx] = event;
-                break;
-            case GF_EVENT_UPCALL:
-                up_data = (struct gf_upcall *)data;
-                if (up_data->event_type != GF_UPCALL_CACHE_INVALIDATION)
-                    break;
-                up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
-
-                /* Since md-cache will be aggressively filtering
-                 * lookups, the stale read issue will be more
-                 * pronounced. Hence when a pending xattr is set notify
-                 * all the md-cache clients to invalidate the existing
-                 * stat cache and send the lookup next time */
-                if (!up_ci->dict)
-                    break;
-                for (i = 0; i < priv->child_count; i++) {
-                    if (dict_get(up_ci->dict, priv->pending_key[i])) {
-                        up_ci->flags |= UP_INVAL_ATTR;
-                        itable = ((xlator_t *)this->graph->top)->itable;
-                        /*Internal processes may not have itable for top
-                         * xlator*/
-                        if (itable)
-                            inode = inode_find(itable, up_data->gfid);
-                        if (inode)
-                            afr_inode_need_refresh_set(inode, this);
-
-                        break;
-                    }
-                }
                 break;
             default:
                 propagate = 1;
@@ -5602,6 +5693,10 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
     }
 
     local->need_full_crawl = _gf_false;
+    if (priv->thin_arbiter_count) {
+        local->ta_child_up = priv->ta_child_up;
+        local->ta_failed_subvol = AFR_CHILD_UNKNOWN;
+    }
 
     INIT_LIST_HEAD(&local->healer);
     return 0;
@@ -5715,6 +5810,8 @@ afr_transaction_local_init(afr_local_t *local, xlator_t *this)
     ret = 0;
     INIT_LIST_HEAD(&local->transaction.wait_list);
     INIT_LIST_HEAD(&local->transaction.owner_list);
+    INIT_LIST_HEAD(&local->ta_waitq);
+    INIT_LIST_HEAD(&local->ta_onwireq);
 out:
     return ret;
 }
@@ -6703,9 +6800,6 @@ afr_ta_is_fop_called_from_synctask(xlator_t *this)
 int
 afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
 {
-    /*Note: At any given time, only one instance of this function must
-     * be in progress.*/
-
     int ret = 0;
     uuid_t gfid = {
         0,
@@ -6720,6 +6814,11 @@ afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
     };
     int32_t cmd = 0;
 
+    /* Clients must take AFR_TA_DOM_NOTIFY lock only when the previous lock
+     * has been released in afr_notify due to upcall notification from shd.
+     */
+    GF_ASSERT(priv->ta_notify_dom_lock_offset == 0);
+
     if (!priv->shd.iamshd)
         GF_ASSERT(afr_ta_is_fop_called_from_synctask(this));
     flock1.l_type = F_WRLCK;
@@ -6731,14 +6830,10 @@ afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
             flock1.l_len = 0;
         } else {
             cmd = F_SETLK;
-            if (priv->ta_notify_dom_lock_offset) {
-                flock1.l_start = priv->ta_notify_dom_lock_offset;
-            } else {
-                gf_uuid_generate(gfid);
-                flock1.l_start = gfid_to_ino(gfid);
-                if (flock1.l_start < 0)
-                    flock1.l_start = -flock1.l_start;
-            }
+            gf_uuid_generate(gfid);
+            flock1.l_start = gfid_to_ino(gfid);
+            if (flock1.l_start < 0)
+                flock1.l_start = -flock1.l_start;
             flock1.l_len = 1;
         }
         ret = syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX],
@@ -6764,7 +6859,7 @@ afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
                          AFR_TA_DOM_MODIFY, loc, F_SETLKW, &flock2, NULL, NULL);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
-               "Failed to get AFR_TA_DOM_MODIFY lock.");
+               "Failed to get AFR_TA_DOM_MODIFY lock on %s.", loc->name);
         flock1.l_type = F_UNLCK;
         ret = syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX],
                              AFR_TA_DOM_NOTIFY, loc, F_SETLK, &flock1, NULL,
@@ -6828,4 +6923,19 @@ afr_ta_frame_create(xlator_t *this)
     lk_owner = (void *)this;
     afr_set_lk_owner(frame, this, lk_owner);
     return frame;
+}
+
+gf_boolean_t
+afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local)
+{
+    int data_count = 0;
+
+    data_count = AFR_COUNT(local->child_up, priv->child_count);
+    if (data_count == 2) {
+        return _gf_true;
+    } else if (data_count == 1 && local->ta_child_up) {
+        return _gf_true;
+    }
+
+    return _gf_false;
 }

@@ -67,4 +67,9 @@ afr_lock(call_frame_t *frame, xlator_t *this);
 void
 afr_delayed_changelog_wake_up_cbk(void *data);
 
+int
+afr_release_notify_lock_for_ta(void *opaque);
+
+int
+afr_ta_lock_release_done(int ret, call_frame_t *ta_frame, void *opaque);
 #endif /* __TRANSACTION_H__ */

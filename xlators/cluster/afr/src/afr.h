@@ -107,7 +107,19 @@ typedef enum {
     AFR_CHILD_UNKNOWN = -1,
     AFR_CHILD_ZERO,
     AFR_CHILD_ONE,
+    AFR_CHILD_THIN_ARBITER,
 } afr_child_index;
+
+typedef enum {
+    TA_WAIT_FOR_NOTIFY_LOCK_REL, /*FOP came after notify domain lock upcall
+                                   notification and waiting for its release.*/
+    TA_GET_INFO_FROM_TA_FILE,    /*FOP needs post-op on ta file to get
+                                  *info about which brick is bad.*/
+    TA_INFO_IN_MEMORY_SUCCESS,   /*Bad brick info is in memory and fop failed
+                                  *on BAD brick - Success*/
+    TA_INFO_IN_MEMORY_FAILED,    /*Bad brick info is in memory and fop failed
+                                  *on GOOD brick - Failed*/
+} afr_ta_fop_state_t;
 
 struct afr_nfsd {
     gf_boolean_t iamnfsd;
@@ -127,8 +139,14 @@ typedef struct _afr_private {
     /* For thin-arbiter. */
     unsigned int thin_arbiter_count; /* 0 or 1 at the moment.*/
     uuid_t ta_gfid;
+    unsigned char ta_child_up;
     int ta_bad_child_index;
     off_t ta_notify_dom_lock_offset;
+    gf_boolean_t release_ta_notify_dom_lock;
+    unsigned int ta_in_mem_txn_count;
+    unsigned int ta_on_wire_txn_count;
+    struct list_head ta_waitq;
+    struct list_head ta_onwireq;
 
     unsigned char *child_up;
     int64_t *child_latency;
@@ -855,6 +873,13 @@ typedef struct _afr_local {
 
     gf_boolean_t is_read_txn;
     afr_inode_ctx_t *inode_ctx;
+
+    /*For thin-arbiter transactions.*/
+    unsigned char ta_child_up;
+    struct list_head ta_waitq;
+    struct list_head ta_onwireq;
+    afr_ta_fop_state_t fop_state;
+    int ta_failed_subvol;
 } afr_local_t;
 
 typedef struct afr_spbc_timeout {
@@ -1289,4 +1314,10 @@ __afr_get_up_children_count(afr_private_t *priv);
 
 call_frame_t *
 afr_ta_frame_create(xlator_t *this);
+
+gf_boolean_t
+afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local);
+
+void
+afr_ta_lock_release_synctask(xlator_t *this);
 #endif /* __AFR_H__ */

@@ -261,6 +261,8 @@ afr_ta_read_txn_synctask(call_frame_t *frame, xlator_t *this)
     if (!ta_frame) {
         local->op_ret = -1;
         local->op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,
+               "Failed to create ta_frame");
         goto out;
     }
     ret = synctask_new(this->ctx->env, afr_ta_read_txn, afr_ta_read_txn_done,
@@ -437,6 +439,12 @@ afr_read_txn(call_frame_t *frame, xlator_t *this, inode_t *inode,
 
     if (!afr_is_consistent_io_possible(local, priv, &local->op_errno)) {
         local->op_ret = -1;
+        goto read;
+    }
+
+    if (priv->thin_arbiter_count && !afr_ta_has_quorum(priv, local)) {
+        local->op_ret = -1;
+        local->op_errno = -afr_quorum_errno(priv);
         goto read;
     }
 
