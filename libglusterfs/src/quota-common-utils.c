@@ -25,13 +25,13 @@ quota_meta_is_null(const quota_meta_t *meta)
 }
 
 int32_t
-quota_data_to_meta(data_t *data, char *key, quota_meta_t *meta)
+quota_data_to_meta(data_t *data, quota_meta_t *meta)
 {
     int32_t ret = -1;
     quota_meta_t *value = NULL;
     int64_t *size = NULL;
 
-    if (!data || !key || !meta)
+    if (!data || !meta)
         goto out;
 
     if (data->len > sizeof(int64_t)) {
@@ -66,7 +66,8 @@ out:
 }
 
 int32_t
-quota_dict_get_inode_meta(dict_t *dict, char *key, quota_meta_t *meta)
+quota_dict_get_inode_meta(dict_t *dict, char *key, const int keylen,
+                          quota_meta_t *meta)
 {
     int32_t ret = -1;
     data_t *data = NULL;
@@ -74,11 +75,11 @@ quota_dict_get_inode_meta(dict_t *dict, char *key, quota_meta_t *meta)
     if (!dict || !key || !meta)
         goto out;
 
-    data = dict_get(dict, key);
+    data = dict_getn(dict, key, keylen);
     if (!data || !data->data)
         goto out;
 
-    ret = quota_data_to_meta(data, key, meta);
+    ret = quota_data_to_meta(data, meta);
 
 out:
 
@@ -86,11 +87,12 @@ out:
 }
 
 int32_t
-quota_dict_get_meta(dict_t *dict, char *key, quota_meta_t *meta)
+quota_dict_get_meta(dict_t *dict, char *key, const int keylen,
+                    quota_meta_t *meta)
 {
     int32_t ret = -1;
 
-    ret = quota_dict_get_inode_meta(dict, key, meta);
+    ret = quota_dict_get_inode_meta(dict, key, keylen, meta);
     if (ret == -2)
         ret = 0;
 

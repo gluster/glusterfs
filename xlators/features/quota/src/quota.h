@@ -47,7 +47,8 @@
 
 #define QUOTA_WIND_FOR_INTERNAL_FOP(xdata, label)                              \
     do {                                                                       \
-        if (xdata && dict_get(xdata, GLUSTERFS_INTERNAL_FOP_KEY))              \
+        if (xdata && dict_getn(xdata, GLUSTERFS_INTERNAL_FOP_KEY,              \
+                               SLEN(GLUSTERFS_INTERNAL_FOP_KEY)))              \
             goto label;                                                        \
     } while (0)
 

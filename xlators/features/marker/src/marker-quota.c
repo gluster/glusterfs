@@ -286,8 +286,8 @@ out:
  * This function returns success even is inode-quota xattrs are missing and
  * hence no healing performed.
  */
-int32_t
-_quota_dict_get_meta(xlator_t *this, dict_t *dict, char *key,
+static int32_t
+_quota_dict_get_meta(xlator_t *this, dict_t *dict, char *key, const int keylen,
                      quota_meta_t *meta, ia_type_t ia_type,
                      gf_boolean_t add_delta)
 {
@@ -296,7 +296,7 @@ _quota_dict_get_meta(xlator_t *this, dict_t *dict, char *key,
 
     priv = this->private;
 
-    ret = quota_dict_get_inode_meta(dict, key, meta);
+    ret = quota_dict_get_inode_meta(dict, key, keylen, meta);
     if (ret == -2 && (priv->feature_enabled & GF_INODE_QUOTA) == 0) {
         /* quota_dict_get_inode_meta returns -2 if
          * inode quota xattrs are not present.
@@ -430,13 +430,15 @@ mq_are_xattrs_set(xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
     *contri_set = _gf_true;
     *size_set = _gf_true;
     if (loc->inode->ia_type == IA_IFDIR) {
-        ret = quota_dict_get_inode_meta(rsp_dict, size_key, &meta);
+        ret = quota_dict_get_inode_meta(rsp_dict, size_key, strlen(size_key),
+                                        &meta);
         if (ret < 0 || meta.dir_count == 0)
             *size_set = _gf_false;
     }
 
     if (!loc_is_root(loc)) {
-        ret = quota_dict_get_inode_meta(rsp_dict, contri_key, &meta);
+        ret = quota_dict_get_inode_meta(rsp_dict, contri_key,
+                                        strlen(contri_key), &meta);
         if (ret < 0)
             *contri_set = _gf_false;
     }
@@ -726,6 +728,7 @@ _mq_get_metadata(xlator_t *this, loc_t *loc, quota_meta_t *contri,
     char size_key[QUOTA_KEY_MAX] = {
         0,
     };
+    int keylen = 0;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     struct iatt stbuf = {
@@ -745,8 +748,8 @@ _mq_get_metadata(xlator_t *this, loc_t *loc, quota_meta_t *contri,
     }
 
     if (size && loc->inode->ia_type == IA_IFDIR) {
-        GET_SIZE_KEY(this, size_key, ret);
-        if (ret < 0)
+        GET_SIZE_KEY(this, size_key, keylen);
+        if (keylen < 0)
             goto out;
         ret = dict_set_int64(dict, size_key, 0);
         if (ret < 0) {
@@ -775,7 +778,7 @@ _mq_get_metadata(xlator_t *this, loc_t *loc, quota_meta_t *contri,
 
     if (size) {
         if (loc->inode->ia_type == IA_IFDIR) {
-            ret = quota_dict_get_meta(rsp_dict, size_key, &meta);
+            ret = quota_dict_get_meta(rsp_dict, size_key, keylen, &meta);
             if (ret < 0) {
                 gf_log(this->name, GF_LOG_ERROR, "dict_get failed.");
                 goto out;
@@ -792,7 +795,8 @@ _mq_get_metadata(xlator_t *this, loc_t *loc, quota_meta_t *contri,
     }
 
     if (contri && !loc_is_root(loc)) {
-        ret = quota_dict_get_meta(rsp_dict, contri_key, &meta);
+        ret = quota_dict_get_meta(rsp_dict, contri_key, strlen(contri_key),
+                                  &meta);
         if (ret < 0) {
             contri->size = 0;
             contri->file_count = 0;
@@ -1876,6 +1880,7 @@ mq_update_dirty_inode_task(void *opaque)
     char contri_key[QUOTA_KEY_MAX] = {
         0,
     };
+    int keylen = 0;
 
     GF_ASSERT(opaque);
 
@@ -1889,9 +1894,11 @@ mq_update_dirty_inode_task(void *opaque)
     if (ret < 0)
         goto out;
 
-    GET_CONTRI_KEY(this, contri_key, loc->gfid, ret);
-    if (ret < 0)
+    GET_CONTRI_KEY(this, contri_key, loc->gfid, keylen);
+    if (keylen < 0) {
+        ret = keylen;
         goto out;
+    }
 
     xdata = dict_new();
     if (xdata == NULL) {
@@ -1958,7 +1965,7 @@ mq_update_dirty_inode_task(void *opaque)
                 continue;
 
             memset(&contri, 0, sizeof(contri));
-            quota_dict_get_meta(entry->dict, contri_key, &contri);
+            quota_dict_get_meta(entry->dict, contri_key, keylen, &contri);
             if (quota_meta_is_null(&contri))
                 continue;
 
@@ -2073,6 +2080,7 @@ mq_inspect_directory_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
     char size_key[QUOTA_KEY_MAX] = {
         0,
     };
+    int keylen = 0;
     gf_boolean_t status = _gf_false;
 
     ret = dict_get_int8(dict, QUOTA_DIRTY_KEY, &dirty);
@@ -2084,21 +2092,24 @@ mq_inspect_directory_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
         dirty = 0;
     }
 
-    GET_SIZE_KEY(this, size_key, ret);
-    if (ret < 0)
+    GET_SIZE_KEY(this, size_key, keylen);
+    if (keylen < 0) {
+        ret = -1;
         goto out;
-    ret = _quota_dict_get_meta(this, dict, size_key, &size, IA_IFDIR,
+    }
+    ret = _quota_dict_get_meta(this, dict, size_key, keylen, &size, IA_IFDIR,
                                _gf_false);
     if (ret < 0)
         goto create_xattr;
 
     if (!loc_is_root(loc)) {
-        GET_CONTRI_KEY(this, contri_key, contribution->gfid, ret);
-        if (ret < 0)
+        GET_CONTRI_KEY(this, contri_key, contribution->gfid, keylen);
+        if (keylen < 0) {
+            ret = -1;
             goto out;
-
-        ret = _quota_dict_get_meta(this, dict, contri_key, &contri, IA_IFDIR,
-                                   _gf_false);
+        }
+        ret = _quota_dict_get_meta(this, dict, contri_key, keylen, &contri,
+                                   IA_IFDIR, _gf_false);
         if (ret < 0)
             goto create_xattr;
 
@@ -2166,6 +2177,7 @@ mq_inspect_file_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
     char contri_key[QUOTA_KEY_MAX] = {
         0,
     };
+    int keylen = 0;
     gf_boolean_t status = _gf_false;
 
     if (!buf || !contribution || !ctx)
@@ -2183,12 +2195,14 @@ mq_inspect_file_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
     }
     UNLOCK(&ctx->lock);
 
-    GET_CONTRI_KEY(this, contri_key, contribution->gfid, ret);
-    if (ret < 0)
+    GET_CONTRI_KEY(this, contri_key, contribution->gfid, keylen);
+    if (keylen < 0) {
+        ret = -1;
         goto out;
+    }
 
-    ret = _quota_dict_get_meta(this, dict, contri_key, &contri, IA_IFREG,
-                               _gf_true);
+    ret = _quota_dict_get_meta(this, dict, contri_key, keylen, &contri,
+                               IA_IFREG, _gf_true);
     if (ret < 0) {
         ret = mq_create_xattrs_txn(this, loc, NULL);
     } else {

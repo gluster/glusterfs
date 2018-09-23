@@ -39,13 +39,15 @@ gf_boolean_t
 quota_meta_is_null(const quota_meta_t *meta);
 
 int32_t
-quota_data_to_meta(data_t *data, char *key, quota_meta_t *meta);
+quota_data_to_meta(data_t *data, quota_meta_t *meta);
 
 int32_t
-quota_dict_get_inode_meta(dict_t *dict, char *key, quota_meta_t *meta);
+quota_dict_get_inode_meta(dict_t *dict, char *key, const int keylen,
+                          quota_meta_t *meta);
 
 int32_t
-quota_dict_get_meta(dict_t *dict, char *key, quota_meta_t *meta);
+quota_dict_get_meta(dict_t *dict, char *key, const int keylen,
+                    quota_meta_t *meta);
 
 int32_t
 quota_dict_set_meta(dict_t *dict, char *key, const quota_meta_t *meta,
