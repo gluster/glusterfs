@@ -357,7 +357,7 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
 {
     struct addrinfo hints, *res = 0, *rp = NULL;
     data_t *listen_port_data = NULL, *listen_host_data = NULL;
-    uint16_t listen_port = -1;
+    uint16_t listen_port = 0;
     char service[NI_MAXSERV], *listen_host = NULL;
     dict_t *options = NULL;
     int32_t ret = 0;
@@ -365,15 +365,11 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
     options = this->options;
 
     listen_port_data = dict_get(options, "transport.socket.listen-port");
-    listen_host_data = dict_get(options, "transport.socket.bind-address");
-
     if (listen_port_data) {
         listen_port = data_to_uint16(listen_port_data);
     }
 
-    if (listen_port == (uint16_t)-1)
-        listen_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
-
+    listen_host_data = dict_get(options, "transport.socket.bind-address");
     if (listen_host_data) {
         listen_host = data_to_str(listen_host_data);
     } else {

@@ -5,6 +5,8 @@ volume management
     option transport.socket.keepalive-time 10
     option transport.socket.keepalive-interval 2
     option transport.socket.read-fail-log off
+    option transport.socket.listen-port 24007
+    option transport.rdma.listen-port 24008
     option ping-timeout 0
     option event-threads 1
 #   option lock-timer 180

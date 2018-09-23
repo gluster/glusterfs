@@ -4670,6 +4670,7 @@ gf_rdma_listen(rpc_transport_t *this)
     gf_rdma_peer_t *peer = NULL;
     int ret = 0;
     gf_rdma_ctx_t *rdma_ctx = NULL;
+    cmd_args_t *cmd_args = NULL;
     char service[NI_MAXSERV], host[NI_MAXHOST];
     int optval = 2;
 
@@ -4725,13 +4726,18 @@ gf_rdma_listen(rpc_transport_t *this)
                RDMA_MSG_RDMA_BIND_ADDR_FAILED, "rdma_bind_addr failed");
         goto err;
     }
-
     ret = rdma_listen(peer->cm_id, priv->backlog);
-
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_WARNING, errno, RDMA_MSG_LISTEN_FAILED,
                "rdma_listen failed");
         goto err;
+    }
+
+    cmd_args = &(this->ctx->cmd_args);
+    if (!cmd_args->brick_port2) {
+        cmd_args->brick_port2 = rdma_get_src_port(peer->cm_id);
+        gf_log(this->name, GF_LOG_INFO,
+               "process started listening on port (%d)", cmd_args->brick_port2);
     }
 
     rpc_transport_ref(this);

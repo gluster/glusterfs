@@ -861,15 +861,19 @@ static int
 __socket_server_bind(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
+    glusterfs_ctx_t *ctx = NULL;
+    cmd_args_t *cmd_args = NULL;
+    struct sockaddr_storage unix_addr = {0};
     int ret = -1;
     int opt = 1;
     int reuse_check_sock = -1;
-    struct sockaddr_storage unix_addr = {0};
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
 
     priv = this->private;
+    ctx = this->ctx;
+    cmd_args = &ctx->cmd_args;
 
     ret = setsockopt(priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -901,8 +905,23 @@ __socket_server_bind(rpc_transport_t *this)
                this->myinfo.identifier, strerror(errno));
         if (errno == EADDRINUSE) {
             gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
-
-            ret = -EADDRINUSE;
+        }
+    }
+    if (AF_UNIX != SA(&this->myinfo.sockaddr)->sa_family) {
+        if (getsockname(priv->sock, SA(&this->myinfo.sockaddr),
+                        &this->myinfo.sockaddr_len) == -1) {
+            gf_log(this->name, GF_LOG_WARNING,
+                   "getsockname on (%d) failed (%s)", priv->sock,
+                   strerror(errno));
+            ret = -1;
+            goto out;
+        }
+        if (!cmd_args->brick_port) {
+            cmd_args->brick_port = (int)ntohs(
+                ((struct sockaddr_in *)&this->myinfo.sockaddr)->sin_port);
+            gf_log(this->name, GF_LOG_INFO,
+                   "process started listening on port (%d)",
+                   cmd_args->brick_port);
         }
     }
 
