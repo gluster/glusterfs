@@ -615,7 +615,8 @@ quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
     }
 
-    ret = quota_dict_get_meta(xdata, QUOTA_SIZE_KEY, &size);
+    ret = quota_dict_get_meta(xdata, QUOTA_SIZE_KEY, SLEN(QUOTA_SIZE_KEY),
+                              &size);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, Q_MSG_SIZE_KEY_MISSING,
                "quota size key not present "
@@ -3151,12 +3152,13 @@ off:
     return 0;
 }
 
-int32_t
+static int32_t
 quota_send_dir_limit_to_cli(call_frame_t *frame, xlator_t *this, inode_t *inode,
-                            const char *name)
+                            const char *name, const int namelen)
 {
     int32_t ret = 0;
-    char dir_limit[1024] = {
+    int dir_limit_len = 0;
+    char dir_limit[64] = {
         0,
     };
     dict_t *dict = NULL;
@@ -3166,7 +3168,8 @@ quota_send_dir_limit_to_cli(call_frame_t *frame, xlator_t *this, inode_t *inode,
 
     priv = this->private;
     if (!priv->is_quota_on) {
-        snprintf(dir_limit, 1024, "Quota is disabled please turn on");
+        dir_limit_len = snprintf(dir_limit, sizeof(dir_limit),
+                                 "Quota is disabled please turn on");
         goto dict_set;
     }
 
@@ -3175,7 +3178,8 @@ quota_send_dir_limit_to_cli(call_frame_t *frame, xlator_t *this, inode_t *inode,
         goto out;
 
     ctx = (quota_inode_ctx_t *)(unsigned long)value;
-    snprintf(dir_limit, 1024, "%" PRId64 ",%" PRId64, ctx->size, ctx->hard_lim);
+    dir_limit_len = snprintf(dir_limit, sizeof(dir_limit),
+                             "%" PRId64 ",%" PRId64, ctx->size, ctx->hard_lim);
 
 dict_set:
     dict = dict_new();
@@ -3184,7 +3188,7 @@ dict_set:
         goto out;
     }
 
-    ret = dict_set_str(dict, (char *)name, dir_limit);
+    ret = dict_set_nstrn(dict, (char *)name, namelen, dir_limit, dir_limit_len);
     if (ret < 0)
         goto out;
 
@@ -3207,7 +3211,9 @@ quota_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     int32_t ret = 0;
 
     if (name && strcasecmp(name, "trusted.limit.list") == 0) {
-        ret = quota_send_dir_limit_to_cli(frame, this, fd->inode, name);
+        ret = quota_send_dir_limit_to_cli(frame, this, fd->inode,
+                                          "trusted.limit.list",
+                                          SLEN("trusted.limit.list"));
         if (ret == 0) {
             return 0;
         }
@@ -3225,7 +3231,9 @@ quota_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int32_t ret = 0;
 
     if ((name != NULL) && strcasecmp(name, "trusted.limit.list") == 0) {
-        ret = quota_send_dir_limit_to_cli(frame, this, loc->inode, name);
+        ret = quota_send_dir_limit_to_cli(frame, this, loc->inode,
+                                          "trusted.limit.list",
+                                          SLEN("trusted.limit.list"));
         if (ret == 0)
             return 0;
     }
@@ -3959,7 +3967,8 @@ quota_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     VALIDATE_OR_GOTO(this, err);
     VALIDATE_OR_GOTO(loc, err);
 
-    if (xdata && dict_get(xdata, GLUSTERFS_INTERNAL_FOP_KEY))
+    if (xdata && dict_getn(xdata, GLUSTERFS_INTERNAL_FOP_KEY,
+                           SLEN(GLUSTERFS_INTERNAL_FOP_KEY)))
         internal_fop = _gf_true;
 
     if (frame->root->pid >= 0 && internal_fop == _gf_false) {
@@ -4320,7 +4329,8 @@ quota_statfs_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto resume;
     }
 
-    ret = quota_dict_get_meta(xdata, QUOTA_SIZE_KEY, &size);
+    ret = quota_dict_get_meta(xdata, QUOTA_SIZE_KEY, SLEN(QUOTA_SIZE_KEY),
+                              &size);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, Q_MSG_SIZE_KEY_MISSING,
                "size key not present in "

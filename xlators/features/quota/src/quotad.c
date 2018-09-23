@@ -81,14 +81,16 @@ qd_find_subvol(xlator_t *this, char *volume_uuid)
     xlator_list_t *child = NULL;
     xlator_t *subvol = NULL;
     char key[1024];
+    int keylen = 0;
     char *optstr = NULL;
 
     if (!this || !volume_uuid)
         goto out;
 
     for (child = this->children; child; child = child->next) {
-        snprintf(key, 1024, "%s.volume-id", child->xlator->name);
-        if (dict_get_str(this->options, key, &optstr) < 0)
+        keylen = snprintf(key, sizeof(key), "%s.volume-id",
+                          child->xlator->name);
+        if (dict_get_strn(this->options, key, keylen, &optstr) < 0)
             continue;
 
         if (strcmp(optstr, volume_uuid) == 0) {
@@ -128,7 +130,8 @@ qd_nameless_lookup(xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
 
     memcpy(loc.gfid, req->gfid, 16);
 
-    ret = dict_get_str(xdata, "volume-uuid", &volume_uuid);
+    ret = dict_get_strn(xdata, "volume-uuid", SLEN("volume-uuid"),
+                        &volume_uuid);
     if (ret < 0) {
         op_errno = EINVAL;
         goto out;

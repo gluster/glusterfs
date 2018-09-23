@@ -3812,9 +3812,11 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
     limits.sl = ntoh64(size_limits->sl);
 
     if (type == GF_QUOTA_OPTION_TYPE_LIST)
-        ret = quota_dict_get_meta(rsp_dict, QUOTA_SIZE_KEY, &used_space);
+        ret = quota_dict_get_meta(rsp_dict, QUOTA_SIZE_KEY,
+                                  SLEN(QUOTA_SIZE_KEY), &used_space);
     else
-        ret = quota_dict_get_inode_meta(rsp_dict, QUOTA_SIZE_KEY, &used_space);
+        ret = quota_dict_get_inode_meta(rsp_dict, QUOTA_SIZE_KEY,
+                                        SLEN(QUOTA_SIZE_KEY), &used_space);
 
     if (ret < 0) {
         gf_log("cli", GF_LOG_WARNING, "size key not present in dict");

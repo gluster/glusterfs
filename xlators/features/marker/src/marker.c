@@ -1521,7 +1521,7 @@ marker_do_rename(call_frame_t *frame, void *cookie, xlator_t *this,
     char contri_key[QUOTA_KEY_MAX] = {
         0,
     };
-    int32_t ret = 0;
+    int keylen = 0;
     quota_meta_t contribution = {
         0,
     };
@@ -1543,12 +1543,12 @@ marker_do_rename(call_frame_t *frame, void *cookie, xlator_t *this,
         goto err;
     }
 
-    GET_CONTRI_KEY(this, contri_key, oplocal->loc.parent->gfid, ret);
-    if (ret < 0) {
+    GET_CONTRI_KEY(this, contri_key, oplocal->loc.parent->gfid, keylen);
+    if (keylen < 0) {
         local->err = errno ? errno : ENOMEM;
         goto err;
     }
-    quota_dict_get_meta(dict, contri_key, &contribution);
+    quota_dict_get_meta(dict, contri_key, keylen, &contribution);
     oplocal->contribution = contribution;
 
     STACK_WIND(frame, marker_rename_cbk, FIRST_CHILD(this),

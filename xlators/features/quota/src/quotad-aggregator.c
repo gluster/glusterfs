@@ -138,11 +138,11 @@ quotad_aggregator_getlimit_cbk(xlator_t *this, call_frame_t *frame,
 
     if (xdata) {
         state = frame->root->state;
-        ret = dict_get_int32(state->xdata, "type", &type);
+        ret = dict_get_int32n(state->xdata, "type", SLEN("type"), &type);
         if (ret < 0)
             goto out;
 
-        ret = dict_set_int32(xdata, "type", type);
+        ret = dict_set_int32n(xdata, "type", SLEN("type"), type);
         if (ret < 0)
             goto out;
     }
@@ -219,7 +219,7 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_str(dict, "gfid", &gfid_str);
+    ret = dict_get_strn(dict, "gfid", SLEN("gfid"), &gfid_str);
     if (ret) {
         goto err;
     }
@@ -234,22 +234,26 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
     state = frame->root->state;
     state->xdata = dict;
 
-    ret = dict_set_int32(state->xdata, QUOTA_LIMIT_KEY, 42);
+    ret = dict_set_int32n(state->xdata, QUOTA_LIMIT_KEY, SLEN(QUOTA_LIMIT_KEY),
+                          42);
     if (ret)
         goto err;
 
-    ret = dict_set_int32(state->xdata, QUOTA_LIMIT_OBJECTS_KEY, 42);
+    ret = dict_set_int32n(state->xdata, QUOTA_LIMIT_OBJECTS_KEY,
+                          SLEN(QUOTA_LIMIT_OBJECTS_KEY), 42);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, Q_MSG_ENOMEM,
                "Failed to set QUOTA_LIMIT_OBJECTS_KEY");
         goto err;
     }
 
-    ret = dict_set_int32(state->xdata, QUOTA_SIZE_KEY, 42);
+    ret = dict_set_int32n(state->xdata, QUOTA_SIZE_KEY, SLEN(QUOTA_SIZE_KEY),
+                          42);
     if (ret)
         goto err;
 
-    ret = dict_set_int32(state->xdata, GET_ANCESTRY_PATH_KEY, 42);
+    ret = dict_set_int32n(state->xdata, GET_ANCESTRY_PATH_KEY,
+                          SLEN(GET_ANCESTRY_PATH_KEY), 42);
     if (ret)
         goto err;
 
@@ -385,16 +389,21 @@ quotad_aggregator_init(xlator_t *this)
         return 0;
     }
 
-    ret = dict_set_str(this->options, "transport.address-family", "unix");
+    ret = dict_set_nstrn(this->options, "transport.address-family",
+                         SLEN("transport.address-family"), "unix",
+                         SLEN("unix"));
     if (ret)
         goto out;
 
-    ret = dict_set_str(this->options, "transport-type", "socket");
+    ret = dict_set_nstrn(this->options, "transport-type",
+                         SLEN("transport-type"), "socket", SLEN("socket"));
     if (ret)
         goto out;
 
-    ret = dict_set_str(this->options, "transport.socket.listen-path",
-                       "/var/run/gluster/quotad.socket");
+    ret = dict_set_nstrn(this->options, "transport.socket.listen-path",
+                         SLEN("transport.socket.listen-path"),
+                         "/var/run/gluster/quotad.socket",
+                         SLEN("/var/run/gluster/quotad.socket"));
     if (ret)
         goto out;
 

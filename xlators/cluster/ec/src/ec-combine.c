@@ -684,7 +684,7 @@ ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
      */
     for (i = 0; i < ec->nodes; i++) {
         if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA) ||
-            (quota_data_to_meta(data[i], QUOTA_SIZE_KEY, &size) < 0)) {
+            (quota_data_to_meta(data[i], &size) < 0)) {
             continue;
         }
 

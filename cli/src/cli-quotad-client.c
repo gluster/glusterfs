@@ -109,16 +109,21 @@ cli_quotad_clnt_init(xlator_t *this, dict_t *options)
     struct rpc_clnt *rpc = NULL;
     int ret = -1;
 
-    ret = dict_set_str(options, "transport.address-family", "unix");
+    ret = dict_set_nstrn(options, "transport.address-family",
+                         SLEN("transport.address-family"), "unix",
+                         SLEN("unix"));
     if (ret)
         goto out;
 
-    ret = dict_set_str(options, "transport-type", "socket");
+    ret = dict_set_nstrn(options, "transport-type", SLEN("transport-type"),
+                         "socket", SLEN("socket"));
     if (ret)
         goto out;
 
-    ret = dict_set_str(options, "transport.socket.connect-path",
-                       "/var/run/gluster/quotad.socket");
+    ret = dict_set_nstrn(options, "transport.socket.connect-path",
+                         SLEN("transport.socket.connect-path"),
+                         "/var/run/gluster/quotad.socket",
+                         SLEN("/var/run/gluster/quotad.socket"));
     if (ret)
         goto out;
 
