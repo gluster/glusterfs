@@ -3989,6 +3989,7 @@ cli_quotad_getlimit_cbk(struct rpc_req *req, struct iovec *iov, int count,
         if (node == NULL) {
             gf_log("cli", GF_LOG_ERROR, "failed to add node to the list");
             dict_unref(dict);
+            ret = -1;
             goto out;
         }
     }
@@ -4270,6 +4271,7 @@ gf_cli_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (rsp.op_ret == -1) {
         gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
                "getspec failed");
+        ret = -1;
         goto out;
     }
 
@@ -4278,6 +4280,7 @@ gf_cli_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     spec = GF_MALLOC(rsp.op_ret + 1, cli_mt_char);
     if (!spec) {
         gf_log("", GF_LOG_ERROR, "out of memory");
+        ret = -1;
         goto out;
     }
     memcpy(spec, rsp.spec, rsp.op_ret);
@@ -4318,6 +4321,7 @@ gf_cli_pmap_b2p_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (rsp.op_ret == -1) {
         gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
                "pump_b2p failed");
+        ret = -1;
         goto out;
     }
 
@@ -4551,8 +4555,11 @@ gf_cli_get_volume(call_frame_t *frame, xlator_t *this, void *data)
     ctx = data;
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to create the dict");
+        ret = -1;
         goto out;
+    }
 
     if (ctx->volname) {
         ret = dict_set_str(dict, "volname", ctx->volname);
@@ -8220,8 +8227,11 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to create the dict");
+        ret = -1;
         goto out;
+    }
 
     ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len, &dict);
     if (ret)
@@ -9089,6 +9099,7 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     if (!brick_count) {
         cli_err("All bricks of volume %s are down.", volname);
+        ret = -1;
         goto out;
     }
 
@@ -10518,11 +10529,13 @@ gf_cli_generate_snapshot_event(gf_cli_rsp *rsp, dict_t *dict, int32_t type,
             }
 
             if (!snap_uuid) {
+                ret = -1;
                 gf_log("cli", GF_LOG_ERROR, "Failed to get snap uuid");
                 goto out;
             }
 
             if (!volname) {
+                ret = -1;
                 gf_log("cli", GF_LOG_ERROR, "Failed to get volname");
                 goto out;
             }
@@ -10566,6 +10579,7 @@ gf_cli_generate_snapshot_event(gf_cli_rsp *rsp, dict_t *dict, int32_t type,
             }
 
             if (!snap_uuid) {
+                ret = -1;
                 gf_log("cli", GF_LOG_ERROR, "Failed to get snap uuid");
                 goto out;
             }
@@ -10601,6 +10615,7 @@ gf_cli_generate_snapshot_event(gf_cli_rsp *rsp, dict_t *dict, int32_t type,
             }
 
             if (!snap_uuid) {
+                ret = -1;
                 gf_log("cli", GF_LOG_ERROR, "Failed to get snap uuid");
                 goto out;
             }
@@ -10826,11 +10841,13 @@ gf_cli_snapshot_cbk(struct rpc_req *req, struct iovec *iov, int count,
             }
 
             if (!snap_name) {
+                ret = -1;
                 gf_log("cli", GF_LOG_ERROR, "Failed to get snap name");
                 goto out;
             }
 
             if (!volname) {
+                ret = -1;
                 gf_log("cli", GF_LOG_ERROR, "Failed to get volume name");
                 goto out;
             }

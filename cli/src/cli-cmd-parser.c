@@ -1483,6 +1483,8 @@ cli_add_key_group_value(dict_t *dict, const char *name, const char *value,
     }
     data = gf_strdup(value);
     if (data == NULL) {
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate memory for data");
+        ret = -1;
         goto out;
     }
 
@@ -3080,8 +3082,10 @@ cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options)
         cmdi++;
     }
 
-    if (type != GF_GSYNC_OPTION_TYPE_CONFIG && (cmdi < wordcount - 1 || glob))
+    if (type != GF_GSYNC_OPTION_TYPE_CONFIG && (cmdi < wordcount - 1 || glob)) {
+        ret = -1;
         goto out;
+    }
 
     /* If got so far, input is valid, assemble the message */
 
@@ -3162,11 +3166,15 @@ cli_cmd_volume_profile_parse(const char **words, int wordcount,
         goto out;
     }
 
-    if ((strcmp(w, "start") == 0 || strcmp(w, "stop") == 0) && wordcount > 5)
+    if ((strcmp(w, "start") == 0 || strcmp(w, "stop") == 0) && wordcount > 5) {
+        ret = -1;
         goto out;
+    }
 
-    if (strcmp(w, "info") == 0 && wordcount > 7)
+    if (strcmp(w, "info") == 0 && wordcount > 7) {
+        ret = -1;
         goto out;
+    }
 
     if (strcmp(w, "start") == 0) {
         op = GF_CLI_STATS_START;
@@ -3965,8 +3973,11 @@ cli_cmd_volume_heal_options_parse(const char **words, int wordcount,
     gf_xl_afr_op_t op = GF_SHD_OP_INVALID;
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to create the dict");
+        ret = -1;
         goto out;
+    }
 
     ret = dict_set_str(dict, "volname", (char *)words[2]);
     if (ret) {
@@ -5591,6 +5602,7 @@ cli_cmd_snapshot_parse(const char **words, int wordcount, dict_t **options,
             break;
 
         default:
+            ret = -1;
             gf_log("", GF_LOG_ERROR, "Opword Mismatch");
             goto out;
     }

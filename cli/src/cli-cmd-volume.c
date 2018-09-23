@@ -177,8 +177,11 @@ cli_cmd_sync_volume_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYNC_VOLUME];
 
     frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+        ret = -1;
         goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, dict);
 
@@ -763,8 +766,11 @@ cli_cmd_volume_profile_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PROFILE_VOLUME];
 
     frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+        ret = -1;
         goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, options);
 
@@ -960,6 +966,10 @@ cli_event_remove_brick_str(dict_t *options, char **event_str,
 
     bricklist = GF_CALLOC(eventstrlen, sizeof(char), gf_common_mt_char);
     if (!bricklist) {
+        gf_log(THIS->name, GF_LOG_ERROR,
+               "memory allocation failed for"
+               "bricklist");
+        ret = -1;
         goto out;
     }
 
@@ -1392,8 +1402,11 @@ cli_cmd_volume_tier_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_TIER];
 
     frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+        ret = -1;
         goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, options);
 
@@ -2289,8 +2302,11 @@ cli_cmd_volume_top_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_TOP_VOLUME];
 
     frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+        ret = -1;
         goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, options);
 
@@ -2338,8 +2354,11 @@ cli_cmd_log_rotate_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LOG_ROTATE];
 
     frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+        ret = -1;
         goto out;
+    }
 
     ret = cli_cmd_log_rotate_parse(words, wordcount, &options);
     if (ret)
@@ -2608,12 +2627,17 @@ cli_cmd_volume_status_cbk(struct cli_state *state, struct cli_cmd_word *word,
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATUS_ALL];
     }
 
-    if (!proc->fn)
+    if (!proc->fn) {
+        ret = -1;
         goto out;
+    }
 
     frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+        ret = -1;
         goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, dict);
 
@@ -3374,7 +3398,7 @@ struct cli_cmd volume_cmds[] = {
 
 #if (SYNCDAEMON_COMPILE)
     {"volume " GEOREP " [<VOLNAME>] [<SLAVE-URL>] {create [[ssh-port n] "
-                      "[[no-verify]|[push-pem]]] [force]"
+     "[[no-verify]|[push-pem]]] [force]"
      "|start [force]|stop [force]|pause [force]|resume [force]|config|status "
      "[detail]|delete [reset-sync-time]} [options...]",
      cli_cmd_volume_gsync_set_cbk, "Geo-sync operations",
