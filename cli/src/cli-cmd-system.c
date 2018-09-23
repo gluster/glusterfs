@@ -264,8 +264,11 @@ cli_cmd_umount_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_UMOUNT];
     if (proc && proc->fn) {
         frame = create_frame(THIS, THIS->ctx->pool);
-        if (!frame)
+        if (!frame) {
+            gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+            ret = -1;
             goto out;
+        }
         ret = proc->fn(frame, THIS, dict);
     }
 
@@ -501,8 +504,11 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYS_EXEC];
     if (proc->fn) {
         frame = create_frame(THIS, THIS->ctx->pool);
-        if (!frame)
+        if (!frame) {
+            gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+            ret = -1;
             goto out;
+        }
         CLI_LOCAL_INIT(local, words, frame, dict);
         ret = proc->fn(frame, THIS, (void *)dict);
 
@@ -559,8 +565,11 @@ cli_cmd_copy_file_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_COPY_FILE];
     if (proc && proc->fn) {
         frame = create_frame(THIS, THIS->ctx->pool);
-        if (!frame)
+        if (!frame) {
+            gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
+            ret = -1;
             goto out;
+        }
         CLI_LOCAL_INIT(local, words, frame, dict);
         ret = proc->fn(frame, THIS, (void *)dict);
     }
