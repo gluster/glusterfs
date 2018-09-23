@@ -336,6 +336,22 @@ out:
     return ret;
 }
 
+void
+afr_ta_init(afr_private_t *priv)
+{
+    priv->thin_arbiter_count = 1;
+    priv->child_count--;
+    priv->ta_child_up = 0;
+    priv->ta_bad_child_index = AFR_CHILD_UNKNOWN;
+    priv->ta_notify_dom_lock_offset = 0;
+    priv->ta_in_mem_txn_count = 0;
+    priv->ta_on_wire_txn_count = 0;
+    priv->release_ta_notify_dom_lock = _gf_false;
+    INIT_LIST_HEAD(&priv->ta_waitq);
+    INIT_LIST_HEAD(&priv->ta_onwireq);
+    *priv->ta_gfid = 0;
+}
+
 int32_t
 init(xlator_t *this)
 {
@@ -380,11 +396,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("arbiter-count", priv->arbiter_count, uint32, out);
     GF_OPTION_INIT("thin-arbiter", thin_arbiter, str, out);
     if (thin_arbiter && strlen(thin_arbiter) > 0) {
-        priv->thin_arbiter_count = 1;
-        priv->child_count--;
-        priv->ta_bad_child_index = AFR_CHILD_UNKNOWN;
-        priv->ta_notify_dom_lock_offset = 0;
-        *priv->ta_gfid = 0;
+        afr_ta_init(priv);
     }
     INIT_LIST_HEAD(&priv->healing);
     INIT_LIST_HEAD(&priv->heal_waiting);

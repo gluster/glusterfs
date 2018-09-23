@@ -32,11 +32,11 @@ EXPECT "000000010000000200000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/bri
 TEST ! ls $B0/brick0/b.txt
 TEST ls $B0/brick1/b.txt
 
-#This is not working as expected
-#TEST ta_kill_brick ta
-#TEST touch $M0/c.txt
-#TEST ! ls $B0/brick0/c.txt
-#TEST ! ls $B0/brick1/c.txt
+TEST ta_kill_brick ta
+# Entry create must fail since only 1 brick is up.
+TEST ! touch $M0/c.txt
+TEST ! ls $B0/brick0/c.txt
+TEST ! ls $B0/brick1/c.txt
 
 TEST ta_start_brick_process brick0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
