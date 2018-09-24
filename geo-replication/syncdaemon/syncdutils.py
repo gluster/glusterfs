@@ -263,7 +263,8 @@ def finalize(*args, **kwargs):
             umount_cmd = rconf.mbr_umount_cmd + [rconf.mount_point, 'lazy']
         else:
             umount_cmd = ['umount', '-l', rconf.mount_point]
-        p0 = subprocess.Popen(umount_cmd, stderr=subprocess.PIPE)
+        p0 = subprocess.Popen(umount_cmd, stderr=subprocess.PIPE,
+                              universal_newlines=True)
         _, errdata = p0.communicate()
         if p0.returncode == 0:
             try:
@@ -638,7 +639,8 @@ def unshare_propagation_supported():
     unshare_mnt_propagation = False
     p = subprocess.Popen(["unshare", "--help"],
                          stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE,
+                         universal_newlines=True)
     out, err = p.communicate()
     if p.returncode == 0:
         if "propagation" in out:
@@ -655,7 +657,8 @@ def get_rsync_version(rsync_cmd):
     rsync_version = "0"
     p = subprocess.Popen([rsync_cmd, "--version"],
                          stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE,
+                         universal_newlines=True)
     out, err = p.communicate()
     if p.returncode == 0:
         rsync_version = out.split(" ", 4)[3]
@@ -858,7 +861,7 @@ class Volinfo(object):
     def __init__(self, vol, host='localhost', prelude=[]):
         po = Popen(prelude + ['gluster', '--xml', '--remote-host=' + host,
                               'volume', 'info', vol],
-                   stdout=PIPE, stderr=PIPE)
+                   stdout=PIPE, stderr=PIPE, universal_newlines=True)
         vix = po.stdout.read()
         po.wait()
         po.terminate_geterr()
