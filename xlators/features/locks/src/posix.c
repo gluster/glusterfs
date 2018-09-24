@@ -850,7 +850,7 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 unwind:
     if (op_ret == -1) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(this ? this->name : "locks", GF_LOG_ERROR,
                "truncate failed with "
                "ret: %d, error: %s",
                op_ret, strerror(op_errno));
@@ -902,7 +902,7 @@ pl_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     ret = 0;
 unwind:
     if (ret == -1) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(this ? this->name : "locks", GF_LOG_ERROR,
                "truncate on %s failed with"
                " ret: %d, error: %s",
                loc->path, -1, strerror(ENOMEM));
@@ -935,7 +935,7 @@ pl_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     ret = 0;
 unwind:
     if (ret == -1) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(this ? this->name : "locks", GF_LOG_ERROR,
                "ftruncate failed with"
                " ret: %d, error: %s",
                -1, strerror(ENOMEM));
