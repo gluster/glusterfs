@@ -118,8 +118,8 @@ cdc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     };
     size_t isize = 0;
 
-    GF_VALIDATE_OR_GOTO("cdc", this, default_out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, default_out);
+    GF_VALIDATE_OR_GOTO("cdc", this, err);
+    GF_VALIDATE_OR_GOTO(this->name, frame, err);
 
     priv = this->private;
 
@@ -166,6 +166,9 @@ default_out:
     STACK_WIND(frame, cdc_writev_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
                flags, iobref, xdata);
+    return 0;
+err:
+    STACK_UNWIND_STRICT(writev, frame, -1, EINVAL, NULL, NULL, NULL);
     return 0;
 }
 
