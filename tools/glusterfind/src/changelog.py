@@ -276,6 +276,7 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
         fail("%s: %s Historical Changelogs not available: %s" %
              (args.node, brick, e), logger=logger)
 
+    logger.info("[1/4] Starting changelog parsing ...")
     try:
         # scan followed by getchanges till scan returns zero.
         # history_scan() is blocking call, till it gets the number
@@ -304,18 +305,27 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
         fail("%s Error during Changelog Crawl: %s" % (brick, e),
              logger=logger)
 
+    logger.info("[1/4] Finished changelog parsing.")
+
     # Convert all pgfid available from Changelogs
+    logger.info("[2/4] Starting 'pgfid to path' conversions ...")
     pgfid_to_path(brick, changelog_data)
     changelog_data.commit()
+    logger.info("[2/4] Finished 'pgfid to path' conversions.")
 
     # Convert all GFIDs for which no other additional details available
+    logger.info("[3/4] Starting 'gfid to path using pgfid' conversions ...")
     gfid_to_path_using_pgfid(brick, changelog_data, args)
     changelog_data.commit()
+    logger.info("[3/4] Finished 'gfid to path using pgfid' conversions.")
 
     # If some GFIDs fail to get converted from previous step,
     # convert using find
+    logger.info("[4/4] Starting 'gfid to path using batchfind' "
+                "conversions ...")
     gfid_to_path_using_batchfind(brick, changelog_data)
     changelog_data.commit()
+    logger.info("[4/4] Finished 'gfid to path using batchfind' conversions.")
 
     return actual_end
 
