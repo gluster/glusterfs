@@ -8116,6 +8116,12 @@ glusterd_snapshot_clone_postvalidate(dict_t *dict, int32_t op_ret,
 
     if (snap_vol)
         snap = snap_vol->snapshot;
+    else {
+        ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_NOT_FOUND,
+               "Snapshot volume is null");
+        goto out;
+    }
 
     /* Fetch snap object from snap_vol and delete it all in case of *
      * a failure, or else, just delete the snap object as it is not *
