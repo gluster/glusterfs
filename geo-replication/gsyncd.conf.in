@@ -108,8 +108,8 @@ value=1
 type=int
 help=Minimum time interval in seconds for passive worker to become Active
 
-[chnagelog-archive-format]
-value=%Y%m
+[changelog-archive-format]
+value=%%Y%%m
 help=Processed changelogs will be archived in working directory. Pattern for archive file
 
 [use-meta-volume]
@@ -335,9 +335,6 @@ type=bool
 [max-rsync-retries]
 value=10
 type=int
-
-[changelog-archive-format]
-value=%Y%m
 
 [state_socket_unencoded]
 # Unused, For backward compatibility
