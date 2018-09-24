@@ -7,7 +7,6 @@ EXTRA_DIST = autogen.sh \
 	run-tests.sh \
 	build-aux/pkg-version \
 	contrib/umountd \
-	python-shebangs \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
 SUBDIRS = $(ARGP_STANDALONE_DIR) rpc/xdr/gen libglusterfs rpc api xlators \

@@ -1717,19 +1717,6 @@ AC_SUBST(GFAPI_EXTRA_LDFLAGS)
 GFAPI_LIBS="${ACL_LIBS}"
 AC_SUBST(GFAPI_LIBS)
 
-pushd $(dirname $0) &> /dev/null
-if test ! -e python-shebangs; then
-  touch python-shebangs
-  if test "x${PYTHON}" = "x/usr/bin/python2"; then
-    echo "fixing python shebangs..."
-    for f in api events extras geo-replication libglusterfs tests tools xlators; do
-      find $f -type f -exec sed -i 's|/usr/bin/python3|/usr/bin/python2|' {} \;
-    done
-    echo "...done"
-  fi
-fi
-popd &> /dev/null
-
 dnl this change necessary for run-tests.sh
 AC_CONFIG_FILES([tests/env.rc],[ln -s ${ac_abs_builddir}/env.rc ${ac_abs_srcdir}/env.rc 2>/dev/null])
 
