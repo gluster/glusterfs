@@ -26,7 +26,7 @@ from syncdutils import set_term_handler, GsyncdError
 from syncdutils import Thread, finalize, Volinfo, VolinfoFromGconf
 from syncdutils import gf_event, EVENT_GEOREP_FAULTY, get_up_nodes
 from gsyncdstatus import GeorepStatus, set_monitor_status
-from syncdutils import unshare_propagation_supported
+from syncdutils import unshare_propagation_supported, pipe
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
@@ -158,9 +158,9 @@ class Monitor(object):
             # worker and changelog agent.
 
             # read/write end for agent
-            (ra, ww) = os.pipe()
+            (ra, ww) = pipe()
             # read/write end for worker
-            (rw, wa) = os.pipe()
+            (rw, wa) = pipe()
 
             # spawn the agent process
             apid = os.fork()
@@ -186,7 +186,7 @@ class Monitor(object):
 
                 os.execv(sys.executable, args_to_agent)
 
-            pr, pw = os.pipe()
+            pr, pw = pipe()
             cpid = os.fork()
             if cpid == 0:
                 os.close(pr)
@@ -438,7 +438,7 @@ def startup(go_daemon=True):
     if not go_daemon:
         return
 
-    x, y = os.pipe()
+    x, y = pipe()
     cpid = os.fork()
     if cpid:
         os.close(x)

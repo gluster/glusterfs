@@ -40,7 +40,7 @@ from syncdutils import GX_GFID_CANONICAL_LEN
 from gsyncdstatus import GeorepStatus
 from syncdutils import lf, Popen, sup
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
-from syncdutils import unshare_propagation_supported, get_slv_dir_path
+from syncdutils import unshare_propagation_supported, get_slv_dir_path, pipe
 
 
 ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
@@ -858,7 +858,7 @@ class Mounter(object):
         change into the mount, and lazy unmount the
         filesystem.
         """
-        mpi, mpo = os.pipe()
+        mpi, mpo = pipe()
         mh = Popen.fork()
         if mh:
             # Parent
