@@ -944,7 +944,7 @@ ec_code_cpu_check(uint32_t idx, char *list, uint32_t count)
 {
     ec_code_gen_t *gen;
     char **ptr;
-    char *table[count];
+    char *table[count + 1];
     uint32_t i;
 
     for (i = 0; i < count; i++) {
