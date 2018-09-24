@@ -2966,7 +2966,7 @@ unwind:
         gf_uuid_copy(local->loc.gfid, buf->ia_gfid);
 
     if (priv->feature_enabled & GF_QUOTA) {
-        mq_xattr_state(this, &local->loc, dict, *buf);
+        mq_xattr_state(this, &local->loc, dict, buf);
     }
 
 out:
@@ -3118,7 +3118,7 @@ marker_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    "failed for %s",
                    uuid_utoa(loc.inode->gfid));
 
-        mq_xattr_state(this, &loc, entry->dict, entry->d_stat);
+        mq_xattr_state(this, &loc, entry->dict, &entry->d_stat);
         loc_wipe(&loc);
 
         ret = marker_key_set_ver(this, entry->dict);
