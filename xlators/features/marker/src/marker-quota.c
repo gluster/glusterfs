@@ -2054,7 +2054,7 @@ out:
 int32_t
 mq_inspect_directory_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
                            inode_contribution_t *contribution, loc_t *loc,
-                           dict_t *dict, struct iatt buf)
+                           dict_t *dict)
 {
     int32_t ret = -1;
     int8_t dirty = -1;
@@ -2151,7 +2151,7 @@ out:
 int32_t
 mq_inspect_file_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
                       inode_contribution_t *contribution, loc_t *loc,
-                      dict_t *dict, struct iatt buf)
+                      dict_t *dict, struct iatt *buf)
 {
     int32_t ret = -1;
     quota_meta_t size = {
@@ -2168,9 +2168,12 @@ mq_inspect_file_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
     };
     gf_boolean_t status = _gf_false;
 
+    if (!buf || !contribution || !ctx)
+        goto out;
+
     LOCK(&ctx->lock);
     {
-        ctx->size = 512 * buf.ia_blocks;
+        ctx->size = 512 * buf->ia_blocks;
         ctx->file_count = 1;
         ctx->dir_count = 0;
 
@@ -2215,7 +2218,8 @@ out:
 }
 
 int32_t
-mq_xattr_state(xlator_t *this, loc_t *origin_loc, dict_t *dict, struct iatt buf)
+mq_xattr_state(xlator_t *this, loc_t *origin_loc, dict_t *dict,
+               struct iatt *buf)
 {
     int32_t ret = -1;
     quota_inode_ctx_t *ctx = NULL;
@@ -2224,7 +2228,7 @@ mq_xattr_state(xlator_t *this, loc_t *origin_loc, dict_t *dict, struct iatt buf)
     };
     inode_contribution_t *contribution = NULL;
 
-    ret = mq_prevalidate_txn(this, origin_loc, &loc, &ctx, &buf);
+    ret = mq_prevalidate_txn(this, origin_loc, &loc, &ctx, buf);
     if (ret < 0 || loc.parent == NULL)
         goto out;
 
@@ -2239,13 +2243,12 @@ mq_xattr_state(xlator_t *this, loc_t *origin_loc, dict_t *dict, struct iatt buf)
             ret = -1;
             goto out;
         }
-        if (buf.ia_type == IA_IFDIR)
-            mq_inspect_directory_xattr(this, ctx, contribution, &loc, dict,
-                                       buf);
+        if (buf->ia_type == IA_IFDIR)
+            mq_inspect_directory_xattr(this, ctx, contribution, &loc, dict);
         else
             mq_inspect_file_xattr(this, ctx, contribution, &loc, dict, buf);
     } else {
-        mq_inspect_directory_xattr(this, ctx, 0, &loc, dict, buf);
+        mq_inspect_directory_xattr(this, ctx, 0, &loc, dict);
     }
 
 out:

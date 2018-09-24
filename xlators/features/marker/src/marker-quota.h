@@ -129,7 +129,7 @@ int32_t
 mq_req_xattr(xlator_t *, loc_t *, dict_t *, char *, char *);
 
 int32_t
-mq_xattr_state(xlator_t *, loc_t *, dict_t *, struct iatt);
+mq_xattr_state(xlator_t *, loc_t *, dict_t *, struct iatt *);
 
 int
 mq_initiate_quota_txn(xlator_t *, loc_t *, struct iatt *);
