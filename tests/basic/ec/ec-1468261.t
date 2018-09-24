@@ -16,6 +16,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5}
 TEST $CLI volume set $V0 disperse.optimistic-change-log on
+TEST $CLI volume set $V0 disperse.other-eager-lock on
 TEST $CLI volume start $V0
 
 #Mount the volume
