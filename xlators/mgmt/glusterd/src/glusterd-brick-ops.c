@@ -721,19 +721,20 @@ subvol_matcher_update(int *subvols, glusterd_volinfo_t *volinfo,
     glusterd_brickinfo_t *tmp = NULL;
     int32_t sub_volume = 0;
     int pos = 0;
-
-    cds_list_for_each_entry(tmp, &volinfo->bricks, brick_list)
-    {
-        if (strcmp(tmp->hostname, brickinfo->hostname) ||
-            strcmp(tmp->path, brickinfo->path)) {
-            pos++;
-            continue;
+    if (subvols) {
+        cds_list_for_each_entry(tmp, &volinfo->bricks, brick_list)
+        {
+            if (strcmp(tmp->hostname, brickinfo->hostname) ||
+                strcmp(tmp->path, brickinfo->path)) {
+                pos++;
+                continue;
+            }
+            gf_msg_debug(THIS->name, 0, LOGSTR_FOUND_BRICK, brickinfo->hostname,
+                         brickinfo->path, volinfo->volname);
+            sub_volume = (pos / volinfo->dist_leaf_count);
+            subvols[sub_volume]++;
+            break;
         }
-        gf_msg_debug(THIS->name, 0, LOGSTR_FOUND_BRICK, brickinfo->hostname,
-                     brickinfo->path, volinfo->volname);
-        sub_volume = (pos / volinfo->dist_leaf_count);
-        subvols[sub_volume]++;
-        break;
     }
 }
 
@@ -745,7 +746,7 @@ subvol_matcher_verify(int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
     int ret = 0;
     int count = volinfo->replica_count - replica_count;
 
-    if (replica_count) {
+    if (replica_count && subvols) {
         for (i = 0; i < volinfo->subvol_count; i++) {
             if (subvols[i] != count) {
                 ret = -1;
@@ -760,7 +761,7 @@ subvol_matcher_verify(int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
     }
 
     do {
-        if (subvols[i] % volinfo->dist_leaf_count == 0) {
+        if (subvols && (subvols[i] % volinfo->dist_leaf_count == 0)) {
             continue;
         } else {
             ret = -1;
@@ -1244,7 +1245,7 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
                                               &slave_url, &slave_host,
                                               &slave_vol, &conf_path, errmsg);
     if (ret) {
-        if (*errmsg)
+        if (errmsg && *errmsg)
             gf_msg("glusterd", GF_LOG_ERROR, 0,
                    GD_MSG_SLAVE_CONFPATH_DETAILS_FETCH_FAIL, "%s", *errmsg);
         else
