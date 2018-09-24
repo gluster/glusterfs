@@ -834,7 +834,8 @@ class Mounter(object):
 
     def umount_l(self, d):
         """perform lazy umount"""
-        po = Popen(self.make_umount_argv(d), stderr=subprocess.PIPE)
+        po = Popen(self.make_umount_argv(d), stderr=subprocess.PIPE,
+                   universal_newlines=True)
         po.wait()
         return po
 
@@ -950,7 +951,7 @@ class DirectMounter(Mounter):
 
     """mounter backend which calls mount(8), umount(8) directly"""
 
-    mountkw = {'stderr': subprocess.PIPE}
+    mountkw = {'stderr': subprocess.PIPE, 'universal_newlines': True}
     glusterprog = 'glusterfs'
 
     @staticmethod
@@ -973,7 +974,8 @@ class MountbrokerMounter(Mounter):
 
     """mounter backend using the mountbroker gluster service"""
 
-    mountkw = {'stderr': subprocess.PIPE, 'stdout': subprocess.PIPE}
+    mountkw = {'stderr': subprocess.PIPE, 'stdout': subprocess.PIPE,
+               'universal_newlines': True}
     glusterprog = 'gluster'
 
     @classmethod
@@ -1475,9 +1477,10 @@ class SSH(object):
             # Else rsync will write to stdout and nobody is their
             # to consume. If PIPE is full rsync hangs.
             po = Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE)
+                       stderr=subprocess.PIPE, universal_newlines=True)
         else:
-            po = Popen(argv, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            po = Popen(argv, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+                       universal_newlines=True)
 
         for f in files:
             po.stdin.write(f)
@@ -1526,8 +1529,10 @@ class SSH(object):
             [host, "tar"] + \
             ["--overwrite", "-xf", "-", "-C", rdir]
         p0 = Popen(tar_cmd, stdout=subprocess.PIPE,
-                   stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        p1 = Popen(ssh_cmd, stdin=p0.stdout, stderr=subprocess.PIPE)
+                   stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+                   universal_newlines=True)
+        p1 = Popen(ssh_cmd, stdin=p0.stdout, stderr=subprocess.PIPE,
+                   universal_newlines=True)
         for f in files:
             p0.stdin.write(f)
             p0.stdin.write('\n')

@@ -112,7 +112,8 @@ def subcmd_voluuidget(args):
 
     po = Popen(['gluster', '--xml', '--remote-host=' + args.host,
                 'volume', 'info', args.volname], bufsize=0,
-               stdin=None, stdout=PIPE, stderr=PIPE)
+               stdin=None, stdout=PIPE, stderr=PIPE,
+               universal_newlines=True)
 
     vix, err = po.communicate()
     if po.returncode != 0:
