@@ -1016,3 +1016,15 @@ def get_up_nodes(hosts, port):
             up_nodes.append(h)
 
     return up_nodes
+
+
+def pipe():
+    # Pipe routine for python2 and python3 compatiability
+    try:
+        (r, w) = os.pipe()
+        os.set_inheritable(r, True)
+        os.set_inheritable(w, True)
+    except AttributeError:
+        (r, w) = os.pipe()
+
+    return (r, w)
