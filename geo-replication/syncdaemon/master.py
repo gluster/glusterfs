@@ -927,7 +927,7 @@ class GMasterChangelogMixin(GMasterCommon):
                     failures1, retries, entry_ops1)
                 if not failures2:
                     pending_failures = False
-                    logging.info(lf('Sucessfully fixed entry ops with gfid '
+                    logging.info(lf('Successfully fixed entry ops with gfid '
                                  'mismatch', retry_count=retries))
                 else:
                     pending_failures = True
@@ -1172,7 +1172,7 @@ class GMasterChangelogMixin(GMasterCommon):
                     logging.info("Retry original entries. count = %s" % count)
                     failures = self.slave.server.entry_ops(entries)
                     if not failures:
-                        logging.info("Sucessfully fixed all entry ops with "
+                        logging.info("Successfully fixed all entry ops with "
                                      "gfid mismatch")
                         break
 
