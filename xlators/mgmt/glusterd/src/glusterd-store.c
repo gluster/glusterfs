@@ -2443,17 +2443,15 @@ glusterd_store_retrieve_snapd(glusterd_volinfo_t *volinfo)
     if (op_errno != GD_STORE_EOF)
         goto out;
 
-    ret = gf_store_iter_destroy(iter);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
-               "Failed to destroy store "
-               "iter");
-        goto out;
-    }
-
     ret = 0;
 
 out:
+    if (gf_store_iter_destroy(iter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+    }
+
     return ret;
 }
 
@@ -2700,10 +2698,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                    op_errno);
             goto out;
         }
-        ret = gf_store_iter_destroy(iter);
-
-        if (ret)
-            goto out;
 
         if (brickinfo->brick_id[0] == '\0') {
             /* This is an old volume upgraded to op_version 4 */
@@ -2762,10 +2756,21 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     }
 
     assign_brick_groups(volinfo);
-    ret = gf_store_iter_destroy(tmpiter);
-    if (ret)
-        goto out;
+    ret = 0;
+
 out:
+    if (gf_store_iter_destroy(tmpiter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+    }
+
+    if (gf_store_iter_destroy(iter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+    }
+
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
 
     return ret;
@@ -2814,6 +2819,7 @@ glusterd_store_retrieve_node_state(glusterd_volinfo_t *volinfo)
         goto out;
 
     ret = gf_store_iter_get_next(iter, &key, &value, &op_errno);
+
     if (ret)
         goto out;
 
@@ -2922,12 +2928,15 @@ glusterd_store_retrieve_node_state(glusterd_volinfo_t *volinfo)
         goto out;
     }
 
-    ret = gf_store_iter_destroy(iter);
-
-    if (ret)
-        goto out;
+    ret = 0;
 
 out:
+    if (gf_store_iter_destroy(iter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+    }
+
     if (dup_value)
         GF_FREE(dup_value);
     if (ret) {
@@ -3219,16 +3228,15 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
     if (op_errno != GD_STORE_EOF)
         goto out;
 
-    ret = gf_store_iter_destroy(iter);
-    if (ret) {
+    ret = 0;
+
+out:
+    if (gf_store_iter_destroy(iter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
-               "Failed to destroy store "
-               "iter");
-        goto out;
+               "Failed to destroy store iter");
+        ret = -1;
     }
 
-    ret = 0;
-out:
     return ret;
 }
 
@@ -3862,14 +3870,15 @@ glusterd_store_update_snap(glusterd_snap_t *snap)
     if (op_errno != GD_STORE_EOF)
         goto out;
 
-    ret = gf_store_iter_destroy(iter);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
-               "Failed to destroy store "
-               "iter");
-    }
+    ret = 0;
 
 out:
+    if (gf_store_iter_destroy(iter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+    }
+
     return ret;
 }
 
@@ -4012,6 +4021,9 @@ glusterd_store_retrieve_missed_snaps_list(xlator_t *this)
 
     ret = 0;
 out:
+    if (fp)
+        fclose(fp);
+
     gf_msg_trace(this->name, 0, "Returning with %d", ret);
     return ret;
 }
