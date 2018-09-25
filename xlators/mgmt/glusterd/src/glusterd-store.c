@@ -2713,6 +2713,8 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
          * snapshot or snapshot restored volume this would be done post
          * creating the brick mounts
          */
+        if (gf_uuid_is_null(brickinfo->uuid))
+            (void)glusterd_resolve_brick(brickinfo);
         if (brickinfo->real_path[0] == '\0' && !volinfo->is_snap_volume &&
             gf_uuid_is_null(volinfo->restored_from_snap)) {
             /* By now if the brick is a local brick then it will be
@@ -2721,7 +2723,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
              * with MY_UUID for realpath check. Hence do not handle
              * error
              */
-            (void)glusterd_resolve_brick(brickinfo);
             if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
                 if (!realpath(brickinfo->path, abspath)) {
                     gf_msg(this->name, GF_LOG_CRITICAL, errno,
