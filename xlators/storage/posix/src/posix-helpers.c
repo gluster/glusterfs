@@ -2582,7 +2582,7 @@ __posix_inode_ctx_get(inode_t *inode, xlator_t *this)
 
     ret = __inode_ctx_get(inode, this, &ctx_uint);
     if (ret == 0) {
-        return (posix_inode_ctx_t *)ctx_uint;
+        return (posix_inode_ctx_t *)(uintptr_t)ctx_uint;
     }
 
     ctx_p = GF_CALLOC(1, sizeof(*ctx_p), gf_posix_mt_inode_ctx_t);

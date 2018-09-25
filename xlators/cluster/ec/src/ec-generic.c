@@ -83,7 +83,7 @@ ec_manager_flush(ec_fop_data_t *fop, int32_t state)
     switch (state) {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, 0, 0, LLONG_MAX);
+            ec_lock_prepare_fd(fop, fop->fd, 0, 0, EC_RANGE_FULL);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -289,7 +289,7 @@ ec_manager_fsync(ec_fop_data_t *fop, int32_t state)
     switch (state) {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0, LLONG_MAX);
+            ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0, EC_RANGE_FULL);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -484,7 +484,7 @@ ec_manager_fsyncdir(ec_fop_data_t *fop, int32_t state)
     switch (state) {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, 0, 0, LLONG_MAX);
+            ec_lock_prepare_fd(fop, fop->fd, 0, 0, EC_RANGE_FULL);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1182,9 +1182,10 @@ ec_manager_xattrop(ec_fop_data_t *fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL) {
                 ec_lock_prepare_inode(fop, &fop->loc[0], EC_UPDATE_META, 0,
-                                      LLONG_MAX);
+                                      EC_RANGE_FULL);
             } else {
-                ec_lock_prepare_fd(fop, fop->fd, EC_UPDATE_META, 0, LLONG_MAX);
+                ec_lock_prepare_fd(fop, fop->fd, EC_UPDATE_META, 0,
+                                   EC_RANGE_FULL);
             }
             ec_lock(fop);
 

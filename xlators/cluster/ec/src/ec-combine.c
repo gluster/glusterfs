@@ -174,8 +174,11 @@ ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
         }
         if (failed) {
             gf_msg(fop->xl->name, GF_LOG_WARNING, 0, EC_MSG_IATT_COMBINE_FAIL,
-                   "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "
-                   "uid: %u-%u, gid: %u-%u, rdev: %lu-%lu, size: %lu-%lu, "
+                   "Failed to combine iatt (inode: %" PRIu64 "-%" PRIu64
+                   ", "
+                   "links: %u-%u, uid: %u-%u, gid: %u-%u, "
+                   "rdev: %" PRIu64 "-%" PRIu64 ", size: %" PRIu64 "-%" PRIu64
+                   ", "
                    "mode: %o-%o)",
                    dst[i].ia_ino, src[i].ia_ino, dst[i].ia_nlink,
                    src[i].ia_nlink, dst[i].ia_uid, src[i].ia_uid, dst[i].ia_gid,

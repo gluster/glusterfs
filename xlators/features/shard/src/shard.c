@@ -69,7 +69,7 @@ __shard_inode_ctx_get(inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
 
     ret = __inode_ctx_get(inode, this, &ctx_uint);
     if (ret == 0) {
-        *ctx = (shard_inode_ctx_t *)ctx_uint;
+        *ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
         return ret;
     }
 
@@ -363,7 +363,7 @@ __shard_inode_ctx_get_block_size(inode_t *inode, xlator_t *this,
     if (ret < 0)
         return ret;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     *block_size = ctx->block_size;
 
@@ -397,7 +397,7 @@ __shard_inode_ctx_get_fsync_count(inode_t *inode, xlator_t *this,
     if (ret < 0)
         return ret;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     *fsync_count = ctx->fsync_needed;
 
@@ -430,7 +430,7 @@ __shard_inode_ctx_get_all(inode_t *inode, xlator_t *this,
     if (ret < 0)
         return ret;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     memcpy(ctx_out, ctx, sizeof(shard_inode_ctx_t));
     return 0;
@@ -464,7 +464,7 @@ __shard_inode_ctx_fill_iatt_from_cache(inode_t *inode, xlator_t *this,
     if (ret < 0)
         return ret;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     if (ctx->refresh == _gf_false)
         *buf = ctx->stat;
@@ -5145,7 +5145,7 @@ __shard_get_delta_size_from_inode_ctx(shard_local_t *local, inode_t *inode,
     if (ret < 0)
         return ret;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     if (shard_is_appending_write(local)) {
         local->delta_size = local->total_size;
@@ -5668,7 +5668,7 @@ __shard_get_timestamps_from_inode_ctx(shard_local_t *local, inode_t *inode,
     if (ret < 0)
         return ret;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     local->postbuf.ia_ctime = ctx->stat.ia_ctime;
     local->postbuf.ia_ctime_nsec = ctx->stat.ia_ctime_nsec;
@@ -6693,7 +6693,7 @@ shard_forget(xlator_t *this, inode_t *inode)
     if (!ctx_uint)
         return 0;
 
-    ctx = (shard_inode_ctx_t *)ctx_uint;
+    ctx = (shard_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     /* When LRU limit reaches inode will be forcefully removed from the
      * table, inode needs to be removed from LRU of shard as well.

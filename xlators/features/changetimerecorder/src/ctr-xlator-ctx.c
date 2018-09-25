@@ -295,7 +295,7 @@ init_ctr_xlator_ctx(xlator_t *this, inode_t *inode)
                    "Failed init lock %s", strerror(ret));
             goto out;
         }
-        _addr = (uint64_t)ctr_xlator_ctx;
+        _addr = (uint64_t)(uintptr_t)ctr_xlator_ctx;
 
         ret = __inode_ctx_set(inode, this, &_addr);
         if (ret) {

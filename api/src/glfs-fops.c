@@ -5187,7 +5187,7 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
         list_for_each_entry(fd, &inode->fd_list, inode_list)
         {
             ret = fd_ctx_get(fd, subvol, &value);
-            glfd = (struct glfs_fd *)value;
+            glfd = (struct glfs_fd *)(uintptr_t)value;
             if (glfd) {
                 gf_msg_trace(THIS->name, 0, "glfd (%p) has held lease", glfd);
                 GF_REF_GET(glfd);

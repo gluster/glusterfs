@@ -686,7 +686,6 @@ gf_store_save_value
 gf_store_unlink_tmppath
 gf_store_unlock
 gf_string2boolean
-gf_string2bytesize
 gf_string2bytesize_int64
 gf_string2bytesize_uint64
 gf_string2double

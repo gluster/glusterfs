@@ -959,7 +959,7 @@ fuse_getattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
 #if FUSE_KERNEL_MINOR_VERSION >= 9
     priv = this->private;
     if (priv->proto_minor >= 9 && fgi->getattr_flags & FUSE_GETATTR_FH)
-        state->fd = fd_ref((fd_t *)fgi->fh);
+        state->fd = fd_ref((fd_t *)(uintptr_t)fgi->fh);
 #endif
     if (finh->nodeid == 1) {
         state->gfid[15] = 1;

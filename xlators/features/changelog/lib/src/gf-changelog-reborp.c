@@ -353,7 +353,9 @@ gf_changelog_event_handler(rpcsvc_request_t *req, xlator_t *this,
     }
 
     gf_msg_debug(this->name, 0,
-                 "seq: %lu [%s] (time: %lu.%lu), (vec: %d, len: %zd)",
+                 "seq: %" PRIu64 " [%s] (time: %" PRIu64 ".%" PRIu64
+                 "), "
+                 "(vec: %d, len: %zd)",
                  rpc_req.seq, entry->brick, rpc_req.tv_sec, rpc_req.tv_usec,
                  payloadcnt, payloadlen);
 

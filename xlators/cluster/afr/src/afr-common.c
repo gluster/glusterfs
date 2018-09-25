@@ -148,7 +148,7 @@ __afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
 
     ret = __inode_ctx_get(inode, this, &ctx_int);
     if (ret == 0) {
-        *ctx = (afr_inode_ctx_t *)ctx_int;
+        *ctx = (afr_inode_ctx_t *)(uintptr_t)ctx_int;
         return 0;
     }
 
@@ -174,7 +174,7 @@ __afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
         INIT_LIST_HEAD(&lock->owners);
     }
 
-    ctx_int = (uint64_t)ictx;
+    ctx_int = (uint64_t)(uintptr_t)ictx;
     ret = __inode_ctx_set(inode, this, &ctx_int);
     if (ret) {
         goto out;
@@ -4842,7 +4842,7 @@ afr_forget(xlator_t *this, inode_t *inode)
     if (!ctx_int)
         return 0;
 
-    ctx = (afr_inode_ctx_t *)ctx_int;
+    ctx = (afr_inode_ctx_t *)(uintptr_t)ctx_int;
     afr_inode_ctx_destroy(ctx);
     return 0;
 }
@@ -5042,8 +5042,7 @@ find_best_down_child(xlator_t *this)
     }
     if (best_child >= 0) {
         gf_msg_debug(this->name, 0,
-                     "Found best down child (%d) "
-                     "@ %ld ms latency",
+                     "Found best down child (%d) @ %" PRId64 " ms latency",
                      best_child, best_latency);
     }
     return best_child;
@@ -5068,8 +5067,7 @@ find_worst_up_child(xlator_t *this)
     }
     if (worst_child >= 0) {
         gf_msg_debug(this->name, 0,
-                     "Found worst up child (%d)"
-                     " @ %ld ms latency",
+                     "Found worst up child (%d) @ %" PRId64 " ms latency",
                      worst_child, worst_latency);
     }
     return worst_child;
@@ -5086,7 +5084,7 @@ __afr_handle_ping_event(xlator_t *this, xlator_t *child_xlator, const int idx,
     priv = this->private;
 
     priv->child_latency[idx] = child_latency_msec;
-    gf_msg_debug(child_xlator->name, 0, "Client ping @ %ld ms",
+    gf_msg_debug(child_xlator->name, 0, "Client ping @ %" PRId64 " ms",
                  child_latency_msec);
     if (priv->shd.iamshd)
         return;
@@ -5102,8 +5100,10 @@ __afr_handle_ping_event(xlator_t *this, xlator_t *child_xlator, const int idx,
                    priv->halo_min_replicas);
         } else {
             gf_log(child_xlator->name, GF_LOG_INFO,
-                   "Child latency (%ld ms) "
-                   "exceeds halo threshold (%ld), "
+                   "Child latency (%" PRId64
+                   " ms) "
+                   "exceeds halo threshold (%" PRId64
+                   "), "
                    "marking child down.",
                    child_latency_msec, halo_max_latency_msec);
             *event = GF_EVENT_CHILD_DOWN;
@@ -5112,8 +5112,10 @@ __afr_handle_ping_event(xlator_t *this, xlator_t *child_xlator, const int idx,
                priv->child_up[idx] == 0) {
         if (up_children < priv->halo_max_replicas) {
             gf_log(child_xlator->name, GF_LOG_INFO,
-                   "Child latency (%ld ms) "
-                   "below halo threshold (%ld), "
+                   "Child latency (%" PRId64
+                   " ms) "
+                   "below halo threshold (%" PRId64
+                   "), "
                    "marking child up.",
                    child_latency_msec, halo_max_latency_msec);
             *event = GF_EVENT_CHILD_UP;
@@ -5141,7 +5143,7 @@ afr_get_halo_latency(xlator_t *this)
     } else {
         halo_max_latency_msec = priv->halo_max_latency_msec;
     }
-    gf_msg_debug(this->name, 0, "Using halo latency %ld",
+    gf_msg_debug(this->name, 0, "Using halo latency %" PRId64,
                  halo_max_latency_msec);
     return halo_max_latency_msec;
 }
@@ -5196,7 +5198,8 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
             priv->child_latency[worst_up_child] > halo_max_latency_msec) {
             gf_msg_debug(this->name, 0,
                          "Marking child %d down, "
-                         "doesn't meet halo threshold (%ld), and > "
+                         "doesn't meet halo threshold (%" PRId64
+                         "), and > "
                          "halo_min_replicas (%d)",
                          worst_up_child, halo_max_latency_msec,
                          priv->halo_min_replicas);

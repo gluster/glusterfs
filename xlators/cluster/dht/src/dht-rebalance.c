@@ -941,8 +941,8 @@ __dht_check_free_space(xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
     }
 
     gf_msg_debug(this->name, 0,
-                 "min_free_disk - %f , block available - "
-                 "%lu , block size - %lu ",
+                 "min_free_disk - %f , block available - %" PRId64
+                 ", block size - %lu",
                  conf->min_free_disk, dst_statfs.f_bavail, dst_statfs.f_bsize);
 
     dst_statfs_blocks = dst_statfs.f_bavail *
@@ -1018,7 +1018,7 @@ check_avail_space:
 
         gf_msg_debug(this->name, 0,
                      "file : %s, post_availspacepercent"
-                     " : %lf f_bavail : %lu min-free-disk: %lf",
+                     " : %lf f_bavail : %" PRIu64 " min-free-disk: %lf",
                      loc->path, dst_post_availspacepercent, dst_statfs.f_bavail,
                      conf->min_free_disk);
 
@@ -1039,9 +1039,8 @@ check_avail_space:
     if (conf->disk_unit != 'p') {
         if ((dst_statfs_blocks * GF_DISK_SECTOR_SIZE) < conf->min_free_disk) {
             gf_msg_debug(this->name, 0,
-                         "file : %s,  destination "
-                         "frsize: %lu f_bavail : %lu "
-                         "min-free-disk: %lf",
+                         "file : %s,  destination frsize: %lu "
+                         "f_bavail : %" PRIu64 " min-free-disk: %lf",
                          loc->path, dst_statfs.f_frsize, dst_statfs.f_bavail,
                          conf->min_free_disk);
 

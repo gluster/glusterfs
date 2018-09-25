@@ -31,7 +31,7 @@ __arbiter_inode_ctx_get(inode_t *inode, xlator_t *this)
     if (!ctx)
         goto out;
 
-    ret = __inode_ctx_put(inode, this, (uint64_t)ctx);
+    ret = __inode_ctx_put(inode, this, (uint64_t)(uintptr_t)ctx);
     if (ret) {
         GF_FREE(ctx);
         ctx = NULL;

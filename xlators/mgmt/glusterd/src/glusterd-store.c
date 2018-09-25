@@ -363,7 +363,7 @@ gd_store_brick_snap_details_write(int fd, glusterd_brickinfo_t *brickinfo)
     if (ret)
         goto out;
 
-    snprintf(value, sizeof(value), "%lu", brickinfo->statfs_fsid);
+    snprintf(value, sizeof(value), "%" PRIu64, brickinfo->statfs_fsid);
     ret = gf_store_save_value(fd, GLUSTERD_STORE_KEY_BRICK_FSID, value);
 
 out:

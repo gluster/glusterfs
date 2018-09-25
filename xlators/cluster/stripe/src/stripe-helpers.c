@@ -252,7 +252,7 @@ stripe_fill_pathinfo_xattr(xlator_t *this, stripe_local_t *local,
     }
 
     len = snprintf(stripe_size_str, sizeof(stripe_size_str), "%" PRId64,
-                   (long long)(local->fctx) ? local->fctx->stripe_size : 0);
+                   local->fctx ? local->fctx->stripe_size : 0);
     if (len < 0 || len >= sizeof(stripe_size_str))
         goto out;
     /* extra bytes for decorations (brackets and <>'s) */

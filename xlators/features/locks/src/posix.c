@@ -1522,7 +1522,7 @@ pl_fsetxattr_handle_lockinfo(call_frame_t *frame, fd_t *fd, char *lockinfo_buf,
         gf_log(frame->this->name, GF_LOG_WARNING,
                "migration of locks from oldfd (ptr:%p) to newfd "
                "(ptr:%p) (inode-gfid:%s)",
-               (void *)oldfd_num, fd, uuid_utoa(fd->inode->gfid));
+               (void *)(uintptr_t)oldfd_num, fd, uuid_utoa(fd->inode->gfid));
         goto out;
     }
 

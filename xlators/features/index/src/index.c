@@ -77,7 +77,7 @@ __index_inode_ctx_get(inode_t *inode, xlator_t *this, index_inode_ctx_t **ctx)
     }
 
     INIT_LIST_HEAD(&ictx->callstubs);
-    ret = __inode_ctx_put(inode, this, (uint64_t)ictx);
+    ret = __inode_ctx_put(inode, this, (uint64_t)(uintptr_t)ictx);
     if (ret) {
         GF_FREE(ictx);
         ictx = NULL;

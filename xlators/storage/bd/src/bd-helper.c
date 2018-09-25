@@ -331,7 +331,7 @@ bd_validate_bd_xattr(xlator_t *this, char *bd, char **type, uint64_t *lv_size,
     if (bytes) {
         *bytes = '\0';
         bytes++;
-        gf_string2bytesize(bytes, &size);
+        gf_string2bytesize_uint64(bytes, &size);
     }
 
     if (strcmp(bd, BD_LV) && strcmp(bd, BD_THIN)) {

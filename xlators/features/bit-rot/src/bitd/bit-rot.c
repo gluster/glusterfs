@@ -351,8 +351,7 @@ br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
                                             &sha256);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_BLOCK_READ_FAILED,
-                   "reading block with "
-                   "offset %lu of object %s failed",
+                   "reading block with offset %" PRIu64 " of object %s failed",
                    offset, uuid_utoa(fd->inode->gfid));
             break;
         }

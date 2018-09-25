@@ -332,7 +332,7 @@ ioc_invalidate(xlator_t *this, inode_t *inode)
     ioc_inode_t *ioc_inode = NULL;
 
     inode_ctx_get(inode, this, (uint64_t *)&ioc_addr);
-    ioc_inode = (void *)ioc_addr;
+    ioc_inode = (void *)(uintptr_t)ioc_addr;
 
     if (ioc_inode)
         ioc_inode_flush(ioc_inode);

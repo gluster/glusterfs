@@ -142,7 +142,7 @@ jbr_get_fd_ctx(xlator_t *this, fd_t *fd)
     } else {
         ctx_ptr = GF_CALLOC(1, sizeof(*ctx_ptr), gf_mt_jbr_fd_ctx_t);
         if (ctx_ptr) {
-            if (__fd_ctx_set(fd, this, (uint64_t)ctx_ptr) == 0) {
+            if (__fd_ctx_set(fd, this, (uint64_t)(uintptr_t)ctx_ptr) == 0) {
                 INIT_LIST_HEAD(&ctx_ptr->dirty_list);
                 INIT_LIST_HEAD(&ctx_ptr->fd_list);
             } else {

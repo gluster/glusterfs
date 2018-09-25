@@ -1899,8 +1899,9 @@ dht_selfheal_layout_new_directory(call_frame_t *frame, loc_t *loc,
     if (weight_by_size && total_size) {
         /* We know total_size is not zero. */
         chunk = ((double)0xffffffff) / ((double)total_size);
-        gf_msg_debug(this->name, 0, "chunk size = 0xffffffff / %lu = %f",
-                     total_size, chunk);
+        gf_msg_debug(this->name, 0,
+                     "chunk size = 0xffffffff / %" PRIu64 " = %f", total_size,
+                     chunk);
     } else {
         weight_by_size = _gf_false;
         chunk = ((unsigned long)0xffffffff) / bricks_to_use;

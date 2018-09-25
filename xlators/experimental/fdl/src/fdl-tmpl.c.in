@@ -92,7 +92,7 @@ fdl_open_term_log(xlator_t *this, log_obj_t *obj, int term)
         goto err;
     }
 
-    gf_log(this->name, GF_LOG_INFO, "opening %s (size %ld)", obj->path,
+    gf_log(this->name, GF_LOG_INFO, "opening %s (size %" PRId64 ")", obj->path,
            obj->size);
 
     obj->fd = open(obj->path, O_RDWR | O_CREAT | O_TRUNC, 0666);
@@ -159,7 +159,8 @@ fdl_close_term_log(xlator_t *this, log_obj_t *obj)
     }
 
     if (obj->fd >= 0) {
-        gf_log(this->name, GF_LOG_INFO, "truncating term %d %s journal to %ld",
+        gf_log(this->name, GF_LOG_INFO,
+               "truncating term %d %s journal to %" PRId64,
                priv->term, obj->type, obj->max_offset);
         if (sys_ftruncate(obj->fd, obj->max_offset) < 0) {
             gf_log(this->name, GF_LOG_WARNING,

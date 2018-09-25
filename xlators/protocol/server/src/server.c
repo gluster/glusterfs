@@ -979,9 +979,9 @@ server_dump_metrics(xlator_t *this, int fd)
         if (!client)
             continue;
 
-        dprintf(fd, "%s.total.rpc.%s.bytes_read %lu\n", this->name,
+        dprintf(fd, "%s.total.rpc.%s.bytes_read %" PRIu64 "\n", this->name,
                 client->client_uid, xprt->total_bytes_read);
-        dprintf(fd, "%s.total.rpc.%s.bytes_write %lu\n", this->name,
+        dprintf(fd, "%s.total.rpc.%s.bytes_write %" PRIu64 "\n", this->name,
                 client->client_uid, xprt->total_bytes_write);
         dprintf(fd, "%s.total.rpc.%s.outstanding %d\n", this->name,
                 client->client_uid, xprt->outstanding_rpc_count);

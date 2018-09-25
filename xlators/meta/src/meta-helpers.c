@@ -31,7 +31,7 @@ meta_fd_get(fd_t *fd, xlator_t *this)
                 __fd_ctx_set(fd, this, value);
             }
         } else {
-            meta_fd = (void *)value;
+            meta_fd = (void *)(uintptr_t)value;
         }
     }
 unlock:
@@ -48,7 +48,7 @@ meta_fd_release(fd_t *fd, xlator_t *this)
     int i = 0;
 
     fd_ctx_get(fd, this, &value);
-    meta_fd = (void *)value;
+    meta_fd = (void *)(uintptr_t)value;
 
     if (meta_fd && meta_fd->dirents) {
         for (i = 0; i < meta_fd->size; i++)
@@ -71,7 +71,7 @@ meta_ops_get(inode_t *inode, xlator_t *this)
 
     inode_ctx_get2(inode, this, NULL, &value);
 
-    ops = (void *)value;
+    ops = (void *)(uintptr_t)value;
 
     return ops;
 }
@@ -111,7 +111,7 @@ meta_ctx_get(inode_t *inode, xlator_t *this)
 
     inode_ctx_get2(inode, this, &value, 0);
 
-    ctx = (void *)value;
+    ctx = (void *)(uintptr_t)value;
 
     return ctx;
 }

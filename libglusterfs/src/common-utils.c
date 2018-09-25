@@ -1800,22 +1800,6 @@ gf_string2bytesize_range(const char *str, uint64_t *n, uint64_t umax)
 }
 
 int
-gf_string2bytesize_size(const char *str, size_t *n)
-{
-    uint64_t u64;
-    size_t max = (size_t)-1;
-    int val = gf_string2bytesize_range(str, &u64, max);
-    *n = (size_t)u64;
-    return val;
-}
-
-int
-gf_string2bytesize(const char *str, uint64_t *n)
-{
-    return gf_string2bytesize_range(str, n, UINT64_MAX);
-}
-
-int
 gf_string2bytesize_uint64(const char *str, uint64_t *n)
 {
     return gf_string2bytesize_range(str, n, UINT64_MAX);

@@ -95,6 +95,9 @@ enum _ec_xattrop_flags {
 #define EC_STATE_HEAL_POST_INODELK_UNLOCK 217
 #define EC_STATE_HEAL_DISPATCH 218
 
+/* Value to cover the full range of a file */
+#define EC_RANGE_FULL ((uint64_t)LLONG_MAX + 1)
+
 gf_boolean_t
 ec_dispatch_one_retry(ec_fop_data_t *fop, ec_cbk_data_t **cbk);
 void
@@ -120,13 +123,13 @@ ec_cbk_set_error(ec_cbk_data_t *cbk, int32_t error, gf_boolean_t ro);
 
 void
 ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags,
-                      off_t fl_start, size_t fl_size);
+                      off_t fl_start, uint64_t fl_size);
 void
 ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
                              uint32_t flags);
 void
 ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags, off_t fl_start,
-                   size_t fl_size);
+                   uint64_t fl_size);
 void
 ec_lock(ec_fop_data_t *fop);
 void
