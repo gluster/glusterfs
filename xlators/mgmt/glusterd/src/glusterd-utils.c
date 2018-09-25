@@ -11004,7 +11004,7 @@ glusterd_volume_tier_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     char *task_id_str = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, rsp_dict, out);
 
     if (aggr) {
