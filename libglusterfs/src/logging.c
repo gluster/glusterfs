@@ -720,6 +720,13 @@ gf_log_init(void *data, const char *file, const char *ident)
     GF_FREE(ctx->log.filename);
     ctx->log.filename = NULL;
 
+    /* close and reopen logfile for log rotate */
+    if (ctx->log.logfile) {
+        fclose(ctx->log.logfile);
+        ctx->log.logfile = NULL;
+        ctx->log.gf_log_logfile = NULL;
+    }
+
     if (strcmp(file, "-") == 0) {
         int dupfd = -1;
 
