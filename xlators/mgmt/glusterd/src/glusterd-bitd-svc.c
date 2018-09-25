@@ -150,7 +150,7 @@ glusterd_bitdsvc_reconfigure()
     gf_boolean_t identical = _gf_false;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
