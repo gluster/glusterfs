@@ -414,7 +414,6 @@ ec_fentrylk(call_frame_t *frame, xlator_t *this, uintptr_t target,
 
     gf_msg_trace("ec", 0, "EC(FENTRYLK) %p", frame);
 
-    VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
@@ -1044,7 +1043,6 @@ ec_lk(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
 
     gf_msg_trace("ec", 0, "EC(LK) %p", frame);
 
-    VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
