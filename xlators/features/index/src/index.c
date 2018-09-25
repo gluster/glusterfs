@@ -1503,6 +1503,8 @@ index_save_pargfid_for_entry_changes(xlator_t *this, loc_t *loc, char *path)
     int ret = 0;
 
     priv = this->private;
+    if (!loc)
+        return -1;
     if (gf_uuid_compare(loc->pargfid, priv->internal_vgfid[ENTRY_CHANGES]))
         return 0;
 
@@ -1558,8 +1560,15 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
             op_errno = -ret;
             goto done;
         }
-        strcat(path, "/");
-        strcat(path, (char *)loc->name);
+        ret = snprintf(path + strlen(path), PATH_MAX - strlen(path), "/%s",
+                       loc->name);
+
+        if ((ret < 0) || (ret > (PATH_MAX - strlen(path)))) {
+            op_errno = EINVAL;
+            op_ret = -1;
+            goto done;
+        }
+
     } else if (index_is_virtual_gfid(priv, loc->gfid)) {
         subdir = index_get_subdir_from_vgfid(priv, loc->gfid);
         make_index_dir_path(priv->index_basepath, subdir, path, sizeof(path));
@@ -1626,8 +1635,8 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     stbuf.ia_ino = -1;
     op_ret = 0;
 done:
-    STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno, loc->inode, &stbuf,
-                        xattr, &postparent);
+    STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno,
+                        loc ? loc->inode : NULL, &stbuf, xattr, &postparent);
     if (xattr)
         dict_unref(xattr);
     loc_wipe(&iloc);
