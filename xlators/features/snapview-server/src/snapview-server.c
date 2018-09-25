@@ -1329,7 +1329,7 @@ svs_forget(xlator_t *this, inode_t *inode)
         goto out;
     }
 
-    inode_ctx = (svs_inode_t *)value;
+    inode_ctx = (svs_inode_t *)(uintptr_t)value;
     if (!inode_ctx)
         goto out;
 

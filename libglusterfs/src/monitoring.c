@@ -84,34 +84,36 @@ dump_latency_and_count(xlator_t *xl, int fd)
     uint64_t cbk;
     uint64_t count;
 
-    if (xl->winds)
-        dprintf(fd, "%s.total.pending-winds.count %lu\n", xl->name, xl->winds);
+    if (xl->winds) {
+        dprintf(fd, "%s.total.pending-winds.count %" PRIu64 "\n", xl->name,
+                xl->winds);
+    }
 
     /* Need 'fuse' data, and don't need all the old graph info */
     if ((xl != xl->ctx->master) && (xl->ctx->active != xl->graph))
         return;
 
     count = GF_ATOMIC_GET(xl->stats.total.count);
-    dprintf(fd, "%s.total.fop-count %lu\n", xl->name, count);
+    dprintf(fd, "%s.total.fop-count %" PRIu64 "\n", xl->name, count);
 
     count = GF_ATOMIC_GET(xl->stats.interval.count);
-    dprintf(fd, "%s.interval.fop-count %lu\n", xl->name, count);
+    dprintf(fd, "%s.interval.fop-count %" PRIu64 "\n", xl->name, count);
     GF_ATOMIC_INIT(xl->stats.interval.count, 0);
 
     for (index = 0; index < GF_FOP_MAXVALUE; index++) {
         fop = GF_ATOMIC_GET(xl->stats.total.metrics[index].fop);
         if (fop) {
-            dprintf(fd, "%s.total.%s.count %lu\n", xl->name, gf_fop_list[index],
-                    fop);
+            dprintf(fd, "%s.total.%s.count %" PRIu64 "\n", xl->name,
+                    gf_fop_list[index], fop);
         }
         fop = GF_ATOMIC_GET(xl->stats.interval.metrics[index].fop);
         if (fop) {
-            dprintf(fd, "%s.interval.%s.count %lu\n", xl->name,
+            dprintf(fd, "%s.interval.%s.count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], fop);
         }
         cbk = GF_ATOMIC_GET(xl->stats.interval.metrics[index].cbk);
         if (cbk) {
-            dprintf(fd, "%s.interval.%s.fail_count %lu\n", xl->name,
+            dprintf(fd, "%s.interval.%s.fail_count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], cbk);
         }
         if (xl->stats.interval.latencies[index].count != 0.0) {
@@ -136,9 +138,9 @@ dump_latency_and_count(xlator_t *xl, int fd)
 static inline void
 dump_call_stack_details(glusterfs_ctx_t *ctx, int fd)
 {
-    dprintf(fd, "total.stack.count %lu\n",
+    dprintf(fd, "total.stack.count %" PRIu64 "\n",
             GF_ATOMIC_GET(ctx->pool->total_count));
-    dprintf(fd, "total.stack.in-flight %lu\n", ctx->pool->cnt);
+    dprintf(fd, "total.stack.in-flight %" PRIu64 "\n", ctx->pool->cnt);
 }
 
 static inline void
@@ -150,11 +152,12 @@ dump_dict_details(glusterfs_ctx_t *ctx, int fd)
     total_dicts = GF_ATOMIC_GET(ctx->stats.total_dicts_used);
     total_pairs = GF_ATOMIC_GET(ctx->stats.total_pairs_used);
 
-    dprintf(fd, "total.dict.max-pairs-per %lu\n",
+    dprintf(fd, "total.dict.max-pairs-per %" PRIu64 "\n",
             GF_ATOMIC_GET(ctx->stats.max_dict_pairs));
-    dprintf(fd, "total.dict.pairs-used %lu\n", total_pairs);
-    dprintf(fd, "total.dict.used %lu\n", total_dicts);
-    dprintf(fd, "total.dict.average-pairs %lu\n", (total_pairs / total_dicts));
+    dprintf(fd, "total.dict.pairs-used %" PRIu64 "\n", total_pairs);
+    dprintf(fd, "total.dict.used %" PRIu64 "\n", total_dicts);
+    dprintf(fd, "total.dict.average-pairs %" PRIu64 "\n",
+            (total_pairs / total_dicts));
 }
 
 static void

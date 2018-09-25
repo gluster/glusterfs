@@ -55,7 +55,7 @@ leases_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     else
         memset(fd_ctx->lease_id, 0, LEASE_ID_SIZE);
 
-    ret = fd_ctx_set(fd, this, (uint64_t)fd_ctx);
+    ret = fd_ctx_set(fd, this, (uint64_t)(uintptr_t)fd_ctx);
     if (ret) {
         op_errno = ENOMEM;
         goto err;

@@ -74,7 +74,7 @@ ec_manager_access(ec_fop_data_t *fop, int32_t state)
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
             ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO, 0,
-                                  LLONG_MAX);
+                                  EC_RANGE_FULL);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -301,10 +301,10 @@ ec_manager_getxattr(ec_fop_data_t *fop, int32_t state)
                          SLEN(GF_XATTR_CLRLK_CMD)) != 0)) {
                 if (fop->fd == NULL) {
                     ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO, 0,
-                                          LLONG_MAX);
+                                          EC_RANGE_FULL);
                 } else {
                     ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0,
-                                       LLONG_MAX);
+                                       EC_RANGE_FULL);
                 }
                 ec_lock(fop);
             }
@@ -1008,7 +1008,7 @@ ec_manager_readlink(ec_fop_data_t *fop, int32_t state)
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
             ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO, 0,
-                                  LLONG_MAX);
+                                  EC_RANGE_FULL);
             ec_lock(fop);
             return EC_STATE_DISPATCH;
 
@@ -1131,7 +1131,7 @@ ec_readv_rebuild(ec_t *ec, ec_fop_data_t *fop, ec_cbk_data_t *cbk)
     ec_cbk_data_t *ans = NULL;
     struct iobref *iobref = NULL;
     void *ptr;
-    size_t fsize = 0, size = 0, max = 0;
+    uint64_t fsize = 0, size = 0, max = 0;
     int32_t pos, err = -ENOMEM;
 
     if (cbk->op_ret < 0) {
@@ -1536,7 +1536,7 @@ int32_t
 ec_manager_seek(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk;
-    size_t size;
+    uint64_t size;
 
     switch (state) {
         case EC_STATE_INIT:
@@ -1548,7 +1548,7 @@ ec_manager_seek(ec_fop_data_t *fop, int32_t state)
 
         case EC_STATE_LOCK:
             ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, fop->offset,
-                               LLONG_MAX);
+                               EC_RANGE_FULL);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1764,9 +1764,10 @@ ec_manager_stat(ec_fop_data_t *fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL) {
                 ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO, 0,
-                                      LLONG_MAX);
+                                      EC_RANGE_FULL);
             } else {
-                ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0, LLONG_MAX);
+                ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0,
+                                   EC_RANGE_FULL);
             }
             ec_lock(fop);
 

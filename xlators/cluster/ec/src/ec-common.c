@@ -132,22 +132,23 @@ out:
     loc_wipe(&loc);
 }
 
-off_t
-ec_range_end_get(off_t fl_start, size_t fl_size)
+static off_t
+ec_range_end_get(off_t fl_start, uint64_t fl_size)
 {
-    off_t fl_end = 0;
-    switch (fl_size) {
-        case 0:
-            return fl_start;
-        case LLONG_MAX: /*Infinity*/
-            return LLONG_MAX;
-        default:
-            fl_end = fl_start + fl_size - 1;
-            if (fl_end < 0) /*over-flow*/
-                return LLONG_MAX;
-            else
-                return fl_end;
+    if (fl_size > 0) {
+        if (fl_size >= EC_RANGE_FULL) {
+            /* Infinity */
+            fl_start = LLONG_MAX;
+        } else {
+            fl_start += fl_size - 1;
+            if (fl_start < 0) {
+                /* Overflow */
+                fl_start = LLONG_MAX;
+            }
+        }
     }
+
+    return fl_start;
 }
 
 static gf_boolean_t
@@ -648,7 +649,7 @@ ec_child_select(ec_fop_data_t *fop)
     if ((fop->mask & ~ec->xl_up) != 0) {
         gf_msg(fop->xl->name, GF_LOG_WARNING, 0, EC_MSG_OP_EXEC_UNAVAIL,
                "Executing operation with "
-               "some subvolumes unavailable. (%lX). %s ",
+               "some subvolumes unavailable. (%" PRIXPTR "). %s ",
                fop->mask & ~ec->xl_up, ec_msg_str(fop));
         fop->mask &= ec->xl_up;
     }
@@ -870,7 +871,7 @@ ec_lock_allocate(ec_fop_data_t *fop, loc_t *loc)
 
     lock = mem_get0(ec->lock_pool);
     if (lock != NULL) {
-        lock->good_mask = -1ULL;
+        lock->good_mask = UINTPTR_MAX;
         INIT_LIST_HEAD(&lock->owners);
         INIT_LIST_HEAD(&lock->waiting);
         INIT_LIST_HEAD(&lock->frozen);
@@ -903,9 +904,9 @@ ec_lock_compare(ec_lock_t *lock1, ec_lock_t *lock2)
     return gf_uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
 }
 
-void
+static void
 ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, uint32_t flags, loc_t *base,
-               off_t fl_start, size_t fl_size)
+               off_t fl_start, uint64_t fl_size)
 {
     ec_lock_link_t *link;
 
@@ -945,9 +946,9 @@ ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, uint32_t flags, loc_t *base,
     lock->refs_pending++;
 }
 
-void
+static void
 ec_lock_prepare_inode_internal(ec_fop_data_t *fop, loc_t *loc, uint32_t flags,
-                               loc_t *base, off_t fl_start, size_t fl_size)
+                               loc_t *base, off_t fl_start, uint64_t fl_size)
 {
     ec_lock_t *lock = NULL;
     ec_inode_t *ctx;
@@ -1019,7 +1020,7 @@ unlock:
 
 void
 ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags,
-                      off_t fl_start, size_t fl_size)
+                      off_t fl_start, uint64_t fl_size)
 {
     ec_lock_prepare_inode_internal(fop, loc, flags, NULL, fl_start, fl_size);
 }
@@ -1048,14 +1049,14 @@ ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
         base = NULL;
     }
 
-    ec_lock_prepare_inode_internal(fop, &tmp, flags, base, 0, LLONG_MAX);
+    ec_lock_prepare_inode_internal(fop, &tmp, flags, base, 0, EC_RANGE_FULL);
 
     loc_wipe(&tmp);
 }
 
 void
 ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags, off_t fl_start,
-                   size_t fl_size)
+                   uint64_t fl_size)
 {
     loc_t loc;
     int32_t err;

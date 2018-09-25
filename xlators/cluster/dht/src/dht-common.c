@@ -440,7 +440,7 @@ dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol)
     {
         ret = __inode_ctx_get(inode, this, &ctx_int);
         if (ctx_int) {
-            ctx = (dht_inode_ctx_t *)ctx_int;
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
             ctx->mds_subvol = mds_subvol;
         } else {
             ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);

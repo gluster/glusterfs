@@ -34,7 +34,7 @@ trace_fop_name_t trace_fop_names[GF_FOP_MAXVALUE];
 typedef struct {
     gf_boolean_t log_file;
     gf_boolean_t log_history;
-    size_t history_size;
+    uint64_t history_size;
     int trace_log_level;
 } trace_conf_t;
 

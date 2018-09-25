@@ -2337,7 +2337,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
-            sprintf(stime, "%lu", tmp_stbuf.ia_mtime);
+            sprintf(stime, "%" PRId64, tmp_stbuf.ia_mtime);
 
             /*TODO: may be should consider nano-second also */
             if (strncmp(stime, tdata->data, tdata->len) != 0) {
@@ -2350,7 +2350,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
-            len = sprintf(sxattr, "%lu", tmp_stbuf.ia_size);
+            len = sprintf(sxattr, "%" PRIu64, tmp_stbuf.ia_size);
 
             ret = sys_lsetxattr(real_path, GF_CS_OBJECT_SIZE, sxattr, len,
                                 flags);
@@ -5400,7 +5400,7 @@ posix_forget(xlator_t *this, inode_t *inode)
     if (!ctx_uint)
         return 0;
 
-    ctx = (posix_inode_ctx_t *)ctx_uint;
+    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     if (ctx->unlink_flag == GF_UNLINK_TRUE) {
         POSIX_GET_FILE_UNLINK_PATH(priv_posix->base_path, inode->gfid,

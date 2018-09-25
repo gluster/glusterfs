@@ -35,7 +35,7 @@ ga_valid_inode_loc_copy(loc_t *dst, loc_t *src, xlator_t *this)
             goto out;
         }
         inode_unref(dst->parent);
-        dst->parent = inode_ref((inode_t *)value);
+        dst->parent = inode_ref((inode_t *)(uintptr_t)value);
         gf_uuid_copy(dst->pargfid, dst->parent->gfid);
     }
 
@@ -46,7 +46,7 @@ ga_valid_inode_loc_copy(loc_t *dst, loc_t *src, xlator_t *this)
             goto out;
         }
         inode_unref(dst->inode);
-        dst->inode = inode_ref((inode_t *)value);
+        dst->inode = inode_ref((inode_t *)(uintptr_t)value);
         gf_uuid_copy(dst->gfid, dst->inode->gfid);
     }
 out:
@@ -284,7 +284,7 @@ ga_fill_tmp_loc(loc_t *loc, xlator_t *this, uuid_t gfid, char *bname,
     parent = loc->inode;
     ret = inode_ctx_get(loc->inode, this, &value);
     if (!ret) {
-        parent = (void *)value;
+        parent = (void *)(uintptr_t)value;
         if (gf_uuid_is_null(parent->gfid))
             parent = loc->inode;
     }
@@ -349,7 +349,7 @@ ga_forget(xlator_t *this, inode_t *inode)
     if (ret)
         goto out;
 
-    tmp_inode = (void *)value;
+    tmp_inode = (void *)(uintptr_t)value;
     inode_unref(tmp_inode);
 
 out:
@@ -685,7 +685,7 @@ ga_virtual_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             inode = true_inode;
         }
 
-        ret = inode_ctx_put(cbk_inode, this, (uint64_t)inode);
+        ret = inode_ctx_put(cbk_inode, this, (uint64_t)(uintptr_t)inode);
         if (ret) {
             gf_log(this->name, GF_LOG_WARNING,
                    "failed to set the inode ctx with"
@@ -830,7 +830,7 @@ ga_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         if (ret)
             goto wind;
 
-        inode = (inode_t *)value;
+        inode = (inode_t *)(uintptr_t)value;
 
         ret = loc_copy_overload_parent(&tmp_loc, loc, inode);
         if (ret)
@@ -859,7 +859,7 @@ ga_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (ret)
         goto err;
 
-    inode = (void *)value;
+    inode = (void *)(uintptr_t)value;
 
     /* valid inode, already looked up, work on that */
     if (inode->ia_type)
@@ -1363,7 +1363,7 @@ ga_dump_inodectx(xlator_t *this, inode_t *inode)
 
     ret = inode_ctx_get(inode, this, &value);
     if (ret == 0) {
-        tmp_inode = (void *)value;
+        tmp_inode = (void *)(uintptr_t)value;
         gf_proc_dump_build_key(key_prefix, this->name, "inode");
         gf_proc_dump_add_section(key_prefix);
         gf_proc_dump_write("real-gfid", "%s", uuid_utoa(tmp_inode->gfid));

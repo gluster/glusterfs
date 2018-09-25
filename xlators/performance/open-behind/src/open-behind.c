@@ -105,14 +105,14 @@ ob_inode_get(xlator_t *this, inode_t *inode)
             if (ob_inode == NULL)
                 goto unlock;
 
-            value = (uint64_t)((void *)ob_inode);
+            value = (uint64_t)(uintptr_t)ob_inode;
             ret = __inode_ctx_set(inode, this, &value);
             if (ret < 0) {
                 ob_inode_free(ob_inode);
                 ob_inode = NULL;
             }
         } else {
-            ob_inode = (ob_inode_t *)value;
+            ob_inode = (ob_inode_t *)(uintptr_t)value;
         }
     }
 unlock:
@@ -1109,7 +1109,7 @@ ob_forget(xlator_t *this, inode_t *inode)
     inode_ctx_del(inode, this, &value);
 
     if (value) {
-        ob_inode = (ob_inode_t *)((void *)value);
+        ob_inode = (ob_inode_t *)(uintptr_t)value;
         ob_inode_free(ob_inode);
     }
 

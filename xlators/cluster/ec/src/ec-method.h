@@ -41,10 +41,10 @@ int32_t
 ec_method_update(xlator_t *xl, ec_matrix_list_t *list, const char *gen);
 
 void
-ec_method_encode(ec_matrix_list_t *list, size_t size, void *in, void **out);
+ec_method_encode(ec_matrix_list_t *list, uint64_t size, void *in, void **out);
 
 int32_t
-ec_method_decode(ec_matrix_list_t *list, size_t size, uintptr_t mask,
+ec_method_decode(ec_matrix_list_t *list, uint64_t size, uintptr_t mask,
                  uint32_t *rows, void **in, void *out);
 
 #endif /* __EC_METHOD_H__ */

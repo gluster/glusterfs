@@ -68,13 +68,13 @@ get_rda_fd_ctx(fd_t *fd, xlator_t *this)
         /* ctx offset values initialized to 0 */
         ctx->xattrs = NULL;
 
-        if (__fd_ctx_set(fd, this, (uint64_t)ctx) < 0) {
+        if (__fd_ctx_set(fd, this, (uint64_t)(uintptr_t)ctx) < 0) {
             GF_FREE(ctx);
             ctx = NULL;
             goto out;
         }
     } else {
-        ctx = (struct rda_fd_ctx *)val;
+        ctx = (struct rda_fd_ctx *)(uintptr_t)val;
     }
 out:
     UNLOCK(&fd->lock);
@@ -90,7 +90,7 @@ __rda_inode_ctx_get(inode_t *inode, xlator_t *this)
 
     ret = __inode_ctx_get1(inode, this, &ctx_uint);
     if (ret == 0)
-        return (rda_inode_ctx_t *)ctx_uint;
+        return (rda_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     ctx_p = GF_CALLOC(1, sizeof(*ctx_p), gf_rda_mt_inode_ctx_t);
     if (!ctx_p)
@@ -1064,7 +1064,7 @@ rda_releasedir(xlator_t *this, fd_t *fd)
     if (fd_ctx_del(fd, this, &val) < 0)
         return -1;
 
-    ctx = (struct rda_fd_ctx *)val;
+    ctx = (struct rda_fd_ctx *)(uintptr_t)val;
     if (!ctx)
         return 0;
 
@@ -1092,7 +1092,7 @@ rda_forget(xlator_t *this, inode_t *inode)
     if (!ctx_uint)
         return 0;
 
-    ctx = (rda_inode_ctx_t *)ctx_uint;
+    ctx = (rda_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     GF_FREE(ctx);
 

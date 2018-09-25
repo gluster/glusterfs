@@ -410,7 +410,7 @@ br_stub_init_inode_versions(xlator_t *this, fd_t *fd, inode_t *inode,
         goto free_ctx;
 
     if (ctx_addr)
-        *ctx_addr = (uint64_t)ctx;
+        *ctx_addr = (uint64_t)(uintptr_t)ctx;
     return 0;
 
 free_ctx:
@@ -3411,14 +3411,14 @@ br_stub_ictxmerge(xlator_t *this, fd_t *fd, inode_t *inode,
     ret = br_stub_get_inode_ctx(this, inode, &ctxaddr);
     if (ret < 0)
         goto done;
-    ctx = (br_stub_inode_ctx_t *)ctxaddr;
+    ctx = (br_stub_inode_ctx_t *)(uintptr_t)ctxaddr;
 
     LOCK(&linked_inode->lock);
     {
         ret = __br_stub_get_inode_ctx(this, linked_inode, &lctxaddr);
         if (ret < 0)
             goto unblock;
-        lctx = (br_stub_inode_ctx_t *)lctxaddr;
+        lctx = (br_stub_inode_ctx_t *)(uintptr_t)lctxaddr;
 
         GF_ASSERT(list_is_singular(&ctx->fd_list));
         br_stub_fd = list_first_entry(&ctx->fd_list, br_stub_fd_t, list);

@@ -4061,7 +4061,7 @@ client_graph_set_rda_options(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         else
             rda_req_size = new_cache_size;
 
-        snprintf(new_req_size_str, sizeof(new_req_size_str), "%ld%s",
+        snprintf(new_req_size_str, sizeof(new_req_size_str), "%" PRId64 "%s",
                  rda_req_size, "B");
         ret = dict_set_dynstr_with_alloc(set_dict, VKEY_RDA_REQUEST_SIZE,
                                          new_req_size_str);
@@ -4069,7 +4069,7 @@ client_graph_set_rda_options(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             goto out;
     }
 
-    snprintf(new_cache_size_str, sizeof(new_cache_size_str), "%ld%s",
+    snprintf(new_cache_size_str, sizeof(new_cache_size_str), "%" PRId64 "%s",
              new_cache_size, "B");
     ret = dict_set_dynstr_with_alloc(set_dict, VKEY_RDA_CACHE_LIMIT,
                                      new_cache_size_str);

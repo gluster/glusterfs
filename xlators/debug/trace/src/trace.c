@@ -3311,7 +3311,7 @@ init(xlator_t *this)
     char *forced_loglevel = NULL;
     eh_t *history = NULL;
     int ret = -1;
-    size_t history_size = TRACE_DEFAULT_HISTORY_SIZE;
+    uint64_t history_size = TRACE_DEFAULT_HISTORY_SIZE;
     trace_conf_t *conf = NULL;
 
     if (!this)
@@ -3364,10 +3364,10 @@ init(xlator_t *this)
     if (excludes)
         process_call_list(excludes, 0);
 
-    GF_OPTION_INIT("history-size", conf->history_size, size, out);
+    GF_OPTION_INIT("history-size", history_size, size, out);
+    conf->history_size = history_size;
 
-    gf_log(this->name, GF_LOG_INFO, "history size %" GF_PRI_SIZET,
-           history_size);
+    gf_log(this->name, GF_LOG_INFO, "history size %" PRIu64, history_size);
 
     GF_OPTION_INIT("log-file", conf->log_file, bool, out);
 

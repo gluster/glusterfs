@@ -332,7 +332,7 @@ ec_fheal(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     ec_fd_t *ctx = ec_fd_get(fd, this);
 
     if (ctx != NULL) {
-        gf_msg_trace("ec", 0, "FHEAL ctx: flags=%X, open=%lX", ctx->flags,
+        gf_msg_trace("ec", 0, "FHEAL ctx: flags=%X, open=%" PRIXPTR, ctx->flags,
                      ctx->open);
         ec_heal(frame, this, target, minimum, func, data, &ctx->loc, partial,
                 xdata);
@@ -2484,7 +2484,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
         if (ret == 0) {
             gf_msg_debug(this->name, 0,
                          "%s: name heal "
-                         "successful on %lX",
+                         "successful on %" PRIXPTR,
                          loc->path,
                          ec_char_array_to_mask(participants, ec->nodes));
         } else {

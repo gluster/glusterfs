@@ -1466,7 +1466,7 @@ static int
 __changelog_inode_ctx_set(xlator_t *this, inode_t *inode,
                           changelog_inode_ctx_t *ctx)
 {
-    uint64_t ctx_addr = (uint64_t)ctx;
+    uint64_t ctx_addr = (uint64_t)(uintptr_t)ctx;
     return __inode_ctx_set(inode, this, &ctx_addr);
 }
 

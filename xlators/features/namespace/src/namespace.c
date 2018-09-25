@@ -147,7 +147,7 @@ ns_inode_ctx_put(inode_t *inode, xlator_t *this, ns_info_t *info)
     }
 
     *cached_ns_info = *info;
-    ns_as_64 = (uint64_t)cached_ns_info;
+    ns_as_64 = (uint64_t)(uintptr_t)cached_ns_info;
 
     ret = inode_ctx_put(inode, this, ns_as_64);
 
@@ -181,7 +181,7 @@ ns_inode_ctx_get(inode_t *inode, xlator_t *this, ns_info_t *info)
     ret = inode_ctx_get(inode, this, &ns_as_64);
 
     if (!ret) {
-        cached_ns_info = (ns_info_t *)ns_as_64;
+        cached_ns_info = (ns_info_t *)(uintptr_t)ns_as_64;
         *info = *cached_ns_info;
     }
 
@@ -1190,7 +1190,7 @@ ns_forget(xlator_t *this, inode_t *inode)
         return 0;
     }
 
-    info = (ns_info_t *)ns_as_64;
+    info = (ns_info_t *)(uintptr_t)ns_as_64;
     GF_FREE(info);
 
     return 0;
