@@ -3508,6 +3508,7 @@ socket_connect(rpc_transport_t *this, int port)
                will result in EPOLLERR, so cleanup is done in
                socket_event_handler or socket_poller */
             shutdown(priv->sock, SHUT_RDWR);
+            ret = 0;
             gf_log(this->name, GF_LOG_TRACE,
                    "@@@ client shutdown(%d, SHUT_RDWR)", priv->sock);
         }
@@ -3555,6 +3556,8 @@ err:
             GF_FREE(arg);
             GF_ASSERT(0);
         }
+
+        ret = 0;
     }
 
     return ret;
