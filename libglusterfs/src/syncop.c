@@ -587,10 +587,6 @@ syncenv_task(struct syncproc *proc)
     pthread_mutex_lock(&env->mutex);
     {
         while (list_empty(&env->runq)) {
-            sleep_till.tv_sec = time(NULL) + SYNCPROC_IDLE_TIME;
-            ret = pthread_cond_timedwait(&env->cond, &env->mutex, &sleep_till);
-            if (!list_empty(&env->runq))
-                break;
             /* If either of the conditions are met then exit
              * the current thread:
              * 1. syncenv has to scale down(procs > procmin)
@@ -612,6 +608,9 @@ syncenv_task(struct syncproc *proc)
                 pthread_cond_broadcast(&env->cond);
                 goto unlock;
             }
+
+            sleep_till.tv_sec = time(NULL) + SYNCPROC_IDLE_TIME;
+            ret = pthread_cond_timedwait(&env->cond, &env->mutex, &sleep_till);
         }
 
         task = list_entry(env->runq.next, struct synctask, all_tasks);
