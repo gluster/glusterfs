@@ -2,7 +2,7 @@
 
 function create_brick_xattrop_entry {
         local xattrop_dir=$(afr_get_index_path $1)
-        local base_entry=`ls $xattrop_dir`
+        local base_entry=`ls $xattrop_dir|grep xattrop`
         local gfid_str
         local params=`echo "$@" | cut -d' ' -f2-`
         echo $params

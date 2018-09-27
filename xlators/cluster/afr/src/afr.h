@@ -36,6 +36,9 @@
 
 #define ARBITER_BRICK_INDEX 2
 
+#define PFLAG_PENDING (1 << 0)
+#define PFLAG_SBRAIN (1 << 1)
+
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_read_txn_wind_t) (call_frame_t *frame, xlator_t *this, int subvol);
