@@ -5937,7 +5937,7 @@ out:
 int
 afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
                                       inode_t *inode, gf_boolean_t *msh,
-                                      gf_boolean_t *pending)
+                                      unsigned char *pending)
 {
         int ret = -1;
         unsigned char *locked_on = NULL;
@@ -5986,7 +5986,7 @@ out:
 int
 afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
                                   fd_t *fd, gf_boolean_t *dsh,
-                                  gf_boolean_t *pflag)
+                                  unsigned char *pflag)
 {
         int ret = -1;
         unsigned char *data_lock = NULL;
@@ -6033,7 +6033,7 @@ out:
 int
 afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                    inode_t *inode,
-                                   gf_boolean_t *esh, gf_boolean_t *pflag)
+                                   gf_boolean_t *esh, unsigned char *pflag)
 {
         int ret = -1;
         int source = -1;
@@ -6084,7 +6084,7 @@ afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
                                                             sinks, healed_sinks,
                                                             locked_replies,
                                                             &source, pflag);
-                        if ((ret == 0) && source < 0)
+                        if ((ret == 0) && (*pflag & PFLAG_SBRAIN))
                                 ret = -EIO;
                         *esh = afr_decide_heal_info (priv, sources, ret);
                 }
@@ -6107,7 +6107,7 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
                              gf_boolean_t *entry_selfheal,
                              gf_boolean_t *data_selfheal,
                              gf_boolean_t *metadata_selfheal,
-                             gf_boolean_t *pending)
+                             unsigned char *pending)
 
 {
         int ret             = -1;
@@ -6195,7 +6195,7 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
         gf_boolean_t    data_selfheal     = _gf_false;
         gf_boolean_t    metadata_selfheal = _gf_false;
         gf_boolean_t    entry_selfheal    = _gf_false;
-        gf_boolean_t    pending           = _gf_false;
+        unsigned char   pending           = 0;
         dict_t         *dict              = NULL;
         int             ret               = -1;
         int             op_errno          = 0;
@@ -6215,7 +6215,7 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        if (pending) {
+        if (pending & PFLAG_PENDING) {
                 size = strlen ("-pending") + 1;
                 gf_asprintf (&substr, "-pending");
                 if (!substr)

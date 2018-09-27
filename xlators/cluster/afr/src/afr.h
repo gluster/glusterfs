@@ -39,6 +39,9 @@
 #define THIN_ARBITER_DOM1 "afr.ta.domain-1"
 
 #define AFR_HALO_MAX_LATENCY 99999
+#define PFLAG_PENDING (1 << 0)
+#define PFLAG_SBRAIN (1 << 1)
+
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_read_txn_wind_t) (call_frame_t *frame, xlator_t *this, int subvol);
