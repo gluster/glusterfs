@@ -366,9 +366,9 @@ start_glusterfs ()
 print_usage ()
 {
 cat << EOF
-Usage: $0 <volumeserver>:<volumeid/volumeport> -o<options> <mountpoint>
+Usage: $0 <server>:<volume/subdir> <mountpoint> -o<options>
 Options:
-man 8 $0
+man 8 $(basename $0)
 To display the version number of the mount helper: $0 -V
 EOF
 }
@@ -670,7 +670,7 @@ update_updatedb()
 
 main ()
 {
-    if [ "x${uname_s}" = "xLinux" ] ; then
+    if [ "x${uname_s}" = "xLinux" -a $# -ge 2 ] ; then
         volfile_loc=$1
         mount_point=$2
 
