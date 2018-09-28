@@ -18,7 +18,8 @@ __afr_selfheal_assign_gfid(xlator_t *this, inode_t *parent, uuid_t pargfid,
                            const char *bname, inode_t *inode,
                            struct afr_reply *replies, void *gfid,
                            unsigned char *locked_on, int source,
-                           unsigned char *sources, gf_boolean_t is_gfid_absent)
+                           unsigned char *sources, gf_boolean_t is_gfid_absent,
+                           int *gfid_idx)
 {
     int ret = 0;
     int up_count = 0;
@@ -46,8 +47,8 @@ __afr_selfheal_assign_gfid(xlator_t *this, inode_t *parent, uuid_t pargfid,
         }
     }
 
-    afr_lookup_and_heal_gfid(this, parent, bname, inode, replies, source,
-                             sources, gfid);
+    ret = afr_lookup_and_heal_gfid(this, parent, bname, inode, replies, source,
+                                   sources, gfid, gfid_idx);
 
 out:
     return ret;
@@ -144,35 +145,6 @@ __afr_selfheal_name_expunge(xlator_t *this, inode_t *parent, uuid_t pargfid,
     loc_wipe(&loc);
 
     return ret;
-}
-
-/* This function is to be called after ensuring that there is no gfid mismatch
- * for the inode across multiple sources
- */
-static int
-afr_selfheal_gfid_idx_get(xlator_t *this, struct afr_reply *replies,
-                          unsigned char *sources)
-{
-    int i = 0;
-    int gfid_idx = -1;
-    afr_private_t *priv = NULL;
-
-    priv = this->private;
-
-    for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
-            continue;
-
-        if (!sources[i])
-            continue;
-
-        if (gf_uuid_is_null(replies[i].poststat.ia_gfid))
-            continue;
-
-        gfid_idx = i;
-        break;
-    }
-    return gfid_idx;
 }
 
 static gf_boolean_t
@@ -400,20 +372,17 @@ __afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
         gfid = gfid_req;
     } else {
         gfid = &replies[gfid_idx].poststat.ia_gfid;
+        if (source == -1)
+            /* Either entry split-brain or dirty xattrs are present on parent.*/
+            source = gfid_idx;
     }
 
     is_gfid_absent = (gfid_idx == -1) ? _gf_true : _gf_false;
     ret = __afr_selfheal_assign_gfid(this, parent, pargfid, bname, inode,
                                      replies, gfid, locked_on, source, sources,
-                                     is_gfid_absent);
+                                     is_gfid_absent, &gfid_idx);
     if (ret)
         return ret;
-
-    if (gfid_idx == -1) {
-        gfid_idx = afr_selfheal_gfid_idx_get(this, replies, sources);
-        if (gfid_idx == -1)
-            return -1;
-    }
 
     ret = __afr_selfheal_name_impunge(frame, this, parent, pargfid, bname,
                                       inode, replies, gfid_idx);
