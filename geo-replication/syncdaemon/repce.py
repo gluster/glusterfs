@@ -8,6 +8,7 @@
 # cases as published by the Free Software Foundation.
 #
 
+import _io
 import os
 import sys
 import time
@@ -28,13 +29,13 @@ except ImportError:
 
 from syncdutils import Thread, select, lf
 
-pickle_proto = -1
+pickle_proto = 2
 repce_version = 1.0
 
 
 def ioparse(i, o):
     if isinstance(i, int):
-        i = os.fdopen(i)
+        i = os.fdopen(i, 'rb')
     # rely on duck typing for recognizing
     # streams as that works uniformly
     # in py2 and py3
@@ -54,8 +55,15 @@ def send(out, *args):
 
 
 def recv(inf):
-    """load an object from input stream"""
-    return pickle.load(inf)
+    """load an object from input stream
+    python2 and python3 compatibility, inf is sys.stdin
+    and is opened as text stream by default. Hence using the
+    buffer attribute
+    """
+    if isinstance(inf, _io.TextIOWrapper):
+        return pickle.load(inf.buffer)
+    else:
+        return pickle.load(inf)
 
 
 class RepceServer(object):
