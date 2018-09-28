@@ -160,7 +160,8 @@ def setup_ssh_ctl(ctld, remote_addr, resource_url):
     rconf.ssh_ctl_dir = ctld
     content = "SLAVE_HOST=%s\nSLAVE_RESOURCE_URL=%s" % (remote_addr,
                                                         resource_url)
-    content_sha256 = sha256hex(content)
+    encoded_content = content.encode()
+    content_sha256 = sha256hex(encoded_content)
     """
     The length of ctl_path for ssh connection should not be > 108.
     ssh fails with ctl_path too long if it is so. But when rsync
@@ -172,7 +173,7 @@ def setup_ssh_ctl(ctld, remote_addr, resource_url):
     fname = os.path.join(rconf.ssh_ctl_dir,
                          "%s.mft" % content_sha256)
 
-    create_manifest(fname, content)
+    create_manifest(fname, encoded_content)
     ssh_ctl_path = os.path.join(rconf.ssh_ctl_dir,
                                 "%s.sock" % content_sha256)
     rconf.ssh_ctl_args = ["-oControlMaster=auto", "-S", ssh_ctl_path]
@@ -185,7 +186,7 @@ def grabfile(fname, content=None):
     """
     # damn those messy open() mode codes
     fd = os.open(fname, os.O_CREAT | os.O_RDWR)
-    f = os.fdopen(fd, 'r+b', 0)
+    f = os.fdopen(fd, 'r+')
     try:
         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except:
@@ -199,6 +200,7 @@ def grabfile(fname, content=None):
         try:
             f.truncate()
             f.write(content)
+            f.flush()
         except:
             f.close()
             raise
