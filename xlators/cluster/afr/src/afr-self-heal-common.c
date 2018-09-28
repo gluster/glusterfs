@@ -21,7 +21,7 @@ afr_heal_synctask(xlator_t *this, afr_local_t *local);
 int
 afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
                          inode_t *inode, struct afr_reply *replies, int source,
-                         unsigned char *sources, void *gfid)
+                         unsigned char *sources, void *gfid, int *gfid_idx)
 {
     afr_private_t *priv = NULL;
     call_frame_t *frame = NULL;
@@ -37,15 +37,30 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
 
     priv = this->private;
     wind_on = alloca0(priv->child_count);
-    ia_type = replies[source].poststat.ia_type;
-    if ((ia_type == IA_INVAL) &&
-        (AFR_COUNT(sources, priv->child_count) == priv->child_count)) {
-        /* If a file is present on some bricks of the replica but parent
-         * dir does not have pending xattrs, all bricks are sources and
-         * the 'source' we  selected earlier might be one where the file
-         * is not actually present. Hence check if file is present in
-         * any of the sources.*/
-        for (i = 0; i < priv->child_count; i++) {
+    if (source >= 0 && replies[source].valid && replies[source].op_ret == 0)
+        ia_type = replies[source].poststat.ia_type;
+
+    if (ia_type != IA_INVAL)
+        goto heal;
+
+    /* If ia_type is still invalid, it means either
+     * (a)'source' was -1, i.e. parent dir pending xattrs are in split-brain
+     * (or) (b) The parent dir pending xattrs are all zeroes (i.e. all bricks
+     * are sources) and the 'source' we selected earlier might be the one where
+     * the file is not actually present.
+     *
+     * In both cases, let us pick a brick with a successful reply and use its
+     * ia_type.
+     * */
+    for (i = 0; i < priv->child_count; i++) {
+        if (source == -1) {
+            /* case (a) above. */
+            if (replies[i].valid && replies[i].op_ret == 0) {
+                ia_type = replies[i].poststat.ia_type;
+                break;
+            }
+        } else {
+            /* case (b) above. */
             if (i == source)
                 continue;
             if (sources[i] && replies[i].valid && replies[i].op_ret == 0) {
@@ -55,6 +70,7 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
         }
     }
 
+heal:
     /* gfid heal on those subvolumes that do not have gfid associated
      * with the inode and update those replies.
      */
@@ -103,7 +119,22 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
         afr_reply_wipe(&replies[i]);
         afr_reply_copy(&replies[i], &local->replies[i]);
     }
+    if (gfid_idx && (*gfid_idx == -1)) {
+        /*Pick a brick where the gifd heal was successful.*/
+        for (i = 0; i < priv->child_count; i++) {
+            if (!wind_on[i])
+                continue;
+            if (replies[i].valid && replies[i].op_ret == 0 &&
+                !gf_uuid_is_null(replies[i].poststat.ia_gfid)) {
+                *gfid_idx = i;
+                break;
+            }
+        }
+    }
 out:
+    if (gfid_idx && (*gfid_idx == -1) && (ret == 0)) {
+        ret = -afr_final_errno(local, priv);
+    }
     loc_wipe(&loc);
     if (frame)
         AFR_STACK_DESTROY(frame);
