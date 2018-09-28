@@ -3122,6 +3122,7 @@ mdc_xattr_list_populate(struct mdc_conf *conf, char *tmp_str)
 
     mdc_xattr_str = GF_MALLOC(max_size, gf_common_mt_char);
     GF_CHECK_ALLOC(mdc_xattr_str, ret, out);
+    mdc_xattr_str[0] = '\0';
 
     if (conf->cache_capability)
         strcat(mdc_xattr_str, "security.capability,");
