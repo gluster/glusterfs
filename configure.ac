@@ -1624,3 +1624,15 @@ echo "Use TIRPC            : $with_libtirpc"
 echo "With Python          : ${PYTHON_VERSION}"
 echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo
+
+if test "x$BUILD_ASAN" = "xyes"; then
+    echo "### Run below command before executing your tests if your system"
+    echo "### has 'gcc --version' above 7.x (works on Fedora 27 and Above)"
+    echo "export ASAN_OPTIONS=log_path=/var/log/glusterfs/asan-output.log"
+    echo ""
+    echo "### Above is required to get details of asan run, as glusterfs"
+    echo "### processes are daemon processes. Further details and more"
+    echo "### options can be found under 'Run-time flags' at"
+    echo "### https://github.com/google/sanitizers/wiki/AddressSanitizerFlags"
+    echo
+fi
