@@ -869,7 +869,9 @@ class Mounter(object):
             if self.mntpt:
                 # mntpt is determined pre-mount
                 d = self.mntpt
-                os.write(mpo, d + '\0')
+                mnt_msg = d + '\0'
+                encoded_msg = mnt_msg.encode()
+                os.write(mpo, encoded_msg)
             po = Popen(margv, **self.mountkw)
             self.handle_mounter(po)
             po.terminate_geterr()
@@ -877,8 +879,11 @@ class Mounter(object):
             if not d:
                 # mntpt is determined during mount
                 d = self.mntpt
-                os.write(mpo, d + '\0')
-            os.write(mpo, 'M')
+                mnt_msg = d + '\0'
+                encoded_msg = mnt_msg.encode()
+                os.write(mpo, encoded_msg)
+            encoded_msg = 'M'.encode()
+            os.write(mpo, encoded_msg)
             t = syncdutils.Thread(target=lambda: os.chdir(d))
             t.start()
             tlim = rconf.starttime + gconf.get("connection-timeout")
@@ -907,6 +912,7 @@ class Mounter(object):
                 mntdata = ''
                 while True:
                     c = os.read(mpi, 1)
+                    c = c.decode()
                     if not c:
                         break
                     mntdata += c
