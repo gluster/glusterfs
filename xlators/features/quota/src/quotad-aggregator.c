@@ -142,7 +142,7 @@ quotad_aggregator_getlimit_cbk(xlator_t *this, call_frame_t *frame,
         if (ret < 0)
             goto out;
 
-        ret = dict_set_int32n(xdata, "type", SLEN("type"), type);
+        ret = dict_set_int32_sizen(xdata, "type", type);
         if (ret < 0)
             goto out;
     }
@@ -234,26 +234,22 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
     state = frame->root->state;
     state->xdata = dict;
 
-    ret = dict_set_int32n(state->xdata, QUOTA_LIMIT_KEY, SLEN(QUOTA_LIMIT_KEY),
-                          42);
+    ret = dict_set_int32_sizen(state->xdata, QUOTA_LIMIT_KEY, 42);
     if (ret)
         goto err;
 
-    ret = dict_set_int32n(state->xdata, QUOTA_LIMIT_OBJECTS_KEY,
-                          SLEN(QUOTA_LIMIT_OBJECTS_KEY), 42);
+    ret = dict_set_int32_sizen(state->xdata, QUOTA_LIMIT_OBJECTS_KEY, 42);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, Q_MSG_ENOMEM,
                "Failed to set QUOTA_LIMIT_OBJECTS_KEY");
         goto err;
     }
 
-    ret = dict_set_int32n(state->xdata, QUOTA_SIZE_KEY, SLEN(QUOTA_SIZE_KEY),
-                          42);
+    ret = dict_set_int32_sizen(state->xdata, QUOTA_SIZE_KEY, 42);
     if (ret)
         goto err;
 
-    ret = dict_set_int32n(state->xdata, GET_ANCESTRY_PATH_KEY,
-                          SLEN(GET_ANCESTRY_PATH_KEY), 42);
+    ret = dict_set_int32_sizen(state->xdata, GET_ANCESTRY_PATH_KEY, 42);
     if (ret)
         goto err;
 

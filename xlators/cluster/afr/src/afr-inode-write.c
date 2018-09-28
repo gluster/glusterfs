@@ -307,8 +307,8 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
             local->update_open_fd_count = _gf_true;
         }
 
-        ret = dict_get_int32n(xdata, GLUSTERFS_INODELK_COUNT,
-                              SLEN(GLUSTERFS_INODELK_COUNT), &num_inodelks);
+        ret = dict_get_int32_sizen(xdata, GLUSTERFS_INODELK_COUNT,
+                                   &num_inodelks);
         if (ret < 0)
             goto unlock;
         if (num_inodelks > local->num_inodelks) {
@@ -528,8 +528,8 @@ afr_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         goto out;
     }
 
-    if (dict_set_strn(local->xdata_req, GLUSTERFS_INODELK_DOM_COUNT,
-                      SLEN(GLUSTERFS_INODELK_DOM_COUNT), this->name)) {
+    if (dict_set_str_sizen(local->xdata_req, GLUSTERFS_INODELK_DOM_COUNT,
+                           this->name)) {
         op_errno = ENOMEM;
         goto out;
     }

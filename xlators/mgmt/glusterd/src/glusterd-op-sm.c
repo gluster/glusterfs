@@ -2122,7 +2122,7 @@ _delete_reconfig_opt(dict_t *this, char *key, data_t *value, void *data)
      * option is going to be reset
      * */
     if (!strncmp(key, VKEY_FEATURES_BITROT, strlen(VKEY_FEATURES_BITROT))) {
-        dict_deln(this, VKEY_FEATURES_SCRUB, SLEN(VKEY_FEATURES_SCRUB));
+        dict_del_sizen(this, VKEY_FEATURES_SCRUB);
     }
 out:
     return 0;
@@ -3244,10 +3244,8 @@ glusterd_remove_profile_volume_options(glusterd_volinfo_t *volinfo)
 {
     GF_ASSERT(volinfo);
 
-    dict_deln(volinfo->dict, VKEY_DIAG_LAT_MEASUREMENT,
-              SLEN(VKEY_DIAG_LAT_MEASUREMENT));
-    dict_deln(volinfo->dict, VKEY_DIAG_CNT_FOP_HITS,
-              SLEN(VKEY_DIAG_CNT_FOP_HITS));
+    dict_del_sizen(volinfo->dict, VKEY_DIAG_LAT_MEASUREMENT);
+    dict_del_sizen(volinfo->dict, VKEY_DIAG_CNT_FOP_HITS);
 }
 
 static int

@@ -3967,8 +3967,7 @@ quota_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     VALIDATE_OR_GOTO(this, err);
     VALIDATE_OR_GOTO(loc, err);
 
-    if (xdata && dict_getn(xdata, GLUSTERFS_INTERNAL_FOP_KEY,
-                           SLEN(GLUSTERFS_INTERNAL_FOP_KEY)))
+    if (xdata && dict_get_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY))
         internal_fop = _gf_true;
 
     if (frame->root->pid >= 0 && internal_fop == _gf_false) {

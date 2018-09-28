@@ -22,6 +22,35 @@ typedef struct _data data_t;
 typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
 
+#define dict_set_sizen(this, key, value) dict_setn(this, key, SLEN(key), value)
+
+#define dict_add_sizen(this, key, value) dict_addn(this, key, SLEN(key), value)
+
+#define dict_get_with_ref_sizen(this, key, value)                              \
+    dict_get_with_refn(this, key, SLEN(key), value)
+
+#define dict_get_sizen(this, key) dict_getn(this, key, SLEN(key))
+
+#define dict_del_sizen(this, key) dict_deln(this, key, SLEN(key))
+
+#define dict_set_str_sizen(this, key, str)                                     \
+    dict_set_strn(this, key, SLEN(key), str)
+
+#define dict_set_sizen_str_sizen(this, key, str)                               \
+    dict_set_nstrn(this, key, SLEN(key), str, SLEN(str))
+
+#define dict_set_dynstr_sizen(this, key, str)                                  \
+    dict_set_dynstrn(this, key, SLEN(key), str)
+
+#define dict_get_str_sizen(this, key, str)                                     \
+    dict_get_strn(this, key, SLEN(key), str)
+
+#define dict_get_int32_sizen(this, key, val)                                   \
+    dict_get_int32n(this, key, SLEN(key), val)
+
+#define dict_set_int32_sizen(this, key, val)                                   \
+    dict_set_int32n(this, key, SLEN(key), val)
+
 #define GF_PROTOCOL_DICT_SERIALIZE(this, from_dict, to, len, ope, labl)        \
     do {                                                                       \
         int _ret = 0;                                                          \

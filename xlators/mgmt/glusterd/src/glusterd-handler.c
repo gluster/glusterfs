@@ -3499,13 +3499,11 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
         data = dict_getn(this->options, "transport.socket.bind-address",
                          SLEN("transport.socket.bind-address"));
         if (data) {
-            ret = dict_setn(options, "transport.socket.source-addr",
-                            SLEN("transport.socket.source-addr"), data);
+            ret = dict_set_sizen(options, "transport.socket.source-addr", data);
         }
         data = dict_getn(this->options, "ping-timeout", SLEN("ping-timeout"));
         if (data) {
-            ret = dict_setn(options, "ping-timeout", SLEN("ping-timeout"),
-                            data);
+            ret = dict_set_sizen(options, "ping-timeout", data);
         }
     }
 
