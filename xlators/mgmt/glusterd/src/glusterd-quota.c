@@ -540,8 +540,7 @@ glusterd_quota_get_default_soft_limit(glusterd_volinfo_t *volinfo,
     else
         val = gf_strdup("80%");
 
-    ret = dict_set_dynstrn(rsp_dict, "default-soft-limit",
-                           SLEN("default-soft-limit"), val);
+    ret = dict_set_dynstr_sizen(rsp_dict, "default-soft-limit", val);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set default "

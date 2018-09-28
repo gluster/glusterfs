@@ -395,8 +395,7 @@ quota_enforcer_blocking_connect(rpc_clnt_t *rpc)
     if (options == NULL)
         goto out;
 
-    ret = dict_set_nstrn(options, "non-blocking-io", SLEN("non-blocking-io"),
-                         "no", SLEN("no"));
+    ret = dict_set_sizen_str_sizen(options, "non-blocking-io", "no");
     if (ret)
         goto out;
 
@@ -404,8 +403,7 @@ quota_enforcer_blocking_connect(rpc_clnt_t *rpc)
 
     rpc_clnt_start(rpc);
 
-    ret = dict_set_nstrn(options, "non-blocking-io", SLEN("non-blocking-io"),
-                         "yes", SLEN("yes"));
+    ret = dict_set_sizen_str_sizen(options, "non-blocking-io", "yes");
     if (ret)
         goto out;
 
@@ -444,21 +442,16 @@ quota_enforcer_init(xlator_t *this, dict_t *options)
 
     priv->quota_enforcer = &quota_enforcer_clnt;
 
-    ret = dict_set_nstrn(options, "transport.address-family",
-                         SLEN("transport.address-family"), "unix",
-                         SLEN("unix"));
+    ret = dict_set_sizen_str_sizen(options, "transport.address-family", "unix");
     if (ret)
         goto out;
 
-    ret = dict_set_nstrn(options, "transport-type", SLEN("transport-type"),
-                         "socket", SLEN("socket"));
+    ret = dict_set_sizen_str_sizen(options, "transport-type", "socket");
     if (ret)
         goto out;
 
-    ret = dict_set_nstrn(options, "transport.socket.connect-path",
-                         SLEN("transport.socket.connect-path"),
-                         "/var/run/gluster/quotad.socket",
-                         SLEN("/var/run/gluster/quotad.socket"));
+    ret = dict_set_sizen_str_sizen(options, "transport.socket.connect-path",
+                                   "/var/run/gluster/quotad.socket");
     if (ret)
         goto out;
 
