@@ -468,6 +468,7 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
     struct md_cache *mdc = NULL;
     uint32_t rollover = 0;
     uint64_t gen = 0;
+    gf_boolean_t update_xa_time = _gf_false;
 
     mdc = mdc_inode_prep(this, inode);
     if (!mdc) {
@@ -527,11 +528,10 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
          * TODO: writev returns with a NULL iatt due to
          * performance/write-behind, causing invalidation on writes.
          */
-        if (IA_ISREG(inode->ia_type) &&
-            ((iatt->ia_mtime != mdc->md_mtime) ||
-             (iatt->ia_mtime_nsec != mdc->md_mtime_nsec) ||
-             (iatt->ia_ctime != mdc->md_ctime) ||
-             (iatt->ia_ctime_nsec != mdc->md_ctime_nsec)))
+        if ((iatt->ia_mtime != mdc->md_mtime) ||
+            (iatt->ia_mtime_nsec != mdc->md_mtime_nsec) ||
+            (iatt->ia_ctime != mdc->md_ctime) ||
+            (iatt->ia_ctime_nsec != mdc->md_ctime_nsec)) {
             if (!prebuf || (prebuf->ia_ctime != mdc->md_ctime) ||
                 (prebuf->ia_ctime_nsec != mdc->md_ctime_nsec) ||
                 (prebuf->ia_mtime != mdc->md_mtime) ||
@@ -542,8 +542,12 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
                              " invalidate the inode(%s)",
                              uuid_utoa(inode->gfid));
 
-                inode_invalidate(inode);
+                if (IA_ISREG(inode->ia_type))
+                    inode_invalidate(inode);
+            } else {
+                update_xa_time = _gf_true;
             }
+        }
 
         if ((mdc->gen_rollover == rollover) &&
             ((incident_time > mdc->generation) &&
@@ -551,8 +555,12 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
             mdc_from_iatt(mdc, iatt);
             mdc->generation = incident_time;
             mdc->valid = _gf_true;
-            if (update_time)
+            if (update_time) {
                 time(&mdc->ia_time);
+
+                if (mdc->xa_time && update_xa_time)
+                    time(&mdc->xa_time);
+            }
 
             gf_msg_callingfn(
                 "md-cache", GF_LOG_TRACE, 0, MD_CACHE_MSG_CACHE_UPDATE,
