@@ -2338,7 +2338,7 @@ mdc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    mdc_inode_xatt_update(this, local->loc.inode, xattr);
+    mdc_inode_xatt_set(this, local->loc.inode, xdata);
 
 out:
     MDC_STACK_UNWIND(getxattr, frame, op_ret, op_errno, xattr, xdata);
@@ -2355,6 +2355,8 @@ mdc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
     mdc_local_t *local = NULL;
     dict_t *xattr = NULL;
     struct mdc_conf *conf = this->private;
+    dict_t *xattr_alloc = NULL;
+    gf_boolean_t key_satisfied = _gf_true;
 
     local = mdc_local_get(frame, loc->inode);
     if (!local)
@@ -2362,8 +2364,10 @@ mdc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 
     loc_copy(&local->loc, loc);
 
-    if (!is_mdc_key_satisfied(this, key))
+    if (!is_mdc_key_satisfied(this, key)) {
+        key_satisfied = _gf_false;
         goto uncached;
+    }
 
     ret = mdc_inode_xatt_get(this, loc->inode, &xattr);
     if (ret != 0)
@@ -2383,9 +2387,19 @@ mdc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
     return 0;
 
 uncached:
+    if (key_satisfied) {
+        if (!xdata)
+            xdata = xattr_alloc = dict_new();
+        if (xdata)
+            mdc_load_reqs(this, xdata);
+    }
+
     GF_ATOMIC_INC(conf->mdc_counter.xattr_miss);
     STACK_WIND(frame, mdc_getxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->getxattr, loc, key, xdata);
+
+    if (xattr_alloc)
+        dict_unref(xattr_alloc);
     return 0;
 }
 
@@ -2406,7 +2420,7 @@ mdc_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    mdc_inode_xatt_update(this, local->fd->inode, xattr);
+    mdc_inode_xatt_set(this, local->fd->inode, xdata);
 
 out:
     MDC_STACK_UNWIND(fgetxattr, frame, op_ret, op_errno, xattr, xdata);
@@ -2423,6 +2437,8 @@ mdc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
     dict_t *xattr = NULL;
     int op_errno = ENODATA;
     struct mdc_conf *conf = this->private;
+    dict_t *xattr_alloc = NULL;
+    gf_boolean_t key_satisfied = _gf_true;
 
     local = mdc_local_get(frame, fd->inode);
     if (!local)
@@ -2430,8 +2446,10 @@ mdc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 
     local->fd = fd_ref(fd);
 
-    if (!is_mdc_key_satisfied(this, key))
+    if (!is_mdc_key_satisfied(this, key)) {
+        key_satisfied = _gf_false;
         goto uncached;
+    }
 
     ret = mdc_inode_xatt_get(this, fd->inode, &xattr);
     if (ret != 0)
@@ -2451,9 +2469,19 @@ mdc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
     return 0;
 
 uncached:
+    if (key_satisfied) {
+        if (!xdata)
+            xdata = xattr_alloc = dict_new();
+        if (xdata)
+            mdc_load_reqs(this, xdata);
+    }
+
     GF_ATOMIC_INC(conf->mdc_counter.xattr_miss);
     STACK_WIND(frame, mdc_fgetxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fgetxattr, fd, key, xdata);
+
+    if (xattr_alloc)
+        dict_unref(xattr_alloc);
     return 0;
 }
 

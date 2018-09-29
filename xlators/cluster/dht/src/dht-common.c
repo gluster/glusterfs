@@ -4542,6 +4542,13 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         } else {
             dht_aggregate_xattr(local->xattr, xattr);
         }
+
+        if (!local->xdata) {
+            local->xdata = dict_ref(xdata);
+        } else if ((local->inode && IA_ISDIR(local->inode->ia_type)) ||
+                   (local->fd && IA_ISDIR(local->fd->inode->ia_type))) {
+            dht_aggregate_xattr(local->xdata, xdata);
+        }
     }
 unlock:
     UNLOCK(&frame->lock);
@@ -4556,7 +4563,7 @@ out:
         }
 
         DHT_STACK_UNWIND(getxattr, frame, local->op_ret, op_errno, local->xattr,
-                         NULL);
+                         local->xdata);
     }
     return 0;
 }
