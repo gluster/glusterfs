@@ -3015,7 +3015,7 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 
     if (loc->inode && name && GF_POSIX_ACL_REQUEST(name)) {
-        ret = posix_pacl_get(real_path, name, &value);
+        ret = posix_pacl_get(real_path, -1, name, &value);
         if (ret || !value) {
             op_errno = errno;
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_ACL_FAILED,

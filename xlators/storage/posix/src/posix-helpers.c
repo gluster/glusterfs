@@ -429,6 +429,10 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     ssize_t remaining_size = 0;
     char *xattr = NULL;
     inode_t *inode = NULL;
+    char *value = NULL;
+    struct iatt stbuf = {
+        0,
+    };
 
     if (posix_xattr_ignorable(key))
         goto out;
@@ -545,6 +549,47 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
         if (filler->stbuf && IA_ISREG(filler->stbuf->ia_type)) {
             ret = dict_set_uint64(filler->xattr, GF_GET_SIZE,
                                   filler->stbuf->ia_size);
+        }
+    } else if (GF_POSIX_ACL_REQUEST(key)) {
+        if (filler->real_path)
+            ret = posix_pstat(filler->this, NULL, NULL, filler->real_path,
+                              &stbuf, _gf_false);
+        else
+            ret = posix_fdstat(filler->this, filler->fd->inode, filler->fdnum,
+                               &stbuf);
+        if (ret < 0) {
+            gf_msg(filler->this->name, GF_LOG_ERROR, errno,
+                   P_MSG_XDATA_GETXATTR, "lstat on %s failed",
+                   filler->real_path ?: uuid_utoa(filler->fd->inode->gfid));
+            goto out;
+        }
+
+        /* Avoid link follow in virt_pacl_get, donot fill acl for symlink.*/
+        if (IA_ISLNK(stbuf.ia_type))
+            goto out;
+
+        /* ACL_TYPE_DEFAULT is not supported for non-directory, skip */
+        if (!IA_ISDIR(stbuf.ia_type) &&
+            !strncmp(key, GF_POSIX_ACL_DEFAULT, strlen(GF_POSIX_ACL_DEFAULT)))
+            goto out;
+
+        ret = posix_pacl_get(filler->real_path, filler->fdnum, key, &value);
+        if (ret || !value) {
+            gf_msg(filler->this->name, GF_LOG_ERROR, errno,
+                   P_MSG_XDATA_GETXATTR, "could not get acl (%s) for %s, %d",
+                   key, filler->real_path ?: uuid_utoa(filler->fd->inode->gfid),
+                   ret);
+            goto out;
+        }
+
+        ret = dict_set_dynstr(filler->xattr, (char *)key, value);
+        if (ret < 0) {
+            GF_FREE(value);
+            gf_msg(filler->this->name, GF_LOG_ERROR, errno,
+                   P_MSG_XDATA_GETXATTR,
+                   "could not set acl (%s) for %s in dictionary", key,
+                   filler->real_path ?: uuid_utoa(filler->fd->inode->gfid));
+            goto out;
         }
     } else {
         remaining_size = filler->list_size;
@@ -1010,16 +1055,34 @@ out:
 
 #ifdef HAVE_SYS_ACL_H
 int
-posix_pacl_set(const char *path, const char *key, const char *acl_s)
+posix_pacl_set(const char *path, int fdnum, const char *key, const char *acl_s)
 {
     int ret = -1;
     acl_t acl = NULL;
     acl_type_t type = 0;
 
+    if ((!path) && (fdnum < 0)) {
+        errno = -EINVAL;
+        return -1;
+    }
+
     type = gf_posix_acl_get_type(key);
+    if (!type)
+        return -1;
 
     acl = acl_from_text(acl_s);
-    ret = acl_set_file(path, type, acl);
+    if (!acl)
+        return -1;
+
+    if (path)
+        ret = acl_set_file(path, type, acl);
+    else if (type == ACL_TYPE_ACCESS)
+        ret = acl_set_fd(fdnum, acl);
+    else {
+        errno = -EINVAL;
+        return -1;
+    }
+
     if (ret)
         /* posix_handle_pair expects ret to be the errno */
         ret = -errno;
@@ -1030,18 +1093,31 @@ posix_pacl_set(const char *path, const char *key, const char *acl_s)
 }
 
 int
-posix_pacl_get(const char *path, const char *key, char **acl_s)
+posix_pacl_get(const char *path, int fdnum, const char *key, char **acl_s)
 {
     int ret = -1;
     acl_t acl = NULL;
     acl_type_t type = 0;
     char *acl_tmp = NULL;
 
+    if ((!path) && (fdnum < 0)) {
+        errno = -EINVAL;
+        return -1;
+    }
+
     type = gf_posix_acl_get_type(key);
     if (!type)
         return -1;
 
-    acl = acl_get_file(path, type);
+    if (path)
+        acl = acl_get_file(path, type);
+    else if (type == ACL_TYPE_ACCESS)
+        acl = acl_get_fd(fdnum);
+    else {
+        errno = -EINVAL;
+        return -1;
+    }
+
     if (!acl)
         return -1;
 
@@ -1066,14 +1142,14 @@ free_acl:
 }
 #else /* !HAVE_SYS_ACL_H (NetBSD) */
 int
-posix_pacl_set(const char *path, const char *key, const char *acl_s)
+posix_pacl_set(const char *path, int fdnum, const char *key, const char *acl_s)
 {
     errno = ENOTSUP;
     return -1;
 }
 
 int
-posix_pacl_get(const char *path, const char *key, char **acl_s)
+posix_pacl_get(const char *path, int fdnum, const char *key, char **acl_s)
 {
     errno = ENOTSUP;
     return -1;
@@ -1121,7 +1197,7 @@ posix_handle_pair(xlator_t *this, const char *real_path, char *key,
     } else if (GF_POSIX_ACL_REQUEST(key)) {
         if (stbuf && IS_DHT_LINKFILE_MODE(stbuf))
             goto out;
-        ret = posix_pacl_set(real_path, key, value->data);
+        ret = posix_pacl_set(real_path, -1, key, value->data);
     } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key)) && stbuf &&
                IS_DHT_LINKFILE_MODE(stbuf)) {
         goto out;
