@@ -1855,6 +1855,18 @@ rpcsvc_program_unregister(rpcsvc_t *svc, rpcsvc_program_t *program)
         goto out;
     }
 
+    pthread_rwlock_rdlock(&svc->rpclock);
+    {
+        list_for_each_entry(prog, &svc->programs, program)
+        {
+            if ((prog->prognum == program->prognum) &&
+                (prog->progver == program->progver)) {
+                break;
+            }
+        }
+    }
+    pthread_rwlock_unlock(&svc->rpclock);
+
     ret = rpcsvc_program_unregister_portmap(program);
     if (ret == -1) {
         gf_log(GF_RPCSVC, GF_LOG_ERROR,
@@ -1871,17 +1883,6 @@ rpcsvc_program_unregister(rpcsvc_t *svc, rpcsvc_program_t *program)
         goto out;
     }
 #endif
-    pthread_rwlock_rdlock(&svc->rpclock);
-    {
-        list_for_each_entry(prog, &svc->programs, program)
-        {
-            if ((prog->prognum == program->prognum) &&
-                (prog->progver == program->progver)) {
-                break;
-            }
-        }
-    }
-    pthread_rwlock_unlock(&svc->rpclock);
 
     gf_log(GF_RPCSVC, GF_LOG_DEBUG,
            "Program unregistered: %s, Num: %d,"
@@ -1902,6 +1903,9 @@ rpcsvc_program_unregister(rpcsvc_t *svc, rpcsvc_program_t *program)
 
     ret = 0;
 out:
+    if (prog)
+        GF_FREE(prog);
+
     if (ret == -1) {
         if (program) {
             gf_log(GF_RPCSVC, GF_LOG_ERROR,

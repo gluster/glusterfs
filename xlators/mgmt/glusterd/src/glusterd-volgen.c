@@ -1842,6 +1842,19 @@ brick_graph_add_changelog(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     ret = xlator_set_fixed_option(xl, "changelog-dir", changelog_basepath);
     if (ret)
         goto out;
+
+    ret = glusterd_is_bitrot_enabled(volinfo);
+    if (ret == -1) {
+        goto out;
+    } else if (ret) {
+        ret = xlator_set_fixed_option(xl, "changelog-notification", "on");
+        if (ret)
+            goto out;
+    } else {
+        ret = xlator_set_fixed_option(xl, "changelog-notification", "off");
+        if (ret)
+            goto out;
+    }
 out:
     return ret;
 }

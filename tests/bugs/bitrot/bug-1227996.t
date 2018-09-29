@@ -17,7 +17,6 @@ TEST pidof glusterd;
 ## Lets create and start the volume
 TEST $CLI volume create $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1
 TEST $CLI volume start $V0
-
 ## Enable bitrot on volume $V0
 TEST $CLI volume bitrot $V0 enable
 

@@ -190,7 +190,11 @@ typedef struct changelog_ev_selector {
 
 /* changelog's private structure */
 struct changelog_priv {
+    /* changelog journalling */
     gf_boolean_t active;
+
+    /* changelog live notifications */
+    gf_boolean_t rpc_active;
 
     /* to generate unique socket file per brick */
     char *changelog_brick;
