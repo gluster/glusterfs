@@ -1310,6 +1310,7 @@ mdc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     }
 
     mdc_inode_iatt_set(this, local->loc.inode, buf, local->incident_time);
+    mdc_inode_xatt_set(this, local->loc.inode, xdata);
 
 out:
     MDC_STACK_UNWIND(stat, frame, op_ret, op_errno, buf, xdata);
@@ -1323,6 +1324,7 @@ mdc_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     int ret;
     struct iatt stbuf;
     mdc_local_t *local = NULL;
+    dict_t *xattr_alloc = NULL;
     struct mdc_conf *conf = this->private;
 
     local = mdc_local_get(frame, loc->inode);
@@ -1346,9 +1348,17 @@ mdc_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     return 0;
 
 uncached:
+    if (!xdata)
+        xdata = xattr_alloc = dict_new();
+    if (xdata)
+        mdc_load_reqs(this, xdata);
+
     GF_ATOMIC_INC(conf->mdc_counter.stat_miss);
     STACK_WIND(frame, mdc_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
+
+    if (xattr_alloc)
+        dict_unref(xattr_alloc);
     return 0;
 }
 
@@ -1371,6 +1381,7 @@ mdc_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     }
 
     mdc_inode_iatt_set(this, local->fd->inode, buf, local->incident_time);
+    mdc_inode_xatt_set(this, local->fd->inode, xdata);
 
 out:
     MDC_STACK_UNWIND(fstat, frame, op_ret, op_errno, buf, xdata);
@@ -1384,6 +1395,7 @@ mdc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     int ret;
     struct iatt stbuf;
     mdc_local_t *local = NULL;
+    dict_t *xattr_alloc = NULL;
     struct mdc_conf *conf = this->private;
 
     local = mdc_local_get(frame, fd->inode);
@@ -1402,9 +1414,17 @@ mdc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     return 0;
 
 uncached:
+    if (!xdata)
+        xdata = xattr_alloc = dict_new();
+    if (xdata)
+        mdc_load_reqs(this, xdata);
+
     GF_ATOMIC_INC(conf->mdc_counter.stat_miss);
     STACK_WIND(frame, mdc_fstat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fstat, fd, xdata);
+
+    if (xattr_alloc)
+        dict_unref(xattr_alloc);
     return 0;
 }
 
