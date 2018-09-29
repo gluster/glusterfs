@@ -161,6 +161,8 @@ init(xlator_t *this)
      * assigned inside the thread. So setting this->private here.
      */
     this->private = priv;
+    if (!priv->do_versioning)
+        return 0;
 
     ret = gf_thread_create(&priv->signth, NULL, br_stub_signth, this,
                            "brssign");
@@ -211,10 +213,60 @@ reconfigure(xlator_t *this, dict_t *options)
 
     priv = this->private;
 
-    GF_OPTION_RECONF("bitrot", priv->do_versioning, options, bool, out);
+    GF_OPTION_RECONF("bitrot", priv->do_versioning, options, bool, err);
+    if (priv->do_versioning) {
+        ret = gf_thread_create(&priv->signth, NULL, br_stub_signth, this,
+                               "brssign");
+        if (ret != 0)
+            goto err;
+
+        ret = br_stub_bad_object_container_init(this, priv);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_CONTAINER_FAIL,
+                   "failed to launch the thread for storing bad gfids");
+            goto err;
+        }
+    } else {
+        if (priv->signth) {
+            if (gf_thread_cleanup_xint(priv->signth)) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                       "Could not cancel sign serializer thread");
+            }
+            priv->signth = 0;
+        }
+
+        if (priv->container.thread) {
+            if (gf_thread_cleanup_xint(priv->container.thread)) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                       "Could not cancel sign serializer thread");
+            }
+            priv->container.thread = 0;
+        }
+    }
 
     ret = 0;
-out:
+    return ret;
+err:
+    if (priv->signth) {
+        if (gf_thread_cleanup_xint(priv->signth)) {
+            gf_msg(this->name, GF_LOG_ERROR, 0,
+                   BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                   "Could not cancel sign serializer thread");
+        }
+        priv->signth = 0;
+    }
+
+    if (priv->container.thread) {
+        if (gf_thread_cleanup_xint(priv->container.thread)) {
+            gf_msg(this->name, GF_LOG_ERROR, 0,
+                   BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                   "Could not cancel sign serializer thread");
+        }
+        priv->container.thread = 0;
+    }
+    ret = -1;
     return ret;
 }
 
@@ -245,6 +297,9 @@ fini(xlator_t *this)
     if (!priv)
         return;
 
+    if (!priv->do_versioning)
+        goto cleanup;
+
     ret = gf_thread_cleanup_xint(priv->signth);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
@@ -262,9 +317,6 @@ fini(xlator_t *this)
         GF_FREE(sigstub);
     }
 
-    pthread_mutex_destroy(&priv->lock);
-    pthread_cond_destroy(&priv->cond);
-
     ret = gf_thread_cleanup_xint(priv->container.thread);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
@@ -280,13 +332,17 @@ fini(xlator_t *this)
         call_stub_destroy(stub);
     }
 
+    pthread_mutex_destroy(&priv->container.bad_lock);
+    pthread_cond_destroy(&priv->container.bad_cond);
+
+cleanup:
+    pthread_mutex_destroy(&priv->lock);
+    pthread_cond_destroy(&priv->cond);
+
     if (priv->local_pool) {
         mem_pool_destroy(priv->local_pool);
         priv->local_pool = NULL;
     }
-
-    pthread_mutex_destroy(&priv->container.bad_lock);
-    pthread_cond_destroy(&priv->container.bad_cond);
 
     this->private = NULL;
     GF_FREE(priv);
