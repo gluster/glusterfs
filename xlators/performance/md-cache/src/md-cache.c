@@ -2103,6 +2103,7 @@ mdc_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     mdc_inode_iatt_set_validate(this, local->loc.inode, prebuf, postbuf,
                                 _gf_true, local->incident_time);
+    mdc_inode_xatt_update(this, local->loc.inode, xdata);
 
 out:
     MDC_STACK_UNWIND(setattr, frame, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -2115,13 +2116,43 @@ mdc_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
             int valid, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    dict_t *xattr_alloc = NULL;
+    int ret = 0;
+    struct mdc_conf *conf = this->private;
 
     local = mdc_local_get(frame, loc->inode);
 
     loc_copy(&local->loc, loc);
 
+    if ((valid & GF_SET_ATTR_MODE) && conf->cache_glusterfs_acl) {
+        if (!xdata)
+            xdata = xattr_alloc = dict_new();
+        if (xdata) {
+            ret = dict_set_int8(xdata, GF_POSIX_ACL_ACCESS, 0);
+            if (!ret)
+                ret = dict_set_int8(xdata, GF_POSIX_ACL_DEFAULT, 0);
+            if (ret)
+                mdc_inode_xatt_invalidate(this, local->loc.inode);
+        }
+    }
+
+    if ((valid & GF_SET_ATTR_MODE) && conf->cache_posix_acl) {
+        if (!xdata)
+            xdata = xattr_alloc = dict_new();
+        if (xdata) {
+            ret = dict_set_int8(xdata, POSIX_ACL_ACCESS_XATTR, 0);
+            if (!ret)
+                ret = dict_set_int8(xdata, POSIX_ACL_DEFAULT_XATTR, 0);
+            if (ret)
+                mdc_inode_xatt_invalidate(this, local->loc.inode);
+        }
+    }
+
     STACK_WIND(frame, mdc_setattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid, xdata);
+
+    if (xattr_alloc)
+        dict_unref(xattr_alloc);
     return 0;
 }
 
@@ -2144,6 +2175,7 @@ mdc_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                 _gf_true, local->incident_time);
+    mdc_inode_xatt_update(this, local->fd->inode, xdata);
 
 out:
     MDC_STACK_UNWIND(fsetattr, frame, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -2156,13 +2188,43 @@ mdc_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
              int valid, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    dict_t *xattr_alloc = NULL;
+    int ret = 0;
+    struct mdc_conf *conf = this->private;
 
     local = mdc_local_get(frame, fd->inode);
 
     local->fd = fd_ref(fd);
 
+    if ((valid & GF_SET_ATTR_MODE) && conf->cache_glusterfs_acl) {
+        if (!xdata)
+            xdata = xattr_alloc = dict_new();
+        if (xdata) {
+            ret = dict_set_int8(xdata, GF_POSIX_ACL_ACCESS, 0);
+            if (!ret)
+                ret = dict_set_int8(xdata, GF_POSIX_ACL_DEFAULT, 0);
+            if (ret)
+                mdc_inode_xatt_invalidate(this, local->fd->inode);
+        }
+    }
+
+    if ((valid & GF_SET_ATTR_MODE) && conf->cache_posix_acl) {
+        if (!xdata)
+            xdata = xattr_alloc = dict_new();
+        if (xdata) {
+            ret = dict_set_int8(xdata, POSIX_ACL_ACCESS_XATTR, 0);
+            if (!ret)
+                ret = dict_set_int8(xdata, POSIX_ACL_DEFAULT_XATTR, 0);
+            if (ret)
+                mdc_inode_xatt_invalidate(this, local->fd->inode);
+        }
+    }
+
     STACK_WIND(frame, mdc_fsetattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
+
+    if (xattr_alloc)
+        dict_unref(xattr_alloc);
     return 0;
 }
 
