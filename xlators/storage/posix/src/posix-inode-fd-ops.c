@@ -2970,6 +2970,10 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int keybuff_len;
     char *value_buf = NULL;
     gf_boolean_t have_val = _gf_false;
+    struct iatt buf = {
+        0,
+    };
+    dict_t *xattr_rsp = NULL;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -3438,6 +3442,11 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 done:
     op_ret = size;
 
+    if (xdata && (op_ret >= 0)) {
+        xattr_rsp = posix_xattr_fill(this, real_path, loc, NULL, -1, xdata,
+                                     &buf);
+    }
+
     if (dict) {
         dict_del(dict, GFID_XATTR_KEY);
         dict_del(dict, GF_XATTR_VOL_ID_KEY);
@@ -3446,7 +3455,10 @@ done:
 out:
     SET_TO_OLD_FS_ID();
 
-    STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, dict, NULL);
+    STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, dict, xattr_rsp);
+
+    if (xattr_rsp)
+        dict_unref(xattr_rsp);
 
     if (dict) {
         dict_unref(dict);
@@ -3476,6 +3488,10 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     int key_len;
     char *value_buf = NULL;
     gf_boolean_t have_val = _gf_false;
+    struct iatt buf = {
+        0,
+    };
+    dict_t *xattr_rsp = NULL;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -3730,6 +3746,11 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 done:
     op_ret = size;
 
+    if (xdata && (op_ret >= 0)) {
+        xattr_rsp = posix_xattr_fill(this, NULL, NULL, fd, pfd->fd, xdata,
+                                     &buf);
+    }
+
     if (dict) {
         dict_del(dict, GFID_XATTR_KEY);
         dict_del(dict, GF_XATTR_VOL_ID_KEY);
@@ -3738,7 +3759,10 @@ done:
 out:
     SET_TO_OLD_FS_ID();
 
-    STACK_UNWIND_STRICT(fgetxattr, frame, op_ret, op_errno, dict, NULL);
+    STACK_UNWIND_STRICT(fgetxattr, frame, op_ret, op_errno, dict, xattr_rsp);
+
+    if (xattr_rsp)
+        dict_unref(xattr_rsp);
 
     if (dict)
         dict_unref(dict);
