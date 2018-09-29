@@ -262,6 +262,9 @@ changelog_rpc_server_destroy(xlator_t *this, rpcsvc_t *rpc, char *sockfile,
     struct rpcsvc_program *prog = NULL;
     rpc_transport_t *trans = NULL;
 
+    if (!rpc)
+        return;
+
     while (*progs) {
         prog = *progs;
         (void)rpcsvc_program_unregister(rpc, prog);
