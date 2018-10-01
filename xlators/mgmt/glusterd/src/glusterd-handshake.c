@@ -53,6 +53,7 @@ get_snap_volname_and_volinfo(const char *volpath, char **volname,
     glusterd_snap_t *snap = NULL;
     xlator_t *this = NULL;
     char *tmp_str_token = NULL;
+    char *volfile_token = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -103,21 +104,34 @@ get_snap_volname_and_volinfo(const char *volpath, char **volname,
      */
     ret = glusterd_volinfo_find(volname_token, volinfo);
     if (ret) {
-        *volname = gf_strdup(volname_token);
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_GET_FAIL,
+               "failed to get the volinfo for the volume %s", volname_token);
+
+        /* Get the actual volfile name. */
+        volfile_token = strtok_r(NULL, "/", &save_ptr);
+        *volname = gf_strdup(volfile_token);
         if (NULL == *volname) {
             ret = -1;
             goto out;
         }
 
+        /*
+         * Ideally, this should succeed as volname_token now contains
+         * the name of the snap volume (i.e. name of the volume that
+         * represents the snapshot). But, if for some reason, volinfo
+         * for the snap volume is not found, then try to get from the
+         * name of the volfile. Name of the volfile is like this.
+         * <snap volume name>.<hostname>.<brick path>.vol
+         */
         ret = glusterd_snap_volinfo_find(volname_token, snap, volinfo);
         if (ret) {
             /* Split the volume name */
-            vol = strtok_r(volname_token, ".", &save_ptr);
+            vol = strtok_r(volfile_token, ".", &save_ptr);
             if (!vol) {
                 gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
                        "Invalid "
                        "volname (%s)",
-                       volname_token);
+                       volfile_token);
                 goto out;
             }
 
