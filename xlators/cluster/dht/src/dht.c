@@ -104,7 +104,8 @@ struct xlator_cbks cbks = {
 
 extern int32_t
 mem_acct_init(xlator_t *this);
-extern struct volume_options options[];
+
+extern struct volume_options dht_options[];
 
 xlator_api_t xlator_api = {
     .init = dht_init,
@@ -116,7 +117,7 @@ xlator_api_t xlator_api = {
     .dumpops = &dumpops,
     .fops = &fops,
     .cbks = &cbks,
-    .options = options,
+    .options = dht_options,
     .identifier = "distribute",
     .pass_through_fops = &dht_pt_fops,
     .category = GF_MAINTAINED,

@@ -12,7 +12,7 @@
 
 /* TODO: all 'TODO's in dht.c holds good */
 
-extern struct volume_options options[];
+extern struct volume_options dht_options[];
 
 int
 nufa_local_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,

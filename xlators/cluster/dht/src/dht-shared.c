@@ -41,8 +41,6 @@
    - handle all cases in self heal layout reconstruction
    - complete linkfile selfheal
 */
-/* FIXME: Not sure why someone defined this here */
-/* struct volume_options options[]; */
 
 extern dht_methods_t dht_methods;
 
@@ -908,7 +906,7 @@ err:
     return -1;
 }
 
-struct volume_options options[] = {
+struct volume_options dht_options[] = {
     {
         .key = {"lookup-unhashed"},
         .value = {"auto", "yes", "no", "enable", "disable", "1", "0", "on",
@@ -1202,3 +1200,8 @@ struct volume_options options[] = {
 
     {.key = {NULL}},
 };
+
+#define NUM_DHT_OPTIONS (sizeof(dht_options) / sizeof(dht_options[0]))
+
+extern struct volume_options options[NUM_DHT_OPTIONS]
+    __attribute__((alias("dht_options")));
