@@ -1588,6 +1588,11 @@ br_stub_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
     frame->local = NULL;
+    if (!local) {
+        op_ret = -1;
+        op_errno = EINVAL;
+        goto unwind;
+    }
     inode = local->u.context.inode;
 
     op_ret = -1;
@@ -1654,10 +1659,8 @@ delkeys:
 
 unwind:
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, xattr, xdata);
-    if (local) {
-        br_stub_cleanup_local(local);
-        br_stub_dealloc_local(local);
-    }
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
     return 0;
 }
 
@@ -3086,6 +3089,11 @@ br_stub_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret < 0)
         goto unwind;
 
+    if (!local) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_NULL_LOCAL,
+               "local is NULL");
+        goto unwind;
+    }
     inode = local->u.context.inode;
     if (!IA_ISREG(inode->ia_type))
         goto unwind;
