@@ -3383,11 +3383,11 @@ volgen_link_bricks(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if ((i % sub_count) == 0) {
             xl = volgen_graph_add_nolink(graph, xl_type, xl_namefmt, volname,
                                          j);
-            if (!xl) {
-                ret = -1;
-                goto out;
-            }
             j++;
+        }
+        if (!xl) {
+            ret = -1;
+            goto out;
         }
 
         ret = volgen_xlator_link(xl, trav);

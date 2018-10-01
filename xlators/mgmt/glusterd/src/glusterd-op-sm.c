@@ -1216,7 +1216,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
              */
             if ((dict_getn(dict, "is-special-key", SLEN("is-special-key")) ==
                  NULL) &&
-                (volinfo->status != GLUSTERD_STATUS_NONE)) {
+                volinfo && (volinfo->status != GLUSTERD_STATUS_NONE)) {
                 snprintf(errstr, sizeof(errstr),
                          " 'gluster "
                          "volume set <VOLNAME> %s {enable, "
