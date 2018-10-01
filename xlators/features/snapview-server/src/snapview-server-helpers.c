@@ -497,8 +497,8 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
         goto out;
     }
 
-    snprintf(volname, sizeof(volname), "/snaps/%s/%s", dirent->name,
-             dirent->snap_volname);
+    snprintf(volname, sizeof(volname), "/snaps/%s/%s/%s", dirent->name,
+             dirent->snap_volname, dirent->snap_volname);
 
     fs = glfs_new(volname);
     if (!fs) {
