@@ -249,6 +249,6 @@ manager:
     ret = priv->shd_svc.manager(&(priv->shd_svc), NULL, PROC_START_NO_WAIT);
 
 out:
-    gf_msg_debug(this->name, 0, "Returning %d", ret);
+    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
     return ret;
 }
