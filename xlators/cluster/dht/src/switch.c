@@ -16,7 +16,7 @@
 #include <fnmatch.h>
 #include <string.h>
 
-extern struct volume_options options[];
+extern struct volume_options dht_options[];
 
 struct switch_sched_array {
     xlator_t *xl;
