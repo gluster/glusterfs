@@ -143,10 +143,20 @@ posix_inode(xlator_t *this)
 int32_t
 posix_notify(xlator_t *this, int32_t event, void *data, ...)
 {
+    xlator_t *victim = data;
+
     switch (event) {
         case GF_EVENT_PARENT_UP: {
             /* Tell the parent that posix xlator is up */
             default_notify(this, GF_EVENT_CHILD_UP, data);
+        } break;
+
+        case GF_EVENT_PARENT_DOWN: {
+            if (!victim->cleanup_starting)
+                break;
+            gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
+                   victim->name);
+            default_notify(this->parents->xlator, GF_EVENT_CHILD_DOWN, data);
         } break;
         default:
             /* */

@@ -133,7 +133,7 @@ server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                          "Reply submission failed");
         if (frame && client) {
             server_connection_cleanup(frame->this, client,
-                                      INTERNAL_LOCKS | POSIX_LOCKS);
+                                      INTERNAL_LOCKS | POSIX_LOCKS, NULL);
         } else {
             gf_msg_callingfn("", GF_LOG_ERROR, 0, PS_MSG_REPLY_SUBMIT_FAILED,
                              "Reply submission failed");
@@ -392,6 +392,36 @@ out:
     return error;
 }
 
+void
+server_call_xlator_mem_cleanup(xlator_t *this, char *victim_name)
+{
+    pthread_t th_id = {
+        0,
+    };
+    int th_ret = -1;
+    server_cleanup_xprt_arg_t *arg = NULL;
+
+    if (!victim_name)
+        return;
+
+    gf_log(this->name, GF_LOG_INFO, "Create graph janitor thread for brick %s",
+           victim_name);
+
+    arg = calloc(1, sizeof(*arg));
+    arg->this = this;
+    arg->victim_name = gf_strdup(victim_name);
+    th_ret = gf_thread_create_detached(&th_id, server_graph_janitor_threads,
+                                       arg, "graphjanitor");
+    if (th_ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "graph janitor Thread"
+               " creation is failed for brick %s",
+               victim_name);
+        GF_FREE(arg->victim_name);
+        free(arg);
+    }
+}
+
 int
 server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
 {
@@ -402,14 +432,9 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
     client_t *client = NULL;
     char *auth_path = NULL;
     int ret = -1;
-    gf_boolean_t victim_found = _gf_false;
     char *xlator_name = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-    xlator_t *top = NULL;
-    xlator_list_t **trav_p = NULL;
-    xlator_t *travxl = NULL;
     uint64_t xprtrefcount = 0;
-    struct _child_status *tmp = NULL;
+    gf_boolean_t fd_exist = _gf_false;
 
     if (!xl || !data) {
         gf_msg_callingfn("server", GF_LOG_WARNING, 0, PS_MSG_RPC_NOTIFY_ERROR,
@@ -420,7 +445,6 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
     this = xl;
     trans = data;
     conf = this->private;
-    ctx = this->ctx;
 
     switch (event) {
         case RPCSVC_EVENT_ACCEPT: {
@@ -457,7 +481,8 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
              */
             pthread_mutex_lock(&conf->mutex);
             client = trans->xl_private;
-            list_del_init(&trans->list);
+            if (!client)
+                list_del_init(&trans->list);
             pthread_mutex_unlock(&conf->mutex);
 
             if (!client)
@@ -478,8 +503,8 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
             gf_client_ref(client);
             gf_client_put(client, &detached);
             if (detached) {
-                server_connection_cleanup(this, client,
-                                          INTERNAL_LOCKS | POSIX_LOCKS);
+                server_connection_cleanup(
+                    this, client, INTERNAL_LOCKS | POSIX_LOCKS, &fd_exist);
                 gf_event(EVENT_CLIENT_DISCONNECT,
                          "client_uid=%s;"
                          "client_identifier=%s;server_identifier=%s;"
@@ -496,53 +521,36 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
         unref_transport:
             /* rpc_transport_unref() causes a RPCSVC_EVENT_TRANSPORT_DESTROY
              * to be called in blocking manner
-             * So no code should ideally be after this unref
+             * So no code should ideally be after this unref, Call
+             * rpc_transport_unref only while cleanup_starting flag is not set
+             * otherwise transport_unref will be call by either
+             * server_connection_cleanup_flush_cbk or server_submit_reply at the
+             * time of freeing state
              */
-            rpc_transport_unref(trans);
+            if (!client || !detached || !fd_exist)
+                rpc_transport_unref(trans);
             break;
         case RPCSVC_EVENT_TRANSPORT_DESTROY:
+            pthread_mutex_lock(&conf->mutex);
             client = trans->xl_private;
+            list_del_init(&trans->list);
+            pthread_mutex_unlock(&conf->mutex);
             if (!client)
                 break;
-            pthread_mutex_lock(&conf->mutex);
-            list_for_each_entry(tmp, &conf->child_status->status_list,
-                                status_list)
-            {
-                if (tmp->name && client->bound_xl &&
-                    client->bound_xl->cleanup_starting &&
-                    !strcmp(tmp->name, client->bound_xl->name)) {
-                    xprtrefcount = GF_ATOMIC_GET(tmp->xprtrefcnt);
-                    if (xprtrefcount > 0) {
-                        xprtrefcount = GF_ATOMIC_DEC(tmp->xprtrefcnt);
-                        if (xprtrefcount == 0)
-                            xlator_name = gf_strdup(client->bound_xl->name);
-                    }
-                    break;
+
+            if (client->bound_xl && client->bound_xl->cleanup_starting) {
+                xprtrefcount = GF_ATOMIC_GET(client->bound_xl->xprtrefcnt);
+                if (xprtrefcount > 0) {
+                    xprtrefcount = GF_ATOMIC_DEC(client->bound_xl->xprtrefcnt);
+                    if (xprtrefcount == 0)
+                        xlator_name = gf_strdup(client->bound_xl->name);
                 }
             }
-            pthread_mutex_unlock(&conf->mutex);
 
             gf_client_unref(client);
 
             if (xlator_name) {
-                if (this->ctx->active) {
-                    top = this->ctx->active->first;
-                    LOCK(&ctx->volfile_lock);
-                    for (trav_p = &top->children; *trav_p;
-                         trav_p = &(*trav_p)->next) {
-                        travxl = (*trav_p)->xlator;
-                        if (!travxl->call_cleanup &&
-                            strcmp(travxl->name, xlator_name) == 0) {
-                            victim_found = _gf_true;
-                            break;
-                        }
-                    }
-                    UNLOCK(&ctx->volfile_lock);
-                    if (victim_found) {
-                        xlator_mem_cleanup(travxl);
-                        rpcsvc_autoscale_threads(ctx, conf->rpc, -1);
-                    }
-                }
+                server_call_xlator_mem_cleanup(this, xlator_name);
                 GF_FREE(xlator_name);
             }
 
@@ -554,6 +562,67 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
 
 out:
     return 0;
+}
+
+void *
+server_graph_janitor_threads(void *data)
+{
+    xlator_t *victim = NULL;
+    xlator_t *this = NULL;
+    server_conf_t *conf = NULL;
+    glusterfs_ctx_t *ctx = NULL;
+    char *victim_name = NULL;
+    server_cleanup_xprt_arg_t *arg = NULL;
+    gf_boolean_t victim_found = _gf_false;
+    xlator_list_t **trav_p = NULL;
+    xlator_t *top = NULL;
+
+    GF_ASSERT(data);
+
+    arg = data;
+    this = arg->this;
+    victim_name = arg->victim_name;
+    THIS = arg->this;
+    conf = this->private;
+
+    ctx = THIS->ctx;
+    GF_VALIDATE_OR_GOTO(this->name, ctx, out);
+
+    top = this->ctx->active->first;
+    LOCK(&ctx->volfile_lock);
+    for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+        victim = (*trav_p)->xlator;
+        if (victim->cleanup_starting &&
+            strcmp(victim->name, victim_name) == 0) {
+            victim_found = _gf_true;
+            break;
+        }
+    }
+    if (victim_found)
+        glusterfs_delete_volfile_checksum(ctx, victim->volfile_id);
+    UNLOCK(&ctx->volfile_lock);
+    if (!victim_found) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "victim brick %s is not"
+               " found in graph",
+               victim_name);
+        goto out;
+    }
+
+    default_notify(victim, GF_EVENT_PARENT_DOWN, victim);
+    if (victim->notify_down) {
+        gf_log(THIS->name, GF_LOG_INFO,
+               "Start call fini for brick"
+               " %s stack",
+               victim->name);
+        xlator_mem_cleanup(victim);
+        rpcsvc_autoscale_threads(ctx, conf->rpc, -1);
+    }
+
+out:
+    GF_FREE(arg->victim_name);
+    free(arg);
+    return NULL;
 }
 
 int32_t
@@ -972,13 +1041,7 @@ server_init(xlator_t *this)
     conf->child_status = GF_CALLOC(1, sizeof(struct _child_status),
                                    gf_server_mt_child_status);
     INIT_LIST_HEAD(&conf->child_status->status_list);
-    GF_ATOMIC_INIT(conf->child_status->xprtrefcnt, 0);
 
-    /*ret = dict_get_str (this->options, "statedump-path", &statedump_path);
-    if (!ret) {
-            gf_path_strip_trailing_slashes (statedump_path);
-            this->ctx->statedump_path = statedump_path;
-    }*/
     GF_OPTION_INIT("statedump-path", statedump_path, path, out);
     if (statedump_path) {
         gf_path_strip_trailing_slashes(statedump_path);
@@ -1484,6 +1547,12 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
         }
 
         case GF_EVENT_CHILD_DOWN: {
+            if (victim->cleanup_starting) {
+                victim->notify_down = 1;
+                gf_log(this->name, GF_LOG_INFO,
+                       "Getting CHILD_DOWN event for brick %s", victim->name);
+            }
+
             ret = server_process_child_event(this, event, data,
                                              GF_CBK_CHILD_DOWN);
             if (ret) {
@@ -1517,7 +1586,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
             {
                 if (strcmp(tmp->name, victim->name) == 0) {
                     tmp->child_up = _gf_false;
-                    GF_ATOMIC_INIT(tmp->xprtrefcnt, totxprt);
+                    GF_ATOMIC_INIT(victim->xprtrefcnt, totxprt);
                     break;
                 }
             }
@@ -1561,8 +1630,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                 rpc_clnt_mgmt_pmap_signout(ctx, victim->name);
 
                 if (!xprt_found && victim_found) {
-                    xlator_mem_cleanup(victim);
-                    rpcsvc_autoscale_threads(ctx, conf->rpc, -1);
+                    server_call_xlator_mem_cleanup(this, victim->name);
                 }
             }
             break;

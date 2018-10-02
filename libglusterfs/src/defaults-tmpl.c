@@ -124,13 +124,18 @@ int
 default_notify(xlator_t *this, int32_t event, void *data, ...)
 {
     GF_UNUSED int ret = 0;
+    xlator_t *victim = data;
+
     switch (event) {
         case GF_EVENT_PARENT_UP:
         case GF_EVENT_PARENT_DOWN: {
             xlator_list_t *list = this->children;
 
             while (list) {
-                xlator_notify(list->xlator, event, this);
+                if (victim && victim->cleanup_starting)
+                    xlator_notify(list->xlator, event, victim);
+                else
+                    xlator_notify(list->xlator, event, this);
                 list = list->next;
             }
         } break;

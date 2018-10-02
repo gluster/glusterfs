@@ -58,6 +58,8 @@ typedef struct index_priv {
     int64_t pending_count;
     pthread_t thread;
     gf_boolean_t down;
+    gf_atomic_t stub_cnt;
+    int32_t curr_count;
 } index_priv_t;
 
 typedef struct index_local {
