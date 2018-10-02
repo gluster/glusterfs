@@ -43,8 +43,8 @@ call_frame_t *
 get_frame_from_request(rpcsvc_request_t *req);
 
 int
-server_connection_cleanup(xlator_t *this, struct _client *client,
-                          int32_t flags);
+server_connection_cleanup(xlator_t *this, struct _client *client, int32_t flags,
+                          gf_boolean_t *fd_exist);
 
 int
 server_build_config(xlator_t *this, server_conf_t *conf);

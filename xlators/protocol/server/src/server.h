@@ -100,7 +100,6 @@ struct _child_status {
     struct list_head status_list;
     char *name;
     gf_boolean_t child_up;
-    gf_atomic_t xprtrefcnt;
 };
 struct server_conf {
     rpcsvc_t *rpc;
@@ -241,6 +240,11 @@ typedef struct _server_ctx {
     fdtable_t *fdtable;
 } server_ctx_t;
 
+typedef struct server_cleanup_xprt_arg {
+    xlator_t *this;
+    char *victim_name;
+} server_cleanup_xprt_arg_t;
+
 int
 server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                     struct iovec *payload, int payloadcount,
@@ -253,6 +257,9 @@ gf_server_check_getxattr_cmd(call_frame_t *frame, const char *name);
 
 void
 forget_inode_if_no_dentry(inode_t *inode);
+
+void *
+server_graph_janitor_threads(void *);
 
 server_ctx_t *
 server_ctx_get(client_t *client, xlator_t *xlator);

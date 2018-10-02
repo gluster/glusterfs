@@ -187,6 +187,7 @@ worker_enqueue(xlator_t *this, call_stub_t *stub)
     pthread_mutex_lock(&priv->mutex);
     {
         __index_enqueue(&priv->callstubs, stub);
+        GF_ATOMIC_INC(priv->stub_cnt);
         pthread_cond_signal(&priv->cond);
     }
     pthread_mutex_unlock(&priv->mutex);
@@ -220,11 +221,18 @@ index_worker(void *data)
             }
             if (!bye)
                 stub = __index_dequeue(&priv->callstubs);
+            if (bye) {
+                priv->curr_count--;
+                if (priv->curr_count == 0)
+                    pthread_cond_broadcast(&priv->cond);
+            }
         }
         pthread_mutex_unlock(&priv->mutex);
 
-        if (stub) /* guard against spurious wakeups */
+        if (stub) { /* guard against spurious wakeups */
             call_resume(stub);
+            GF_ATOMIC_DEC(priv->stub_cnt);
+        }
         stub = NULL;
         if (bye)
             break;
@@ -2391,6 +2399,7 @@ init(xlator_t *this)
         gf_uuid_generate(priv->internal_vgfid[i]);
 
     INIT_LIST_HEAD(&priv->callstubs);
+    GF_ATOMIC_INIT(priv->stub_cnt, 0);
 
     this->local_pool = mem_pool_new(index_local_t, 64);
     if (!this->local_pool) {
@@ -2419,6 +2428,7 @@ init(xlator_t *this)
     index_set_link_count(priv, count, XATTROP);
     priv->down = _gf_false;
 
+    priv->curr_count = 0;
     ret = gf_thread_create(&priv->thread, &w_attr, index_worker, this,
                            "idxwrker");
     if (ret) {
@@ -2427,7 +2437,7 @@ init(xlator_t *this)
                "Failed to create worker thread, aborting");
         goto out;
     }
-
+    priv->curr_count++;
     ret = 0;
 out:
     GF_FREE(tmp);
@@ -2545,6 +2555,11 @@ notify(xlator_t *this, int event, void *data, ...)
 {
     int ret = 0;
     index_priv_t *priv = NULL;
+    uint64_t stub_cnt = 0;
+    xlator_t *victim = data;
+    struct timespec sleep_till = {
+        0,
+    };
 
     if (!this)
         return 0;
@@ -2552,6 +2567,39 @@ notify(xlator_t *this, int event, void *data, ...)
     priv = this->private;
     if (!priv)
         return 0;
+
+    if ((event == GF_EVENT_PARENT_DOWN) && victim->cleanup_starting) {
+        stub_cnt = GF_ATOMIC_GET(priv->stub_cnt);
+        clock_gettime(CLOCK_REALTIME, &sleep_till);
+        sleep_till.tv_sec += 1;
+
+        /* Wait for draining stub from queue before notify PARENT_DOWN */
+        pthread_mutex_lock(&priv->mutex);
+        {
+            while (stub_cnt) {
+                (void)pthread_cond_timedwait(&priv->cond, &priv->mutex,
+                                             &sleep_till);
+                stub_cnt = GF_ATOMIC_GET(priv->stub_cnt);
+            }
+        }
+        pthread_mutex_unlock(&priv->mutex);
+        gf_log(this->name, GF_LOG_INFO,
+               "Notify GF_EVENT_PARENT_DOWN for brick %s", victim->name);
+    }
+
+    if ((event == GF_EVENT_CHILD_DOWN) && victim->cleanup_starting) {
+        pthread_mutex_lock(&priv->mutex);
+        {
+            priv->down = _gf_true;
+            pthread_cond_broadcast(&priv->cond);
+            while (priv->curr_count)
+                pthread_cond_wait(&priv->cond, &priv->mutex);
+        }
+        pthread_mutex_unlock(&priv->mutex);
+
+        gf_log(this->name, GF_LOG_INFO,
+               "Notify GF_EVENT_CHILD_DOWN for brick %s", victim->name);
+    }
 
     ret = default_notify(this, event, data);
     return ret;

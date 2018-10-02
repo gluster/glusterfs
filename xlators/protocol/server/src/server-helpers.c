@@ -233,15 +233,50 @@ server_connection_cleanup_flush_cbk(call_frame_t *frame, void *cookie,
     int32_t ret = -1;
     fd_t *fd = NULL;
     client_t *client = NULL;
+    uint64_t fd_cnt = 0;
+    xlator_t *victim = NULL;
+    server_conf_t *conf = NULL;
+    xlator_t *serv_xl = NULL;
+    rpc_transport_t *xprt = NULL;
+    rpc_transport_t *xp_next = NULL;
+    int32_t detach = (long)cookie;
+    gf_boolean_t xprt_found = _gf_false;
 
     GF_VALIDATE_OR_GOTO("server", this, out);
     GF_VALIDATE_OR_GOTO("server", frame, out);
 
     fd = frame->local;
     client = frame->root->client;
+    serv_xl = frame->this;
+    conf = serv_xl->private;
 
     fd_unref(fd);
     frame->local = NULL;
+
+    if (client)
+        victim = client->bound_xl;
+
+    if (victim) {
+        fd_cnt = GF_ATOMIC_DEC(victim->fd_cnt);
+        if (!fd_cnt && conf && detach) {
+            pthread_mutex_lock(&conf->mutex);
+            {
+                list_for_each_entry_safe(xprt, xp_next, &conf->xprt_list, list)
+                {
+                    if (!xprt->xl_private)
+                        continue;
+                    if (xprt->xl_private == client) {
+                        xprt_found = _gf_true;
+                        break;
+                    }
+                }
+            }
+            pthread_mutex_unlock(&conf->mutex);
+            if (xprt_found) {
+                rpc_transport_unref(xprt);
+            }
+        }
+    }
 
     gf_client_unref(client);
     STACK_DESTROY(frame->root);
@@ -253,7 +288,7 @@ out:
 
 static int
 do_fd_cleanup(xlator_t *this, client_t *client, fdentry_t *fdentries,
-              int fd_count)
+              int fd_count, int32_t detach)
 {
     fd_t *fd = NULL;
     int i = 0, ret = -1;
@@ -265,6 +300,7 @@ do_fd_cleanup(xlator_t *this, client_t *client, fdentry_t *fdentries,
     GF_VALIDATE_OR_GOTO("server", fdentries, out);
 
     bound_xl = client->bound_xl;
+
     for (i = 0; i < fd_count; i++) {
         fd = fdentries[i].fd;
 
@@ -294,8 +330,9 @@ do_fd_cleanup(xlator_t *this, client_t *client, fdentry_t *fdentries,
             tmp_frame->root->client = client;
             memset(&tmp_frame->root->lk_owner, 0, sizeof(gf_lkowner_t));
 
-            STACK_WIND(tmp_frame, server_connection_cleanup_flush_cbk, bound_xl,
-                       bound_xl->fops->flush, fd, NULL);
+            STACK_WIND_COOKIE(tmp_frame, server_connection_cleanup_flush_cbk,
+                              (void *)(long)detach, bound_xl,
+                              bound_xl->fops->flush, fd, NULL);
         }
     }
 
@@ -307,13 +344,19 @@ out:
 }
 
 int
-server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags)
+server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags,
+                          gf_boolean_t *fd_exist)
 {
     server_ctx_t *serv_ctx = NULL;
     fdentry_t *fdentries = NULL;
     uint32_t fd_count = 0;
     int cd_ret = 0;
     int ret = 0;
+    xlator_t *bound_xl = NULL;
+    int i = 0;
+    fd_t *fd = NULL;
+    uint64_t fd_cnt = 0;
+    int32_t detach = 0;
 
     GF_VALIDATE_OR_GOTO("server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, client, out);
@@ -343,11 +386,34 @@ server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags)
     }
 
     if (fdentries != NULL) {
+        /* Loop to configure fd_count on victim brick */
+        bound_xl = client->bound_xl;
+        if (bound_xl) {
+            for (i = 0; i < fd_count; i++) {
+                fd = fdentries[i].fd;
+                if (!fd)
+                    continue;
+                fd_cnt++;
+            }
+            if (fd_cnt) {
+                if (fd_exist)
+                    (*fd_exist) = _gf_true;
+                GF_ATOMIC_ADD(bound_xl->fd_cnt, fd_cnt);
+            }
+        }
+
+        /* If fd_exist is not NULL it means function is invoke
+           by server_rpc_notify at the time of getting DISCONNECT
+           notification
+        */
+        if (fd_exist)
+            detach = 1;
+
         gf_msg_debug(this->name, 0,
                      "Performing cleanup on %d "
                      "fdentries",
                      fd_count);
-        ret = do_fd_cleanup(this, client, fdentries, fd_count);
+        ret = do_fd_cleanup(this, client, fdentries, fd_count, detach);
     } else
         gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL,
                "no fdentries to clean");
