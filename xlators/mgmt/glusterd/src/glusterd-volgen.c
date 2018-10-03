@@ -1856,78 +1856,6 @@ out:
     return ret;
 }
 
-#if USE_GFDB /* only add changetimerecorder when GFDB is enabled */
-static int
-brick_graph_add_changetimerecorder(volgen_graph_t *graph,
-                                   glusterd_volinfo_t *volinfo,
-                                   dict_t *set_dict,
-                                   glusterd_brickinfo_t *brickinfo)
-{
-    xlator_t *xl = NULL;
-    int ret = -1;
-    char *brickname = NULL;
-    char *path = NULL;
-    char index_basepath[PATH_MAX] = {0};
-    char *hotbrick = NULL;
-
-    if (!graph || !volinfo || !set_dict || !brickinfo)
-        goto out;
-
-    path = brickinfo->path;
-
-    xl = volgen_graph_add(graph, "features/changetimerecorder",
-                          volinfo->volname);
-    if (!xl)
-        goto out;
-
-    ret = xlator_set_option(xl, "db-type", "sqlite3");
-    if (ret)
-        goto out;
-
-    if (!set_dict || dict_get_str(set_dict, "hot-brick", &hotbrick))
-        hotbrick = "off";
-
-    ret = xlator_set_option(xl, "hot-brick", hotbrick);
-    if (ret)
-        goto out;
-
-    brickname = strrchr(path, '/') + 1;
-    snprintf(index_basepath, sizeof(index_basepath), "%s.db", brickname);
-    ret = xlator_set_option(xl, "db-name", index_basepath);
-    if (ret)
-        goto out;
-
-    snprintf(index_basepath, sizeof(index_basepath), "%s/%s", path,
-             ".glusterfs/");
-    ret = xlator_set_option(xl, "db-path", index_basepath);
-    if (ret)
-        goto out;
-
-    ret = xlator_set_option(xl, "record-exit", "off");
-    if (ret)
-        goto out;
-
-    ret = xlator_set_option(xl, "ctr_link_consistency", "off");
-    if (ret)
-        goto out;
-
-    ret = xlator_set_option(xl, "ctr_lookupheal_link_timeout", "300");
-    if (ret)
-        goto out;
-
-    ret = xlator_set_option(xl, "ctr_lookupheal_inode_timeout", "300");
-    if (ret)
-        goto out;
-
-    ret = xlator_set_option(xl, "record-entry", "on");
-    if (ret)
-        goto out;
-
-out:
-    return ret;
-}
-#endif /* USE_GFDB */
-
 static int
 brick_graph_add_acl(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
@@ -2684,9 +2612,6 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_acl, "acl"},
     {brick_graph_add_bitrot_stub, "bitrot-stub"},
     {brick_graph_add_changelog, "changelog"},
-#if USE_GFDB /* changetimerecorder depends on gfdb */
-    {brick_graph_add_changetimerecorder, "changetimerecorder"},
-#endif
     {brick_graph_add_bd, "bd"},
     {brick_graph_add_trash, "trash"},
     {brick_graph_add_arbiter, "arbiter"},

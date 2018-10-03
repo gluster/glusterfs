@@ -30,7 +30,6 @@ AC_CONFIG_HEADERS([config.h site.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
-                libglusterfs/src/gfdb/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_mountbroker
                 geo-replication/src/peer_mountbroker.py
@@ -128,8 +127,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
                 xlators/features/changelog/lib/src/Makefile
-                xlators/features/changetimerecorder/Makefile
-                xlators/features/changetimerecorder/src/Makefile
                 xlators/features/glupy/Makefile
                 xlators/features/glupy/examples/Makefile
                 xlators/features/glupy/src/Makefile
@@ -272,7 +269,6 @@ AC_CONFIG_FILES([Makefile
                 contrib/umountd/Makefile
                 glusterfs-api.pc
                 libgfchangelog.pc
-                libgfdb.pc
                 api/Makefile
                 api/src/Makefile
                 api/examples/Makefile
@@ -943,33 +939,6 @@ fi
 AM_CONDITIONAL([USE_FIREWALLD],test ["x${BUILD_FIREWALLD}" =  "xyes"])
 
 #endof firewald section
-
-# Data tiering requires sqlite
-AC_ARG_ENABLE([tiering],
-               AC_HELP_STRING([--disable-tiering],
-                             [Disable data classification/tiering]),
-              [BUILD_GFDB="${enableval}"], [BUILD_GFDB="yes"])
-
-case $host_os in
-  darwin*)
-    SQLITE_LIBS="-lsqlite3"
-    AC_CHECK_HEADERS([sqlite3.h], AC_DEFINE(USE_GFDB, 1))
-    ;;
-  *)
-    if test "x${BUILD_GFDB}" = "xyes"; then
-      PKG_CHECK_MODULES([SQLITE], [sqlite3],
-                        AC_DEFINE(USE_GFDB, 1),
-                        AC_MSG_ERROR([pass --disable-tiering to build without sqlite]))
-    else
-      AC_DEFINE(USE_GFDB, 0, [no sqlite, gfdb is disabled])
-    fi
-    ;;
-esac
-
-AC_SUBST(SQLITE_CFLAGS)
-AC_SUBST(SQLITE_LIBS)
-AM_CONDITIONAL(BUILD_GFDB, test "x${with_server}" = "xyes" -a "x${BUILD_GFDB}" = "xyes")
-AM_CONDITIONAL(USE_GFDB, test "x${with_server}" = "xyes" -a "x${BUILD_GFDB}" = "xyes")
 
 # xml-output
 AC_ARG_ENABLE([xml-output],
@@ -1706,8 +1675,6 @@ GFAPI_VERSION="7."${PACKAGE_VERSION}
 LIBGFCHANGELOG_VERSION="0.0.1"
 AC_SUBST(GFAPI_VERSION)
 AC_SUBST(LIBGFCHANGELOG_VERSION)
-LIBGFDB_VERSION="0.0.1"
-AC_SUBST(LIBGFDB_VERSION)
 
 dnl libtool versioning
 LIBGFXDR_LT_VERSION="0:1:0"
@@ -1750,7 +1717,6 @@ echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "Track priv ports     : $TRACK_PRIVPORTS"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
-echo "Data Classification  : $BUILD_GFDB"
 echo "SELinux features     : $USE_SELINUX"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Experimental xlators : $BUILD_EXPERIMENTAL"

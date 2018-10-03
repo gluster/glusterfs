@@ -3,7 +3,7 @@ SOURCES = site.h
 EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 COMMITMENT \
 	INSTALL README.md AUTHORS THANKS NEWS \
-	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in libgfdb.pc.in \
+	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in \
 	run-tests.sh \
 	build-aux/pkg-version \
 	contrib/umountd \
@@ -15,12 +15,8 @@ SUBDIRS = $(ARGP_STANDALONE_DIR) rpc/xdr/gen libglusterfs rpc api xlators \
 
 pkgconfigdir = @pkgconfigdir@
 pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
-if USE_GFDB
-pkgconfig_DATA += libgfdb.pc
-endif
 
-CLEANFILES = glusterfs-api.pc libgfchangelog.pc libgfdb.pc \
-	contrib/umountd/Makefile
+CLEANFILES = glusterfs-api.pc libgfchangelog.pc contrib/umountd/Makefile
 
 gitclean: distclean
 	find . -name Makefile.in -exec rm -f {} \;

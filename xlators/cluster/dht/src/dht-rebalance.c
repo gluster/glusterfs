@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "tier.h"
 #include "dht-common.h"
 #include "xlator.h"
 #include "syscall.h"
@@ -2132,17 +2131,6 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                    "%s: failed to set xattr on %s",
                    loc->path, to->name);
             *fop_errno = -ret;
-        }
-    }
-
-    /* store size of previous migrated file  */
-    if (defrag && defrag->tier_conf.is_tier) {
-        if (from != TIER_HASHED_SUBVOL) {
-            defrag->tier_conf.st_last_promoted_size = stbuf.ia_size;
-        } else {
-            /* Don't delete the linkto file on the hashed subvol */
-            delete_src_linkto = _gf_false;
-            defrag->tier_conf.st_last_demoted_size = stbuf.ia_size;
         }
     }
 

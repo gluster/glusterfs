@@ -11,7 +11,7 @@ TESTS_EXPECTED_IN_LOOP=4
 TEST glusterd
 TEST pidof glusterd
 
-TEST   $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+TEST   $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
 # Test that enabling the option should work on a newly created volume
 TEST   $CLI volume set $V0 cluster.granular-entry-heal on
 TEST   $CLI volume set $V0 cluster.granular-entry-heal off
@@ -24,34 +24,6 @@ TEST $CLI volume create $V1 disperse 3 redundancy 1 $H0:$B0/${V1}{0,1,2}
 TEST $CLI volume start $V1
 TEST ! $CLI volume heal $V1 granular-entry-heal enable
 TEST ! $CLI volume heal $V1 granular-entry-heal disable
-
-#######################
-###### TIER TEST ######
-#######################
-# Execute the same command on a disperse + replicate tiered volume and make
-# sure the option is set on the replicate leg of the volume
-TEST $CLI volume tier $V1 attach replica 2 $H0:$B0/${V1}{3,4}
-TEST $CLI volume heal $V1 granular-entry-heal enable
-EXPECT "enable" volume_get_field $V1 cluster.granular-entry-heal
-TEST $CLI volume heal $V1 granular-entry-heal disable
-EXPECT "disable" volume_get_field $V1 cluster.granular-entry-heal
-
-# Kill a disperse brick and make heal be pending on the volume.
-TEST kill_brick $V1 $H0 $B0/${V1}0
-
-# Now make sure that one offline brick in disperse does not affect enabling the
-# option on the volume.
-TEST $CLI volume heal $V1 granular-entry-heal enable
-EXPECT "enable" volume_get_field $V1 cluster.granular-entry-heal
-TEST $CLI volume heal $V1 granular-entry-heal disable
-EXPECT "disable" volume_get_field $V1 cluster.granular-entry-heal
-
-# Now kill a replicate brick.
-TEST kill_brick $V1 $H0 $B0/${V1}3
-# Now make sure that one offline brick in replicate causes the command to be
-# failed.
-TEST ! $CLI volume heal $V1 granular-entry-heal enable
-EXPECT "disable" volume_get_field $V1 cluster.granular-entry-heal
 
 ######################
 ### REPLICATE TEST ###
