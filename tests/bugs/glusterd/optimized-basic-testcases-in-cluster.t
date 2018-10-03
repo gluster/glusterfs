@@ -59,6 +59,15 @@ TEST $CLI_1 volume delete $V0
 TEST $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0
 TEST $CLI_1 volume create $V1 $H1:$B1/$V1
 
+# bug - 1635820
+# rebooting a node which doen't host bricks for any one volume
+# peer should not go into rejected state
+TEST kill_glusterd 2
+TEST start_glusterd 2
+
+EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count 1
+EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count 2
+
 TEST $CLI_1 volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field_1 $V0 'Status'
 
