@@ -10,6 +10,8 @@
 
 import os
 from ctypes import CDLL, create_string_buffer, get_errno
+import py2py3
+from py2py3 import bytearray_to_str
 
 
 class Xattr(object):
@@ -38,20 +40,23 @@ class Xattr(object):
     @classmethod
     def _query_xattr(cls, path, siz, syscall, *a):
         if siz:
-            buf = create_string_buffer('\0' * siz)
+            buf = create_string_buffer(b'\0' * siz)
         else:
             buf = None
         ret = getattr(cls.libc, syscall)(*((path,) + a + (buf, siz)))
         if ret == -1:
             cls.raise_oserr()
         if siz:
-            return buf.raw[:ret]
+            # py2 and py3 compatibility. Convert bytes array
+            # to string
+            result = bytearray_to_str(buf.raw)
+            return result[:ret]
         else:
             return ret
 
     @classmethod
     def lgetxattr(cls, path, attr, siz=0):
-        return cls._query_xattr(path, siz, 'lgetxattr', attr)
+        return cls._query_xattr(path.encode(), siz, 'lgetxattr', attr.encode())
 
     @classmethod
     def lgetxattr_buf(cls, path, attr):
@@ -65,7 +70,7 @@ class Xattr(object):
 
     @classmethod
     def llistxattr(cls, path, siz=0):
-        ret = cls._query_xattr(path, siz, 'llistxattr')
+        ret = cls._query_xattr(path.encode(), siz, 'llistxattr')
         if isinstance(ret, str):
             ret = ret.strip('\0')
             ret = ret.split('\0') if ret else []
@@ -73,13 +78,13 @@ class Xattr(object):
 
     @classmethod
     def lsetxattr(cls, path, attr, val):
-        ret = cls.libc.lsetxattr(path, attr, val, len(val), 0)
+        ret = cls.libc.lsetxattr(path.encode(), attr.encode(), val, len(val), 0)
         if ret == -1:
             cls.raise_oserr()
 
     @classmethod
     def lremovexattr(cls, path, attr):
-        ret = cls.libc.lremovexattr(path, attr)
+        ret = cls.libc.lremovexattr(path.encode(), attr.encode())
         if ret == -1:
             cls.raise_oserr()
 
