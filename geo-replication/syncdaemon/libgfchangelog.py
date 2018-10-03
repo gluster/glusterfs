@@ -39,8 +39,8 @@ class Changes(object):
 
     @classmethod
     def cl_register(cls, brick, path, log_file, log_level, retries=0):
-        ret = cls._get_api('gf_changelog_register')(brick, path,
-                                                    log_file,
+        ret = cls._get_api('gf_changelog_register')(brick.encode(), path.encode(),
+                                                    log_file.encode(),
                                                     log_level, retries)
         if ret == -1:
             cls.raise_changelog_err()
@@ -63,14 +63,14 @@ class Changes(object):
         def clsort(f):
             return f.split('.')[-1]
         changes = []
-        buf = create_string_buffer('\0', 4096)
+        buf = create_string_buffer(b'\0' * 4096)
         call = cls._get_api('gf_changelog_next_change')
 
         while True:
             ret = call(buf, 4096)
             if ret in (0, -1):
                 break
-            changes.append(buf.raw[:ret - 1])
+            changes.append(buf.raw[:ret - 1].decode())
         if ret == -1:
             cls.raise_changelog_err()
         # cleanup tracker
@@ -79,7 +79,7 @@ class Changes(object):
 
     @classmethod
     def cl_done(cls, clfile):
-        ret = cls._get_api('gf_changelog_done')(clfile)
+        ret = cls._get_api('gf_changelog_done')(clfile.encode())
         if ret == -1:
             cls.raise_changelog_err()
 
@@ -94,7 +94,7 @@ class Changes(object):
     @classmethod
     def cl_history_changelog(cls, changelog_path, start, end, num_parallel):
         actual_end = c_ulong()
-        ret = cls._get_api('gf_history_changelog')(changelog_path, start, end,
+        ret = cls._get_api('gf_history_changelog')(changelog_path.encode(), start, end,
                                                    num_parallel,
                                                    byref(actual_end))
         if ret == -1:
@@ -118,14 +118,14 @@ class Changes(object):
             return f.split('.')[-1]
 
         changes = []
-        buf = create_string_buffer('\0', 4096)
+        buf = create_string_buffer(b'\0' * 4096)
         call = cls._get_api('gf_history_changelog_next_change')
 
         while True:
             ret = call(buf, 4096)
             if ret in (0, -1):
                 break
-            changes.append(buf.raw[:ret - 1])
+            changes.append(buf.raw[:ret - 1].decode())
         if ret == -1:
             cls.raise_changelog_err()
 
@@ -133,6 +133,6 @@ class Changes(object):
 
     @classmethod
     def cl_history_done(cls, clfile):
-        ret = cls._get_api('gf_history_changelog_done')(clfile)
+        ret = cls._get_api('gf_history_changelog_done')(clfile.encode())
         if ret == -1:
             cls.raise_changelog_err()
