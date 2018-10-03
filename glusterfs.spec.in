@@ -1090,13 +1090,6 @@ exit 0
 %exclude %{_includedir}/glusterfs/api
 %exclude %{_libdir}/libgfapi.so
 %{_libdir}/*.so
-# Glupy Translator examples
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/debug-trace.*
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
 %{_libdir}/pkgconfig/libgfchangelog.pc
 
 %files client-xlators
@@ -1111,29 +1104,12 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
-%if ( %{_usepython3} )
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/__pycache__
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/__pycache__/*
-%endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground/template.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
-# Glupy Python files
-%if ( %{_usepython3} )
-%dir %{python3_sitelib}/gluster
-%dir %{python3_sitelib}/gluster/__pycache__
-     %{python3_sitelib}/gluster/__pycache__/*
-%dir %{python3_sitelib}/gluster/glupy
-     %{python3_sitelib}/gluster/glupy/*
-%else
-%dir %{python2_sitelib}/gluster
-%dir %{python2_sitelib}/gluster/glupy
-     %{python2_sitelib}/gluster/glupy/*
-%endif
 
 %files fuse
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
@@ -1205,11 +1181,9 @@ exit 0
 # so that all other gluster submodules can reside in the same namespace.
 %if ( %{_usepython3} )
 %dir %{python3_sitelib}/gluster
-     %{python3_sitelib}/gluster/__init__.*
      %{python3_sitelib}/gluster/cliutils
 %else
 %dir %{python2_sitelib}/gluster
-     %{python2_sitelib}/gluster/__init__.*
      %{python2_sitelib}/gluster/cliutils
 %endif
 

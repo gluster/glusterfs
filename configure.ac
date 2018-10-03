@@ -125,12 +125,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
                 xlators/features/changelog/lib/src/Makefile
-                xlators/features/glupy/Makefile
-                xlators/features/glupy/examples/Makefile
-                xlators/features/glupy/src/Makefile
-                xlators/features/glupy/src/setup.py
-                xlators/features/glupy/src/__init__.py
-                xlators/features/glupy/src/glupy/Makefile
                 xlators/features/locks/Makefile
                 xlators/features/locks/src/Makefile
                 xlators/features/quota/Makefile
@@ -1393,42 +1387,6 @@ if test -n "$LIBAIO"; then
    BUILD_LIBAIO=yes
 fi
 
-dnl glupy section
-BUILD_GLUPY=no
-
-AC_ARG_ENABLE([glupy], AS_HELP_STRING([--disable-glupy], [disable building glupy]))
-
-if test "x$enable_glupy" != "xno"; then
-    if test "x${have_python}" = "xyes" -a -n "${PYTHON_CFLAGS}"; then
-        case $host_os in
-            darwin*)
-                BUILD_GLUPY=no
-                ;;
-            *)
-                BUILD_GLUPY=yes
-                ;;
-        esac
-    else
-        AC_MSG_WARN([
-        ---------------------------------------------------------------------------------
-        cannot build glupy. python ${PYTHON_VERSION} and python-devel/python-dev package are required.
-        ---------------------------------------------------------------------------------])
-    fi
-
-    if test "x$BUILD_GLUPY" = "xyes"; then
-        GLUPY_SUBDIR=glupy
-        GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
-        GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
-
-        echo "building glupy with -isystem ${PYTHON_CFLAGS} ${PYTHON_LIBS}"
-
-        AC_SUBST(GLUPY_SUBDIR)
-        AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
-        AC_SUBST(GLUPY_SUBDIR_SRC_MAKEFILE)
-    fi
-fi
-dnl end glupy section
-
 dnl gnfs section
 BUILD_GNFS="no"
 AC_ARG_ENABLE([gnfs],
@@ -1592,7 +1550,7 @@ case $host_os in
 esac
 dnl GF_XLATOR_DEFAULT_LDFLAGS is for most xlators that expose a common set of symbols
 GF_XLATOR_DEFAULT_LDFLAGS='-avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym $(UUID_LIBS) $(GF_NO_UNDEFINED)'
-dnl GF_XLATOR_LDFLAGS is for xlators that expose extra symbols, e.g. dht and glupy
+dnl GF_XLATOR_LDFLAGS is for xlators that expose extra symbols, e.g. dht
 GF_XLATOR_LDFLAGS='-avoid-version $(UUID_LIBS) $(GF_NO_UNDEFINED)'
 
 AC_SUBST(GF_HOST_OS)
@@ -1679,7 +1637,6 @@ echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Enable ASAN          : $BUILD_ASAN"
 echo "Block Device xlator  : $BUILD_BD_XLATOR"
-echo "glupy                : $BUILD_GLUPY"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
