@@ -16,7 +16,6 @@ volfile=$(gluster system:: getwd)"/glustershd/glustershd-server.vol"
 TEST ! $CLI volume heal non-existent-volume enable
 TEST ! $CLI volume heal non-existent-volume disable
 
-# Commands should fail when volume is of distribute/stripe type.
 # Glustershd shouldn't be running as long as there are no replicate/disperse
 # volumes
 TEST $CLI volume create dist $H0:$B0/dist
@@ -24,11 +23,6 @@ TEST $CLI volume start dist
 TEST "[ -z $(get_shd_process_pid)]"
 TEST ! $CLI volume heal dist enable
 TEST ! $CLI volume heal dist disable
-TEST $CLI volume create st stripe 3 $H0:$B0/st1 $H0:$B0/st2 $H0:$B0/st3
-TEST $CLI volume start st
-TEST "[ -z $(get_shd_process_pid)]"
-TEST ! $CLI volume heal st
-TEST ! $CLI volume heal st disable
 
 # Commands should work on replicate/disperse volume.
 TEST $CLI volume create r2 replica 2 $H0:$B0/r2_0 $H0:$B0/r2_1

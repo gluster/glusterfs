@@ -3180,20 +3180,9 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
                 volinfo->replica_count = 1;
                 break;
 
-            case GF_CLUSTER_TYPE_STRIPE:
-                volinfo->stripe_count = volinfo->sub_count;
-                volinfo->replica_count = 1;
-                break;
-
             case GF_CLUSTER_TYPE_REPLICATE:
                 volinfo->stripe_count = 1;
                 volinfo->replica_count = volinfo->sub_count;
-                break;
-
-            case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                /* Introduced in 3.3 */
-                GF_ASSERT(volinfo->stripe_count > 0);
-                GF_ASSERT(volinfo->replica_count > 0);
                 break;
 
             case GF_CLUSTER_TYPE_DISPERSE:

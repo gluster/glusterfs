@@ -8,7 +8,7 @@ cleanup;
 ## Start and create a volume
 TEST glusterd;
 TEST pidof glusterd;
-TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
+TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1,2,3,4,5,6};
 
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
@@ -74,41 +74,6 @@ TEST ! $CLI volume set $V0 subvols-per-directory 8
 EXPECT '' volinfo_field $V0 'cluster.subvols-per-directory';
 
 ## Setting cluster.subvols-per-directory as 1 for a replicate volume
-TEST $CLI volume set $V0 cluster.subvols-per-directory 1
-EXPECT '1' volinfo_field $V0 'cluster.subvols-per-directory';
-TEST $CLI volume set $V0 subvols-per-directory 1
-EXPECT '1' volinfo_field $V0 'cluster.subvols-per-directory';
-
-## Finish up
-TEST $CLI volume stop $V0;
-EXPECT 'Stopped' volinfo_field $V0 'Status';
-
-TEST $CLI volume delete $V0;
-TEST ! $CLI volume info $V0;
-
-cleanup;
-
-## Start and create a pure stripe volume
-TEST glusterd;
-TEST pidof glusterd;
-TEST $CLI volume create $V0 stripe 8 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
-
-## Verify volume is created
-EXPECT "$V0" volinfo_field $V0 'Volume Name';
-EXPECT 'Created' volinfo_field $V0 'Status';
-EXPECT 'Stripe' volinfo_field $V0 'Type';
-
-## Start volume and verify
-TEST $CLI volume start $V0;
-EXPECT 'Started' volinfo_field $V0 'Status';
-
-## Setting cluster.subvols-per-directory as 8 for a stripe volume
-TEST ! $CLI volume set $V0 cluster.subvols-per-directory 8
-EXPECT '' volinfo_field $V0 'cluster.subvols-per-directory';
-TEST ! $CLI volume set $V0 subvols-per-directory 8
-EXPECT '' volinfo_field $V0 'cluster.subvols-per-directory';
-
-## Setting cluster.subvols-per-directory as 1 for a stripe volume
 TEST $CLI volume set $V0 cluster.subvols-per-directory 1
 EXPECT '1' volinfo_field $V0 'cluster.subvols-per-directory';
 TEST $CLI volume set $V0 subvols-per-directory 1

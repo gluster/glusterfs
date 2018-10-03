@@ -11,7 +11,7 @@ TEST glusterd;
 TEST pidof glusterd;
 TEST $CLI volume info;
 
-TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
+TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1,2,3,4,5,6};
 
 ## Verify volume is is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
@@ -42,7 +42,7 @@ function vol_prof_info()
 {
     $CLI volume profile $V0 info | grep Brick | wc -l
 }
-EXPECT "8" vol_prof_info
+EXPECT "6" vol_prof_info
 
 EXPECT "Stopping volume profile on $V0 has been successful " $CLI volume profile $V0 stop
 

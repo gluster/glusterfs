@@ -118,110 +118,6 @@ insert_brick:
 }
 
 static int
-gd_addbr_validate_stripe_count(glusterd_volinfo_t *volinfo, int stripe_count,
-                               int total_bricks, int *type, char *err_str,
-                               size_t err_len)
-{
-    int ret = -1;
-
-    switch (volinfo->type) {
-        case GF_CLUSTER_TYPE_NONE:
-            if ((volinfo->brick_count * stripe_count) == total_bricks) {
-                /* Change the volume type */
-                *type = GF_CLUSTER_TYPE_STRIPE;
-                gf_msg(THIS->name, GF_LOG_INFO, 0,
-                       GD_MSG_VOL_TYPE_CHANGING_INFO,
-                       "Changing the type of volume %s from "
-                       "'distribute' to 'stripe'",
-                       volinfo->volname);
-                ret = 0;
-                goto out;
-            } else {
-                snprintf(err_str, err_len,
-                         "Incorrect number of "
-                         "bricks (%d) supplied for stripe count (%d).",
-                         (total_bricks - volinfo->brick_count), stripe_count);
-                gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
-                       "%s", err_str);
-                goto out;
-            }
-            break;
-        case GF_CLUSTER_TYPE_REPLICATE:
-            if (!(total_bricks % (volinfo->replica_count * stripe_count))) {
-                /* Change the volume type */
-                *type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-                gf_msg(THIS->name, GF_LOG_INFO, 0,
-                       GD_MSG_VOL_TYPE_CHANGING_INFO,
-                       "Changing the type of volume %s from "
-                       "'replicate' to 'replicate-stripe'",
-                       volinfo->volname);
-                ret = 0;
-                goto out;
-            } else {
-                snprintf(err_str, err_len,
-                         "Incorrect number of "
-                         "bricks (%d) supplied for changing volume's "
-                         "stripe count to %d, need at least %d bricks",
-                         (total_bricks - volinfo->brick_count), stripe_count,
-                         (volinfo->replica_count * stripe_count));
-                gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
-                       "%s", err_str);
-                goto out;
-            }
-            break;
-        case GF_CLUSTER_TYPE_STRIPE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-            if (stripe_count < volinfo->stripe_count) {
-                snprintf(err_str, err_len,
-                         "Incorrect stripe count (%d) supplied. "
-                         "Volume already has stripe count (%d)",
-                         stripe_count, volinfo->stripe_count);
-                gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
-                       "%s", err_str);
-                goto out;
-            }
-            if (stripe_count == volinfo->stripe_count) {
-                if (!(total_bricks % volinfo->dist_leaf_count)) {
-                    /* its same as the one which exists */
-                    ret = 1;
-                    goto out;
-                }
-            }
-            if (stripe_count > volinfo->stripe_count) {
-                /* We have to make sure before and after 'add-brick',
-                   the number or subvolumes for distribute will remain
-                   same, when stripe count is given */
-                if ((volinfo->brick_count *
-                     (stripe_count * volinfo->replica_count)) ==
-                    (total_bricks * volinfo->dist_leaf_count)) {
-                    /* Change the dist_leaf_count */
-                    gf_msg(THIS->name, GF_LOG_INFO, 0,
-                           GD_MSG_STRIPE_COUNT_CHANGE_INFO,
-                           "Changing the stripe count of "
-                           "volume %s from %d to %d",
-                           volinfo->volname, volinfo->stripe_count,
-                           stripe_count);
-                    ret = 0;
-                    goto out;
-                }
-            }
-            break;
-        case GF_CLUSTER_TYPE_DISPERSE:
-            snprintf(err_str, err_len,
-                     "Volume %s cannot be converted "
-                     "from dispersed to striped-"
-                     "dispersed",
-                     volinfo->volname);
-            gf_msg(THIS->name, GF_LOG_ERROR, EPERM, GD_MSG_OP_NOT_PERMITTED,
-                   "%s", err_str);
-            goto out;
-    }
-
-out:
-    return ret;
-}
-
-static int
 gd_addbr_validate_replica_count(glusterd_volinfo_t *volinfo, int replica_count,
                                 int arbiter_count, int total_bricks, int *type,
                                 char *err_str, int err_len)
@@ -252,32 +148,7 @@ gd_addbr_validate_replica_count(glusterd_volinfo_t *volinfo, int replica_count,
                 goto out;
             }
             break;
-        case GF_CLUSTER_TYPE_STRIPE:
-            if (!(total_bricks % (volinfo->dist_leaf_count * replica_count))) {
-                /* Change the volume type */
-                *type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-                gf_msg(THIS->name, GF_LOG_INFO, 0,
-                       GD_MSG_VOL_TYPE_CHANGING_INFO,
-                       "Changing the type of volume %s from "
-                       "'stripe' to 'replicate-stripe'",
-                       volinfo->volname);
-                ret = 0;
-                goto out;
-            } else {
-                snprintf(err_str, err_len,
-                         "Incorrect number of "
-                         "bricks (%d) supplied for changing volume's "
-                         "replica count to %d, need at least %d "
-                         "bricks",
-                         (total_bricks - volinfo->brick_count), replica_count,
-                         (volinfo->dist_leaf_count * replica_count));
-                gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
-                       "%s", err_str);
-                goto out;
-            }
-            break;
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
             if (replica_count < volinfo->replica_count) {
                 snprintf(err_str, err_len,
                          "Incorrect replica count (%d) supplied. "
@@ -348,7 +219,6 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
             goto out;
 
         case GF_CLUSTER_TYPE_NONE:
-        case GF_CLUSTER_TYPE_STRIPE:
         case GF_CLUSTER_TYPE_DISPERSE:
             snprintf(err_str, err_len,
                      "replica count (%d) option given for non replicate "
@@ -359,7 +229,6 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
             goto out;
 
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
             /* in remove brick, you can only reduce the replica count */
             if (replica_count > volinfo->replica_count) {
                 snprintf(err_str, err_len,
@@ -601,31 +470,6 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
            count is given */
     }
 
-    /* These bricks needs to be added one per a replica or stripe volume */
-    if (stripe_count) {
-        ret = gd_addbr_validate_stripe_count(volinfo, stripe_count,
-                                             total_bricks, &type, err_str,
-                                             sizeof(err_str));
-        if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COUNT_VALIDATE_FAILED,
-                   "%s", err_str);
-            goto out;
-        }
-
-        /* if stripe count is same as earlier, set it back to 0 */
-        if (ret == 1)
-            stripe_count = 0;
-
-        ret = dict_set_int32n(dict, "stripe-count", SLEN("stripe-count"),
-                              stripe_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
-                   "failed to set the stripe-count in dict");
-            goto out;
-        }
-        goto brick_val;
-    }
-
     ret = gd_addbr_validate_replica_count(volinfo, replica_count, arbiter_count,
                                           total_bricks, &type, err_str,
                                           sizeof(err_str));
@@ -829,8 +673,7 @@ glusterd_remove_brick_validate_arbiters(glusterd_volinfo_t *volinfo,
     glusterd_brickinfo_t *last = NULL;
     char *arbiter_array = NULL;
 
-    if ((volinfo->type != GF_CLUSTER_TYPE_REPLICATE) &&
-        (volinfo->type != GF_CLUSTER_TYPE_STRIPE_REPLICATE))
+    if (volinfo->type != GF_CLUSTER_TYPE_REPLICATE)
         goto out;
 
     if (!replica_count || !volinfo->arbiter_count)
@@ -1028,37 +871,10 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     /* 'vol_type' is used for giving the meaning full error msg for user */
     if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
         strcpy(vol_type, "replica");
-    } else if (volinfo->type == GF_CLUSTER_TYPE_STRIPE) {
-        strcpy(vol_type, "stripe");
-    } else if (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
-        strcpy(vol_type, "stripe-replicate");
     } else if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
         strcpy(vol_type, "disperse");
     } else {
         strcpy(vol_type, "distribute");
-    }
-
-    /* Do not allow remove-brick if the volume is a stripe volume*/
-    if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE) &&
-        (volinfo->brick_count == volinfo->stripe_count)) {
-        snprintf(err_str, sizeof(err_str),
-                 "Removing brick from a stripe volume is not allowed");
-        gf_msg(this->name, GF_LOG_ERROR, EPERM, GD_MSG_OP_NOT_PERMITTED, "%s",
-               err_str);
-        ret = -1;
-        goto out;
-    }
-
-    if (!replica_count && (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) &&
-        (volinfo->brick_count == volinfo->dist_leaf_count)) {
-        snprintf(err_str, sizeof(err_str),
-                 "Removing bricks from stripe-replicate"
-                 " configuration is not allowed without reducing "
-                 "replica or stripe count explicitly.");
-        gf_msg(this->name, GF_LOG_ERROR, EPERM, GD_MSG_OP_NOT_PERMITTED_AC_REQD,
-               "%s", err_str);
-        ret = -1;
-        goto out;
     }
 
     if (!replica_count && (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
@@ -3013,10 +2829,6 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
                 volinfo->type = GF_CLUSTER_TYPE_NONE;
                 /* backward compatibility */
                 volinfo->sub_count = 0;
-            } else {
-                volinfo->type = GF_CLUSTER_TYPE_STRIPE;
-                /* backward compatibility */
-                volinfo->sub_count = volinfo->dist_leaf_count;
             }
         }
     }
