@@ -140,7 +140,6 @@
 %global _without_events --disable-events
 %global _without_georeplication --disable-georeplication
 %global _with_gnfs %{nil}
-%global _without_tiering --disable-tiering
 %global _without_ocf --without-ocf
 %endif
 
@@ -270,9 +269,6 @@ BuildRequires:    automake
 BuildRequires:    libuuid-devel
 %if ( 0%{?_with_cmocka:1} )
 BuildRequires:    libcmocka-devel >= 1.0.1
-%endif
-%if ( 0%{!?_without_tiering:1} )
-BuildRequires:    sqlite-devel
 %endif
 %if ( 0%{!?_without_bd:1} )
 BuildRequires:    lvm2-devel
@@ -701,7 +697,6 @@ done
         %{?_without_rdma} \
         %{?_without_server} \
         %{?_without_syslog} \
-        %{?_without_tiering} \
         %{?_with_ipv6default} \
         %{?_without_libtirpc}
 
@@ -1107,9 +1102,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
 %{_libdir}/pkgconfig/libgfchangelog.pc
-%if ( 0%{!?_without_tiering:1} )
-%{_libdir}/pkgconfig/libgfdb.pc
-%endif
 
 %files client-xlators
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
@@ -1213,10 +1205,6 @@ exit 0
 %files libs
 %{_libdir}/*.so.*
 %exclude %{_libdir}/libgfapi.*
-%if ( 0%{!?_without_tiering:1} )
-# libgfdb is only needed server-side
-%exclude %{_libdir}/libgfdb.*
-%endif
 
 %files -n python%{_pythonver}-gluster
 # introducing glusterfs module in site packages.
@@ -1295,10 +1283,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/sdfs.so
-%if ( 0%{!?_without_tiering:1} )
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
-     %{_libdir}/libgfdb.so.*
-%endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/index.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*

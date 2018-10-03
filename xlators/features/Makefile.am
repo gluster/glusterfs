@@ -4,7 +4,7 @@ endif
 
 
 SUBDIRS = locks quota read-only quiesce marker index barrier \
-          arbiter compress changelog changetimerecorder \
+          arbiter compress changelog \
           gfid-access $(GLUPY_SUBDIR) upcall snapview-client snapview-server \
           trash shard bit-rot leases selinux sdfs namespace $(CLOUDSYNC_DIR) thin-arbiter \
           utime

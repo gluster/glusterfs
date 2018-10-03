@@ -1,3 +1,3 @@
-SUBDIRS = src src/gfdb
+SUBDIRS = src
 
 CLEANFILES = 

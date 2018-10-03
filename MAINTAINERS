@@ -103,12 +103,6 @@ P: Kotresh HR <khiremat@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
 
-Changetimerecorder
-M: Shyamsundar Ranganathan <srangana@redhat.com>
-P: Hari Gowtham <hgowtham@redhat.com>
-S: Maintained
-F: xlators/features/changetimerecorder/
-
 Decompounder
 M: Krutika Dhananjay <kdhananj@redhat.com>
 P: Pranith Karampuri <pkarampu@redhat.com>
@@ -254,12 +248,6 @@ P: Xavier Hernandez  <xhernandez@redhat.com>
 S: Maintained
 F: xlators/features/shard/
 
-Tiering
-M: Shyamsundar Ranganathan <srangana@redhat.com>
-P: Hari Gowtham <hgowtham@redhat.com>
-S: Maintained
-F: xlators/cluster/dht/src/tier.c
-
 Trash
 M: Anoop C S <anoopcs@redhat.com>
 M: Jiffin Tony Thottan <jthottan@redhat.com>
@@ -342,12 +330,6 @@ P: Shyamsundar Ranganathan <srangana@redhat.com>
 P: Soumya Koduri <skoduri@redhat.com>
 S: Maintained
 F: api/
-
-libgfdb
-M: Shyamsundar Ranganathan <srangana@redhat.com>
-P: Hari Gowtham <hgowtham@redhat.com>
-S: Maintained
-F: libglusterfs/src/gfdb/
 
 libglusterfs
 M: Amar Tumballi <amarts@redhat.com>
