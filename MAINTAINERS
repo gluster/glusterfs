@@ -313,10 +313,6 @@ P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: geo-replication/
 
-Glupy
-S: Orphan
-F: xlators/features/glupy/
-
 Glusterfind
 M: Milind Changire <mchangir@redhat.com>
 P: Aravinda VK <avishwan@redhat.com>
