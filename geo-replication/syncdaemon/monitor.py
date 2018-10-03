@@ -26,7 +26,9 @@ from syncdutils import set_term_handler, GsyncdError
 from syncdutils import Thread, finalize, Volinfo, VolinfoFromGconf
 from syncdutils import gf_event, EVENT_GEOREP_FAULTY, get_up_nodes
 from gsyncdstatus import GeorepStatus, set_monitor_status
-from syncdutils import unshare_propagation_supported, pipe
+from syncdutils import unshare_propagation_supported
+import py2py3
+from py2py3 import pipe
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 

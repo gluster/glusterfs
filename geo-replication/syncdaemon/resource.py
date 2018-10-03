@@ -40,7 +40,9 @@ from syncdutils import GX_GFID_CANONICAL_LEN
 from gsyncdstatus import GeorepStatus
 from syncdutils import lf, Popen, sup
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
-from syncdutils import unshare_propagation_supported, get_slv_dir_path, pipe
+from syncdutils import unshare_propagation_supported, get_slv_dir_path
+import py2py3
+from py2py3 import pipe, str_to_bytearray
 
 
 ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
@@ -145,6 +147,7 @@ class Server(object):
         if buf == ENOENT:
             return buf
         else:
+            buf = str_to_bytearray(buf)
             m = re.match('(.{8})(.{4})(.{4})(.{4})(.{12})', "".join(
                 ['%02x' % x for x in struct.unpack(cls.GFID_FMTSTR, buf)]))
             return '-'.join(m.groups())
@@ -235,6 +238,7 @@ class Server(object):
             val = Xattr.lgetxattr(path,
                                   '.'.join([cls.GX_NSPACE, uuid, 'xtime']),
                                   8)
+            val = str_to_bytearray(val)
             return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
@@ -257,6 +261,7 @@ class Server(object):
             val = Xattr.lgetxattr(path,
                                   '.'.join([cls.GX_NSPACE, uuid, 'stime']),
                                   8)
+            val = str_to_bytearray(val)
             return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
@@ -279,6 +284,7 @@ class Server(object):
             val = Xattr.lgetxattr(path,
                                   '.'.join([cls.GX_NSPACE, uuid, 'stime']),
                                   8)
+            val = str_to_bytearray(val)
             return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
@@ -302,6 +308,7 @@ class Server(object):
                                   '.'.join([cls.GX_NSPACE, uuid,
                                             'entry_stime']),
                                   8)
+            val = str_to_bytearray(val)
             return struct.unpack('!II', val)
         except OSError:
             ex = sys.exc_info()[1]
@@ -375,7 +382,7 @@ class Server(object):
         def entry_pack_reg(gf, bn, mo, uid, gid):
             blen = len(bn)
             return struct.pack(cls._fmt_mknod(blen),
-                               uid, gid, gf, mo, bn,
+                               uid, gid, gf.encode(), mo, bn.encode(),
                                stat.S_IMODE(mo), 0, umask())
 
         def entry_pack_reg_stat(gf, bn, st):
@@ -383,14 +390,14 @@ class Server(object):
             mo = st['mode']
             return struct.pack(cls._fmt_mknod(blen),
                                st['uid'], st['gid'],
-                               gf, mo, bn,
+                               gf.encode(), mo, bn.encode(),
                                stat.S_IMODE(mo), 0, umask())
         # mkdir
 
         def entry_pack_mkdir(gf, bn, mo, uid, gid):
             blen = len(bn)
             return struct.pack(cls._fmt_mkdir(blen),
-                               uid, gid, gf, mo, bn,
+                               uid, gid, gf.encode(), mo, bn.encode(),
                                stat.S_IMODE(mo), umask())
         # symlink
 
@@ -399,7 +406,8 @@ class Server(object):
             llen = len(lnk)
             return struct.pack(cls._fmt_symlink(blen, llen),
                                st['uid'], st['gid'],
-                               gf, st['mode'], bn, lnk)
+                               gf.encode(), st['mode'], bn.encode(),
+                               lnk.encode())
 
         def entry_purge(op, entry, gfid, e):
             # This is an extremely racy code and needs to be fixed ASAP.
@@ -450,7 +458,7 @@ class Server(object):
                 else:
                     en = e['entry']
                 disk_gfid = get_gfid_from_mnt(en)
-                if isinstance(disk_gfid, basestring) and \
+                if isinstance(disk_gfid, str) and \
                    e['gfid'] != disk_gfid:
                     slv_entry_info['gfid_mismatch'] = True
                     st = lstat(en)
@@ -1022,6 +1030,7 @@ class GLUSTERServer(Server):
         """generic volume mark fetching/parsing backed"""
         fmt_string = cls.NTV_FMTSTR + extra_fields
         buf = Xattr.lgetxattr('.', xattr, struct.calcsize(fmt_string))
+        buf = str_to_bytearray(buf)
         vm = struct.unpack(fmt_string, buf)
         m = re.match(
             '(.{8})(.{4})(.{4})(.{4})(.{12})',
