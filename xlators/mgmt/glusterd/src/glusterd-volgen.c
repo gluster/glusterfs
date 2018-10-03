@@ -2207,8 +2207,7 @@ brick_graph_add_index(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
             goto out;
     }
-    if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE ||
-         volinfo->type == GF_CLUSTER_TYPE_REPLICATE ||
+    if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE ||
          volinfo->type == GF_CLUSTER_TYPE_NONE)) {
         ret = xlator_set_option(xl, "xattrop-dirty-watchlist",
                                 "trusted.afr.dirty");
@@ -2881,8 +2880,7 @@ perfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
          * performance
          */
         if (!strcmp(vme->key, "performance.client-io-threads") &&
-            (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type ||
-             GF_CLUSTER_TYPE_REPLICATE == volinfo->type))
+            (GF_CLUSTER_TYPE_REPLICATE == volinfo->type))
             return 0;
     }
 
@@ -3894,8 +3892,6 @@ volume_volgen_graph_build_clusters(volgen_graph_t *graph,
                                    gf_boolean_t is_quotad)
 {
     char *tier_args[] = {"cluster/tier", "%s-tier-%d"};
-    char *stripe_args[] = {"cluster/stripe", "%s-stripe-%d"};
-    int rclusters = 0;
     int clusters = 0;
     int dist_count = 0;
     int ret = -1;
@@ -3916,35 +3912,11 @@ volume_volgen_graph_build_clusters(volgen_graph_t *graph,
             if (clusters < 0)
                 goto out;
             break;
-        case GF_CLUSTER_TYPE_STRIPE:
-            clusters = volgen_link_bricks_from_list_tail(
-                graph, volinfo, stripe_args[0], stripe_args[1],
-                volinfo->brick_count, volinfo->stripe_count);
-            if (clusters < 0)
-                goto out;
-            break;
         case GF_CLUSTER_TYPE_TIER:
             ret = volgen_link_bricks_from_list_head(
                 graph, volinfo, tier_args[0], tier_args[1],
                 volinfo->brick_count, volinfo->replica_count);
             break;
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-            /* Replicate after the clients, then stripe */
-            if (volinfo->replica_count == 0)
-                goto out;
-            clusters = volgen_graph_build_afr_clusters(graph, volinfo);
-            if (clusters < 0)
-                goto out;
-
-            rclusters = volinfo->brick_count / volinfo->replica_count;
-            GF_ASSERT(rclusters == clusters);
-            clusters = volgen_link_bricks_from_list_tail(
-                graph, volinfo, stripe_args[0], stripe_args[1], rclusters,
-                volinfo->stripe_count);
-            if (clusters < 0)
-                goto out;
-            break;
-
         case GF_CLUSTER_TYPE_DISPERSE:
             clusters = volgen_graph_build_ec_clusters(graph, volinfo);
             if (clusters < 0)
@@ -4867,7 +4839,6 @@ volgen_get_shd_key(int type)
 
     switch (type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
             key = "cluster.self-heal-daemon";
             break;
         case GF_CLUSTER_TYPE_DISPERSE:
@@ -4971,7 +4942,6 @@ build_afr_ec_clusters(volgen_graph_t *graph, glusterd_volinfo_t *volinfo)
     int clusters = -1;
     switch (volinfo->type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
             clusters = volgen_graph_build_afr_clusters(graph, volinfo);
             break;
 
@@ -5061,7 +5031,6 @@ gd_is_self_heal_enabled(glusterd_volinfo_t *volinfo, dict_t *dict)
 
     switch (volinfo->type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
         case GF_CLUSTER_TYPE_DISPERSE:
             shd_key = volgen_get_shd_key(volinfo->type);
             shd_enabled = dict_get_str_boolean(dict, shd_key, _gf_true);

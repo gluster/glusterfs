@@ -65,18 +65,5 @@ TEST ! $CLI volume create $V0 redundancy 2 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0
 TEST ! $CLI volume create $V0 replica 2 disperse 4 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
 TEST ! $CLI volume create $V0 replica 2 disperse-data 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22 $H0:$B0/b23
 TEST ! $CLI volume create $V0 replica 2 redundancy 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-#Stripe + Disperse
-TEST ! $CLI volume create $V0 disperse 4 stripe 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-TEST ! $CLI volume create $V0 disperse-data 2 stripe 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22 $H0:$B0/b23
-TEST ! $CLI volume create $V0 redundancy 2 stripe 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-TEST ! $CLI volume create $V0 stripe 2 disperse 4 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-TEST ! $CLI volume create $V0 stripe 2 disperse-data 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22 $H0:$B0/b23
-TEST ! $CLI volume create $V0 stripe 2 redundancy 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-#Stripe + Replicate + Disperse, It is failing with striped-dispersed volume.
-TEST ! $CLI volume create $V0 disperse 4 stripe 2 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-TEST ! $CLI volume create $V0 disperse-data 2 stripe 2 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22 $H0:$B0/b23
-TEST ! $CLI volume create $V0 redundancy 2 stripe 2 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-TEST ! $CLI volume create $V0 stripe 2 disperse 4 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
-TEST ! $CLI volume create $V0 stripe 2 disperse-data 2 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22 $H0:$B0/b23
-TEST ! $CLI volume create $V0 stripe 2 redundancy 2 replica 2 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b22
+
 cleanup

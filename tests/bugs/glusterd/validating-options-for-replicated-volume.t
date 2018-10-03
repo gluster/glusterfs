@@ -7,7 +7,7 @@ cleanup;
 
 TEST glusterd
 
-TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
+TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1,2,3,4,5,6};
 
 ## start volume and verify
 TEST $CLI volume start $V0;
@@ -50,8 +50,6 @@ EXPECT '30' volinfo_field $V0 'features.soft-timeout';
 ## disabling features.quota-deem-statfs
 TEST ! $CLI volume set $V0 features.quota-deem-statfs off
 EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
-
-#bug-859927 - validate different options for striped replicated volume
 
 TEST ! $CLI volume set $V0 statedump-path ""
 TEST ! $CLI volume set $V0 statedump-path "     "
@@ -106,11 +104,6 @@ TEST ! $CLI volume set $V0 auth.allow ""
 TEST ! $CLI volume set $V0 auth.allow "       "
 TEST   $CLI volume set $V0 auth.allow 192.168.122.1
 EXPECT "192.168.122.1" volume_option $V0 auth.allow
-
-TEST ! $CLI volume set $V0 stripe-block-size ""
-TEST ! $CLI volume set $V0 stripe-block-size "      "
-TEST  $CLI volume set $V0 stripe-block-size 512MB
-EXPECT "512MB" volume_option $V0 cluster.stripe-block-size
 
 #bug-782095 - validate performance cache min/max size value
 

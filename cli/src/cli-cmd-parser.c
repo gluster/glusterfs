@@ -392,19 +392,9 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                 ret = 2;
             }
             break;
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-            cli_err(
-                "striped-replicated-dispersed volume "
-                "is not supported");
-            goto out;
         case GF_CLUSTER_TYPE_TIER:
             cli_err(
                 "tier-dispersed volume is not "
-                "supported");
-            goto out;
-        case GF_CLUSTER_TYPE_STRIPE:
-            cli_err(
-                "striped-dispersed volume is not "
                 "supported");
             goto out;
         case GF_CLUSTER_TYPE_REPLICATE:
@@ -550,8 +540,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                     type = GF_CLUSTER_TYPE_REPLICATE;
                     break;
                 case GF_CLUSTER_TYPE_STRIPE:
-                    type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-                    break;
+                    cli_err("stripe option not supported");
+                    goto out;
                 case GF_CLUSTER_TYPE_TIER:
                     cli_err(
                         "replicated-tiered volume is not "
@@ -637,49 +627,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                 goto out;
 
         } else if ((strcmp(w, "stripe")) == 0) {
-            switch (type) {
-                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                case GF_CLUSTER_TYPE_STRIPE:
-                    cli_err("stripe option given twice");
-                    goto out;
-                case GF_CLUSTER_TYPE_NONE:
-                    type = GF_CLUSTER_TYPE_STRIPE;
-                    break;
-                case GF_CLUSTER_TYPE_REPLICATE:
-                    type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
-                    break;
-                case GF_CLUSTER_TYPE_DISPERSE:
-                    cli_err(
-                        "striped-dispersed volume is not "
-                        "supported");
-                    goto out;
-                case GF_CLUSTER_TYPE_TIER:
-                    cli_err(
-                        "striped-tier volume is not "
-                        "supported");
-                    goto out;
-                default:
-                    cli_err("Invalid type given");
-                    goto out;
-            }
-            if (wordcount < (index + 2)) {
-                ret = -1;
-                goto out;
-            }
-            stripe_count = strtol(words[index + 1], NULL, 0);
-            if (stripe_count < 2) {
-                cli_err(
-                    "stripe count should be greater"
-                    " than 1");
-                ret = -1;
-                goto out;
-            }
-            ret = dict_set_int32(dict, "stripe-count", stripe_count);
-            if (ret)
-                goto out;
-
-            index += 2;
-
+            cli_err("stripe option not supported");
+            goto out;
         } else if ((strcmp(w, "transport")) == 0) {
             if (trans_type) {
                 cli_err(
@@ -1867,17 +1816,8 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
             }
         }
     } else if ((strcmp(w, "stripe")) == 0) {
-        type = GF_CLUSTER_TYPE_STRIPE;
-        count = strtol(words[4], NULL, 0);
-        if (!count || (count < 2)) {
-            cli_err("stripe count should be greater than 1");
-            ret = -1;
-            goto out;
-        }
-        ret = dict_set_int32(dict, "stripe-count", count);
-        if (ret)
-            goto out;
-        index = 5;
+        cli_err("stripe option not supported");
+        goto out;
     } else {
         GF_ASSERT(!"opword mismatch");
         ret = -1;

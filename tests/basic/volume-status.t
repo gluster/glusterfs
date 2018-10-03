@@ -22,7 +22,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
-TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
+TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1,2,3,4,5,6};
 TEST $CLI volume set $V0 nfs.disable false
 
 TEST $CLI volume start $V0;
@@ -33,9 +33,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" nfs_up_status
 ## Mount FUSE
 TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "8" gluster_fd_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "6" gluster_fd_status
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1024" gluster_inode_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "768" gluster_inode_status
 
 ##Disabling this test until the client-list command works for brick-multiplexing
 #EXPECT_WITHIN $PROCESS_UP_TIMEOUT "7" gluster_client_list_status

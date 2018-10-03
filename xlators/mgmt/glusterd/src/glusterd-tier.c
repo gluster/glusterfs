@@ -593,10 +593,6 @@ glusterd_op_remove_tier_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 volinfo->type = GF_CLUSTER_TYPE_NONE;
                 /* backward compatibility */
                 volinfo->sub_count = 0;
-            } else {
-                volinfo->type = GF_CLUSTER_TYPE_STRIPE;
-                /* backward compatibility */
-                volinfo->sub_count = volinfo->dist_leaf_count;
             }
         }
     }

@@ -1433,7 +1433,6 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
 
         if (!is_force) {
             if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
-                (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) ||
                 (type == GF_CLUSTER_TYPE_DISPERSE)) {
                 ret = glusterd_check_brick_order(dict, msg);
                 if (ret) {
@@ -2361,56 +2360,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
                        "performance.client-io-threads to off");
                 goto out;
             }
-        }
-        ret = dict_get_int32n(dict, "replica-count", SLEN("replica-count"),
-                              &volinfo->replica_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                   "Failed to get "
-                   "replica count for volume %s",
-                   volname);
-            goto out;
-        }
-
-        /* coverity[unused_value] arbiter count is optional */
-        ret = dict_get_int32n(dict, "arbiter-count", SLEN("arbiter-count"),
-                              &volinfo->arbiter_count);
-    } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
-        ret = dict_get_int32n(dict, "stripe-count", SLEN("stripe-count"),
-                              &volinfo->stripe_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                   "Failed to get stripe"
-                   " count for volume %s",
-                   volname);
-            goto out;
-        }
-    } else if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
-        /* performance.client-io-threads is turned on to default,
-         * however this has adverse effects on replicate volumes due to
-         * replication design issues, till that get addressed
-         * performance.client-io-threads option is turned off for all
-         * replicate volumes
-         */
-        if (priv->op_version >= GD_OP_VERSION_3_12_2) {
-            ret = dict_set_nstrn(volinfo->dict, "performance.client-io-threads",
-                                 SLEN("performance.client-io-threads"), "off",
-                                 SLEN("off"));
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                       "Failed to set "
-                       "performance.client-io-threads to off");
-                goto out;
-            }
-        }
-        ret = dict_get_int32n(dict, "stripe-count", SLEN("stripe-count"),
-                              &volinfo->stripe_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                   "Failed to get stripe"
-                   " count for volume %s",
-                   volname);
-            goto out;
         }
         ret = dict_get_int32n(dict, "replica-count", SLEN("replica-count"),
                               &volinfo->replica_count);

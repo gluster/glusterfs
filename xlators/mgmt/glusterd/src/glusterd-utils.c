@@ -8265,8 +8265,7 @@ out:
 static inline int
 glusterd_is_replica_volume(int type)
 {
-    if (type == GF_CLUSTER_TYPE_REPLICATE ||
-        type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)
+    if (type == GF_CLUSTER_TYPE_REPLICATE)
         return 1;
     return 0;
 }
@@ -8287,7 +8286,6 @@ glusterd_is_shd_compatible_type(int type)
 {
     switch (type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
         case GF_CLUSTER_TYPE_DISPERSE:
             return _gf_true;
     }
@@ -13814,7 +13812,6 @@ gd_get_shd_key(int type)
 
     switch (type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
             key = "cluster.self-heal-daemon";
             break;
         case GF_CLUSTER_TYPE_DISPERSE:

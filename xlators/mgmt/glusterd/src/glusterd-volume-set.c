@@ -766,36 +766,6 @@ out:
 }
 
 static int
-validate_stripe(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
-                char *value, char **op_errstr)
-{
-    char errstr[2048] = "";
-    glusterd_conf_t *priv = NULL;
-    int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
-    priv = this->private;
-    GF_ASSERT(priv);
-
-    if (volinfo->stripe_count == 1) {
-        snprintf(errstr, sizeof(errstr),
-                 "Cannot set %s for a non-stripe volume.", key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_NON_STRIPE_VOL, "%s",
-               errstr);
-        *op_errstr = gf_strdup(errstr);
-        ret = -1;
-        goto out;
-    }
-
-out:
-    gf_msg_debug(this->name, 0, "Returning %d", ret);
-
-    return ret;
-}
-
-static int
 validate_disperse(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                   char *value, char **op_errstr)
 {
@@ -1537,19 +1507,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "cluster/replicate",
      .type = NO_DOC,
      .op_version = GD_OP_VERSION_3_13_2,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
-
-    /* stripe xlator options */
-    {.key = "cluster.stripe-block-size",
-     .voltype = "cluster/stripe",
-     .option = "block-size",
-     .op_version = 1,
-     .validate_fn = validate_stripe,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
-    {.key = "cluster.stripe-coalesce",
-     .voltype = "cluster/stripe",
-     .option = "coalesce",
-     .op_version = 1,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
 
     /* IO-stats xlator options */

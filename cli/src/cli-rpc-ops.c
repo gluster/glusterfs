@@ -694,17 +694,7 @@ gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
                               int disperse_count, int redundancy_count,
                               int arbiter_count)
 {
-    if (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
-        if (arbiter_count == 0) {
-            cli_out("Number of Bricks: %d x %d x %d = %d",
-                    (brick_count / dist_count), stripe_count, replica_count,
-                    brick_count);
-        } else {
-            cli_out("Number of Bricks: %d x %d x (%d + %d) = %d",
-                    (brick_count / dist_count), stripe_count,
-                    replica_count - arbiter_count, arbiter_count, brick_count);
-        }
-    } else if (type == GF_CLUSTER_TYPE_NONE || type == GF_CLUSTER_TYPE_TIER) {
+    if (type == GF_CLUSTER_TYPE_NONE || type == GF_CLUSTER_TYPE_TIER) {
         cli_out("Number of Bricks: %d", brick_count);
     } else if (type == GF_CLUSTER_TYPE_DISPERSE) {
         cli_out("Number of Bricks: %d x (%d + %d) = %d",

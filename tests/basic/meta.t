@@ -9,7 +9,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
-TEST $CLI volume create $V0 replica 2 stripe 4 $H0:$B0/${V0}{1..16};
+TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1..9};
 
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
