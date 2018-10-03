@@ -228,7 +228,7 @@ gf_monitor_metrics(glusterfs_ctx_t *ctx)
 {
     int ret = -1;
     int fd = 0;
-    char *filepath, *dumppath;
+    char *filepath = NULL, *dumppath = NULL;
 
     dumppath = ctx->config.metrics_dumppath;
     if (dumppath == NULL) {
@@ -238,7 +238,7 @@ gf_monitor_metrics(glusterfs_ctx_t *ctx)
     if (ret) {
         /* EEXIST is handled in mkdir_p() itself */
         gf_msg("monitoring", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
-               "failed to create metrics dir %s (%s)", filepath,
+               "failed to create metrics dir %s (%s)", dumppath,
                strerror(errno));
         return NULL;
     }
