@@ -6349,6 +6349,8 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
     glusterd_peerctx_t *peerctx = NULL;
     gf_boolean_t quorum_action = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
+    glusterfs_ctx_t *ctx = NULL;
+
     uuid_t uuid;
 
     peerctx = mydata;
@@ -6369,7 +6371,15 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
         default:
             break;
     }
-
+    ctx = this->ctx;
+    GF_VALIDATE_OR_GOTO(this->name, ctx, out);
+    if (ctx->cleanup_started) {
+        gf_log(this->name, GF_LOG_INFO,
+               "glusterd already received a SIGTERM, "
+               "dropping the event %d for peer %s",
+               event, peerctx->peername);
+        return 0;
+    }
     rcu_read_lock();
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
