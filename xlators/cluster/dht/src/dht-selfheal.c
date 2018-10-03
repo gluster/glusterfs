@@ -349,7 +349,7 @@ dht_should_heal_layout(call_frame_t *frame, dht_layout_t **heal,
 {
     gf_boolean_t fixit = _gf_true;
     dht_local_t *local = NULL;
-    int ret = -1, heal_missing_dirs = 0;
+    int heal_missing_dirs = 0;
 
     local = frame->local;
 
@@ -357,13 +357,10 @@ dht_should_heal_layout(call_frame_t *frame, dht_layout_t **heal,
         (*ondisk == NULL))
         goto out;
 
-    ret = dht_layout_anomalies(
+    dht_layout_anomalies(
         frame->this, &local->loc, *ondisk, &local->selfheal.hole_cnt,
         &local->selfheal.overlaps_cnt, &local->selfheal.missing_cnt,
         &local->selfheal.down, &local->selfheal.misc, NULL);
-
-    if (ret < 0)
-        goto out;
 
     /* Directories might've been created as part of this self-heal. We've to
      * sync non-layout xattrs and set range 0-0 on new directories
@@ -485,7 +482,6 @@ dht_should_fix_layout(call_frame_t *frame, dht_layout_t **inmem,
     dht_local_t *local = NULL;
     int layout_span = 0;
     int decommissioned_bricks = 0;
-    int ret = 0;
     dht_conf_t *conf = NULL;
     dht_distribution_type_t inmem_dist_type = 0;
     dht_distribution_type_t ondisk_dist_type = 0;
@@ -498,14 +494,10 @@ dht_should_fix_layout(call_frame_t *frame, dht_layout_t **inmem,
         (*ondisk == NULL))
         goto out;
 
-    ret = dht_layout_anomalies(
-        frame->this, &local->loc, *ondisk, &local->selfheal.hole_cnt,
-        &local->selfheal.overlaps_cnt, NULL, &local->selfheal.down,
-        &local->selfheal.misc, NULL);
-    if (ret < 0) {
-        fixit = _gf_false;
-        goto out;
-    }
+    dht_layout_anomalies(frame->this, &local->loc, *ondisk,
+                         &local->selfheal.hole_cnt,
+                         &local->selfheal.overlaps_cnt, NULL,
+                         &local->selfheal.down, &local->selfheal.misc, NULL);
 
     if (local->selfheal.down || local->selfheal.misc) {
         fixit = _gf_false;
@@ -1745,7 +1737,6 @@ dht_fix_layout_of_directory(call_frame_t *frame, loc_t *loc,
     dht_conf_t *priv = NULL;
     dht_local_t *local = NULL;
     uint32_t subvol_down = 0;
-    int ret = 0;
     gf_boolean_t maximize_overlap = _gf_true;
     char gfid[GF_UUID_BUF_SIZE] = {0};
 
@@ -1768,10 +1759,10 @@ dht_fix_layout_of_directory(call_frame_t *frame, loc_t *loc,
     }
 
     /* If a subvolume is down, do not re-write the layout. */
-    ret = dht_layout_anomalies(this, loc, layout, NULL, NULL, NULL,
-                               &subvol_down, NULL, NULL);
+    dht_layout_anomalies(this, loc, layout, NULL, NULL, NULL, &subvol_down,
+                         NULL, NULL);
 
-    if (subvol_down || (ret == -1)) {
+    if (subvol_down) {
         gf_uuid_unparse(loc->gfid, gfid);
         gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_FIX_FAILED,
                "Layout fix failed: %u subvolume(s) are down"
