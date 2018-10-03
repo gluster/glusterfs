@@ -2489,6 +2489,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                 caps = 0;
                         }
 #endif
+                } else {
+                        caps = 0;
                 }
 
                 cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
