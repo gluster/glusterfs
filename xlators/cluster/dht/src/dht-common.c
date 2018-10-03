@@ -1530,12 +1530,11 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     GF_VALIDATE_OR_GOTO("dht", this, err);
     GF_VALIDATE_OR_GOTO("dht", frame->local, err);
     GF_VALIDATE_OR_GOTO("dht", cookie, err);
+    GF_VALIDATE_OR_GOTO("dht", this->private, err);
 
     local = frame->local;
     prev = cookie;
     conf = this->private;
-    if (!conf)
-        goto out;
 
     if (!conf->vch_forced) {
         ret = dict_get_uint32(xattr, conf->commithash_xattr_name,
@@ -1728,7 +1727,6 @@ unlock:
         }
     }
 
-out:
     this_call_cnt = dht_frame_return(frame);
 
     if (is_last_call(this_call_cnt)) {
@@ -7560,7 +7558,18 @@ dht_handle_parent_layout_change(xlator_t *this, call_stub_t *stub)
     local = frame->local;
 
     refresh_frame = copy_frame(frame);
+    if (!refresh_frame) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+               "mem allocation failed for refresh_frame");
+        return -1;
+    }
+
     refresh_local = dht_local_init(refresh_frame, NULL, NULL, stub->fop);
+    if (!refresh_local) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+               "mem allocation failed for refresh_local");
+        return -1;
+    }
 
     refresh_local->loc.inode = inode_ref(local->loc.parent);
     gf_uuid_copy(refresh_local->loc.gfid, local->loc.parent->gfid);
@@ -9027,7 +9036,11 @@ dht_mkdir_hashed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
             }
 
-            dht_handle_parent_layout_change(this, stub);
+            ret = dht_handle_parent_layout_change(this, stub);
+            if (ret) {
+                goto err;
+            }
+
             stub = NULL;
 
             return 0;

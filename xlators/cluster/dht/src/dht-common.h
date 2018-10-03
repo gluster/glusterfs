@@ -867,7 +867,7 @@ int32_t
 dht_migration_needed(xlator_t *this);
 int
 dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout);
-int
+void
 dht_layout_anomalies(xlator_t *this, loc_t *loc, dht_layout_t *layout,
                      uint32_t *holes_p, uint32_t *overlaps_p,
                      uint32_t *missing_p, uint32_t *down_p, uint32_t *misc_p,

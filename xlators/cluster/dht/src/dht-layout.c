@@ -497,7 +497,7 @@ dht_layout_sort_volname(dht_layout_t *layout)
     return 0;
 }
 
-int
+void
 dht_layout_anomalies(xlator_t *this, loc_t *loc, dht_layout_t *layout,
                      uint32_t *holes_p, uint32_t *overlaps_p,
                      uint32_t *missing_p, uint32_t *down_p, uint32_t *misc_p,
@@ -510,7 +510,6 @@ dht_layout_anomalies(xlator_t *this, loc_t *loc, dht_layout_t *layout,
     uint32_t hole_cnt = 0;
     uint32_t overlap_cnt = 0;
     int i = 0;
-    int ret = 0;
     uint32_t prev_stop = 0;
     uint32_t last_stop = 0;
     char is_virgin = 1;
@@ -593,8 +592,6 @@ dht_layout_anomalies(xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
     if (no_space_p)
         *no_space_p = no_space;
-
-    return ret;
 }
 
 int
@@ -637,14 +634,8 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
     gf_uuid_unparse(loc->gfid, gfid);
 
-    ret = dht_layout_anomalies(this, loc, layout, &holes, &overlaps, &missing,
-                               &down, &misc, NULL);
-    if (ret == -1) {
-        gf_msg(this->name, GF_LOG_WARNING, 0,
-               DHT_MSG_FIND_LAYOUT_ANOMALIES_ERROR,
-               "Error finding anomalies in %s, gfid = %s", loc->path, gfid);
-        goto out;
-    }
+    dht_layout_anomalies(this, loc, layout, &holes, &overlaps, &missing, &down,
+                         &misc, NULL);
 
     if (holes || overlaps) {
         if (missing == layout->cnt) {
