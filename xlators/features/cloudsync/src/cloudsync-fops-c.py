@@ -14,7 +14,7 @@ int32_t
 cs_@NAME@ (call_frame_t *frame, xlator_t *this,
            @LONG_ARGS@)
 {
-        int                         op_errno        = -1;
+        int                         op_errno        = EINVAL ;
         cs_local_t                 *local           = NULL;
         int                         ret             = 0;
         cs_inode_ctx_t             *ctx             = NULL;
