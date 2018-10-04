@@ -2067,10 +2067,10 @@ retry:
         }
 
         if (volinfo->is_snap_volume) {
-                snprintf (volfile, PATH_MAX,"/%s/%s/%s.%s.%s",
+                snprintf (volfile, PATH_MAX, "/%s/%s/%s/%s.%s.%s",
                           GLUSTERD_VOL_SNAP_DIR_PREFIX,
                           volinfo->snapshot->snapname, volinfo->volname,
-                          brickinfo->hostname, exp_path);
+                          volinfo->volname, brickinfo->hostname, exp_path);
         } else {
                 snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
                           brickinfo->hostname, exp_path);
@@ -5552,10 +5552,11 @@ attach_brick (xlator_t *this,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, brickinfo, conf);
 
         if (volinfo->is_snap_volume) {
-                snprintf (full_id, sizeof(full_id), "/%s/%s/%s.%s.%s",
+                snprintf (full_id, sizeof(full_id), "/%s/%s/%s/%s.%s.%s",
                           GLUSTERD_VOL_SNAP_DIR_PREFIX,
                           volinfo->snapshot->snapname,
-                          volinfo->volname, brickinfo->hostname, unslashed);
+                          volinfo->volname, volinfo->volname,
+                          brickinfo->hostname, unslashed);
         } else {
                 snprintf (full_id, sizeof(full_id), "%s.%s.%s",
                           volinfo->volname, brickinfo->hostname, unslashed);
