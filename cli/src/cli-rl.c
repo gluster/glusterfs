@@ -281,11 +281,9 @@ cli_rl_autocomplete_prepare(struct cli_state *state, const char *text)
             break;
     }
 
-    if (!word)
+    if (!word || !token)
         goto out;
 
-    if (!token)
-        return 0;
     matches = cli_rl_get_matches(state, word, token);
 
     state->matches = matches;
