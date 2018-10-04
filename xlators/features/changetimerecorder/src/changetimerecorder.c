@@ -2137,6 +2137,7 @@ init(xlator_t *this)
         gf_msg(this->name, GF_LOG_ERROR, 0,
                CTR_MSG_EXTRACT_CTR_XLATOR_OPTIONS_FAILED,
                "Failed extracting ctr xlator options");
+        GF_FREE(priv);
         return -1;
     }
 
