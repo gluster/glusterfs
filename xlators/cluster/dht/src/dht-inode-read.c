@@ -265,12 +265,6 @@ dht_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_local_t *local = NULL;
     int this_call_cnt = 0;
     xlator_t *prev = NULL;
-
-    GF_VALIDATE_OR_GOTO("dht", frame, err);
-    GF_VALIDATE_OR_GOTO("dht", this, out);
-    GF_VALIDATE_OR_GOTO("dht", frame->local, out);
-    GF_VALIDATE_OR_GOTO("dht", cookie, out);
-
     local = frame->local;
     prev = cookie;
 
@@ -290,13 +284,13 @@ dht_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     }
 unlock:
     UNLOCK(&frame->lock);
-out:
+
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         DHT_STACK_UNWIND(stat, frame, local->op_ret, local->op_errno,
                          &local->stbuf, xdata);
     }
-err:
+
     return 0;
 }
 

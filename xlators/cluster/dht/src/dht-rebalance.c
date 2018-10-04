@@ -972,43 +972,40 @@ __dht_check_free_space(xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
        prevent any files being migrated to newly added bricks if they are
        smaller then the free space available on the existing bricks.
      */
-    if (stbuf) {
-        if (!conf->use_fallocate) {
-            file_blocks = stbuf->ia_size + GF_DISK_SECTOR_SIZE - 1;
-            file_blocks /= GF_DISK_SECTOR_SIZE;
+    if (!conf->use_fallocate) {
+        file_blocks = stbuf->ia_size + GF_DISK_SECTOR_SIZE - 1;
+        file_blocks /= GF_DISK_SECTOR_SIZE;
 
-            if (file_blocks >= dst_statfs_blocks) {
-                dst_statfs_blocks = 0;
-            } else {
-                dst_statfs_blocks -= file_blocks;
-            }
+        if (file_blocks >= dst_statfs_blocks) {
+            dst_statfs_blocks = 0;
+        } else {
+            dst_statfs_blocks -= file_blocks;
         }
+    }
 
-        src_post_availspacepercent = ((src_statfs_blocks + file_blocks) * 100) /
-                                     src_total_blocks;
+    src_post_availspacepercent = ((src_statfs_blocks + file_blocks) * 100) /
+                                 src_total_blocks;
 
-        dst_post_availspacepercent = (dst_statfs_blocks * 100) /
-                                     dst_total_blocks;
+    dst_post_availspacepercent = (dst_statfs_blocks * 100) / dst_total_blocks;
 
-        if (dst_post_availspacepercent < src_post_availspacepercent) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_MIGRATE_FILE_FAILED,
-                   "data movement of file "
-                   "{blocks:%" PRIu64
-                   " name:(%s)} would result in "
-                   "dst node (%s:%" PRIu64
-                   ") having lower disk "
-                   "space than the source node (%s:%" PRIu64
-                   ")"
-                   ".Skipping file.",
-                   stbuf->ia_blocks, loc->path, to->name, dst_statfs_blocks,
-                   from->name, src_statfs_blocks);
+    if (dst_post_availspacepercent < src_post_availspacepercent) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_MIGRATE_FILE_FAILED,
+               "data movement of file "
+               "{blocks:%" PRIu64
+               " name:(%s)} would result in "
+               "dst node (%s:%" PRIu64
+               ") having lower disk "
+               "space than the source node (%s:%" PRIu64
+               ")"
+               ".Skipping file.",
+               stbuf->ia_blocks, loc->path, to->name, dst_statfs_blocks,
+               from->name, src_statfs_blocks);
 
-            /* this is not a 'failure', but we don't want to
-               consider this as 'success' too :-/ */
-            *fop_errno = ENOSPC;
-            ret = 1;
-            goto out;
-        }
+        /* this is not a 'failure', but we don't want to
+           consider this as 'success' too :-/ */
+        *fop_errno = ENOSPC;
+        ret = 1;
+        goto out;
     }
 
 check_avail_space:
@@ -4292,9 +4289,6 @@ gf_defrag_subvol_file_size(xlator_t *this, loc_t *root_loc)
     struct statvfs buf = {
         0,
     };
-
-    if (!this)
-        return 0;
 
     ret = syncop_statfs(this, root_loc, &buf, NULL, NULL);
     if (ret) {
