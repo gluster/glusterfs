@@ -454,6 +454,8 @@ aws_download_s3(call_frame_t *frame, void *config)
     };
     aws_private_t *priv = NULL;
 
+    this = frame->this;
+
     local = frame->local;
 
     priv = (aws_private_t *)config;
