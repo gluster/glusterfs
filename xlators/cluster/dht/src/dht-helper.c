@@ -938,7 +938,7 @@ dht_subvol_get_cached(xlator_t *this, inode_t *inode)
     dht_layout_t *layout = NULL;
     xlator_t *subvol = NULL;
 
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
+    GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
 
     layout = dht_layout_get(this, inode);
