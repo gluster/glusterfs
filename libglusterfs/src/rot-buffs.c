@@ -96,8 +96,11 @@ rvec_in_watermark_range(rbuf_list_t *rlist)
 static void
 rbuf_reset_rvec(rbuf_iovec_t *rvec)
 {
+    GF_VALIDATE_OR_GOTO("libglusterfs", rvec, err);
     /* iov_base is _never_ modified */
     rvec->iov.iov_len = 0;
+err:
+    return;
 }
 
 /* TODO: alloc multiple rbuf_iovec_t */
