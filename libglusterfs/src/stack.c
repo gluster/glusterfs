@@ -85,7 +85,10 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
 {
     char prefix[GF_DUMP_MAX_BUF_LEN];
     va_list ap;
-    call_frame_t my_frame;
+    call_frame_t my_frame = {
+        0,
+    };
+
     int ret = -1;
     char timestr[256] = {
         0,
