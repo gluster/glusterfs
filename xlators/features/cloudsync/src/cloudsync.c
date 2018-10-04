@@ -1263,13 +1263,13 @@ cs_blocking_inodelk(call_frame_t *parent_frame)
     };
     int ret = 0;
 
+    this = parent_frame->this;
+
     lock_frame = cs_lock_frame(parent_frame);
     if (!lock_frame) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "insuffcient memory");
         goto err;
     }
-
-    this = parent_frame->this;
 
     lock_local = cs_local_init(this, lock_frame, NULL, NULL, 0);
     if (!lock_local) {
