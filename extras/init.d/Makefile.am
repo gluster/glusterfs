@@ -1,7 +1,7 @@
 
-EXTRA_DIST = glusterd-Debian glusterd-FreeBSD glusterd-Redhat glusterd-SuSE \
-	glusterd.plist rhel5-load-fuse.modules \
-	glustereventsd-FreeBSD glustereventsd-Redhat glustereventsd-Debian
+EXTRA_DIST = glusterd-Debian glusterd-FreeBSD glusterd-Redhat \
+	glusterd-SuSE glusterd.plist glustereventsd-FreeBSD \
+	glustereventsd-Redhat glustereventsd-Debian
 
 CLEANFILES =
 
