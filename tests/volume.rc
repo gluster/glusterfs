@@ -857,7 +857,8 @@ function get_active_fd_count {
 
 function get_mount_active_size_value {
         local vol=$1
-        local statedump=$(generate_mount_statedump $vol)
+        local mount=$2
+        local statedump=$(generate_mount_statedump $vol $mount)
         sleep 1
         local val=$(grep "active_size" $statedump | cut -f2 -d'=' | tail -1)
         rm -f $statedump
@@ -866,7 +867,8 @@ function get_mount_active_size_value {
 
 function get_mount_lru_size_value {
         local vol=$1
-        local statedump=$(generate_mount_statedump $vol)
+        local mount=$2
+        local statedump=$(generate_mount_statedump $vol $mount)
         sleep 1
         local val=$(grep "lru_size" $statedump | cut -f2 -d'=' | tail -1)
         rm -f $statedump

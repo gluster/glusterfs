@@ -11,15 +11,15 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1,2,3}
 TEST $CLI volume start $V0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
-EXPECT "1" get_mount_active_size_value $V0
-EXPECT "0" get_mount_lru_size_value $V0
+EXPECT "1" get_mount_active_size_value $V0 $M0
+EXPECT "0" get_mount_lru_size_value $V0 $M0
 
 TEST cp -rf /etc $M0
 TEST find $M0
 TEST rm -rf $M0/*
 
-EXPECT "1" get_mount_active_size_value $V0
-EXPECT "0" get_mount_lru_size_value $V0
+EXPECT "1" get_mount_active_size_value $V0 $M0
+EXPECT "0" get_mount_lru_size_value $V0 $M0
 
 cleanup
 
