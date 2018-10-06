@@ -26,13 +26,13 @@ import hmac
 from hashlib import sha256
 from calendar import timegm
 
-from eventsapiconf import (LOG_FILE,
+from .eventsapiconf import (LOG_FILE,
                            WEBHOOKS_FILE,
                            DEFAULT_CONFIG_FILE,
                            CUSTOM_CONFIG_FILE,
                            UUID_FILE,
                            CERTS_DIR)
-import eventtypes
+from . import eventtypes
 
 
 # Webhooks list

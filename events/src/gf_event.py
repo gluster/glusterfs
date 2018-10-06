@@ -12,10 +12,10 @@
 import socket
 import time
 
-from eventsapiconf import SERVER_ADDRESS, EVENTS_ENABLED
-from eventtypes import all_events
+from .eventsapiconf import SERVER_ADDRESS, EVENTS_ENABLED
+from .eventtypes import all_events
 
-from utils import logger, setup_logger, get_config
+from .utils import logger, setup_logger, get_config
 
 # Run this when this lib loads
 setup_logger()
@@ -35,18 +35,18 @@ def gf_event(event_type, **kwargs):
         logger.error("Unable to connect to events Server: {0}".format(e))
         return
 
+    port = get_config("port")
+    if port is None:
+        logger.error("Unable to get eventsd port details")
+        return
+
     # Convert key value args into KEY1=VALUE1;KEY2=VALUE2;..
     msg = ""
     for k, v in kwargs.items():
         msg += "{0}={1};".format(k, v)
 
     # <TIMESTAMP> <EVENT_TYPE> <MSG>
-    msg = "{0} {1} {2}".format(int(time.time()), event_type, msg.strip(";"))
-
-    port = get_config("port")
-    if port is None:
-        logger.error("Unable to get eventsd port details")
-        return
+    msg = "{0} {1} {2}".format(int(time.time()), event_type, msg.strip(";")).encode()
 
     try:
         sent = client.sendto(msg, (SERVER_ADDRESS, port))
