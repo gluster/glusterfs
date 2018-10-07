@@ -75,6 +75,13 @@ TEST $GEOREP_CLI $master $slave start
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Active"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
 
+#get-state commamd shouldn't crash glusterd when geo-rep session is configured
+TEST $CLI get-state
+TEST pidof glusterd
+
+TEST $CLI get-state detail
+TEST pidof glusterd
+
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
