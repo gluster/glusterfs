@@ -819,8 +819,7 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
 {
     const char *basename = NULL;
     xlator_t *this = NULL;
-    char *str1 = NULL;
-    char *str2 = NULL;
+    char *logline = NULL;
     char *msg = NULL;
     char timestr[256] = {
         0,
@@ -829,7 +828,6 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     struct timeval tv = {
         0,
     };
-    size_t len = 0;
     int ret = 0;
     va_list ap;
     glusterfs_ctx_t *ctx = NULL;
@@ -871,6 +869,13 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
      * to avoid allocating memory from the heap*/
     callstr = gf_backtrace_save(NULL);
 
+    va_start(ap, fmt);
+    ret = vasprintf(&msg, fmt, ap);
+    va_end(ap);
+    if (-1 == ret) {
+        goto out;
+    }
+
     if (ctx->log.log_control_file_found) {
         int priority;
         /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
@@ -881,12 +886,8 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
             priority = level - 1;
         }
 
-        va_start(ap, fmt);
-        vasprintf(&str2, fmt, ap);
-        va_end(ap);
-
         gf_syslog(priority, "[%s:%d:%s] %s %d-%s: %s", basename, line, function,
-                  callstr, ((this->graph) ? this->graph->id : 0), domain, str2);
+                  callstr, ((this->graph) ? this->graph->id : 0), domain, msg);
 
         goto out;
     }
@@ -894,42 +895,25 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     ret = gettimeofday(&tv, NULL);
     if (-1 == ret)
         goto out;
-    va_start(ap, fmt);
+
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
     snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
              ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    ret = gf_asprintf(&str1, "[%s] %s [%s:%d:%s] %s %d-%s: ", timestr,
+    ret = gf_asprintf(&logline, "[%s] %s [%s:%d:%s] %s %d-%s: %s", timestr,
                       level_strings[level], basename, line, function, callstr,
-                      ((this->graph) ? this->graph->id : 0), domain);
+                      ((this->graph) ? this->graph->id : 0), domain, msg);
     if (-1 == ret) {
         goto out;
     }
-
-    ret = vasprintf(&str2, fmt, ap);
-    if (-1 == ret) {
-        goto out;
-    }
-
-    va_end(ap);
-
-    len = strlen(str1);
-    msg = GF_MALLOC(len + strlen(str2) + 1, gf_common_mt_char);
-    if (!msg) {
-        ret = -1;
-        goto out;
-    }
-
-    strcpy(msg, str1);
-    strcpy(msg + len, str2);
 
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         if (ctx->log.logfile) {
-            fprintf(ctx->log.logfile, "%s\n", msg);
+            fprintf(ctx->log.logfile, "%s\n", logline);
             fflush(ctx->log.logfile);
         } else if (ctx->log.loglevel >= level) {
-            fprintf(stderr, "%s\n", msg);
+            fprintf(stderr, "%s\n", logline);
             fflush(stderr);
         }
 
@@ -938,20 +922,17 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
            and trace logs */
         if (ctx->log.gf_log_syslog && level &&
             (level <= ctx->log.sys_log_level))
-            syslog((level - 1), "%s\n", msg);
+            syslog((level - 1), "%s\n", logline);
 #endif
     }
 
     pthread_mutex_unlock(&ctx->log.logfile_mutex);
 
 out:
-    GF_FREE(msg);
 
-    GF_FREE(str1);
+    GF_FREE(logline);
 
-    FREE(str2);
-
-    va_end(ap);
+    FREE(msg);
 
     return ret;
 }
@@ -2090,8 +2071,6 @@ _gf_msg(const char *domain, const char *file, const char *function,
                                 GF_LOG_BACKTRACE_SIZE);
         if (ret >= 0)
             passcallstr = 1;
-        else
-            ret = 0;
     }
 
     pthread_mutex_lock(&ctx->log.logfile_mutex);
@@ -2147,10 +2126,8 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
     struct timeval tv = {
         0,
     };
-    char *str1 = NULL;
-    char *str2 = NULL;
+    char *logline = NULL;
     char *msg = NULL;
-    size_t len = 0;
     int ret = 0;
     int fd = -1;
     xlator_t *this = NULL;
@@ -2189,6 +2166,13 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
     else
         basename = file;
 
+    va_start(ap, fmt);
+    ret = vasprintf(&msg, fmt, ap);
+    va_end(ap);
+    if (-1 == ret) {
+        goto err;
+    }
+
     if (ctx->log.log_control_file_found) {
         int priority;
         /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
@@ -2199,12 +2183,8 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
             priority = level - 1;
         }
 
-        va_start(ap, fmt);
-        vasprintf(&str2, fmt, ap);
-        va_end(ap);
-
         gf_syslog(priority, "[%s:%d:%s] %d-%s: %s", basename, line, function,
-                  ((this->graph) ? this->graph->id : 0), domain, str2);
+                  ((this->graph) ? this->graph->id : 0), domain, msg);
         goto err;
     }
 
@@ -2240,41 +2220,25 @@ log:
     ret = gettimeofday(&tv, NULL);
     if (-1 == ret)
         goto out;
-    va_start(ap, fmt);
+
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
     snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
              ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    ret = gf_asprintf(&str1, "[%s] %s [%s:%d:%s] %d-%s: ", timestr,
+    ret = gf_asprintf(&logline, "[%s] %s [%s:%d:%s] %d-%s: %s", timestr,
                       level_strings[level], basename, line, function,
-                      ((this->graph) ? this->graph->id : 0), domain);
+                      ((this->graph) ? this->graph->id : 0), domain, msg);
     if (-1 == ret) {
         goto err;
     }
-
-    ret = vasprintf(&str2, fmt, ap);
-    if (-1 == ret) {
-        goto err;
-    }
-
-    va_end(ap);
-
-    len = strlen(str1);
-    msg = GF_MALLOC(len + strlen(str2) + 1, gf_common_mt_char);
-    if (!msg) {
-        goto err;
-    }
-
-    strcpy(msg, str1);
-    strcpy(msg + len, str2);
 
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         if (ctx->log.logfile) {
-            fprintf(ctx->log.logfile, "%s\n", msg);
+            fprintf(ctx->log.logfile, "%s\n", logline);
             fflush(ctx->log.logfile);
         } else if (ctx->log.loglevel >= level) {
-            fprintf(stderr, "%s\n", msg);
+            fprintf(stderr, "%s\n", logline);
             fflush(stderr);
         }
 
@@ -2283,21 +2247,18 @@ log:
            and trace logs */
         if (ctx->log.gf_log_syslog && level &&
             (level <= ctx->log.sys_log_level))
-            syslog((level - 1), "%s\n", msg);
+            syslog((level - 1), "%s\n", logline);
 #endif
     }
 
     pthread_mutex_unlock(&ctx->log.logfile_mutex);
 
 err:
-    GF_FREE(msg);
+    GF_FREE(logline);
 
-    GF_FREE(str1);
-
-    FREE(str2);
+    FREE(msg);
 
 out:
-    va_end(ap);
     return (0);
 }
 
@@ -2306,47 +2267,33 @@ _gf_log_eh(const char *function, const char *fmt, ...)
 {
     int ret = -1;
     va_list ap;
-    char *str1 = NULL;
-    char *str2 = NULL;
+    char *logline = NULL;
     char *msg = NULL;
     xlator_t *this = NULL;
 
     this = THIS;
 
-    ret = gf_asprintf(&str1, "[%d] %s: ", ((this->graph) ? this->graph->id : 0),
-                      function);
-    if (-1 == ret) {
-        goto out;
-    }
-
     va_start(ap, fmt);
-
-    ret = vasprintf(&str2, fmt, ap);
+    ret = vasprintf(&msg, fmt, ap);
+    va_end(ap);
     if (-1 == ret) {
         goto out;
     }
 
-    msg = GF_MALLOC(strlen(str1) + strlen(str2) + 1, gf_common_mt_char);
-    if (!msg) {
-        ret = -1;
+    ret = gf_asprintf(&logline, "[%d] %s: %s",
+                      ((this->graph) ? this->graph->id : 0), function, msg);
+    if (-1 == ret) {
         goto out;
     }
 
-    strcpy(msg, str1);
-    strcat(msg, str2);
-
-    ret = eh_save_history(this->history, msg);
+    ret = eh_save_history(this->history, logline);
     if (ret < 0)
-        GF_FREE(msg);
+        GF_FREE(logline);
 
 out:
-    GF_FREE(str1);
+    GF_FREE(logline);
 
-    /* Use FREE instead of GF_FREE since str2 was allocated by vasprintf */
-    if (str2)
-        FREE(str2);
-
-    va_end(ap);
+    FREE(msg);
 
     return ret;
 }
@@ -2408,10 +2355,8 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
     struct timeval tv = {
         0,
     };
-    char *str1 = NULL;
-    char *str2 = NULL;
+    char *logline = NULL;
     char *msg = NULL;
-    size_t len = 0;
     int ret = 0;
     int fd = -1;
     glusterfs_ctx_t *ctx = NULL;
@@ -2433,30 +2378,20 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
     if (ret == -1)
         goto out;
     va_start(ap, fmt);
+    ret = vasprintf(&msg, fmt, ap);
+    va_end(ap);
+    if (ret == -1) {
+        goto out;
+    }
+
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
     snprintf(timestr + strlen(timestr), GF_LOG_TIMESTR_SIZE - strlen(timestr),
              ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    ret = gf_asprintf(&str1, "[%s] %s : ", timestr, domain);
+    ret = gf_asprintf(&logline, "[%s] %s : %s", timestr, domain, msg);
     if (ret == -1) {
         goto out;
     }
-
-    ret = vasprintf(&str2, fmt, ap);
-    if (ret == -1) {
-        goto out;
-    }
-
-    va_end(ap);
-
-    len = strlen(str1);
-    msg = GF_MALLOC(len + strlen(str2) + 1, gf_common_mt_char);
-    if (!msg) {
-        goto out;
-    }
-
-    strcpy(msg, str1);
-    strcpy(msg + len, str2);
 
     /* close and reopen cmdlogfile fd for in case of log rotate*/
     if (ctx->log.cmd_history_logrotate) {
@@ -2490,17 +2425,13 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
         }
     }
 
-    fprintf(ctx->log.cmdlogfile, "%s\n", msg);
+    fprintf(ctx->log.cmdlogfile, "%s\n", logline);
     fflush(ctx->log.cmdlogfile);
 
 out:
-    GF_FREE(msg);
+    GF_FREE(logline);
 
-    GF_FREE(str1);
-
-    FREE(str2);
-
-    va_end(ap);
+    FREE(msg);
 
     return ret;
 }
