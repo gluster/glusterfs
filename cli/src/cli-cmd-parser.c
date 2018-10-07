@@ -2885,7 +2885,7 @@ force_push_pem_no_verify_parse(const char **words, int wordcount, dict_t *dict,
             ret = -1;
             goto out;
         }
-        ret = dict_set_uint32(dict, "force", _gf_true);
+        ret = dict_set_int32n(dict, "force", SLEN("force"), 1);
         if (ret)
             goto out;
         (*cmdi)++;
@@ -4524,7 +4524,7 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
     }
 
     if (strcmp(words[i], "no-timestamp") == 0) {
-        ret = dict_set_str(dict, "no-timestamp", "true");
+        ret = dict_set_int32n(dict, "no-timestamp", SLEN("no-timestamp"), 1);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
                    "Could not save "

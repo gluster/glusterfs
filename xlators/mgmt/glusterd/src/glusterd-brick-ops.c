@@ -3114,6 +3114,7 @@ glusterd_op_stage_barrier(dict_t *dict, char **op_errstr)
     xlator_t *this = NULL;
     char *volname = NULL;
     glusterd_volinfo_t *vol = NULL;
+    char *barrier_op = NULL;
 
     GF_ASSERT(dict);
     this = THIS;
@@ -3141,7 +3142,7 @@ glusterd_op_stage_barrier(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    ret = dict_get_str_boolean(dict, "barrier", -1);
+    ret = dict_get_strn(dict, "barrier", SLEN("barrier"), &barrier_op);
     if (ret == -1) {
         gf_asprintf(op_errstr,
                     "Barrier op for volume %s not present "
