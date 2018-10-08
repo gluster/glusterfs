@@ -4478,6 +4478,7 @@ gf_cli_get_state(call_frame_t *frame, xlator_t *this, void *data)
                           GLUSTER_CLI_GET_STATE, this, cli_rpc_prog, NULL);
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }
@@ -4615,6 +4616,7 @@ gf_cli3_1_uuid_get(call_frame_t *frame, xlator_t *this, void *data)
                           this, cli_rpc_prog, NULL);
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
     return ret;
 }
 
@@ -4638,6 +4640,7 @@ gf_cli3_1_uuid_reset(call_frame_t *frame, xlator_t *this, void *data)
                           GLUSTER_CLI_UUID_RESET, this, cli_rpc_prog, NULL);
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
     return ret;
 }
 
@@ -4718,6 +4721,7 @@ gf_cli_start_volume(call_frame_t *frame, xlator_t *this, void *data)
 
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }
@@ -4744,6 +4748,7 @@ gf_cli_stop_volume(call_frame_t *frame, xlator_t *this, void *data)
 
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }
@@ -4770,6 +4775,7 @@ gf_cli_defrag_volume(call_frame_t *frame, xlator_t *this, void *data)
 
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }
@@ -4830,6 +4836,7 @@ gf_cli_reset_volume(call_frame_t *frame, xlator_t *this, void *data)
 
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
     return ret;
 }
 
@@ -4855,6 +4862,7 @@ gf_cli_set_volume(call_frame_t *frame, xlator_t *this, void *data)
 
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }
@@ -8473,6 +8481,7 @@ gf_cli_status_volume(call_frame_t *frame, xlator_t *this, void *data)
                           GLUSTER_CLI_STATUS_VOLUME, this, cli_rpc_prog, NULL);
 out:
     gf_log("cli", GF_LOG_DEBUG, "Returning: %d", ret);
+    GF_FREE(req.dict.dict_val);
     return ret;
 }
 
@@ -11172,6 +11181,7 @@ gf_cli_snapshot_for_delete(call_frame_t *frame, xlator_t *this, void *data)
 out:
     if (snap_dict)
         dict_unref(snap_dict);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }
@@ -11265,6 +11275,7 @@ gf_cli_snapshot_for_status(call_frame_t *frame, xlator_t *this, void *data)
 out:
     if (snap_dict)
         dict_unref(snap_dict);
+    GF_FREE(req.dict.dict_val);
 
     return ret;
 }

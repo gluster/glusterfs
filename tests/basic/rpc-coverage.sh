@@ -437,7 +437,7 @@ function run_tests()
     test_chmod;
     test_chown;
     test_utimes;
-    if $run_lock_tests; then
+    if [ "$run_lock_tests" = "1" ]; then
         test_locks;
     fi
     test_readdir;
