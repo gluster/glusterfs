@@ -618,9 +618,6 @@ cli_rpc_init(struct cli_state *state)
 
     this = THIS;
     cli_rpc_prog = &cli_prog;
-    options = dict_new();
-    if (!options)
-        goto out;
 
     /* Connect to glusterd using the specified method, giving preference
      * to a unix socket connection.  If nothing is specified, connect to
@@ -640,6 +637,11 @@ cli_rpc_init(struct cli_state *state)
                "Connecting to remote glusterd at "
                "%s",
                state->remote_host);
+
+        options = dict_new();
+        if (!options)
+            goto out;
+
         ret = dict_set_str(options, "remote-host", state->remote_host);
         if (ret)
             goto out;
@@ -652,7 +654,6 @@ cli_rpc_init(struct cli_state *state)
             goto out;
 
         ret = dict_set_str(options, "transport.address-family", addr_family);
-
         if (ret)
             goto out;
     } else {
