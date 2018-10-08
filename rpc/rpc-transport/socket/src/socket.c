@@ -223,7 +223,7 @@ socket_dump_info(struct sockaddr *sa, int is_server, int is_ssl, int sock,
     else
         peer_type = "client";
 
-    getsockopt(sock, SOL_SOCKET, SO_ERROR, &so_error, &slen);
+    (void)getsockopt(sock, SOL_SOCKET, SO_ERROR, &so_error, &slen);
 
     gf_log(log_domain, GF_LOG_TRACE,
            "$$$ %s: %s (af:%d,sock:%d) %s %s (errno:%d:%s)", peer_type,
