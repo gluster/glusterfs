@@ -916,6 +916,8 @@ fail:
             ret = dict_set_str(reply, "ERROR",
                                "cleanup flag is set for xlator "
                                "before call first_lookup Try again later");
+            /* quisce coverity about UNUSED_VALUE ret */
+            (void)(ret);
         } else {
             op_ret = server_first_lookup(this, client, reply);
             if (op_ret == -1)
