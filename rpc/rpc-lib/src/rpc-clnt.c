@@ -160,6 +160,9 @@ call_bail(void *data)
     }
     pthread_mutex_unlock(&conn->lock);
 
+    if (list_empty(&list))
+        goto out;
+
     list_for_each_entry_safe(trav, tmp, &list, list)
     {
         gf_time_fmt(frame_sent, sizeof frame_sent, trav->saved_at.tv_sec,
