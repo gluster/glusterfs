@@ -1092,7 +1092,10 @@ pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        strncpy (key, name, strlen (name));
+        if (snprintf(key, sizeof(key), "%s", name) >= sizeof(key)) {
+                op_ret = -1;
+                goto out;
+        }
         if (dict_set_dynstr (dict, key, lk_summary)) {
                 op_ret = -1;
                 op_errno = ENOMEM;
