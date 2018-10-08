@@ -2206,6 +2206,7 @@ glusterfs_pidfile_cleanup(glusterfs_ctx_t *ctx)
     gf_msg_trace("glusterfsd", 0, "pidfile %s cleanup", cmd_args->pid_file);
 
     if (ctx->cmd_args.pid_file) {
+        GF_FREE(ctx->cmd_args.pid_file);
         ctx->cmd_args.pid_file = NULL;
     }
 
