@@ -1703,6 +1703,12 @@ pl_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     op_ret = 0, op_errno = 0;
     pl_inode = pl_inode_get(this, fd->inode);
+    if (!pl_inode) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM, "Could not get inode");
+        op_ret = -1;
+        op_errno = ENOMEM;
+        goto unwind;
+    }
 
     /* As per design, under forced and file-based mandatory locking modes
      * it doesn't matter whether inodes's lock list contain advisory or
