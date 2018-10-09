@@ -727,3 +727,17 @@ sys_fallocate(int fd, int mode, off_t offset, off_t len)
     errno = ENOSYS;
     return -1;
 }
+
+int
+sys_socket(int domain, int type, int protocol)
+{
+#ifdef SOCK_CLOEXEC
+    return socket(domain, type | SOCK_CLOEXEC, protocol);
+#endif
+    int fd = -1;
+
+    fd = socket(domain, type, protocol);
+    if (fd >= 0)
+        fcntl(fd, F_SETFD, FD_CLOEXEC);
+    return fd;
+}

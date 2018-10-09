@@ -221,4 +221,7 @@ sys_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t
 sys_pwrite(int fd, const void *buf, size_t count, off_t offset);
 
+int
+sys_socket(int domain, int type, int protocol);
+
 #endif /* __SYSCALL_H__ */

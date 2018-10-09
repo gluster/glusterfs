@@ -1051,6 +1051,7 @@ sys_unlink
 sys_utimensat
 sys_write
 sys_writev
+sys_socket
 tbf_init
 tbf_throttle
 timespec_now
