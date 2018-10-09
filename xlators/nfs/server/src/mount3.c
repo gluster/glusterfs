@@ -2664,6 +2664,10 @@ mnt3_xlchildren_to_exports(rpcsvc_t *svc, struct mount3_state *ms)
         if (!elist->ex_dir) {
             gf_msg(GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                    "Memory allocation failed");
+            if (first == elist)
+                first = NULL;
+            xdr_free_exports_list(elist);
+            elist = NULL;
             goto free_list;
         }
         strcpy(elist->ex_dir, ent->expname);
@@ -2712,7 +2716,7 @@ mnt3_xlchildren_to_exports(rpcsvc_t *svc, struct mount3_state *ms)
                 /* chain the groups together */
                 if (!elist->ex_groups)
                     elist->ex_groups = group;
-                else if (!prev_group->gr_next)
+                else if (prev_group && !prev_group->gr_next)
                     prev_group->gr_next = group;
                 prev_group = group;
             }
