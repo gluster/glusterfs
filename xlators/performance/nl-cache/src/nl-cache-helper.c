@@ -243,6 +243,8 @@ nlc_init_invalid_ctx(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
     int ret = -1;
 
     conf = this->private;
+    if (!nlc_ctx)
+        goto out;
 
     LOCK(&nlc_ctx->lock);
     {
@@ -283,7 +285,7 @@ nlc_init_invalid_ctx(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
     }
 unlock:
     UNLOCK(&nlc_ctx->lock);
-
+out:
     return;
 }
 
