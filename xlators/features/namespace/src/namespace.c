@@ -1249,7 +1249,6 @@ reconfigure(xlator_t *this, dict_t *options)
     int ret = -1;
     ns_private_t *priv = NULL;
 
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, options, out);
 
