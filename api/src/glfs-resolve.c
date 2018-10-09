@@ -349,7 +349,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             } else if (__is_root_gfid(loc.inode->gfid)) {
                 inode_unref(loc.parent);
                 loc.parent = inode_ref(loc.inode);
-                loc.name = "";
+                loc.name = ".";
             } else {
                 inode_unref(loc.inode);
                 loc.inode = NULL;
