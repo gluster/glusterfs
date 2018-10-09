@@ -363,6 +363,8 @@ pl_update_refkeeper(xlator_t *this, inode_t *inode)
     int need_ref = 0;
 
     pl_inode = pl_inode_get(this, inode);
+    if (!pl_inode)
+        return;
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
