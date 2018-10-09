@@ -886,7 +886,7 @@ __socket_server_bind(rpc_transport_t *this)
     if (AF_UNIX == SA(&this->myinfo.sockaddr)->sa_family) {
         memcpy(&unix_addr, SA(&this->myinfo.sockaddr),
                this->myinfo.sockaddr_len);
-        reuse_check_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+        reuse_check_sock = sys_socket(AF_UNIX, SOCK_STREAM, 0);
         if (reuse_check_sock >= 0) {
             ret = connect(reuse_check_sock, SA(&unix_addr),
                           this->myinfo.sockaddr_len);
@@ -3342,7 +3342,7 @@ socket_connect(rpc_transport_t *this, int port)
         memcpy(&this->peerinfo.sockaddr, &sock_union.storage, sockaddr_len);
         this->peerinfo.sockaddr_len = sockaddr_len;
 
-        priv->sock = socket(sa_family, SOCK_STREAM, 0);
+        priv->sock = sys_socket(sa_family, SOCK_STREAM, 0);
         if (priv->sock == -1) {
             gf_log(this->name, GF_LOG_ERROR, "socket creation failed (%s)",
                    strerror(errno));
@@ -3614,7 +3614,7 @@ socket_listen(rpc_transport_t *this)
         memcpy(&myinfo->sockaddr, &sockaddr, sockaddr_len);
         myinfo->sockaddr_len = sockaddr_len;
 
-        priv->sock = socket(sa_family, SOCK_STREAM, 0);
+        priv->sock = sys_socket(sa_family, SOCK_STREAM, 0);
 
         if (priv->sock == -1) {
             gf_log(this->name, GF_LOG_ERROR, "socket creation failed (%s)",
