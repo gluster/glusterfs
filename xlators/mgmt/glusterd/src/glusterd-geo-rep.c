@@ -4211,8 +4211,8 @@ glusterd_gsync_op_already_set(char *master, char *slave, char *conf_path,
     }
 
     if (is_bool) {
-        if (!strcmp(op_value, "true") || !strcmp(op_value, "1") ||
-            !strcmp(op_value, "yes")) {
+        if (op_value && (!strcmp(op_value, "true") || !strcmp(op_value, "1") ||
+                         !strcmp(op_value, "yes"))) {
             op_val_cli = 1;
         } else {
             op_val_cli = 0;
@@ -4223,7 +4223,7 @@ glusterd_gsync_op_already_set(char *master, char *slave, char *conf_path,
             goto out;
         }
     } else {
-        if (!strcmp(op_val_buf, op_value)) {
+        if (op_value && !strcmp(op_val_buf, op_value)) {
             ret = 0;
             goto out;
         }
