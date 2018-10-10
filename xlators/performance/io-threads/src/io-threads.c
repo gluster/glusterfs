@@ -123,7 +123,7 @@ __iot_dequeue(iot_conf_t *conf, int *pri)
     if (!stub)
         return NULL;
 
-    GF_ATOMIC_DEC(conf->queue_size);
+    conf->queue_size--;
     conf->queue_sizes[*pri]--;
 
     return stub;
@@ -155,7 +155,8 @@ __iot_enqueue(iot_conf_t *conf, call_stub_t *stub, int pri)
     }
     list_add_tail(&stub->list, &ctx->reqs);
 
-    GF_ATOMIC_INC(conf->queue_size);
+    conf->queue_size++;
+    GF_ATOMIC_INC(conf->stub_cnt);
     conf->queue_sizes[pri]++;
 }
 
@@ -183,7 +184,7 @@ iot_worker(void *data)
                 conf->ac_iot_count[pri]--;
                 pri = -1;
             }
-            while (GF_ATOMIC_GET(conf->queue_size) == 0) {
+            while (conf->queue_size == 0) {
                 if (conf->down) {
                     bye = _gf_true; /*Avoid sleep*/
                     break;
@@ -230,6 +231,7 @@ iot_worker(void *data)
             } else {
                 call_resume(stub);
             }
+            GF_ATOMIC_DEC(conf->stub_cnt);
         }
         stub = NULL;
 
@@ -837,9 +839,9 @@ __iot_workers_scale(iot_conf_t *conf)
                                thread_name);
         if (ret == 0) {
             conf->curr_count++;
-            gf_msg_debug(
-                conf->this->name, 0, "scaled threads to %d (queue_size=%ld/%d)",
-                conf->curr_count, GF_ATOMIC_GET(conf->queue_size), scale);
+            gf_msg_debug(conf->this->name, 0,
+                         "scaled threads to %d (queue_size=%d/%d)",
+                         conf->curr_count, conf->queue_size, scale);
         } else {
             break;
         }
@@ -1231,7 +1233,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("pass-through", this->pass_through, bool, out);
 
     conf->this = this;
-    GF_ATOMIC_INIT(conf->queue_size, 0);
+    GF_ATOMIC_INIT(conf->stub_cnt, 0);
 
     for (i = 0; i < GF_FOP_PRI_MAX; i++) {
         INIT_LIST_HEAD(&conf->clients[i]);
@@ -1282,7 +1284,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
 {
     iot_conf_t *conf = this->private;
     xlator_t *victim = data;
-    uint64_t queue_size = 0;
+    uint64_t stub_cnt = 0;
     struct timespec sleep_till = {
         0,
     };
@@ -1292,14 +1294,14 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             clock_gettime(CLOCK_REALTIME, &sleep_till);
             sleep_till.tv_sec += 1;
             /* Wait for draining stub from queue before notify PARENT_DOWN */
-            queue_size = GF_ATOMIC_GET(conf->queue_size);
+            stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
 
             pthread_mutex_lock(&conf->mutex);
             {
-                while (queue_size) {
+                while (stub_cnt) {
                     (void)pthread_cond_timedwait(&conf->cond, &conf->mutex,
                                                  &sleep_till);
-                    queue_size = GF_ATOMIC_GET(conf->queue_size);
+                    stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
                 }
             }
             pthread_mutex_unlock(&conf->mutex);
