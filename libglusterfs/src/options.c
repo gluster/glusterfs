@@ -552,10 +552,8 @@ xlator_option_validate_addr(xlator_t *xl, const char *key, const char *value,
     char errstr[256];
 
     if (!valid_internet_address((char *)value, _gf_false)) {
-        snprintf(errstr, 256,
-                 "option %s %s: '%s'  is not a valid internet-address,"
-                 " it does not conform to standards.",
-                 key, value, value);
+        snprintf(errstr, 256, "option %s %s: Can not parse %s address", key,
+                 value, value);
         gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
         if (op_errstr)
             *op_errstr = gf_strdup(errstr);
