@@ -167,6 +167,8 @@ _pub_glfs_setfsleaseid _glfs_setfsleaseid$GFAPI_4.0.0
 _pub_glfs_file_lock _glfs_file_lock$GFAPI_4.0.0
 _pub_glfs_lease _glfs_lease$GFAPI_4.0.0
 _pub_glfs_h_lease _glfs_h_lease$GFAPI_4.0.0
+_pub_glfs_upcall_lease_get_object _glfs_upcall_lease_get_object$GFAPI_4.1.6
+_pub_glfs_upcall_lease_get_lease_type _glfs_upcall_lease_get_lease_type$GFAPI_4.1.6
 
 _pub_glfs_read_async _glfs_read_async$GFAPI_future
 _pub_glfs_write_async _glfs_write_async$GFAPI_future

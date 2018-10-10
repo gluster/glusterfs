@@ -230,6 +230,11 @@ GFAPI_4.0.0 {
 		glfs_h_lease;
 } GFAPI_3.13.0;
 
+GFAPI_4.1.6 {
+                glfs_upcall_lease_get_object;
+                glfs_upcall_lease_get_lease_type;
+} GFAPI_4.0.0;
+
 GFAPI_future {
 	global:
 		glfs_read_async;
@@ -250,5 +255,5 @@ GFAPI_future {
 		glfs_ftruncate_async;
 		glfs_discard_async;
 		glfs_zerofill_async;
-} GFAPI_4.0.0;
+} GFAPI_4.1.6;
 
