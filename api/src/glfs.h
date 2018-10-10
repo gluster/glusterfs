@@ -1042,6 +1042,7 @@ glfs_upcall_get_fs(glfs_upcall_t *arg) __THROW
 enum glfs_upcall_reason {
     GLFS_UPCALL_EVENT_NULL = 0,
     GLFS_UPCALL_INODE_INVALIDATE, /* invalidate cache entry */
+    GLFS_UPCALL_RECALL_LEASE,     /* recall lease */
 };
 typedef enum glfs_upcall_reason glfs_upcall_reason_t;
 
@@ -1061,6 +1062,7 @@ glfs_upcall_get_reason(glfs_upcall_t *arg) __THROW
  *      ==========================================================
  *      GLFS_UPCALL_EVENT_NULL       -    NULL
  *      GLFS_UPCALL_INODE_INVALIDATE -    struct glfs_upcall_inode
+ *      GLFS_UPCALL_RECALL_LEASE     -    struct glfs_upcall_lease
  *
  * After processing upcall event, glfs_free() should be called on the
  * glfs_upcall.
@@ -1094,6 +1096,7 @@ typedef void (*glfs_upcall_cbk)(glfs_upcall_t *up_arg, void *data);
  * List of upcall events supported by gluster/gfapi
  */
 #define GLFS_EVENT_INODE_INVALIDATE 0x00000001 /* invalidate cache entry */
+#define GLFS_EVENT_RECALL_LEASE 0x00000002     /* Recall lease */
 #define GLFS_EVENT_ANY 0xffffffff              /* for all the above events */
 
 /*
@@ -1118,7 +1121,8 @@ typedef void (*glfs_upcall_cbk)(glfs_upcall_t *up_arg, void *data);
  *
  * @event_list: List of upcall events to be registered.
  *              Current available values are:
- *               - GFAPI_UPCALL_INODE_INVALIDATE
+ *               - GLFS_EVENT_INODE_INVALIDATE
+ *               - GLFS_EVENT_RECALL_LEASE
  *
  * @cbk: The cbk routine to be invoked in case of any upcall received
  * @data: Any opaque pointer provided by caller which shall be using while
@@ -1152,7 +1156,8 @@ glfs_upcall_register(glfs_t *fs, uint32_t event_list, glfs_upcall_cbk cbk,
  *
  * @event_list: List of upcall events to be unregistered.
  *              Current available values are:
- *               - GFAPI_UPCALL_INODE_INVALIDATE
+ *               - GLFS_EVENT_INODE_INVALIDATE
+ *               - GLFS_EVENT_RECALL_LEASE
  * RETURN VALUE:
  * >0: SUCCESS (value contains the events successfully unregistered)
  * -1: FAILURE
@@ -1163,6 +1168,7 @@ glfs_upcall_unregister(glfs_t *fs, uint32_t event_list) __THROW
 
 /* Lease Types */
 enum glfs_lease_types {
+    GLFS_LEASE_NONE = 0,
     GLFS_RD_LEASE = 1,
     GLFS_RW_LEASE = 2,
 };
