@@ -731,7 +731,7 @@ restore_time:
     afr_selfheal_restore_time(frame, this, fd->inode, source, healed_sinks,
                               locked_replies);
 
-    if (!is_arbiter_the_only_sink || !empty_file) {
+    if (!is_arbiter_the_only_sink && !empty_file) {
         ret = afr_selfheal_inodelk(frame, this, fd->inode, this->name, 0, 0,
                                    data_lock);
         if (ret < priv->child_count) {
