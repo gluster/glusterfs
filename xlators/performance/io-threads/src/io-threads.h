@@ -63,7 +63,8 @@ struct iot_conf {
     int32_t ac_iot_limit[GF_FOP_PRI_MAX];
     int32_t ac_iot_count[GF_FOP_PRI_MAX];
     int queue_sizes[GF_FOP_PRI_MAX];
-    gf_atomic_t queue_size;
+    int32_t queue_size;
+    gf_atomic_t stub_cnt;
     pthread_attr_t w_attr;
     gf_boolean_t least_priority; /*Enable/Disable least-priority */
 
