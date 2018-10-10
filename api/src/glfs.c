@@ -576,14 +576,17 @@ pub_glfs_setfsleaseid (glfs_leaseid_t leaseid)
         int           ret     = -1;
         char         *gleaseid = NULL;
 
-        GF_VALIDATE_OR_GOTO (THIS->name, leaseid, out);
-
         gleaseid = gf_leaseid_get();
         if (gleaseid) {
-                memcpy (gleaseid, leaseid, LEASE_ID_SIZE);
+                if (leaseid)
+                        memcpy(gleaseid, leaseid, LEASE_ID_SIZE);
+                else /* reset leaseid */
+                        memset(gleaseid, 0, LEASE_ID_SIZE);
                 ret = 0;
         }
-out:
+        if (ret)
+                gf_log("glfs", GF_LOG_ERROR, "failed to set leaseid: %s",
+                       strerror(errno));
         return ret;
 }
 
@@ -1566,22 +1569,20 @@ pub_glfs_upcall_inode_get_oldpstat (struct glfs_upcall_inode *arg)
 }
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_oldpstat, 3.7.16);
 
-
-/*struct glfs_object*
-pub_glfs_upcall_lease_get_object (struct glfs_upcall_recall_inode *arg)
+struct glfs_object *
+pub_glfs_upcall_lease_get_object(struct glfs_upcall_lease *arg)
 {
         return arg->object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_object, 4.0.0);
-*/
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_object, 4.1.6);
 
 uint32_t
 pub_glfs_upcall_lease_get_lease_type (struct glfs_upcall_lease *arg)
 {
         return arg->lease_type;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_lease_type, 4.0.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_lease_type, 4.1.6);
 
 /* definitions of the GLFS_SYSRQ_* chars are in glfs.h */
 static struct glfs_sysrq_help {
@@ -1647,7 +1648,8 @@ pub_glfs_upcall_register (struct glfs *fs, uint32_t event_list,
         int ret = 0;
 
         /* list of supported upcall events */
-        uint32_t up_events = GLFS_EVENT_INODE_INVALIDATE;
+        uint32_t up_events = (GLFS_EVENT_INODE_INVALIDATE |
+                              GLFS_EVENT_RECALL_LEASE);
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
@@ -1666,18 +1668,20 @@ pub_glfs_upcall_register (struct glfs *fs, uint32_t event_list,
                 goto out;
         }
 
-        /* incase other thread does unregister */
-        pthread_mutex_lock (&fs->mutex);
+        /* in case other thread does unregister */
+        pthread_mutex_lock(&fs->mutex);
         {
                 if (event_list & GLFS_EVENT_INODE_INVALIDATE) {
                         /* @todo: Check if features.cache-invalidation is
                          * enabled.
                          */
-                        fs->upcall_events |=  GF_UPCALL_CACHE_INVALIDATION;
-                        ret |= GF_UPCALL_CACHE_INVALIDATION;
-                } else if (event_list & GLFS_EVENT_INODE_INVALIDATE) {
-                        fs->upcall_events |=  GF_UPCALL_RECALL_LEASE;
-                        ret |= GF_UPCALL_RECALL_LEASE;
+                        fs->upcall_events |= GF_UPCALL_CACHE_INVALIDATION;
+                        ret |= GLFS_EVENT_INODE_INVALIDATE;
+                }
+                if (event_list & GLFS_EVENT_RECALL_LEASE) {
+                        /* @todo: Check if features.leases is enabled */
+                        fs->upcall_events |= GF_UPCALL_RECALL_LEASE;
+                        ret |= GLFS_EVENT_RECALL_LEASE;
                 }
                 /* Override cbk function if existing */
                 fs->up_cbk = cbk;
@@ -1700,7 +1704,8 @@ pub_glfs_upcall_unregister (struct glfs *fs, uint32_t event_list)
 {
         int ret = 0;
         /* list of supported upcall events */
-        uint32_t up_events = GLFS_EVENT_INODE_INVALIDATE;
+        uint32_t up_events = (GLFS_EVENT_INODE_INVALIDATE |
+                              GLFS_EVENT_RECALL_LEASE);
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
@@ -1719,10 +1724,12 @@ pub_glfs_upcall_unregister (struct glfs *fs, uint32_t event_list)
 
         pthread_mutex_lock (&fs->mutex);
         {
-                if (event_list & GLFS_EVENT_INODE_INVALIDATE) {
-                        fs->upcall_events &=  ~GF_UPCALL_CACHE_INVALIDATION;
-                        ret |= GF_UPCALL_CACHE_INVALIDATION;
-                }
+                /* We already checked if event_list contains list of supported
+                 * upcall events. No other specific checks needed as of now for
+                 * unregister */
+                fs->upcall_events &= ~(event_list);
+                ret |= ((event_list == GLFS_EVENT_ANY) ?
+                         up_events : event_list);
 
                 /* If there are no upcall events registered, reset cbk */
                 if (fs->upcall_events == 0) {

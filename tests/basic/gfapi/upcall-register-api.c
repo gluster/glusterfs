@@ -233,7 +233,7 @@ main (int argc, char *argv[])
 
         /* Check if the return mask contains the event */
         if ((ret < 0) || !(ret & GLFS_EVENT_INODE_INVALIDATE)) {
-                fprintf (stderr, "glfs_upcall_register return doesnt contain"
+                fprintf (stderr, "glfs_upcall_unregister return doesnt contain"
                          " upcall event\n");
                 return -1;
         }
@@ -242,7 +242,7 @@ main (int argc, char *argv[])
 
         /* Check if the return mask contains the event */
         if ((ret < 0) || !(ret & GLFS_EVENT_INODE_INVALIDATE)) {
-                fprintf (stderr, "glfs_upcall_register return doesnt contain"
+                fprintf (stderr, "glfs_upcall_unregister return doesnt contain"
                          " upcall event\n");
                 return -1;
         }
