@@ -491,14 +491,14 @@ dht_order_rename_lock(call_frame_t *frame, loc_t **loc, xlator_t **subvol)
     if (ret == 0) {
         /* hashed subvols are the same for src and dst */
         /* Entrylks need to be ordered*/
-        if (local->loc.pargfid)
+        if (!gf_uuid_is_null(local->loc.pargfid))
             uuid_utoa_r(local->loc.pargfid, src);
         else if (local->loc.parent)
             uuid_utoa_r(local->loc.parent->gfid, src);
 
         strcat(src, local->loc.name);
 
-        if (local->loc2.pargfid)
+        if (!gf_uuid_is_null(local->loc2.pargfid))
             uuid_utoa_r(local->loc2.pargfid, dst);
         else if (local->loc2.parent)
             uuid_utoa_r(local->loc2.parent->gfid, dst);
