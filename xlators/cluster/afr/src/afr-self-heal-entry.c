@@ -487,7 +487,7 @@ __afr_selfheal_entry_prepare(call_frame_t *frame, xlator_t *this,
                              unsigned char *sources, unsigned char *sinks,
                              unsigned char *healed_sinks,
                              struct afr_reply *replies, int *source_p,
-                             gf_boolean_t *pflag)
+                             unsigned char *pflag)
 {
     int ret = -1;
     int source = -1;
