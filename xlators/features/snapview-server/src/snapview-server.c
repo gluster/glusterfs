@@ -982,6 +982,7 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 goto out;
             }
             GF_FREE(value);
+            value = NULL;
         }
     }
 
