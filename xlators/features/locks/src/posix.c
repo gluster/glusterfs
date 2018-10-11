@@ -755,8 +755,8 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_boolean_t can_block = _gf_true;
     int allowed = 1;
 
-    GF_VALIDATE_OR_GOTO("locks", this, unwind);
     local = frame->local;
+    GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
     if (op_ret != 0) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -854,6 +854,7 @@ unwind:
                "truncate failed with "
                "ret: %d, error: %s",
                op_ret, strerror(op_errno));
+
         if (local->op == GF_FOP_TRUNCATE)
             loc_wipe(&local->loc[0]);
         if (local->xdata)
@@ -2488,6 +2489,8 @@ pl_forget(xlator_t *this, inode_t *inode)
     INIT_LIST_HEAD(&entrylks_released);
 
     pl_inode = pl_inode_get(this, inode);
+    if (!pl_inode)
+        return 0;
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
