@@ -100,6 +100,17 @@ rpc_clnt_prog_t cli_pmap_prog = {
     .progver = GLUSTER_PMAP_VERSION,
 };
 
+static void
+gf_free_xdr_cli_rsp(gf_cli_rsp rsp)
+{
+    if (rsp.dict.dict_val) {
+        free(rsp.dict.dict_val);
+    }
+    if (rsp.op_errstr) {
+        free(rsp.op_errstr);
+    }
+}
+
 int
 gf_cli_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
                  void *myframe)
@@ -152,6 +163,7 @@ gf_cli_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -210,6 +222,7 @@ gf_cli_deprobe_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -551,13 +564,11 @@ gf_cli_get_state_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = rsp.op_ret;
 
 out:
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
-
     if (dict)
         dict_unref(dict);
 
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
 
     return ret;
 }
@@ -1075,9 +1086,7 @@ out:
     if (dict)
         dict_unref(dict);
 
-    free(rsp.dict.dict_val);
-
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
 
     gf_log("cli", GF_LOG_DEBUG, "Returning: %d", ret);
     return ret;
@@ -1153,8 +1162,7 @@ gf_cli_create_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -1227,8 +1235,7 @@ gf_cli_delete_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-
+    gf_free_xdr_cli_rsp(rsp);
     gf_log("", GF_LOG_DEBUG, "Returning with %d", ret);
     return ret;
 }
@@ -1312,8 +1319,7 @@ gf_cli3_1_uuid_get_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     cli_local_wipe(local);
-    if (rsp.dict.dict_val)
-        free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
 
     gf_log("", GF_LOG_DEBUG, "Returning with %d", ret);
     return ret;
@@ -1371,8 +1377,7 @@ gf_cli3_1_uuid_reset_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     cli_local_wipe(local);
-    if (rsp.dict.dict_val)
-        free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
 
     gf_log("", GF_LOG_DEBUG, "Returning with %d", ret);
     return ret;
@@ -1447,8 +1452,7 @@ gf_cli_start_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -1522,8 +1526,7 @@ gf_cli_stop_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.op_errstr);
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
 
     return ret;
 }
@@ -2063,8 +2066,7 @@ done:
     ret = rsp.op_ret;
 
 out:
-    free(rsp.op_errstr);      // malloced by xdr
-    free(rsp.dict.dict_val);  // malloced by xdr
+    gf_free_xdr_cli_rsp(rsp);
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
@@ -2117,6 +2119,7 @@ gf_cli_rename_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2170,6 +2173,7 @@ gf_cli_reset_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2314,6 +2318,7 @@ out:
         dict_unref(dict);
     GF_FREE(debug_xlator);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2366,8 +2371,7 @@ gf_cli_add_tier_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2420,8 +2424,7 @@ gf_cli_attach_tier_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2580,9 +2583,7 @@ gf_cli_remove_tier_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
-
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2713,10 +2714,10 @@ xml_output:
     }
 
 out:
-    free(rsp.dict.dict_val); /* malloced by xdr */
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2769,8 +2770,7 @@ gf_cli_add_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -2903,10 +2903,10 @@ xml_output:
     }
 
 out:
-    free(rsp.dict.dict_val);  // malloced by xdr
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -3025,8 +3025,7 @@ gf_cli_remove_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
 
     return ret;
 }
@@ -3168,7 +3167,7 @@ out:
         GF_FREE(rb_operation_str);
 
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
     if (rsp_dict)
         dict_unref(rsp_dict);
 
@@ -3276,7 +3275,7 @@ out:
         GF_FREE(rb_operation_str);
 
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
     if (rsp_dict)
         dict_unref(rsp_dict);
 
@@ -3332,7 +3331,7 @@ gf_cli_log_rotate_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
 
     return ret;
 }
@@ -3386,6 +3385,7 @@ gf_cli_sync_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -4037,8 +4037,7 @@ out:
     } else {
         cli_cmd_broadcast_response(ret);
     }
-
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -4240,7 +4239,7 @@ out:
     if (dict)
         dict_unref(dict);
 
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
 
     return ret;
 }
@@ -6047,9 +6046,7 @@ out:
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
-
-    free(rsp.dict.dict_val);
-
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -6100,9 +6097,7 @@ out:
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
-
-    free(rsp.dict.dict_val);
-
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -6242,9 +6237,7 @@ out:
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
-
-    free(rsp.dict.dict_val);
-
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -6585,8 +6578,6 @@ gf_cli_profile_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (ret) {
         gf_log("", GF_LOG_ERROR, "Unable to allocate memory");
         goto out;
-    } else {
-        dict->extra_stdfree = rsp.dict.dict_val;
     }
 
     if (global_state->mode & GLUSTER_MODE_XML) {
@@ -6692,8 +6683,8 @@ gf_cli_profile_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (dict)
         dict_unref(dict);
-    free(rsp.op_errstr);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -6948,7 +6939,7 @@ out:
     if (dict)
         dict_unref(dict);
 
-    free(rsp.dict.dict_val);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -8450,7 +8441,6 @@ cont:
     ret = rsp.op_ret;
 
 out:
-    FREE(rsp.dict.dict_val);
     if (dict)
         dict_unref(dict);
     GF_FREE(status.brick);
@@ -8459,6 +8449,7 @@ out:
     }
 
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -9100,9 +9091,8 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (ret) {
         gf_log("", GF_LOG_ERROR, "Unable to allocate memory");
         goto out;
-    } else {
-        dict->extra_stdfree = rsp.dict.dict_val;
     }
+
     ret = dict_get_int32(dict, "count", &brick_count);
     if (ret)
         goto out;
@@ -9138,7 +9128,7 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
-    free(rsp.op_errstr);
+    gf_free_xdr_cli_rsp(rsp);
     if (dict)
         dict_unref(dict);
     return ret;
@@ -9217,6 +9207,7 @@ gf_cli_statedump_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -9318,6 +9309,7 @@ gf_cli_list_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -9417,6 +9409,7 @@ out:
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -11417,9 +11410,8 @@ gf_cli_barrier_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = rsp.op_ret;
 
 out:
-    free(rsp.op_errstr);
-    free(rsp.dict.dict_val);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -11585,9 +11577,8 @@ out:
 out_nolog:
     if (dict)
         dict_unref(dict);
-    free(rsp.op_errstr);
-    free(rsp.dict.dict_val);
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -12061,11 +12052,8 @@ out:
     if (dict)
         dict_unref(dict);
 
-    free(rsp.dict.dict_val);
-    free(rsp.op_errstr);
-
+    gf_free_xdr_cli_rsp(rsp);
     cli_cmd_broadcast_response(ret);
-
     return ret;
 }
 
