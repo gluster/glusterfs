@@ -2294,8 +2294,6 @@ _gf_log_eh(const char *function, const char *fmt, ...)
     }
 
     ret = eh_save_history(this->history, logline);
-    if (ret < 0)
-        GF_FREE(logline);
 
 out:
     GF_FREE(logline);
