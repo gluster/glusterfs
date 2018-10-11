@@ -16,6 +16,7 @@
 #include <sys/statvfs.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 
 /* GF follows the Linux XATTR definition, which differs in Darwin. */
 #define GF_XATTR_CREATE 0x1  /* set value, fail if attr already exists */
@@ -223,5 +224,8 @@ sys_pwrite(int fd, const void *buf, size_t count, off_t offset);
 
 int
 sys_socket(int domain, int type, int protocol);
+
+int
+sys_accept(int sock, struct sockaddr *sockaddr, socklen_t *socklen, int flags);
 
 #endif /* __SYSCALL_H__ */

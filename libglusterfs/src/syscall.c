@@ -741,3 +741,63 @@ sys_socket(int domain, int type, int protocol)
         fcntl(fd, F_SETFD, FD_CLOEXEC);
     return fd;
 }
+
+#if (defined(HAVE_ACCEPT4) || defined(HAVE_PACCEPT))
+static inline int
+prep_accept_flags(int flags)
+{
+    if (flags & O_NONBLOCK) {
+        flags &= ~O_NONBLOCK;
+        flags |= SOCK_NONBLOCK;
+    }
+
+    flags |= SOCK_CLOEXEC;
+
+    return flags;
+}
+#endif
+
+int
+sys_accept(int sock, struct sockaddr *sockaddr, socklen_t *socklen, int flags)
+{
+    int newsock = -1;
+
+#ifdef HAVE_ACCEPT4
+
+    flags = prep_accept_flags(flags);
+    newsock = accept4(sock, sockaddr, socklen, flags);
+
+#elif HAVE_PACCEPT
+    flags = prep_accept_flags(flags);
+    newsock = paccept(sock, sockaddr, socklen, NULL, flags);
+
+#else
+    int op_errno = 0;
+    int curflag = 0;
+    int ret = 0;
+
+    newsock = accept(sock, sockaddr, socklen);
+    if (newsock != -1) {
+        curflag = fcntl(newsock, F_GETFL);
+        if (fcntl(newsock, F_SETFL, curflag | flags) == -1) {
+            op_errno = errno;
+            goto err;
+        }
+
+        curflag = fcntl(newsock, F_GETFD);
+        if (fcntl(newsock, F_SETFD, curflag | FD_CLOEXEC) == -1) {
+            op_errno = errno;
+            goto err;
+        }
+    }
+
+err:
+    if (op_errno) {
+        close(newsock);
+        errno = op_errno;
+        return -1;
+    }
+
+#endif
+    return newsock;
+}
