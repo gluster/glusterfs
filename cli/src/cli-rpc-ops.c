@@ -111,6 +111,28 @@ gf_free_xdr_cli_rsp(gf_cli_rsp rsp)
     }
 }
 
+static void
+gf_free_xdr_getspec_rsp(gf_getspec_rsp rsp)
+{
+    if (rsp.spec) {
+        free(rsp.spec);
+    }
+    if (rsp.xdata.xdata_val) {
+        free(rsp.xdata.xdata_val);
+    }
+}
+
+static void
+gf_free_xdr_fsm_log_rsp(gf1_cli_fsm_log_rsp rsp)
+{
+    if (rsp.op_errstr) {
+        free(rsp.op_errstr);
+    }
+    if (rsp.fsm_log.fsm_log_val) {
+        free(rsp.fsm_log.fsm_log_val);
+    }
+}
+
 int
 gf_cli_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
                  void *myframe)
@@ -503,6 +525,9 @@ out:
     if (dict)
         dict_unref(dict);
 
+    if (rsp.friends.friends_val) {
+        free(rsp.friends.friends_val);
+    }
     return ret;
 }
 
@@ -4291,6 +4316,7 @@ gf_cli_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    gf_free_xdr_getspec_rsp(rsp);
     return ret;
 }
 
@@ -5532,6 +5558,11 @@ gf_cli_fsm_log_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    if (dict) {
+        dict_unref(dict);
+    }
+    gf_free_xdr_fsm_log_rsp(rsp);
+
     return ret;
 }
 
@@ -7006,6 +7037,10 @@ gf_cli_getwd_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    if (rsp.wd) {
+        free(rsp.wd);
+    }
+
     return ret;
 }
 
@@ -8622,6 +8657,9 @@ gf_cli_mount_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     cli_cmd_broadcast_response(ret);
+    if (rsp.path) {
+        free(rsp.path);
+    }
     return ret;
 }
 
