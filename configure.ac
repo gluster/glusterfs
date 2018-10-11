@@ -1140,6 +1140,16 @@ if test "x${ac_cv_have_decl_SEEK_HOLE}" = "xyes"; then
 fi
 CFLAGS=${OLD_CFLAGS}
 
+AC_CHECK_FUNC([accept4], [have_accept4=yes])
+if test "x${have_accept4}" = "xyes"; then
+   AC_DEFINE(HAVE_ACCEPT4, 1, [define if accept4 exists])
+fi
+
+AC_CHECK_FUNC([paccept], [have_paccept=yes])
+if test "x${have_paccept}" = "xyes"; then
+AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
+fi
+
 # Check the distribution where you are compiling glusterfs on
 
 GF_DISTRIBUTION=

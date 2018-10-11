@@ -1052,6 +1052,7 @@ sys_utimensat
 sys_write
 sys_writev
 sys_socket
+sys_accept
 tbf_init
 tbf_throttle
 timespec_now

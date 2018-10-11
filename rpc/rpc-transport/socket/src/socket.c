@@ -2992,7 +2992,12 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     priv->idx = idx;
 
     if (poll_in) {
-        new_sock = accept(priv->sock, SA(&new_sockaddr), &addrlen);
+        int aflags = 0;
+
+        if (!priv->bio)
+            aflags = O_NONBLOCK;
+
+        new_sock = sys_accept(priv->sock, SA(&new_sockaddr), &addrlen, aflags);
 
         if (ctx)
             event_handled(ctx->event_pool, fd, idx, gen);
@@ -3101,21 +3106,6 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_priv->connected = 1;
         new_priv->is_server = _gf_true;
 
-        /* set O_NONBLOCK for plain text as well as ssl connections */
-        if (!priv->bio) {
-            gf_log(this->name, GF_LOG_TRACE, "### use non-blocking IO");
-            ret = __socket_nonblock(new_sock);
-
-            if (ret == -1) {
-                gf_log(this->name, GF_LOG_WARNING, "NBIO on %d failed (%s)",
-                       new_sock, strerror(errno));
-
-                sys_close(new_sock);
-                GF_FREE(new_trans->name);
-                GF_FREE(new_trans);
-                goto out;
-            }
-        }
         /*
          * This is the first ref on the newly accepted
          * transport.
