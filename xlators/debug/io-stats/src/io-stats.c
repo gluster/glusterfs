@@ -275,6 +275,9 @@ is_fop_latency_started(call_frame_t *frame)
         struct timespec *begin, *end;                                          \
         double throughput;                                                     \
         int flag = 0;                                                          \
+        struct timeval tv = {                                                  \
+            0,                                                                 \
+        };                                                                     \
                                                                                \
         begin = &frame->begin;                                                 \
         end = &frame->end;                                                     \
@@ -285,11 +288,13 @@ is_fop_latency_started(call_frame_t *frame)
         throughput = op_ret / elapsed;                                         \
                                                                                \
         conf = this->private;                                                  \
+        gettimeofday(&tv, NULL);                                               \
         LOCK(&iosstat->lock);                                                  \
         {                                                                      \
             if (iosstat->thru_counters[type].throughput <= throughput) {       \
                 iosstat->thru_counters[type].throughput = throughput;          \
-                gettimeofday(&iosstat->thru_counters[type].time, NULL);        \
+                memcpy(&iosstat->thru_counters[type].time, &tv,                \
+                       sizeof(struct timeval));                                \
                 flag = 1;                                                      \
             }                                                                  \
         }                                                                      \

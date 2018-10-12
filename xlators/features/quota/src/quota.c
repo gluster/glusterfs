@@ -591,6 +591,9 @@ quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_meta_t size = {
         0,
     };
+    struct timeval tv = {
+        0,
+    };
 
     local = frame->local;
 
@@ -628,12 +631,13 @@ quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                 * loop of validation and checking
                                 * limit when timeout is zero.
                                 */
+    gettimeofday(&tv, NULL);
     LOCK(&ctx->lock);
     {
         ctx->size = size.size;
         ctx->file_count = size.file_count;
         ctx->dir_count = size.dir_count;
-        gettimeofday(&ctx->tv, NULL);
+        memcpy(&ctx->tv, &tv, sizeof(struct timeval));
     }
     UNLOCK(&ctx->lock);
 
@@ -4306,6 +4310,9 @@ quota_statfs_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_meta_t size = {
         0,
     };
+    struct timeval tv = {
+        0,
+    };
 
     local = frame->local;
 
@@ -4337,12 +4344,13 @@ quota_statfs_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         op_errno = EINVAL;
     }
 
+    gettimeofday(&tv, NULL);
     LOCK(&ctx->lock);
     {
         ctx->size = size.size;
         ctx->file_count = size.file_count;
         ctx->dir_count = size.dir_count;
-        gettimeofday(&ctx->tv, NULL);
+        memcpy(&ctx->tv, &tv, sizeof(struct timeval));
     }
     UNLOCK(&ctx->lock);
 

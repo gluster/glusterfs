@@ -115,7 +115,6 @@ __stale_entrylk(xlator_t *this, pl_entry_lock_t *candidate_lock,
 {
     posix_locks_private_t *priv = NULL;
     struct timeval curr;
-    gettimeofday(&curr, NULL);
 
     priv = this->private;
 
@@ -123,6 +122,7 @@ __stale_entrylk(xlator_t *this, pl_entry_lock_t *candidate_lock,
      * chance?  Or just the locks we are attempting to acquire?
      */
     if (names_conflict(candidate_lock->basename, requested_lock->basename)) {
+        gettimeofday(&curr, NULL);
         *lock_age_sec = curr.tv_sec - candidate_lock->granted_time.tv_sec;
         if (*lock_age_sec > priv->revocation_secs)
             return _gf_true;
@@ -541,10 +541,10 @@ __lock_blocked_add(xlator_t *this, pl_inode_t *pinode, pl_dom_list_t *dom,
 {
     struct timeval now;
 
-    gettimeofday(&now, NULL);
-
     if (nonblock)
         goto out;
+
+    gettimeofday(&now, NULL);
 
     lock->blkd_time = now;
     list_add_tail(&lock->blocked_locks, &dom->blocked_entrylks);
