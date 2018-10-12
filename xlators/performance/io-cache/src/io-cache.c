@@ -360,6 +360,9 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     ioc_inode_t *ioc_inode = NULL;
     size_t destroy_size = 0;
     struct iatt *local_stbuf = NULL;
+    struct timeval tv = {
+        0,
+    };
 
     local = frame->local;
     ioc_inode = local->inode;
@@ -397,9 +400,10 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret < 0)
         local_stbuf = NULL;
 
+    gettimeofday(&tv, NULL);
     ioc_inode_lock(ioc_inode);
     {
-        gettimeofday(&ioc_inode->cache.tv, NULL);
+        memcpy(&ioc_inode->cache.tv, &tv, sizeof(struct timeval));
     }
     ioc_inode_unlock(ioc_inode);
 
@@ -1338,6 +1342,9 @@ ioc_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 {
     ioc_inode_t *ioc_inode = NULL;
     uint64_t tmp_inode = 0;
+    struct timeval tv = {
+        0,
+    };
 
     inode_ctx_get(fd->inode, this, &tmp_inode);
     ioc_inode = (ioc_inode_t *)(long)tmp_inode;
@@ -1348,9 +1355,10 @@ ioc_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         return 0;
     }
 
+    gettimeofday(&tv, NULL);
     ioc_inode_lock(ioc_inode);
     {
-        gettimeofday(&ioc_inode->cache.tv, NULL);
+        memcpy(&ioc_inode->cache.tv, &tv, sizeof(struct timeval));
     }
     ioc_inode_unlock(ioc_inode);
 

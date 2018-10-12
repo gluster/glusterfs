@@ -145,11 +145,11 @@ __stale_inodelk(xlator_t *this, pl_inode_lock_t *candidate_lock,
     struct timeval curr;
 
     priv = this->private;
-    gettimeofday(&curr, NULL);
     /* Question: Should we just prune them all given the
      * chance?  Or just the locks we are attempting to acquire?
      */
     if (inodelk_conflict(candidate_lock, requested_lock)) {
+        gettimeofday(&curr, NULL);
         *lock_age_sec = curr.tv_sec - candidate_lock->granted_time.tv_sec;
         if (*lock_age_sec > priv->revocation_secs)
             return _gf_true;
@@ -403,11 +403,11 @@ __lock_blocked_add(xlator_t *this, pl_dom_list_t *dom, pl_inode_lock_t *lock,
 {
     struct timeval now;
 
-    gettimeofday(&now, NULL);
-
     if (can_block == 0) {
         goto out;
     }
+
+    gettimeofday(&now, NULL);
 
     lock->blkd_time = now;
     list_add_tail(&lock->blocked_locks, &dom->blocked_inodelks);

@@ -421,6 +421,9 @@ qr_content_update(xlator_t *this, qr_inode_t *qr_inode, void *data,
     qr_private_t *priv = NULL;
     qr_inode_table_t *table = NULL;
     uint32_t rollover = 0;
+    struct timeval tv = {
+        0,
+    };
 
     rollover = gen >> 32;
     gen = gen & 0xffffffff;
@@ -428,6 +431,7 @@ qr_content_update(xlator_t *this, qr_inode_t *qr_inode, void *data,
     priv = this->private;
     table = &priv->table;
 
+    gettimeofday(&tv, NULL);
     LOCK(&table->lock);
     {
         if ((rollover != qr_inode->gen_rollover) ||
@@ -450,7 +454,7 @@ qr_content_update(xlator_t *this, qr_inode_t *qr_inode, void *data,
 
         qr_inode->buf = *buf;
 
-        gettimeofday(&qr_inode->last_refresh, NULL);
+        memcpy(&qr_inode->last_refresh, &tv, sizeof(struct timeval));
 
         __qr_inode_register(this, table, qr_inode);
     }
