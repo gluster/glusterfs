@@ -331,6 +331,7 @@ syncop_create_frame(xlator_t *this)
     if (!frame)
         return NULL;
 
+    frame->root->type = GF_OP_TYPE_FOP;
     opctx = syncopctx_getctx();
 
     if (opctx && (opctx->valid & SYNCOPCTX_PID))
