@@ -78,6 +78,77 @@ ioc_get_inode (dict_t *dict, char *name)
 }
 */
 
+int
+ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
+                 struct iovec *vector, int32_t count, int op_ret, off_t offset)
+{
+    size_t size = 0;
+    off_t rounded_offset = 0, rounded_end = 0, trav_offset = 0,
+          write_offset = 0;
+    off_t page_offset = 0, page_end = 0;
+    ioc_page_t *trav = NULL;
+    struct iovec pagevector =
+                     {
+                         0,
+                     },
+                 writevector = {
+                     0,
+                 };
+    int pvcount = 0, wvcount;
+
+    size = iov_length(vector, count);
+    size = min(size, op_ret);
+
+    rounded_offset = gf_floor(offset, ioc_inode->table->page_size);
+    rounded_end = gf_roof(offset + size, ioc_inode->table->page_size);
+
+    trav_offset = rounded_offset;
+    ioc_inode_lock(ioc_inode);
+    {
+        while (trav_offset < rounded_end) {
+            trav = __ioc_page_get(ioc_inode, trav_offset);
+            if (trav && trav->ready) {
+                if (trav_offset == rounded_offset)
+                    page_offset = offset - rounded_offset;
+                else
+                    page_offset = 0;
+
+                if ((trav_offset + ioc_inode->table->page_size) >=
+                    rounded_end) {
+                    page_end = trav->size - (rounded_end - (offset + size));
+                } else {
+                    page_end = trav->size;
+                }
+
+                wvcount = iov_subset(vector, count, write_offset,
+                                     write_offset + (page_end - page_offset),
+                                     &writevector);
+                if (wvcount) {
+                    pvcount = iov_subset(trav->vector, trav->count, page_offset,
+                                         page_end, &pagevector);
+                    if (pvcount) {
+                        iov_copy(&pagevector, pvcount, &writevector, wvcount);
+                    }
+                }
+            } else if (trav) {
+                if (!trav->waitq)
+                    ioc_inode->table->cache_used -= __ioc_page_destroy(trav);
+            }
+
+            if (trav_offset == rounded_offset)
+                write_offset += (ioc_inode->table->page_size -
+                                 (offset - rounded_offset));
+            else
+                write_offset += ioc_inode->table->page_size;
+
+            trav_offset += ioc_inode->table->page_size;
+        }
+    }
+    ioc_inode_unlock(ioc_inode);
+
+    return 0;
+}
+
 int32_t
 ioc_inode_need_revalidate(ioc_inode_t *ioc_inode)
 {
@@ -1188,13 +1259,22 @@ ioc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     uint64_t ioc_inode = 0;
 
     local = frame->local;
+    frame->local = NULL;
     inode_ctx_get(local->fd->inode, this, &ioc_inode);
 
-    if (ioc_inode)
-        ioc_inode_flush((ioc_inode_t *)(long)ioc_inode);
+    if (op_ret >= 0) {
+        ioc_update_pages(frame, (ioc_inode_t *)(long)ioc_inode, local->vector,
+                         local->op_ret, op_ret, local->offset);
+    }
 
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,
                         xdata);
+    if (local->iobref) {
+        iobref_unref(local->iobref);
+        GF_FREE(local->vector);
+    }
+
+    mem_put(local);
     return 0;
 }
 
@@ -1231,8 +1311,12 @@ ioc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     frame->local = local;
 
     inode_ctx_get(fd->inode, this, &ioc_inode);
-    if (ioc_inode)
-        ioc_inode_flush((ioc_inode_t *)(long)ioc_inode);
+    if (ioc_inode) {
+        local->iobref = iobref_ref(iobref);
+        local->vector = iov_dup(vector, count);
+        local->op_ret = count;
+        local->offset = offset;
+    }
 
     STACK_WIND(frame, ioc_writev_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,

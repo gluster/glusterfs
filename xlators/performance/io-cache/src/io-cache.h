@@ -91,6 +91,8 @@ struct ioc_local {
     struct ioc_waitq *waitq;
     void *stub;
     fd_t *fd;
+    struct iovec *vector;
+    struct iobref *iobref;
     int32_t need_xattr;
     dict_t *xattr_req;
 };
