@@ -588,7 +588,7 @@ struct slave_vol_config {
     char old_slvhost[_POSIX_HOST_NAME_MAX + 1];
     char old_slvuser[LOGIN_NAME_MAX];
     unsigned old_slvidx;
-    char slave_voluuid[GF_UUID_BUF_SIZE];
+    char slave_voluuid[UUID_CANONICAL_FORM_LEN + 1];
 };
 
 static int
@@ -1769,7 +1769,7 @@ glusterd_store_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
         goto out;
 
     /* Given the slave volume uuid, check and get any existing slave */
-    memcpy(slave1.slave_voluuid, slave_voluuid, GF_UUID_BUF_SIZE);
+    memcpy(slave1.slave_voluuid, slave_voluuid, UUID_CANONICAL_FORM_LEN);
     ret = dict_foreach(volinfo->gsync_slaves, _get_slave_idx_slave_voluuid,
                        &slave1);
 
