@@ -733,13 +733,14 @@ sys_socket(int domain, int type, int protocol)
 {
 #ifdef SOCK_CLOEXEC
     return socket(domain, type | SOCK_CLOEXEC, protocol);
-#endif
+#else
     int fd = -1;
 
     fd = socket(domain, type, protocol);
     if (fd >= 0)
         fcntl(fd, F_SETFD, FD_CLOEXEC);
     return fd;
+#endif
 }
 
 #if (defined(HAVE_ACCEPT4) || defined(HAVE_PACCEPT))
