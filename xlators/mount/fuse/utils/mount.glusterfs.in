@@ -762,7 +762,7 @@ EOF
     }
 
     # Simple check to avoid multiple identical mounts
-    if grep -q "[[:space:]+]${mount_point}[[:space:]+]fuse" $mounttab; then
+    if grep -q "[[:space:]+]${mount_point}[[:space:]+]fuse.glusterfs" $mounttab; then
         warn "$0: according to mtab, GlusterFS is already mounted on" \
              "$mount_point"
         exit 32;
