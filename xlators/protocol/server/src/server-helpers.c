@@ -479,8 +479,6 @@ get_frame_from_request(rpcsvc_request_t *req)
 
     GF_VALIDATE_OR_GOTO("server", req, out);
 
-    client = req->trans->xl_private;
-
     frame = server_alloc_frame(req);
     if (!frame)
         goto out;
@@ -3101,33 +3099,23 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
 
     switch (array->fop_enum) {
         case GF_FOP_STAT: {
-            gfs3_stat_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_stat_req;
+            gfs3_stat_req this_req = array[i].compound_req_u.compound_stat_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_READLINK: {
-            gfs3_readlink_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_readlink_req;
+            gfs3_readlink_req this_req =
+                array[i].compound_req_u.compound_readlink_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_MKNOD: {
-            gfs3_mknod_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_mknod_req;
+            gfs3_mknod_req this_req = array[i]
+                                          .compound_req_u.compound_mknod_req;
 
             state->resolve.type = RESOLVE_NOT;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -3135,11 +3123,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_MKDIR: {
-            gfs3_mkdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_mkdir_req;
+            gfs3_mkdir_req this_req = array[i]
+                                          .compound_req_u.compound_mkdir_req;
 
             state->resolve.type = RESOLVE_NOT;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -3147,11 +3132,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_UNLINK: {
-            gfs3_unlink_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_unlink_req;
+            gfs3_unlink_req this_req = array[i]
+                                           .compound_req_u.compound_unlink_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -3159,11 +3141,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_RMDIR: {
-            gfs3_rmdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_rmdir_req;
+            gfs3_rmdir_req this_req = array[i]
+                                          .compound_req_u.compound_rmdir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -3171,11 +3150,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_SYMLINK: {
-            gfs3_symlink_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_symlink_req;
+            gfs3_symlink_req this_req =
+                array[i].compound_req_u.compound_symlink_req;
 
             state->resolve.type = RESOLVE_NOT;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -3183,11 +3159,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_RENAME: {
-            gfs3_rename_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_rename_req;
+            gfs3_rename_req this_req = array[i]
+                                           .compound_req_u.compound_rename_req;
 
             state->resolve.type = RESOLVE_MUST;
             state->resolve.bname = gf_strdup(this_req.oldbname);
@@ -3199,11 +3172,7 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_LINK: {
-            gfs3_link_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_link_req;
+            gfs3_link_req this_req = array[i].compound_req_u.compound_link_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.oldgfid, 16);
@@ -3214,66 +3183,46 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_TRUNCATE: {
-            gfs3_truncate_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_truncate_req;
+            gfs3_truncate_req this_req =
+                array[i].compound_req_u.compound_truncate_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_OPEN: {
-            gfs3_open_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_open_req;
+            gfs3_open_req this_req = array[i].compound_req_u.compound_open_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_READ: {
-            gfs3_read_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_read_req;
+            gfs3_read_req this_req = array[i].compound_req_u.compound_read_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_WRITE: {
-            gfs3_write_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_write_req;
+            gfs3_write_req this_req = array[i]
+                                          .compound_req_u.compound_write_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_STATFS: {
-            gfs3_statfs_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_statfs_req;
+            gfs3_statfs_req this_req = array[i]
+                                           .compound_req_u.compound_statfs_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FLUSH: {
-            gfs3_flush_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_flush_req;
+            gfs3_flush_req this_req = array[i]
+                                          .compound_req_u.compound_flush_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3281,11 +3230,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FSYNC: {
-            gfs3_fsync_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fsync_req;
+            gfs3_fsync_req this_req = array[i]
+                                          .compound_req_u.compound_fsync_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3293,55 +3239,40 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_SETXATTR: {
-            gfs3_setxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_setxattr_req;
+            gfs3_setxattr_req this_req =
+                array[i].compound_req_u.compound_setxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_GETXATTR: {
-            gfs3_getxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_getxattr_req;
+            gfs3_getxattr_req this_req =
+                array[i].compound_req_u.compound_getxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_REMOVEXATTR: {
-            gfs3_removexattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_removexattr_req;
+            gfs3_removexattr_req this_req =
+                array[i].compound_req_u.compound_removexattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_OPENDIR: {
-            gfs3_opendir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_opendir_req;
+            gfs3_opendir_req this_req =
+                array[i].compound_req_u.compound_opendir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FSYNCDIR: {
-            gfs3_fsyncdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fsyncdir_req;
+            gfs3_fsyncdir_req this_req =
+                array[i].compound_req_u.compound_fsyncdir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3349,22 +3280,16 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_ACCESS: {
-            gfs3_access_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_access_req;
+            gfs3_access_req this_req = array[i]
+                                           .compound_req_u.compound_access_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_CREATE: {
-            gfs3_create_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_create_req;
+            gfs3_create_req this_req = array[i]
+                                           .compound_req_u.compound_create_req;
 
             state->flags = gf_flags_to_flags(this_req.flags);
             if (state->flags & O_EXCL) {
@@ -3378,11 +3303,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FTRUNCATE: {
-            gfs3_ftruncate_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_ftruncate_req;
+            gfs3_ftruncate_req this_req =
+                array[i].compound_req_u.compound_ftruncate_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3390,11 +3312,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FSTAT: {
-            gfs3_fstat_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fstat_req;
+            gfs3_fstat_req this_req = array[i]
+                                          .compound_req_u.compound_fstat_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3402,22 +3321,15 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_LK: {
-            gfs3_lk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_lk_req;
+            gfs3_lk_req this_req = array[i].compound_req_u.compound_lk_req;
 
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             state->resolve.fd_no = this_req.fd;
             break;
         }
         case GF_FOP_LOOKUP: {
-            gfs3_lookup_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_lookup_req;
+            gfs3_lookup_req this_req = array[i]
+                                           .compound_req_u.compound_lookup_req;
             state->resolve.type = RESOLVE_DONTCARE;
 
             if (this_req.bname && strcmp(this_req.bname, "")) {
@@ -3429,11 +3341,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_READDIR: {
-            gfs3_readdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_readdir_req;
+            gfs3_readdir_req this_req =
+                array[i].compound_req_u.compound_readdir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3441,22 +3350,16 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_INODELK: {
-            gfs3_inodelk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_inodelk_req;
+            gfs3_inodelk_req this_req =
+                array[i].compound_req_u.compound_inodelk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FINODELK: {
-            gfs3_finodelk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_finodelk_req;
+            gfs3_finodelk_req this_req =
+                array[i].compound_req_u.compound_finodelk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3464,22 +3367,16 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_ENTRYLK: {
-            gfs3_entrylk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_entrylk_req;
+            gfs3_entrylk_req this_req =
+                array[i].compound_req_u.compound_entrylk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FENTRYLK: {
-            gfs3_fentrylk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fentrylk_req;
+            gfs3_fentrylk_req this_req =
+                array[i].compound_req_u.compound_fentrylk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3487,22 +3384,16 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_XATTROP: {
-            gfs3_xattrop_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_xattrop_req;
+            gfs3_xattrop_req this_req =
+                array[i].compound_req_u.compound_xattrop_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FXATTROP: {
-            gfs3_fxattrop_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fxattrop_req;
+            gfs3_fxattrop_req this_req =
+                array[i].compound_req_u.compound_fxattrop_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3510,11 +3401,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FGETXATTR: {
-            gfs3_fgetxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fgetxattr_req;
+            gfs3_fgetxattr_req this_req =
+                array[i].compound_req_u.compound_fgetxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3522,11 +3410,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FSETXATTR: {
-            gfs3_fsetxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fsetxattr_req;
+            gfs3_fsetxattr_req this_req =
+                array[i].compound_req_u.compound_fsetxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3534,44 +3419,32 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_RCHECKSUM: {
-            gfs3_rchecksum_req this_req = {
-                0,
-            };
-
-            this_req = array[i].compound_req_u.compound_rchecksum_req;
+            gfs3_rchecksum_req this_req =
+                array[i].compound_req_u.compound_rchecksum_req;
 
             state->resolve.type = RESOLVE_MAY;
             state->resolve.fd_no = this_req.fd;
             break;
         }
         case GF_FOP_SETATTR: {
-            gfs3_setattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_setattr_req;
+            gfs3_setattr_req this_req =
+                array[i].compound_req_u.compound_setattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FSETATTR: {
-            gfs3_fsetattr_req this_req = {
-                0,
-            };
-
-            this_req = array[i].compound_req_u.compound_fsetattr_req;
+            gfs3_fsetattr_req this_req =
+                array[i].compound_req_u.compound_fsetattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             state->resolve.fd_no = this_req.fd;
             break;
         }
         case GF_FOP_READDIRP: {
-            gfs3_readdirp_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_readdirp_req;
+            gfs3_readdirp_req this_req =
+                array[i].compound_req_u.compound_readdirp_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3579,11 +3452,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FREMOVEXATTR: {
-            gfs3_fremovexattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fremovexattr_req;
+            gfs3_fremovexattr_req this_req =
+                array[i].compound_req_u.compound_fremovexattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3591,11 +3461,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_FALLOCATE: {
-            gfs3_fallocate_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_fallocate_req;
+            gfs3_fallocate_req this_req =
+                array[i].compound_req_u.compound_fallocate_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3603,11 +3470,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_DISCARD: {
-            gfs3_discard_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_discard_req;
+            gfs3_discard_req this_req =
+                array[i].compound_req_u.compound_discard_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3615,11 +3479,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_ZEROFILL: {
-            gfs3_zerofill_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_zerofill_req;
+            gfs3_zerofill_req this_req =
+                array[i].compound_req_u.compound_zerofill_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3627,11 +3488,7 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_SEEK: {
-            gfs3_seek_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_seek_req;
+            gfs3_seek_req this_req = array[i].compound_req_u.compound_seek_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -3639,11 +3496,8 @@ server_get_compound_resolve(server_state_t *state, gfs3_compound_req *req)
             break;
         }
         case GF_FOP_LEASE: {
-            gfs3_lease_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_u.compound_lease_req;
+            gfs3_lease_req this_req = array[i]
+                                          .compound_req_u.compound_lease_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5108,33 +4962,24 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
 
     switch (array->fop_enum) {
         case GF_FOP_STAT: {
-            gfx_stat_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_stat_req;
+            gfx_stat_req this_req = array[i]
+                                        .compound_req_v2_u.compound_stat_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_READLINK: {
-            gfx_readlink_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_readlink_req;
+            gfx_readlink_req this_req =
+                array[i].compound_req_v2_u.compound_readlink_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_MKNOD: {
-            gfx_mknod_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_mknod_req;
+            gfx_mknod_req this_req = array[i]
+                                         .compound_req_v2_u.compound_mknod_req;
 
             state->resolve.type = RESOLVE_NOT;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -5142,11 +4987,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_MKDIR: {
-            gfx_mkdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_mkdir_req;
+            gfx_mkdir_req this_req = array[i]
+                                         .compound_req_v2_u.compound_mkdir_req;
 
             state->resolve.type = RESOLVE_NOT;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -5154,11 +4996,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_UNLINK: {
-            gfx_unlink_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_unlink_req;
+            gfx_unlink_req this_req =
+                array[i].compound_req_v2_u.compound_unlink_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -5166,11 +5005,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_RMDIR: {
-            gfx_rmdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_rmdir_req;
+            gfx_rmdir_req this_req = array[i]
+                                         .compound_req_v2_u.compound_rmdir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -5178,11 +5014,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_SYMLINK: {
-            gfx_symlink_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_symlink_req;
+            gfx_symlink_req this_req =
+                array[i].compound_req_v2_u.compound_symlink_req;
 
             state->resolve.type = RESOLVE_NOT;
             memcpy(state->resolve.pargfid, this_req.pargfid, 16);
@@ -5190,11 +5023,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_RENAME: {
-            gfx_rename_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_rename_req;
+            gfx_rename_req this_req =
+                array[i].compound_req_v2_u.compound_rename_req;
 
             state->resolve.type = RESOLVE_MUST;
             state->resolve.bname = gf_strdup(this_req.oldbname);
@@ -5206,11 +5036,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_LINK: {
-            gfx_link_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_link_req;
+            gfx_link_req this_req = array[i]
+                                        .compound_req_v2_u.compound_link_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.oldgfid, 16);
@@ -5221,66 +5048,48 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_TRUNCATE: {
-            gfx_truncate_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_truncate_req;
+            gfx_truncate_req this_req =
+                array[i].compound_req_v2_u.compound_truncate_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_OPEN: {
-            gfx_open_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_open_req;
+            gfx_open_req this_req = array[i]
+                                        .compound_req_v2_u.compound_open_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_READ: {
-            gfx_read_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_read_req;
+            gfx_read_req this_req = array[i]
+                                        .compound_req_v2_u.compound_read_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_WRITE: {
-            gfx_write_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_write_req;
+            gfx_write_req this_req = array[i]
+                                         .compound_req_v2_u.compound_write_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_STATFS: {
-            gfx_statfs_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_statfs_req;
+            gfx_statfs_req this_req =
+                array[i].compound_req_v2_u.compound_statfs_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FLUSH: {
-            gfx_flush_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_flush_req;
+            gfx_flush_req this_req = array[i]
+                                         .compound_req_v2_u.compound_flush_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5288,11 +5097,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FSYNC: {
-            gfx_fsync_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fsync_req;
+            gfx_fsync_req this_req = array[i]
+                                         .compound_req_v2_u.compound_fsync_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5300,55 +5106,40 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_SETXATTR: {
-            gfx_setxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_setxattr_req;
+            gfx_setxattr_req this_req =
+                array[i].compound_req_v2_u.compound_setxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_GETXATTR: {
-            gfx_getxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_getxattr_req;
+            gfx_getxattr_req this_req =
+                array[i].compound_req_v2_u.compound_getxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_REMOVEXATTR: {
-            gfx_removexattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_removexattr_req;
+            gfx_removexattr_req this_req =
+                array[i].compound_req_v2_u.compound_removexattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_OPENDIR: {
-            gfx_opendir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_opendir_req;
+            gfx_opendir_req this_req =
+                array[i].compound_req_v2_u.compound_opendir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FSYNCDIR: {
-            gfx_fsyncdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fsyncdir_req;
+            gfx_fsyncdir_req this_req =
+                array[i].compound_req_v2_u.compound_fsyncdir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5356,22 +5147,16 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_ACCESS: {
-            gfx_access_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_access_req;
+            gfx_access_req this_req =
+                array[i].compound_req_v2_u.compound_access_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_CREATE: {
-            gfx_create_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_create_req;
+            gfx_create_req this_req =
+                array[i].compound_req_v2_u.compound_create_req;
 
             state->flags = gf_flags_to_flags(this_req.flags);
             if (state->flags & O_EXCL) {
@@ -5385,11 +5170,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FTRUNCATE: {
-            gfx_ftruncate_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_ftruncate_req;
+            gfx_ftruncate_req this_req =
+                array[i].compound_req_v2_u.compound_ftruncate_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5397,11 +5179,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FSTAT: {
-            gfx_fstat_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fstat_req;
+            gfx_fstat_req this_req = array[i]
+                                         .compound_req_v2_u.compound_fstat_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5409,22 +5188,15 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_LK: {
-            gfx_lk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_lk_req;
+            gfx_lk_req this_req = array[i].compound_req_v2_u.compound_lk_req;
 
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             state->resolve.fd_no = this_req.fd;
             break;
         }
         case GF_FOP_LOOKUP: {
-            gfx_lookup_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_lookup_req;
+            gfx_lookup_req this_req =
+                array[i].compound_req_v2_u.compound_lookup_req;
             state->resolve.type = RESOLVE_DONTCARE;
 
             if (this_req.bname && strcmp(this_req.bname, "")) {
@@ -5436,11 +5208,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_READDIR: {
-            gfx_readdir_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_readdir_req;
+            gfx_readdir_req this_req =
+                array[i].compound_req_v2_u.compound_readdir_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5448,22 +5217,16 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_INODELK: {
-            gfx_inodelk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_inodelk_req;
+            gfx_inodelk_req this_req =
+                array[i].compound_req_v2_u.compound_inodelk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FINODELK: {
-            gfx_finodelk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_finodelk_req;
+            gfx_finodelk_req this_req =
+                array[i].compound_req_v2_u.compound_finodelk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5471,22 +5234,16 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_ENTRYLK: {
-            gfx_entrylk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_entrylk_req;
+            gfx_entrylk_req this_req =
+                array[i].compound_req_v2_u.compound_entrylk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FENTRYLK: {
-            gfx_fentrylk_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fentrylk_req;
+            gfx_fentrylk_req this_req =
+                array[i].compound_req_v2_u.compound_fentrylk_req;
 
             state->resolve.type = RESOLVE_EXACT;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5494,22 +5251,16 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_XATTROP: {
-            gfx_xattrop_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_xattrop_req;
+            gfx_xattrop_req this_req =
+                array[i].compound_req_v2_u.compound_xattrop_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FXATTROP: {
-            gfx_fxattrop_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fxattrop_req;
+            gfx_fxattrop_req this_req =
+                array[i].compound_req_v2_u.compound_fxattrop_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5517,11 +5268,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FGETXATTR: {
-            gfx_fgetxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fgetxattr_req;
+            gfx_fgetxattr_req this_req =
+                array[i].compound_req_v2_u.compound_fgetxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5529,11 +5277,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FSETXATTR: {
-            gfx_fsetxattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fsetxattr_req;
+            gfx_fsetxattr_req this_req =
+                array[i].compound_req_v2_u.compound_fsetxattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5541,46 +5286,32 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_RCHECKSUM: {
-            gfx_rchecksum_req this_req = {
-                {
-                    0,
-                },
-            };
-
-            this_req = array[i].compound_req_v2_u.compound_rchecksum_req;
+            gfx_rchecksum_req this_req =
+                array[i].compound_req_v2_u.compound_rchecksum_req;
 
             state->resolve.type = RESOLVE_MAY;
             state->resolve.fd_no = this_req.fd;
             break;
         }
         case GF_FOP_SETATTR: {
-            gfx_setattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_setattr_req;
+            gfx_setattr_req this_req =
+                array[i].compound_req_v2_u.compound_setattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
         case GF_FOP_FSETATTR: {
-            gfx_fsetattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fsetattr_req;
+            gfx_fsetattr_req this_req =
+                array[i].compound_req_v2_u.compound_fsetattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             state->resolve.fd_no = this_req.fd;
             break;
         }
         case GF_FOP_READDIRP: {
-            gfx_readdirp_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_readdirp_req;
+            gfx_readdirp_req this_req =
+                array[i].compound_req_v2_u.compound_readdirp_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5588,11 +5319,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FREMOVEXATTR: {
-            gfx_fremovexattr_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fremovexattr_req;
+            gfx_fremovexattr_req this_req =
+                array[i].compound_req_v2_u.compound_fremovexattr_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5600,11 +5328,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_FALLOCATE: {
-            gfx_fallocate_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_fallocate_req;
+            gfx_fallocate_req this_req =
+                array[i].compound_req_v2_u.compound_fallocate_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5612,11 +5337,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_DISCARD: {
-            gfx_discard_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_discard_req;
+            gfx_discard_req this_req =
+                array[i].compound_req_v2_u.compound_discard_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5624,11 +5346,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_ZEROFILL: {
-            gfx_zerofill_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_zerofill_req;
+            gfx_zerofill_req this_req =
+                array[i].compound_req_v2_u.compound_zerofill_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5636,11 +5355,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_SEEK: {
-            gfx_seek_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_seek_req;
+            gfx_seek_req this_req = array[i]
+                                        .compound_req_v2_u.compound_seek_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
@@ -5648,11 +5364,8 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             break;
         }
         case GF_FOP_LEASE: {
-            gfx_lease_req this_req = {{
-                0,
-            }};
-
-            this_req = array[i].compound_req_v2_u.compound_lease_req;
+            gfx_lease_req this_req = array[i]
+                                         .compound_req_v2_u.compound_lease_req;
 
             state->resolve.type = RESOLVE_MUST;
             memcpy(state->resolve.gfid, this_req.gfid, 16);
