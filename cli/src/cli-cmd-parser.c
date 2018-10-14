@@ -2746,7 +2746,10 @@ config_parse(const char **words, int wordcount, dict_t *dict, unsigned cmdi,
             /* trailing strcat will add two bytes, make space for that */
             append_len++;
 
-            append_str = GF_MALLOC(append_len, cli_mt_append_str);
+            /* strcat is used on this allocation and hence expected to be
+             * initiatlized to 0. So GF_CALLOC is used.
+             */
+            append_str = GF_CALLOC(1, append_len, cli_mt_append_str);
             if (!append_str) {
                 ret = -1;
                 goto out;
