@@ -1542,7 +1542,6 @@ mdc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     if (local->loc.inode) {
         mdc_inode_iatt_set(this, local->loc.inode, buf, local->incident_time);
-        mdc_inode_xatt_set(this, local->loc.inode, local->xattr);
     }
 out:
     MDC_STACK_UNWIND(mknod, frame, op_ret, op_errno, inode, buf, preparent,
@@ -1593,7 +1592,6 @@ mdc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     if (local->loc.inode) {
         mdc_inode_iatt_set(this, local->loc.inode, buf, local->incident_time);
-        mdc_inode_xatt_set(this, local->loc.inode, local->xattr);
     }
 out:
     MDC_STACK_UNWIND(mkdir, frame, op_ret, op_errno, inode, buf, preparent,
@@ -1921,7 +1919,6 @@ mdc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (local->loc.inode) {
         mdc_inode_iatt_set(this, inode, buf, local->incident_time);
-        mdc_inode_xatt_set(this, local->loc.inode, local->xattr);
     }
 out:
     MDC_STACK_UNWIND(create, frame, op_ret, op_errno, fd, inode, buf, preparent,
