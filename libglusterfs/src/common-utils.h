@@ -24,6 +24,7 @@
 #endif
 #include <limits.h>
 #include <fnmatch.h>
+#include <uuid/uuid.h>
 
 #ifndef ffsll
 #define ffsll(x) __builtin_ffsll(x)
@@ -43,7 +44,6 @@ trap(void);
 #include "mem-pool.h"
 #include "compat-uuid.h"
 #include "iatt.h"
-#include "uuid.h"
 #include "libglusterfs-messages.h"
 #include "protocol-common.h"
 #include "iobuf.h"
