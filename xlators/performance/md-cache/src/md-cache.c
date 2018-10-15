@@ -63,6 +63,7 @@ struct mdc_statistics {
 struct mdc_conf {
     int timeout;
     gf_boolean_t cache_posix_acl;
+    gf_boolean_t cache_glusterfs_acl;
     gf_boolean_t cache_selinux;
     gf_boolean_t cache_capability;
     gf_boolean_t cache_ima;
@@ -3208,9 +3209,11 @@ mdc_xattr_list_populate(struct mdc_conf *conf, char *tmp_str)
         strcat(mdc_xattr_str, "security.ima,");
 
     if (conf->cache_posix_acl)
-        strcat(mdc_xattr_str, POSIX_ACL_ACCESS_XATTR
-               "," POSIX_ACL_DEFAULT_XATTR "," GF_POSIX_ACL_ACCESS
-               "," GF_POSIX_ACL_DEFAULT ",");
+        strcat(mdc_xattr_str,
+               POSIX_ACL_ACCESS_XATTR "," POSIX_ACL_DEFAULT_XATTR ",");
+
+    if (conf->cache_glusterfs_acl)
+        strcat(mdc_xattr_str, GF_POSIX_ACL_ACCESS "," GF_POSIX_ACL_DEFAULT ",");
 
     if (conf->cache_swift_metadata)
         strcat(mdc_xattr_str, "user.swift.metadata,");
@@ -3471,6 +3474,9 @@ mdc_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("cache-posix-acl", conf->cache_posix_acl, options, bool,
                      out);
 
+    GF_OPTION_RECONF("cache-glusterfs-acl", conf->cache_glusterfs_acl, options,
+                     bool, out);
+
     GF_OPTION_RECONF("cache-swift-metadata", conf->cache_swift_metadata,
                      options, bool, out);
 
@@ -3541,6 +3547,8 @@ mdc_init(xlator_t *this)
     GF_OPTION_INIT("cache-ima-xattrs", conf->cache_ima, bool, out);
 
     GF_OPTION_INIT("cache-posix-acl", conf->cache_posix_acl, bool, out);
+
+    GF_OPTION_INIT("cache-glusterfs-acl", conf->cache_glusterfs_acl, bool, out);
 
     GF_OPTION_INIT("cache-swift-metadata", conf->cache_swift_metadata, bool,
                    out);
@@ -3741,6 +3749,16 @@ struct volume_options mdc_options[] = {
         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
         .description = "Cache posix ACL xattrs (system.posix_acl_access, "
                        "system.posix_acl_default) on client side",
+    },
+    {
+        .key = {"cache-glusterfs-acl"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "false",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .description = "Cache virtual glusterfs ACL xattrs "
+                       "(glusterfs.posix.acl, glusterfs.posix.default_acl) "
+                       "on client side",
     },
     {
         .key = {"md-cache-timeout"},
