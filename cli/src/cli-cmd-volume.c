@@ -2956,6 +2956,9 @@ out:
         }
     }
 
+    if (options)
+        dict_unref(options);
+
     CLI_STACK_DESTROY(frame);
 
     return ret;
