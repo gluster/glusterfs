@@ -929,8 +929,9 @@ fail:
     GF_ASSERT(rsp);
 
     rsp->op_ret = 0;
-    rsp->dict.dict_len = dict_serialized_length(reply);
-    if (rsp->dict.dict_len) {
+    ret = dict_serialized_length(reply);
+    if (ret > 0) {
+        rsp->dict.dict_len = ret;
         rsp->dict.dict_val = GF_CALLOC(1, rsp->dict.dict_len,
                                        gf_server_mt_rsp_buf_t);
         if (rsp->dict.dict_val) {
