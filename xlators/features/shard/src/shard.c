@@ -3115,8 +3115,14 @@ shard_regulated_shards_deletion(call_frame_t *cleanup_frame, xlator_t *this,
     gf_uuid_copy(local->base_gfid, gfid);
     local->resolver_base_inode = inode_find(this->itable, gfid);
     local->call_count = 0;
-    syncbarrier_init(&local->barrier);
-
+    ret = syncbarrier_init(&local->barrier);
+    if (ret) {
+        GF_FREE(local->inode_list);
+        local->inode_list = NULL;
+        inode_unref(local->resolver_base_inode);
+        local->resolver_base_inode = NULL;
+        return -errno;
+    }
     shard_common_resolve_shards(cleanup_frame, this,
                                 shard_post_resolve_unlink_handler);
 
@@ -4643,7 +4649,8 @@ out:
                 local->xattr_rsp = dict_ref(xdata);
             vec.iov_base = local->iobuf->ptr;
             vec.iov_len = local->total_size;
-            SHARD_STACK_UNWIND(readv, frame, local->total_size, local->op_errno,
+            local->op_ret = local->total_size;
+            SHARD_STACK_UNWIND(readv, frame, local->op_ret, local->op_errno,
                                &vec, 1, &local->prebuf, local->iobref,
                                local->xattr_rsp);
             return 0;
@@ -4956,7 +4963,8 @@ shard_post_resolve_readv_handler(call_frame_t *frame, xlator_t *this)
 
             vec.iov_base = local->iobuf->ptr;
             vec.iov_len = local->total_size;
-            SHARD_STACK_UNWIND(readv, frame, local->total_size, 0, &vec, 1,
+            local->op_ret = local->total_size;
+            SHARD_STACK_UNWIND(readv, frame, local->op_ret, 0, &vec, 1,
                                &local->prebuf, local->iobref, NULL);
             return 0;
         }
