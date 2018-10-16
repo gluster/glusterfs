@@ -238,7 +238,7 @@ __svs_fd_ctx_get_or_new(xlator_t *this, fd_t *fd)
 
     svs_fd = svs_fd_new();
     if (!svs_fd) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_NEW_FD_CTX_FAILED,
                "failed to allocate new fd "
                "context for gfid %s",
                uuid_utoa(inode->gfid));
@@ -248,7 +248,8 @@ __svs_fd_ctx_get_or_new(xlator_t *this, fd_t *fd)
     if (fd_is_anonymous(fd)) {
         inode_ctx = svs_inode_ctx_get(this, inode);
         if (!inode_ctx) {
-            gf_log(this->name, GF_LOG_ERROR,
+            gf_msg(this->name, GF_LOG_ERROR, 0,
+                   SVS_MSG_GET_INODE_CONTEXT_FAILED,
                    "failed to get inode "
                    "context for %s",
                    uuid_utoa(inode->gfid));
@@ -261,7 +262,7 @@ __svs_fd_ctx_get_or_new(xlator_t *this, fd_t *fd)
         if (inode->ia_type == IA_IFDIR) {
             glfd = glfs_h_opendir(fs, object);
             if (!glfd) {
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_OPENDIR_FAILED,
                        "failed to "
                        "open the directory %s",
                        uuid_utoa(inode->gfid));
@@ -272,7 +273,7 @@ __svs_fd_ctx_get_or_new(xlator_t *this, fd_t *fd)
         if (inode->ia_type == IA_IFREG) {
             glfd = glfs_h_open(fs, object, O_RDONLY | O_LARGEFILE);
             if (!glfd) {
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_OPEN_FAILED,
                        "failed to "
                        "open the file %s",
                        uuid_utoa(inode->gfid));
@@ -285,7 +286,7 @@ __svs_fd_ctx_get_or_new(xlator_t *this, fd_t *fd)
 
     ret = __svs_fd_ctx_set(this, fd, svs_fd);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_SET_FD_CONTEXT_FAILED,
                "failed to set fd context "
                "for gfid %s",
                uuid_utoa(inode->gfid));
@@ -293,14 +294,15 @@ __svs_fd_ctx_get_or_new(xlator_t *this, fd_t *fd)
             if (inode->ia_type == IA_IFDIR) {
                 ret = glfs_closedir(svs_fd->fd);
                 if (ret)
-                    gf_log(this->name, GF_LOG_ERROR,
+                    gf_msg(this->name, GF_LOG_ERROR, errno,
+                           SVS_MSG_CLOSEDIR_FAILED,
                            "failed to close the fd for %s",
                            uuid_utoa(inode->gfid));
             }
             if (inode->ia_type == IA_IFREG) {
                 ret = glfs_close(svs_fd->fd);
                 if (ret)
-                    gf_log(this->name, GF_LOG_ERROR,
+                    gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_CLOSE_FAILED,
                            "failed to close the fd for %s",
                            uuid_utoa(inode->gfid));
             }
@@ -352,7 +354,7 @@ svs_uuid_generate(xlator_t *this, uuid_t gfid, char *snapname,
                    uuid_utoa(origin_gfid));
 
     if (gf_gfid_generate_from_xxh64(tmp, ino_string)) {
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVS_MSG_GFID_GEN_FAILED,
                "failed to generate "
                "gfid for object with actual gfid of %s "
                "(snapname: %s, key: %s)",
@@ -364,7 +366,7 @@ svs_uuid_generate(xlator_t *this, uuid_t gfid, char *snapname,
 
     ret = 0;
 
-    gf_log(this->name, GF_LOG_DEBUG, "gfid generated is %s ", uuid_utoa(gfid));
+    gf_msg_debug(this->name, 0, "gfid generated is %s ", uuid_utoa(gfid));
 
 out:
     return ret;
@@ -483,10 +485,10 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
 
     dirent = __svs_get_snap_dirent(this, name);
     if (!dirent) {
-        gf_log(this->name, GF_LOG_DEBUG,
-               "snap entry for "
-               "name %s not found",
-               name);
+        gf_msg_debug(this->name, 0,
+                     "snap entry for "
+                     "name %s not found",
+                     name);
         local_errno = ENOENT;
         goto out;
     }
@@ -502,17 +504,18 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
 
     fs = glfs_new(volname);
     if (!fs) {
-        gf_log(this->name, GF_LOG_ERROR,
+        local_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, local_errno, SVS_MSG_GLFS_NEW_FAILED,
                "glfs instance for snap volume %s "
                "failed",
                dirent->name);
-        local_errno = ENOMEM;
         goto out;
     }
 
     ret = glfs_set_volfile_server(fs, "tcp", "localhost", 24007);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, local_errno,
+               SVS_MSG_SET_VOLFILE_SERVR_FAILED,
                "setting the "
                "volfile server for snap volume %s "
                "failed",
@@ -526,7 +529,8 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
 
     ret = glfs_set_logging(fs, logfile, loglevel);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, local_errno,
+               SVS_MSG_SET_LOGGING_FAILED,
                "failed to set the "
                "log file path");
         goto out;
@@ -534,7 +538,7 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
 
     ret = glfs_init(fs);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, local_errno, SVS_MSG_GLFS_INIT_FAILED,
                "initing the "
                "fs for %s failed",
                dirent->name);
@@ -659,7 +663,7 @@ svs_inode_glfs_mapping(xlator_t *this, inode_t *inode)
 
     inode_ctx = svs_inode_ctx_get(this, inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found for"
                " the inode %s",
                uuid_utoa(inode->gfid));

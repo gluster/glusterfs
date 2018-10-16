@@ -33,6 +33,7 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 #include "xdr-generic.h"
+#include "snapview-server-messages.h"
 
 #define DEFAULT_SVD_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
 

@@ -26,7 +26,7 @@ gf_setcredentials(uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
     if (uid) {
         ret = glfs_setfsuid(*uid);
         if (ret != 0) {
-            gf_log("snapview-server", GF_LOG_ERROR,
+            gf_msg("snapview-server", GF_LOG_ERROR, 0, SVS_MSG_SETFSUID_FAIL,
                    "failed to set uid "
                    "%u in thread context",
                    *uid);
@@ -36,7 +36,7 @@ gf_setcredentials(uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
     if (gid) {
         ret = glfs_setfsgid(*gid);
         if (ret != 0) {
-            gf_log("snapview-server", GF_LOG_ERROR,
+            gf_msg("snapview-server", GF_LOG_ERROR, 0, SVS_MSG_SETFSGID_FAIL,
                    "failed to set gid "
                    "%u in thread context",
                    *gid);
@@ -47,7 +47,7 @@ gf_setcredentials(uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
     if (ngrps != 0 && groups) {
         ret = glfs_setfsgroups(ngrps, groups);
         if (ret != 0) {
-            gf_log("snapview-server", GF_LOG_ERROR,
+            gf_msg("snapview-server", GF_LOG_ERROR, 0, SVS_MSG_SETFSGRPS_FAIL,
                    "failed to set "
                    "groups in thread context");
             return ret;
@@ -88,12 +88,13 @@ svs_lookup_entry_point(xlator_t *this, loc_t *loc, inode_t *parent,
 
         inode_ctx = svs_inode_ctx_get_or_new(this, loc->inode);
         if (!inode_ctx) {
-            gf_log(this->name, GF_LOG_ERROR,
+            op_ret = -1;
+            *op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+                   SVS_MSG_NEW_INODE_CTX_FAILED,
                    "failed to "
                    "allocate inode context for entry point "
                    "directory");
-            op_ret = -1;
-            *op_errno = ENOMEM;
             goto out;
         }
 
@@ -162,7 +163,7 @@ svs_lookup_gfid(xlator_t *this, loc_t *loc, struct iatt *buf,
     GF_VALIDATE_OR_GOTO(this->name, postparent, out);
 
     if (gf_uuid_is_null(loc->gfid) && gf_uuid_is_null(loc->inode->gfid)) {
-        gf_log(this->name, GF_LOG_ERROR, "gfid is NULL");
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_NULL_GFID, "gfid is NULL");
         goto out;
     }
 
@@ -173,33 +174,36 @@ svs_lookup_gfid(xlator_t *this, loc_t *loc, struct iatt *buf,
 
     fs = svs_get_latest_snapshot(this);
     if (!fs) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to get the latest "
-               "snapshot");
         op_ret = -1;
         *op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+               SVS_MSG_GET_LATEST_SNAP_FAILED,
+               "failed to get the latest "
+               "snapshot");
         goto out;
     }
 
     object = glfs_h_create_from_handle(fs, handle_obj, GFAPI_HANDLE_LENGTH,
                                        &statbuf);
     if (!object) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        *op_errno = ESTALE;
+        gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+               SVS_MSG_GET_GLFS_H_OBJECT_FAILED,
                "failed to do lookup and get "
                "the handle on the snapshot %s (path: %s, gfid: %s)",
                loc->name, loc->path, uuid_utoa(loc->gfid));
-        op_ret = -1;
-        *op_errno = ESTALE;
         goto out;
     }
 
     inode_ctx = svs_inode_ctx_get_or_new(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to allocate inode "
-               "context");
         op_ret = -1;
         *op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+               SVS_MSG_NEW_INODE_CTX_FAILED,
+               "failed to allocate inode "
+               "context");
         goto out;
     }
 
@@ -255,10 +259,10 @@ svs_lookup_snapshot(xlator_t *this, loc_t *loc, struct iatt *buf,
 
     fs = svs_initialise_snapshot_volume(this, loc->name, op_errno);
     if (!fs) {
-        gf_log(this->name, GF_LOG_DEBUG,
-               "failed to "
-               "create the fs instance for snap %s",
-               loc->name);
+        gf_msg_debug(this->name, 0,
+                     "failed to create "
+                     "the fs instance for snap %s",
+                     loc->name);
         *op_errno = ENOENT;
         op_ret = -1;
         goto out;
@@ -268,22 +272,24 @@ svs_lookup_snapshot(xlator_t *this, loc_t *loc, struct iatt *buf,
     object = glfs_h_create_from_handle(fs, handle_obj, GFAPI_HANDLE_LENGTH,
                                        &statbuf);
     if (!object) {
-        gf_log(this->name, GF_LOG_DEBUG,
-               "failed to do lookup and "
-               "get the handle on the snapshot %s",
-               loc->name);
         op_ret = -1;
         *op_errno = errno;
+        /* Should this be in warning or error mode? */
+        gf_msg_debug(this->name, 0,
+                     "failed to do lookup and "
+                     "get the handle on the snapshot %s",
+                     loc->name);
         goto out;
     }
 
     inode_ctx = svs_inode_ctx_get_or_new(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to "
-               "allocate inode context");
         op_ret = -1;
         *op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+               SVS_MSG_NEW_INODE_CTX_FAILED,
+               "failed to allocate "
+               "inode context");
         goto out;
     }
 
@@ -355,20 +361,22 @@ svs_lookup_entry(xlator_t *this, loc_t *loc, struct iatt *buf,
 
     object = glfs_h_lookupat(fs, parent_object, loc->name, &statbuf, 0);
     if (!object) {
-        gf_log(this->name, GF_LOG_DEBUG,
-               "failed to do lookup and "
-               "get the handle for entry %s (path: %s)",
-               loc->name, loc->path);
+        /* should this be in WARNING or ERROR mode? */
+        gf_msg_debug(this->name, 0,
+                     "failed to do lookup and "
+                     "get the handle for entry %s (path: %s)",
+                     loc->name, loc->path);
         op_ret = -1;
         *op_errno = errno;
         goto out;
     }
 
     if (gf_uuid_is_null(object->gfid)) {
-        gf_log(this->name, GF_LOG_DEBUG,
-               "gfid from glfs handle is "
-               "NULL for entry %s (path: %s)",
-               loc->name, loc->path);
+        /* should this be in WARNING or ERROR mode? */
+        gf_msg_debug(this->name, 0,
+                     "gfid from glfs handle is "
+                     "NULL for entry %s (path: %s)",
+                     loc->name, loc->path);
         op_ret = -1;
         *op_errno = errno;
         goto out;
@@ -376,11 +384,12 @@ svs_lookup_entry(xlator_t *this, loc_t *loc, struct iatt *buf,
 
     inode_ctx = svs_inode_ctx_get_or_new(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to "
-               "allocate inode context");
         op_ret = -1;
         *op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+               SVS_MSG_NEW_INODE_CTX_FAILED,
+               "failed to allocate "
+               "inode context");
         goto out;
     }
 
@@ -521,7 +530,8 @@ svs_revalidate(xlator_t *this, loc_t *loc, inode_t *parent,
                 inode_ctx->object = NULL;
                 ret = svs_get_handle(this, loc, inode_ctx, op_errno);
                 if (ret) {
-                    gf_log(this->name, GF_LOG_ERROR,
+                    gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+                           SVS_MSG_GET_GLFS_H_OBJECT_FAILED,
                            "failed to get the handle for "
                            "%s (gfid %s)",
                            loc->path, uuid_utoa_r(loc->inode->gfid, tmp_uuid));
@@ -536,7 +546,8 @@ svs_revalidate(xlator_t *this, loc_t *loc, inode_t *parent,
         */
         if (!loc->name || !parent_ctx) {
             *op_errno = ESTALE;
-            gf_log(this->name, GF_LOG_ERROR, "%s is NULL",
+            gf_msg(this->name, GF_LOG_ERROR, *op_errno,
+                   SVS_MSG_PARENT_CTX_OR_NAME_NULL, "%s is NULL",
                    loc->name ? "parent context" : "loc->name");
             goto out;
         }
@@ -621,9 +632,9 @@ svs_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (xdata && !inode_ctx) {
         ret = dict_get_str_boolean(xdata, "entry-point", _gf_false);
         if (ret == -1) {
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "failed to get the "
-                   "entry point info");
+            gf_msg_debug(this->name, 0,
+                         "failed to get the "
+                         "entry point info");
             entry_point_key = _gf_false;
         } else {
             entry_point_key = ret;
@@ -668,12 +679,12 @@ svs_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     */
     if (!inode_ctx && !parent_ctx) {
         if (gf_uuid_is_null(loc->gfid) && gf_uuid_is_null(loc->inode->gfid)) {
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "gfid is NULL, "
-                   "either the lookup came on missing entry or "
-                   "the entry is stale");
             op_ret = -1;
             op_errno = ESTALE;
+            gf_msg_debug(this->name, 0,
+                         "gfid is NULL. Either the lookup "
+                         "came on missing entry or the "
+                         "entry is stale");
             goto out;
         }
 
@@ -752,12 +763,13 @@ svs_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = ESTALE;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found "
                "for the inode %s",
                uuid_utoa(loc->inode->gfid));
-        op_ret = -1;
-        op_errno = ESTALE;
         goto out;
     }
 
@@ -776,20 +788,21 @@ svs_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         if (!glfd) {
             op_ret = -1;
             op_errno = errno;
-            gf_log(this->name, GF_LOG_ERROR,
-                   "opendir on %s "
-                   "failed (gfid: %s)",
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_OPENDIR_FAILED,
+                   "opendir on %s failed "
+                   "(gfid: %s)",
                    loc->name, uuid_utoa(loc->inode->gfid));
             goto out;
         }
         svs_fd = svs_fd_ctx_get_or_new(this, fd);
         if (!svs_fd) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to allocate "
-                   "fd context %s (gfid: %s)",
-                   loc->name, uuid_utoa(fd->inode->gfid));
             op_ret = -1;
             op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                   SVS_MSG_NEW_FD_CTX_FAILED,
+                   "failed to allocate fd context "
+                   "for %s (gfid: %s)",
+                   loc->name, uuid_utoa(fd->inode->gfid));
             glfs_closedir(glfd);
             goto out;
         }
@@ -847,7 +860,7 @@ svs_add_xattrs_to_dict(xlator_t *this, dict_t *dict, char *list, ssize_t size)
 #endif
         ret = dict_set_str(dict, keybuffer, "");
         if (ret < 0) {
-            gf_log(this->name, GF_LOG_ERROR,
+            gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_DICT_SET_FAILED,
                    "dict set operation "
                    "for the key %s failed.",
                    keybuffer);
@@ -893,12 +906,13 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = ESTALE;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found "
                "for the inode %s",
                uuid_utoa(loc->inode->gfid));
-        op_ret = -1;
-        op_errno = ESTALE;
         goto out;
     }
 
@@ -918,43 +932,49 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
         dict = dict_new();
         if (!dict) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to "
-                   "allocate dict");
             op_ret = -1;
             op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+                   "failed to allocate dict");
             goto out;
         }
 
         size = glfs_h_getxattrs(fs, object, name, NULL, 0);
         if (size == -1) {
-            gf_log(this->name, errno == ENODATA ? GF_LOG_DEBUG : GF_LOG_ERROR,
-                   "getxattr on %s failed (key: %s) with %s", loc->path, name,
-                   strerror(errno));
             op_ret = -1;
             op_errno = errno;
+            if (errno == ENODATA) {
+                gf_msg_debug(this->name, 0,
+                             "getxattr on "
+                             "%s failed (ket: %s) with %s",
+                             loc->path, name, strerror(errno));
+            } else {
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_GETXATTR_FAILED,
+                       "getxattr on %s failed (key: %s) with %s", loc->path,
+                       name, strerror(errno));
+            }
             goto out;
         }
         value = GF_CALLOC(size + 1, sizeof(char), gf_common_mt_char);
         if (!value) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to "
-                   "allocate memory for getxattr on %s "
-                   "(key: %s)",
-                   loc->name, name);
             op_ret = -1;
             op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+                   "failed to allocate memory for getxattr "
+                   "on %s (key: %s)",
+                   loc->name, name);
             goto out;
         }
 
         size = glfs_h_getxattrs(fs, object, name, value, size);
         if (size == -1) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to "
-                   "get the xattr %s for entry %s",
-                   name, loc->name);
             op_ret = -1;
             op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_GETXATTR_FAILED,
+                   "failed to get the xattr %s for "
+                   "entry %s",
+                   name, loc->name);
             goto out;
         }
         value[size] = '\0';
@@ -963,10 +983,10 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
             op_ret = dict_set_dynptr(dict, (char *)name, value, size);
             if (op_ret < 0) {
                 op_errno = -op_ret;
-                gf_log(this->name, GF_LOG_ERROR,
-                       "dict set "
-                       "operation for %s for the key %s "
-                       "failed.",
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_DICT_SET_FAILED,
+                       "dict set operation for %s for "
+                       "the key %s failed.",
                        loc->path, name);
                 GF_FREE(value);
                 value = NULL;
@@ -975,10 +995,11 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         } else {
             op_ret = svs_add_xattrs_to_dict(this, dict, value, size);
             if (op_ret == -1) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to "
-                       "add the xattrs from the list to dict");
                 op_errno = ENOMEM;
+                gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+                       "failed to add xattrs from the list to "
+                       "dict for %s (gfid: %s, key: %s)",
+                       loc->path, uuid_utoa(loc->inode->gfid), name);
                 goto out;
             }
             GF_FREE(value);
@@ -1018,35 +1039,37 @@ svs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 
     inode_ctx = svs_inode_ctx_get(this, fd->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = ESTALE;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found "
                "for the inode %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = ESTALE;
         goto out;
     }
 
     if (!(svs_inode_ctx_glfs_mapping(this, inode_ctx))) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "glfs instance "
-               "instance %p to which the inode %s belongs"
-               "to does not exist. That snapshot might have"
-               "been deleted or deactivated",
-               inode_ctx->fs, uuid_utoa(fd->inode->gfid));
         op_ret = -1;
         op_errno = EBADF;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_FS_INSTANCE_INVALID,
+               "glfs instance %p to which the inode %s "
+               "belongs to does not exist. The snapshot "
+               "corresponding to the instance might have"
+               "been deleted or deactivated",
+               inode_ctx->fs, uuid_utoa(fd->inode->gfid));
         goto out;
     }
 
     sfd = svs_fd_ctx_get_or_new(this, fd);
     if (!sfd) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EBADFD;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_FD_CONTEXT_FAILED,
                "failed to get the fd "
                "context for %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = EBADFD;
         goto out;
     }
 
@@ -1064,45 +1087,48 @@ svs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     } else {
         dict = dict_new();
         if (!dict) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to "
-                   "allocate  dict");
             op_ret = -1;
             op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+                   "failed to allocate dict "
+                   "(gfid: %s, key: %s)",
+                   uuid_utoa(fd->inode->gfid), name);
             goto out;
         }
 
         if (name) {
             size = glfs_fgetxattr(glfd, name, NULL, 0);
             if (size == -1) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "getxattr on "
-                       "%s failed (key: %s)",
-                       uuid_utoa(fd->inode->gfid), name);
                 op_ret = -1;
                 op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_GETXATTR_FAILED,
+                       "getxattr on %s failed "
+                       "(key: %s)",
+                       uuid_utoa(fd->inode->gfid), name);
                 goto out;
             }
             value = GF_CALLOC(size + 1, sizeof(char), gf_common_mt_char);
             if (!value) {
-                gf_log(this->name, GF_LOG_ERROR,
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
                        "failed to "
                        "allocate memory for getxattr on %s "
                        "(key: %s)",
                        uuid_utoa(fd->inode->gfid), name);
-                op_ret = -1;
-                op_errno = ENOMEM;
                 goto out;
             }
 
             size = glfs_fgetxattr(glfd, name, value, size);
             if (size == -1) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to "
-                       "get the xattr %s for inode %s",
-                       name, uuid_utoa(fd->inode->gfid));
                 op_ret = -1;
                 op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_GETXATTR_FAILED,
+                       "failed to get the xattr %s "
+                       "for inode %s",
+                       name, uuid_utoa(fd->inode->gfid));
                 goto out;
             }
             value[size] = '\0';
@@ -1110,19 +1136,19 @@ svs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
             op_ret = dict_set_dynptr(dict, (char *)name, value, size);
             if (op_ret < 0) {
                 op_errno = -op_ret;
-                gf_log(this->name, GF_LOG_ERROR,
-                       "dict set "
-                       "operation for gfid %s for the key %s "
-                       "failed.",
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_DICT_SET_FAILED,
+                       "dict set operation for gfid %s "
+                       "for the key %s failed.",
                        uuid_utoa(fd->inode->gfid), name);
                 goto out;
             }
         } else {
             size = glfs_flistxattr(glfd, NULL, 0);
             if (size == -1) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "listxattr "
-                       "on %s failed",
+                op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_LISTXATTR_FAILED, "listxattr on %s failed",
                        uuid_utoa(fd->inode->gfid));
                 goto out;
             }
@@ -1131,9 +1157,10 @@ svs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
             if (!value) {
                 op_ret = -1;
                 op_errno = ENOMEM;
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
                        "failed to "
-                       "allocate buffer for xattr list (%s)",
+                       "allocate buffer for xattr "
+                       "list (%s)",
                        uuid_utoa(fd->inode->gfid));
                 goto out;
             }
@@ -1142,19 +1169,19 @@ svs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
             if (size == -1) {
                 op_ret = -1;
                 op_errno = errno;
-                gf_log(this->name, GF_LOG_ERROR,
-                       "listxattr "
-                       "on %s failed",
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       SVS_MSG_LISTXATTR_FAILED, "listxattr on %s failed",
                        uuid_utoa(fd->inode->gfid));
                 goto out;
             }
 
             op_ret = svs_add_xattrs_to_dict(this, dict, value, size);
             if (op_ret == -1) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to "
-                       "add the xattrs from the list to dict");
                 op_errno = ENOMEM;
+                gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+                       "failed to add xattrs from the list "
+                       "to dict (gfid: %s, key: %s)",
+                       uuid_utoa(fd->inode->gfid), name);
                 goto out;
             }
             GF_FREE(value);
@@ -1191,7 +1218,7 @@ svs_releasedir(xlator_t *this, fd_t *fd)
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
-        gf_log(this->name, GF_LOG_DEBUG, "pfd from fd=%p is NULL", fd);
+        gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         goto out;
     }
 
@@ -1206,9 +1233,10 @@ svs_releasedir(xlator_t *this, fd_t *fd)
             if (sfd->fd) {
                 ret = glfs_closedir(sfd->fd);
                 if (ret)
-                    gf_log(this->name, GF_LOG_WARNING,
-                           "failed to close the glfd"
-                           "for directory %s",
+                    gf_msg(this->name, GF_LOG_WARNING, errno,
+                           SVS_MSG_RELEASEDIR_FAILED,
+                           "failed to close the glfd for "
+                           "directory %s",
                            uuid_utoa(fd->inode->gfid));
             }
         }
@@ -1244,19 +1272,21 @@ svs_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
     inode_ctx = svs_inode_ctx_get(this, fd->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found for"
                " the inode %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = EINVAL;
         goto out;
     }
 
     ret = fd_ctx_get(fd, this, &value);
     if (ret < 0 && inode_ctx->type != SNAP_VIEW_ENTRY_POINT_INODE) {
         op_errno = EINVAL;
-        gf_log(this->name, GF_LOG_WARNING, "pfd is NULL on fd=%p", fd);
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVS_MSG_GET_FD_CONTEXT_FAILED, "pfd is NULL on fd=%p", fd);
         goto out;
     }
 
@@ -1283,7 +1313,7 @@ svs_release(xlator_t *this, fd_t *fd)
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
-        gf_log(this->name, GF_LOG_DEBUG, "pfd from fd=%p is NULL", fd);
+        gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         goto out;
     }
 
@@ -1298,7 +1328,8 @@ svs_release(xlator_t *this, fd_t *fd)
             if (sfd->fd) {
                 ret = glfs_close(sfd->fd);
                 if (ret)
-                    gf_log(this->name, GF_LOG_ERROR,
+                    gf_msg(this->name, GF_LOG_ERROR, errno,
+                           SVS_MSG_RELEASE_FAILED,
                            "failed to close "
                            "the glfd for %s",
                            uuid_utoa(fd->inode->gfid));
@@ -1323,7 +1354,7 @@ svs_forget(xlator_t *this, inode_t *inode)
 
     ret = inode_ctx_del(inode, this, &value);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_DELETE_INODE_CONTEXT_FAILED,
                "failed to delete the inode "
                "context of %s",
                uuid_utoa(inode->gfid));
@@ -1372,7 +1403,7 @@ svs_fill_readdir(xlator_t *this, gf_dirent_t *entries, size_t size, off_t off)
 
             entry = gf_dirent_for_name(dirents[i].name);
             if (!entry) {
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, SVS_MSG_NO_MEMORY,
                        "failed to allocate dentry for %s", dirents[i].name);
                 goto unlock;
             }
@@ -1427,7 +1458,8 @@ svs_glfs_readdir(xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
     while (filled_size < size) {
         in_case = glfs_telldir(glfd);
         if (in_case == -1) {
-            gf_log(this->name, GF_LOG_ERROR, "telldir failed");
+            gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_TELLDIR_FAILED,
+                   "telldir failed");
             break;
         }
 
@@ -1450,7 +1482,14 @@ svs_glfs_readdir(xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
 
             entry = gf_dirent_for_name(de.d_name);
             if (!entry) {
-                gf_log(this->name, GF_LOG_ERROR,
+                /*
+                 * Since gf_dirent_for_name can return
+                 * NULL only when it fails to allocate
+                 * memory for the directory entry,
+                 * SVS_MSG_NO_MEMORY is used as the
+                 * message-id.
+                 */
+                gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_NO_MEMORY,
                        "could not create gf_dirent "
                        "for entry %s: (%s)",
                        entry->d_name, strerror(errno));
@@ -1546,9 +1585,9 @@ svs_readdirp_fill(xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
              */
             inode_ctx = svs_inode_ctx_get_or_new(this, inode);
             if (!inode_ctx) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to "
-                       "allocate inode context for %s",
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, SVS_MSG_NO_MEMORY,
+                       "failed to allocate inode "
+                       "context for %s",
                        entry->d_name);
                 inode_unref(entry->inode);
                 entry->inode = NULL;
@@ -1627,12 +1666,13 @@ svs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     parent_ctx = svs_inode_ctx_get(this, fd->inode);
     if (!parent_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "failed to get the inode "
                "context for %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = EINVAL;
         goto unwind;
     }
 
@@ -1654,12 +1694,13 @@ svs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     } else {
         svs_fd = svs_fd_ctx_get_or_new(this, fd);
         if (!svs_fd) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to get the "
-                   "fd context %s",
-                   uuid_utoa(fd->inode->gfid));
             op_ret = -1;
             op_errno = EBADFD;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                   SVS_MSG_GET_FD_CONTEXT_FAILED,
+                   "failed to get the fd context "
+                   "for the inode %s",
+                   uuid_utoa(fd->inode->gfid));
             goto unwind;
         }
 
@@ -1717,12 +1758,13 @@ svs_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     inode_ctx = svs_inode_ctx_get(this, fd->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found in "
                "the inode %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = EINVAL;
         goto unwind;
     }
 
@@ -1735,12 +1777,13 @@ svs_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     } else {
         svs_fd = svs_fd_ctx_get_or_new(this, fd);
         if (!svs_fd) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to get the "
-                   "fd context %s",
-                   uuid_utoa(fd->inode->gfid));
             op_ret = -1;
             op_errno = EBADFD;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                   SVS_MSG_GET_FD_CONTEXT_FAILED,
+                   "failed to get the fd "
+                   "context for %s",
+                   uuid_utoa(fd->inode->gfid));
             goto unwind;
         }
 
@@ -1855,11 +1898,12 @@ svs_get_handle(xlator_t *this, loc_t *loc, svs_inode_t *inode_ctx,
         parent_ctx = svs_inode_ctx_get(this, parent);
 
     if (!parent_ctx) {
-        gf_log(this->name, GF_LOG_WARNING,
+        *op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_WARNING, *op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "failed to get the parent "
                "context for %s (%s)",
                loc->path, uuid_utoa_r(loc->inode->gfid, uuid1));
-        *op_errno = EINVAL;
         goto out;
     }
 
@@ -1916,12 +1960,11 @@ svs_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "inode context not found for"
-               " %s",
-               uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
+               "inode context not found for %s", uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
@@ -1934,12 +1977,12 @@ svs_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         ret = glfs_h_stat(fs, object, &stat);
         if (ret) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "glfs_h_stat on %s "
-                   "(gfid: %s) failed",
-                   loc->name, uuid_utoa(loc->inode->gfid));
             op_ret = -1;
             op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_STAT_FAILED,
+                   "glfs_h_stat on %s (gfid: %s) "
+                   "failed",
+                   loc->name, uuid_utoa(loc->inode->gfid));
             goto out;
         }
 
@@ -1991,12 +2034,13 @@ svs_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
     inode_ctx = svs_inode_ctx_get(this, fd->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "inode context not found for"
                " the inode %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = EINVAL;
         goto out;
     }
 
@@ -2005,37 +2049,37 @@ svs_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         op_ret = 0;
     } else {
         if (!(svs_inode_ctx_glfs_mapping(this, inode_ctx))) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "glfs instance "
-                   "instance %p to which the inode %s belongs "
-                   "to does not exist. That snapshot might have "
-                   "been deleted or deactivated",
-                   inode_ctx->fs, uuid_utoa(fd->inode->gfid));
             op_ret = -1;
             op_errno = EBADF;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                   SVS_MSG_FS_INSTANCE_INVALID,
+                   "glfs instance %p to which the inode %s "
+                   "belongs to does not exist. That snapshot "
+                   "corresponding to the fs instance "
+                   "might have been deleted or deactivated.",
+                   inode_ctx->fs, uuid_utoa(fd->inode->gfid));
             goto out;
         }
 
         sfd = svs_fd_ctx_get_or_new(this, fd);
         if (!sfd) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "failed to get the "
-                   "fd context for %s",
-                   uuid_utoa(fd->inode->gfid));
             op_ret = -1;
             op_errno = EBADFD;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                   SVS_MSG_GET_FD_CONTEXT_FAILED,
+                   "failed to get the fd context "
+                   "for %s",
+                   uuid_utoa(fd->inode->gfid));
             goto out;
         }
 
         glfd = sfd->fd;
         ret = glfs_fstat(glfd, &stat);
         if (ret) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "glfs_fstat on "
-                   "gfid: %s failed",
-                   uuid_utoa(fd->inode->gfid));
             op_ret = -1;
             op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_STAT_FAILED,
+                   "glfs_fstat on gfid: %s failed", uuid_utoa(fd->inode->gfid));
             goto out;
         }
 
@@ -2083,12 +2127,11 @@ svs_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     */
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "inode context not found for"
-               " %s",
-               uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
+               "inode context not found for %s", uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
@@ -2097,12 +2140,12 @@ svs_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     ret = glfs_h_statfs(fs, object, &buf);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "glfs_h_statvfs on %s "
-               "(gfid: %s) failed",
-               loc->name, uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_STATFS_FAILED,
+               "glfs_h_statvfs on %s (gfid: %s) "
+               "failed",
+               loc->name, uuid_utoa(loc->inode->gfid));
         goto out;
     }
     op_ret = ret;
@@ -2136,9 +2179,10 @@ svs_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "inode context for %s "
-               "(gfid: %s) not found",
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
+               "inode context for %s (gfid: %s) "
+               "not found",
                loc->name, uuid_utoa(loc->inode->gfid));
         goto out;
     }
@@ -2157,23 +2201,22 @@ svs_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     glfd = glfs_h_open(fs, object, flags);
     if (!glfd) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "glfs_h_open on %s failed "
-               "(gfid: %s)",
-               loc->name, uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_OPEN_FAILED,
+               "glfs_h_open on %s failed (gfid: %s)", loc->name,
+               uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
     sfd = svs_fd_ctx_get_or_new(this, fd);
     if (!sfd) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to allocate fd "
-               "context for %s (gfid: %s)",
-               loc->name, uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+               "failed to allocate fd context "
+               "for %s (gfid: %s)",
+               loc->name, uuid_utoa(loc->inode->gfid));
         glfs_close(glfd);
         goto out;
     }
@@ -2226,24 +2269,25 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 
     if (!svs_inode_glfs_mapping(this, fd->inode)) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "glfs instance to "
-               "which the inode %s receiving read request belongs, "
-               "does not exist anymore",
-               uuid_utoa(fd->inode->gfid));
         op_ret = -1;
         op_errno = EBADF; /* should this be some other error? */
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_FS_INSTANCE_INVALID,
+               "glfs instance to which the inode "
+               "%s receiving read request belongs, "
+               "does not exist anymore",
+               uuid_utoa(fd->inode->gfid));
         goto out;
     }
 
     sfd = svs_fd_ctx_get_or_new(this, fd);
     if (!sfd) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EBADFD;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "failed to get the fd "
                "context for %s",
                uuid_utoa(fd->inode->gfid));
-        op_ret = -1;
-        op_errno = EBADFD;
         goto out;
     }
 
@@ -2253,6 +2297,11 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (!iobuf) {
         op_ret = -1;
         op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+               "failed to "
+               "allocate iobuf while reading the "
+               "file with gfid %s",
+               uuid_utoa(fd->inode->gfid));
         goto out;
     }
 
@@ -2260,7 +2309,8 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (ret < 0) {
         op_ret = -1;
         op_errno = errno;
-        gf_log(this->name, GF_LOG_ERROR, "glfs_read failed (%s)",
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_READ_FAILED,
+               "glfs_read failed on %s (%s)", uuid_utoa(fd->inode->gfid),
                strerror(op_errno));
         goto out;
     }
@@ -2328,12 +2378,13 @@ svs_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
 
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
+        op_ret = -1;
+        op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
                "failed to get inode context "
                "for %s (gfid: %s)",
                loc->name, uuid_utoa(loc->inode->gfid));
-        op_ret = -1;
-        op_errno = EINVAL;
         goto out;
     }
 
@@ -2342,12 +2393,12 @@ svs_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
 
     ret = glfs_h_stat(fs, object, &stat);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "glfs_h_stat on %s "
-               "(gfid: %s) failed",
-               loc->name, uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_STAT_FAILED,
+               "glfs_h_stat on %s (gfid: %s) "
+               "failed",
+               loc->name, uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
@@ -2358,11 +2409,10 @@ svs_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     buf = alloca(size + 1);
     op_ret = glfs_h_readlink(fs, object, buf, size);
     if (op_ret == -1) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "readlink on %s failed "
-               "(gfid: %s)",
-               loc->name, uuid_utoa(loc->inode->gfid));
         op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_READLINK_FAILED,
+               "readlink on %s failed (gfid: %s)", loc->name,
+               uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
@@ -2404,12 +2454,11 @@ svs_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
 
     inode_ctx = svs_inode_ctx_get(this, loc->inode);
     if (!inode_ctx) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "inode context not found for"
-               " %s",
-               uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+               SVS_MSG_GET_INODE_CONTEXT_FAILED,
+               "inode context not found for %s", uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
@@ -2448,12 +2497,11 @@ svs_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
 
     ret = glfs_h_access(fs, object, mask);
     if (ret < 0) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to access %s "
-               "(gfid: %s)",
-               loc->path, uuid_utoa(loc->inode->gfid));
         op_ret = -1;
         op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_ACCESS_FAILED,
+               "failed to access %s (gfid: %s)", loc->path,
+               uuid_utoa(loc->inode->gfid));
         goto out;
     }
 
@@ -2491,7 +2539,7 @@ mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_svs_mt_end + 1);
 
     if (ret != 0) {
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVS_MSG_MEM_ACNT_FAILED,
                "Memory accounting"
                " init failed");
         return ret;
@@ -2508,12 +2556,16 @@ init(xlator_t *this)
 
     /* This can be the top of graph in certain cases */
     if (!this->parents) {
-        gf_log(this->name, GF_LOG_DEBUG, "dangling volume. check volfile ");
+        gf_msg_debug(this->name, 0, "dangling volume. check volfile ");
     }
 
     priv = GF_CALLOC(1, sizeof(*priv), gf_svs_mt_priv_t);
-    if (!priv)
+    if (!priv) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, SVS_MSG_NO_MEMORY,
+               "failed to "
+               "allocate memory for this->private ");
         goto out;
+    }
 
     this->private = priv;
 
@@ -2531,7 +2583,7 @@ init(xlator_t *this)
     /* happen.*/
     ret = svs_mgmt_init(this);
     if (ret) {
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_msg(this->name, GF_LOG_WARNING, EINVAL, SVS_MSG_MGMT_INIT_FAILED,
                "failed to initiate the "
                "mgmt rpc callback for svs. Dymamic management of the"
                "snapshots will not happen");
@@ -2541,7 +2593,8 @@ init(xlator_t *this)
     /* get the list of snaps first to return to client xlator */
     ret = svs_get_snapshot_list(this);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+               SVS_MSG_GET_SNAPSHOT_LIST_FAILED,
                "Error initializing snaplist infrastructure");
         ret = -1;
         goto out;
@@ -2571,12 +2624,14 @@ fini(xlator_t *this)
     this->private = NULL;
     ctx = this->ctx;
     if (!ctx)
-        gf_log(this->name, GF_LOG_ERROR, "Invalid ctx found");
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_INVALID_GLFS_CTX,
+               "Invalid ctx found");
 
     if (priv) {
         ret = LOCK_DESTROY(&priv->snaplist_lock);
         if (ret != 0) {
-            gf_log(this->name, GF_LOG_WARNING,
+            gf_msg(this->name, GF_LOG_WARNING, errno,
+                   SVS_MSG_LOCK_DESTROY_FAILED,
                    "Could not destroy mutex snaplist_lock");
         }
 

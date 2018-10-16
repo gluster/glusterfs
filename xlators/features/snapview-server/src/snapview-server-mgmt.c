@@ -19,7 +19,8 @@ mgmt_cbk_snap(struct rpc_clnt *rpc, void *mydata, void *data)
     this = mydata;
     GF_ASSERT(this);
 
-    gf_log("mgmt", GF_LOG_INFO, "list of snapshots changed");
+    gf_msg("mgmt", GF_LOG_INFO, 0, SVS_MSG_SNAPSHOT_LIST_CHANGED,
+           "list of snapshots changed");
 
     svs_get_snapshot_list(this);
     return 0;
@@ -62,7 +63,8 @@ svs_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         case RPC_CLNT_CONNECT:
             ret = svs_get_snapshot_list(this);
             if (ret) {
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                       SVS_MSG_GET_SNAPSHOT_LIST_FAILED,
                        "Error in refreshing the snaplist "
                        "infrastructure");
                 ret = -1;
@@ -100,7 +102,7 @@ svs_mgmt_init(xlator_t *this)
 
     ret = rpc_transport_inet_options_build(&options, host, port);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_BUILD_TRNSPRT_OPT_FAILED,
                "failed to build the "
                "transport options");
         goto out;
@@ -108,26 +110,28 @@ svs_mgmt_init(xlator_t *this)
 
     priv->rpc = rpc_clnt_new(options, this, this->name, 8);
     if (!priv->rpc) {
-        gf_log(this->name, GF_LOG_ERROR, "failed to initialize RPC");
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_RPC_INIT_FAILED,
+               "failed to initialize RPC");
         goto out;
     }
 
     ret = rpc_clnt_register_notify(priv->rpc, svs_rpc_notify, this);
     if (ret) {
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVS_MSG_REG_NOTIFY_FAILED,
                "failed to register notify function");
         goto out;
     }
 
     ret = rpcclnt_cbk_program_register(priv->rpc, &svs_cbk_prog, this);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "failed to register callback program");
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_REG_CBK_PRGM_FAILED,
+               "failed to register callback program");
         goto out;
     }
 
     ret = rpc_clnt_start(priv->rpc);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_RPC_CLNT_START_FAILED,
                "failed to start the rpc "
                "client");
         goto out;
@@ -135,7 +139,7 @@ svs_mgmt_init(xlator_t *this)
 
     ret = 0;
 
-    gf_log(this->name, GF_LOG_DEBUG, "svs mgmt init successful");
+    gf_msg_debug(this->name, 0, "svs mgmt init successful");
 
 out:
     if (ret)
@@ -171,6 +175,9 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
 
     iobref = iobref_new();
     if (!iobref) {
+        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM, SVS_MSG_NO_MEMORY,
+               "failed to allocate "
+               "new iobref");
         goto out;
     }
 
@@ -190,8 +197,8 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
         /* Create the xdr payload */
         ret = xdr_serialize_generic(iov, req, xdrproc);
         if (ret == -1) {
-            gf_log(frame->this->name, GF_LOG_WARNING,
-                   "Failed to create XDR payload");
+            gf_msg(frame->this->name, GF_LOG_WARNING, 0,
+                   SVS_MSG_XDR_PAYLOAD_FAILED, "Failed to create XDR payload");
             goto out;
         }
         iov.iov_len = ret;
@@ -243,20 +250,22 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     old_dirents = priv->dirents;
 
     if (!ctx) {
-        gf_log(frame->this->name, GF_LOG_ERROR, "NULL context");
         errno = EINVAL;
+        gf_msg(frame->this->name, GF_LOG_ERROR, errno, SVS_MSG_NULL_CTX,
+               "NULL context");
         goto out;
     }
 
     if (-1 == req->rpc_status) {
-        gf_log(frame->this->name, GF_LOG_ERROR, "RPC call is not successful");
         errno = EINVAL;
+        gf_msg(frame->this->name, GF_LOG_ERROR, errno, SVS_MSG_RPC_CALL_FAILED,
+               "RPC call is not successful");
         goto out;
     }
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_getsnap_name_uuid_rsp);
     if (ret < 0) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
+        gf_msg(frame->this->name, GF_LOG_ERROR, 0, SVS_MSG_XDR_DECODE_FAILED,
                "Failed to decode xdr response, rsp.op_ret = %d", rsp.op_ret);
         goto out;
     }
@@ -268,10 +277,10 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (!rsp.dict.dict_len) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "Response dict is not populated");
         ret = -1;
         errno = EINVAL;
+        gf_msg(frame->this->name, GF_LOG_ERROR, errno, SVS_MSG_RSP_DICT_EMPTY,
+               "Response dict is not populated");
         goto out;
     }
 
@@ -284,17 +293,18 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len, &dict);
     if (ret) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "Failed to unserialize dictionary");
         errno = EINVAL;
+        gf_msg(frame->this->name, GF_LOG_ERROR, errno,
+               LG_MSG_DICT_UNSERIAL_FAILED, "Failed to unserialize dictionary");
         goto out;
     }
 
     ret = dict_get_int32(dict, "snap-count", (int32_t *)&snapcount);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "Error retrieving snapcount");
         errno = EINVAL;
         ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_DICT_GET_FAILED,
+               "Error retrieving snapcount");
         goto out;
     }
 
@@ -303,10 +313,10 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         dirents = GF_CALLOC(snapcount, sizeof(snap_dirent_t),
                             gf_svs_mt_dirents_t);
         if (!dirents) {
-            gf_log(frame->this->name, GF_LOG_ERROR,
-                   "Unable to allocate memory");
             errno = ENOMEM;
             ret = -1;
+            gf_msg(frame->this->name, GF_LOG_ERROR, errno, SVS_MSG_NO_MEMORY,
+                   "Unable to allocate memory");
             goto out;
         }
     }
@@ -315,10 +325,10 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(key, sizeof(key), "snap-volname.%d", i + 1);
         ret = dict_get_str(dict, key, &value);
         if (ret) {
-            gf_log(this->name, GF_LOG_ERROR, "Error retrieving snap volname %d",
-                   i + 1);
             errno = EINVAL;
             ret = -1;
+            gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_DICT_GET_FAILED,
+                   "Error retrieving snap volname %d", i + 1);
             goto out;
         }
 
@@ -328,10 +338,10 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(key, sizeof(key), "snap-id.%d", i + 1);
         ret = dict_get_str(dict, key, &value);
         if (ret) {
-            gf_log(this->name, GF_LOG_ERROR, "Error retrieving snap uuid %d",
-                   i + 1);
             errno = EINVAL;
             ret = -1;
+            gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_DICT_GET_FAILED,
+                   "Error retrieving snap uuid %d", i + 1);
             goto out;
         }
         strncpy(dirents[i].uuid, value, sizeof(dirents[i].uuid));
@@ -339,10 +349,10 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(key, sizeof(key), "snapname.%d", i + 1);
         ret = dict_get_str(dict, key, &value);
         if (ret) {
-            gf_log(this->name, GF_LOG_ERROR, "Error retrieving snap name %d",
-                   i + 1);
             errno = EINVAL;
             ret = -1;
+            gf_msg(this->name, GF_LOG_ERROR, errno, SVS_MSG_DICT_GET_FAILED,
+                   "Error retrieving snap name %d", i + 1);
             goto out;
         }
         strncpy(dirents[i].name, value, sizeof(dirents[i].name));
@@ -404,7 +414,7 @@ out:
     free(rsp.op_errstr);
 
     if (ret && dirents) {
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVS_MSG_SNAP_LIST_REFRESH_FAILED,
                "Could not update dirents with refreshed snap list");
         GF_FREE(dirents);
     }
@@ -433,13 +443,14 @@ svs_get_snapshot_list(xlator_t *this)
 
     ctx = this->ctx;
     if (!ctx) {
-        gf_log(this->name, GF_LOG_ERROR, "ctx is NULL");
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_NULL_CTX, "ctx is NULL");
         goto out;
     }
 
     frame = create_frame(this, ctx->pool);
     if (!frame) {
-        gf_log(this->name, GF_LOG_ERROR, "Error allocating frame");
+        gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_FRAME_ERROR,
+               "Error allocating frame");
         goto out;
     }
 
@@ -447,20 +458,23 @@ svs_get_snapshot_list(xlator_t *this)
 
     dict = dict_new();
     if (!dict) {
-        gf_log(this->name, GF_LOG_ERROR, "Error allocating dictionary");
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, SVS_MSG_NO_MEMORY,
+               "Error allocating dictionary");
         goto out;
     }
 
     ret = dict_set_str(dict, "volname", priv->volname);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "Error setting volname in dict");
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_DICT_SET_FAILED,
+               "Error setting volname in dict");
         goto out;
     }
 
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to serialize dictionary");
+        gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_DICT_UNSERIAL_FAILED,
+               "Failed to serialize dictionary");
         ret = -1;
         goto out;
     }
@@ -470,7 +484,7 @@ svs_get_snapshot_list(xlator_t *this)
         mgmt_get_snapinfo_cbk, (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
 
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_RPC_REQ_FAILED,
                "Error sending snapshot names RPC request");
     }
 
