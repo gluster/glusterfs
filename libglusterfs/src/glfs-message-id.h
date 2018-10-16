@@ -92,7 +92,7 @@ enum _msgid_comp {
     GLFS_MSGID_COMP(SNAPVIEW_CLIENT, 1),
     GLFS_MSGID_COMP(TEMPLATE, 1),
     GLFS_MSGID_COMP(UTIME, 1),
-
+    GLFS_MSGID_COMP(SNAPVIEW_SERVER, 1),
     /* --- new segments for messages goes above this line --- */
 
     GLFS_MSGID_END
