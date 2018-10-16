@@ -791,6 +791,7 @@ __inode_find
 inode_find
 inode_find_directory_name
 inode_forget
+inode_forget_with_unref
 inode_from_path
 inode_grep
 inode_grep_for_gfid
@@ -815,6 +816,7 @@ inode_table_destroy_all
 inode_table_dump
 inode_table_dump_to_dict
 inode_table_new
+inode_table_with_invalidator
 __inode_table_set_lru_limit
 inode_table_set_lru_limit
 inode_unlink

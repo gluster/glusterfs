@@ -219,6 +219,9 @@ static struct argp_option gf_options[] = {
      "[default: 300]"},
     {"resolve-gids", ARGP_RESOLVE_GIDS_KEY, 0, 0,
      "Resolve all auxiliary groups in fuse translator (max 32 otherwise)"},
+    {"lru-limit", ARGP_FUSE_LRU_LIMIT_KEY, "N", 0,
+     "Set fuse module's limit for number of inodes kept in LRU list to N "
+     "[default: 0]"},
     {"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
      "Set fuse module's background queue length to N "
      "[default: 64]"},
@@ -492,6 +495,15 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
             gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
                    "failed to set dict value for key "
                    "resolve-gids");
+            goto err;
+        }
+    }
+
+    if (cmd_args->lru_limit >= 0) {
+        ret = dict_set_int32(options, "lru-limit", cmd_args->lru_limit);
+        if (ret < 0) {
+            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                   "lru-limit");
             goto err;
         }
     }
@@ -1255,6 +1267,13 @@ parse_opts(int key, char *arg, struct argp_state *state)
 
         case ARGP_RESOLVE_GIDS_KEY:
             cmd_args->resolve_gids = 1;
+            break;
+
+        case ARGP_FUSE_LRU_LIMIT_KEY:
+            if (!gf_string2int32(arg, &cmd_args->lru_limit))
+                break;
+
+            argp_failure(state, -1, 0, "unknown LRU limit option %s", arg);
             break;
 
         case ARGP_FUSE_BACKGROUND_QLEN_KEY:
@@ -2084,6 +2103,11 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
         cmd_args->secure_mgmt = 1;
         ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
+
+    /* Need to set lru_limit to below 0 to indicate there was nothing
+       specified. This is needed as 0 is a valid option, and may not be
+       default value. */
+    cmd_args->lru_limit = -1;
 
     argp_parse(&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
 
