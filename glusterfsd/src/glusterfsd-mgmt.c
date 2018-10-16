@@ -416,6 +416,8 @@ glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
             ret = glusterfs_volume_top_write_perf(
                 blk_size, blk_count, xlator_req.name, &throughput, &time);
         }
+        if (ret)
+            goto cont;
         ret = dict_set_double(dict, "time", time);
         if (ret)
             goto cont;
