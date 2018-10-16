@@ -3360,7 +3360,7 @@ nfs3_mknod(rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
             break;
         default:
             ret = -EBADF;
-            break;
+            goto nfs3err;
     }
 
     cs->parent = *fh;
