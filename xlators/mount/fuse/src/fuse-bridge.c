@@ -279,74 +279,77 @@ send_fuse_data (xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
         send_fuse_data (this, finh, obj, sizeof (*(obj)))
 
 
-#if FUSE_KERNEL_MINOR_VERSION >= 11
 static void
 fuse_invalidate_entry (xlator_t *this, uint64_t fuse_ino)
 {
-        struct fuse_out_header             *fouh   = NULL;
-        struct fuse_notify_inval_entry_out *fnieo  = NULL;
-        fuse_private_t                     *priv   = NULL;
-        dentry_t                           *dentry = NULL;
-        inode_t                            *inode  = NULL;
-        size_t                              nlen   = 0;
-        fuse_invalidate_node_t             *node   = NULL;
+#if FUSE_KERNEL_MINOR_VERSION >= 11
+       struct fuse_out_header *fouh = NULL;
+       struct fuse_notify_inval_entry_out *fnieo = NULL;
+       fuse_private_t *priv = NULL;
+       dentry_t *dentry = NULL;
+       dentry_t *tmp = NULL;
+       inode_t *inode = NULL;
+       size_t nlen = 0;
+       fuse_invalidate_node_t *node = NULL;
+       char gfid_str[UUID_CANONICAL_FORM_LEN + 1];
 
-        priv = this->private;
+       priv = this->private;
+       if (!priv->reverse_fuse_thread_started)
+           return;
+   
+       inode = (inode_t *)(unsigned long)fuse_ino;
+       if (inode == NULL)
+           return;
+   
+       list_for_each_entry_safe(dentry, tmp, &inode->dentry_list, inode_list)
+       {
+           node = GF_CALLOC(1, sizeof(*node), gf_fuse_mt_invalidate_node_t);
+           if (node == NULL)
+               break;
+   
+                   INIT_LIST_HEAD (&node->next);
+   
+                   fouh  = (struct fuse_out_header *)node->inval_buf;
+                   fnieo = (struct fuse_notify_inval_entry_out *)(fouh + 1);
+   
+                   fouh->unique = 0;
+                   fouh->error = FUSE_NOTIFY_INVAL_ENTRY;
+   
+           if (dentry->name) {
+               nlen = strlen(dentry->name);
+               fouh->len = sizeof(*fouh) + sizeof(*fnieo) + nlen + 1;
+               fnieo->parent = inode_to_fuse_nodeid(dentry->parent);
+  
+               fnieo->namelen = nlen;
+               strcpy((node->inval_buf + sizeof(*fouh) + sizeof(*fnieo)),
+                      dentry->name);
+           }
+  
+           gf_log("glusterfs-fuse", GF_LOG_TRACE,
+                  "INVALIDATE entry: %" PRIu64 "/%s (gfid:%s)", fnieo->parent,
+                  dentry->name, uuid_utoa(inode->gfid));
+  
+           if (dentry->parent) {
+               fuse_log_eh(this, "Invalidated entry %s (parent: %s) gfid:%s",
+                           dentry->name, uuid_utoa(dentry->parent->gfid),
+                           uuid_utoa_r(inode->gfid, gfid_str));
+           } else {
+               fuse_log_eh(this,
+                           "Invalidated entry %s(nodeid: %" PRIu64 ") gfid:%s",
+                           dentry->name, fnieo->parent, uuid_utoa(inode->gfid));
+           }
+  
+           pthread_mutex_lock(&priv->invalidate_mutex);
+           {
+               list_add_tail(&node->next, &priv->invalidate_list);
+               pthread_cond_signal(&priv->invalidate_cond);
+           }
+           pthread_mutex_unlock(&priv->invalidate_mutex);
+    }
 
-        if (!priv->reverse_fuse_thread_started)
-                return;
-
-        inode = fuse_ino_to_inode(fuse_ino, this);
-        if (inode == NULL) {
-                return;
-        }
-
-        list_for_each_entry (dentry, &inode->dentry_list, inode_list) {
-                node = GF_CALLOC (1, sizeof (*node),
-                                  gf_fuse_mt_invalidate_node_t);
-                if (node == NULL)
-                        break;
-
-                INIT_LIST_HEAD (&node->next);
-
-                fouh  = (struct fuse_out_header *)node->inval_buf;
-                fnieo = (struct fuse_notify_inval_entry_out *)(fouh + 1);
-
-                fouh->unique = 0;
-                fouh->error = FUSE_NOTIFY_INVAL_ENTRY;
-
-                nlen = strlen (dentry->name);
-                fouh->len = sizeof (*fouh) + sizeof (*fnieo) + nlen + 1;
-                fnieo->parent = inode_to_fuse_nodeid (dentry->parent);
-
-                fnieo->namelen = nlen;
-                strcpy (node->inval_buf + sizeof (*fouh) + sizeof (*fnieo),
-                        dentry->name);
-
-                pthread_mutex_lock (&priv->invalidate_mutex);
-                {
-                        list_add_tail (&node->next, &priv->invalidate_list);
-                        pthread_cond_signal (&priv->invalidate_cond);
-                }
-                pthread_mutex_unlock (&priv->invalidate_mutex);
-
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE entry: "
-                        "%"PRIu64"/%s", fnieo->parent, dentry->name);
-
-                if (dentry->parent) {
-                        fuse_log_eh (this, "Invalidated entry %s (parent: %s)",
-                                     dentry->name,
-                                     uuid_utoa (dentry->parent->gfid));
-                } else {
-                        fuse_log_eh (this, "Invalidated entry %s(nodeid: %" PRIu64 ")",
-                                     dentry->name, fnieo->parent);
-                }
-        }
-
-        if (inode)
-                inode_unref (inode);
-}
 #endif
+    return;
+}
 
 /*
  * Send an inval inode notification to fuse. This causes an invalidation of the
@@ -367,10 +370,14 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
         if (!priv->reverse_fuse_thread_started)
                 return;
 
-        node = GF_CALLOC (1, sizeof (*node), gf_fuse_mt_invalidate_node_t);
+        inode = (inode_t *)(unsigned long)fuse_ino;
+        if (inode == NULL)
+            return;
+    
+        node = GF_CALLOC(1, sizeof(*node), gf_fuse_mt_invalidate_node_t);
         if (node == NULL)
-                return;
-
+            return;
+    
         INIT_LIST_HEAD (&node->next);
 
         fouh = (struct fuse_out_header *) node->inval_buf;
@@ -386,7 +393,11 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
         fniio->off = 0;
         fniio->len = -1;
 
-        inode = fuse_ino_to_inode (fuse_ino, this);
+        fuse_log_eh(this, "Invalidated inode %" PRIu64 " (gfid: %s)", fuse_ino,
+                    uuid_utoa(inode->gfid));
+        gf_log("glusterfs-fuse", GF_LOG_TRACE,
+               "INVALIDATE inode: %" PRIu64 "(gfid:%s)", fuse_ino,
+               uuid_utoa(inode->gfid));
 
         pthread_mutex_lock (&priv->invalidate_mutex);
         {
@@ -395,23 +406,22 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
         }
         pthread_mutex_unlock (&priv->invalidate_mutex);
 
-        gf_log ("glusterfs-fuse", GF_LOG_TRACE, "INVALIDATE inode: %" PRIu64,
-                fuse_ino);
-
-        if (inode) {
-                fuse_log_eh (this, "Invalidated inode %" PRIu64 " (gfid: %s)",
-                             fuse_ino, uuid_utoa (inode->gfid));
-        } else {
-                fuse_log_eh (this, "Invalidated inode %" PRIu64, fuse_ino);
-        }
-
-        if (inode)
-                inode_unref (inode);
 #else
-	gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-		"fuse_invalidate_inode not implemented on OS X due to missing FUSE notification");
+    gf_log("glusterfs-fuse", GF_LOG_WARNING,
+           "fuse_invalidate_inode not implemented on this system");
 #endif
+    return;
 }
+
+#if FUSE_KERNEL_MINOR_VERSION >= 11
+/* Need this function for the signature (inode_t *, instead of uint64_t) */
+static int32_t
+fuse_inode_invalidate_fn(xlator_t *this, inode_t *inode)
+{
+    fuse_invalidate_entry(this, (uint64_t)inode);
+    return 0;
+}
+#endif
 
 
 int
@@ -685,11 +695,14 @@ do_forget(xlator_t *this, uint64_t unique, uint64_t nodeid, uint64_t nlookup)
 {
 	inode_t *fuse_inode = fuse_ino_to_inode(nodeid, this);
 
-	fuse_log_eh(this, "%"PRIu64": FORGET %"PRIu64"/%"PRIu64" gfid: (%s)",
-		    unique, nodeid, nlookup, uuid_utoa(fuse_inode->gfid));
-
-	inode_forget(fuse_inode, nlookup);
-	inode_unref(fuse_inode);
+        gf_log("fuse", GF_LOG_TRACE,
+               "%" PRIu64 ": FORGET %" PRIu64 "/%" PRIu64 " gfid: (%s)", unique,
+               nodeid, nlookup, uuid_utoa(fuse_inode->gfid));
+    
+        fuse_log_eh(this, "%" PRIu64 ": FORGET %" PRIu64 "/%" PRIu64 " gfid: (%s)",
+                    unique, nodeid, nlookup, uuid_utoa(fuse_inode->gfid));
+    
+        inode_forget_with_unref(fuse_inode, nlookup);
 }
 
 static void
@@ -703,11 +716,7 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": FORGET %"PRIu64"/%"PRIu64,
-                finh->unique, finh->nodeid, ffi->nlookup);
-
-	do_forget(this, finh->unique, finh->nodeid, ffi->nlookup);
+        do_forget(this, finh->unique, finh->nodeid, ffi->nlookup);
 
         GF_FREE (finh);
 }
@@ -4883,7 +4892,9 @@ fuse_thread_proc (void *data)
         fuse_in_header_t         *finh = NULL;
         struct iovec              iov_in[2];
         void                     *msg = NULL;
-        const size_t              msg0_size = sizeof (*finh) + 128;
+        /* we need 512 extra buffer size for BATCH_FORGET fop. By tests, it is
+           found to be reduces 'REALLOC()' in the loop */
+        const size_t msg0_size = sizeof(*finh) + 512;
         fuse_handler_t          **fuse_ops = NULL;
         struct pollfd             pfd[2] = {{0,}};
         gf_boolean_t              mount_finished = _gf_false;
@@ -5223,11 +5234,16 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
                         goto unlock;
                 }
 
-                itable = inode_table_new (0, graph->top);
-                if (!itable) {
-                        ret = -1;
-                        goto unlock;
-                }
+#if FUSE_KERNEL_MINOR_VERSION >= 11
+        itable = inode_table_with_invalidator(priv->lru_limit, graph->top,
+                                              fuse_inode_invalidate_fn, this);
+#else
+        itable = inode_table_new(0, graph->top);
+#endif
+        if (!itable) {
+            ret = -1;
+            goto unlock;
+        }
 
                 ((xlator_t *)graph->top)->itable = itable;
 
@@ -5668,6 +5684,7 @@ init (xlator_t *this_xl)
                 }
         }
 
+        GF_OPTION_INIT("lru-limit", priv->lru_limit, uint32, cleanup_exit);
         GF_OPTION_INIT("event-history", priv->event_history, bool,
                        cleanup_exit);
 
@@ -5981,5 +5998,14 @@ struct volume_options options[] = {
           .description = "This option can be used to enable or disable fuse "
           "event history.",
         },
+        {
+          .key = {"lru-limit"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "131072",
+          .min = 0,
+          .description = "makes glusterfs invalidate kernel inodes after "
+                           "reaching this limit (0 means 'unlimited')",
+        },
         { .key = {NULL} },
 };
+

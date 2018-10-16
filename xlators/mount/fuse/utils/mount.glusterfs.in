@@ -241,6 +241,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --gid-timeout=$gid_timeout");
     fi
 
+    if [ -n "$lru_limit" ]; then
+        cmd_line=$(echo "$cmd_line --lru-limit=$lru_limit");
+    fi
+
     if [ -n "$bg_qlen" ]; then
         cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
     fi
@@ -458,6 +462,9 @@ with_options()
             ;;
         "gid-timeout")
             gid_timeout=$value
+            ;;
+        "lru-limit")
+            lru_limit=$value
             ;;
         "background-qlen")
             bg_qlen=$value

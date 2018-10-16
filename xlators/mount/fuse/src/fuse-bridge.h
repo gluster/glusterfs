@@ -140,6 +140,9 @@ struct fuse_private {
 
         /* whether to run the unmount daemon */
         gf_boolean_t auto_unmount;
+
+        /* LRU Limit, if not set, default is 128k for now */
+        uint32_t lru_limit;
 };
 typedef struct fuse_private fuse_private_t;
 

@@ -99,6 +99,7 @@ enum argp_option_keys {
         ARGP_LOCALTIME_LOGGING_KEY        = 177,
         ARGP_SUBDIR_MOUNT_KEY             = 178,
         ARGP_FUSE_EVENT_HISTORY_KEY       = 179,
+        ARGP_FUSE_LRU_LIMIT_KEY           = 180,
 };
 
 struct _gfd_vol_top_priv {
