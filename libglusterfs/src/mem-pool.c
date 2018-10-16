@@ -300,6 +300,16 @@ __gf_mem_invalidate(void *ptr)
 }
 #endif /* DEBUG */
 
+/* Coverity taint NOTE: pointers passed to free, would operate on
+pointer-GF_MEM_HEADER_SIZE content and if the pointer was used for any IO
+related purpose, the pointer stands tainted, and hence coverity would consider
+access to the said region as tainted. The following directive to coverity hence
+sanitizes the pointer, thus removing any taint to the same within this function.
+If the pointer is accessed outside the scope of this function without any
+checks on content read from an IO operation, taints will still be reported, and
+needs appropriate addressing. */
+
+/* coverity[ +tainted_string_sanitize_content : arg-0 ] */
 void
 __gf_free(void *free_ptr)
 {
