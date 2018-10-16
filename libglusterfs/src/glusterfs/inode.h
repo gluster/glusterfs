@@ -54,6 +54,13 @@ struct _inode_table {
     struct mem_pool *dentry_pool; /* memory pool for dentrys */
     struct mem_pool *fd_mem_pool; /* memory pool for fd_t */
     int ctxcount;                 /* number of slots in inode->ctx */
+
+    /* This is required for 'invalidation' when 'nlookup' would be used,
+       specially in case of fuse-bridge */
+    int32_t (*invalidator_fn)(xlator_t *, inode_t *);
+    xlator_t *invalidator_xl;
+    struct list_head invalidate; /* inodes which are in invalidation queue */
+    uint32_t invalidate_size;    /* count of inodes in invalidation list */
 };
 
 struct _dentry {
@@ -100,6 +107,7 @@ struct _inode {
     struct list_head list;        /* active/lru/purge */
 
     struct _inode_ctx *_ctx; /* replacement for dict_t *(inode->ctx) */
+    bool invalidate_sent;    /* Set it if invalidator_fn is called for inode */
 };
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"
@@ -107,7 +115,12 @@ struct _inode {
 #define GFID_STR_PFX_LEN (sizeof(GFID_STR_PFX) - 1)
 
 inode_table_t *
-inode_table_new(size_t lru_limit, xlator_t *xl);
+inode_table_new(uint32_t lru_limit, xlator_t *xl);
+
+inode_table_t *
+inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
+                             int32_t (*invalidator_fn)(xlator_t *, inode_t *),
+                             xlator_t *invalidator_xl);
 
 void
 inode_table_destroy_all(glusterfs_ctx_t *ctx);
@@ -139,6 +152,8 @@ inode_lookup(inode_t *inode);
 
 int
 inode_forget(inode_t *inode, uint64_t nlookup);
+int
+inode_forget_with_unref(inode_t *inode, uint64_t nlookup);
 
 int
 inode_ref_reduce_by_n(inode_t *inode, uint64_t nref);

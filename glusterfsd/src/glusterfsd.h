@@ -109,6 +109,7 @@ enum argp_option_keys {
     ARGP_ATTR_TIMES_GRANULARITY_KEY = 187,
     ARGP_PRINT_LIBEXECDIR_KEY = 188,
     ARGP_FUSE_FLUSH_HANDLE_INTERRUPT_KEY = 189,
+    ARGP_FUSE_LRU_LIMIT_KEY = 190,
 };
 
 struct _gfd_vol_top_priv {
