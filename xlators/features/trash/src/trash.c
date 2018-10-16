@@ -194,6 +194,7 @@ store_eliminate_path(char *str, trash_elim_path **eliminate)
         if (!trav->path) {
             ret = ENOMEM;
             gf_log("trash", GF_LOG_DEBUG, "out of memory");
+            GF_FREE(trav);
             goto out;
         }
         trav->next = *eliminate;
