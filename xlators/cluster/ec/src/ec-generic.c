@@ -658,7 +658,7 @@ int32_t
 ec_combine_lookup(ec_fop_data_t *fop, ec_cbk_data_t *dst, ec_cbk_data_t *src)
 {
     if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 2)) {
-        gf_msg(fop->xl->name, GF_LOG_NOTICE, 0, EC_MSG_IATT_MISMATCH,
+        gf_msg(fop->xl->name, GF_LOG_DEBUG, 0, EC_MSG_IATT_MISMATCH,
                "Mismatching iatt in "
                "answers of 'GF_FOP_LOOKUP'");
 
