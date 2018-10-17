@@ -1078,4 +1078,8 @@ xlator_memrec_free(xlator_t *xl);
 
 void
 xlator_mem_cleanup(xlator_t *this);
+
+void
+handle_default_options(xlator_t *xl, dict_t *options);
+
 #endif /* _XLATOR_H */

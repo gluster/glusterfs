@@ -45,8 +45,37 @@ xlator_init_unlock(void)
 
 static struct xlator_cbks default_cbks = {};
 struct volume_options default_options[] = {
-    {.key = {NULL}},
+    {
+        .key = {"log-level"},
+        .type = GF_OPTION_TYPE_STR,
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+        .tags = {"generic"},
+        .value = {"DEBUG", "WARNING", "ERROR", "INFO", "CRITICAL", "NONE",
+                  "TRACE"},
+        .description = "Option to set log-level of given translator",
+    },
+    {
+        .key = {NULL},
+    },
 };
+
+/* Handle the common options in each translator */
+void
+handle_default_options(xlator_t *xl, dict_t *options)
+{
+    int ret;
+    char *value;
+
+    /* log-level */
+    ret = dict_get_str(options, "log-level", &value);
+    if (!ret) {
+        int log_level = glusterd_check_log_level(value);
+        if (log_level != -1) {
+            xl->loglevel = log_level;
+        }
+    }
+}
 
 static void
 fill_defaults(xlator_t *xl)
@@ -302,13 +331,11 @@ xlator_dynload_oldway(xlator_t *xl)
         goto out;
     }
 
-    if (!(vol_opt->given_opt = dlsym(handle, "options"))) {
-        gf_msg_trace(xl->name, 0,
-                     "Strict option validation not "
-                     "enforced -- neglecting (%s)",
-                     dlerror());
-    }
     INIT_LIST_HEAD(&vol_opt->list);
+    vol_opt->given_opt = dlsym(handle, "options");
+    if (!vol_opt->given_opt) {
+        vol_opt->given_opt = default_options;
+    }
     list_add_tail(&vol_opt->list, &xl->volume_options);
 
     /* make sure 'min' is set to high value, so it would be
@@ -406,16 +433,22 @@ xlator_dynload_newway(xlator_t *xl)
     if (!vol_opt) {
         goto out;
     }
-
-    vol_opt->given_opt = xlapi->options;
-    if (!vol_opt->given_opt) {
-        gf_msg("xlator", GF_LOG_INFO, 0, LG_MSG_DLSYM_ERROR,
-               "%s: options not provided, using default", xl->name);
-        vol_opt->given_opt = default_options;
-    }
-
     INIT_LIST_HEAD(&vol_opt->list);
+
+    vol_opt->given_opt = default_options;
     list_add_tail(&vol_opt->list, &xl->volume_options);
+
+    if (xlapi->options) {
+        vol_opt = GF_CALLOC(1, sizeof(volume_opt_list_t),
+                            gf_common_mt_volume_opt_list_t);
+        if (!vol_opt) {
+            goto out;
+        }
+        INIT_LIST_HEAD(&vol_opt->list);
+
+        vol_opt->given_opt = xlapi->options;
+        list_add_tail(&vol_opt->list, &xl->volume_options);
+    }
 
     xl->id = xlapi->xlator_id;
     xl->flags = xlapi->flags;
@@ -681,6 +714,7 @@ __xlator_init(xlator_t *xl)
     GF_ATOMIC_INIT(xl->stats.interval.count, 0);
 
     xlator_init_lock();
+    handle_default_options(xl, xl->options);
     ret = xl->init(xl);
     xlator_init_unlock();
 
