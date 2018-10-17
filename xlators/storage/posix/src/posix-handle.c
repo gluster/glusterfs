@@ -741,6 +741,7 @@ posix_handle_hard(xlator_t *this, const char *oldpath, uuid_t gfid,
     char *newpath = NULL;
     struct stat newbuf;
     int ret = -1;
+    gf_boolean_t link_exists = _gf_false;
 
     MAKE_HANDLE_ABSPATH(newpath, this, gfid);
 
@@ -762,17 +763,26 @@ posix_handle_hard(xlator_t *this, const char *oldpath, uuid_t gfid,
         ret = sys_link(oldpath, newpath);
 
         if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "link %s -> %s"
-                   "failed ",
-                   oldpath, newpath);
-            return -1;
+            if (errno != EEXIST) {
+                gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
+                       "link %s -> %s"
+                       "failed ",
+                       oldpath, newpath);
+                return -1;
+            } else {
+                link_exists = _gf_true;
+            }
         }
 
         ret = sys_lstat(newpath, &newbuf);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
                    "lstat on %s failed", newpath);
+            return -1;
+        }
+        if ((link_exists) && (!S_ISREG(newbuf.st_mode))) {
+            gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_HANDLE_CREATE,
+                   "%s - Expected regular file", newpath);
             return -1;
         }
     }
