@@ -1120,6 +1120,7 @@ xlator_reconfigure_rec(xlator_t *old_xl, xlator_t *new_xl)
         THIS = old_xl;
 
         xlator_init_lock();
+        handle_default_options(old_xl, new_xl->options);
         ret = old_xl->reconfigure(old_xl, new_xl->options);
         xlator_init_unlock();
 
