@@ -2923,9 +2923,12 @@ conditional_dump(dict_t *dict, char *key, data_t *value, void *data)
     char dump_key[100];
     char *slash_ptr = NULL;
     char *path_in_value = NULL;
+    char *identifier = NULL;
+    struct ios_conf *conf = NULL;
 
     stub = data;
     this = stub->this;
+    conf = this->private;
 
     /* Create a file name that is appended with the io-stats instance
     name as well. This helps when there is more than a single io-stats
@@ -2938,21 +2941,37 @@ conditional_dump(dict_t *dict, char *key, data_t *value, void *data)
     /* name format: /var/run/gluster/<passed in path/filename>.<xlator name
      * slashes to -> */
 
-    path_in_value = data_to_str(value);
+    path_in_value = alloca0(value->len + 1);
+
+    /* We need a memcpy here because of the way dict_unserialize works */
+
+    memcpy(path_in_value, data_to_str(value), value->len);
+    path_in_value[value->len] = '\0';
 
     if (strstr(path_in_value, "../")) {
         gf_log(this->name, GF_LOG_ERROR, "%s: no \"../\" allowed in path",
                path_in_value);
         return -1;
     }
+
+    if (path_in_value[0] == '/') {
+        path_in_value = path_in_value + 1;
+    }
+
     dirlen = strlen(IOS_STATS_DUMP_DIR);
-    namelen = (dirlen + value->len + strlen(this->name) + 3);
+    if (conf->unique_id) {
+        /* this->name will be the same for all bricks of the volume */
+        identifier = conf->unique_id;
+    } else {
+        identifier = this->name;
+    }
+
+    namelen = (dirlen + value->len + strlen(identifier) + 3);
     /* +3 for '/', '.' and '\0' added in snprintf below*/
 
     filename = alloca0(namelen);
-
     snprintf(filename, namelen, "%s/%s.%s", IOS_STATS_DUMP_DIR, path_in_value,
-             this->name);
+             identifier);
 
     /* convert any slashes to '-' so that fopen works correctly */
     slash_ptr = strchr(filename + dirlen + 1, '/');
