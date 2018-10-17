@@ -1972,7 +1972,6 @@ initialize_ctr_resource(xlator_t *this, gf_ctr_private_t *priv)
         gf_msg(this->name, GF_LOG_ERROR, 0,
                CTR_MSG_CREATE_LOCAL_MEMORY_POOL_FAILED,
                "failed to create local memory pool");
-        ret_db = -1;
         goto error;
     }
 
@@ -1981,7 +1980,6 @@ initialize_ctr_resource(xlator_t *this, gf_ctr_private_t *priv)
     if (!priv->_db_conn) {
         gf_msg(this->name, GF_LOG_ERROR, 0, CTR_MSG_FATAL_ERROR,
                "FATAL: Failed initializing data base");
-        ret_db = -1;
         goto error;
     }
 
@@ -1996,7 +1994,7 @@ error:
         GF_FREE(priv->ctr_db_path);
     }
     GF_FREE(priv);
-
+    ret_db = -1;
 out:
     if (params_dict)
         dict_unref(params_dict);
