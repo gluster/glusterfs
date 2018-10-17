@@ -2926,7 +2926,8 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
             list_del_init(&ctx->to_fsync_list);
             if (base_inode)
                 __shard_inode_ctx_get(base_inode, this, &base_ictx);
-            base_ictx->fsync_count--;
+            if (base_ictx)
+                base_ictx->fsync_count--;
         }
     }
     UNLOCK(&inode->lock);
