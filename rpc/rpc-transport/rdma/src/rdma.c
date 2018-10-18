@@ -3032,7 +3032,7 @@ gf_rdma_unregister_peer(gf_rdma_device_t *device, int32_t qp_num)
         ent = qpreg->ents[hash].next;
         while ((ent != &qpreg->ents[hash]) && (ent->qp_num != qp_num))
             ent = ent->next;
-        if (ent->qp_num != qp_num) {
+        if ((ent->qp_num != qp_num) || (ent == &qpreg->ents[hash])) {
             pthread_mutex_unlock(&qpreg->lock);
             return;
         }
@@ -3311,9 +3311,6 @@ gf_rdma_decode_error_msg(gf_rdma_peer_t *peer, gf_rdma_post_t *post,
         goto out;
     }
 
-    iobref_add(iobref, iobuf);
-    iobuf_unref(iobuf);
-
     ret = rpc_reply_to_xdr(&rpc_msg, iobuf_ptr(iobuf), iobuf_pagesize(iobuf),
                            &post->ctx.vector[0]);
     if (ret == -1) {
@@ -3323,6 +3320,9 @@ gf_rdma_decode_error_msg(gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                "RPC reply");
         goto out;
     }
+
+    iobref_add(iobref, iobuf);
+    iobuf_unref(iobuf);
 
     post->ctx.count = 1;
 
@@ -3445,7 +3445,8 @@ out:
             GF_FREE(*readch);
             *readch = NULL;
         }
-
+        if (reply_info)
+            GF_FREE(reply_info);
         GF_FREE(write_ary);
     }
 
@@ -3553,10 +3554,10 @@ gf_rdma_do_reads(gf_rdma_peer_t *peer, gf_rdma_post_t *post,
         }
     }
 
+    ptr = iobuf_ptr(iobuf);
     iobref_add(post->ctx.iobref, iobuf);
     iobuf_unref(iobuf);
 
-    ptr = iobuf_ptr(iobuf);
     iobuf = NULL;
 
     pthread_mutex_lock(&priv->write_mutex);
