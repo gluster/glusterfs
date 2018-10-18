@@ -592,6 +592,10 @@ fuse_newentry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
+    /* facilitate retry of link from VFS */
+    if (op_errno == ENOENT)
+        op_errno = ESTALE;
+
     fuse_entry_cbk(frame, cookie, this, op_ret, op_errno, inode, buf, xdata);
     return 0;
 }
@@ -798,6 +802,10 @@ fuse_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", strerror(op_errno));
 
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (op_errno == ENOENT))
+            op_errno = ESTALE;
+
         send_fuse_err(this, finh, op_errno);
     }
 
@@ -881,6 +889,10 @@ fuse_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             return 0;
         }
 
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (op_errno == ENOENT))
+            op_errno = ESTALE;
+
         gf_log("glusterfs-fuse", GF_LOG_WARNING,
                "%" PRIu64
                ": %s() "
@@ -915,6 +927,11 @@ fuse_getattr_resume(fuse_state_t *state)
                "%" PRIu64 ": GETATTR %" PRIu64 " (%s) resolution failed",
                state->finh->unique, state->finh->nodeid,
                uuid_utoa(state->resolve.gfid));
+
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (state->resolve.op_errno == ENOENT))
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -969,7 +986,7 @@ fuse_getattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
             gf_log("glusterfs-fuse", GF_LOG_WARNING,
                    "%" PRIu64 ": GETATTR on / (fuse_loc_fill() failed)",
                    finh->unique);
-            send_fuse_err(this, finh, ENOENT);
+            send_fuse_err(this, finh, ESTALE);
             free_fuse_state(state);
             return;
         }
@@ -1200,6 +1217,10 @@ fuse_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", strerror(op_errno));
 
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (op_errno == ENOENT))
+            op_errno = ESTALE;
+
         send_fuse_err(this, finh, op_errno);
         op_done = 1;
     }
@@ -1256,6 +1277,11 @@ fuse_setattr_resume(fuse_state_t *state)
                "%" PRIu64 ": SETATTR %" PRIu64 " (%s) resolution failed",
                state->finh->unique, state->finh->nodeid,
                uuid_utoa(state->resolve.gfid));
+
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (state->resolve.op_errno == ENOENT))
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1395,6 +1421,10 @@ fuse_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op], state->name ? state->name : "",
                state->loc.path ? state->loc.path : "ERR", strerror(op_errno));
 
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (op_errno == ENOENT))
+            op_errno = ESTALE;
+
         send_fuse_err(this, finh, op_errno);
     }
 
@@ -1427,6 +1457,10 @@ fuse_err_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                    state->loc.path ? state->loc.path : "ERR",
                    strerror(op_errno));
         }
+
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (op_errno == ENOENT))
+            op_errno = ESTALE;
 
         send_fuse_err(this, finh, op_errno);
     }
@@ -1509,6 +1543,11 @@ fuse_access_resume(fuse_state_t *state)
                "%" PRIu64 ": ACCESS %" PRIu64 " (%s) resolution failed",
                state->finh->unique, state->finh->nodeid,
                uuid_utoa(state->resolve.gfid));
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1565,6 +1604,10 @@ fuse_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                state->loc.path, linkname, op_ret);
         send_fuse_data(this, finh, (void *)linkname, op_ret);
     } else {
+        /* facilitate retry from VFS */
+        if (op_errno == ENOENT)
+            op_errno = ESTALE;
+
         gf_log("glusterfs-fuse", GF_LOG_WARNING, "%" PRIu64 ": %s => -1 (%s)",
                frame->root->unique, state->loc.path, strerror(op_errno));
 
@@ -1584,6 +1627,11 @@ fuse_readlink_resume(fuse_state_t *state)
         gf_log("glusterfs-fuse", GF_LOG_ERROR,
                "READLINK %" PRIu64 " (%s) resolution failed",
                state->finh->unique, uuid_utoa(state->resolve.gfid));
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1620,6 +1668,11 @@ fuse_mknod_resume(fuse_state_t *state)
                "MKNOD %" PRIu64 "/%s (%s/%s) resolution failed",
                state->finh->nodeid, state->resolve.bname,
                uuid_utoa(state->resolve.gfid), state->resolve.bname);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1689,6 +1742,11 @@ fuse_mkdir_resume(fuse_state_t *state)
                "MKDIR %" PRIu64 " (%s/%s) resolution failed",
                state->finh->nodeid, uuid_utoa(state->resolve.gfid),
                state->resolve.bname);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1825,6 +1883,11 @@ fuse_symlink_resume(fuse_state_t *state)
                "SYMLINK %" PRIu64 " (%s/%s) -> %s resolution failed",
                state->finh->nodeid, uuid_utoa(state->resolve.gfid),
                state->resolve.bname, state->name);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1945,6 +2008,10 @@ fuse_rename_resume(fuse_state_t *state)
                uuid_utoa_r(state->resolve2.gfid, loc2_uuid),
                state->resolve2.bname);
 
+        /* facilitate retry from VFS */
+        if ((!state->loc.inode) && (state->resolve.op_errno == ENOENT))
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -1958,7 +2025,7 @@ fuse_rename_resume(fuse_state_t *state)
                uuid_utoa_r(state->resolve2.gfid, loc2_uuid),
                state->resolve2.bname);
 
-        send_fuse_err(state->this, state->finh, ENOENT);
+        send_fuse_err(state->this, state->finh, ESTALE);
         free_fuse_state(state);
         return;
     }
@@ -2001,6 +2068,11 @@ fuse_link_resume(fuse_state_t *state)
         gf_log("glusterfs-fuse", GF_LOG_WARNING,
                "fuse_loc_fill() failed %" PRIu64 ": LINK %s %s",
                state->finh->unique, state->loc2.path, state->loc.path);
+
+        /* facilitate retry from VFS */
+        if (!state->loc2.inode && (state->resolve.op_errno == ENOENT))
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -2134,8 +2206,13 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         fd_bind(fd);
     } else {
+        /* facilitate retry from VFS */
+        if (op_errno == ENOENT)
+            op_errno = ESTALE;
+
         gf_log("glusterfs-fuse", GF_LOG_WARNING, "%" PRIu64 ": %s => -1 (%s)",
                finh->unique, state->loc.path, strerror(op_errno));
+
         send_fuse_err(this, finh, op_errno);
         gf_fd_put(priv->fdtable, state->fd_no);
     }
@@ -2158,6 +2235,11 @@ fuse_create_resume(fuse_state_t *state)
                "%" PRIu64 " CREATE %s/%s resolution failed",
                state->finh->unique, uuid_utoa(state->resolve.gfid),
                state->resolve.bname);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -3230,8 +3312,13 @@ fuse_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             ? send_fuse_obj(this, finh, &fso)
             : send_fuse_data(this, finh, &fso, FUSE_COMPAT_STATFS_SIZE);
     } else {
+        /* facilitate retry from VFS */
+        if (op_errno == ENOENT)
+            op_errno = ESTALE;
+
         gf_log("glusterfs-fuse", GF_LOG_WARNING, "%" PRIu64 ": ERR => -1 (%s)",
                frame->root->unique, strerror(op_errno));
+
         send_fuse_err(this, finh, op_errno);
     }
 
@@ -3248,6 +3335,10 @@ fuse_statfs_resume(fuse_state_t *state)
         gf_log("glusterfs-fuse", GF_LOG_WARNING,
                "%" PRIu64 ": STATFS (%s) resolution fail", state->finh->unique,
                uuid_utoa(state->resolve.gfid));
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
 
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
@@ -3284,6 +3375,11 @@ fuse_setxattr_resume(fuse_state_t *state)
                "resolution failed",
                state->finh->unique, uuid_utoa(state->resolve.gfid),
                state->finh->nodeid, state->name);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -3521,6 +3617,11 @@ fuse_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             send_fuse_xattr(this, finh, value, len, state->size);
         } /* if(state->name)...else */
     } else {
+        /* facilitate retry from VFS */
+        if ((state->fd == NULL) && (op_errno == ENOENT)) {
+            op_errno = ESTALE;
+        }
+
         /* if failure - no need to check if listxattr or getxattr */
         if (op_errno != ENODATA && op_errno != ENOATTR) {
             if (op_errno == ENOTSUP) {
@@ -3564,6 +3665,10 @@ fuse_getxattr_resume(fuse_state_t *state)
                "resolution failed",
                state->finh->unique, uuid_utoa(state->resolve.gfid),
                state->finh->nodeid, state->name);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
 
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
@@ -3707,6 +3812,10 @@ fuse_listxattr_resume(fuse_state_t *state)
                state->finh->unique, uuid_utoa(state->resolve.gfid),
                state->finh->nodeid);
 
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
+
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
         return;
@@ -3761,6 +3870,10 @@ fuse_removexattr_resume(fuse_state_t *state)
                "resolution failed",
                state->finh->unique, uuid_utoa(state->resolve.gfid),
                state->finh->nodeid, state->name);
+
+        /* facilitate retry from VFS */
+        if (state->resolve.op_errno == ENOENT)
+            state->resolve.op_errno = ESTALE;
 
         send_fuse_err(state->this, state->finh, state->resolve.op_errno);
         free_fuse_state(state);
