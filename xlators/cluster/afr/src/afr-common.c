@@ -4919,7 +4919,7 @@ find_child_index(xlator_t *this, xlator_t *child)
     return i;
 }
 
-static int
+int
 __afr_get_up_children_count(afr_private_t *priv)
 {
     int up_children = 0;
