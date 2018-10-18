@@ -1284,6 +1284,9 @@ afr_ta_post_op_unlock(xlator_t *this, loc_t *loc);
 gf_boolean_t
 afr_is_pending_set(xlator_t *this, dict_t *xdata, int type);
 
+int
+__afr_get_up_children_count(afr_private_t *priv);
+
 call_frame_t *
 afr_ta_frame_create(xlator_t *this);
 #endif /* __AFR_H__ */

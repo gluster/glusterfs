@@ -787,6 +787,18 @@ unref:
         afr_ta_post_op_unlock(this, loc);
 }
 
+gf_boolean_t
+afr_bricks_available_for_heal(afr_private_t *priv)
+{
+    int up_children = 0;
+
+    up_children = __afr_get_up_children_count(priv);
+    if (up_children < 2) {
+        return _gf_false;
+    }
+    return _gf_true;
+}
+
 void *
 afr_shd_index_healer(void *data)
 {
@@ -805,6 +817,9 @@ afr_shd_index_healer(void *data)
 
     for (;;) {
         afr_shd_healer_wait(healer);
+
+        if (!afr_bricks_available_for_heal(priv))
+            continue;
 
         ASSERT_LOCAL(this, healer);
         priv->local[healer->subvol] = healer->local;
