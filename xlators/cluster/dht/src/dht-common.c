@@ -10066,12 +10066,18 @@ dht_rmdir_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     xlator_t *prev = NULL;
     xlator_t *src = NULL;
     int ret = 0;
+    char *path = NULL;
 
     local = frame->local;
     prev = cookie;
     src = prev;
 
     if (op_ret > 2) {
+        /* dht_rmdir_is_subvol_empty() may free the frame,
+         * copy path for logging.
+         */
+        path = gf_strdup(local->loc.path);
+
         ret = dht_rmdir_is_subvol_empty(frame, this, entries, src);
 
         switch (ret) {
@@ -10082,25 +10088,22 @@ dht_rmdir_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                              prev->name, local->loc.path, op_ret);
                 local->op_ret = -1;
                 local->op_errno = ENOTEMPTY;
-                goto done;
+                break;
             default:
                 /* @ret number of linkfiles are getting unlinked */
                 gf_msg_trace(this->name, 0,
                              "readdir on %s for %s found %d "
                              "linkfiles",
-                             prev->name, local->loc.path, ret);
+                             prev->name, path, ret);
                 break;
         }
     }
 
-    if (ret) {
-        return 0;
-    }
-
-done:
     /* readdirp failed or no linkto files were found on this subvol */
+    if (!ret)
+        dht_rmdir_readdirp_done(frame, this);
 
-    dht_rmdir_readdirp_done(frame, this);
+    GF_FREE(path);
     return 0;
 }
 
