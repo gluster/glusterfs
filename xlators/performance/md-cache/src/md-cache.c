@@ -2518,13 +2518,17 @@ mdc_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (ret != 0)
         goto uncached;
 
+    GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
+
     if (!xattr || !dict_get(xattr, (char *)name)) {
         ret = -1;
         op_errno = ENODATA;
-    }
 
-    GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
-    MDC_STACK_UNWIND(removexattr, frame, ret, op_errno, xdata);
+        MDC_STACK_UNWIND(removexattr, frame, ret, op_errno, xdata);
+    } else {
+        STACK_WIND(frame, mdc_removexattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
+    }
 
     if (xattr)
         dict_unref(xattr);
@@ -2605,13 +2609,17 @@ mdc_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     if (ret != 0)
         goto uncached;
 
+    GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
+
     if (!xattr || !dict_get(xattr, (char *)name)) {
         ret = -1;
         op_errno = ENODATA;
-    }
 
-    GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
-    MDC_STACK_UNWIND(fremovexattr, frame, ret, op_errno, xdata);
+        MDC_STACK_UNWIND(fremovexattr, frame, ret, op_errno, xdata);
+    } else {
+        STACK_WIND(frame, mdc_fremovexattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fremovexattr, fd, name, xdata);
+    }
 
     if (xattr)
         dict_unref(xattr);
