@@ -2471,7 +2471,7 @@ wb_mark_readdirp_start(xlator_t *this, inode_t *directory)
 
     wb_directory_inode = wb_inode_create(this, directory);
 
-    if (!wb_directory_inode->lock.spinlock)
+    if (!wb_directory_inode || !wb_directory_inode->lock.spinlock)
         return;
 
     LOCK(&wb_directory_inode->lock);
@@ -2491,7 +2491,7 @@ wb_mark_readdirp_end(xlator_t *this, inode_t *directory)
 
     wb_directory_inode = wb_inode_ctx_get(this, directory);
 
-    if (!wb_directory_inode->lock.spinlock)
+    if (!wb_directory_inode || !wb_directory_inode->lock.spinlock)
         return;
 
     LOCK(&wb_directory_inode->lock);
