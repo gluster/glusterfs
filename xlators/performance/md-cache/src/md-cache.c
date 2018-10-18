@@ -2352,6 +2352,9 @@ mdc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
     GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
     MDC_STACK_UNWIND(getxattr, frame, ret, op_errno, xattr, xdata);
 
+    if (xattr)
+        dict_unref(xattr);
+
     return 0;
 
 uncached:
@@ -2416,6 +2419,9 @@ mdc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 
     GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
     MDC_STACK_UNWIND(fgetxattr, frame, ret, op_errno, xattr, xdata);
+
+    if (xattr)
+        dict_unref(xattr);
 
     return 0;
 
@@ -2500,6 +2506,9 @@ mdc_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
     MDC_STACK_UNWIND(removexattr, frame, ret, op_errno, xdata);
 
+    if (xattr)
+        dict_unref(xattr);
+
     return 0;
 
 uncached:
@@ -2583,6 +2592,10 @@ mdc_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
     MDC_STACK_UNWIND(fremovexattr, frame, ret, op_errno, xdata);
+
+    if (xattr)
+        dict_unref(xattr);
+
     return 0;
 
 uncached:
