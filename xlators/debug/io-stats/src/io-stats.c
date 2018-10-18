@@ -3660,6 +3660,35 @@ ios_set_log_format_code(struct ios_conf *conf)
         conf->dump_format = IOS_DUMP_TYPE_SAMPLES;
 }
 
+void
+xlator_set_loglevel(xlator_t *this, int log_level)
+{
+    glusterfs_ctx_t *ctx = NULL;
+    glusterfs_graph_t *active = NULL;
+    xlator_t *top = NULL;
+    xlator_t *trav = this;
+
+    ctx = this->ctx;
+    GF_ASSERT(ctx);
+    active = ctx->active;
+    top = active->first;
+
+    if (strcmp(top->type, "protocol/server") || (log_level == -1))
+        return;
+
+    /* Set log-level for server xlator */
+    top->loglevel = log_level;
+
+    /* Set log-level for parent xlator */
+    if (this->parents)
+        this->parents->xlator->loglevel = log_level;
+
+    while (trav) {
+        trav->loglevel = log_level;
+        trav = trav->next;
+    }
+}
+
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
@@ -3726,7 +3755,8 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("log-level", log_str, options, str, out);
     if (log_str) {
         log_level = glusterd_check_log_level(log_str);
-        gf_log_set_loglevel(this->ctx, log_level);
+        /* Set loglevel for all children and server xlators */
+        xlator_set_loglevel(this, log_level);
     }
 
     GF_OPTION_RECONF("logger", logger_str, options, str, out);
