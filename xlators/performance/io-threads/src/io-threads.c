@@ -1209,6 +1209,8 @@ init(xlator_t *this)
     if (ret != 0)
         goto out;
 
+    ret = -1;
+
     GF_OPTION_INIT("thread-count", conf->max_count, int32, out);
 
     GF_OPTION_INIT("high-prio-threads", conf->ac_iot_limit[GF_FOP_PRI_HI],

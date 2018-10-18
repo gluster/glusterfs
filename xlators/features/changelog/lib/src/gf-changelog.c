@@ -100,48 +100,48 @@ gf_changelog_ctx_defaults_init(glusterfs_ctx_t *ctx)
 
     ctx->iobuf_pool = iobuf_pool_new();
     if (!ctx->iobuf_pool)
-        return -1;
+        goto free_pool;
 
     ctx->event_pool = event_pool_new(GF_CHANGELOG_EVENT_POOL_SIZE,
                                      GF_CHANGELOG_EVENT_THREAD_COUNT);
     if (!ctx->event_pool)
-        return -1;
+        goto free_pool;
 
     pool = GF_CALLOC(1, sizeof(call_pool_t),
                      gf_changelog_mt_libgfchangelog_call_pool_t);
     if (!pool)
-        return -1;
+        goto free_pool;
 
     /* frame_mem_pool size 112 * 64 */
     pool->frame_mem_pool = mem_pool_new(call_frame_t, 32);
     if (!pool->frame_mem_pool)
-        return -1;
+        goto free_pool;
 
     /* stack_mem_pool size 256 * 128 */
     pool->stack_mem_pool = mem_pool_new(call_stack_t, 16);
 
     if (!pool->stack_mem_pool)
-        return -1;
+        goto free_pool;
 
     ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
     if (!ctx->stub_mem_pool)
-        return -1;
+        goto free_pool;
 
     ctx->dict_pool = mem_pool_new(dict_t, 32);
     if (!ctx->dict_pool)
-        return -1;
+        goto free_pool;
 
     ctx->dict_pair_pool = mem_pool_new(data_pair_t, 512);
     if (!ctx->dict_pair_pool)
-        return -1;
+        goto free_pool;
 
     ctx->dict_data_pool = mem_pool_new(data_t, 512);
     if (!ctx->dict_data_pool)
-        return -1;
+        goto free_pool;
 
     ctx->logbuf_pool = mem_pool_new(log_buf_t, 256);
     if (!ctx->logbuf_pool)
-        return -1;
+        goto free_pool;
 
     INIT_LIST_HEAD(&pool->all_frames);
     LOCK_INIT(&pool->lock);
@@ -158,6 +158,29 @@ gf_changelog_ctx_defaults_init(glusterfs_ctx_t *ctx)
     setrlimit(RLIMIT_CORE, &lim);
 
     return 0;
+
+free_pool:
+    GF_FREE(pool->frame_mem_pool);
+
+    GF_FREE(pool->stack_mem_pool);
+
+    GF_FREE(ctx->stub_mem_pool);
+
+    GF_FREE(ctx->dict_pool);
+
+    GF_FREE(ctx->dict_pair_pool);
+
+    GF_FREE(ctx->dict_data_pool);
+
+    GF_FREE(ctx->logbuf_pool);
+
+    GF_FREE(pool);
+
+    GF_FREE(ctx->iobuf_pool);
+
+    GF_FREE(ctx->event_pool);
+
+    return -1;
 }
 
 /* TODO: cleanup ctx defaults */
