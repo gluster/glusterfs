@@ -2392,6 +2392,8 @@ inode_dump_to_dict(inode_t *inode, char *prefix, dict_t *dict)
 
     snprintf(key, sizeof(key), "%s.ia_type", prefix);
     ret = dict_set_int32(dict, key, inode->ia_type);
+    if (ret)
+        goto out;
 
 out:
     UNLOCK(&inode->lock);

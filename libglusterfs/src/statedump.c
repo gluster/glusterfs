@@ -745,7 +745,7 @@ gf_proc_dump_options_init()
     (void)gf_proc_dump_disable_all_options();
 
     // swallow the errors if setting statedump file path is failed.
-    ret = gf_proc_dump_set_path(dump_option_file);
+    (void)gf_proc_dump_set_path(dump_option_file);
 
     ret = fscanf(fp, "%s", buf);
 
@@ -864,7 +864,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
                    timestr);
 
     // swallow the errors of write for start and end marker
-    ret = sys_write(gf_dump_fd, sign_string, len);
+    (void)sys_write(gf_dump_fd, sign_string, len);
 
     memset(timestr, 0, sizeof(timestr));
 
@@ -914,7 +914,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",
                    timestr);
-    ret = sys_write(gf_dump_fd, sign_string, len);
+    (void)sys_write(gf_dump_fd, sign_string, len);
 
     if (gf_dump_fd != -1)
         gf_proc_dump_close();

@@ -267,7 +267,6 @@ init_db(dict_t *args, gfdb_db_type_t gfdb_db_type)
         goto init_db_failed;
     }
     _conn_node->gfdb_connection.gfdb_db_type = gfdb_db_type;
-    ret = 0;
 
     return _conn_node;
 

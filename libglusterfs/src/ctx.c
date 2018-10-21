@@ -17,14 +17,12 @@
 glusterfs_ctx_t *
 glusterfs_ctx_new()
 {
-    int ret = 0;
     glusterfs_ctx_t *ctx = NULL;
 
     /* no GF_CALLOC here, gf_acct_mem_set_enable is not
        yet decided at this point */
     ctx = calloc(1, sizeof(*ctx));
     if (!ctx) {
-        ret = -1;
         goto out;
     }
 
@@ -44,8 +42,7 @@ glusterfs_ctx_new()
 #endif
 
     /* lock is never destroyed! */
-    ret = LOCK_INIT(&ctx->lock);
-    if (ret) {
+    if (LOCK_INIT(&ctx->lock)) {
         free(ctx);
         ctx = NULL;
         goto out;

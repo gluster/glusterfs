@@ -313,7 +313,6 @@ gfdb_query_record_serialize(gfdb_query_record_t *query_record, char **in_buffer)
 
     /* Copying the Footer of the record */
     memcpy(buffer, &footer, sizeof(int32_t));
-    buffer += sizeof(int32_t);
     count += sizeof(int32_t);
 
 out:
