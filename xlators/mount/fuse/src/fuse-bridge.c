@@ -4557,6 +4557,17 @@ fuse_setlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     uint32_t op = 0;
     fuse_state_t *state = NULL;
+    int ret = 0;
+
+    ret = fuse_interrupt_finish_fop(frame, this, _gf_false, (void **)&state);
+    if (state) {
+        GF_FREE(state->name);
+        dict_unref(state->xdata);
+        GF_FREE(state);
+    }
+    if (ret) {
+        return 0;
+    }
 
     state = frame->root->state;
     op = state->finh->opcode;
@@ -4603,9 +4614,128 @@ fuse_setlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
+static int
+fuse_setlk_interrupt_handler_cbk(call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, dict_t *dict, dict_t *xdata)
+{
+    fuse_interrupt_state_t intstat = INTERRUPT_NONE;
+    fuse_interrupt_record_t *fir;
+    fuse_state_t *state = NULL;
+    int ret = 0;
+
+    ret = dict_get_bin(xdata, "fuse-interrupt-record", (void **)&fir);
+    if (ret < 0) {
+        gf_log("glusterfs-fuse", GF_LOG_ERROR, "interrupt record not found");
+
+        goto out;
+    }
+
+    intstat = op_ret >= 0 ? INTERRUPT_HANDLED : INTERRUPT_SQUELCHED;
+
+    fuse_interrupt_finish_interrupt(this, fir, intstat, _gf_false,
+                                    (void **)&state);
+    if (state) {
+        GF_FREE(state->name);
+        dict_unref(state->xdata);
+        GF_FREE(state);
+    }
+
+out:
+    STACK_DESTROY(frame->root);
+
+    return 0;
+}
+
+static void
+fuse_setlk_interrupt_handler(xlator_t *this, fuse_interrupt_record_t *fir)
+{
+    fuse_state_t *state = NULL;
+    call_frame_t *frame = NULL;
+    char *xattr_name = NULL;
+    int ret = 0;
+
+    gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+           "SETLK%s unique %" PRIu64 ": interrupt handler triggered",
+           fir->fuse_in_header.opcode == FUSE_SETLK ? "" : "W",
+           fir->fuse_in_header.unique);
+
+    state = fir->data;
+
+    ret = gf_asprintf(
+        &xattr_name, GF_XATTR_CLRLK_CMD ".tposix.kblocked.%hd,%jd-%jd",
+        state->lk_lock.l_whence, state->lk_lock.l_start, state->lk_lock.l_len);
+    if (ret == -1) {
+        xattr_name = NULL;
+        goto err;
+    }
+
+    frame = get_call_frame_for_req(state);
+    if (!frame) {
+        goto err;
+    }
+    frame->root->state = state;
+    frame->root->op = GF_FOP_GETXATTR;
+    frame->op = GF_FOP_GETXATTR;
+    state->name = xattr_name;
+
+    STACK_WIND(frame, fuse_setlk_interrupt_handler_cbk, state->active_subvol,
+               state->active_subvol->fops->fgetxattr, state->fd, xattr_name,
+               state->xdata);
+
+    return;
+
+err:
+    GF_FREE(xattr_name);
+    fuse_interrupt_finish_interrupt(this, fir, INTERRUPT_SQUELCHED, _gf_false,
+                                    (void **)&state);
+    if (state) {
+        dict_unref(state->xdata);
+        GF_FREE(state);
+    }
+}
+
 void
 fuse_setlk_resume(fuse_state_t *state)
 {
+    fuse_interrupt_record_t *fir = NULL;
+    fuse_state_t *state_clone = NULL;
+
+    fir = fuse_interrupt_record_new(state->finh, fuse_setlk_interrupt_handler);
+    state_clone = gf_memdup(state, sizeof(*state));
+    if (state_clone) {
+        /*
+         * Calling this allocator with fir casted to (char *) seems like
+         * an abuse of this API, but in fact the API is stupid to assume
+         * a (char *) argument (in the funcion it's casted to (void *)
+         * anyway).
+         */
+        state_clone->xdata = dict_for_key_value(
+            "fuse-interrupt-record", (char *)fir, sizeof(*fir), _gf_true);
+    }
+    if (!fir || !state_clone || !state_clone->xdata) {
+        if (fir) {
+            GF_FREE(fir);
+        }
+        if (state_clone) {
+            GF_FREE(state_clone);
+        }
+        send_fuse_err(state->this, state->finh, ENOMEM);
+
+        gf_log("glusterfs-fuse", GF_LOG_ERROR,
+               "SETLK%s unique %" PRIu64
+               ":"
+               " interrupt record allocation failed",
+               state->finh->opcode == FUSE_SETLK ? "" : "W",
+               state->finh->unique);
+        free_fuse_state(state);
+
+        return;
+    }
+    state_clone->name = NULL;
+    fir->data = state_clone;
+    fuse_interrupt_record_insert(state->this, fir);
+
     gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": SETLK%s %p",
            state->finh->unique, state->finh->opcode == FUSE_SETLK ? "" : "W",
            state->fd);
