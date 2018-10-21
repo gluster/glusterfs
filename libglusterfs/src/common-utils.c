@@ -750,7 +750,6 @@ xldump_subvolumes(xlator_t *this, void *d)
     int len = 0;
     char *subvstr = NULL;
 
-    subv = this->children;
     if (!this->children)
         return;
 
@@ -2116,7 +2115,6 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
     else if (strchr(network, '.'))
         family = AF_INET;
     else {
-        family = -1;
         goto out;
     }
 
@@ -2433,7 +2431,6 @@ valid_ipv4_address(char *address, int length, gf_boolean_t wildcard_acc)
         goto out;
     }
 
-    prev = tmp;
     prev = strtok_r(tmp, ".", &ptr);
 
     while (prev != NULL) {
@@ -4323,7 +4320,6 @@ gf_backtrace_fillframes(char *buf)
     fp = fdopen(fd, "r");
     if (!fp) {
         sys_close(fd);
-        ret = -1;
         goto out;
     }
 

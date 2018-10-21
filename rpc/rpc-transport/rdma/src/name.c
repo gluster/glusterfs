@@ -598,22 +598,16 @@ fill_inet6_inet_identifiers(rpc_transport_t *this,
         int32_t one_to_four, four_to_eight, twelve_to_sixteen;
         int16_t eight_to_ten, ten_to_twelve;
 
-        one_to_four = four_to_eight = twelve_to_sixteen = 0;
-        eight_to_ten = ten_to_twelve = 0;
-
         one_to_four = sock_union.sin6.sin6_addr.s6_addr32[0];
         four_to_eight = sock_union.sin6.sin6_addr.s6_addr32[1];
 #ifdef GF_SOLARIS_HOST_OS
         eight_to_ten = S6_ADDR16(sock_union.sin6.sin6_addr)[4];
-#else
-        eight_to_ten = sock_union.sin6.sin6_addr.s6_addr16[4];
-#endif
-
-#ifdef GF_SOLARIS_HOST_OS
         ten_to_twelve = S6_ADDR16(sock_union.sin6.sin6_addr)[5];
 #else
+        eight_to_ten = sock_union.sin6.sin6_addr.s6_addr16[4];
         ten_to_twelve = sock_union.sin6.sin6_addr.s6_addr16[5];
 #endif
+
         twelve_to_sixteen = sock_union.sin6.sin6_addr.s6_addr32[3];
 
         /* ipv4 mapped ipv6 address has

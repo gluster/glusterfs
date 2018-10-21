@@ -327,6 +327,8 @@ gf_proc_dump_call_frame_to_dict(call_frame_t *call_frame, char *prefix,
     if (tmp_frame.unwind_to) {
         snprintf(key, sizeof(key), "%s.unwind_to", prefix);
         ret = dict_set_dynstr(dict, key, gf_strdup(tmp_frame.unwind_to));
+        if (ret)
+            return;
     }
 
     return;

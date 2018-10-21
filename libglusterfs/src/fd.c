@@ -1131,6 +1131,8 @@ fdentry_dump_to_dict(fdentry_t *fdentry, char *prefix, dict_t *dict,
 
         snprintf(key, sizeof(key), "%s.flags", prefix);
         ret = dict_set_int32(dict, key, fdentry->fd->flags);
+        if (ret)
+            return;
 
         (*openfds)++;
     }
@@ -1180,6 +1182,8 @@ fdtable_dump_to_dict(fdtable_t *fdtable, char *prefix, dict_t *dict)
 
     snprintf(key, sizeof(key), "%s.fdtable.openfds", prefix);
     ret = dict_set_int32(dict, key, openfds);
+    if (ret)
+        goto out;
 
 out:
     pthread_rwlock_unlock(&fdtable->lock);
