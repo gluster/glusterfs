@@ -81,26 +81,6 @@ glusterd_cleanup_snaps_for_volume(glusterd_volinfo_t *volinfo)
     cds_list_for_each_entry_safe(snap_vol, dummy_snap_vol,
                                  &volinfo->snap_volumes, snapvol_list)
     {
-        ret = glusterd_store_delete_volume(snap_vol);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_DELETE_FAIL,
-                   "Failed to remove "
-                   "volume %s from store",
-                   snap_vol->volname);
-            op_ret = ret;
-            continue;
-        }
-
-        ret = glusterd_volinfo_delete(snap_vol);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_DELETE_FAIL,
-                   "Failed to remove "
-                   "volinfo %s ",
-                   snap_vol->volname);
-            op_ret = ret;
-            continue;
-        }
-
         snap = snap_vol->snapshot;
         ret = glusterd_store_delete_snap(snap);
         if (ret) {
@@ -118,6 +98,26 @@ glusterd_cleanup_snaps_for_volume(glusterd_volinfo_t *volinfo)
                    "Failed to delete "
                    "snap object %s",
                    snap->snapname);
+            op_ret = ret;
+            continue;
+        }
+
+        ret = glusterd_store_delete_volume(snap_vol);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_DELETE_FAIL,
+                   "Failed to remove "
+                   "volume %s from store",
+                   snap_vol->volname);
+            op_ret = ret;
+            continue;
+        }
+
+        ret = glusterd_volinfo_delete(snap_vol);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_DELETE_FAIL,
+                   "Failed to remove "
+                   "volinfo %s ",
+                   snap_vol->volname);
             op_ret = ret;
             continue;
         }
