@@ -984,7 +984,7 @@ process_lease_req(call_frame_t *frame, xlator_t *this, inode_t *inode,
                 break;
             case GF_UNLK_LEASE:
                 ret = __remove_lease(this, inode, lease_ctx, client_uid, lease);
-                if ((ret == 0) && (lease_ctx->lease_cnt == 0)) {
+                if ((ret >= 0) && (lease_ctx->lease_cnt == 0)) {
                     pthread_mutex_unlock(&lease_ctx->lock);
                     goto unblock;
                 }
@@ -1019,7 +1019,6 @@ __check_lease_conflict(call_frame_t *frame, lease_inode_ctx_t *lease_ctx,
 
     GF_VALIDATE_OR_GOTO("leases", frame, out);
     GF_VALIDATE_OR_GOTO("leases", lease_ctx, out);
-    GF_VALIDATE_OR_GOTO("leases", lease_id, out);
 
     lease_type = lease_ctx->lease_type;
 
@@ -1032,9 +1031,13 @@ __check_lease_conflict(call_frame_t *frame, lease_inode_ctx_t *lease_ctx,
         goto recall;
     }
 
-    /* TODO: If lease_id is not sent, fall back to client uid conflict check?
-     * Or set conflicts = true if lease_id is 0 when there is an existing
-     * lease */
+    /* If lease_id is not sent, set conflicts = true if there is
+     * an existing lease */
+    if (!lease_id && (lease_ctx->lease_cnt > 0)) {
+        conflicts = _gf_true;
+        goto recall;
+    }
+
     switch (lease_type) {
         case (GF_RW_LEASE | GF_RD_LEASE):
         case GF_RW_LEASE:
