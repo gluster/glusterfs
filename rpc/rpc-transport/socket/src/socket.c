@@ -2985,6 +2985,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
     GF_VALIDATE_OR_GOTO("socket", this->xl, out);
+    GF_VALIDATE_OR_GOTO("socket", this->ctx, out);
 
     THIS = this->xl;
     priv = this->private;
@@ -3006,8 +3007,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
         new_sock = sys_accept(priv->sock, SA(&new_sockaddr), &addrlen, aflags);
 
-        if (ctx)
-            event_handled(ctx->event_pool, fd, idx, gen);
+        event_handled(ctx->event_pool, fd, idx, gen);
 
         if (new_sock == -1) {
             gf_log(this->name, GF_LOG_WARNING, "accept on %d failed (%s)",
