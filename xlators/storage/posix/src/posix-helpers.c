@@ -2062,7 +2062,7 @@ abort:
         if (ret == 0)
             kill(getpid(), SIGKILL);
 
-    } else {
+    } else if (top) {
         LOCK(&ctx->volfile_lock);
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             victim = (*trav_p)->xlator;
