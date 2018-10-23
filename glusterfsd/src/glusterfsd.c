@@ -2561,7 +2561,7 @@ glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
     }
 
     xlator_t *xl = graph->first;
-    if (strcmp(xl->type, "protocol/server") == 0) {
+    if (xl && (strcmp(xl->type, "protocol/server") == 0)) {
         (void)copy_opts_to_child(xl, FIRST_CHILD(xl), "*auth*");
     }
 
