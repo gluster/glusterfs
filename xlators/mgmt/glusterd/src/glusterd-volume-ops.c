@@ -1907,6 +1907,10 @@ glusterd_op_stage_delete_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
     volinfo->stage_deleted = _gf_true;
+    gf_log(this->name, GF_LOG_INFO,
+           "Setting stage deleted flag to true for "
+           "volume %s",
+           volinfo->volname);
     ret = 0;
 
 out:

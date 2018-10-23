@@ -867,6 +867,10 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
          * stage_deleted flag is set back to false
          */
         volinfo->stage_deleted = _gf_false;
+        gf_log(this->name, GF_LOG_INFO,
+               "Volume %s still exist, setting "
+               "stage deleted flag to false for the volume %s",
+               volinfo->volname, volinfo->volname);
     }
     ret = 0;
 out:
