@@ -47,7 +47,6 @@ duplexpand(void **buf, size_t tsiz, size_t *len)
     size_t osiz = tsiz * *len;
     char *p = realloc(*buf, osiz << 1);
     if (!p) {
-        free(*buf);
         return -1;
     }
 
