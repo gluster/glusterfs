@@ -310,10 +310,10 @@ cli_cmd_create_disperse_check(struct cli_state *state, int *disperse,
         tmp = *disperse - *redundancy;
     }
 
-    if (*redundancy > (*disperse - 1) / 2) {
+    if ((*redundancy < 1) || (*redundancy > (*disperse - 1) / 2)) {
         cli_err(
-            "redundancy must be less than %d for a "
-            "disperse %d volume",
+            "redundancy must be greater than or equal to 1 and "
+            "less than %d for a disperse %d volume",
             (*disperse + 1) / 2, *disperse);
 
         return -1;

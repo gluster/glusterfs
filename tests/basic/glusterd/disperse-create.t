@@ -48,6 +48,7 @@ TEST ! $CLI volume create $V0 redundancy 1 redundancy 1 $H0:$B0/b20 $H0:$B0/b21 
 #Minimum counts test
 TEST ! $CLI volume create $V0 disperse 2 $H0:$B0/b20 $H0:$B0/b22
 TEST ! $CLI volume create $V0 disperse-data 1 redundancy 0 $H0:$B0/b20 $H0:$B0/b22
+TEST ! $CLI volume create $V0 disperse 4 disperse-data 4 $H0:$B0/b20 $H0:$B0/b21 $H0:$B0/b23 $H0:$B0/b24
 TEST ! $CLI volume create $V0 redundancy 0 $H0:$B0/b20 $H0:$B0/b22
 
 #Wrong count n != k+m
