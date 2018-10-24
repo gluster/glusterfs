@@ -1029,7 +1029,7 @@ posix_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     };
     struct posix_private *priv = NULL;
     int op_ret = -1;
-    int op_errno = -EINVAL;
+    int op_errno = EINVAL;
     dict_t *rsp_xdata = NULL;
 
     VALIDATE_OR_GOTO(frame, out);
@@ -1065,7 +1065,7 @@ posix_ipc(call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
      */
     gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_IPC_NOT_HANDLE,
            "GF_LOG_IPC(%d) not handled", op);
-    STACK_UNWIND_STRICT(ipc, frame, -1, -EOPNOTSUPP, NULL);
+    STACK_UNWIND_STRICT(ipc, frame, -1, EOPNOTSUPP, NULL);
     return 0;
 }
 
