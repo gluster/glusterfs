@@ -4654,7 +4654,7 @@ afr_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                           priv->children[child_index]->fops->lease, &local->loc,
                           &local->cont.lease.user_lease, xdata);
     } else if (priv->quorum_count &&
-               !afr_has_quorum(local->cont.lk.locked_nodes, this)) {
+               !afr_has_quorum(local->cont.lease.locked_nodes, this)) {
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
 
