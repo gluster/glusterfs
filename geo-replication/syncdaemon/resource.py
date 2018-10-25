@@ -409,7 +409,7 @@ class Server(object):
                                gf.encode(), st['mode'], bn.encode(),
                                lnk.encode())
 
-        def entry_purge(op, entry, gfid, e):
+        def entry_purge(op, entry, gfid, e, uid, gid):
             # This is an extremely racy code and needs to be fixed ASAP.
             # The GFID check here is to be sure that the pargfid/bname
             # to be purged is the GFID gotten from the changelog.
@@ -423,7 +423,7 @@ class Server(object):
                 return
 
             if not matching_disk_gfid(gfid, entry):
-                collect_failure(e, EEXIST)
+                collect_failure(e, EEXIST, uid, gid)
                 return
 
             if op == 'UNLINK':
@@ -439,7 +439,7 @@ class Server(object):
                 if er == ENOTEMPTY:
                     return er
 
-        def collect_failure(e, cmd_ret, dst=False):
+        def collect_failure(e, cmd_ret, uid, gid, dst=False):
             slv_entry_info = {}
             slv_entry_info['gfid_mismatch'] = False
             slv_entry_info['name_mismatch'] = False
@@ -451,6 +451,11 @@ class Server(object):
             # Master should be logging this
             if cmd_ret is None:
                 return False
+
+            if e.get("stat", {}):
+                # Copy actual UID/GID value back to entry stat
+                e['stat']['uid'] = uid
+                e['stat']['gid'] = gid
 
             if cmd_ret == EEXIST:
                 if dst:
@@ -513,7 +518,7 @@ class Server(object):
 
             errno_wrap(os.rmdir, [path], [ENOENT, ESTALE], [EBUSY])
 
-        def rename_with_disk_gfid_confirmation(gfid, entry, en):
+        def rename_with_disk_gfid_confirmation(gfid, entry, en, uid, gid):
             if not matching_disk_gfid(gfid, entry):
                 logging.error(lf("RENAME ignored: source entry does not match "
                                  "with on-disk gfid",
@@ -521,13 +526,13 @@ class Server(object):
                                  gfid=gfid,
                                  disk_gfid=get_gfid_from_mnt(entry),
                                  target=en))
-                collect_failure(e, EEXIST)
+                collect_failure(e, EEXIST, uid, gid)
                 return
 
             cmd_ret = errno_wrap(os.rename,
                                  [entry, en],
                                  [ENOENT, EEXIST], [ESTALE, EBUSY])
-            collect_failure(e, cmd_ret)
+            collect_failure(e, cmd_ret, uid, gid)
 
         for e in entries:
             blob = None
@@ -548,7 +553,7 @@ class Server(object):
             if op in ['RMDIR', 'UNLINK']:
                 # Try once, if rmdir failed with ENOTEMPTY
                 # then delete recursively.
-                er = entry_purge(op, entry, gfid, e)
+                er = entry_purge(op, entry, gfid, e, uid, gid)
                 if isinstance(er, int):
                     if er == ENOTEMPTY and op == 'RMDIR':
                         # Retry if ENOTEMPTY, ESTALE
@@ -585,7 +590,7 @@ class Server(object):
                     cmd_ret = errno_wrap(os.link,
                                          [slink, entry],
                                          [ENOENT, EEXIST], [ESTALE])
-                    collect_failure(e, cmd_ret)
+                    collect_failure(e, cmd_ret, uid, gid)
             elif op == 'MKDIR':
                 en = e['entry']
                 slink = os.path.join(pfx, gfid)
@@ -629,7 +634,7 @@ class Server(object):
                     cmd_ret = errno_wrap(os.link,
                                          [slink, entry],
                                          [ENOENT, EEXIST], [ESTALE])
-                    collect_failure(e, cmd_ret)
+                    collect_failure(e, cmd_ret, uid, gid)
             elif op == 'SYMLINK':
                 en = e['entry']
                 st = lstat(entry)
@@ -637,7 +642,7 @@ class Server(object):
                     blob = entry_pack_symlink(gfid, bname, e['link'],
                                               e['stat'])
                 elif not matching_disk_gfid(gfid, en):
-                    collect_failure(e, EEXIST)
+                    collect_failure(e, EEXIST, uid, gid)
             elif op == 'RENAME':
                 en = e['entry1']
                 # The matching disk gfid check validates two things
@@ -657,7 +662,7 @@ class Server(object):
                                 blob = entry_pack_symlink(gfid, bname,
                                                           e['link'], e['stat'])
                             elif not matching_disk_gfid(gfid, en):
-                                collect_failure(e, EEXIST, True)
+                                collect_failure(e, EEXIST, uid, gid, True)
                         else:
                             slink = os.path.join(pfx, gfid)
                             st = lstat(slink)
@@ -669,12 +674,13 @@ class Server(object):
                             else:
                                 cmd_ret = errno_wrap(os.link, [slink, en],
                                                     [ENOENT, EEXIST], [ESTALE])
-                                collect_failure(e, cmd_ret)
+                                collect_failure(e, cmd_ret, uid, gid)
                 else:
                     st = lstat(entry)
                     st1 = lstat(en)
                     if isinstance(st1, int):
-                        rename_with_disk_gfid_confirmation(gfid, entry, en)
+                        rename_with_disk_gfid_confirmation(gfid, entry, en,
+                                                           uid, gid)
                     else:
                         if st.st_ino == st1.st_ino:
                             # we have a hard link, we can now unlink source
@@ -699,15 +705,16 @@ class Server(object):
                                 else:
                                     raise
                         elif not matching_disk_gfid(gfid, en):
-                            collect_failure(e, EEXIST, True)
+                            collect_failure(e, EEXIST, uid, gid, True)
                         else:
-                            rename_with_disk_gfid_confirmation(gfid, entry, en)
+                            rename_with_disk_gfid_confirmation(gfid, entry, en,
+                                                               uid, gid)
             if blob:
                 cmd_ret = errno_wrap(Xattr.lsetxattr,
                                      [pg, 'glusterfs.gfid.newfile', blob],
                                      [EEXIST, ENOENT],
                                      [ESTALE, EINVAL, EBUSY])
-                collect_failure(e, cmd_ret)
+                collect_failure(e, cmd_ret, uid, gid)
 
                 # If UID/GID is different than zero that means we are trying
                 # create Entry with different UID/GID. Create Entry with
@@ -716,7 +723,7 @@ class Server(object):
                     path = os.path.join(pfx, gfid)
                     cmd_ret = errno_wrap(os.lchown, [path, uid, gid], [ENOENT],
                                          [ESTALE, EINVAL])
-                    collect_failure(e, cmd_ret)
+                    collect_failure(e, cmd_ret, uid, gid)
 
         return failures
 
