@@ -687,8 +687,10 @@ __socket_rwv(rpc_transport_t *this, struct iovec *vector, int count,
         } else {
             ret = __socket_cached_read(this, opvector, opcount);
             if (ret == 0) {
-                gf_log(this->name, GF_LOG_DEBUG, "EOF on socket (errno:%d:%s)",
-                       errno, strerror(errno));
+                gf_log(this->name, GF_LOG_INFO,
+                       "EOF on socket %d "
+                       "(errno:%d:%s); returning ENODATA",
+                       sock, errno, strerror(errno));
                 errno = ENODATA;
                 ret = -1;
             }
@@ -804,6 +806,9 @@ __socket_shutdown(rpc_transport_t *this)
            why it failed to shutdown in normal cases */
         gf_log(this->name, GF_LOG_DEBUG, "shutdown() returned %d. %s", ret,
                strerror(errno));
+    } else {
+        gf_log(this->name, GF_LOG_INFO, "intentional socket shutdown(%d)",
+               priv->sock);
     }
 
     return ret;
@@ -893,6 +898,8 @@ __socket_server_bind(rpc_transport_t *this)
             if ((ret == -1) && (ECONNREFUSED == errno)) {
                 sys_unlink(((struct sockaddr_un *)&unix_addr)->sun_path);
             }
+            gf_log(this->name, GF_LOG_INFO,
+                   "closing (AF_UNIX) reuse check socket %d", reuse_check_sock);
             sys_close(reuse_check_sock);
         }
     }
@@ -3030,13 +3037,19 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_trans = GF_CALLOC(1, sizeof(*new_trans), gf_common_mt_rpc_trans_t);
         if (!new_trans) {
             sys_close(new_sock);
+            gf_log(this->name, GF_LOG_WARNING,
+                   "transport object allocation failure; "
+                   "closed newly accepted socket %d",
+                   new_sock);
             goto out;
         }
 
         ret = pthread_mutex_init(&new_trans->lock, NULL);
         if (ret == -1) {
             gf_log(this->name, GF_LOG_WARNING,
-                   "pthread_mutex_init() failed: %s", strerror(errno));
+                   "pthread_mutex_init() failed: %s; closing newly accepted "
+                   "socket %d",
+                   strerror(errno), new_sock);
             sys_close(new_sock);
             GF_FREE(new_trans);
             goto out;
@@ -3053,7 +3066,9 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         ret = getsockname(new_sock, SA(&new_trans->myinfo.sockaddr),
                           &new_trans->myinfo.sockaddr_len);
         if (ret == -1) {
-            gf_log(this->name, GF_LOG_WARNING, "getsockname on %d failed (%s)",
+            gf_log(this->name, GF_LOG_WARNING,
+                   "getsockname on socket %d "
+                   "failed (errno:%s); closing newly accepted socket",
                    new_sock, strerror(errno));
             sys_close(new_sock);
             GF_FREE(new_trans->name);
@@ -3067,6 +3082,10 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
         ret = socket_init(new_trans);
         if (ret != 0) {
+            gf_log(this->name, GF_LOG_WARNING,
+                   "initialization of new_trans "
+                   "failed; closing newly accepted socket %d",
+                   new_sock);
             sys_close(new_sock);
             GF_FREE(new_trans->name);
             GF_FREE(new_trans);
@@ -3168,6 +3187,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         }
 
         if (ret == -1) {
+            gf_log(this->name, GF_LOG_WARNING, "closing newly accepted socket");
             sys_close(new_sock);
             /* this unref is to actually cause the destruction of
              * the new_trans since we've failed at everything so far
@@ -3499,8 +3519,8 @@ socket_connect(rpc_transport_t *this, int port)
                socket_event_handler or socket_poller */
             shutdown(priv->sock, SHUT_RDWR);
             ret = 0;
-            gf_log(this->name, GF_LOG_TRACE,
-                   "@@@ client shutdown(%d, SHUT_RDWR)", priv->sock);
+            gf_log(this->name, GF_LOG_INFO,
+                   "intentional client shutdown(%d, SHUT_RDWR)", priv->sock);
         }
 
         priv->connected = 0;
@@ -3512,7 +3532,10 @@ socket_connect(rpc_transport_t *this, int port)
         priv->idx = event_register(ctx->event_pool, priv->sock,
                                    socket_event_handler, this, 1, 1);
         if (priv->idx == -1) {
-            gf_log("", GF_LOG_WARNING, "failed to register the event");
+            gf_log("", GF_LOG_WARNING,
+                   "failed to register the event; "
+                   "closing socket %d",
+                   priv->sock);
             sys_close(priv->sock);
             priv->sock = -1;
             ret = -1;
@@ -3645,7 +3668,9 @@ socket_listen(rpc_transport_t *this)
             ret = __socket_nonblock(priv->sock);
 
             if (ret == -1) {
-                gf_log(this->name, GF_LOG_ERROR, "NBIO on %d failed (%s)",
+                gf_log(this->name, GF_LOG_ERROR,
+                       "NBIO on socket %d failed "
+                       "(errno:%s); closing socket",
                        priv->sock, strerror(errno));
                 sys_close(priv->sock);
                 priv->sock = -1;
@@ -3657,6 +3682,10 @@ socket_listen(rpc_transport_t *this)
 
         if ((ret == -EADDRINUSE) || (ret == -1)) {
             /* logged inside __socket_server_bind() */
+            gf_log(this->name, GF_LOG_ERROR,
+                   "__socket_server_bind failed;"
+                   "closing socket %d",
+                   priv->sock);
             sys_close(priv->sock);
             priv->sock = -1;
             goto unlock;
@@ -3669,8 +3698,9 @@ socket_listen(rpc_transport_t *this)
 
         if (ret == -1) {
             gf_log(this->name, GF_LOG_ERROR,
-                   "could not set socket %d to listen mode (%s)", priv->sock,
-                   strerror(errno));
+                   "could not set socket %d to listen mode (errno:%s); "
+                   "closing socket",
+                   priv->sock, strerror(errno));
             sys_close(priv->sock);
             priv->sock = -1;
             goto unlock;
@@ -3683,7 +3713,9 @@ socket_listen(rpc_transport_t *this)
 
         if (priv->idx == -1) {
             gf_log(this->name, GF_LOG_WARNING,
-                   "could not register socket %d with events", priv->sock);
+                   "could not register socket %d with events; "
+                   "closing socket",
+                   priv->sock);
             ret = -1;
             sys_close(priv->sock);
             priv->sock = -1;
