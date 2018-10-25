@@ -89,7 +89,7 @@
 #define GF_OFF_MAX ((1ULL << (sizeof(off_t) * 8 - 1)) - 1ULL)
 
 #define GLUSTERD_MAX_SNAP_NAME 255
-#define GLUSTERFS_SOCKET_LISTEN_BACKLOG 10
+#define GLUSTERFS_SOCKET_LISTEN_BACKLOG 1024
 
 #define SLEN(str) (sizeof(str) - 1)
 
