@@ -364,6 +364,10 @@ enum gf_internal_fop_indicator {
     } while (0)
 
 #define GF_CS_OBJECT_SIZE "trusted.glusterfs.cs.object_size"
+#define GF_CS_BLOCK_SIZE "trusted.glusterfs.cs.block_size"
+#define GF_CS_NUM_BLOCKS "trusted.glusterfs.cs.num_blocks"
+
+#define GF_CS_XATTR_ARCHIVE_UUID "trusted.cloudsync.uuid"
 
 #define GF_CS_OBJECT_UPLOAD_COMPLETE "trusted.glusterfs.csou.complete"
 #define GF_CS_OBJECT_REMOTE "trusted.glusterfs.cs.remote"
