@@ -2041,7 +2041,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .voltype = "protocol/server",
         .option = "!ssl-allow",
         .value = "*",
-        .type = NO_DOC,
+        .type = DOC,
+        .description = "Allow a comma separated list of common names (CN) of "
+                       "the clients that are allowed to access the server."
+                       "By default, all TLS authenticated clients are "
+                       "allowed to access the server.",
         .op_version = GD_OP_VERSION_3_6_0,
     },
     {
