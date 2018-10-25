@@ -808,7 +808,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     if (!ctx)
         goto out;
 
-    if (ctx) {
+    if (ctx && ctx->active) {
         top = ctx->active->first;
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             brick_count++;
