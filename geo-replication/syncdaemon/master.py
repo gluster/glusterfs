@@ -696,7 +696,7 @@ class GMasterChangelogMixin(GMasterCommon):
     TYPE_ENTRY = "E "
 
     MAX_EF_RETRIES = 10
-    MAX_OE_RETRIES = 5
+    MAX_OE_RETRIES = 10
 
     # flat directory hierarchy for gfid based access
     FLAT_DIR_HIERARCHY = '.'
@@ -835,11 +835,12 @@ class GMasterChangelogMixin(GMasterCommon):
                     # The file exists on master but with different name.
                     # Probably renamed and got missed during xsync crawl.
                     elif failure[2]['slave_isdir']:
-                        realpath = os.readlink(os.path.join(gconf.local_path,
-                                                            ".glusterfs",
-                                                            slave_gfid[0:2],
-                                                            slave_gfid[2:4],
-                                                            slave_gfid))
+                        realpath = os.readlink(os.path.join(
+                                               rconf.args.local_path,
+                                               ".glusterfs",
+                                               slave_gfid[0:2],
+                                               slave_gfid[2:4],
+                                               slave_gfid))
                         dst_entry = os.path.join(pfx, realpath.split('/')[-2],
                                                  realpath.split('/')[-1])
                         src_entry = pbname
@@ -880,31 +881,41 @@ class GMasterChangelogMixin(GMasterCommon):
                                  gfid=failure[2]['slave_gfid'],
                                  entry=pbname))
             elif failure[1] == ENOENT:
-                # Ignore ENOENT error for fix_entry_ops aka retry_count > 1
-                if retry_count > 1:
-                    logging.info(lf('ENOENT error while fixing entry ops. '
-                                    'Safe to ignore, take out entry',
+                if op in ['RENAME']:
+                    pbname = failure[0]['entry1']
+                else:
+                    pbname = failure[0]['entry']
+
+                pargfid = pbname.split('/')[1]
+                st = lstat(os.path.join(pfx, pargfid))
+                # Safe to ignore the failure as master doesn't contain
+                # parent directory.
+                if isinstance(st, int):
+                    logging.info(lf('Fixing ENOENT error in slave. Parent '
+                                    'does not exist on master. Safe to '
+                                    'ignore, take out entry',
                                     retry_count=retry_count,
                                     entry=repr(failure)))
                     entries.remove(failure[0])
-                elif op in ('MKNOD', 'CREATE', 'MKDIR'):
-                    pargfid = pbname.split('/')[1]
-                    st = lstat(os.path.join(pfx, pargfid))
-                    # Safe to ignore the failure as master doesn't contain
-                    # parent directory.
-                    if isinstance(st, int):
-                        logging.info(lf('Fixing ENOENT error in slave. Parent '
-                                        'does not exist on master. Safe to '
-                                        'ignore, take out entry',
-                                        retry_count=retry_count,
-                                        entry=repr(failure)))
-                        entries.remove(failure[0])
+                else:
+                    logging.info(lf('Fixing ENOENT error in slave. Create '
+                                    'parent directory on slave.',
+                                    retry_count=retry_count,
+                                    entry=repr(failure)))
+                    realpath = os.readlink(os.path.join(rconf.args.local_path,
+                                                        ".glusterfs",
+                                                        pargfid[0:2],
+                                                        pargfid[2:4],
+                                                        pargfid))
+                    dir_entry = os.path.join(pfx, realpath.split('/')[-2],
+                                             realpath.split('/')[-1])
+                    fix_entry_ops.append(
+                        edct('MKDIR', gfid=pargfid, entry=dir_entry,
+                             mode=st.st_mode, uid=st.st_uid, gid=st.st_gid))
 
         if fix_entry_ops:
             # Process deletions of entries whose gfids are mismatched
             failures1 = self.slave.server.entry_ops(fix_entry_ops)
-            if not failures1:
-                logging.info("Successfully fixed entry ops with gfid mismatch")
 
         return (failures1, fix_entry_ops)
 
@@ -1078,6 +1089,11 @@ class GMasterChangelogMixin(GMasterCommon):
                         os.path.join(pfx, ec[self.POS_ENTRY1 - 1]))
                     entries.append(edct(ty, gfid=gfid, entry=e1, entry1=en,
                                         stat=st, link=rl))
+                    # If src doesn't exist while doing rename, destination
+                    # is created. If data is not followed by rename, this
+                    # remains zero byte file on slave. Hence add data entry
+                    # for renames
+                    datas.add(os.path.join(pfx, gfid))
                 else:
                     # stat() to get mode and other information
                     if not matching_disk_gfid(gfid, en):
@@ -1101,6 +1117,12 @@ class GMasterChangelogMixin(GMasterCommon):
                                 rl = None
                         entries.append(edct(ty, stat=st, entry=en, gfid=gfid,
                                        link=rl))
+                        # If src doesn't exist while doing link, destination
+                        # is created based on file type. If data is not
+                        # followed by link, this remains zero byte file on
+                        # slave. Hence add data entry for links
+                        if rl is None:
+                            datas.add(os.path.join(pfx, gfid))
                     elif ty == 'SYMLINK':
                         rl = errno_wrap(os.readlink, [en], [ENOENT],
                                         [ESTALE, EINTR])
