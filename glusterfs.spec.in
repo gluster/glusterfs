@@ -23,8 +23,8 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bd
 %{?_without_bd:%global _without_bd --disable-bd-xlator}
 
-%if ( 0%{?rhel} && 0%{?rhel} < 6 || 0%{?sles_version} )
-%global _without_bd --disable-bd-xlator
+%if ( 0%{?rhel} && 0%{?rhel} > 7 )
+%global _without_bd --without-bd
 %endif
 
 # cmocka
@@ -283,7 +283,7 @@ BuildRequires:    python-ctypes
 %if ( 0%{?_with_ipv6default:1} ) || ( 0%{!?_without_libtirpc:1} )
 BuildRequires:    libtirpc-devel
 %endif
-%if ( 0%{?fedora} && 0%{?fedora} > 27 )
+%if ( 0%{?fedora} && 0%{?fedora} > 27 ) || ( 0%{?rhel} && 0%{?rhel} > 7 )
 BuildRequires:    rpcgen
 %endif
 BuildRequires:    userspace-rcu-devel >= 0.7
@@ -1391,7 +1391,9 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage
+%if ( 0%{!?_without_bd:1} )
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/bd.so
+%endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/posix.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
@@ -1505,6 +1507,9 @@ exit 0
 %endif
 
 %changelog
+* Tue Oct 30 2018 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- liblvm2-devel no longer has liblvm2app.so
+
 * Fri Sep 7 2018 Niels de Vos <ndevos@redhat.com>
 - Add an option to build with address sanitizer (ASAN)
 
