@@ -345,6 +345,11 @@ cli_opt_parse(char *opt, struct cli_state *state)
         return 0;
     }
 
+    if (strcmp(opt, "nolog") == 0) {
+        state->mode |= GLUSTER_MODE_GLFSHEAL_NOLOG;
+        return 0;
+    }
+
     if (strcmp(opt, "wignore-partition") == 0) {
         state->mode |= GLUSTER_MODE_WIGNORE_PARTITION;
         return 0;
