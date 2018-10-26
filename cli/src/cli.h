@@ -61,6 +61,7 @@ typedef enum {
 #define GLUSTER_MODE_XML (1 << 2)
 #define GLUSTER_MODE_WIGNORE (1 << 3)
 #define GLUSTER_MODE_WIGNORE_PARTITION (1 << 4)
+#define GLUSTER_MODE_GLFSHEAL_NOLOG (1 << 5)
 
 #define GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(abspath, volname, path)             \
     do {                                                                       \

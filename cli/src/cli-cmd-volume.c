@@ -2844,7 +2844,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
     switch (heal_op) {
         case GF_SHD_OP_INDEX_SUMMARY:
             if (global_state->mode & GLUSTER_MODE_XML) {
-                runner_add_args(&runner, "xml", NULL);
+                runner_add_args(&runner, "--xml", NULL);
             }
             break;
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
@@ -2866,7 +2866,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             runner_add_args(&runner, "split-brain-info", NULL);
             if (global_state->mode & GLUSTER_MODE_XML) {
-                runner_add_args(&runner, "xml", NULL);
+                runner_add_args(&runner, "--xml", NULL);
             }
             break;
         case GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE:
@@ -2876,13 +2876,15 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
         case GF_SHD_OP_HEAL_SUMMARY:
             runner_add_args(&runner, "info-summary", NULL);
             if (global_state->mode & GLUSTER_MODE_XML) {
-                runner_add_args(&runner, "xml", NULL);
+                runner_add_args(&runner, "--xml", NULL);
             }
             break;
         default:
             ret = -1;
             goto out;
     }
+    if (global_state->mode & GLUSTER_MODE_GLFSHEAL_NOLOG)
+        runner_add_args(&runner, "--nolog", NULL);
     ret = runner_start(&runner);
     if (ret == -1)
         goto out;
