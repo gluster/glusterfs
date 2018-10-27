@@ -4478,8 +4478,18 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
     }
 
+    /* if the client is part of 'gfproxyd' server, then we need to keep the
+       volume name as 'gfproxyd-<volname>', for better portmapper options */
+    subvol = volname;
+    ret = dict_get_str_boolean(set_dict, "gfproxy-server", 0);
+    if (ret > 0) {
+        namelen = strlen(volinfo->volname) + SLEN("gfproxyd-") + 1;
+        subvol = alloca(namelen);
+        snprintf(subvol, namelen, "gfproxyd-%s", volname);
+    }
+
     ret = -1;
-    xl = volgen_graph_add_as(graph, "debug/io-stats", volname);
+    xl = volgen_graph_add_as(graph, "debug/io-stats", subvol);
     if (!xl)
         goto out;
 

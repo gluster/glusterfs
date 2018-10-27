@@ -40,6 +40,7 @@ struct pmap_brick_by_port_rsp {
 struct pmap_signin_req {
        string brick<>;
        int port;
+       int pid;
 };
 
 struct pmap_signin_rsp {
