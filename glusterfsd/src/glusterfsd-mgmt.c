@@ -2832,6 +2832,8 @@ int
 glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
 {
     call_frame_t *frame = NULL;
+    xlator_list_t **trav_p;
+    xlator_t *top;
     pmap_signin_req req = {
         0,
     };
@@ -2861,10 +2863,26 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
         req.brick = cmd_args->brick_name;
 
     req.port = cmd_args->brick_port;
+    req.pid = (int)getpid(); /* only glusterd2 consumes this */
 
-    ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog, GF_PMAP_SIGNIN,
-                              mgmt_pmap_signin_cbk,
-                              (xdrproc_t)xdr_pmap_signin_req);
+    if (ctx->active) {
+        top = ctx->active->first;
+        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+            req.brick = (*trav_p)->xlator->name;
+            ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
+                                      GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
+                                      (xdrproc_t)xdr_pmap_signin_req);
+            if (ret < 0) {
+                gf_log(THIS->name, GF_LOG_WARNING,
+                       "failed to send sign in request; brick = %s", req.brick);
+            }
+        }
+    } else {
+        ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
+                                  GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
+                                  (xdrproc_t)xdr_pmap_signin_req);
+    }
+    /* unfortunately, the caller doesn't care about the returned value */
 
 out:
     if (need_emancipate && ret < 0)
