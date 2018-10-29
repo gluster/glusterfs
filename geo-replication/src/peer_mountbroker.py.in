@@ -273,7 +273,7 @@ class CliStatus(Cmd):
 
         for p in out:
             node_data = p.output
-            if node_data == "":
+            if node_data == "" or node_data == "N/A":
                 node_data = {}
 
             users_row_data = ""
