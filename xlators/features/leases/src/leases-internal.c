@@ -624,17 +624,29 @@ __remove_lease(xlator_t *this, inode_t *inode, lease_inode_ctx_t *lease_ctx,
                  "lease type:%d, lease id:%s",
                  client_uid, lease->lease_type, leaseid_utoa(lease->lease_id));
 
+    /* There could be a race where in server recalled the lease and by the time
+     * client sends lease_unlock request, server may have revoked it. To handle
+     * such cases, if lease doesnt exist treat it as noop and return success.
+     */
     lease_entry = __get_lease_id_entry(lease_ctx, lease->lease_id);
-    if (!lease_entry || !(lease_entry->lease_type & lease->lease_type)) {
+    if (!lease_entry) {
         gf_msg(this->name, GF_LOG_INFO, 0, LEASE_MSG_INVAL_UNLK_LEASE,
                "Got unlock lease request from client:%s, but has no "
                "corresponding lock",
+               client_uid);
+        ret = 0;
+        goto out;
+    }
+
+    if (!(lease_entry->lease_type & lease->lease_type)) {
+        gf_msg(this->name, GF_LOG_INFO, 0, LEASE_MSG_INVAL_UNLK_LEASE,
+               "Got unlock lease request from client:%s for an invalid "
+               "lease_type",
                client_uid);
         ret = -EINVAL;
         errno = EINVAL;
         goto out;
     }
-
     lease_type = lease->lease_type;
     lease_entry->lease_type_cnt[lease_type]--;
     lease_entry->lease_cnt--;
