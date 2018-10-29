@@ -847,7 +847,7 @@ class Popen(subprocess.Popen):
                 break
             b = os.read(self.stderr.fileno(), 1024)
             if b:
-                elines.append(b)
+                elines.append(b.decode())
             else:
                 break
         self.stderr.close()
