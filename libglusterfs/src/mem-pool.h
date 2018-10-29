@@ -40,10 +40,10 @@
 
 struct mem_acct_rec {
     const char *typestr;
-    size_t size;
-    size_t max_size;
+    uint64_t size;
+    uint64_t max_size;
+    uint64_t total_allocs;
     uint32_t num_allocs;
-    uint32_t total_allocs;
     uint32_t max_num_allocs;
     gf_lock_t lock;
 #ifdef DEBUG
