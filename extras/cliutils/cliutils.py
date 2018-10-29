@@ -71,7 +71,8 @@ def node_output_notok(message):
 
 
 def execute(cmd):
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         universal_newlines=True)
     out, err = p.communicate()
     return p.returncode, out, err
 
