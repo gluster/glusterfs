@@ -4744,8 +4744,12 @@ posix_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     if (xdata) {
         xattr_rsp = posix_xattr_fill(this, NULL, NULL, fd, _fd, xdata, &buf);
 
-        posix_cs_maintenance(this, fd, NULL, &_fd, &buf, NULL, xdata,
-                             &xattr_rsp, _gf_false);
+        op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &buf, NULL, xdata,
+                                      &xattr_rsp, _gf_false);
+        if (op_ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                   "file state check failed, fd %p", fd);
+        }
     }
 
     op_ret = 0;
