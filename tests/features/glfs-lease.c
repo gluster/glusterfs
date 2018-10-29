@@ -262,7 +262,7 @@ testcase1_rd_lease()
     VERIFY_RESULT(6, ret, NONE);
 
     ret = unlk_read_lease(fd1, lid1);
-    VERIFY_RESULT(7, ret, SHUD_FAIL);
+    VERIFY_RESULT(7, ret, SHUD_PASS);
 
     ret = glfs_close(fd1);
     VERIFY_RESULT(8, ret, SHUD_PASS);
@@ -285,7 +285,7 @@ testcase2_wr_lease()
     VERIFY_RESULT(1, ret, SHUD_FAIL);
 
     ret = unlk_write_lease(fd1, lid1);
-    VERIFY_RESULT(2, ret, SHUD_FAIL);
+    VERIFY_RESULT(2, ret, SHUD_PASS);
 
     ret = set_write_lease(fd1, lid1);
     VERIFY_RESULT(3, ret, SHUD_PASS);
