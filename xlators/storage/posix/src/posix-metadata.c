@@ -547,10 +547,6 @@ posix_update_utime_in_mdata(xlator_t *this, const char *real_path, int fd,
                        real_path, uuid_utoa(inode->gfid));
             }
         }
-
-    } else {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_SETMDATA_FAILED,
-               "posix utime set mdata failed on file");
     }
     return;
 }
