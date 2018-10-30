@@ -347,6 +347,9 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     int32_t ret = -1;
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
+    struct statvfs brickstat = {
+        0,
+    };
 
     this = THIS;
     GF_ASSERT(this);
@@ -364,6 +367,21 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     ret = glusterd_resolve_brick(new_brickinfo);
     if (ret)
         goto out;
+
+    if (!gf_uuid_compare(new_brickinfo->uuid, MY_UUID)) {
+        ret = sys_statvfs(new_brickinfo->path, &brickstat);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_STATVFS_FAILED,
+                   "Failed to fetch disk utilization "
+                   "from the brick (%s:%s). Please check the health of "
+                   "the brick. Error code was %s",
+                   new_brickinfo->hostname, new_brickinfo->path,
+                   strerror(errno));
+
+            goto out;
+        }
+        new_brickinfo->statfs_fsid = brickstat.f_fsid;
+    }
 
     ret = glusterd_volume_brickinfo_get_by_brick(old_brick, volinfo,
                                                  &old_brickinfo, _gf_false);
