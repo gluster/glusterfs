@@ -211,7 +211,11 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         MAKE_INODE_HANDLE(real_path, this, loc, &buf);
     } else {
         MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &buf);
-
+        if (!real_path || !par_path) {
+            op_ret = -1;
+            op_errno = ESTALE;
+            goto out;
+        }
         if (gf_uuid_is_null(loc->inode->gfid)) {
             op_ret = posix_gfid_heal(this, real_path, loc, xdata);
             if (op_ret < 0) {
@@ -787,6 +791,8 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 }
 
                 op_errno = dict_set_int8(xdata_rsp, GF_PREOP_CHECK_FAILED, 1);
+                if (op_errno < 0)
+                    op_errno = errno;
                 goto out;
             }
 
@@ -1223,7 +1229,7 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
     unwind_dict = dict_new();
     if (!unwind_dict) {
-        op_errno = -ENOMEM;
+        op_errno = ENOMEM;
         op_ret = -1;
         goto out;
     }
@@ -2254,6 +2260,12 @@ posix_put(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     };
 
     MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &stbuf);
+
+    if (!real_path || !par_path) {
+        op_ret = -1;
+        op_errno = ESTALE;
+        goto out;
+    }
 
     op_ret = posix_pstat(this, loc->parent, loc->pargfid, par_path, &preparent,
                          _gf_false);
