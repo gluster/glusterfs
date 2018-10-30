@@ -467,8 +467,9 @@ out:
 static inode_t *
 __inode_unref (inode_t *inode)
 {
-        int       index = 0;
-        xlator_t *this  = NULL;
+    int index = 0;
+    xlator_t *this = NULL;
+    uint64_t nlookup = 0;
 
         if (!inode)
                 return NULL;
@@ -495,11 +496,12 @@ __inode_unref (inode_t *inode)
         if (!inode->ref) {
                 inode->table->active_size--;
 
-                if (inode->nlookup)
-                        __inode_passivate (inode);
-                else
-                        __inode_retire (inode);
-        }
+        nlookup = GF_ATOMIC_GET(inode->nlookup);
+        if (nlookup)
+            __inode_passivate(inode);
+        else
+            __inode_retire(inode);
+    }
 
         return inode;
 }
@@ -706,8 +708,10 @@ inode_new (inode_table_t *table)
 static inode_t *
 __inode_ref_reduce_by_n (inode_t *inode, uint64_t nref)
 {
-        if (!inode)
-                return NULL;
+    uint64_t nlookup = 0;
+
+    if (!inode)
+        return NULL;
 
         GF_ASSERT (inode->ref >= nref);
 
@@ -719,40 +723,31 @@ __inode_ref_reduce_by_n (inode_t *inode, uint64_t nref)
         if (!inode->ref) {
                 inode->table->active_size--;
 
-                if (inode->nlookup)
-                        __inode_passivate (inode);
-                else
-                        __inode_retire (inode);
-        }
+        nlookup = GF_ATOMIC_GET(inode->nlookup);
+        if (nlookup)
+            __inode_passivate(inode);
+        else
+            __inode_retire(inode);
+    }
 
         return inode;
 }
 
 
 static inode_t *
-__inode_lookup (inode_t *inode)
+inode_forget_atomic(inode_t *inode, uint64_t nlookup)
 {
-        if (!inode)
-                return NULL;
+    uint64_t inode_lookup = 0;
 
-        inode->nlookup++;
+    if (!inode)
+        return NULL;
 
-        return inode;
-}
-
-
-static inode_t *
-__inode_forget (inode_t *inode, uint64_t nlookup)
-{
-        if (!inode)
-                return NULL;
-
-        GF_ASSERT (inode->nlookup >= nlookup);
-
-        inode->nlookup -= nlookup;
-
-        if (!nlookup)
-                inode->nlookup = 0;
+    if (nlookup == 0) {
+        GF_ATOMIC_INIT(inode->nlookup, 0);
+    } else {
+        inode_lookup = GF_ATOMIC_FETCH_SUB(inode->nlookup, nlookup);
+        GF_ASSERT(inode_lookup >= nlookup);
+    }
 
         return inode;
 }
@@ -1109,21 +1104,13 @@ inode_link (inode_t *inode, inode_t *parent, const char *name,
 int
 inode_lookup (inode_t *inode)
 {
-        inode_table_t *table = NULL;
+    if (!inode) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+                         "inode not found");
+        return -1;
+    }
 
-        if (!inode) {
-                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
-                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
-                return -1;
-        }
-
-        table = inode->table;
-
-        pthread_mutex_lock (&table->lock);
-        {
-                __inode_lookup (inode);
-        }
-        pthread_mutex_unlock (&table->lock);
+    GF_ATOMIC_INC(inode->nlookup);
 
         return 0;
 }
@@ -1167,11 +1154,7 @@ inode_forget (inode_t *inode, uint64_t nlookup)
 
         table = inode->table;
 
-        pthread_mutex_lock (&table->lock);
-        {
-                __inode_forget (inode, nlookup);
-        }
-        pthread_mutex_unlock (&table->lock);
+        inode_forget_atomic(inode, nlookup);
 
         inode_table_prune (table);
 
@@ -1573,11 +1556,9 @@ inode_table_prune (inode_table_t *table)
         pthread_mutex_unlock (&table->lock);
 
         {
-                list_for_each_entry_safe (del, tmp, &purge, list) {
-                        list_del_init (&del->list);
-                        __inode_forget (del, 0);
-                        __inode_destroy (del);
-                }
+            list_del_init(&del->list);
+            inode_forget_atomic(del, 0);
+            __inode_destroy(del);
         }
 
         return ret;
@@ -1822,51 +1803,48 @@ inode_table_destroy (inode_table_t *inode_table) {
                  * the list, we may miss to delete/retire that entry. Hence
                  * traverse the lru list till it gets empty.
                  */
-                while (!list_empty (&inode_table->lru)) {
-                        trav = list_first_entry (&inode_table->lru,
-                                                 inode_t, list);
-                        __inode_forget (trav, 0);
-                        __inode_retire (trav);
-                        inode_table->lru_size--;
-                }
-
-                while (!list_empty (&inode_table->active)) {
-                        trav = list_first_entry (&inode_table->active,
-                                                 inode_t, list);
-                        /* forget and unref the inode to retire and add it to
-                         * purge list. By this time there should not be any
-                         * inodes present in the active list except for root
-                         * inode. Its a ref_leak otherwise. */
-                        if (trav != inode_table->root)
-                                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
-                                                  LG_MSG_REF_COUNT,
-                                                  "Active inode(%p) with refcount"
-                                                  "(%d) found during cleanup",
-                                                  trav, trav->ref);
-                        __inode_forget (trav, 0);
-                        __inode_ref_reduce_by_n (trav, 0);
-                }
-
+        while (!list_empty(&inode_table->lru)) {
+            trav = list_first_entry(&inode_table->lru, inode_t, list);
+            inode_forget_atomic(trav, 0);
+            __inode_retire(trav);
+            inode_table->lru_size--;
         }
-        pthread_mutex_unlock (&inode_table->lock);
 
-        inode_table_prune (inode_table);
+        while (!list_empty(&inode_table->active)) {
+            trav = list_first_entry(&inode_table->active, inode_t, list);
+            /* forget and unref the inode to retire and add it to
+             * purge list. By this time there should not be any
+             * inodes present in the active list except for root
+             * inode. Its a ref_leak otherwise. */
+            if (trav && (trav != inode_table->root))
+                gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+                                 LG_MSG_REF_COUNT,
+                                 "Active inode(%p) with refcount"
+                                 "(%d) found during cleanup",
+                                 trav, trav->ref);
+            inode_forget_atomic(trav, 0);
+            __inode_ref_reduce_by_n(trav, 0);
+        }
+    }
+    pthread_mutex_unlock(&inode_table->lock);
 
-        GF_FREE (inode_table->inode_hash);
-        GF_FREE (inode_table->name_hash);
-        if (inode_table->dentry_pool)
-                mem_pool_destroy (inode_table->dentry_pool);
-        if (inode_table->inode_pool)
-                mem_pool_destroy (inode_table->inode_pool);
-        if (inode_table->fd_mem_pool)
-                mem_pool_destroy (inode_table->fd_mem_pool);
+    inode_table_prune(inode_table);
 
-        pthread_mutex_destroy (&inode_table->lock);
+    GF_FREE(inode_table->inode_hash);
+    GF_FREE(inode_table->name_hash);
+    if (inode_table->dentry_pool)
+        mem_pool_destroy(inode_table->dentry_pool);
+    if (inode_table->inode_pool)
+        mem_pool_destroy(inode_table->inode_pool);
+    if (inode_table->fd_mem_pool)
+        mem_pool_destroy(inode_table->fd_mem_pool);
 
-        GF_FREE (inode_table->name);
-        GF_FREE (inode_table);
+    pthread_mutex_destroy(&inode_table->lock);
 
-        return;
+    GF_FREE(inode_table->name);
+    GF_FREE(inode_table);
+
+    return;
 }
 
 inode_t *
@@ -2318,55 +2296,50 @@ inode_is_linked (inode_t *inode)
 }
 
 void
-inode_dump (inode_t *inode, char *prefix)
+inode_dump(inode_t *inode, char *prefix)
 {
-        int                ret       = -1;
-        xlator_t          *xl        = NULL;
-        int                i         = 0;
-        fd_t              *fd        = NULL;
-        struct _inode_ctx *inode_ctx = NULL;
-        struct list_head   fd_list;
-        int                ref       = 0;
-        char               key[GF_DUMP_MAX_BUF_LEN];
+    int ret = -1;
+    xlator_t *xl = NULL;
+    int i = 0;
+    fd_t *fd = NULL;
+    struct _inode_ctx *inode_ctx = NULL;
+    struct list_head fd_list;
+    int ref = 0;
+    char key[GF_DUMP_MAX_BUF_LEN];
+    uint64_t nlookup = 0;
 
-        if (!inode)
-                return;
+    if (!inode)
+        return;
 
-        memset(key, 0, sizeof(key));
-        INIT_LIST_HEAD (&fd_list);
+    INIT_LIST_HEAD(&fd_list);
 
-        ret = TRY_LOCK(&inode->lock);
-        if (ret != 0) {
-                return;
-        }
+    ret = TRY_LOCK(&inode->lock);
+    if (ret != 0) {
+        return;
+    }
 
-        {
-                gf_proc_dump_write("gfid", "%s", uuid_utoa (inode->gfid));
-                gf_proc_dump_write("nlookup", "%ld", inode->nlookup);
-                gf_proc_dump_write("fd-count", "%u", inode->fd_count);
-                gf_proc_dump_write("ref", "%u", inode->ref);
-                gf_proc_dump_write("ia_type", "%d", inode->ia_type);
-                if (inode->_ctx) {
-                        inode_ctx = GF_CALLOC (inode->table->ctxcount,
-                                               sizeof (*inode_ctx),
-                                               gf_common_mt_inode_ctx);
-                        if (inode_ctx == NULL) {
-                                goto unlock;
-                        }
+    {
+        nlookup = GF_ATOMIC_GET(inode->nlookup);
+        gf_proc_dump_write("gfid", "%s", uuid_utoa(inode->gfid));
+        gf_proc_dump_write("nlookup", "%ld", nlookup);
+        gf_proc_dump_write("fd-count", "%u", inode->fd_count);
+        gf_proc_dump_write("active-fd-count", "%u", inode->active_fd_count);
+        gf_proc_dump_write("ref", "%u", inode->ref);
+        gf_proc_dump_write("ia_type", "%d", inode->ia_type);
+        if (inode->_ctx) {
+            inode_ctx = GF_CALLOC(inode->table->ctxcount, sizeof(*inode_ctx),
+                                  gf_common_mt_inode_ctx);
+            if (inode_ctx == NULL) {
+                goto unlock;
+            }
 
-                        for (i = 0; i < inode->table->ctxcount;
-                             i++) {
-                                inode_ctx[i] = inode->_ctx[i];
-                                xl = inode_ctx[i].xl_key;
-                                ref = inode_ctx[i].ref;
-                                if (ref != 0 && xl) {
-                                        gf_proc_dump_build_key (key,
-                                                                "ref_by_xl:",
-                                                                "%s",
-                                                                xl->name);
-                                        gf_proc_dump_write (key, "%d", ref);
-                                }
-                        }
+            for (i = 0; i < inode->table->ctxcount; i++) {
+                inode_ctx[i] = inode->_ctx[i];
+                xl = inode_ctx[i].xl_key;
+                ref = inode_ctx[i].ref;
+                if (ref != 0 && xl) {
+                    gf_proc_dump_build_key(key, "ref_by_xl:", "%s", xl->name);
+                    gf_proc_dump_write(key, "%d", ref);
                 }
 
 		if (dump_options.xl_options.dump_fdctx != _gf_true)
@@ -2436,8 +2409,11 @@ inode_table_dump (inode_table_t *itable, char *prefix)
 void
 inode_dump_to_dict (inode_t *inode, char *prefix, dict_t *dict)
 {
-        int             ret = -1;
-        char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+    int ret = -1;
+    char key[GF_DUMP_MAX_BUF_LEN] = {
+        0,
+    };
+    uint64_t nlookup = 0;
 
         ret = TRY_LOCK (&inode->lock);
         if (ret)
@@ -2449,11 +2425,11 @@ inode_dump_to_dict (inode_t *inode, char *prefix, dict_t *dict)
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "%s.nlookup", prefix);
-        ret = dict_set_uint64 (dict, key, inode->nlookup);
-        if (ret)
-                goto out;
+    snprintf(key, sizeof(key), "%s.nlookup", prefix);
+    nlookup = GF_ATOMIC_GET(inode->nlookup);
+    ret = dict_set_uint64(dict, key, nlookup);
+    if (ret)
+        goto out;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.ref", prefix);
