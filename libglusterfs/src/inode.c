@@ -450,6 +450,7 @@ __inode_unref(inode_t *inode)
 {
     int index = 0;
     xlator_t *this = NULL;
+    uint64_t nlookup = 0;
 
     if (!inode)
         return NULL;
@@ -476,7 +477,8 @@ __inode_unref(inode_t *inode)
     if (!inode->ref) {
         inode->table->active_size--;
 
-        if (inode->nlookup)
+        nlookup = GF_ATOMIC_GET(inode->nlookup);
+        if (nlookup)
             __inode_passivate(inode);
         else
             __inode_retire(inode);
@@ -680,6 +682,8 @@ inode_new(inode_table_t *table)
 static inode_t *
 __inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
 {
+    uint64_t nlookup = 0;
+
     if (!inode)
         return NULL;
 
@@ -693,7 +697,8 @@ __inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
     if (!inode->ref) {
         inode->table->active_size--;
 
-        if (inode->nlookup)
+        nlookup = GF_ATOMIC_GET(inode->nlookup);
+        if (nlookup)
             __inode_passivate(inode);
         else
             __inode_retire(inode);
@@ -703,28 +708,19 @@ __inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
 }
 
 static inode_t *
-__inode_lookup(inode_t *inode)
+inode_forget_atomic(inode_t *inode, uint64_t nlookup)
 {
+    uint64_t inode_lookup = 0;
+
     if (!inode)
         return NULL;
 
-    inode->nlookup++;
-
-    return inode;
-}
-
-static inode_t *
-__inode_forget(inode_t *inode, uint64_t nlookup)
-{
-    if (!inode)
-        return NULL;
-
-    GF_ASSERT(inode->nlookup >= nlookup);
-
-    inode->nlookup -= nlookup;
-
-    if (!nlookup)
-        inode->nlookup = 0;
+    if (nlookup == 0) {
+        GF_ATOMIC_INIT(inode->nlookup, 0);
+    } else {
+        inode_lookup = GF_ATOMIC_FETCH_SUB(inode->nlookup, nlookup);
+        GF_ASSERT(inode_lookup >= nlookup);
+    }
 
     return inode;
 }
@@ -1073,21 +1069,13 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
 int
 inode_lookup(inode_t *inode)
 {
-    inode_table_t *table = NULL;
-
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
         return -1;
     }
 
-    table = inode->table;
-
-    pthread_mutex_lock(&table->lock);
-    {
-        __inode_lookup(inode);
-    }
-    pthread_mutex_unlock(&table->lock);
+    GF_ATOMIC_INC(inode->nlookup);
 
     return 0;
 }
@@ -1129,11 +1117,7 @@ inode_forget(inode_t *inode, uint64_t nlookup)
 
     table = inode->table;
 
-    pthread_mutex_lock(&table->lock);
-    {
-        __inode_forget(inode, nlookup);
-    }
-    pthread_mutex_unlock(&table->lock);
+    inode_forget_atomic(inode, nlookup);
 
     inode_table_prune(table);
 
@@ -1531,7 +1515,7 @@ inode_table_prune(inode_table_t *table)
         list_for_each_entry_safe(del, tmp, &purge, list)
         {
             list_del_init(&del->list);
-            __inode_forget(del, 0);
+            inode_forget_atomic(del, 0);
             __inode_destroy(del);
         }
     }
@@ -1782,7 +1766,7 @@ inode_table_destroy(inode_table_t *inode_table)
          */
         while (!list_empty(&inode_table->lru)) {
             trav = list_first_entry(&inode_table->lru, inode_t, list);
-            __inode_forget(trav, 0);
+            inode_forget_atomic(trav, 0);
             __inode_retire(trav);
             inode_table->lru_size--;
         }
@@ -1799,7 +1783,7 @@ inode_table_destroy(inode_table_t *inode_table)
                                  "Active inode(%p) with refcount"
                                  "(%d) found during cleanup",
                                  trav, trav->ref);
-            __inode_forget(trav, 0);
+            inode_forget_atomic(trav, 0);
             __inode_ref_reduce_by_n(trav, 0);
         }
     }
@@ -2277,6 +2261,7 @@ inode_dump(inode_t *inode, char *prefix)
     struct list_head fd_list;
     int ref = 0;
     char key[GF_DUMP_MAX_BUF_LEN];
+    uint64_t nlookup = 0;
 
     if (!inode)
         return;
@@ -2289,8 +2274,9 @@ inode_dump(inode_t *inode, char *prefix)
     }
 
     {
+        nlookup = GF_ATOMIC_GET(inode->nlookup);
         gf_proc_dump_write("gfid", "%s", uuid_utoa(inode->gfid));
-        gf_proc_dump_write("nlookup", "%ld", inode->nlookup);
+        gf_proc_dump_write("nlookup", "%ld", nlookup);
         gf_proc_dump_write("fd-count", "%u", inode->fd_count);
         gf_proc_dump_write("active-fd-count", "%u", inode->active_fd_count);
         gf_proc_dump_write("ref", "%u", inode->ref);
@@ -2382,6 +2368,7 @@ inode_dump_to_dict(inode_t *inode, char *prefix, dict_t *dict)
     char key[GF_DUMP_MAX_BUF_LEN] = {
         0,
     };
+    uint64_t nlookup = 0;
 
     ret = TRY_LOCK(&inode->lock);
     if (ret)
@@ -2393,7 +2380,8 @@ inode_dump_to_dict(inode_t *inode, char *prefix, dict_t *dict)
         goto out;
 
     snprintf(key, sizeof(key), "%s.nlookup", prefix);
-    ret = dict_set_uint64(dict, key, inode->nlookup);
+    nlookup = GF_ATOMIC_GET(inode->nlookup);
+    ret = dict_set_uint64(dict, key, nlookup);
     if (ret)
         goto out;
 

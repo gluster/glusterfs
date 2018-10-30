@@ -89,7 +89,7 @@ struct _inode {
     inode_table_t *table; /* the table this inode belongs to */
     uuid_t gfid;
     gf_lock_t lock;
-    uint64_t nlookup;
+    gf_atomic_t nlookup;
     uint32_t fd_count;            /* Open fd count */
     uint32_t active_fd_count;     /* Active open fd count */
     uint32_t ref;                 /* reference count on this inode */
