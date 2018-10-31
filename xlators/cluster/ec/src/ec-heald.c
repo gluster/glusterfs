@@ -153,12 +153,13 @@ ec_shd_index_purge(xlator_t *subvol, inode_t *inode, char *name)
 }
 
 int
-ec_shd_selfheal(struct subvol_healer *healer, int child, loc_t *loc)
+ec_shd_selfheal(struct subvol_healer *healer, int child, loc_t *loc,
+                gf_boolean_t full)
 {
     int32_t ret;
 
     ret = syncop_getxattr(healer->this, loc, NULL, EC_XATTR_HEAL, NULL, NULL);
-    if ((ret >= 0) && (loc->inode->ia_type == IA_IFDIR)) {
+    if (!full && (ret >= 0) && (loc->inode->ia_type == IA_IFDIR)) {
         /* If we have just healed a directory, it's possible that
          * other index entries have appeared to be healed. We put a
          * mark so that we can check it later and restart a scan
@@ -202,7 +203,7 @@ ec_shd_index_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     if (ret < 0)
         goto out;
 
-    ec_shd_selfheal(healer, healer->subvol, &loc);
+    ec_shd_selfheal(healer, healer->subvol, &loc, _gf_false);
 out:
     if (ret == -ENOENT || ret == -ESTALE) {
         gf_msg(healer->this->name, GF_LOG_DEBUG, 0, EC_MSG_HEAL_FAIL,
@@ -290,7 +291,7 @@ ec_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     if (ret < 0)
         goto out;
 
-    ec_shd_selfheal(healer, healer->subvol, &loc);
+    ec_shd_selfheal(healer, healer->subvol, &loc, _gf_true);
 
     ret = 0;
 
@@ -367,7 +368,7 @@ ec_shd_full_healer(void *data)
                    "starting full sweep on subvol %s",
                    ec_subvol_name(this, healer->subvol));
 
-            ec_shd_selfheal(healer, healer->subvol, &rootloc);
+            ec_shd_selfheal(healer, healer->subvol, &rootloc, _gf_true);
             ec_shd_full_sweep(healer, this->itable->root);
         }
 
