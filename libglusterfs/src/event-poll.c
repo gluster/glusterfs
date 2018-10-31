@@ -33,11 +33,11 @@ struct event_slot_poll {
 static int
 event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
-                    int poll_out);
+                    int poll_out, char notify_poller_death);
 
 static int
 __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
-           int poll_err)
+           int poll_err, char event_thread_died)
 {
     char buf[64];
     int ret = -1;
@@ -146,7 +146,7 @@ event_pool_new_poll(int count, int eventthreadcount)
     }
 
     ret = event_register_poll(event_pool, event_pool->breaker[0], __flush_fd,
-                              NULL, 1, 0);
+                              NULL, 1, 0, 0);
     if (ret == -1) {
         gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED,
                "could not register pipe fd with poll event loop");
@@ -180,7 +180,7 @@ event_pool_new_poll(int count, int eventthreadcount)
 static int
 event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
-                    int poll_out)
+                    int poll_out, char notify_poller_death)
 {
     int idx = -1;
 
@@ -378,7 +378,7 @@ unlock:
         ret = handler(ufds[i].fd, idx, 0, data,
                       (ufds[i].revents & (POLLIN | POLLPRI)),
                       (ufds[i].revents & (POLLOUT)),
-                      (ufds[i].revents & (POLLERR | POLLHUP | POLLNVAL)));
+                      (ufds[i].revents & (POLLERR | POLLHUP | POLLNVAL)), 0);
 
     return ret;
 }

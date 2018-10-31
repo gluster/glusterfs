@@ -266,6 +266,10 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
         goto fail;
     }
 
+    if (dict_get(options, "notify-poller-death")) {
+        trans->notify_poller_death = 1;
+    }
+
     gf_log("rpc-transport", GF_LOG_DEBUG, "attempt to load file %s", name);
 
     handle = dlopen(name, RTLD_NOW);

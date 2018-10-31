@@ -929,12 +929,6 @@ do_rpc:
     if (ret)
         goto out;
 
-    /* rpcsvc thread reconfigure should be after events thread
-     * reconfigure
-     */
-    new_nthread = ((struct event_pool *)(this->ctx->event_pool))
-                      ->eventthreadcount;
-    ret = rpcsvc_ownthread_reconf(rpc_conf, new_nthread);
 out:
     THIS = oldTHIS;
     gf_msg_debug("", 0, "returning %d", ret);
@@ -1133,6 +1127,9 @@ server_init(xlator_t *this)
         ret = -1;
         goto out;
     }
+
+    ret = dict_set_int32(this->options, "notify-poller-death", 1);
+
     ret = rpcsvc_create_listeners(conf->rpc, this->options, this->name);
     if (ret < 1) {
         gf_msg(this->name, GF_LOG_WARNING, 0,

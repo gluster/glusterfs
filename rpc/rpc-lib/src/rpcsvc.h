@@ -33,6 +33,16 @@
 #define MAX_IOVEC 16
 #endif
 
+/* TODO: we should store prognums at a centralized location to avoid conflict
+         or use a robust random number generator to avoid conflicts
+*/
+
+#define RPCSVC_INFRA_PROGRAM 7712846 /* random number */
+
+typedef enum {
+    RPCSVC_PROC_EVENT_THREAD_DEATH = 0,
+} rpcsvc_infra_procnum_t;
+
 #define RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT                                   \
     64 /* Default for protocol/server */
 #define RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT 16 /* Default for nfs/server */
@@ -362,6 +372,16 @@ typedef struct rpcsvc_actor_desc {
     drc_op_type_t op_type;
 } rpcsvc_actor_t;
 
+typedef struct rpcsvc_request_queue {
+    int gen;
+    struct list_head request_queue;
+    pthread_mutex_t queue_lock;
+    pthread_cond_t queue_cond;
+    pthread_t thread;
+    struct rpcsvc_program *program;
+    gf_boolean_t waiting;
+} rpcsvc_request_queue_t;
+
 /* Describes a program and its version along with the function pointers
  * required to handle the procedures/actors of each program/version.
  * Never changed ever by any thread so no need for a lock.
@@ -421,11 +441,14 @@ struct rpcsvc_program {
     gf_boolean_t synctask;
     /* list member to link to list of registered services with rpcsvc */
     struct list_head program;
-    struct list_head request_queue;
-    pthread_mutex_t queue_lock;
-    pthread_cond_t queue_cond;
-    pthread_t thread;
+    rpcsvc_request_queue_t request_queue[EVENT_MAX_THREADS];
+    char request_queue_status[EVENT_MAX_THREADS / 8 + 1];
+    pthread_mutex_t thr_lock;
+    pthread_cond_t thr_cond;
     int threadcount;
+    int thr_queue;
+    pthread_key_t req_queue_key;
+
     /* eventthreadcount is just a readonly copy of the actual value
      * owned by the event sub-system
      * It is used to control the scaling of rpcsvc_request_handler threads
@@ -652,9 +675,6 @@ rpcsvc_auth_array(rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
 rpcsvc_vector_sizer
 rpcsvc_get_program_vector_sizer(rpcsvc_t *svc, uint32_t prognum,
                                 uint32_t progver, int procnum);
-extern int
-rpcsvc_ownthread_reconf(rpcsvc_t *svc, int new_eventthreadcount);
-
 void
 rpcsvc_autoscale_threads(glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr);
 #endif

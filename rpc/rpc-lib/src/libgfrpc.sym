@@ -51,7 +51,6 @@ rpcsvc_transport_connect
 rpcsvc_transport_getpeeraddr
 rpcsvc_unregister_notify
 rpcsvc_volume_allowed
-rpcsvc_ownthread_reconf
 rpc_transport_count
 rpc_transport_connect
 rpc_transport_disconnect

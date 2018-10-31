@@ -969,6 +969,12 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
              */
             ret = 0;
             break;
+
+        case RPC_TRANSPORT_EVENT_THREAD_DIED:
+            /* only meaningful on a server, no need of handling this event on a
+             * client */
+            ret = 0;
+            break;
     }
 
 out:
