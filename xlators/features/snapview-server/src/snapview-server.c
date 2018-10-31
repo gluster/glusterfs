@@ -1368,6 +1368,28 @@ svs_forget(xlator_t *this, inode_t *inode)
     if (inode_ctx->snapname)
         GF_FREE(inode_ctx->snapname);
 
+    /*
+     * glfs_h_close leads to unref and forgetting of the
+     * underlying inode in the gfapi world. i.e. the inode
+     * which inode_ctx->object points to.
+     * As of now the only possibility is, this forget came as a
+     * result of snapdaemon's inode table reaching the lru
+     * limit and receiving forget as a result of purging of
+     * extra inodes that exceeded the limit. But, care must
+     * be taken to ensure that, the gfapi instance to which
+     * the glfs_h_object belongs to is not deleted. Otherwise
+     * this might result in access of a freed pointer.
+     * This will still be helpful in reducing the memory
+     * footprint of snapdaemon when the fs instance itself is
+     * valid (i.e. present and not destroyed due to either snap
+     * deactivate or snap delete), but the lru limit is reached.
+     * The forget due to lru limit will make the underlying inode
+     * being unrefed and forgotten.
+     */
+    if (svs_inode_ctx_glfs_mapping(this, inode_ctx)) {
+        glfs_h_close(inode_ctx->object);
+        inode_ctx->object = NULL;
+    }
     GF_FREE(inode_ctx);
 
 out:
