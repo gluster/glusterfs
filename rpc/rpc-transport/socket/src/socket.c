@@ -2859,7 +2859,7 @@ socket_complete_connection(rpc_transport_t *this)
 /* reads rpc_requests during pollin */
 static int
 socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
-                     int poll_out, int poll_err)
+                     int poll_out, int poll_err, char event_thread_died)
 {
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;
@@ -2868,6 +2868,11 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     gf_boolean_t socket_closed = _gf_false, notify_handled = _gf_false;
 
     this = data;
+
+    if (event_thread_died) {
+        /* to avoid duplicate notifications, notify only for listener sockets */
+        return 0;
+    }
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
@@ -2967,7 +2972,7 @@ out:
 
 static int
 socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
-                            int poll_out, int poll_err)
+                            int poll_out, int poll_err, char event_thread_died)
 {
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;
@@ -2990,6 +2995,12 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     THIS = this->xl;
     priv = this->private;
     ctx = this->ctx;
+
+    if (event_thread_died) {
+        rpc_transport_notify(this, RPC_TRANSPORT_EVENT_THREAD_DIED,
+                             (void *)(unsigned long)gen);
+        return 0;
+    }
 
     /* NOTE:
      * We have done away with the critical section in this function. since
@@ -3099,6 +3110,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_trans->mydata = this->mydata;
         new_trans->notify = this->notify;
         new_trans->listener = this;
+        new_trans->notify_poller_death = this->poller_death_accept;
         new_priv = new_trans->private;
 
         if (new_sockaddr.ss_family == AF_UNIX) {
@@ -3149,9 +3161,9 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
             ret = rpc_transport_notify(this, RPC_TRANSPORT_ACCEPT, new_trans);
 
             if (ret != -1) {
-                new_priv->idx = event_register(ctx->event_pool, new_sock,
-                                               socket_event_handler, new_trans,
-                                               1, 0);
+                new_priv->idx = event_register(
+                    ctx->event_pool, new_sock, socket_event_handler, new_trans,
+                    1, 0, new_trans->notify_poller_death);
                 if (new_priv->idx == -1) {
                     ret = -1;
                     gf_log(this->name, GF_LOG_ERROR,
@@ -3530,7 +3542,8 @@ socket_connect(rpc_transport_t *this, int port)
 
         this->listener = this;
         priv->idx = event_register(ctx->event_pool, priv->sock,
-                                   socket_event_handler, this, 1, 1);
+                                   socket_event_handler, this, 1, 1,
+                                   this->notify_poller_death);
         if (priv->idx == -1) {
             gf_log("", GF_LOG_WARNING,
                    "failed to register the event; "
@@ -3709,7 +3722,8 @@ socket_listen(rpc_transport_t *this)
         rpc_transport_ref(this);
 
         priv->idx = event_register(ctx->event_pool, priv->sock,
-                                   socket_server_event_handler, this, 1, 0);
+                                   socket_server_event_handler, this, 1, 0,
+                                   this->notify_poller_death);
 
         if (priv->idx == -1) {
             gf_log(this->name, GF_LOG_WARNING,
