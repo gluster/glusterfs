@@ -34,94 +34,11 @@ typedef struct client_fd_lk_local {
     clnt_fd_ctx_t *fdctx;
 } clnt_fd_lk_local_t;
 
-int
-client3_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                    void *myframe)
-{
-    gf_getspec_rsp rsp = {
-        0,
-    };
-    call_frame_t *frame = NULL;
-    int ret = 0;
-
-    frame = myframe;
-
-    if (!frame || !frame->this) {
-        gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_INVALID_ENTRY,
-               "frame not found with the request, returning EINVAL");
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-    if (-1 == req->rpc_status) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
-               PC_MSG_RPC_STATUS_ERROR,
-               "received RPC status error, "
-               "returning ENOTCONN");
-        rsp.op_ret = -1;
-        rsp.op_errno = ENOTCONN;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
-    if (ret < 0) {
-        gf_msg(frame->this->name, GF_LOG_ERROR, EINVAL,
-               PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed, returning EINVAL");
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    if (-1 == rsp.op_ret) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0, PC_MSG_VOL_FILE_NOT_FOUND,
-               "failed to get the 'volume "
-               "file' from server");
-        goto out;
-    }
-
-out:
-    CLIENT_STACK_UNWIND(getspec, frame, rsp.op_ret, rsp.op_errno, rsp.spec);
-
-    /* Don't use 'GF_FREE', this is allocated by libc */
-    free(rsp.spec);
-    free(rsp.xdata.xdata_val);
-
-    return 0;
-}
 
 int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data)
 {
-    clnt_conf_t *conf = NULL;
-    clnt_args_t *args = NULL;
-    gf_getspec_req req = {
-        0,
-    };
-    int op_errno = ESTALE;
-    int ret = 0;
-
-    if (!frame || !this || !data)
-        goto unwind;
-
-    args = data;
-    conf = this->private;
-    req.flags = args->flags;
-    req.key = (char *)args->name;
-
-    ret = client_submit_request(this, &req, frame, conf->handshake,
-                                GF_HNDSK_GETSPEC, client3_getspec_cbk, NULL,
-                                NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gf_getspec_req);
-
-    if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_SEND_REQ_FAIL,
-               "failed to send the request");
-    }
-
-    return 0;
-unwind:
-    CLIENT_STACK_UNWIND(getspec, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(getspec, frame, -1, ENOSYS, NULL);
     return 0;
 }
 

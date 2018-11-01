@@ -1696,7 +1696,6 @@ struct volume_options server_options[] = {
                     "in the lru list of the inode cache.",
      .op_version = {1},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
-    {.key = {"verify-volfile-checksum"}, .type = GF_OPTION_TYPE_BOOL},
     {.key = {"trace"}, .type = GF_OPTION_TYPE_BOOL},
     {
         .key = {"config-directory", "conf-dir"},

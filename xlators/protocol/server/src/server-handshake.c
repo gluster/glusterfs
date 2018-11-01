@@ -36,202 +36,12 @@ gf_compare_client_version(rpcsvc_request_t *req, int fop_prognum,
     return ret;
 }
 
-int
-_volfile_update_checksum(xlator_t *this, char *key, uint32_t checksum)
-{
-    server_conf_t *conf = NULL;
-    struct _volfile_ctx *temp_volfile = NULL;
-
-    conf = this->private;
-    temp_volfile = conf->volfile;
-
-    while (temp_volfile) {
-        if ((NULL == key) && (NULL == temp_volfile->key))
-            break;
-        if ((NULL == key) || (NULL == temp_volfile->key)) {
-            temp_volfile = temp_volfile->next;
-            continue;
-        }
-        if (strcmp(temp_volfile->key, key) == 0)
-            break;
-        temp_volfile = temp_volfile->next;
-    }
-
-    if (!temp_volfile) {
-        temp_volfile = GF_CALLOC(1, sizeof(struct _volfile_ctx),
-                                 gf_server_mt_volfile_ctx_t);
-        if (!temp_volfile)
-            goto out;
-        temp_volfile->next = conf->volfile;
-        temp_volfile->key = (key) ? gf_strdup(key) : NULL;
-        temp_volfile->checksum = checksum;
-
-        conf->volfile = temp_volfile;
-        goto out;
-    }
-
-    if (temp_volfile->checksum != checksum) {
-        gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_REMOUNT_CLIENT_REQD,
-               "the volume file was modified between a prior access "
-               "and now. This may lead to inconsistency between "
-               "clients, you are advised to remount client");
-        temp_volfile->checksum = checksum;
-    }
-
-out:
-    return 0;
-}
-
-static size_t
-getspec_build_volfile_path(xlator_t *this, const char *key, char *path,
-                           size_t path_len)
-{
-    char *filename = NULL;
-    server_conf_t *conf = NULL;
-    int ret = -1;
-    int free_filename = 0;
-    char data_key[256] = {
-        0,
-    };
-
-    conf = this->private;
-
-    /* Inform users that this option is changed now */
-    ret = dict_get_str(this->options, "client-volume-filename", &filename);
-    if (ret == 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PS_MSG_DEFAULTING_FILE,
-               "option 'client-volume-filename' is changed to "
-               "'volume-filename.<key>' which now takes 'key' as an "
-               "option to choose/fetch different files from server. "
-               "Refer documentation or contact developers for more "
-               "info. Currently defaulting to given file '%s'",
-               filename);
-    }
-
-    if (key && !filename) {
-        sprintf(data_key, "volume-filename.%s", key);
-        ret = dict_get_str(this->options, data_key, &filename);
-        if (ret < 0) {
-            /* Make sure that key doesn't contain "../" in path */
-            if ((gf_strstr(key, "/", "..")) == -1) {
-                gf_msg(this->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
-                       "%s: invalid "
-                       "key",
-                       key);
-                goto out;
-            }
-        }
-    }
-
-    if (!filename) {
-        ret = dict_get_str(this->options, "volume-filename.default", &filename);
-        if (ret < 0) {
-            gf_msg_debug(this->name, 0,
-                         "no default volume "
-                         "filename given, defaulting to %s",
-                         DEFAULT_VOLUME_FILE_PATH);
-        }
-    }
-
-    if (!filename && key) {
-        ret = gf_asprintf(&filename, "%s/%s.vol", conf->conf_dir, key);
-        if (-1 == ret)
-            goto out;
-
-        free_filename = 1;
-    }
-    if (!filename)
-        filename = DEFAULT_VOLUME_FILE_PATH;
-
-    ret = -1;
-
-    if ((filename) && (path_len > strlen(filename))) {
-        strcpy(path, filename);
-        ret = strlen(filename);
-    }
-
-out:
-    if (free_filename)
-        GF_FREE(filename);
-
-    return ret;
-}
-
-int
-_validate_volfile_checksum(xlator_t *this, char *key, uint32_t checksum)
-{
-    char filename[PATH_MAX] = {
-        0,
-    };
-    server_conf_t *conf = NULL;
-    struct _volfile_ctx *temp_volfile = NULL;
-    int ret = 0;
-    int fd = 0;
-    uint32_t local_checksum = 0;
-
-    conf = this->private;
-    temp_volfile = conf->volfile;
-
-    if (!checksum)
-        goto out;
-
-    if (!temp_volfile) {
-        ret = getspec_build_volfile_path(this, key, filename, sizeof(filename));
-        if (ret <= 0)
-            goto out;
-        fd = open(filename, O_RDONLY);
-        if (-1 == fd) {
-            ret = 0;
-            gf_msg(this->name, GF_LOG_INFO, errno, PS_MSG_VOL_FILE_OPEN_FAILED,
-                   "failed to open volume file (%s) : %s", filename,
-                   strerror(errno));
-            goto out;
-        }
-        get_checksum_for_file(fd, &local_checksum);
-        _volfile_update_checksum(this, key, local_checksum);
-        sys_close(fd);
-    }
-
-    temp_volfile = conf->volfile;
-    while (temp_volfile) {
-        if ((NULL == key) && (NULL == temp_volfile->key))
-            break;
-        if ((NULL == key) || (NULL == temp_volfile->key)) {
-            temp_volfile = temp_volfile->next;
-            continue;
-        }
-        if (strcmp(temp_volfile->key, key) == 0)
-            break;
-        temp_volfile = temp_volfile->next;
-    }
-
-    if (!temp_volfile)
-        goto out;
-
-    if ((temp_volfile->checksum) && (checksum != temp_volfile->checksum))
-        ret = -1;
-
-out:
-    return ret;
-}
 
 int
 server_getspec(rpcsvc_request_t *req)
 {
-    int32_t ret = -1;
+    int32_t ret = 0;
     int32_t op_errno = ENOENT;
-    int32_t spec_fd = -1;
-    size_t file_len = 0;
-    char filename[PATH_MAX] = {
-        0,
-    };
-    struct stat stbuf = {
-        0,
-    };
-    uint32_t checksum = 0;
-    char *key = NULL;
-    server_conf_t *conf = NULL;
-    xlator_t *this = NULL;
     gf_getspec_req args = {
         0,
     };
@@ -239,8 +49,6 @@ server_getspec(rpcsvc_request_t *req)
         0,
     };
 
-    this = req->svc->xl;
-    conf = this->private;
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
     if (ret < 0) {
         // failed to decode msg;
@@ -249,55 +57,11 @@ server_getspec(rpcsvc_request_t *req)
         goto fail;
     }
 
-    ret = getspec_build_volfile_path(this, args.key, filename,
-                                     sizeof(filename));
-    if (ret > 0) {
-        /* to allocate the proper buffer to hold the file data */
-        ret = sys_stat(filename, &stbuf);
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, PS_MSG_STAT_ERROR,
-                   "Unable to stat %s (%s)", filename, strerror(errno));
-            op_errno = errno;
-            goto fail;
-        }
-
-        spec_fd = open(filename, O_RDONLY);
-        if (spec_fd < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, PS_MSG_FILE_OP_FAILED,
-                   "Unable to open %s "
-                   "(%s)",
-                   filename, strerror(errno));
-            op_errno = errno;
-            goto fail;
-        }
-        ret = file_len = stbuf.st_size;
-
-        if (conf->verify_volfile) {
-            get_checksum_for_file(spec_fd, &checksum);
-            _volfile_update_checksum(this, key, checksum);
-        }
-    }
-
-    if (file_len) {
-        rsp.spec = GF_CALLOC(file_len, sizeof(char), gf_server_mt_rsp_buf_t);
-        if (!rsp.spec) {
-            ret = -1;
-            op_errno = ENOMEM;
-            goto fail;
-        }
-        ret = sys_read(spec_fd, rsp.spec, file_len);
-    }
-
-    /* convert to XDR */
-    op_errno = errno;
+    op_errno = ENOSYS;
 fail:
-    if (!rsp.spec)
-        rsp.spec = "";
+    rsp.spec = "<this method is not in use, use glusterd for getspec>";
     rsp.op_errno = gf_errno_to_error(op_errno);
-    rsp.op_ret = ret;
-
-    if (spec_fd != -1)
-        sys_close(spec_fd);
+    rsp.op_ret = -1;
 
     server_submit_reply(NULL, req, &rsp, NULL, 0, NULL,
                         (xdrproc_t)xdr_gf_getspec_rsp);
@@ -472,9 +236,7 @@ server_setvolume(rpcsvc_request_t *req)
     char *clnt_version = NULL;
     xlator_t *xl = NULL;
     char *msg = NULL;
-    char *volfile_key = NULL;
     xlator_t *this = NULL;
-    uint32_t checksum = 0;
     int32_t ret = -1;
     int32_t op_ret = -1;
     int32_t op_errno = EINVAL;
@@ -740,33 +502,6 @@ server_setvolume(rpcsvc_request_t *req)
         op_ret = -1;
         op_errno = EINVAL;
         goto fail;
-    }
-
-    if (conf->verify_volfile) {
-        ret = dict_get_uint32(params, "volfile-checksum", &checksum);
-        if (ret == 0) {
-            ret = dict_get_str(params, "volfile-key", &volfile_key);
-            if (ret)
-                gf_msg_debug(this->name, 0,
-                             "failed to get "
-                             "'volfile-key'");
-
-            ret = _validate_volfile_checksum(this, volfile_key, checksum);
-            if (-1 == ret) {
-                ret = dict_set_str(reply, "ERROR",
-                                   "volume-file checksum "
-                                   "varies from earlier "
-                                   "access");
-                if (ret < 0)
-                    gf_msg_debug(this->name, 0,
-                                 "failed "
-                                 "to set error msg");
-
-                op_ret = -1;
-                op_errno = ESTALE;
-                goto fail;
-            }
-        }
     }
 
     peerinfo = &req->trans->peerinfo;
