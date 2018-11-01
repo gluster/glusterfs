@@ -913,6 +913,13 @@ __server_getspec(rpcsvc_request_t *req)
 
     volume = args.key;
 
+    if (strlen(volume) >= (NAME_MAX)) {
+        op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_NAME_TOO_LONG,
+               "volume name too long (%s)", volume);
+        goto fail;
+    }
+
     /* Need to strip leading '/' from volnames. This was introduced to
      * support nfs style mount parameters for native gluster mount
      */
