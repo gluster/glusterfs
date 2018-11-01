@@ -2930,6 +2930,15 @@ conditional_dump(dict_t *dict, char *key, data_t *value, void *data)
     this = stub->this;
     conf = this->private;
 
+    /* Don't do this on 'brick-side', only do this on client side */
+    /* Addresses CVE-2018-14659 */
+    if (this->ctx->process_mode != GF_CLIENT_PROCESS) {
+        gf_log(this->name, GF_LOG_DEBUG,
+               "taking io-stats dump using setxattr not permitted on brick."
+               " Use 'gluster profile' instead");
+        return -1;
+    }
+
     /* Create a file name that is appended with the io-stats instance
     name as well. This helps when there is more than a single io-stats
     instance in the graph, or the client and server processes are running
