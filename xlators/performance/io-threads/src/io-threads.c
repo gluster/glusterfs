@@ -937,7 +937,7 @@ iot_priv_dump(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
 
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
     gf_proc_dump_write("maximum_threads_count", "%d", conf->max_count);
     gf_proc_dump_write("current_threads_count", "%d", conf->curr_count);

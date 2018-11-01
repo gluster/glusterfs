@@ -2796,13 +2796,13 @@ client_priv_dump(xlator_t *this)
     gf_proc_dump_build_key(key_prefix, "xlator.protocol.client", "%s.priv",
                            this->name);
 
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
     pthread_spin_lock(&conf->fd_lock);
     list_for_each_entry(tmp, &conf->saved_fds, sfd_pos)
     {
         sprintf(key, "fd.%d.remote_fd", i);
-        gf_proc_dump_write(key, "%d", tmp->remote_fd);
+        gf_proc_dump_write(key, "%" PRId64, tmp->remote_fd);
         client_fd_lk_ctx_dump(this, tmp->lk_ctx, i);
         i++;
     }

@@ -4860,7 +4860,7 @@ afr_priv_dump(xlator_t *this)
 
     GF_ASSERT(priv);
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     gf_proc_dump_write("child_count", "%u", priv->child_count);
     for (i = 0; i < priv->child_count; i++) {
         sprintf(key, "child_up[%d]", i);
@@ -4897,7 +4897,7 @@ afr_priv_dump(xlator_t *this)
         gf_proc_dump_write("ta_child_up", "%d", priv->ta_child_up);
         gf_proc_dump_write("ta_bad_child_index", "%d",
                            priv->ta_bad_child_index);
-        gf_proc_dump_write("ta_notify_dom_lock_offset", "%lld",
+        gf_proc_dump_write("ta_notify_dom_lock_offset", "%" PRId64,
                            priv->ta_notify_dom_lock_offset);
     }
 

@@ -1068,7 +1068,7 @@ iobuf_info_dump(struct iobuf *iobuf, const char *key_prefix)
     UNLOCK(&iobuf->lock);
 
     gf_proc_dump_build_key(key, key_prefix, "ref");
-    gf_proc_dump_write(key, "%d", my_iobuf.ref);
+    gf_proc_dump_write(key, "%" GF_PRI_ATOMIC, GF_ATOMIC_GET(my_iobuf.ref));
     gf_proc_dump_build_key(key, key_prefix, "ptr");
     gf_proc_dump_write(key, "%p", my_iobuf.ptr);
 
@@ -1094,13 +1094,13 @@ iobuf_arena_info_dump(struct iobuf_arena *iobuf_arena, const char *key_prefix)
     gf_proc_dump_build_key(key, key_prefix, "alloc_cnt");
     gf_proc_dump_write(key, "%" PRIu64, iobuf_arena->alloc_cnt);
     gf_proc_dump_build_key(key, key_prefix, "max_active");
-    gf_proc_dump_write(key, "%" PRIu64, iobuf_arena->max_active);
+    gf_proc_dump_write(key, "%d", iobuf_arena->max_active);
     gf_proc_dump_build_key(key, key_prefix, "page_size");
-    gf_proc_dump_write(key, "%" PRIu64, iobuf_arena->page_size);
+    gf_proc_dump_write(key, "%" GF_PRI_SIZET, iobuf_arena->page_size);
     list_for_each_entry(trav, &iobuf_arena->active.list, list)
     {
         gf_proc_dump_build_key(key, key_prefix, "active_iobuf.%d", i++);
-        gf_proc_dump_add_section(key);
+        gf_proc_dump_add_section("%s", key);
         iobuf_info_dump(trav, key);
     }
 
@@ -1126,9 +1126,10 @@ iobuf_stats_dump(struct iobuf_pool *iobuf_pool)
     }
     gf_proc_dump_add_section("iobuf.global");
     gf_proc_dump_write("iobuf_pool", "%p", iobuf_pool);
-    gf_proc_dump_write("iobuf_pool.default_page_size", "%d",
+    gf_proc_dump_write("iobuf_pool.default_page_size", "%" GF_PRI_SIZET,
                        iobuf_pool->default_page_size);
-    gf_proc_dump_write("iobuf_pool.arena_size", "%d", iobuf_pool->arena_size);
+    gf_proc_dump_write("iobuf_pool.arena_size", "%" GF_PRI_SIZET,
+                       iobuf_pool->arena_size);
     gf_proc_dump_write("iobuf_pool.arena_cnt", "%d", iobuf_pool->arena_cnt);
     gf_proc_dump_write("iobuf_pool.request_misses", "%" PRId64,
                        iobuf_pool->request_misses);
@@ -1137,21 +1138,21 @@ iobuf_stats_dump(struct iobuf_pool *iobuf_pool)
         list_for_each_entry(trav, &iobuf_pool->arenas[j], list)
         {
             snprintf(msg, sizeof(msg), "arena.%d", i);
-            gf_proc_dump_add_section(msg);
+            gf_proc_dump_add_section("%s", msg);
             iobuf_arena_info_dump(trav, msg);
             i++;
         }
         list_for_each_entry(trav, &iobuf_pool->purge[j], list)
         {
             snprintf(msg, sizeof(msg), "purge.%d", i);
-            gf_proc_dump_add_section(msg);
+            gf_proc_dump_add_section("%s", msg);
             iobuf_arena_info_dump(trav, msg);
             i++;
         }
         list_for_each_entry(trav, &iobuf_pool->filled[j], list)
         {
             snprintf(msg, sizeof(msg), "filled.%d", i);
-            gf_proc_dump_add_section(msg);
+            gf_proc_dump_add_section("%s", msg);
             iobuf_arena_info_dump(trav, msg);
             i++;
         }

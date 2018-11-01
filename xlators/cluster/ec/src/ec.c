@@ -1380,7 +1380,7 @@ ec_dump_private(xlator_t *this)
     GF_ASSERT(ec);
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     gf_proc_dump_write("up", "%u", ec->up);
     gf_proc_dump_write("nodes", "%u", ec->nodes);
     gf_proc_dump_write("redundancy", "%u", ec->redundancy);
@@ -1400,21 +1400,21 @@ ec_dump_private(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s.stats.stripe_cache",
              this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
-    gf_proc_dump_write("hits", "%llu",
+    gf_proc_dump_write("hits", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.hits));
-    gf_proc_dump_write("misses", "%llu",
+    gf_proc_dump_write("misses", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.misses));
-    gf_proc_dump_write("updates", "%llu",
+    gf_proc_dump_write("updates", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.updates));
-    gf_proc_dump_write("invalidations", "%llu",
+    gf_proc_dump_write("invalidations", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.invals));
-    gf_proc_dump_write("evicts", "%llu",
+    gf_proc_dump_write("evicts", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.evicts));
-    gf_proc_dump_write("allocations", "%llu",
+    gf_proc_dump_write("allocations", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.allocs));
-    gf_proc_dump_write("errors", "%llu",
+    gf_proc_dump_write("errors", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.errors));
 
     return 0;

@@ -1868,7 +1868,7 @@ __ioc_page_dump(ioc_page_t *page, char *prefix)
         goto out;
     {
         gf_proc_dump_write("offset", "%" PRId64, page->offset);
-        gf_proc_dump_write("size", "%" PRId64, page->size);
+        gf_proc_dump_write("size", "%" GF_PRI_SIZET, page->size);
         gf_proc_dump_write("dirty", "%s", page->dirty ? "yes" : "no");
         gf_proc_dump_write("ready", "%s", page->ready ? "yes" : "no");
         ioc_page_waitq_dump(page, prefix);
@@ -1962,7 +1962,7 @@ ioc_inode_dump(xlator_t *this, inode_t *inode)
         if (gf_uuid_is_null(ioc_inode->inode->gfid))
             goto unlock;
 
-        gf_proc_dump_add_section(key_prefix);
+        gf_proc_dump_add_section("%s", key_prefix);
         section_added = _gf_true;
 
         __inode_path(ioc_inode->inode, NULL, &path);
@@ -1985,7 +1985,7 @@ unlock:
 out:
     if (ret && ioc_inode) {
         if (section_added == _gf_false)
-            gf_proc_dump_add_section(key_prefix);
+            gf_proc_dump_add_section("%s", key_prefix);
         gf_proc_dump_write("Unable to print the status of ioc_inode",
                            "(Lock acquisition failed) %s",
                            uuid_utoa(inode->gfid));
@@ -2009,7 +2009,7 @@ ioc_priv_dump(xlator_t *this)
     priv = this->private;
 
     gf_proc_dump_build_key(key_prefix, "io-cache", "priv");
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     add_section = _gf_true;
 
     ret = pthread_mutex_trylock(&priv->table_lock);
@@ -2021,8 +2021,8 @@ ioc_priv_dump(xlator_t *this)
         gf_proc_dump_write("cache_used", "%ld", priv->cache_used);
         gf_proc_dump_write("inode_count", "%u", priv->inode_count);
         gf_proc_dump_write("cache_timeout", "%u", priv->cache_timeout);
-        gf_proc_dump_write("min-file-size", "%u", priv->min_file_size);
-        gf_proc_dump_write("max-file-size", "%u", priv->max_file_size);
+        gf_proc_dump_write("min-file-size", "%" PRIu64, priv->min_file_size);
+        gf_proc_dump_write("max-file-size", "%" PRIu64, priv->max_file_size);
     }
     pthread_mutex_unlock(&priv->table_lock);
 out:
@@ -2032,7 +2032,7 @@ out:
                                    "xlator."
                                    "performance.io-cache",
                                    "priv");
-            gf_proc_dump_add_section(key_prefix);
+            gf_proc_dump_add_section("%s", key_prefix);
         }
         gf_proc_dump_write(
             "Unable to dump the state of private "

@@ -247,7 +247,7 @@ server_priv(xlator_t *this)
         return 0;
 
     gf_proc_dump_build_key(key, "xlator.protocol.server", "priv");
-    gf_proc_dump_add_section(key);
+    gf_proc_dump_add_section("%s", key);
 
     ret = pthread_mutex_trylock(&conf->mutex);
     if (ret != 0)

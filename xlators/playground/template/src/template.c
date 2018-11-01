@@ -50,7 +50,7 @@ template_priv(xlator_t *this)
     template_private_t *priv = NULL;
 
     priv = this->private;
-    gf_proc_dump_write("template.dummy", "%lu", priv->dummy);
+    gf_proc_dump_write("template.dummy", "%" PRId32, priv->dummy);
 
     return 0;
 }

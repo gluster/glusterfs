@@ -1044,7 +1044,7 @@ qr_inodectx_dump(xlator_t *this, inode_t *inode)
 
     gf_proc_dump_build_key(key_prefix, "xlator.performance.quick-read",
                            "inodectx");
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
     gf_proc_dump_write("entire-file-cached", "%s",
                        qr_inode->data ? "yes" : "no");
@@ -1088,9 +1088,9 @@ qr_priv_dump(xlator_t *this)
 
     gf_proc_dump_build_key(key_prefix, "xlator.performance.quick-read", "priv");
 
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
-    gf_proc_dump_write("max_file_size", "%d", conf->max_file_size);
+    gf_proc_dump_write("max_file_size", "%" PRIu64, conf->max_file_size);
     gf_proc_dump_write("cache_timeout", "%d", conf->cache_timeout);
 
     if (!table) {
@@ -1106,11 +1106,13 @@ qr_priv_dump(xlator_t *this)
     }
 
     gf_proc_dump_write("total_files_cached", "%d", file_count);
-    gf_proc_dump_write("total_cache_used", "%d", total_size);
-    gf_proc_dump_write("cache-hit", "%" PRId64, priv->qr_counter.cache_hit);
-    gf_proc_dump_write("cache-miss", "%" PRId64, priv->qr_counter.cache_miss);
-    gf_proc_dump_write("cache-invalidations", "%" PRId64,
-                       priv->qr_counter.file_data_invals);
+    gf_proc_dump_write("total_cache_used", "%" PRIu64, total_size);
+    gf_proc_dump_write("cache-hit", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(priv->qr_counter.cache_hit));
+    gf_proc_dump_write("cache-miss", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(priv->qr_counter.cache_miss));
+    gf_proc_dump_write("cache-invalidations", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(priv->qr_counter.file_data_invals));
 
 out:
     return 0;

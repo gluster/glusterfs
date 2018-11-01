@@ -564,10 +564,10 @@ rpcsvc_drc_priv(rpcsvc_drc_globals_t *drc)
     gf_proc_dump_write(key, "%d", drc->lru_factor);
 
     gf_proc_dump_build_key(key, "drc", "duplicate_request_count");
-    gf_proc_dump_write(key, "%d", drc->cache_hits);
+    gf_proc_dump_write(key, "%" PRIu64, drc->cache_hits);
 
     gf_proc_dump_build_key(key, "drc", "in_transit_duplicate_requests");
-    gf_proc_dump_write(key, "%d", drc->intransit_hits);
+    gf_proc_dump_write(key, "%" PRIu64, drc->intransit_hits);
 
     list_for_each_entry(client, &drc->clients_head, client_list)
     {

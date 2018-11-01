@@ -585,7 +585,8 @@ client_dump(client_t *client, char *prefix)
     if (!client)
         return;
 
-    gf_proc_dump_write("refcount", GF_PRI_ATOMIC, GF_ATOMIC_GET(client->count));
+    gf_proc_dump_write("refcount", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(client->count));
 }
 
 void
@@ -626,7 +627,7 @@ clienttable_dump(clienttable_t *clienttable, char *prefix)
             if (GF_CLIENTENTRY_ALLOCATED ==
                 clienttable->cliententries[i].next_free) {
                 gf_proc_dump_build_key(key, prefix, "cliententry[%d]", i);
-                gf_proc_dump_add_section(key);
+                gf_proc_dump_add_section("%s", key);
                 cliententry_dump(&clienttable->cliententries[i], key);
             }
         }
@@ -773,7 +774,7 @@ gf_client_dump_fdtables(xlator_t *this)
                 gf_proc_dump_write(key, "%s", client->subdir_mount);
             }
             gf_proc_dump_build_key(key, "conn", "%d.ref", count);
-            gf_proc_dump_write(key, GF_PRI_ATOMIC,
+            gf_proc_dump_write(key, "%" GF_PRI_ATOMIC,
                                GF_ATOMIC_GET(client->count));
             if (client->bound_xl) {
                 gf_proc_dump_build_key(key, "conn", "%d.bound_xl", count);

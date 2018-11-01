@@ -1365,7 +1365,7 @@ ga_dump_inodectx(xlator_t *this, inode_t *inode)
     if (ret == 0) {
         tmp_inode = (void *)(uintptr_t)value;
         gf_proc_dump_build_key(key_prefix, this->name, "inode");
-        gf_proc_dump_add_section(key_prefix);
+        gf_proc_dump_add_section("%s", key_prefix);
         gf_proc_dump_write("real-gfid", "%s", uuid_utoa(tmp_inode->gfid));
     }
 

@@ -3063,7 +3063,7 @@ mdc_priv_dump(xlator_t *this)
     conf = this->private;
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
     gf_proc_dump_write("stat_hit_count", "%" PRId64,
                        GF_ATOMIC_GET(conf->mdc_counter.stat_hit));

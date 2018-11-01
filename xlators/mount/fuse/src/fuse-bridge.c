@@ -5290,7 +5290,7 @@ fuse_priv_dump(xlator_t *this)
     gf_proc_dump_write("proto_minor", "%u", private->proto_minor);
     gf_proc_dump_write("volfile", "%s",
                        private->volfile ? private->volfile : "None");
-    gf_proc_dump_write("volfile_size", "%d", private->volfile_size);
+    gf_proc_dump_write("volfile_size", "%" GF_PRI_SIZET, private->volfile_size);
     gf_proc_dump_write("mount_point", "%s", private->mount_point);
     gf_proc_dump_write("fuse_thread_started", "%d",
                        (int)private->fuse_thread_started);
@@ -5324,7 +5324,7 @@ fuse_history_dump(xlator_t *this)
     GF_VALIDATE_OR_GOTO(this->name, this->history, out);
 
     gf_proc_dump_build_key(key_prefix, "xlator.mount.fuse", "history");
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     eh_dump(this->history, NULL, dump_history_fuse);
 
     ret = 0;
@@ -5345,7 +5345,7 @@ dump_history_fuse(circular_buffer_t *cb, void *data)
              ".%" GF_PRI_SUSECONDS, cb->tv.tv_usec);
     gf_proc_dump_write("TIME", "%s", timestr);
 
-    gf_proc_dump_write("message", "%s\n", cb->data);
+    gf_proc_dump_write("message", "%s\n", (char *)cb->data);
 
     return 0;
 }
