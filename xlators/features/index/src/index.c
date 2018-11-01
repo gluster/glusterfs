@@ -849,6 +849,14 @@ index_entry_create(xlator_t *this, inode_t *inode, char *filename)
         ctx->state[ENTRY_CHANGES] = IN;
     }
 
+    if (strchr(filename, '/')) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, INDEX_MSG_INDEX_ADD_FAILED,
+               "Got invalid entry (%s) for pargfid path (%s)", filename,
+               pgfid_path);
+        op_errno = EINVAL;
+        goto out;
+    }
+
     len = snprintf(entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
                    filename);
     if ((len < 0) || (len >= sizeof(entry_path))) {
@@ -883,6 +891,15 @@ index_entry_delete(xlator_t *this, uuid_t pgfid, char *filename)
 
     make_gfid_path(priv->index_basepath, ENTRY_CHANGES_SUBDIR, pgfid,
                    pgfid_path, sizeof(pgfid_path));
+
+    if (strchr(filename, '/')) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, INDEX_MSG_INDEX_DEL_FAILED,
+               "Got invalid entry (%s) for pargfid path (%s)", filename,
+               pgfid_path);
+        op_errno = EINVAL;
+        goto out;
+    }
+
     len = snprintf(entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
                    filename);
     if ((len < 0) || (len >= sizeof(entry_path))) {
