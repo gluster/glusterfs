@@ -93,7 +93,8 @@ int
 gf_vasprintf(char **string_ptr, const char *format, va_list arg);
 
 int
-gf_asprintf(char **string_ptr, const char *format, ...);
+gf_asprintf(char **string_ptr, const char *format, ...)
+    __attribute__((__format__(__printf__, 2, 3)));
 
 void
 __gf_free(void *ptr);

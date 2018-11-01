@@ -283,7 +283,7 @@ jbrc_priv_dump(xlator_t *this)
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
     gf_proc_dump_write("up_children", "%u", priv->up_children);
 

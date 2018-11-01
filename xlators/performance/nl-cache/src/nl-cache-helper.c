@@ -1161,7 +1161,7 @@ nlc_dump_inodectx(xlator_t *this, inode_t *inode)
     if (!ret) {
         gf_proc_dump_build_key(key_prefix, "xlator.performance.nl-cache",
                                "nlc_inode");
-        gf_proc_dump_add_section(key_prefix);
+        gf_proc_dump_add_section("%s", key_prefix);
 
         __inode_path(inode, NULL, &path);
         if (path != NULL) {
@@ -1176,14 +1176,14 @@ nlc_dump_inodectx(xlator_t *this, inode_t *inode)
 
         gf_proc_dump_write("state", "%" PRIu64, nlc_ctx->state);
         gf_proc_dump_write("timer", "%p", nlc_ctx->timer);
-        gf_proc_dump_write("cache-time", "%lld", nlc_ctx->cache_time);
+        gf_proc_dump_write("cache-time", "%" GF_PRI_TIME, nlc_ctx->cache_time);
         gf_proc_dump_write("cache-size", "%zu", nlc_ctx->cache_size);
         gf_proc_dump_write("refd-inodes", "%" PRIu64, nlc_ctx->refd_inodes);
 
         if (IS_PE_VALID(nlc_ctx->state))
             list_for_each_entry_safe(pe, tmp, &nlc_ctx->pe, list)
             {
-                gf_proc_dump_write("pe", "%p, %s", pe, pe->inode, pe->name);
+                gf_proc_dump_write("pe", "%p, %p, %s", pe, pe->inode, pe->name);
             }
 
         if (IS_NE_VALID(nlc_ctx->state))

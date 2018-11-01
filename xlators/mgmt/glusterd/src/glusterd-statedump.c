@@ -180,7 +180,7 @@ glusterd_dump_priv(xlator_t *this)
         return 0;
 
     gf_proc_dump_build_key(key, "xlator.glusterd", "priv");
-    gf_proc_dump_add_section(key);
+    gf_proc_dump_add_section("%s", key);
 
     pthread_mutex_lock(&priv->mutex);
     {

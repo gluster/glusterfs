@@ -5125,7 +5125,7 @@ quota_priv_dump(xlator_t *this)
     if (!priv)
         goto out;
 
-    gf_proc_dump_add_section("xlators.features.quota.priv", this->name);
+    gf_proc_dump_add_section("xlators.features.quota.priv");
 
     ret = TRY_LOCK(&priv->lock);
     if (ret)

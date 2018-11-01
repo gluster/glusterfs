@@ -721,7 +721,7 @@ __barrier_dump_queue(barrier_priv_t *priv)
     list_for_each_entry(stub, &priv->queue, list)
     {
         snprintf(key, sizeof(key), "stub.%d", i++);
-        gf_proc_dump_add_section(key);
+        gf_proc_dump_add_section("%s", key);
         barrier_dump_stub(stub, key);
     }
 
@@ -745,7 +745,7 @@ barrier_dump_priv(xlator_t *this)
         return 0;
 
     gf_proc_dump_build_key(key, "xlator.features.barrier", "priv");
-    gf_proc_dump_add_section(key);
+    gf_proc_dump_add_section("%s", key);
 
     LOCK(&priv->lock);
     {

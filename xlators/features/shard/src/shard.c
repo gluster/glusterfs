@@ -6759,12 +6759,12 @@ shard_priv_dump(xlator_t *this)
     priv = this->private;
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     str = gf_uint64_2human_readable(priv->block_size);
     gf_proc_dump_write("shard-block-size", "%s", str);
     gf_proc_dump_write("inode-count", "%d", priv->inode_count);
     gf_proc_dump_write("ilist_head", "%p", &priv->ilist_head);
-    gf_proc_dump_write("lru-max-limit", "%d", priv->lru_limit);
+    gf_proc_dump_write("lru-max-limit", "%" PRIu64, priv->lru_limit);
 
     GF_FREE(str);
 

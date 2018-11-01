@@ -304,7 +304,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     runner_add_arg(&runner, "--pid-file");
     runner_argprintf(&runner, "%s", pidfile);
     runner_add_arg(&runner, "-l");
-    runner_argprintf(&runner, logfile);
+    runner_argprintf(&runner, "%s", logfile);
     if (volinfo->memory_accounting)
         runner_add_arg(&runner, "--mem-accounting");
     if (dict_get_strn(priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,

@@ -255,12 +255,13 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
         gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, xl->name,
                                  i);
 
-        gf_proc_dump_write("size", "%u", xl->mem_acct->rec[i].size);
-        gf_proc_dump_write("max_size", "%u", xl->mem_acct->rec[i].max_size);
+        gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
+        gf_proc_dump_write("max_size", "%" PRIu64,
+                           xl->mem_acct->rec[i].max_size);
         gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
         gf_proc_dump_write("max_num_allocs", "%u",
                            xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%u",
+        gf_proc_dump_write("total_allocs", "%" PRIu64,
                            xl->mem_acct->rec[i].total_allocs);
     }
 
@@ -379,8 +380,8 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
             gf_proc_dump_write("-----", "-----");
             gf_proc_dump_write("pool-name", "%s", pool->name);
             gf_proc_dump_write("active-count", "%" GF_PRI_ATOMIC, active);
-            gf_proc_dump_write("sizeof-type", "%d", pool->sizeof_type);
-            gf_proc_dump_write("padded-sizeof", "%lu",
+            gf_proc_dump_write("sizeof-type", "%lu", pool->sizeof_type);
+            gf_proc_dump_write("padded-sizeof", "%d",
                                1 << pool->pool->power_of_two);
             gf_proc_dump_write("size", "%lu",
                                (1 << pool->pool->power_of_two) * active);
@@ -466,7 +467,7 @@ gf_proc_dump_dict_info(glusterfs_ctx_t *ctx)
     total_dicts = GF_ATOMIC_GET(ctx->stats.total_dicts_used);
     total_pairs = GF_ATOMIC_GET(ctx->stats.total_pairs_used);
 
-    gf_proc_dump_write("max-pairs-per-dict", "%u",
+    gf_proc_dump_write("max-pairs-per-dict", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ctx->stats.max_dict_pairs));
     gf_proc_dump_write("total-pairs-used", "%lu", total_pairs);
     gf_proc_dump_write("total-dicts-used", "%lu", total_dicts);

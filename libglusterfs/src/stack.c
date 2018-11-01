@@ -148,7 +148,7 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
 out:
     if (ret) {
         gf_proc_dump_write("Unable to dump the frame information",
-                           "(Lock acquisition failed) %p", my_frame);
+                           "(Lock acquisition failed)");
         return;
     }
 }
@@ -185,9 +185,9 @@ gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
     gf_proc_dump_write("uid", "%d", call_stack->uid);
     gf_proc_dump_write("gid", "%d", call_stack->gid);
     gf_proc_dump_write("pid", "%d", call_stack->pid);
-    gf_proc_dump_write("unique", "%Ld", call_stack->unique);
+    gf_proc_dump_write("unique", "%" PRIu64, call_stack->unique);
     gf_proc_dump_write("lk-owner", "%s", lkowner_utoa(&call_stack->lk_owner));
-    gf_proc_dump_write("ctime", "%lld.%" GF_PRI_SNSECONDS,
+    gf_proc_dump_write("ctime", "%" GF_PRI_SECOND ".%" GF_PRI_SNSECONDS,
                        call_stack->tv.tv_sec, call_stack->tv.tv_nsec);
 
     if (call_stack->type == GF_OP_TYPE_FOP)
@@ -224,7 +224,7 @@ gf_proc_dump_pending_frames(call_pool_t *call_pool)
     gf_proc_dump_add_section("global.callpool");
     section_added = _gf_true;
     gf_proc_dump_write("callpool_address", "%p", call_pool);
-    gf_proc_dump_write("callpool.cnt", "%d", call_pool->cnt);
+    gf_proc_dump_write("callpool.cnt", "%" PRId64, call_pool->cnt);
 
     list_for_each_entry(trav, &call_pool->all_frames, all_frames)
     {

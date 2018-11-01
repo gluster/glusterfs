@@ -2861,7 +2861,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             runner_add_args(&runner, "source-brick", NULL);
             runner_argprintf(&runner, "%s:%s", hostname, path);
             if (dict_get_str(options, "file", &filename) == 0)
-                runner_argprintf(&runner, filename);
+                runner_argprintf(&runner, "%s", filename);
             break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             runner_add_args(&runner, "split-brain-info", NULL);
