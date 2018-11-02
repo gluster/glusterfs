@@ -2922,6 +2922,39 @@ pl_metalk(call_frame_t *frame, xlator_t *this, inode_t *inode)
         goto out;
     }
 
+    /* Non rebalance process trying to do metalock */
+    if (frame->root->pid != GF_CLIENT_PID_DEFRAG) {
+        ret = -1;
+        goto out;
+    }
+
+    /* Note: In the current scheme of glusterfs where lock migration is
+     * experimental, (ideally) the rebalance process which is migrating
+     * the file should request for a metalock. Hence, the metalock count
+     * should not be more than one for an inode. In future, if there is a
+     * need for meta-lock from other clients, the following block can be
+     * removed.
+     *
+     * Since pl_metalk is called as part of setxattr operation, any client
+     * process(non-rebalance) residing outside trusted network can exhaust
+     * memory of the server node by issuing setxattr repetitively on the
+     * metalock key. The following code makes sure that more than
+     * one metalock cannot be granted on an inode*/
+    pthread_mutex_lock(&pl_inode->mutex);
+    {
+        if (pl_metalock_is_active(pl_inode)) {
+            gf_msg(this->name, GF_LOG_WARNING, EINVAL, 0,
+                   "More than one meta-lock can not be granted on"
+                   "the inode");
+            ret = -1;
+        }
+    }
+    pthread_mutex_lock(&pl_inode->mutex);
+
+    if (ret == -1) {
+        goto out;
+    }
+
     if (frame->root->client) {
         ctx = pl_ctx_get(frame->root->client, this);
         if (!ctx) {
@@ -3095,7 +3128,7 @@ pl_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
             int flags, dict_t *xdata)
 {
     int op_ret = 0;
-    int op_errno = 0;
+    int op_errno = EINVAL;
     dict_t *xdata_rsp = NULL;
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
