@@ -751,6 +751,26 @@ gf_log_init(void *data, const char *file, const char *ident)
             return -1;
         }
     } else {
+        /* Also create parent dir */
+        char *logdir = gf_strdup(file);
+        if (!logdir) {
+            return -1;
+        }
+        char *tmp_index = rindex(logdir, '/');
+        if (tmp_index) {
+            tmp_index[0] = '\0';
+        }
+        if (mkdir_p(logdir, 0755, true)) {
+            /* EEXIST is handled in mkdir_p() itself */
+            gf_msg("logging", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
+                   "failed to create metrics dir %s (%s)", logdir,
+                   strerror(errno));
+            GF_FREE(logdir);
+            return -1;
+        }
+        /* no need of this variable */
+        GF_FREE(logdir);
+
         ctx->log.filename = gf_strdup(file);
         if (!ctx->log.filename) {
             fprintf(stderr,
