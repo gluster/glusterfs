@@ -121,8 +121,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/arbiter/src/Makefile
                 xlators/features/thin-arbiter/Makefile
                 xlators/features/thin-arbiter/src/Makefile
-                xlators/experimental/fdl/Makefile
-                xlators/experimental/fdl/src/Makefile
                 xlators/features/changelog/Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
@@ -198,23 +196,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/Makefile
                 xlators/mgmt/glusterd/Makefile
                 xlators/mgmt/glusterd/src/Makefile
-                xlators/experimental/Makefile
-                xlators/experimental/jbr-client/Makefile
-                xlators/experimental/jbr-client/src/Makefile
-                xlators/experimental/jbr-server/Makefile
-                xlators/experimental/jbr-server/src/Makefile
-                xlators/experimental/dht2/Makefile
-                xlators/experimental/dht2/dht2-client/Makefile
-                xlators/experimental/dht2/dht2-client/src/Makefile
-                xlators/experimental/dht2/dht2-server/Makefile
-                xlators/experimental/dht2/dht2-server/src/Makefile
-                xlators/experimental/posix2/Makefile
-                xlators/experimental/posix2/ds/Makefile
-                xlators/experimental/posix2/ds/src/Makefile
-                xlators/experimental/posix2/mds/Makefile
-                xlators/experimental/posix2/mds/src/Makefile
-                xlators/experimental/posix2/common/Makefile
-                xlators/experimental/posix2/common/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
                 doc/Makefile
@@ -1506,18 +1487,6 @@ AC_SUBST(UNITTEST_LDFLAGS)
 AC_SUBST(CFLAGS)
 # end enable debug section
 
-# experimental section
-AC_ARG_ENABLE([experimental],
-              AC_HELP_STRING([--disable-experimental],
-                             [Disable building experimental xlators]))
-
-BUILD_EXPERIMENTAL="yes"
-if test "x$enable_experimental" = "xno"; then
-  BUILD_EXPERIMENTAL="no"
-fi
-AM_CONDITIONAL([ENABLE_EXPERIMENTAL], [test x$BUILD_EXPERIMENTAL = xyes])
-#end experimental section
-
 # EC dynamic code generation section
 
 EC_DYNAMIC_SUPPORT="none"
@@ -1719,7 +1688,6 @@ echo "Track priv ports     : $TRACK_PRIVPORTS"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "SELinux features     : $USE_SELINUX"
 echo "firewalld-config     : $BUILD_FIREWALLD"
-echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
 echo "Use memory pools     : $USE_MEMPOOL"

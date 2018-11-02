@@ -1053,10 +1053,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/nl-cache.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
-%if 0%{?!_without_server:1}
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/fdl.so
-%endif
 %dir %attr(0775,gluster,gluster) %{_rundir}/gluster
 %if 0%{?_tmpfilesdir:1} && 0%{!?_without_server:1}
 %{_tmpfilesdir}/gluster.conf
@@ -1109,8 +1105,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
 
 %files extra-xlators
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
@@ -1275,7 +1269,6 @@ exit 0
 %{_mandir}/man8/gluster-setgfid2path.8*
 
 # xlators
-     %{_libdir}/libposix2common.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
@@ -1304,12 +1297,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/posix.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbrc.so
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbr.so
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-ds.so
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-mds.so
 
 # snap_scheduler
 %{_sbindir}/snap_scheduler.py
@@ -1396,9 +1383,6 @@ exit 0
 %if ( 0%{?_with_firewalld:1} )
 %{_prefix}/lib/firewalld/services/glusterfs.xml
 %endif
-
-%{_sbindir}/gf_logdump
-%{_sbindir}/gf_recon
 # end of server files
 %endif
 
