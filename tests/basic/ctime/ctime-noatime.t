@@ -28,8 +28,6 @@ TEST $CLI volume set $V0 performance.open-behind off
 TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.io-cache off
 
-TEST $CLI volume set $V0 utime on
-TEST $CLI volume set $V0 ctime on
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;

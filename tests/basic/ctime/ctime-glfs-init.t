@@ -9,8 +9,6 @@ TEST glusterd
 
 TEST $CLI volume create $V0 replica 3 ${H0}:$B0/brick{1,2,3};
 TEST $CLI volume set $V0 performance.stat-prefetch off
-TEST $CLI volume set $V0 ctime on
-TEST $CLI volume set $V0 utime on
 TEST $CLI volume start $V0;
 
 logdir=`gluster --print-logdir`
