@@ -1327,7 +1327,7 @@ struct volume_options options[] = {
                     "SHA256 checksum. MD5 otherwise."},
     {.key = {"ctime"},
      .type = GF_OPTION_TYPE_BOOL,
-     .default_value = "off",
+     .default_value = "on",
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
      .op_version = {GD_OP_VERSION_4_1_0},
      .tags = {"ctime"},
