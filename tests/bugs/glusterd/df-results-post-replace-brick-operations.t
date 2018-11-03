@@ -53,6 +53,9 @@ total_space=$(df -P $M0 | tail -1 | awk '{ print $2}')
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}1/brick1 $H0:$B0/${V0}4/brick1 commit force
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}2/brick1 $H0:$B0/${V0}5/brick1 commit force
 
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
+
 # check for the size at mount point, it should be same as previous
 total_space_new=$(df -P $M0 | tail -1 | awk '{ print $2}')
 TEST [ $total_space -eq $total_space_new ]
