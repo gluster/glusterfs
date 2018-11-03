@@ -2833,7 +2833,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
     *cs = cksum;
 
 out:
-    if (fd > 0)
+    if (fd != -1)
         sys_close(fd);
     if (unlink_sortfile)
         sys_unlink(sort_filepath);
@@ -3761,7 +3761,8 @@ glusterd_import_new_brick(dict_t *peer_data, int32_t vol_count,
     }
     new_brickinfo->decommissioned = decommissioned;
     if (brick_id)
-        strcpy(new_brickinfo->brick_id, brick_id);
+        gf_strncpy(new_brickinfo->brick_id, brick_id,
+                   sizeof(new_brickinfo->brick_id));
 
     snprintf(key, sizeof(key), "%s%d.brick%d", prefix, vol_count, brick_count);
     ret = gd_import_new_brick_snap_details(peer_data, key, new_brickinfo);
@@ -8436,9 +8437,9 @@ glusterd_brick_signal(glusterd_volinfo_t *volinfo,
     kill(pid, sig);
 
     sleep(1);
+    sys_unlink(dumpoptions_path);
     ret = 0;
 out:
-    sys_unlink(dumpoptions_path);
     if (pidfile)
         fclose(pidfile);
     return ret;
@@ -8533,11 +8534,11 @@ glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
 
     sleep(1);
 
+    sys_unlink(dumpoptions_path);
     ret = 0;
 out:
     if (pidfile)
         fclose(pidfile);
-    sys_unlink(dumpoptions_path);
     GF_FREE(dup_options);
     return ret;
 }
@@ -8658,11 +8659,11 @@ glusterd_quotad_statedump(char *options, int option_cnt, char **op_errstr)
 
     sleep(1);
 
+    sys_unlink(dumpoptions_path);
     ret = 0;
 out:
     if (pidfile)
         fclose(pidfile);
-    sys_unlink(dumpoptions_path);
     GF_FREE(dup_options);
     return ret;
 }
@@ -12881,7 +12882,8 @@ glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo)
         ret = -1;
         goto out;
     }
-    strcpy(brickinfo->mnt_opts, entry->mnt_opts);
+    gf_strncpy(brickinfo->mnt_opts, entry->mnt_opts,
+               sizeof(brickinfo->mnt_opts));
 
     ret = 0;
 out:
