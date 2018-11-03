@@ -4553,8 +4553,10 @@ glusterd_store_retrieve_peers(xlator_t *this)
             goto next;
 
         ret = gf_store_iter_get_next(iter, &key, &value, &op_errno);
-        if (ret)
+        if (ret) {
+            (void)gf_store_iter_destroy(iter);
             goto next;
+        }
 
         /* Create an empty peerinfo object before reading in the
          * details
@@ -4649,6 +4651,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
     peerinfo = NULL;
 
 out:
+
     if (dir)
         sys_closedir(dir);
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
