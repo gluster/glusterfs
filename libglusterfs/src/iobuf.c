@@ -261,24 +261,6 @@ __iobuf_pool_add_arena(struct iobuf_pool *iobuf_pool, const size_t page_size,
     return iobuf_arena;
 }
 
-struct iobuf_arena *
-iobuf_pool_add_arena(struct iobuf_pool *iobuf_pool, size_t page_size,
-                     int32_t num_pages)
-{
-    struct iobuf_arena *iobuf_arena = NULL;
-
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
-
-    pthread_mutex_lock(&iobuf_pool->mutex);
-    {
-        iobuf_arena = __iobuf_pool_add_arena(iobuf_pool, page_size, num_pages);
-    }
-    pthread_mutex_unlock(&iobuf_pool->mutex);
-
-out:
-    return iobuf_arena;
-}
-
 /* This function destroys all the iobufs and the iobuf_pool */
 void
 iobuf_pool_destroy(struct iobuf_pool *iobuf_pool)
@@ -391,15 +373,18 @@ iobuf_pool_new(void)
         iobuf_pool->mr_list[i] = NULL;
     }
 
-    arena_size = 0;
-    for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
-        page_size = gf_iobuf_init_config[i].pagesize;
-        num_pages = gf_iobuf_init_config[i].num_pages;
+    pthread_mutex_lock(&iobuf_pool->mutex);
+    {
+        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+            page_size = gf_iobuf_init_config[i].pagesize;
+            num_pages = gf_iobuf_init_config[i].num_pages;
 
-        iobuf_pool_add_arena(iobuf_pool, page_size, num_pages);
+            __iobuf_pool_add_arena(iobuf_pool, page_size, num_pages);
 
-        arena_size += page_size * num_pages;
+            arena_size += page_size * num_pages;
+        }
     }
+    pthread_mutex_unlock(&iobuf_pool->mutex);
 
     /* Need an arena to handle all the bigger iobuf requests */
     iobuf_create_stdalloc_arena(iobuf_pool);
