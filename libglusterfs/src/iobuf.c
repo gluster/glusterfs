@@ -27,38 +27,32 @@ struct iobuf_init_config gf_iobuf_init_config[] = {
     {32 * 1024, 64}, {128 * 1024, 32}, {256 * 1024, 8}, {1 * 1024 * 1024, 2},
 };
 
-int
-gf_iobuf_get_arena_index(size_t page_size)
+static int
+gf_iobuf_get_arena_index(const size_t page_size)
 {
-    int i = -1;
+    int i;
 
     for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
         if (page_size <= gf_iobuf_init_config[i].pagesize)
-            break;
+            return i;
     }
 
-    if (i >= IOBUF_ARENA_MAX_INDEX)
-        i = -1;
-
-    return i;
+    return -1;
 }
 
-size_t
-gf_iobuf_get_pagesize(size_t page_size)
+static size_t
+gf_iobuf_get_pagesize(const size_t page_size)
 {
-    int i = 0;
+    int i;
     size_t size = 0;
 
     for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
         size = gf_iobuf_init_config[i].pagesize;
         if (page_size <= size)
-            break;
+            return size;
     }
 
-    if (i >= IOBUF_ARENA_MAX_INDEX)
-        size = -1;
-
-    return size;
+    return -1;
 }
 
 void
@@ -236,9 +230,9 @@ out:
     return iobuf_arena;
 }
 
-struct iobuf_arena *
-__iobuf_pool_add_arena(struct iobuf_pool *iobuf_pool, size_t page_size,
-                       int32_t num_pages)
+static struct iobuf_arena *
+__iobuf_pool_add_arena(struct iobuf_pool *iobuf_pool, const size_t page_size,
+                       const int32_t num_pages)
 {
     struct iobuf_arena *iobuf_arena = NULL;
     int index = 0;
@@ -254,13 +248,13 @@ __iobuf_pool_add_arena(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     iobuf_arena = __iobuf_arena_unprune(iobuf_pool, page_size);
 
-    if (!iobuf_arena)
-        iobuf_arena = __iobuf_arena_alloc(iobuf_pool, page_size, num_pages);
-
     if (!iobuf_arena) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
-               "arena not found");
-        return NULL;
+        iobuf_arena = __iobuf_arena_alloc(iobuf_pool, page_size, num_pages);
+        if (!iobuf_arena) {
+            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
+                   "arena not found");
+            return NULL;
+        }
     }
     list_add(&iobuf_arena->list, &iobuf_pool->arenas[index]);
 
