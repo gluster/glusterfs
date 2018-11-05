@@ -750,10 +750,8 @@ class Server(object):
             # 'lchown' 'lchmod' 'utime with no-deference' blindly.
             # But since 'lchmod' and 'utime with no de-reference' is
             # not supported in python3, we have to rely on 'chmod'
-            # and 'utime with de-reference'. But 'chmod'
-            # de-reference the symlink and gets ENOENT, EACCES,
-            # EPERM errors, hence ignoring those errors if it's on
-            # symlink file.
+            # and 'utime with de-reference'. Hence avoiding 'chmod'
+            # and 'utime' if it's symlink file.
 
             is_symlink = False
             cmd_ret = errno_wrap(os.lchown, [go, uid, gid], [ENOENT],
@@ -761,19 +759,17 @@ class Server(object):
             if isinstance(cmd_ret, int):
                 continue
 
-            cmd_ret = errno_wrap(os.chmod, [go, mode],
-                                 [ENOENT, EACCES, EPERM], [ESTALE, EINVAL])
-            if isinstance(cmd_ret, int):
-                is_symlink = os.path.islink(go)
-                if not is_symlink:
+            is_symlink = os.path.islink(go)
+
+            if not is_symlink:
+                cmd_ret = errno_wrap(os.chmod, [go, mode],
+                                     [ENOENT, EACCES, EPERM], [ESTALE, EINVAL])
+                if isinstance(cmd_ret, int):
                     failures.append((e, cmd_ret, "chmod"))
 
-            cmd_ret = errno_wrap(os.utime, [go, (atime, mtime)],
-                                 [ENOENT, EACCES, EPERM], [ESTALE, EINVAL])
-            if isinstance(cmd_ret, int):
-                if not is_symlink:
-                    is_symlink = os.path.islink(go)
-                if not is_symlink:
+                cmd_ret = errno_wrap(os.utime, [go, (atime, mtime)],
+                                     [ENOENT, EACCES, EPERM], [ESTALE, EINVAL])
+                if isinstance(cmd_ret, int):
                     failures.append((e, cmd_ret, "utime"))
         return failures
 
