@@ -2471,7 +2471,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
 
     if (count)
         brick = strtok_r(brick_list + 1, " \n", &saveptr);
-    caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
 
     brickid = glusterd_get_next_available_brickid(volinfo);
     if (brickid < 0)
@@ -2521,6 +2520,8 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
 
 #ifdef HAVE_BD_XLATOR
             if (brickinfo->vg[0]) {
+                caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY |
+                       CAPS_OFFLOAD_SNAPSHOT;
                 ret = glusterd_is_valid_vg(brickinfo, 0, msg);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_VG, "%s",
@@ -2535,8 +2536,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
                 caps = 0;
             }
 #endif
-        } else {
-            caps = 0;
         }
 
         cds_list_add_tail(&brickinfo->brick_list, &volinfo->bricks);
