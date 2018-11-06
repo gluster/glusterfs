@@ -111,13 +111,20 @@ cli_cmd_peer_deprobe_cbk(struct cli_state *state, struct cli_cmd_word *word,
     int sent = 0;
     int parse_error = 0;
     cli_local_t *local = NULL;
+    gf_answer_t answer = GF_ANSWER_NO;
+    const char *question = NULL;
 
     if ((wordcount < 3) || (wordcount > 4)) {
         cli_usage_out(word->pattern);
         parse_error = 1;
         goto out;
     }
-
+    question =
+        "All clients mounted through the peer which is getting detached need "
+        "to be remounted using one of the other active peers in the trusted "
+        "storage pool to ensure client gets notification on any changes done "
+        "on the gluster configuration and if the same has been done do you "
+        "want to proceed?";
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_DEPROBE];
 
     frame = create_frame(THIS, THIS->ctx->pool);
@@ -149,6 +156,11 @@ cli_cmd_peer_deprobe_cbk(struct cli_state *state, struct cli_cmd_word *word,
     ret = dict_set_int32(dict, "flags", flags);
     if (ret)
         goto out;
+    answer = cli_cmd_get_confirmation(state, question);
+    if (GF_ANSWER_NO == answer) {
+        ret = 0;
+        goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, dict);
 
