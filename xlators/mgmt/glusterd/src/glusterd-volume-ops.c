@@ -1381,7 +1381,8 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
             }
 #endif
             ret = glusterd_validate_and_create_brickpath(
-                brick_info, volume_uuid, op_errstr, is_force, _gf_false);
+                brick_info, volume_uuid, volname, op_errstr, is_force,
+                _gf_false);
             if (ret)
                 goto out;
 

@@ -329,8 +329,8 @@ glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
 
 int
 glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
-                                       uuid_t volume_id, char **op_errstr,
-                                       gf_boolean_t is_force,
+                                       uuid_t volume_id, char *volname,
+                                       char **op_errstr, gf_boolean_t is_force,
                                        gf_boolean_t ignore_partition);
 int
 glusterd_sm_tr_log_transition_add(glusterd_sm_tr_log_t *log, int old_state,
