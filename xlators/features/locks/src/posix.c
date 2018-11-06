@@ -2949,7 +2949,7 @@ pl_metalk(call_frame_t *frame, xlator_t *this, inode_t *inode)
             ret = -1;
         }
     }
-    pthread_mutex_lock(&pl_inode->mutex);
+    pthread_mutex_unlock(&pl_inode->mutex);
 
     if (ret == -1) {
         goto out;
