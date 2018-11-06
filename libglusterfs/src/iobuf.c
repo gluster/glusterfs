@@ -363,6 +363,7 @@ iobuf_pool_new(void)
 
             index = gf_iobuf_get_arena_index(page_size);
             if (index == -1) {
+                pthread_mutex_unlock(&iobuf_pool->mutex);
                 gf_msg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
                        "page_size (%zu) of iobufs in arena being added is "
                        "greater than max available",
