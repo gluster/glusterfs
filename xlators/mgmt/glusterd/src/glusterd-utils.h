@@ -873,4 +873,6 @@ glusterd_get_volinfo_from_brick(char *brick, glusterd_volinfo_t **volinfo);
 gf_boolean_t
 glusterd_is_profile_on(glusterd_volinfo_t *volinfo);
 
+char *
+search_brick_path_from_proc(pid_t brick_pid, char *brickpath);
 #endif
