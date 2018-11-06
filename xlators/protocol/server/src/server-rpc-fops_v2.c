@@ -2259,6 +2259,64 @@ out:
     return 0;
 }
 
+int
+server4_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno,
+                            struct iatt *stbuf, struct iatt *prebuf_dst,
+                            struct iatt *postbuf_dst, dict_t *xdata)
+{
+    gfx_common_3iatt_rsp rsp = {
+        0,
+    };
+    server_state_t *state = NULL;
+    rpcsvc_request_t *req = NULL;
+    char in_gfid[GF_UUID_BUF_SIZE] = {0};
+    char out_gfid[GF_UUID_BUF_SIZE] = {0};
+
+    dict_to_xdr(xdata, &rsp.xdata);
+
+    if (op_ret < 0) {
+        state = CALL_STATE(frame);
+
+        uuid_utoa_r(state->resolve.gfid, in_gfid);
+        uuid_utoa_r(state->resolve2.gfid, out_gfid);
+
+        gf_msg(this->name, fop_log_level(GF_FOP_COPY_FILE_RANGE, op_errno),
+               op_errno, PS_MSG_WRITE_INFO,
+               "%" PRId64 ": COPY_FILE_RANGE %" PRId64 " (%s), %" PRId64
+               " (%s) client: %s, "
+               "error-xlator: %s",
+               frame->root->unique, state->resolve.fd_no, in_gfid,
+               state->resolve2.fd_no, out_gfid, STACK_CLIENT_NAME(frame->root),
+               STACK_ERR_XL_NAME(frame->root));
+        goto out;
+    }
+
+    /*
+     * server4_post_common_3iatt (ex: used by server4_put_cbk and some
+     * other cbks) also performs inode linking along with copying of 3
+     * iatt structures to the response. But, for copy_file_range, linking
+     * of inode is not needed. Therefore a new function is used to
+     * construct the response using 3 iatt structures.
+     * @stbuf: iatt or stat of the source file (or fd)
+     * @prebuf_dst: iatt or stat of destination file (or fd) before the fop
+     * @postbuf_dst: iatt or stat of destination file (or fd) after the fop
+     */
+    server4_post_common_3iatt_noinode(&rsp, stbuf, prebuf_dst, postbuf_dst);
+
+out:
+    rsp.op_ret = op_ret;
+    rsp.op_errno = gf_errno_to_error(op_errno);
+
+    req = frame->local;
+    server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
+                        (xdrproc_t)xdr_gfx_common_3iatt_rsp);
+
+    GF_FREE(rsp.xdata.pairs.pairs_val);
+
+    return 0;
+}
+
 /* Resume function section */
 
 int
@@ -3444,6 +3502,29 @@ server4_icreate_resume(call_frame_t *frame, xlator_t *bound_xl)
 err:
     server4_icreate_cbk(frame, NULL, frame->this, state->resolve.op_ret,
                         state->resolve.op_errno, NULL, NULL, NULL);
+    return 0;
+}
+
+int
+server4_copy_file_range_resume(call_frame_t *frame, xlator_t *bound_xl)
+{
+    server_state_t *state = NULL;
+
+    state = CALL_STATE(frame);
+
+    if (state->resolve.op_ret != 0)
+        goto err;
+
+    STACK_WIND(frame, server4_copy_file_range_cbk, bound_xl,
+               bound_xl->fops->copy_file_range, state->fd, state->off_in,
+               state->fd_out, state->off_out, state->size, state->flags,
+               state->xdata);
+
+    return 0;
+err:
+    server4_copy_file_range_cbk(frame, NULL, frame->this, state->resolve.op_ret,
+                                state->resolve.op_errno, NULL, NULL, NULL,
+                                NULL);
     return 0;
 }
 
@@ -6104,6 +6185,53 @@ out:
     return ret;
 }
 
+int
+server4_0_copy_file_range(rpcsvc_request_t *req)
+{
+    server_state_t *state = NULL;
+    call_frame_t *frame = NULL;
+    gfx_copy_file_range_req args = {
+        {
+            0,
+        },
+    };
+    ssize_t len = 0;
+    int ret = -1;
+    int op_errno = 0;
+
+    if (!req)
+        return ret;
+
+    ret = rpc_receive_common(req, &frame, &state, &len, &args,
+                             xdr_gfx_copy_file_range_req,
+                             GF_FOP_COPY_FILE_RANGE);
+    if (ret != 0) {
+        goto out;
+    }
+
+    state->resolve.type = RESOLVE_MUST;
+    state->resolve.fd_no = args.fd_in;
+    state->resolve2.type = RESOLVE_MUST; /*making this resolve must */
+    state->resolve2.fd_no = args.fd_out;
+    state->off_in = args.off_in;
+    state->off_out = args.off_out;
+    state->size = args.size;
+    state->flags = args.flag;
+    memcpy(state->resolve.gfid, args.gfid1, 16);
+    memcpy(state->resolve2.gfid, args.gfid2, 16);
+
+    xdr_to_dict(&args.xdata, &state->xdata);
+
+    ret = 0;
+    resolve_and_resume(frame, server4_copy_file_range_resume);
+out:
+
+    if (op_errno)
+        SERVER_REQ_SET_ERROR(req, ret);
+
+    return ret;
+}
+
 rpcsvc_actor_t glusterfs4_0_fop_actors[] = {
     [GFS3_OP_NULL] = {"NULL", GFS3_OP_NULL, server_null, NULL, 0},
     [GFS3_OP_STAT] = {"STAT", GFS3_OP_STAT, server4_0_stat, NULL, 0},
@@ -6195,6 +6323,8 @@ rpcsvc_actor_t glusterfs4_0_fop_actors[] = {
                          DRC_NA},
     [GFS3_OP_NAMELINK] = {"NAMELINK", GFS3_OP_NAMELINK, server4_0_namelink,
                           NULL, 0, DRC_NA},
+    [GFS3_OP_COPY_FILE_RANGE] = {"COPY-FILE-RANGE", GFS3_OP_COPY_FILE_RANGE,
+                                 server4_0_copy_file_range, NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program glusterfs4_0_fop_prog = {

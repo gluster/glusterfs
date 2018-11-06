@@ -638,6 +638,11 @@ posix_put(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           off_t offset, struct iobref *iobref, dict_t *xattr, dict_t *xdata);
 
 int32_t
+posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
+                      off64_t off_in, fd_t *fd_out, off64_t off_out, size_t len,
+                      uint32_t flags, dict_t *xdata);
+
+int32_t
 posix_set_mode_in_dict(dict_t *in_dict, dict_t *out_dict,
                        struct iatt *in_stbuf);
 
@@ -656,5 +661,7 @@ int
 posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
                      struct iatt *buf, const char *realpath, dict_t *xattr_req,
                      dict_t **xattr_rsp, gf_boolean_t ignore_failure);
+int
+posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
 
 #endif /* _POSIX_H */

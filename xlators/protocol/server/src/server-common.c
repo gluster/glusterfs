@@ -541,6 +541,16 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
 }
 
 void
+server4_post_common_3iatt_noinode(gfx_common_3iatt_rsp *rsp, struct iatt *stbuf,
+                                  struct iatt *prebuf_dst,
+                                  struct iatt *postbuf_dst)
+{
+    gfx_stat_from_iattx(&rsp->stat, stbuf);
+    gfx_stat_from_iattx(&rsp->preparent, prebuf_dst);
+    gfx_stat_from_iattx(&rsp->postparent, postbuf_dst);
+}
+
+void
 server4_post_common_2iatt(gfx_common_2iatt_rsp *rsp, struct iatt *prebuf,
                           struct iatt *postbuf)
 {

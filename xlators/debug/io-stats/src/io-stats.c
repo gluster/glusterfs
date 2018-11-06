@@ -2119,6 +2119,19 @@ io_stats_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
+io_stats_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno,
+                             struct iatt *stbuf, struct iatt *prebuf_dst,
+                             struct iatt *postbuf_dst, dict_t *xdata)
+{
+    UPDATE_PROFILE_STATS(frame, COPY_FILE_RANGE);
+
+    STACK_UNWIND_STRICT(copy_file_range, frame, op_ret, op_errno, stbuf,
+                        prebuf_dst, postbuf_dst, xdata);
+    return 0;
+}
+
+int
 io_stats_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, gf_dirent_t *buf,
                       dict_t *xdata)
@@ -2869,6 +2882,19 @@ io_stats_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     STACK_WIND(frame, io_stats_writev_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
                flags, iobref, xdata);
+    return 0;
+}
+
+int
+io_stats_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
+                         off_t off_in, fd_t *fd_out, off_t off_out, size_t len,
+                         uint32_t flags, dict_t *xdata)
+{
+    START_FOP_LATENCY(frame);
+
+    STACK_WIND(frame, io_stats_copy_file_range_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->copy_file_range, fd_in, off_in, fd_out,
+               off_out, len, flags, xdata);
     return 0;
 }
 
@@ -4189,6 +4215,7 @@ struct xlator_fops fops = {
     .getactivelk = io_stats_getactivelk,
     .setactivelk = io_stats_setactivelk,
     .compound = io_stats_compound,
+    .copy_file_range = io_stats_copy_file_range,
 };
 
 struct xlator_cbks cbks = {

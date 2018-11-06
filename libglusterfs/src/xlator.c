@@ -143,6 +143,7 @@ fill_defaults(xlator_t *xl)
     SET_DEFAULT_FOP(getspec);
     SET_DEFAULT_FOP(icreate);
     SET_DEFAULT_FOP(namelink);
+    SET_DEFAULT_FOP(copy_file_range);
 
     if (!xl->cbks)
         xl->cbks = &default_cbks;

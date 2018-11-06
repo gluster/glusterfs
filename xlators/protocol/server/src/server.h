@@ -180,7 +180,12 @@ struct _server_state {
     struct iatt stbuf;
     int valid;
 
+    /*
+     * this fd is used in all the fd based operations PLUS
+     * as a source fd in copy_file_range
+     */
     fd_t *fd;
+    fd_t *fd_out; /* destination fd in copy_file_range */
     dict_t *params;
     int32_t flags;
     int wbflags;
@@ -191,6 +196,15 @@ struct _server_state {
 
     size_t size;
     off_t offset;
+    /*
+     * According to the man page of copy_file_range,
+     * the offsets for source and destination file
+     * are of type loff_t. But the type loff_t is
+     * linux specific and is actual a typedef of
+     * off64_t.
+     */
+    off64_t off_in;  /* source offset in copy_file_range */
+    off64_t off_out; /* destination offset in copy_file_range */
     mode_t mode;
     dev_t dev;
     size_t nr_count;

@@ -1018,6 +1018,25 @@ if test "x${have_posix_fallocate}" = "xyes"; then
    AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [define if posix_fallocate exists])
 fi
 
+# On fedora-29, copy_file_range syscall and the libc API both are present.
+# Whereas, on some machines such as centos-7, RHEL-7, the API is not there.
+# Only the system call is present. So, this change is to determine whether
+# the API is present or not. If not, then check whether the system call is
+# present or not. Accordingly sys_copy_file_range function will first call
+# the API if it is there. Otherwise it will call syscall(SYS_copy_file_range).
+AC_CHECK_FUNC([copy_file_range], [have_copy_file_range=yes])
+if test "x${have_copy_file_range}" = "xyes"; then
+   AC_DEFINE(HAVE_COPY_FILE_RANGE, 1, [define if copy_file_range exists])
+else
+   OLD_CFLAGS=${CFLAGS}
+   CFLAGS="-D_GNU_SOURCE"
+   AC_CHECK_DECL([SYS_copy_file_range], , , [#include <sys/syscall.h>])
+   if test "x${ac_cv_have_decl_SYS_copy_file_range}" = "xyes"; then
+      AC_DEFINE(HAVE_COPY_FILE_RANGE_SYS, 1, [define if SYS_copy_file_range is available])
+   fi
+   CFLAGS=${OLD_CFLAGS}
+fi
+
 BUILD_NANOSECOND_TIMESTAMPS=no
 AC_CHECK_FUNC([utimensat], [have_utimensat=yes])
 if test "x${have_utimensat}" = "xyes"; then

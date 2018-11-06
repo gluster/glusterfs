@@ -18,7 +18,7 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 utime_ops = ['fallocate', 'zerofill', 'opendir', 'mknod', 'mkdir',
              'unlink', 'rmdir', 'symlink', 'rename', 'link', 'truncate',
              'ftruncate', 'create', 'open', 'removexattr', 'fremovexattr',
-             'readv', 'writev', 'setattr', 'fsetattr']
+             'readv', 'writev', 'setattr', 'fsetattr', 'copy_file_range']
 
 def gen_defaults():
     for name, value in ops.items():

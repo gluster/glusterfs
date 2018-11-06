@@ -23,6 +23,7 @@
 #include "glusterfs/list.h"
 #include "glusterfs/latency.h"
 #include "glusterfs/compat-uuid.h"
+#include "glusterfs/syscall.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 #define SECOND_CHILD(xl) (xl->children->next->xlator)
@@ -354,6 +355,11 @@ typedef int32_t (*fop_namelink_cbk_t)(call_frame_t *frame, void *cookie,
                                       int32_t op_errno, struct iatt *prebuf,
                                       struct iatt *postbuf, dict_t *xdata);
 
+typedef int32_t (*fop_copy_file_range_cbk_t)(
+    call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+    int32_t op_errno, struct iatt *stbuf, struct iatt *prebuf_dst,
+    struct iatt *postbuf_dst, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t)(call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 dict_t *xdata);
 
@@ -544,6 +550,11 @@ typedef int32_t (*fop_icreate_t)(call_frame_t *frame, xlator_t *this,
 
 typedef int32_t (*fop_namelink_t)(call_frame_t *frame, xlator_t *this,
                                   loc_t *loc, dict_t *xdata);
+typedef int32_t (*fop_copy_file_range_t)(call_frame_t *frame, xlator_t *this,
+                                         fd_t *fd_in, off64_t off_in,
+                                         fd_t *fd_out, off64_t off_out,
+                                         size_t len, uint32_t flags,
+                                         dict_t *xdata);
 
 /* WARNING: make sure the list is in order with FOP definition in
    `rpc/xdr/src/glusterfs-fops.x`.
@@ -609,6 +620,7 @@ struct xlator_fops {
     fop_put_t put;
     fop_icreate_t icreate;
     fop_namelink_t namelink;
+    fop_copy_file_range_t copy_file_range;
 
     /* these entries are used for a typechecking hack in STACK_WIND _only_ */
     /* make sure to add _cbk variables only after defining regular fops as
@@ -673,6 +685,7 @@ struct xlator_fops {
     fop_put_cbk_t put_cbk;
     fop_icreate_cbk_t icreate_cbk;
     fop_namelink_cbk_t namelink_cbk;
+    fop_copy_file_range_cbk_t copy_file_range_cbk;
 };
 
 typedef int32_t (*cbk_forget_t)(xlator_t *this, inode_t *inode);

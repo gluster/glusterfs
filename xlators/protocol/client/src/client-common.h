@@ -621,4 +621,10 @@ client_post_rename_v2(xlator_t *this, gfx_rename_rsp *rsp, struct iatt *stbuf,
                       struct iatt *prenewparent, struct iatt *postnewparent,
                       dict_t **xdata);
 
+int
+client_pre_copy_file_range_v2(xlator_t *this, gfx_copy_file_range_req *req,
+                              fd_t *fd_in, off64_t off_in, fd_t *fd_out,
+                              off64_t off_out, size_t size, int32_t flags,
+                              dict_t **xdata);
+
 #endif /* __CLIENT_COMMON_H__ */

@@ -628,6 +628,19 @@ struct gfx_seek_rsp {
  struct gfx_setvolume_req {
         gfx_dict dict;
 }  ;
+
+ struct   gfx_copy_file_range_req {
+        opaque gfid1[16];
+        opaque gfid2[16];
+        quad_t  fd_in;
+        quad_t  fd_out;
+        u_quad_t   off_in;
+        u_quad_t   off_out;
+        unsigned int size;
+        unsigned int flag;
+        gfx_dict xdata; /* Extra data */
+};
+
  struct  gfx_setvolume_rsp {
         int    op_ret;
         int    op_errno;

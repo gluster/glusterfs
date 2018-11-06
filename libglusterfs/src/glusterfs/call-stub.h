@@ -81,6 +81,7 @@ typedef struct _call_stub {
         fop_put_t put;
         fop_icreate_t icreate;
         fop_namelink_t namelink;
+        fop_copy_file_range_t copy_file_range;
     } fn;
 
     union {
@@ -136,6 +137,7 @@ typedef struct _call_stub {
         fop_put_cbk_t put;
         fop_icreate_cbk_t icreate;
         fop_namelink_cbk_t namelink;
+        fop_copy_file_range_cbk_t copy_file_range;
     } fn_cbk;
 
     default_args_t args;
@@ -588,6 +590,18 @@ call_stub_t *
 fop_namelink_cbk_stub(call_frame_t *frame, fop_namelink_cbk_t fn,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata);
+
+call_stub_t *
+fop_copy_file_range_stub(call_frame_t *frame, fop_copy_file_range_t fn,
+                         fd_t *fd_in, off64_t off_in, fd_t *fd_out,
+                         off64_t off_out, size_t len, uint32_t flags,
+                         dict_t *xdata);
+
+call_stub_t *
+fop_copy_file_range_cbk_stub(call_frame_t *frame, fop_copy_file_range_cbk_t fn,
+                             int32_t op_ret, int32_t op_errno,
+                             struct iatt *stbuf, struct iatt *prebuf_dst,
+                             struct iatt *postbuf_dst, dict_t *xdata);
 
 void
 call_resume(call_stub_t *stub);

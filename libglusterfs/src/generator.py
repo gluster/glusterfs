@@ -599,6 +599,19 @@ ops['namelink'] = (
 	('cbk-arg',     'xdata',                 'dict_t *'),
 )
 
+ops['copy_file_range'] = (
+        ('fop-arg',     'fd_in',                 'fd_t *'),
+        ('fop-arg',     'off_in',                'off64_t '),
+        ('fop-arg',     'fd_out',                'fd_t *'),
+        ('fop-arg',     'off_out',               'off64_t '),
+        ('fop-arg',     'len',                   'size_t'),
+        ('fop-arg',     'flags',                 'uint32_t'),
+        ('fop-arg',     'xdata',                 'dict_t *'),
+        ('cbk-arg',     'stbuf',                 'struct iatt *'),
+        ('cbk-arg',     'prebuf_dst',            'struct iatt *'),
+        ('cbk-arg',     'postbuf_dst',           'struct iatt *'),
+        ('cbk-arg',     'xdata',                 'dict_t *'),
+)
 #####################################################################
 xlator_cbks['forget'] = (
 	('fn-arg',      'this',        'xlator_t *'),

@@ -68,6 +68,7 @@ enum gf_fop_procnum {
     GFS3_OP_ICREATE,
     GFS3_OP_NAMELINK,
     GFS3_OP_PUT,
+    GFS3_OP_COPY_FILE_RANGE,
     GFS3_OP_MAXVALUE,
 };
 

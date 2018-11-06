@@ -42,6 +42,38 @@
 #include <sys/statvfs.h>
 #include <inttypes.h>
 
+/*
+ * For off64_t to be defined, we need both
+ * __USE_LARGEFILE64 to be true and __off64_t_defnined to be
+ * false. But, making __USE_LARGEFILE64 true causes other issues
+ * such as redinition of stat and fstat to stat64 and fstat64
+ * respectively which again causes compilation issues.
+ * Without off64_t being defined, this will not compile as
+ * copy_file_range uses off64_t. Hence define it here. First
+ * check whether __off64_t_defined is true or not. <unistd.h>
+ * sets that flag when it defines off64_t. If __off64_t_defined
+ * is false and __USE_FILE_OFFSET64 is true, then go on to define
+ * off64_t using __off64_t.
+ */
+#ifndef GF_BSD_HOST_OS
+#if defined(__USE_FILE_OFFSET64) && !defined(__off64_t_defined)
+typedef __off64_t off64_t;
+#endif /* defined(__USE_FILE_OFFSET64) && !defined(__off64_t_defined) */
+#else
+#include <stdio.h>
+#ifndef _OFF64_T_DECLARED
+/*
+ * Including <stdio.h> (done above) should actually define
+ * _OFF64_T_DECLARED with off64_t data type being available
+ * for consumption. But, off64_t data type is not recognizable
+ * for FreeBSD versions less than 11. Hence, int64_t is typedefed
+ * to off64_t.
+ */
+#define _OFF64_T_DECLARED
+typedef int64_t off64_t;
+#endif /* _OFF64_T_DECLARED */
+#endif /* GF_BSD_HOST_OS */
+
 #if defined(HAVE_SYS_ACL_H) || (defined(USE_POSIX_ACLS) && USE_POSIX_ACLS)
 #include <sys/acl.h>
 #else
@@ -593,6 +625,13 @@ glfs_pwritev_async(glfs_fd_t *fd, const struct iovec *iov, int count,
 off_t
 glfs_lseek(glfs_fd_t *fd, off_t offset, int whence) __THROW
     GFAPI_PUBLIC(glfs_lseek, 3.4.0);
+
+ssize_t
+glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
+                     struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
+                     unsigned int flags, struct stat *statbuf,
+                     struct stat *prestat, struct stat *poststat) __THROW
+    GFAPI_PUBLIC(glfs_copy_file_range, future);
 
 int
 glfs_truncate(glfs_t *fs, const char *path, off_t length) __THROW

@@ -1960,6 +1960,274 @@ out:
 }
 
 int32_t
+posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
+                      off64_t off_in, fd_t *fd_out, off64_t off_out, size_t len,
+                      uint32_t flags, dict_t *xdata)
+{
+    int32_t op_ret = -1;
+    int32_t op_errno = 0;
+    int _fd_in = -1;
+    int _fd_out = -1;
+    struct posix_private *priv = NULL;
+    struct posix_fd *pfd_in = NULL;
+    struct posix_fd *pfd_out = NULL;
+    struct iatt preop_dst = {
+        0,
+    };
+    struct iatt postop_dst = {
+        0,
+    };
+    struct iatt stbuf = {
+        0,
+    };
+    int ret = -1;
+    dict_t *rsp_xdata = NULL;
+    int is_append = 0;
+    gf_boolean_t locked = _gf_false;
+    gf_boolean_t update_atomic = _gf_false;
+    posix_inode_ctx_t *ctx = NULL;
+
+    VALIDATE_OR_GOTO(frame, out);
+    VALIDATE_OR_GOTO(this, out);
+    VALIDATE_OR_GOTO(fd_in, out);
+    VALIDATE_OR_GOTO(fd_in->inode, out);
+    VALIDATE_OR_GOTO(fd_out, out);
+    VALIDATE_OR_GOTO(fd_out->inode, out);
+    VALIDATE_OR_GOTO(this->private, out);
+
+    priv = this->private;
+
+    VALIDATE_OR_GOTO(priv, out);
+    DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
+
+    if (posix_check_dev_file(this, fd_in->inode, "copy_file_range", &op_errno))
+        goto out;
+
+    if (posix_check_dev_file(this, fd_out->inode, "copy_file_range", &op_errno))
+        goto out;
+
+    ret = posix_fd_ctx_get(fd_in, this, &pfd_in, &op_errno);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
+               "pfd is NULL from fd=%p", fd_in);
+        goto out;
+    }
+
+    _fd_in = pfd_in->fd;
+
+    ret = posix_fd_ctx_get(fd_out, this, &pfd_out, &op_errno);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
+               "pfd is NULL from fd=%p", fd_out);
+        goto out;
+    }
+
+    _fd_out = pfd_out->fd;
+
+    /*
+     * Currently, the internal write is checked via xdata which
+     * is set by some xlator above. It could be due to several of
+     * the reasons such as healing or a snapshot operation happening
+     * using copy_file_range. As of now (i.e. writing the patch with
+     * this change) none of the xlators above posix are using the
+     * internal write with copy_file_range. In future it might
+     * change. Atleast as of now the hope is that, when that happens
+     * this functon or fop does not require additional changes for
+     * handling internal writes.
+     */
+    ret = posix_check_internal_writes(this, fd_out, _fd_out, xdata);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "possible overwrite from internal client, fd=%p", fd_out);
+        op_ret = -1;
+        op_errno = EBUSY;
+        goto out;
+    }
+
+    if (xdata) {
+        if (dict_get(xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC))
+            update_atomic = _gf_true;
+    }
+
+    /*
+     * The update_atomic option is to instruct posix to do prestat,
+     * write and poststat atomically. This is to prevent any modification to
+     * ia_size and ia_blocks until poststat and the diff in their values
+     * between pre and poststat could be of use for some translators.
+     * This is similar to the atomic write operation. atmoic write is
+     * (i.e. prestat + write + poststat) used by shard as of now. In case,
+     * some xlator needs copy_file_range to be atomic from prestat and postat
+     * prespective (i.e. prestat + copy_file_range + poststat) then it has
+     * to send "GLUSTERFS_WRITE_UPDATE_ATOMIC" key in xdata.
+     */
+
+    op_ret = posix_inode_ctx_get_all(fd_out->inode, this, &ctx);
+    if (op_ret < 0) {
+        op_errno = ENOMEM;
+        goto out;
+    }
+
+    if (update_atomic) {
+        ret = pthread_mutex_lock(&ctx->write_atomic_lock);
+        if (!ret)
+            locked = _gf_true;
+        else {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_MUTEX_FAILED,
+                   "failed to hold write atomic lock on %s",
+                   uuid_utoa(fd_out->inode->gfid));
+            goto out;
+        }
+    }
+
+    op_ret = posix_fdstat(this, fd_out->inode, _fd_out, &preop_dst);
+    if (op_ret == -1) {
+        op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+               "pre-operation fstat failed on fd=%p", fd_out);
+        goto out;
+    }
+
+    /*
+     * Since, only the destination file (fd_out) is undergoing
+     * modification, the write related tests are done on that.
+     * i.e. this is treater similar to as if the destination file
+     * undergoing write fop from maintenance perspective.
+     */
+    if (xdata) {
+        op_ret = posix_cs_maintenance(this, fd_out, NULL, &_fd_out, &preop_dst,
+                                      NULL, xdata, &rsp_xdata, _gf_false);
+        if (op_ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                   "file state check failed, fd %p", fd_out);
+            op_errno = EIO;
+            goto out;
+        }
+    }
+
+    /*
+     * NOTE: This is just doing a single execution of copy_file_range
+     *       system call. If the returned value of this system call is less
+     *       than len, then should we keep doing it in a for loop until the
+     *       copy_file_range of all the len bytes is done?
+     *       Check the  example program provided in the man page of
+     *       copy_file_range.
+     *       If so, then a separate variables for both off_in and off_out
+     *       should be used which are initialized to off_in and off_out
+     *       that this function call receives, but then advanced by the
+     *       value returned by sys_copy_file_range and then use that as
+     *       off_in and off_out for next instance of copy_file_range execution.
+     */
+    op_ret = sys_copy_file_range(_fd_in, &off_in, _fd_out, &off_out, len,
+                                 flags);
+
+    if (op_ret < 0) {
+        op_errno = -op_ret;
+        op_ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_COPY_FILE_RANGE_FAILED,
+               "copy_file_range failed: fd_in: %p (gfid: %s) ,"
+               " fd_out %p (gfid:%s)",
+               fd_in, uuid_utoa(fd_in->inode->gfid), fd_out,
+               uuid_utoa(fd_out->inode->gfid));
+        goto out;
+    }
+
+    /*
+     * Let this be as it is for now. This function collects
+     * infomration such as open fd count etc. So, even though
+     * is_append does not apply to copy_file_range, for now,
+     * allowing it to be recorded in the dict as _gf_false.
+     */
+    rsp_xdata = _fill_writev_xdata(fd_out, xdata, this, is_append);
+
+    /* copy_file_range successful, we also need to get the stat of
+     * the file we wrote to (i.e. destination file or fd_out).
+     */
+    ret = posix_fdstat(this, fd_out->inode, _fd_out, &postop_dst);
+    if (ret == -1) {
+        op_ret = -1;
+        op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+               "post-operation fstat failed on fd=%p", fd_out);
+        goto out;
+    }
+
+    /*
+     * Also perform the stat on the source fd (i.e. fd_in). For now,
+     * allowing it to be done within the locked region if the request
+     * is for atomic operation (and update) of copy_file_range.
+     */
+    ret = posix_fdstat(this, fd_in->inode, _fd_in, &stbuf);
+    if (ret == -1) {
+        op_ret = -1;
+        op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+               "post-operation fstat failed on fd=%p", fd_in);
+        goto out;
+    }
+
+    /*
+     * The core logic of what time attributes are to be updated
+     * on a fop is decided at client side xlator utime.
+     * All the remaining fops call posix_set_ctime function
+     * to update the {a,m,c}time. But, for all the other fops,
+     * the operation is happening on only one file (or inode).
+     * But here, there are 2 fds (source and destination). Hence
+     * the new function below to update the appropriate times for
+     * both the source and the destination file.
+     * For the source file, if at all anything has to be updated,
+     * it would be atime (as that file is only read, not updated).
+     * For the destination file, the attributes that require the
+     * modification would be mtime and ctime.
+     * What times have to be changed is actually determined by
+     * utime xlator. But, all of them would be in frame->root->flags.
+     * So, currently posix assumes that, the atime flag is for
+     * the source file and the other 2 flags are for the destination
+     * file. Since, the assumption is rigid (i.e. atime for source
+     * and {m,c}time for destination), the below function is called
+     * posix_set_ctime_cfr (cfr standing for copy_file_range).
+     * FUTURE TODO:
+     * In future, some other functionality or fop might operate
+     * simultaneously on 2 files. Then, depending upon what that new
+     * fop does or what are its requirements, the below function might
+     * require changes  to become generic for consumption in case of
+     * simultaneous operations on 2 files.
+     */
+    posix_set_ctime_cfr(frame, this, NULL, pfd_in->fd, fd_in->inode, &stbuf,
+                        NULL, pfd_out->fd, fd_out->inode, &postop_dst);
+
+    if (locked) {
+        pthread_mutex_unlock(&ctx->write_atomic_lock);
+        locked = _gf_false;
+    }
+
+    /*
+     * Record copy_file_range in priv->write_value for now.
+     * If not needed, remove below section of code along with
+     * this comment (or add comment to explain why it is not
+     * needed).
+     */
+    LOCK(&priv->lock);
+    {
+        priv->write_value += op_ret;
+    }
+    UNLOCK(&priv->lock);
+
+out:
+
+    if (locked) {
+        pthread_mutex_unlock(&ctx->write_atomic_lock);
+        locked = _gf_false;
+    }
+
+    STACK_UNWIND_STRICT(copy_file_range, frame, op_ret, op_errno, &stbuf,
+                        &preop_dst, &postop_dst, rsp_xdata);
+
+    if (rsp_xdata)
+        dict_unref(rsp_xdata);
+    return 0;
+}
+
+int32_t
 posix_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
     char *real_path = NULL;
