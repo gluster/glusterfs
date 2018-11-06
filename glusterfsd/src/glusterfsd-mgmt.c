@@ -1312,6 +1312,11 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     ctx = glusterfsd_ctx;
     GF_ASSERT(ctx);
     active = ctx->active;
+    if (active == NULL) {
+        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        ret = -1;
+        goto out;
+    }
     any = active->first;
 
     if ((cmd & GF_CLI_STATUS_NFS) != 0)
