@@ -744,7 +744,7 @@ ra_page_dump(struct ra_page *page)
 
     gf_proc_dump_write("offset", "%" PRId64, page->offset);
 
-    gf_proc_dump_write("size", "%" PRId64, page->size);
+    gf_proc_dump_write("size", "%" GF_PRI_SIZET, page->size);
 
     gf_proc_dump_write("dirty", "%s", page->dirty ? "yes" : "no");
 
@@ -770,9 +770,6 @@ ra_fdctx_dump(xlator_t *this, fd_t *fd)
     int32_t ret = 0, i = 0;
     uint64_t tmp_file = 0;
     char *path = NULL;
-    char key[GF_DUMP_MAX_BUF_LEN] = {
-        0,
-    };
     char key_prefix[GF_DUMP_MAX_BUF_LEN] = {
         0,
     };
@@ -787,7 +784,7 @@ ra_fdctx_dump(xlator_t *this, fd_t *fd)
 
     gf_proc_dump_build_key(key_prefix, "xlator.performance.read-ahead", "file");
 
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
 
     ret = __inode_path(fd->inode, NULL, &path);
     if (path != NULL) {
@@ -812,8 +809,7 @@ ra_fdctx_dump(xlator_t *this, fd_t *fd)
                        file->offset);
 
     for (page = file->pages.next; page != &file->pages; page = page->next) {
-        sprintf(key, "page[%d]", i);
-        gf_proc_dump_write(key, "%p", page[i++]);
+        gf_proc_dump_write("page", "%d: %p", i++, (void *)page);
         ra_page_dump(page);
     }
 
@@ -1040,14 +1036,14 @@ ra_priv_dump(xlator_t *this)
 
     gf_proc_dump_build_key(key_prefix, "xlator.performance.read-ahead", "priv");
 
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     add_section = _gf_true;
 
     ret = pthread_mutex_trylock(&conf->conf_lock);
     if (ret)
         goto out;
     {
-        gf_proc_dump_write("page_size", "%d", conf->page_size);
+        gf_proc_dump_write("page_size", "%" PRIu64, conf->page_size);
         gf_proc_dump_write("page_count", "%d", conf->page_count);
         gf_proc_dump_write("force_atime_update", "%d",
                            conf->force_atime_update);
@@ -1058,7 +1054,7 @@ ra_priv_dump(xlator_t *this)
 out:
     if (ret && conf) {
         if (add_section == _gf_false)
-            gf_proc_dump_add_section(key_prefix);
+            gf_proc_dump_add_section("%s", key_prefix);
 
         gf_proc_dump_write("Unable to dump priv",
                            "(Lock acquisition failed) %s", this->name);

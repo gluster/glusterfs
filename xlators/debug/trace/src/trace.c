@@ -77,7 +77,7 @@ dump_history_trace(circular_buffer_t *cb, void *data)
              ".%" GF_PRI_SUSECONDS, cb->tv.tv_usec);
     gf_proc_dump_write("TIME", "%s", timestr);
 
-    gf_proc_dump_write("FOP", "%s\n", cb->data);
+    gf_proc_dump_write("FOP", "%s\n", (char *)cb->data);
 
     return 0;
 }
@@ -3218,7 +3218,7 @@ trace_dump_history(xlator_t *this)
     // Is it ok to return silently if log-history option his off?
     if (conf && conf->log_history == _gf_true) {
         gf_proc_dump_build_key(key_prefix, "xlator.debug.trace", "history");
-        gf_proc_dump_add_section(key_prefix);
+        gf_proc_dump_add_section("%s", key_prefix);
         eh_dump(this->history, NULL, dump_history_trace);
     }
     ret = 0;

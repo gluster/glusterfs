@@ -992,13 +992,14 @@ fd_dump(fd_t *fd, char *prefix)
     if (!fd)
         return;
 
-    gf_proc_dump_write("pid", "%llu", fd->pid);
-    gf_proc_dump_write("refcount", "%d", fd->refcount);
+    gf_proc_dump_write("pid", "%" PRIu64, fd->pid);
+    gf_proc_dump_write("refcount", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(fd->refcount));
     gf_proc_dump_write("flags", "%d", fd->flags);
 
     if (fd->inode) {
         gf_proc_dump_build_key(key, "inode", NULL);
-        gf_proc_dump_add_section(key);
+        gf_proc_dump_add_section("%s", key);
         inode_dump(fd->inode, key);
     }
 }
@@ -1040,7 +1041,7 @@ fdtable_dump(fdtable_t *fdtable, char *prefix)
     for (i = 0; i < fdtable->max_fds; i++) {
         if (GF_FDENTRY_ALLOCATED == fdtable->fdentries[i].next_free) {
             gf_proc_dump_build_key(key, prefix, "fdentry[%d]", i);
-            gf_proc_dump_add_section(key);
+            gf_proc_dump_add_section("%s", key);
             fdentry_dump(&fdtable->fdentries[i], key);
         }
     }

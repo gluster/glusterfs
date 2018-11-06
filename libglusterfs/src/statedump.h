@@ -81,10 +81,12 @@ void
 gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx);
 
 int
-gf_proc_dump_add_section(char *key, ...);
+gf_proc_dump_add_section(char *key, ...)
+    __attribute__((__format__(__printf__, 1, 2)));
 
 int
-gf_proc_dump_write(char *key, char *value, ...);
+gf_proc_dump_write(char *key, char *value, ...)
+    __attribute__((__format__(__printf__, 2, 3)));
 
 void
 inode_table_dump(inode_table_t *itable, char *prefix);

@@ -5514,12 +5514,13 @@ stripe_priv_dump(xlator_t *this)
     options = priv->pattern;
     while (options != NULL) {
         gf_proc_dump_write("path_pattern", "%s", priv->pattern->path_pattern);
-        gf_proc_dump_write("options_block_size", "%ul", options->block_size);
+        gf_proc_dump_write("options_block_size", "%" PRIu64,
+                           options->block_size);
 
         options = options->next;
     }
 
-    gf_proc_dump_write("block_size", "%ul", priv->block_size);
+    gf_proc_dump_write("block_size", "%" PRIu64, priv->block_size);
     gf_proc_dump_write("nodes-down", "%d", priv->nodes_down);
     gf_proc_dump_write("first-child_down", "%d", priv->first_child_down);
     gf_proc_dump_write("xattr_supported", "%d", priv->xattr_supported);

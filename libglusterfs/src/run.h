@@ -81,8 +81,8 @@ runner_add_args(runner_t *runner, ...);
  * @param format printf style format specifier
  */
 void
-runner_argprintf(runner_t *runner, const char *format, ...);
-
+runner_argprintf(runner_t *runner, const char *format, ...)
+    __attribute__((__format__(__printf__, 2, 3)));
 /**
  * log a message about the command to be run.
  *

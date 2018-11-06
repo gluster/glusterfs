@@ -4860,7 +4860,7 @@ afr_priv_dump(xlator_t *this)
 
     GF_ASSERT(priv);
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
-    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_add_section("%s", key_prefix);
     gf_proc_dump_write("child_count", "%u", priv->child_count);
     for (i = 0; i < priv->child_count; i++) {
         sprintf(key, "child_up[%d]", i);
