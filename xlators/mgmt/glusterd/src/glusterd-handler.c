@@ -6206,10 +6206,13 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                 /* In case of an abrupt shutdown of a brick PMAP_SIGNOUT
                  * event is not received by glusterd which can lead to a
                  * stale port entry in glusterd, so forcibly clean up
-                 * the same if the process is not running
+                 * the same if the process is not running sometime
+                 * gf_is_service_running true so to ensure about brick instance
+                 * call search_brick_path_from_proc
                  */
                 GLUSTERD_GET_BRICK_PIDFILE(pidfile, volinfo, brickinfo, conf);
-                if (!gf_is_service_running(pidfile, &pid)) {
+                if (!gf_is_service_running(pidfile, &pid) ||
+                    !search_brick_path_from_proc(pid, brickinfo->path)) {
                     ret = pmap_registry_remove(
                         THIS, brickinfo->port, brickinfo->path,
                         GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);

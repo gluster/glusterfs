@@ -4015,13 +4015,16 @@ gf_is_pid_running(int pid)
     char fname[32] = {
         0,
     };
+    int fd = -1;
 
     snprintf(fname, sizeof(fname), "/proc/%d/cmdline", pid);
 
-    if (sys_access(fname, R_OK) != 0) {
+    fd = sys_open(fname, O_RDONLY, 0);
+    if (fd < 0) {
         return _gf_false;
     }
 
+    sys_close(fd);
     return _gf_true;
 }
 
