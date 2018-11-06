@@ -93,6 +93,15 @@ utime_update_attribute_flags(call_frame_t *frame, xlator_t *this,
             frame->root->flags |= MDATA_CTIME;
             break;
 
+        case GF_FOP_COPY_FILE_RANGE:
+            /* Below 2 are for destination fd */
+            frame->root->flags |= MDATA_CTIME;
+            frame->root->flags |= MDATA_MTIME;
+            /* Below flag is for the source fd */
+            if (!utime_priv->noatime) {
+                frame->root->flags |= MDATA_ATIME;
+            }
+            break;
         default:
             frame->root->flags = 0;
     }

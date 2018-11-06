@@ -116,6 +116,25 @@
 #include <limits.h>
 
 #include <libgen.h>
+/*
+ * This is where things like off64_t are defined.
+ * So include it before declaring _OFF64_T_DECLARED.
+ * If the freebsd version has support for off64_t
+ * including stdio.h should be sufficient.
+ */
+#include <stdio.h>
+
+#ifndef _OFF64_T_DECLARED
+/*
+ * Including <stdio.h> (done above) should actually define
+ * _OFF64_T_DECLARED with off64_t data type being available
+ * for consumption. But, off64_t data type is not recognizable
+ * for FreeBSD versions less than 11. Hence, int64_t is typedefed
+ * to off64_t.
+ */
+#define _OFF64_T_DECLARED
+typedef int64_t off64_t;
+#endif /* _OFF64_T_DECLARED */
 
 #ifndef XATTR_CREATE
 enum {

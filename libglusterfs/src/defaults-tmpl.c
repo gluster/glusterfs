@@ -84,6 +84,7 @@ struct xlator_fops _default_fops = {
     .put = default_put,
     .icreate = default_icreate,
     .namelink = default_namelink,
+    .copy_file_range = default_copy_file_range,
 };
 struct xlator_fops *default_fops = &_default_fops;
 

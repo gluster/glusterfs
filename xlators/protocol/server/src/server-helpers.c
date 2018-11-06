@@ -4948,6 +4948,8 @@ server_populate_compound_response_v2(xlator_t *this, gfx_compound_rsp *rsp,
             rsp_args->op_errno = gf_errno_to_error(this_args_cbk->op_errno);
             break;
         }
+        case GF_FOP_COPY_FILE_RANGE:
+            /* Not handling this fop. */
         default:
             return ENOTSUP;
     }
@@ -5380,6 +5382,12 @@ server_get_compound_resolve_v2(server_state_t *state, gfx_compound_req *req)
             memcpy(state->resolve.gfid, this_req.gfid, 16);
             break;
         }
+        case GF_FOP_COPY_FILE_RANGE:
+            /*
+             * Compound operations is not being used anymore and
+             * planned for subsequent removal. Hence not handling
+             * this fop here.
+             */
         default:
             return ENOTSUP;
     }

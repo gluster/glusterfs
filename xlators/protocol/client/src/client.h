@@ -269,6 +269,7 @@ typedef struct client_local {
     loc_t loc;
     loc_t loc2;
     fd_t *fd;
+    fd_t *fd_out; /* used in copy_file_range */
     clnt_fd_ctx_t *fdctx;
     uint32_t flags;
     struct iobref *iobref;
@@ -280,6 +281,11 @@ typedef struct client_local {
     pthread_mutex_t mutex;
     char *name;
     gf_boolean_t attempt_reopen;
+    /*
+     * The below boolean variable is used
+     * only for copy_file_range fop
+     */
+    gf_boolean_t attempt_reopen_out;
     /* required for compound fops */
     compound_args_t *compound_args;
     unsigned int length; /* length of a compound fop */
@@ -289,7 +295,13 @@ typedef struct client_local {
 
 typedef struct client_args {
     loc_t *loc;
+    /*
+     * This is the source fd for copy_file_range and
+     * the default fd for any other fd based fop which
+     * requires only one fd (i.e. opetates on one fd)
+     */
     fd_t *fd;
+    fd_t *fd_out; /* this is the destination fd for copy_file_range */
     const char *linkname;
     struct iobref *iobref;
     struct iovec *vector;
@@ -301,7 +313,17 @@ typedef struct client_args {
     struct gf_flock *flock;
     const char *volume;
     const char *basename;
+
     off_t offset;
+    /*
+     * According to the man page of copy_file_range,
+     * the offsets for source and destination file
+     * are of type loff_t. But the type loff_t is
+     * linux specific and is actual a typedef of
+     * off64_t.
+     */
+    off64_t off_in;  /* used in copy_file_range for source fd */
+    off64_t off_out; /* used in copy_file_range for dst fd */
     int32_t mask;
     int32_t cmd;
     size_t size;

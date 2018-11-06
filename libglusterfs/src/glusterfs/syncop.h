@@ -138,8 +138,19 @@ typedef struct syncbarrier syncbarrier_t;
 struct syncargs {
     int op_ret;
     int op_errno;
+
+    /*
+     * The below 3 iatt structures are used in the fops
+     * whose callbacks get struct iatt as one of the
+     * a return arguments. Currently, the maximum number
+     * of iatt structures returned is 3 for some fops
+     * such as mknod, copy_file_range, mkdir etc. So
+     * all the following 3 iatt structures would be used
+     * for those fops.
+     */
     struct iatt iatt1;
     struct iatt iatt2;
+    struct iatt iatt3;
     dict_t *xattr;
     struct statvfs statvfs_buf;
     struct iovec *vector;
@@ -633,5 +644,18 @@ int
 syncop_entrylk(xlator_t *subvol, const char *volume, loc_t *loc,
                const char *basename, entrylk_cmd cmd, entrylk_type type,
                dict_t *xdata_in, dict_t **xdata_out);
+
+int
+syncop_copy_file_range(xlator_t *subvol, fd_t *fd_in, off64_t off_in,
+                       fd_t *fd_out, off64_t off_out, size_t len,
+                       uint32_t flags, struct iatt *stbuf,
+                       struct iatt *preiatt_dst, struct iatt *postiatt_dst,
+                       dict_t *xdata_in, dict_t **xdata_out);
+
+int
+syncop_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                           int op_ret, int op_errno, struct iatt *stbuf,
+                           struct iatt *prebuf_dst, struct iatt *postbuf_dst,
+                           dict_t *xdata);
 
 #endif /* _SYNCOP_H */

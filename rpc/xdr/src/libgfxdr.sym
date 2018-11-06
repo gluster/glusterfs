@@ -344,3 +344,4 @@ xdr_compound_req_v2
 xdr_gfx_compound_req
 xdr_compound_rsp_v2
 xdr_gfx_compound_rsp
+xdr_gfx_copy_file_range_req

@@ -2833,6 +2833,72 @@ out:
     return 0;
 }
 
+int
+client4_0_copy_file_range_cbk(struct rpc_req *req, struct iovec *iov, int count,
+                              void *myframe)
+{
+    gfx_common_3iatt_rsp rsp = {
+        0,
+    };
+    call_frame_t *frame = NULL;
+    struct iatt stbuf = {
+        0,
+    };
+    struct iatt prestat = {
+        0,
+    };
+    struct iatt poststat = {
+        0,
+    };
+    int ret = 0;
+    xlator_t *this = NULL;
+    dict_t *xdata = NULL;
+    clnt_local_t *local = NULL;
+
+    this = THIS;
+
+    frame = myframe;
+    local = frame->local;
+
+    if (-1 == req->rpc_status) {
+        rsp.op_ret = -1;
+        rsp.op_errno = ENOTCONN;
+        goto out;
+    }
+
+    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+               "XDR decoding failed");
+        rsp.op_ret = -1;
+        rsp.op_errno = EINVAL;
+        goto out;
+    }
+
+    ret = client_post_common_3iatt(this, &rsp, &stbuf, &prestat, &poststat,
+                                   &xdata);
+    if (ret < 0)
+        goto out;
+out:
+    if (rsp.op_ret == -1) {
+        gf_msg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+               PC_MSG_REMOTE_OP_FAILED, "remote operation failed");
+    } else if (rsp.op_ret >= 0) {
+        if (local->attempt_reopen)
+            client_attempt_reopen(local->fd, this);
+        if (local->attempt_reopen_out)
+            client_attempt_reopen(local->fd_out, this);
+    }
+    CLIENT_STACK_UNWIND(copy_file_range, frame, rsp.op_ret,
+                        gf_error_to_errno(rsp.op_errno), &stbuf, &prestat,
+                        &poststat, xdata);
+
+    if (xdata)
+        dict_unref(xdata);
+
+    return 0;
+}
+
 int32_t
 client4_0_releasedir(call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -5846,6 +5912,80 @@ unwind:
 }
 
 int32_t
+client4_0_copy_file_range(call_frame_t *frame, xlator_t *this, void *data)
+{
+    clnt_args_t *args = NULL;
+    clnt_conf_t *conf = NULL;
+    clnt_local_t *local = NULL;
+    gfx_copy_file_range_req req = {
+        {
+            0,
+        },
+    };
+    int op_errno = ESTALE;
+    int ret = 0;
+
+    if (!frame || !this || !data)
+        goto unwind;
+
+    args = data;
+    conf = this->private;
+
+    ret = client_pre_copy_file_range_v2(this, &req, args->fd, args->off_in,
+                                        args->fd_out, args->off_out, args->size,
+                                        args->flags, &args->xdata);
+
+    if (ret) {
+        op_errno = -ret;
+        goto unwind;
+    }
+
+    ret = client_fd_fop_prepare_local(frame, args->fd, req.fd_in);
+    if (ret) {
+        op_errno = -ret;
+        goto unwind;
+    }
+
+    /*
+     * Since frame->local is allocated in above function call
+     * itself, better to use it (with the assumption that it
+     * has been allocated) directly instead of again calling
+     * client_fd_fop_prepare_local or modifying it, as doing
+     * so requires changes in other places as well.
+     */
+
+    local = frame->local;
+    local->fd_out = fd_ref(args->fd_out);
+    local->attempt_reopen_out = client_is_reopen_needed(args->fd_out, this,
+                                                        req.fd_out);
+
+    ret = client_submit_request(
+        this, &req, frame, conf->fops, GFS3_OP_COPY_FILE_RANGE,
+        client4_0_copy_file_range_cbk, NULL, NULL, 0, NULL, 0, NULL,
+        (xdrproc_t)xdr_gfx_copy_file_range_req);
+    if (ret) {
+        /*
+         * If the lower layers fail to submit a request, they'll also
+         * do the unwind for us (see rpc_clnt_submit), so don't unwind
+         * here in such cases.
+         */
+        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
+               "failed to send the fop");
+    }
+
+    GF_FREE(req.xdata.pairs.pairs_val);
+
+    return 0;
+
+unwind:
+    CLIENT_STACK_UNWIND(copy_file_range, frame, -1, op_errno, NULL, NULL, NULL,
+                        NULL);
+    GF_FREE(req.xdata.pairs.pairs_val);
+
+    return 0;
+}
+
+int32_t
 client4_0_fsetattr(call_frame_t *frame, xlator_t *this, void *data)
 {
     clnt_args_t *args = NULL;
@@ -6257,6 +6397,7 @@ rpc_clnt_procedure_t clnt4_0_fop_actors[GF_FOP_MAXVALUE] = {
     [GF_FOP_COMPOUND] = {"COMPOUND", client4_0_compound},
     [GF_FOP_ICREATE] = {"ICREATE", client4_0_icreate},
     [GF_FOP_NAMELINK] = {"NAMELINK", client4_0_namelink},
+    [GF_FOP_COPY_FILE_RANGE] = {"COPY-FILE-RANGE", client4_0_copy_file_range},
 };
 
 rpc_clnt_prog_t clnt4_0_fop_prog = {

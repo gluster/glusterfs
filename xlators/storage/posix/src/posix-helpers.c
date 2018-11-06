@@ -3314,3 +3314,23 @@ unlock:
 out:
     return ret;
 }
+
+int
+posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno)
+{
+    int ret = -1;
+
+    if (inode->ia_type == IA_IFBLK || inode->ia_type == IA_IFCHR) {
+        *op_errno = EINVAL;
+        gf_msg(this->name, GF_LOG_ERROR, *op_errno, P_MSG_INVALID_ARGUMENT,
+               "%s received on %s file (%s)", fop,
+               (inode->ia_type == IA_IFBLK) ? "block" : "char",
+               uuid_utoa(inode->gfid));
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}

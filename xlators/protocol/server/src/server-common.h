@@ -192,3 +192,8 @@ void
 server4_post_link(server_state_t *state, gfx_common_3iatt_rsp *rsp,
                   inode_t *inode, struct iatt *stbuf, struct iatt *pre,
                   struct iatt *post);
+
+void
+server4_post_common_3iatt_noinode(gfx_common_3iatt_rsp *rsp, struct iatt *stbuf,
+                                  struct iatt *prebuf_dst,
+                                  struct iatt *postbuf_dst);

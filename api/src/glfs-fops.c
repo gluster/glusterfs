@@ -1333,6 +1333,161 @@ invalid_fs:
 }
 
 ssize_t
+pub_glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
+                         struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
+                         unsigned int flags, struct stat *statbuf,
+                         struct stat *prestat, struct stat *poststat)
+{
+    xlator_t *subvol = NULL;
+    int ret = -1;
+    fd_t *fd_in = NULL;
+    fd_t *fd_out = NULL;
+    struct iatt preiatt =
+                    {
+                        0,
+                    },
+                iattbuf =
+                    {
+                        0,
+                    },
+                postiatt = {
+                    0,
+                };
+    dict_t *fop_attr = NULL;
+    off64_t pos_in;
+    off64_t pos_out;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(glfd_in, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(glfd_out, invalid_fs);
+
+    GF_REF_GET(glfd_in);
+    GF_REF_GET(glfd_out);
+
+    if (glfd_in->fs != glfd_out->fs) {
+        ret = -1;
+        errno = EXDEV;
+        goto out;
+    }
+
+    subvol = glfs_active_subvol(glfd_in->fs);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    fd_in = glfs_resolve_fd(glfd_in->fs, subvol, glfd_in);
+    if (!fd_in) {
+        ret = -1;
+        errno = EBADFD;
+        goto out;
+    }
+
+    fd_out = glfs_resolve_fd(glfd_out->fs, subvol, glfd_out);
+    if (!fd_out) {
+        ret = -1;
+        errno = EBADFD;
+        goto out;
+    }
+
+    /*
+     * This is based on how the vfs layer in the kernel handles
+     * copy_file_range call. Upon receiving it follows the
+     * below method to consider the offset.
+     * if (off_in != NULL)
+     *    use the value off_in to perform the op
+     * else if off_in == NULL
+     *    use the current file offset position to perform the op
+     *
+     * For gfapi, glfd->offset is used. For a freshly opened
+     * fd, the offset is set to 0.
+     */
+    if (off_in)
+        pos_in = *off_in;
+    else
+        pos_in = glfd_in->offset;
+
+    if (off_out)
+        pos_out = *off_out;
+    else
+        pos_out = glfd_out->offset;
+
+    ret = get_fop_attr_thrd_key(&fop_attr);
+    if (ret)
+        gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
+
+    ret = syncop_copy_file_range(subvol, fd_in, pos_in, fd_out, pos_out, len,
+                                 flags, &iattbuf, &preiatt, &postiatt, fop_attr,
+                                 NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret >= 0) {
+        pos_in += ret;
+        pos_out += ret;
+
+        if (off_in)
+            *off_in = pos_in;
+        if (off_out)
+            *off_out = pos_out;
+
+        if (statbuf)
+            glfs_iatt_to_stat(glfd_in->fs, &iattbuf, statbuf);
+        if (prestat)
+            glfs_iatt_to_stat(glfd_in->fs, &preiatt, prestat);
+        if (poststat)
+            glfs_iatt_to_stat(glfd_in->fs, &postiatt, poststat);
+    }
+
+    if (ret <= 0)
+        goto out;
+
+    /*
+     * If *off_in is NULL, then there is no offset info that can
+     * obtained from the input argument. Hence follow below method.
+     *  If *off_in is NULL, then
+     *     glfd->offset = offset + ret;
+     * else
+     *     do nothing.
+     *
+     * According to the man page of copy_file_range, if off_in is
+     * NULL, then the offset of the source file is advanced by
+     * the return value of the fop. The same applies to off_out as
+     * well. Otherwise, if *off_in is not NULL, then the offset
+     * is not advanced by the filesystem. The entity which sends
+     * the copy_file_range call is supposed to advance the offset
+     * value in its buffer (pointed to by *off_in or *off_out)
+     * by the return value of copy_file_range.
+     */
+    if (!off_in)
+        glfd_in->offset += ret;
+
+    if (!off_out)
+        glfd_out->offset += ret;
+
+out:
+    if (fd_in)
+        fd_unref(fd_in);
+    if (fd_out)
+        fd_unref(fd_out);
+    if (glfd_in)
+        GF_REF_PUT(glfd_in);
+    if (glfd_out)
+        GF_REF_PUT(glfd_out);
+    if (fop_attr)
+        dict_unref(fop_attr);
+
+    glfs_subvol_done(glfd_in->fs, subvol);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_copy_file_range, future);
+
+ssize_t
 pub_glfs_pwritev(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
                  off_t offset, int flags)
 {

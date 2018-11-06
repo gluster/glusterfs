@@ -2993,6 +2993,116 @@ fuse_write(xlator_t *this, fuse_in_header_t *finh, void *msg,
     return;
 }
 
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+static int
+fuse_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                         struct iatt *prebuf_dst, struct iatt *postbuf_dst,
+                         dict_t *xdata)
+{
+    fuse_state_t *state = NULL;
+    fuse_in_header_t *finh = NULL;
+    /*
+     * Fuse kernel module uses fuse_write_out itself as the
+     * output collector. In fact, fuse_kernel.h in the upstream
+     * kernel just defines the input structure fuse_copy_file_range_in
+     * for the fop. So, just use the fuse_write_out to send the
+     * response back to the kernel.
+     */
+    struct fuse_write_out fcfro = {
+        0,
+    };
+
+    char src_gfid[GF_UUID_BUF_SIZE] = {0};
+    char dst_gfid[GF_UUID_BUF_SIZE] = {0};
+
+    state = frame->root->state;
+    finh = state->finh;
+
+    fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
+
+    if (op_ret >= 0) {
+        gf_log("glusterfs-fuse", GF_LOG_TRACE,
+               "%" PRIu64 ": WRITE => %d/%" GF_PRI_SIZET ",%" PRIu64
+               " , %" PRIu64 " ,%" PRIu64 ",%" PRIu64,
+               frame->root->unique, op_ret, state->size, state->off_in,
+               state->off_out, stbuf->ia_size, postbuf_dst->ia_size);
+
+        fcfro.size = op_ret;
+        send_fuse_obj(this, finh, &fcfro);
+    } else {
+        if (state->fd && state->fd->inode)
+            uuid_utoa_r(state->fd->inode->gfid, src_gfid);
+        else
+            snprintf(src_gfid, sizeof(src_gfid), "nil");
+
+        if (state->fd_dst && state->fd_dst->inode)
+            uuid_utoa_r(state->fd_dst->inode->gfid, dst_gfid);
+        else
+            snprintf(dst_gfid, sizeof(dst_gfid), "nil");
+
+        gf_log("glusterfs-fuse", GF_LOG_WARNING,
+               "%" PRIu64
+               ": COPY_FILE_RANGE => -1 gfid_in=%s fd_in=%p "
+               "gfid_out=%s fd_out=%p (%s)",
+               frame->root->unique, src_gfid, state->fd, dst_gfid,
+               state->fd_dst, strerror(op_errno));
+
+        send_fuse_err(this, finh, op_errno);
+    }
+
+    free_fuse_state(state);
+    STACK_DESTROY(frame->root);
+
+    return 0;
+}
+
+void
+fuse_copy_file_range_resume(fuse_state_t *state)
+{
+    gf_log("glusterfs-fuse", GF_LOG_TRACE,
+           "%" PRIu64
+           ": COPY_FILE_RANGE "
+           "(input fd: %p (gfid: %s), "
+           "output fd: %p (gfid: %s) size=%zu, "
+           "offset_in=%" PRIu64 ", offset_out=%" PRIu64 ")",
+           state->finh->unique, state->fd, uuid_utoa(state->fd->inode->gfid),
+           state->fd_dst, uuid_utoa(state->fd_dst->inode->gfid), state->size,
+           state->off_in, state->off_out);
+
+    FUSE_FOP(state, fuse_copy_file_range_cbk, GF_FOP_COPY_FILE_RANGE,
+             copy_file_range, state->fd, state->off_in, state->fd_dst,
+             state->off_out, state->size, state->io_flags, state->xdata);
+}
+
+static void
+fuse_copy_file_range(xlator_t *this, fuse_in_header_t *finh, void *msg,
+                     struct iobuf *iobuf)
+{
+    struct fuse_copy_file_range_in *fcfri = msg;
+    fuse_state_t *state = NULL;
+    fd_t *fd_in = NULL;
+    fd_t *fd_out = NULL;
+
+    GET_STATE(this, finh, state);
+
+    fd_in = FH_TO_FD(fcfri->fh_in);
+    fd_out = FH_TO_FD(fcfri->fh_out);
+    state->fd = fd_in;
+    state->fd_dst = fd_out;
+
+    fuse_resolve_fd_init(state, &state->resolve, fd_in);
+    fuse_resolve_fd_init(state, &state->resolve2, fd_out);
+
+    state->size = fcfri->len;
+    state->off_in = fcfri->off_in;
+    state->off_out = fcfri->off_out;
+    state->io_flags = fcfri->flags;
+
+    fuse_resolve_and_resume(state, fuse_copy_file_range_resume);
+}
+#endif /* FUSE_KERNEL_MINOR_VERSION >= 28 */
+
 #if FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE
 static int
 fuse_lseek_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -6086,6 +6196,10 @@ static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
 
 #if FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE
     [FUSE_LSEEK] = fuse_lseek,
+#endif
+
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+    [FUSE_COPY_FILE_RANGE] = fuse_copy_file_range,
 #endif
 };
 

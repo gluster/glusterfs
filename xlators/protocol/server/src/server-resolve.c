@@ -545,14 +545,39 @@ server_resolve_fd(call_frame_t *frame)
         return 0;
     }
 
-    state->fd = gf_fd_fdptr_get(serv_ctx->fdtable, fd_no);
-
+    /*
+     * With copy_file_range, there will be 2 fds to resolve.
+     * This same function is called to resolve both the source
+     * fd and the destination fd. As of now, this function does
+     * not have any mechanism to distinguish between the 2 fds
+     * being resolved except for checking the value of state->fd.
+     * The assumption is that, if source fd the one which is
+     * being resolved here, then state->fd would be NULL. If it
+     * is not NULL, then it is the destination fd which is being
+     * resolved.
+     * This  method (provided the above assumption is true) is
+     * to achieve the ability to distinguish between 2 fds with
+     * minimum changes being done to this function. If this way
+     * is not correct, then more changes might be needed.
+     */
     if (!state->fd) {
-        gf_msg("", GF_LOG_INFO, EBADF, PS_MSG_FD_NOT_FOUND,
-               "fd not "
-               "found in context");
-        resolve->op_ret = -1;
-        resolve->op_errno = EBADF;
+        state->fd = gf_fd_fdptr_get(serv_ctx->fdtable, fd_no);
+        if (!state->fd) {
+            gf_msg("", GF_LOG_INFO, EBADF, PS_MSG_FD_NOT_FOUND,
+                   "fd not "
+                   "found in context");
+            resolve->op_ret = -1;
+            resolve->op_errno = EBADF;
+        }
+    } else {
+        state->fd_out = gf_fd_fdptr_get(serv_ctx->fdtable, fd_no);
+        if (!state->fd_out) {
+            gf_msg("", GF_LOG_INFO, EBADF, PS_MSG_FD_NOT_FOUND,
+                   "fd not "
+                   "found in context");
+            resolve->op_ret = -1;
+            resolve->op_errno = EBADF;
+        }
     }
 
     server_resolve_all(frame);

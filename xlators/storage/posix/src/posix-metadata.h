@@ -48,5 +48,10 @@ void
 posix_set_parent_ctime(call_frame_t *frame, xlator_t *this,
                        const char *real_path, int fd, inode_t *inode,
                        struct iatt *stbuf);
+void
+posix_set_ctime_cfr(call_frame_t *frame, xlator_t *this,
+                    const char *real_path_in, int fd_in, inode_t *inode_in,
+                    struct iatt *stbuf_in, const char *read_path_put,
+                    int fd_out, inode_t *inode_out, struct iatt *stbuf_out);
 
 #endif /* _POSIX_METADATA_H */

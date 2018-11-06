@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs/syscall.h"
 #include "glusterfs/compat.h"
+#include "glusterfs/syscall.h"
 #include "glusterfs/mem-pool.h"
 #include "glusterfs/libglusterfs-messages.h"
 
@@ -19,6 +19,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
+#ifdef HAVE_COPY_FILE_RANGE_SYS
+#include <sys/syscall.h>
+#endif
 
 #define FS_ERROR_LOG(result)                                                   \
     do {                                                                       \
@@ -801,4 +804,31 @@ err:
 
 #endif
     return newsock;
+}
+
+ssize_t
+sys_copy_file_range(int fd_in, off64_t *off_in, int fd_out, off64_t *off_out,
+                    size_t len, unsigned int flags)
+{
+    /*
+     * TODO: Add check for other platofrms like freebsd etc if this syscall is
+     *       not generic.
+     * This is what the function does.
+     *       1) Check whether copy_file_range API is present. If so call it.
+     *       2) If copy_file_range API is not present, then check whether
+     *          the system call is there. If so, then use syscall to invoke
+     *          SYS_copy_file_range system call.
+     *       3) If neither of the above is present, then return ENOSYS.
+     */
+#ifdef HAVE_COPY_FILE_RANGE
+    return FS_RET_CHECK(
+        copy_file_range(fd_in, off_in, fd_out, off_out, len, flags), errno);
+#else
+#ifdef HAVE_COPY_FILE_RANGE_SYS
+    return syscall(SYS_copy_file_range, fd_in, off_in, fd_out, off_out, len,
+                   flags);
+#else
+    return -ENOSYS;
+#endif /* HAVE_COPY_FILE_RANGE_SYS */
+#endif /* HAVE_COPY_FILE_RANGE */
 }

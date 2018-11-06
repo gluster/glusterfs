@@ -1818,6 +1818,51 @@ out:
 }
 
 call_stub_t *
+fop_copy_file_range_stub(call_frame_t *frame, fop_copy_file_range_t fn,
+                         fd_t *fd_in, off64_t off_in, fd_t *fd_out,
+                         off64_t off_out, size_t len, uint32_t flags,
+                         dict_t *xdata)
+{
+    call_stub_t *stub = NULL;
+
+    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
+    GF_VALIDATE_OR_GOTO("call-stub", fn, out);
+
+    stub = stub_new(frame, 1, GF_FOP_COPY_FILE_RANGE);
+    GF_VALIDATE_OR_GOTO("call-stub", stub, out);
+
+    stub->fn.copy_file_range = fn;
+
+    args_copy_file_range_store(&stub->args, fd_in, off_in, fd_out, off_out, len,
+                               flags, xdata);
+
+out:
+    return stub;
+}
+
+call_stub_t *
+fop_copy_file_range_cbk_stub(call_frame_t *frame, fop_copy_file_range_cbk_t fn,
+                             int32_t op_ret, int32_t op_errno,
+                             struct iatt *stbuf, struct iatt *prebuf_dst,
+                             struct iatt *postbuf_dst, dict_t *xdata)
+{
+    call_stub_t *stub = NULL;
+
+    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
+    GF_VALIDATE_OR_GOTO("call-stub", fn, out);
+
+    stub = stub_new(frame, 0, GF_FOP_COPY_FILE_RANGE);
+    GF_VALIDATE_OR_GOTO("call-stub", stub, out);
+
+    stub->fn_cbk.copy_file_range = fn;
+    args_copy_file_range_cbk_store(&stub->args_cbk, op_ret, op_errno, stbuf,
+                                   prebuf_dst, postbuf_dst, xdata);
+
+out:
+    return stub;
+}
+
+call_stub_t *
 fop_put_stub(call_frame_t *frame, fop_put_t fn, loc_t *loc, mode_t mode,
              mode_t umask, uint32_t flags, struct iovec *vector, int32_t count,
              off_t offset, struct iobref *iobref, dict_t *xattr, dict_t *xdata)
@@ -2213,6 +2258,13 @@ call_resume_wind(call_stub_t *stub)
                          stub->args.iobref, stub->args.xattr, stub->args.xdata);
             break;
 
+        case GF_FOP_COPY_FILE_RANGE:
+            stub->fn.copy_file_range(
+                stub->frame, stub->frame->this, stub->args.fd,
+                stub->args.off_in, stub->args.fd_dst, stub->args.off_out,
+                stub->args.size, stub->args.flags, stub->args.xdata);
+            break;
+
         default:
             gf_msg_callingfn("call-stub", GF_LOG_ERROR, EINVAL,
                              LG_MSG_INVALID_ENTRY,
@@ -2436,6 +2488,12 @@ call_resume_unwind(call_stub_t *stub)
         case GF_FOP_PUT:
             STUB_UNWIND(stub, put, stub->args_cbk.inode, &stub->args_cbk.stat,
                         &stub->args_cbk.preparent, &stub->args_cbk.postparent,
+                        stub->args_cbk.xdata);
+            break;
+
+        case GF_FOP_COPY_FILE_RANGE:
+            STUB_UNWIND(stub, copy_file_range, &stub->args_cbk.stat,
+                        &stub->args_cbk.prestat, &stub->args_cbk.poststat,
                         stub->args_cbk.xdata);
             break;
 

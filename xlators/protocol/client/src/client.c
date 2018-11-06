@@ -1129,6 +1129,41 @@ out:
     return 0;
 }
 
+int32_t
+client_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
+                       off_t off_in, fd_t *fd_out, off_t off_out, size_t len,
+                       uint32_t flags, dict_t *xdata)
+{
+    int ret = -1;
+    clnt_conf_t *conf = NULL;
+    rpc_clnt_procedure_t *proc = NULL;
+    clnt_args_t args = {
+        0,
+    };
+
+    conf = this->private;
+    if (!conf || !conf->fops)
+        goto out;
+
+    args.fd = fd_in;
+    args.fd_out = fd_out;
+    args.offset = off_in;
+    args.off_out = off_out;
+    args.size = len;
+    args.flags = flags;
+    args.xdata = xdata;
+
+    proc = &conf->fops->proctable[GF_FOP_COPY_FILE_RANGE];
+    if (proc->fn)
+        ret = proc->fn(frame, this, &args);
+out:
+    if (ret)
+        STACK_UNWIND_STRICT(copy_file_range, frame, -1, ENOTCONN, NULL, NULL,
+                            NULL, NULL);
+
+    return 0;
+}
+
 static gf_boolean_t
 is_client_rpc_init_command(dict_t *dict, xlator_t *this, char **value)
 {
@@ -2898,6 +2933,7 @@ struct xlator_fops fops = {
     .icreate = client_icreate,
     .namelink = client_namelink,
     .put = client_put,
+    .copy_file_range = client_copy_file_range,
 };
 
 struct xlator_dumpops dumpops = {

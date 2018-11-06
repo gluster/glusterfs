@@ -255,5 +255,6 @@ GFAPI_future {
 		glfs_ftruncate_async;
 		glfs_discard_async;
 		glfs_zerofill_async;
+		glfs_copy_file_range;
 } GFAPI_4.1.6;
 

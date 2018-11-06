@@ -62,6 +62,20 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 }
 """
 
+FOPS_COPY_FILE_RANGE_TEMPLATE = """
+int32_t
+gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
+                @LONG_ARGS@)
+{
+        gl_timespec_get(&frame->root->ctime);
+
+        (void) utime_update_attribute_flags(frame, this, GF_FOP_COPY_FILE_RANGE);
+        STACK_WIND (frame, gf_utime_@NAME@_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->@NAME@, @SHORT_ARGS@);
+        return 0;
+}
+"""
+
 FOPS_SETATTR_TEMPLATE = """
 int32_t
 gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
@@ -94,6 +108,7 @@ utime_ops = ['fallocate', 'zerofill', 'opendir', 'mknod', 'mkdir',
 utime_read_op = ['readv']
 utime_write_op = ['writev']
 utime_setattr_ops = ['setattr', 'fsetattr']
+utime_copy_file_range_ops = ['copy_file_range']
 
 def gen_defaults():
     for name in ops:
@@ -109,6 +124,9 @@ def gen_defaults():
         if name in utime_setattr_ops:
             print(generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs))
             print(generate(FOPS_SETATTR_TEMPLATE, name, fop_subs))
+        if name in utime_copy_file_range_ops:
+            print(generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs))
+            print(generate(FOPS_COPY_FILE_RANGE_TEMPLATE, name, fop_subs))
 
 for l in open(sys.argv[1], 'r').readlines():
     if l.find('#pragma generate') != -1:

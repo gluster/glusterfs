@@ -1541,6 +1541,48 @@ args_namelink_store(default_args_t *args, loc_t *loc, dict_t *xdata)
     return 0;
 }
 
+int
+args_copy_file_range_store(default_args_t *args, fd_t *fd_in, off64_t off_in,
+                           fd_t *fd_out, off64_t off_out, size_t len,
+                           uint32_t flags, dict_t *xdata)
+{
+    if (fd_in)
+        args->fd = fd_ref(fd_in);
+    if (fd_out)
+        args->fd_dst = fd_ref(fd_out);
+    args->size = len;
+    args->off_in = off_in;
+    args->off_out = off_out;
+    args->flags = flags;
+
+    if (xdata)
+        args->xdata = dict_ref(xdata);
+
+    return 0;
+}
+
+int
+args_copy_file_range_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+                               int32_t op_errno, struct iatt *stbuf,
+                               struct iatt *prebuf_dst,
+                               struct iatt *postbuf_dst, dict_t *xdata)
+{
+    args->op_ret = op_ret;
+    args->op_errno = op_errno;
+    if (op_ret >= 0) {
+        if (postbuf_dst)
+            args->poststat = *postbuf_dst;
+        if (prebuf_dst)
+            args->prestat = *prebuf_dst;
+        if (stbuf)
+            args->stat = *stbuf;
+    }
+    if (xdata)
+        args->xdata = dict_ref(xdata);
+
+    return 0;
+}
+
 void
 args_cbk_wipe(default_args_cbk_t *args_cbk)
 {

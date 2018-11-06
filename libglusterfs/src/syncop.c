@@ -3398,3 +3398,64 @@ syncop_namelink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     return 0;
 }
+
+int
+syncop_copy_file_range(xlator_t *subvol, fd_t *fd_in, off64_t off_in,
+                       fd_t *fd_out, off64_t off_out, size_t len,
+                       uint32_t flags, struct iatt *stbuf,
+                       struct iatt *preiatt_dst, struct iatt *postiatt_dst,
+                       dict_t *xdata_in, dict_t **xdata_out)
+{
+    struct syncargs args = {
+        0,
+    };
+
+    SYNCOP(subvol, (&args), syncop_copy_file_range_cbk,
+           subvol->fops->copy_file_range, fd_in, off_in, fd_out, off_out, len,
+           flags, xdata_in);
+
+    if (stbuf) {
+        *stbuf = args.iatt1;
+    }
+    if (preiatt_dst) {
+        *preiatt_dst = args.iatt2;
+    }
+    if (postiatt_dst) {
+        *postiatt_dst = args.iatt3;
+    }
+
+    if (xdata_out) {
+        *xdata_out = args.xdata;
+    } else if (args.xdata) {
+        dict_unref(args.xdata);
+    }
+
+    errno = args.op_errno;
+    return args.op_ret;
+}
+
+int
+syncop_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                           int op_ret, int op_errno, struct iatt *stbuf,
+                           struct iatt *prebuf_dst, struct iatt *postbuf_dst,
+                           dict_t *xdata)
+{
+    struct syncargs *args = NULL;
+
+    args = cookie;
+
+    args->op_ret = op_ret;
+    args->op_errno = op_errno;
+    if (xdata)
+        args->xdata = dict_ref(xdata);
+
+    if (op_ret >= 0) {
+        args->iatt1 = *stbuf;
+        args->iatt2 = *prebuf_dst;
+        args->iatt3 = *postbuf_dst;
+    }
+
+    __wake(args);
+
+    return 0;
+}

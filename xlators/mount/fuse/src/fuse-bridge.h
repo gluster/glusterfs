@@ -41,7 +41,31 @@
 #include <glusterfs/gidcache.h>
 
 #if defined(GF_LINUX_HOST_OS) || defined(__FreeBSD__) || defined(__NetBSD__)
+
+/*
+ * TODO:
+ * So, with the addition of copy_file_range support, it might
+ * require a bump up of fuse kernel minor version (like it was
+ * done when support for lseek fop was added. But, as of now,
+ * the copy_file_range support has just landed in upstream
+ * kernel fuse module. So, until, there is a release of that
+ * fuse as part of a kernel, the FUSE_KERNEL_MINOR_VERSION
+ * from fuse_kernel.h in the contrib might not be changed.
+ * If so, then the highest op available should be based on
+ * the current minor version (which is 24). So, selectively
+ * determine. When, the minor version is changed to 28 in
+ * fuse_kernel.h from contrib (because in upstream linux
+ * kernel source tree, the kernel minor version which
+ * contains support for copy_file_range is 28), then remove
+ * the reference to FUSE_LSEEK below and just determine
+ * FUSE_OP_HIGH based on copy_file_range.
+ */
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+#define FUSE_OP_HIGH (FUSE_COPY_FILE_RANGE + 1)
+#else
 #define FUSE_OP_HIGH (FUSE_LSEEK + 1)
+#endif
+
 #endif
 #ifdef GF_DARWIN_HOST_OS
 #define FUSE_OP_HIGH (FUSE_DESTROY + 1)
@@ -400,10 +424,22 @@ typedef struct {
     loc_t loc2;
     fuse_in_header_t *finh;
     int32_t flags;
+
     off_t off;
+    /*
+     * The man page of copy_file_range tells that the offset
+     * arguments are of type loff_t *. Here in fuse state, the values of
+     * those offsets are saved instead of pointers as the kernel sends
+     * the values of the offsets from those pointers instead of pointers.
+     * But the type loff_t is linux specific and is actually a typedef of
+     * off64_t. Hence using off64_t
+     */
+    off64_t off_in;  /* for copy_file_range source fd */
+    off64_t off_out; /* for copy_file_range destination fd */
     size_t size;
     unsigned long nlookup;
     fd_t *fd;
+    fd_t *fd_dst; /* for copy_file_range destination */
     dict_t *xattr;
     dict_t *xdata;
     char *name;

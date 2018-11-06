@@ -48,10 +48,20 @@ typedef struct {
 } default_args_cbk_t;
 
 typedef struct {
-    loc_t loc;  /* @old in rename(), link() */
-    loc_t loc2; /* @new in rename(), link() */
-    fd_t *fd;
+    loc_t loc;    /* @old in rename(), link() */
+    loc_t loc2;   /* @new in rename(), link() */
+    fd_t *fd;     /* for all the fd based ops */
+    fd_t *fd_dst; /* Only for copy_file_range destination */
     off_t offset;
+    /*
+     * According to the man page of copy_file_range,
+     * the offsets for source and destination file
+     * are of type loff_t. But the type loff_t is
+     * linux specific and is actual a typedef of
+     * off64_t.
+     */
+    off64_t off_in;  /* For copy_file_range source fd */
+    off64_t off_out; /* For copy_file_range destination fd only */
     int mask;
     size_t size;
     mode_t mode;
@@ -323,6 +333,11 @@ int32_t
 default_namelink(call_frame_t *frame, xlator_t *this, loc_t *loc,
                  dict_t *xdata);
 
+int32_t
+default_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
+                        off64_t off_in, fd_t *fd_out, off64_t off_out,
+                        size_t len, uint32_t flags, dict_t *xdata);
+
 /* Resume */
 int32_t
 default_getspec_resume(call_frame_t *frame, xlator_t *this, const char *key,
@@ -541,6 +556,11 @@ default_put_resume(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                    mode_t umask, uint32_t flags, struct iovec *vector,
                    int32_t count, off_t off, struct iobref *iobref,
                    dict_t *xattr, dict_t *xdata);
+
+int32_t
+default_copy_file_range_resume(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
+                               off_t off64_in, fd_t *fd_out, off64_t off_out,
+                               size_t len, uint32_t flags, dict_t *xdata);
 
 /* _cbk_resume */
 
@@ -813,6 +833,13 @@ int32_t
 default_namelink_resume(call_frame_t *frame, xlator_t *this, loc_t *loc,
                         dict_t *xdata);
 
+int32_t
+default_copy_file_range_cbk_resume(call_frame_t *frame, void *cookie,
+                                   xlator_t *this, int32_t op_ret,
+                                   int32_t op_errno, struct iatt *stbuf,
+                                   struct iatt *prebuf_dst,
+                                   struct iatt *postbuf_dst, dict_t *xdata);
+
 /* _CBK */
 int32_t
 default_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1072,6 +1099,12 @@ default_namelink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postbuf, dict_t *xdata);
 
 int32_t
+default_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno,
+                            struct iatt *stbuf, struct iatt *prebuf_dst,
+                            struct iatt *postbuf_dst, dict_t *xdata);
+
+int32_t
 default_lookup_failure_cbk(call_frame_t *frame, int32_t op_errno);
 
 int32_t
@@ -1229,6 +1262,9 @@ default_icreate_failure_cbk(call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_namelink_failure_cbk(call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_copy_file_range_failure_cbk(call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init(xlator_t *this);
