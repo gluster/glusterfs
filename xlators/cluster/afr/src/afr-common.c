@@ -2834,7 +2834,7 @@ afr_lookup_entry_heal(call_frame_t *frame, xlator_t *this)
             continue;
 
         if (replies[i].op_ret == 0) {
-            if (uuid_is_null(gfid)) {
+            if (gf_uuid_is_null(gfid)) {
                 gf_uuid_copy(gfid, replies[i].poststat.ia_gfid);
             }
             success[i] = 1;
