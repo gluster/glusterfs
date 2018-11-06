@@ -1468,8 +1468,8 @@ out:
 
 int
 glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
-                                       uuid_t volume_id, char **op_errstr,
-                                       gf_boolean_t is_force,
+                                       uuid_t volume_id, char *volname,
+                                       char **op_errstr, gf_boolean_t is_force,
                                        gf_boolean_t ignore_partition)
 {
     int ret = -1;
@@ -1544,8 +1544,9 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
                        parentdir, strerror(errno));
         goto out;
     }
-
-    if (sizeof(GLUSTERD_DEFAULT_WORKDIR) <= (strlen(brickinfo->path) + 1) &&
+    if (strncmp(volname, GLUSTER_SHARED_STORAGE,
+                SLEN(GLUSTER_SHARED_STORAGE)) &&
+        sizeof(GLUSTERD_DEFAULT_WORKDIR) <= (strlen(brickinfo->path) + 1) &&
         !strncmp(brickinfo->path, GLUSTERD_DEFAULT_WORKDIR,
                  (sizeof(GLUSTERD_DEFAULT_WORKDIR) - 1))) {
         len = snprintf(msg, sizeof(msg),
