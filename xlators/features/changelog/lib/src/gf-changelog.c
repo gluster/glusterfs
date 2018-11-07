@@ -160,9 +160,13 @@ gf_changelog_ctx_defaults_init(glusterfs_ctx_t *ctx)
     return 0;
 
 free_pool:
-    GF_FREE(pool->frame_mem_pool);
+    if (pool) {
+        GF_FREE(pool->frame_mem_pool);
 
-    GF_FREE(pool->stack_mem_pool);
+        GF_FREE(pool->stack_mem_pool);
+
+        GF_FREE(pool);
+    }
 
     GF_FREE(ctx->stub_mem_pool);
 
@@ -173,8 +177,6 @@ free_pool:
     GF_FREE(ctx->dict_data_pool);
 
     GF_FREE(ctx->logbuf_pool);
-
-    GF_FREE(pool);
 
     GF_FREE(ctx->iobuf_pool);
 
