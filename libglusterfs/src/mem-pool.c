@@ -412,36 +412,33 @@ static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int init_count = 0;
 static pthread_t sweeper_tid;
 
-void
+gf_boolean_t
 collect_garbage(sweep_state_t *state, per_thread_pool_list_t *pool_list)
 {
     unsigned int i;
     per_thread_pool_t *pt_pool;
-
-    if (pool_list->poison) {
-        list_del(&pool_list->thr_list);
-        list_add(&pool_list->thr_list, &state->death_row);
-        return;
-    }
-
-    if (state->n_cold_lists >= N_COLD_LISTS) {
-        return;
-    }
+    gf_boolean_t poisoned;
 
     (void)pthread_spin_lock(&pool_list->lock);
-    for (i = 0; i < NPOOLS; ++i) {
-        pt_pool = &pool_list->pools[i];
-        if (pt_pool->cold_list) {
-            state->cold_lists[state->n_cold_lists++] = pt_pool->cold_list;
-        }
-        pt_pool->cold_list = pt_pool->hot_list;
-        pt_pool->hot_list = NULL;
-        if (state->n_cold_lists >= N_COLD_LISTS) {
-            /* We'll just catch up on a future pass. */
-            break;
+
+    poisoned = pool_list->poison != 0;
+    if (!poisoned) {
+        for (i = 0; i < NPOOLS; ++i) {
+            pt_pool = &pool_list->pools[i];
+            if (pt_pool->cold_list) {
+                if (state->n_cold_lists >= N_COLD_LISTS) {
+                    break;
+                }
+                state->cold_lists[state->n_cold_lists++] = pt_pool->cold_list;
+            }
+            pt_pool->cold_list = pt_pool->hot_list;
+            pt_pool->hot_list = NULL;
         }
     }
+
     (void)pthread_spin_unlock(&pool_list->lock);
+
+    return poisoned;
 }
 
 void
@@ -468,6 +465,7 @@ pool_sweeper(void *arg)
     struct timeval begin_time;
     struct timeval end_time;
     struct timeval elapsed;
+    gf_boolean_t poisoned;
 
     /*
      * This is all a bit inelegant, but the point is to avoid doing
@@ -487,7 +485,13 @@ pool_sweeper(void *arg)
         (void)pthread_mutex_lock(&pool_lock);
         list_for_each_entry_safe(pool_list, next_pl, &pool_threads, thr_list)
         {
-            collect_garbage(&state, pool_list);
+            (void)pthread_mutex_unlock(&pool_lock);
+            poisoned = collect_garbage(&state, pool_list);
+            (void)pthread_mutex_lock(&pool_lock);
+
+            if (poisoned) {
+                list_move(&pool_list->thr_list, &state.death_row);
+            }
         }
         (void)pthread_mutex_unlock(&pool_lock);
         (void)gettimeofday(&end_time, NULL);
@@ -771,7 +775,7 @@ mem_get_pool_list(void)
     (void)pthread_mutex_unlock(&pool_free_lock);
 
     if (!pool_list) {
-        pool_list = CALLOC(pool_list_size, 1);
+        pool_list = MALLOC(pool_list_size);
         if (!pool_list) {
             return NULL;
         }
@@ -785,8 +789,9 @@ mem_get_pool_list(void)
         }
     }
 
-    (void)pthread_mutex_lock(&pool_lock);
     pool_list->poison = 0;
+
+    (void)pthread_mutex_lock(&pool_lock);
     list_add(&pool_list->thr_list, &pool_threads);
     (void)pthread_mutex_unlock(&pool_lock);
 
@@ -795,26 +800,47 @@ mem_get_pool_list(void)
 }
 
 pooled_obj_hdr_t *
-mem_get_from_pool(per_thread_pool_t *pt_pool)
+mem_get_from_pool(struct mem_pool *mem_pool)
 {
+    per_thread_pool_list_t *pool_list;
+    per_thread_pool_t *pt_pool;
     pooled_obj_hdr_t *retval;
+
+    pool_list = mem_get_pool_list();
+    if (!pool_list || pool_list->poison) {
+        return NULL;
+    }
+
+    pt_pool = &pool_list->pools[mem_pool->pool->power_of_two - POOL_SMALLEST];
+
+    (void)pthread_spin_lock(&pool_list->lock);
 
     retval = pt_pool->hot_list;
     if (retval) {
-        GF_ATOMIC_INC(pt_pool->parent->allocs_hot);
         pt_pool->hot_list = retval->next;
-        return retval;
+        (void)pthread_spin_unlock(&pool_list->lock);
+        GF_ATOMIC_INC(pt_pool->parent->allocs_hot);
+    } else {
+        retval = pt_pool->cold_list;
+        if (retval) {
+            pt_pool->cold_list = retval->next;
+            (void)pthread_spin_unlock(&pool_list->lock);
+            GF_ATOMIC_INC(pt_pool->parent->allocs_cold);
+        } else {
+            (void)pthread_spin_unlock(&pool_list->lock);
+            GF_ATOMIC_INC(pt_pool->parent->allocs_stdc);
+            retval = malloc(1 << pt_pool->parent->power_of_two);
+        }
     }
 
-    retval = pt_pool->cold_list;
-    if (retval) {
-        GF_ATOMIC_INC(pt_pool->parent->allocs_cold);
-        pt_pool->cold_list = retval->next;
-        return retval;
+    if (retval != NULL) {
+        retval->magic = GF_MEM_HEADER_MAGIC;
+        retval->pool = mem_pool;
+        retval->pool_list = pool_list;
+        retval->power_of_two = mem_pool->pool->power_of_two;
     }
 
-    GF_ATOMIC_INC(pt_pool->parent->allocs_stdc);
-    return malloc(1 << pt_pool->parent->power_of_two);
+    return retval;
 }
 
 void *
@@ -823,8 +849,6 @@ mem_get(struct mem_pool *mem_pool)
 #if defined(GF_DISABLE_MEMPOOL)
     return GF_MALLOC(mem_pool->sizeof_type, gf_common_mt_mem_pool);
 #else
-    per_thread_pool_list_t *pool_list;
-    per_thread_pool_t *pt_pool;
     pooled_obj_hdr_t *retval;
 
     if (!mem_pool) {
@@ -833,25 +857,10 @@ mem_get(struct mem_pool *mem_pool)
         return NULL;
     }
 
-    pool_list = mem_get_pool_list();
-    if (!pool_list || pool_list->poison) {
-        return NULL;
-    }
-
-    (void)pthread_spin_lock(&pool_list->lock);
-    pt_pool = &pool_list->pools[mem_pool->pool->power_of_two - POOL_SMALLEST];
-    retval = mem_get_from_pool(pt_pool);
-
+    retval = mem_get_from_pool(mem_pool);
     if (!retval) {
-        (void)pthread_spin_unlock(&pool_list->lock);
         return NULL;
     }
-
-    retval->magic = GF_MEM_HEADER_MAGIC;
-    retval->pool = mem_pool;
-    retval->pool_list = pool_list;
-    retval->power_of_two = mem_pool->pool->power_of_two;
-    (void)pthread_spin_unlock(&pool_list->lock);
 
     GF_ATOMIC_INC(mem_pool->active);
 
@@ -885,12 +894,20 @@ mem_put(void *ptr)
 
     GF_ATOMIC_DEC(hdr->pool->active);
 
-    (void)pthread_spin_lock(&pool_list->lock);
     hdr->magic = GF_MEM_INVALID_MAGIC;
-    hdr->next = pt_pool->hot_list;
-    pt_pool->hot_list = hdr;
-    GF_ATOMIC_INC(pt_pool->parent->frees_to_list);
-    (void)pthread_spin_unlock(&pool_list->lock);
+
+    (void)pthread_spin_lock(&pool_list->lock);
+    if (!pool_list->poison) {
+        hdr->next = pt_pool->hot_list;
+        pt_pool->hot_list = hdr;
+        (void)pthread_spin_unlock(&pool_list->lock);
+        GF_ATOMIC_INC(pt_pool->parent->frees_to_list);
+    } else {
+        /* If the owner thread of this element has terminated, we simply
+         * release its memory. */
+        (void)pthread_spin_unlock(&pool_list->lock);
+        free(hdr);
+    }
 #endif /* GF_DISABLE_MEMPOOL */
 }
 
