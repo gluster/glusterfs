@@ -466,15 +466,18 @@ __iobuf_select_arena(struct iobuf_pool *iobuf_pool, const size_t page_size,
     return iobuf_arena;
 }
 
-/* iobuf_arena variable is validaed to be non-NULL by all callers */
+/* Always called under the iobuf_pool mutex lock */
 static struct iobuf *
-__iobuf_get(struct iobuf_arena *iobuf_arena, const size_t page_size,
+__iobuf_get(struct iobuf_pool *iobuf_pool, const size_t page_size,
             const int index)
 {
     struct iobuf *iobuf = NULL;
-    struct iobuf_pool *iobuf_pool = NULL;
+    struct iobuf_arena *iobuf_arena = NULL;
 
-    iobuf_pool = iobuf_arena->iobuf_pool;
+    /* most eligible arena for picking an iobuf */
+    iobuf_arena = __iobuf_select_arena(iobuf_pool, page_size, index);
+    if (!iobuf_arena)
+        return NULL;
 
     list_for_each_entry(iobuf, &iobuf_arena->passive.list, list) break;
 
@@ -545,7 +548,6 @@ struct iobuf *
 iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
 {
     struct iobuf *iobuf = NULL;
-    struct iobuf_arena *iobuf_arena = NULL;
     size_t rounded_size = 0;
     int index = 0;
 
@@ -580,14 +582,12 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
 
     pthread_mutex_lock(&iobuf_pool->mutex);
     {
-        /* most eligible arena for picking an iobuf */
-        iobuf_arena = __iobuf_select_arena(iobuf_pool, rounded_size, index);
-        if (!iobuf_arena)
+        iobuf = __iobuf_get(iobuf_pool, rounded_size, index);
+        if (!iobuf) {
+            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
+                   "iobuf not found");
             goto unlock;
-
-        iobuf = __iobuf_get(iobuf_arena, rounded_size, index);
-        if (!iobuf)
-            goto unlock;
+        }
 
         iobuf_ref(iobuf);
     }
@@ -633,7 +633,6 @@ struct iobuf *
 iobuf_get(struct iobuf_pool *iobuf_pool)
 {
     struct iobuf *iobuf = NULL;
-    struct iobuf_arena *iobuf_arena = NULL;
     int index = 0;
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
@@ -649,16 +648,7 @@ iobuf_get(struct iobuf_pool *iobuf_pool)
 
     pthread_mutex_lock(&iobuf_pool->mutex);
     {
-        /* most eligible arena for picking an iobuf */
-        iobuf_arena = __iobuf_select_arena(
-            iobuf_pool, iobuf_pool->default_page_size, index);
-        if (!iobuf_arena) {
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
-                   "arena not found");
-            goto unlock;
-        }
-
-        iobuf = __iobuf_get(iobuf_arena, iobuf_pool->default_page_size, index);
+        iobuf = __iobuf_get(iobuf_pool, iobuf_pool->default_page_size, index);
         if (!iobuf) {
             gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
                    "iobuf not found");
