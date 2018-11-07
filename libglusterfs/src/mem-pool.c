@@ -309,7 +309,12 @@ If the pointer is accessed outside the scope of this function without any
 checks on content read from an IO operation, taints will still be reported, and
 needs appropriate addressing. */
 
-/* coverity[ +tainted_string_sanitize_content : arg-0 ] */
+/* coverity[ +tainted_data_sanitize : arg-0 ] */
+static void
+gf_free_sanitize(void *s)
+{
+}
+
 void
 __gf_free(void *free_ptr)
 {
@@ -325,6 +330,7 @@ __gf_free(void *free_ptr)
     if (!free_ptr)
         return;
 
+    gf_free_sanitize(free_ptr);
     ptr = free_ptr - GF_MEM_HEADER_SIZE;
     header = (struct mem_header *)ptr;
 
