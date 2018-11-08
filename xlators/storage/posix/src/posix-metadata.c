@@ -345,6 +345,7 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
 
     GF_VALIDATE_OR_GOTO("posix", this, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    GF_VALIDATE_OR_GOTO(this->name, time, out);
 
     LOCK(&inode->lock);
     {
