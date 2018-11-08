@@ -311,4 +311,10 @@ glusterd_dict_set_volid(dict_t *dict, char *volname, char **op_errstr);
 
 int32_t
 glusterd_tier_op(xlator_t *this, void *data);
+
+int
+glusterd_op_stats_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
+int
+glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr);
 #endif
