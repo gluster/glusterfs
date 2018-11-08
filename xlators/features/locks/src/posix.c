@@ -3265,7 +3265,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                           blocked, granted);
                         }
 
-                        gf_proc_dump_write(key, tmp);
+                        gf_proc_dump_write(key, "%s", tmp);
 
                         count++;
                 }
@@ -3286,7 +3286,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                   lkowner_utoa (&lock->owner), lock->client,
                                   lock->connection_id, blocked);
 
-                        gf_proc_dump_write(key, tmp);
+                        gf_proc_dump_write(key, "%s", tmp);
 
                         count++;
                 }
@@ -3337,7 +3337,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                                       &lock->granted_time.tv_sec,
                                       &lock->blkd_time.tv_sec,
                                       _gf_true);
-                        gf_proc_dump_write(key, tmp);
+                        gf_proc_dump_write(key, "%s", tmp);
 
                         count++;
                 }
@@ -3353,7 +3353,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                                       lock->client, lock->connection_id,
                                       0, &lock->blkd_time.tv_sec,
                                       _gf_false);
-                        gf_proc_dump_write(key, tmp);
+                        gf_proc_dump_write(key, "%s", tmp);
 
                         count++;
                 }
@@ -3394,7 +3394,7 @@ __dump_posixlks (pl_inode_t *pl_inode)
                             &lock->owner, lock->client, NULL,
                             &lock->granted_time.tv_sec, &lock->blkd_time.tv_sec,
                             (lock->blocked)? _gf_false: _gf_true);
-              gf_proc_dump_write(key, tmp);
+              gf_proc_dump_write(key, "%s", tmp);
 
               count++;
         }
