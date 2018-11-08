@@ -428,7 +428,6 @@ parse_cmdline(int argc, char *argv[], struct cli_state *state)
     int i = 0;
     int j = 0;
     char *opt = NULL;
-    gf_boolean_t geo_rep_config = _gf_false;
 
     state->argc = argc - 1;
     state->argv = &argv[1];
@@ -442,31 +441,32 @@ parse_cmdline(int argc, char *argv[], struct cli_state *state)
     if (state->argc > GEO_REP_CMD_CONFIG_INDEX &&
         strtail(state->argv[GEO_REP_CMD_INDEX], "geo") &&
         strtail(state->argv[GEO_REP_CMD_CONFIG_INDEX], "co"))
-        geo_rep_config = _gf_true;
+        goto done;
 
     for (i = 0; i < state->argc; i++) {
         opt = strtail(state->argv[i], "--");
-        if (opt && !geo_rep_config) {
-            ret = cli_opt_parse(opt, state);
-            if (ret == -1) {
-                cli_out("unrecognized option --%s", opt);
-                return ret;
-            } else if (ret == -2) {
-                return ret;
-            }
-            for (j = i; j < state->argc - 1; j++)
-                state->argv[j] = state->argv[j + 1];
-            state->argc--;
-            /* argv shifted, next check should be at i again */
-            i--;
-            if (ret == 1) {
-                /* end of cli options */
-                ret = 0;
-                break;
-            }
+        if (!opt)
+            continue;
+        ret = cli_opt_parse(opt, state);
+        if (ret == -1) {
+            cli_out("unrecognized option --%s", opt);
+            return ret;
+        } else if (ret == -2) {
+            return ret;
+        }
+        for (j = i; j < state->argc - 1; j++)
+            state->argv[j] = state->argv[j + 1];
+        state->argc--;
+        /* argv shifted, next check should be at i again */
+        i--;
+        if (ret == 1) {
+            /* end of cli options */
+            ret = 0;
+            break;
         }
     }
 
+done:
     state->argv[state->argc] = NULL;
 
     return ret;
