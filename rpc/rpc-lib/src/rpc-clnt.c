@@ -67,13 +67,13 @@ __saved_frames_put(struct saved_frames *frames, void *frame,
     }
     /* THIS should be saved and set back */
 
-    memset(saved_frame, 0, sizeof(*saved_frame));
     INIT_LIST_HEAD(&saved_frame->list);
 
     saved_frame->capital_this = THIS;
     saved_frame->frame = frame;
     saved_frame->rpcreq = rpcreq;
     gettimeofday(&saved_frame->saved_at, NULL);
+    memset(&saved_frame->rsp, 0, sizeof(rpc_transport_rsp_t));
 
     if (_is_lock_fop(saved_frame))
         list_add_tail(&saved_frame->list, &frames->lk_sf.list);
@@ -780,8 +780,7 @@ is_rpc_clnt_disconnected(rpc_clnt_connection_t *conn)
 
     pthread_mutex_lock(&conn->lock);
     {
-        if (conn->disconnected == _gf_false)
-            disconnected = _gf_false;
+        disconnected = conn->disconnected;
     }
     pthread_mutex_unlock(&conn->lock);
 
@@ -1847,28 +1846,6 @@ rpc_clnt_unref(struct rpc_clnt *rpc)
         return NULL;
     }
     return rpc;
-}
-
-char
-rpc_clnt_is_disabled(struct rpc_clnt *rpc)
-{
-    rpc_clnt_connection_t *conn = NULL;
-    char disabled = 0;
-
-    if (!rpc) {
-        goto out;
-    }
-
-    conn = &rpc->conn;
-
-    pthread_mutex_lock(&conn->lock);
-    {
-        disabled = rpc->disabled;
-    }
-    pthread_mutex_unlock(&conn->lock);
-
-out:
-    return disabled;
 }
 
 void
