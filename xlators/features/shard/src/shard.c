@@ -5050,9 +5050,9 @@ shard_post_lookup_readv_handler(call_frame_t *frame, xlator_t *this)
         goto err;
     }
 
+    memset(iobuf->ptr, 0, local->total_size);
     iobuf_unref(iobuf);
     local->iobuf = iobuf;
-    memset(iobuf->ptr, 0, local->total_size);
 
     local->dot_shard_loc.inode = inode_find(this->itable, priv->dot_shard_gfid);
     if (!local->dot_shard_loc.inode) {
