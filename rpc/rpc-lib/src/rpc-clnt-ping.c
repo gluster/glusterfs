@@ -108,7 +108,6 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
     rpc_transport_t *trans = NULL;
     rpc_clnt_connection_t *conn = NULL;
     int disconnect = 0;
-    int transport_activity = 0;
     struct timespec current = {
         0,
     };
@@ -123,28 +122,22 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
         goto out;
     }
 
+    clock_gettime(CLOCK_REALTIME, &current);
     pthread_mutex_lock(&conn->lock);
     {
         unref = rpc_clnt_remove_ping_timer_locked(rpc);
 
-        clock_gettime(CLOCK_REALTIME, &current);
         if (((current.tv_sec - conn->last_received.tv_sec) <
              conn->ping_timeout) ||
             ((current.tv_sec - conn->last_sent.tv_sec) < conn->ping_timeout)) {
-            transport_activity = 1;
-        }
-
-        if (transport_activity) {
             gf_log(trans->name, GF_LOG_TRACE,
                    "ping timer expired but transport activity "
                    "detected - not bailing transport");
-
             if (__rpc_clnt_rearm_ping_timer(rpc, rpc_clnt_ping_timer_expired) ==
                 -1) {
                 gf_log(trans->name, GF_LOG_WARNING,
                        "unable to setup ping timer");
             }
-
         } else {
             conn->ping_started = 0;
             disconnect = 1;
@@ -198,14 +191,16 @@ rpc_clnt_ping_cbk(struct rpc_req *req, struct iovec *iov, int count,
     timespec_sub(&local->submit_time, &now, &delta);
     latency_msec = delta.tv_sec * 1000 + delta.tv_nsec / 1000000;
 
+    gf_log(THIS->name, GF_LOG_DEBUG, "Ping latency is %" PRIu64 "ms",
+           latency_msec);
+    call_notify = _gf_true;
+
     pthread_mutex_lock(&conn->lock);
     {
-        gf_log(THIS->name, GF_LOG_DEBUG, "Ping latency is %" PRIu64 "ms",
-               latency_msec);
-
-        call_notify = _gf_true;
+        unref = rpc_clnt_remove_ping_timer_locked(local->rpc);
         if (req->rpc_status == -1) {
-            unref = rpc_clnt_remove_ping_timer_locked(local->rpc);
+            conn->ping_started = 0;
+            pthread_mutex_unlock(&conn->lock);
             if (unref) {
                 gf_log(this->name, GF_LOG_WARNING,
                        "socket or ib related error");
@@ -214,19 +209,20 @@ rpc_clnt_ping_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 /* timer expired and transport bailed out */
                 gf_log(this->name, GF_LOG_WARNING, "socket disconnected");
             }
-            conn->ping_started = 0;
-            goto unlock;
+            goto after_unlock;
         }
 
-        unref = rpc_clnt_remove_ping_timer_locked(local->rpc);
         if (__rpc_clnt_rearm_ping_timer(local->rpc, rpc_clnt_start_ping) ==
             -1) {
+            /* unlock before logging error */
+            pthread_mutex_unlock(&conn->lock);
             gf_log(this->name, GF_LOG_WARNING, "failed to set the ping timer");
+        } else {
+            /* just unlock the mutex */
+            pthread_mutex_unlock(&conn->lock);
         }
     }
-unlock:
-    pthread_mutex_unlock(&conn->lock);
-
+after_unlock:
     if (call_notify) {
         ret = local->rpc->notifyfn(local->rpc, this, RPC_CLNT_PING,
                                    (void *)(uintptr_t)latency_msec);

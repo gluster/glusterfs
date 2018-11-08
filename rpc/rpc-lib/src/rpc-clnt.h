@@ -133,24 +133,23 @@ struct rpc_clnt_connection {
     gf_timer_t *timer;
     gf_timer_t *ping_timer;
     struct rpc_clnt *rpc_clnt;
-    char connected;
-    gf_boolean_t disconnected;
     struct saved_frames *saved_frames;
-    int32_t frame_timeout;
     struct timespec last_sent;
     struct timespec last_received;
-    int32_t ping_started;
-    char *name;
-    int32_t ping_timeout;
     uint64_t pingcnt;
     uint64_t msgcnt;
     uint64_t cleanup_gen;
+    char *name;
+    int32_t ping_started;
+    int32_t frame_timeout;
+    int32_t ping_timeout;
+    gf_boolean_t disconnected;
+    char connected;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
 struct rpc_req {
     rpc_clnt_connection_t *conn;
-    uint32_t xid;
     struct iovec req[2];
     int reqcnt;
     struct iobref *req_iobref;
@@ -163,6 +162,7 @@ struct rpc_req {
     int procnum;
     fop_cbk_fn_t cbkfn;
     void *conn_private;
+    uint32_t xid;
 };
 
 typedef struct rpc_clnt {
@@ -183,8 +183,8 @@ typedef struct rpc_clnt {
     glusterfs_ctx_t *ctx;
     gf_atomic_t refcount;
     int auth_value;
-    char disabled;
     xlator_t *owner;
+    char disabled;
 } rpc_clnt_t;
 
 struct rpc_clnt *
@@ -255,9 +255,6 @@ rpc_clnt_disable(struct rpc_clnt *rpc);
 
 void
 rpc_clnt_disconnect(struct rpc_clnt *rpc);
-
-char
-rpc_clnt_is_disabled(struct rpc_clnt *rpc);
 
 int
 rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brick_name);
