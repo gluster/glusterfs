@@ -583,7 +583,7 @@ get_fop_attr_glfd(dict_t **fop_attr, struct glfs_fd *glfd)
         dict_create = _gf_true;
     }
     GF_CHECK_ALLOC_AND_LOG("gfapi", *fop_attr, ret, "dict_new failed", out);
-    ret = dict_set_static_bin(*fop_attr, "lease-id", leaseid, LEASE_ID_SIZE);
+    ret = dict_set_bin(*fop_attr, "lease-id", leaseid, LEASE_ID_SIZE);
 out:
     if (ret) {
         GF_FREE(leaseid);
@@ -613,26 +613,32 @@ set_fop_attr_glfd(struct glfs_fd *glfd)
 int
 get_fop_attr_thrd_key(dict_t **fop_attr)
 {
-    char *lease_id = NULL;
+    char *existing_leaseid = NULL, *leaseid = NULL;
     int ret = 0;
     gf_boolean_t dict_create = _gf_false;
 
-    lease_id = gf_existing_leaseid();
-    if (lease_id) {
+    existing_leaseid = gf_existing_leaseid();
+    if (existing_leaseid) {
+        leaseid = GF_MALLOC(LEASE_ID_SIZE, gf_common_mt_char);
+        GF_CHECK_ALLOC_AND_LOG("gfapi", leaseid, ret, "lease id alloc failed",
+                               out);
+        memcpy(leaseid, existing_leaseid, LEASE_ID_SIZE);
         if (*fop_attr == NULL) {
             *fop_attr = dict_new();
             dict_create = _gf_true;
         }
         GF_CHECK_ALLOC_AND_LOG("gfapi", *fop_attr, ret, "dict_new failed", out);
-        ret = dict_set_bin(*fop_attr, "lease-id", gf_strdup(lease_id),
-                           LEASE_ID_SIZE);
+        ret = dict_set_bin(*fop_attr, "lease-id", leaseid, LEASE_ID_SIZE);
     }
 
 out:
-    if (ret && dict_create) {
-        if (*fop_attr)
-            dict_unref(*fop_attr);
-        *fop_attr = NULL;
+    if (ret) {
+        GF_FREE(leaseid);
+        if (dict_create) {
+            if (*fop_attr)
+                dict_unref(*fop_attr);
+            *fop_attr = NULL;
+        }
     }
     return ret;
 }
