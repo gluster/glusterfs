@@ -186,6 +186,11 @@ __gf_quiesce_perform_failover(xlator_t *this)
     }
 
     frame = create_frame(this, this->ctx->pool);
+    if (!frame) {
+        gf_msg_debug(this->name, 0, "failed to create the frame");
+        ret = -1;
+        goto out;
+    }
 
     dict = dict_new();
 
