@@ -55,13 +55,13 @@ _is_lock_fop(struct saved_frame *sframe)
             (fop == GFS3_OP_FENTRYLK));
 }
 
-struct saved_frame *
+static struct saved_frame *
 __saved_frames_put(struct saved_frames *frames, void *frame,
                    struct rpc_req *rpcreq)
 {
-    struct saved_frame *saved_frame = NULL;
+    struct saved_frame *saved_frame = mem_get(
+        rpcreq->conn->rpc_clnt->saved_frames_pool);
 
-    saved_frame = mem_get(rpcreq->conn->rpc_clnt->saved_frames_pool);
     if (!saved_frame) {
         goto out;
     }
@@ -199,19 +199,16 @@ out:
 }
 
 /* to be called with conn->lock held */
-struct saved_frame *
+static struct saved_frame *
 __save_frame(struct rpc_clnt *rpc_clnt, call_frame_t *frame,
              struct rpc_req *rpcreq)
 {
-    rpc_clnt_connection_t *conn = NULL;
+    rpc_clnt_connection_t *conn = &rpc_clnt->conn;
     struct timespec timeout = {
         0,
     };
-    struct saved_frame *saved_frame = NULL;
-
-    conn = &rpc_clnt->conn;
-
-    saved_frame = __saved_frames_put(conn->saved_frames, frame, rpcreq);
+    struct saved_frame *saved_frame = __saved_frames_put(conn->saved_frames,
+                                                         frame, rpcreq);
 
     if (saved_frame == NULL) {
         goto out;
@@ -1678,18 +1675,18 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     {
         if (conn->connected == 0) {
             if (rpc->disabled)
-                goto nosubmit;
+                goto unlock;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
             if (ret < 0) {
                 gf_log(conn->name, GF_LOG_WARNING,
                        "error returned while attempting to "
                        "connect to host:%s, port:%d",
                        conn->config.remote_host, conn->config.remote_port);
+                goto unlock;
             }
         }
 
         ret = rpc_transport_submit_request(conn->trans, &req);
-    nosubmit:
         if (ret == -1) {
             gf_log(conn->name, GF_LOG_WARNING,
                    "failed to submit rpc-request "
@@ -1698,9 +1695,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
                    "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
                    cframe->root->unique, rpcreq->xid, rpcreq->prog->progname,
                    rpcreq->prog->progver, rpcreq->procnum, conn->name);
-        }
-
-        if ((ret >= 0) && frame) {
+        } else if ((ret >= 0) && frame) {
             /* Save the frame in queue */
             __save_frame(rpc, frame, rpcreq);
 
@@ -1722,6 +1717,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
                    rpcreq->prog->progver, rpcreq->procnum, conn->name);
         }
     }
+unlock:
     pthread_mutex_unlock(&conn->lock);
 
     if (need_unref)
