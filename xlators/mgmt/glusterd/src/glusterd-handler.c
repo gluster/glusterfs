@@ -27,6 +27,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-mgmt.h"
 #include "glusterd-server-quorum.h"
 #include "glusterd-store.h"
 #include "glusterd-locks.h"
@@ -3031,10 +3032,13 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
         0,
     };
     xlator_t *this = NULL;
+    glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
     this = THIS;
     GF_ASSERT(this);
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -3075,12 +3079,20 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = glusterd_op_begin(req, cli_op, dict, err_str, sizeof(err_str));
+    if (conf->op_version < GD_OP_VERSION_6_0) {
+        gf_msg_debug(this->name, 0,
+                     "The cluster is operating at "
+                     "version less than %d. Falling back "
+                     "to op-sm framework.",
+                     GD_OP_VERSION_6_0);
+        ret = glusterd_op_begin(req, cli_op, dict, err_str, sizeof(err_str));
+        glusterd_friend_sm();
+        glusterd_op_sm();
+    } else {
+        ret = glusterd_mgmt_v3_initiate_profile_phases(req, cli_op, dict);
+    }
 
 out:
-    glusterd_friend_sm();
-    glusterd_op_sm();
-
     free(cli_req.dict.dict_val);
 
     if (ret) {
