@@ -5407,7 +5407,7 @@ glusterd_is_valid_volfpath(char *volname, char *brick)
         ret = 0;
         goto out;
     }
-    strncpy(volinfo->volname, volname, strlen(volname));
+    (void)snprintf(volinfo->volname, sizeof(volinfo->volname), "%s", volname);
     get_brick_filepath(volfpath, volinfo, brickinfo, NULL);
 
     ret = ((strlen(volfpath) < PATH_MAX) &&
@@ -6149,7 +6149,7 @@ build_bitd_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     get_transport_type(volinfo, set_dict, transt, _gf_false);
     if (!strncmp(transt, "tcp,rdma", SLEN("tcp,rdma")))
-        strncpy(transt, "tcp", sizeof(transt));
+        (void)snprintf(transt, sizeof(transt), "%s", "tcp");
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
@@ -6308,7 +6308,7 @@ build_scrub_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     get_transport_type(volinfo, set_dict, transt, _gf_false);
     if (!strncmp(transt, "tcp,rdma", SLEN("tcp,rdma")))
-        strncpy(transt, "tcp", sizeof(transt));
+        (void)snprintf(transt, sizeof(transt), "%s", "tcp");
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {

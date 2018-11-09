@@ -389,8 +389,8 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     if (ret)
         goto out;
 
-    strncpy(new_brickinfo->brick_id, old_brickinfo->brick_id,
-            sizeof(new_brickinfo->brick_id));
+    (void)snprintf(new_brickinfo->brick_id, sizeof(new_brickinfo->brick_id),
+                   "%s", old_brickinfo->brick_id);
     new_brickinfo->port = old_brickinfo->port;
 
     /* A bricks mount dir is required only by snapshots which were
@@ -405,8 +405,8 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
                    "brick1.mount_dir not present");
             goto out;
         }
-        strncpy(new_brickinfo->mount_dir, brick_mount_dir,
-                sizeof(new_brickinfo->mount_dir));
+        (void)snprintf(new_brickinfo->mount_dir,
+                       sizeof(new_brickinfo->mount_dir), "%s", brick_mount_dir);
     }
 
     cds_list_add(&new_brickinfo->brick_list, &old_brickinfo->brick_list);

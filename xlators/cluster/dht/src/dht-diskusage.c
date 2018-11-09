@@ -260,7 +260,7 @@ dht_is_subvol_filled(xlator_t *this, xlator_t *subvol)
                    "full (%.2f %%), consider adding more bricks",
                    subvol->name, usage);
 
-            strncpy(vol_name, this->name, sizeof(vol_name));
+            (void)snprintf(vol_name, sizeof(vol_name), "%s", this->name);
             vol_name[(strlen(this->name) - 4)] = '\0';
 
             gf_event(EVENT_DHT_DISK_USAGE, "volume=%s;subvol=%s;usage=%.2f %%",
@@ -276,7 +276,7 @@ dht_is_subvol_filled(xlator_t *this, xlator_t *subvol)
                    "(%.2f %%), consider adding more bricks",
                    subvol->name, usage);
 
-            strncpy(vol_name, this->name, sizeof(vol_name));
+            (void)snprintf(vol_name, sizeof(vol_name), "%s", this->name);
             vol_name[(strlen(this->name) - 4)] = '\0';
 
             gf_event(EVENT_DHT_INODES_USAGE,

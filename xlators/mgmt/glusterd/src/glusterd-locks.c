@@ -791,7 +791,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         ret = -1;
         goto out;
     }
-    strncpy(key_dup, key, strlen(key));
+    (void)snprintf(key_dup, sizeof(key_dup), "%s", key);
 
     gf_msg_debug(this->name, 0, "Trying to release lock of %s %s for %s as %s",
                  type, name, uuid_utoa(uuid), key);

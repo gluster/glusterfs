@@ -116,8 +116,8 @@ call_bail(void *data)
     {
         trans = conn->trans;
         if (trans) {
-            strncpy(peerid, conn->trans->peerinfo.identifier,
-                    sizeof(peerid) - 1);
+            (void)snprintf(peerid, sizeof(peerid), "%s",
+                           conn->trans->peerinfo.identifier);
         }
     }
     pthread_mutex_unlock(&conn->lock);
