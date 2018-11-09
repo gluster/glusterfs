@@ -15,7 +15,7 @@ TEST pidof glusterd;
 TEST $CLI volume info;
 
 ## Lets create volume
-TEST $CLI volume create $V0 $H0:/${V0}{1,2};
+TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
@@ -36,17 +36,16 @@ TEST chmod 444 $M0
 TEST permission_root=`stat -c "%A" $M0`
 TEST echo $permission_root
 #Add-brick
-TEST $CLI volume add-brick $V0 $H0:/${V0}3
+TEST $CLI volume add-brick $V0 $H0:$B0/${V0}3
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "3" online_brick_count
 
 #Allow one lookup to happen
-TEST pushd $M0
-TEST ls
+TEST ls $M0
 #Generate another lookup
 echo 3 > /proc/sys/vm/drop_caches
-TEST ls
+TEST ls $M0
 #check root permission
 EXPECT_WITHIN "5" $permission_root get_permission $M0
 #check permission on the new-brick
-EXPECT $permission_root get_permission /${V0}3
+EXPECT $permission_root get_permission $B0/${V0}3
 cleanup
