@@ -59,7 +59,7 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_local_t * local = frame->local;
 
         AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
-                          local->fd, xdata);
+                          local->cont.open.fd, xdata);
         return 0;
 }
 
