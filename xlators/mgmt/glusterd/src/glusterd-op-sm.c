@@ -2568,6 +2568,7 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
     uint32_t op_version = 0;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_svc_t *svc = NULL;
+    gf_boolean_t svcs_reconfigure = _gf_false;
 
     conf = this->private;
     ret = dict_get_strn(dict, "key1", SLEN("key1"), &key);
@@ -2668,16 +2669,19 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
                     goto out;
                 }
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                    ret = glusterd_svcs_reconfigure();
-                    if (ret) {
-                        gf_msg(this->name, GF_LOG_ERROR, 0,
-                               GD_MSG_SVC_RESTART_FAIL,
-                               "Unable to restart "
-                               "services");
-                        goto out;
-                    }
+                    svcs_reconfigure = _gf_true;
                 }
             }
+            if (svcs_reconfigure) {
+                ret = glusterd_svcs_reconfigure();
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_RESTART_FAIL,
+                           "Unable to restart "
+                           "services");
+                    goto out;
+                }
+            }
+
             ret = glusterd_store_global_info(this);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERS_STORE_FAIL,
