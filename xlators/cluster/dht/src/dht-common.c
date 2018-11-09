@@ -1619,12 +1619,15 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (is_dir) {
             ret = dht_dir_has_layout(xattr, conf->xattr_name);
             if (ret >= 0) {
-                if (is_greater_time(local->stbuf.ia_ctime,
-                                    local->stbuf.ia_ctime_nsec, stbuf->ia_ctime,
-                                    stbuf->ia_ctime_nsec)) {
+                if (is_greater_time(local->prebuf.ia_ctime,
+                                    local->prebuf.ia_ctime_nsec,
+                                    stbuf->ia_ctime, stbuf->ia_ctime_nsec)) {
                     /* Choose source */
                     local->prebuf.ia_gid = stbuf->ia_gid;
                     local->prebuf.ia_uid = stbuf->ia_uid;
+
+                    local->prebuf.ia_ctime = stbuf->ia_ctime;
+                    local->prebuf.ia_ctime_nsec = stbuf->ia_ctime_nsec;
 
                     if (__is_root_gfid(stbuf->ia_gfid))
                         local->prebuf.ia_prot = stbuf->ia_prot;
@@ -1687,19 +1690,9 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             }
         }
 
-        /* Update stbuf from the servers where layout is present. This
-         * is an indication that the server is not a newly added brick.
-         * Merging stbuf from newly added brick may result in the added
-         * brick being the source of heal for uid/gid */
-        if (!is_dir ||
-            (is_dir && dht_dir_has_layout(xattr, conf->xattr_name) >= 0) ||
-            conf->subvolume_cnt == 1) {
-            dht_iatt_merge(this, &local->stbuf, stbuf);
-            dht_iatt_merge(this, &local->postparent, postparent);
-        } else {
-            /* copy the gfid anyway */
-            gf_uuid_copy(local->stbuf.ia_gfid, stbuf->ia_gfid);
-        }
+        gf_uuid_copy(local->stbuf.ia_gfid, stbuf->ia_gfid);
+        dht_iatt_merge(this, &local->stbuf, stbuf);
+        dht_iatt_merge(this, &local->postparent, postparent);
 
         local->op_ret = 0;
 
