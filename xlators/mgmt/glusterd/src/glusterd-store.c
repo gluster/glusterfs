@@ -2728,7 +2728,12 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                     ret = -1;
                     goto out;
                 }
-                strncpy(brickinfo->real_path, abspath, strlen(abspath));
+                if (strlen(abspath) >= sizeof(brickinfo->real_path)) {
+                    ret = -1;
+                    goto out;
+                }
+                (void)strncpy(brickinfo->real_path, abspath,
+                              sizeof(brickinfo->real_path));
             }
         }
 
@@ -3667,7 +3672,7 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
     struct stat st_buf = {
         0,
     };
-    char abspath[VALID_GLUSTERD_PATHMAX] = {0};
+    char abspath[PATH_MAX] = {0};
 
     GF_ASSERT(this);
     GF_ASSERT(volinfo);
@@ -3730,7 +3735,12 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
                     ret = -1;
                     goto out;
                 }
-                strncpy(brickinfo->real_path, abspath, strlen(abspath));
+                if (strlen(abspath) >= sizeof(brickinfo->real_path)) {
+                    ret = -1;
+                    goto out;
+                }
+                (void)strncpy(brickinfo->real_path, abspath,
+                              sizeof(brickinfo->real_path));
             }
         }
 

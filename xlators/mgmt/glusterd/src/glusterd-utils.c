@@ -1294,7 +1294,12 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
                 goto out;
             }
         }
-        strncpy(new_brickinfo->real_path, abspath, strlen(abspath));
+        if (strlen(abspath) >= sizeof(new_brickinfo->real_path)) {
+            ret = -1;
+            goto out;
+        }
+        (void)strncpy(new_brickinfo->real_path, abspath,
+                      sizeof(new_brickinfo->real_path));
     }
 
     *brickinfo = new_brickinfo;
@@ -1366,7 +1371,7 @@ glusterd_is_brickpath_available(uuid_t uuid, char *path)
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t available = _gf_false;
-    char tmp_path[PATH_MAX + 1] = "";
+    char tmp_path[PATH_MAX] = "";
 
     priv = THIS->private;
 
@@ -1385,7 +1390,7 @@ glusterd_is_brickpath_available(uuid_t uuid, char *path)
             goto out;
         }
         /* When realpath(3) fails, tmp_path is undefined. */
-        strncpy(tmp_path, path, PATH_MAX);
+        (void)snprintf(tmp_path, sizeof(tmp_path), "%s", path);
     }
 
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
@@ -3762,8 +3767,8 @@ glusterd_import_new_brick(dict_t *peer_data, int32_t vol_count,
     }
     new_brickinfo->decommissioned = decommissioned;
     if (brick_id)
-        gf_strncpy(new_brickinfo->brick_id, brick_id,
-                   sizeof(new_brickinfo->brick_id));
+        (void)snprintf(new_brickinfo->brick_id, sizeof(new_brickinfo->brick_id),
+                       "%s", brick_id);
 
     snprintf(key, sizeof(key), "%s%d.brick%d", prefix, vol_count, brick_count);
     ret = gd_import_new_brick_snap_details(peer_data, key, new_brickinfo);
@@ -4441,10 +4446,16 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
                     ret = -1;
                     goto out;
                 }
-                strncpy(new_brickinfo->real_path, abspath, strlen(abspath));
+                if (strlen(abspath) >= sizeof(new_brickinfo->real_path)) {
+                    ret = -1;
+                    goto out;
+                }
+                (void)strncpy(new_brickinfo->real_path, abspath,
+                              sizeof(new_brickinfo->real_path));
             } else {
-                strncpy(new_brickinfo->real_path, old_brickinfo->real_path,
-                        strlen(old_brickinfo->real_path));
+                (void)strncpy(new_brickinfo->real_path,
+                              old_brickinfo->real_path,
+                              sizeof(new_brickinfo->real_path));
             }
         }
     }
@@ -5283,7 +5294,7 @@ glusterd_remote_hostname_get(rpcsvc_request_t *req, char *remote_host, int len)
         tmp_host = hostname = canon;
     }
 
-    strncpy(remote_host, hostname, strlen(hostname));
+    (void)snprintf(remote_host, len, "%s", hostname);
 
 out:
     GF_FREE(tmp_host);
@@ -6472,7 +6483,6 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     char *slave_host = NULL;
     char *statefile = NULL;
     char buf[1024] = "faulty";
-    int uuid_len = 0;
     int ret = 0;
     int op_ret = 0;
     int ret_status = 0;
@@ -6498,9 +6508,8 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
         slave++;
     else
         return 0;
-    uuid_len = (slave - value->data - 1);
 
-    strncpy(uuid_str, (char *)value->data, uuid_len);
+    (void)snprintf(uuid_str, sizeof(uuid_str), "%s", (char *)value->data);
 
     /* Getting Local Brickpaths */
     ret = glusterd_get_local_brickpaths(volinfo, &path_list);
@@ -12883,6 +12892,9 @@ glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo)
         ret = -1;
         goto out;
     }
+    (void)snprintf(brickinfo->mnt_opts, sizeof(brickinfo->mnt_opts), "%s",
+                   entry->mnt_opts);
+
     gf_strncpy(brickinfo->mnt_opts, entry->mnt_opts,
                sizeof(brickinfo->mnt_opts));
 

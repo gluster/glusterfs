@@ -1106,19 +1106,14 @@ glusterd_init_uds_listener(xlator_t *this)
     dict_t *options = NULL;
     rpcsvc_t *rpc = NULL;
     data_t *sock_data = NULL;
-    char sockfile[UNIX_PATH_MAX + 1] = {
-        0,
-    };
+    char sockfile[UNIX_PATH_MAX] = {0};
     int i = 0;
 
     GF_ASSERT(this);
 
     sock_data = dict_get(this->options, "glusterd-sockfile");
-    if (!sock_data) {
-        strncpy(sockfile, DEFAULT_GLUSTERD_SOCKFILE, UNIX_PATH_MAX);
-    } else {
-        strncpy(sockfile, sock_data->data, UNIX_PATH_MAX);
-    }
+    (void)snprintf(sockfile, sizeof(sockfile), "%s",
+                   sock_data ? sock_data->data : DEFAULT_GLUSTERD_SOCKFILE);
 
     options = dict_new();
     if (!options)
@@ -1182,9 +1177,7 @@ glusterd_stop_uds_listener(xlator_t *this)
     rpcsvc_listener_t *listener = NULL;
     rpcsvc_listener_t *next = NULL;
     data_t *sock_data = NULL;
-    char sockfile[UNIX_PATH_MAX + 1] = {
-        0,
-    };
+    char sockfile[UNIX_PATH_MAX] = {0};
 
     GF_ASSERT(this);
     conf = this->private;
@@ -1200,11 +1193,8 @@ glusterd_stop_uds_listener(xlator_t *this)
     (void)rpcsvc_unregister_notify(conf->uds_rpc, glusterd_rpcsvc_notify, this);
 
     sock_data = dict_get(this->options, "glusterd-sockfile");
-    if (!sock_data) {
-        strncpy(sockfile, DEFAULT_GLUSTERD_SOCKFILE, UNIX_PATH_MAX);
-    } else {
-        strncpy(sockfile, sock_data->data, UNIX_PATH_MAX);
-    }
+    (void)snprintf(sockfile, sizeof(sockfile), "%s",
+                   sock_data ? sock_data->data : DEFAULT_GLUSTERD_SOCKFILE);
     sys_unlink(sockfile);
 
     return;
@@ -1833,8 +1823,20 @@ init(xlator_t *this)
     conf->rpc = rpc;
     conf->uds_rpc = uds_rpc;
     conf->gfs_mgmt = &gd_brick_prog;
-    (void)strncpy(conf->workdir, workdir, strlen(workdir) + 1);
-    (void)strncpy(conf->rundir, rundir, strlen(rundir) + 1);
+    this->private = conf;
+    /* conf->workdir and conf->rundir are smaller than PATH_MAX; gcc's
+     * snprintf checking will throw an error here if sprintf is used. */
+    if (strlen(workdir) >= sizeof(conf->workdir)) {
+        ret = -1;
+        goto out;
+    }
+    (void)strncpy(conf->workdir, workdir, sizeof(conf->workdir));
+    /* separate tests because combined tests confuses gcc */
+    if (strlen(rundir) >= sizeof(conf->rundir)) {
+        ret = -1;
+        goto out;
+    }
+    (void)strncpy(conf->rundir, rundir, sizeof(conf->rundir));
 
     synclock_init(&conf->big_lock, SYNC_LOCK_RECURSIVE);
     pthread_mutex_init(&conf->xprt_lock, NULL);
@@ -1887,7 +1889,6 @@ init(xlator_t *this)
     ret = dict_get_int32(this->options, "ping-timeout", &conf->ping_timeout);
     /* Not failing here since ping-timeout can be optional as well */
 
-    this->private = conf;
     glusterd_mgmt_v3_lock_init();
     glusterd_mgmt_v3_lock_timer_init();
     glusterd_txn_opinfo_dict_init();
