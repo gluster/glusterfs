@@ -11481,7 +11481,7 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
 
     rxl_end_len = strlen(rxl_end);
     int_len = strlen(key) - rxl_end_len;
-    strncpy(int_str, key, int_len);
+    (void)memcpy(int_str, key, int_len);
     int_str[int_len] = '\0';
 
     ret = gf_string2int(int_str, &rxl_id);
@@ -11489,7 +11489,7 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
         goto out;
 
     int_len = rxl_end_len - strlen(rxl_child_end) - 1;
-    strncpy(int_str, rxl_end + 1, int_len);
+    (void)memcpy(int_str, rxl_end + 1, int_len);
     int_str[int_len] = '\0';
 
     ret = gf_string2int(int_str, &rxl_child_id);
@@ -11553,19 +11553,19 @@ _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
     key_begin_strlen = strlen(key_begin_str);
     int_len = strlen(key) - key_begin_strlen;
 
-    strncpy(key_begin_string, key, int_len);
+    (void)memcpy(key_begin_string, key, int_len);
     key_begin_string[int_len] = '\0';
 
     rxl_end_len = strlen(rxl_end);
     int_len = key_begin_strlen - rxl_end_len - 1;
-    strncpy(int_str, key_begin_str + 1, int_len);
+    (void)memcpy(int_str, key_begin_str + 1, int_len);
     int_str[int_len] = '\0';
     ret = gf_string2int(int_str, &rxl_id);
     if (ret)
         goto out;
 
     int_len = rxl_end_len - strlen(rxl_child_end) - 1;
-    strncpy(int_str, rxl_end + 1, int_len);
+    (void)memcpy(int_str, rxl_end + 1, int_len);
     int_str[int_len] = '\0';
     ret = gf_string2int(int_str, &rxl_child_id);
     if (ret)

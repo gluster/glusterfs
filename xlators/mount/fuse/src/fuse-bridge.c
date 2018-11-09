@@ -3491,7 +3491,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         fde->dirent.off = entry->d_off;
         fde->dirent.type = entry->d_type;
         fde->dirent.namelen = strlen(entry->d_name);
-        strncpy(fde->dirent.name, entry->d_name, fde->dirent.namelen);
+        (void)memcpy(fde->dirent.name, entry->d_name, fde->dirent.namelen);
         size += FUSE_DIRENTPLUS_SIZE(fde);
 
         if (!entry->inode)
