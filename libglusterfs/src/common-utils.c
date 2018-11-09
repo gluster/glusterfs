@@ -3113,7 +3113,7 @@ gf_canonicalize_path(char *path)
 
     while (dir) {
         dir_path_len = strlen(dir);
-        strncpy((path + path_len + 1), dir, dir_path_len);
+        memcpy((path + path_len + 1), dir, dir_path_len);
         path_len += dir_path_len + 1;
         dir = strtok_r(NULL, "/", &tmpstr);
         if (dir) {

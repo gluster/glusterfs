@@ -534,7 +534,7 @@ gf_fuse_fill_dirent(gf_dirent_t *entry, struct fuse_dirent *fde,
     fde->off = entry->d_off;
     fde->type = entry->d_type;
     fde->namelen = strlen(entry->d_name);
-    strncpy(fde->name, entry->d_name, fde->namelen);
+    (void)memcpy(fde->name, entry->d_name, fde->namelen);
 }
 
 static int

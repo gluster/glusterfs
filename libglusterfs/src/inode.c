@@ -1385,7 +1385,7 @@ __inode_path(inode_t *inode, const char *name, char **bufp)
 
         if (name) {
             len = strlen(name);
-            strncpy(buf + (i - len), name, len);
+            memcpy(buf + (i - len), name, len);
             buf[i - len - 1] = '/';
             i -= (len + 1);
         }
@@ -1395,7 +1395,7 @@ __inode_path(inode_t *inode, const char *name, char **bufp)
              trav = __dentry_search_arbit(itrav)) {
             itrav = trav->parent;
             len = strlen(trav->name);
-            strncpy(buf + (i - len), trav->name, len);
+            memcpy(buf + (i - len), trav->name, len);
             buf[i - len - 1] = '/';
             i -= (len + 1);
         }
