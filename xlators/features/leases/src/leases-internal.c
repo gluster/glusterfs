@@ -658,6 +658,7 @@ __remove_lease(xlator_t *this, inode_t *inode, lease_inode_ctx_t *lease_ctx,
             remove_from_clnt_list(this, client_uid, lease_ctx->inode);
         }
         __destroy_lease_id_entry(lease_entry);
+        lease_ctx->blocked_fops_resuming = _gf_true;
     }
 
     if (lease_ctx->lease_cnt == 0 && lease_ctx->timer) {
@@ -687,6 +688,14 @@ __is_lease_grantable(xlator_t *this, lease_inode_ctx_t *lease_ctx,
     if (lease_ctx->recall_in_progress) {
         gf_msg_debug(this->name, 0,
                      "Recall in progress, hence "
+                     "failing the lease request");
+        grant = _gf_false;
+        goto out;
+    }
+
+    if (lease_ctx->blocked_fops_resuming) {
+        gf_msg_debug(this->name, 0,
+                     "Previously blocked fops resuming, hence "
                      "failing the lease request");
         grant = _gf_false;
         goto out;
@@ -776,6 +785,17 @@ do_blocked_fops(xlator_t *this, lease_inode_ctx_t *lease_ctx)
 
     pthread_mutex_lock(&lease_ctx->lock);
     {
+        if (!lease_ctx->blocked_fops_resuming) {
+            /* lease_ctx->blocked_fops_resuming will be set
+             * only when the last lease is released. That
+             * is when we need to resume blocked fops and unref
+             * the inode taken in __add_lease (when lease_cnt == 1).
+             * Return otherwise.
+             */
+            pthread_mutex_unlock(&lease_ctx->lock);
+            return;
+        }
+
         list_for_each_entry_safe(blk_fop, tmp, &lease_ctx->blocked_list, list)
         {
             list_del_init(&blk_fop->list);
@@ -797,6 +817,9 @@ do_blocked_fops(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     pthread_mutex_lock(&lease_ctx->lock);
     {
         lease_ctx->lease_type = NONE;
+        /* unref the inode taken in __add_lease
+         * (when lease_cnt == 1) */
+        lease_ctx->blocked_fops_resuming = _gf_false;
         inode_unref(lease_ctx->inode);
         lease_ctx->inode = NULL;
     }
@@ -829,6 +852,8 @@ recall_lease_timer_handler(struct gf_tw_timer_list *timer, void *data,
         pthread_cond_broadcast(&priv->cond);
     }
 out:
+    /* unref the inode_ref taken by timer_data in __recall_lease */
+    inode_unref(timer_data->inode);
     pthread_mutex_unlock(&priv->mutex);
 
     GF_FREE(timer);
@@ -1166,6 +1191,7 @@ remove_clnt_leases(const char *client_uid, inode_t *inode, xlator_t *this)
                 lease_ctx->lease_cnt -= lease_entry->lease_cnt;
                 __destroy_lease_id_entry(lease_entry);
                 if (lease_ctx->lease_cnt == 0) {
+                    lease_ctx->blocked_fops_resuming = _gf_true;
                     pthread_mutex_unlock(&lease_ctx->lock);
                     goto unblock;
                 }
@@ -1212,9 +1238,9 @@ cleanup_client_leases(xlator_t *this, const char *client_uid)
                     list_del_init(&l_inode->list);
                     list_add_tail(&l_inode->list, &cleanup_list);
                 }
+                __destroy_lease_client(clnt);
                 break;
             }
-            __destroy_lease_client(clnt);
         }
     }
     pthread_mutex_unlock(&priv->mutex);
@@ -1223,6 +1249,7 @@ cleanup_client_leases(xlator_t *this, const char *client_uid)
     list_for_each_entry_safe(l_inode, tmp1, &cleanup_list, list)
     {
         remove_clnt_leases(client_uid, l_inode->inode, this);
+        __destroy_lease_inode(l_inode);
     }
 out:
     return ret;
@@ -1235,6 +1262,10 @@ __remove_all_leases(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     lease_id_entry_t *lease_entry = NULL;
     lease_id_entry_t *tmp = NULL;
 
+    if (lease_ctx->lease_cnt == 0) {
+        /* No leases to remove. Return */
+        return;
+    }
     __dump_leases_info(this, lease_ctx);
 
     list_for_each_entry_safe(lease_entry, tmp, &lease_ctx->lease_id_list,
@@ -1250,8 +1281,8 @@ __remove_all_leases(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     lease_ctx->lease_type = 0;
     lease_ctx->lease_cnt = 0;
     lease_ctx->recall_in_progress = _gf_false;
-    inode_unref(lease_ctx->inode);
     lease_ctx->timer = NULL;
+    lease_ctx->blocked_fops_resuming = _gf_true;
 
     /* TODO:
      * - Mark the corresponding fd bad. Could be done on client side
@@ -1342,7 +1373,9 @@ expired_recall_cleanup(void *data)
                          " hence cleaning up leases on the inode",
                          recall_entry->inode);
             remove_all_leases(this, recall_entry->inode);
-            list_del_init(&recall_entry->list);
+            /* no need to take priv->mutex lock as this entry
+             * reference is removed from global recall list. */
+            __destroy_lease_inode(recall_entry);
         }
     }
 
