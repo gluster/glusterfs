@@ -185,6 +185,7 @@ struct _lease_inode_ctx {
     uint64_t lease_cnt;              /* Total number of leases on this inode */
     uint64_t openfd_cnt;             /* number of fds open */
     gf_boolean_t recall_in_progress; /* if lease recall is sent on this inode */
+    gf_boolean_t blocked_fops_resuming; /* if blocked fops are being resumed */
     struct list_head blocked_list;   /* List of fops blocked until the
                                         lease recall is complete */
     inode_t *inode;                  /* this represents the inode on which the
