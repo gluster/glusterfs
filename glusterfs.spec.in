@@ -1341,7 +1341,9 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage
+%if ( 0%{!?_without_bd:1} )
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/bd.so
+%endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/posix.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
@@ -1454,6 +1456,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Nov 12 2018 Kaleb S. KEITHLEY <kkeithley@redhat.com>
+- disabled bd xlator (#1648982)
+
 * Sun Jul 29 2018 Niels de Vos <ndevos@redhat.com>
 - Disable building glusterfs-resource-agents on el6 (#1609551)
 
