@@ -2709,6 +2709,13 @@ posix_links_in_same_directory(char *dirpath, int count, inode_t *leaf_inode,
                            entry->d_name);
 
             gf_entry = gf_dirent_for_name(entry->d_name);
+            if (!gf_entry) {
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, 0, "gf_entry is NULL");
+                op_ret = -1;
+                *op_errno = ENOMEM;
+                inode_unref(loc.inode);
+                goto out;
+            }
             gf_entry->inode = inode_ref(leaf_inode);
             gf_entry->dict = posix_xattr_fill(this, temppath, &loc, NULL, -1,
                                               xdata, NULL);
