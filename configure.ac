@@ -299,6 +299,19 @@ else
         BUILD_ASAN=no
 fi
 
+AC_ARG_ENABLE([atan],
+              AC_HELP_STRING([--enable-tsan],
+                             [Enable ThreadSanitizer support]))
+if test "x$enable_tsan" = "xyes"; then
+        BUILD_TSAN=yes
+        AC_CHECK_LIB([tsan], [__tsan_init], ,
+                [AC_MSG_ERROR([libtsan.so not found, this is required for --enable-tsan])])
+        GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread"
+        GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
+else
+        BUILD_TSAN=no
+fi
+
 
 dnl When possible, prefer libtirpc over glibc rpc.
 dnl
@@ -1597,6 +1610,7 @@ echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Enable ASAN          : $BUILD_ASAN"
+echo "Enable TSAN          : $BUILD_TSAN"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
