@@ -266,6 +266,12 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
     struct posix_private *priv = NULL;
     fd_t *fd = NULL;
 
+    if (!paiocb) {
+        op_ret = -1;
+        op_errno = EINVAL;
+        goto out;
+    }
+
     frame = paiocb->frame;
     this = frame->this;
     priv = this->private;
