@@ -2489,7 +2489,7 @@ out:
     ret = glusterd_mgmt_v3_post_validate(op, op_ret, dict, req_dict, &op_errstr,
                                          txn_generation);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PRE_VALIDATION_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_VALIDATION_FAIL,
                "Post Validation Failed");
         op_ret = -1;
     }
