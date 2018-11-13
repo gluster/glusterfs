@@ -112,6 +112,15 @@
 %global _without_syslog --disable-syslog
 %endif
 
+# tsan
+# if you wish to compile an rpm with thread sanitizer...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with tsan
+%{?_with_tsan:%global _with_tsan --enable-tsan}
+
+%if ( 0%{?rhel} && 0%{?rhel} < 7 )
+%global _with_tsan %{nil}
+%endif
+
 # valgrind
 # if you wish to compile an rpm to run all processes under valgrind...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with valgrind
@@ -246,6 +255,9 @@ Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 %endif
 %if 0%{?_with_asan:1} && !( 0%{?rhel} && 0%{?rhel} < 7 )
 BuildRequires:    libasan
+%endif
+%if 0%{?_with_tsan:1} && !( 0%{?rhel} && 0%{?rhel} < 7 )
+BuildRequires:    libtsan
 %endif
 BuildRequires:    bison flex
 BuildRequires:    gcc make libtool
@@ -684,6 +696,7 @@ done
         %{?_with_firewalld} \
         %{?_with_gnfs} \
         %{?_with_tmpfilesdir} \
+        %{?_with_tsan} \
         %{?_with_valgrind} \
         %{?_without_epoll} \
         %{?_without_events} \
@@ -1373,6 +1386,9 @@ exit 0
 %endif
 
 %changelog
+* Tue Nov 13 2018 Niels de Vos <ndevos@redhat.com>
+- Add an option to build with ThreadSanitizer (TSAN)
+
 * Fri Sep 7 2018 Niels de Vos <ndevos@redhat.com>
 - Add an option to build with address sanitizer (ASAN)
 
