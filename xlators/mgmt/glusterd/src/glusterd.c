@@ -2152,13 +2152,17 @@ struct volume_options options[] = {
     {.key = {"server-quorum-type"},
      .type = GF_OPTION_TYPE_STR,
      .value = {"none", "server"},
-     .description = "This feature is on the server-side i.e. in glusterd."
-                    " Whenever the glusterd on a machine observes that "
+     .default_value = "none",
+     .description = "It can be set to none or server. When set to server, "
+                    "this option enables the specified volume to "
+                    "participate in the server-side quorum. "
+                    "This feature is on the server-side i.e. in glusterd. "
+                    "Whenever the glusterd on a machine observes that "
                     "the quorum is not met, it brings down the bricks to "
                     "prevent data split-brains. When the network "
                     "connections are brought back up and the quorum is "
-                    "restored the bricks in the volume are brought back "
-                    "up."},
+                    "restored the bricks in   "
+                    "the volume are brought back up."},
     {.key = {"server-quorum-ratio"},
      .type = GF_OPTION_TYPE_PERCENT,
      .description = "Sets the quorum percentage for the trusted "
