@@ -433,18 +433,20 @@ cont:
 
     xlator = get_xlator_by_name(any, xlator_req.name);
     if (!xlator) {
+        ret = -1;
         snprintf(msg, sizeof(msg), "xlator %s is not loaded", xlator_req.name);
         goto out;
     }
 
-    /*
-     * Searching by name will only get us to the decompounder translator,
-     * but we really want io-stats.  Since we know the exact relationship
-     * between these two, it's easy to get from one to the other.
-     *
-     * TBD: should this even be notify, or something else?
-     */
-    xlator = FIRST_CHILD(xlator);
+    if (strcmp(xlator->type, "debug/io-stats")) {
+        xlator = get_xlator_by_type(xlator, "debug/io-stats");
+        if (!xlator) {
+            ret = -1;
+            snprintf(msg, sizeof(msg),
+                     "xlator-type debug/io-stats is not loaded");
+            goto out;
+        }
+    }
 
     output = dict_new();
     ret = xlator->notify(xlator, GF_EVENT_TRANSLATOR_INFO, dict, output);
