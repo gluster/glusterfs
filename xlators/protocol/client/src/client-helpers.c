@@ -2889,7 +2889,11 @@ client_process_response_v2(call_frame_t *frame, xlator_t *this,
             gfx_common_dict_rsp *tmp_rsp = NULL;
             tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_getxattr_rsp;
 
-            client_post_common_dict(this, tmp_rsp, &xattr, &xdata);
+            ret = client_post_common_dict(this, tmp_rsp, &xattr, &xdata);
+            if (ret) {
+                tmp_rsp->op_errno = -ret;
+                goto out;
+            }
 
             CLIENT4_POST_FOP_TYPE(getxattr, common_dict, this_rsp,
                                   this_args_cbk, xattr, xdata);
@@ -3004,6 +3008,7 @@ client_process_response_v2(call_frame_t *frame, xlator_t *this,
             return -ENOTSUP;
     }
 
+out:
     if (xdata)
         dict_unref(xdata);
     if (xattr)
