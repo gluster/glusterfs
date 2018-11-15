@@ -1557,7 +1557,7 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
     cli_local_t *local = NULL;
     call_frame_t *frame = NULL;
     dict_t *xdata = NULL;
-    char *gfid_str = NULL;
+    char gfid_str[UUID_CANONICAL_FORM_LEN + 1];
     char *volname = NULL;
     char *volname_dup = NULL;
     unsigned char buf[16] = {0};
@@ -1660,12 +1660,6 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
 
     CLI_LOCAL_INIT(local, words, frame, xdata);
     proc = &cli_quotad_clnt.proctable[GF_AGGREGATOR_GETLIMIT];
-
-    gfid_str = GF_CALLOC(1, gf_common_mt_char, 64);
-    if (!gfid_str) {
-        ret = -1;
-        goto out;
-    }
 
     for (count = 0;; count++) {
         ret = quota_conf_read_gfid(fd, buf, &gfid_type, version);
@@ -1772,7 +1766,6 @@ out:
         sys_close(fd);
     }
 
-    GF_FREE(gfid_str);
     if (ret) {
         gf_log("cli", GF_LOG_ERROR,
                "Could not fetch and display quota"
