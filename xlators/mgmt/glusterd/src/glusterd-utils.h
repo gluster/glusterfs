@@ -181,7 +181,8 @@ int32_t
 glusterd_resolve_brick(glusterd_brickinfo_t *brickinfo);
 
 int
-glusterd_brick_process_add_brick(glusterd_brickinfo_t *brickinfo);
+glusterd_brick_process_add_brick(glusterd_brickinfo_t *brickinfo,
+                                 glusterd_brickinfo_t *parent_brickinfo);
 
 int
 glusterd_brick_process_remove_brick(glusterd_brickinfo_t *brickinfo,
