@@ -2943,15 +2943,15 @@ pl_metalk(call_frame_t *frame, xlator_t *this, inode_t *inode)
     pthread_mutex_lock(&pl_inode->mutex);
     {
         if (pl_metalock_is_active(pl_inode)) {
-            gf_msg(this->name, GF_LOG_WARNING, EINVAL, 0,
-                   "More than one meta-lock can not be granted on"
-                   "the inode");
             ret = -1;
         }
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
     if (ret == -1) {
+        gf_msg(this->name, GF_LOG_WARNING, EINVAL, 0,
+               "More than one meta-lock cannot be granted on"
+               " the inode");
         goto out;
     }
 
