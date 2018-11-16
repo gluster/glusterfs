@@ -25,7 +25,7 @@ ra_page_get(ra_file_t *file, off_t offset)
     GF_VALIDATE_OR_GOTO("read-ahead", file, out);
 
     page = file->pages.next;
-    rounded_offset = floor(offset, file->page_size);
+    rounded_offset = gf_floor(offset, file->page_size);
 
     while (page != &file->pages && page->offset < rounded_offset)
         page = page->next;
@@ -47,7 +47,7 @@ ra_page_create(ra_file_t *file, off_t offset)
     GF_VALIDATE_OR_GOTO("read-ahead", file, out);
 
     page = file->pages.next;
-    rounded_offset = floor(offset, file->page_size);
+    rounded_offset = gf_floor(offset, file->page_size);
 
     while (page != &file->pages && page->offset < rounded_offset)
         page = page->next;
