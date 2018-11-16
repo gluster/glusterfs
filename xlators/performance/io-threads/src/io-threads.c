@@ -275,7 +275,7 @@ iot_get_pri_meaning(gf_fop_pri_t pri)
             name = "slow";
             break;
         case GF_FOP_PRI_LEAST:
-            name = "least priority";
+            name = "least";
             break;
         case GF_FOP_PRI_MAX:
             name = "invalid";
@@ -370,7 +370,7 @@ iot_schedule(call_frame_t *frame, xlator_t *this, call_stub_t *stub)
             return -EINVAL;
     }
 out:
-    gf_msg_debug(this->name, 0, "%s scheduled as %s fop",
+    gf_msg_debug(this->name, 0, "%s scheduled as %s priority fop",
                  gf_fop_list[stub->fop], iot_get_pri_meaning(pri));
     if (this->private)
         ret = do_iot_schedule(this->private, stub, pri);
@@ -927,6 +927,8 @@ iot_priv_dump(xlator_t *this)
 {
     iot_conf_t *conf = NULL;
     char key_prefix[GF_DUMP_MAX_BUF_LEN];
+    char key[GF_DUMP_MAX_BUF_LEN];
+    int i = 0;
 
     if (!this)
         return 0;
@@ -944,14 +946,29 @@ iot_priv_dump(xlator_t *this)
     gf_proc_dump_write("sleep_count", "%d", conf->sleep_count);
     gf_proc_dump_write("idle_time", "%d", conf->idle_time);
     gf_proc_dump_write("stack_size", "%zd", conf->stack_size);
-    gf_proc_dump_write("high_priority_threads", "%d",
+    gf_proc_dump_write("max_high_priority_threads", "%d",
                        conf->ac_iot_limit[GF_FOP_PRI_HI]);
-    gf_proc_dump_write("normal_priority_threads", "%d",
+    gf_proc_dump_write("max_normal_priority_threads", "%d",
                        conf->ac_iot_limit[GF_FOP_PRI_NORMAL]);
-    gf_proc_dump_write("low_priority_threads", "%d",
+    gf_proc_dump_write("max_low_priority_threads", "%d",
                        conf->ac_iot_limit[GF_FOP_PRI_LO]);
-    gf_proc_dump_write("least_priority_threads", "%d",
+    gf_proc_dump_write("max_least_priority_threads", "%d",
                        conf->ac_iot_limit[GF_FOP_PRI_LEAST]);
+    gf_proc_dump_write("current_high_priority_threads", "%d",
+                       conf->ac_iot_count[GF_FOP_PRI_HI]);
+    gf_proc_dump_write("current_normal_priority_threads", "%d",
+                       conf->ac_iot_count[GF_FOP_PRI_NORMAL]);
+    gf_proc_dump_write("current_low_priority_threads", "%d",
+                       conf->ac_iot_count[GF_FOP_PRI_LO]);
+    gf_proc_dump_write("current_least_priority_threads", "%d",
+                       conf->ac_iot_count[GF_FOP_PRI_LEAST]);
+    for (i = 0; i < GF_FOP_PRI_MAX; i++) {
+        if (!conf->queue_sizes[i])
+            continue;
+        snprintf(key, sizeof(key), "%s_priority_queue_length",
+                 iot_get_pri_meaning(i));
+        gf_proc_dump_write(key, "%d", conf->queue_sizes[i]);
+    }
 
     return 0;
 }
