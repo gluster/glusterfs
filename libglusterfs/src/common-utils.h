@@ -645,19 +645,31 @@ iov_copy(const struct iovec *dst, int dcnt, const struct iovec *src, int scnt)
     return ret;
 }
 
+/* based on the amusing discussion @ https://rusty.ozlabs.org/?p=560 */
+static bool
+memeqzero(const void *data, size_t length)
+{
+    const unsigned char *p = data;
+    size_t len;
+
+    /* Check first 16 bytes manually */
+    for (len = 0; len < 16; len++) {
+        if (!length)
+            return true;
+        if (*p)
+            return false;
+        p++;
+        length--;
+    }
+
+    /* Now we know that's zero, memcmp with self. */
+    return memcmp(data, p, length) == 0;
+}
+
 static inline int
 mem_0filled(const char *buf, size_t size)
 {
-    int i = 0;
-    int ret = 0;
-
-    for (i = 0; i < size; i++) {
-        ret = buf[i];
-        if (ret)
-            break;
-    }
-
-    return ret;
+    return !memeqzero(buf, size);
 }
 
 static inline int
