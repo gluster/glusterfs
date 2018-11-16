@@ -2583,11 +2583,14 @@ out:
     if (fp)
         fclose(fp);
 
-    if (ret && !ctx->active) {
-        glusterfs_graph_destroy(graph);
+    if (ret) {
+        if (graph && (ctx && (ctx->active != graph)))
+            glusterfs_graph_destroy(graph);
         /* there is some error in setting up the first graph itself */
-        emancipate(ctx, ret);
-        cleanup_and_exit(ret);
+        if (!ctx->active) {
+            emancipate(ctx, ret);
+            cleanup_and_exit(ret);
+        }
     }
 
     return ret;
