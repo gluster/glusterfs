@@ -299,10 +299,6 @@ changelog_rpc_server_init(xlator_t *this, char *sockfile, void *cbkdata,
     if (!cbkdata)
         cbkdata = this;
 
-    options = dict_new();
-    if (!options)
-        goto error_return;
-
     ret = rpcsvc_transport_unix_options_build(&options, sockfile);
     if (ret)
         goto dealloc_dict;
@@ -350,6 +346,5 @@ dealloc_rpc:
     GF_FREE(rpc);
 dealloc_dict:
     dict_unref(options);
-error_return:
     return NULL;
 }
