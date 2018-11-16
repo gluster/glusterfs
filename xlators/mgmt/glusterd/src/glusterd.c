@@ -1825,17 +1825,22 @@ init(xlator_t *this)
     conf->gfs_mgmt = &gd_brick_prog;
     this->private = conf;
     /* conf->workdir and conf->rundir are smaller than PATH_MAX; gcc's
-     * snprintf checking will throw an error here if sprintf is used. */
+     * snprintf checking will throw an error here if sprintf is used.
+     * Dueling gcc-8 and coverity, now coverity isn't smart enough to
+     * detect that these strncpy calls are safe. And for extra fun,
+     * the annotations don't do anything. */
     if (strlen(workdir) >= sizeof(conf->workdir)) {
         ret = -1;
         goto out;
     }
+    /* coverity[BUFFER_SIZE_WARNING] */
     (void)strncpy(conf->workdir, workdir, sizeof(conf->workdir));
     /* separate tests because combined tests confuses gcc */
     if (strlen(rundir) >= sizeof(conf->rundir)) {
         ret = -1;
         goto out;
     }
+    /* coverity[BUFFER_SIZE_WARNING] */
     (void)strncpy(conf->rundir, rundir, sizeof(conf->rundir));
 
     synclock_init(&conf->big_lock, SYNC_LOCK_RECURSIVE);
