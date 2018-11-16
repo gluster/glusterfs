@@ -61,8 +61,8 @@ trap(void);
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
-#define roof(a, b) ((((a) + (b)-1) / ((b != 0) ? (b) : 1)) * (b))
-#define floor(a, b) (((a) / ((b != 0) ? (b) : 1)) * (b))
+#define gf_roof(a, b) ((((a) + (b)-1) / ((b != 0) ? (b) : 1)) * (b))
+#define gf_floor(a, b) (((a) / ((b != 0) ? (b) : 1)) * (b))
 
 #define IPv4_ADDR_SIZE 32
 

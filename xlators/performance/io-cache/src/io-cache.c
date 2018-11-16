@@ -926,8 +926,8 @@ ioc_dispatch_requests(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
     local = frame->local;
     table = ioc_inode->table;
 
-    rounded_offset = floor(offset, table->page_size);
-    rounded_end = roof(offset + size, table->page_size);
+    rounded_offset = gf_floor(offset, table->page_size);
+    rounded_end = gf_roof(offset + size, table->page_size);
     trav_offset = rounded_offset;
 
     /* once a frame does read, it should be waiting on something */

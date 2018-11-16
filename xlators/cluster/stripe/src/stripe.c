@@ -678,11 +678,11 @@ stripe_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
              * to the size of the previous stripe.
              */
             if (i < eof_idx)
-                tmp_offset = roof(offset,
-                                  fctx->stripe_size * fctx->stripe_count);
+                tmp_offset = gf_roof(offset,
+                                     fctx->stripe_size * fctx->stripe_count);
             else if (i > eof_idx)
-                tmp_offset = floor(offset,
-                                   fctx->stripe_size * fctx->stripe_count);
+                tmp_offset = gf_floor(offset,
+                                      fctx->stripe_size * fctx->stripe_count);
             else
                 tmp_offset = offset;
 
@@ -2966,11 +2966,11 @@ stripe_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         if (fctx->stripe_coalesce) {
             if (i < eof_idx)
-                tmp_offset = roof(offset,
-                                  fctx->stripe_size * fctx->stripe_count);
+                tmp_offset = gf_roof(offset,
+                                     fctx->stripe_size * fctx->stripe_count);
             else if (i > eof_idx)
-                tmp_offset = floor(offset,
-                                   fctx->stripe_size * fctx->stripe_count);
+                tmp_offset = gf_floor(offset,
+                                      fctx->stripe_size * fctx->stripe_count);
             else
                 tmp_offset = offset;
 
@@ -3365,8 +3365,8 @@ stripe_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
      * the file is in which child node. Always '0-<stripe_size>' part of
      * the file resides in the first child.
      */
-    rounded_start = floor(offset, stripe_size);
-    rounded_end = roof(offset + size, stripe_size);
+    rounded_start = gf_floor(offset, stripe_size);
+    rounded_end = gf_roof(offset + size, stripe_size);
     num_stripe = (rounded_end - rounded_start) / stripe_size;
 
     local = mem_get0(this->local_pool);
@@ -3399,7 +3399,8 @@ stripe_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             goto err;
         }
 
-        frame_size = min(roof(frame_offset + 1, stripe_size), (offset + size)) -
+        frame_size = min(gf_roof(frame_offset + 1, stripe_size),
+                         (offset + size)) -
                      frame_offset;
 
         rlocal->node_index = index - off_index;
@@ -3581,8 +3582,8 @@ stripe_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
         goto err;
     }
 
-    rounded_start = floor(offset, stripe_size);
-    rounded_end = roof(offset + total_size, stripe_size);
+    rounded_start = gf_floor(offset, stripe_size);
+    rounded_end = gf_roof(offset + total_size, stripe_size);
     total_chunks = (rounded_end - rounded_start) / stripe_size;
     local->replies = GF_CALLOC(total_chunks, sizeof(struct stripe_replies),
                                gf_stripe_mt_stripe_replies);

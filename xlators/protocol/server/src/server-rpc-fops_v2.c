@@ -3988,7 +3988,7 @@ server4_0_writev_vecsizer(int state, ssize_t *readsize, char *base_addr,
 
             /* need to round off to proper roof (%4), as XDR packing pads
                the end of opaque object with '0' */
-            size = roof(write_req.xdata.xdr_size, 4);
+            size = gf_roof(write_req.xdata.xdr_size, 4);
 
             *readsize = size;
 

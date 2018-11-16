@@ -42,7 +42,7 @@ __ioc_page_get(ioc_inode_t *ioc_inode, off_t offset)
     table = ioc_inode->table;
     GF_VALIDATE_OR_GOTO("io-cache", ioc_inode, out);
 
-    rounded_offset = floor(offset, table->page_size);
+    rounded_offset = gf_floor(offset, table->page_size);
 
     page = rbthash_get(ioc_inode->cache.page_table, &rounded_offset,
                        sizeof(rounded_offset));
@@ -253,7 +253,7 @@ __ioc_page_create(ioc_inode_t *ioc_inode, off_t offset)
     table = ioc_inode->table;
     GF_VALIDATE_OR_GOTO("io-cache", table, out);
 
-    rounded_offset = floor(offset, table->page_size);
+    rounded_offset = gf_floor(offset, table->page_size);
 
     newpage = GF_CALLOC(1, sizeof(*newpage), gf_ioc_mt_ioc_newpage_t);
     if (newpage == NULL) {

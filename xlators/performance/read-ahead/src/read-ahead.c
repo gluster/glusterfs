@@ -268,7 +268,7 @@ read_ahead(call_frame_t *frame, ra_file_t *file)
     }
 
     ra_size = file->page_size * file->page_count;
-    ra_offset = floor(file->offset, file->page_size);
+    ra_offset = gf_floor(file->offset, file->page_size);
     cap = file->size ? file->size : file->offset + ra_size;
 
     while (ra_offset < min(file->offset + ra_size, cap)) {
@@ -354,8 +354,8 @@ dispatch_requests(call_frame_t *frame, ra_file_t *file)
     local = frame->local;
     conf = file->conf;
 
-    rounded_offset = floor(local->offset, file->page_size);
-    rounded_end = roof(local->offset + local->size, file->page_size);
+    rounded_offset = gf_floor(local->offset, file->page_size);
+    rounded_end = gf_roof(local->offset + local->size, file->page_size);
 
     trav_offset = rounded_offset;
 
@@ -509,7 +509,7 @@ ra_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     dispatch_requests(frame, file);
 
-    flush_region(frame, file, 0, floor(offset, file->page_size), 0);
+    flush_region(frame, file, 0, gf_floor(offset, file->page_size), 0);
 
     read_ahead(frame, file);
 
