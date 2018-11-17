@@ -12,7 +12,10 @@
 
 import sys
 import os
-
+import stat
+import struct
+from syncdutils import umask
+from ctypes import create_string_buffer
 
 if sys.version_info >= (3,):
     def pipe():
@@ -35,6 +38,77 @@ if sys.version_info >= (3,):
     def str_to_bytearray(string):
         return bytes([ord(c) for c in string])
 
+    def gr_create_string_buffer(size):
+        return create_string_buffer(b'\0', size)
+
+    def gr_query_xattr(cls, path, size, syscall, attr=None):
+        if attr:
+            return cls._query_xattr(path.encode(), size, syscall,
+                                    attr.encode())
+        else:
+            return cls._query_xattr(path.encode(), size, syscall)
+
+    def gr_lsetxattr(cls, path, attr, val):
+        return cls.libc.lsetxattr(path.encode(), attr.encode(), val,
+                                  len(val), 0)
+
+    def gr_lremovexattr(cls, path, attr):
+        return cls.libc.lremovexattr(path.encode(), attr.encode())
+
+    def gr_cl_register(cls, brick, path, log_file, log_level, retries):
+        return cls._get_api('gf_changelog_register')(brick.encode(),
+                                                     path.encode(),
+                                                     log_file.encode(),
+                                                     log_level, retries)
+
+    def gr_cl_done(cls, clfile):
+        return cls._get_api('gf_changelog_done')(clfile.encode())
+
+    def gr_cl_history_changelog(cls, changelog_path, start, end, num_parallel,
+                                actual_end):
+        return cls._get_api('gf_history_changelog')(changelog_path.encode(),
+                                                    start, end, num_parallel,
+                                                    actual_end)
+
+    def gr_cl_history_done(cls, clfile):
+        return cls._get_api('gf_history_changelog_done')(clfile.encode())
+
+    # regular file
+
+    def entry_pack_reg(cls, gf, bn, mo, uid, gid):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        return struct.pack(cls._fmt_mknod(blen),
+                           uid, gid, gf.encode(), mo, bn_encoded,
+                           stat.S_IMODE(mo), 0, umask())
+
+    def entry_pack_reg_stat(cls, gf, bn, st):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        mo = st['mode']
+        return struct.pack(cls._fmt_mknod(blen),
+                           st['uid'], st['gid'],
+                           gf.encode(), mo, bn_encoded,
+                           stat.S_IMODE(mo), 0, umask())
+    # mkdir
+
+    def entry_pack_mkdir(cls, gf, bn, mo, uid, gid):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        return struct.pack(cls._fmt_mkdir(blen),
+                           uid, gid, gf.encode(), mo, bn_encoded,
+                           stat.S_IMODE(mo), umask())
+    # symlink
+
+    def entry_pack_symlink(cls, gf, bn, lnk, st):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        lnk_encoded = lnk.encode()
+        llen = len(lnk_encoded)
+        return struct.pack(cls._fmt_symlink(blen, llen),
+                           st['uid'], st['gid'],
+                           gf.encode(), st['mode'], bn_encoded,
+                           lnk_encoded)
 else:
     def pipe():
         (r, w) = os.pipe()
@@ -42,8 +116,69 @@ else:
 
     # Raw conversion of bytearray to string
     def bytearray_to_str(byte_arr):
-        return ''.join([b for b in byte_arr])
+        return byte_arr
 
     # Raw conversion of string to bytearray
     def str_to_bytearray(string):
-        return b"".join([c for c in string])
+        return string
+
+    def gr_create_string_buffer(size):
+        return create_string_buffer('\0', size)
+
+    def gr_query_xattr(cls, path, size, syscall, attr=None):
+        if attr:
+            return cls._query_xattr(path, size, syscall, attr)
+        else:
+            return cls._query_xattr(path, size, syscall)
+
+    def gr_lsetxattr(cls, path, attr, val):
+        return cls.libc.lsetxattr(path, attr, val, len(val), 0)
+
+    def gr_lremovexattr(cls, path, attr):
+        return cls.libc.lremovexattr(path, attr)
+
+    def gr_cl_register(cls, brick, path, log_file, log_level, retries):
+        return cls._get_api('gf_changelog_register')(brick, path, log_file,
+                                                     log_level, retries)
+
+    def gr_cl_done(cls, clfile):
+        return cls._get_api('gf_changelog_done')(clfile)
+
+    def gr_cl_history_changelog(cls, changelog_path, start, end, num_parallel,
+                                actual_end):
+        return cls._get_api('gf_history_changelog')(changelog_path, start, end,
+                                                    num_parallel, actual_end)
+
+    def gr_cl_history_done(cls, clfile):
+        return cls._get_api('gf_history_changelog_done')(clfile)
+
+    # regular file
+
+    def entry_pack_reg(cls, gf, bn, mo, uid, gid):
+        blen = len(bn)
+        return struct.pack(cls._fmt_mknod(blen),
+                           uid, gid, gf, mo, bn,
+                           stat.S_IMODE(mo), 0, umask())
+
+    def entry_pack_reg_stat(cls, gf, bn, st):
+        blen = len(bn)
+        mo = st['mode']
+        return struct.pack(cls._fmt_mknod(blen),
+                           st['uid'], st['gid'],
+                           gf, mo, bn,
+                           stat.S_IMODE(mo), 0, umask())
+    # mkdir
+
+    def entry_pack_mkdir(cls, gf, bn, mo, uid, gid):
+        blen = len(bn)
+        return struct.pack(cls._fmt_mkdir(blen),
+                           uid, gid, gf, mo, bn,
+                           stat.S_IMODE(mo), umask())
+    # symlink
+
+    def entry_pack_symlink(cls, gf, bn, lnk, st):
+        blen = len(bn)
+        llen = len(lnk)
+        return struct.pack(cls._fmt_symlink(blen, llen),
+                           st['uid'], st['gid'],
+                           gf, st['mode'], bn, lnk)
