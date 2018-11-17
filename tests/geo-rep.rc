@@ -40,34 +40,53 @@ function create_data()
     touch ${master_mnt}/${prefix}_f2
     touch ${master_mnt}/${prefix}_f3
 
+    # non-ascii filename test
+    echo "Hello non-ascii" > ${master_mnt}/${prefix}_f1_ಸಂತಸ
+    touch ${master_mnt}/${prefix}_f2_ಸಂತಸ
+    touch ${master_mnt}/${prefix}_f3_ಸಂತಸ
+
     # dir
     mkdir ${master_mnt}/${prefix}_d1
     mkdir ${master_mnt}/${prefix}_d2
     mkdir ${master_mnt}/${prefix}_d3
 
-    # Hardlink
+    # non-ascii dir and filename test
+    mkdir ${master_mnt}/${prefix}_d1_ನನ್ನ
+    mkdir ${master_mnt}/${prefix}_d2_ಸಂತಸ
+    mkdir ${master_mnt}/${prefix}_d3_ಸಂತಸ
+    echo "Hello non-ascii" >  ${master_mnt}/${prefix}_d1_ನನ್ನ/ಸಂತಸ
+
+    # Hardlink + non-ascii name
     ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1
+    ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1_ಸಂತಸ
 
     # Symlink
     cd ${master_mnt}
     ln -s ${prefix}_f1 ${prefix}_sl1
+    ln -s ${prefix}_f1 ${prefix}_sl1_ಸಂತಸ
     cd -
 
     # UNLINK
     rm ${master_mnt}/${prefix}_f2
+    rm ${master_mnt}/${prefix}_f2_ಸಂತಸ
 
     # RMDIR
     rmdir ${master_mnt}/${prefix}_d2
+    rmdir ${master_mnt}/${prefix}_d2_ಸಂತಸ
 
     # Rename - File
     mv ${master_mnt}/${prefix}_f3 ${master_mnt}/${prefix}_f4
+    mv ${master_mnt}/${prefix}_f3_ಸಂತಸ  ${master_mnt}/${prefix}_f4_ಸಂತಸ
 
     # Rename - Dir
     mv ${master_mnt}/${prefix}_d3 ${master_mnt}/${prefix}_d4
+    mv ${master_mnt}/${prefix}_d3_ಸಂತಸ  ${master_mnt}/${prefix}_d4_ಸಂತಸ
 
     # chown
     touch ${master_mnt}/${prefix}_chown_f1
     chown 1000:1000 ${master_mnt}/${prefix}_chown_f1
+    touch ${master_mnt}/${prefix}_chown_f1_ಸಂತಸ
+    chown 1000:1000 ${master_mnt}/${prefix}_chown_f1_ಸಂತಸ
 }
 
 function chown_file_ok()

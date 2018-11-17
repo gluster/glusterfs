@@ -31,7 +31,7 @@ from repce import RepceServer, RepceClient
 from master import gmaster_builder
 import syncdutils
 from syncdutils import GsyncdError, select, privileged, funcode
-from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
+from syncdutils import entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 from syncdutils import get_changelog_log_level, get_rsync_version
@@ -41,8 +41,8 @@ from gsyncdstatus import GeorepStatus
 from syncdutils import lf, Popen, sup
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
 from syncdutils import unshare_propagation_supported, get_slv_dir_path
-import py2py3
-from py2py3 import pipe, str_to_bytearray
+from py2py3 import pipe, str_to_bytearray, entry_pack_reg
+from py2py3 import entry_pack_reg_stat, entry_pack_mkdir, entry_pack_symlink
 
 
 ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
@@ -377,37 +377,6 @@ class Server(object):
     def entry_ops(cls, entries):
         pfx = gauxpfx()
         logging.debug('entries: %s' % repr(entries))
-        # regular file
-
-        def entry_pack_reg(gf, bn, mo, uid, gid):
-            blen = len(bn)
-            return struct.pack(cls._fmt_mknod(blen),
-                               uid, gid, gf.encode(), mo, bn.encode(),
-                               stat.S_IMODE(mo), 0, umask())
-
-        def entry_pack_reg_stat(gf, bn, st):
-            blen = len(bn)
-            mo = st['mode']
-            return struct.pack(cls._fmt_mknod(blen),
-                               st['uid'], st['gid'],
-                               gf.encode(), mo, bn.encode(),
-                               stat.S_IMODE(mo), 0, umask())
-        # mkdir
-
-        def entry_pack_mkdir(gf, bn, mo, uid, gid):
-            blen = len(bn)
-            return struct.pack(cls._fmt_mkdir(blen),
-                               uid, gid, gf.encode(), mo, bn.encode(),
-                               stat.S_IMODE(mo), umask())
-        # symlink
-
-        def entry_pack_symlink(gf, bn, lnk, st):
-            blen = len(bn)
-            llen = len(lnk)
-            return struct.pack(cls._fmt_symlink(blen, llen),
-                               st['uid'], st['gid'],
-                               gf.encode(), st['mode'], bn.encode(),
-                               lnk.encode())
 
         def entry_purge(op, entry, gfid, e, uid, gid):
             # This is an extremely racy code and needs to be fixed ASAP.
@@ -581,8 +550,8 @@ class Server(object):
                 st = lstat(slink)
                 # don't create multiple entries with same gfid
                 if isinstance(st, int):
-                    blob = entry_pack_reg(
-                        gfid, bname, e['mode'], e['uid'], e['gid'])
+                    blob = entry_pack_reg(cls, gfid, bname,
+                                          e['mode'], e['uid'], e['gid'])
                 # Self healed hardlinks are recorded as MKNOD.
                 # So if the gfid already exists, it should be
                 # processed as hard link not mknod.
@@ -597,8 +566,8 @@ class Server(object):
                 st = lstat(slink)
                 # don't create multiple entries with same gfid
                 if isinstance(st, int):
-                    blob = entry_pack_mkdir(
-                        gfid, bname, e['mode'], e['uid'], e['gid'])
+                    blob = entry_pack_mkdir(cls, gfid, bname,
+                                            e['mode'], e['uid'], e['gid'])
                 elif (isinstance(lstat(en), int) or
                       not matching_disk_gfid(gfid, en)):
                     # If gfid of a directory exists on slave but path based
@@ -626,9 +595,9 @@ class Server(object):
                 if isinstance(st, int):
                     (pg, bname) = entry2pb(entry)
                     if stat.S_ISREG(e['stat']['mode']):
-                        blob = entry_pack_reg_stat(gfid, bname, e['stat'])
+                        blob = entry_pack_reg_stat(cls, gfid, bname, e['stat'])
                     elif stat.S_ISLNK(e['stat']['mode']):
-                        blob = entry_pack_symlink(gfid, bname, e['link'],
+                        blob = entry_pack_symlink(cls, gfid, bname, e['link'],
                                                   e['stat'])
                 else:
                     cmd_ret = errno_wrap(os.link,
@@ -639,7 +608,7 @@ class Server(object):
                 en = e['entry']
                 st = lstat(entry)
                 if isinstance(st, int):
-                    blob = entry_pack_symlink(gfid, bname, e['link'],
+                    blob = entry_pack_symlink(cls, gfid, bname, e['link'],
                                               e['stat'])
                 elif not matching_disk_gfid(gfid, en):
                     collect_failure(e, EEXIST, uid, gid)
@@ -659,7 +628,7 @@ class Server(object):
                             st1 = lstat(en)
                             if isinstance(st1, int):
                                 (pg, bname) = entry2pb(en)
-                                blob = entry_pack_symlink(gfid, bname,
+                                blob = entry_pack_symlink(cls, gfid, bname,
                                                           e['link'], e['stat'])
                             elif not matching_disk_gfid(gfid, en):
                                 collect_failure(e, EEXIST, uid, gid, True)
@@ -669,7 +638,7 @@ class Server(object):
                             # don't create multiple entries with same gfid
                             if isinstance(st, int):
                                 (pg, bname) = entry2pb(en)
-                                blob = entry_pack_reg_stat(gfid, bname,
+                                blob = entry_pack_reg_stat(cls, gfid, bname,
                                                            e['stat'])
                             else:
                                 cmd_ret = errno_wrap(os.link, [slink, en],
