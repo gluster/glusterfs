@@ -21,7 +21,9 @@ TEST mkdir $M0/test
 TEST touch $M0/test/lease
 
 build_tester $(dirname $0)/glfs-lease.c -lgfapi
+build_tester $(dirname $0)/glfs-lease-recall.c -lgfapi
 TEST $(dirname $0)/glfs-lease $V0 $logdir/glfs-lease.log $logdir/lease-test.log
+TEST $(dirname $0)/glfs-lease-recall $V0 $logdir/glfs-lease-recall.log $logdir/lease-test-recall.log
 
 TEST $CLI volume set $V0 leases off
 
