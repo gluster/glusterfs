@@ -31,6 +31,11 @@
 #define GF_NAME_MAX 255
 #endif
 
+struct upcall_syncop_args {
+    struct glfs *fs;
+    struct gf_upcall *upcall_data;
+};
+
 #define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
 
 typedef void (*glfs_io_cbk34)(glfs_fd_t *fd, ssize_t ret, void *data);
@@ -5294,19 +5299,17 @@ out:
     return ret;
 }
 
-static void
-glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
+static int
+glfs_cbk_upcall_syncop(void *opaque)
 {
+    struct upcall_syncop_args *args = opaque;
     int ret = -1;
     struct glfs_upcall *up_arg = NULL;
+    struct glfs *fs;
+    struct gf_upcall *upcall_data;
 
-    if (!fs || !upcall_data)
-        goto out;
-
-    if (!(fs->upcall_events & upcall_data->event_type)) {
-        /* ignore events which application hasn't registered*/
-        goto out;
-    }
+    fs = args->fs;
+    upcall_data = args->upcall_data;
 
     up_arg = GLFS_CALLOC(1, sizeof(struct gf_upcall), glfs_release_upcall,
                          glfs_mt_upcall_entry_t);
@@ -5353,6 +5356,38 @@ out:
         GLFS_FREE(up_arg);
     }
 
+    return ret;
+}
+
+static void
+glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
+{
+    struct upcall_syncop_args args = {
+        0,
+    };
+    int ret = -1;
+
+    if (!fs || !upcall_data)
+        goto out;
+
+    if (!(fs->upcall_events & upcall_data->event_type)) {
+        /* ignore events which application hasn't registered*/
+        goto out;
+    }
+
+    args.fs = fs;
+    args.upcall_data = upcall_data;
+
+    ret = synctask_new(THIS->ctx->env, glfs_cbk_upcall_syncop, NULL, NULL,
+                       &args);
+    /* should we retry incase of failure? */
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, errno, API_MSG_UPCALL_SYNCOP_FAILED,
+               "Synctak for Upcall event_type(%d) and gfid(%s) failed",
+               upcall_data->event_type, (char *)(upcall_data->gfid));
+    }
+
+out:
     return;
 }
 
