@@ -344,11 +344,18 @@ posix_reconfigure(xlator_t *this, dict_t *options)
                " fallback to <hostname>:<export>");
     }
 
-    GF_OPTION_RECONF("reserve", priv->disk_reserve, options, uint32, out);
-    if (priv->disk_reserve) {
+    GF_OPTION_RECONF("reserve-size", priv->disk_reserve_size, options, size,
+                     out);
+
+    GF_OPTION_RECONF("reserve", priv->disk_reserve_percent, options, uint32,
+                     out);
+    if (priv->disk_reserve_size || priv->disk_reserve_percent) {
         ret = posix_spawn_disk_space_check_thread(this);
-        if (ret)
+        if (ret) {
+            gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_DISK_SPACE_CHECK_FAILED,
+                   "Getting disk space check from thread failed");
             goto out;
+        }
     }
 
     GF_OPTION_RECONF("health-check-interval", priv->health_check_interval,
@@ -966,11 +973,17 @@ posix_init(xlator_t *this)
 
     _private->disk_space_check_active = _gf_false;
     _private->disk_space_full = 0;
-    GF_OPTION_INIT("reserve", _private->disk_reserve, uint32, out);
-    if (_private->disk_reserve) {
+    GF_OPTION_INIT("reserve-size", _private->disk_reserve_size, size, out);
+
+    GF_OPTION_INIT("reserve", _private->disk_reserve_percent, uint32, out);
+
+    if (_private->disk_reserve_size || _private->disk_reserve_percent) {
         ret = posix_spawn_disk_space_check_thread(this);
-        if (ret)
+        if (ret) {
+            gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_DISK_SPACE_CHECK_FAILED,
+                   "Getting disk space check from thread failed ");
             goto out;
+        }
     }
 
     _private->health_check_active = _gf_false;
@@ -1213,6 +1226,15 @@ struct volume_options posix_options[] = {
      .description = "Percentage of disk space to be reserved."
                     " Set to 0 to disable",
      .op_version = {GD_OP_VERSION_3_13_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"reserve-size"},
+     .type = GF_OPTION_TYPE_SIZET,
+     .min = 0,
+     .default_value = "0",
+     .validate = GF_OPT_VALIDATE_MIN,
+     .description = "size in megabytes to be reserved for disk space."
+                    " Set to 0 to disable",
+     .op_version = {GD_OP_VERSION_7_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"batch-fsync-mode"},
      .type = GF_OPTION_TYPE_STR,

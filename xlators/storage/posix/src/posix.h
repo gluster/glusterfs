@@ -224,7 +224,8 @@ struct posix_private {
     pthread_t health_check;
     gf_boolean_t health_check_active;
 
-    uint32_t disk_reserve;
+    uint32_t disk_reserve_percent;
+    uint64_t disk_reserve_size;
     uint32_t disk_space_full;
     pthread_t disk_space_check;
     gf_boolean_t disk_space_check_active;
