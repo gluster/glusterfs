@@ -5166,6 +5166,11 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     priv = this->private;
     GF_ASSERT(priv);
 
+    if (!strcmp(server, "")) {
+        ret = 0;
+        goto out;
+    }
+
     glusterd_svc_build_pidfile_path(server, priv->rundir, pidfile,
                                     sizeof(pidfile));
 
