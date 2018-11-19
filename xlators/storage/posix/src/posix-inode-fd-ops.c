@@ -725,7 +725,7 @@ posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
        thread after every 5 sec sleep to working correctly storage.reserve
        option behaviour
     */
-    if (priv->disk_reserve)
+    if (priv->disk_reserve_size || priv->disk_reserve_percent)
         posix_disk_space_check(this);
 
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, ret, ret, out);
@@ -2345,8 +2345,12 @@ posix_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         goto out;
     }
 
-    percent = priv->disk_reserve;
-    reserved_blocks = (buf.f_blocks * percent) / 100;
+    if (priv->disk_reserve_size) {
+        reserved_blocks = priv->disk_reserve_size / buf.f_bsize;
+    } else {
+        percent = priv->disk_reserve_percent;
+        reserved_blocks = (buf.f_blocks * percent) / 100;
+    }
 
     if (buf.f_bfree > reserved_blocks) {
         buf.f_bfree = (buf.f_bfree - reserved_blocks);
