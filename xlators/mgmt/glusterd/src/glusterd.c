@@ -1404,6 +1404,7 @@ init(xlator_t *this)
     gf_boolean_t downgrade = _gf_false;
     char *localtime_logging = NULL;
     int32_t len = 0;
+    int op_version = 0;
 
 #ifndef GF_DARWIN_HOST_OS
     {
@@ -1979,16 +1980,32 @@ init(xlator_t *this)
     }
 
     GF_ATOMIC_INIT(conf->blockers, 0);
+    ret = glusterd_handle_upgrade_downgrade(this->options, conf, upgrade,
+                                            downgrade);
+    if (ret)
+        goto out;
+
+    ret = glusterd_retrieve_max_op_version(this, &op_version);
+    /* first condition indicates file isn't present which means this code
+     * change is hitting for the first time or someone has deleted it from the
+     * backend.second condition is when max op_version differs, in both cases
+     * volfiles should be regenerated
+     */
+    if (op_version == 0 || op_version != GD_OP_VERSION_MAX) {
+        gf_log(this->name, GF_LOG_INFO,
+               "Regenerating volfiles due to a max op-version mismatch or "
+               "glusterd.upgrade file not being present, op_version retrieved:"
+               "%d, max op_version: %d",
+               op_version, GD_OP_VERSION_MAX);
+        glusterd_recreate_volfiles(conf);
+        ret = glusterd_store_max_op_version(this);
+    }
+
     /* If the peer count is less than 2 then this would be the best time to
      * spawn process/bricks that may need (re)starting since last time
      * (this) glusterd was up. */
     if (glusterd_get_peers_count() < 2)
         glusterd_launch_synctask(glusterd_spawn_daemons, NULL);
-
-    ret = glusterd_handle_upgrade_downgrade(this->options, conf, upgrade,
-                                            downgrade);
-    if (ret)
-        goto out;
 
     ret = glusterd_hooks_spawn_worker(this);
     if (ret)

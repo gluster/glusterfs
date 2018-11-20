@@ -599,6 +599,9 @@ typedef enum {
 
 #define GLUSTERD_DEFAULT_PORT GF_DEFAULT_BASE_PORT
 #define GLUSTERD_INFO_FILE "glusterd.info"
+#define GLUSTERD_UPGRADE_FILE                                                  \
+    "glusterd.upgrade" /* zero byte file to detect a need for regenerating     \
+                          volfiles in container mode */
 #define GLUSTERD_VOLUME_QUOTA_CONFIG "quota.conf"
 #define GLUSTERD_VOLUME_DIR_PREFIX "vols"
 #define GLUSTERD_PEER_DIR_PREFIX "peers"
@@ -1507,4 +1510,8 @@ glusterd_tier_prevalidate(dict_t *dict, char **op_errstr, dict_t *rsp_dict,
 
 int
 glusterd_options_init(xlator_t *this);
+
+int32_t
+glusterd_recreate_volfiles(glusterd_conf_t *conf);
+
 #endif

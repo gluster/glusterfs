@@ -2087,7 +2087,7 @@ glusterd_store_global_info(xlator_t *this)
     }
 
     handle->fd = gf_store_mkstemp(handle);
-    if (handle->fd <= 0) {
+    if (handle->fd < 0) {
         ret = -1;
         goto out;
     }
@@ -2103,7 +2103,7 @@ glusterd_store_global_info(xlator_t *this)
         goto out;
     }
 
-    snprintf(op_version_str, 15, "%d", conf->op_version);
+    snprintf(op_version_str, sizeof(op_version_str), "%d", conf->op_version);
     ret = gf_store_save_value(handle->fd, GD_OP_VERSION_KEY, op_version_str);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERS_STORE_FAIL,
@@ -2114,12 +2114,8 @@ glusterd_store_global_info(xlator_t *this)
     ret = gf_store_rename_tmppath(handle);
 out:
     if (handle) {
-        if (ret && (handle->fd > 0))
+        if (ret && (handle->fd >= 0))
             gf_store_unlink_tmppath(handle);
-
-        if (handle->fd > 0) {
-            handle->fd = 0;
-        }
     }
 
     if (uuid_str)
@@ -2130,6 +2126,128 @@ out:
                GD_MSG_GLUSTERD_GLOBAL_INFO_STORE_FAIL,
                "Failed to store glusterd global-info");
 
+    return ret;
+}
+
+int
+glusterd_store_max_op_version(xlator_t *this)
+{
+    int ret = -1;
+    glusterd_conf_t *conf = NULL;
+    char op_version_str[15] = {
+        0,
+    };
+    char path[PATH_MAX] = {
+        0,
+    };
+    gf_store_handle_t *handle = NULL;
+    int32_t len = 0;
+
+    conf = this->private;
+
+    len = snprintf(path, PATH_MAX, "%s/%s", conf->workdir,
+                   GLUSTERD_UPGRADE_FILE);
+    if ((len < 0) || (len >= PATH_MAX)) {
+        goto out;
+    }
+    ret = gf_store_handle_new(path, &handle);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_HANDLE_GET_FAIL,
+               "Unable to get store handle");
+        goto out;
+    }
+
+    /* These options need to be available for all users */
+    ret = sys_chmod(handle->path, 0644);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+               "chmod error for %s", GLUSTERD_UPGRADE_FILE);
+        goto out;
+    }
+
+    handle->fd = gf_store_mkstemp(handle);
+    if (handle->fd < 0) {
+        ret = -1;
+        goto out;
+    }
+
+    snprintf(op_version_str, sizeof(op_version_str), "%d", GD_OP_VERSION_MAX);
+    ret = gf_store_save_value(handle->fd, GD_MAX_OP_VERSION_KEY,
+                              op_version_str);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERS_STORE_FAIL,
+               "Storing op-version failed ret = %d", ret);
+        goto out;
+    }
+
+    ret = gf_store_rename_tmppath(handle);
+out:
+    if (handle) {
+        if (ret && (handle->fd >= 0))
+            gf_store_unlink_tmppath(handle);
+    }
+
+    if (ret)
+        gf_msg(this->name, GF_LOG_ERROR, 0,
+               GD_MSG_GLUSTERD_GLOBAL_INFO_STORE_FAIL,
+               "Failed to store max op-version");
+    if (handle)
+        gf_store_handle_destroy(handle);
+    return ret;
+}
+
+int
+glusterd_retrieve_max_op_version(xlator_t *this, int *op_version)
+{
+    char *op_version_str = NULL;
+    glusterd_conf_t *priv = NULL;
+    int ret = -1;
+    int tmp_version = 0;
+    char *tmp = NULL;
+    char path[PATH_MAX] = {
+        0,
+    };
+    gf_store_handle_t *handle = NULL;
+    int32_t len = 0;
+
+    priv = this->private;
+
+    len = snprintf(path, PATH_MAX, "%s/%s", priv->workdir,
+                   GLUSTERD_UPGRADE_FILE);
+    if ((len < 0) || (len >= PATH_MAX)) {
+        goto out;
+    }
+    ret = gf_store_handle_retrieve(path, &handle);
+
+    if (ret) {
+        gf_msg_debug(this->name, 0,
+                     "Unable to get store "
+                     "handle!");
+        goto out;
+    }
+
+    ret = gf_store_retrieve_value(handle, GD_MAX_OP_VERSION_KEY,
+                                  &op_version_str);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "No previous op_version present");
+        goto out;
+    }
+
+    tmp_version = strtol(op_version_str, &tmp, 10);
+    if ((tmp_version <= 0) || (tmp && strlen(tmp) > 1)) {
+        gf_msg(this->name, GF_LOG_WARNING, EINVAL, GD_MSG_UNSUPPORTED_VERSION,
+               "invalid version number");
+        goto out;
+    }
+
+    *op_version = tmp_version;
+
+    ret = 0;
+out:
+    if (op_version_str)
+        GF_FREE(op_version_str);
+    if (handle)
+        gf_store_handle_destroy(handle);
     return ret;
 }
 
