@@ -108,6 +108,63 @@ extern char *marker_xattrs[];
 static char *disallow_removexattrs[] = {GF_XATTR_VOL_ID_KEY, GFID_XATTR_KEY,
                                         NULL};
 
+void
+posix_cs_build_xattr_rsp(xlator_t *this, dict_t **rsp, dict_t *req, int fd,
+                         char *loc)
+{
+    int ret = 0;
+    uuid_t uuid;
+
+    if (!(dict_getn(req, GF_CS_OBJECT_STATUS, strlen(GF_CS_OBJECT_STATUS))))
+        return;
+
+    if (!(*rsp)) {
+        *rsp = dict_new();
+        if (!(*rsp)) {
+            return;
+        }
+    }
+
+    if (fd != -1) {
+        if (dict_getn(req, GF_CS_XATTR_ARCHIVE_UUID,
+                      strlen(GF_CS_XATTR_ARCHIVE_UUID))) {
+            ret = sys_fgetxattr(fd, GF_CS_XATTR_ARCHIVE_UUID, uuid, 16);
+            if (ret > 0) {
+                ret = dict_set_gfuuid(*rsp, GF_CS_XATTR_ARCHIVE_UUID, uuid,
+                                      true);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
+                           "%s: Failed to set "
+                           "dictionary value for %s for fd %d",
+                           uuid_utoa(uuid), GF_CS_XATTR_ARCHIVE_UUID, fd);
+                }
+            } else {
+                gf_msg_debug(this->name, 0, "getxattr failed on %s for fd %d",
+                             GF_CS_XATTR_ARCHIVE_UUID, fd);
+            }
+        }
+    } else {
+        if (dict_getn(req, GF_CS_XATTR_ARCHIVE_UUID,
+                      strlen(GF_CS_XATTR_ARCHIVE_UUID))) {
+            ret = sys_lgetxattr(loc, GF_CS_XATTR_ARCHIVE_UUID, uuid, 16);
+            if (ret > 0) {
+                ret = dict_set_gfuuid(*rsp, GF_CS_XATTR_ARCHIVE_UUID, uuid,
+                                      true);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
+                           "%s: Failed to set "
+                           "dictionary value for %s for loc %s",
+                           uuid_utoa(uuid), GF_CS_XATTR_ARCHIVE_UUID, loc);
+                }
+            } else {
+                gf_msg_debug(this->name, 0, "getxattr failed on %s for %s",
+                             GF_CS_XATTR_ARCHIVE_UUID, loc);
+            }
+        }
+    }
+    return;
+}
+
 int32_t
 posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
@@ -154,8 +211,11 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         posix_cs_maintenance(this, NULL, loc, NULL, &buf, real_path, xdata,
                              &xattr_rsp, _gf_true);
+
+        posix_cs_build_xattr_rsp(this, &xattr_rsp, xdata, -1, real_path);
     }
 
+    posix_update_iatt_buf(&buf, -1, real_path, xdata);
     op_ret = 0;
 
 out:
@@ -427,6 +487,8 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (xdata)
         xattr_rsp = posix_xattr_fill(this, real_path, loc, NULL, -1, xdata,
                                      &statpost);
+    posix_update_iatt_buf(&statpre, -1, real_path, xdata);
+    posix_update_iatt_buf(&statpost, -1, real_path, xdata);
     op_ret = 0;
 
 out:
@@ -903,6 +965,7 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         }
     }
 
+    posix_update_iatt_buf(statpre, pfd->fd, NULL, xdata);
     /* See if we can use FALLOC_FL_ZERO_RANGE to perform the zero fill.
      * If it fails, fall back to _posix_do_zerofill() and an optional fsync.
      */
@@ -1376,6 +1439,7 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         }
     }
 
+    posix_update_iatt_buf(&prebuf, -1, real_path, xdata);
     op_ret = sys_truncate(real_path, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -1417,6 +1481,10 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     int32_t _fd = -1;
     struct posix_fd *pfd = NULL;
     struct posix_private *priv = NULL;
+    struct iatt preop = {
+        0,
+    };
+    dict_t *rsp_xdata = NULL;
     struct iatt stbuf = {
         0,
     };
@@ -1484,6 +1552,18 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     pfd->flags = flags;
     pfd->fd = _fd;
 
+    if (xdata) {
+        op_ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
+        if (op_ret == -1) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                   "pre-operation fstat failed on fd=%p", fd);
+            goto out;
+        }
+
+        posix_cs_maintenance(this, fd, NULL, &pfd->fd, &preop, NULL, xdata,
+                             &rsp_xdata, _gf_true);
+    }
+
     op_ret = fd_ctx_set(fd, this, (uint64_t)(long)pfd);
     if (op_ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_FD_PATH_SETTING_FAILED,
@@ -1501,7 +1581,7 @@ out:
 
     SET_TO_OLD_FS_ID();
 
-    STACK_UNWIND_STRICT(open, frame, op_ret, op_errno, fd, NULL);
+    STACK_UNWIND_STRICT(open, frame, op_ret, op_errno, fd, rsp_xdata);
 
     return 0;
 }
@@ -1586,6 +1666,7 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
     }
 
+    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     op_ret = sys_pread(_fd, iobuf->ptr, size, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -1891,6 +1972,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
     }
 
+    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     if (locked && write_append) {
         if (preop.ia_size == offset || (fd->flags & O_APPEND))
             is_append = 1;
@@ -2544,10 +2626,8 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         0,
     };
     data_t *tdata = NULL;
-    char stime[4096];
-    char sxattr[4096];
+    char *cs_var = NULL;
     gf_cs_obj_state state = -1;
-    char remotepath[4096] = {0};
     int i = 0;
     int len;
 
@@ -2601,10 +2681,11 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
-            sprintf(stime, "%" PRId64, tmp_stbuf.ia_mtime);
+            cs_var = alloca(4096);
+            sprintf(cs_var, "%" PRId64, tmp_stbuf.ia_mtime);
 
             /*TODO: may be should consider nano-second also */
-            if (strncmp(stime, tdata->data, tdata->len) != 0) {
+            if (strncmp(cs_var, tdata->data, tdata->len) > 0) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                        "mtime "
                        "passed is different from seen by file now."
@@ -2614,31 +2695,54 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
-            len = sprintf(sxattr, "%" PRIu64, tmp_stbuf.ia_size);
+            len = sprintf(cs_var, "%" PRIu64, tmp_stbuf.ia_size);
 
-            ret = sys_lsetxattr(real_path, GF_CS_OBJECT_SIZE, sxattr, len,
+            ret = sys_lsetxattr(real_path, GF_CS_OBJECT_SIZE, cs_var, len,
                                 flags);
             if (ret) {
+                op_errno = errno;
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                        "setxattr failed. key %s err %d", GF_CS_OBJECT_SIZE,
                        ret);
-                op_errno = errno;
                 goto unlock;
             }
 
-            if (loc->path[0] == '/') {
-                for (i = 1; i < strlen(loc->path); i++) {
-                    remotepath[i - 1] = loc->path[i];
-                }
+            len = sprintf(cs_var, "%" PRIu64, tmp_stbuf.ia_blocks);
 
-                remotepath[i] = '\0';
-                gf_msg_debug(this->name, GF_LOG_ERROR, "remotepath %s",
-                             remotepath);
+            ret = sys_lsetxattr(real_path, GF_CS_NUM_BLOCKS, cs_var, len,
+                                flags);
+            if (ret) {
+                op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "setxattr failed. key %s err %d", GF_CS_NUM_BLOCKS, ret);
+                goto unlock;
             }
 
-            ret = sys_lsetxattr(real_path, GF_CS_OBJECT_REMOTE, remotepath,
-                                strlen(loc->path), flags);
+            len = sprintf(cs_var, "%" PRIu32, tmp_stbuf.ia_blksize);
+
+            ret = sys_lsetxattr(real_path, GF_CS_BLOCK_SIZE, cs_var, len,
+                                flags);
             if (ret) {
+                op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "setxattr failed. key %s err %d", GF_CS_BLOCK_SIZE, ret);
+                goto unlock;
+            }
+
+            memset(cs_var, 0, 4096);
+            if (loc->path[0] == '/') {
+                for (i = 1; i < strlen(loc->path); i++) {
+                    cs_var[i - 1] = loc->path[i];
+                }
+
+                cs_var[i] = '\0';
+                gf_msg_debug(this->name, GF_LOG_ERROR, "remotepath %s", cs_var);
+            }
+
+            ret = sys_lsetxattr(real_path, GF_CS_OBJECT_REMOTE, cs_var,
+                                strlen(cs_var), flags);
+            if (ret) {
+                op_errno = errno;
                 gf_log("POSIX", GF_LOG_ERROR,
                        "setxattr failed - %s"
                        " %d",
@@ -2648,13 +2752,14 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
             ret = sys_truncate(real_path, 0);
             if (ret) {
+                op_errno = errno;
                 gf_log("POSIX", GF_LOG_ERROR,
                        "truncate failed - %s"
                        " %d",
                        GF_CS_OBJECT_SIZE, ret);
-                op_errno = errno;
                 ret = sys_lremovexattr(real_path, GF_CS_OBJECT_REMOTE);
                 if (ret) {
+                    op_errno = errno;
                     gf_log("POSIX", GF_LOG_ERROR,
                            "removexattr "
                            "failed post processing- %s"
@@ -2672,6 +2777,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
     unlock:
         UNLOCK(&loc->inode->lock);
+        op_ret = ret;
         goto out;
     }
 
@@ -4946,6 +5052,7 @@ posix_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         }
     }
 
+    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     op_ret = sys_ftruncate(_fd, offset);
 
     if (op_ret == -1) {
@@ -5027,8 +5134,10 @@ posix_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    "file state check failed, fd %p", fd);
         }
+        posix_cs_build_xattr_rsp(this, &xattr_rsp, xdata, _fd, NULL);
     }
 
+    posix_update_iatt_buf(&buf, _fd, NULL, xdata);
     op_ret = 0;
 
 out:

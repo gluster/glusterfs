@@ -3444,3 +3444,53 @@ posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno)
 out:
     return ret;
 }
+
+void
+posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
+{
+    int ret = 0;
+    char val[4096] = {
+        0,
+    };
+
+    if (!xattr_req)
+        return;
+
+    if (!(dict_getn(xattr_req, GF_CS_OBJECT_STATUS,
+                    strlen(GF_CS_OBJECT_STATUS))))
+        return;
+
+    if (fd != -1) {
+        ret = sys_fgetxattr(fd, GF_CS_OBJECT_SIZE, &val, sizeof(val));
+        if (ret > 0) {
+            buf->ia_size = atoll(val);
+        } else {
+            /* Safe to assume that the other 2 xattrs are also not set*/
+            return;
+        }
+        ret = sys_fgetxattr(fd, GF_CS_BLOCK_SIZE, &val, sizeof(val));
+        if (ret > 0) {
+            buf->ia_blksize = atoll(val);
+        }
+        ret = sys_fgetxattr(fd, GF_CS_NUM_BLOCKS, &val, sizeof(val));
+        if (ret > 0) {
+            buf->ia_blocks = atoll(val);
+        }
+    } else {
+        ret = sys_lgetxattr(loc, GF_CS_OBJECT_SIZE, &val, sizeof(val));
+        if (ret > 0) {
+            buf->ia_size = atoll(val);
+        } else {
+            /* Safe to assume that the other 2 xattrs are also not set*/
+            return;
+        }
+        ret = sys_lgetxattr(loc, GF_CS_BLOCK_SIZE, &val, sizeof(val));
+        if (ret > 0) {
+            buf->ia_blksize = atoll(val);
+        }
+        ret = sys_lgetxattr(loc, GF_CS_NUM_BLOCKS, &val, sizeof(val));
+        if (ret > 0) {
+            buf->ia_blocks = atoll(val);
+        }
+    }
+}
