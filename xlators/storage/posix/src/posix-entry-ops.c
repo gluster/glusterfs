@@ -272,6 +272,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         }
     }
 
+    posix_update_iatt_buf(&buf, -1, real_path, xdata);
     if (priv->update_pgfid_nlinks) {
         if (!gf_uuid_is_null(loc->pargfid) && !IA_ISDIR(buf.ia_type)) {
             MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
