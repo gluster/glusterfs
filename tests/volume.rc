@@ -887,3 +887,24 @@ function check_changelog_op {
 
         $PYTHON $(dirname $0)/../../utils/changelogparser.py ${clog_path}/CHANGELOG | grep "$op" | wc -l
 }
+
+function volgen_check_ancestry {
+        #Returns Y if ancestor_xl is an ancestor of $child_xl according to the volfile
+        local volfile="$1"
+
+        local child_xl_type="$2"
+        local child_xl="$3"
+
+        local ancestor_xl_type="$4"
+        local ancestor_xl="$5"
+
+        child_linenum=$(awk '/type $child_xl_type\/$child_xl/ {print FNR}' $volfile)
+        ancestor_linenum=$(awk '/type $ancestor_xl_type\/$ancestor_xl/ {print FNR}' $volfile)
+
+        if [ $child_linenum -lt $ancestor_linenum ];
+        then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}

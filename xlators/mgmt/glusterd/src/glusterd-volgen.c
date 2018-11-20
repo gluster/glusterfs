@@ -4289,6 +4289,18 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                   "tcp", set_dict);
     }
 
+    ret = dict_get_str_boolean(set_dict, "features.cloudsync", _gf_false);
+    if (ret == -1)
+        goto out;
+
+    if (ret) {
+        xl = volgen_graph_add(graph, "features/cloudsync", volname);
+        if (!xl) {
+            ret = -1;
+            goto out;
+        }
+    }
+
     ret = dict_get_str_boolean(set_dict, "features.shard", _gf_false);
     if (ret == -1)
         goto out;
@@ -4489,18 +4501,6 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     ret = check_and_add_debug_xl(graph, set_dict, volname, "client");
     if (ret)
         return -1;
-
-    ret = dict_get_str_boolean(set_dict, "features.cloudsync", _gf_false);
-    if (ret == -1)
-        goto out;
-
-    if (ret) {
-        xl = volgen_graph_add(graph, "features/cloudsync", volname);
-        if (!xl) {
-            ret = -1;
-            goto out;
-        }
-    }
 
     /* if the client is part of 'gfproxyd' server, then we need to keep the
        volume name as 'gfproxyd-<volname>', for better portmapper options */
