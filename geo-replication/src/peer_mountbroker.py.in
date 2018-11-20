@@ -11,6 +11,7 @@ from gluster.cliutils import (execute, Cmd, node_output_ok,
 from prettytable import PrettyTable
 
 LOG_DIR = "@localstatedir@/log/glusterfs/geo-replication-slaves"
+CLI_LOG = "@localstatedir@/log/glusterfs/cli.log"
 GEOREP_DIR = "@GLUSTERD_WORKDIR@/geo-replication"
 GLUSTERD_VOLFILE = "@GLUSTERD_VOLFILE@"
 
@@ -145,7 +146,7 @@ class NodeSetup(Cmd):
     # chgrp -R <grp> /var/log/glusterfs/geo-replication-slaves
     # chgrp -R <grp> /var/lib/glusterd/geo-replication
     # chmod -R 770 /var/log/glusterfs/geo-replication-slaves
-    # chmod -R 770 /var/lib/glusterd/geo-replication
+    # chmod 770 /var/lib/glusterd/geo-replication
     # mkdir -p <mnt_root>
     # chmod 0711 <mnt_root>
     # If selinux,
@@ -195,8 +196,13 @@ class NodeSetup(Cmd):
 
         execute(["chgrp", "-R", args.group, GEOREP_DIR])
         execute(["chgrp", "-R", args.group, LOG_DIR])
-        execute(["chmod", "-R", "770", GEOREP_DIR])
-        execute(["chmod", "-R", "770", args.group, LOG_DIR])
+        execute(["chgrp", args.group, CLI_LOG])
+        execute(["chmod", "770", args.group, GEOREP_DIR])
+        execute(["find", LOG_DIR, "-type", "d", "-exec", "chmod", "770", "{}",
+                 "+"])
+        execute(["find", LOG_DIR, "-type", "f", "-exec", "chmod", "660", "{}",
+                 "+"])
+        execute(["chmod", "660", CLI_LOG])
 
         m.set_mount_root_and_group(args.mount_root, args.group)
         m.save()
