@@ -95,52 +95,10 @@ max-stdalloc=0 #Maximum number of allocations from heap that are in active use a
 ```
 
 ###Iobufs
-```
-[iobuf.global]
-iobuf_pool=0x1f0d970 #The memory pool for iobufs
-iobuf_pool.default_page_size=131072 #The default size of iobuf (if no iobuf size is specified the default size is allocated)
-#iobuf_arena: One arena represents a group of iobufs of a particular size
-iobuf_pool.arena_size=12976128 # The initial size of the iobuf pool (doesn't include the stdalloc'd memory or the newly added arenas)
-iobuf_pool.arena_cnt=8 #Total number of arenas in the pool
-iobuf_pool.request_misses=0 #The number of iobufs that were stdalloc'd (as they exceeded the default max page size provided by iobuf_pool).
-```
-
-There are 3 lists of arenas
-
-1. Arena list: arenas allocated during iobuf pool creation and the arenas that are in use(active_cnt != 0) will be part of this list.
-2. Purge list: arenas that can be purged(no active iobufs, active_cnt == 0).
-3. Filled list: arenas without free iobufs.
-
-```
-[purge.1] #purge.<S.No.>
-purge.1.mem_base=0x7fc47b35f000 #The address of the arena structure
-purge.1.active_cnt=0 #The number of iobufs active in that arena
-purge.1.passive_cnt=1024 #The number of unused iobufs in the arena
-purge.1.alloc_cnt=22853 #Total allocs in this pool(number of times the iobuf was allocated from this arena)
-purge.1.max_active=7 #Max active iobufs from this arena, at any point in the life of this process.
-purge.1.page_size=128 #Size of all the iobufs in this arena.
-
-[arena.5] #arena.<S.No.>
-arena.5.mem_base=0x7fc47af1f000
-arena.5.active_cnt=0
-arena.5.passive_cnt=64
-arena.5.alloc_cnt=0
-arena.5.max_active=0
-arena.5.page_size=32768
-```
-
-If the active_cnt of any arena is non zero, then the statedump will also have the iobuf list.
-```
-[arena.6.active_iobuf.1] #arena.<S.No>.active_iobuf.<iobuf.S.No.>
-arena.6.active_iobuf.1.ref=1 #refcount of the iobuf
-arena.6.active_iobuf.1.ptr=0x7fdb921a9000 #address of the iobuf
-
-[arena.6.active_iobuf.2]
-arena.6.active_iobuf.2.ref=1
-arena.6.active_iobuf.2.ptr=0x7fdb92189000
-```
-
-At any given point in time if there are lots of filled arenas then that could be a sign of iobuf leaks.
+The iobuf stats are printed in this section. It includes:
+-    active_cnt : number of iobufs that are currently allocated and being used. This number should not be too high. It generally is only as much as the number of inflight IO fops. large number indicates a leak in iobufs. There is no easy way to debug this, since the iobufs also come from mem pools, looking at the mem pool section in statedump will help.
+-    misses : number of iobuf allocations that were not served from mem_pool. (includes stdalloc and mem_pool alloc misses)
+-    hits : number of iobuf allocations that were served from the mem_pool memory.
 
 ###Call stack
 All the fops received by gluster are handled using call-stacks. Call stack contains the information about uid/gid/pid etc of the process that is executing the fop. Each call-stack contains different call-frames per xlator which handles that fop.

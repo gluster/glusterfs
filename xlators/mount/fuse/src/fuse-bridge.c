@@ -5811,8 +5811,7 @@ fuse_thread_proc(void *data)
     THIS = this;
 
     iov_in[0].iov_len = sizeof(*finh) + sizeof(struct fuse_write_in);
-    iov_in[1].iov_len = ((struct iobuf_pool *)this->ctx->iobuf_pool)
-                            ->default_page_size;
+    iov_in[1].iov_len = GF_IOBUF_DEFAULT_PAGE_SIZE;
     priv->msg0_len_p = &iov_in[0].iov_len;
 
     for (;;) {
