@@ -472,13 +472,14 @@ err:
  * dirs are the same.
  *
  */
-static void
+static int
 dht_order_rename_lock(call_frame_t *frame, loc_t **loc, xlator_t **subvol)
 {
     int ret = 0;
+    int op_ret = 0;
     dht_local_t *local = NULL;
-    char src[GF_UUID_BNAME_BUF_SIZE] = {0};
-    char dst[GF_UUID_BNAME_BUF_SIZE] = {0};
+    char *src = NULL;
+    char *dst = NULL;
 
     local = frame->local;
 
@@ -491,12 +492,29 @@ dht_order_rename_lock(call_frame_t *frame, loc_t **loc, xlator_t **subvol)
     if (ret == 0) {
         /* hashed subvols are the same for src and dst */
         /* Entrylks need to be ordered*/
+
+        src = alloca(GF_UUID_BNAME_BUF_SIZE + strlen(local->loc.name) + 1);
+        if (!src) {
+            gf_msg(frame->this->name, GF_LOG_ERROR, ENOMEM, 0,
+                   "Insufficient memory for src");
+            op_ret = -1;
+            goto out;
+        }
+
         if (!gf_uuid_is_null(local->loc.pargfid))
             uuid_utoa_r(local->loc.pargfid, src);
         else if (local->loc.parent)
             uuid_utoa_r(local->loc.parent->gfid, src);
 
         strcat(src, local->loc.name);
+
+        dst = alloca(GF_UUID_BNAME_BUF_SIZE + strlen(local->loc2.name) + 1);
+        if (!dst) {
+            gf_msg(frame->this->name, GF_LOG_ERROR, ENOMEM, 0,
+                   "Insufficient memory for dst");
+            op_ret = -1;
+            goto out;
+        }
 
         if (!gf_uuid_is_null(local->loc2.pargfid))
             uuid_utoa_r(local->loc2.pargfid, dst);
@@ -520,7 +538,10 @@ dht_order_rename_lock(call_frame_t *frame, loc_t **loc, xlator_t **subvol)
         *subvol = local->dst_hashed;
     }
 
-    return;
+    op_ret = 0;
+
+out:
+    return op_ret;
 }
 
 int
@@ -561,7 +582,11 @@ dht_rename_dir(call_frame_t *frame, xlator_t *this)
      * deadlocks when rename (src, dst) and rename (dst, src) is done from
      * two different clients
      */
-    dht_order_rename_lock(frame, &loc, &subvol);
+    ret = dht_order_rename_lock(frame, &loc, &subvol);
+    if (ret) {
+        op_errno = ENOMEM;
+        goto err;
+    }
 
     /* Rename must take locks on src to avoid lookup selfheal from
      * recreating src on those subvols where the rename was successful.
@@ -1604,7 +1629,11 @@ dht_rename_file_protect_namespace(call_frame_t *frame, void *cookie,
      * deadlocks when rename (src, dst) and rename (dst, src) is done from
      * two different clients
      */
-    dht_order_rename_lock(frame, &loc, &subvol);
+    ret = dht_order_rename_lock(frame, &loc, &subvol);
+    if (ret) {
+        local->op_errno = ENOMEM;
+        goto err;
+    }
 
     ret = dht_protect_namespace(frame, loc, subvol, &local->current->ns,
                                 dht_rename_file_lock1_cbk);
