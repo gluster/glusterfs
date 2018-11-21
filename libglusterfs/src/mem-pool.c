@@ -920,7 +920,7 @@ mem_pool_get(unsigned long sizeof_type, gf_boolean_t *hit)
     sizeof_type |= (1 << POOL_SMALLEST) - 1;
     power = sizeof(sizeof_type) * 8 - __builtin_clzl(sizeof_type - 1) + 1;
     if (power > POOL_LARGEST) {
-        gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+        gf_msg_callingfn("mem-pool", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid argument");
         return NULL;
     }

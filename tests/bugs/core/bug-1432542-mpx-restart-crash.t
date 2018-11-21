@@ -6,6 +6,8 @@ SCRIPT_TIMEOUT=800
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../traps.rc
 
+cleanup;
+
 NUM_VOLS=20
 MOUNT_BASE=$(dirname $M0)
 
