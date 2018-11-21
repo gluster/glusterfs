@@ -35,7 +35,9 @@ mgmt_pmap_signout_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
+    call_frame_t *frame = NULL;
 
+    frame = myframe;
     if (-1 == req->rpc_status) {
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -56,6 +58,10 @@ mgmt_pmap_signout_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 out:
+    if (frame) {
+        STACK_DESTROY(frame->root);
+    }
+
     return 0;
 }
 
