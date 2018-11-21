@@ -12,7 +12,6 @@
 #define _GLFS_HANDLES_H
 
 #include "glfs.h"
-#include <inttypes.h>
 
 /* GLFS OBJECT BASED OPERATIONS
  *

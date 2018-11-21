@@ -264,12 +264,10 @@ st_mode_prot_from_ia(ia_prot_t prot)
     return prot_bit;
 }
 
-static inline mode_t
-st_mode_from_ia(ia_prot_t prot, ia_type_t type)
+static inline uint32_t
+st_mode_type_from_ia(ia_type_t type)
 {
-    mode_t st_mode = 0;
     uint32_t type_bit = 0;
-    uint32_t prot_bit = 0;
 
     switch (type) {
         case IA_IFREG:
@@ -297,6 +295,17 @@ st_mode_from_ia(ia_prot_t prot, ia_type_t type)
             break;
     }
 
+    return type_bit;
+}
+
+static inline mode_t
+st_mode_from_ia(ia_prot_t prot, ia_type_t type)
+{
+    mode_t st_mode = 0;
+    uint32_t type_bit = 0;
+    uint32_t prot_bit = 0;
+
+    type_bit = st_mode_type_from_ia(type);
     prot_bit = st_mode_prot_from_ia(prot);
 
     st_mode = (type_bit | prot_bit);
