@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -368,6 +369,10 @@ enum gf_internal_fop_indicator {
 #define GF_CS_OBJECT_DOWNLOADED "trusted.glusterfs.cs.downloaded"
 #define GF_CS_OBJECT_STATUS "trusted.glusterfs.cs.status"
 #define GF_CS_OBJECT_REPAIR "trusted.glusterfs.cs.repair"
+
+#define gf_boolean_t bool
+#define _gf_false false
+#define _gf_true true
 
 typedef enum {
     GF_CS_LOCAL = 1,

@@ -151,11 +151,6 @@ trap(void);
 #define GF_THREAD_NAME_PREFIX "glfs_"
 #define GF_THREAD_NAME_PREFIX_LEN 5
 
-#include <stdbool.h>
-#define gf_boolean_t bool
-#define _gf_false false
-#define _gf_true true
-
 /*
  * we could have initialized these as +ve values and treated
  * them as negative while comparing etc.. (which would have
