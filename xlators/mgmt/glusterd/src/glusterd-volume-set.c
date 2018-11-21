@@ -2799,7 +2799,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                     "brick process."},
     {.key = GLUSTERD_BRICKMUX_LIMIT_KEY,
      .voltype = "mgmt/glusterd",
-     .value = "0",
+     .value = "250",
      .op_version = GD_OP_VERSION_3_12_0,
      .validate_fn = validate_mux_limit,
      .type = GLOBAL_DOC,
