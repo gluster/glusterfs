@@ -239,6 +239,19 @@ _cli_err(const char *fmt, ...);
                                                                                \
     } while (0)
 
+#define usage()                                                                \
+    do {                                                                       \
+        cli_out(                                                               \
+            " Usage: gluster [options] <help> <peer>"                          \
+            " <pool> <volume>\n"                                               \
+            " Options:\n"                                                      \
+            " --help  Shows the help information\n"                            \
+            " --version  Shows the version\n"                                  \
+            " --print-logdir  Shows the log directory\n"                       \
+            " --print-statedumpdir Shows the state dump directory\n");         \
+                                                                               \
+    } while (0)
+
 int
 cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                    rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
