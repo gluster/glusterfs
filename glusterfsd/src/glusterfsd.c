@@ -2538,6 +2538,24 @@ out:
 #endif
 
 int
+glusterfs_graph_fini(glusterfs_graph_t *graph)
+{
+    xlator_t *trav = NULL;
+
+    trav = graph->first;
+
+    while (trav) {
+        if (trav->init_succeeded) {
+            trav->fini(trav);
+            trav->init_succeeded = 0;
+        }
+        trav = trav->next;
+    }
+
+    return 0;
+}
+
+int
 glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
 {
     glusterfs_graph_t *graph = NULL;
@@ -2584,10 +2602,23 @@ out:
         fclose(fp);
 
     if (ret) {
-        if (graph && (ctx && (ctx->active != graph)))
-            glusterfs_graph_destroy(graph);
+        /* TODO This code makes to generic for all graphs
+           client as well as servers.For now it destroys
+           graph only for server-side xlators not for client-side
+           xlators, before destroying a graph call xlator fini for
+           xlators those call xlator_init to avoid leak
+        */
+        if (graph) {
+            xl = graph->first;
+            if ((ctx && (ctx->active != graph)) &&
+                (xl && !strcmp(xl->type, "protocol/server"))) {
+                glusterfs_graph_fini(graph);
+                glusterfs_graph_destroy(graph);
+            }
+        }
+
         /* there is some error in setting up the first graph itself */
-        if (!ctx->active) {
+        if (!ctx || !ctx->active) {
             emancipate(ctx, ret);
             cleanup_and_exit(ret);
         }
