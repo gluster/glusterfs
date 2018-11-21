@@ -38,6 +38,10 @@
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
 #define GF_MEM_INVALID_MAGIC 0xDEADC0DE
 
+#define POOL_SMALLEST 7 /* i.e. 128 */
+#define POOL_LARGEST 20 /* i.e. 1048576 */
+#define NPOOLS (POOL_LARGEST - POOL_SMALLEST + 1)
+
 struct mem_acct_rec {
     const char *typestr;
     uint64_t size;
@@ -207,7 +211,10 @@ struct mem_pool {
     unsigned long count; /* requested pool size (unused) */
     char *name;
     gf_atomic_t active; /* current allocations */
-
+#ifdef DEBUG
+    gf_atomic_t hit;  /* number of allocations served from pt_pool */
+    gf_atomic_t miss; /* number of std allocs due to miss */
+#endif
     struct list_head owner; /* glusterfs_ctx_t->mempool_list */
     glusterfs_ctx_t *ctx;   /* take ctx->lock when updating owner */
 
@@ -224,7 +231,7 @@ typedef struct pooled_obj_hdr {
     struct mem_pool *pool;
 } pooled_obj_hdr_t;
 
-#define AVAILABLE_SIZE(p2) ((1 << (p2)) - sizeof(pooled_obj_hdr_t))
+#define AVAILABLE_SIZE(p2) (1 << (p2))
 
 typedef struct per_thread_pool {
     /* the pool that was used to request this allocation */
@@ -300,5 +307,16 @@ mem_pool_destroy(struct mem_pool *pool);
 
 void
 gf_mem_acct_enable_set(void *ctx);
+
+/* hit will be set to :
+ *   _gf_true if the memory is served from mem pool
+ *   _gf_false if the requested size was not present in mem pool and hence
+ *   std alloc'd.
+ */
+void *
+mem_pool_get(unsigned long sizeof_type, gf_boolean_t *hit);
+
+void *
+mem_pool_get0(unsigned long sizeof_type, gf_boolean_t *hit);
 
 #endif /* _MEM_POOL_H */
