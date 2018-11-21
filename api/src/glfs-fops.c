@@ -24,6 +24,7 @@
 #include <glusterfs/compat-errno.h>
 #include <limits.h>
 #include "glusterfs3.h"
+#include <glusterfs/iatt.h>
 
 #ifdef NAME_MAX
 #define GF_NAME_MAX NAME_MAX
@@ -204,6 +205,90 @@ glfs_iatt_to_stat(struct glfs *fs, struct iatt *iatt, struct stat *stat)
 {
     iatt_to_stat(iatt, stat);
     stat->st_dev = fs->dev_id;
+}
+
+void
+glfs_iatt_to_statx(struct glfs *fs, struct iatt *iatt, struct glfs_stat *statx)
+{
+    statx->glfs_st_mask = 0;
+
+    statx->glfs_st_mode = 0;
+    if (IATT_TYPE_VALID(iatt->ia_flags)) {
+        statx->glfs_st_mode |= st_mode_type_from_ia(iatt->ia_type);
+        statx->glfs_st_mask |= GLFS_STAT_TYPE;
+    }
+
+    if (IATT_MODE_VALID(iatt->ia_flags)) {
+        statx->glfs_st_mode |= st_mode_prot_from_ia(iatt->ia_prot);
+        statx->glfs_st_mask |= GLFS_STAT_MODE;
+    }
+
+    if (IATT_NLINK_VALID(iatt->ia_flags)) {
+        statx->glfs_st_nlink = iatt->ia_nlink;
+        statx->glfs_st_mask |= GLFS_STAT_NLINK;
+    }
+
+    if (IATT_UID_VALID(iatt->ia_flags)) {
+        statx->glfs_st_uid = iatt->ia_uid;
+        statx->glfs_st_mask |= GLFS_STAT_UID;
+    }
+
+    if (IATT_GID_VALID(iatt->ia_flags)) {
+        statx->glfs_st_gid = iatt->ia_gid;
+        statx->glfs_st_mask |= GLFS_STAT_GID;
+    }
+
+    if (IATT_ATIME_VALID(iatt->ia_flags)) {
+        statx->glfs_st_atime.tv_sec = iatt->ia_atime;
+        statx->glfs_st_atime.tv_nsec = iatt->ia_atime_nsec;
+        statx->glfs_st_mask |= GLFS_STAT_ATIME;
+    }
+
+    if (IATT_MTIME_VALID(iatt->ia_flags)) {
+        statx->glfs_st_mtime.tv_sec = iatt->ia_mtime;
+        statx->glfs_st_mtime.tv_nsec = iatt->ia_mtime_nsec;
+        statx->glfs_st_mask |= GLFS_STAT_MTIME;
+    }
+
+    if (IATT_CTIME_VALID(iatt->ia_flags)) {
+        statx->glfs_st_ctime.tv_sec = iatt->ia_ctime;
+        statx->glfs_st_ctime.tv_nsec = iatt->ia_ctime_nsec;
+        statx->glfs_st_mask |= GLFS_STAT_CTIME;
+    }
+
+    if (IATT_BTIME_VALID(iatt->ia_flags)) {
+        statx->glfs_st_btime.tv_sec = iatt->ia_btime;
+        statx->glfs_st_btime.tv_nsec = iatt->ia_btime_nsec;
+        statx->glfs_st_mask |= GLFS_STAT_BTIME;
+    }
+
+    if (IATT_INO_VALID(iatt->ia_flags)) {
+        statx->glfs_st_ino = iatt->ia_ino;
+        statx->glfs_st_mask |= GLFS_STAT_INO;
+    }
+
+    if (IATT_SIZE_VALID(iatt->ia_flags)) {
+        statx->glfs_st_size = iatt->ia_size;
+        statx->glfs_st_mask |= GLFS_STAT_SIZE;
+    }
+
+    if (IATT_BLOCKS_VALID(iatt->ia_flags)) {
+        statx->glfs_st_blocks = iatt->ia_blocks;
+        statx->glfs_st_mask |= GLFS_STAT_BLOCKS;
+    }
+
+    /* unconditionally present, encode as is */
+    statx->glfs_st_blksize = iatt->ia_blksize;
+    statx->glfs_st_rdev_major = ia_major(iatt->ia_rdev);
+    statx->glfs_st_rdev_minor = ia_minor(iatt->ia_rdev);
+    statx->glfs_st_dev_major = ia_major(fs->dev_id);
+    statx->glfs_st_dev_minor = ia_minor(fs->dev_id);
+
+    /* At present we do not read any localFS attributes and pass them along,
+     * so setting this to 0. As we start supporting file attributes we can
+     * populate the same here as well */
+    statx->glfs_st_attributes = 0;
+    statx->glfs_st_attributes_mask = 0;
 }
 
 int
@@ -454,6 +539,61 @@ invalid_fs:
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_stat, 3.4.0);
+
+int
+priv_glfs_statx(struct glfs *fs, const char *path, unsigned int mask,
+                struct glfs_stat *statxbuf)
+{
+    int ret = -1;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int reval = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
+
+    if (path == NULL) {
+        ret = -1;
+        errno = EINVAL;
+        goto out;
+    }
+
+    if (mask & ~GLFS_STAT_ALL) {
+        ret = -1;
+        errno = EINVAL;
+        goto out;
+    }
+
+    subvol = glfs_active_subvol(fs);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+retry:
+    ret = glfs_resolve(fs, subvol, path, &loc, &iatt, reval);
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (ret == 0 && statxbuf)
+        glfs_iatt_to_statx(fs, &iatt, statxbuf);
+out:
+    loc_wipe(&loc);
+
+    glfs_subvol_done(fs, subvol);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_statx, future);
 
 int
 pub_glfs_fstat(struct glfs_fd *glfd, struct stat *stat)

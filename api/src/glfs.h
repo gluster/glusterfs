@@ -40,7 +40,8 @@
 #include <sys/cdefs.h>
 #include <dirent.h>
 #include <sys/statvfs.h>
-#include <inttypes.h>
+#include <stdint.h>
+#include <sys/time.h>
 
 /*
  * For off64_t to be defined, we need both
@@ -402,6 +403,101 @@ glfs_get_volumeid(glfs_t *fs, char *volid, size_t size) __THROW
 
 struct glfs_fd;
 typedef struct glfs_fd glfs_fd_t;
+
+/*
+ * Mask for request/result items in the struct glfs_stat.
+ *
+ * Query request/result mask for glfs_stat() (family of functions) and
+ * struct glfs_stat::glfs_st_mask.
+ *
+ * These bits should be set in the mask argument of glfs_stat() (family of
+ * functions) to request particular items when calling glfs_stat().
+ *
+ * NOTE: Lower order 32 bits are used to reflect statx(2) bits. For Gluster
+ * specific attrs/extensions, use higher order 32 bits.
+ *
+ */
+#define GLFS_STAT_TYPE 0x0000000000000001U   /* Want/got stx_mode & S_IFMT */
+#define GLFS_STAT_MODE 0x0000000000000002U   /* Want/got stx_mode & ~S_IFMT */
+#define GLFS_STAT_NLINK 0x0000000000000004U  /* Want/got stx_nlink */
+#define GLFS_STAT_UID 0x0000000000000008U    /* Want/got stx_uid */
+#define GLFS_STAT_GID 0x0000000000000010U    /* Want/got stx_gid */
+#define GLFS_STAT_ATIME 0x0000000000000020U  /* Want/got stx_atime */
+#define GLFS_STAT_MTIME 0x0000000000000040U  /* Want/got stx_mtime */
+#define GLFS_STAT_CTIME 0x0000000000000080U  /* Want/got stx_ctime */
+#define GLFS_STAT_INO 0x0000000000000100U    /* Want/got stx_ino */
+#define GLFS_STAT_SIZE 0x0000000000000200U   /* Want/got stx_size */
+#define GLFS_STAT_BLOCKS 0x0000000000000400U /* Want/got stx_blocks */
+#define GLFS_STAT_BASIC_STATS                                                  \
+    0x00000000000007ffU /* Items in the normal stat struct */
+#define GLFS_STAT_BTIME 0x0000000000000800U /* Want/got stx_btime */
+#define GLFS_STAT_ALL 0x0000000000000fffU   /* All currently supported flags */
+#define GLFS_STAT_RESERVED                                                     \
+    0x8000000000000000U /* Reserved to denote future expansion */
+
+/*
+ * Attributes to be found in glfs_st_attributes and masked in
+ * glfs_st_attributes_mask.
+ *
+ * These give information about the features or the state of a file that might
+ * be of use to programs.
+ *
+ * NOTE: Lower order 32 bits are used to reflect statx(2) attribute bits. For
+ * Gluster specific attrs, use higher order 32 bits.
+ *
+ * NOTE: We do not support any file attributes or state as yet!
+ */
+#define GLFS_STAT_ATTR_RESERVED                                                \
+    0x8000000000000000U /* Reserved to denote future expansion */
+
+/* Extended file attribute structure.
+ *
+ * The caller passes a mask of what they're specifically interested in as a
+ * parameter to glfs_stat().  What glfs_stat() actually got will be indicated
+ * in glfs_st_mask upon return.
+ *
+ * For each bit in the mask argument:
+ *
+ * - if the datum is not supported:
+ *
+ *   - the bit will be cleared, and
+ *
+ *   - the datum value is undefined
+ *
+ * - otherwise, if explicitly requested:
+ *
+ *   - the field will be filled in and the bit will be set;
+ *
+ * - otherwise, if not requested, but available in, it will be filled in
+ * anyway, and the bit will be set upon return;
+ *
+ * - otherwise the field and the bit will be cleared before returning.
+ *
+ */
+
+struct glfs_stat {
+    uint64_t glfs_st_mask;       /* What results were written [uncond] */
+    uint64_t glfs_st_attributes; /* Flags conveying information about the file
+                                    [uncond] */
+    uint64_t glfs_st_attributes_mask; /* Mask to show what's supported in
+                                         st_attributes [ucond] */
+    struct timespec glfs_st_atime;    /* Last access time */
+    struct timespec glfs_st_btime;    /* File creation time */
+    struct timespec glfs_st_ctime;    /* Last attribute change time */
+    struct timespec glfs_st_mtime;    /* Last data modification time */
+    ino_t glfs_st_ino;                /* Inode number */
+    off_t glfs_st_size;               /* File size */
+    blkcnt_t glfs_st_blocks;          /* Number of 512-byte blocks allocated */
+    uint32_t glfs_st_rdev_major; /* Device ID of special file [if bdev/cdev] */
+    uint32_t glfs_st_rdev_minor;
+    uint32_t glfs_st_dev_major; /* ID of device containing file [uncond] */
+    uint32_t glfs_st_dev_minor;
+    blksize_t glfs_st_blksize; /* Preferred general I/O size [uncond] */
+    nlink_t glfs_st_nlink;     /* Number of hard links */
+    uid_t glfs_st_uid;         /* User ID of owner */
+    gid_t glfs_st_gid;         /* Group ID of owner */
+    mode_t glfs_st_mode;       /* File mode */
+};
 
 #define GLFS_LEASE_ID_SIZE 16 /* 128bits */
 typedef char glfs_leaseid_t[GLFS_LEASE_ID_SIZE];

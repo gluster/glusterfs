@@ -667,4 +667,32 @@ get_fop_attr_thrd_key(dict_t **fop_attr);
 
 void
 unset_fop_attr(dict_t **fop_attr);
+
+/*
+  SYNOPSIS
+  glfs_statx: Fetch extended file attributes for the given path.
+
+  DESCRIPTION
+  This function fetches extended file attributes for the given path.
+
+  PARAMETERS
+  @fs: The 'virtual mount' object referencing a volume, under which file exists.
+  @path: Path of the file within the virtual mount.
+  @mask: Requested extended file attributes mask, (See mask defines above)
+
+  RETURN VALUES
+  -1 : Failure. @errno will be set with the type of failure.
+  0  : Filled in statxbuf with appropriate masks for valid items in the
+       structure.
+
+  ERRNO VALUES
+    EINVAL: fs is invalid
+    EINVAL: mask has unsupported bits set
+    Other errors as returned by stat(2)
+ */
+
+int
+glfs_statx(struct glfs *fs, const char *path, unsigned int mask,
+           struct glfs_stat *statxbuf) GFAPI_PRIVATE(glfs_statx, future);
+
 #endif /* !_GLFS_INTERNAL_H */
