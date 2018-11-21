@@ -320,6 +320,20 @@ cli_opt_parse(char *opt, struct cli_state *state)
 
     if (strcmp(opt, "") == 0)
         return 1;
+    if (strcmp(opt, "help") == 0) {
+        cli_out(
+            " peer help                - display help for peer commands\n"
+            " volume help              - display help for volume commands\n"
+            " volume bitrot help       - display help for volume"
+            " bitrot commands\n"
+            " volume quota help        - display help for volume"
+            " quota commands\n"
+            " volume tier help         - display help for volume"
+            " tier commands\n"
+            " snapshot help            - display help for snapshot commands\n"
+            " global help              - list global commands\n");
+        exit(0);
+    }
 
     if (strcmp(opt, "version") == 0) {
         cli_out("%s", argp_program_version);
@@ -454,7 +468,8 @@ parse_cmdline(int argc, char *argv[], struct cli_state *state)
             continue;
         ret = cli_opt_parse(opt, state);
         if (ret == -1) {
-            cli_out("unrecognized option --%s", opt);
+            cli_out("unrecognized option --%s\n", opt);
+            usage();
             return ret;
         } else if (ret == -2) {
             return ret;
