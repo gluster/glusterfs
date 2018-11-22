@@ -1768,9 +1768,16 @@ glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
                        glusterd_volinfo_ver_ac_t ac)
 {
     int32_t ret = -1;
+    glusterfs_ctx_t *ctx = NULL;
+    xlator_t *this = NULL;
 
+    this = THIS;
+    GF_ASSERT(this);
+    ctx = this->ctx;
+    GF_ASSERT(ctx);
     GF_ASSERT(volinfo);
 
+    pthread_mutex_lock(&ctx->cleanup_lock);
     pthread_mutex_lock(&volinfo->store_volinfo_lock);
     {
         glusterd_perform_volinfo_version_action(volinfo, ac);
@@ -1812,6 +1819,7 @@ glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
     }
 unlock:
     pthread_mutex_unlock(&volinfo->store_volinfo_lock);
+    pthread_mutex_unlock(&ctx->cleanup_lock);
     if (ret)
         glusterd_store_volume_cleanup_tmp(volinfo);
 

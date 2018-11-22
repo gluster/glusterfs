@@ -1525,43 +1525,44 @@ cleanup_and_exit(int signum)
 
     if (ctx->cleanup_started)
         return;
+    pthread_mutex_lock(&ctx->cleanup_lock);
+    {
+        ctx->cleanup_started = 1;
 
-    ctx->cleanup_started = 1;
-
-    /* signout should be sent to all the bricks in case brick mux is enabled
-     * and multiple brick instances are attached to this process
-     */
-    if (ctx->active) {
-        top = ctx->active->first;
-        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-            victim = (*trav_p)->xlator;
-            rpc_clnt_mgmt_pmap_signout(ctx, victim->name);
+        /* signout should be sent to all the bricks in case brick mux is enabled
+         * and multiple brick instances are attached to this process
+         */
+        if (ctx->active) {
+            top = ctx->active->first;
+            for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+                victim = (*trav_p)->xlator;
+                rpc_clnt_mgmt_pmap_signout(ctx, victim->name);
+            }
+        } else {
+            rpc_clnt_mgmt_pmap_signout(ctx, NULL);
         }
-    } else {
-        rpc_clnt_mgmt_pmap_signout(ctx, NULL);
-    }
 
-    /* below part is a racy code where the rpcsvc object is freed.
-     * But in another thread (epoll thread), upon poll error in the
-     * socket the transports are cleaned up where again rpcsvc object
-     * is accessed (which is already freed by the below function).
-     * Since the process is about to be killed don't execute the function
-     * below.
-     */
-    /* if (ctx->listener) { */
-    /*         (void) glusterfs_listener_stop (ctx); */
-    /* } */
+        /* below part is a racy code where the rpcsvc object is freed.
+         * But in another thread (epoll thread), upon poll error in the
+         * socket the transports are cleaned up where again rpcsvc object
+         * is accessed (which is already freed by the below function).
+         * Since the process is about to be killed don't execute the function
+         * below.
+         */
+        /* if (ctx->listener) { */
+        /*         (void) glusterfs_listener_stop (ctx); */
+        /* } */
 
-    /* Call fini() of FUSE xlator first:
-     * so there are no more requests coming and
-     * 'umount' of mount point is done properly */
-    trav = ctx->master;
-    if (trav && trav->fini) {
-        THIS = trav;
-        trav->fini(trav);
-    }
+        /* Call fini() of FUSE xlator first:
+         * so there are no more requests coming and
+         * 'umount' of mount point is done properly */
+        trav = ctx->master;
+        if (trav && trav->fini) {
+            THIS = trav;
+            trav->fini(trav);
+        }
 
-    glusterfs_pidfile_cleanup(ctx);
+        glusterfs_pidfile_cleanup(ctx);
 
 #if 0
         /* TODO: Properly do cleanup_and_exit(), with synchronization */
@@ -1572,8 +1573,9 @@ cleanup_and_exit(int signum)
         }
 #endif
 
-    trav = NULL;
-
+        trav = NULL;
+    }
+    pthread_mutex_unlock(&ctx->cleanup_lock);
     /* NOTE: Only the least significant 8 bits i.e (signum & 255)
        will be available to parent process on calling exit() */
     exit(abs(signum));
@@ -1743,6 +1745,7 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
 
     pthread_mutex_init(&ctx->notify_lock, NULL);
+    pthread_mutex_init(&ctx->cleanup_lock, NULL);
     pthread_cond_init(&ctx->notify_cond, NULL);
 
     ctx->clienttable = gf_clienttable_alloc();
