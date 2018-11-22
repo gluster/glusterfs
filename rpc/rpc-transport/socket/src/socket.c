@@ -687,10 +687,10 @@ __socket_rwv(rpc_transport_t *this, struct iovec *vector, int count,
         } else {
             ret = __socket_cached_read(this, opvector, opcount);
             if (ret == 0) {
-                gf_log(this->name, GF_LOG_INFO,
-                       "EOF on socket %d "
-                       "(errno:%d:%s); returning ENODATA",
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "EOF on socket %d (errno:%d:%s); returning ENODATA",
                        sock, errno, strerror(errno));
+
                 errno = ENODATA;
                 ret = -1;
             }
