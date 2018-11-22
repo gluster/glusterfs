@@ -4332,7 +4332,7 @@ gf_backtrace_fillframes(char *buf)
 
     pos = 0;
     for (idx = 0; idx < frames - 2; idx++) {
-        ret = fscanf(fp, "%s", callingfn[idx]);
+        ret = fscanf(fp, "%1023s", callingfn[idx]);
         if (ret == EOF)
             break;
         inc = gf_backtrace_append(buf, pos, callingfn[idx]);
