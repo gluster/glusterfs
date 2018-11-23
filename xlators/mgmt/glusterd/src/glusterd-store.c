@@ -4564,7 +4564,6 @@ glusterd_store_retrieve_peers(xlator_t *this)
 
         ret = gf_store_iter_get_next(iter, &key, &value, &op_errno);
         if (ret) {
-            (void)gf_store_iter_destroy(iter);
             goto next;
         }
 
@@ -4610,8 +4609,6 @@ glusterd_store_retrieve_peers(xlator_t *this)
             goto next;
         }
 
-        (void)gf_store_iter_destroy(iter);
-
         if (gf_uuid_is_null(peerinfo->uuid)) {
             gf_log("", GF_LOG_ERROR,
                    "Null UUID while attempting to read peer from '%s'",
@@ -4638,6 +4635,8 @@ glusterd_store_retrieve_peers(xlator_t *this)
         is_ok = _gf_true;
 
     next:
+        (void)gf_store_iter_destroy(iter);
+
         if (!is_ok) {
             gf_log(this->name, GF_LOG_WARNING,
                    "skipping malformed peer file %s", entry->d_name);
