@@ -131,4 +131,6 @@ changelog_ev_queue_connection(changelog_clnt_t *, changelog_rpc_clnt_t *);
 void
 changelog_ev_cleanup_connections(xlator_t *, changelog_clnt_t *);
 
+void
+changelog_process_cleanup_event(xlator_t *);
 #endif

@@ -3009,6 +3009,12 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
      * thread context while we are using it here.
      */
     priv->idx = idx;
+    priv->gen = gen;
+
+    if (poll_err) {
+        socket_event_poll_err(this, gen, idx);
+        goto out;
+    }
 
     if (poll_in) {
         int aflags = 0;

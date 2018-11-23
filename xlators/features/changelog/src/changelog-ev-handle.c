@@ -134,6 +134,8 @@ changelog_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     changelog_clnt_t *c_clnt = NULL;
     changelog_priv_t *priv = NULL;
     changelog_ev_selector_t *selection = NULL;
+    uint64_t clntcnt = 0;
+    uint64_t xprtcnt = 0;
 
     crpc = mydata;
     this = crpc->this;
@@ -144,6 +146,7 @@ changelog_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     switch (event) {
         case RPC_CLNT_CONNECT:
             selection = &priv->ev_selection;
+            GF_ATOMIC_INC(priv->clntcnt);
 
             LOCK(&c_clnt->wait_lock);
             {
@@ -176,12 +179,23 @@ changelog_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 changelog_set_disconnect_flag(crpc, _gf_true);
             }
             UNLOCK(&crpc->lock);
+            LOCK(&c_clnt->active_lock);
+            {
+                list_del_init(&crpc->list);
+            }
+            UNLOCK(&c_clnt->active_lock);
 
             break;
         case RPC_CLNT_MSG:
         case RPC_CLNT_DESTROY:
             /* Free up mydata */
             changelog_rpc_clnt_unref(crpc);
+            clntcnt = GF_ATOMIC_DEC(priv->clntcnt);
+            xprtcnt = GF_ATOMIC_GET(priv->xprtcnt);
+            if (this->cleanup_starting) {
+                if (!clntcnt && !xprtcnt)
+                    changelog_process_cleanup_event(this);
+            }
             break;
         case RPC_CLNT_PING:
             break;

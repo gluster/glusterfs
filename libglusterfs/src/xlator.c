@@ -1036,7 +1036,7 @@ xlator_mem_free(xlator_t *xl)
 static void
 xlator_call_fini(xlator_t *this)
 {
-    if (!this || this->cleanup_starting)
+    if (!this || this->call_cleanup)
         return;
     this->cleanup_starting = 1;
     this->call_cleanup = 1;
