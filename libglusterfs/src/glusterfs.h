@@ -343,6 +343,8 @@ enum gf_internal_fop_indicator {
 #define GF_LOG_FLUSH_TIMEOUT_MAX_STR "300"
 #define GF_LOG_LOCALTIME_DEFAULT 0
 
+#define GF_NETWORK_TIMEOUT 42
+
 #define GF_BACKTRACE_LEN 4096
 #define GF_BACKTRACE_FRAME_COUNT 7
 
