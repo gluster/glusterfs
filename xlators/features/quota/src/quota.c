@@ -4355,6 +4355,7 @@ quota_statfs_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     UNLOCK(&ctx->lock);
 
 resume:
+    local->op_errno = op_errno;
     quota_link_count_decrement(frame);
     return 0;
 }

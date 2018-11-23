@@ -1254,6 +1254,11 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
             goto out;
         }
         op_ret = posix_set_iatt_in_dict(unwind_dict, NULL, &postbuf);
+        if (op_ret == -1) {
+            op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_DICT_SET_FAILED,
+                   "failed to set fdstat in dict");
+        }
     }
 
     op_ret = posix_pstat(this, loc->parent, loc->pargfid, par_path, &postparent,

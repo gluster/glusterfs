@@ -228,6 +228,7 @@ sc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
             dict_t *xdata)
 {
     char *link = NULL;
+    int op_ret = -1;
     struct iatt buf = {
         0,
     };
@@ -243,7 +244,8 @@ sc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
           using buf in readlink_cbk should be aware that @buf
           is 0 filled
         */
-        STACK_UNWIND_STRICT(readlink, frame, strlen(link), 0, link, &buf, NULL);
+        op_ret = strlen(link);
+        STACK_UNWIND_STRICT(readlink, frame, op_ret, 0, link, &buf, NULL);
         FREE(link);
         return 0;
     }
