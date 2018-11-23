@@ -3399,10 +3399,12 @@ struct cli_cmd volume_cmds[] = {
      "reset all the reconfigured options"},
 
 #if (SYNCDAEMON_COMPILE)
-    {"volume " GEOREP " [<VOLNAME>] [<SLAVE-URL>] {create [[ssh-port n] "
-     "[[no-verify]|[push-pem]]] [force]"
-     "|start [force]|stop [force]|pause [force]|resume [force]|config|status "
-     "[detail]|delete [reset-sync-time]} [options...]",
+    {"volume " GEOREP " [<VOLNAME>] [<SLAVE-URL>] {\\\n create [[ssh-port n] "
+     "[[no-verify] | [push-pem]]] [force] \\\n"
+     " | start [force] \\\n | stop [force] \\\n | pause [force] \\\n | resume "
+     "[force] \\\n"
+     " | config [[[\\!]<option>] [<value>]] \\\n | status "
+     "[detail] \\\n | delete [reset-sync-time]} ",
      cli_cmd_volume_gsync_set_cbk, "Geo-sync operations",
      cli_cmd_check_gsync_exists_cbk},
 #endif
