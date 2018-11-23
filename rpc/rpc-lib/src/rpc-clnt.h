@@ -52,8 +52,8 @@ struct saved_frame {
     };
     void *capital_this;
     void *frame;
-    struct timeval saved_at;
     struct rpc_req *rpcreq;
+    struct timeval saved_at;
     rpc_transport_rsp_t rsp;
 };
 

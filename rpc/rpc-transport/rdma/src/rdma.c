@@ -2880,9 +2880,7 @@ gf_rdma_submit_request(rpc_transport_t *this, rpc_transport_req_t *req)
 {
     int32_t ret = 0;
     gf_rdma_ioq_t *entry = NULL;
-    rpc_transport_data_t data = {
-        0,
-    };
+    rpc_transport_data_t data;
     gf_rdma_private_t *priv = NULL;
     gf_rdma_peer_t *peer = NULL;
 
@@ -2940,9 +2938,7 @@ gf_rdma_submit_reply(rpc_transport_t *this, rpc_transport_reply_t *reply)
 {
     int32_t ret = 0;
     gf_rdma_ioq_t *entry = NULL;
-    rpc_transport_data_t data = {
-        0,
-    };
+    rpc_transport_data_t data;
 
     if (reply == NULL) {
         goto out;

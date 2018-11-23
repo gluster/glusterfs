@@ -108,12 +108,12 @@ struct ioq {
         };
     };
 
-    uint32_t fraghdr;
     struct iovec vector[MAX_IOVEC];
     int count;
     struct iovec *pending_vector;
     int pending_count;
     struct iobref *iobref;
+    uint32_t fraghdr;
 };
 
 typedef struct {
@@ -169,27 +169,27 @@ struct gf_sock_incoming_frag {
 #define GF_SOCKET_RA_MAX 1024
 
 struct gf_sock_incoming {
-    sp_rpcrecord_state_t record_state;
-    struct gf_sock_incoming_frag frag;
     char *proghdr_base_addr;
     struct iobuf *iobuf;
     size_t iobuf_size;
-    struct iovec vector[2];
     int count;
+    struct gf_sock_incoming_frag frag;
+    struct iovec vector[2];
     struct iovec payload_vector;
     struct iobref *iobref;
     rpc_request_info_t *request_info;
     struct iovec *pending_vector;
     int pending_count;
-    uint32_t fraghdr;
-    char complete_record;
-    msg_type_t msg_type;
     size_t total_bytes_read;
 
     size_t ra_read;
     size_t ra_max;
     size_t ra_served;
     char *ra_buf;
+    uint32_t fraghdr;
+    char complete_record;
+    msg_type_t msg_type;
+    sp_rpcrecord_state_t record_state;
 };
 
 typedef enum {
@@ -201,17 +201,6 @@ typedef enum {
 } ot_state_t;
 
 typedef struct {
-    int32_t sock;
-    int32_t idx;
-    int32_t gen;
-    /* -1 = not connected. 0 = in progress. 1 = connected */
-    char connected;
-    /* 1 = connect failed for reasons other than EINPROGRESS/ENOENT
-    see socket_connect for details */
-    char connect_failed;
-    char bio;
-    char connect_finish_log;
-    char submit_log;
     union {
         struct list_head ioq;
         struct {
@@ -219,25 +208,36 @@ typedef struct {
             struct ioq *ioq_prev;
         };
     };
-    struct gf_sock_incoming incoming;
     pthread_mutex_t in_lock;
     pthread_mutex_t out_lock;
     pthread_mutex_t cond_lock;
     pthread_cond_t cond;
+    pthread_t thread;
     int windowsize;
-    char lowlat;
-    char nodelay;
     int keepalive;
     int keepaliveidle;
     int keepaliveintvl;
     int keepalivecnt;
     int timeout;
+    int log_ctr;
+    /* ssl_error_required is used only during the SSL connection setup
+     * phase.
+     * It holds the error code returned by SSL_get_error() and is used to
+     * arm the epoll event set for the required event for the specific fd.
+     */
+    int ssl_error_required;
+
+    GF_REF_DECL; /* refcount to keep track of socket_poller
+                    threads */
+    struct {
+        pthread_mutex_t lock;
+        pthread_cond_t cond;
+        uint64_t in_progress;
+    } notify;
+    int32_t sock;
+    int32_t idx;
+    int32_t gen;
     uint32_t backlog;
-    gf_boolean_t read_fail_log;
-    gf_boolean_t ssl_enabled; /* outbound I/O */
-    gf_boolean_t mgmt_ssl;    /* outbound mgmt */
-    mgmt_ssl_t srvr_ssl;
-    gf_boolean_t use_ssl;
     SSL_METHOD *ssl_meth;
     SSL_CTX *ssl_ctx;
     int ssl_session_id;
@@ -246,10 +246,24 @@ typedef struct {
     char *ssl_own_cert;
     char *ssl_private_key;
     char *ssl_ca_list;
-    pthread_t thread;
     int pipe[2];
+    struct gf_sock_incoming incoming;
+    /* -1 = not connected. 0 = in progress. 1 = connected */
+    char connected;
+    /* 1 = connect failed for reasons other than EINPROGRESS/ENOENT
+    see socket_connect for details */
+    char connect_failed;
+    char bio;
+    char connect_finish_log;
+    char submit_log;
+    char lowlat;
+    char nodelay;
+    mgmt_ssl_t srvr_ssl;
+    gf_boolean_t read_fail_log;
+    gf_boolean_t ssl_enabled; /* outbound I/O */
+    gf_boolean_t mgmt_ssl;    /* outbound mgmt */
     gf_boolean_t is_server;
-    int log_ctr;
+    gf_boolean_t use_ssl;
     gf_boolean_t ssl_accepted;  /* To indicate SSL_accept() */
     gf_boolean_t ssl_connected; /* or SSL_connect() has been
                                  * been completed on this socket.
@@ -271,20 +285,6 @@ typedef struct {
                             * newly accepted socket
                             */
 
-    /* ssl_error_required is used only during the SSL connection setup
-     * phase.
-     * It holds the error code returned by SSL_get_error() and is used to
-     * arm the epoll event set for the required event for the specific fd.
-     */
-    int ssl_error_required;
-
-    GF_REF_DECL; /* refcount to keep track of socket_poller
-                    threads */
-    struct {
-        pthread_mutex_t lock;
-        pthread_cond_t cond;
-        uint64_t in_progress;
-    } notify;
 } socket_private_t;
 
 #endif

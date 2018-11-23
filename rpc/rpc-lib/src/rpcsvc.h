@@ -171,11 +171,6 @@ struct rpcsvc_request {
 
     rpcsvc_program_t *prog;
 
-    /* The identifier for the call from client.
-     * Needed to pair the reply with the call.
-     */
-    uint32_t xid;
-
     int prognum;
 
     int progver;
@@ -247,11 +242,6 @@ struct rpcsvc_request {
      * sent to the client.
      */
     rpcsvc_auth_data_t verf;
-
-    /* Execute this request's actor function in ownthread of program?*/
-    gf_boolean_t ownthread;
-
-    gf_boolean_t synctask;
     /* Container for a RPC program wanting to store a temp
      * request-specific item.
      */
@@ -275,6 +265,16 @@ struct rpcsvc_request {
     /* ctime: origin of time on the client side, ideally this is
        the one we should consider for time */
     struct timespec ctime;
+
+    /* The identifier for the call from client.
+     * Needed to pair the reply with the call.
+     */
+    uint32_t xid;
+
+    /* Execute this request's actor function in ownthread of program?*/
+    gf_boolean_t ownthread;
+
+    gf_boolean_t synctask;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
@@ -391,21 +391,20 @@ struct rpcsvc_program {
     int prognum;
     int progver;
     /* FIXME */
-    dict_t *options;   /* An opaque dictionary
-                        * populated by the program
-                        * (probably from xl->options)
-                        * which contain enough
-                        * information for transport to
-                        * initialize. As a part of
-                        * cleanup, the members of
-                        * options which are of interest
-                        * to transport should be put
-                        * into a structure for better
-                        * readability and structure
-                        * should replace options member
-                        * here.
-                        */
-    uint16_t progport; /* Registered with portmap */
+    dict_t *options; /* An opaque dictionary
+                      * populated by the program
+                      * (probably from xl->options)
+                      * which contain enough
+                      * information for transport to
+                      * initialize. As a part of
+                      * cleanup, the members of
+                      * options which are of interest
+                      * to transport should be put
+                      * into a structure for better
+                      * readability and structure
+                      * should replace options member
+                      * here.
+                      */
 #if 0
         int                     progaddrfamily; /* AF_INET or AF_INET6 */
         char                    *proghost;      /* Bind host, can be NULL */
@@ -433,12 +432,6 @@ struct rpcsvc_program {
      */
     int min_auth;
 
-    /* Execute actor function in program's own thread? This will reduce */
-    /* the workload on poller threads */
-    gf_boolean_t ownthread;
-    gf_boolean_t alive;
-
-    gf_boolean_t synctask;
     /* list member to link to list of registered services with rpcsvc */
     struct list_head program;
     rpcsvc_request_queue_t request_queue[EVENT_MAX_THREADS];
@@ -454,6 +447,13 @@ struct rpcsvc_program {
      * It is used to control the scaling of rpcsvc_request_handler threads
      */
     int eventthreadcount;
+    uint16_t progport; /* Registered with portmap */
+    /* Execute actor function in program's own thread? This will reduce */
+    /* the workload on poller threads */
+    gf_boolean_t ownthread;
+    gf_boolean_t alive;
+
+    gf_boolean_t synctask;
 };
 
 typedef struct rpcsvc_cbk_program {
