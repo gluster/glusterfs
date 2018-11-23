@@ -1369,9 +1369,9 @@ rpcsvc_transport_submit(rpc_transport_t *trans, struct iovec *rpchdr,
                         int progpayloadcount, struct iobref *iobref, void *priv)
 {
     int ret = -1;
-    rpc_transport_reply_t reply = {{
+    rpc_transport_reply_t reply = {
         0,
-    }};
+    };
 
     if ((!trans) || (!rpchdr) || (!rpchdr->iov_base)) {
         goto out;

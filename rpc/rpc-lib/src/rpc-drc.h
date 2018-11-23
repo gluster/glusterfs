@@ -19,18 +19,17 @@
 
 /* per-client cache structure */
 struct drc_client {
-    uint32_t ref;
     union gf_sock_union sock_union;
     /* pointers to the cache */
     struct rb_table *rbtree;
     /* no. of ops currently cached */
     uint32_t op_count;
+    uint32_t ref;
     struct list_head client_list;
 };
 
 struct drc_cached_op {
     drc_op_state_t state;
-    uint32_t xid;
     int prognum;
     int progversion;
     int procnum;
@@ -39,6 +38,7 @@ struct drc_cached_op {
     struct list_head client_list;
     struct list_head global_list;
     int32_t ref;
+    uint32_t xid;
 };
 
 /* global drc definitions */
@@ -50,19 +50,19 @@ struct drc_globals {
      * it is used so in gf_libavl_allocator
      */
     struct libavl_allocator allocator;
-    drc_type_t type;
     /* configurable size parameter */
-    uint32_t global_cache_size;
-    drc_lru_factor_t lru_factor;
     gf_lock_t lock;
-    drc_status_t status;
-    uint32_t op_count;
     uint64_t cache_hits;
     uint64_t intransit_hits;
     struct mem_pool *mempool;
     struct list_head cache_head;
-    uint32_t client_count;
     struct list_head clients_head;
+    uint32_t op_count;
+    uint32_t client_count;
+    uint32_t global_cache_size;
+    drc_type_t type;
+    drc_lru_factor_t lru_factor;
+    drc_status_t status;
 };
 
 int
