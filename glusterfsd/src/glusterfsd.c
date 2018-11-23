@@ -2562,6 +2562,9 @@ glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
     int ret = -1;
     xlator_t *trav = NULL;
 
+    if (!ctx)
+        return -1;
+
     graph = glusterfs_graph_construct(fp);
     if (!graph) {
         gf_msg("", GF_LOG_ERROR, 0, glusterfsd_msg_26,
@@ -2610,7 +2613,7 @@ out:
         */
         if (graph) {
             xl = graph->first;
-            if ((ctx && (ctx->active != graph)) &&
+            if ((ctx->active != graph) &&
                 (xl && !strcmp(xl->type, "protocol/server"))) {
                 glusterfs_graph_fini(graph);
                 glusterfs_graph_destroy(graph);
@@ -2618,7 +2621,7 @@ out:
         }
 
         /* there is some error in setting up the first graph itself */
-        if (!ctx || !ctx->active) {
+        if (!ctx->active) {
             emancipate(ctx, ret);
             cleanup_and_exit(ret);
         }
