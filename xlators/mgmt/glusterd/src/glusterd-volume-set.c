@@ -1415,7 +1415,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {.key = "network.ping-timeout",
      .voltype = "protocol/client",
      .op_version = 1,
-     .value = "42",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "network.tcp-window-size",
      .voltype = "protocol/client",
@@ -1577,7 +1576,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .voltype = "protocol/server",
         .option = "transport.tcp-user-timeout",
         .op_version = GD_OP_VERSION_3_10_2,
-        .value = "0", /* 0 - implies "use system default" */
     },
     {
         .key = "server.keepalive-time",

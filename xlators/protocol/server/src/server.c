@@ -1681,7 +1681,7 @@ struct volume_options server_options[] = {
         .type = GF_OPTION_TYPE_TIME,
         .min = 0,
         .max = 1013,
-        .default_value = "42", /* default like network.ping-timeout */
+        .default_value = TOSTRING(GF_NETWORK_TIMEOUT),
     },
     {
         .key = {"transport.*"},
