@@ -214,8 +214,10 @@ NOTE: valid units of time and their symbols are : hours(h/hr), minutes(m/min), s
 \fB\ system:: execute gsec_create\fR
 Generates pem keys which are required for push-pem
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> create [push-pem] [force]\fR
+\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> create [[ssh-port n][[no-verify]|[push-pem]]] [force]\fR
 Create a new geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+Use ssh-port n if custom SSH port is configured in slave nodes.
+Use no-verify if the rsa-keys of nodes in master volume is distributed to slave nodes through an external agent.
 Use push-pem to push the keys automatically.
 .TP
 \fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> {start|stop} [force] \fR
