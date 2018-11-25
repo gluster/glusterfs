@@ -49,9 +49,9 @@ extern struct volopt_map_entry glusterd_volopt_map[];
     do {                                                                       \
         char *_value = NULL;                                                   \
                                                                                \
-        if (dict_get_str(set_dict, CLI_OPT, &_value) == 0) {                   \
-            if (xlator_set_option(XL, "transport.socket." XLATOR_OPT,          \
-                                  _value) != 0) {                              \
+        if (dict_get_str_sizen(set_dict, CLI_OPT, &_value) == 0) {             \
+            if (xlator_set_fixed_option(XL, "transport.socket." XLATOR_OPT,    \
+                                        _value) != 0) {                        \
                 gf_msg("glusterd", GF_LOG_WARNING, errno,                      \
                        GD_MSG_XLATOR_SET_OPT_FAIL,                             \
                        "failed to set " XLATOR_OPT);                           \
@@ -225,15 +225,17 @@ volgen_graph_add(volgen_graph_t *graph, char *type, char *volname)
     return volgen_graph_add_as(graph, type, "%s-%s", volname, shorttype);
 }
 
+#define xlator_set_fixed_option(xl, key, value)                                \
+    xlator_set_option(xl, key, SLEN(key), value)
+
 /* XXX Seems there is no such generic routine?
  * Maybe should put to xlator.c ??
  */
 static int
-xlator_set_option(xlator_t *xl, char *key, char *value)
+xlator_set_option(xlator_t *xl, char *key, const int keylen, char *value)
 {
-    char *dval = NULL;
+    char *dval = gf_strdup(value);
 
-    dval = gf_strdup(value);
     if (!dval) {
         gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY,
                "failed to set xlator opt: %s[%s] = %s", xl->name, key, value);
@@ -241,14 +243,17 @@ xlator_set_option(xlator_t *xl, char *key, char *value)
         return -1;
     }
 
-    return dict_set_dynstr(xl->options, key, dval);
+    return dict_set_dynstrn(xl->options, key, keylen, dval);
 }
 
+#define xlator_get_fixed_option(xl, key, value)                                \
+    xlator_get_option(xl, key, SLEN(key), value)
+
 static int
-xlator_get_option(xlator_t *xl, char *key, char **value)
+xlator_get_option(xlator_t *xl, char *key, const int keylen, char **value)
 {
     GF_ASSERT(xl);
-    return dict_get_str(xl->options, key, value);
+    return dict_get_strn(xl->options, key, keylen, value);
 }
 
 static xlator_t *
@@ -552,7 +557,8 @@ no_filter_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         if (strcmp(trav->type, vme->voltype) != 0)
             continue;
 
-        ret = xlator_set_option(trav, vme->option, vme->value);
+        ret = xlator_set_option(trav, vme->option, strlen(vme->option),
+                                vme->value);
         if (ret)
             break;
     }
@@ -1138,21 +1144,17 @@ get_transport_type(glusterd_volinfo_t *volinfo, dict_t *set_dict, char *transt,
 {
     int ret = -1;
     char *tt = NULL;
-    char *key = NULL;
-    typedef void (*transport_type)(glusterd_volinfo_t * volinfo, char *tt);
-    transport_type get_transport;
 
     if (is_nfs == _gf_false) {
-        key = "client-transport-type";
-        get_transport = get_vol_transport_type;
+        ret = dict_get_str_sizen(set_dict, "client-transport-type", &tt);
+        if (ret)
+            get_vol_transport_type(volinfo, transt);
     } else {
-        key = "nfs.transport-type";
-        get_transport = get_vol_nfs_transport_type;
+        ret = dict_get_str_sizen(set_dict, "nfs.transport-type", &tt);
+        if (ret)
+            get_vol_nfs_transport_type(volinfo, transt);
     }
 
-    ret = dict_get_str(set_dict, key, &tt);
-    if (ret)
-        get_transport(volinfo, transt);
     if (!ret)
         strcpy(transt, tt);
 }
@@ -1175,7 +1177,7 @@ server_auth_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     /* from 'auth.allow' -> 'allow', and 'auth.reject' -> 'reject' */
     key = strchr(vme->key, '.') + 1;
 
-    ret = xlator_get_option(xl, "auth-path", &auth_path);
+    ret = xlator_get_fixed_option(xl, "auth-path", &auth_path);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DEFAULT_OPT_INFO,
                "Failed to get auth-path from server graph");
@@ -1183,7 +1185,7 @@ server_auth_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     }
     ret = gf_asprintf(&aa, "auth.addr.%s.%s", auth_path, key);
     if (ret != -1) {
-        ret = xlator_set_option(xl, aa, vme->value);
+        ret = xlator_set_option(xl, aa, ret, vme->value);
         GF_FREE(aa);
     }
     if (ret)
@@ -1443,11 +1445,11 @@ volgen_graph_set_xl_options(volgen_graph_t *graph, dict_t *dict)
     char *loglevel = NULL;
     xlator_t *trav = NULL;
 
-    ret = dict_get_str(dict, "xlator", &xlator);
+    ret = dict_get_str_sizen(dict, "xlator", &xlator);
     if (ret)
         goto out;
 
-    ret = dict_get_str(dict, "loglevel", &loglevel);
+    ret = dict_get_str_sizen(dict, "loglevel", &loglevel);
     if (ret)
         goto out;
 
@@ -1457,7 +1459,7 @@ volgen_graph_set_xl_options(volgen_graph_t *graph, dict_t *dict)
         if (fnmatch(xlator_match, trav->type, FNM_NOESCAPE) == 0) {
             gf_msg_debug("glusterd", 0, "Setting log level for xlator: %s",
                          trav->type);
-            ret = xlator_set_option(trav, "log-level", loglevel);
+            ret = xlator_set_fixed_option(trav, "log-level", loglevel);
             if (ret)
                 break;
         }
@@ -1539,6 +1541,7 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char key[1024] = {
         0,
     };
+    int keylen;
     /*char            port_str[7]     = {0, };*/
     int ret = 0;
     char *username = NULL;
@@ -1550,8 +1553,7 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (ret != 0)
         goto out;
 
-    ret = dict_set_int32n(set_dict, "gfproxy-server", SLEN("gfproxy-server"),
-                          1);
+    ret = dict_set_int32_sizen(set_dict, "gfproxy-server", 1);
     if (ret != 0)
         goto out;
 
@@ -1560,8 +1562,8 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     /* Clear this setting so that future users of set_dict do not end up
      * thinking they are a gfproxy server */
-    dict_deln(set_dict, "gfproxy-server", SLEN("gfproxy-server"));
-    dict_deln(set_dict, "trusted-client", SLEN("trusted-client"));
+    dict_del_sizen(set_dict, "gfproxy-server");
+    dict_del_sizen(set_dict, "trusted-client");
 
     /* Then add the server to it */
     get_vol_transport_type(volinfo, transt);
@@ -1569,7 +1571,7 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "transport-type", transt);
+    ret = xlator_set_fixed_option(xl, "transport-type", transt);
     if (ret != 0)
         goto out;
 
@@ -1577,22 +1579,22 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     username = glusterd_auth_get_username(volinfo);
     password = glusterd_auth_get_password(volinfo);
     if (username) {
-        snprintf(key, sizeof(key), "auth.login.gfproxyd-%s.allow",
-                 volinfo->volname);
-        ret = xlator_set_option(xl, key, username);
+        keylen = snprintf(key, sizeof(key), "auth.login.gfproxyd-%s.allow",
+                          volinfo->volname);
+        ret = xlator_set_option(xl, key, keylen, username);
         if (ret)
             return -1;
     }
 
     if (password) {
-        snprintf(key, sizeof(key), "auth.login.%s.password", username);
-        ret = xlator_set_option(xl, key, password);
+        keylen = snprintf(key, sizeof(key), "auth.login.%s.password", username);
+        ret = xlator_set_option(xl, key, keylen, password);
         if (ret != 0)
             goto out;
     }
 
     snprintf(key, sizeof(key), "gfproxyd-%s", volinfo->volname);
-    ret = xlator_set_option(xl, "auth-path", key);
+    ret = xlator_set_fixed_option(xl, "auth-path", key);
 
 out:
     return ret;
@@ -1642,23 +1644,24 @@ brick_graph_add_posix(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "directory", brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "directory", brickinfo->path);
     if (ret)
         goto out;
 
-    ret = xlator_set_option(xl, "volume-id", uuid_utoa(volinfo->volume_id));
+    ret = xlator_set_fixed_option(xl, "volume-id",
+                                  uuid_utoa(volinfo->volume_id));
     if (ret)
         goto out;
 
     if (quota_enabled || pgfid_feat || trash_enabled) {
-        ret = xlator_set_option(xl, "update-link-count-parent", "on");
+        ret = xlator_set_fixed_option(xl, "update-link-count-parent", "on");
         if (ret) {
             goto out;
         }
     }
 
     snprintf(tmpstr, sizeof(tmpstr), "%d", brickinfo->fs_share_count);
-    ret = xlator_set_option(xl, "shared-brick-count", tmpstr);
+    ret = xlator_set_fixed_option(xl, "shared-brick-count", tmpstr);
 out:
     return ret;
 }
@@ -1692,13 +1695,13 @@ brick_graph_add_trash(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xl = volgen_graph_add(graph, "features/trash", volinfo->volname);
     if (!xl)
         goto out;
-    ret = xlator_set_option(xl, "trash-dir", ".trashcan");
+    ret = xlator_set_fixed_option(xl, "trash-dir", ".trashcan");
     if (ret)
         goto out;
-    ret = xlator_set_option(xl, "brick-path", brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "brick-path", brickinfo->path);
     if (ret)
         goto out;
-    ret = xlator_set_option(xl, "trash-internal-op", "off");
+    ret = xlator_set_fixed_option(xl, "trash-internal-op", "off");
     if (ret)
         goto out;
 out:
@@ -1772,11 +1775,11 @@ brick_graph_add_bd(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             goto out;
         }
 
-        ret = xlator_set_option(xl, "device", "vg");
+        ret = xlator_set_fixed_option(xl, "device", "vg");
         if (ret)
             goto out;
 
-        ret = xlator_set_option(xl, "export", brickinfo->vg);
+        ret = xlator_set_fixed_option(xl, "export", brickinfo->vg);
         if (ret)
             goto out;
     }
@@ -1802,7 +1805,7 @@ brick_graph_add_bitrot_stub(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "export", brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "export", brickinfo->path);
     if (ret) {
         gf_log(this->name, GF_LOG_WARNING,
                "failed to set the export "
@@ -1811,7 +1814,7 @@ brick_graph_add_bitrot_stub(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     }
 
     ret = glusterd_volinfo_get(volinfo, VKEY_FEATURES_BITROT, &value);
-    ret = xlator_set_option(xl, "bitrot", value);
+    ret = xlator_set_fixed_option(xl, "bitrot", value);
     if (ret)
         gf_log(this->name, GF_LOG_WARNING,
                "failed to set bitrot "
@@ -1839,7 +1842,7 @@ brick_graph_add_changelog(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "changelog-brick", brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "changelog-brick", brickinfo->path);
     if (ret)
         goto out;
 
@@ -1849,7 +1852,7 @@ brick_graph_add_changelog(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = -1;
         goto out;
     }
-    ret = xlator_set_option(xl, "changelog-dir", changelog_basepath);
+    ret = xlator_set_fixed_option(xl, "changelog-dir", changelog_basepath);
     if (ret)
         goto out;
 out:
@@ -2016,13 +2019,13 @@ add_one_peer(volgen_graph_t *graph, glusterd_brickinfo_t *peer, char *volname,
     }
 
     /* TBD: figure out where to get the proper transport list */
-    if (xlator_set_option(kid, "transport-type", "socket")) {
+    if (xlator_set_fixed_option(kid, "transport-type", "socket")) {
         return NULL;
     }
-    if (xlator_set_option(kid, "remote-host", peer->hostname)) {
+    if (xlator_set_fixed_option(kid, "remote-host", peer->hostname)) {
         return NULL;
     }
-    if (xlator_set_option(kid, "remote-subvolume", peer->path)) {
+    if (xlator_set_fixed_option(kid, "remote-subvolume", peer->path)) {
         return NULL;
     }
     /* TBD: deal with RDMA, SSL */
@@ -2051,7 +2054,7 @@ add_jbr_stuff(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     peer = list_prev(brickinfo, &volinfo->bricks, glusterd_brickinfo_t,
                      brick_list);
     leader_opt = (!peer || (peer->group != brickinfo->group)) ? "yes" : "no";
-    if (xlator_set_option(me, "leader", leader_opt)) {
+    if (xlator_set_fixed_option(me, "leader", leader_opt)) {
         /*
          * TBD: fix memory leak ("me" and associated dictionary)
          * There seems to be no function already to clean up a
@@ -2127,24 +2130,26 @@ brick_graph_add_index(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    ret = xlator_set_option(xl, "index-base", index_basepath);
+    ret = xlator_set_fixed_option(xl, "index-base", index_basepath);
     if (ret)
         goto out;
     if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
-        ret = xlator_set_option(xl, "xattrop64-watchlist", "trusted.ec.dirty");
+        ret = xlator_set_fixed_option(xl, "xattrop64-watchlist",
+                                      "trusted.ec.dirty");
         if (ret)
             goto out;
     }
     if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE ||
          volinfo->type == GF_CLUSTER_TYPE_NONE)) {
-        ret = xlator_set_option(xl, "xattrop-dirty-watchlist",
-                                "trusted.afr.dirty");
+        ret = xlator_set_fixed_option(xl, "xattrop-dirty-watchlist",
+                                      "trusted.afr.dirty");
         if (ret)
             goto out;
         ret = gf_asprintf(&pending_xattr, "trusted.afr.%s-", volinfo->volname);
         if (ret < 0)
             goto out;
-        ret = xlator_set_option(xl, "xattrop-pending-watchlist", pending_xattr);
+        ret = xlator_set_fixed_option(xl, "xattrop-pending-watchlist",
+                                      pending_xattr);
         if (ret)
             goto out;
     }
@@ -2177,16 +2182,16 @@ brick_graph_add_marker(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         goto out;
 
     gf_uuid_unparse(volinfo->volume_id, volume_id);
-    ret = xlator_set_option(xl, "volume-uuid", volume_id);
+    ret = xlator_set_fixed_option(xl, "volume-uuid", volume_id);
     if (ret)
         goto out;
     get_vol_tstamp_file(tstamp_file, volinfo);
-    ret = xlator_set_option(xl, "timestamp-file", tstamp_file);
+    ret = xlator_set_fixed_option(xl, "timestamp-file", tstamp_file);
     if (ret)
         goto out;
 
     snprintf(buf, sizeof(buf), "%d", volinfo->quota_xattr_version);
-    ret = xlator_set_option(xl, "quota-version", buf);
+    ret = xlator_set_fixed_option(xl, "quota-version", buf);
     if (ret)
         goto out;
 
@@ -2209,13 +2214,13 @@ brick_graph_add_quota(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "volume-uuid", volinfo->volname);
+    ret = xlator_set_fixed_option(xl, "volume-uuid", volinfo->volname);
     if (ret)
         goto out;
 
     ret = glusterd_volinfo_get(volinfo, VKEY_FEATURES_QUOTA, &value);
     if (value) {
-        ret = xlator_set_option(xl, "server-quota", value);
+        ret = xlator_set_fixed_option(xl, "server-quota", value);
         if (ret)
             goto out;
     }
@@ -2245,7 +2250,7 @@ brick_graph_add_ro(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xl = volgen_graph_add(graph, "features/read-only", volinfo->volname);
     if (!xl)
         return -1;
-    ret = xlator_set_option(xl, "read-only", "off");
+    ret = xlator_set_fixed_option(xl, "read-only", "off");
     if (ret)
         return -1;
 
@@ -2305,7 +2310,7 @@ brick_graph_add_cdc(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             ret = -1;
             goto out;
         }
-        ret = xlator_set_option(xl, "mode", "server");
+        ret = xlator_set_fixed_option(xl, "mode", "server");
         if (ret)
             goto out;
     }
@@ -2327,7 +2332,7 @@ brick_graph_add_io_stats(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "unique-id", brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "unique-id", brickinfo->path);
     if (ret)
         goto out;
 
@@ -2409,16 +2414,16 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto out;
 
-    ret = xlator_set_option(xl, "transport-type", transt);
+    ret = xlator_set_fixed_option(xl, "transport-type", transt);
     if (ret)
         goto out;
 
     /*In the case of running multiple glusterds on a single machine,
      * we should ensure that bricks don't listen on all IPs on that
      * machine and break the IP based separation being brought about.*/
-    if (dict_get(THIS->options, "transport.socket.bind-address")) {
-        ret = xlator_set_option(xl, "transport.socket.bind-address",
-                                brickinfo->hostname);
+    if (dict_get_sizen(THIS->options, "transport.socket.bind-address")) {
+        ret = xlator_set_fixed_option(xl, "transport.socket.bind-address",
+                                      brickinfo->hostname);
         if (ret)
             return -1;
     }
@@ -2432,10 +2437,10 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     RPC_SET_OPT(xl, SSL_DH_PARAM_OPT, "ssl-dh-param", return -1);
     RPC_SET_OPT(xl, SSL_EC_CURVE_OPT, "ssl-ec-curve", return -1);
 
-    if (dict_get_str(volinfo->dict, "transport.address-family",
-                     &address_family_data) == 0) {
-        ret = xlator_set_option(xl, "transport.address-family",
-                                address_family_data);
+    if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
+                           &address_family_data) == 0) {
+        ret = xlator_set_fixed_option(xl, "transport.address-family",
+                                      address_family_data);
         if (ret) {
             gf_log("glusterd", GF_LOG_WARNING,
                    "failed to set transport.address-family");
@@ -2450,22 +2455,22 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             return -1;
         }
 
-        ret = xlator_set_option(xl, key, username);
+        ret = xlator_set_option(xl, key, len, username);
         if (ret)
             return -1;
     }
 
     if (password) {
-        snprintf(key, sizeof(key), "auth.login.%s.password", username);
-
-        ret = xlator_set_option(xl, key, password);
+        len = snprintf(key, sizeof(key), "auth.login.%s.password", username);
+        if ((len < 0) || (len >= sizeof(key))) {
+            return -1;
+        }
+        ret = xlator_set_option(xl, key, len, password);
         if (ret)
             return -1;
     }
 
-    snprintf(key, sizeof(key), "auth-path");
-
-    ret = xlator_set_option(xl, key, brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "auth-path", brickinfo->path);
     if (ret)
         return -1;
 
@@ -2473,21 +2478,19 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                       : volinfo->volname;
 
     if (volname && !strcmp(volname, GLUSTER_SHARED_STORAGE)) {
-        snprintf(key, sizeof(key), "strict-auth-accept");
-
-        ret = xlator_set_option(xl, key, "true");
+        ret = xlator_set_fixed_option(xl, "strict-auth-accept", "true");
         if (ret)
             return -1;
     }
 
-    if (dict_get_str(volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
+    if (dict_get_str_sizen(volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
         len = snprintf(key, sizeof(key), "auth.login.%s.ssl-allow",
                        brickinfo->path);
         if ((len < 0) || (len >= sizeof(key))) {
             return -1;
         }
 
-        ret = xlator_set_option(xl, key, ssl_user);
+        ret = xlator_set_option(xl, key, len, ssl_user);
         if (ret)
             return -1;
     }
@@ -2544,26 +2547,26 @@ brick_graph_add_pump(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         RPC_SET_OPT(rbxl, SSL_EC_CURVE_OPT, "ssl-ec-curve", return -1);
 
         if (username) {
-            ret = xlator_set_option(rbxl, "username", username);
+            ret = xlator_set_fixed_option(rbxl, "username", username);
             if (ret)
                 return -1;
         }
 
         if (password) {
-            ret = xlator_set_option(rbxl, "password", password);
+            ret = xlator_set_fixed_option(rbxl, "password", password);
             if (ret)
                 return -1;
         }
 
-        ret = xlator_set_option(rbxl, "transport-type", ptranst);
+        ret = xlator_set_fixed_option(rbxl, "transport-type", ptranst);
         GF_FREE(ptranst);
         if (ret)
             return -1;
 
-        if (dict_get_str(volinfo->dict, "transport.address-family",
-                         &address_family_data) == 0) {
-            ret = xlator_set_option(rbxl, "transport.address-family",
-                                    address_family_data);
+        if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
+                               &address_family_data) == 0) {
+            ret = xlator_set_fixed_option(rbxl, "transport.address-family",
+                                          address_family_data);
             if (ret) {
                 gf_log("glusterd", GF_LOG_WARNING,
                        "failed to set transport.address-family");
@@ -2739,11 +2742,11 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         i--;
     }
 
-    ret = dict_get_str(set_dict, "xlator", &xlator);
+    ret = dict_get_str_sizen(set_dict, "xlator", &xlator);
 
     /* got a cli log level request */
     if (!ret) {
-        ret = dict_get_str(set_dict, "loglevel", &loglevel);
+        ret = dict_get_str_sizen(set_dict, "loglevel", &loglevel);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                    "could not get both"
@@ -3099,34 +3102,34 @@ volgen_graph_build_client(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!xl)
         goto err;
 
-    ret = xlator_set_option(xl, "ping-timeout", "42");
+    ret = xlator_set_fixed_option(xl, "ping-timeout", "42");
     if (ret)
         goto err;
 
     if (hostname) {
-        ret = xlator_set_option(xl, "remote-host", hostname);
+        ret = xlator_set_fixed_option(xl, "remote-host", hostname);
         if (ret)
             goto err;
     }
 
     if (port) {
-        ret = xlator_set_option(xl, "remote-port", port);
+        ret = xlator_set_fixed_option(xl, "remote-port", port);
         if (ret)
             goto err;
     }
 
-    ret = xlator_set_option(xl, "remote-subvolume", subvol);
+    ret = xlator_set_fixed_option(xl, "remote-subvolume", subvol);
     if (ret)
         goto err;
 
-    ret = xlator_set_option(xl, "transport-type", transt);
+    ret = xlator_set_fixed_option(xl, "transport-type", transt);
     if (ret)
         goto err;
 
-    if (dict_get_str(volinfo->dict, "transport.address-family",
-                     &address_family_data) == 0) {
-        ret = xlator_set_option(xl, "transport.address-family",
-                                address_family_data);
+    if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
+                           &address_family_data) == 0) {
+        ret = xlator_set_fixed_option(xl, "transport.address-family",
+                                      address_family_data);
         if (ret) {
             gf_log("glusterd", GF_LOG_WARNING,
                    "failed to set transport.address-family");
@@ -3141,24 +3144,24 @@ volgen_graph_build_client(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         str = NULL;
         str = glusterd_auth_get_username(volinfo);
         if (str) {
-            ret = xlator_set_option(xl, "username", str);
+            ret = xlator_set_fixed_option(xl, "username", str);
             if (ret)
                 goto err;
         }
 
         str = glusterd_auth_get_password(volinfo);
         if (str) {
-            ret = xlator_set_option(xl, "password", str);
+            ret = xlator_set_fixed_option(xl, "password", str);
             if (ret)
                 goto err;
         }
     }
 
-    if (dict_get_str(set_dict, "client.ssl", &ssl_str) == 0) {
+    if (dict_get_str_sizen(set_dict, "client.ssl", &ssl_str) == 0) {
         if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
             if (ssl_bool) {
-                ret = xlator_set_option(xl, "transport.socket.ssl-enabled",
-                                        "true");
+                ret = xlator_set_fixed_option(
+                    xl, "transport.socket.ssl-enabled", "true");
                 if (ret) {
                     goto err;
                 }
@@ -3476,7 +3479,7 @@ _xl_is_client_decommissioned(xlator_t *xl, glusterd_volinfo_t *volinfo)
     char *path = NULL;
 
     GF_ASSERT(!strcmp(xl->type, "protocol/client"));
-    ret = xlator_get_option(xl, "remote-host", &hostname);
+    ret = xlator_get_fixed_option(xl, "remote-host", &hostname);
     if (ret) {
         GF_ASSERT(0);
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REMOTE_HOST_GET_FAIL,
@@ -3485,7 +3488,7 @@ _xl_is_client_decommissioned(xlator_t *xl, glusterd_volinfo_t *volinfo)
                xl->name);
         goto out;
     }
-    ret = xlator_get_option(xl, "remote-subvolume", &path);
+    ret = xlator_get_fixed_option(xl, "remote-subvolume", &path);
     if (ret) {
         GF_ASSERT(0);
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REMOTE_HOST_GET_FAIL,
@@ -3632,8 +3635,8 @@ volgen_graph_build_dht_cluster(volgen_graph_t *graph,
     if (ret)
         goto out;
     if (decommissioned_children) {
-        ret = xlator_set_option(dht, "decommissioned-bricks",
-                                decommissioned_children);
+        ret = xlator_set_fixed_option(dht, "decommissioned-bricks",
+                                      decommissioned_children);
         if (ret)
             goto out;
     }
@@ -3669,7 +3672,7 @@ volgen_graph_build_ec_clusters(volgen_graph_t *graph,
     sprintf(option, "%d", volinfo->redundancy_count);
     ec = first_of(graph);
     for (i = 0; i < clusters; i++) {
-        ret = xlator_set_option(ec, "redundancy", option);
+        ret = xlator_set_fixed_option(ec, "redundancy", option);
         if (ret) {
             clusters = -1;
             goto out;
@@ -3734,8 +3737,8 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
             break;
         strncat(ptr, brick->brick_id, strlen(brick->brick_id));
         if (i == volinfo->replica_count) {
-            ret = xlator_set_option(afr_xlators_list[index++],
-                                    "afr-pending-xattr", afr_xattrs_list);
+            ret = xlator_set_fixed_option(afr_xlators_list[index++],
+                                          "afr-pending-xattr", afr_xattrs_list);
             if (ret)
                 goto out;
             memset(afr_xattrs_list, 0, list_size);
@@ -3800,7 +3803,7 @@ volgen_graph_build_afr_clusters(volgen_graph_t *graph,
     afr = first_of(graph);
     sprintf(option, "%d", volinfo->arbiter_count);
     for (i = 0; i < clusters; i++) {
-        ret = xlator_set_option(afr, "arbiter-count", option);
+        ret = xlator_set_fixed_option(afr, "arbiter-count", option);
         if (ret) {
             clusters = -1;
             goto out;
@@ -3919,7 +3922,7 @@ client_graph_set_rda_options(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
      * glusterd_volinfo_get, so that we consider key value of the in
      * progress volume set option.
      */
-    ret = dict_get_str(set_dict, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
+    ret = dict_get_str_sizen(set_dict, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
     if (ret < 0) {
         ret = glusterd_volinfo_get(volinfo, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
         if (ret < 0)
@@ -3932,7 +3935,7 @@ client_graph_set_rda_options(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    ret = dict_get_str(set_dict, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
+    ret = dict_get_str_sizen(set_dict, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
     if (ret < 0) {
         ret = glusterd_volinfo_get(volinfo, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
         if (ret < 0)
@@ -4013,7 +4016,7 @@ client_graph_set_perf_options(volgen_graph_t *graph,
 
     volname = volinfo->volname;
 
-    tmp_data = dict_get(set_dict, "nfs-volume-file");
+    tmp_data = dict_get_sizen(set_dict, "nfs-volume-file");
     if (!tmp_data)
         return volgen_graph_set_options_generic(graph, set_dict, volinfo,
                                                 &perfxl_option_handler);
@@ -4176,12 +4179,12 @@ volume_volgen_graph_build_clusters_tier(volgen_graph_t *graph,
 
     gf_asprintf(&rule, "%s-hot-dht", volinfo->volname);
 
-    ret = xlator_set_option(xl, "rule", rule);
+    ret = xlator_set_fixed_option(xl, "rule", rule);
     if (ret)
         goto out;
 
     /*Each dht/tier layer must have a different xattr name*/
-    ret = xlator_set_option(xl, "xattr-name", "trusted.tier.tier-dht");
+    ret = xlator_set_fixed_option(xl, "xattr-name", "trusted.tier.tier-dht");
     if (ret)
         goto out;
 
@@ -4195,8 +4198,8 @@ volume_volgen_graph_build_clusters_tier(volgen_graph_t *graph,
     if (ret)
         goto out;
     if (decommissioned_children) {
-        ret = xlator_set_option(xl, "decommissioned-bricks",
-                                decommissioned_children);
+        ret = xlator_set_fixed_option(xl, "decommissioned-bricks",
+                                      decommissioned_children);
         if (ret)
             goto out;
     }
@@ -4300,7 +4303,7 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             ret = -1;
             goto out;
         }
-        ret = xlator_set_option(xl, "read-only", "on");
+        ret = xlator_set_fixed_option(xl, "read-only", "on");
         if (ret)
             goto out;
     }
@@ -4316,7 +4319,7 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             ret = -1;
             goto out;
         }
-        ret = xlator_set_option(xl, "mode", "client");
+        ret = xlator_set_fixed_option(xl, "mode", "client");
         if (ret)
             goto out;
     }
@@ -4357,9 +4360,9 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     /* Do not allow changing read-after-open option if root-squash is
        enabled.
     */
-    ret = dict_get_str(set_dict, "performance.read-after-open", &tmp);
+    ret = dict_get_str_sizen(set_dict, "performance.read-after-open", &tmp);
     if (!ret) {
-        ret = dict_get_str(volinfo->dict, "server.root-squash", &tmp);
+        ret = dict_get_str_sizen(volinfo->dict, "server.root-squash", &tmp);
         if (!ret) {
             ob = _gf_false;
             ret = gf_string2boolean(tmp, &ob);
@@ -4382,15 +4385,15 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
        root-squash is enabled, open-behind's option to read after
        open is done is also enabled.
     */
-    ret = dict_get_str(set_dict, "server.root-squash", &tmp);
+    ret = dict_get_str_sizen(set_dict, "server.root-squash", &tmp);
     if (!ret) {
         ret = gf_string2boolean(tmp, &var);
         if (ret)
             goto out;
 
         if (var) {
-            ret = dict_get_str(volinfo->dict, "performance.read-after-open",
-                               &tmp);
+            ret = dict_get_str_sizen(volinfo->dict,
+                                     "performance.read-after-open", &tmp);
             if (!ret) {
                 ret = gf_string2boolean(tmp, &ob);
                 /* go ahead with turning read-after-open on
@@ -4398,11 +4401,11 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                    OR if read-after-open option is turned off
                 */
                 if (ret || !ob)
-                    ret = dict_set_str(set_dict, "performance.read-after-open",
-                                       "yes");
+                    ret = dict_set_sizen_str_sizen(
+                        set_dict, "performance.read-after-open", "yes");
             } else {
-                ret = dict_set_str(set_dict, "performance.read-after-open",
-                                   "yes");
+                ret = dict_set_sizen_str_sizen(
+                    set_dict, "performance.read-after-open", "yes");
             }
         } else {
             /* When root-squash has to be turned off, open-behind's
@@ -4412,14 +4415,14 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                option was not set before turning on root-squash.
             */
             ob = _gf_false;
-            ret = dict_get_str(volinfo->dict, "performance.read-after-open",
-                               &tmp);
+            ret = dict_get_str_sizen(volinfo->dict,
+                                     "performance.read-after-open", &tmp);
             if (!ret) {
                 ret = gf_string2boolean(tmp, &ob);
 
                 if (!ret && ob) {
-                    ret = dict_set_str(set_dict, "performance.read-after-open",
-                                       "yes");
+                    ret = dict_set_sizen_str_sizen(
+                        set_dict, "performance.read-after-open", "yes");
                 }
             }
             /* consider operation is failure only if read-after-open
@@ -4439,8 +4442,8 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     ret = dict_get_str_boolean(set_dict, "server.manage-gids", _gf_false);
     if (ret != -1) {
-        ret = dict_set_str(set_dict, "client.send-gids",
-                           ret ? "false" : "true");
+        ret = dict_set_str_sizen(set_dict, "client.send-gids",
+                                 ret ? "false" : "true");
         if (ret)
             gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_DICT_SET_FAILED,
                    "changing client"
@@ -4490,8 +4493,9 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     ret = -1;
     xl = volgen_graph_add_as(graph, "debug/io-stats", subvol);
-    if (!xl)
+    if (!xl) {
         goto out;
+    }
 
     ret = graph_set_generic_options(this, graph, set_dict, "client");
 out:
@@ -4522,18 +4526,12 @@ bitrot_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
                       void *param)
 {
     xlator_t *xl = NULL;
-    char *bitrot_option = NULL;
     int ret = 0;
 
     xl = first_of(graph);
 
     if (!strcmp(vme->option, "expiry-time")) {
-        ret = gf_asprintf(&bitrot_option, "expiry-time");
-        if (ret != -1) {
-            ret = xlator_set_option(xl, bitrot_option, vme->value);
-            GF_FREE(bitrot_option);
-        }
-
+        ret = xlator_set_fixed_option(xl, "expiry-time", vme->value);
         if (ret)
             return -1;
     }
@@ -4546,41 +4544,25 @@ scrubber_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
                         void *param)
 {
     xlator_t *xl = NULL;
-    char *scrub_option = NULL;
     int ret = 0;
 
     xl = first_of(graph);
 
     if (!strcmp(vme->option, "scrub-throttle")) {
-        ret = gf_asprintf(&scrub_option, "scrub-throttle");
-        if (ret != -1) {
-            ret = xlator_set_option(xl, scrub_option, vme->value);
-            GF_FREE(scrub_option);
-        }
-
+        ret = xlator_set_fixed_option(xl, "scrub-throttle", vme->value);
         if (ret)
             return -1;
     }
 
     if (!strcmp(vme->option, "scrub-frequency")) {
-        ret = gf_asprintf(&scrub_option, "scrub-freq");
-        if (ret != -1) {
-            ret = xlator_set_option(xl, scrub_option, vme->value);
-            GF_FREE(scrub_option);
-        }
-
+        ret = xlator_set_fixed_option(xl, "scrub-freq", vme->value);
         if (ret)
             return -1;
     }
 
     if (!strcmp(vme->option, "scrubber")) {
         if (!strcmp(vme->value, "pause")) {
-            ret = gf_asprintf(&scrub_option, "scrub-state");
-            if (ret != -1) {
-                ret = xlator_set_option(xl, scrub_option, vme->value);
-                GF_FREE(scrub_option);
-            }
-
+            ret = xlator_set_fixed_option(xl, "scrub-state", vme->value);
             if (ret)
                 return -1;
         }
@@ -4633,7 +4615,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "rpc-auth.addr.%s.allow", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4645,7 +4627,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "rpc-auth.addr.%s.reject", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4657,7 +4639,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "rpc-auth.auth-unix.%s", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4668,7 +4650,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "rpc-auth.auth-null.%s", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4680,7 +4662,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "nfs3.%s.trusted-sync", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4692,7 +4674,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "nfs3.%s.trusted-write", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4704,7 +4686,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "nfs3.%s.volume-access", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4720,7 +4702,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
             if (ret)
                 return -1;
 
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4732,7 +4714,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "rpc-auth.ports.%s.insecure", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4744,7 +4726,7 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
         ret = gf_asprintf(&aa, "nfs.%s.disable", volinfo->volname);
 
         if (ret != -1) {
-            ret = xlator_set_option(xl, aa, vme->value);
+            ret = xlator_set_option(xl, aa, ret, vme->value);
             GF_FREE(aa);
         }
 
@@ -4753,7 +4735,8 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     }
 
     if ((strcmp(vme->voltype, "nfs/server") == 0) && (vme->option[0] != '!')) {
-        ret = xlator_set_option(xl, vme->option, vme->value);
+        ret = xlator_set_option(xl, vme->option, strlen(vme->option),
+                                vme->value);
         if (ret)
             return -1;
     }
@@ -4781,6 +4764,27 @@ volgen_get_shd_key(int type)
     return key;
 }
 
+static int
+volgen_set_shd_key_enable(dict_t *set_dict, const int type)
+{
+    int ret = -1;
+
+    switch (type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+            ret = dict_set_sizen_str_sizen(set_dict, "cluster.self-heal-daemon",
+                                           "enable");
+            break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+            ret = dict_set_sizen_str_sizen(
+                set_dict, "cluster.disperse-self-heal-daemon", "enable");
+            break;
+        default:
+            break;
+    }
+
+    return ret;
+}
+
 static gf_boolean_t
 volgen_is_shd_compatible_xl(char *xl_type)
 {
@@ -4801,7 +4805,7 @@ volgen_graph_set_iam_shd(volgen_graph_t *graph)
         if (!volgen_is_shd_compatible_xl(trav->type))
             continue;
 
-        ret = xlator_set_option(trav, "iam-self-heal-daemon", "yes");
+        ret = xlator_set_fixed_option(trav, "iam-self-heal-daemon", "yes");
         if (ret)
             break;
     }
@@ -4813,21 +4817,14 @@ glusterd_prepare_shd_volume_options_for_tier(glusterd_volinfo_t *volinfo,
                                              dict_t *set_dict)
 {
     int ret = -1;
-    char *key = NULL;
 
-    key = volgen_get_shd_key(volinfo->tier_info.cold_type);
-    if (key) {
-        ret = dict_set_str(set_dict, key, "enable");
-        if (ret)
-            goto out;
-    }
+    ret = volgen_set_shd_key_enable(set_dict, volinfo->tier_info.cold_type);
+    if (ret)
+        goto out;
 
-    key = volgen_get_shd_key(volinfo->tier_info.hot_type);
-    if (key) {
-        ret = dict_set_str(set_dict, key, "enable");
-        if (ret)
-            goto out;
-    }
+    ret = volgen_set_shd_key_enable(set_dict, volinfo->tier_info.hot_type);
+    if (ret)
+        goto out;
 out:
     return ret;
 }
@@ -4836,7 +4833,6 @@ static int
 prepare_shd_volume_options(glusterd_volinfo_t *volinfo, dict_t *mod_dict,
                            dict_t *set_dict)
 {
-    char *key = NULL;
     int ret = 0;
 
     if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
@@ -4844,12 +4840,7 @@ prepare_shd_volume_options(glusterd_volinfo_t *volinfo, dict_t *mod_dict,
         if (ret)
             goto out;
     } else {
-        key = volgen_get_shd_key(volinfo->type);
-        if (!key) {
-            ret = -1;
-            goto out;
-        }
-        ret = dict_set_str(set_dict, key, "enable");
+        ret = volgen_set_shd_key_enable(set_dict, volinfo->type);
         if (ret)
             goto out;
     }
@@ -5162,7 +5153,7 @@ volgen_graph_set_iam_nfsd(const volgen_graph_t *graph)
         if (strcmp(trav->type, "cluster/replicate") != 0)
             continue;
 
-        ret = xlator_set_option(trav, "iam-nfs-daemon", "yes");
+        ret = xlator_set_fixed_option(trav, "iam-nfs-daemon", "yes");
         if (ret)
             break;
     }
@@ -5206,15 +5197,15 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
         ret = -1;
         goto out;
     }
-    ret = xlator_set_option(nfsxl, "nfs.dynamic-volumes", "on");
+    ret = xlator_set_fixed_option(nfsxl, "nfs.dynamic-volumes", "on");
     if (ret)
         goto out;
 
-    ret = xlator_set_option(nfsxl, "nfs.nlm", "on");
+    ret = xlator_set_fixed_option(nfsxl, "nfs.nlm", "on");
     if (ret)
         goto out;
 
-    ret = xlator_set_option(nfsxl, "nfs.drc", "off");
+    ret = xlator_set_fixed_option(nfsxl, "nfs.drc", "off");
     if (ret)
         goto out;
 
@@ -5232,7 +5223,7 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
                    "Out of memory");
             goto out;
         }
-        ret = xlator_set_option(nfsxl, skey, "*");
+        ret = xlator_set_option(nfsxl, skey, ret, "*");
         GF_FREE(skey);
         if (ret)
             goto out;
@@ -5243,7 +5234,8 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
                    "Out of memory");
             goto out;
         }
-        ret = xlator_set_option(nfsxl, skey, uuid_utoa(voliter->volume_id));
+        ret = xlator_set_option(nfsxl, skey, ret,
+                                uuid_utoa(voliter->volume_id));
         GF_FREE(skey);
         if (ret)
             goto out;
@@ -5264,15 +5256,17 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
         else
             get_transport_type(voliter, voliter->dict, nfs_xprt, _gf_true);
 
-        ret = dict_set_str(set_dict, "performance.stat-prefetch", "off");
+        ret = dict_set_sizen_str_sizen(set_dict, "performance.stat-prefetch",
+                                       "off");
         if (ret)
             goto out;
 
-        ret = dict_set_str(set_dict, "performance.client-io-threads", "off");
+        ret = dict_set_sizen_str_sizen(set_dict,
+                                       "performance.client-io-threads", "off");
         if (ret)
             goto out;
 
-        ret = dict_set_str(set_dict, "client-transport-type", nfs_xprt);
+        ret = dict_set_str_sizen(set_dict, "client-transport-type", nfs_xprt);
         if (ret)
             goto out;
 
@@ -5280,11 +5274,11 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
         if (ret)
             goto out;
 
-        ret = dict_set_str(set_dict, "nfs-volume-file", "yes");
+        ret = dict_set_sizen_str_sizen(set_dict, "nfs-volume-file", "yes");
         if (ret)
             goto out;
 
-        if (mod_dict && (data = dict_get(mod_dict, "volume-name"))) {
+        if (mod_dict && (data = dict_get_sizen(mod_dict, "volume-name"))) {
             volname = data->data;
             if (strcmp(volname, voliter->volname) == 0)
                 dict_copy(mod_dict, set_dict);
@@ -5537,7 +5531,7 @@ build_quotad_graph(volgen_graph_t *graph, dict_t *mod_dict)
                    "Out of memory");
             goto out;
         }
-        ret = xlator_set_option(quotad_xl, skey, voliter->volname);
+        ret = xlator_set_option(quotad_xl, skey, ret, voliter->volname);
         GF_FREE(skey);
         if (ret)
             goto out;
@@ -5756,7 +5750,7 @@ glusterd_generate_client_per_brick_volfile(glusterd_volinfo_t *volinfo)
     if (ret)
         goto free_dict;
 
-    if (dict_get_str(volinfo->dict, "client.ssl", &ssl_str) == 0) {
+    if (dict_get_str_sizen(volinfo->dict, "client.ssl", &ssl_str) == 0) {
         if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
             if (ssl_bool) {
                 if (dict_set_dynstr_with_alloc(dict, "client.ssl", "on") != 0) {
@@ -5923,8 +5917,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
             ret = glusterd_get_trusted_client_filepath(filepath, volinfo, type);
         } else if (client_type == GF_CLIENT_TRUSTED_PROXY) {
             glusterd_get_gfproxy_client_volfile(volinfo, filepath, PATH_MAX);
-            ret = dict_set_int32n(dict, "gfproxy-client",
-                                  SLEN("gfproxy-client"), 1);
+            ret = dict_set_int32_sizen(dict, "gfproxy-client", 1);
         } else {
             ret = glusterd_get_client_filepath(filepath, volinfo, type);
         }
@@ -5971,7 +5964,6 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     dict_t *set_dict = NULL;
     char *loglevel = NULL;
     char *xlator = NULL;
-    char auth_path[] = "auth-path";
     char *ssl_str = NULL;
     gf_boolean_t ssl_bool = _gf_false;
 
@@ -5979,9 +5971,9 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     if (!set_dict)
         return -1;
 
-    ret = dict_get_str(set_dict, "xlator", &xlator);
+    ret = dict_get_str_sizen(set_dict, "xlator", &xlator);
     if (!ret) {
-        ret = dict_get_str(set_dict, "loglevel", &loglevel);
+        ret = dict_get_str_sizen(set_dict, "loglevel", &loglevel);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                    "could not get both"
@@ -5995,7 +5987,7 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     if (!xl)
         return -1;
 
-    ret = xlator_set_option(xl, "volname", volinfo->volname);
+    ret = xlator_set_fixed_option(xl, "volname", volinfo->volname);
     if (ret)
         return -1;
 
@@ -6012,15 +6004,15 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     if (!xl)
         return -1;
 
-    ret = xlator_set_option(xl, "transport-type", "tcp");
+    ret = xlator_set_fixed_option(xl, "transport-type", "tcp");
     if (ret)
         return -1;
 
-    if (dict_get_str(set_dict, "server.ssl", &ssl_str) == 0) {
+    if (dict_get_str_sizen(set_dict, "server.ssl", &ssl_str) == 0) {
         if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
             if (ssl_bool) {
-                ret = xlator_set_option(xl, "transport.socket.ssl-enabled",
-                                        "true");
+                ret = xlator_set_fixed_option(
+                    xl, "transport.socket.ssl-enabled", "true");
                 if (ret) {
                     return -1;
                 }
@@ -6040,18 +6032,19 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     username = glusterd_auth_get_username(volinfo);
     passwd = glusterd_auth_get_password(volinfo);
 
-    snprintf(key, sizeof(key), "auth.login.snapd-%s.allow", volinfo->volname);
-    ret = xlator_set_option(xl, key, username);
+    ret = snprintf(key, sizeof(key), "auth.login.snapd-%s.allow",
+                   volinfo->volname);
+    ret = xlator_set_option(xl, key, ret, username);
     if (ret)
         return -1;
 
-    snprintf(key, sizeof(key), "auth.login.%s.password", username);
-    ret = xlator_set_option(xl, key, passwd);
+    ret = snprintf(key, sizeof(key), "auth.login.%s.password", username);
+    ret = xlator_set_option(xl, key, ret, passwd);
     if (ret)
         return -1;
 
     snprintf(key, sizeof(key), "snapd-%s", volinfo->volname);
-    ret = xlator_set_option(xl, auth_path, key);
+    ret = xlator_set_fixed_option(xl, "auth-path", key);
     if (ret)
         return -1;
 
@@ -6102,7 +6095,7 @@ build_bitd_clusters(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (ret < 0)
         goto out;
 
-    ret = xlator_set_option(xl, "brick-count", brick_hint);
+    ret = xlator_set_fixed_option(xl, "brick-count", brick_hint);
     if (ret)
         goto out;
 
@@ -6263,7 +6256,7 @@ build_scrub_clusters(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     xl = first_of(graph);
 
-    ret = xlator_set_option(xl, "scrubber", "true");
+    ret = xlator_set_fixed_option(xl, "scrubber", "true");
     if (ret)
         goto out;
 
@@ -6463,7 +6456,7 @@ glusterd_create_volfiles(glusterd_volinfo_t *volinfo)
     if (ret)
         gf_log(this->name, GF_LOG_ERROR, "Could not generate gfproxy volfiles");
 
-    dict_del(volinfo->dict, "skip-CLIOT");
+    dict_del_sizen(volinfo->dict, "skip-CLIOT");
 
 out:
     return ret;
@@ -6540,7 +6533,7 @@ validate_shdopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
         ret = 0;
         goto out;
     }
-    ret = dict_set_int32n(val_dict, "graph-check", SLEN("graph-check"), 1);
+    ret = dict_set_int32_sizen(val_dict, "graph-check", 1);
     if (ret)
         goto out;
     ret = build_shd_graph(&graph, val_dict);
@@ -6551,7 +6544,7 @@ validate_shdopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
 
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
 out:
-    dict_deln(val_dict, "graph-check", SLEN("graph-check"));
+    dict_del_sizen(val_dict, "graph-check");
     return ret;
 }
 
@@ -6577,7 +6570,7 @@ validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
     graph.errstr = op_errstr;
 
     get_vol_transport_type(volinfo, transport_type);
-    ret = dict_get_str(val_dict, "nfs.transport-type", &tt);
+    ret = dict_get_str_sizen(val_dict, "nfs.transport-type", &tt);
     if (!ret) {
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
             snprintf(err_str, sizeof(err_str),
@@ -6601,7 +6594,7 @@ validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
         }
     }
 
-    ret = dict_set_str(val_dict, "volume-name", volinfo->volname);
+    ret = dict_set_str_sizen(val_dict, "volume-name", volinfo->volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                "Failed to set volume name");
@@ -6615,8 +6608,8 @@ validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
     volgen_graph_free(&graph);
 
 out:
-    if (dict_get(val_dict, "volume-name"))
-        dict_del(val_dict, "volume-name");
+    if (dict_get_sizen(val_dict, "volume-name"))
+        dict_del_sizen(val_dict, "volume-name");
     gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
