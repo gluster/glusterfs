@@ -56,9 +56,8 @@ struct dict_cmp {
 static data_t *
 get_new_data()
 {
-    data_t *data = NULL;
+    data_t *data = mem_get(THIS->ctx->dict_data_pool);
 
-    data = mem_get(THIS->ctx->dict_data_pool);
     if (!data)
         return NULL;
 
@@ -119,9 +118,7 @@ get_new_dict(void)
 dict_t *
 dict_new(void)
 {
-    dict_t *dict = NULL;
-
-    dict = get_new_dict_full(1);
+    dict_t *dict = get_new_dict_full(1);
 
     if (dict)
         dict_ref(dict);
@@ -211,11 +208,8 @@ static int
 key_value_cmp(dict_t *one, char *key1, data_t *value1, void *data)
 {
     struct dict_cmp *cmp = data;
-    dict_t *two = NULL;
-    data_t *value2 = NULL;
-
-    two = cmp->dict;
-    value2 = dict_get(two, key1);
+    dict_t *two = cmp->dict;
+    data_t *value2 = dict_get(two, key1);
 
     if (value2) {
         if (cmp->value_ignore && cmp->value_ignore(key1))
@@ -360,8 +354,6 @@ dict_lookup_common(dict_t *this, char *key, uint32_t hash)
 int32_t
 dict_lookup(dict_t *this, char *key, data_t **data)
 {
-    uint32_t hash;
-
     if (!this || !key || !data) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || !key || "
@@ -371,7 +363,7 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
     data_pair_t *tmp = NULL;
 
-    hash = (uint32_t)XXH64(key, strlen(key), 0);
+    uint32_t hash = (uint32_t)XXH64(key, strlen(key), 0);
 
     LOCK(&this->lock);
     {
@@ -769,7 +761,7 @@ dict_ref(dict_t *this)
 void
 data_unref(data_t *this)
 {
-    int32_t ref;
+    uint64_t ref;
 
     if (!this) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -919,9 +911,7 @@ data_from_uint64(uint64_t value)
 data_t *
 data_from_double(double value)
 {
-    data_t *data = NULL;
-
-    data = get_new_data();
+    data_t *data = get_new_data();
 
     if (!data) {
         return NULL;
@@ -1199,10 +1189,8 @@ data_to_uint8(data_t *data)
 {
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
-    uint32_t value = 0;
-
     errno = 0;
-    value = strtol(data->data, NULL, 0);
+    uint32_t value = strtol(data->data, NULL, 0);
 
     if ((UCHAR_MAX - (uint8_t)value) < 0) {
         errno = ERANGE;
@@ -1285,9 +1273,7 @@ dict_foreach(dict_t *dict,
              int (*fn)(dict_t *this, char *key, data_t *value, void *data),
              void *data)
 {
-    int ret = 0;
-
-    ret = dict_foreach_match(dict, dict_match_everything, NULL, fn, data);
+    int ret = dict_foreach_match(dict, dict_match_everything, NULL, fn, data);
 
     if (ret > 0)
         ret = 0;
@@ -1318,10 +1304,9 @@ dict_foreach_match(dict_t *dict,
 
     int ret = -1;
     int count = 0;
-    data_pair_t *pairs = NULL;
+    data_pair_t *pairs = dict->members_list;
     data_pair_t *next = NULL;
 
-    pairs = dict->members_list;
     while (pairs) {
         next = pairs->next;
         if (match(dict, pairs->key, pairs->value, match_data)) {
@@ -1372,10 +1357,9 @@ int
 dict_keys_join(void *value, int size, dict_t *dict, int (*filter_fn)(char *k))
 {
     int len = 0;
-    data_pair_t *pairs = NULL;
+    data_pair_t *pairs = dict->members_list;
     data_pair_t *next = NULL;
 
-    pairs = dict->members_list;
     while (pairs) {
         next = pairs->next;
 
@@ -1838,10 +1822,9 @@ err:
 int
 dict_set_int32(dict_t *this, char *key, int32_t val)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_int32(val);
     int ret = 0;
 
-    data = data_from_int32(val);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -1884,10 +1867,9 @@ err:
 int
 dict_set_int64(dict_t *this, char *key, int64_t val)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_int64(val);
     int ret = 0;
 
-    data = data_from_int64(val);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -1930,10 +1912,9 @@ err:
 int
 dict_set_uint16(dict_t *this, char *key, uint16_t val)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_uint16(val);
     int ret = 0;
 
-    data = data_from_uint16(val);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -1976,10 +1957,9 @@ err:
 int
 dict_set_uint32(dict_t *this, char *key, uint32_t val)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_uint32(val);
     int ret = 0;
 
-    data = data_from_uint32(val);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2022,10 +2002,9 @@ err:
 int
 dict_set_uint64(dict_t *this, char *key, uint64_t val)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_uint64(val);
     int ret = 0;
 
-    data = data_from_uint64(val);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2248,10 +2227,9 @@ err:
 int
 dict_set_double(dict_t *this, char *key, double val)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_double(val);
     int ret = 0;
 
-    data = data_from_double(val);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2268,10 +2246,9 @@ err:
 int
 dict_set_static_ptr(dict_t *this, char *key, void *ptr)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_ptr_common(ptr, _gf_true);
     int ret = 0;
 
-    data = data_from_ptr_common(ptr, _gf_true);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2288,10 +2265,9 @@ err:
 int
 dict_set_dynptr(dict_t *this, char *key, void *ptr, size_t len)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_dynptr(ptr, len);
     int ret = 0;
 
-    data = data_from_dynptr(ptr, len);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2421,10 +2397,9 @@ err:
 int
 dict_set_str(dict_t *this, char *key, char *str)
 {
-    data_t *data = NULL;
+    data_t *data = str_to_data(str);
     int ret = 0;
 
-    data = str_to_data(str);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2464,10 +2439,9 @@ int
 dict_set_nstrn(dict_t *this, char *key, const int keylen, char *str,
                const int vallen)
 {
-    data_t *data = NULL;
+    data_t *data = strn_to_data(str, vallen);
     int ret = 0;
 
-    data = strn_to_data(str, vallen);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2484,12 +2458,11 @@ err:
 int
 dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str)
 {
-    char *alloc_str = NULL;
+    char *alloc_str = gf_strdup(str);
     int ret = -1;
 
-    alloc_str = gf_strdup(str);
     if (!alloc_str)
-        return -1;
+        return ret;
 
     ret = dict_set_dynstr(this, key, alloc_str);
     if (ret == -EINVAL)
@@ -2508,10 +2481,9 @@ dict_set_dynstr(dict_t *this, char *key, char *str)
 int
 dict_set_dynstrn(dict_t *this, char *key, const int keylen, char *str)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_dynstr(str);
     int ret = 0;
 
-    data = data_from_dynstr(str);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2530,10 +2502,9 @@ err:
 int
 dict_set_option(dict_t *this, char *key, char *str)
 {
-    data_t *data = NULL;
+    data_t *data = data_from_dynstr(str);
     int ret = 0;
 
-    data = data_from_dynstr(str);
     if (!data) {
         ret = -EINVAL;
         goto err;
@@ -2552,9 +2523,8 @@ dict_add_dynstr_with_alloc(dict_t *this, char *key, char *str)
 {
     data_t *data = NULL;
     int ret = 0;
-    char *alloc_str = NULL;
+    char *alloc_str = gf_strdup(str);
 
-    alloc_str = gf_strdup(str);
     if (!alloc_str)
         goto out;
 
@@ -3365,7 +3335,7 @@ dict_dump_to_log(dict_t *dict)
 {
     int ret = -1;
     char *dump = NULL;
-    int dump_size = 64 * 1024;
+    const int dump_size = 64 * 1024;
     char *format = "(%s:%s)";
 
     if (!dict) {
@@ -3400,7 +3370,7 @@ dict_dump_to_statedump(dict_t *dict, char *dict_name, char *domain)
 {
     int ret = -1;
     char *dump = NULL;
-    int dump_size = 64 * 1024;
+    const int dump_size = 64 * 1024;
     char key[4096] = {
         0,
     };
@@ -3438,10 +3408,9 @@ dict_t *
 dict_for_key_value(const char *name, const char *value, size_t size,
                    gf_boolean_t is_static)
 {
-    dict_t *xattr = NULL;
+    dict_t *xattr = dict_new();
     int ret = 0;
 
-    xattr = dict_new();
     if (!xattr)
         return NULL;
 
