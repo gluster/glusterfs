@@ -2116,8 +2116,6 @@ posix_spawn_health_check_thread(xlator_t *xl)
             goto unlock;
         }
 
-        /* run the thread detached, resources will be freed on exit */
-        pthread_detach(priv->health_check);
         priv->health_check_active = _gf_true;
     }
 unlock:
@@ -2220,9 +2218,9 @@ posix_spawn_disk_space_check_thread(xlator_t *xl)
             priv->disk_space_check_active = _gf_false;
         }
 
-        ret = gf_thread_create_detached(&priv->disk_space_check,
-                                        posix_disk_space_check_thread_proc, xl,
-                                        "posix_reserve");
+        ret = gf_thread_create(&priv->disk_space_check, NULL,
+                               posix_disk_space_check_thread_proc, xl,
+                               "posix_reserve");
         if (ret < 0) {
             priv->disk_space_check_active = _gf_false;
             gf_msg(xl->name, GF_LOG_ERROR, errno, P_MSG_DISK_SPACE_CHECK_FAILED,

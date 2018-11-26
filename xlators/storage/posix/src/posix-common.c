@@ -1071,18 +1071,25 @@ void
 posix_fini(xlator_t *this)
 {
     struct posix_private *priv = this->private;
+    gf_boolean_t health_check = _gf_false;
+
     if (!priv)
         return;
     LOCK(&priv->lock);
-    if (priv->health_check_active) {
+    {
+        health_check = priv->health_check_active;
         priv->health_check_active = _gf_false;
-        pthread_cancel(priv->health_check);
-        priv->health_check = 0;
     }
     UNLOCK(&priv->lock);
+
+    if (health_check) {
+        (void)gf_thread_cleanup_xint(priv->health_check);
+        priv->health_check = 0;
+    }
+
     if (priv->disk_space_check) {
         priv->disk_space_check_active = _gf_false;
-        pthread_cancel(priv->disk_space_check);
+        (void)gf_thread_cleanup_xint(priv->disk_space_check);
         priv->disk_space_check = 0;
     }
     if (priv->janitor) {
