@@ -1,6 +1,8 @@
 [Unit]
 Description=Gluster Events Notifier
-After=syslog.target network.target
+After=network.target
+Documentation=man:glustereventsd(8)
+
 
 [Service]
 Environment=PYTHONPATH=@BUILD_PYTHON_SITE_PACKAGES_EXPANDED@:$PYTHONPATH
