@@ -113,7 +113,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
 
     GF_ASSERT(this);
 
-    ai_list = malloc(sizeof(addrinfo_list_t));
+    ai_list = MALLOC(sizeof(addrinfo_list_t));
     ai_list->info = NULL;
     CDS_INIT_LIST_HEAD(&ai_list->list);
 
@@ -193,7 +193,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                    "host name");
             goto out;
         }
-        ai_list_tmp1 = malloc(sizeof(addrinfo_list_t));
+        ai_list_tmp1 = MALLOC(sizeof(addrinfo_list_t));
         if (ai_list_tmp1 == NULL) {
             ret = 0;
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
