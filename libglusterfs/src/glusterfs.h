@@ -270,7 +270,7 @@ enum gf_internal_fop_indicator {
 
 #define GLUSTERFS_RPC_REPLY_SIZE 24
 
-#define STARTING_EVENT_THREADS 1
+#define STARTING_EVENT_THREADS 2
 
 #define DEFAULT_VAR_RUN_DIRECTORY DATADIR "/run/gluster"
 #define DEFAULT_GLUSTERFSD_MISC_DIRETORY DATADIR "/lib/misc/glusterfsd"
