@@ -527,7 +527,15 @@ pool_destructor(void *arg)
 {
     per_thread_pool_list_t *pool_list = arg;
 
-    /* The pool-sweeper thread will take it from here. */
+    /* The pool-sweeper thread will take it from here.
+     *
+     * We can change 'poison' here without taking locks because the change
+     * itself doesn't interact with other parts of the code and a simple write
+     * is already atomic from the point of view of the processor.
+     *
+     * This change can modify what mem_put() does, but both possibilities are
+     * fine until the sweeper thread kicks in. The real synchronization must be
+     * between mem_put() and the sweeper thread. */
     pool_list->poison = 1;
 }
 
@@ -789,9 +797,8 @@ mem_get_pool_list(void)
         }
     }
 
-    pool_list->poison = 0;
-
     (void)pthread_mutex_lock(&pool_lock);
+    pool_list->poison = 0;
     list_add(&pool_list->thr_list, &pool_threads);
     (void)pthread_mutex_unlock(&pool_lock);
 
