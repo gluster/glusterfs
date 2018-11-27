@@ -21,7 +21,7 @@ glusterfs_ctx_new()
 
     /* no GF_CALLOC here, gf_acct_mem_set_enable is not
        yet decided at this point */
-    ctx = calloc(1, sizeof(*ctx));
+    ctx = CALLOC(1, sizeof(*ctx));
     if (!ctx) {
         goto out;
     }
