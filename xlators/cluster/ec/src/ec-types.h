@@ -171,6 +171,7 @@ struct _ec_inode {
     gf_boolean_t have_config;
     gf_boolean_t have_version;
     gf_boolean_t have_size;
+    int32_t heal_count;
     ec_config_t config;
     uint64_t pre_version[2];
     uint64_t post_version[2];

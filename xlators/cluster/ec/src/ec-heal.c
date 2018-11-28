@@ -103,6 +103,48 @@ ec_sh_key_match(dict_t *dict, char *key, data_t *val, void *mdata)
 }
 /* FOP: heal */
 
+void
+ec_set_entry_healing(ec_fop_data_t *fop)
+{
+    ec_inode_t *ctx = NULL;
+    loc_t *loc = NULL;
+
+    if (!fop)
+        return;
+
+    loc = &fop->loc[0];
+    LOCK(&loc->inode->lock);
+    {
+        ctx = __ec_inode_get(loc->inode, fop->xl);
+        if (ctx) {
+            ctx->heal_count += 1;
+        }
+    }
+    UNLOCK(&loc->inode->lock);
+}
+
+void
+ec_reset_entry_healing(ec_fop_data_t *fop)
+{
+    ec_inode_t *ctx = NULL;
+    loc_t *loc = NULL;
+    int32_t heal_count = 0;
+    if (!fop)
+        return;
+
+    loc = &fop->loc[0];
+    LOCK(&loc->inode->lock);
+    {
+        ctx = __ec_inode_get(loc->inode, fop->xl);
+        if (ctx) {
+            ctx->heal_count += -1;
+            heal_count = ctx->heal_count;
+        }
+    }
+    UNLOCK(&loc->inode->lock);
+    GF_ASSERT(heal_count >= 0);
+}
+
 uintptr_t
 ec_heal_check(ec_fop_data_t *fop, uintptr_t *pgood)
 {
@@ -2507,17 +2549,6 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
                "Heal is not required for : %s ", uuid_utoa(loc->gfid));
         goto out;
     }
-
-    msources = alloca0(ec->nodes);
-    mhealed_sinks = alloca0(ec->nodes);
-    ret = ec_heal_metadata(frame, ec, loc->inode, msources, mhealed_sinks);
-    if (ret == 0) {
-        mgood = ec_char_array_to_mask(msources, ec->nodes);
-        mbad = ec_char_array_to_mask(mhealed_sinks, ec->nodes);
-    } else {
-        op_ret = -1;
-        op_errno = -ret;
-    }
     sources = alloca0(ec->nodes);
     healed_sinks = alloca0(ec->nodes);
     if (IA_ISREG(loc->inode->ia_type)) {
@@ -2538,8 +2569,19 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
         op_ret = -1;
         op_errno = -ret;
     }
+    msources = alloca0(ec->nodes);
+    mhealed_sinks = alloca0(ec->nodes);
+    ret = ec_heal_metadata(frame, ec, loc->inode, msources, mhealed_sinks);
+    if (ret == 0) {
+        mgood = ec_char_array_to_mask(msources, ec->nodes);
+        mbad = ec_char_array_to_mask(mhealed_sinks, ec->nodes);
+    } else {
+        op_ret = -1;
+        op_errno = -ret;
+    }
 
 out:
+    ec_reset_entry_healing(fop);
     if (fop->cbks.heal) {
         fop->cbks.heal(fop->req_frame, fop, fop->xl, op_ret, op_errno,
                        ec_char_array_to_mask(participants, ec->nodes),
@@ -2650,11 +2692,33 @@ ec_handle_healers_done(ec_fop_data_t *fop)
         ec_launch_heal(ec, heal_fop);
 }
 
+gf_boolean_t
+ec_is_entry_healing(ec_fop_data_t *fop)
+{
+    ec_inode_t *ctx = NULL;
+    int32_t heal_count = 0;
+    loc_t *loc = NULL;
+
+    loc = &fop->loc[0];
+
+    LOCK(&loc->inode->lock);
+    {
+        ctx = __ec_inode_get(loc->inode, fop->xl);
+        if (ctx) {
+            heal_count = ctx->heal_count;
+        }
+    }
+    UNLOCK(&loc->inode->lock);
+    GF_ASSERT(heal_count >= 0);
+    return heal_count;
+}
+
 void
 ec_heal_throttle(xlator_t *this, ec_fop_data_t *fop)
 {
     gf_boolean_t can_heal = _gf_true;
     ec_t *ec = this->private;
+    ec_fop_data_t *fop_rel = NULL;
 
     if (fop->req_frame == NULL) {
         LOCK(&ec->lock);
@@ -2662,8 +2726,13 @@ ec_heal_throttle(xlator_t *this, ec_fop_data_t *fop)
             if ((ec->background_heals > 0) &&
                 (ec->heal_wait_qlen + ec->background_heals) >
                     (ec->heal_waiters + ec->healers)) {
-                list_add_tail(&fop->healer, &ec->heal_waiting);
-                ec->heal_waiters++;
+                if (!ec_is_entry_healing(fop)) {
+                    list_add_tail(&fop->healer, &ec->heal_waiting);
+                    ec->heal_waiters++;
+                    ec_set_entry_healing(fop);
+                } else {
+                    fop_rel = fop;
+                }
                 fop = __ec_dequeue_heals(ec);
             } else {
                 can_heal = _gf_false;
@@ -2673,14 +2742,21 @@ ec_heal_throttle(xlator_t *this, ec_fop_data_t *fop)
     }
 
     if (can_heal) {
-        if (fop)
+        if (fop) {
+            if (fop->req_frame != NULL) {
+                ec_set_entry_healing(fop);
+            }
             ec_launch_heal(ec, fop);
+        }
     } else {
         gf_msg_debug(this->name, 0,
                      "Max number of heals are "
                      "pending, background self-heal rejected");
         ec_fop_set_error(fop, EBUSY);
         ec_heal_fail(ec, fop);
+    }
+    if (fop_rel) {
+        ec_heal_done(0, NULL, fop_rel);
     }
 }
 
