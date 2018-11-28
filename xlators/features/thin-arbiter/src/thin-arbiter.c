@@ -646,3 +646,16 @@ struct xlator_cbks cbks = {};
 struct volume_options options[] = {
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {GD_OP_VERSION_6_0},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "thin-arbiter",
+    .category = GF_MAINTAINED,
+};

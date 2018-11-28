@@ -17,10 +17,10 @@
 #include <glusterfs/xlator.h>
 #include "posix.h"
 
-class_methods_t class_methods = {.init = posix_init,
-                                 .fini = posix_fini,
-                                 .reconfigure = posix_reconfigure,
-                                 .notify = posix_notify};
+int32_t
+mem_acct_init(xlator_t *this);
+
+extern struct volume_options posix_options[];
 
 struct xlator_dumpops dumpops = {
     .priv = posix_priv,
@@ -78,6 +78,23 @@ struct xlator_fops fops = {
     .put = posix_put,
 };
 
-struct xlator_cbks cbks = {.release = posix_release,
-                           .releasedir = posix_releasedir,
-                           .forget = posix_forget};
+struct xlator_cbks cbks = {
+    .release = posix_release,
+    .releasedir = posix_releasedir,
+    .forget = posix_forget,
+};
+
+xlator_api_t xlator_api = {
+    .init = posix_init,
+    .fini = posix_fini,
+    .notify = posix_notify,
+    .reconfigure = posix_reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = posix_options,
+    .identifier = "posix",
+    .category = GF_MAINTAINED,
+};

@@ -2661,3 +2661,17 @@ struct volume_options options[] = {
      .default_value = "trusted.afr.{{ volume.name }}"},
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "index",
+    .category = GF_MAINTAINED,
+};

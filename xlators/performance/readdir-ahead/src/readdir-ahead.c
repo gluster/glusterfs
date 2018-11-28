@@ -1285,3 +1285,16 @@ struct volume_options options[] = {
      .description = "Enable/Disable readdir ahead translator"},
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "readdir-ahead",
+    .category = GF_MAINTAINED,
+};

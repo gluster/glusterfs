@@ -5292,3 +5292,16 @@ struct volume_options options[] = {
         .tags = {},
     },
     {.key = {NULL}}};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "quota",
+    .category = GF_MAINTAINED,
+};
