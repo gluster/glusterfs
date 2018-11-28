@@ -819,15 +819,27 @@ out:
     return ret;
 }
 
-int32_t
+void
 fini(xlator_t *this)
 {
     if (!this)
-        return 0;
+        return;
 
     if (this->local_pool) {
         mem_pool_destroy(this->local_pool);
         this->local_pool = NULL;
     }
-    return 0;
+    return;
 }
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "decompounder",
+    .category = GF_TECH_PREVIEW,
+};

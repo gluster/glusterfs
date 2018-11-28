@@ -1109,7 +1109,7 @@ posix_fini(xlator_t *this)
     return;
 }
 
-struct volume_options options[] = {
+struct volume_options posix_options[] = {
     {.key = {"o-direct"}, .type = GF_OPTION_TYPE_BOOL},
     {.key = {"directory"},
      .type = GF_OPTION_TYPE_PATH,
@@ -1336,4 +1336,5 @@ struct volume_options options[] = {
          "are stored in xattr to keep it consistent across replica and "
          "distribute set. The time attributes stored at the backend are "
          "not considered "},
-    {.key = {NULL}}};
+    {.key = {NULL}},
+};

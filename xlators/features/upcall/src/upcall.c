@@ -2335,14 +2335,14 @@ out:
     return ret;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     upcall_private_t *priv = NULL;
 
     priv = this->private;
     if (!priv) {
-        return 0;
+        return;
     }
     this->private = NULL;
 
@@ -2367,7 +2367,7 @@ fini(xlator_t *this)
         this->local_pool = NULL;
     }
 
-    return 0;
+    return;
 }
 
 int
@@ -2526,4 +2526,18 @@ struct volume_options options[] = {
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
      .tags = {"cache", "cachetimeout", "upcall"}},
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "upcall",
+    .category = GF_MAINTAINED,
 };

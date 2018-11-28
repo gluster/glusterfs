@@ -230,3 +230,18 @@ struct volume_options options[] = {
                     "enabled. When noatime is on, atime is not updated with "
                     "ctime feature enabled and vice versa."},
     {.key = {NULL}}};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {GD_OP_VERSION_5_0},
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "utime",
+    .category = GF_MAINTAINED,
+};

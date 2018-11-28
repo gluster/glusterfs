@@ -1000,14 +1000,14 @@ out:
     return ret;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     leases_private_t *priv = NULL;
 
     priv = this->private;
     if (!priv) {
-        return 0;
+        return;
     }
     this->private = NULL;
 
@@ -1024,7 +1024,7 @@ fini(xlator_t *this)
         glusterfs_ctx_tw_put(this->ctx);
         this->ctx->tw = NULL;
     }
-    return 0;
+    return;
 }
 
 static int
@@ -1134,4 +1134,17 @@ struct volume_options options[] = {
                     " request has been sent to the client, the lease lock"
                     " will be forcefully purged by the server."},
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "leases",
+    .category = GF_MAINTAINED,
 };

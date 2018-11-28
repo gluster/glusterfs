@@ -2176,3 +2176,17 @@ struct volume_options options[] = {
      .description = "Enable/Disable io cache translator"},
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "io-cache",
+    .category = GF_MAINTAINED,
+};

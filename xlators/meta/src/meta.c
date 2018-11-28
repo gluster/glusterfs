@@ -226,11 +226,11 @@ out:
     return ret;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     GF_FREE(this->private);
-    return 0;
+    return;
 }
 
 struct xlator_fops fops = {.lookup = meta_lookup,
@@ -261,4 +261,16 @@ struct volume_options options[] = {
      .default_value = DEFAULT_META_DIR_NAME,
      .description = "Name of default meta directory."},
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "meta",
+    .category = GF_TECH_PREVIEW,
 };

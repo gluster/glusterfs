@@ -634,3 +634,16 @@ struct volume_options options[] = {
      .description = "Auto commit period for the files."},
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "worm",
+    .category = GF_TECH_PREVIEW,
+};

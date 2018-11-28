@@ -2303,7 +2303,7 @@ err:
     return -1;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     struct posix_acl_conf *conf = NULL;
@@ -2311,7 +2311,7 @@ fini(xlator_t *this)
 
     conf = this->private;
     if (!conf)
-        return 0;
+        return;
     this->private = NULL;
 
     minacl = conf->minimal_acl;
@@ -2328,7 +2328,7 @@ fini(xlator_t *this)
 
     GF_FREE(conf);
 
-    return 0;
+    return;
 }
 
 struct xlator_fops fops = {
@@ -2371,4 +2371,17 @@ struct volume_options options[] = {
         .description = "UID to be treated as super user's id instead of 0",
     },
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "access-control",
+    .category = GF_MAINTAINED,
 };

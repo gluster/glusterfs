@@ -3741,19 +3741,19 @@ out:
     return ret;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     posix_locks_private_t *priv = NULL;
 
     priv = this->private;
     if (!priv)
-        return 0;
+        return;
     this->private = NULL;
     GF_FREE(priv->brickname);
     GF_FREE(priv);
 
-    return 0;
+    return;
 }
 
 int
@@ -4489,4 +4489,18 @@ struct volume_options options[] = {
                     "received during this period, only one upcall will "
                     "be sent."},
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "locks",
+    .category = GF_MAINTAINED,
 };
