@@ -313,14 +313,15 @@ ec_check_status(ec_fop_data_t *fop)
 
     gf_msg(fop->xl->name, GF_LOG_WARNING, 0, EC_MSG_OP_FAIL_ON_SUBVOLS,
            "Operation failed on %d of %d subvolumes.(up=%s, mask=%s, "
-           "remaining=%s, good=%s, bad=%s)",
+           "remaining=%s, good=%s, bad=%s, %s)",
            gf_bits_count(ec->xl_up & ~(fop->remaining | fop->good)), ec->nodes,
            ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
            ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
            ec_bin(str3, sizeof(str3), fop->remaining, ec->nodes),
            ec_bin(str4, sizeof(str4), fop->good, ec->nodes),
            ec_bin(str5, sizeof(str5), ec->xl_up & ~(fop->remaining | fop->good),
-                  ec->nodes));
+                  ec->nodes),
+           ec_msg_str(fop));
     if (fop->use_fd) {
         if (fop->fd != NULL) {
             ec_fheal(NULL, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
@@ -2371,37 +2372,47 @@ ec_update_info(ec_lock_link_t *link)
     uint64_t dirty[2] = {0, 0};
     uint64_t size;
     ec_t *ec = NULL;
+    uintptr_t mask;
 
     lock = link->lock;
     ctx = lock->ctx;
     ec = link->fop->xl->private;
 
     /* pre_version[*] will be 0 if have_version is false */
-    version[0] = ctx->post_version[0] - ctx->pre_version[0];
-    version[1] = ctx->post_version[1] - ctx->pre_version[1];
+    version[EC_DATA_TXN] = ctx->post_version[EC_DATA_TXN] -
+                           ctx->pre_version[EC_DATA_TXN];
+    version[EC_METADATA_TXN] = ctx->post_version[EC_METADATA_TXN] -
+                               ctx->pre_version[EC_METADATA_TXN];
 
     size = ctx->post_size - ctx->pre_size;
     /* If we set the dirty flag for update fop, we have to unset it.
      * If fop has failed on some bricks, leave the dirty as marked. */
+
     if (lock->unlock_now) {
+        if (version[EC_DATA_TXN]) {
+            /*A data fop will have difference in post and pre version
+             *and for data fop we send writes on healing bricks also */
+            mask = lock->good_mask | lock->healing;
+        } else {
+            mask = lock->good_mask;
+        }
         /* Ensure that nodes are up while doing final
          * metadata update.*/
-        if (!(ec->node_mask & ~lock->good_mask) &&
-            !(ec->node_mask & ~ec->xl_up)) {
-            if (ctx->dirty[0] != 0) {
-                dirty[0] = -1;
+        if (!(ec->node_mask & ~(mask)) && !(ec->node_mask & ~ec->xl_up)) {
+            if (ctx->dirty[EC_DATA_TXN] != 0) {
+                dirty[EC_DATA_TXN] = -1;
             }
-            if (ctx->dirty[1] != 0) {
-                dirty[1] = -1;
+            if (ctx->dirty[EC_METADATA_TXN] != 0) {
+                dirty[EC_METADATA_TXN] = -1;
             }
             /*If everything is fine and we already
              *have version xattr set on entry, there
              *is no need to update version again*/
-            if (ctx->pre_version[0]) {
-                version[0] = 0;
+            if (ctx->pre_version[EC_DATA_TXN]) {
+                version[EC_DATA_TXN] = 0;
             }
-            if (ctx->pre_version[1]) {
-                version[1] = 0;
+            if (ctx->pre_version[EC_METADATA_TXN]) {
+                version[EC_METADATA_TXN] = 0;
             }
         } else {
             link->optimistic_changelog = _gf_false;
@@ -2410,8 +2421,8 @@ ec_update_info(ec_lock_link_t *link)
         memset(ctx->dirty, 0, sizeof(ctx->dirty));
     }
 
-    if ((version[0] != 0) || (version[1] != 0) || (dirty[0] != 0) ||
-        (dirty[1] != 0)) {
+    if ((version[EC_DATA_TXN] != 0) || (version[EC_METADATA_TXN] != 0) ||
+        (dirty[EC_DATA_TXN] != 0) || (dirty[EC_METADATA_TXN] != 0)) {
         ec_update_size_version(link, version, size, dirty);
         return _gf_true;
     }
