@@ -1068,6 +1068,17 @@ __check_lease_conflict(call_frame_t *frame, lease_inode_ctx_t *lease_ctx,
         goto recall;
     }
 
+    /* As internal fops are used to maintain data integrity but do not
+     * make modififications to the client data, no need to conflict with
+     * them.
+     *
+     * @todo: like for locks, even lease state has to be handled by
+     * rebalance or self-heal daemon process. */
+    if (frame->root->pid < 0) {
+        conflicts = _gf_false;
+        goto recall;
+    }
+
     /* If lease_id is not sent, set conflicts = true if there is
      * an existing lease */
     if (!lease_id && (lease_ctx->lease_cnt > 0)) {
