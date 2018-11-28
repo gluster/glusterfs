@@ -542,6 +542,8 @@ unlock:
     pthread_mutex_destroy(&local->local_lock);
 
     fd_unref(local->fd);
+    if (local->xattr_req)
+        dict_unref(local->xattr_req);
 
     STACK_DESTROY(frame->root);
     return 0;
@@ -563,6 +565,7 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
     ioc_table_t *table = NULL;
     call_frame_t *fault_frame = NULL;
     ioc_local_t *fault_local = NULL;
+    ioc_local_t *local = NULL;
     int32_t op_ret = -1, op_errno = -1;
     ioc_waitq_t *waitq = NULL;
     ioc_page_t *page = NULL;
@@ -584,6 +587,7 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
         goto err;
     }
 
+    local = frame->local;
     fault_local = mem_get0(THIS->local_pool);
     if (fault_local == NULL) {
         op_ret = -1;
@@ -605,6 +609,9 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
     fault_local->pending_size = table->page_size;
     fault_local->inode = ioc_inode;
 
+    if (local && local->xattr_req)
+        fault_local->xattr_req = dict_ref(local->xattr_req);
+
     gf_msg_trace(frame->this->name, 0,
                  "stack winding page fault for offset = %" PRId64
                  " with "
@@ -613,7 +620,7 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
 
     STACK_WIND(fault_frame, ioc_fault_cbk, FIRST_CHILD(fault_frame->this),
                FIRST_CHILD(fault_frame->this)->fops->readv, fd,
-               table->page_size, offset, 0, NULL);
+               table->page_size, offset, 0, fault_local->xattr_req);
     return;
 
 err:
@@ -874,6 +881,8 @@ unwind:
     }
 
     if (local) {
+        if (local->xattr_req)
+            dict_unref(local->xattr_req);
         pthread_mutex_destroy(&local->local_lock);
         mem_put(local);
     }
