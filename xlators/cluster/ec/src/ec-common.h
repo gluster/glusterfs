@@ -190,4 +190,12 @@ ec_lock_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
 void
 ec_update_fd_status(fd_t *fd, xlator_t *xl, int child_index,
                     int32_t ret_status);
+gf_boolean_t
+ec_is_entry_healing(ec_fop_data_t *fop);
+void
+ec_set_entry_healing(ec_fop_data_t *fop);
+void
+ec_reset_entry_healing(ec_fop_data_t *fop);
+char *
+ec_msg_str(ec_fop_data_t *fop);
 #endif /* __EC_COMMON_H__ */

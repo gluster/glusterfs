@@ -717,6 +717,7 @@ __ec_inode_get(inode_t *inode, xlator_t *xl)
             memset(ctx, 0, sizeof(*ctx));
             INIT_LIST_HEAD(&ctx->heal);
             INIT_LIST_HEAD(&ctx->stripe_cache.lru);
+            ctx->heal_count = 0;
             value = (uint64_t)(uintptr_t)ctx;
             if (__inode_ctx_set(inode, xl, &value) != 0) {
                 GF_FREE(ctx);
