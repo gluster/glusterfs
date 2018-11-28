@@ -413,6 +413,7 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * fd_ref on fd, safe to unref validate frame's private copy
      */
     fd_unref(local->fd);
+    dict_unref(local->xattr_req);
 
     STACK_DESTROY(frame->root);
 
@@ -495,10 +496,13 @@ ioc_cache_validate(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 
     validate_local->fd = fd_ref(fd);
     validate_local->inode = ioc_inode;
+    if (local && local->xattr_req)
+        validate_local->xattr_req = dict_ref(local->xattr_req);
     validate_frame->local = validate_local;
 
     STACK_WIND(validate_frame, ioc_cache_validate_cbk, FIRST_CHILD(frame->this),
-               FIRST_CHILD(frame->this)->fops->fstat, fd, NULL);
+               FIRST_CHILD(frame->this)->fops->fstat, fd,
+               validate_local->xattr_req);
 
 out:
     return ret;
@@ -1141,6 +1145,7 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     local->offset = offset;
     local->size = size;
     local->inode = ioc_inode;
+    local->xattr_req = dict_ref(xdata);
 
     gf_msg_trace(this->name, 0,
                  "NEW REQ (%p) offset "
