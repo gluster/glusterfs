@@ -268,7 +268,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
     }
 
     if (!gf_is_local_addr(host)) {
-        rcu_read_lock();
+        RCU_READ_LOCK;
 
         peerinfo = glusterd_peerinfo_find(NULL, host);
         if (peerinfo == NULL) {
@@ -292,7 +292,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
             *op_errstr = gf_strdup(msg);
             ret = -1;
         }
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
 
         if (ret)
             goto out;

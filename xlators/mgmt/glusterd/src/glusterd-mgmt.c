@@ -51,14 +51,14 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
         args->op_ret = op_ret;
         args->op_errno = op_errno;
 
-        rcu_read_lock();
+        RCU_READ_LOCK;
         peerinfo = glusterd_peerinfo_find(peerid, NULL);
         if (peerinfo)
             peer_str = gf_strdup(peerinfo->hostname);
         else
             peer_str = gf_strdup(uuid_utoa(uuid));
 
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
 
         is_operrstr_blk = (op_errstr && strcmp(op_errstr, ""));
         err_string = (is_operrstr_blk) ? op_errstr : err_str;
@@ -708,7 +708,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
     synctask_barrier_init((&args));
     peer_cnt = 0;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         /* Only send requests to peers who were available before the
@@ -726,7 +726,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
         gd_mgmt_v3_lock(op, dict, peerinfo, &args, MY_UUID, peer_uuid);
         peer_cnt++;
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (0 == peer_cnt) {
         ret = 0;
@@ -1046,7 +1046,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     synctask_barrier_init((&args));
     peer_cnt = 0;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         /* Only send requests to peers who were available before the
@@ -1065,7 +1065,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
                                     peer_uuid);
         peer_cnt++;
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (0 == peer_cnt) {
         ret = 0;
@@ -1328,7 +1328,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *req_dict, char **op_errstr,
     synctask_barrier_init((&args));
     peer_cnt = 0;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         /* Only send requests to peers who were available before the
@@ -1347,7 +1347,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *req_dict, char **op_errstr,
                                 peer_uuid);
         peer_cnt++;
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (0 == peer_cnt) {
         ret = 0;
@@ -1585,7 +1585,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     synctask_barrier_init((&args));
     peer_cnt = 0;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         /* Only send requests to peers who were available before the
@@ -1617,7 +1617,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                               peer_uuid);
         peer_cnt++;
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (0 == peer_cnt) {
         ret = 0;
@@ -1826,7 +1826,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     synctask_barrier_init((&args));
     peer_cnt = 0;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         /* Only send requests to peers who were available before the
@@ -1845,7 +1845,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                      MY_UUID, peer_uuid);
         peer_cnt++;
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (0 == peer_cnt) {
         ret = 0;
@@ -2010,7 +2010,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
     if (ret)
         goto out;
     peer_cnt = 0;
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         /* Only send requests to peers who were available before the
@@ -2028,7 +2028,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
         gd_mgmt_v3_unlock(op, dict, peerinfo, &args, MY_UUID, peer_uuid);
         peer_cnt++;
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (0 == peer_cnt) {
         ret = 0;

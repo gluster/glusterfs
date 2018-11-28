@@ -266,7 +266,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(rsp.uuid, rsp.hostname);
     if (peerinfo == NULL) {
         ret = -1;
@@ -403,7 +403,7 @@ cont:
            "Received resp to probe req");
 
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
 out:
     free(rsp.hostname);  // malloced by xdr
@@ -467,7 +467,7 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
            (op_ret) ? "RJT" : "ACC", uuid_utoa(rsp.uuid), rsp.hostname,
            rsp.port);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(rsp.uuid, rsp.hostname);
     if (peerinfo == NULL) {
@@ -507,7 +507,7 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = glusterd_friend_sm_inject_event(event);
 
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 out:
     ctx = ((call_frame_t *)myframe)->local;
     ((call_frame_t *)myframe)->local = NULL;
@@ -589,7 +589,7 @@ __glusterd_friend_remove_cbk(struct rpc_req *req, struct iovec *iov, int count,
            rsp.port);
 
 inject:
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(rsp.uuid, ctx->hostname);
     if (peerinfo == NULL) {
@@ -622,7 +622,7 @@ inject:
     op_ret = 0;
 
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
 respond:
     ret = glusterd_xfer_cli_deprobe_resp(ctx->req, op_ret, op_errno, NULL,
@@ -748,9 +748,9 @@ __glusterd_cluster_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
                      uuid_utoa(rsp.uuid));
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find(rsp.uuid, NULL) == NULL);
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_RESP_FROM_UNKNOWN_PEER,
@@ -865,9 +865,9 @@ glusterd_mgmt_v3_lock_peers_cbk_fn(struct rpc_req *req, struct iovec *iov,
                      uuid_utoa(rsp.uuid));
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find(rsp.uuid, NULL) == NULL);
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_RESP_FROM_UNKNOWN_PEER,
@@ -973,9 +973,9 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn(struct rpc_req *req, struct iovec *iov,
                      uuid_utoa(rsp.uuid));
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find(rsp.uuid, NULL) == NULL);
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CLUSTER_UNLOCK_FAILED,
@@ -1079,9 +1079,9 @@ __glusterd_cluster_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
                      uuid_utoa(rsp.uuid));
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find(rsp.uuid, NULL) == NULL);
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CLUSTER_UNLOCK_FAILED,
@@ -1203,7 +1203,7 @@ out:
                      uuid_utoa(rsp.uuid));
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(rsp.uuid, NULL);
     if (peerinfo == NULL) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_RESP_FROM_UNKNOWN_PEER,
@@ -1230,7 +1230,7 @@ out:
         event_type = GD_OP_EVENT_RCVD_ACC;
     }
 
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     ret = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret)
@@ -1357,7 +1357,7 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
                uuid_utoa(*txn_id));
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(rsp.uuid, NULL);
     if (peerinfo == NULL) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_RESP_FROM_UNKNOWN_PEER,
@@ -1408,7 +1408,7 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
 out:
 
@@ -1510,11 +1510,11 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
 
     GF_ASSERT(priv);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(event->peerid, event->peername);
     if (!peerinfo) {
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
         ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer %s(%s)", event->peername,
@@ -1526,7 +1526,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     req.hostname = gf_strdup(peerinfo->hostname);
     req.port = peerinfo->port;
 
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     ret = glusterd_add_volumes_to_export_dict(&peer_data);
     if (ret) {
@@ -1604,11 +1604,11 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
 
     GF_ASSERT(priv);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(event->peerid, event->peername);
     if (!peerinfo) {
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
         ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer %s(%s)", event->peername,
@@ -1625,7 +1625,7 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
                                   glusterd_friend_remove_cbk,
                                   (xdrproc_t)xdr_gd1_mgmt_friend_req);
 
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 out:
     GF_FREE(req.hostname);
 

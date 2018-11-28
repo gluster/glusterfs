@@ -1904,7 +1904,7 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
             continue;
         }
 
-        rcu_read_lock();
+        RCU_READ_LOCK;
         peerinfo = glusterd_peerinfo_find_by_uuid(brickinfo->uuid);
         if (!peerinfo) {
             snprintf(msg, sizeof(msg),
@@ -1913,7 +1913,7 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                      brick);
             *errstr = gf_strdup(msg);
             ret = -1;
-            rcu_read_unlock();
+            RCU_READ_UNLOCK;
             goto out;
         }
         if (!peerinfo->connected) {
@@ -1923,10 +1923,10 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                      brick);
             *errstr = gf_strdup(msg);
             ret = -1;
-            rcu_read_unlock();
+            RCU_READ_UNLOCK;
             goto out;
         }
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
     }
 
 out:
