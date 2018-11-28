@@ -47,6 +47,7 @@ function main()
         cp $home_dir/${COMMON_SECRET_PEM_PUB} ${GLUSTERD_WORKDIR}/geo-replication/
         gluster system:: copy file /geo-replication/${COMMON_SECRET_PEM_PUB}
         gluster system:: execute add_secret_pub $user geo-replication/${master_vol}_${slave_vol}_common_secret.pem.pub
+        gluster vol set ${slave_vol} features.read-only on
     else
         echo "$home_dir/common_secret.pem.pub not present. Please run geo-replication command on master with push-pem option to generate the file"
         exit 1;
