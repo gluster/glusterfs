@@ -18,7 +18,7 @@ if WITH_SERVER
 conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf \
 	    logger.conf.example glusterfs-georep-logrotate group-virt.example \
 	    group-metadata-cache group-gluster-block group-nl-cache \
-	    group-db-workload
+	    group-db-workload group-distributed-virt
 endif
 
 voldir = $(sysconfdir)/glusterfs
@@ -47,7 +47,7 @@ EXTRA_DIST = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.co
 	pre-upgrade-script-for-quota.sh command-completion/gluster.bash \
 	command-completion/Makefile command-completion/README \
 	stop-all-gluster-processes.sh clang-checker.sh mount-shared-storage.sh \
-	control-cpu-load.sh control-mem.sh
+	control-cpu-load.sh control-mem.sh group-distributed-virt
 
 if WITH_SERVER
 install-data-local:
@@ -67,4 +67,6 @@ install-data-local:
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/nl-cache
 	$(INSTALL_DATA) $(top_srcdir)/extras/group-db-workload \
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/db-workload
+	$(INSTALL_DATA) $(top_srcdir)/extras/group-distributed-virt \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/distributed-virt
 endif
