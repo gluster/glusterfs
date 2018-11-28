@@ -186,7 +186,7 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
             continue;
         }
 
-        rcu_read_lock();
+        RCU_READ_LOCK;
         cds_list_for_each_entry_rcu(peerinfo, peers, uuid_list)
         {
             if (gf_uuid_compare(peerinfo->uuid, brickinfo->uuid)) {
@@ -208,12 +208,12 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
                            "info for %s:%s in the "
                            "rsp_dict",
                            brickinfo->hostname, brickinfo->path);
-                    rcu_read_unlock();
+                    RCU_READ_UNLOCK;
                     goto out;
                 }
             }
         }
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
         brick_count++;
     }
 

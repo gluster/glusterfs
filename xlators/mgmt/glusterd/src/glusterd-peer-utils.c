@@ -188,7 +188,7 @@ glusterd_peerinfo_find_by_uuid(uuid_t uuid)
     if (gf_uuid_is_null(uuid))
         return NULL;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(entry, &priv->peers, uuid_list)
     {
         if (!gf_uuid_compare(entry->uuid, uuid)) {
@@ -198,7 +198,7 @@ glusterd_peerinfo_find_by_uuid(uuid_t uuid)
             break;
         }
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (!found)
         gf_msg_debug(this->name, 0, "Friend with uuid: %s, not found",
@@ -323,7 +323,7 @@ glusterd_chk_peers_connected_befriended(uuid_t skip_uuid)
     priv = THIS->private;
     GF_ASSERT(priv);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &priv->peers, uuid_list)
     {
         if (!gf_uuid_is_null(skip_uuid) &&
@@ -336,7 +336,7 @@ glusterd_chk_peers_connected_befriended(uuid_t skip_uuid)
             break;
         }
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     gf_msg_debug(THIS->name, 0, "Returning %s", (ret ? "TRUE" : "FALSE"));
     return ret;
@@ -358,7 +358,7 @@ glusterd_uuid_to_hostname(uuid_t uuid)
     if (!gf_uuid_compare(MY_UUID, uuid)) {
         hostname = gf_strdup("localhost");
     }
-    rcu_read_lock();
+    RCU_READ_LOCK;
     if (!cds_list_empty(&priv->peers)) {
         cds_list_for_each_entry_rcu(entry, &priv->peers, uuid_list)
         {
@@ -368,7 +368,7 @@ glusterd_uuid_to_hostname(uuid_t uuid)
             }
         }
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     return hostname;
 }
@@ -399,15 +399,15 @@ glusterd_are_all_peers_up()
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         if (!peerinfo->connected) {
-            rcu_read_unlock();
+            RCU_READ_UNLOCK;
             goto out;
         }
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     peers_up = _gf_true;
 
@@ -428,7 +428,7 @@ glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
         if (!gf_uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
 
-        rcu_read_lock();
+        RCU_READ_LOCK;
         cds_list_for_each_entry_rcu(peerinfo, peers, uuid_list)
         {
             if (gf_uuid_compare(peerinfo->uuid, brickinfo->uuid))
@@ -441,11 +441,11 @@ glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
                 *down_peerstr = gf_strdup(peerinfo->hostname);
                 gf_msg_debug(THIS->name, 0, "Peer %s is down. ",
                              peerinfo->hostname);
-                rcu_read_unlock();
+                RCU_READ_UNLOCK;
                 goto out;
             }
         }
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
     }
 
     ret = _gf_true;
@@ -644,7 +644,7 @@ gd_peerinfo_find_from_hostname(const char *hoststr)
 
     GF_VALIDATE_OR_GOTO(this->name, (hoststr != NULL), out);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peer, &priv->peers, uuid_list)
     {
         cds_list_for_each_entry_rcu(tmphost, &peer->hostnames, hostname_list)
@@ -659,7 +659,7 @@ gd_peerinfo_find_from_hostname(const char *hoststr)
         }
     }
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 out:
     return found;
 }
@@ -693,7 +693,7 @@ gd_peerinfo_find_from_addrinfo(const struct addrinfo *addr)
 
     GF_VALIDATE_OR_GOTO(this->name, (addr != NULL), out);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peer, &conf->peers, uuid_list)
     {
         cds_list_for_each_entry_rcu(address, &peer->hostnames, hostname_list)
@@ -725,7 +725,7 @@ gd_peerinfo_find_from_addrinfo(const struct addrinfo *addr)
         }
     }
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 out:
     return found;
 }
@@ -992,7 +992,7 @@ glusterd_peerinfo_find_by_generation(uint32_t generation)
 
     GF_ASSERT(priv);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(entry, &priv->peers, uuid_list)
     {
         if (entry->generation == generation) {
@@ -1002,7 +1002,7 @@ glusterd_peerinfo_find_by_generation(uint32_t generation)
             break;
         }
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (!found)
         gf_msg_debug(this->name, 0,
@@ -1025,9 +1025,9 @@ glusterd_get_peers_count()
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peer, &conf->peers, uuid_list) count++;
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
 out:
     return count;

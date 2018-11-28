@@ -925,6 +925,20 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         *snap_volname_ptr = '\0';                                              \
     } while (0)
 
+#define RCU_READ_LOCK                                                          \
+    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
+    {                                                                          \
+        rcu_read_lock();                                                       \
+    }                                                                          \
+    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+
+#define RCU_READ_UNLOCK                                                        \
+    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
+    {                                                                          \
+        rcu_read_unlock();                                                     \
+    }                                                                          \
+    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+
 #define GLUSTERD_DUMP_PEERS(head, member, xpeers)                              \
     do {                                                                       \
         glusterd_peerinfo_t *_peerinfo = NULL;                                 \
@@ -933,7 +947,7 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
                                                                                \
         key = xpeers ? "glusterd.xaction_peer" : "glusterd.peer";              \
                                                                                \
-        rcu_read_lock();                                                       \
+        RCU_READ_LOCK;                                                         \
         cds_list_for_each_entry_rcu(_peerinfo, head, member)                   \
         {                                                                      \
             glusterd_dump_peer(_peerinfo, key, index, xpeers);                 \
@@ -941,7 +955,7 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
                 glusterd_dump_peer_rpcstat(_peerinfo, key, index);             \
             index++;                                                           \
         }                                                                      \
-        rcu_read_unlock();                                                     \
+        RCU_READ_UNLOCK;                                                       \
                                                                                \
     } while (0)
 

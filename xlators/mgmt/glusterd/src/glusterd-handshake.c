@@ -1189,9 +1189,9 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
      */
     if (!ret) {
         gf_uuid_parse(uuid_str, peer_uuid);
-        rcu_read_lock();
+        RCU_READ_LOCK;
         ret = (glusterd_peerinfo_find(peer_uuid, NULL) != NULL);
-        rcu_read_unlock();
+        RCU_READ_UNLOCK;
         if (ret)
             return _gf_true;
     }
@@ -1207,7 +1207,7 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
      * is available in the peerinfo list but the uuid has changed of the
      * node due to a reinstall, in that case the validation should fail!
      */
-    rcu_read_lock();
+    RCU_READ_LOCK;
     if (!uuid_str) {
         ret = (glusterd_peerinfo_find(NULL, hostname) == NULL);
     } else {
@@ -1225,7 +1225,7 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
             ret = -1;
         }
     }
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HANDSHAKE_REQ_REJECTED,
                "Rejecting management "
@@ -1768,7 +1768,7 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
         goto out;
     }
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
@@ -1796,7 +1796,7 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
                "EVENT_CONNECTED ret = %d",
                ret);
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
 out:
     gf_msg_debug("glusterd", 0, "returning %d", ret);
@@ -1870,7 +1870,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
     frame = myframe;
     peerctx = frame->local;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
         gf_msg_debug(this->name, 0, "Could not find peer %s(%s)",
@@ -1930,7 +1930,7 @@ out:
     if (ret != 0 && peerinfo)
         rpc_transport_disconnect(peerinfo->rpc->conn.trans, _gf_false);
 
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     frame->local = NULL;
     STACK_DESTROY(frame->root);
@@ -1979,7 +1979,7 @@ __glusterd_mgmt_hndsk_version_cbk(struct rpc_req *req, struct iovec *iov,
     frame = myframe;
     peerctx = frame->local;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
@@ -2055,7 +2055,7 @@ out:
             rpc_transport_disconnect(peerinfo->rpc->conn.trans, _gf_false);
     }
 
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     if (rsp.hndsk.hndsk_val)
         free(rsp.hndsk.hndsk_val);
@@ -2114,7 +2114,7 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
     GF_PROTOCOL_DICT_SERIALIZE(this, req_dict, (&req.hndsk.hndsk_val),
                                req.hndsk.hndsk_len, ret, out);
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
@@ -2129,7 +2129,7 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
         (xdrproc_t)xdr_gf_mgmt_hndsk_req);
     ret = 0;
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 out:
     if (ret && frame)
         STACK_DESTROY(frame->root);
@@ -2244,7 +2244,7 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
     frame = myframe;
     peerctx = frame->local;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
@@ -2320,7 +2320,7 @@ out:
     if (ret != 0 && peerinfo)
         rpc_transport_disconnect(peerinfo->rpc->conn.trans, _gf_false);
 
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 
     glusterd_friend_sm();
     glusterd_op_sm();
@@ -2369,7 +2369,7 @@ glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
     if (!peerctx)
         goto out;
 
-    rcu_read_lock();
+    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
@@ -2384,7 +2384,7 @@ glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
         peerinfo->rpc, &req, frame, &glusterd_dump_prog, GF_DUMP_DUMP, NULL,
         this, glusterd_peer_dump_version_cbk, (xdrproc_t)xdr_gf_dump_req);
 unlock:
-    rcu_read_unlock();
+    RCU_READ_UNLOCK;
 out:
     if (ret && frame)
         STACK_DESTROY(frame->root);
