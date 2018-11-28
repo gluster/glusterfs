@@ -1293,6 +1293,7 @@ exit 0
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/gluster-block
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/nl-cache
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/db-workload
+            %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/distributed-virt
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind/.keys
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
@@ -1386,6 +1387,9 @@ exit 0
 %endif
 
 %changelog
+* Wed Nov 28 2018 Krutika Dhananjay <kdhananj@redhat.com>
+- Install /var/lib/glusterd/groups/distributed-virt by default
+
 * Tue Nov 13 2018 Niels de Vos <ndevos@redhat.com>
 - Add an option to build with ThreadSanitizer (TSAN)
 

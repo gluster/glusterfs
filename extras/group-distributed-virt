@@ -1,0 +1,10 @@
+performance.quick-read=off
+performance.read-ahead=off
+performance.io-cache=off
+performance.low-prio-threads=32
+network.remote-dio=enable
+features.shard=on
+user.cifs=off
+client.event-threads=4
+server.event-threads=4
+performance.client-io-threads=on
