@@ -384,3 +384,10 @@ function verify_hardlink_rename_data()
         echo 0
     fi
 }
+
+function check_slave_read_only()
+{
+    volum=$1
+    gluster volume info $1 | grep 'features.read-only: on'
+    echo $?
+}

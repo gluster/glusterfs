@@ -89,6 +89,9 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_common_secret_file
 #Verify the keys are distributed
 EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_keys_distributed
 
+#Verify "features.read-only" Option
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 check_slave_read_only $GSV0
+
 #Start_georep
 TEST $GEOREP_CLI $master $slave start
 
