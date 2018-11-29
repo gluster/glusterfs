@@ -14,8 +14,7 @@
 #include "mem-types.h"
 
 enum gf_nlc_mem_types_ {
-    gf_nlc_mt_conf_t = gf_common_mt_end + 1,
-    gf_nlc_mt_nlc_conf_t,
+    gf_nlc_mt_nlc_conf_t = gf_common_mt_end + 1,
     gf_nlc_mt_nlc_ctx_t,
     gf_nlc_mt_nlc_local_t,
     gf_nlc_mt_nlc_pe_t,

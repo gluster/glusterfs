@@ -13,6 +13,7 @@
 #include "mem-types.h"
 
 enum gf_marker_mem_types_ {
+    /* Those are used by ALLOCATE_OR_GOTO macro */
     gf_marker_mt_marker_conf_t = gf_common_mt_end + 1,
     gf_marker_mt_loc_t,
     gf_marker_mt_volume_mark,
