@@ -3556,6 +3556,12 @@ nfs3_fh_resolve_entry_lookup_cbk(call_frame_t *frame, void *cookie,
         inode_lookup(linked_inode);
         inode_unref(cs->resolvedloc.inode);
         cs->resolvedloc.inode = linked_inode;
+    } else {
+        /* nfs3_fh_resolve_entry_hard() use to resolve entire path if needed.
+         * So the ctx for inode obtained from here need to set properly,
+         * otherwise it may result in a crash.
+         */
+        nfs_fix_generation(this, inode);
     }
 err:
     nfs3_call_resume(cs);
