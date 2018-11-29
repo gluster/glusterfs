@@ -128,9 +128,7 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
     char keybuffer[4096] = {
         0,
     };
-    char value_buf[8192] = {
-        0,
-    };
+
     uuid_t pargfid = {
         0,
     };
@@ -161,6 +159,12 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
         }
         found = _gf_true;
     } else {
+        char value_buf[8192] = {
+            0,
+        };
+        char xattr_value[8192] = {
+            0,
+        };
         have_val = _gf_false;
         size = sys_llistxattr(real_path, value_buf, sizeof(value_buf) - 1);
         if (size > 0) {
@@ -216,8 +220,8 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
             }
 
             found = _gf_true;
-            size = sys_lgetxattr(real_path, keybuffer, value_buf,
-                                 sizeof(value_buf) - 1);
+            size = sys_lgetxattr(real_path, keybuffer, xattr_value,
+                                 sizeof(xattr_value) - 1);
             if (size == -1) {
                 ret = -1;
                 *op_errno = errno;
@@ -229,13 +233,13 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
             }
 
             /* Parse pargfid from xattr value*/
-            strncpy(pargfid_str, value_buf, 36);
+            strncpy(pargfid_str, xattr_value, 36);
             pargfid_str[36] = '\0';
             gf_uuid_parse(pargfid_str, pargfid);
 
             /* Convert pargfid to path */
             ret = posix_resolve_dirgfid_to_path(pargfid, priv->base_path,
-                                                &value_buf[37], &paths[i]);
+                                                &xattr_value[37], &paths[i]);
             i++;
 
         ignore:
