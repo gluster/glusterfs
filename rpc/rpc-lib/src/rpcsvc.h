@@ -677,4 +677,7 @@ rpcsvc_get_program_vector_sizer(rpcsvc_t *svc, uint32_t prognum,
                                 uint32_t progver, int procnum);
 void
 rpcsvc_autoscale_threads(glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr);
+
+extern int
+rpcsvc_destroy(rpcsvc_t *svc);
 #endif

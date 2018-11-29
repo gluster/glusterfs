@@ -2618,6 +2618,10 @@ out:
             xl = graph->first;
             if ((ctx->active != graph) &&
                 (xl && !strcmp(xl->type, "protocol/server"))) {
+                /* Take dict ref for every graph xlator to avoid dict leak
+                   at the time of graph destroying
+                */
+                gluster_graph_take_reference(graph->first);
                 glusterfs_graph_fini(graph);
                 glusterfs_graph_destroy(graph);
             }

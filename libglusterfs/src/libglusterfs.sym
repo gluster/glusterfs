@@ -1121,6 +1121,7 @@ xlator_volume_option_get
 xlator_volume_option_get_list
 xlator_memrec_free
 xlator_mem_cleanup
+gluster_graph_take_reference
 default_fops
 gf_fop_list
 gf_upcall_list

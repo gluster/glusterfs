@@ -9301,35 +9301,6 @@ glusterd_defrag_volume_status_update(glusterd_volinfo_t *volinfo,
 
     return ret;
 }
-/*
-   The function is required to take dict ref for every xlator at graph.
-   At the time of compare graph topology create a graph and populate
-   key values in the dictionary, after finished graph comparison we do destroy
-   the new graph.At the time of construct graph we don't take any reference
-   so to avoid leak due to ref counter underflow we need to call dict_ref here.
-
-*/
-
-void
-glusterd_graph_take_reference(xlator_t *tree)
-{
-    xlator_t *trav = tree;
-    xlator_t *prev = tree;
-
-    if (!tree) {
-        gf_msg("parser", GF_LOG_ERROR, 0, LG_MSG_TREE_NOT_FOUND,
-               "Translator tree not found");
-        return;
-    }
-
-    while (prev) {
-        trav = prev->next;
-        if (prev->options)
-            dict_ref(prev->options);
-        prev = trav;
-    }
-    return;
-}
 
 int
 glusterd_check_topology_identical(const char *filename1, const char *filename2,
@@ -9376,14 +9347,14 @@ glusterd_check_topology_identical(const char *filename1, const char *filename2,
     if (grph1 == NULL)
         goto out;
 
-    glusterd_graph_take_reference(grph1->first);
+    gluster_graph_take_reference(grph1->first);
 
     /* create the graph for filename2 */
     grph2 = glusterfs_graph_construct(fp2);
     if (grph2 == NULL)
         goto out;
 
-    glusterd_graph_take_reference(grph2->first);
+    gluster_graph_take_reference(grph2->first);
 
     /* compare the graph topology */
     *identical = is_graph_topology_equal(grph1, grph2);

@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <math.h>
+#include <dlfcn.h>
 
 #ifdef IPV6_DEFAULT
 #include <netconfig.h>
@@ -2009,6 +2010,7 @@ rpcsvc_create_listener(rpcsvc_t *svc, dict_t *options, char *name)
 
     listener = rpcsvc_listener_alloc(svc, trans);
     if (listener == NULL) {
+        ret = -1;
         goto out;
     }
 
@@ -2016,6 +2018,7 @@ rpcsvc_create_listener(rpcsvc_t *svc, dict_t *options, char *name)
 out:
     if (!listener && trans) {
         rpc_transport_disconnect(trans, _gf_true);
+        rpc_transport_cleanup(trans);
     }
 
     return ret;
@@ -2745,6 +2748,43 @@ rpcsvc_get_throttle(rpcsvc_t *svc)
         return _gf_false;
 
     return svc->throttle;
+}
+
+/* Function call to cleanup resources for svc
+ */
+int
+rpcsvc_destroy(rpcsvc_t *svc)
+{
+    struct rpcsvc_auth_list *auth = NULL;
+    struct rpcsvc_auth_list *tmp = NULL;
+    rpcsvc_listener_t *listener = NULL;
+    rpcsvc_listener_t *next = NULL;
+    int ret = 0;
+
+    if (!svc)
+        return ret;
+
+    list_for_each_entry_safe(listener, next, &svc->listeners, list)
+    {
+        rpcsvc_listener_destroy(listener);
+    }
+
+    list_for_each_entry_safe(auth, tmp, &svc->authschemes, authlist)
+    {
+        list_del_init(&auth->authlist);
+        GF_FREE(auth);
+    }
+
+    rpcsvc_program_unregister(svc, &gluster_dump_prog);
+    if (svc->rxpool) {
+        mem_pool_destroy(svc->rxpool);
+        svc->rxpool = NULL;
+    }
+
+    pthread_rwlock_destroy(&svc->rpclock);
+    GF_FREE(svc);
+
+    return ret;
 }
 
 /* The global RPC service initializer.

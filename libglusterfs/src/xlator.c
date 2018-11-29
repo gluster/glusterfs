@@ -1555,3 +1555,34 @@ glusterfs_delete_volfile_checksum(glusterfs_ctx_t *ctx, const char *volfile_id)
 
     return 0;
 }
+
+/*
+   The function is required to take dict ref for every xlator at graph.
+   At the time of compare graph topology create a graph and populate
+   key values in the dictionary, after finished graph comparison we do destroy
+   the new graph.At the time of construct graph we don't take any reference
+   so to avoid dict leak at the of destroying graph due to ref counter underflow
+   we need to call dict_ref here.
+
+*/
+
+void
+gluster_graph_take_reference(xlator_t *tree)
+{
+    xlator_t *trav = tree;
+    xlator_t *prev = tree;
+
+    if (!tree) {
+        gf_msg("parser", GF_LOG_ERROR, 0, LG_MSG_TREE_NOT_FOUND,
+               "Translator tree not found");
+        return;
+    }
+
+    while (prev) {
+        trav = prev->next;
+        if (prev->options)
+            dict_ref(prev->options);
+        prev = trav;
+    }
+    return;
+}

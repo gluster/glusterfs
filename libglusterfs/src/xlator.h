@@ -1082,4 +1082,6 @@ xlator_mem_cleanup(xlator_t *this);
 void
 handle_default_options(xlator_t *xl, dict_t *options);
 
+void
+gluster_graph_take_reference(xlator_t *tree);
 #endif /* _XLATOR_H */
