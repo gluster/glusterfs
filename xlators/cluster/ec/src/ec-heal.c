@@ -8,13 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
-#include "compat-errno.h"
-#include "byte-order.h"
-#include "syncop.h"
-#include "syncop-utils.h"
-#include "cluster-syncop.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/syncop-utils.h>
+#include <glusterfs/cluster-syncop.h>
 
 #include "ec.h"
 #include "ec-mem-types.h"

@@ -7,7 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "locking.h"
+#include <glusterfs/locking.h>
 #include "marker-quota.h"
 #include "marker-common.h"
 #include "marker-quota-helper.h"

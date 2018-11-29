@@ -10,12 +10,12 @@
 #ifndef _LIBXLATOR_H
 #define _LIBXLATOR_H
 
-#include "xlator.h"
-#include "logging.h"
-#include "defaults.h"
-#include "common-utils.h"
-#include "compat.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
 
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"
 #define XTIME "xtime"

@@ -9,11 +9,11 @@
 */
 
 #include "client.h"
-#include "fd.h"
+#include <glusterfs/fd.h>
 #include "client-messages.h"
 #include "client-common.h"
-#include "compat-errno.h"
-#include "common-utils.h"
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/common-utils.h>
 
 int
 client_fd_lk_list_empty(fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)

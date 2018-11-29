@@ -21,7 +21,7 @@
 #include "rculist-extra.h"
 #endif
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 /* gd_rcu_head is a composite struct, composed of struct rcu_head and a this
  * pointer, which is used to pass the THIS pointer to call_rcu callbacks.

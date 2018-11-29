@@ -10,9 +10,9 @@
 
 #include <fnmatch.h>
 
-#include "xlator.h"
-#include "defaults.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/defaults.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
 

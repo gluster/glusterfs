@@ -18,7 +18,7 @@
 #include <openssl/cmac.h>
 #include <openssl/modes.h>
 #include "crypt-mem-types.h"
-#include "compat.h"
+#include <glusterfs/compat.h>
 
 #define CRYPT_XLATOR_ID (0)
 

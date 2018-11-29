@@ -11,7 +11,7 @@
 #ifndef _SNAPVIEW_SERVER_MESSAGES_H_
 #define _SNAPVIEW_SERVER_MESSAGES_H_
 
-#include "glfs-message-id.h"
+#include <glusterfs/glfs-message-id.h>
 
 /* To add new message IDs, append new identifiers at the end of the list.
  *

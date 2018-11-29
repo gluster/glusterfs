@@ -10,16 +10,16 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include "gidcache.h"
+#include <glusterfs/gidcache.h>
 #include "server-messages.h"
-#include "syscall.h"
-#include "defaults.h"
-#include "default-args.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/default-args.h>
 #include "server-common.h"
 
 #include <fnmatch.h>
 #include <pwd.h>
-#include "compound-fop-utils.h"
+#include <glusterfs/compound-fop-utils.h>
 
 /* based on nfs_fix_aux_groups() */
 int

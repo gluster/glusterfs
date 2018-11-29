@@ -7,7 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 #include "glusterd.h"
@@ -18,11 +18,11 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
-#include "run.h"
-#include "syscall.h"
-#include "byte-order.h"
-#include "compat-errno.h"
-#include "quota-common-utils.h"
+#include <glusterfs/run.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/quota-common-utils.h>
 #include "glusterd-quota.h"
 
 #include <sys/wait.h>

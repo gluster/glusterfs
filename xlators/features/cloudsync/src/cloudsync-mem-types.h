@@ -11,7 +11,7 @@
 #ifndef __CLOUDSYNC_MEM_TYPES_H__
 #define __CLOUDSYNC_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 enum cs_mem_types_ {
     gf_cs_mt_cs_private_t = gf_common_mt_end + 1,
     gf_cs_mt_cs_remote_stores_t,

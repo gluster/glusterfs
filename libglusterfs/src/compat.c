@@ -17,16 +17,16 @@
 #include <dirent.h>
 
 #ifdef GF_SOLARIS_HOST_OS
-#include "logging.h"
+#include "glusterfs/logging.h"
 #endif /* GF_SOLARIS_HOST_OS */
 
-#include "compat.h"
-#include "common-utils.h"
-#include "iatt.h"
-#include "inode.h"
-#include "syscall.h"
-#include "run.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/compat.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/iatt.h"
+#include "glusterfs/inode.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/run.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #ifdef GF_SOLARIS_HOST_OS
 int

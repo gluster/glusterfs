@@ -10,7 +10,7 @@
 #include <string.h>
 #include <limits.h>
 #include <fcntl.h>
-#include "glusterfs.h"
+#include "glusterfs/glusterfs.h"
 #include "fuse_kernel.h"
 #include "fuse-misc.h"
 

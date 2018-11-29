@@ -7,12 +7,12 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "glusterfs.h"
-#include "compat.h"
-#include "xlator.h"
-#include "logging.h"
-#include "common-utils.h"
-#include "list.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/list.h>
 
 #include "locks.h"
 #include "common.h"

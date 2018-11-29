@@ -11,9 +11,9 @@
 #ifndef __DC_H__
 #define __DC_H__
 
-#include "defaults.h"
-#include "xlator.h"
-#include "call-stub.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/call-stub.h>
 #include "decompounder-mem-types.h"
 #include "decompounder-messages.h"
 

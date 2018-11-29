@@ -9,13 +9,13 @@
 */
 
 #include <math.h>
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "io-cache.h"
 #include "ioc-mem-types.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include <assert.h>
 #include <sys/time.h>
 #include "io-cache-messages.h"

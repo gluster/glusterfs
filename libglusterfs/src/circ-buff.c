@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "circ-buff.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/circ-buff.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 void
 cb_destroy_data(circular_buffer_t *cb, void (*destroy_buffer_data)(void *data))

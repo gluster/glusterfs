@@ -11,7 +11,7 @@
 #ifndef __DHT_MEM_TYPES_H__
 #define __DHT_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_dht_mem_types_ {
     gf_dht_mt_dht_du_t = gf_common_mt_end + 1,

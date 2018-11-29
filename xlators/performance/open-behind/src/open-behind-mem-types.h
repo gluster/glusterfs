@@ -11,7 +11,7 @@
 #ifndef __OB_MEM_TYPES_H__
 #define __OB_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_ob_mem_types_ {
     gf_ob_mt_fd_t = gf_common_mt_end + 1,

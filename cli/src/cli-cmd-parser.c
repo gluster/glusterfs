@@ -18,8 +18,8 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "dict.h"
-#include "list.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/list.h>
 
 #include "protocol-common.h"
 #include "cli1-xdr.h"

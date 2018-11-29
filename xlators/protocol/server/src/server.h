@@ -13,17 +13,17 @@
 
 #include <pthread.h>
 
-#include "fd.h"
+#include <glusterfs/fd.h>
 #include "rpcsvc.h"
 
-#include "fd.h"
+#include <glusterfs/fd.h>
 #include "protocol-common.h"
 #include "server-mem-types.h"
 #include "glusterfs3.h"
-#include "timer.h"
-#include "client_t.h"
-#include "gidcache.h"
-#include "defaults.h"
+#include <glusterfs/timer.h>
+#include <glusterfs/client_t.h>
+#include <glusterfs/gidcache.h>
+#include <glusterfs/defaults.h>
 #include "authenticate.h"
 
 #define DEFAULT_BLOCK_SIZE 4194304 /* 4MB */

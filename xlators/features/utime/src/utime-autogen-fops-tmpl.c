@@ -18,11 +18,11 @@
 #include "config.h"
 #endif
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "statedump.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/statedump.h>
 #include "utime-helpers.h"
-#include "timespec.h"
+#include <glusterfs/timespec.h>
 
 #pragma generate

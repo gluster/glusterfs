@@ -15,14 +15,14 @@
 #include <pthread.h>
 #include <libgen.h>
 
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 
 #include "rpc-clnt.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "call-stub.h"
-#include "byte-order.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/byte-order.h>
 #include "glusterd-mem-types.h"
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
@@ -33,10 +33,10 @@
 #include "protocol-common.h"
 #include "glusterd-pmap.h"
 #include "cli1-xdr.h"
-#include "syncop.h"
-#include "store.h"
+#include <glusterfs/syncop.h>
+#include <glusterfs/store.h>
 #include "glusterd-rcu.h"
-#include "events.h"
+#include <glusterfs/events.h>
 #include "glusterd-gfproxyd-svc.h"
 
 #define GLUSTERD_TR_LOG_SIZE 50

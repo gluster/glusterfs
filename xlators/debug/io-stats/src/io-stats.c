@@ -7,8 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "xlator.h"
-#include "syscall.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/syscall.h>
 
 /**
  * xlators/debug/io_stats :
@@ -28,18 +28,18 @@
 
 #include <fnmatch.h>
 #include <errno.h>
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "io-stats-mem-types.h"
 #include <stdarg.h>
-#include "defaults.h"
-#include "logging.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/logging.h>
 #include "cli1-xdr.h"
-#include "statedump.h"
-#include "syncop.h"
+#include <glusterfs/statedump.h>
+#include <glusterfs/syncop.h>
 #include <pwd.h>
 #include <grp.h>
-#include "upcall-utils.h"
+#include <glusterfs/upcall-utils.h>
 
 #define MAX_LIST_MEMBERS 100
 #define DEFAULT_PWD_BUF_SZ 16384

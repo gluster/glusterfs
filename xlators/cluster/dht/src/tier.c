@@ -13,8 +13,8 @@
 #include "dht-common.h"
 #include "tier.h"
 #include "tier-common.h"
-#include "syscall.h"
-#include "events.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/events.h>
 #include "tier-ctr-interface.h"
 
 /*Hard coded DB info*/

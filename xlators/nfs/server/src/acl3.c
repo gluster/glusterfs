@@ -8,13 +8,13 @@
  * cases as published by the Free Software Foundation.
  */
 
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "nfs.h"
-#include "mem-pool.h"
-#include "logging.h"
+#include <glusterfs/mem-pool.h>
+#include <glusterfs/logging.h>
 #include "nfs-fops.h"
 #include "nfs3.h"
 #include "nfs-mem-types.h"
@@ -22,8 +22,8 @@
 #include "nfs3-fh.h"
 #include "nfs-generics.h"
 #include "acl3.h"
-#include "byte-order.h"
-#include "compat-errno.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/compat-errno.h>
 #include "nfs-messages.h"
 
 static int

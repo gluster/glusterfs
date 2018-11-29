@@ -15,11 +15,11 @@
 #include <signal.h>
 #include <pthread.h>
 
-#include "glusterfs.h"
+#include <glusterfs/glusterfs.h>
 #include "glfs.h"
-#include "dict.h"
-#include "gf-event.h"
-#include "defaults.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/gf-event.h>
+#include <glusterfs/defaults.h>
 
 #include "rpc-clnt.h"
 #include "protocol-common.h"
@@ -29,13 +29,13 @@
 #include "xdr-generic.h"
 #include "rpc-common-xdr.h"
 
-#include "syncop.h"
-#include "xlator.h"
+#include <glusterfs/syncop.h>
+#include <glusterfs/xlator.h>
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
 #include "gfapi-messages.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 int
 glfs_volfile_fetch(struct glfs *fs);

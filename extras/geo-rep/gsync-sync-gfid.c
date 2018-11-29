@@ -7,8 +7,8 @@
 #include <libgen.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include "glusterfs.h"
-#include "syscall.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/syscall.h>
 
 #ifndef UUID_CANONICAL_FORM_LEN
 #define UUID_CANONICAL_FORM_LEN 36

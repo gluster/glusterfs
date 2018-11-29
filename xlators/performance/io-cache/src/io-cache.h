@@ -12,16 +12,16 @@
 #define __IO_CACHE_H
 
 #include <sys/types.h>
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "common-utils.h"
-#include "call-stub.h"
-#include "rbthash.h"
-#include "hashfn.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/rbthash.h>
+#include <glusterfs/hashfn.h>
 #include <sys/time.h>
 #include <fnmatch.h>
 #include "io-cache-messages.h"

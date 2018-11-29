@@ -12,7 +12,7 @@
 #include "protocol-common.h"
 #include "rpc-clnt.h"
 #include "xdr-generic.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 /* Defining a minimal RPC client program for portmap signout
  */

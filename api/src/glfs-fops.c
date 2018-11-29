@@ -18,10 +18,10 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
-#include "syncop.h"
+#include <glusterfs/syncop.h>
 #include "glfs.h"
 #include "gfapi-messages.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include <limits.h>
 #include "glusterfs3.h"
 

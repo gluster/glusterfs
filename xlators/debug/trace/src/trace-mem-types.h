@@ -11,7 +11,7 @@
 #ifndef __TRACE_MEM_TYPES_H__
 #define __TRACE_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_trace_mem_types_ {
     gf_trace_mt_trace_conf_t = gf_common_mt_end + 1,

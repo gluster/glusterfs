@@ -13,7 +13,7 @@
 #include "gfdb_sqlite3.h"
 #include "ctr-helper.h"
 #include "ctr-messages.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 #include "changetimerecorder.h"
 #include "tier-ctr-interface.h"

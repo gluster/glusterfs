@@ -14,17 +14,17 @@
 #include <sys/types.h>
 #include <signal.h>
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
-#include "iobuf.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/iobuf.h>
 #include "nfs.h"
-#include "list.h"
+#include <glusterfs/list.h>
 #include "xdr-nfs3.h"
-#include "locking.h"
+#include <glusterfs/locking.h>
 #include "nfs3-fh.h"
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 #include "nlm4-xdr.h"
-#include "lkowner.h"
+#include <glusterfs/lkowner.h>
 
 #define NLM4_NULL 0
 #define NLM4_TEST 1

@@ -10,8 +10,8 @@
 
 #include "gfdb_sqlite3.h"
 #include "gfdb_sqlite3_helper.h"
-#include "libglusterfs-messages.h"
-#include "syscall.h"
+#include "glusterfs/libglusterfs-messages.h"
+#include "glusterfs/syscall.h"
 
 /******************************************************************************
  *

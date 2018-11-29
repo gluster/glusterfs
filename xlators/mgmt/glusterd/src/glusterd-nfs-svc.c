@@ -8,9 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "globals.h"
-#include "run.h"
-#include "syscall.h"
+#include <glusterfs/globals.h>
+#include <glusterfs/run.h>
+#include <glusterfs/syscall.h>
 #include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"

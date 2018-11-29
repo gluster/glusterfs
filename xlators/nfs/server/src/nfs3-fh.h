@@ -11,11 +11,11 @@
 #ifndef _NFS_FH_H_
 #define _NFS_FH_H_
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "xdr-nfs3.h"
-#include "iatt.h"
+#include <glusterfs/iatt.h>
 #include <sys/types.h>
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 
 /* BIG FAT WARNING: The file handle code is tightly coupled to NFSv3 file
  * handles for now. This will change if and when we need v4. */

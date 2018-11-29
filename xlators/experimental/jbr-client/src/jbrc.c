@@ -12,13 +12,13 @@
 #include "config.h"
 #endif
 
-#include "call-stub.h"
-#include "defaults.h"
-#include "timer.h"
-#include "xlator.h"
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/timer.h>
+#include <glusterfs/xlator.h>
 #include "jbr-messages.h"
 #include "jbrc.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 #define SCAR_LIMIT 20
 #define HILITE(x) ("[1;33m" x "[0m")

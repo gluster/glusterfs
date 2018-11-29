@@ -10,9 +10,9 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 #include "protocol-common.h"
-#include "events.h"
+#include <glusterfs/events.h>
 
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID | GF_SET_ATTR_GID | GF_SET_ATTR_MODE)
 

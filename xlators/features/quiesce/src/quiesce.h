@@ -13,8 +13,8 @@
 
 #include "quiesce-mem-types.h"
 #include "quiesce-messages.h"
-#include "xlator.h"
-#include "timer.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/timer.h>
 
 #define GF_FOPS_EXPECTED_IN_PARALLEL 512
 

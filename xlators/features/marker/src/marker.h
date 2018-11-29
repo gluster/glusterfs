@@ -11,10 +11,10 @@
 #define _MARKER_H
 
 #include "marker-quota.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "compat-uuid.h"
-#include "call-stub.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/compat-uuid.h>
+#include <glusterfs/call-stub.h>
 
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"
 #define XTIME "xtime"

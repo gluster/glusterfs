@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "dht-common.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 #include "dht-messages.h"
 #include "unittest/unittest.h"
 

@@ -21,7 +21,7 @@
 
 #include "rpc-transport.h"
 #include "rdma.h"
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "rpc-lib-messages.h"
 #include "rpc-trans-rdma-messages.h"
 

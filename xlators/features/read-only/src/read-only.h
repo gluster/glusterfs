@@ -12,7 +12,7 @@
 #define __READONLY_H__
 
 #include "read-only-mem-types.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 typedef struct {
     uint8_t worm : 1;

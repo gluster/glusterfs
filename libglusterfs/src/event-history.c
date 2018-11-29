@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "event-history.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/event-history.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 eh_t *
 eh_new(size_t buffer_size, gf_boolean_t use_buffer_once,

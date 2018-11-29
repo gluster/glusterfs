@@ -10,18 +10,18 @@
 
 #include <inttypes.h>
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "nfs3.h"
 #include "nfs3-fh.h"
 #include "msg-nfs3.h"
-#include "rbthash.h"
+#include <glusterfs/rbthash.h>
 #include "nfs-fops.h"
 #include "nfs-inodes.h"
 #include "nfs-generics.h"
 #include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
-#include "iatt.h"
-#include "common-utils.h"
+#include <glusterfs/iatt.h>
+#include <glusterfs/common-utils.h>
 #include "nfs-messages.h"
 #include "mount3.h"
 #include <string.h>

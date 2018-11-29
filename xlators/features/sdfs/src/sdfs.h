@@ -8,10 +8,10 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "call-stub.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/call-stub.h>
 #include "sdfs-messages.h"
-#include "atomic.h"
+#include <glusterfs/atomic.h>
 
 #define SDFS_LOCK_COUNT_MAX 2
 

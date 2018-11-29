@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "statedump.h"
-#include "stack.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/statedump.h"
+#include "glusterfs/stack.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 call_frame_t *
 create_frame(xlator_t *xl, call_pool_t *pool)

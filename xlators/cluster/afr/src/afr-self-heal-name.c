@@ -8,7 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "events.h"
+#include <glusterfs/events.h>
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"

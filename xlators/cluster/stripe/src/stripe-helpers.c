@@ -11,9 +11,9 @@
 #include <fnmatch.h>
 
 #include "stripe.h"
-#include "byte-order.h"
-#include "mem-types.h"
-#include "logging.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/mem-types.h>
+#include <glusterfs/logging.h>
 
 void
 stripe_local_wipe(stripe_local_t *local)

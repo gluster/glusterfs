@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "iobuf.h"
-#include "statedump.h"
+#include "glusterfs/iobuf.h"
+#include "glusterfs/statedump.h"
 #include <stdio.h>
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 /*
   TODO: implement destroy margins and prefetching of arenas

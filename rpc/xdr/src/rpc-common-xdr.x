@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 
 /* This file has definition of few XDR structures which are
  * not captured in any section specific file */

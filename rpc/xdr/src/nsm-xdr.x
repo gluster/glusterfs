@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 
 /*
  * This defines the maximum length of the string

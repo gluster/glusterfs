@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 
-#include "compat-errno.h"
+#include "glusterfs/compat-errno.h"
 
 static int32_t gf_error_to_errno_array[1024];
 static int32_t gf_errno_to_error_array[1024];

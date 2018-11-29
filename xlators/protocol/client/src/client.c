@@ -9,12 +9,12 @@
 */
 
 #include "client.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "glusterfs.h"
-#include "statedump.h"
-#include "compat-errno.h"
-#include "gf-event.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/gf-event.h>
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"

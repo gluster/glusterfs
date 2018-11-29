@@ -10,10 +10,10 @@
 #ifndef _LIBAWS_H
 #define _LIBAWS_H
 
-#include "glusterfs.h"
-#include "call-stub.h"
-#include "xlator.h"
-#include "syncop.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/syncop.h>
 #include <curl/curl.h>
 #include "cloudsync-common.h"
 #include "libcloudsyncs3-mem-types.h"

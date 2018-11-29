@@ -10,8 +10,8 @@
 
 #include <errno.h>
 
-#include "xlator.h"
-#include "glusterfs.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
 
 #include "posix-acl.h"
 #include "posix-acl-xattr.h"

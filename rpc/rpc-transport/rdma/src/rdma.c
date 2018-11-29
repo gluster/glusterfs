@@ -8,14 +8,14 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "dict.h"
-#include "glusterfs.h"
-#include "iobuf.h"
-#include "logging.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/iobuf.h>
+#include <glusterfs/logging.h>
 #include "rdma.h"
 #include "name.h"
-#include "byte-order.h"
-#include "xlator.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/xlator.h>
 #include "xdr-rpc.h"
 #include "rpc-lib-messages.h"
 #include "rpc-trans-rdma-messages.h"

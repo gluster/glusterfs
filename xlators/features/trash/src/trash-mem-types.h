@@ -10,7 +10,7 @@
 #ifndef __TRASH_MEM_TYPES_H__
 #define __TRASH_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_trash_mem_types_ {
     gf_trash_mt_trash_private_t = gf_common_mt_end + 1,

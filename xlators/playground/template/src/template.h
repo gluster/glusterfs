@@ -10,11 +10,11 @@
 #ifndef __TEMPLATE_H__
 #define __TEMPLATE_H__
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 struct template_private {
     /* Add all the relevant fields you need here */
@@ -24,7 +24,7 @@ struct template_private {
 typedef struct template_private template_private_t;
 
 /* Below section goes to template-mem-types.h */
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_template_mem_types_ {
     gf_template_mt_private_t = gf_common_mt_end + 1,
@@ -36,7 +36,7 @@ enum gf_template_mem_types_ {
    NOTE: make sure you have added your component (in this case,
    TEMPLATE) in `libglusterfs/src/glfs-message-id.h`.
  */
-#include "glfs-message-id.h"
+#include <glusterfs/glfs-message-id.h>
 
 GLFS_MSGID(TEMPLATE, TEMPLATE_MSG_NO_MEMORY, TEMPLATE_MSG_NO_GRAPH);
 

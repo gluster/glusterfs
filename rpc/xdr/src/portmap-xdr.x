@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 
 struct pmap_port_by_brick_req {
        string   brick<>;

@@ -10,7 +10,7 @@
 #ifndef __MARKER_MEM_TYPES_H__
 #define __MARKER_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_marker_mem_types_ {
     /* Those are used by ALLOCATE_OR_GOTO macro */

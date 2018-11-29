@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "gf-event.h"
+#include <glusterfs/gf-event.h>
 #include "rpcsvc.h"
 
 void

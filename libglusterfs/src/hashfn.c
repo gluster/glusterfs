@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "hashfn.h"
+#include "glusterfs/hashfn.h"
 
 #define get16bits(d) (*((const uint16_t *)(d)))
 

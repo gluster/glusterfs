@@ -8,13 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "dict.h"
-#include "statedump.h"
-#include "client_t.h"
-#include "list.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/dict.h"
+#include "glusterfs/statedump.h"
+#include "glusterfs/client_t.h"
+#include "glusterfs/list.h"
 #include "rpcsvc.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 static int
 gf_client_chain_client_entries(cliententry_t *entries, uint32_t startidx,

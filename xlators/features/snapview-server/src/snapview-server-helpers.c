@@ -10,7 +10,7 @@
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
 #include "xdr-generic.h"
 #include "protocol-common.h"

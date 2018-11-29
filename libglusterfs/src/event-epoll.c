@@ -16,12 +16,12 @@
 #include <errno.h>
 #include <string.h>
 
-#include "logging.h"
-#include "gf-event.h"
-#include "mem-pool.h"
-#include "common-utils.h"
-#include "syscall.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/gf-event.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>

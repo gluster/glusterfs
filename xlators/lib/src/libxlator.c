@@ -7,7 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 #include "libxlator.h"
 
 int marker_xtime_default_gauge[] = {

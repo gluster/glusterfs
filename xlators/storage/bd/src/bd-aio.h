@@ -11,8 +11,8 @@
 #ifndef _BD_AIO_H
 #define _BD_AIO_H
 
-#include "xlator.h"
-#include "glusterfs.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
 
 /*
  * Maximum number of concurrently submitted IO events. The heaviest load

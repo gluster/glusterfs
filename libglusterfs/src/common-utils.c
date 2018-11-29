@@ -40,19 +40,19 @@
 #include <sys/resource.h>
 #endif
 
-#include "compat-errno.h"
-#include "logging.h"
-#include "common-utils.h"
-#include "revision.h"
-#include "glusterfs.h"
-#include "stack.h"
-#include "lkowner.h"
-#include "syscall.h"
+#include "glusterfs/compat-errno.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/revision.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/stack.h"
+#include "glusterfs/lkowner.h"
+#include "glusterfs/syscall.h"
 #include "cli1-xdr.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #include <ifaddrs.h>
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 #include "protocol-common.h"
 #ifdef __FreeBSD__
 #include <pthread_np.h>
@@ -2281,7 +2281,7 @@ next_token(char **tokenp, token_iter_t *tit)
  * #include <stdio.h>
  * #include <stdlib.h>
  * #include <string.h>
- * #include "common-utils.h"
+ * #include "glusterfs/common-utils.h"
  *
  * int
  * main (int argc, char **argv)

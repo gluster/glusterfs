@@ -11,8 +11,8 @@
 #include <lvm2app.h>
 #endif
 
-#include "common-utils.h"
-#include "syscall.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/syscall.h>
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 #include "glusterd.h"
@@ -22,7 +22,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
-#include "run.h"
+#include <glusterfs/run.h>
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"

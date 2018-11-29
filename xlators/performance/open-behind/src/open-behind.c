@@ -9,12 +9,12 @@
 */
 
 #include "open-behind-mem-types.h"
-#include "xlator.h"
-#include "statedump.h"
-#include "call-stub.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
 #include "open-behind-messages.h"
-#include "glusterfs-acl.h"
+#include <glusterfs/glusterfs-acl.h>
 
 typedef struct ob_conf {
     gf_boolean_t use_anonymous_fd; /* use anonymous FDs wherever safe

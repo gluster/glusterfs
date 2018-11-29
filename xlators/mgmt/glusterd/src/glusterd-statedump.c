@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include "glusterd.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-quotad-svc.h"

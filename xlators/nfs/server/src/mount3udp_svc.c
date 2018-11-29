@@ -9,8 +9,8 @@
 */
 
 #include "xdr-nfs3.h"
-#include "logging.h"
-#include "mem-pool.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/mem-pool.h>
 #include "nfs-mem-types.h"
 #include "nfs-messages.h"
 #include "mount3.h"

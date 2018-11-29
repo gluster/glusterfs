@@ -11,7 +11,7 @@
 #ifndef __GLUPY_H__
 #define __GLUPY_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum {
     GLUPY_LOOKUP = 0,

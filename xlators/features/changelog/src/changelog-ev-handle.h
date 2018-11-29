@@ -11,11 +11,11 @@
 #ifndef __CHANGELOG_EV_HANDLE_H
 #define __CHANGELOG_EV_HANDLE_H
 
-#include "list.h"
-#include "xlator.h"
+#include <glusterfs/list.h>
+#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
 
-#include "rot-buffs.h"
+#include <glusterfs/rot-buffs.h>
 
 struct changelog_clnt;
 

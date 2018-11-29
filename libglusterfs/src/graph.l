@@ -14,7 +14,7 @@
 %{
 
 #define YYSTYPE char *
-#include "xlator.h"
+#include "glusterfs/xlator.h"
 #include "y.tab.h"
 #include <string.h>
 #define START_STRSIZE	32

@@ -10,9 +10,9 @@
 #include <ctype.h>
 #include <sys/uio.h>
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
 
 #include "rot-13.h"
 

@@ -1,6 +1,6 @@
 
 #include "gfdb_data_store_helper.h"
-#include "syscall.h"
+#include "glusterfs/syscall.h"
 
 /******************************************************************************
  *

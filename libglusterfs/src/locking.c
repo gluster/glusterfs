@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 #define LOCKING_IMPL
-#include "locking.h"
+#include "glusterfs/locking.h"
 
 int use_spinlocks = 0;
 

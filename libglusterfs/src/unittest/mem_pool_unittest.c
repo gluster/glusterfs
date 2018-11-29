@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "mem-pool.h"
-#include "logging.h"
-#include "xlator.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/xlator.h"
 
 #include <stdarg.h>
 #include <stddef.h>

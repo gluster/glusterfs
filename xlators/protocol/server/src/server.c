@@ -14,12 +14,12 @@
 #include "server.h"
 #include "server-helpers.h"
 #include "glusterfs3-xdr.h"
-#include "call-stub.h"
-#include "statedump.h"
-#include "defaults.h"
+#include <glusterfs/call-stub.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/defaults.h>
 #include "authenticate.h"
-#include "gf-event.h"
-#include "events.h"
+#include <glusterfs/gf-event.h>
+#include <glusterfs/events.h>
 #include "server-messages.h"
 #include "rpc-clnt.h"
 #include "glusterfsd.h"

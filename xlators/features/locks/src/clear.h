@@ -10,9 +10,9 @@
 #ifndef __CLEAR_H__
 #define __CLEAR_H__
 
-#include "compat-errno.h"
-#include "stack.h"
-#include "call-stub.h"
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/stack.h>
+#include <glusterfs/call-stub.h>
 #include "locks.h"
 
 typedef enum {

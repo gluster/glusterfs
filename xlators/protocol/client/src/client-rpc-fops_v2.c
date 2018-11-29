@@ -12,11 +12,11 @@
 #include "rpc-common-xdr.h"
 #include "glusterfs4-xdr.h"
 #include "glusterfs3.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "client-messages.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "client-common.h"
-#include "compound-fop-utils.h"
+#include <glusterfs/compound-fop-utils.h>
 
 extern int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data);

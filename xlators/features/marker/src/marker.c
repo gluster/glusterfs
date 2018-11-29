@@ -7,17 +7,17 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "libxlator.h"
 #include "marker.h"
 #include "marker-mem-types.h"
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include "marker-common.h"
-#include "byte-order.h"
-#include "syncop.h"
-#include "syscall.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/syscall.h>
 
 #include <fnmatch.h>
 

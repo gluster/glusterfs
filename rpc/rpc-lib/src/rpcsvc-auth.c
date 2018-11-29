@@ -9,8 +9,8 @@
 */
 
 #include "rpcsvc.h"
-#include "logging.h"
-#include "dict.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
 
 extern rpcsvc_auth_t *
 rpcsvc_auth_null_init(rpcsvc_t *svc, dict_t *options);

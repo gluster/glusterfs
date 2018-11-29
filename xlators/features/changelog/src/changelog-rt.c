@@ -8,9 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
-#include "logging.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/logging.h>
 
 #include "changelog-rt.h"
 #include "changelog-mem-types.h"

@@ -11,10 +11,10 @@
 #ifndef _POSIX_ACL_XATTR_H
 #define _POSIX_ACL_XATTR_H
 
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "posix-acl.h"
-#include "glusterfs.h"
-#include "glusterfs-acl.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/glusterfs-acl.h>
 
 struct posix_acl *
 posix_acl_from_xattr(xlator_t *this, const char *buf, int size);

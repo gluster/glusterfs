@@ -10,10 +10,10 @@
 
 #include <stdarg.h>
 
-#include "mem-types.h"
-#include "mem-pool.h"
-#include "strfd.h"
-#include "common-utils.h"
+#include "glusterfs/mem-types.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/strfd.h"
+#include "glusterfs/common-utils.h"
 
 strfd_t *
 strfd_open()

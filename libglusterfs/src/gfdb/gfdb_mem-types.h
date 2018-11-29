@@ -11,7 +11,7 @@
 #ifndef __GFDB_MEM_TYPES_H__
 #define __GFDB_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include "glusterfs/mem-types.h"
 
 enum gfdb_mem_types_ { gfdb_mtstart = gf_common_mt_end + 1, gfdb_mt_end };
 #endif

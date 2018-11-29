@@ -16,9 +16,9 @@
 #include <lvm2app.h>
 #include <sys/uio.h>
 
-#include "xlator.h"
-#include "glusterfs.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/defaults.h>
 #include "bd.h"
 #include "bd-aio.h"
 

@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #include "template.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 static int32_t
 template_mem_acct_init(xlator_t *this)

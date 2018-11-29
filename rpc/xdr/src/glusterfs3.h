@@ -16,9 +16,9 @@
 #include "xdr-generic.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs4-xdr.h"
-#include "iatt.h"
+#include <glusterfs/iatt.h>
 #include "protocol-common.h"
-#include "upcall-utils.h"
+#include <glusterfs/upcall-utils.h>
 
 #define xdr_decoded_remaining_addr(xdr) ((&xdr)->x_private)
 #define xdr_decoded_remaining_len(xdr) ((&xdr)->x_handy)

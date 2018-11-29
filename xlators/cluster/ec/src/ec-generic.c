@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
-#include "byte-order.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/byte-order.h>
 
 #include "ec.h"
 #include "ec-messages.h"

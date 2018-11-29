@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 
  enum glusterd_volume_status {
         GLUSTERD_STATUS_NONE = 0,

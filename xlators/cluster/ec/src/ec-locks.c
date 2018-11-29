@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 #include "ec-helpers.h"
 #include "ec-common.h"

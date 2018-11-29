@@ -9,10 +9,10 @@
 */
 
 #include "barrier.h"
-#include "defaults.h"
-#include "call-stub.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/call-stub.h>
 
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 void
 barrier_local_set_gfid(call_frame_t *frame, uuid_t gfid, xlator_t *this)

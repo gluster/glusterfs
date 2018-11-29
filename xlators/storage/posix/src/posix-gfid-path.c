@@ -8,10 +8,10 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "common-utils.h"
-#include "xlator.h"
-#include "syscall.h"
-#include "logging.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/logging.h>
 #include "posix-messages.h"
 #include "posix-mem-types.h"
 #include "posix-gfid-path.h"

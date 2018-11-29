@@ -10,19 +10,19 @@
 
 #include "rpcsvc.h"
 #include "rpc-transport.h"
-#include "dict.h"
-#include "logging.h"
-#include "byte-order.h"
-#include "common-utils.h"
-#include "compat-errno.h"
-#include "list.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/list.h>
 #include "xdr-rpc.h"
-#include "iobuf.h"
-#include "globals.h"
+#include <glusterfs/iobuf.h>
+#include <glusterfs/globals.h>
 #include "xdr-common.h"
 #include "xdr-generic.h"
 #include "rpc-common-xdr.h"
-#include "syncop.h"
+#include <glusterfs/syncop.h>
 #include "rpc-drc.h"
 #include "protocol-common.h"
 
@@ -44,7 +44,7 @@
 #endif
 
 #include "xdr-rpcclnt.h"
-#include "glusterfs-acl.h"
+#include <glusterfs/glusterfs-acl.h>
 
 struct rpcsvc_program gluster_dump_prog;
 

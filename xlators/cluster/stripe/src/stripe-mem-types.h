@@ -11,7 +11,7 @@
 #ifndef __STRIPE_MEM_TYPES_H__
 #define __STRIPE_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_stripe_mem_types_ {
     gf_stripe_mt_iovec = gf_common_mt_end + 1,

@@ -1,7 +1,7 @@
 #ifndef _TIER_CTR_INTERFACE_H_
 #define _TIER_CTR_INTERFACE_H_
 
-#include "common-utils.h"
+#include "glusterfs/common-utils.h"
 #include "gfdb_data_store_types.h"
 
 #define GFDB_IPC_CTR_KEY "gfdb.ipc-ctr-op"

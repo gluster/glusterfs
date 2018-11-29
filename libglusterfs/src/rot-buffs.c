@@ -10,10 +10,10 @@
 
 #include <math.h>
 
-#include "mem-types.h"
-#include "mem-pool.h"
+#include "glusterfs/mem-types.h"
+#include "glusterfs/mem-pool.h"
 
-#include "rot-buffs.h"
+#include "glusterfs/rot-buffs.h"
 
 /**
  * Producer-Consumer based on top of rotational buffers.

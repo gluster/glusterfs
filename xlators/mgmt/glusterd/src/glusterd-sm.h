@@ -11,17 +11,17 @@
 #define _GLUSTERD_SM_H_
 
 #include <pthread.h>
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 
 #include "rpc-clnt.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "call-stub.h"
-#include "byte-order.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/byte-order.h>
 //#include "glusterd.h"
 #include "rpcsvc.h"
-#include "store.h"
+#include <glusterfs/store.h>
 
 #include "glusterd-rcu.h"
 

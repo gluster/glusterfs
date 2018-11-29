@@ -8,12 +8,12 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "rbthash.h"
+#include "glusterfs/rbthash.h"
 #include "rb.h"
-#include "locking.h"
-#include "mem-pool.h"
-#include "logging.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/locking.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #include <pthread.h>
 #include <string.h>

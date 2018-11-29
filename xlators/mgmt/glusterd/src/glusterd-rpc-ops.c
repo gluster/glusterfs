@@ -14,13 +14,13 @@
 
 #include "xdr-generic.h"
 
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "glusterd-op-sm.h"
 #include "glusterd-sm.h"
 #include "glusterd.h"
 #include "protocol-common.h"
 #include "glusterd-utils.h"
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "glusterd-messages.h"
 #include "glusterd-snapshot-utils.h"
 #include <sys/uio.h>

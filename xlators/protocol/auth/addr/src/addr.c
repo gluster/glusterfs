@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include "authenticate.h"
-#include "dict.h"
+#include <glusterfs/dict.h>
 #include "rpc-transport.h"
 
 #define ENTRY_DELIMITER ","

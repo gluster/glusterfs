@@ -10,16 +10,16 @@
 
 #include "socket.h"
 #include "name.h"
-#include "dict.h"
+#include <glusterfs/dict.h>
 #include "rpc-transport.h"
-#include "logging.h"
-#include "xlator.h"
-#include "syscall.h"
-#include "byte-order.h"
-#include "common-utils.h"
-#include "compat-errno.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/compat-errno.h>
 #include "socket-mem-types.h"
-#include "timer.h"
+#include <glusterfs/timer.h>
 
 /* ugly #includes below */
 #include "protocol-common.h"

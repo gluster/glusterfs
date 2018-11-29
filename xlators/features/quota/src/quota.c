@@ -10,12 +10,12 @@
 #include <fnmatch.h>
 
 #include "quota.h"
-#include "common-utils.h"
-#include "defaults.h"
-#include "statedump.h"
-#include "quota-common-utils.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/quota-common-utils.h>
 #include "quota-messages.h"
-#include "events.h"
+#include <glusterfs/events.h>
 
 struct volume_options options[];
 

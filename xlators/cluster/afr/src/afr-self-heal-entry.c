@@ -10,11 +10,11 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 #include "afr-transaction.h"
 #include "afr-messages.h"
-#include "syncop-utils.h"
-#include "events.h"
+#include <glusterfs/syncop-utils.h>
+#include <glusterfs/events.h>
 
 static int
 afr_selfheal_entry_delete(xlator_t *this, inode_t *dir, const char *name,

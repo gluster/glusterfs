@@ -15,7 +15,7 @@
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 
-#include "compat.h"
+#include <glusterfs/compat.h>
 
 #define xdr_decoded_remaining_addr(xdr) ((&xdr)->x_private)
 #define xdr_decoded_remaining_len(xdr) ((&xdr)->x_handy)

@@ -8,11 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "compat-uuid.h"
-#include "globals.h"
-#include "glusterfs.h"
-#include "syscall.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-uuid.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/compat-errno.h>
 
 #include "gf-changelog-helpers.h"
 

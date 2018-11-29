@@ -10,25 +10,25 @@
 #ifndef _QUOTA_H
 #define _QUOTA_H
 
-#include "xlator.h"
-#include "call-stub.h"
-#include "defaults.h"
-#include "common-utils.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/common-utils.h>
 #include "quota-mem-types.h"
-#include "glusterfs.h"
-#include "compat.h"
-#include "logging.h"
-#include "dict.h"
-#include "gf-event.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/gf-event.h>
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
 #include "xdr-generic.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "protocol-common.h"
-#include "quota-common-utils.h"
+#include <glusterfs/quota-common-utils.h>
 #include "quota-messages.h"
 
 #define DIRTY "dirty"

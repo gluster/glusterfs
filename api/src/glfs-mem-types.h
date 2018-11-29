@@ -11,7 +11,7 @@
 #ifndef _GLFS_MEM_TYPES_H
 #define _GLFS_MEM_TYPES_H
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 #define GF_MEM_TYPE_START (gf_common_mt_end + 1)
 

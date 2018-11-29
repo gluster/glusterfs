@@ -9,15 +9,15 @@
 */
 
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "mount3.h"
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
-#include "iobuf.h"
+#include <glusterfs/iobuf.h>
 #include "nfs3.h"
-#include "mem-pool.h"
-#include "logging.h"
+#include <glusterfs/mem-pool.h>
+#include <glusterfs/logging.h>
 #include "nfs-common.h"
 #include "nfs-fops.h"
 #include "nfs-inodes.h"

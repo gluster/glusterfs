@@ -13,19 +13,19 @@
 #include <limits.h>
 #include <pthread.h>
 
-#include "glusterfs.h"
-#include "compat.h"
-#include "xlator.h"
-#include "logging.h"
-#include "common-utils.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/common-utils.h>
 
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
 #include "glusterfs3-xdr.h"
 #include "protocol-common.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 
 static int32_t
 up_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,

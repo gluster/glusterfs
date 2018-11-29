@@ -9,8 +9,8 @@
 */
 
 #include "rpcsvc.h"
-#include "list.h"
-#include "dict.h"
+#include <glusterfs/list.h>
+#include <glusterfs/dict.h>
 #include "xdr-rpc.h"
 #include "xdr-common.h"
 #include "rpc-common-xdr.h"

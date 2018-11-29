@@ -13,10 +13,10 @@
 
 #include <unistd.h>
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "rpcsvc.h"
-#include "iatt.h"
-#include "compat-uuid.h"
+#include <glusterfs/iatt.h>
+#include <glusterfs/compat-uuid.h>
 
 // NFS_PATH_MAX hard-coded to 4096 as a work around for bug 2476.
 // nfs server crashes when path received is longer than PATH_MAX

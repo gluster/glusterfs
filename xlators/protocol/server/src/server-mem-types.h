@@ -11,7 +11,7 @@
 #ifndef __SERVER_MEM_TYPES_H__
 #define __SERVER_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_server_mem_types_ {
     gf_server_mt_server_conf_t = gf_common_mt_end + 1,

@@ -1,13 +1,13 @@
 #include "server.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "server-messages.h"
 #include "server-helpers.h"
-#include "defaults.h"
-#include "fd.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/fd.h>
 #include "xdr-nfs3.h"
 
 void

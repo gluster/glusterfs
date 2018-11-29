@@ -11,9 +11,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include "compat.h"
-#include "xlator.h"
-#include "syncop.h"
+#include "glusterfs/compat.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/syncop.h"
 
 #define ONE 1ULL
 #define PRESENT_D_OFF_BITS 63

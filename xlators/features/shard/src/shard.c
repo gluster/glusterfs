@@ -12,9 +12,9 @@
 
 #include "shard.h"
 #include "shard-mem-types.h"
-#include "byte-order.h"
-#include "defaults.h"
-#include "statedump.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/statedump.h>
 
 static gf_boolean_t
 __is_shard_dir(uuid_t gfid)

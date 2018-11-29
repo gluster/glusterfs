@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "defaults.h"
-#include "default-args.h"
-#include "mem-types.h"
-#include "dict.h"
+#include "glusterfs/defaults.h"
+#include "glusterfs/default-args.h"
+#include "glusterfs/mem-types.h"
+#include "glusterfs/dict.h"
 
 void
 compound_args_cleanup(compound_args_t *args)

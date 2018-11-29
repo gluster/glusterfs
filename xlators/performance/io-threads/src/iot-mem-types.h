@@ -11,7 +11,7 @@
 #ifndef __IOT_MEM_TYPES_H__
 #define __IOT_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_iot_mem_types_ {
     gf_iot_mt_iot_conf_t = gf_common_mt_end + 1,

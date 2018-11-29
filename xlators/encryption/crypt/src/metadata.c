@@ -8,7 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "crypt-common.h"
 #include "crypt.h"
 #include "metadata.h"

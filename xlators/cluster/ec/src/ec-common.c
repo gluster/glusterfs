@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "byte-order.h"
-#include "hashfn.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/hashfn.h>
 
 #include "ec-mem-types.h"
 #include "ec-types.h"

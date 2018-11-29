@@ -8,14 +8,14 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "posix-metadata.h"
 #include "posix-metadata-disk.h"
 #include "posix-handle.h"
 #include "posix-messages.h"
-#include "syscall.h"
-#include "compat-errno.h"
-#include "compat.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/compat.h>
 
 static int gf_posix_xattr_enotsup_log;
 

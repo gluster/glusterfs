@@ -9,7 +9,7 @@
 */
 #include "read-only.h"
 #include "read-only-mem-types.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 
 gf_boolean_t
 is_readonly_or_worm_enabled(call_frame_t *frame, xlator_t *this)

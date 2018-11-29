@@ -10,10 +10,10 @@
 
 #include <sys/uio.h>
 
-#include "common-utils.h"
-#include "xlator.h"
-#include "graph-utils.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/graph-utils.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 struct gf_printer {
     ssize_t (*write)(struct gf_printer *gp, char *buf, size_t len);

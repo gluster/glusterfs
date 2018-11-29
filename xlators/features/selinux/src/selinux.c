@@ -8,12 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 #include "selinux.h"
 #include "selinux-messages.h"
 #include "selinux-mem-types.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 
 static int
 selinux_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,

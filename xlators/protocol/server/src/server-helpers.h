@@ -12,7 +12,7 @@
 #define _SERVER_HELPERS_H
 
 #include "server.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 
 #define CALL_STATE(frame) ((server_state_t *)frame->root->state)
 

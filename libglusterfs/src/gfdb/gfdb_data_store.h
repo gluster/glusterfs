@@ -10,10 +10,10 @@
 #ifndef __GFDB_DATA_STORE_H
 #define __GFDB_DATA_STORE_H
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "common-utils.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
 #include <time.h>
 #include <sys/time.h>
 

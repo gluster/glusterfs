@@ -13,7 +13,7 @@
 #include <netdb.h>
 
 #include "cli.h"
-#include "list.h"
+#include <glusterfs/list.h>
 
 #define GLUSTER_SHARED_STORAGE "gluster_shared_storage"
 

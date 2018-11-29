@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "syscall.h"
-#include "compat.h"
-#include "mem-pool.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/compat.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #include <sys/types.h>
 #include <utime.h>

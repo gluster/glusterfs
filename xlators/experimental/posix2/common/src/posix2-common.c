@@ -13,6 +13,6 @@
  * The entire functionality including comments is TODO.
  */
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "statedump.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/statedump.h>

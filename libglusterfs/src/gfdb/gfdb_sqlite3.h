@@ -13,10 +13,10 @@
 /*Sqlite3 header file*/
 #include <sqlite3.h>
 
-#include "logging.h"
+#include "glusterfs/logging.h"
 #include "gfdb_data_store_types.h"
 #include "gfdb_mem-types.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #define GF_STMT_SIZE_MAX 2048
 

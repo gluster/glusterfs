@@ -13,7 +13,7 @@
 */
 
 #include "netgroups.h"
-#include "parse-utils.h"
+#include <glusterfs/parse-utils.h>
 #include "nfs-messages.h"
 
 static void

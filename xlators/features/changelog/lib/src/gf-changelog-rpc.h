@@ -11,7 +11,7 @@
 #ifndef __GF_CHANGELOG_RPC_H
 #define __GF_CHANGELOG_RPC_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 #include "gf-changelog-helpers.h"
 #include "changelog-rpc-common.h"

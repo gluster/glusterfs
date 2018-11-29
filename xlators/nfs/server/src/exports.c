@@ -13,8 +13,8 @@
 */
 
 #include "exports.h"
-#include "hashfn.h"
-#include "parse-utils.h"
+#include <glusterfs/hashfn.h>
+#include <glusterfs/parse-utils.h>
 #include "nfs-messages.h"
 
 static void

@@ -10,7 +10,7 @@
 #ifndef _MARKER_COMMON_H
 #define _MARKER_COMMON_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "marker.h"
 
 int32_t

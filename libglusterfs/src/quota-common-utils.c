@@ -8,12 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "dict.h"
-#include "logging.h"
-#include "byte-order.h"
-#include "quota-common-utils.h"
-#include "common-utils.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/dict.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/byte-order.h"
+#include "glusterfs/quota-common-utils.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 gf_boolean_t
 quota_meta_is_null(const quota_meta_t *meta)

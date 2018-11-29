@@ -9,7 +9,7 @@
 */
 #include "quota.h"
 #include "quotad-aggregator.h"
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 
 int
 qd_notify(xlator_t *this, int32_t event, void *data, ...)

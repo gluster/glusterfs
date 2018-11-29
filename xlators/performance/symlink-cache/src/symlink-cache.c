@@ -8,14 +8,14 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "list.h"
-#include "compat.h"
-#include "compat-errno.h"
-#include "common-utils.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/list.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/common-utils.h>
 #include "symlink-cache-messages.h"
 
 struct symlink_cache {

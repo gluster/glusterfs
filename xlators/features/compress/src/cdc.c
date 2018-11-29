@@ -10,9 +10,9 @@
 
 #include <sys/uio.h>
 
-#include "xlator.h"
-#include "defaults.h"
-#include "logging.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/logging.h>
 
 #include "cdc.h"
 #include "cdc-mem-types.h"

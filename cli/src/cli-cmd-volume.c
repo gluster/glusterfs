@@ -23,10 +23,10 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 #include "cli1-xdr.h"
-#include "run.h"
-#include "syscall.h"
-#include "common-utils.h"
-#include "events.h"
+#include <glusterfs/run.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/events.h>
 
 extern struct rpc_clnt *global_rpc;
 extern struct rpc_clnt *global_quotad_rpc;

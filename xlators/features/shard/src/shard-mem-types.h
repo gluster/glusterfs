@@ -10,7 +10,7 @@
 #ifndef __SHARD_MEM_TYPES_H__
 #define __SHARD_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_shard_mem_types_ {
     gf_shard_mt_priv_t = gf_common_mt_end + 1,

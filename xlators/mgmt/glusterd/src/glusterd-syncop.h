@@ -10,7 +10,7 @@
 #ifndef __RPC_SYNCOP_H
 #define __RPC_SYNCOP_H
 
-#include "syncop.h"
+#include <glusterfs/syncop.h>
 #include "glusterd-sm.h"
 #include "glusterd.h"
 

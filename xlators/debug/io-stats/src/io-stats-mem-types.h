@@ -11,7 +11,7 @@
 #ifndef __IO_STATS_MEM_TYPES_H__
 #define __IO_STATS_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 extern const char *__progname;
 

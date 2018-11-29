@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 
 /* This is used by rpcgen to auto generate the rpc stubs.
  * mount3udp_svc.c is heavily modified though

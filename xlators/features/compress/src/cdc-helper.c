@@ -8,9 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "syscall.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/syscall.h>
 
 #include "cdc.h"
 #include "cdc-mem-types.h"

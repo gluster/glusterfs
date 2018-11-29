@@ -14,9 +14,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <limits.h>
-#include "locking.h"
+#include <glusterfs/locking.h>
 
-#include <xlator.h>
+#include <glusterfs/xlator.h>
 
 #include "changelog.h"
 

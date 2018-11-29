@@ -15,15 +15,15 @@
 #include <stdint.h>
 
 #include "rpc-clnt.h"
-#include "list.h"
-#include "inode.h"
+#include <glusterfs/list.h>
+#include <glusterfs/inode.h>
 #include "client-mem-types.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
 #include "glusterfs3-xdr.h"
-#include "fd-lk.h"
-#include "defaults.h"
-#include "default-args.h"
+#include <glusterfs/fd-lk.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/default-args.h>
 #include "client-messages.h"
 
 /* FIXME: Needs to be defined in a common file */

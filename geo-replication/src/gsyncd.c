@@ -7,8 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "compat.h"
-#include "syscall.h"
+#include <glusterfs/compat.h>
+#include <glusterfs/syscall.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,13 +24,13 @@
  * We unconditionally pass then while building gsyncd binary.
  */
 #ifdef USE_LIBGLUSTERFS
-#include "glusterfs.h"
-#include "globals.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/defaults.h>
 #endif
 
-#include "common-utils.h"
-#include "run.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/run.h>
 #include "procdiggy.h"
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"

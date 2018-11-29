@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 #include "changelog-rpc.h"
 #include "changelog-mem-types.h"
 #include "changelog-ev-handle.h"

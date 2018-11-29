@@ -11,12 +11,12 @@
 #ifndef _THIN_ARBITER_H
 #define _THIN_ARBITER_H
 
-#include "locking.h"
-#include "common-utils.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "list.h"
+#include <glusterfs/locking.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/list.h>
 
 #define THIN_ARBITER_SOURCE_XATTR "trusted.ta.source"
 #define THIN_ARBITER_SOURCE_SIZE 2

@@ -11,9 +11,9 @@
 #ifndef __UTIME_H__
 #define __UTIME_H__
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "utime-autogen-fops.h"
 
 typedef struct utime_priv {

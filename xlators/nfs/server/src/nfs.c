@@ -12,23 +12,23 @@
  * Every other protocol version gets initialized from here.
  */
 
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "nfs.h"
-#include "mem-pool.h"
-#include "logging.h"
+#include <glusterfs/mem-pool.h>
+#include <glusterfs/logging.h>
 #include "nfs-fops.h"
 #include "mount3.h"
 #include "nfs3.h"
 #include "nfs-mem-types.h"
 #include "nfs3-helpers.h"
 #include "nlm4.h"
-#include "options.h"
+#include <glusterfs/options.h>
 #include "acl3.h"
 #include "rpc-drc.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 #include "rpcsvc.h"
 #include "nfs-messages.h"
 

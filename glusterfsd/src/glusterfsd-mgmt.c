@@ -13,10 +13,10 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include "glusterfs.h"
-#include "dict.h"
-#include "gf-event.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/gf-event.h>
+#include <glusterfs/defaults.h>
 
 #include "rpc-clnt.h"
 #include "protocol-common.h"
@@ -28,11 +28,11 @@
 #include "glusterfsd.h"
 #include "rpcsvc.h"
 #include "cli1-xdr.h"
-#include "statedump.h"
-#include "syncop.h"
-#include "xlator.h"
-#include "syscall.h"
-#include "monitoring.h"
+#include <glusterfs/statedump.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/monitoring.h>
 #include "server.h"
 
 static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;

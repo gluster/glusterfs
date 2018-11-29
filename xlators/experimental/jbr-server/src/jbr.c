@@ -14,16 +14,16 @@
 #endif
 
 #include <fnmatch.h>
-#include "call-stub.h"
-#include "defaults.h"
-#include "xlator.h"
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/xlator.h>
 #include "glfs.h"
 #include "glfs-internal.h"
-#include "run.h"
-#include "common-utils.h"
-#include "syncop.h"
-#include "syscall.h"
-#include "compat-errno.h"
+#include <glusterfs/run.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/compat-errno.h>
 #include "fdl.h"
 
 #include "jbr-internal.h"

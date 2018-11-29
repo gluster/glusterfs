@@ -13,10 +13,10 @@
 #include <sys/uio.h>
 #include <Python.h>
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/defaults.h>
 
 #include "glupy.h"
 

@@ -47,20 +47,29 @@ BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h protocol-common.h
 protocol-common.h: $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h
 	cp $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h .
 
-libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
-	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \
-	stack.h timer.h list.h inode.h call-stub.h compat.h fd.h \
-	revision.h compat-errno.h gf-event.h mem-pool.h byte-order.h \
-	gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h \
-	checksum.h daemon.h store.h rbthash.h iatt.h latency.h \
-	mem-types.h syncop.h cluster-syncop.h graph-utils.h trie.h \
-	refcount.h run.h options.h lkowner.h fd-lk.h circ-buff.h \
-	event-history.h gidcache.h client_t.h glusterfs-acl.h \
-	glfs-message-id.h template-component-messages.h strfd.h \
-	syncop-utils.h parse-utils.h libglusterfs-messages.h \
-	lvm-defaults.h quota-common-utils.h rot-buffs.h \
-	compat-uuid.h upcall-utils.h throttle-tbf.h events.h\
-	compound-fop-utils.h atomic.h monitoring.h
+libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
+	glusterfs/default-args.h glusterfs/dict.h glusterfs/glusterfs.h \
+	glusterfs/hashfn.h glusterfs/timespec.h glusterfs/logging.h \
+	glusterfs/xlator.h glusterfs/stack.h glusterfs/timer.h glusterfs/list.h \
+	glusterfs/inode.h glusterfs/call-stub.h glusterfs/compat.h glusterfs/fd.h \
+	glusterfs/revision.h glusterfs/compat-errno.h glusterfs/gf-event.h \
+	glusterfs/mem-pool.h glusterfs/byte-order.h glusterfs/gf-dirent.h \
+	glusterfs/locking.h glusterfs/syscall.h glusterfs/iobuf.h \
+	glusterfs/globals.h glusterfs/statedump.h glusterfs/checksum.h \
+	glusterfs/daemon.h glusterfs/store.h glusterfs/rbthash.h glusterfs/iatt.h \
+	glusterfs/latency.h glusterfs/mem-types.h glusterfs/syncop.h \
+	glusterfs/cluster-syncop.h glusterfs/graph-utils.h glusterfs/trie.h \
+	glusterfs/refcount.h glusterfs/run.h glusterfs/options.h \
+	glusterfs/lkowner.h glusterfs/fd-lk.h glusterfs/circ-buff.h \
+	glusterfs/event-history.h glusterfs/gidcache.h glusterfs/client_t.h \
+	glusterfs/glusterfs-acl.h glusterfs/glfs-message-id.h \
+	glusterfs/template-component-messages.h glusterfs/strfd.h \
+	glusterfs/syncop-utils.h glusterfs/parse-utils.h \
+	glusterfs/libglusterfs-messages.h glusterfs/lvm-defaults.h \
+	glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
+	glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
+	glusterfs/events.h glusterfs/compound-fop-utils.h glusterfs/atomic.h \
+	glusterfs/monitoring.h
 
 libglusterfs_ladir = $(includedir)/glusterfs
 

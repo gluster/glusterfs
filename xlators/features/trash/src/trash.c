@@ -9,7 +9,7 @@
 */
 #include "trash.h"
 #include "trash-mem-types.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 #define root_gfid                                                              \
     (uuid_t) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 }

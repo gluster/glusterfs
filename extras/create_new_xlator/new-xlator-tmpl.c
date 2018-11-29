@@ -113,9 +113,9 @@ xlator_api_t xlator_api = {
 
 #include "@XL_NAME@-mem-types.h"
 #include "@XL_NAME@-messages.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 #endif /* __@HFL_NAME@_H__ */
 
@@ -123,7 +123,7 @@ xlator_api_t xlator_api = {
 #ifndef __ @HFL_NAME @_H__
 #define __ @HFL_NAME @_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_mdc_mem_types_ {
     gf_ @FOP_PREFIX @_mt_ = gf_common_mt_end + 1,
@@ -136,7 +136,7 @@ enum gf_mdc_mem_types_ {
 #ifndef __ @HFL_NAME @_H__
 #define __ @HFL_NAME @_H__
 
-#include "glfs-message-id.h"
+#include <glusterfs/glfs-message-id.h>
 
 /* To add new message IDs, append new identifiers at the end of the list.
  *

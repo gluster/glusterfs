@@ -8,8 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "globals.h"
-#include "run.h"
+#include <glusterfs/globals.h>
+#include <glusterfs/run.h>
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
@@ -20,7 +20,7 @@
 #include "glusterd-snapd-svc.h"
 #include "glusterd-snapd-svc-helper.h"
 #include "glusterd-snapshot-utils.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 char *snapd_svc_name = "snapd";
 

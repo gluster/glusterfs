@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "monitoring.h"
-#include "xlator.h"
-#include "syscall.h"
+#include "glusterfs/monitoring.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/syscall.h"
 
 #include <stdlib.h>
 

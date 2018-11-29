@@ -15,8 +15,8 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#include "xlator.h"
-#include "glusterfs.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"

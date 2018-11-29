@@ -10,8 +10,8 @@
 #include <stdio.h>
 #include <libgen.h>
 
-#include "common-utils.h"
-#include "syscall.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/syscall.h>
 
 #define MAX_GFID2PATH_LINK_SUP 500
 #define GFID_SIZE 16

@@ -11,7 +11,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "refcount.h"
+#include <glusterfs/refcount.h>
 #include "auth-cache.h"
 #include "nfs3.h"
 #include "exports.h"

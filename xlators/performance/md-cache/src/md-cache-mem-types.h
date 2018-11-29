@@ -11,7 +11,7 @@
 #ifndef __MDC_MEM_TYPES_H__
 #define __MDC_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_mdc_mem_types_ {
     gf_mdc_mt_mdc_local_t = gf_common_mt_end + 1,

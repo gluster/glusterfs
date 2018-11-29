@@ -12,15 +12,15 @@
 #define _MOUNT3_H_
 
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
-#include "iobuf.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/iobuf.h>
 #include "nfs.h"
-#include "list.h"
+#include <glusterfs/list.h>
 #include "xdr-nfs3.h"
-#include "locking.h"
+#include <glusterfs/locking.h>
 #include "nfs3-fh.h"
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 #include "exports.h"
 #include "mount3-auth.h"
 #include "auth-cache.h"

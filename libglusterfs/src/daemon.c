@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "daemon.h"
+#include "glusterfs/daemon.h"
 
 int
 os_daemon_return(int nochdir, int noclose)

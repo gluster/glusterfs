@@ -12,8 +12,8 @@
 
 #include <limits.h>
 #include <sys/types.h>
-#include "xlator.h"
-#include "gf-dirent.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/gf-dirent.h>
 #include "posix.h"
 
 /* From Open Group Base Specifications Issue 6 */

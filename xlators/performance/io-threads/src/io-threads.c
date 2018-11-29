@@ -8,20 +8,20 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "call-stub.h"
-#include "defaults.h"
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "io-threads.h"
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
-#include "locking.h"
+#include <glusterfs/locking.h>
 #include "io-threads-messages.h"
-#include "timespec.h"
+#include <glusterfs/timespec.h>
 
 void *
 iot_worker(void *arg);

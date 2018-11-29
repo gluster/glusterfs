@@ -12,9 +12,9 @@
 #define _UTIME_HELPERS_H
 
 #include "glusterfs-fops.h"
-#include "stack.h"
-#include "xlator.h"
-#include "timespec.h"
+#include <glusterfs/stack.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/timespec.h>
 #include <time.h>
 
 void

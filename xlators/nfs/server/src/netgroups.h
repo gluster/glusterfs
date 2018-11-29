@@ -16,7 +16,7 @@
 #define _NETGROUPS_H
 
 #include "nfs-mem-types.h"
-#include "dict.h"
+#include <glusterfs/dict.h>
 #include "nfs.h"
 
 #define GF_NG GF_NFS "-netgroup"

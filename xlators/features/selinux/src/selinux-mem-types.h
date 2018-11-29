@@ -10,7 +10,7 @@
 #ifndef __SELINUX_MEM_TYPES_H__
 #define __SELINUX_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_selinux_mem_types_ {
     gf_selinux_mt_selinux_priv_t = gf_common_mt_end + 1,

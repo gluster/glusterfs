@@ -15,7 +15,7 @@
 #include "changelog-rpc-common.h"
 #include "changelog-lib-messages.h"
 
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 /**
  * Reverse socket: actual data transfer handler. Connection

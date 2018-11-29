@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "syncop.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/syncop.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 int
 syncopctx_setfsuid(void *uid)

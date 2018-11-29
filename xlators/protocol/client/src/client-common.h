@@ -11,8 +11,8 @@
 #ifndef __CLIENT_COMMON_H__
 #define __CLIENT_COMMON_H__
 
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs4-xdr.h"

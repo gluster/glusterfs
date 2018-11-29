@@ -9,27 +9,27 @@
 */
 
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "mount3.h"
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
-#include "iobuf.h"
+#include <glusterfs/iobuf.h>
 #include "nfs-common.h"
 #include "nfs3-fh.h"
 #include "nfs-fops.h"
 #include "nfs-inodes.h"
 #include "nfs-generics.h"
-#include "locking.h"
-#include "iatt.h"
+#include <glusterfs/locking.h>
+#include <glusterfs/iatt.h>
 #include "nfs-mem-types.h"
 #include "nfs.h"
-#include "common-utils.h"
-#include "store.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/store.h>
 #include "glfs-internal.h"
 #include "glfs.h"
 #include "mount3-auth.h"
-#include "hashfn.h"
+#include <glusterfs/hashfn.h>
 #include "nfs-messages.h"
 
 #include <errno.h>

@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "fd-lk.h"
-#include "common-utils.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/fd-lk.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 int32_t
 _fd_lk_delete_lock(fd_lk_ctx_node_t *lock)

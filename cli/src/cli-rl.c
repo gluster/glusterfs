@@ -17,7 +17,7 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include "gf-event.h"
+#include <glusterfs/gf-event.h>
 
 #include <fnmatch.h>
 

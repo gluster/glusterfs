@@ -8,15 +8,15 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "dict.h"
-#include "xlator.h"
-#include "logging.h"
-#include "run.h"
-#include "defaults.h"
-#include "syscall.h"
-#include "compat.h"
-#include "compat-errno.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/run.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
 #include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"

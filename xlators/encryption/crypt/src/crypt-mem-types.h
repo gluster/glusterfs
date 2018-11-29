@@ -11,7 +11,7 @@
 #ifndef __CRYPT_MEM_TYPES_H__
 #define __CRYPT_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_crypt_mem_types_ {
     gf_crypt_mt_priv = gf_common_mt_end + 1,

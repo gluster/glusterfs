@@ -9,8 +9,8 @@
 */
 
 #include "rpcsvc.h"
-#include "list.h"
-#include "dict.h"
+#include <glusterfs/list.h>
+#include <glusterfs/dict.h>
 
 int
 auth_null_request_init(rpcsvc_request_t *req, void *priv)

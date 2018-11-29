@@ -12,7 +12,7 @@
 #define _NFS_GENERICS_H_
 
 #include "nfs.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "nfs-fops.h"
 #include "nfs-inodes.h"
 

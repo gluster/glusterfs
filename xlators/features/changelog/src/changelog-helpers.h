@@ -11,14 +11,14 @@
 #ifndef _CHANGELOG_HELPERS_H
 #define _CHANGELOG_HELPERS_H
 
-#include "locking.h"
-#include "timer.h"
+#include <glusterfs/locking.h>
+#include <glusterfs/timer.h>
 #include "pthread.h"
-#include "iobuf.h"
-#include "rot-buffs.h"
+#include <glusterfs/iobuf.h>
+#include <glusterfs/rot-buffs.h>
 
 #include "changelog-misc.h"
-#include "call-stub.h"
+#include <glusterfs/call-stub.h>
 
 #include "rpcsvc.h"
 #include "changelog-ev-handle.h"

@@ -11,9 +11,9 @@
 #ifndef _POSIX_GFID_PATH_H
 #define _POSIX_GFID_PATH_H
 
-#include "xlator.h"
-#include "common-utils.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/compat-errno.h>
 
 #define MAX_GFID2PATH_LINK_SUP 500
 

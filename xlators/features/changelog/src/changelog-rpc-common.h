@@ -13,8 +13,8 @@
 
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
-#include "gf-event.h"
-#include "call-stub.h"
+#include <glusterfs/gf-event.h>
+#include <glusterfs/call-stub.h>
 
 #include "changelog-xdr.h"
 #include "xdr-generic.h"

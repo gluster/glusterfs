@@ -11,14 +11,14 @@
 #include <fnmatch.h>
 
 #include "libxlator.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 
 #include "ec-types.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
 #include "ec-messages.h"
-#include "quota-common-utils.h"
+#include <glusterfs/quota-common-utils.h>
 
 #define EC_QUOTA_PREFIX "trusted.glusterfs.quota."
 

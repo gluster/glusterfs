@@ -24,12 +24,12 @@
  */
 
 #include <math.h>
-#include "glusterfs.h"
-#include "xlator.h"
-#include "call-stub.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/call-stub.h>
 #include "readdir-ahead.h"
 #include "readdir-ahead-mem-types.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "readdir-ahead-messages.h"
 static int
 rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);

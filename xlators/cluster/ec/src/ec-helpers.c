@@ -10,7 +10,7 @@
 
 #include <libgen.h>
 
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 
 #include "ec.h"
 #include "ec-mem-types.h"

@@ -14,9 +14,9 @@
 
 #include "glusterd.h"
 #include "glusterd-utils.h"
-#include "common-utils.h"
-#include "xlator.h"
-#include "logging.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
 #include "glusterd-messages.h"
 #include "glusterd-proc-mgmt.h"
 

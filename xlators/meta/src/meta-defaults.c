@@ -8,13 +8,13 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 #include "meta-mem-types.h"
 #include "meta.h"
 
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 
 int
 meta_default_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,

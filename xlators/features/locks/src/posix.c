@@ -12,18 +12,18 @@
 #include <limits.h>
 #include <pthread.h>
 
-#include "glusterfs.h"
-#include "compat.h"
-#include "xlator.h"
-#include "logging.h"
-#include "common-utils.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/common-utils.h>
 
 #include "locks.h"
 #include "common.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include "clear.h"
-#include "defaults.h"
-#include "syncop.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/syncop.h>
 #include "pl-messages.h"
 
 #ifndef LLONG_MAX
