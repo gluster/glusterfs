@@ -130,6 +130,8 @@ bitd_scrub_post_compute_check(xlator_t *this, br_child_t *child, fd_t *fd,
 
     (void)memcpy(*signature, signptr, sizeof(br_isignature_out_t) + signlen);
 
+    (*signature)->signaturelen = signlen;
+
 unref_dict:
     dict_unref(xattr);
 out:
@@ -222,7 +224,7 @@ bitd_compare_ckum(xlator_t *this, br_isignature_out_t *sign, unsigned char *md,
     GF_VALIDATE_OR_GOTO(this->name, md, out);
     GF_VALIDATE_OR_GOTO(this->name, entry, out);
 
-    if (strncmp(sign->signature, (char *)md, strlen(sign->signature)) == 0) {
+    if (strncmp(sign->signature, (char *)md, sign->signaturelen) == 0) {
         gf_msg_debug(this->name, 0,
                      "%s [GFID: %s | Brick: %s] "
                      "matches calculated checksum",
