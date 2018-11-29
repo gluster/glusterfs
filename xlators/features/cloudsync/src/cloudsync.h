@@ -19,6 +19,7 @@
 #include "cloudsync-common.h"
 #include "cloudsync-autogen-fops.h"
 
+#define ALIGN_SIZE 4096
 #define CS_LOCK_DOMAIN "cs.protect.file.stat"
 typedef struct cs_dlstore {
     off_t off;
@@ -29,6 +30,7 @@ typedef struct cs_dlstore {
 } cs_dlstore;
 
 typedef struct cs_inode_ctx {
+    cs_loc_xattr_t locxattr;
     gf_cs_obj_state state;
 } cs_inode_ctx_t;
 
@@ -100,4 +102,22 @@ cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 cs_resume_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc,
                    off_t offset, dict_t *xattr_req);
+
+int32_t
+cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+             int32_t op_errno, struct iovec *vector, int32_t count,
+             struct iatt *stbuf, struct iobref *iobref, dict_t *xdata);
+int32_t
+cs_resume_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                off_t offset, uint32_t flags, dict_t *xdata);
+int32_t
+cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+         off_t offset, uint32_t flags, dict_t *xdata);
+
+int
+cs_resume_remote_readv_postprocess(xlator_t *this, call_frame_t *frame,
+                                   inode_t *inode, off_t offset, size_t size,
+                                   uint32_t flags);
+int
+cs_serve_readv(call_frame_t *frame, off_t offset, size_t size, uint32_t flags);
 #endif /* __CLOUDSYNC_H__ */
