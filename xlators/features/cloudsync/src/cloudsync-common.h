@@ -14,8 +14,22 @@
 #include <glusterfs/call-stub.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/syncop.h>
+#include <glusterfs/compat-errno.h>
 #include "cloudsync-mem-types.h"
 #include "cloudsync-messages.h"
+
+typedef struct cs_loc_xattr {
+    char *file_path;
+    uuid_t uuid;
+    uuid_t gfid;
+    char *volname;
+} cs_loc_xattr_t;
+
+typedef struct cs_size_xattr {
+    uint64_t size;
+    uint64_t blksize;
+    uint64_t blocks;
+} cs_size_xattr_t;
 
 typedef struct cs_local {
     loc_t loc;
@@ -34,9 +48,24 @@ typedef struct cs_local {
     int call_cnt;
     inode_t *inode;
     char *remotepath;
+
+    struct {
+        /* offset, flags and size are the information needed
+         * by read fop for remote read operation. These will be
+         * populated in cloudsync read fop, before being passed
+         * on to the plugin performing remote read.
+         */
+        off_t offset;
+        uint32_t flags;
+        size_t size;
+        cs_loc_xattr_t *lxattr;
+    } xattrinfo;
+
 } cs_local_t;
 
 typedef int (*fop_download_t)(call_frame_t *frame, void *config);
+
+typedef int (*fop_remote_read_t)(call_frame_t *, void *);
 
 typedef void *(*store_init)(xlator_t *this);
 
@@ -48,6 +77,7 @@ struct cs_remote_stores {
     char *name;                    /* store name */
     void *config;                  /* store related information */
     fop_download_t dlfop;          /* store specific download function */
+    fop_remote_read_t rdfop;       /* store specific read function */
     store_init init;               /* store init to initialize store config */
     store_reconfigure reconfigure; /* reconfigure store config */
     store_fini fini;
@@ -59,10 +89,14 @@ typedef struct cs_private {
     struct cs_remote_stores *stores;
     gf_boolean_t abortdl;
     pthread_spinlock_t lock;
+    gf_boolean_t remote_read;
 } cs_private_t;
 
 void
 cs_local_wipe(xlator_t *this, cs_local_t *local);
+
+void
+cs_xattrinfo_wipe(cs_local_t *local);
 
 #define CS_STACK_UNWIND(fop, frame, params...)                                 \
     do {                                                                       \
@@ -90,6 +124,7 @@ cs_local_wipe(xlator_t *this, cs_local_t *local);
 
 typedef struct store_methods {
     int (*fop_download)(call_frame_t *frame, void *config);
+    int (*fop_remote_read)(call_frame_t *, void *);
     /* return type should be the store config */
     void *(*fop_init)(xlator_t *this);
     int (*fop_reconfigure)(xlator_t *this, dict_t *options);

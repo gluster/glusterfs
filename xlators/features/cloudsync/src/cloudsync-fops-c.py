@@ -137,15 +137,15 @@ cs_@NAME@_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         } else {
                                 __cs_inode_ctx_update (this, fd->inode, val);
                                 gf_msg (this->name, GF_LOG_INFO, 0, 0,
-                                        " state = %ld", val);
+                                        " state = %" PRIu64, val);
 
                                 if (local->call_cnt == 1 &&
                                     (val == GF_CS_REMOTE ||
                                      val == GF_CS_DOWNLOADING))  {
                                         gf_msg (this->name, GF_LOG_INFO, 0,
                                                 0, " will repair and download "
-                                                "the file, current state : %ld",
-                                                val);
+                                                "the file, current state : %"
+                                                PRIu64, val);
                                         goto repair;
                                 } else {
                                         gf_msg (this->name, GF_LOG_ERROR, 0, 0,
@@ -274,7 +274,7 @@ fd_ops = ['readv', 'writev', 'flush', 'fsync', 'fsyncdir', 'ftruncate',
 # These are the current actual lists used to generate the code
 
 # The following list contains fops which are fd based that modifies data
-fd_data_modify_op_fop_template = ['readv', 'writev', 'flush', 'fsync',
+fd_data_modify_op_fop_template = ['writev', 'flush', 'fsync',
                                   'ftruncate', 'rchecksum', 'fallocate',
                                   'discard', 'zerofill', 'seek']
 
@@ -284,8 +284,8 @@ loc_stat_op_fop_template = ['lookup', 'stat', 'discover', 'access', 'setattr',
                             'getattr']
 
 # These fops need a separate implementation
-special_fops = ['readdirp', 'statfs', 'setxattr', 'unlink', 'getxattr',
-                'truncate', 'fstat']
+special_fops = ['statfs', 'setxattr', 'unlink', 'getxattr',
+                'truncate', 'fstat', 'readv']
 
 def gen_defaults():
     for name in ops:

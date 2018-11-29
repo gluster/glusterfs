@@ -16,6 +16,7 @@
 #include <glusterfs/call-stub.h>
 #include "cloudsync-autogen-fops.h"
 
+#include <string.h>
 #include <dlfcn.h>
 
 void
@@ -71,6 +72,8 @@ cs_init(xlator_t *this)
     }
 
     this->private = priv;
+
+    GF_OPTION_INIT("cloudsync-remote-read", priv->remote_read, bool, out);
 
     /* temp workaround. Should be configurable through glusterd*/
     per_vol = _gf_true;
@@ -135,6 +138,18 @@ cs_init(xlator_t *this)
 
         (void)dlerror();
 
+        if (priv->remote_read) {
+            priv->stores->rdfop = store_methods->fop_remote_read;
+            if (!priv->stores->rdfop) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "failed to get"
+                       " read fop %s",
+                       dlerror());
+                ret = -1;
+                goto out;
+            }
+        }
+
         priv->stores->dlfop = store_methods->fop_download;
         if (!priv->stores->dlfop) {
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
@@ -196,6 +211,22 @@ out:
     return ret;
 }
 
+int
+cs_forget(xlator_t *this, inode_t *inode)
+{
+    uint64_t ctx_int = 0;
+    cs_inode_ctx_t *ctx = NULL;
+
+    inode_ctx_del(inode, this, &ctx_int);
+    if (!ctx_int)
+        return 0;
+
+    ctx = (cs_inode_ctx_t *)(uintptr_t)ctx_int;
+
+    GF_FREE(ctx);
+    return 0;
+}
+
 void
 cs_fini(xlator_t *this)
 {
@@ -216,6 +247,9 @@ cs_reconfigure(xlator_t *this, dict_t *options)
         ret = -1;
         goto out;
     }
+
+    GF_OPTION_RECONF("cloudsync-remote-read", priv->remote_read, options, bool,
+                     out);
 
     /* needed only for per volume configuration*/
     ret = priv->stores->reconfigure(this, options);
@@ -242,59 +276,6 @@ out:
 }
 
 int32_t
-cs_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
-                dict_t *xdata)
-{
-    gf_dirent_t *tmp = NULL;
-    char *sxattr = NULL;
-    uint64_t ia_size = 0;
-    int ret = 0;
-
-    list_for_each_entry(tmp, &entries->list, list)
-    {
-        ret = dict_get_str(tmp->dict, GF_CS_OBJECT_SIZE, &sxattr);
-        if (ret) {
-            gf_msg_trace(this->name, 0, "size xattr found");
-            continue;
-        }
-
-        ia_size = atoll(sxattr);
-        tmp->d_stat.ia_size = ia_size;
-    }
-
-    STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, entries, xdata);
-    return 0;
-}
-
-int32_t
-cs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-            off_t off, dict_t *xdata)
-{
-    int ret = 0;
-    int op_errno = ENOMEM;
-
-    if (!xdata) {
-        xdata = dict_new();
-        if (!xdata) {
-            goto err;
-        }
-    }
-
-    ret = dict_set_int32(xdata, GF_CS_OBJECT_SIZE, 1);
-    if (ret) {
-        goto err;
-    }
-
-    STACK_WIND(frame, cs_readdirp_cbk, FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
-    return 0;
-err:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, op_errno, NULL, NULL);
-    return 0;
-}
-
-int32_t
 cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
@@ -305,7 +286,6 @@ cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
 
-    /* Do we need lock here? */
     local->call_cnt++;
 
     if (op_ret == -1) {
@@ -320,13 +300,13 @@ cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
             } else {
                 __cs_inode_ctx_update(this, local->loc.inode, val);
-                gf_msg(this->name, GF_LOG_INFO, 0, 0, " state = %ld", val);
+                gf_msg(this->name, GF_LOG_INFO, 0, 0, " state = %" PRIu64, val);
 
                 if (local->call_cnt == 1 &&
                     (val == GF_CS_REMOTE || val == GF_CS_DOWNLOADING)) {
                     gf_msg(this->name, GF_LOG_WARNING, 0, 0,
                            "will repair and download "
-                           "the file, current state : %ld",
+                           "the file, current state : %" PRIu64,
                            val);
                     goto repair;
                 } else {
@@ -665,7 +645,7 @@ cs_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (op_ret == 0) {
         ret = dict_get_uint64(xdata, GF_CS_OBJECT_STATUS, &val);
         if (!ret) {
-            gf_msg_debug(this->name, 0, "state %ld", val);
+            gf_msg_debug(this->name, 0, "state %" PRIu64, val);
             ret = __cs_inode_ctx_update(this, fd->inode, val);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0, "ctx update failed");
@@ -831,7 +811,7 @@ out:
     return 0;
 }
 
-void *
+int
 cs_download_task(void *arg)
 {
     call_frame_t *frame = NULL;
@@ -842,20 +822,12 @@ cs_download_task(void *arg)
     fd_t *fd = NULL;
     cs_local_t *local = NULL;
     dict_t *dict = NULL;
-    int *retval = NULL;
 
     frame = (call_frame_t *)arg;
 
     this = frame->this;
 
     priv = this->private;
-
-    retval = GF_CALLOC(1, sizeof(int), gf_common_mt_int);
-    if (!retval) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
-        ret = -1;
-        goto out;
-    }
 
     if (!priv->stores) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0,
@@ -972,20 +944,13 @@ out:
         local->dlfd = NULL;
     }
 
-    if (retval) {
-        *retval = ret;
-        pthread_exit(retval);
-    } else {
-        pthread_exit(&ret);
-    }
+    return ret;
 }
 
 int
 cs_download(call_frame_t *frame)
 {
-    int *retval = NULL;
     int ret = 0;
-    pthread_t dthread;
     cs_local_t *local = NULL;
     xlator_t *this = NULL;
 
@@ -1000,16 +965,406 @@ cs_download(call_frame_t *frame)
         goto out;
     }
 
-    ret = gf_thread_create(&dthread, NULL, &cs_download_task, (void *)frame,
-                           "downloadthread");
+    ret = cs_download_task((void *)frame);
+out:
+    return ret;
+}
 
-    pthread_join(dthread, (void **)&retval);
+int
+cs_set_xattr_req(call_frame_t *frame)
+{
+    cs_local_t *local = NULL;
+    GF_UNUSED int ret = 0;
 
-    ret = *retval;
+    local = frame->local;
+
+    /* When remote reads are performed (i.e. reads on remote store),
+     * there needs to be a way to associate a file on gluster volume
+     * with its correspnding file on the remote store. In order to do
+     * that, a unique key can be maintained as an xattr
+     * (GF_CS_XATTR_ARCHIVE_UUID)on the stub file on gluster bricks.
+     * This xattr should be provided to the plugin to
+     * perform the read fop on the correct file. This assumes that the file
+     * hierarchy and name need not be the same on remote store as that of
+     * the gluster volume.
+     */
+    ret = dict_set_str(local->xattr_req, GF_CS_XATTR_ARCHIVE_UUID, "1");
+
+    return 0;
+}
+
+int
+cs_update_xattrs(call_frame_t *frame, dict_t *xdata)
+{
+    cs_local_t *local = NULL;
+    xlator_t *this = NULL;
+    int size = -1;
+    GF_UNUSED int ret = 0;
+
+    local = frame->local;
+    this = frame->this;
+
+    local->xattrinfo.lxattr = GF_CALLOC(1, sizeof(cs_loc_xattr_t),
+                                        gf_cs_mt_cs_lxattr_t);
+    if (!local->xattrinfo.lxattr) {
+        local->op_ret = -1;
+        local->op_errno = ENOMEM;
+        goto err;
+    }
+
+    gf_uuid_copy(local->xattrinfo.lxattr->gfid, local->loc.gfid);
+
+    if (local->remotepath) {
+        local->xattrinfo.lxattr->file_path = gf_strdup(local->remotepath);
+        if (!local->xattrinfo.lxattr->file_path) {
+            local->op_ret = -1;
+            local->op_errno = ENOMEM;
+            goto err;
+        }
+    }
+
+    ret = dict_get_gfuuid(xdata, GF_CS_XATTR_ARCHIVE_UUID,
+                          &(local->xattrinfo.lxattr->uuid));
+
+    if (ret) {
+        gf_uuid_clear(local->xattrinfo.lxattr->uuid);
+    }
+    size = strlen(this->name) - strlen("-cloudsync") + 1;
+    local->xattrinfo.lxattr->volname = GF_CALLOC(1, size, gf_common_mt_char);
+    if (!local->xattrinfo.lxattr->volname) {
+        local->op_ret = -1;
+        local->op_errno = ENOMEM;
+        goto err;
+    }
+    strncpy(local->xattrinfo.lxattr->volname, this->name, size - 1);
+    local->xattrinfo.lxattr->volname[size - 1] = '\0';
+
+    return 0;
+err:
+    cs_xattrinfo_wipe(local);
+    return -1;
+}
+
+int
+cs_serve_readv(call_frame_t *frame, off_t offset, size_t size, uint32_t flags)
+{
+    xlator_t *this = NULL;
+    cs_private_t *priv = NULL;
+    int ret = -1;
+    fd_t *fd = NULL;
+    cs_local_t *local = NULL;
+
+    local = frame->local;
+    this = frame->this;
+    priv = this->private;
+
+    if (!local->remotepath) {
+        ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "remote path not"
+               " available. Check posix logs to resolve");
+        goto out;
+    }
+
+    if (!priv->stores) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "No remote store "
+               "plugins found");
+        ret = -1;
+        goto out;
+    }
+
+    if (local->fd) {
+        fd = fd_anonymous(local->fd->inode);
+    } else {
+        fd = fd_anonymous(local->loc.inode);
+    }
+
+    local->xattrinfo.size = size;
+    local->xattrinfo.offset = offset;
+    local->xattrinfo.flags = flags;
+
+    if (!fd) {
+        gf_msg("CS", GF_LOG_ERROR, 0, 0, "fd creation failed");
+        ret = -1;
+        goto out;
+    }
+
+    local->dlfd = fd;
+    local->dloffset = offset;
+
+    /*this calling method is for per volume setting */
+    ret = priv->stores->rdfop(frame, priv->stores->config);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "read failed"
+               ", remotepath: %s",
+               local->remotepath);
+        ret = -1;
+        goto out;
+    } else {
+        gf_msg(this->name, GF_LOG_INFO, 0, 0,
+               "read success, path"
+               " : %s",
+               local->remotepath);
+    }
 
 out:
-    if (retval)
-        GF_FREE(retval);
+    if (fd) {
+        fd_unref(fd);
+        local->dlfd = NULL;
+    }
+    return ret;
+}
+
+int32_t
+cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+             int32_t op_errno, struct iovec *vector, int32_t count,
+             struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+{
+    cs_local_t *local = NULL;
+    int ret = 0;
+    uint64_t val = 0;
+    fd_t *fd = NULL;
+
+    local = frame->local;
+    fd = local->fd;
+
+    local->call_cnt++;
+
+    if (op_ret == -1) {
+        ret = dict_get_uint64(xdata, GF_CS_OBJECT_STATUS, &val);
+        if (ret == 0) {
+            if (val == GF_CS_ERROR) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "could not get file state, unwinding");
+                op_ret = -1;
+                op_errno = EIO;
+                goto unwind;
+            } else {
+                __cs_inode_ctx_update(this, fd->inode, val);
+                gf_msg(this->name, GF_LOG_INFO, 0, 0, " state = %" PRIu64, val);
+
+                if (local->call_cnt == 1 &&
+                    (val == GF_CS_REMOTE || val == GF_CS_DOWNLOADING)) {
+                    gf_msg(this->name, GF_LOG_INFO, 0, 0,
+                           " will read from remote : %" PRIu64, val);
+                    goto repair;
+                } else {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                           "second readv, Unwinding");
+                    goto unwind;
+                }
+            }
+        } else {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                   "file state "
+                   "could not be figured, unwinding");
+            goto unwind;
+        }
+    } else {
+        /* successful readv => file is local */
+        __cs_inode_ctx_update(this, fd->inode, GF_CS_LOCAL);
+        gf_msg(this->name, GF_LOG_INFO, 0, 0,
+               "state : GF_CS_LOCAL"
+               ", readv successful");
+
+        goto unwind;
+    }
+
+repair:
+    ret = locate_and_execute(frame);
+    if (ret) {
+        goto unwind;
+    }
+
+    return 0;
+
+unwind:
+    CS_STACK_UNWIND(readv, frame, op_ret, op_errno, vector, count, stbuf,
+                    iobref, xdata);
+
+    return 0;
+}
+
+int32_t
+cs_resume_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+                off_t offset, uint32_t flags, dict_t *xdata)
+{
+    int ret = 0;
+
+    ret = cs_resume_postprocess(this, frame, fd->inode);
+    if (ret) {
+        goto unwind;
+    }
+
+    cs_inodelk_unlock(frame);
+
+    STACK_WIND(frame, cs_readv_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->readv, fd, size, offset, flags, xdata);
+
+    return 0;
+
+unwind:
+    cs_inodelk_unlock(frame);
+
+    cs_common_cbk(frame);
+
+    return 0;
+}
+
+int32_t
+cs_resume_remote_readv(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                       size_t size, off_t offset, uint32_t flags, dict_t *xdata)
+{
+    int ret = 0;
+    cs_local_t *local = NULL;
+    gf_cs_obj_state state = -1;
+    cs_inode_ctx_t *ctx = NULL;
+
+    cs_inodelk_unlock(frame);
+
+    local = frame->local;
+    if (!local) {
+        ret = -1;
+        goto unwind;
+    }
+
+    __cs_inode_ctx_get(this, fd->inode, &ctx);
+
+    state = __cs_get_file_state(this, fd->inode, ctx);
+    if (state == GF_CS_ERROR) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "status is GF_CS_ERROR."
+               " Aborting readv");
+        local->op_ret = -1;
+        local->op_errno = EREMOTE;
+        ret = -1;
+        goto unwind;
+    }
+
+    /* Serve readv from remote store only if it is remote. */
+    gf_msg_debug(this->name, 0, "status of file %s is %d",
+                 local->remotepath ? local->remotepath : "", state);
+
+    /* We will reach this condition if local inode ctx had REMOTE
+     * state when the control was in cs_readv but after stat
+     * we got an updated state saying that the file is LOCAL.
+     */
+    if (state == GF_CS_LOCAL) {
+        STACK_WIND(frame, cs_readv_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
+                   xdata);
+    } else if (state == GF_CS_REMOTE) {
+        ret = cs_resume_remote_readv_postprocess(this, frame, fd->inode, offset,
+                                                 size, flags);
+        /* Failed to submit the remote readv fop to plugin */
+        if (ret) {
+            local->op_ret = -1;
+            local->op_errno = EREMOTE;
+            goto unwind;
+        }
+        /* When the file is in any other intermediate state,
+         * we should not perform remote reads.
+         */
+    } else {
+        local->op_ret = -1;
+        local->op_errno = EINVAL;
+        goto unwind;
+    }
+
+    return 0;
+
+unwind:
+    cs_common_cbk(frame);
+
+    return 0;
+}
+
+int32_t
+cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+         off_t offset, uint32_t flags, dict_t *xdata)
+{
+    int op_errno = -1;
+    cs_local_t *local = NULL;
+    int ret = 0;
+    cs_inode_ctx_t *ctx = NULL;
+    gf_cs_obj_state state = -1;
+    cs_private_t *priv = NULL;
+
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(this, err);
+    VALIDATE_OR_GOTO(fd, err);
+
+    priv = this->private;
+
+    local = cs_local_init(this, frame, NULL, fd, GF_FOP_READ);
+    if (!local) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0, "local init failed");
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    __cs_inode_ctx_get(this, fd->inode, &ctx);
+
+    if (ctx)
+        state = __cs_get_file_state(this, fd->inode, ctx);
+    else
+        state = GF_CS_LOCAL;
+
+    local->xattr_req = xdata ? dict_ref(xdata) : (xdata = dict_new());
+
+    ret = dict_set_uint32(local->xattr_req, GF_CS_OBJECT_STATUS, 1);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "dict_set failed key:"
+               " %s",
+               GF_CS_OBJECT_STATUS);
+        goto err;
+    }
+
+    if (priv->remote_read) {
+        local->stub = fop_readv_stub(frame, cs_resume_remote_readv, fd, size,
+                                     offset, flags, xdata);
+    } else {
+        local->stub = fop_readv_stub(frame, cs_resume_readv, fd, size, offset,
+                                     flags, xdata);
+    }
+    if (!local->stub) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    if (state == GF_CS_LOCAL) {
+        STACK_WIND(frame, cs_readv_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
+                   xdata);
+    } else {
+        local->call_cnt++;
+        ret = locate_and_execute(frame);
+        if (ret) {
+            op_errno = ENOMEM;
+            goto err;
+        }
+    }
+
+    return 0;
+
+err:
+    CS_STACK_UNWIND(readv, frame, -1, op_errno, NULL, -1, NULL, NULL, NULL);
+
+    return 0;
+}
+
+int
+cs_resume_remote_readv_postprocess(xlator_t *this, call_frame_t *frame,
+                                   inode_t *inode, off_t offset, size_t size,
+                                   uint32_t flags)
+{
+    int ret = 0;
+
+    ret = cs_serve_readv(frame, offset, size, flags);
 
     return ret;
 }
@@ -1059,7 +1414,7 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 goto err;
             } else {
                 ret = __cs_inode_ctx_update(this, inode, val);
-                gf_msg_debug(this->name, 0, "status : %lu", val);
+                gf_msg_debug(this->name, 0, "status : %" PRIu64, val);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, 0, "ctx update failed");
                     local->op_ret = -1;
@@ -1086,6 +1441,10 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         } else {
             gf_msg_debug(this->name, 0, "NULL filepath");
         }
+
+        ret = cs_update_xattrs(frame, xdata);
+        if (ret)
+            goto err;
 
         local->op_ret = 0;
         local->xattr_rsp = dict_ref(xdata);
@@ -1120,6 +1479,8 @@ cs_do_stat_check(call_frame_t *main_frame)
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "dict_set failed");
         goto err;
     }
+
+    cs_set_xattr_req(main_frame);
 
     if (local->fd) {
         STACK_WIND(main_frame, cs_stat_check_cbk, FIRST_CHILD(this),
@@ -1177,6 +1538,10 @@ cs_common_cbk(call_frame_t *frame)
                             NULL, NULL, NULL);
             break;
 
+        case GF_FOP_TRUNCATE:
+            CS_STACK_UNWIND(truncate, frame, local->op_ret, local->op_errno,
+                            NULL, NULL, NULL);
+            break;
         default:
             break;
     }
@@ -1427,7 +1792,7 @@ __cs_inode_ctx_get(xlator_t *this, inode_t *inode, cs_inode_ctx_t **ctx)
     if (ret)
         *ctx = NULL;
     else
-        *ctx = (cs_inode_ctx_t *)ctxint;
+        *ctx = (cs_inode_ctx_t *)(uintptr_t)ctxint;
 
     return;
 }
@@ -1452,7 +1817,7 @@ __cs_inode_ctx_update(xlator_t *this, inode_t *inode, uint64_t val)
 
             ctx->state = val;
 
-            ctxint = (uint64_t)ctx;
+            ctxint = (uint64_t)(uintptr_t)ctx;
 
             ret = __inode_ctx_set(inode, this, &ctxint);
             if (ret) {
@@ -1460,7 +1825,7 @@ __cs_inode_ctx_update(xlator_t *this, inode_t *inode, uint64_t val)
                 goto out;
             }
         } else {
-            ctx = (cs_inode_ctx_t *)ctxint;
+            ctx = (cs_inode_ctx_t *)(uintptr_t)ctxint;
 
             ctx->state = val;
         }
@@ -1483,7 +1848,7 @@ cs_inode_ctx_reset(xlator_t *this, inode_t *inode)
         return 0;
     }
 
-    ctx = (cs_inode_ctx_t *)ctxint;
+    ctx = (cs_inode_ctx_t *)(uintptr_t)ctxint;
 
     GF_FREE(ctx);
     return 0;
@@ -1532,6 +1897,57 @@ cs_resume_postprocess(xlator_t *this, call_frame_t *frame, inode_t *inode)
 out:
     return ret;
 }
+
+int32_t
+__cs_get_dict_str(char **str, dict_t *xattr, const char *name, int *errnum)
+{
+    data_t *data = NULL;
+    int ret = -1;
+
+    assert(str != NULL);
+
+    data = dict_get(xattr, (char *)name);
+    if (!data) {
+        *errnum = ENODATA;
+        goto out;
+    }
+
+    *str = GF_CALLOC(data->len + 1, sizeof(char), gf_common_mt_char);
+    if (!(*str)) {
+        *errnum = ENOMEM;
+        goto out;
+    }
+
+    memcpy(*str, data->data, sizeof(char) * (data->len));
+    return 0;
+
+out:
+    return ret;
+}
+
+int32_t
+__cs_get_dict_uuid(uuid_t uuid, dict_t *xattr, const char *name, int *errnum)
+{
+    data_t *data = NULL;
+    int ret = -1;
+
+    assert(uuid != NULL);
+
+    data = dict_get(xattr, (char *)name);
+    if (!data) {
+        *errnum = ENODATA;
+        goto out;
+    }
+
+    assert(data->len == sizeof(uuid_t));
+
+    gf_uuid_copy(uuid, (unsigned char *)data->data);
+    return 0;
+
+out:
+    return ret;
+}
+
 int32_t
 cs_fdctx_to_dict(xlator_t *this, fd_t *fd, dict_t *dict)
 {
@@ -1606,7 +2022,6 @@ cs_notify(xlator_t *this, int event, void *data, ...)
 
 struct xlator_fops cs_fops = {
     .stat = cs_stat,
-    .readdirp = cs_readdirp,
     .truncate = cs_truncate,
     .seek = cs_seek,
     .statfs = cs_statfs,
@@ -1627,7 +2042,9 @@ struct xlator_fops cs_fops = {
     .zerofill = cs_zerofill,
 };
 
-struct xlator_cbks cs_cbks = {};
+struct xlator_cbks cs_cbks = {
+    .forget = cs_forget,
+};
 
 struct xlator_dumpops cs_dumpops = {
     .fdctx_to_dict = cs_fdctx_to_dict,
@@ -1647,6 +2064,15 @@ struct volume_options cs_options[] = {
     {.key = {"cloudsync-storetype"},
      .type = GF_OPTION_TYPE_STR,
      .description = "Defines which remote store is enabled"},
+    {.key = {"cloudsync-remote-read"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .description = "Defines a remote read fop when on"},
+    {.key = {"cloudsync-store-id"},
+     .type = GF_OPTION_TYPE_STR,
+     .description = "Defines a volume wide store id"},
+    {.key = {"cloudsync-product-id"},
+     .type = GF_OPTION_TYPE_STR,
+     .description = "Defines a volume wide product id"},
     {.key = {NULL}},
 };
 

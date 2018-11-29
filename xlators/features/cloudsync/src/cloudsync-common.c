@@ -11,6 +11,20 @@
 #include "cloudsync-common.h"
 
 void
+cs_xattrinfo_wipe(cs_local_t *local)
+{
+    if (local->xattrinfo.lxattr) {
+        if (local->xattrinfo.lxattr->file_path)
+            GF_FREE(local->xattrinfo.lxattr->file_path);
+
+        if (local->xattrinfo.lxattr->volname)
+            GF_FREE(local->xattrinfo.lxattr->volname);
+
+        GF_FREE(local->xattrinfo.lxattr);
+    }
+}
+
+void
 cs_local_wipe(xlator_t *this, cs_local_t *local)
 {
     if (!local)
@@ -39,6 +53,8 @@ cs_local_wipe(xlator_t *this, cs_local_t *local)
 
     if (local->remotepath)
         GF_FREE(local->remotepath);
+
+    cs_xattrinfo_wipe(local);
 
     mem_put(local);
 }
