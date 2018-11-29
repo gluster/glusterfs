@@ -19,7 +19,6 @@ enum gf_locks_mem_types_ {
     gf_locks_mt_posix_lock_t,
     gf_locks_mt_pl_entry_lock_t,
     gf_locks_mt_pl_inode_lock_t,
-    gf_locks_mt_truncate_ops,
     gf_locks_mt_pl_rw_req_t,
     gf_locks_mt_posix_locks_private_t,
     gf_locks_mt_pl_fdctx_t,

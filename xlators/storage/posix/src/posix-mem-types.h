@@ -13,12 +13,9 @@
 #include "mem-types.h"
 
 enum gf_posix_mem_types_ {
-    gf_posix_mt_dir_entry_t = gf_common_mt_end + 1,
-    gf_posix_mt_posix_fd,
+    gf_posix_mt_posix_fd = gf_common_mt_end + 1,
     gf_posix_mt_char,
     gf_posix_mt_posix_private,
-    gf_posix_mt_int32_t,
-    gf_posix_mt_posix_dev_t,
     gf_posix_mt_trash_path,
     gf_posix_mt_paiocb,
     gf_posix_mt_inode_ctx_t,

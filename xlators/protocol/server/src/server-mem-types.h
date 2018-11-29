@@ -15,15 +15,9 @@
 
 enum gf_server_mem_types_ {
     gf_server_mt_server_conf_t = gf_common_mt_end + 1,
-    gf_server_mt_resolv_comp_t,
     gf_server_mt_state_t,
-    gf_server_mt_locker_t,
-    gf_server_mt_lock_table_t,
-    gf_server_mt_conn_t,
     gf_server_mt_dirent_rsp_t,
     gf_server_mt_rsp_buf_t,
-    gf_server_mt_volfile_ctx_t,
-    gf_server_mt_timer_data_t,
     gf_server_mt_setvolume_rsp_t,
     gf_server_mt_lock_mig_t,
     gf_server_mt_compound_rsp_t,
