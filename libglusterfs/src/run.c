@@ -23,7 +23,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include "syscall.h"
+#include "glusterfs/syscall.h"
 
 /*
  * Following defines are available for helping development:
@@ -92,12 +92,12 @@ close_fds_except(int *fdv, size_t count)
 #define GF_LINUX_HOST_OS
 #endif
 #else /* ! RUN_STANDALONE || RUN_DO_DEMO */
-#include "glusterfs.h"
-#include "common-utils.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/libglusterfs-messages.h"
 #endif
 
-#include "run.h"
+#include "glusterfs/run.h"
 void
 runinit(runner_t *runner)
 {

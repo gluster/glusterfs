@@ -8,13 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "fd-lk.h"
+#include <glusterfs/fd-lk.h>
 #include "client.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "glusterfs.h"
-#include "statedump.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/compat-errno.h>
 
 #include "glusterfs3.h"
 #include "portmap-xdr.h"

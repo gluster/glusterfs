@@ -11,8 +11,8 @@
 #ifndef _CHANGELOG_RT_H
 #define _CHANGELOG_RT_H
 
-#include "locking.h"
-#include "timer.h"
+#include <glusterfs/locking.h>
+#include <glusterfs/timer.h>
 #include "pthread.h"
 
 #include "changelog-helpers.h"

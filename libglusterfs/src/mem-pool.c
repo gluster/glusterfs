@@ -8,14 +8,14 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "mem-pool.h"
-#include "logging.h"
-#include "xlator.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/xlator.h"
 #include <stdlib.h>
 #include <stdarg.h>
 
 #include "unittest/unittest.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 void
 gf_mem_acct_enable_set(void *data)

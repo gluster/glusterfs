@@ -11,8 +11,8 @@
 #ifndef __EC_CODE_H__
 #define __EC_CODE_H__
 
-#include "xlator.h"
-#include "list.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/list.h>
 
 #include "ec-types.h"
 #include "ec-galois.h"

@@ -11,7 +11,7 @@
 #include "changelog-rpc-common.h"
 #include "changelog-messages.h"
 
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 /**
 *****************************************************
                   Client Interface

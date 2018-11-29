@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "gidcache.h"
-#include "mem-pool.h"
+#include "glusterfs/gidcache.h"
+#include "glusterfs/mem-pool.h"
 
 /*
  * We treat this as a very simple set-associative LRU cache, with entries aged

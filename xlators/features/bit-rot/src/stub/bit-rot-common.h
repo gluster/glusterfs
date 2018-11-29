@@ -11,7 +11,7 @@
 #ifndef __BIT_ROT_COMMON_H__
 #define __BIT_ROT_COMMON_H__
 
-#include "glusterfs.h"
+#include <glusterfs/glusterfs.h>
 #include "bit-rot-object-version.h"
 
 #define BR_VXATTR_VERSION (1 << 0)

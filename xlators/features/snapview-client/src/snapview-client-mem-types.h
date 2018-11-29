@@ -11,7 +11,7 @@
 #ifndef _SVC_MEM_TYPES_H
 #define _SVC_MEM_TYPES_H
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum svc_mem_types {
     gf_svc_mt_svc_private_t = gf_common_mt_end + 1,

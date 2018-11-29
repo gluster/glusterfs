@@ -12,10 +12,10 @@
 #define __NFS_H__
 
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
-#include "lkowner.h"
-#include "gidcache.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/lkowner.h>
+#include <glusterfs/gidcache.h>
 
 #define GF_NFS "nfs"
 

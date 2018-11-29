@@ -11,7 +11,7 @@
 #ifndef __BD_MEM_TYPES_H__
 #define __BD_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_bd_mem_types_ {
     gf_bd_private = gf_common_mt_end + 1,

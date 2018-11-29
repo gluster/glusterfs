@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include "cli.h"
 #include "cli1-xdr.h"
-#include "run.h"
-#include "compat.h"
-#include "syscall.h"
-#include "upcall-utils.h"
+#include <glusterfs/run.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/upcall-utils.h>
 
 enum gf_task_types { GF_TASK_TYPE_REBALANCE, GF_TASK_TYPE_REMOVE_BRICK };
 

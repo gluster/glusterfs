@@ -10,7 +10,7 @@
 
 #include "changelog-helpers.h"
 #include "changelog-messages.h"
-#include "call-stub.h"
+#include <glusterfs/call-stub.h>
 
 /* Enqueue a stub*/
 void

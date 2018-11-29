@@ -15,7 +15,7 @@
 #ifndef _CLOUDSYNC_AUTOGEN_FOPS_H
 #define _CLOUDSYNC_AUTOGEN_FOPS_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "cloudsync.h"
 #include "cloudsync-common.h"
 

@@ -13,8 +13,8 @@
 
 #include "rpcsvc-common.h"
 #include "rpcsvc.h"
-#include "locking.h"
-#include "dict.h"
+#include <glusterfs/locking.h>
+#include <glusterfs/dict.h>
 #include "rb.h"
 
 /* per-client cache structure */

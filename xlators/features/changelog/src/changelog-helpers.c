@@ -8,11 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
-#include "logging.h"
-#include "iobuf.h"
-#include "syscall.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/iobuf.h>
+#include <glusterfs/syscall.h>
 
 #include "changelog-helpers.h"
 #include "changelog-encoders.h"

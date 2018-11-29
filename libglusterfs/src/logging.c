@@ -26,7 +26,7 @@
 
 #include <sys/stat.h>
 
-#include "syscall.h"
+#include "glusterfs/syscall.h"
 
 #define GF_JSON_MSG_LENGTH 8192
 #define GF_SYSLOG_CEE_FORMAT                                                   \
@@ -37,12 +37,12 @@
 #define GF_LOG_TIMESTR_SIZE 256
 #define GF_MAX_SLOG_PAIR_COUNT 100
 
-#include "xlator.h"
-#include "logging.h"
-#include "defaults.h"
-#include "glusterfs.h"
-#include "timer.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/defaults.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/timer.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 /* Do not replace gf_log in TEST_LOG with gf_msg, as there is a slight chance
  * that it could lead to an infinite recursion.*/

@@ -19,11 +19,11 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "syscall.h"
-#include "mem-pool.h"
-#include "glusterfs.h"
-#include "globals.h"
-#include "events.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/globals.h"
+#include "glusterfs/events.h"
 
 #define EVENT_HOST "127.0.0.1"
 #define EVENT_PORT 24009

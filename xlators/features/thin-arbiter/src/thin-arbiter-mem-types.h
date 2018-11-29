@@ -9,7 +9,7 @@
 
 #ifndef __THIN_ARBITER_MEM_TYPES_H__
 #define __THIN_ARBITER_MEM_TYPES_H__
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 typedef enum gf_ta_mem_types_ {
     gf_ta_mt_local_t = gf_common_mt_end + 1,

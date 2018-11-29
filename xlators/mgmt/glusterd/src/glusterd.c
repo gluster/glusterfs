@@ -14,20 +14,20 @@
 #include <sys/resource.h>
 
 #include <libgen.h>
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 
 #include "glusterd.h"
 #include "rpcsvc.h"
 #include "fnmatch.h"
-#include "xlator.h"
-#include "call-stub.h"
-#include "defaults.h"
-#include "list.h"
-#include "dict.h"
-#include "options.h"
-#include "compat.h"
-#include "compat-errno.h"
-#include "syscall.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/list.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/options.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/syscall.h>
 #include "glusterd-statedump.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
@@ -43,13 +43,13 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-messages.h"
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "glusterd-geo-rep.h"
-#include "run.h"
+#include <glusterfs/run.h>
 #include "rpc-clnt-ping.h"
 #include "rpc-common-xdr.h"
 
-#include "syncop.h"
+#include <glusterfs/syncop.h>
 
 #include "glusterd-mountbroker.h"
 

@@ -16,18 +16,18 @@
 #include <limits.h>
 #include <fnmatch.h>
 
-#include "glusterfs.h"
-#include "common-utils.h"
-#include "dict.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/dict.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
-#include "logging.h"
-#include "compat.h"
-#include "compat-errno.h"
-#include "byte-order.h"
-#include "globals.h"
-#include "statedump.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/compat.h"
+#include "glusterfs/compat-errno.h"
+#include "glusterfs/byte-order.h"
+#include "glusterfs/globals.h"
+#include "glusterfs/statedump.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #include "glusterfs-fops.h"
 

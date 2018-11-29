@@ -12,18 +12,18 @@
 #define _NFS3_H_
 
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
-#include "iobuf.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/iobuf.h>
 #include "nfs.h"
 #include "nfs3-fh.h"
 #include "nfs-common.h"
 #include "xdr-nfs3.h"
-#include "mem-pool.h"
+#include <glusterfs/mem-pool.h>
 #include "nlm4.h"
 #include "acl3-xdr.h"
 #include "acl3.h"
-#include "refcount.h"
+#include <glusterfs/refcount.h>
 #include <sys/statvfs.h>
 
 #define GF_NFS3 GF_NFS "-nfsv3"

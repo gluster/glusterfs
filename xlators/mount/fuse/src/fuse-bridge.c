@@ -10,12 +10,12 @@
 
 #include <sys/wait.h>
 #include "fuse-bridge.h"
-#include "glusterfs.h"
-#include "byte-order.h"
-#include "compat-errno.h"
-#include "glusterfs-acl.h"
-#include "syscall.h"
-#include "timespec.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/glusterfs-acl.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/timespec.h>
 
 #ifdef __NetBSD__
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */

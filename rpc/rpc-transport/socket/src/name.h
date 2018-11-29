@@ -11,7 +11,7 @@
 #ifndef _SOCKET_NAME_H
 #define _SOCKET_NAME_H
 
-#include "compat.h"
+#include <glusterfs/compat.h>
 
 int32_t
 client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,

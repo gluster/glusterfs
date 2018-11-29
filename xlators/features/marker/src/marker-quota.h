@@ -10,11 +10,11 @@
 #ifndef _MARKER_QUOTA_H
 #define _MARKER_QUOTA_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "marker-mem-types.h"
-#include "refcount.h"
-#include "quota-common-utils.h"
-#include "call-stub.h"
+#include <glusterfs/refcount.h>
+#include <glusterfs/quota-common-utils.h>
+#include <glusterfs/call-stub.h>
 
 #define QUOTA_XATTR_PREFIX "trusted.glusterfs"
 #define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"

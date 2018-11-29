@@ -11,9 +11,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "glusterfs.h"
-#include "globals.h"
-#include "logging.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/logging.h>
 
 #include "logchecks-messages.h"
 #include "../../libglusterfs/src/logging.h"

@@ -8,12 +8,12 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "timer.h"
-#include "logging.h"
-#include "common-utils.h"
-#include "globals.h"
-#include "timespec.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/timer.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/globals.h"
+#include "glusterfs/timespec.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 /* fwd decl */
 static gf_timer_registry_t *

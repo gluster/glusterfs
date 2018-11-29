@@ -16,15 +16,15 @@
 #include "config.h"
 #endif
 
-#include "common-utils.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "call-stub.h"
-#include "logging.h"
-#include "client_t.h"
-#include "lkowner.h"
-#include "locking.h"
-#include "upcall-utils.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/client_t.h>
+#include <glusterfs/lkowner.h>
+#include <glusterfs/locking.h>
+#include <glusterfs/upcall-utils.h>
 #include "timer-wheel.h"
 #include "leases-mem-types.h"
 #include "leases-messages.h"

@@ -11,10 +11,10 @@
 #ifndef __SHARD_H__
 #define __SHARD_H__
 
-#include "xlator.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/compat-errno.h>
 #include "shard-messages.h"
-#include "syncop.h"
+#include <glusterfs/syncop.h>
 
 #define GF_SHARD_DIR ".shard"
 #define GF_SHARD_REMOVE_ME_DIR ".remove_me"

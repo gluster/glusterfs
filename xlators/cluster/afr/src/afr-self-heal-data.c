@@ -10,10 +10,10 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 #include "protocol-common.h"
 #include "afr-messages.h"
-#include "events.h"
+#include <glusterfs/events.h>
 
 enum {
     AFR_SELFHEAL_DATA_FULL = 0,

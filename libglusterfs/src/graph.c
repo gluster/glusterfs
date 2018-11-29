@@ -8,16 +8,16 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
+#include "glusterfs/xlator.h"
 #include <dlfcn.h>
 #include <netdb.h>
 #include <fnmatch.h>
 #include <stdlib.h>
-#include "defaults.h"
+#include "glusterfs/defaults.h"
 #include <unistd.h>
-#include "syscall.h"
+#include "glusterfs/syscall.h"
 #include <regex.h>
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #if 0
 static void

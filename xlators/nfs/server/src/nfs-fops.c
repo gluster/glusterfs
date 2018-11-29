@@ -10,10 +10,10 @@
 
 #include <pwd.h>
 
-#include "dict.h"
-#include "xlator.h"
-#include "iobuf.h"
-#include "call-stub.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/iobuf.h>
+#include <glusterfs/call-stub.h>
 #include "nfs.h"
 #include "nfs-fops.h"
 #include "nfs-common.h"

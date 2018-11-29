@@ -10,11 +10,11 @@
 #ifndef __TRASH_H__
 #define __TRASH_H__
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "inode.c"
 #include "fnmatch.h"
 

@@ -53,32 +53,32 @@
 #endif
 #endif
 
-#include "xlator.h"
-#include "glusterfs.h"
-#include "compat.h"
-#include "logging.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/logging.h>
 #include "glusterfsd-messages.h"
-#include "dict.h"
-#include "list.h"
-#include "timer.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/list.h>
+#include <glusterfs/timer.h>
 #include "glusterfsd.h"
-#include "revision.h"
-#include "common-utils.h"
-#include "gf-event.h"
-#include "statedump.h"
-#include "latency.h"
+#include <glusterfs/revision.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/gf-event.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/latency.h>
 #include "glusterfsd-mem-types.h"
-#include "syscall.h"
-#include "call-stub.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
 #include "rpc-clnt.h"
-#include "syncop.h"
-#include "client_t.h"
+#include <glusterfs/syncop.h>
+#include <glusterfs/client_t.h>
 #include "netgroups.h"
 #include "exports.h"
-#include "monitoring.h"
+#include <glusterfs/monitoring.h>
 
-#include "daemon.h"
+#include <glusterfs/daemon.h>
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";

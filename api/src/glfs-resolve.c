@@ -15,16 +15,16 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "stack.h"
-#include "gf-event.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/stack.h>
+#include <glusterfs/gf-event.h>
 #include "glfs-mem-types.h"
-#include "common-utils.h"
-#include "syncop.h"
-#include "call-stub.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/call-stub.h>
 #include "gfapi-messages.h"
-#include "inode.h"
+#include <glusterfs/inode.h>
 #include "glfs-internal.h"
 
 #define graphid_str(subvol)                                                    \

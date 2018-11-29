@@ -29,13 +29,13 @@
 #include "bd.h"
 #include "bd-aio.h"
 #include "bd-mem-types.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "glusterfs3-xdr.h"
-#include "run.h"
+#include <glusterfs/run.h>
 #include "protocol-common.h"
-#include "checksum.h"
-#include "syscall.h"
-#include "lvm-defaults.h"
+#include <glusterfs/checksum.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/lvm-defaults.h>
 
 /*
  * Call back function for setxattr and removexattr.

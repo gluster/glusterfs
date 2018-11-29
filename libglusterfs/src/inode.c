@@ -8,16 +8,16 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "inode.h"
-#include "common-utils.h"
-#include "statedump.h"
+#include "glusterfs/inode.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/statedump.h"
 #include <pthread.h>
 #include <sys/types.h>
 #include <stdint.h>
-#include "list.h"
+#include "glusterfs/list.h"
 #include <time.h>
 #include <assert.h>
-#include "libglusterfs-messages.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 /* TODO:
    move latest accessed dentry to list_head of inode

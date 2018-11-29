@@ -11,32 +11,32 @@
 #include "glusterd-op-sm.h"
 #include <inttypes.h>
 
-#include "glusterfs.h"
-#include "compat.h"
-#include "dict.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/dict.h>
 #include "protocol-common.h"
-#include "xlator.h"
-#include "logging.h"
-#include "timer.h"
-#include "syscall.h"
-#include "defaults.h"
-#include "compat.h"
-#include "compat-errno.h"
-#include "statedump.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/timer.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/statedump.h>
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-hooks.h"
-#include "store.h"
+#include <glusterfs/store.h>
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"
 
 #include "rpc-clnt.h"
-#include "common-utils.h"
-#include "quota-common-utils.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/quota-common-utils.h>
 
 #include <sys/resource.h>
 #include <inttypes.h>

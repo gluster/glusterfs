@@ -13,20 +13,20 @@
 #include <sys/resource.h>
 
 #include <libgen.h>
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 
 #include "fnmatch.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "protocol-common.h"
 #include "glusterd.h"
-#include "call-stub.h"
-#include "defaults.h"
-#include "list.h"
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/list.h>
 #include "glusterd-messages.h"
-#include "dict.h"
-#include "compat.h"
-#include "compat-errno.h"
-#include "statedump.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/statedump.h>
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"

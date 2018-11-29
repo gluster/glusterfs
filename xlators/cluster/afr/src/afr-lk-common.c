@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "dict.h"
-#include "byte-order.h"
-#include "common-utils.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/common-utils.h>
 
 #include "afr.h"
 #include "afr-transaction.h"

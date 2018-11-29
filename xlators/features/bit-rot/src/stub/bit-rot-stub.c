@@ -12,12 +12,12 @@
 #include <sys/uio.h>
 #include <signal.h>
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
 #include "changelog.h"
-#include "compat-errno.h"
-#include "call-stub.h"
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/call-stub.h>
 
 #include "bit-rot-stub.h"
 #include "bit-rot-stub-mem-types.h"

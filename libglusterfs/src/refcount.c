@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "common-utils.h"
-#include "refcount.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/refcount.h"
 
 #ifndef REFCOUNT_NEEDS_LOCK
 

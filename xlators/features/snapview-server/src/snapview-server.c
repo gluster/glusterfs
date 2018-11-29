@@ -9,13 +9,13 @@
 */
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
 #include "xdr-generic.h"
 #include "protocol-common.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 #include <pthread.h>
 
 int

@@ -8,15 +8,15 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/compat-errno.h>
 #include "ec.h"
 #include "ec-messages.h"
 #include "ec-heald.h"
 #include "ec-mem-types.h"
-#include "syncop.h"
-#include "syncop-utils.h"
+#include <glusterfs/syncop.h>
+#include <glusterfs/syncop-utils.h>
 #include "protocol-common.h"
 
 #define NTH_INDEX_HEALER(this, n)                                              \

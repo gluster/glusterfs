@@ -7,16 +7,16 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "dict.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "libxlator.h"
-#include "common-utils.h"
-#include "byte-order.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/byte-order.h>
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
-#include "syncop.h"
-#include "quota-common-utils.h"
+#include <glusterfs/syncop.h>
+#include <glusterfs/quota-common-utils.h>
 
 int
 mq_loc_copy(loc_t *dst, loc_t *src)

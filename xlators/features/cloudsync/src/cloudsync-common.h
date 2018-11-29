@@ -10,10 +10,10 @@
 #ifndef _CLOUDSYNC_COMMON_H
 #define _CLOUDSYNC_COMMON_H
 
-#include "glusterfs.h"
-#include "call-stub.h"
-#include "xlator.h"
-#include "syncop.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/syncop.h>
 #include "cloudsync-mem-types.h"
 #include "cloudsync-messages.h"
 

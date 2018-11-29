@@ -17,10 +17,10 @@
 
 #include <stdio.h>
 #include <fnmatch.h>
-#include "dict.h"
-#include "compat.h"
-#include "list.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/list.h>
+#include <glusterfs/xlator.h>
 
 typedef enum { AUTH_ACCEPT, AUTH_REJECT, AUTH_DONT_CARE } auth_result_t;
 

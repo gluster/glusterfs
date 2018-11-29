@@ -38,7 +38,7 @@
 #include "mount3-auth.h"
 #include "exports.h"
 #include "netgroups.h"
-#include "mem-pool.h"
+#include <glusterfs/mem-pool.h>
 #include "nfs-messages.h"
 
 /**

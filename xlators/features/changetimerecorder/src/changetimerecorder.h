@@ -11,10 +11,10 @@
 #ifndef __CTR_H
 #define __CTR_H
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "common-utils.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/common-utils.h>
 #include "ctr_mem_types.h"
 #include "ctr-helper.h"
 

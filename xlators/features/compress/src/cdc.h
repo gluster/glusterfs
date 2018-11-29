@@ -15,7 +15,7 @@
 #include "zlib.h"
 #endif
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16

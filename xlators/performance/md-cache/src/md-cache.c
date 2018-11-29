@@ -8,23 +8,23 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "timespec.h"
-#include "glusterfs.h"
-#include "defaults.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "syncop.h"
+#include <glusterfs/timespec.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/syncop.h>
 #include "md-cache-mem-types.h"
-#include "compat-errno.h"
-#include "glusterfs-acl.h"
-#include "defaults.h"
-#include "upcall-utils.h"
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/glusterfs-acl.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/upcall-utils.h>
 #include <assert.h>
 #include <sys/time.h>
 #include "md-cache-messages.h"
-#include "statedump.h"
-#include "atomic.h"
+#include <glusterfs/statedump.h>
+#include <glusterfs/atomic.h>
 
 /* TODO:
    - cache symlink() link names and nuke symlink-cache

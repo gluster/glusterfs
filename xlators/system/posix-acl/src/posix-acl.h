@@ -11,10 +11,10 @@
 #ifndef _POSIX_ACL_H
 #define _POSIX_ACL_H
 
-#include "xlator.h"
-#include "common-utils.h"
-#include "byte-order.h"
-#include "glusterfs-acl.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/glusterfs-acl.h>
 
 struct posix_acl *
 posix_acl_new(xlator_t *this, int entry_count);

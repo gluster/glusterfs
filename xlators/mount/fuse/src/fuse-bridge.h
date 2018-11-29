@@ -19,12 +19,12 @@
 #include <sys/time.h>
 #include <fnmatch.h>
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "common-utils.h"
-#include "statedump.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/statedump.h>
 
 #ifdef GF_DARWIN_HOST_OS
 #include "fuse_kernel_macfuse.h"
@@ -35,10 +35,10 @@
 #include "fuse-mount.h"
 #include "fuse-mem-types.h"
 
-#include "list.h"
-#include "dict.h"
-#include "syncop.h"
-#include "gidcache.h"
+#include <glusterfs/list.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/gidcache.h>
 
 #if defined(GF_LINUX_HOST_OS) || defined(__FreeBSD__) || defined(__NetBSD__)
 #define FUSE_OP_HIGH (FUSE_LSEEK + 1)

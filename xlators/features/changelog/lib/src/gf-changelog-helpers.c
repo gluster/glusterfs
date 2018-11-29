@@ -11,7 +11,7 @@
 #include "changelog-mem-types.h"
 #include "gf-changelog-helpers.h"
 #include "changelog-lib-messages.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 ssize_t
 gf_changelog_read_path(int fd, char *buffer, size_t bufsize)

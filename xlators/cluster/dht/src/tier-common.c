@@ -8,11 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "libxlator.h"
 #include "dht-common.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "tier-common.h"
 #include "tier.h"
 

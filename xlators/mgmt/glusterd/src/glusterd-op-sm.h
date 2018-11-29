@@ -11,13 +11,13 @@
 #define _GLUSTERD_OP_SM_H_
 
 #include <pthread.h>
-#include "compat-uuid.h"
+#include <glusterfs/compat-uuid.h>
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "call-stub.h"
-#include "byte-order.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/byte-order.h>
 #include "glusterd.h"
 #include "protocol-common.h"
 #include "glusterd-hooks.h"

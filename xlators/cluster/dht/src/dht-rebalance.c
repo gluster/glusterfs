@@ -9,12 +9,12 @@
 */
 
 #include "dht-common.h"
-#include "xlator.h"
-#include "syscall.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/syscall.h>
 #include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>
-#include "events.h"
+#include <glusterfs/events.h>
 
 #define GF_DISK_SECTOR_SIZE 512
 #define DHT_REBALANCE_PID 4242              /* Change it if required */

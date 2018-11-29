@@ -13,8 +13,8 @@
 #include "config.h"
 #endif
 
-#include "xlator.h"
-#include "defaults.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/defaults.h"
 
 int
 args_lookup_store(default_args_t *args, loc_t *loc, dict_t *xdata)

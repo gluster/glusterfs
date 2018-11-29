@@ -8,11 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 #include "index.h"
-#include "options.h"
+#include <glusterfs/options.h>
 #include "glusterfs3-xdr.h"
-#include "syscall.h"
-#include "syncop.h"
-#include "common-utils.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/common-utils.h>
 #include "index-messages.h"
 #include <ftw.h>
 #include <libgen.h> /* for dirname() */

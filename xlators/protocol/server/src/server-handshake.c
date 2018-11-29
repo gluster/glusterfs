@@ -12,13 +12,13 @@
 #include "server-helpers.h"
 #include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "glusterfs3.h"
 #include "authenticate.h"
 #include "server-messages.h"
-#include "syscall.h"
-#include "events.h"
-#include "syncop.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/events.h>
+#include <glusterfs/syncop.h>
 
 struct __get_xl_struct {
     const char *name;

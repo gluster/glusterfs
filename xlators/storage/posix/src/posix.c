@@ -14,7 +14,7 @@
 #define _GNU_SOURCE
 #endif
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "posix.h"
 
 class_methods_t class_methods = {.init = posix_init,

@@ -11,7 +11,7 @@
 #ifndef __EC_COMMON_H__
 #define __EC_COMMON_H__
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 #include "ec-data.h"
 

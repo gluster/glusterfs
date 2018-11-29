@@ -12,7 +12,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-tierd-svc-helper.h"
 #include "glusterd-messages.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 #include "glusterd-volgen.h"
 
 void

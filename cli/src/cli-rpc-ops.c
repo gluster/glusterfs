@@ -24,7 +24,7 @@
 #define REBAL_ESTIMATE_START_TIME 600
 
 #include "cli.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "cli-cmd.h"
 #include <sys/uio.h>
 #include <stdlib.h>
@@ -33,18 +33,18 @@
 #include "xdr-generic.h"
 #include "protocol-common.h"
 #include "cli-mem-types.h"
-#include "compat.h"
-#include "upcall-utils.h"
+#include <glusterfs/compat.h>
+#include <glusterfs/upcall-utils.h>
 
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 
 #include "cli-quotad-client.h"
-#include "run.h"
-#include "quota-common-utils.h"
-#include "events.h"
+#include <glusterfs/run.h>
+#include <glusterfs/quota-common-utils.h>
+#include <glusterfs/events.h>
 
 enum gf_task_types { GF_TASK_TYPE_REBALANCE, GF_TASK_TYPE_REMOVE_BRICK };
 

@@ -35,18 +35,18 @@
 
 #include <regex.h>
 
-#include "compat.h"
+#include <glusterfs/compat.h>
 #include "protocol-common.h"
-#include "xlator.h"
-#include "logging.h"
-#include "timer.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/timer.h>
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
-#include "run.h"
+#include <glusterfs/run.h>
 #include "glusterd-volgen.h"
 #include "glusterd-mgmt.h"
 #include "glusterd-syncop.h"
@@ -55,12 +55,12 @@
 
 #include "glusterfs3.h"
 
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 
-#include "lvm-defaults.h"
-#include "events.h"
+#include <glusterfs/lvm-defaults.h>
+#include <glusterfs/events.h>
 
 char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 struct snap_create_args_ {

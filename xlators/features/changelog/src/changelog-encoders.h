@@ -11,8 +11,8 @@
 #ifndef _CHANGELOG_ENCODERS_H
 #define _CHANGELOG_ENCODERS_H
 
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 #include "changelog-helpers.h"
 

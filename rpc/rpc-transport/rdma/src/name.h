@@ -13,7 +13,7 @@
 
 #include <rdma/rdma_cma.h>
 
-#include "compat.h"
+#include <glusterfs/compat.h>
 
 int32_t
 gf_rdma_client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,

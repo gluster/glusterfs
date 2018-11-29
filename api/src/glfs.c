@@ -34,17 +34,17 @@
 #include <sys/prctl.h>
 #endif
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "stack.h"
-#include "gf-event.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/stack.h>
+#include <glusterfs/gf-event.h>
 #include "glfs-mem-types.h"
-#include "common-utils.h"
-#include "syncop.h"
-#include "call-stub.h"
-#include "hashfn.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/hashfn.h>
 #include "rpc-clnt.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 #include "gfapi-messages.h"
 #include "glfs.h"

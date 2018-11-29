@@ -10,7 +10,7 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
-#include "syncop.h"
+#include <glusterfs/syncop.h>
 #include "glfs.h"
 #include "glfs-handles.h"
 #include "gfapi-messages.h"
@@ -2267,7 +2267,7 @@ out:
 GFAPI_SYMVER_PUBLIC(glfs_h_poll_upcall370, glfs_h_poll_upcall, 3.7.0);
 
 #ifdef HAVE_ACL_LIBACL_H
-#include "glusterfs-acl.h"
+#include <glusterfs/glusterfs-acl.h>
 #include <acl/libacl.h>
 
 int

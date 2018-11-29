@@ -17,10 +17,10 @@
 
 #include "rpc-clnt.h"
 #include "rpc-transport.h"
-#include "xlator.h"
-#include "gf-event.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/gf-event.h>
 #include <stdio.h>
-#include <list.h>
+#include <glusterfs/list.h>
 #include <arpa/inet.h>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>

@@ -14,7 +14,7 @@
  */
 
 #include "nlm4.h"
-#include "logging.h"
+#include <glusterfs/logging.h>
 #include "nfs-messages.h"
 #include <stdio.h>
 #include <stdlib.h>

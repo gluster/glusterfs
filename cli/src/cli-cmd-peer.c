@@ -18,7 +18,7 @@
 #include "cli-mem-types.h"
 #include "cli1-xdr.h"
 #include "protocol-common.h"
-#include "events.h"
+#include <glusterfs/events.h>
 
 extern struct rpc_clnt *global_rpc;
 

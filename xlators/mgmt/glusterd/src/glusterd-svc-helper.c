@@ -8,10 +8,10 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "globals.h"
-#include "run.h"
+#include <glusterfs/globals.h>
+#include <glusterfs/run.h>
 #include "glusterd.h"
-#include "glusterfs.h"
+#include <glusterfs/glusterfs.h>
 #include "glusterd-utils.h"
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-shd-svc.h"
@@ -22,7 +22,7 @@
 #include "glusterd-tierd-svc-helper.h"
 #include "glusterd-scrub-svc.h"
 #include "glusterd-svc-helper.h"
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 int
 glusterd_svcs_reconfigure()

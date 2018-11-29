@@ -12,9 +12,9 @@
 #define _QUOTAD_AGGREGATOR_H
 
 #include "quota.h"
-#include "stack.h"
+#include <glusterfs/stack.h>
 #include "glusterfs3-xdr.h"
-#include "inode.h"
+#include <glusterfs/inode.h>
 
 typedef struct {
     void *pool;

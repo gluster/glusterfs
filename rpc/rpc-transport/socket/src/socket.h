@@ -21,13 +21,13 @@
 #include <openssl/ecdh.h>
 #endif
 
-#include "gf-event.h"
+#include <glusterfs/gf-event.h>
 #include "rpc-transport.h"
-#include "logging.h"
-#include "dict.h"
-#include "mem-pool.h"
-#include "globals.h"
-#include "refcount.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/mem-pool.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/refcount.h>
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16

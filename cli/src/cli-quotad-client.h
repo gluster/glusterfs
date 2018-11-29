@@ -8,8 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 #include "cli.h"
-#include "compat-errno.h"
-#include "compat.h"
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/compat.h>
 #include "cli-cmd.h"
 #include "cli1-xdr.h"
 #include "xdr-generic.h"

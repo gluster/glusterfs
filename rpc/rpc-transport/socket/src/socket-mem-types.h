@@ -11,7 +11,7 @@
 #ifndef __SOCKET_MEM_TYPES_H__
 #define __SOCKET_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 typedef enum gf_sock_mem_types_ {
     gf_sock_connect_error_state_t = gf_common_mt_end + 1,

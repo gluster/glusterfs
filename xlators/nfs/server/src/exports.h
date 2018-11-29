@@ -16,7 +16,7 @@
 #define _EXPORTS_H_
 
 #include "nfs-mem-types.h"
-#include "dict.h"
+#include <glusterfs/dict.h>
 #include "nfs.h"
 
 #define GF_EXP GF_NFS "-exports"

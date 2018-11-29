@@ -8,9 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 #include "gfid-access.h"
-#include "inode.h"
-#include "byte-order.h"
-#include "statedump.h"
+#include <glusterfs/inode.h>
+#include <glusterfs/byte-order.h>
+#include <glusterfs/statedump.h>
 
 int
 ga_valid_inode_loc_copy(loc_t *dst, loc_t *src, xlator_t *this)

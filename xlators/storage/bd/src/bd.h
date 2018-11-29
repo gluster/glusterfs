@@ -22,8 +22,8 @@
 #include <libaio.h>
 #endif
 
-#include "xlator.h"
-#include "mem-types.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/mem-types.h>
 
 #define BD_XLATOR "block device mapper xlator"
 #define BACKEND_VG "vg"

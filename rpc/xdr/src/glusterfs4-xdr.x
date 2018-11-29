@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 %#include "glusterfs-fops.h"
 %#include "glusterfs3-xdr.h"
 

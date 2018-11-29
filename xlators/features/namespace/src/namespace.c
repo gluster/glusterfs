@@ -15,10 +15,10 @@
 
 #include <sys/types.h>
 
-#include "defaults.h"
-#include "glusterfs.h"
-#include "hashfn.h"
-#include "logging.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/hashfn.h>
+#include <glusterfs/logging.h>
 #include "namespace.h"
 
 /* Return codes for common path parsing functions. */

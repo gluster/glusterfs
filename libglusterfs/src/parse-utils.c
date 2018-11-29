@@ -17,10 +17,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "parse-utils.h"
-#include "mem-pool.h"
-#include "common-utils.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/parse-utils.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 /**
  * parser_init: Initialize a parser with the a string to parse and

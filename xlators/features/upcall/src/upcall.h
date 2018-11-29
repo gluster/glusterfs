@@ -10,12 +10,12 @@
 #ifndef __UPCALL_H__
 #define __UPCALL_H__
 
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "upcall-mem-types.h"
-#include "client_t.h"
+#include <glusterfs/client_t.h>
 #include "upcall-messages.h"
 #include "upcall-cache-invalidation.h"
-#include "upcall-utils.h"
+#include <glusterfs/upcall-utils.h>
 
 #define EXIT_IF_UPCALL_OFF(this, label)                                        \
     do {                                                                       \

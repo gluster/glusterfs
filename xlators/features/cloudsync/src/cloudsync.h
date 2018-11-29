@@ -11,11 +11,11 @@
 #ifndef __CLOUDSYNC_H__
 #define __CLOUDSYNC_H__
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "syncop.h"
-#include "call-stub.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/call-stub.h>
 #include "cloudsync-common.h"
 #include "cloudsync-autogen-fops.h"
 

@@ -8,10 +8,10 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "compat-uuid.h"
-#include "globals.h"
-#include "glusterfs.h"
-#include "syscall.h"
+#include <glusterfs/compat-uuid.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/syscall.h>
 
 #include "gf-changelog-helpers.h"
 #include "gf-changelog-journal.h"

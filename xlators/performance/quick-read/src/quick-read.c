@@ -10,10 +10,10 @@
 
 #include <math.h>
 #include "quick-read.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include "quick-read-messages.h"
-#include "upcall-utils.h"
-#include "atomic.h"
+#include <glusterfs/upcall-utils.h>
+#include <glusterfs/atomic.h>
 
 typedef struct qr_local {
     inode_t *inode;

@@ -11,7 +11,7 @@
 #ifndef _LOGCHECKS_MESSAGES_H_
 #define _LOGCHECKS_MESSAGES_H_
 
-#include "glfs-message-id.h"
+#include <glusterfs/glfs-message-id.h>
 
 /* NOTE: Rules for message additions
  * 1) Each instance of a message is _better_ left with a unique message ID, even

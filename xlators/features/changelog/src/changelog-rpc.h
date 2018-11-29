@@ -11,7 +11,7 @@
 #ifndef __CHANGELOG_RPC_H
 #define __CHANGELOG_RPC_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "changelog-helpers.h"
 
 /* one time */

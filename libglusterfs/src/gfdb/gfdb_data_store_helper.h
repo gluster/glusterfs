@@ -15,12 +15,12 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "common-utils.h"
-#include "compat-uuid.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/compat-uuid.h"
 #include "gfdb_mem-types.h"
-#include "dict.h"
-#include "byte-order.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/dict.h"
+#include "glusterfs/byte-order.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #define GFDB_DATA_STORE "gfdbdatastore"
 

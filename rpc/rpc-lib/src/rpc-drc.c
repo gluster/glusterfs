@@ -12,11 +12,11 @@
 #ifndef RPC_DRC_H
 #include "rpc-drc.h"
 #endif
-#include "locking.h"
-#include "hashfn.h"
-#include "common-utils.h"
-#include "statedump.h"
-#include "mem-pool.h"
+#include <glusterfs/locking.h>
+#include <glusterfs/hashfn.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/mem-pool.h>
 
 #include <netinet/in.h>
 #include <unistd.h>

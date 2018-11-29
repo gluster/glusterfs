@@ -12,7 +12,7 @@
 #include "glusterd-store.h"
 #include "glusterd-server-quorum.h"
 #include "glusterd-messages.h"
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "glusterd-utils.h"
 
 void

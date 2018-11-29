@@ -10,7 +10,7 @@
 #ifndef __SELINUX_H__
 #define __SELINUX_H__
 
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 
 #define SELINUX_XATTR "security.selinux"
 #define SELINUX_GLUSTER_XATTR "trusted.glusterfs.selinux"

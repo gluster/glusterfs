@@ -11,7 +11,7 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include "compat.h"
+%#include <glusterfs/compat.h>
 
  enum gf_cli_defrag_type {
 	GF_DEFRAG_CMD_NONE = 0,

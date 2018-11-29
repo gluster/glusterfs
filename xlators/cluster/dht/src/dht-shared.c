@@ -9,7 +9,7 @@
 */
 
 /* TODO: add NS locking */
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include "dht-common.h"
 #include "dht-messages.h"
 

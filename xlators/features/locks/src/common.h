@@ -10,7 +10,7 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#include "lkowner.h"
+#include <glusterfs/lkowner.h>
 /*dump locks format strings */
 #define RANGE_FMT "type=%s, whence=%hd, start=%llu, len=%llu"
 #define ENTRY_FMT "type=%s on basename=%s"

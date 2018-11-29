@@ -8,10 +8,10 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "glusterfs.h"
-#include "syscall.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/compat-errno.h>
 
 #include "glusterd.h"
 #include "glusterd-utils.h"

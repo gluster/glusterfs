@@ -23,9 +23,9 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 #include "cli1-xdr.h"
-#include "run.h"
-#include "syscall.h"
-#include "common-utils.h"
+#include <glusterfs/run.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/common-utils.h>
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 

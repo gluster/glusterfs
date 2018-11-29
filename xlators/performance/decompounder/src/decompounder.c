@@ -9,8 +9,8 @@
 */
 
 #include "decompounder.h"
-#include "mem-types.h"
-#include "compound-fop-utils.h"
+#include <glusterfs/mem-types.h>
+#include <glusterfs/compound-fop-utils.h>
 
 void
 dc_local_cleanup(dc_local_t *local)

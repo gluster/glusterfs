@@ -10,7 +10,7 @@
 #ifndef __POSIX_MEM_TYPES_H__
 #define __POSIX_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_posix_mem_types_ {
     gf_posix_mt_posix_fd = gf_common_mt_end + 1,

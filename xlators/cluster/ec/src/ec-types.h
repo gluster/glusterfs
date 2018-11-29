@@ -11,10 +11,10 @@
 #ifndef __EC_TYPES_H__
 #define __EC_TYPES_H__
 
-#include "xlator.h"
-#include "timer.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/timer.h>
 #include "libxlator.h"
-#include "atomic.h"
+#include <glusterfs/atomic.h>
 
 #define EC_GF_MAX_REGS 16
 

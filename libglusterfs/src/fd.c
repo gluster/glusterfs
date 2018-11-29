@@ -8,11 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "fd.h"
-#include "glusterfs.h"
-#include "dict.h"
-#include "statedump.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/fd.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/dict.h"
+#include "glusterfs/statedump.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 static int
 gf_fd_fdtable_expand(fdtable_t *fdtable, uint32_t nr);

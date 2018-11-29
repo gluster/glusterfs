@@ -12,15 +12,15 @@
 #include <ctype.h>
 #include <sys/uio.h>
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "common-utils.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/common-utils.h>
 
 #include "bit-rot-scrub.h"
 #include <pthread.h>
 #include "bit-rot-bitd-messages.h"
 #include "bit-rot-scrub-status.h"
-#include "events.h"
+#include <glusterfs/events.h>
 
 struct br_scrubbers {
     pthread_t scrubthread;

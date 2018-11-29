@@ -15,13 +15,13 @@
 #include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 #include "server-messages.h"
-#include "defaults.h"
-#include "default-args.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/default-args.h>
 #include "server-common.h"
-#include "xlator.h"
-#include "compound-fop-utils.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/compound-fop-utils.h>
 
 #include "xdr-nfs3.h"
 

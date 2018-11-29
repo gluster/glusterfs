@@ -22,11 +22,11 @@
 #endif
 #include <string.h>
 
-#include "globals.h"
-#include "glusterfs.h"
-#include "logging.h"
-#include "defaults.h"
-#include "syncop.h"
+#include <glusterfs/globals.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/syncop.h>
 
 #include "gf-changelog-rpc.h"
 #include "gf-changelog-helpers.h"

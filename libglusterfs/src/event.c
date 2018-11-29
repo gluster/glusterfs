@@ -16,12 +16,12 @@
 #include <errno.h>
 #include <string.h>
 
-#include "logging.h"
-#include "gf-event.h"
-#include "mem-pool.h"
-#include "common-utils.h"
-#include "libglusterfs-messages.h"
-#include "syscall.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/gf-event.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/libglusterfs-messages.h"
+#include "glusterfs/syscall.h"
 
 struct event_pool *
 event_pool_new(int count, int eventthreadcount)

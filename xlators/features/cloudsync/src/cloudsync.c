@@ -8,12 +8,12 @@
  *   cases as published by the Free Software Foundation.
  */
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "cloudsync.h"
 #include "cloudsync-common.h"
-#include "call-stub.h"
+#include <glusterfs/call-stub.h>
 #include "cloudsync-autogen-fops.h"
 
 #include <dlfcn.h>

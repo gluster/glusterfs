@@ -15,19 +15,19 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include "glusterfs.h"
+#include <glusterfs/glusterfs.h>
 #include "afr.h"
-#include "dict.h"
-#include "xlator.h"
-#include "hashfn.h"
-#include "logging.h"
-#include "list.h"
-#include "call-stub.h"
-#include "defaults.h"
-#include "common-utils.h"
-#include "compat-errno.h"
-#include "compat.h"
-#include "byte-order.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/hashfn.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/list.h>
+#include <glusterfs/call-stub.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/byte-order.h>
 
 #include "afr.h"
 #include "afr-transaction.h"

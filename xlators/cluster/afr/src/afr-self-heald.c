@@ -12,9 +12,9 @@
 #include "afr-self-heal.h"
 #include "afr-self-heald.h"
 #include "protocol-common.h"
-#include "syncop-utils.h"
+#include <glusterfs/syncop-utils.h>
 #include "afr-messages.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 
 #define SHD_INODE_LRU_LIMIT 2048
 #define AFR_EH_SPLIT_BRAIN_LIMIT 1024

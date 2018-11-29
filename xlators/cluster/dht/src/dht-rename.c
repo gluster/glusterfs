@@ -11,11 +11,11 @@
 /* TODO: link(oldpath, newpath) fails if newpath already exists. DHT should
  *       delete the newpath if it gets EEXISTS from link() call.
  */
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "dht-common.h"
 #include "dht-lock.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 
 int
 dht_rename_unlock(call_frame_t *frame, xlator_t *this);

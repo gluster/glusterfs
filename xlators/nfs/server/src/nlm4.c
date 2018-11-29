@@ -8,14 +8,14 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "nfs.h"
-#include "mem-pool.h"
-#include "logging.h"
-#include "syscall.h"
+#include <glusterfs/mem-pool.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/syscall.h>
 #include "nfs-fops.h"
 #include "mount3.h"
 #include "nfs3.h"
@@ -28,13 +28,13 @@
 #include "nfs-generics.h"
 #include "rpc-clnt.h"
 #include "nsm-xdr.h"
-#include "run.h"
+#include <glusterfs/run.h>
 #include "nfs-messages.h"
 #include <unistd.h>
 #include <rpc/pmap_clnt.h>
 #include <rpc/rpc.h>
 #include <rpc/xdr.h>
-#include <statedump.h>
+#include <glusterfs/statedump.h>
 
 #define KILLALL_CMD "pkill"
 

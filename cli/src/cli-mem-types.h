@@ -10,7 +10,7 @@
 #ifndef __CLI_MEM_TYPES_H__
 #define __CLI_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 #define CLI_MEM_TYPE_START (gf_common_mt_end + 1)
 

@@ -11,7 +11,7 @@
 #ifndef _DHT_LOCK_H
 #define _DHT_LOCK_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "dht-common.h"
 
 void

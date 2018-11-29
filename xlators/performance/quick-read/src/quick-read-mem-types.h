@@ -11,7 +11,7 @@
 #ifndef __QR_MEM_TYPES_H__
 #define __QR_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_qr_mem_types_ {
     gf_qr_mt_qr_inode_t = gf_common_mt_end + 1,

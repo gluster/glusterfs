@@ -10,9 +10,9 @@
 
 #include "arbiter.h"
 #include "arbiter-mem-types.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
 
 static arbiter_inode_ctx_t *
 __arbiter_inode_ctx_get(inode_t *inode, xlator_t *this)

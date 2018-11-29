@@ -13,8 +13,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#include "common-utils.h"
-#include "trie.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/trie.h"
 
 #define DISTANCE_EDIT 1
 #define DISTANCE_INS 1

@@ -11,7 +11,7 @@
 #ifndef _GLUSTERD_STATEDUMP_H_
 #define _GLUSTERD_STATEDUMP_H_
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 int
 glusterd_dump_priv(xlator_t *this);

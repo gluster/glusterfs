@@ -10,11 +10,11 @@
 #ifndef __GFID_ACCESS_H__
 #define __GFID_ACCESS_H__
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "gfid-access-mem-types.h"
 
 #define UUID_CANONICAL_FORM_LEN 36

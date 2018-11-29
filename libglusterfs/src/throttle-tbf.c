@@ -23,8 +23,8 @@
  *
  */
 
-#include "mem-pool.h"
-#include "throttle-tbf.h"
+#include "glusterfs/mem-pool.h"
+#include "glusterfs/throttle-tbf.h"
 
 typedef struct tbf_throttle {
     char done;

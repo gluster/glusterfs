@@ -10,7 +10,7 @@
 
 #include "client.h"
 #include "rpc-clnt.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 #include "client-messages.h"
 
 int

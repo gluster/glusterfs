@@ -14,7 +14,7 @@
 #include "nfs-fops.h"
 #include "nfs-inodes.h"
 #include "nfs-generics.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 int
 nfs_fstat(xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,

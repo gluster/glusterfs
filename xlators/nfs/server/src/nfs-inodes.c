@@ -13,7 +13,7 @@
 #include "nfs.h"
 #include "nfs-inodes.h"
 #include "nfs-fops.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "nfs-messages.h"
 
 #include <libgen.h>

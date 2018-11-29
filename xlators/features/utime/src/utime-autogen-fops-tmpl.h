@@ -15,7 +15,7 @@
 #ifndef _UTIME_AUTOGEN_FOPS_H
 #define _UTIME_AUTOGEN_FOPS_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 
 #pragma generate
 

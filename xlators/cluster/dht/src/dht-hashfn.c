@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "dht-common.h"
-#include "hashfn.h"
+#include <glusterfs/hashfn.h>
 
 int
 dht_hash_compute_internal(int type, const char *name, uint32_t *hash_p)

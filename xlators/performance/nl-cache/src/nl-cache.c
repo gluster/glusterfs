@@ -9,8 +9,8 @@
  */
 
 #include "nl-cache.h"
-#include "statedump.h"
-#include "upcall-utils.h"
+#include <glusterfs/statedump.h>
+#include <glusterfs/upcall-utils.h>
 
 static void
 nlc_dentry_op(call_frame_t *frame, xlator_t *this, gf_boolean_t multilink)

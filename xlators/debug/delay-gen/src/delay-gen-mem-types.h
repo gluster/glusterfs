@@ -11,7 +11,7 @@
 #ifndef __DELAY_GEN_MEM_TYPES_H__
 #define __DELAY_GEN_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_delay_gen_mem_types_ {
     gf_delay_gen_mt_dg_t = gf_common_mt_end + 1,

@@ -96,9 +96,9 @@ typedef long long mount_flag_t;
 #define FREE(ptr) free (ptr)
 #define GFFUSE_LOGERR(...) fprintf (stderr, ## __VA_ARGS__)
 #else /* FUSE_UTIL */
-#include "glusterfs.h"
-#include "logging.h"
-#include "common-utils.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
 
 #define GFFUSE_LOGERR(...) \
         gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)

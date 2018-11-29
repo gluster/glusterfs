@@ -15,8 +15,8 @@
 #include <ctype.h>
 #include <sys/param.h> /* for PATH_MAX */
 
-#include "common-utils.h"
-#include "syscall.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/syscall.h>
 #include "procdiggy.h"
 
 pid_t

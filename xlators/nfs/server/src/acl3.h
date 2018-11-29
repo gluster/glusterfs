@@ -11,7 +11,7 @@
 #ifndef _ACL3_H
 #define _ACL3_H
 
-#include "glusterfs-acl.h"
+#include <glusterfs/glusterfs-acl.h>
 
 #define ACL3_NULL 0
 #define ACL3_GETACL 1

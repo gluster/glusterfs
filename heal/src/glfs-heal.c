@@ -15,12 +15,12 @@
 #include "glfs-handles.h"
 #include "glfs-internal.h"
 #include "protocol-common.h"
-#include "syscall.h"
-#include "syncop.h"
-#include "syncop-utils.h"
+#include <glusterfs/syscall.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/syncop-utils.h>
 #include <string.h>
 #include <time.h>
-#include "glusterfs.h"
+#include <glusterfs/glusterfs.h>
 #include <libgen.h>
 
 #if (HAVE_LIB_XML)

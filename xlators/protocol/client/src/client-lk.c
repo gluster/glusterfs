@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "common-utils.h"
-#include "xlator.h"
+#include <glusterfs/common-utils.h>
+#include <glusterfs/xlator.h>
 #include "client.h"
-#include "lkowner.h"
+#include <glusterfs/lkowner.h>
 #include "client-messages.h"
 
 static void

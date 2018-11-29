@@ -16,11 +16,11 @@
 #include <rpc/auth_unix.h>
 #include <errno.h>
 
-#include "mem-pool.h"
+#include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
 #include "xdr-common.h"
-#include "logging.h"
-#include "common-utils.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/common-utils.h>
 
 /* Decodes the XDR format in msgbuf into rpc_msg.
  * The remaining payload is returned into payload.

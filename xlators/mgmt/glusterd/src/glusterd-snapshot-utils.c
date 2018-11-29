@@ -16,8 +16,8 @@
 #endif
 #include <dlfcn.h>
 
-#include "dict.h"
-#include "syscall.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/syscall.h>
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-messages.h"

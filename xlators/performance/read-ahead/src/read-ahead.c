@@ -15,12 +15,12 @@
   - ensure efficient memory management in case of random seek
 */
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "read-ahead.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include <assert.h>
 #include <sys/time.h>
 #include "read-ahead-messages.h"

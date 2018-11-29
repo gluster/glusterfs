@@ -8,12 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 #include "meta-mem-types.h"
 #include "meta.h"
-#include "strfd.h"
+#include <glusterfs/strfd.h>
 
 static int
 xldump_options(dict_t *this, char *key, data_t *value, void *strfd)

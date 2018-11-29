@@ -14,7 +14,7 @@
 /******************************************************************************/
 /* This is from dht-rebalancer.c as we don't have dht-rebalancer.h */
 #include "dht-common.h"
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>

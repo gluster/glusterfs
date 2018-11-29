@@ -11,7 +11,7 @@
 #ifndef __NL_CACHE_MESSAGES_H__
 #define __NL_CACHE_MESSAGES_H__
 
-#include "glfs-message-id.h"
+#include <glusterfs/glfs-message-id.h>
 
 /* To add new message IDs, append new identifiers at the end of the list.
  *

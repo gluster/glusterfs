@@ -11,7 +11,7 @@
 #ifndef _DFS_MESSAGES_H_
 #define _DFS_MESSAGES_H_
 
-#include "glfs-message-id.h"
+#include <glusterfs/glfs-message-id.h>
 
 /* file bit-rot-bitd-messages.h
  * brief SDFS log-message IDs and their descriptions

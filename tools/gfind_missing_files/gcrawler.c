@@ -16,11 +16,11 @@
 #include <string.h>
 #include <dirent.h>
 #include <assert.h>
-#include "locking.h"
+#include <glusterfs/locking.h>
 
-#include "compat.h"
-#include "list.h"
-#include "syscall.h"
+#include <glusterfs/compat.h>
+#include <glusterfs/list.h>
+#include <glusterfs/syscall.h>
 
 #define THREAD_MAX 32
 #define BUMP(name) INC(name, 1)

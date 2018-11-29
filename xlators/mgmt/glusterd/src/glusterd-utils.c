@@ -20,20 +20,20 @@
 #include <libxml/xmlwriter.h>
 #endif
 
-#include "glusterfs.h"
-#include "compat.h"
-#include "dict.h"
-#include "xlator.h"
-#include "logging.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
 #include "glusterd-messages.h"
-#include "timer.h"
-#include "defaults.h"
-#include "compat.h"
-#include "syncop.h"
-#include "run.h"
-#include "compat-errno.h"
-#include "statedump.h"
-#include "syscall.h"
+#include <glusterfs/timer.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/syncop.h>
+#include <glusterfs/run.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/syscall.h>
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
@@ -43,7 +43,7 @@
 #include "glusterd-store.h"
 #include "glusterd-volgen.h"
 #include "glusterd-pmap.h"
-#include "glusterfs-acl.h"
+#include <glusterfs/glusterfs-acl.h>
 #include "glusterd-syncop.h"
 #include "glusterd-mgmt.h"
 #include "glusterd-locks.h"
@@ -59,8 +59,8 @@
 #include "glusterd-bitd-svc.h"
 #include "glusterd-gfproxyd-svc.h"
 #include "glusterd-server-quorum.h"
-#include "quota-common-utils.h"
-#include "common-utils.h"
+#include <glusterfs/quota-common-utils.h>
+#include <glusterfs/common-utils.h>
 
 #include "xdr-generic.h"
 #include <sys/resource.h>

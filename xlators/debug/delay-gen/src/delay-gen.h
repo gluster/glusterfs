@@ -13,9 +13,9 @@
 
 #include "delay-gen-mem-types.h"
 #include "delay-gen-messages.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 typedef struct {
     int enable[GF_FOP_MAXVALUE];

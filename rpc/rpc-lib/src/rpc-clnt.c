@@ -12,11 +12,11 @@
 
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
-#include "byte-order.h"
+#include <glusterfs/byte-order.h>
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
-#include "mem-pool.h"
+#include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
 #include "rpc-common-xdr.h"
 

@@ -13,10 +13,10 @@
 
 #include "nl-cache-mem-types.h"
 #include "nl-cache-messages.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "atomic.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/atomic.h>
 
 #define NLC_INVALID 0x0000
 #define NLC_PE_FULL 0x0001

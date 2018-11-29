@@ -16,16 +16,16 @@
 #include <alloca.h>
 #endif
 
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 
 #include "posix-handle.h"
 #include "posix.h"
-#include "xlator.h"
-#include "syscall.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/syscall.h>
 #include "posix-messages.h"
 #include "posix-metadata.h"
 
-#include "compat-errno.h"
+#include <glusterfs/compat-errno.h>
 
 int
 posix_handle_mkdir_hashes(xlator_t *this, const char *newpath);

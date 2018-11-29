@@ -8,10 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "defaults.h"
-#include "statedump.h"
-#include "compat-errno.h"
-#include "upcall-utils.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/statedump.h>
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/upcall-utils.h>
 
 #include "ec.h"
 #include "ec-messages.h"
@@ -23,7 +23,7 @@
 #include "ec-method.h"
 #include "ec-code.h"
 #include "ec-heald.h"
-#include "events.h"
+#include <glusterfs/events.h>
 
 static char *ec_read_policies[EC_READ_POLICY_MAX + 1] = {
     [EC_ROUND_ROBIN] = "round-robin",

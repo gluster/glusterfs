@@ -56,8 +56,8 @@
 struct rpc_transport_ops;
 typedef struct rpc_transport rpc_transport_t;
 
-#include "dict.h"
-#include "compat.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/compat.h>
 #include "rpcsvc-common.h"
 
 struct peer_info {

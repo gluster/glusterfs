@@ -17,7 +17,7 @@
 
 #include "nfs-mem-types.h"
 #include "exports.h"
-#include "dict.h"
+#include <glusterfs/dict.h>
 #include "nfs3.h"
 
 struct auth_cache {

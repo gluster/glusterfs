@@ -7,7 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-messages.h"

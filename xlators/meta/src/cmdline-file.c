@@ -8,13 +8,13 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 #include "meta-mem-types.h"
 #include "meta.h"
-#include "strfd.h"
-#include "lkowner.h"
+#include <glusterfs/strfd.h>
+#include <glusterfs/lkowner.h>
 
 static int
 cmdline_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)

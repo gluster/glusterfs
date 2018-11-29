@@ -11,11 +11,11 @@
 #ifndef _GLFS_INTERNAL_H
 #define _GLFS_INTERNAL_H
 
-#include "xlator.h"
-#include "glusterfs.h"
-#include "upcall-utils.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/upcall-utils.h>
 #include "glfs-handles.h"
-#include "refcount.h"
+#include <glusterfs/refcount.h>
 
 #define GLFS_SYMLINK_MAX_FOLLOW 2048
 

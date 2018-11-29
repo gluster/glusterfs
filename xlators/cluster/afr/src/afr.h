@@ -11,13 +11,13 @@
 #ifndef __AFR_H__
 #define __AFR_H__
 
-#include "call-stub.h"
-#include "compat-errno.h"
+#include <glusterfs/call-stub.h>
+#include <glusterfs/compat-errno.h>
 #include "afr-mem-types.h"
 
 #include "libxlator.h"
-#include "timer.h"
-#include "syncop.h"
+#include <glusterfs/timer.h>
+#include <glusterfs/syncop.h>
 
 #include "afr-self-heald.h"
 #include "afr-messages.h"

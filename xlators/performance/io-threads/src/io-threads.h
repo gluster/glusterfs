@@ -11,18 +11,18 @@
 #ifndef __IOT_H
 #define __IOT_H
 
-#include "compat-errno.h"
-#include "glusterfs.h"
-#include "logging.h"
-#include "dict.h"
-#include "xlator.h"
-#include "common-utils.h"
-#include "list.h"
+#include <glusterfs/compat-errno.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/list.h>
 #include <stdlib.h>
-#include "locking.h"
+#include <glusterfs/locking.h>
 #include "iot-mem-types.h"
 #include <semaphore.h>
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 struct iot_conf;
 

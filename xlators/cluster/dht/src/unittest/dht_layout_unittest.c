@@ -9,8 +9,8 @@
 */
 
 #include "dht-common.h"
-#include "logging.h"
-#include "xlator.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/xlator.h>
 
 #include <inttypes.h>
 #include <stdarg.h>

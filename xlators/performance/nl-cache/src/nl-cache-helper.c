@@ -10,7 +10,7 @@
 
 #include "nl-cache.h"
 #include "timer-wheel.h"
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 
 /* Caching guidelines:
  * This xlator serves negative lookup(ENOENT lookups) from the cache,

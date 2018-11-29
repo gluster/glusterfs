@@ -11,7 +11,7 @@
 #ifndef __IOC_MT_H__
 #define __IOC_MT_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 enum gf_ioc_mem_types_ {
     gf_ioc_mt_iovec = gf_common_mt_end + 1,

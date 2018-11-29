@@ -10,8 +10,8 @@
 
 #include "gfdb_sqlite3.h"
 #include "gfdb_data_store.h"
-#include "list.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/list.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 /******************************************************************************
  *

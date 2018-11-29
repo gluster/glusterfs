@@ -23,11 +23,11 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 
-#include "glusterfs.h"
-#include "globals.h"
-#include "logging.h"
-#include "syscall.h"
-#include "mem-types.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/globals.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/mem-types.h"
 
 static void
 usage (void)

@@ -10,7 +10,7 @@
 #ifndef __META_H__
 #define __META_H__
 
-#include "strfd.h"
+#include <glusterfs/strfd.h>
 
 #define DEFAULT_META_DIR_NAME ".meta"
 

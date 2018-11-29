@@ -11,23 +11,23 @@
 #ifndef _RPCSVC_H
 #define _RPCSVC_H
 
-#include "gf-event.h"
+#include <glusterfs/gf-event.h>
 #include "rpc-transport.h"
-#include "logging.h"
-#include "dict.h"
-#include "mem-pool.h"
-#include "list.h"
-#include "iobuf.h"
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/mem-pool.h>
+#include <glusterfs/list.h>
+#include <glusterfs/iobuf.h>
 #include "xdr-rpc.h"
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "rpcsvc-common.h"
 
 #include <pthread.h>
 #include <sys/uio.h>
 #include <inttypes.h>
 #include <rpc/rpc_msg.h>
-#include "compat.h"
+#include <glusterfs/compat.h>
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16

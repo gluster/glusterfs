@@ -11,9 +11,9 @@
 #include <openssl/md5.h>
 #include <inttypes.h>
 
-#include "call-stub.h"
-#include "mem-types.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/call-stub.h"
+#include "glusterfs/mem-types.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 static call_stub_t *
 stub_new(call_frame_t *frame, char wind, glusterfs_fop_t fop)

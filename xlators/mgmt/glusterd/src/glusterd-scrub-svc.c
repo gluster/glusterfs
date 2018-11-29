@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "globals.h"
-#include "run.h"
+#include <glusterfs/globals.h>
+#include <glusterfs/run.h>
 #include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"

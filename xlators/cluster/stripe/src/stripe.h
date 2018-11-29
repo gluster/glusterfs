@@ -11,12 +11,12 @@
 #ifndef _STRIPE_H_
 #define _STRIPE_H_
 
-#include "xlator.h"
-#include "logging.h"
-#include "defaults.h"
-#include "common-utils.h"
-#include "compat.h"
-#include "compat-errno.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/defaults.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/compat-errno.h>
 #include "stripe-mem-types.h"
 #include "libxlator.h"
 #include <fnmatch.h>

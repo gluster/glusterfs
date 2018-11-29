@@ -22,11 +22,11 @@
 
 #define RELAX_POISONING
 
-#include "xlator.h"
-#include "graph-utils.h"
-#include "logging.h"
-#include "syscall.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/graph-utils.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 static int new_volume (char *name);
 static int volume_type (char *type);

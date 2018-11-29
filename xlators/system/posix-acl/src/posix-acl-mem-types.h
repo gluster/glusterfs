@@ -11,7 +11,7 @@
 #ifndef __POSIX_ACL_MEM_TYPES_H__
 #define __POSIX_ACL_MEM_TYPES_H__
 
-#include "mem-types.h"
+#include <glusterfs/mem-types.h>
 
 typedef enum gf_posix_acl_mem_types_ {
     gf_posix_acl_mt_ctx_t = gf_common_mt_end + 1,

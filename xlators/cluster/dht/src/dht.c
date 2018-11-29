@@ -8,7 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "statedump.h"
+#include <glusterfs/statedump.h>
 #include "dht-common.h"
 
 struct xlator_fops dht_pt_fops = {

@@ -44,19 +44,19 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include "xlator.h"
-#include "glusterfs.h"
-#include "compat.h"
-#include "logging.h"
-#include "dict.h"
-#include "list.h"
-#include "timer.h"
-#include "stack.h"
-#include "revision.h"
-#include "common-utils.h"
-#include "gf-event.h"
-#include "syscall.h"
-#include "call-stub.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/compat.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/list.h>
+#include <glusterfs/timer.h>
+#include <glusterfs/stack.h>
+#include <glusterfs/revision.h>
+#include <glusterfs/common-utils.h>
+#include <glusterfs/gf-event.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
 
 #include "xdr-generic.h"

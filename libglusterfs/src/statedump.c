@@ -9,13 +9,13 @@
 */
 
 #include <stdarg.h>
-#include "glusterfs.h"
-#include "logging.h"
-#include "iobuf.h"
-#include "statedump.h"
-#include "stack.h"
-#include "common-utils.h"
-#include "syscall.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/iobuf.h"
+#include "glusterfs/statedump.h"
+#include "glusterfs/stack.h"
+#include "glusterfs/common-utils.h"
+#include "glusterfs/syscall.h"
 
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>

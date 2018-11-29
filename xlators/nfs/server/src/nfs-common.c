@@ -9,16 +9,16 @@
 */
 
 #include "rpcsvc.h"
-#include "dict.h"
-#include "xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/xlator.h>
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
-#include "iobuf.h"
+#include <glusterfs/iobuf.h>
 #include "nfs-common.h"
 #include "nfs-fops.h"
 #include "nfs-mem-types.h"
 #include "rpcsvc.h"
-#include "iatt.h"
+#include <glusterfs/iatt.h>
 #include "nfs-messages.h"
 
 #include <libgen.h>

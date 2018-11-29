@@ -10,14 +10,14 @@
 
 /* TODO: add NS locking */
 
-#include "glusterfs.h"
-#include "xlator.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
 #include "dht-common.h"
 #include "dht-messages.h"
-#include "defaults.h"
+#include <glusterfs/defaults.h>
 
 #include <sys/time.h>
-#include "events.h"
+#include <glusterfs/events.h>
 
 int
 dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,

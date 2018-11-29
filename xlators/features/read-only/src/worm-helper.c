@@ -9,8 +9,8 @@
 */
 #include "read-only-mem-types.h"
 #include "read-only.h"
-#include "xlator.h"
-#include "syncop.h"
+#include <glusterfs/xlator.h>
+#include <glusterfs/syncop.h>
 #include "worm-helper.h"
 
 /*Function to check whether file is read-only.

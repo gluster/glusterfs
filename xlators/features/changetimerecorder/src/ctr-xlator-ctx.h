@@ -11,14 +11,14 @@
 #ifndef __CTR_XLATOR_CTX_H
 #define __CTR_XLATOR_CTX_H
 
-#include "xlator.h"
+#include <glusterfs/xlator.h>
 #include "ctr_mem_types.h"
-#include "iatt.h"
-#include "glusterfs.h"
-#include "xlator.h"
-#include "logging.h"
-#include "locking.h"
-#include "common-utils.h"
+#include <glusterfs/iatt.h>
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/locking.h>
+#include <glusterfs/common-utils.h>
 #include <time.h>
 #include <sys/time.h>
 

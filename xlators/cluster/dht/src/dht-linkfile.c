@@ -8,9 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "compat.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/compat.h>
 #include "dht-common.h"
 #include "dht-messages.h"
 

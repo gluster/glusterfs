@@ -19,10 +19,10 @@
 static mach_timebase_info_data_t gf_timebase;
 #endif
 
-#include "logging.h"
-#include "timespec.h"
-#include "libglusterfs-messages.h"
-#include "common-utils.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/timespec.h"
+#include "glusterfs/libglusterfs-messages.h"
+#include "glusterfs/common-utils.h"
 
 void
 timespec_now(struct timespec *ts)

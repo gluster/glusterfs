@@ -26,8 +26,8 @@
 #include <fnmatch.h>
 #include "stripe.h"
 #include "libxlator.h"
-#include "byte-order.h"
-#include "statedump.h"
+#include <glusterfs/byte-order.h>
+#include <glusterfs/statedump.h>
 
 struct volume_options options[];
 

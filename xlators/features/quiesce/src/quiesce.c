@@ -8,8 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 #include "quiesce.h"
-#include "defaults.h"
-#include "call-stub.h"
+#include <glusterfs/defaults.h>
+#include <glusterfs/call-stub.h>
 
 /* TODO: */
 /* Think about 'writev/_*_lk/setattr/xattrop/' fops to do re-transmittion */

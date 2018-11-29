@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
-#include "syscall.h"
+#include <glusterfs/syscall.h>
 
 #include "ec-mem-types.h"
 #include "ec-code.h"

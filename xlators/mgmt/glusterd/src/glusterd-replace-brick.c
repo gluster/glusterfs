@@ -7,10 +7,10 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include "common-utils.h"
+#include <glusterfs/common-utils.h>
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
-#include "glusterfs.h"
+#include <glusterfs/glusterfs.h>
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
@@ -23,8 +23,8 @@
 #include "glusterd-messages.h"
 #include "glusterd-server-quorum.h"
 #include "glusterd-mgmt.h"
-#include "run.h"
-#include "syscall.h"
+#include <glusterfs/run.h>
+#include <glusterfs/syscall.h>
 
 #include <signal.h>
 

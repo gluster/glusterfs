@@ -11,12 +11,12 @@
 #include <inttypes.h>
 #include <libgen.h>
 
-#include "glusterfs.h"
-#include "store.h"
-#include "dict.h"
-#include "xlator.h"
-#include "syscall.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/store.h"
+#include "glusterfs/dict.h"
+#include "glusterfs/xlator.h"
+#include "glusterfs/syscall.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 int32_t
 gf_store_mkdir(char *path)

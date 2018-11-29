@@ -4,9 +4,9 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "glusterfs.h"
-#include "fd.h"
-#include "syncop.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/fd.h>
+#include <glusterfs/syncop.h>
 #include "glfs-internal.h"
 
 #define GFAPI_SUCCESS 0

@@ -20,11 +20,11 @@
 
 #include <dlfcn.h>
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
+#include <glusterfs/glusterfs.h>
+#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 #include "cloudsync.h"
 #include "cloudsync-common.h"
-#include "call-stub.h"
+#include <glusterfs/call-stub.h>
 
 #pragma generate

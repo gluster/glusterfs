@@ -34,9 +34,9 @@
 #include "fuse_param.h"
 #include "fuse_ioctl.h"
 
-#include "glusterfs.h"
-#include "logging.h"
-#include "common-utils.h"
+#include "glusterfs/glusterfs.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
 
 #define GFFUSE_LOGERR(...) \
         gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)

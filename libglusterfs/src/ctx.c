@@ -10,8 +10,8 @@
 
 #include <pthread.h>
 
-#include "globals.h"
-#include "glusterfs.h"
+#include "glusterfs/globals.h"
+#include "glusterfs/glusterfs.h"
 #include "timer-wheel.h"
 
 glusterfs_ctx_t *

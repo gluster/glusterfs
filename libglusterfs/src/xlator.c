@@ -8,12 +8,12 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "xlator.h"
+#include "glusterfs/xlator.h"
 #include <dlfcn.h>
 #include <netdb.h>
 #include <fnmatch.h>
-#include "defaults.h"
-#include "libglusterfs-messages.h"
+#include "glusterfs/defaults.h"
+#include "glusterfs/libglusterfs-messages.h"
 
 #define SET_DEFAULT_FOP(fn)                                                    \
     do {                                                                       \
