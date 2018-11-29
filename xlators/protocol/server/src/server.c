@@ -986,6 +986,49 @@ server_dump_metrics(xlator_t *this, int fd)
     return 0;
 }
 
+void
+server_cleanup(xlator_t *this, server_conf_t *conf)
+{
+    if (!this || !conf)
+        return;
+
+    LOCK_DESTROY(&conf->itable_lock);
+    pthread_mutex_destroy(&conf->mutex);
+
+    if (this->ctx->event_pool) {
+        /* Free the event pool */
+        (void)event_pool_destroy(this->ctx->event_pool);
+    }
+
+    if (dict_get(this->options, "config-directory")) {
+        GF_FREE(conf->conf_dir);
+        conf->conf_dir = NULL;
+    }
+
+    if (conf->child_status) {
+        GF_FREE(conf->child_status);
+        conf->child_status = NULL;
+    }
+
+    if (this->ctx->statedump_path) {
+        GF_FREE(this->ctx->statedump_path);
+        this->ctx->statedump_path = NULL;
+    }
+
+    if (conf->auth_modules) {
+        gf_auth_fini(conf->auth_modules);
+        dict_unref(conf->auth_modules);
+    }
+
+    if (conf->rpc) {
+        (void)rpcsvc_destroy(conf->rpc);
+        conf->rpc = NULL;
+    }
+
+    GF_FREE(conf);
+    this->private = NULL;
+}
+
 int
 server_init(xlator_t *this)
 {
@@ -1061,6 +1104,7 @@ server_init(xlator_t *this)
     ret = gf_auth_init(this, conf->auth_modules);
     if (ret) {
         dict_unref(conf->auth_modules);
+        conf->auth_modules = NULL;
         goto out;
     }
 
@@ -1239,15 +1283,7 @@ out:
         if (this != NULL) {
             this->fini(this);
         }
-
-        if (conf && conf->rpc) {
-            rpcsvc_listener_t *listener, *next;
-            list_for_each_entry_safe(listener, next, &conf->rpc->listeners,
-                                     list)
-            {
-                rpcsvc_listener_destroy(listener);
-            }
-        }
+        server_cleanup(this, conf);
     }
 
     return ret;

@@ -26,6 +26,7 @@ rpcsvc_drc_priv
 rpcsvc_drc_reconfigure
 rpcsvc_get_program_vector_sizer
 rpcsvc_init
+rpcsvc_destroy
 rpcsvc_init_options
 rpcsvc_listener_destroy
 rpcsvc_program_register
