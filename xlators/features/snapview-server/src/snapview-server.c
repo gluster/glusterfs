@@ -588,7 +588,6 @@ svs_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     GF_VALIDATE_OR_GOTO("svs", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
 
@@ -749,7 +748,6 @@ svs_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
@@ -893,7 +891,6 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO("snap-view-daemon", frame, out);
-    GF_VALIDATE_OR_GOTO("snap-view-daemon", frame->root, out);
     GF_VALIDATE_OR_GOTO("snap-view-daemon", loc, out);
     GF_VALIDATE_OR_GOTO("snap-view-daemon", loc->inode, out);
 
@@ -1260,7 +1257,6 @@ svs_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
     root = frame->root;
@@ -1673,7 +1669,6 @@ svs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, unwind);
     GF_VALIDATE_OR_GOTO(this->name, frame, unwind);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, unwind);
     GF_VALIDATE_OR_GOTO(this->name, fd, unwind);
     GF_VALIDATE_OR_GOTO(this->name, fd->inode, unwind);
 
@@ -1964,7 +1959,6 @@ svs_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
 
@@ -2038,7 +2032,6 @@ svs_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, fd->inode, out);
 
@@ -2132,7 +2125,6 @@ svs_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
 
@@ -2192,7 +2184,6 @@ svs_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
@@ -2276,7 +2267,6 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, fd->inode, out);
 
@@ -2387,7 +2377,6 @@ svs_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
 
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
 
@@ -2463,7 +2452,6 @@ svs_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
     GF_VALIDATE_OR_GOTO("svs", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->root, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
 
