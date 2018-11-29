@@ -824,19 +824,18 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
         }
 
         if (interval == -1) {
-            ios_log(this, logfp, "\"%s.%s.read_%d%s\": \"%" GF_PRI_ATOMIC "\",",
+            ios_log(this, logfp, "\"%s.%s.read_%d%s\": %" GF_PRI_ATOMIC ",",
                     key_prefix, str_prefix, rw_size, rw_unit,
                     GF_ATOMIC_GET(stats->block_count_read[i]));
-            ios_log(this, logfp,
-                    "\"%s.%s.write_%d%s\": \"%" GF_PRI_ATOMIC "\",", key_prefix,
-                    str_prefix, rw_size, rw_unit,
+            ios_log(this, logfp, "\"%s.%s.write_%d%s\": %" GF_PRI_ATOMIC ",",
+                    key_prefix, str_prefix, rw_size, rw_unit,
                     GF_ATOMIC_GET(stats->block_count_write[i]));
         } else {
-            ios_log(this, logfp, "\"%s.%s.read_%d%s_per_sec\": \"%0.2lf\",",
+            ios_log(this, logfp, "\"%s.%s.read_%d%s_per_sec\": %0.2lf,",
                     key_prefix, str_prefix, rw_size, rw_unit,
                     (double)(GF_ATOMIC_GET(stats->block_count_read[i]) /
                              interval_sec));
-            ios_log(this, logfp, "\"%s.%s.write_%d%s_per_sec\": \"%0.2lf\",",
+            ios_log(this, logfp, "\"%s.%s.write_%d%s_per_sec\": %0.2lf,",
                     key_prefix, str_prefix, rw_size, rw_unit,
                     (double)(GF_ATOMIC_GET(stats->block_count_write[i]) /
                              interval_sec));
@@ -844,9 +843,9 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
     }
 
     if (interval == -1) {
-        ios_log(this, logfp, "\"%s.%s.fds.open_count\": \"%" PRId64 "\",",
+        ios_log(this, logfp, "\"%s.%s.fds.open_count\": %" PRId64 ",",
                 key_prefix, str_prefix, conf->cumulative.nr_opens);
-        ios_log(this, logfp, "\"%s.%s.fds.max_open_count\": \"%" PRId64 "\",",
+        ios_log(this, logfp, "\"%s.%s.fds.max_open_count\": %" PRId64 ",",
                 key_prefix, str_prefix, conf->cumulative.max_nr_opens);
     }
 
@@ -868,20 +867,19 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
             }
         }
         if (interval == -1) {
-            ios_log(this, logfp,
-                    "\"%s.%s.fop.%s.count\": \"%" GF_PRI_ATOMIC "\",",
+            ios_log(this, logfp, "\"%s.%s.fop.%s.count\": %" GF_PRI_ATOMIC ",",
                     key_prefix, str_prefix, lc_fop_name, fop_hits);
         } else {
-            ios_log(this, logfp, "\"%s.%s.fop.%s.per_sec\": \"%0.2lf\",",
+            ios_log(this, logfp, "\"%s.%s.fop.%s.per_sec\": %0.2lf,",
                     key_prefix, str_prefix, lc_fop_name,
                     (double)(fop_hits / interval_sec));
         }
 
-        ios_log(this, logfp, "\"%s.%s.fop.%s.latency_ave_usec\": \"%0.2lf\",",
+        ios_log(this, logfp, "\"%s.%s.fop.%s.latency_ave_usec\": %0.2lf,",
                 key_prefix, str_prefix, lc_fop_name, fop_lat_ave);
-        ios_log(this, logfp, "\"%s.%s.fop.%s.latency_min_usec\": \"%0.2lf\",",
+        ios_log(this, logfp, "\"%s.%s.fop.%s.latency_min_usec\": %0.2lf,",
                 key_prefix, str_prefix, lc_fop_name, fop_lat_min);
-        ios_log(this, logfp, "\"%s.%s.fop.%s.latency_max_usec\": \"%0.2lf\",",
+        ios_log(this, logfp, "\"%s.%s.fop.%s.latency_max_usec\": %0.2lf,",
                 key_prefix, str_prefix, lc_fop_name, fop_lat_max);
 
         fop_ave_usec_sum += fop_lat_ave;
@@ -896,18 +894,17 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
          */
         ios_log(this, logfp,
                 "\"%s.%s.fop.weighted_latency_ave_usec_nozerofill\": "
-                "\"%0.4lf\",",
+                "%0.4lf,",
                 key_prefix, str_prefix, weighted_fop_ave_usec);
     }
-    ios_log(this, logfp, "\"%s.%s.fop.weighted_latency_ave_usec\": \"%0.4lf\",",
+    ios_log(this, logfp, "\"%s.%s.fop.weighted_latency_ave_usec\": %0.4lf,",
             key_prefix, str_prefix, weighted_fop_ave_usec);
-    ios_log(this, logfp, "\"%s.%s.fop.weighted_fop_count\": \"%ld\",",
-            key_prefix, str_prefix, total_fop_hits);
+    ios_log(this, logfp, "\"%s.%s.fop.weighted_fop_count\": %ld,", key_prefix,
+            str_prefix, total_fop_hits);
 
     fop_ave_usec = fop_ave_usec_sum / GF_FOP_MAXVALUE;
-    ios_log(this, logfp,
-            "\"%s.%s.fop.unweighted_latency_ave_usec\":\"%0.4lf\",", key_prefix,
-            str_prefix, fop_ave_usec);
+    ios_log(this, logfp, "\"%s.%s.fop.unweighted_latency_ave_usec\":%0.4lf,",
+            key_prefix, str_prefix, fop_ave_usec);
 
     for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
         lc_fop_name = strdupa(gf_upcall_list[i]);
@@ -916,11 +913,10 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
         }
         fop_hits = GF_ATOMIC_GET(stats->upcall_hits[i]);
         if (interval == -1) {
-            ios_log(this, logfp,
-                    "\"%s.%s.fop.%s.count\": \"%" GF_PRI_ATOMIC "\",",
+            ios_log(this, logfp, "\"%s.%s.fop.%s.count\": %" GF_PRI_ATOMIC ",",
                     key_prefix, str_prefix, lc_fop_name, fop_hits);
         } else {
-            ios_log(this, logfp, "\"%s.%s.fop.%s.per_sec\": \"%0.2lf\",",
+            ios_log(this, logfp, "\"%s.%s.fop.%s.per_sec\": %0.2lf,",
                     key_prefix, str_prefix, lc_fop_name,
                     (double)(fop_hits / interval_sec));
         }
@@ -937,7 +933,7 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
 
         dict_foreach_inline(xattr, curr)
         {
-            ios_log(this, logfp, "\"%s.%s.%s.queue_size\": \"%d\",", key_prefix,
+            ios_log(this, logfp, "\"%s.%s.%s.queue_size\": %d,", key_prefix,
                     str_prefix, curr->key, data_to_int32(curr->value));
         }
 
@@ -950,23 +946,23 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
     }
 
     if (interval == -1) {
-        ios_log(this, logfp, "\"%s.%s.uptime\": \"%" PRId64 "\",", key_prefix,
+        ios_log(this, logfp, "\"%s.%s.uptime\": %" PRId64 ",", key_prefix,
                 str_prefix, (uint64_t)(now->tv_sec - stats->started_at.tv_sec));
         ios_log(this, logfp,
-                "\"%s.%s.bytes_read\": \""
-                "%" GF_PRI_ATOMIC "\",",
+                "\"%s.%s.bytes_read\": "
+                "%" GF_PRI_ATOMIC ",",
                 key_prefix, str_prefix, GF_ATOMIC_GET(stats->data_read));
         ios_log(this, logfp,
-                "\"%s.%s.bytes_written\": \""
-                "%" GF_PRI_ATOMIC "\"",
+                "\"%s.%s.bytes_written\": "
+                "%" GF_PRI_ATOMIC "",
                 key_prefix, str_prefix, GF_ATOMIC_GET(stats->data_written));
     } else {
-        ios_log(this, logfp, "\"%s.%s.sample_interval_sec\": \"%0.2lf\",",
+        ios_log(this, logfp, "\"%s.%s.sample_interval_sec\": %0.2lf,",
                 key_prefix, str_prefix, interval_sec);
-        ios_log(this, logfp, "\"%s.%s.bytes_read_per_sec\": \"%0.2lf\",",
+        ios_log(this, logfp, "\"%s.%s.bytes_read_per_sec\": %0.2lf,",
                 key_prefix, str_prefix,
                 (double)(GF_ATOMIC_GET(stats->data_read) / interval_sec));
-        ios_log(this, logfp, "\"%s.%s.bytes_written_per_sec\": \"%0.2lf\"",
+        ios_log(this, logfp, "\"%s.%s.bytes_written_per_sec\": %0.2lf",
                 key_prefix, str_prefix,
                 (double)(GF_ATOMIC_GET(stats->data_written) / interval_sec));
     }
