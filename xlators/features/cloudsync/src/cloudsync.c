@@ -39,7 +39,11 @@ struct cs_plugin plugins[] = {
     {.name = "cloudsyncs3",
      .library = "cloudsyncs3.so",
      .description = "cloudsync s3 store."},
-
+#if defined(__linux__)
+    {.name = "cvlt",
+     .library = "cloudsynccvlt.so",
+     .description = "Commvault content store."},
+#endif
     {.name = NULL},
 };
 
