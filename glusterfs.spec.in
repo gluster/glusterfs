@@ -1108,6 +1108,7 @@ exit 0
 %files cloudsync-plugins
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins
      %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins/cloudsyncs3.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins/cloudsynccvlt.so
 
 %files devel
 %dir %{_includedir}/glusterfs

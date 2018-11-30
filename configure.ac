@@ -169,6 +169,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/cloudsync/src/cloudsync-plugins/src/Makefile
                 xlators/features/cloudsync/src/cloudsync-plugins/src/cloudsyncs3/Makefile
                 xlators/features/cloudsync/src/cloudsync-plugins/src/cloudsyncs3/src/Makefile
+                xlators/features/cloudsync/src/cloudsync-plugins/src/cvlt/Makefile
+                xlators/features/cloudsync/src/cloudsync-plugins/src/cvlt/src/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
@@ -908,6 +910,17 @@ AM_CONDITIONAL([BUILD_AMAZONS3_PLUGIN], [test "x$HAVE_AMAZONS3" = "xyes"])
 if test "x$HAVE_AMAZONS3" = "xyes";then
    BUILD_CLOUDSYNC="yes"
 fi
+BUILD_CVLT_PLUGIN="no"
+case $host_os in
+#enable cvlt plugin only for linux platforms
+     linux*)
+       BUILD_CVLT_PLUGIN="yes"
+       BUILD_CLOUDSYNC="yes"
+       ;;
+     *)
+       ;;
+esac
+AM_CONDITIONAL([BUILD_CVLT_PLUGIN], [test "x$BUILD_CVLT_PLUGIN" = "xyes"])
 AM_CONDITIONAL([BUILD_CLOUDSYNC], [test "x$BUILD_CLOUDSYNC" = "xyes"])
 dnl end cloudsync section
 
