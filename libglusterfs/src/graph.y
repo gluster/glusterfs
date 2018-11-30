@@ -164,7 +164,7 @@ new_volume (char *name)
                 goto out;
         }
 
-        curr->options = get_new_dict ();
+        curr->options = dict_new ();
 
         if (!curr->options) {
                 GF_FREE (curr->name);

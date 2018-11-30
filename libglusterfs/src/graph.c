@@ -181,7 +181,7 @@ glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
 
     ixl->ctx = ctx;
     ixl->graph = graph;
-    ixl->options = get_new_dict();
+    ixl->options = dict_new();
     if (!ixl->options)
         goto err;
 

@@ -725,7 +725,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
     }
 
     master->ctx = ctx;
-    master->options = get_new_dict();
+    master->options = dict_new();
     if (!master->options)
         goto err;
 
@@ -2644,7 +2644,6 @@ out:
                 /* Take dict ref for every graph xlator to avoid dict leak
                    at the time of graph destroying
                 */
-                gluster_graph_take_reference(graph->first);
                 glusterfs_graph_fini(graph);
                 glusterfs_graph_destroy(graph);
             }

@@ -547,7 +547,6 @@ get_checksum_for_path
 get_file_mtime
 get_host_name
 get_mem_size
-get_new_dict
 get_path_name
 get_struct_variable
 get_vol_type

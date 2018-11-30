@@ -197,7 +197,7 @@ create_master(struct glfs *fs)
 
     master->ctx = fs->ctx;
     master->private = fs;
-    master->options = get_new_dict();
+    master->options = dict_new();
     if (!master->options)
         goto err;
 
@@ -1549,7 +1549,7 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_oldpstat, 3.7.16);
 struct glfs_object *
 pub_glfs_upcall_lease_get_object(struct glfs_upcall_lease *arg)
 {
-        return arg->object;
+    return arg->object;
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_object, 4.1.6);
