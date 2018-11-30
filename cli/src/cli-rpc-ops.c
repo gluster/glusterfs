@@ -1178,6 +1178,9 @@ gf_cli_create_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     return ret;
 }
 
@@ -1251,6 +1254,9 @@ gf_cli_delete_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     gf_log("", GF_LOG_DEBUG, "Returning with %d", ret);
     return ret;
 }
@@ -1335,6 +1341,9 @@ out:
     cli_cmd_broadcast_response(ret);
     cli_local_wipe(local);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (dict)
+        dict_unref(dict);
 
     gf_log("", GF_LOG_DEBUG, "Returning with %d", ret);
     return ret;
@@ -1468,6 +1477,9 @@ gf_cli_start_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     return ret;
 }
 
@@ -1542,6 +1554,9 @@ gf_cli_stop_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (rsp_dict)
+        dict_unref(rsp_dict);
 
     return ret;
 }
@@ -2599,6 +2614,9 @@ gf_cli_remove_tier_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     return ret;
 }
 
@@ -4056,6 +4074,7 @@ out:
         cli_cmd_broadcast_response(ret);
     }
     gf_free_xdr_cli_rsp(rsp);
+
     return ret;
 }
 
@@ -9341,6 +9360,9 @@ gf_cli_list_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
+
+    if (dict)
+        dict_unref(dict);
     return ret;
 }
 
