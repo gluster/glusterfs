@@ -3450,12 +3450,13 @@ io_stats_release(xlator_t *this, fd_t *fd)
     BUMP_FOP(RELEASE);
 
     conf = this->private;
-
-    LOCK(&conf->lock);
-    {
-        conf->cumulative.nr_opens--;
+    if (conf) {
+        LOCK(&conf->lock);
+        {
+            conf->cumulative.nr_opens--;
+        }
+        UNLOCK(&conf->lock);
     }
-    UNLOCK(&conf->lock);
 
     ios_fd_ctx_get(fd, this, &iosfd);
     if (iosfd) {
