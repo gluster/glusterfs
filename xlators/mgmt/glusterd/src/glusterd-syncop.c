@@ -309,6 +309,15 @@ glusterd_syncop_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
             ret = glusterd_max_opversion_use_rsp_dict(aggr, rsp);
             break;
 
+        case GD_OP_PROFILE_VOLUME:
+            ret = glusterd_profile_volume_use_rsp_dict(aggr, rsp);
+            break;
+
+        case GD_OP_REBALANCE:
+        case GD_OP_DEFRAG_BRICK_VOLUME:
+            ret = glusterd_volume_rebalance_use_rsp_dict(aggr, rsp);
+            break;
+
         case GD_OP_TIER_STATUS:
         case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_REMOVE_TIER_BRICK:

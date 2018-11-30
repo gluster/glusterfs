@@ -317,4 +317,7 @@ glusterd_op_stats_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 
 int
 glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr);
+
+int
+gd_set_commit_hash(dict_t *dict);
 #endif
