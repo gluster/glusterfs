@@ -3042,6 +3042,9 @@ out:
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
 
+    if (rsp_dict)
+        dict_unref(rsp_dict);
+
     return ret;
 }
 
