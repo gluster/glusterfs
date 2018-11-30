@@ -9340,14 +9340,10 @@ glusterd_check_topology_identical(const char *filename1, const char *filename2,
     if (grph1 == NULL)
         goto out;
 
-    gluster_graph_take_reference(grph1->first);
-
     /* create the graph for filename2 */
     grph2 = glusterfs_graph_construct(fp2);
     if (grph2 == NULL)
         goto out;
-
-    gluster_graph_take_reference(grph2->first);
 
     /* compare the graph topology */
     *identical = is_graph_topology_equal(grph1, grph2);

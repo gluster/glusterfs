@@ -895,7 +895,6 @@ xlator_mem_free(xlator_t *xl)
         return 0;
 
     if (xl->options) {
-        dict_ref(xl->options);
         dict_unref(xl->options);
         xl->options = NULL;
     }

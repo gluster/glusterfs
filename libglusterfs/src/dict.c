@@ -110,12 +110,6 @@ get_new_dict_full(int size_hint)
 }
 
 dict_t *
-get_new_dict(void)
-{
-    return get_new_dict_full(1);
-}
-
-dict_t *
 dict_new(void)
 {
     dict_t *dict = get_new_dict_full(1);
