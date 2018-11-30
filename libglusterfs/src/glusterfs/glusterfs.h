@@ -179,6 +179,8 @@
 
 #define GLUSTERFS_INTERNAL_FOP_KEY "glusterfs-internal-fop"
 
+#define GF_ENFORCE_MANDATORY_LOCK "trusted.glusterfs.enforce-mandatory-lock"
+
 /* GlusterFS Internal FOP Indicator flags
  * (To pass information on the context in which a paritcular
  *  fop is performed between translators)

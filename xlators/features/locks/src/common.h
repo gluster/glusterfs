@@ -32,18 +32,38 @@
 
 #define SET_FLOCK_PID(flock, lock) ((flock)->l_pid = lock->client_pid)
 
+#define PL_STACK_UNWIND_AND_FREE(__local, fop, frame, op_ret, params...)       \
+    do {                                                                       \
+        frame->local = NULL;                                                   \
+        STACK_UNWIND_STRICT(fop, frame, op_ret, params);                       \
+        if (__local) {                                                         \
+            if (__local->inodelk_dom_count_req)                                \
+                data_unref(__local->inodelk_dom_count_req);                    \
+            loc_wipe(&__local->loc[0]);                                        \
+            loc_wipe(&__local->loc[1]);                                        \
+            if (__local->fd)                                                   \
+                fd_unref(__local->fd);                                         \
+            if (__local->inode)                                                \
+                inode_unref(__local->inode);                                   \
+            mem_put(__local);                                                  \
+        }                                                                      \
+    } while (0)
+
 posix_lock_t *
 new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
                gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags, int can_block);
 
 pl_inode_t *
-pl_inode_get(xlator_t *this, inode_t *inode);
+pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local);
 
 posix_lock_t *
 pl_getlk(pl_inode_t *inode, posix_lock_t *lock);
 
 int
 pl_setlk(xlator_t *this, pl_inode_t *inode, posix_lock_t *lock, int can_block);
+
+int
+pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock);
 
 void
 grant_blocked_locks(xlator_t *this, pl_inode_t *inode);
@@ -182,4 +202,14 @@ __pl_queue_lock(pl_inode_t *pl_inode, posix_lock_t *reqlock);
 
 gf_boolean_t
 pl_does_monkey_want_stuck_lock();
+
+gf_boolean_t
+pl_is_mandatory_locking_enabled(pl_inode_t *pl_inode);
+
+void
+pl_clean_local(pl_local_t *local);
+
+int
+pl_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd);
+
 #endif /* __COMMON_H__ */

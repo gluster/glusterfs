@@ -179,6 +179,24 @@ struct __pl_inode {
                            of inode_t as long as there are
                            locks on it */
     gf_boolean_t migrated;
+
+    /* Flag to indicate whether to read mlock-enforce xattr from disk */
+    gf_boolean_t check_mlock_info;
+
+    /* Mandatory_lock enforce: IO will be allowed if and only if the lkowner has
+       held the lock.
+
+       Note: An xattr is set on the file to recover this information post
+       reboot. If client does not want mandatory lock to be enforced, then it
+       should remove this xattr explicitly
+    */
+    gf_boolean_t mlock_enforced;
+    /* There are scenarios where mandatory lock is granted but there are IOs
+       pending at posix level. To avoid this before preempting the previous lock
+       owner, we wait for all the fops to be unwound.
+    */
+    int fop_wind_count;
+    pthread_cond_t check_fop_wind_count;
 };
 typedef struct __pl_inode pl_inode_t;
 
@@ -213,12 +231,14 @@ typedef struct {
     dict_t *xdata;
     loc_t loc[2];
     fd_t *fd;
+    inode_t *inode;
     off_t offset;
     glusterfs_fop_t op;
     gf_boolean_t entrylk_count_req;
     gf_boolean_t inodelk_count_req;
     gf_boolean_t posixlk_count_req;
     gf_boolean_t parent_entrylk_req;
+    int update_mlock_enforced_flag;
 } pl_local_t;
 
 typedef struct {
@@ -238,6 +258,8 @@ typedef struct _locks_ctx {
     struct list_head entrylk_lockers;
     struct list_head metalk_list;
 } pl_ctx_t;
+
+typedef enum { DECREMENT, INCREMENT } pl_count_op_t;
 
 pl_ctx_t *
 pl_ctx_get(client_t *client, xlator_t *xlator);

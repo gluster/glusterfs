@@ -992,7 +992,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
         }
     }
 
-    pinode = pl_inode_get(this, inode);
+    pinode = pl_inode_get(this, inode, NULL);
     if (!pinode) {
         op_errno = ENOMEM;
         goto unwind;
