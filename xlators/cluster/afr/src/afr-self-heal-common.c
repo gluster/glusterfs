@@ -1174,13 +1174,20 @@ afr_sh_fav_by_size(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     uint64_t cmp_sz = 0;
 
     priv = this->private;
-
     for (i = 0; i < priv->child_count; i++) {
         if (replies[i].valid == 1) {
             gf_msg_debug(this->name, 0,
                          "Child:%s file size = %" PRIu64 " for gfid %s",
                          priv->children[i]->name, replies[i].poststat.ia_size,
                          uuid_utoa(inode->gfid));
+            if (replies[i].poststat.ia_type == IA_IFDIR) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
+                       "Cannot perform selfheal on %s. "
+                       "Size policy is not applicable to directories.",
+                       uuid_utoa(inode->gfid));
+                break;
+            }
             if (replies[i].poststat.ia_size > cmp_sz) {
                 cmp_sz = replies[i].poststat.ia_size;
                 fav_child = i;
@@ -1252,7 +1259,10 @@ afr_mark_split_brain_source_sinks_by_policy(
     priv = this->private;
 
     fav_child = afr_sh_get_fav_by_policy(this, replies, inode, &policy_str);
-    if (fav_child > priv->child_count - 1) {
+    if (fav_child == -1) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
+               "No child selected by favorite-child policy.");
+    } else if (fav_child > priv->child_count - 1) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
                "Invalid child (%d) "
                "selected by policy %s.",
