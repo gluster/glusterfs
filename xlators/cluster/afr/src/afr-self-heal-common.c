@@ -1163,7 +1163,8 @@ afr_sh_fav_by_ctime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
 }
 
 /*
- * afr_sh_fav_by_size: Choose favorite child by size.
+ * afr_sh_fav_by_size: Choose favorite child by size
+ * when not all files are of zero size.
  */
 int
 afr_sh_fav_by_size(xlator_t *this, struct afr_reply *replies, inode_t *inode)
@@ -1175,24 +1176,30 @@ afr_sh_fav_by_size(xlator_t *this, struct afr_reply *replies, inode_t *inode)
 
     priv = this->private;
     for (i = 0; i < priv->child_count; i++) {
-        if (replies[i].valid == 1) {
-            gf_msg_debug(this->name, 0,
-                         "Child:%s file size = %" PRIu64 " for gfid %s",
-                         priv->children[i]->name, replies[i].poststat.ia_size,
-                         uuid_utoa(inode->gfid));
-            if (replies[i].poststat.ia_type == IA_IFDIR) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
-                       "Cannot perform selfheal on %s. "
-                       "Size policy is not applicable to directories.",
-                       uuid_utoa(inode->gfid));
-                break;
-            }
-            if (replies[i].poststat.ia_size > cmp_sz) {
-                cmp_sz = replies[i].poststat.ia_size;
-                fav_child = i;
-            }
+        if (!replies[i].valid) {
+            continue;
         }
+        gf_msg_debug(this->name, 0,
+                     "Child:%s file size = %" PRIu64 " for gfid %s",
+                     priv->children[i]->name, replies[i].poststat.ia_size,
+                     uuid_utoa(inode->gfid));
+        if (replies[i].poststat.ia_type == IA_IFDIR) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
+                   "Cannot perform selfheal on %s. "
+                   "Size policy is not applicable to directories.",
+                   uuid_utoa(inode->gfid));
+            break;
+        }
+        if (replies[i].poststat.ia_size > cmp_sz) {
+            cmp_sz = replies[i].poststat.ia_size;
+            fav_child = i;
+        } else if (replies[i].poststat.ia_size == cmp_sz) {
+            fav_child = -1;
+        }
+    }
+    if (fav_child == -1) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
+               "No bigger file");
     }
     return fav_child;
 }
