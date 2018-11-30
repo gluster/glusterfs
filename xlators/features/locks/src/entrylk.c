@@ -647,7 +647,7 @@ check_entrylk_on_basename(xlator_t *this, inode_t *parent, char *basename)
     pl_dom_list_t *dom = NULL;
     pl_entry_lock_t *conf = NULL;
 
-    pl_inode_t *pinode = pl_inode_get(this, parent);
+    pl_inode_t *pinode = pl_inode_get(this, parent, NULL);
     if (!pinode)
         goto out;
     pthread_mutex_lock(&pinode->mutex);
@@ -769,7 +769,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     if (xdata)
         dict_ret = dict_get_str(xdata, "connection-id", &conn_id);
 
-    pinode = pl_inode_get(this, inode);
+    pinode = pl_inode_get(this, inode, NULL);
     if (!pinode) {
         op_errno = ENOMEM;
         goto out;

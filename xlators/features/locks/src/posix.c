@@ -43,21 +43,6 @@ pl_lockinfo_get_brickname(xlator_t *, inode_t *, int32_t *);
 static int
 fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 
-#define PL_STACK_UNWIND_AND_FREE(__local, fop, frame, op_ret, params...)       \
-    do {                                                                       \
-        frame->local = NULL;                                                   \
-        STACK_UNWIND_STRICT(fop, frame, op_ret, params);                       \
-        if (__local) {                                                         \
-            if (__local->inodelk_dom_count_req)                                \
-                data_unref(__local->inodelk_dom_count_req);                    \
-            loc_wipe(&__local->loc[0]);                                        \
-            loc_wipe(&__local->loc[1]);                                        \
-            if (__local->fd)                                                   \
-                fd_unref(__local->fd);                                         \
-            mem_put(__local);                                                  \
-        }                                                                      \
-    } while (0)
-
 /*
  * The client is always requesting data, but older
  * servers were not returning it. Newer ones are, so
@@ -115,19 +100,47 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 #define PL_LOCAL_GET_REQUESTS(frame, this, xdata, __fd, __loc, __newloc)       \
     do {                                                                       \
         if (pl_has_xdata_requests(xdata)) {                                    \
-            frame->local = mem_get0(this->local_pool);                         \
+            if (!frame->local)                                                 \
+                frame->local = mem_get0(this->local_pool);                     \
             pl_local_t *__local = frame->local;                                \
             if (__local) {                                                     \
                 if (__fd) {                                                    \
                     __local->fd = fd_ref(__fd);                                \
+                    __local->inode = inode_ref(__fd->inode);                   \
                 } else {                                                       \
                     if (__loc)                                                 \
                         loc_copy(&__local->loc[0], __loc);                     \
                     if (__newloc)                                              \
                         loc_copy(&__local->loc[1], __newloc);                  \
+                    __local->inode = inode_ref(__local->loc[0].inode);         \
                 }                                                              \
                 pl_get_xdata_requests(__local, xdata);                         \
             }                                                                  \
+        }                                                                      \
+    } while (0)
+
+#define PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, fd)            \
+    do {                                                                       \
+        if (dict_get(dict, GF_ENFORCE_MANDATORY_LOCK) ||                       \
+            (name && (strcmp(name, GF_ENFORCE_MANDATORY_LOCK) == 0))) {        \
+            inode_t *__inode = (loc ? loc->inode : fd->inode);                 \
+            pl_inode_t *__pl_inode = pl_inode_get(this, __inode, NULL);        \
+            if (!pl_is_mandatory_locking_enabled(__pl_inode)) {                \
+                op_ret = -1;                                                   \
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL, 0,                    \
+                       "option %s would need mandatory lock to be enabled",    \
+                       GF_ENFORCE_MANDATORY_LOCK);                             \
+                op_errno = EINVAL;                                             \
+                goto unwind;                                                   \
+            }                                                                  \
+                                                                               \
+            op_ret = pl_local_init(frame, this, loc, fd);                      \
+            if (op_ret) {                                                      \
+                op_errno = ENOMEM;                                             \
+                goto unwind;                                                   \
+            }                                                                  \
+                                                                               \
+            ((pl_local_t *)(frame->local))->update_mlock_enforced_flag = 1;    \
         }                                                                      \
     } while (0)
 
@@ -215,6 +228,42 @@ pl_get_xdata_rsp_args(pl_local_t *local, char *fop, inode_t **parent,
             *inode = local->loc[i].parent;
         }
     }
+}
+
+static inline int
+pl_track_io_fop_count(pl_local_t *local, xlator_t *this, pl_count_op_t op)
+{
+    pl_inode_t *pl_inode = NULL;
+
+    if (!local)
+        return -1;
+
+    pl_inode = pl_inode_get(this, local->inode, NULL);
+    if (!pl_inode)
+        return -1;
+
+    if (pl_inode->mlock_enforced) {
+        pthread_mutex_lock(&pl_inode->mutex);
+        {
+            if (op == DECREMENT) {
+                pl_inode->fop_wind_count--;
+                if (pl_inode->fop_wind_count == 0) {
+                    pthread_cond_broadcast(&pl_inode->check_fop_wind_count);
+                }
+                /*
+                Possible race where lock was enforced in the unwind path
+                if (pl_inode->fop_wind_count == -1) {
+                    pl_inode->fop_wind_count = 0;
+                }
+                */
+            } else {
+                pl_inode->fop_wind_count++;
+            }
+        }
+        pthread_mutex_unlock(&pl_inode->mutex);
+    }
+
+    return 0;
 }
 
 static int32_t
@@ -387,23 +436,6 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
         pl_posixlk_xattr_fill(this, inode, xdata, max_lock);
 }
 
-/* Return true in case we need to ensure mandatory-locking
- * semnatics under different modes.
- */
-gf_boolean_t
-pl_is_mandatory_locking_enabled(pl_inode_t *pl_inode)
-{
-    posix_locks_private_t *priv = THIS->private;
-
-    if (priv->mandatory_mode == MLK_FILE_BASED && pl_inode->mandatory)
-        return _gf_true;
-    else if (priv->mandatory_mode == MLK_FORCED ||
-             priv->mandatory_mode == MLK_OPTIMAL)
-        return _gf_true;
-
-    return _gf_false;
-}
-
 /* Checks whether the region where fop is acting upon conflicts
  * with existing locks. If there is no conflict function returns
  * 1 else returns 0 with can_block boolean set accordingly to
@@ -416,15 +448,19 @@ pl_is_fop_allowed(pl_inode_t *pl_inode, posix_lock_t *region, fd_t *fd,
     int ret = 0;
 
     if (!__rw_allowable(pl_inode, region, op)) {
-        if ((!fd) || (fd && (fd->flags & O_NONBLOCK))) {
+        if (pl_inode->mlock_enforced) {
+            *can_block = _gf_false;
+        } else if ((!fd) || (fd && (fd->flags & O_NONBLOCK))) {
             gf_log("locks", GF_LOG_TRACE,
                    "returning EAGAIN"
                    " because fd is O_NONBLOCK");
             *can_block = _gf_false;
-        } else
+        } else {
             *can_block = _gf_true;
-    } else
+        }
+    } else {
         ret = 1;
+    }
 
     return ret;
 }
@@ -480,8 +516,10 @@ pl_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
-    STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, prebuf, postbuf,
-                        xdata);
+    pl_track_io_fop_count(frame->local, this, DECREMENT);
+
+    PL_STACK_UNWIND(discard, xdata, frame, op_ret, op_errno, prebuf, postbuf,
+                    xdata);
     return 0;
 }
 
@@ -489,6 +527,8 @@ int
 pl_discard_cont(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 size_t len, dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, INCREMENT);
+
     STACK_WIND(frame, pl_discard_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
     return 0;
@@ -498,6 +538,7 @@ int32_t
 pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
            size_t len, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
     pl_inode_t *pl_inode = NULL;
     pl_rw_req_t *rw = NULL;
     posix_lock_t region = {
@@ -514,7 +555,18 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
-    pl_inode = pl_inode_get(this, fd->inode);
+    local = mem_get0(this->local_pool);
+    if (!local) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        goto unwind;
+    }
+
+    frame->local = local;
+    local->inode = inode_ref(fd->inode);
+    local->fd = fd_ref(fd);
+
+    pl_inode = pl_inode_get(this, fd->inode, local);
     if (!pl_inode) {
         op_ret = -1;
         op_errno = ENOMEM;
@@ -538,9 +590,12 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         {
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_DISCARD,
                                         &can_block);
-            if (allowed == 1)
+            if (allowed == 1) {
+                if (pl_inode->mlock_enforced) {
+                    pl_inode->fop_wind_count++;
+                }
                 goto unlock;
-            else if (!can_block) {
+            } else if (!can_block) {
                 op_errno = EAGAIN;
                 op_ret = -1;
                 goto unlock;
@@ -575,7 +630,8 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                    FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
 unwind:
     if (op_ret == -1)
-        STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, NULL, NULL, NULL);
+        PL_STACK_UNWIND(discard, xdata, frame, op_ret, op_errno, NULL, NULL,
+                        NULL);
 
     return 0;
 }
@@ -585,8 +641,10 @@ pl_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
-    STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, prebuf, postbuf,
-                        xdata);
+    pl_track_io_fop_count(frame->local, this, DECREMENT);
+
+    PL_STACK_UNWIND(zerofill, xdata, frame, op_ret, op_errno, prebuf, postbuf,
+                    xdata);
     return 0;
 }
 
@@ -594,6 +652,8 @@ int
 pl_zerofill_cont(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                  off_t len, dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, INCREMENT);
+
     STACK_WIND(frame, pl_zerofill_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->zerofill, fd, offset, len, xdata);
     return 0;
@@ -603,6 +663,7 @@ int32_t
 pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             off_t len, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
     pl_inode_t *pl_inode = NULL;
     pl_rw_req_t *rw = NULL;
     posix_lock_t region = {
@@ -619,7 +680,18 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
-    pl_inode = pl_inode_get(this, fd->inode);
+    local = mem_get0(this->local_pool);
+    if (!local) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        goto unwind;
+    }
+
+    frame->local = local;
+    local->inode = inode_ref(fd->inode);
+    local->fd = fd_ref(fd);
+
+    pl_inode = pl_inode_get(this, fd->inode, local);
     if (!pl_inode) {
         op_ret = -1;
         op_errno = ENOMEM;
@@ -643,9 +715,12 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         {
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_ZEROFILL,
                                         &can_block);
-            if (allowed == 1)
+            if (allowed == 1) {
+                if (pl_inode->mlock_enforced) {
+                    pl_inode->fop_wind_count++;
+                }
                 goto unlock;
-            else if (!can_block) {
+            } else if (!can_block) {
                 op_errno = EAGAIN;
                 op_ret = -1;
                 goto unlock;
@@ -680,8 +755,8 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                    FIRST_CHILD(this)->fops->zerofill, fd, offset, len, xdata);
 unwind:
     if (op_ret == -1)
-        STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, NULL, NULL,
-                            NULL);
+        PL_STACK_UNWIND(zerofill, xdata, frame, op_ret, op_errno, NULL, NULL,
+                        NULL);
 
     return 0;
 }
@@ -693,20 +768,17 @@ pl_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     pl_local_t *local = frame->local;
 
-    if (local->op == GF_FOP_TRUNCATE)
-        loc_wipe(&local->loc[0]);
-
     if (local->xdata)
         dict_unref(local->xdata);
-    if (local->fd)
-        fd_unref(local->fd);
+
+    pl_track_io_fop_count(local, this, DECREMENT);
 
     if (local->op == GF_FOP_TRUNCATE)
-        STACK_UNWIND_STRICT(truncate, frame, op_ret, op_errno, prebuf, postbuf,
-                            xdata);
+        PL_STACK_UNWIND(truncate, xdata, frame, op_ret, op_errno, prebuf,
+                        postbuf, xdata);
     else
-        STACK_UNWIND_STRICT(ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
-                            xdata);
+        PL_STACK_UNWIND(ftruncate, xdata, frame, op_ret, op_errno, prebuf,
+                        postbuf, xdata);
     return 0;
 }
 
@@ -714,6 +786,8 @@ int
 pl_ftruncate_cont(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                   dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, INCREMENT);
+
     STACK_WIND(frame, pl_truncate_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
     return 0;
@@ -723,6 +797,8 @@ int
 pl_truncate_cont(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                  dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, INCREMENT);
+
     STACK_WIND(frame, pl_truncate_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
     return 0;
@@ -761,7 +837,9 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     else
         inode = local->fd->inode;
 
-    pl_inode = pl_inode_get(this, inode);
+    local->inode = inode_ref(inode);
+
+    pl_inode = pl_inode_get(this, inode, local);
     if (!pl_inode) {
         op_ret = -1;
         op_errno = ENOMEM;
@@ -785,9 +863,12 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             allowed = pl_is_fop_allowed(pl_inode, &region, local->fd, local->op,
                                         &can_block);
 
-            if (allowed == 1)
+            if (allowed == 1) {
+                if (pl_inode->mlock_enforced) {
+                    pl_inode->fop_wind_count++;
+                }
                 goto unlock;
-            else if (!can_block) {
+            } else if (!can_block) {
                 op_errno = EAGAIN;
                 op_ret = -1;
                 goto unlock;
@@ -846,21 +927,17 @@ unwind:
                "ret: %d, error: %s",
                op_ret, strerror(op_errno));
 
-        if (local->op == GF_FOP_TRUNCATE)
-            loc_wipe(&local->loc[0]);
         if (local->xdata)
             dict_unref(local->xdata);
-        if (local->fd)
-            fd_unref(local->fd);
 
         switch (local->op) {
             case GF_FOP_TRUNCATE:
-                STACK_UNWIND_STRICT(truncate, frame, op_ret, op_errno, buf,
-                                    NULL, xdata);
+                PL_STACK_UNWIND(truncate, xdata, frame, op_ret, op_errno, buf,
+                                NULL, xdata);
                 break;
             case GF_FOP_FTRUNCATE:
-                STACK_UNWIND_STRICT(ftruncate, frame, op_ret, op_errno, buf,
-                                    NULL, xdata);
+                PL_STACK_UNWIND(ftruncate, xdata, frame, op_ret, op_errno, buf,
+                                NULL, xdata);
                 break;
             default:
                 break;
@@ -892,6 +969,7 @@ pl_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     STACK_WIND(frame, truncate_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, NULL);
     ret = 0;
+
 unwind:
     if (ret == -1) {
         gf_log(this ? this->name : "locks", GF_LOG_ERROR,
@@ -1060,7 +1138,7 @@ pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
         goto out;
     }
 
-    pl_inode = pl_inode_get(this, inode);
+    pl_inode = pl_inode_get(this, inode, NULL);
     if (!pl_inode) {
         *op_errno = ENOMEM;
         goto out;
@@ -1312,7 +1390,8 @@ pl_fgetxattr_handle_lockinfo(xlator_t *this, fd_t *fd, dict_t *dict,
     int32_t len = 0;
     dict_t *tmp = NULL;
 
-    pl_inode_t *pl_inode = pl_inode_get(this, fd->inode);
+    pl_inode_t *pl_inode = pl_inode_get(this, fd->inode, NULL);
+
     if (!pl_inode) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get inode.");
         *op_errno = EBADFD;
@@ -1463,7 +1542,7 @@ pl_migrate_locks(call_frame_t *frame, fd_t *newfd, uint64_t oldfd_num,
     int32_t op_ret = 0;
     uint64_t newfd_num = fd_to_fdnum(newfd);
 
-    pl_inode_t *pl_inode = pl_inode_get(frame->this, newfd->inode);
+    pl_inode_t *pl_inode = pl_inode_get(frame->this, newfd->inode, NULL);
     if (pl_inode == NULL) {
         op_ret = -1;
         *op_errno = EBADFD;
@@ -1541,6 +1620,27 @@ int32_t
 pl_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
+    pl_inode_t *pl_inode = NULL;
+
+    local = frame->local;
+    if (local && local->update_mlock_enforced_flag && op_ret != -1) {
+        pl_inode = pl_inode_get(this, local->inode, NULL);
+        if (!pl_inode) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            goto unwind;
+        }
+
+        pthread_mutex_lock(&pl_inode->mutex);
+        {
+            pl_inode->mlock_enforced = _gf_true;
+            pl_inode->check_mlock_info = _gf_false;
+        }
+        pthread_mutex_unlock(&pl_inode->mutex);
+    }
+
+unwind:
     PL_STACK_UNWIND_FOR_CLIENT(fsetxattr, xdata, frame, op_ret, op_errno,
                                xdata);
     return 0;
@@ -1553,6 +1653,7 @@ pl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
     int32_t op_errno = 0;
     void *lockinfo_buf = NULL;
     int len = 0;
+    char *name = NULL;
 
     int32_t op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY,
                                           &lockinfo_buf, &len);
@@ -1568,12 +1669,16 @@ pl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
 usual:
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
+
+    PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, ((loc_t *)NULL), fd);
+
     STACK_WIND(frame, pl_fsetxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(fsetxattr, frame, op_ret, op_errno, NULL);
+    PL_STACK_UNWIND_FOR_CLIENT(fsetxattr, xdata, frame, op_ret, op_errno, NULL);
+
     return 0;
 }
 
@@ -1621,7 +1726,7 @@ pl_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int
 pl_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-    pl_inode_t *pl_inode = pl_inode_get(this, fd->inode);
+    pl_inode_t *pl_inode = pl_inode_get(this, fd->inode, NULL);
     if (!pl_inode) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get inode.");
         STACK_UNWIND_STRICT(flush, frame, -1, EBADFD, NULL);
@@ -1702,7 +1807,7 @@ pl_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
     op_ret = 0, op_errno = 0;
-    pl_inode = pl_inode_get(this, fd->inode);
+    pl_inode = pl_inode_get(this, fd->inode, NULL);
     if (!pl_inode) {
         gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM, "Could not get inode");
         op_ret = -1;
@@ -1783,7 +1888,8 @@ int
 pl_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
+
     STACK_WIND(frame, pl_create_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->create, loc, flags, mode, umask, fd,
                xdata);
@@ -1795,6 +1901,8 @@ pl_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, struct iovec *vector, int32_t count,
              struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, DECREMENT);
+
     PL_STACK_UNWIND(readv, xdata, frame, op_ret, op_errno, vector, count, stbuf,
                     iobref, xdata);
 
@@ -1806,6 +1914,8 @@ pl_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf,
               dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, DECREMENT);
+
     PL_STACK_UNWIND(writev, xdata, frame, op_ret, op_errno, prebuf, postbuf,
                     xdata);
 
@@ -1828,6 +1938,8 @@ do_blocked_rw(pl_inode_t *pl_inode)
             if (__rw_allowable(pl_inode, &rw->region, rw->stub->fop)) {
                 list_del_init(&rw->list);
                 list_add_tail(&rw->list, &wind_list);
+                if (pl_inode->mlock_enforced)
+                    pl_inode->fop_wind_count++;
             }
         }
     }
@@ -1843,12 +1955,68 @@ do_blocked_rw(pl_inode_t *pl_inode)
     return;
 }
 
+/* when mandatory lock is enforced:
+    If an IO request comes on a region which is out of the boundary of the
+    granted mandatory lock, it will be rejected.
+
+    Note: There is no IO blocking with mandatory lock enforced as it may be
+    a stale data from an old client.
+ */
+gf_boolean_t static within_range(posix_lock_t *existing, posix_lock_t *new)
+{
+    if (existing->fl_start <= new->fl_start && existing->fl_end >= new->fl_end)
+        return _gf_true;
+
+    return _gf_false;
+}
+
 static int
 __rw_allowable(pl_inode_t *pl_inode, posix_lock_t *region, glusterfs_fop_t op)
 {
     posix_lock_t *l = NULL;
     posix_locks_private_t *priv = THIS->private;
     int ret = 1;
+
+    if (pl_inode->mlock_enforced) {
+        list_for_each_entry(l, &pl_inode->ext_list, list)
+        {
+            /*
+                with lock enforced (fencing) there should not be any blocking
+                lock coexisting.
+            */
+            if (same_owner(l, region)) {
+                /* Should range check be strict for same owner with fencing? */
+                if (locks_overlap(l, region)) {
+                    if (within_range(l, region)) {
+                        return 1;
+                    } else {
+                        /*
+                        Should we allow read fop if it does not fit it in the
+                        range?
+                        if (op == GF_FOP_READ && l->fl_type != F_WRLCK) {
+                            return 1;
+                        }
+                        */
+                        return 0;
+                    }
+                }
+            } else {
+                if (locks_overlap(l, region)) {
+                    /*
+                    with fencing should a read from a different owner be
+                    allowed if the mandatory lock taken is F_RDLCK?
+                    if (op == GF_FOP_READ && l->fl_type != F_WRLCK) {
+                        return 1;
+                    }
+                    */
+                    return 0;
+                }
+            }
+        }
+
+        /* No lock has been taken by this owner */
+        return 0;
+    }
 
     list_for_each_entry(l, &pl_inode->ext_list, list)
     {
@@ -1872,6 +2040,8 @@ int
 pl_readv_cont(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
               off_t offset, uint32_t flags, dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, INCREMENT);
+
     STACK_WIND(frame, pl_readv_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readv, fd, size, offset, flags, xdata);
 
@@ -1882,6 +2052,7 @@ int
 pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
          off_t offset, uint32_t flags, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
     pl_inode_t *pl_inode = NULL;
     pl_rw_req_t *rw = NULL;
     posix_lock_t region = {
@@ -1898,14 +2069,21 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
-    pl_inode = pl_inode_get(this, fd->inode);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
+
+    if (!frame->local) {
+        frame->local = mem_get0(this->local_pool);
+        local = frame->local;
+        local->inode = inode_ref(fd->inode);
+        local->fd = fd_ref(fd);
+    }
+
+    pl_inode = pl_inode_get(this, fd->inode, local);
     if (!pl_inode) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto unwind;
     }
-
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
 
     if (frame->root->pid < 0)
         enabled = _gf_false;
@@ -1924,9 +2102,12 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         {
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_READ,
                                         &can_block);
-            if (allowed == 1)
+            if (allowed == 1) {
+                if (pl_inode->mlock_enforced) {
+                    pl_inode->fop_wind_count++;
+                }
                 goto unlock;
-            else if (!can_block) {
+            } else if (!can_block) {
                 op_errno = EAGAIN;
                 op_ret = -1;
                 goto unlock;
@@ -1963,8 +2144,8 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 unwind:
     if (op_ret == -1)
-        STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, NULL, 0, NULL, NULL,
-                            NULL);
+        PL_STACK_UNWIND(readv, xdata, frame, op_ret, op_errno, NULL, 0, NULL,
+                        NULL, NULL);
 
     return 0;
 }
@@ -1974,6 +2155,8 @@ pl_writev_cont(call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iovec *vector, int count, off_t offset, uint32_t flags,
                struct iobref *iobref, dict_t *xdata)
 {
+    pl_track_io_fop_count(frame->local, this, INCREMENT);
+
     STACK_WIND(frame, pl_writev_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
                flags, iobref, xdata);
@@ -1986,6 +2169,7 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
           int32_t count, off_t offset, uint32_t flags, struct iobref *iobref,
           dict_t *xdata)
 {
+    pl_local_t *local = NULL;
     pl_inode_t *pl_inode = NULL;
     pl_rw_req_t *rw = NULL;
     posix_lock_t region = {
@@ -2002,14 +2186,21 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
-    pl_inode = pl_inode_get(this, fd->inode);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
+
+    if (!frame->local) {
+        frame->local = mem_get0(this->local_pool);
+        local = frame->local;
+        local->inode = inode_ref(fd->inode);
+        local->fd = fd_ref(fd);
+    }
+
+    pl_inode = pl_inode_get(this, fd->inode, local);
     if (!pl_inode) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto unwind;
     }
-
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
 
     if (frame->root->pid < 0)
         enabled = _gf_false;
@@ -2028,10 +2219,18 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         {
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_WRITE,
                                         &can_block);
-            if (allowed == 1)
+            if (allowed == 1) {
+                if (pl_inode->mlock_enforced) {
+                    pl_inode->fop_wind_count++;
+                }
                 goto unlock;
-            else if (!can_block) {
-                op_errno = EAGAIN;
+            } else if (!can_block) {
+                if (pl_inode->mlock_enforced) {
+                    op_errno = EBUSY;
+                } else {
+                    op_errno = EAGAIN;
+                }
+
                 op_ret = -1;
                 goto unlock;
             }
@@ -2067,7 +2266,8 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     }
 unwind:
     if (op_ret == -1)
-        STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, NULL, NULL, NULL);
+        PL_STACK_UNWIND(writev, xdata, frame, op_ret, op_errno, NULL, NULL,
+                        NULL);
 
     return 0;
 }
@@ -2260,6 +2460,7 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     posix_lock_t *conf = NULL;
     uint32_t lk_flags = 0;
     posix_locks_private_t *priv = this->private;
+    pl_local_t *local = NULL;
 
     int ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
     if (ret == 0) {
@@ -2290,7 +2491,17 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         flock->l_len = labs(flock->l_len);
     }
 
-    pl_inode = pl_inode_get(this, fd->inode);
+    local = mem_get0(this->local_pool);
+    if (!local) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        goto unwind;
+    } else {
+        frame->local = local;
+        local->fd = fd_ref(fd);
+    }
+
+    pl_inode = pl_inode_get(this, fd->inode, local);
     if (!pl_inode) {
         op_ret = -1;
         op_errno = ENOMEM;
@@ -2415,6 +2626,20 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 goto out;
             }
 
+            if (reqlock->fl_type != F_UNLCK && pl_inode->mlock_enforced) {
+                ret = pl_lock_preempt(pl_inode, reqlock);
+                if (ret == -1) {
+                    gf_log(this->name, GF_LOG_ERROR, "lock preempt failed");
+                    op_ret = -1;
+                    op_errno = EAGAIN;
+                    __destroy_lock(reqlock);
+                    goto out;
+                }
+
+                pl_trace_block(this, frame, fd, NULL, cmd, flock, NULL);
+                goto unwind;
+            }
+
             ret = pl_setlk(this, pl_inode, reqlock, can_block);
             if (ret == -1) {
                 if ((can_block) && (F_UNLCK != flock->l_type)) {
@@ -2440,7 +2665,7 @@ unwind:
     pl_trace_out(this, frame, fd, NULL, cmd, flock, op_ret, op_errno, NULL);
     pl_update_refkeeper(this, fd->inode);
 
-    STACK_UNWIND_STRICT(lk, frame, op_ret, op_errno, flock, xdata);
+    PL_STACK_UNWIND(lk, xdata, frame, op_ret, op_errno, flock, xdata);
 out:
     return 0;
 }
@@ -2473,7 +2698,7 @@ pl_forget(xlator_t *this, inode_t *inode)
     INIT_LIST_HEAD(&inodelks_released);
     INIT_LIST_HEAD(&entrylks_released);
 
-    pl_inode = pl_inode_get(this, inode);
+    pl_inode = pl_inode_get(this, inode, NULL);
     if (!pl_inode)
         return 0;
 
@@ -2660,7 +2885,7 @@ pl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 pl_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_lookup_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->lookup, loc, xdata);
     return 0;
@@ -2791,7 +3016,7 @@ pl_getactivelk(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     INIT_LIST_HEAD(&locks.list);
 
-    pl_inode = pl_inode_get(this, loc->inode);
+    pl_inode = pl_inode_get(this, loc->inode, NULL);
     if (!pl_inode) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "pl_inode_get failed");
 
@@ -2906,7 +3131,7 @@ pl_metalk(call_frame_t *frame, xlator_t *this, inode_t *inode)
     pl_meta_lock_t *reqlk = NULL;
     pl_ctx_t *ctx = NULL;
 
-    pl_inode = pl_inode_get(this, inode);
+    pl_inode = pl_inode_get(this, inode, NULL);
     if (!pl_inode) {
         gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
                "pl_inode mem allocation failedd");
@@ -3038,7 +3263,7 @@ pl_metaunlock(call_frame_t *frame, xlator_t *this, inode_t *inode, dict_t *dict)
         goto out;
     }
 
-    pl_inode = pl_inode_get(this, inode);
+    pl_inode = pl_inode_get(this, inode, NULL);
     if (!pl_inode) {
         ret = -1;
         goto out;
@@ -3110,6 +3335,26 @@ int32_t
 pl_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
+    pl_inode_t *pl_inode = NULL;
+    local = frame->local;
+    if (local && local->update_mlock_enforced_flag && op_ret != -1) {
+        pl_inode = pl_inode_get(this, local->inode, NULL);
+        if (!pl_inode) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            goto unwind;
+        }
+
+        pthread_mutex_lock(&pl_inode->mutex);
+        {
+            pl_inode->mlock_enforced = _gf_true;
+            pl_inode->check_mlock_info = _gf_false;
+        }
+        pthread_mutex_unlock(&pl_inode->mutex);
+    }
+
+unwind:
     PL_STACK_UNWIND_FOR_CLIENT(setxattr, xdata, frame, op_ret, op_errno, xdata);
     return 0;
 }
@@ -3121,15 +3366,15 @@ pl_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     int op_ret = 0;
     int op_errno = EINVAL;
     dict_t *xdata_rsp = NULL;
+    char *name = NULL;
 
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
 
     if (dict_get_sizen(dict, GF_META_LOCK_KEY)) {
         op_ret = pl_metalk(frame, this, loc->inode);
 
     } else if (dict_get_sizen(dict, GF_META_UNLOCK_KEY)) {
         op_ret = pl_metaunlock(frame, this, loc->inode, dict);
-
     } else {
         goto usual;
     }
@@ -3139,8 +3384,15 @@ pl_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     return 0;
 
 usual:
+    PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, ((fd_t *)NULL));
+
     STACK_WIND(frame, pl_setxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
+    return 0;
+
+unwind:
+    PL_STACK_UNWIND_FOR_CLIENT(setxattr, xdata, frame, op_ret, op_errno, xdata);
+
     return 0;
 }
 
@@ -3622,6 +3874,7 @@ reconfigure(xlator_t *this, dict_t *options)
 {
     posix_locks_private_t *priv = this->private;
     int ret = -1;
+    char *tmp_str = NULL;
 
     GF_OPTION_RECONF("trace", priv->trace, options, bool, out);
 
@@ -3642,6 +3895,16 @@ reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("notify-contention-delay", priv->notify_contention_delay,
                      options, uint32, out);
+
+    GF_OPTION_RECONF("mandatory-locking", tmp_str, options, str, out);
+    if (!strcmp(tmp_str, "forced"))
+        priv->mandatory_mode = MLK_FORCED;
+    else if (!strcmp(tmp_str, "file"))
+        priv->mandatory_mode = MLK_FILE_BASED;
+    else if (!strcmp(tmp_str, "optimal"))
+        priv->mandatory_mode = MLK_OPTIMAL;
+    else
+        priv->mandatory_mode = MLK_NONE;
 
     ret = 0;
 
@@ -3690,6 +3953,7 @@ init(xlator_t *this)
         priv->mandatory_mode = MLK_OPTIMAL;
     else
         priv->mandatory_mode = MLK_NONE;
+
     tmp_str = NULL;
 
     GF_OPTION_INIT("trace", priv->trace, bool, out);
@@ -3773,7 +4037,7 @@ int32_t
 pl_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
           dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, oldloc, newloc);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), oldloc, newloc);
 
     STACK_WIND(frame, pl_rename_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->rename, oldloc, newloc, xdata);
@@ -3877,7 +4141,7 @@ pl_setactivelk(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int op_errno = 0;
     int ret = 0;
 
-    pl_inode_t *pl_inode = pl_inode_get(this, loc->inode);
+    pl_inode_t *pl_inode = pl_inode_get(this, loc->inode, NULL);
     if (!pl_inode) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "pl_inode_get failed");
 
@@ -3909,7 +4173,7 @@ int32_t
 pl_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
           dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_unlink_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
     return 0;
@@ -3929,7 +4193,7 @@ int
 pl_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
          mode_t umask, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_mkdir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->mkdir, loc, mode, umask, xdata);
     return 0;
@@ -3947,7 +4211,7 @@ pl_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int
 pl_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
     return 0;
@@ -3967,7 +4231,7 @@ int
 pl_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
          dev_t rdev, mode_t umask, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_mknod_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, umask, xdata);
     return 0;
@@ -3987,7 +4251,7 @@ int
 pl_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
          dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_rmdir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->rmdir, loc, xflags, xdata);
     return 0;
@@ -4008,7 +4272,7 @@ int
 pl_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
            loc_t *loc, mode_t umask, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_symlink_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->symlink, linkname, loc, umask, xdata);
     return 0;
@@ -4028,7 +4292,7 @@ int
 pl_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, oldloc, newloc);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), oldloc, newloc);
     STACK_WIND(frame, pl_link_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
     return 0;
@@ -4104,7 +4368,7 @@ pl_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int
 pl_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_statfs_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->statfs, loc, xdata);
     return 0;
@@ -4114,6 +4378,27 @@ int32_t
 pl_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
+    pl_inode_t *pl_inode = NULL;
+
+    local = frame->local;
+    if (local && local->update_mlock_enforced_flag && op_ret != -1) {
+        pl_inode = pl_inode_get(this, local->inode, NULL);
+        if (!pl_inode) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            goto unwind;
+        }
+
+        pthread_mutex_lock(&pl_inode->mutex);
+        {
+            pl_inode->mlock_enforced = _gf_false;
+            pl_inode->check_mlock_info = _gf_false;
+        }
+        pthread_mutex_unlock(&pl_inode->mutex);
+    }
+
+unwind:
     PL_STACK_UNWIND_FOR_CLIENT(removexattr, xdata, frame, op_ret, op_errno,
                                xdata);
     return 0;
@@ -4123,9 +4408,22 @@ int
 pl_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                const char *name, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    int op_ret = 0;
+    int op_errno = EINVAL;
+
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
+
+    PL_CHECK_LOCK_ENFORCE_KEY(frame, ((dict_t *)NULL), name, this, loc,
+                              ((fd_t *)NULL));
+
     STACK_WIND(frame, pl_removexattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
+    return 0;
+
+unwind:
+    PL_STACK_UNWIND_FOR_CLIENT(removexattr, xdata, frame, op_ret, op_errno,
+                               NULL);
+
     return 0;
 }
 
@@ -4133,6 +4431,27 @@ int32_t
 pl_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
+    pl_local_t *local = NULL;
+    pl_inode_t *pl_inode = NULL;
+
+    local = frame->local;
+    if (local && local->update_mlock_enforced_flag && op_ret != -1) {
+        pl_inode = pl_inode_get(this, local->inode, NULL);
+        if (!pl_inode) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            goto unwind;
+        }
+
+        pthread_mutex_lock(&pl_inode->mutex);
+        {
+            pl_inode->mlock_enforced = _gf_false;
+            pl_inode->check_mlock_info = _gf_false;
+        }
+        pthread_mutex_unlock(&pl_inode->mutex);
+    }
+
+unwind:
     PL_STACK_UNWIND_FOR_CLIENT(fremovexattr, xdata, frame, op_ret, op_errno,
                                xdata);
     return 0;
@@ -4142,9 +4461,21 @@ int
 pl_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                 dict_t *xdata)
 {
+    int op_ret = -1;
+    int op_errno = EINVAL;
+
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
+
+    PL_CHECK_LOCK_ENFORCE_KEY(frame, ((dict_t *)NULL), name, this,
+                              ((loc_t *)NULL), fd);
+
     STACK_WIND(frame, pl_fremovexattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fremovexattr, fd, name, xdata);
+    return 0;
+
+unwind:
+    PL_STACK_UNWIND_FOR_CLIENT(fremovexattr, xdata, frame, op_ret, op_errno,
+                               NULL);
     return 0;
 }
 
@@ -4181,7 +4512,7 @@ int
 pl_xattrop(call_frame_t *frame, xlator_t *this, loc_t *loc,
            gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_xattrop_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->xattrop, loc, optype, xattr, xdata);
     return 0;
@@ -4220,7 +4551,7 @@ int
 pl_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
            int32_t valid, dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_setattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid, xdata);
     return 0;
@@ -4281,7 +4612,7 @@ int
 pl_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
             dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_readlink_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readlink, loc, size, xdata);
     return 0;
@@ -4299,7 +4630,7 @@ int
 pl_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
           dict_t *xdata)
 {
-    PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
     STACK_WIND(frame, pl_access_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->access, loc, mask, xdata);
     return 0;

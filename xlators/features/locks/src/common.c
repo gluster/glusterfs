@@ -17,6 +17,7 @@
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/common-utils.h>
+#include <glusterfs/syncop.h>
 
 #include "locks.h"
 #include "common.h"
@@ -322,7 +323,7 @@ pl_trace_flush(xlator_t *this, call_frame_t *frame, fd_t *fd)
     if (!priv->trace)
         return;
 
-    pl_inode = pl_inode_get(this, fd->inode);
+    pl_inode = pl_inode_get(this, fd->inode, NULL);
 
     if (pl_inode && __pl_inode_is_empty(pl_inode))
         return;
@@ -358,7 +359,7 @@ pl_update_refkeeper(xlator_t *this, inode_t *inode)
     int need_unref = 0;
     int need_ref = 0;
 
-    pl_inode = pl_inode_get(this, inode);
+    pl_inode = pl_inode_get(this, inode, NULL);
     if (!pl_inode)
         return;
 
@@ -385,8 +386,51 @@ pl_update_refkeeper(xlator_t *this, inode_t *inode)
         inode_ref(inode);
 }
 
+/* Get lock enforcement info from disk */
+int
+pl_fetch_mlock_info_from_disk(xlator_t *this, pl_inode_t *pl_inode,
+                              pl_local_t *local)
+{
+    dict_t *xdata_rsp = NULL;
+    int ret = 0;
+    int op_ret = 0;
+
+    if (!local) {
+        return -1;
+    }
+
+    if (local->fd) {
+        op_ret = syncop_fgetxattr(this, local->fd, &xdata_rsp,
+                                  GF_ENFORCE_MANDATORY_LOCK, NULL, NULL);
+    } else {
+        op_ret = syncop_getxattr(this, &local->loc[0], &xdata_rsp,
+                                 GF_ENFORCE_MANDATORY_LOCK, NULL, NULL);
+    }
+
+    pthread_mutex_lock(&pl_inode->mutex);
+    {
+        if (op_ret >= 0) {
+            pl_inode->mlock_enforced = _gf_true;
+            pl_inode->check_mlock_info = _gf_false;
+        } else {
+            gf_msg(this->name, GF_LOG_WARNING, -op_ret, 0,
+                   "getxattr failed with %d", op_ret);
+            pl_inode->mlock_enforced = _gf_false;
+
+            if (-op_ret == ENODATA) {
+                pl_inode->check_mlock_info = _gf_false;
+            } else {
+                pl_inode->check_mlock_info = _gf_true;
+            }
+        }
+    }
+    pthread_mutex_unlock(&pl_inode->mutex);
+
+    return ret;
+}
+
 pl_inode_t *
-pl_inode_get(xlator_t *this, inode_t *inode)
+pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
 {
     uint64_t tmp_pl_inode = 0;
     pl_inode_t *pl_inode = NULL;
@@ -399,6 +443,7 @@ pl_inode_get(xlator_t *this, inode_t *inode)
             pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
             goto unlock;
         }
+
         pl_inode = GF_CALLOC(1, sizeof(*pl_inode), gf_locks_mt_pl_inode_t);
         if (!pl_inode) {
             goto unlock;
@@ -407,6 +452,7 @@ pl_inode_get(xlator_t *this, inode_t *inode)
         gf_log(this->name, GF_LOG_TRACE, "Allocating new pl inode");
 
         pthread_mutex_init(&pl_inode->mutex, NULL);
+        pthread_cond_init(&pl_inode->check_fop_wind_count, 0);
 
         INIT_LIST_HEAD(&pl_inode->dom_list);
         INIT_LIST_HEAD(&pl_inode->ext_list);
@@ -418,6 +464,9 @@ pl_inode_get(xlator_t *this, inode_t *inode)
         INIT_LIST_HEAD(&pl_inode->queued_locks);
         gf_uuid_copy(pl_inode->gfid, inode->gfid);
 
+        pl_inode->check_mlock_info = _gf_true;
+        pl_inode->mlock_enforced = _gf_false;
+
         ret = __inode_ctx_put(inode, this, (uint64_t)(long)(pl_inode));
         if (ret) {
             pthread_mutex_destroy(&pl_inode->mutex);
@@ -428,6 +477,15 @@ pl_inode_get(xlator_t *this, inode_t *inode)
     }
 unlock:
     UNLOCK(&inode->lock);
+
+    if (pl_is_mandatory_locking_enabled(pl_inode) &&
+        pl_inode->check_mlock_info && local) {
+        /* Note: The lock enforcement information per file can be stored in the
+           attribute flag of stat(x) in posix. With that there won't be a need
+           for doing getxattr post a reboot
+        */
+        pl_fetch_mlock_info_from_disk(this, pl_inode, local);
+    }
 
     return pl_inode;
 }
@@ -1069,4 +1127,149 @@ pl_does_monkey_want_stuck_lock()
     if (monkey_unlock_rand_rem == 0)
         return _gf_true;
     return _gf_false;
+}
+
+int
+pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
+{
+    posix_lock_t *lock = NULL;
+    posix_lock_t *i = NULL;
+    pl_rw_req_t *rw = NULL;
+    pl_rw_req_t *itr = NULL;
+    struct list_head unwind_blist = {
+        0,
+    };
+    struct list_head unwind_rw_list = {
+        0,
+    };
+    int ret = 0;
+
+    INIT_LIST_HEAD(&unwind_blist);
+    INIT_LIST_HEAD(&unwind_rw_list);
+
+    pthread_mutex_lock(&pl_inode->mutex);
+    {
+        /*
+            - go through the lock list
+            - remove all locks from different owners
+            - same owner locks will be added or substracted based on
+              the new request
+            - add the new lock
+        */
+        list_for_each_entry_safe(lock, i, &pl_inode->ext_list, list)
+        {
+            if (lock->blocked) {
+                list_del_init(&lock->list);
+                list_add(&lock->list, &unwind_blist);
+                continue;
+            }
+
+            if (locks_overlap(lock, reqlock)) {
+                if (same_owner(lock, reqlock))
+                    continue;
+
+                /* remove conflicting locks */
+                list_del_init(&lock->list);
+                __delete_lock(lock);
+                __destroy_lock(lock);
+            }
+        }
+
+        __insert_and_merge(pl_inode, reqlock);
+
+        list_for_each_entry_safe(rw, itr, &pl_inode->rw_list, list)
+        {
+            list_del_init(&rw->list);
+            list_add(&rw->list, &unwind_rw_list);
+        }
+
+        while (pl_inode->fop_wind_count != 0) {
+            gf_msg(THIS->name, GF_LOG_TRACE, 0, 0,
+                   "waiting for fops to be drained");
+            pthread_cond_wait(&pl_inode->check_fop_wind_count,
+                              &pl_inode->mutex);
+        }
+    }
+    pthread_mutex_unlock(&pl_inode->mutex);
+
+    /* unwind blocked locks */
+    list_for_each_entry_safe(lock, i, &unwind_blist, list)
+    {
+        PL_STACK_UNWIND_AND_FREE(((pl_local_t *)lock->frame->local), lk,
+                                 lock->frame, -1, EBUSY, &lock->user_flock,
+                                 NULL);
+        __destroy_lock(lock);
+    }
+
+    /* unwind blocked IOs */
+    list_for_each_entry_safe(rw, itr, &unwind_rw_list, list)
+    {
+        pl_clean_local(rw->stub->frame->local);
+        call_unwind_error(rw->stub, -1, EBUSY);
+        GF_FREE(lock);
+    }
+
+    return ret;
+}
+
+/* Return true in case we need to ensure mandatory-locking
+ * semantics under different modes.
+ */
+gf_boolean_t
+pl_is_mandatory_locking_enabled(pl_inode_t *pl_inode)
+{
+    posix_locks_private_t *priv = THIS->private;
+
+    if (priv->mandatory_mode == MLK_FILE_BASED && pl_inode->mandatory)
+        return _gf_true;
+    else if (priv->mandatory_mode == MLK_FORCED ||
+             priv->mandatory_mode == MLK_OPTIMAL)
+        return _gf_true;
+
+    return _gf_false;
+}
+
+void
+pl_clean_local(pl_local_t *local)
+{
+    if (!local)
+        return;
+
+    if (local->inodelk_dom_count_req)
+        data_unref(local->inodelk_dom_count_req);
+    loc_wipe(&local->loc[0]);
+    loc_wipe(&local->loc[1]);
+    if (local->fd)
+        fd_unref(local->fd);
+    if (local->inode)
+        inode_unref(local->inode);
+    mem_put(local);
+}
+
+/*
+TODO: detach local initialization from PL_LOCAL_GET_REQUESTS and add it here
+*/
+int
+pl_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
+{
+    pl_local_t *local = NULL;
+
+    if (!loc && !fd) {
+        return -1;
+    }
+
+    if (!frame->local) {
+        local = mem_get0(this->local_pool);
+        if (!local) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, 0,
+                   "mem allocation failed");
+            return -1;
+        }
+
+        local->inode = (fd ? inode_ref(fd->inode) : inode_ref(loc->inode));
+
+        frame->local = local;
+    }
+
+    return 0;
 }
