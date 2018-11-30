@@ -23,6 +23,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-mgmt.h"
 #include "glusterd-messages.h"
 #include "glusterd-store.h"
 #include <glusterfs/run.h>
@@ -506,6 +507,7 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
         0,
     }};
     glusterd_conf_t *priv = NULL;
+    int32_t op = GD_OP_NONE;
     dict_t *dict = NULL;
     char *volname = NULL;
     gf_cli_defrag_type cmd = 0;
@@ -567,16 +569,24 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
     if ((cmd == GF_DEFRAG_CMD_STATUS) || (cmd == GF_DEFRAG_CMD_STATUS_TIER) ||
         (cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER) ||
         (cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_DETACH_STATUS)) {
-        ret = glusterd_op_begin(req, GD_OP_DEFRAG_BRICK_VOLUME, dict, msg,
-                                sizeof(msg));
+        op = GD_OP_DEFRAG_BRICK_VOLUME;
     } else
-        ret = glusterd_op_begin(req, GD_OP_REBALANCE, dict, msg, sizeof(msg));
+        op = GD_OP_REBALANCE;
 
+    if (priv->op_version < GD_OP_VERSION_6_0) {
+        gf_msg_debug(this->name, 0,
+                     "The cluster is operating at "
+                     "version less than %d. Falling back "
+                     "to op-sm framework.",
+                     GD_OP_VERSION_6_0);
+        ret = glusterd_op_begin(req, op, dict, msg, sizeof(msg));
+        glusterd_friend_sm();
+        glusterd_op_sm();
+    } else {
+        ret = glusterd_mgmt_v3_initiate_all_phases_with_brickop_phase(req, op,
+                                                                      dict);
+    }
 out:
-
-    glusterd_friend_sm();
-    glusterd_op_sm();
-
     if (ret) {
         if (msg[0] == '\0')
             snprintf(msg, sizeof(msg), "Operation failed");
@@ -585,8 +595,8 @@ out:
     }
 
     free(cli_req.dict.dict_val);  // malloced by xdr
-
-    return 0;
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
+    return ret;
 }
 
 int
@@ -624,6 +634,474 @@ glusterd_brick_validation(dict_t *dict, char *key, data_t *value, void *data)
         ret = -1;
         return ret;
     }
+
+    return ret;
+}
+
+int
+glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
+{
+    int ret = -1;
+    int32_t cmd = 0;
+    char *volname = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    char msg[2048] = {0};
+    char *task_id_str = NULL;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    GF_ASSERT(rsp_dict);
+    GF_ASSERT(req_dict);
+
+    ret = dict_get_strn(rsp_dict, "volname", SLEN("volname"), &volname);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "volname not found");
+        goto out;
+    }
+
+    ret = dict_get_int32n(rsp_dict, "rebalance-command",
+                          SLEN("rebalance-command"), &cmd);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "cmd not found");
+        goto out;
+    }
+
+    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
+                                          sizeof(msg));
+    if (ret) {
+        gf_msg_debug(this->name, 0, "failed to validate");
+        goto out;
+    }
+
+    /* reblance id is generted in glusterd_mgmt_v3_op_stage_rebalance(), but
+     * rsp_dict is unavailable there. So copying it to rsp_dict from req_dict
+     * here. So that cli can display the rebalance id.*/
+    if ((cmd == GF_DEFRAG_CMD_START) ||
+        (cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX) ||
+        (cmd == GF_DEFRAG_CMD_START_FORCE) ||
+        (cmd == GF_DEFRAG_CMD_START_TIER)) {
+        if (is_origin_glusterd(rsp_dict)) {
+            ret = dict_get_strn(req_dict, GF_REBALANCE_TID_KEY,
+                                SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+            if (ret) {
+                snprintf(msg, sizeof(msg), "Missing rebalance-id");
+                gf_msg(this->name, GF_LOG_WARNING, 0,
+                       GD_MSG_REBALANCE_ID_MISSING, "%s", msg);
+                ret = 0;
+            } else {
+                gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id,
+                                                 rsp_dict, GF_REBALANCE_TID_KEY,
+                                                 SLEN(GF_REBALANCE_TID_KEY));
+                if (ret) {
+                    snprintf(msg, sizeof(msg),
+                             "Failed to set rebalance id for volume %s",
+                             volname);
+                    gf_msg(this->name, GF_LOG_WARNING, 0,
+                           GD_MSG_DICT_SET_FAILED, "%s", msg);
+                }
+            }
+        }
+    }
+
+    /* Set task-id, if available, in rsp_dict for operations other than
+     * start. This is needed when we want rebalance id in xml output
+     */
+    if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP ||
+        cmd == GF_DEFRAG_CMD_STATUS_TIER) {
+        if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
+            if (GD_OP_REMOVE_BRICK == volinfo->rebal.op)
+                ret = glusterd_copy_uuid_to_dict(
+                    volinfo->rebal.rebalance_id, rsp_dict,
+                    GF_REMOVE_BRICK_TID_KEY, SLEN(GF_REMOVE_BRICK_TID_KEY));
+            else
+                ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id,
+                                                 rsp_dict, GF_REBALANCE_TID_KEY,
+                                                 SLEN(GF_REBALANCE_TID_KEY));
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                       "Failed to set task-id for volume %s", volname);
+                goto out;
+            }
+        }
+    }
+out:
+    return ret;
+}
+
+int
+glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
+{
+    char *volname = NULL;
+    char *cmd_str = NULL;
+    int ret = 0;
+    int32_t cmd = 0;
+    char msg[2048] = {0};
+    glusterd_volinfo_t *volinfo = NULL;
+    char *task_id_str = NULL;
+    xlator_t *this = 0;
+    int32_t is_force = 0;
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "volname not found");
+        goto out;
+    }
+
+    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
+                          &cmd);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "cmd not found");
+        goto out;
+    }
+
+    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
+                                          sizeof(msg));
+    if (ret) {
+        gf_msg_debug(this->name, 0, "failed to validate");
+        goto out;
+    }
+    switch (cmd) {
+        case GF_DEFRAG_CMD_START_TIER:
+            ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
+            if (ret)
+                is_force = 0;
+
+            if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                gf_asprintf(op_errstr,
+                            "volume %s is not a tier "
+                            "volume.",
+                            volinfo->volname);
+                ret = -1;
+                goto out;
+            }
+            if ((!is_force) && glusterd_is_tier_daemon_running(volinfo)) {
+                ret = gf_asprintf(op_errstr,
+                                  "A Tier daemon is "
+                                  "already running on volume %s",
+                                  volname);
+                ret = -1;
+                goto out;
+            }
+            /* Fall through */
+        case GF_DEFRAG_CMD_START:
+        case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+            /* Check if the connected clients are all of version
+             * glusterfs-3.6 and higher. This is needed to prevent some data
+             * loss issues that could occur when older clients are connected
+             * when rebalance is run. This check can be bypassed by using
+             * 'force'
+             */
+            ret = glusterd_check_client_op_version_support(
+                volname, GD_OP_VERSION_3_6_0, NULL);
+            if (ret) {
+                ret = gf_asprintf(op_errstr,
+                                  "Volume %s has one or "
+                                  "more connected clients of a version"
+                                  " lower than GlusterFS-v3.6.0. "
+                                  "Starting rebalance in this state "
+                                  "could lead to data loss.\nPlease "
+                                  "disconnect those clients before "
+                                  "attempting this command again.",
+                                  volname);
+                goto out;
+            }
+            /* Fall through */
+        case GF_DEFRAG_CMD_START_FORCE:
+            if (is_origin_glusterd(dict)) {
+                ret = glusterd_generate_and_set_task_id(
+                    dict, GF_REBALANCE_TID_KEY, SLEN(GF_REBALANCE_TID_KEY));
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TASKID_GEN_FAIL,
+                           "Failed to generate task-id");
+                    goto out;
+                }
+            } else {
+                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
+                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                if (ret) {
+                    snprintf(msg, sizeof(msg), "Missing rebalance-id");
+                    gf_msg(this->name, GF_LOG_WARNING, 0,
+                           GD_MSG_REBALANCE_ID_MISSING, "%s", msg);
+                    ret = 0;
+                }
+            }
+            ret = glusterd_defrag_start_validate(volinfo, msg, sizeof(msg),
+                                                 GD_OP_REBALANCE);
+            if (ret) {
+                gf_msg_debug(this->name, 0,
+                             "defrag start validate "
+                             "failed for volume %s.",
+                             volinfo->volname);
+                goto out;
+            }
+            break;
+        case GF_DEFRAG_CMD_STATUS_TIER:
+        case GF_DEFRAG_CMD_STATUS:
+        case GF_DEFRAG_CMD_STOP:
+
+            ret = dict_get_strn(dict, "cmd-str", SLEN("cmd-str"), &cmd_str);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                       "Failed to get "
+                       "command string");
+                ret = -1;
+                goto out;
+            }
+            if ((strstr(cmd_str, "rebalance") != NULL) &&
+                (volinfo->rebal.op != GD_OP_REBALANCE)) {
+                snprintf(msg, sizeof(msg),
+                         "Rebalance not started "
+                         "for volume %s.",
+                         volinfo->volname);
+                ret = -1;
+                goto out;
+            }
+
+            if (strstr(cmd_str, "remove-brick") != NULL) {
+                if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                    snprintf(msg, sizeof(msg),
+                             "remove-brick not "
+                             "started for volume %s.",
+                             volinfo->volname);
+                    ret = -1;
+                    goto out;
+                }
+
+                /* For remove-brick status/stop command check whether
+                 * given input brick is part of volume or not.*/
+
+                ret = dict_foreach_fnmatch(dict, "brick*",
+                                           glusterd_brick_validation, volinfo);
+                if (ret == -1) {
+                    snprintf(msg, sizeof(msg),
+                             "Incorrect brick"
+                             " for volume %s",
+                             volinfo->volname);
+                    goto out;
+                }
+            }
+            if (cmd == GF_DEFRAG_CMD_STATUS_TIER) {
+                if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                    snprintf(msg, sizeof(msg),
+                             "volume %s is not "
+                             "a tier volume.",
+                             volinfo->volname);
+                    ret = -1;
+                    goto out;
+                }
+            }
+
+            break;
+
+        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+        case GF_DEFRAG_CMD_DETACH_STATUS:
+            if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                snprintf(msg, sizeof(msg),
+                         "volume %s is not "
+                         "a tier volume.",
+                         volinfo->volname);
+                ret = -1;
+                goto out;
+            }
+
+            if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                snprintf(msg, sizeof(msg),
+                         "Detach-tier "
+                         "not started");
+                ret = -1;
+                goto out;
+            }
+            break;
+        default:
+            break;
+    }
+
+    ret = 0;
+out:
+    if (ret && op_errstr && msg[0])
+        *op_errstr = gf_strdup(msg);
+
+    return ret;
+}
+
+int
+glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
+{
+    char *volname = NULL;
+    int ret = 0;
+    int32_t cmd = 0;
+    char msg[2048] = {0};
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *tmp = NULL;
+    gf_boolean_t volfile_update = _gf_false;
+    char *task_id_str = NULL;
+    xlator_t *this = NULL;
+    uint32_t commit_hash;
+    int32_t is_force = 0;
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "volname not given");
+        goto out;
+    }
+
+    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
+                          &cmd);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "command not given");
+        goto out;
+    }
+
+    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
+                                          sizeof(msg));
+    if (ret) {
+        gf_msg_debug(this->name, 0, "cmd validate failed");
+        goto out;
+    }
+
+    switch (cmd) {
+        case GF_DEFRAG_CMD_START:
+        case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+        case GF_DEFRAG_CMD_START_FORCE:
+        case GF_DEFRAG_CMD_START_TIER:
+
+            ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
+            if (ret)
+                is_force = 0;
+            if (!is_force) {
+                /* Reset defrag status to 'NOT STARTED' whenever a
+                 * remove-brick/rebalance command is issued to remove
+                 * stale information from previous run.
+                 */
+                volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
+
+                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
+                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                if (ret) {
+                    gf_msg_debug(this->name, 0,
+                                 "Missing rebalance"
+                                 " id");
+                    ret = 0;
+                } else {
+                    gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                    volinfo->rebal.op = GD_OP_REBALANCE;
+                }
+                if (!gd_should_i_start_rebalance(volinfo)) {
+                    /* Store the rebalance-id and rebalance command
+                     * even if the peer isn't starting a rebalance
+                     * process. On peers where a rebalance process
+                     * is started, glusterd_handle_defrag_start
+                     * performs the storing.
+                     * Storing this is needed for having
+                     * 'volume status' work correctly.
+                     */
+                    glusterd_store_perform_node_state_store(volinfo);
+                    break;
+                }
+                if (dict_get_uint32(dict, "commit-hash", &commit_hash) == 0) {
+                    volinfo->rebal.commit_hash = commit_hash;
+                }
+                ret = glusterd_handle_defrag_start(volinfo, msg, sizeof(msg),
+                                                   cmd, NULL, GD_OP_REBALANCE);
+                break;
+            } else {
+                /* Reset defrag status to 'STARTED' so that the
+                 * pid is checked and restarted accordingly.
+                 * If the pid is not running it executes the
+                 * "NOT_STARTED" case and restarts the process
+                 */
+                volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_STARTED;
+                volinfo->rebal.defrag_cmd = cmd;
+                volinfo->rebal.op = GD_OP_REBALANCE;
+
+                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
+                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                if (ret) {
+                    gf_msg_debug(this->name, 0,
+                                 "Missing rebalance"
+                                 " id");
+                    ret = 0;
+                } else {
+                    gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                    volinfo->rebal.op = GD_OP_REBALANCE;
+                }
+                if (dict_get_uint32(dict, "commit-hash", &commit_hash) == 0) {
+                    volinfo->rebal.commit_hash = commit_hash;
+                }
+                ret = glusterd_restart_rebalance_for_volume(volinfo);
+                break;
+            }
+        case GF_DEFRAG_CMD_STOP:
+        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+            /* Clear task-id only on explicitly stopping rebalance.
+             * Also clear the stored operation, so it doesn't cause trouble
+             * with future rebalance/remove-brick starts
+             */
+            gf_uuid_clear(volinfo->rebal.rebalance_id);
+            volinfo->rebal.op = GD_OP_NONE;
+
+            /* Fall back to the old volume file in case of decommission*/
+            cds_list_for_each_entry_safe(brickinfo, tmp, &volinfo->bricks,
+                                         brick_list)
+            {
+                if (!brickinfo->decommissioned)
+                    continue;
+                brickinfo->decommissioned = 0;
+                volfile_update = _gf_true;
+            }
+
+            if (volfile_update == _gf_false) {
+                ret = 0;
+                break;
+            }
+
+            ret = glusterd_create_volfiles_and_notify_services(volinfo);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, 0,
+                       GD_MSG_VOLFILE_CREATE_FAIL, "failed to create volfiles");
+                goto out;
+            }
+
+            ret = glusterd_store_volinfo(volinfo,
+                                         GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_SET_FAIL,
+                       "failed to store volinfo");
+                goto out;
+            }
+
+            if (volinfo->type == GF_CLUSTER_TYPE_TIER &&
+                cmd == GF_OP_CMD_STOP_DETACH_TIER) {
+                glusterd_defrag_info_set(volinfo, dict,
+                                         GF_DEFRAG_CMD_START_TIER,
+                                         GF_DEFRAG_CMD_START, GD_OP_REBALANCE);
+                glusterd_restart_rebalance_for_volume(volinfo);
+            }
+
+            ret = 0;
+            break;
+
+        case GF_DEFRAG_CMD_START_DETACH_TIER:
+        case GF_DEFRAG_CMD_STATUS:
+        case GF_DEFRAG_CMD_STATUS_TIER:
+            break;
+        default:
+            break;
+    }
+
+out:
+    if (ret && op_errstr && msg[0])
+        *op_errstr = gf_strdup(msg);
 
     return ret;
 }

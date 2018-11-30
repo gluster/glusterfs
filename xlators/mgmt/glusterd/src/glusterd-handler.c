@@ -3093,7 +3093,8 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
         glusterd_friend_sm();
         glusterd_op_sm();
     } else {
-        ret = glusterd_mgmt_v3_initiate_profile_phases(req, cli_op, dict);
+        ret = glusterd_mgmt_v3_initiate_all_phases_with_brickop_phase(
+            req, cli_op, dict);
     }
 
 out:

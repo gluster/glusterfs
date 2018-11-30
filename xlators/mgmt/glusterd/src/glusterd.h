@@ -1370,6 +1370,15 @@ int
 glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr);
 
 int
+glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict);
+
+int
+glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr);
+
+int
+glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
+int
 glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr);
 int
 glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
