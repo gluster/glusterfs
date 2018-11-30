@@ -413,9 +413,11 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
         }
     }
 
-    if (!(*addr_len) && res) {
+    if (!(*addr_len) && res && res->ai_addr) {
         memcpy(addr, res->ai_addr, res->ai_addrlen);
         *addr_len = res->ai_addrlen;
+    } else {
+        ret = -1;
     }
 
     freeaddrinfo(res);
