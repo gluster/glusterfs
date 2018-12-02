@@ -173,7 +173,6 @@ struct ios_conf {
      */
     char *unique_id;
     ios_dump_type_t dump_format;
-    char *dump_format_str;
 };
 
 struct ios_fd {
@@ -3680,15 +3679,15 @@ io_priv(xlator_t *this)
 }
 
 static void
-ios_set_log_format_code(struct ios_conf *conf)
+ios_set_log_format_code(struct ios_conf *conf, char *dump_format_str)
 {
-    if (strcmp(conf->dump_format_str, "json") == 0)
+    if (strcmp(dump_format_str, "json") == 0)
         conf->dump_format = IOS_DUMP_TYPE_JSON_FILE;
-    else if (strcmp(conf->dump_format_str, "text") == 0)
+    else if (strcmp(dump_format_str, "text") == 0)
         conf->dump_format = IOS_DUMP_TYPE_FILE;
-    else if (strcmp(conf->dump_format_str, "dict") == 0)
+    else if (strcmp(dump_format_str, "dict") == 0)
         conf->dump_format = IOS_DUMP_TYPE_DICT;
-    else if (strcmp(conf->dump_format_str, "samples") == 0)
+    else if (strcmp(dump_format_str, "samples") == 0)
         conf->dump_format = IOS_DUMP_TYPE_SAMPLES;
 }
 
@@ -3729,6 +3728,7 @@ reconfigure(xlator_t *this, dict_t *options)
     char *sys_log_str = NULL;
     char *log_format_str = NULL;
     char *logger_str = NULL;
+    char *dump_format_str = NULL;
     int sys_log_level = -1;
     char *log_str = NULL;
     int log_level = -1;
@@ -3773,9 +3773,8 @@ reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("ios-sample-interval", conf->ios_sample_interval, options,
                      int32, out);
-    GF_OPTION_RECONF("ios-dump-format", conf->dump_format_str, options, str,
-                     out);
-    ios_set_log_format_code(conf);
+    GF_OPTION_RECONF("ios-dump-format", dump_format_str, options, str, out);
+    ios_set_log_format_code(conf, dump_format_str);
     GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size, options,
                      int32, out);
     GF_OPTION_RECONF("sys-log-level", sys_log_str, options, str, out);
@@ -3880,6 +3879,7 @@ init(xlator_t *this)
     char *sys_log_str = NULL;
     char *logger_str = NULL;
     char *log_format_str = NULL;
+    char *dump_format_str = NULL;
     int logger = -1;
     int log_format = -1;
     int sys_log_level = -1;
@@ -3940,8 +3940,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("ios-sample-interval", conf->ios_sample_interval, int32,
                    out);
 
-    GF_OPTION_INIT("ios-dump-format", conf->dump_format_str, str, out);
-    ios_set_log_format_code(conf);
+    GF_OPTION_INIT("ios-dump-format", dump_format_str, str, out);
+    ios_set_log_format_code(conf, dump_format_str);
 
     GF_OPTION_INIT("ios-sample-buf-size", conf->ios_sample_buf_size, int32,
                    out);

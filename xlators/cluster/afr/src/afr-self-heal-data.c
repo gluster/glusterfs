@@ -15,11 +15,6 @@
 #include "afr-messages.h"
 #include <glusterfs/events.h>
 
-enum {
-    AFR_SELFHEAL_DATA_FULL = 0,
-    AFR_SELFHEAL_DATA_DIFF,
-};
-
 #define HAS_HOLES(i) ((i->ia_blocks * 512) < (i->ia_size))
 static int
 __checksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
@@ -301,7 +296,7 @@ afr_data_self_heal_type_get(afr_private_t *priv, unsigned char *healed_sinks,
     int type = AFR_SELFHEAL_DATA_FULL;
     int i = 0;
 
-    if (priv->data_self_heal_algorithm == NULL) {
+    if (priv->data_self_heal_algorithm == AFR_SELFHEAL_DATA_DYNAMIC) {
         type = AFR_SELFHEAL_DATA_FULL;
         for (i = 0; i < priv->child_count; i++) {
             if (!healed_sinks[i] && i != source)
@@ -311,10 +306,8 @@ afr_data_self_heal_type_get(afr_private_t *priv, unsigned char *healed_sinks,
                 break;
             }
         }
-    } else if (strcmp(priv->data_self_heal_algorithm, "full") == 0) {
-        type = AFR_SELFHEAL_DATA_FULL;
-    } else if (strcmp(priv->data_self_heal_algorithm, "diff") == 0) {
-        type = AFR_SELFHEAL_DATA_DIFF;
+    } else {
+        type = priv->data_self_heal_algorithm;
     }
     return type;
 }

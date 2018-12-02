@@ -84,10 +84,7 @@ worm_set_state(xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
     retention_state->worm = 1;
     retention_state->retain = 1;
     retention_state->legal_hold = 0;
-    if (strcmp(priv->reten_mode, "relax") == 0)
-        retention_state->ret_mode = 0;
-    else
-        retention_state->ret_mode = 1;
+    retention_state->ret_mode = priv->reten_mode;
     retention_state->ret_period = priv->reten_period;
     retention_state->auto_commit_period = priv->com_period;
     if (fop_with_fd)

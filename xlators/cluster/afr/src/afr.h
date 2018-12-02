@@ -105,6 +105,12 @@ typedef enum {
 } afr_favorite_child_policy;
 
 typedef enum {
+    AFR_SELFHEAL_DATA_FULL = 0,
+    AFR_SELFHEAL_DATA_DIFF,
+    AFR_SELFHEAL_DATA_DYNAMIC,
+} afr_data_self_heal_type_t;
+
+typedef enum {
     AFR_CHILD_UNKNOWN = -1,
     AFR_CHILD_ZERO,
     AFR_CHILD_ONE,
@@ -155,8 +161,7 @@ typedef struct _afr_private {
 
     char **pending_key;
 
-    char *data_self_heal;                    /* on/off/open */
-    char *data_self_heal_algorithm;          /* name of algorithm */
+    afr_data_self_heal_type_t data_self_heal_algorithm;
     unsigned int data_self_heal_window_size; /* max number of pipelined
                                                 read/writes */
 
@@ -230,10 +235,11 @@ typedef struct _afr_private {
     /* pump dependencies */
     void *pump_private;
     gf_boolean_t use_afr_in_pump;
-    char *locking_scheme;
+    gf_boolean_t granular_locks;
     gf_boolean_t full_lock;
     gf_boolean_t esh_granular;
     gf_boolean_t consistent_io;
+    gf_boolean_t data_self_heal; /* on/off */
 } afr_private_t;
 
 typedef enum {

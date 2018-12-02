@@ -475,11 +475,21 @@ worm_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     return 0;
 }
 
+static void
+set_reten_mode(read_only_priv_t *priv, char *reten_mode)
+{
+    if (strcmp(reten_mode, "relax") == 0)
+        priv->reten_mode = 0;
+    else
+        priv->reten_mode = 1;
+}
+
 int32_t
 init(xlator_t *this)
 {
     int ret = -1;
     read_only_priv_t *priv = NULL;
+    char *reten_mode = NULL;
 
     if (!this->children || this->children->next) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -511,7 +521,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("worm-file-level", priv->worm_file, bool, out);
     GF_OPTION_INIT("default-retention-period", priv->reten_period, uint64, out);
     GF_OPTION_INIT("auto-commit-period", priv->com_period, uint64, out);
-    GF_OPTION_INIT("retention-mode", priv->reten_mode, str, out);
+    GF_OPTION_INIT("retention-mode", reten_mode, str, out);
+    set_reten_mode(priv, reten_mode);
     GF_OPTION_INIT("worm-files-deletable", priv->worm_files_deletable, bool,
                    out);
 
@@ -524,6 +535,7 @@ int
 reconfigure(xlator_t *this, dict_t *options)
 {
     read_only_priv_t *priv = NULL;
+    char *reten_mode = NULL;
     int ret = -1;
 
     priv = this->private;
@@ -534,7 +546,8 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("worm-file-level", priv->worm_file, options, bool, out);
     GF_OPTION_RECONF("default-retention-period", priv->reten_period, options,
                      uint64, out);
-    GF_OPTION_RECONF("retention-mode", priv->reten_mode, options, str, out);
+    GF_OPTION_RECONF("retention-mode", reten_mode, options, str, out);
+    set_reten_mode(priv, reten_mode);
     GF_OPTION_RECONF("auto-commit-period", priv->com_period, options, uint64,
                      out);
     GF_OPTION_RECONF("worm-files-deletable", priv->worm_files_deletable,

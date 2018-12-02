@@ -36,7 +36,6 @@ typedef struct {
      * It's just not worth blowing up the diff by changing it.
      */
     int failure_iter_no;
-    char *error_no;
     int error_no_int;
     gf_boolean_t random_failure;
     gf_lock_t lock;
