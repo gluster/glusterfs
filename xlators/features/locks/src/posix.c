@@ -134,16 +134,20 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 gf_boolean_t
 pl_has_xdata_requests(dict_t *xdata)
 {
-    char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT,     GLUSTERFS_INODELK_COUNT,
-                    GLUSTERFS_INODELK_DOM_COUNT, GLUSTERFS_POSIXLK_COUNT,
-                    GLUSTERFS_PARENT_ENTRYLK,    NULL};
+    static char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT,     GLUSTERFS_INODELK_COUNT,
+                           GLUSTERFS_INODELK_DOM_COUNT, GLUSTERFS_POSIXLK_COUNT,
+                           GLUSTERFS_PARENT_ENTRYLK,    NULL};
+    static int reqs_size[] = {
+        SLEN(GLUSTERFS_ENTRYLK_COUNT),     SLEN(GLUSTERFS_INODELK_COUNT),
+        SLEN(GLUSTERFS_INODELK_DOM_COUNT), SLEN(GLUSTERFS_POSIXLK_COUNT),
+        SLEN(GLUSTERFS_PARENT_ENTRYLK),    0};
     int i = 0;
 
     if (!xdata)
         return _gf_false;
 
     for (i = 0; reqs[i]; i++)
-        if (dict_get(xdata, reqs[i]))
+        if (dict_getn(xdata, reqs[i], reqs_size[i]))
             return _gf_true;
 
     return _gf_false;
@@ -155,29 +159,30 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
     if (!local || !xdata)
         return;
 
-    if (dict_get(xdata, GLUSTERFS_ENTRYLK_COUNT)) {
+    if (dict_get_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT)) {
         local->entrylk_count_req = 1;
-        dict_del(xdata, GLUSTERFS_ENTRYLK_COUNT);
+        dict_del_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT);
     }
-    if (dict_get(xdata, GLUSTERFS_INODELK_COUNT)) {
+    if (dict_get_sizen(xdata, GLUSTERFS_INODELK_COUNT)) {
         local->inodelk_count_req = 1;
-        dict_del(xdata, GLUSTERFS_INODELK_COUNT);
+        dict_del_sizen(xdata, GLUSTERFS_INODELK_COUNT);
     }
 
-    local->inodelk_dom_count_req = dict_get(xdata, GLUSTERFS_INODELK_DOM_COUNT);
+    local->inodelk_dom_count_req = dict_get_sizen(xdata,
+                                                  GLUSTERFS_INODELK_DOM_COUNT);
     if (local->inodelk_dom_count_req) {
         data_ref(local->inodelk_dom_count_req);
-        dict_del(xdata, GLUSTERFS_INODELK_DOM_COUNT);
+        dict_del_sizen(xdata, GLUSTERFS_INODELK_DOM_COUNT);
     }
 
-    if (dict_get(xdata, GLUSTERFS_POSIXLK_COUNT)) {
+    if (dict_get_sizen(xdata, GLUSTERFS_POSIXLK_COUNT)) {
         local->posixlk_count_req = 1;
-        dict_del(xdata, GLUSTERFS_POSIXLK_COUNT);
+        dict_del_sizen(xdata, GLUSTERFS_POSIXLK_COUNT);
     }
 
-    if (dict_get(xdata, GLUSTERFS_PARENT_ENTRYLK)) {
+    if (dict_get_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK)) {
         local->parent_entrylk_req = 1;
-        dict_del(xdata, GLUSTERFS_PARENT_ENTRYLK);
+        dict_del_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK);
     }
 }
 
@@ -187,20 +192,11 @@ pl_needs_xdata_response(pl_local_t *local)
     if (!local)
         return _gf_false;
 
-    if (local->parent_entrylk_req)
+    if (local->parent_entrylk_req || local->entrylk_count_req ||
+        local->inodelk_dom_count_req || local->inodelk_count_req ||
+        local->posixlk_count_req)
         return _gf_true;
 
-    if (local->entrylk_count_req)
-        return _gf_true;
-
-    if (local->inodelk_dom_count_req)
-        return _gf_true;
-
-    if (local->inodelk_count_req)
-        return _gf_true;
-
-    if (local->posixlk_count_req)
-        return _gf_true;
     return _gf_false;
 }
 
@@ -221,8 +217,8 @@ pl_get_xdata_rsp_args(pl_local_t *local, char *fop, inode_t **parent,
     }
 }
 
-int32_t
-__get_posixlk_count(xlator_t *this, pl_inode_t *pl_inode)
+static int32_t
+__get_posixlk_count(pl_inode_t *pl_inode)
 {
     posix_lock_t *lock = NULL;
     int32_t count = 0;
@@ -237,10 +233,9 @@ get_posixlk_count(xlator_t *this, inode_t *inode)
 {
     pl_inode_t *pl_inode = NULL;
     uint64_t tmp_pl_inode = 0;
-    int ret = 0;
     int32_t count = 0;
 
-    ret = inode_ctx_get(inode, this, &tmp_pl_inode);
+    int ret = inode_ctx_get(inode, this, &tmp_pl_inode);
     if (ret != 0) {
         goto out;
     }
@@ -249,7 +244,7 @@ get_posixlk_count(xlator_t *this, inode_t *inode)
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
-        count = __get_posixlk_count(this, pl_inode);
+        count = __get_posixlk_count(pl_inode);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
@@ -265,10 +260,10 @@ pl_parent_entrylk_xattr_fill(xlator_t *this, inode_t *parent, char *basename,
     int32_t maxcount = -1;
     int ret = -1;
 
-    if (!parent || !basename || !strlen(basename))
+    if (!parent || !basename)
         goto out;
     if (keep_max) {
-        ret = dict_get_int32(dict, GLUSTERFS_PARENT_ENTRYLK, &maxcount);
+        ret = dict_get_int32_sizen(dict, GLUSTERFS_PARENT_ENTRYLK, &maxcount);
         if (ret < 0)
             gf_msg_debug(this->name, 0, " Failed to fetch the value for key %s",
                          GLUSTERFS_PARENT_ENTRYLK);
@@ -277,7 +272,7 @@ pl_parent_entrylk_xattr_fill(xlator_t *this, inode_t *parent, char *basename,
     if (maxcount >= entrylk)
         return;
 out:
-    ret = dict_set_int32(dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
+    ret = dict_set_int32_sizen(dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
     if (ret < 0) {
         gf_msg_debug(this->name, 0, " dict_set failed on key %s",
                      GLUSTERFS_PARENT_ENTRYLK);
@@ -293,7 +288,7 @@ pl_entrylk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
     int ret = -1;
 
     if (keep_max) {
-        ret = dict_get_int32(dict, GLUSTERFS_ENTRYLK_COUNT, &maxcount);
+        ret = dict_get_int32_sizen(dict, GLUSTERFS_ENTRYLK_COUNT, &maxcount);
         if (ret < 0)
             gf_msg_debug(this->name, 0, " Failed to fetch the value for key %s",
                          GLUSTERFS_ENTRYLK_COUNT);
@@ -302,7 +297,7 @@ pl_entrylk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
     if (maxcount >= count)
         return;
 
-    ret = dict_set_int32(dict, GLUSTERFS_ENTRYLK_COUNT, count);
+    ret = dict_set_int32_sizen(dict, GLUSTERFS_ENTRYLK_COUNT, count);
     if (ret < 0) {
         gf_msg_debug(this->name, 0, " dict_set failed on key %s",
                      GLUSTERFS_ENTRYLK_COUNT);
@@ -318,7 +313,7 @@ pl_inodelk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
     int ret = -1;
 
     if (keep_max) {
-        ret = dict_get_int32(dict, GLUSTERFS_INODELK_COUNT, &maxcount);
+        ret = dict_get_int32_sizen(dict, GLUSTERFS_INODELK_COUNT, &maxcount);
         if (ret < 0)
             gf_msg_debug(this->name, 0, " Failed to fetch the value for key %s",
                          GLUSTERFS_INODELK_COUNT);
@@ -327,7 +322,7 @@ pl_inodelk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
     if (maxcount >= count)
         return;
 
-    ret = dict_set_int32(dict, GLUSTERFS_INODELK_COUNT, count);
+    ret = dict_set_int32_sizen(dict, GLUSTERFS_INODELK_COUNT, count);
     if (ret < 0) {
         gf_msg_debug(this->name, 0,
                      "Failed to set count for "
@@ -347,7 +342,7 @@ pl_posixlk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
     int ret = -1;
 
     if (keep_max) {
-        ret = dict_get_int32(dict, GLUSTERFS_POSIXLK_COUNT, &maxcount);
+        ret = dict_get_int32_sizen(dict, GLUSTERFS_POSIXLK_COUNT, &maxcount);
         if (ret < 0)
             gf_msg_debug(this->name, 0, " Failed to fetch the value for key %s",
                          GLUSTERFS_POSIXLK_COUNT);
@@ -356,7 +351,7 @@ pl_posixlk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
     if (maxcount >= count)
         return;
 
-    ret = dict_set_int32(dict, GLUSTERFS_POSIXLK_COUNT, count);
+    ret = dict_set_int32_sizen(dict, GLUSTERFS_POSIXLK_COUNT, count);
     if (ret < 0) {
         gf_msg_debug(this->name, 0, " dict_set failed on key %s",
                      GLUSTERFS_POSIXLK_COUNT);
@@ -374,18 +369,21 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
     if (local->parent_entrylk_req && parent && name && strlen(name))
         pl_parent_entrylk_xattr_fill(this, parent, name, xdata, max_lock);
 
-    if (local->entrylk_count_req && inode)
+    if (!inode)
+        return;
+
+    if (local->entrylk_count_req)
         pl_entrylk_xattr_fill(this, inode, xdata, max_lock);
 
-    if (local->inodelk_dom_count_req && inode)
+    if (local->inodelk_dom_count_req)
         pl_inodelk_xattr_fill(this, inode, xdata,
                               data_to_str(local->inodelk_dom_count_req),
                               max_lock);
 
-    if (local->inodelk_count_req && inode)
+    if (local->inodelk_count_req)
         pl_inodelk_xattr_fill(this, inode, xdata, NULL, max_lock);
 
-    if (local->posixlk_count_req && inode)
+    if (local->posixlk_count_req)
         pl_posixlk_xattr_fill(this, inode, xdata, max_lock);
 }
 
@@ -395,9 +393,7 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
 gf_boolean_t
 pl_is_mandatory_locking_enabled(pl_inode_t *pl_inode)
 {
-    posix_locks_private_t *priv = NULL;
-
-    priv = THIS->private;
+    posix_locks_private_t *priv = THIS->private;
 
     if (priv->mandatory_mode == MLK_FILE_BASED && pl_inode->mandatory)
         return _gf_true;
@@ -436,9 +432,7 @@ pl_is_fop_allowed(pl_inode_t *pl_inode, posix_lock_t *region, fd_t *fd,
 static pl_fdctx_t *
 pl_new_fdctx()
 {
-    pl_fdctx_t *fdctx = NULL;
-
-    fdctx = GF_CALLOC(1, sizeof(*fdctx), gf_locks_mt_pl_fdctx_t);
+    pl_fdctx_t *fdctx = GF_MALLOC(sizeof(*fdctx), gf_locks_mt_pl_fdctx_t);
     GF_VALIDATE_OR_GOTO("posix-locks", fdctx, out);
 
     INIT_LIST_HEAD(&fdctx->locks_list);
@@ -527,10 +521,10 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto unwind;
     }
 
-    enabled = pl_is_mandatory_locking_enabled(pl_inode);
-
     if (frame->root->pid < 0)
         enabled = _gf_false;
+    else
+        enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (enabled) {
         region.fl_start = offset;
@@ -552,7 +546,7 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto unlock;
             }
 
-            rw = GF_CALLOC(1, sizeof(*rw), gf_locks_mt_pl_rw_req_t);
+            rw = GF_MALLOC(sizeof(*rw), gf_locks_mt_pl_rw_req_t);
             if (!rw) {
                 op_errno = ENOMEM;
                 op_ret = -1;
@@ -632,10 +626,10 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto unwind;
     }
 
-    enabled = pl_is_mandatory_locking_enabled(pl_inode);
-
     if (frame->root->pid < 0)
         enabled = _gf_false;
+    else
+        enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (enabled) {
         region.fl_start = offset;
@@ -657,7 +651,7 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto unlock;
             }
 
-            rw = GF_CALLOC(1, sizeof(*rw), gf_locks_mt_pl_rw_req_t);
+            rw = GF_MALLOC(sizeof(*rw), gf_locks_mt_pl_rw_req_t);
             if (!rw) {
                 op_errno = ENOMEM;
                 op_ret = -1;
@@ -697,9 +691,7 @@ pl_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
-    pl_local_t *local = NULL;
-
-    local = frame->local;
+    pl_local_t *local = frame->local;
 
     if (local->op == GF_FOP_TRUNCATE)
         loc_wipe(&local->loc[0]);
@@ -741,7 +733,7 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
                   dict_t *xdata)
 {
-    pl_local_t *local = NULL;
+    pl_local_t *local = frame->local;
     inode_t *inode = NULL;
     pl_inode_t *pl_inode = NULL;
     pl_rw_req_t *rw = NULL;
@@ -755,7 +747,6 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_boolean_t can_block = _gf_true;
     int allowed = 1;
 
-    local = frame->local;
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
     if (op_ret != 0) {
@@ -777,10 +768,10 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
     }
 
-    enabled = pl_is_mandatory_locking_enabled(pl_inode);
-
     if (frame->root->pid < 0)
         enabled = _gf_false;
+    else
+        enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (enabled) {
         region.fl_start = local->offset;
@@ -802,7 +793,7 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unlock;
             }
 
-            rw = GF_CALLOC(1, sizeof(*rw), gf_locks_mt_pl_rw_req_t);
+            rw = GF_MALLOC(sizeof(*rw), gf_locks_mt_pl_rw_req_t);
             if (!rw) {
                 op_errno = ENOMEM;
                 op_ret = -1;
@@ -1219,7 +1210,7 @@ fetch_pathinfo(xlator_t *this, inode_t *inode, int32_t *op_errno,
         goto out;
     }
 
-    ret = dict_get_str(dict, GF_XATTR_PATHINFO_KEY, brickname);
+    ret = dict_get_str_sizen(dict, GF_XATTR_PATHINFO_KEY, brickname);
     if (ret)
         goto out;
 
@@ -1242,15 +1233,12 @@ out:
 int
 pl_lockinfo_get_brickname(xlator_t *this, inode_t *inode, int32_t *op_errno)
 {
-    int ret = -1;
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = this->private;
     char *brickname = NULL;
     char *end = NULL;
     char *tmp = NULL;
 
-    priv = this->private;
-
-    ret = fetch_pathinfo(this, inode, op_errno, &brickname);
+    int ret = fetch_pathinfo(this, inode, op_errno, &brickname);
     if (ret)
         goto out;
 
@@ -1278,11 +1266,9 @@ out:
 char *
 pl_lockinfo_key(xlator_t *this, inode_t *inode, int32_t *op_errno)
 {
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = this->private;
     char *key = NULL;
     int ret = 0;
-
-    priv = this->private;
 
     if (priv->brickname == NULL) {
         ret = pl_lockinfo_get_brickname(this, inode, op_errno);
@@ -1301,15 +1287,13 @@ int32_t
 pl_fgetxattr_handle_lockinfo(xlator_t *this, fd_t *fd, dict_t *dict,
                              int32_t *op_errno)
 {
-    pl_inode_t *pl_inode = NULL;
     char *key = NULL, *buf = NULL;
     int32_t op_ret = 0;
     unsigned long fdnum = 0;
     int32_t len = 0;
     dict_t *tmp = NULL;
 
-    pl_inode = pl_inode_get(this, fd->inode);
-
+    pl_inode_t *pl_inode = pl_inode_get(this, fd->inode);
     if (!pl_inode) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get inode.");
         *op_errno = EBADFD;
@@ -1451,14 +1435,11 @@ int32_t
 pl_migrate_locks(call_frame_t *frame, fd_t *newfd, uint64_t oldfd_num,
                  int32_t *op_errno)
 {
-    pl_inode_t *pl_inode = NULL;
-    uint64_t newfd_num = 0;
     posix_lock_t *l = NULL;
     int32_t op_ret = 0;
+    uint64_t newfd_num = fd_to_fdnum(newfd);
 
-    newfd_num = fd_to_fdnum(newfd);
-
-    pl_inode = pl_inode_get(frame->this, newfd->inode);
+    pl_inode_t *pl_inode = pl_inode_get(frame->this, newfd->inode);
     if (pl_inode == NULL) {
         op_ret = -1;
         *op_errno = EBADFD;
@@ -1487,11 +1468,10 @@ pl_fsetxattr_handle_lockinfo(call_frame_t *frame, fd_t *fd, char *lockinfo_buf,
                              int len, int32_t *op_errno)
 {
     int32_t op_ret = -1;
-    dict_t *lockinfo = NULL;
     uint64_t oldfd_num = 0;
     char *key = NULL;
 
-    lockinfo = dict_new();
+    dict_t *lockinfo = dict_new();
     if (lockinfo == NULL) {
         op_ret = -1;
         *op_errno = ENOMEM;
@@ -1546,12 +1526,12 @@ int32_t
 pl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
              int32_t flags, dict_t *xdata)
 {
-    int32_t op_ret = 0, op_errno = 0;
+    int32_t op_errno = 0;
     void *lockinfo_buf = NULL;
     int len = 0;
 
-    op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY, &lockinfo_buf,
-                                  &len);
+    int32_t op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY,
+                                          &lockinfo_buf, &len);
     if (lockinfo_buf == NULL) {
         goto usual;
     }
@@ -1617,10 +1597,7 @@ pl_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int
 pl_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-    pl_inode_t *pl_inode = NULL;
-
-    pl_inode = pl_inode_get(this, fd->inode);
-
+    pl_inode_t *pl_inode = pl_inode_get(this, fd->inode);
     if (!pl_inode) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get inode.");
         STACK_UNWIND_STRICT(flush, frame, -1, EBADFD, NULL);
@@ -1696,9 +1673,7 @@ pl_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     int op_errno = EINVAL;
     pl_inode_t *pl_inode = NULL;
     posix_lock_t *l = NULL;
-    posix_locks_private_t *priv = NULL;
-
-    priv = this->private;
+    posix_locks_private_t *priv = this->private;
 
     GF_VALIDATE_OR_GOTO("locks", this, unwind);
 
@@ -1848,10 +1823,8 @@ static int
 __rw_allowable(pl_inode_t *pl_inode, posix_lock_t *region, glusterfs_fop_t op)
 {
     posix_lock_t *l = NULL;
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = THIS->private;
     int ret = 1;
-
-    priv = THIS->private;
 
     list_for_each_entry(l, &pl_inode->ext_list, list)
     {
@@ -1909,10 +1882,11 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
-    enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (frame->root->pid < 0)
         enabled = _gf_false;
+    else
+        enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (enabled) {
         region.fl_start = offset;
@@ -1934,7 +1908,7 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto unlock;
             }
 
-            rw = GF_CALLOC(1, sizeof(*rw), gf_locks_mt_pl_rw_req_t);
+            rw = GF_MALLOC(sizeof(*rw), gf_locks_mt_pl_rw_req_t);
             if (!rw) {
                 op_errno = ENOMEM;
                 op_ret = -1;
@@ -2012,10 +1986,11 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     }
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
-    enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (frame->root->pid < 0)
         enabled = _gf_false;
+    else
+        enabled = pl_is_mandatory_locking_enabled(pl_inode);
 
     if (enabled) {
         region.fl_start = offset;
@@ -2037,7 +2012,7 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 goto unlock;
             }
 
-            rw = GF_CALLOC(1, sizeof(*rw), gf_locks_mt_pl_rw_req_t);
+            rw = GF_MALLOC(sizeof(*rw), gf_locks_mt_pl_rw_req_t);
             if (!rw) {
                 op_errno = ENOMEM;
                 op_ret = -1;
@@ -2076,29 +2051,24 @@ unwind:
 static int
 __fd_has_locks(pl_inode_t *pl_inode, fd_t *fd)
 {
-    int found = 0;
     posix_lock_t *l = NULL;
 
     list_for_each_entry(l, &pl_inode->ext_list, list)
     {
         if (l->fd_num == fd_to_fdnum(fd)) {
-            found = 1;
-            break;
+            return 1;
         }
     }
 
-    return found;
+    return 0;
 }
 
 static posix_lock_t *
 lock_dup(posix_lock_t *lock)
 {
-    posix_lock_t *new_lock = NULL;
-
-    new_lock = new_posix_lock(&lock->user_flock, lock->client, lock->client_pid,
-                              &lock->owner, (fd_t *)lock->fd_num,
-                              lock->lk_flags, lock->blocking);
-    return new_lock;
+    return new_posix_lock(&lock->user_flock, lock->client, lock->client_pid,
+                          &lock->owner, (fd_t *)lock->fd_num, lock->lk_flags,
+                          lock->blocking);
 }
 
 static int
@@ -2127,14 +2097,7 @@ __dup_locks_to_fdctx(pl_inode_t *pl_inode, fd_t *fd, pl_fdctx_t *fdctx)
 static int
 __copy_locks_to_fdctx(pl_inode_t *pl_inode, fd_t *fd, pl_fdctx_t *fdctx)
 {
-    int ret = 0;
-
-    ret = __dup_locks_to_fdctx(pl_inode, fd, fdctx);
-    if (ret)
-        goto out;
-
-out:
-    return ret;
+    return __dup_locks_to_fdctx(pl_inode, fd, fdctx);
 }
 
 static void
@@ -2205,9 +2168,10 @@ pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
     pthread_mutex_lock(&pl_inode->mutex);
     {
         if (!__fd_has_locks(pl_inode, fd)) {
+            pthread_mutex_unlock(&pl_inode->mutex);
             gf_log(this->name, GF_LOG_DEBUG, "fd=%p has no active locks", fd);
             ret = 0;
-            goto unlock;
+            goto out;
         }
 
         gf_log(this->name, GF_LOG_DEBUG, "There are active locks on fd");
@@ -2231,15 +2195,17 @@ pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
                    "fdctx present -> returning the next lock");
             ret = __set_next_lock_fd(fdctx, reqlock);
             if (ret) {
+                pthread_mutex_unlock(&pl_inode->mutex);
                 gf_log(this->name, GF_LOG_DEBUG,
                        "could not get next lock of fd");
-                goto unlock;
+                goto out;
             }
         }
     }
 
 unlock:
     pthread_mutex_unlock(&pl_inode->mutex);
+out:
     return ret;
 }
 
@@ -2252,12 +2218,10 @@ pl_metalock_is_active(pl_inode_t *pl_inode)
         return 1;
 }
 
-int
-__pl_queue_lock(pl_inode_t *pl_inode, posix_lock_t *reqlock, int can_block)
+void
+__pl_queue_lock(pl_inode_t *pl_inode, posix_lock_t *reqlock)
 {
     list_add_tail(&reqlock->list, &pl_inode->queued_locks);
-
-    return 0;
 }
 
 int
@@ -2270,13 +2234,10 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     int can_block = 0;
     posix_lock_t *reqlock = NULL;
     posix_lock_t *conf = NULL;
-    int ret = 0;
     uint32_t lk_flags = 0;
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = this->private;
 
-    priv = this->private;
-
-    ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
+    int ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
     if (ret == 0) {
         if (priv->mandatory_mode == MLK_NONE)
             gf_log(this->name, GF_LOG_DEBUG,
@@ -2738,9 +2699,8 @@ pl_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 lock_migration_info_t *
 gf_mig_info_for_lock(posix_lock_t *lock)
 {
-    lock_migration_info_t *new = NULL;
-
-    new = GF_CALLOC(1, sizeof(lock_migration_info_t), gf_common_mt_lock_mig);
+    lock_migration_info_t *new = GF_MALLOC(sizeof(lock_migration_info_t),
+                                           gf_common_mt_lock_mig);
     if (new == NULL) {
         goto out;
     }
@@ -2768,7 +2728,7 @@ pl_fill_active_locks(pl_inode_t *pl_inode, lock_migration_info_t *lmi)
     {
         if (list_empty(&pl_inode->ext_list)) {
             count = 0;
-            goto out;
+            goto unlock;
         }
 
         list_for_each_entry(temp, &pl_inode->ext_list, list)
@@ -2778,6 +2738,7 @@ pl_fill_active_locks(pl_inode_t *pl_inode, lock_migration_info_t *lmi)
 
             newlock = gf_mig_info_for_lock(temp);
             if (!newlock) {
+                pthread_mutex_unlock(&pl_inode->mutex);
                 gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "lock_dup failed");
                 count = -1;
                 goto out;
@@ -2788,8 +2749,9 @@ pl_fill_active_locks(pl_inode_t *pl_inode, lock_migration_info_t *lmi)
         }
     }
 
-out:
+unlock:
     pthread_mutex_unlock(&pl_inode->mutex);
+out:
     return count;
 }
 
@@ -2845,9 +2807,8 @@ __pl_metalk_ref(pl_meta_lock_t *lock)
 pl_meta_lock_t *
 new_meta_lock(call_frame_t *frame, xlator_t *this)
 {
-    pl_meta_lock_t *lock = NULL;
-
-    lock = GF_CALLOC(1, sizeof(*lock), gf_locks_mt_pl_meta_lock_t);
+    pl_meta_lock_t *lock = GF_CALLOC(1, sizeof(*lock),
+                                     gf_locks_mt_pl_meta_lock_t);
 
     if (!lock) {
         gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
@@ -2995,9 +2956,8 @@ out:
     return ret;
 }
 
-void
-__unwind_queued_locks(xlator_t *this, pl_inode_t *pl_inode,
-                      struct list_head *tmp_list)
+static void
+__unwind_queued_locks(pl_inode_t *pl_inode, struct list_head *tmp_list)
 {
     if (list_empty(&pl_inode->queued_locks))
         return;
@@ -3005,9 +2965,8 @@ __unwind_queued_locks(xlator_t *this, pl_inode_t *pl_inode,
     list_splice_init(&pl_inode->queued_locks, tmp_list);
 }
 
-void
-__unwind_blocked_locks(xlator_t *this, pl_inode_t *pl_inode,
-                       struct list_head *tmp_list)
+static void
+__unwind_blocked_locks(pl_inode_t *pl_inode, struct list_head *tmp_list)
 {
     posix_lock_t *lock = NULL;
     posix_lock_t *tmp = NULL;
@@ -3066,12 +3025,12 @@ pl_metaunlock(call_frame_t *frame, xlator_t *this, inode_t *inode, dict_t *dict)
         pthread_mutex_lock(&pl_inode->mutex);
         {
             /* Unwind queued locks regardless of migration status */
-            __unwind_queued_locks(this, pl_inode, &tmp_posixlk_list);
+            __unwind_queued_locks(pl_inode, &tmp_posixlk_list);
 
             /* Unwind blocked locks only for successful migration */
-            if (dict_get(dict, "status")) {
+            if (dict_get_sizen(dict, "status")) {
                 /* unwind all blocked locks */
-                __unwind_blocked_locks(this, pl_inode, &tmp_posixlk_list);
+                __unwind_blocked_locks(pl_inode, &tmp_posixlk_list);
             }
 
             /* unlock metalk */
@@ -3098,7 +3057,7 @@ pl_metaunlock(call_frame_t *frame, xlator_t *this, inode_t *inode, dict_t *dict)
                 inode_unref(pl_inode->inode);
             }
 
-            if (dict_get(dict, "status"))
+            if (dict_get_sizen(dict, "status"))
                 pl_inode->migrated = _gf_true;
             else
                 pl_inode->migrated = _gf_false;
@@ -3141,10 +3100,10 @@ pl_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, NULL, loc, NULL);
 
-    if (dict_get(dict, GF_META_LOCK_KEY)) {
+    if (dict_get_sizen(dict, GF_META_LOCK_KEY)) {
         op_ret = pl_metalk(frame, this, loc->inode);
 
-    } else if (dict_get(dict, GF_META_UNLOCK_KEY)) {
+    } else if (dict_get_sizen(dict, GF_META_UNLOCK_KEY)) {
         op_ret = pl_metaunlock(frame, this, loc->inode, dict);
 
     } else {
@@ -3453,7 +3412,7 @@ unlock:
             __dump_inodelks(pl_inode);
         }
 
-        count = __get_posixlk_count(this, pl_inode);
+        count = __get_posixlk_count(pl_inode);
         if (count) {
             gf_proc_dump_write("posixlk-count", "%d", count);
             __dump_posixlks(pl_inode);
@@ -3566,9 +3525,9 @@ pl_metalk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
                  * unwind all queued and blocked locks to check
                  * migration status and find the correct
                  * destination */
-                __unwind_queued_locks(this, pl_inode, &tmp_posixlk_list);
+                __unwind_queued_locks(pl_inode, &tmp_posixlk_list);
 
-                __unwind_blocked_locks(this, pl_inode, &tmp_posixlk_list);
+                __unwind_blocked_locks(pl_inode, &tmp_posixlk_list);
 
                 list_del_init(&meta_lock->list);
 
@@ -3600,10 +3559,7 @@ unlock:
 static int
 pl_client_disconnect_cbk(xlator_t *this, client_t *client)
 {
-    pl_ctx_t *pl_ctx = NULL;
-
-    pl_ctx = pl_ctx_get(client, this);
-
+    pl_ctx_t *pl_ctx = pl_ctx_get(client, this);
     if (pl_ctx) {
         pl_inodelk_client_cleanup(this, pl_ctx);
         pl_entrylk_client_cleanup(this, pl_ctx);
@@ -3640,10 +3596,8 @@ pl_client_destroy_cbk(xlator_t *this, client_t *client)
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = this->private;
     int ret = -1;
-
-    priv = this->private;
 
     GF_OPTION_RECONF("trace", priv->trace, options, bool, out);
 
@@ -3752,9 +3706,7 @@ out:
 void
 fini(xlator_t *this)
 {
-    posix_locks_private_t *priv = NULL;
-
-    priv = this->private;
+    posix_locks_private_t *priv = this->private;
     if (!priv)
         return;
     this->private = NULL;
@@ -3807,9 +3759,8 @@ pl_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 posix_lock_t *
 gf_lkmig_info_to_posix_lock(call_frame_t *frame, lock_migration_info_t *lmi)
 {
-    posix_lock_t *lock = NULL;
-
-    lock = GF_CALLOC(1, sizeof(posix_lock_t), gf_locks_mt_posix_lock_t);
+    posix_lock_t *lock = GF_CALLOC(1, sizeof(posix_lock_t),
+                                   gf_locks_mt_posix_lock_t);
     if (!lock)
         goto out;
 
@@ -3857,6 +3808,7 @@ pl_write_active_locks(call_frame_t *frame, pl_inode_t *pl_inode,
         /* Just making sure the activelk list is empty. Should not
          * happen though*/
         if (!list_empty(&pl_inode->ext_list)) {
+            pthread_mutex_unlock(&pl_inode->mutex);
             gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "invalid locks found");
 
             ret = -1;
@@ -3865,6 +3817,7 @@ pl_write_active_locks(call_frame_t *frame, pl_inode_t *pl_inode,
 
         /* This list also should not be empty */
         if (list_empty(&locklist->list)) {
+            pthread_mutex_unlock(&pl_inode->mutex);
             gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "empty lock list");
 
             ret = -1;
@@ -3875,6 +3828,7 @@ pl_write_active_locks(call_frame_t *frame, pl_inode_t *pl_inode,
         {
             newlock = gf_lkmig_info_to_posix_lock(frame, temp);
             if (!newlock) {
+                pthread_mutex_unlock(&pl_inode->mutex);
                 gf_msg(THIS->name, GF_LOG_ERROR, 0, 0,
                        "mem allocation failed for newlock");
 
@@ -3884,12 +3838,10 @@ pl_write_active_locks(call_frame_t *frame, pl_inode_t *pl_inode,
             list_add_tail(&newlock->list, &pl_inode->ext_list);
         }
     }
-
-out:
     /*TODO: What if few lock add failed with ENOMEM. Should the already
      *      added locks be clearted */
     pthread_mutex_unlock(&pl_inode->mutex);
-
+out:
     return ret;
 }
 
@@ -3897,12 +3849,11 @@ static int
 pl_setactivelk(call_frame_t *frame, xlator_t *this, loc_t *loc,
                lock_migration_info_t *locklist, dict_t *xdata)
 {
-    pl_inode_t *pl_inode = NULL;
     int op_ret = 0;
     int op_errno = 0;
     int ret = 0;
 
-    pl_inode = pl_inode_get(this, loc->inode);
+    pl_inode_t *pl_inode = pl_inode_get(this, loc->inode);
     if (!pl_inode) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "pl_inode_get failed");
 

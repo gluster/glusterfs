@@ -177,8 +177,8 @@ __pl_entrylk_unref(pl_entry_lock_t *lock);
 int
 pl_metalock_is_active(pl_inode_t *pl_inode);
 
-int
-__pl_queue_lock(pl_inode_t *pl_inode, posix_lock_t *reqlock, int can_block);
+void
+__pl_queue_lock(pl_inode_t *pl_inode, posix_lock_t *reqlock);
 
 gf_boolean_t
 pl_does_monkey_want_stuck_lock();

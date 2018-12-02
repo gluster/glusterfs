@@ -31,11 +31,9 @@ reservelks_equal(posix_lock_t *l1, posix_lock_t *l2)
 static posix_lock_t *
 __reservelk_grantable(pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     posix_lock_t *l = NULL;
     posix_lock_t *ret_lock = NULL;
-
-    this = THIS;
 
     if (list_empty(&pl_inode->reservelk_list)) {
         gf_log(this->name, GF_LOG_TRACE, "No reservelks in list");
@@ -82,10 +80,9 @@ __matching_reservelk(pl_inode_t *pl_inode, posix_lock_t *lock)
 static int
 __reservelk_conflict(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-    posix_lock_t *conf = NULL;
     int ret = 0;
 
-    conf = __matching_reservelk(pl_inode, lock);
+    posix_lock_t *conf = __matching_reservelk(pl_inode, lock);
     if (conf) {
         gf_log(this->name, GF_LOG_TRACE, "Matching reservelk found");
         if (__same_owner_reservelk(lock, conf)) {
@@ -104,29 +101,28 @@ __reservelk_conflict(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
 
 int
 pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
-                    int can_block)
+                    const int can_block)
 {
     int ret = 0;
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
         if (__reservelk_conflict(this, pl_inode, lock)) {
+            lock->blocked = can_block;
+            list_add_tail(&lock->list, &pl_inode->blocked_calls);
+            pthread_mutex_unlock(&pl_inode->mutex);
             gf_log(this->name, GF_LOG_TRACE,
                    "Found conflicting reservelk. Blocking until reservelk is "
                    "unlocked.");
-            lock->blocked = can_block;
-            list_add_tail(&lock->list, &pl_inode->blocked_calls);
             ret = -1;
-            goto unlock;
+            goto out;
         }
-
-        gf_log(this->name, GF_LOG_TRACE,
-               "no conflicting reservelk found. Call continuing");
-        ret = 0;
     }
-unlock:
     pthread_mutex_unlock(&pl_inode->mutex);
-
+    gf_log(this->name, GF_LOG_TRACE,
+           "no conflicting reservelk found. Call continuing");
+    ret = 0;
+out:
     return ret;
 }
 
@@ -135,12 +131,11 @@ unlock:
  */
 static int
 __lock_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
-                 int can_block)
+                 const int can_block)
 {
-    posix_lock_t *conf = NULL;
     int ret = -EINVAL;
 
-    conf = __reservelk_grantable(pl_inode, lock);
+    posix_lock_t *conf = __reservelk_grantable(pl_inode, lock);
     if (conf) {
         ret = -EAGAIN;
         if (can_block == 0)
@@ -183,9 +178,7 @@ find_matching_reservelk(posix_lock_t *lock, pl_inode_t *pl_inode)
 static posix_lock_t *
 __reserve_unlock_lock(xlator_t *this, posix_lock_t *lock, pl_inode_t *pl_inode)
 {
-    posix_lock_t *conf = NULL;
-
-    conf = find_matching_reservelk(lock, pl_inode);
+    posix_lock_t *conf = find_matching_reservelk(lock, pl_inode);
     if (!conf) {
         gf_log(this->name, GF_LOG_DEBUG, " Matching lock not found for unlock");
         goto out;
@@ -345,6 +338,7 @@ pl_reserve_unlock(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
     {
         retlock = __reserve_unlock_lock(this, lock, pl_inode);
         if (!retlock) {
+            pthread_mutex_unlock(&pl_inode->mutex);
             gf_log(this->name, GF_LOG_DEBUG, "Bad Unlock issued on Inode lock");
             ret = -EINVAL;
             goto out;
@@ -354,9 +348,8 @@ pl_reserve_unlock(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
         __destroy_lock(retlock);
         ret = 0;
     }
-out:
     pthread_mutex_unlock(&pl_inode->mutex);
-
+out:
     grant_blocked_reserve_locks(this, pl_inode);
     grant_blocked_lock_calls(this, pl_inode);
 
@@ -372,19 +365,20 @@ pl_reserve_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
     pthread_mutex_lock(&pl_inode->mutex);
     {
         ret = __lock_reservelk(this, pl_inode, lock, can_block);
-        if (ret < 0)
-            gf_log(this->name, GF_LOG_TRACE,
-                   "%s (pid=%d) (lk-owner=%s) %" PRId64 " - %" PRId64 " => NOK",
-                   lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-                   lock->client_pid, lkowner_utoa(&lock->owner),
-                   lock->user_flock.l_start, lock->user_flock.l_len);
-        else
-            gf_log(this->name, GF_LOG_TRACE,
-                   "%s (pid=%d) (lk-owner=%s) %" PRId64 " - %" PRId64 " => OK",
-                   lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-                   lock->client_pid, lkowner_utoa(&lock->owner), lock->fl_start,
-                   lock->fl_end);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
+
+    if (ret < 0)
+        gf_log(this->name, GF_LOG_TRACE,
+               "%s (pid=%d) (lk-owner=%s) %" PRId64 " - %" PRId64 " => NOK",
+               lock->fl_type == F_UNLCK ? "Unlock" : "Lock", lock->client_pid,
+               lkowner_utoa(&lock->owner), lock->user_flock.l_start,
+               lock->user_flock.l_len);
+    else
+        gf_log(this->name, GF_LOG_TRACE,
+               "%s (pid=%d) (lk-owner=%s) %" PRId64 " - %" PRId64 " => OK",
+               lock->fl_type == F_UNLCK ? "Unlock" : "Lock", lock->client_pid,
+               lkowner_utoa(&lock->owner), lock->fl_start, lock->fl_end);
+
     return ret;
 }
