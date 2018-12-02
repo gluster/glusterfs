@@ -1396,7 +1396,7 @@ error_gen_priv_dump(xlator_t *this)
 
     gf_proc_dump_write("op_count", "%d", conf->op_count);
     gf_proc_dump_write("failure_iter_no", "%d", conf->failure_iter_no);
-    gf_proc_dump_write("error_no", "%s", conf->error_no);
+    gf_proc_dump_write("error_no", "%d", conf->error_no_int);
     gf_proc_dump_write("random_failure", "%d", conf->random_failure);
 
     UNLOCK(&conf->lock);
@@ -1430,6 +1430,7 @@ reconfigure(xlator_t *this, dict_t *options)
     eg_t *pvt = NULL;
     int32_t ret = 0;
     char *error_enable_fops = NULL;
+    char *error_no = NULL;
     double failure_percent_dbl = 0.0;
 
     if (!this || !this->private)
@@ -1439,10 +1440,10 @@ reconfigure(xlator_t *this, dict_t *options)
 
     ret = -1;
 
-    GF_OPTION_RECONF("error-no", pvt->error_no, options, str, out);
+    GF_OPTION_RECONF("error-no", error_no, options, str, out);
 
-    if (pvt->error_no)
-        pvt->error_no_int = conv_errno_to_int(&pvt->error_no);
+    if (error_no)
+        pvt->error_no_int = conv_errno_to_int(&error_no);
 
     GF_OPTION_RECONF("failure", failure_percent_dbl, options, percent, out);
 
@@ -1466,6 +1467,7 @@ init(xlator_t *this)
     eg_t *pvt = NULL;
     int32_t ret = 0;
     char *error_enable_fops = NULL;
+    char *error_no = NULL;
     double failure_percent_dbl = 0.0;
 
     if (!this->children || this->children->next) {
@@ -1490,10 +1492,10 @@ init(xlator_t *this)
 
     ret = -1;
 
-    GF_OPTION_INIT("error-no", pvt->error_no, str, out);
+    GF_OPTION_INIT("error-no", error_no, str, out);
 
-    if (pvt->error_no)
-        pvt->error_no_int = conv_errno_to_int(&pvt->error_no);
+    if (error_no)
+        pvt->error_no_int = conv_errno_to_int(&error_no);
 
     GF_OPTION_INIT("failure", failure_percent_dbl, percent, out);
 

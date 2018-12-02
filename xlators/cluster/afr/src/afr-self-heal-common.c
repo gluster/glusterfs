@@ -2469,13 +2469,8 @@ afr_selfheal_do(call_frame_t *frame, xlator_t *this, uuid_t gfid)
     gf_boolean_t metadata_selfheal = _gf_false;
     gf_boolean_t entry_selfheal = _gf_false;
     afr_private_t *priv = NULL;
-    gf_boolean_t dataheal_enabled = _gf_false;
 
     priv = this->private;
-
-    ret = gf_string2boolean(priv->data_self_heal, &dataheal_enabled);
-    if (ret)
-        goto out;
 
     ret = afr_selfheal_unlocked_inspect(frame, this, gfid, &inode,
                                         &data_selfheal, &metadata_selfheal,
@@ -2496,7 +2491,7 @@ afr_selfheal_do(call_frame_t *frame, xlator_t *this, uuid_t gfid)
         }
     }
 
-    if (data_selfheal && dataheal_enabled)
+    if (data_selfheal && priv->data_self_heal)
         data_ret = afr_selfheal_data(frame, this, fd);
 
     if (metadata_selfheal && priv->metadata_self_heal)

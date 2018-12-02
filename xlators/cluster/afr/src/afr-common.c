@@ -1156,18 +1156,12 @@ ret:
 }
 
 gf_boolean_t
-afr_selfheal_enabled(xlator_t *this)
+afr_selfheal_enabled(const xlator_t *this)
 {
-    afr_private_t *priv = NULL;
-    gf_boolean_t data = _gf_false;
-    int ret = 0;
+    const afr_private_t *priv = this->private;
 
-    priv = this->private;
-
-    ret = gf_string2boolean(priv->data_self_heal, &data);
-    GF_ASSERT(!ret);
-
-    return data || priv->metadata_self_heal || priv->entry_self_heal;
+    return priv->data_self_heal || priv->metadata_self_heal ||
+           priv->entry_self_heal;
 }
 
 int
@@ -4876,7 +4870,7 @@ afr_priv_dump(xlator_t *this)
         sprintf(key, "child_latency[%d]", i);
         gf_proc_dump_write(key, "%" PRId64, priv->child_latency[i]);
     }
-    gf_proc_dump_write("data_self_heal", "%s", priv->data_self_heal);
+    gf_proc_dump_write("data_self_heal", "%d", priv->data_self_heal);
     gf_proc_dump_write("metadata_self_heal", "%d", priv->metadata_self_heal);
     gf_proc_dump_write("entry_self_heal", "%d", priv->entry_self_heal);
     gf_proc_dump_write("read_child", "%d", priv->read_child);
@@ -6020,8 +6014,10 @@ afr_selfheal_locked_entry_inspect(call_frame_t *frame, xlator_t *this,
     gf_boolean_t granular_locks = _gf_false;
 
     priv = this->private;
-    if (strcmp("granular", priv->locking_scheme) == 0)
-        granular_locks = _gf_true;
+    granular_locks = priv->granular_locks; /*Assign to local variable so that
+                                             reconfigure doesn't change this
+                                             value between locking and unlocking
+                                             below*/
     locked_on = alloca0(priv->child_count);
     data_lock = alloca0(priv->child_count);
     sources = alloca0(priv->child_count);

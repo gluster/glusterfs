@@ -29,7 +29,7 @@ typedef struct {
     gf_boolean_t worm_files_deletable;
     uint64_t reten_period;
     uint64_t com_period;
-    char *reten_mode;
+    int reten_mode;
     time_t start_time;
 } read_only_priv_t;
 

@@ -120,6 +120,21 @@ afr_set_favorite_child_policy(afr_private_t *priv, char *policy)
 
     return 0;
 }
+
+static void
+set_data_self_heal_algorithm(afr_private_t *priv, char *algo)
+{
+    if (!algo) {
+        priv->data_self_heal_algorithm = AFR_SELFHEAL_DATA_DYNAMIC;
+    } else if (strcmp(algo, "full") == 0) {
+        priv->data_self_heal_algorithm = AFR_SELFHEAL_DATA_FULL;
+    } else if (strcmp(algo, "diff") == 0) {
+        priv->data_self_heal_algorithm = AFR_SELFHEAL_DATA_DIFF;
+    } else {
+        priv->data_self_heal_algorithm = AFR_SELFHEAL_DATA_DYNAMIC;
+    }
+}
+
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
@@ -130,12 +145,13 @@ reconfigure(xlator_t *this, dict_t *options)
     int index = -1;
     char *qtype = NULL;
     char *fav_child_policy = NULL;
+    char *data_self_heal = NULL;
+    char *data_self_heal_algorithm = NULL;
+    char *locking_scheme = NULL;
     gf_boolean_t consistent_io = _gf_false;
     gf_boolean_t choose_local_old = _gf_false;
 
     priv = this->private;
-
-    GF_OPTION_RECONF("afr-dirty-xattr", priv->afr_dirty, options, str, out);
 
     GF_OPTION_RECONF("metadata-splitbrain-forced-heal",
                      priv->metadata_splitbrain_forced_heal, options, bool, out);
@@ -149,7 +165,8 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("metadata-self-heal", priv->metadata_self_heal, options,
                      bool, out);
 
-    GF_OPTION_RECONF("data-self-heal", priv->data_self_heal, options, str, out);
+    GF_OPTION_RECONF("data-self-heal", data_self_heal, options, str, out);
+    gf_string2boolean(data_self_heal, &priv->data_self_heal);
 
     GF_OPTION_RECONF("entry-self-heal", priv->entry_self_heal, options, bool,
                      out);
@@ -157,8 +174,9 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("data-self-heal-window-size",
                      priv->data_self_heal_window_size, options, uint32, out);
 
-    GF_OPTION_RECONF("data-self-heal-algorithm", priv->data_self_heal_algorithm,
+    GF_OPTION_RECONF("data-self-heal-algorithm", data_self_heal_algorithm,
                      options, str, out);
+    set_data_self_heal_algorithm(priv, data_self_heal_algorithm);
 
     GF_OPTION_RECONF("halo-enabled", priv->halo_enabled, options, bool, out);
 
@@ -214,7 +232,8 @@ reconfigure(xlator_t *this, dict_t *options)
     }
 
     GF_OPTION_RECONF("pre-op-compat", priv->pre_op_compat, options, bool, out);
-    GF_OPTION_RECONF("locking-scheme", priv->locking_scheme, options, str, out);
+    GF_OPTION_RECONF("locking-scheme", locking_scheme, options, str, out);
+    priv->granular_locks = (strcmp(locking_scheme, "granular") == 0);
     GF_OPTION_RECONF("full-lock", priv->full_lock, options, bool, out);
     GF_OPTION_RECONF("granular-entry-heal", priv->esh_granular, options, bool,
                      out);
@@ -366,6 +385,9 @@ init(xlator_t *this)
     char *qtype = NULL;
     char *fav_child_policy = NULL;
     char *thin_arbiter = NULL;
+    char *data_self_heal = NULL;
+    char *locking_scheme = NULL;
+    char *data_self_heal_algorithm = NULL;
 
     if (!this->children) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_CHILD_MISCONFIGURED,
@@ -448,10 +470,12 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("heal-wait-queue-length", priv->heal_wait_qlen, uint32, out);
 
-    GF_OPTION_INIT("data-self-heal", priv->data_self_heal, str, out);
+    GF_OPTION_INIT("data-self-heal", data_self_heal, str, out);
+    gf_string2boolean(data_self_heal, &priv->data_self_heal);
 
-    GF_OPTION_INIT("data-self-heal-algorithm", priv->data_self_heal_algorithm,
-                   str, out);
+    GF_OPTION_INIT("data-self-heal-algorithm", data_self_heal_algorithm, str,
+                   out);
+    set_data_self_heal_algorithm(priv, data_self_heal_algorithm);
 
     GF_OPTION_INIT("data-self-heal-window-size",
                    priv->data_self_heal_window_size, uint32, out);
@@ -479,7 +503,8 @@ init(xlator_t *this)
                    out);
 
     GF_OPTION_INIT("pre-op-compat", priv->pre_op_compat, bool, out);
-    GF_OPTION_INIT("locking-scheme", priv->locking_scheme, str, out);
+    GF_OPTION_INIT("locking-scheme", locking_scheme, str, out);
+    priv->granular_locks = (strcmp(locking_scheme, "granular") == 0);
     GF_OPTION_INIT("full-lock", priv->full_lock, bool, out);
     GF_OPTION_INIT("granular-entry-heal", priv->esh_granular, bool, out);
 
