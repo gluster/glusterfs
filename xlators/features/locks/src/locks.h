@@ -30,11 +30,11 @@ struct __pl_fd;
 struct __posix_lock {
     struct list_head list;
 
-    short fl_type;
     off_t fl_start;
     off_t fl_end;
     uint32_t lk_flags;
 
+    short fl_type;
     short blocked;              /* waiting to acquire */
     struct gf_flock user_flock; /* the flock supplied by the user */
     xlator_t *this;             /* required for blocked locks */
@@ -74,7 +74,6 @@ struct __pl_inode_lock {
     struct list_head contend;       /* list of contending locks */
     int ref;
 
-    short fl_type;
     off_t fl_start;
     off_t fl_end;
 
@@ -102,6 +101,7 @@ struct __pl_inode_lock {
     char *connection_id; /* stores the client connection id */
 
     struct list_head client_list; /* list of all locks from a client */
+    short fl_type;
 };
 typedef struct __pl_inode_lock pl_inode_lock_t;
 
@@ -135,7 +135,6 @@ struct __entry_lock {
     const char *volume;
 
     const char *basename;
-    entrylk_type type;
 
     struct timeval blkd_time; /*time at which lock was queued into blkd list*/
     struct timeval
@@ -150,6 +149,7 @@ struct __entry_lock {
     char *connection_id; /* stores the client connection id */
 
     struct list_head client_list; /* list of all locks from a client */
+    entrylk_type type;
 };
 typedef struct __entry_lock pl_entry_lock_t;
 
@@ -196,22 +196,18 @@ struct __pl_metalk {
 typedef struct __pl_metalk pl_meta_lock_t;
 
 typedef struct {
+    char *brickname;
+    uint32_t revocation_secs;
+    uint32_t revocation_max_blocked;
+    uint32_t notify_contention_delay;
     mlk_mode_t mandatory_mode; /* holds current mandatory locking mode */
     gf_boolean_t trace;        /* trace lock requests in and out */
-    char *brickname;
     gf_boolean_t monkey_unlocking;
-    uint32_t revocation_secs;
     gf_boolean_t revocation_clear_all;
-    uint32_t revocation_max_blocked;
     gf_boolean_t notify_contention;
-    uint32_t notify_contention_delay;
 } posix_locks_private_t;
 
 typedef struct {
-    gf_boolean_t entrylk_count_req;
-    gf_boolean_t inodelk_count_req;
-    gf_boolean_t posixlk_count_req;
-    gf_boolean_t parent_entrylk_req;
     data_t *inodelk_dom_count_req;
 
     dict_t *xdata;
@@ -219,6 +215,10 @@ typedef struct {
     fd_t *fd;
     off_t offset;
     glusterfs_fop_t op;
+    gf_boolean_t entrylk_count_req;
+    gf_boolean_t inodelk_count_req;
+    gf_boolean_t posixlk_count_req;
+    gf_boolean_t parent_entrylk_req;
 } pl_local_t;
 
 typedef struct {

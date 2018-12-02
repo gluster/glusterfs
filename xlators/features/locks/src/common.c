@@ -213,12 +213,10 @@ void
 pl_trace_in(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc, int cmd,
             struct gf_flock *flock, const char *domain)
 {
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = this->private;
     char pl_locker[256];
     char pl_lockee[256];
     char pl_lock[256];
-
-    priv = this->private;
 
     if (!priv->trace)
         return;
@@ -291,12 +289,10 @@ pl_trace_block(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
                int cmd, struct gf_flock *flock, const char *domain)
 
 {
-    posix_locks_private_t *priv = NULL;
+    posix_locks_private_t *priv = this->private;
     char pl_locker[256];
     char pl_lockee[256];
     char pl_lock[256];
-
-    priv = this->private;
 
     if (!priv->trace)
         return;
@@ -1002,7 +998,7 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
         if (__is_lock_grantable(pl_inode, lock)) {
             if (pl_metalock_is_active(pl_inode)) {
-                __pl_queue_lock(pl_inode, lock, can_block);
+                __pl_queue_lock(pl_inode, lock);
                 pthread_mutex_unlock(&pl_inode->mutex);
                 ret = -2;
                 goto out;
@@ -1015,7 +1011,7 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
             __insert_and_merge(pl_inode, lock);
         } else if (can_block) {
             if (pl_metalock_is_active(pl_inode)) {
-                __pl_queue_lock(pl_inode, lock, can_block);
+                __pl_queue_lock(pl_inode, lock);
                 pthread_mutex_unlock(&pl_inode->mutex);
                 ret = -2;
                 goto out;
@@ -1052,10 +1048,7 @@ out:
 posix_lock_t *
 pl_getlk(pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-    posix_lock_t *conf = NULL;
-
-    conf = first_conflicting_overlap(pl_inode, lock);
-
+    posix_lock_t *conf = first_conflicting_overlap(pl_inode, lock);
     if (conf == NULL) {
         lock->fl_type = F_UNLCK;
         return lock;

@@ -644,11 +644,10 @@ int32_t
 check_entrylk_on_basename(xlator_t *this, inode_t *parent, char *basename)
 {
     int32_t entrylk = 0;
-    pl_inode_t *pinode = 0;
     pl_dom_list_t *dom = NULL;
     pl_entry_lock_t *conf = NULL;
 
-    pinode = pl_inode_get(this, parent);
+    pl_inode_t *pinode = pl_inode_get(this, parent);
     if (!pinode)
         goto out;
     pthread_mutex_lock(&pinode->mutex);

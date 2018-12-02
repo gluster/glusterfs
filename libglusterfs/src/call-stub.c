@@ -16,7 +16,7 @@
 #include "glusterfs/libglusterfs-messages.h"
 
 static call_stub_t *
-stub_new(call_frame_t *frame, char wind, glusterfs_fop_t fop)
+stub_new(call_frame_t *frame, const char wind, const glusterfs_fop_t fop)
 {
     call_stub_t *new = NULL;
 
