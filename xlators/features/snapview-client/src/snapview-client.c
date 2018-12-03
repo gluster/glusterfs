@@ -238,6 +238,52 @@ out:
     return svc_fd;
 }
 
+/**
+ * @this: xlator
+ * @entry_point: pointer to the buffer provided by consumer
+ *
+ * This function is mainly for copying the entry point name
+ * (stored as string in priv->path) to a buffer point to by
+ * @entry_point within the lock. It is for the consumer to
+ * allocate the memory for the buffer.
+ *
+ * This function is called by all the functions (or fops)
+ * who need to use priv->path for avoiding the race.
+ * For example, either in lookup or in any other fop,
+ * while priv->path is being accessed, a reconfigure can
+ * happen to change priv->path. This ensures that, a lock
+ * is taken before accessing priv->path.
+ **/
+int
+gf_svc_get_entry_point(xlator_t *this, char *entry_point, size_t dest_size)
+{
+    int ret = -1;
+    svc_private_t *priv = NULL;
+
+    GF_VALIDATE_OR_GOTO("snapview-client", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, entry_point, out);
+
+    priv = this->private;
+
+    LOCK(&priv->lock);
+    {
+        if (dest_size <= strlen(priv->path)) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_STR_LEN,
+                   "destination buffer "
+                   "size %zu is less than the length %zu of "
+                   "the entry point name %s",
+                   dest_size, strlen(priv->path), priv->path);
+        } else {
+            snprintf(entry_point, dest_size, "%s", priv->path);
+            ret = 0;
+        }
+    }
+    UNLOCK(&priv->lock);
+
+out:
+    return ret;
+}
+
 static int32_t
 gf_svc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -341,19 +387,18 @@ gf_svc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     int op_ret = -1;
     int op_errno = EINVAL;
     inode_t *parent = NULL;
-    svc_private_t *priv = NULL;
     dict_t *new_xdata = NULL;
     int inode_type = -1;
     int parent_type = -1;
     gf_boolean_t wind = _gf_false;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
-
-    priv = this->private;
 
     ret = svc_inode_ctx_get(this, loc->inode, &inode_type);
     if (!__is_root_gfid(loc->gfid)) {
@@ -411,7 +456,14 @@ gf_svc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         }
     }
 
-    if (strcmp(loc->name, priv->path)) {
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        goto out;
+    }
+
+    if (strcmp(loc->name, entry_point)) {
         if (parent_type == VIRTUAL_INODE) {
             subvolume = SECOND_CHILD(this);
         } else {
@@ -429,8 +481,8 @@ gf_svc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
             /* Indication of whether the lookup is happening on the
                entry point or not, to the snapview-server.
             */
-            SVC_ENTRY_POINT_SET(this, xdata, op_ret, op_errno, new_xdata, priv,
-                                ret, out);
+            SVC_ENTRY_POINT_SET(this, xdata, op_ret, op_errno, new_xdata, ret,
+                                out);
         }
     }
 
@@ -469,6 +521,9 @@ gf_svc_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         0,
     };
     loc_t *temp_loc = NULL;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -484,7 +539,14 @@ gf_svc_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     if (path_len >= snap_len && inode_type == VIRTUAL_INODE) {
         path = &loc->path[path_len - snap_len];
-        if (!strcmp(path, priv->path)) {
+        if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+            gf_msg(this->name, GF_LOG_WARNING, op_errno,
+                   SVC_MSG_COPY_ENTRY_POINT_FAILED,
+                   "failed to copy the entry point string ");
+            goto out;
+        }
+
+        if (!strcmp(path, entry_point)) {
             /*
              * statfs call for virtual snap directory.
              * Sent the fops to parent volume by removing
@@ -816,6 +878,9 @@ gf_svc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     char attrname[PATH_MAX] = "";
     char attrval[64] = "";
     dict_t *dict = NULL;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -839,14 +904,21 @@ gf_svc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     strcat(attrname, ":");
 
     if (!strcmp(attrname, GF_XATTR_GET_REAL_FILENAME_KEY)) {
-        if (!strcasecmp(attrval, priv->path)) {
+        if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+            gf_msg(this->name, GF_LOG_WARNING, op_errno,
+                   SVC_MSG_COPY_ENTRY_POINT_FAILED,
+                   "failed to copy the entry point string");
+            goto out;
+        }
+
+        if (!strcasecmp(attrval, entry_point)) {
             dict = dict_new();
             if (NULL == dict) {
                 op_errno = ENOMEM;
                 goto out;
             }
 
-            ret = dict_set_dynstr_with_alloc(dict, (char *)name, priv->path);
+            ret = dict_set_dynstr_with_alloc(dict, (char *)name, entry_point);
 
             if (ret) {
                 op_errno = ENOMEM;
@@ -854,7 +926,7 @@ gf_svc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             }
 
             op_errno = 0;
-            op_ret = strlen(priv->path) + 1;
+            op_ret = strlen(entry_point) + 1;
             /* We should return from here */
             goto out;
         }
@@ -1079,16 +1151,15 @@ gf_svc_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     int ret = -1;
     int op_ret = -1;
     int op_errno = EINVAL;
-    svc_private_t *priv = NULL;
     gf_boolean_t wind = _gf_false;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
-
-    priv = this->private;
 
     ret = svc_inode_ctx_get(this, loc->parent, &parent_type);
     if (ret < 0) {
@@ -1101,7 +1172,14 @@ gf_svc_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         goto out;
     }
 
-    if (strcmp(loc->name, priv->path) && parent_type == NORMAL_INODE) {
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        goto out;
+    }
+
+    if (strcmp(loc->name, entry_point) && parent_type == NORMAL_INODE) {
         STACK_WIND(frame, gf_svc_mkdir_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->mkdir, loc, mode, umask, xdata);
     } else {
@@ -1151,16 +1229,15 @@ gf_svc_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     int ret = -1;
     int op_ret = -1;
     int op_errno = EINVAL;
-    svc_private_t *priv = NULL;
     gf_boolean_t wind = _gf_false;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
-
-    priv = this->private;
 
     ret = svc_inode_ctx_get(this, loc->parent, &parent_type);
     if (ret < 0) {
@@ -1173,7 +1250,14 @@ gf_svc_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         goto out;
     }
 
-    if (strcmp(loc->name, priv->path) && parent_type == NORMAL_INODE) {
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        goto out;
+    }
+
+    if (strcmp(loc->name, entry_point) && parent_type == NORMAL_INODE) {
         STACK_WIND(frame, gf_svc_mknod_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, umask,
                    xdata);
@@ -1272,17 +1356,16 @@ gf_svc_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     int ret = -1;
     int op_ret = -1;
     int op_errno = EINVAL;
-    svc_private_t *priv = NULL;
     gf_boolean_t wind = _gf_false;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
-
-    priv = this->private;
 
     ret = svc_inode_ctx_get(this, loc->parent, &parent_type);
     if (ret < 0) {
@@ -1295,7 +1378,14 @@ gf_svc_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         goto out;
     }
 
-    if (strcmp(loc->name, priv->path) && parent_type == NORMAL_INODE) {
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        goto out;
+    }
+
+    if (strcmp(loc->name, entry_point) && parent_type == NORMAL_INODE) {
         STACK_WIND(frame, gf_svc_create_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->create, loc, flags, mode, umask, fd,
                    xdata);
@@ -1347,16 +1437,15 @@ gf_svc_symlink(call_frame_t *frame, xlator_t *this, const char *linkpath,
     int op_ret = -1;
     int op_errno = EINVAL;
     int ret = -1;
-    svc_private_t *priv = NULL;
     gf_boolean_t wind = _gf_false;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("svc", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, out);
-
-    priv = this->private;
 
     ret = svc_inode_ctx_get(this, loc->parent, &parent_type);
     if (ret < 0) {
@@ -1369,7 +1458,14 @@ gf_svc_symlink(call_frame_t *frame, xlator_t *this, const char *linkpath,
         goto out;
     }
 
-    if (strcmp(loc->name, priv->path) && parent_type == NORMAL_INODE) {
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        goto out;
+    }
+
+    if (strcmp(loc->name, entry_point) && parent_type == NORMAL_INODE) {
         STACK_WIND(frame, gf_svc_symlink_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->symlink, linkpath, loc, umask,
                    xdata);
@@ -1533,14 +1629,13 @@ gf_svc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_dirent_t *entry = NULL;
     gf_dirent_t *tmpentry = NULL;
     svc_local_t *local = NULL;
-    svc_private_t *priv = NULL;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     if (op_ret < 0)
         goto out;
 
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    priv = this->private;
     local = frame->local;
 
     /* If .snaps pre-exists, then it should not be listed
@@ -1551,9 +1646,25 @@ gf_svc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (local->subvolume != FIRST_CHILD(this))
         goto out;
 
+    /*
+     * Better to goto out if getting the entry point
+     * fails. We might end up sending the directory
+     * entry for the snapview entry point in the readdir
+     * response. But, the intention is to avoid the race
+     * condition where priv->path is being changed in
+     * reconfigure while this is accessing it.
+     */
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno,
+               SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string. "
+               "Proceeding.");
+        goto out;
+    }
+
     list_for_each_entry_safe(entry, tmpentry, &entries->list, list)
     {
-        if (strcmp(priv->path, entry->d_name) == 0)
+        if (strcmp(entry_point, entry->d_name) == 0)
             gf_dirent_entry_free(entry);
     }
 
@@ -1655,17 +1766,16 @@ gf_svc_readdirp_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     gf_dirent_t entries;
     gf_dirent_t *entry = NULL;
-    svc_private_t *private = NULL;
     svc_fd_t *svc_fd = NULL;
     svc_local_t *local = NULL;
     int inode_type = -1;
     int ret = -1;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-   private
-    = this->private;
     INIT_LIST_HEAD(&entries.list);
 
     local = frame->local;
@@ -1693,10 +1803,18 @@ gf_svc_readdirp_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    entry = gf_dirent_for_name(private->path);
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        op_ret = 0;
+        op_errno = ENOENT;
+        goto out;
+    }
+
+    entry = gf_dirent_for_name(entry_point);
     if (!entry) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_NO_MEMORY,
-               "failed to allocate memory for the entry %s", private->path);
+               "failed to allocate memory for the entry %s", entry_point);
         op_ret = 0;
         op_errno = ENOMEM;
         goto out;
@@ -1732,18 +1850,16 @@ int
 gf_svc_special_dir_revalidate_lookup(call_frame_t *frame, xlator_t *this,
                                      dict_t *xdata)
 {
-    svc_private_t *private = NULL;
     svc_local_t *local = NULL;
     loc_t *loc = NULL;
     dict_t *tmp_xdata = NULL;
     char *path = NULL;
     int ret = -1;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-   private
-    = this->private;
 
     local = frame->local;
     loc = &local->loc;
@@ -1764,8 +1880,14 @@ gf_svc_special_dir_revalidate_lookup(call_frame_t *frame, xlator_t *this,
         goto out;
     }
 
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point string");
+        goto out;
+    }
+
     gf_uuid_copy(local->loc.gfid, loc->inode->gfid);
-    ret = inode_path(loc->parent, private->path, &path);
+    ret = inode_path(loc->parent, entry_point, &path);
     if (ret < 0)
         goto out;
 
@@ -1820,6 +1942,9 @@ gf_svc_readdir_on_special_dir(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = -1;
     gf_boolean_t unwind = _gf_true;
     svc_fd_t *svc_fd = NULL;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
@@ -1850,7 +1975,13 @@ gf_svc_readdir_on_special_dir(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == 0 && op_errno == ENOENT && private->special_dir &&
         strcmp(private->special_dir, "") && svc_fd->special_dir &&
         local->subvolume == FIRST_CHILD(this)) {
-        inode = inode_grep(fd->inode->table, fd->inode, private->path);
+        if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, SVC_MSG_GET_FD_CONTEXT_FAILED,
+                   "failed to copy the entry point string");
+            goto out;
+        }
+
+        inode = inode_grep(fd->inode->table, fd->inode, entry_point);
         if (!inode) {
             inode = inode_new(fd->inode->table);
             if (!inode) {
@@ -1863,7 +1994,7 @@ gf_svc_readdir_on_special_dir(call_frame_t *frame, void *cookie, xlator_t *this,
         gf_uuid_copy(local->loc.pargfid, fd->inode->gfid);
         gf_uuid_copy(local->loc.gfid, inode->gfid);
         if (gf_uuid_is_null(inode->gfid))
-            ret = inode_path(fd->inode, private->path, &path);
+            ret = inode_path(fd->inode, entry_point, &path);
         else
             ret = inode_path(inode, NULL, &path);
 
@@ -1923,14 +2054,15 @@ gf_svc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = -1;
     svc_fd_t *svc_fd = NULL;
     gf_boolean_t unwind = _gf_true;
-    svc_private_t *priv = NULL;
+    char entry_point[NAME_MAX + 1] = {
+        0,
+    };
 
     if (op_ret < 0)
         goto out;
 
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-    priv = this->private;
+
     local = frame->local;
 
     svc_fd = svc_fd_ctx_get(this, local->fd);
@@ -1945,6 +2077,19 @@ gf_svc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     else
         inode_type = VIRTUAL_INODE;
 
+    /*
+     * Better to goto out and return whatever is there in the
+     * readdirp response (even if the readdir response contains
+     * a directory entry for the snapshot entry point). Otherwise
+     * if we ignore the error, then there is a chance of race
+     * condition where, priv->path is changed in reconfigure
+     */
+    if (gf_svc_get_entry_point(this, entry_point, sizeof(entry_point))) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVC_MSG_COPY_ENTRY_POINT_FAILED,
+               "failed to copy the entry point");
+        goto out;
+    }
+
     list_for_each_entry_safe(entry, tmpentry, &entries->list, list)
     {
         /* If .snaps pre-exists, then it should not be listed
@@ -1952,7 +2097,7 @@ gf_svc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          * so filter the .snaps entry if exists.
          * However it is OK to list .snaps in VIRTUAL world
          */
-        if (inode_type == NORMAL_INODE && !strcmp(priv->path, entry->d_name)) {
+        if (inode_type == NORMAL_INODE && !strcmp(entry_point, entry->d_name)) {
             gf_dirent_entry_free(entry);
             continue;
         }
@@ -2349,16 +2494,114 @@ out:
     return 0;
 }
 
+static int
+gf_svc_priv_destroy(xlator_t *this, svc_private_t *priv)
+{
+    int ret = -1;
+
+    if (!priv) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVC_MSG_NULL_PRIV, "priv NULL");
+        goto out;
+    }
+
+    GF_FREE(priv->path);
+    GF_FREE(priv->special_dir);
+
+    LOCK_DESTROY(&priv->lock);
+
+    GF_FREE(priv);
+
+    if (this->local_pool) {
+        mem_pool_destroy(this->local_pool);
+        this->local_pool = NULL;
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
+/**
+ * ** NOTE **:
+ * =============
+ * The option "snapdir-entry-path" is NOT reconfigurable.
+ * That option as of now is only for the consumption of
+ * samba, where, it needs to tell glusterfs about the
+ * directory that is shared with windows client for the
+ * access. Now, in windows-explorer (GUI) interface, for
+ * the directory shared, the entry point to the snapshot
+ * world (snapshot-directory option) should be visible,
+ * atleast as a hidden entry. For that to happen, glusterfs
+ * has to send that entry in the readdir response coming on
+ * the directory used as the smb share. Therefore, samba,
+ * while initializing the gluster volume (via gfapi) sets
+ * the xlator option "snapdir-entry-path" to the directory
+ * which is to be shared with windows (check the file
+ * vfs_glusterfs.c from samba source code). So to avoid
+ * problems with smb access, not allowing snapdir-entry-path
+ * option to be configurable. That option is for those
+ * consumers who know what they are doing.
+ **/
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
     svc_private_t *priv = NULL;
+    char *path = NULL;
+    gf_boolean_t show_entry_point = _gf_false;
+    char *tmp = NULL;
 
     priv = this->private;
 
-    GF_OPTION_RECONF("snapshot-directory", priv->path, options, str, out);
-    GF_OPTION_RECONF("show-snapshot-directory", priv->show_entry_point, options,
-                     bool, out);
+    GF_OPTION_RECONF("snapshot-directory", path, options, str, out);
+    if (!path || (strlen(path) > NAME_MAX) || path[0] != '.') {
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_INVALID_ENTRY_POINT,
+               "%s is not a "
+               "valid entry point",
+               path);
+        goto out;
+    }
+
+    GF_OPTION_RECONF("show-snapshot-directory", show_entry_point, options, bool,
+                     out);
+
+    /*
+     * The assumption now is that priv->path is an allocated memory (either
+     * in init or in a previous reconfigure).
+     * So, the intention here is to preserve the older contents of the option
+     * until the new option's value has been completely stored in the priv.
+     * So, do this.
+     *  - Store the pointer of priv->path in a temporary pointer.
+     *  - Allocate new memory for the new value of the option that is just
+     *    obtained from the above call to GF_OPTION_RECONF.
+     *  - If the above allocation fails, again set the pointer from priv
+     *    to the address stored in tmp. i.e. the previous value.
+     *  - If the allocation succeeds, then free the tmp pointer.
+     * WARNING: Before changing the allocation and freeing logic of
+     *          priv->path, always check the init function to see how
+     *          priv->path is set. Take decisions accordingly. As of now,
+     *          the assumption is that, the string elements of private
+     *          structure of snapview-client are allocated (either in
+     *          init or here in reconfugure).
+     */
+    LOCK(&priv->lock);
+    {
+        tmp = priv->path;
+        priv->path = NULL;
+        priv->path = gf_strdup(path);
+        if (!priv->path) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "failed to reconfigure snapshot-directory option to %s",
+                   path);
+            priv->path = tmp;
+        } else {
+            GF_FREE(tmp);
+            tmp = NULL;
+        }
+
+        priv->show_entry_point = show_entry_point;
+    }
+    UNLOCK(&priv->lock);
 
 out:
     return 0;
@@ -2390,6 +2633,8 @@ init(xlator_t *this)
     int ret = -1;
     int children = 0;
     xlator_list_t *xl = NULL;
+    char *path = NULL;
+    char *special_dir = NULL;
 
     if (!this->children) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_NO_CHILD_FOR_XLATOR,
@@ -2424,22 +2669,51 @@ init(xlator_t *this)
     if (!private)
         goto out;
 
-    GF_OPTION_INIT("snapshot-directory", private->path, str, out);
-    GF_OPTION_INIT("snapdir-entry-path", private->special_dir, str, out);
-    GF_OPTION_INIT("show-snapshot-directory", private->show_entry_point, bool,
-                   out);
+    LOCK_INIT(&private->lock);
 
-    if (strstr(private->special_dir, private->path)) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_ENTRY_POINT_SPECIAL_DIR,
-               "entry point "
-               "directory cannot be part of the special directory");
-        GF_FREE(private->special_dir);
-       private
-        ->special_dir = NULL;
+    GF_OPTION_INIT("snapshot-directory", path, str, out);
+    if (!path || (strlen(path) > NAME_MAX) || path[0] != '.') {
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_INVALID_ENTRY_POINT,
+               "%s is not a valid entry point", path);
         goto out;
     }
 
-    this->private = private;
+   private
+    ->path = gf_strdup(path);
+    if (!private->path) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_NO_MEMORY,
+               "failed to allocate memory "
+               "for the entry point path %s",
+               path);
+        goto out;
+    }
+
+    GF_OPTION_INIT("snapdir-entry-path", special_dir, str, out);
+    if (!special_dir || strstr(special_dir, path)) {
+        if (special_dir)
+            gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_ENTRY_POINT_SPECIAL_DIR,
+                   "entry point directory %s cannot be part of "
+                   "the special directory %s",
+                   path, special_dir);
+        else
+            gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_ENTRY_POINT_SPECIAL_DIR,
+                   "null special directory");
+        goto out;
+    }
+
+   private
+    ->special_dir = gf_strdup(special_dir);
+    if (!private->special_dir) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_NO_MEMORY,
+               "failed to allocate memory "
+               "for the special directory %s",
+               special_dir);
+        goto out;
+    }
+
+    GF_OPTION_INIT("show-snapshot-directory", private->show_entry_point, bool,
+                   out);
+
     this->local_pool = mem_pool_new(svc_local_t, 128);
     if (!this->local_pool) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SVC_MSG_NO_MEMORY,
@@ -2447,11 +2721,13 @@ init(xlator_t *this)
         goto out;
     }
 
+    this->private = private;
+
     ret = 0;
 
 out:
     if (ret)
-        GF_FREE(private);
+        (void)gf_svc_priv_destroy(this, private);
 
     return ret;
 }
@@ -2468,9 +2744,15 @@ fini(xlator_t *this)
     if (!priv)
         return;
 
-    this->private = NULL;
+    /*
+     * Just log the failure and go ahead to
+     * set this->priv to NULL.
+     */
+    if (gf_svc_priv_destroy(this, priv))
+        gf_msg(this->name, GF_LOG_WARNING, 0, SVC_MSG_PRIV_DESTROY_FAILED,
+               "failed to destroy private");
 
-    GF_FREE(priv);
+    this->private = NULL;
 
     return;
 }

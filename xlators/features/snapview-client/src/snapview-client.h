@@ -39,8 +39,8 @@ typedef struct __svc_local svc_local_t;
         svc_local_free(__local);                                               \
     } while (0)
 
-#define SVC_ENTRY_POINT_SET(this, xdata, op_ret, op_errno, new_xdata, priv,    \
-                            ret, label)                                        \
+#define SVC_ENTRY_POINT_SET(this, xdata, op_ret, op_errno, new_xdata, ret,     \
+                            label)                                             \
     do {                                                                       \
         if (!xdata) {                                                          \
             xdata = new_xdata = dict_new();                                    \
@@ -81,6 +81,7 @@ struct svc_private {
     char *path;
     char *special_dir; /* needed for samba */
     gf_boolean_t show_entry_point;
+    gf_lock_t lock; /* mainly to guard private->path */
 };
 typedef struct svc_private svc_private_t;
 
