@@ -67,11 +67,12 @@ cli_cmd_getspec_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
 out:
     if (!proc && ret) {
-        if (dict)
-            dict_unref(dict);
         if (wordcount > 1)
             cli_out("Fetching spec for volume %s failed", (char *)words[2]);
     }
+
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -109,12 +110,12 @@ cli_cmd_pmap_b2p_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
 out:
     if (!proc && ret) {
-        if (dict)
-            dict_unref(dict);
         if (wordcount > 1)
             cli_out("Fetching spec for volume %s failed", (char *)words[3]);
     }
 
+    if (dict)
+        dict_unref(dict);
     return ret;
 }
 
@@ -322,6 +323,9 @@ out:
             cli_out("uuid get failed");
     }
 
+    if (dict)
+        dict_unref(dict);
+
     CLI_STACK_DESTROY(frame);
     return ret;
 }
@@ -382,6 +386,9 @@ out:
         if ((sent == 0) && (parse_error == 0))
             cli_out("uuid reset failed");
     }
+
+    if (dict)
+        dict_unref(dict);
 
     CLI_STACK_DESTROY(frame);
 
