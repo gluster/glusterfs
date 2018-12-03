@@ -188,7 +188,8 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (replies[source].op_ret == 0) {
                 ret = afr_lookup_and_heal_gfid (this, fd->inode, name,
                                                 inode, replies, source, sources,
-                                             &replies[source].poststat.ia_gfid);
+                                              &replies[source].poststat.ia_gfid,
+                                              NULL);
                 if (ret)
                         return ret;
         }
@@ -321,7 +322,8 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = afr_lookup_and_heal_gfid (this, fd->inode, name, inode, replies,
                                         source, sources,
-                                        &replies[source].poststat.ia_gfid);
+                                        &replies[source].poststat.ia_gfid,
+                                        NULL);
         if (ret)
                 return ret;
 
