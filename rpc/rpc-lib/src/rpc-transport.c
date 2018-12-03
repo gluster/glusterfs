@@ -165,7 +165,9 @@ rpc_transport_cleanup(rpc_transport_t *trans)
     if (!trans)
         return;
 
-    trans->fini(trans);
+    if (trans->fini)
+        trans->fini(trans);
+
     GF_FREE(trans->name);
 
     if (trans->xl)
