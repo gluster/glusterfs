@@ -316,6 +316,20 @@ struct rpcsvc_request {
         }                                                                      \
     } while (0);
 
+#define RPC_AUTH_ALL_SQUASH(req)                                               \
+    do {                                                                       \
+        int gidcount = 0;                                                      \
+        if (req->svc->all_squash) {                                            \
+            req->uid = req->svc->anonuid;                                      \
+            req->gid = req->svc->anongid;                                      \
+                                                                               \
+            for (gidcount = 0; gidcount < req->auxgidcount; ++gidcount) {      \
+                if (!req->auxgids[gidcount])                                   \
+                    req->auxgids[gidcount] = req->svc->anongid;                \
+            }                                                                  \
+        }                                                                      \
+    } while (0);
+
 #define RPCSVC_ACTOR_SUCCESS 0
 #define RPCSVC_ACTOR_ERROR (-1)
 #define RPCSVC_ACTOR_IGNORE (-2)
@@ -658,6 +672,8 @@ int
 rpcsvc_set_addr_namelookup(rpcsvc_t *svc, dict_t *options);
 int
 rpcsvc_set_root_squash(rpcsvc_t *svc, dict_t *options);
+int
+rpcsvc_set_all_squash(rpcsvc_t *svc, dict_t *options);
 int
 rpcsvc_set_outstanding_rpc_limit(rpcsvc_t *svc, dict_t *options, int defvalue);
 

@@ -274,6 +274,44 @@ rpcsvc_set_root_squash(rpcsvc_t *svc, dict_t *options)
 }
 
 int
+rpcsvc_set_all_squash(rpcsvc_t *svc, dict_t *options)
+{
+    int ret = -1;
+
+    uid_t anonuid = -1;
+    gid_t anongid = -1;
+
+    GF_ASSERT(svc);
+    GF_ASSERT(options);
+
+    ret = dict_get_str_boolean(options, "all-squash", 0);
+    if (ret != -1)
+        svc->all_squash = ret;
+    else
+        svc->all_squash = _gf_false;
+
+    ret = dict_get_uint32(options, "anonuid", &anonuid);
+    if (!ret)
+        svc->anonuid = anonuid;
+    else
+        svc->anonuid = RPC_NOBODY_UID;
+
+    ret = dict_get_uint32(options, "anongid", &anongid);
+    if (!ret)
+        svc->anongid = anongid;
+    else
+        svc->anongid = RPC_NOBODY_GID;
+
+    if (svc->all_squash)
+        gf_log(GF_RPCSVC, GF_LOG_DEBUG,
+               "all squashing enabled "
+               "(uid=%d, gid=%d)",
+               svc->anonuid, svc->anongid);
+
+    return 0;
+}
+
+int
 rpcsvc_auth_init(rpcsvc_t *svc, dict_t *options)
 {
     int ret = -1;
@@ -283,6 +321,7 @@ rpcsvc_auth_init(rpcsvc_t *svc, dict_t *options)
 
     (void)rpcsvc_set_allow_insecure(svc, options);
     (void)rpcsvc_set_root_squash(svc, options);
+    (void)rpcsvc_set_all_squash(svc, options);
     (void)rpcsvc_set_addr_namelookup(svc, options);
     ret = rpcsvc_auth_add_initers(svc);
     if (ret == -1) {
@@ -313,6 +352,10 @@ rpcsvc_auth_reconf(rpcsvc_t *svc, dict_t *options)
         return (-1);
 
     ret = rpcsvc_set_root_squash(svc, options);
+    if (ret)
+        return (-1);
+
+    ret = rpcsvc_set_all_squash(svc, options);
     if (ret)
         return (-1);
 
