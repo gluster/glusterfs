@@ -501,44 +501,51 @@ get_frame_from_request(rpcsvc_request_t *req)
                would not have been set. So for non trusted clients
                (i.e clients not from the same machine as the brick,
                and clients from outside the storage pool)
-               do the root-squashing.
+               do the root-squashing and all-squashing.
                TODO: If any client within the storage pool (i.e
                mounting within a machine from the pool but using
                other machine's ip/hostname from the same pool)
                is present treat it as a trusted client
             */
-            if (!client->auth.username && req->pid != NFS_PID)
+            if (!client->auth.username && req->pid != NFS_PID) {
                 RPC_AUTH_ROOT_SQUASH(req);
+                RPC_AUTH_ALL_SQUASH(req);
+            }
 
             /* Problem: If we just check whether the client is
-               trusted client and do not do root squashing for
-               them, then for smb clients and UFO clients root
-               squashing will never happen as they use the fuse
-               mounts done within the trusted pool (i.e they are
-               trusted clients).
-               Solution: To fix it, do root squashing for trusted
-               clients also. If one wants to have a client within
-               the storage pool for which root-squashing does not
-               happen, then the client has to be mounted with
+               trusted client and do not do root squashing and
+               all squashing for them, then for smb clients and
+               UFO clients root squashing and all squashing will
+               never happen as they use the fuse mounts done within
+               the trusted pool (i.e they are trusted clients).
+               Solution: To fix it, do root squashing and all squashing
+               for trusted clients also. If one wants to have a client
+               within the storage pool for which root-squashing does
+               not happen, then the client has to be mounted with
                --no-root-squash option. But for defrag client and
-               gsyncd client do not do root-squashing.
+               gsyncd client do not do root-squashing and all-squashing.
             */
             if (client->auth.username &&
                 req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
                 req->pid != GF_CLIENT_PID_GSYNCD &&
                 req->pid != GF_CLIENT_PID_DEFRAG &&
                 req->pid != GF_CLIENT_PID_SELF_HEALD &&
-                req->pid != GF_CLIENT_PID_QUOTA_MOUNT)
+                req->pid != GF_CLIENT_PID_QUOTA_MOUNT) {
                 RPC_AUTH_ROOT_SQUASH(req);
+                RPC_AUTH_ALL_SQUASH(req);
+            }
 
             /* For nfs clients the server processes will be running
                within the trusted storage pool machines. So if we
-               do not do root-squashing for nfs servers, thinking
-               that its a trusted client, then root-squashing won't
-               work for nfs clients.
+               do not do root-squashing and all-squashing for nfs
+               servers, thinking that its a trusted client, then
+               root-squashing and all-squashing won't work for nfs
+               clients.
             */
-            if (req->pid == NFS_PID)
+            if (req->pid == NFS_PID) {
                 RPC_AUTH_ROOT_SQUASH(req);
+                RPC_AUTH_ALL_SQUASH(req);
+            }
         }
     }
 

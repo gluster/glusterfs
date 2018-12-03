@@ -79,6 +79,7 @@ typedef struct rpcsvc_state {
     gf_boolean_t allow_insecure;
     gf_boolean_t register_portmap;
     gf_boolean_t root_squash;
+    gf_boolean_t all_squash;
 } rpcsvc_t;
 
 /* DRC START */

@@ -1748,13 +1748,22 @@ struct volume_options server_options[] = {
                     "as user bin or group staff.",
      .op_version = {2},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"all-squash"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "off",
+     .description = "Map requests from any uid/gid to the anonymous "
+                    "uid/gid. Note that this does not apply to any other "
+                    "uids or gids that might be equally sensitive, such "
+                    "as user bin or group staff.",
+     .op_version = {GD_OP_VERSION_6_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"anonuid"},
      .type = GF_OPTION_TYPE_INT,
      .default_value = "65534", /* RPC_NOBODY_UID */
      .min = 0,
      .max = (uint32_t)-1,
      .description = "value of the uid used for the anonymous "
-                    "user/nfsnobody when root-squash is enabled.",
+                    "user/nfsnobody when root-squash/all-squash is enabled.",
      .op_version = {3},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"anongid"},
@@ -1763,7 +1772,7 @@ struct volume_options server_options[] = {
      .min = 0,
      .max = (uint32_t)-1,
      .description = "value of the gid used for the anonymous "
-                    "user/nfsnobody when root-squash is enabled.",
+                    "user/nfsnobody when root-squash/all-squash is enabled.",
      .op_version = {3},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"statedump-path"},
