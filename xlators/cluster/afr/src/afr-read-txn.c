@@ -431,7 +431,7 @@ afr_read_txn(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local->is_read_txn = _gf_true;
     local->transaction.type = type;
 
-    if (priv->quorum_count && !afr_has_quorum(local->child_up, this)) {
+    if (priv->quorum_count && !afr_has_quorum(local->child_up, this, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_quorum_errno(priv);
         goto read;

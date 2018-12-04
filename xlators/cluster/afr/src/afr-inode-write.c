@@ -1489,7 +1489,7 @@ afr_handle_empty_brick(xlator_t *this, call_frame_t *frame, loc_t *loc,
     if (ret && ab_ret)
         goto out;
 
-    if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
+    if (frame->root->pid != GF_CLIENT_PID_ADD_REPLICA_MOUNT) {
         gf_msg(this->name, GF_LOG_ERROR, EPERM, afr_get_msg_id(op_type),
                "'%s' is an internal extended attribute.", op_type);
         ret = 1;

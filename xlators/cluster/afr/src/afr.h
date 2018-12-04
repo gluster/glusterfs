@@ -1327,4 +1327,8 @@ afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local);
 
 void
 afr_ta_lock_release_synctask(xlator_t *this);
+
+gf_boolean_t
+afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
+                      unsigned char *subvols);
 #endif /* __AFR_H__ */
