@@ -556,6 +556,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0 && GF_ANSWER_YES == answer) {
         gf_event(EVENT_VOLUME_STOP, "name=%s;force=%d", (char *)words[2],
