@@ -85,7 +85,7 @@ $TOOL --automake --copy --force
 echo Running ${AUTOCONF}...
 $AUTOCONF
 echo Running ${AUTOMAKE}...
-$AUTOMAKE --add-missing --force-missing --copy --foreign
+$AUTOMAKE --add-missing --force-missing --copy
 
 # Instruct user on next steps
 echo
