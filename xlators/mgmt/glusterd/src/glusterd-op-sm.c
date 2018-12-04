@@ -85,7 +85,7 @@ glusterd_all_vol_opts valid_all_vol_opts[] = {
      * can be attached per process.
      * TBD: Discuss the default value for this. Maybe this should be a
      * dynamic value depending on the memory specifications per node */
-    {GLUSTERD_BRICKMUX_LIMIT_KEY, "0"},
+    {GLUSTERD_BRICKMUX_LIMIT_KEY, "250"},
     {GLUSTERD_LOCALTIME_LOGGING_KEY, "disable"},
     {GLUSTERD_DAEMON_LOG_LEVEL_KEY, "INFO"},
     {NULL},
