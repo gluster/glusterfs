@@ -170,7 +170,7 @@ function symlink_ok()
     else
         local fname=$(readlink $symlink_file)
         if test "X$fname" != "X$orig_file_name"; then
-            echo 1
+            echo 2
         else
             echo 0
         fi
@@ -186,7 +186,7 @@ function rename_file_ok()
     if [ -f $old_name ]; then
         echo 1
     elif [ ! -f $new_name ]; then
-        echo 1
+        echo 2
     else
         echo 0
     fi
@@ -200,7 +200,7 @@ function rename_dir_ok()
     if [ -d $old_name ]; then
         echo 1
     elif [ ! -d $new_name ]; then
-        echo 1
+        echo 2
     else
         echo 0
     fi
@@ -291,9 +291,9 @@ function hardlink_rename_ok()
     if [ ! -f "$file_name" ]; then
         echo 1
     elif [ ! -f "$file_name.hl1" ]; then
-        echo 1
+        echo 2
     elif [ -f "$file_name.hl" ]; then
-        echo 1
+        echo 3
     else
         echo 0
     fi
@@ -313,9 +313,9 @@ function verify_symlink_rename_mkdir_data()
     if [ ! -f $sym_dir/file1 ]; then
         echo 1
     elif [ ! -h $sym_dir/rn_sym_link ]; then
-        echo 1
+        echo 2
     elif [ ! -d $sym_dir/sym_link ]; then
-        echo 1
+        echo 3
     else
         echo 0
     fi
@@ -341,17 +341,17 @@ function verify_rsnapshot_data()
     if [ ! -d "$dir" ]; then
         echo 1
     elif [ ! -h $dir/a_symlink ]; then
-        echo 1
+        echo 2
     elif test "X$(readlink $dir/a_symlink)" != "X/does/not/exist2"; then
-        echo 1
+        echo 3
     elif [ ! -h $dir0/a_symlink ]; then
-        echo 1
+        echo 4
     elif test "X$(readlink $dir0/a_symlink)" != "X/does/not/exist"; then
-        echo 1
+        echo 5
     elif [ ! -h $dir1/a_symlink ]; then
-        echo 1
+        echo 6
     elif test "X$(readlink $dir1/a_symlink)" != "X/does/not/exist2"; then
-        echo 1
+        echo 7
     else
         echo 0
     fi
@@ -373,13 +373,13 @@ function verify_hardlink_rename_data()
     if [ ! -d $dir ]; then
         echo 1
     elif [ -f $dir/f1 ]; then
-        echo 1
+        echo 2
     elif [ -f $dir/f2 ]; then
-        echo 1
+        echo 3
     elif [ ! -f $dir/f3 ]; then
-        echo 1
+        echo 4
     elif test "Xtest_data" != "X$(cat $dir/f3)"; then
-        echo 1
+        echo 5
     else
         echo 0
     fi

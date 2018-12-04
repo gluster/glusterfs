@@ -171,7 +171,7 @@ TEST $GEOREP_CLI $master $slave stop
 TEST create_symlink_rename_mkdir_data
 
 #hardlink-rename-unlink usecase. Sonatype Nexus3 Usecase. BUG:1512483
-TEST create_hardlink_rename_data
+#TEST create_hardlink_rename_data
 
 #rsnapshot usecase
 TEST create_rsnapshot_data
@@ -191,7 +191,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_rename_ok ${slave_mnt}/hardlink_rename
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_symlink_rename_mkdir_data ${slave_mnt}/symlink_test1
 
 #hardlink-rename-unlink usecase. Sonatype Nexus3 Usecase. BUG:1512483
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_hardlink_rename_data ${slave_mnt}
+#EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_hardlink_rename_data ${slave_mnt}
 
 #rsnapshot usecase
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rsnapshot_data ${slave_mnt}
