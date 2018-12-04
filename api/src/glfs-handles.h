@@ -46,16 +46,6 @@
  *
  */
 
-/* Values for valid flags to be used when using XXXsetattr, to set multiple
- attribute values passed via the related stat structure.
- */
-#define GFAPI_SET_ATTR_MODE 0x1
-#define GFAPI_SET_ATTR_UID 0x2
-#define GFAPI_SET_ATTR_GID 0x4
-#define GFAPI_SET_ATTR_SIZE 0x8
-#define GFAPI_SET_ATTR_ATIME 0x10
-#define GFAPI_SET_ATTR_MTIME 0x20
-
 /* Handle length for object handles returned from glfs_h_extract_handle or
  * glfs_h_create_from_handle */
 #define GFAPI_HANDLE_LENGTH 16

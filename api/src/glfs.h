@@ -20,6 +20,17 @@
   both the library and the application.
 */
 
+/* Values for valid flags to be used when using XXXsetattr, to set multiple
+ attribute values passed via the related stat structure.
+ */
+
+#define GFAPI_SET_ATTR_MODE 0x1
+#define GFAPI_SET_ATTR_UID 0x2
+#define GFAPI_SET_ATTR_GID 0x4
+#define GFAPI_SET_ATTR_SIZE 0x8
+#define GFAPI_SET_ATTR_ATIME 0x10
+#define GFAPI_SET_ATTR_MTIME 0x20
+
 #ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
 #endif
@@ -1394,6 +1405,55 @@ typedef void (*glfs_recall_cbk)(glfs_lease_t lease, void *data);
 int
 glfs_lease(glfs_fd_t *glfd, glfs_lease_t *lease, glfs_recall_cbk fn,
            void *data) __THROW GFAPI_PUBLIC(glfs_lease, 4.0.0);
+
+/*
+  SYNOPSIS
+
+  glfs_fsetattr: Function to set attributes.
+  glfs_setattr: Function to set attributes
+
+  DESCRIPTION
+
+  The functions are used to set attributes on the file.
+
+  PARAMETERS
+
+  @glfs_fsetattr
+
+     @glfd: The fd of the file for which the attributes are to be set,
+            this fd is returned by glfs_open/glfs_create.
+
+  @glfs_setattr
+
+         @fs: File object.
+
+         @path: The path of the file that is being operated on.
+
+         @follow: Flag used to resolve symlink.
+
+
+  @stat: Struct that has information about the file.
+
+  @valid: This is the mask bit, that accepts GFAPI_SET_ATTR* masks.
+          Refer glfs.h to see the mask definitions.
+
+  Both functions are similar in functionality, just that the
+  func setattr() uses file path whereas the func fsetattr()
+  uses the fd.
+
+  RETURN VALUES
+  0:  Successful completion
+  <0: Failure. @errno will be set with the type of failure
+
+ */
+
+int
+glfs_fsetattr(struct glfs_fd *glfd, struct stat *stat, int valid) __THROW
+    GFAPI_PUBLIC(glfs_fsetattr, future);
+
+int
+glfs_setattr(struct glfs *fs, const char *path, struct stat *stat, int valid,
+             int follow) __THROW GFAPI_PUBLIC(glfs_setattr, future);
 
 __END_DECLS
 #endif /* !_GLFS_H */
