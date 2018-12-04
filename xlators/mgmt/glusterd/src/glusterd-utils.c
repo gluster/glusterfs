@@ -13837,7 +13837,7 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    ret = gf_asprintf(&pid, "%d", GF_CLIENT_PID_SELF_HEALD);
+    ret = gf_asprintf(&pid, "%d", GF_CLIENT_PID_ADD_REPLICA_MOUNT);
     if (ret < 0)
         goto out;
 

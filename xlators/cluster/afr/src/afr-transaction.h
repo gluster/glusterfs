@@ -48,7 +48,7 @@ afr_pending_read_decrement(afr_private_t *priv, int child_index);
 call_frame_t *
 afr_transaction_detach_fop_frame(call_frame_t *frame);
 gf_boolean_t
-afr_has_quorum(unsigned char *subvols, xlator_t *this);
+afr_has_quorum(unsigned char *subvols, xlator_t *this, call_frame_t *frame);
 gf_boolean_t
 afr_needs_changelog_update(afr_local_t *local);
 void

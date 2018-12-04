@@ -242,7 +242,7 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("quorum-type", qtype, options, str, out);
     GF_OPTION_RECONF("quorum-count", priv->quorum_count, options, uint32, out);
     fix_quorum_options(this, priv, qtype, options);
-    if (priv->quorum_count && !afr_has_quorum(priv->child_up, this))
+    if (priv->quorum_count && !afr_has_quorum(priv->child_up, this, NULL))
         gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
                "Client-quorum is not met");
 

@@ -1268,7 +1268,7 @@ afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
     success_replies = alloca0(priv->child_count);
     afr_fill_success_replies(local, priv, success_replies);
 
-    if (!afr_has_quorum(success_replies, this)) {
+    if (!afr_has_quorum(success_replies, this, frame)) {
         error = afr_final_errno(frame->local, this->private);
         if (!error)
             error = afr_quorum_errno(priv);
@@ -2253,7 +2253,8 @@ afr_attempt_readsubvol_set(call_frame_t *frame, xlator_t *this,
         *read_subvol = spb_choice;
     } else if (!priv->quorum_count) {
         *read_subvol = afr_first_up_child(frame, this);
-    } else if (priv->quorum_count && afr_has_quorum(data_readable, this)) {
+    } else if (priv->quorum_count &&
+               afr_has_quorum(data_readable, this, NULL)) {
         /* read_subvol is guaranteed to be valid if we hit this path. */
         *read_subvol = afr_first_up_child(frame, this);
     } else {
@@ -2396,7 +2397,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
     read_subvol = -1;
     memset(readable, 0, sizeof(*readable) * priv->child_count);
     if (can_interpret) {
-        if (!afr_has_quorum(success_replies, this))
+        if (!afr_has_quorum(success_replies, this, NULL))
             goto cant_interpret;
         /* It is safe to call afr_replies_interpret() because we have
            a response from all the UP subvolumes and all of them resolved
@@ -2873,7 +2874,7 @@ afr_lookup_entry_heal(call_frame_t *frame, xlator_t *this)
     if (name_state_mismatch) {
         if (!priv->quorum_count)
             goto name_heal;
-        if (!afr_has_quorum(success, this))
+        if (!afr_has_quorum(success, this, NULL))
             goto name_heal;
         if (op_errno)
             goto name_heal;
@@ -2961,7 +2962,6 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
-    int op_errno = 0;
     int read_subvol = -1;
     unsigned char *data_readable = NULL;
     unsigned char *success_replies = NULL;
@@ -2975,14 +2975,13 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
     if (AFR_COUNT(success_replies, priv->child_count) > 0)
         local->op_ret = 0;
 
-    op_errno = afr_final_errno(frame->local, this->private);
-
     if (local->op_ret < 0) {
-        AFR_STACK_UNWIND(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
-        return;
+        local->op_ret = -1;
+        local->op_errno = afr_final_errno(frame->local, this->private);
+        goto error;
     }
 
-    if (!afr_has_quorum(success_replies, this))
+    if (!afr_has_quorum(success_replies, this, frame))
         goto unwind;
 
     afr_replies_interpret(frame, this, local->inode, NULL);
@@ -2993,11 +2992,8 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
 unwind:
     afr_attempt_readsubvol_set(frame, this, success_replies, data_readable,
                                &read_subvol);
-    if (read_subvol == -1) {
-        AFR_STACK_UNWIND(lookup, frame, local->op_ret, local->op_errno, NULL,
-                         NULL, NULL, NULL);
-        return;
-    }
+    if (read_subvol == -1)
+        goto error;
 
     if (AFR_IS_ARBITER_BRICK(priv, read_subvol) && local->op_ret == 0) {
         local->op_ret = -1;
@@ -3012,6 +3008,11 @@ unwind:
                      local->inode, &local->replies[read_subvol].poststat,
                      local->replies[read_subvol].xdata,
                      &local->replies[read_subvol].postparent);
+    return;
+
+error:
+    AFR_STACK_UNWIND(lookup, frame, local->op_ret, local->op_errno, NULL, NULL,
+                     NULL, NULL);
 }
 
 static int
@@ -4005,7 +4006,7 @@ afr_fop_lock_done(call_frame_t *frame, xlator_t *this)
 
     if (afr_is_conflicting_lock_present(local->op_ret, local->op_errno)) {
         afr_unlock_locks_and_proceed(frame, this, lock_count);
-    } else if (priv->quorum_count && !afr_has_quorum(success, this)) {
+    } else if (priv->quorum_count && !afr_has_quorum(success, this, NULL)) {
         local->fop_lock_state = AFR_FOP_LOCK_QUORUM_FAILED;
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
@@ -4496,7 +4497,7 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                           local->cont.lk.cmd, &local->cont.lk.user_flock,
                           local->xdata_req);
     } else if (priv->quorum_count &&
-               !afr_has_quorum(local->cont.lk.locked_nodes, this)) {
+               !afr_has_quorum(local->cont.lk.locked_nodes, this, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
 
@@ -4651,7 +4652,7 @@ afr_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                           priv->children[child_index]->fops->lease, &local->loc,
                           &local->cont.lease.user_lease, xdata);
     } else if (priv->quorum_count &&
-               !afr_has_quorum(local->cont.lease.locked_nodes, this)) {
+               !afr_has_quorum(local->cont.lease.locked_nodes, this, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
 
@@ -4889,7 +4890,7 @@ afr_priv_dump(xlator_t *this)
         gf_proc_dump_write("quorum-type", "fixed");
         gf_proc_dump_write("quorum-count", "%d", priv->quorum_count);
     }
-    gf_proc_dump_write("up", "%u", afr_has_quorum(priv->child_up, this));
+    gf_proc_dump_write("up", "%u", afr_has_quorum(priv->child_up, this, NULL));
     if (priv->thin_arbiter_count) {
         gf_proc_dump_write("ta_child_up", "%d", priv->ta_child_up);
         gf_proc_dump_write("ta_bad_child_index", "%d",
@@ -5467,7 +5468,8 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
         goto out;
     }
 
-    had_quorum = priv->quorum_count && afr_has_quorum(priv->child_up, this);
+    had_quorum = priv->quorum_count &&
+                 afr_has_quorum(priv->child_up, this, NULL);
     if (priv->halo_enabled) {
         halo_max_latency_msec = afr_get_halo_latency(this);
 
@@ -5582,7 +5584,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     UNLOCK(&priv->lock);
 
     if (priv->quorum_count) {
-        has_quorum = afr_has_quorum(priv->child_up, this);
+        has_quorum = afr_has_quorum(priv->child_up, this, NULL);
         if (!had_quorum && has_quorum) {
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
                    "Client-quorum is met");
@@ -6983,6 +6985,45 @@ afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local)
         return _gf_true;
     } else if (data_count == 1 && local->ta_child_up) {
         return _gf_true;
+    }
+
+    return _gf_false;
+}
+
+gf_boolean_t
+afr_is_add_replica_mount_lookup_on_root(call_frame_t *frame)
+{
+    afr_local_t *local = NULL;
+
+    local = frame->local;
+
+    if (frame->root->pid != GF_CLIENT_PID_ADD_REPLICA_MOUNT)
+        return _gf_false;
+
+    if (local->op != GF_FOP_LOOKUP)
+        /* TODO:If the replica count is being increased on a plain distribute
+         * volume that was never mounted, we need to allow setxattr on '/' with
+         * GF_CLIENT_PID_NO_ROOT_SQUASH to accomodate for DHT layout setting */
+        return _gf_false;
+
+    if (local->inode == NULL)
+        return _gf_false;
+
+    if (!__is_root_gfid(local->inode->gfid))
+        return _gf_false;
+
+    return _gf_true;
+}
+
+gf_boolean_t
+afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
+                      unsigned char *subvols)
+{
+    afr_private_t *priv = this->private;
+
+    if (frame && afr_is_add_replica_mount_lookup_on_root(frame)) {
+        if (AFR_COUNT(subvols, priv->child_count) > 0)
+            return _gf_true;
     }
 
     return _gf_false;
