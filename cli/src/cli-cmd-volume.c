@@ -1749,6 +1749,8 @@ out:
                    "xml format");
         }
     }
+    if (xdata)
+        dict_unref(xdata);
 
     if (fd != -1) {
         sys_close(fd);
@@ -1970,6 +1972,8 @@ out:
                 "Quota command failed. Please check the cli "
                 "logs for more details");
     }
+    if (options)
+        dict_unref(options);
 
     /* Events for Quota */
     if (ret == 0) {
