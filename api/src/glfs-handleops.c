@@ -18,7 +18,7 @@
 int
 glfs_listxattr_process(void *value, size_t size, dict_t *xattr);
 
-static void
+void
 glfs_iatt_from_stat(struct stat *stat, int valid, struct iatt *iatt,
                     int *glvalid)
 {

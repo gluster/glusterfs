@@ -522,6 +522,9 @@ int
 glfs_loc_touchup(loc_t *loc) GFAPI_PRIVATE(glfs_loc_touchup, 3.4.0);
 void
 glfs_iatt_to_stat(struct glfs *fs, struct iatt *iatt, struct stat *stat);
+void
+glfs_iatt_from_stat(struct stat *stat, int valid, struct iatt *iatt,
+                    int *gvalid);
 int
 glfs_loc_link(loc_t *loc, struct iatt *iatt);
 int

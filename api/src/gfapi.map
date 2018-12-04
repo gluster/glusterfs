@@ -262,5 +262,7 @@ GFAPI_future {
 		glfs_discard_async;
 		glfs_zerofill_async;
 		glfs_copy_file_range;
+		glfs_setattr;
+		glfs_fsetattr;
 } GFAPI_PRIVATE_future;
 
