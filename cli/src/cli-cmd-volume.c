@@ -2163,6 +2163,8 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
