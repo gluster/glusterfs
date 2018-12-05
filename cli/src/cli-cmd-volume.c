@@ -857,8 +857,14 @@ out:
         else
             num_options = num_options / 2;
 
+        char *free_list_key[num_options];
+        char *free_list_val[num_options];
+        for (i = 0; i < num_options; i++) {
+            free_list_key[i] = NULL;
+            free_list_val[i] = NULL;
+        }
         /* Initialize opts_str */
-        opts_str = gf_strdup("");
+        opts_str = "";
 
         /* Prepare String in format options=KEY1,VALUE1,KEY2,VALUE2 */
         for (i = 1; i <= num_options; i++) {
@@ -868,6 +874,7 @@ out:
                 tmp_opt = "";
 
             gf_asprintf(&opts_str, "%s,%s", opts_str, tmp_opt);
+            free_list_key[i - 1] = opts_str;
 
             sprintf(dict_key, "value%d", i);
             ret1 = dict_get_str(options, dict_key, &tmp_opt);
@@ -875,13 +882,17 @@ out:
                 tmp_opt = "";
 
             gf_asprintf(&opts_str, "%s,%s", opts_str, tmp_opt);
+            free_list_val[i - 1] = opts_str;
         }
 
         gf_event(EVENT_VOLUME_SET, "name=%s;options=%s", (char *)words[2],
                  opts_str);
 
         /* Allocated by gf_strdup and gf_asprintf */
-        GF_FREE(opts_str);
+        for (i = 0; i < num_options; i++) {
+            GF_FREE(free_list_key[i]);
+            GF_FREE(free_list_val[i]);
+        }
     }
 #endif
 
