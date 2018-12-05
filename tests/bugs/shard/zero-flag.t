@@ -73,3 +73,4 @@ TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 rm -f $(dirname $0)/shard-fallocate
 cleanup
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1656264
