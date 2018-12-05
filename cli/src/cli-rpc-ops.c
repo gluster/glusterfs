@@ -8479,6 +8479,9 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
         } else {
             cli_print_brick_status(&status);
         }
+
+        /* Allocatated memory using gf_asprintf*/
+        GF_FREE(status.pid_str);
     }
     cli_out(" ");
 
