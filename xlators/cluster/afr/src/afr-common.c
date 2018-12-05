@@ -6141,13 +6141,22 @@ afr_set_heal_info(char *status)
         goto out;
     }
 
-    ret = dict_set_str(dict, "heal-info", status);
+    ret = dict_set_dynstr(dict, "heal-info", status);
     if (ret)
         gf_msg("", GF_LOG_WARNING, -ret, AFR_MSG_DICT_SET_FAILED,
                "Failed to set heal-info key to "
                "%s",
                status);
 out:
+    /* Any error other than EINVAL, dict_set_dynstr frees status */
+    if (ret == -ENOMEM || ret == -EINVAL) {
+        GF_FREE(status);
+    }
+
+    if (ret && dict) {
+        dict_unref(dict);
+        dict = NULL;
+    }
     return dict;
 }
 
@@ -6160,7 +6169,7 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     unsigned char pending = 0;
     dict_t *dict = NULL;
     int ret = -1;
-    int op_errno = 0;
+    int op_errno = ENOMEM;
     inode_t *inode = NULL;
     char *substr = NULL;
     char *status = NULL;
@@ -6170,7 +6179,6 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
                                       &metadata_selfheal, &pending);
 
     if (ret == -ENOMEM) {
-        op_errno = -ret;
         ret = -1;
         goto out;
     }
@@ -6186,23 +6194,44 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (ret < 0)
             goto out;
         dict = afr_set_heal_info(status);
+        if (!dict) {
+            ret = -1;
+            goto out;
+        }
     } else if (ret == -EAGAIN) {
         ret = gf_asprintf(&status, "possibly-healing%s", substr ? substr : "");
         if (ret < 0)
             goto out;
         dict = afr_set_heal_info(status);
+        if (!dict) {
+            ret = -1;
+            goto out;
+        }
     } else if (ret >= 0) {
         /* value of ret = source index
          * so ret >= 0 and at least one of the 3 booleans set to
          * true means a source is identified; heal is required.
          */
         if (!data_selfheal && !entry_selfheal && !metadata_selfheal) {
-            dict = afr_set_heal_info("no-heal");
+            status = gf_strdup("no-heal");
+            if (!status) {
+                ret = -1;
+                goto out;
+            }
+            dict = afr_set_heal_info(status);
+            if (!dict) {
+                ret = -1;
+                goto out;
+            }
         } else {
             ret = gf_asprintf(&status, "heal%s", substr ? substr : "");
             if (ret < 0)
                 goto out;
             dict = afr_set_heal_info(status);
+            if (!dict) {
+                ret = -1;
+                goto out;
+            }
         }
     } else if (ret < 0) {
         /* Apart from above checked -ve ret values, there are
@@ -6217,9 +6246,15 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
             if (ret < 0)
                 goto out;
             dict = afr_set_heal_info(status);
+            if (!dict) {
+                ret = -1;
+                goto out;
+            }
         }
     }
+
     ret = 0;
+    op_errno = 0;
 
 out:
     AFR_STACK_UNWIND(getxattr, frame, ret, op_errno, dict, NULL);
