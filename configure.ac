@@ -174,11 +174,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
-                xlators/encryption/Makefile
-                xlators/encryption/rot-13/Makefile
-                xlators/encryption/rot-13/src/Makefile
-                xlators/encryption/crypt/Makefile
-                xlators/encryption/crypt/src/Makefile
                 xlators/system/Makefile
                 xlators/system/posix-acl/Makefile
                 xlators/system/posix-acl/src/Makefile
@@ -674,34 +669,16 @@ if test "x$enable_fuse_client" != "xno"; then
    BUILD_FUSE_CLIENT="yes"
 fi
 
+AC_SUBST(FUSE_CLIENT_SUBDIR)
+# end FUSE section
+
+
 AC_CHECK_LIB([ssl], TLS_method, [HAVE_OPENSSL_1_1="yes"], [HAVE_OPENSSL_1_1="no"])
 if test "x$HAVE_OPENSSL_1_1" = "xyes"; then
     AC_DEFINE([HAVE_TLS_METHOD], [1], [Using OpenSSL-1.1 TLS_method])
 else
     AC_CHECK_LIB([ssl], TLSv1_2_method, [AC_DEFINE([HAVE_TLSV1_2_METHOD], [1], [Using OpenSSL-1.0 TLSv1_2_method])])
 fi
-
-# start encryption/crypt section
-
-AC_CHECK_HEADERS([openssl/cmac.h], [have_cmac_h=yes], [have_cmac_h=no])
-
-AC_ARG_ENABLE([crypt-xlator],
-        AC_HELP_STRING([--enable-crypt-xlator], [Build crypt encryption xlator]))
-
-if test "x$enable_crypt_xlator" = "xyes" -a "x$have_cmac_h" = "xno"; then
-   AC_MSG_ERROR([Encryption xlator requires OpenSSL with cmac.h])
-fi
-
-BUILD_CRYPT_XLATOR=no
-if test "x$enable_crypt_xlator" != "xno" -a "x$have_cmac_h" = "xyes"; then
-   BUILD_CRYPT_XLATOR=yes
-   AC_DEFINE(HAVE_CRYPT_XLATOR, 1, [enable building crypt encryption xlator])
-fi
-
-AM_CONDITIONAL([ENABLE_CRYPT_XLATOR], [test x$BUILD_CRYPT_XLATOR = xyes])
-
-AC_SUBST(FUSE_CLIENT_SUBDIR)
-# end FUSE section
 
 
 # FUSERMOUNT section

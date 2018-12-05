@@ -1033,8 +1033,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/sink.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/crypt.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/access-control.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
@@ -1110,8 +1108,6 @@ exit 0
 
 %files extra-xlators
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground
