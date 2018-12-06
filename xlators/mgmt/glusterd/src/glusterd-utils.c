@@ -139,15 +139,8 @@ get_mux_limit_per_process(int *mux_limit)
     ret = dict_get_strn(priv->opts, GLUSTERD_BRICKMUX_LIMIT_KEY,
                         SLEN(GLUSTERD_BRICKMUX_LIMIT_KEY), &value);
     if (ret) {
-        gf_msg_debug(this->name, 0,
-                     "Limit for number of bricks per "
-                     "brick process not yet set in dict. Returning "
-                     "limit as 0 denoting that multiplexing can "
-                     "happen with no limit set.");
-        ret = 0;
-        goto out;
+        value = GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE;
     }
-
     ret = gf_string2int(value, &max_bricks_per_proc);
     if (ret)
         goto out;
