@@ -2664,3 +2664,18 @@ struct volume_options options[] = {
                     "the thin clients can failover to."},
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {GD_OP_VERSION_3_12_0},
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "quiesce",
+    .category = GF_TECH_PREVIEW,
+};

@@ -1529,7 +1529,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     return 0;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     struct nfs_state *nfs = NULL;
@@ -1539,7 +1539,7 @@ fini(xlator_t *this)
     gf_msg_debug(GF_NFS, 0, "NFS service going down");
     nfs_deinit_versions(&nfs->versions, this);
     GF_FREE(this->instance_name);
-    return 0;
+    return;
 }
 
 int32_t
@@ -2039,4 +2039,19 @@ struct volume_options options[] = {
         .flags = OPT_FLAG_SETTABLE,
     },
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1},
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "gnfs",
+    .category = GF_MAINTAINED,
 };

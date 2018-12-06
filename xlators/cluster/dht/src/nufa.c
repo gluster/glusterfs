@@ -599,11 +599,6 @@ dht_methods_t dht_methods = {
     .layout_search = dht_layout_search,
 };
 
-class_methods_t class_methods = {.init = nufa_init,
-                                 .fini = dht_fini,
-                                 .reconfigure = dht_reconfigure,
-                                 .notify = dht_notify};
-
 struct xlator_fops fops = {
     .lookup = nufa_lookup,
     .create = nufa_create,
@@ -645,3 +640,19 @@ struct xlator_fops fops = {
 };
 
 struct xlator_cbks cbks = {.forget = dht_forget};
+extern int32_t
+mem_acct_init(xlator_t *this);
+
+xlator_api_t xlator_api = {
+    .init = nufa_init,
+    .fini = dht_fini,
+    .notify = dht_notify,
+    .reconfigure = dht_reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = dht_options,
+    .identifier = "nufa",
+    .category = GF_TECH_PREVIEW,
+};

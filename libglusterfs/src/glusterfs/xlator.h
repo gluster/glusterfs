@@ -866,13 +866,6 @@ struct _xlator {
     uint32_t notify_down;
 };
 
-typedef struct {
-    int32_t (*init)(xlator_t *this);
-    void (*fini)(xlator_t *this);
-    int32_t (*reconfigure)(xlator_t *this, dict_t *options);
-    event_notify_fn_t notify;
-} class_methods_t;
-
 /* This would be the only structure which needs to be exported by
    the translators. For the backward compatibility, in 4.x series
    even the old exported fields will be supported */

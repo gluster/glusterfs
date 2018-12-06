@@ -1425,12 +1425,11 @@ out:
     return ret;
 }
 
-int
+void
 fini(xlator_t *this)
 {
     mem_pool_destroy(this->local_pool);
-
-    return 0;
+    return;
 }
 
 struct xlator_fops fops = {
@@ -1457,4 +1456,16 @@ struct volume_options options[] = {
      .tags = {"sdfs"},
      .description = "Enable/Disable dentry serialize functionality"},
     {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .op_version = {GD_OP_VERSION_4_0_0},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "sdfs",
+    .category = GF_TECH_PREVIEW,
 };

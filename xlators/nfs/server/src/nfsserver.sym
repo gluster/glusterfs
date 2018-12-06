@@ -1,12 +1,3 @@
-init
-fini
-fops
-cbks
-options
-notify
-mem_acct_init
-reconfigure
-dumpops
 exp_file_parse
 exp_file_print
 exp_file_get_dir
@@ -18,3 +9,4 @@ ng_file_parse
 ng_file_get_netgroup
 ng_file_print
 ng_file_deinit
+xlator_api
