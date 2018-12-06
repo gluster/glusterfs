@@ -802,6 +802,7 @@ unlock:
         if (ret) {
             local->op_ret = -1;
             local->op_errno = ENOMEM;
+            GF_FREE(xattr_serz);
             goto unwind;
         }
         ret = dict_set_dynstr(local->dict, GF_XATTR_LIST_NODE_UUIDS_KEY,
@@ -811,6 +812,8 @@ unlock:
                    "Cannot set node_uuid key in dict");
             local->op_ret = -1;
             local->op_errno = ENOMEM;
+            if (ret == -EINVAL)
+                GF_FREE(xattr_serz);
         } else {
             local->op_ret = local->cont.getxattr.xattr_len - 1;
             local->op_errno = 0;
@@ -1178,6 +1181,7 @@ unlock:
         ret = dict_serialize_value_with_delim(
             local->dict, xattr_serz + xattr_serz_len, &tlen, ' ');
         if (ret) {
+            GF_FREE(xattr_serz);
             goto unwind;
         }
 
@@ -1186,9 +1190,12 @@ unlock:
         *(xattr_serz + padding + tlen + 1) = '\0';
 
         ret = dict_set_dynstr(nxattr, local->cont.getxattr.name, xattr_serz);
-        if (ret)
+        if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                    "Cannot set pathinfo key in dict");
+            if (ret == -EINVAL)
+                GF_FREE(xattr_serz);
+        }
 
     unwind:
         AFR_STACK_UNWIND(fgetxattr, frame, local->op_ret, local->op_errno,
@@ -1295,6 +1302,7 @@ unlock:
         ret = dict_serialize_value_with_delim(
             local->dict, xattr_serz + xattr_serz_len, &tlen, ' ');
         if (ret) {
+            GF_FREE(xattr_serz);
             goto unwind;
         }
 
@@ -1303,9 +1311,12 @@ unlock:
         *(xattr_serz + padding + tlen + 1) = '\0';
 
         ret = dict_set_dynstr(nxattr, local->cont.getxattr.name, xattr_serz);
-        if (ret)
+        if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
                    "Cannot set pathinfo key in dict");
+            if (ret == -EINVAL)
+                GF_FREE(xattr_serz);
+        }
 
     unwind:
         AFR_STACK_UNWIND(getxattr, frame, local->op_ret, local->op_errno,
