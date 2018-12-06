@@ -1,0 +1,10 @@
+features.cache-invalidation=on
+features.cache-invalidation-timeout=600
+performance.cache-samba-metadata=on
+performance.stat-prefetch=on
+performance.cache-invalidation=on
+performance.md-cache-timeout=600
+network.inode-lru-limit=200000
+performance.nl-cache=on
+performance.nl-cache-timeout=600
+performance.parallel-readdir=on

@@ -1287,6 +1287,7 @@ exit 0
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/nl-cache
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/db-workload
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/distributed-virt
+            %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/samba
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind/.keys
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
