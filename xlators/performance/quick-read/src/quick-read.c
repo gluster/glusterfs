@@ -1581,6 +1581,14 @@ struct xlator_dumpops qr_dumpops = {
 };
 
 struct volume_options qr_options[] = {
+    {
+        .key = {"quick-read"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable quick-read",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
     {.key = {"priority"}, .type = GF_OPTION_TYPE_ANY},
     {.key = {"cache-size"},
      .type = GF_OPTION_TYPE_SIZET,

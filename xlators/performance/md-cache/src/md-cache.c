@@ -3760,6 +3760,14 @@ struct xlator_dumpops mdc_dumpops = {
 
 struct volume_options mdc_options[] = {
     {
+        .key = {"md-cache"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable md-cache",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
+    {
         .key = {"cache-selinux"},
         .type = GF_OPTION_TYPE_BOOL,
         .default_value = "false",

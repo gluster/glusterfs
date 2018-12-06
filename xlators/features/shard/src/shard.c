@@ -6821,6 +6821,14 @@ struct xlator_dumpops dumpops = {
 
 struct volume_options options[] = {
     {
+        .key = {"shard"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable shard",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
+    {
         .key = {"shard-block-size"},
         .type = GF_OPTION_TYPE_SIZET,
         .op_version = {GD_OP_VERSION_3_7_0},

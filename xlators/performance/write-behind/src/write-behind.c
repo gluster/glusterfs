@@ -3154,6 +3154,14 @@ struct xlator_dumpops dumpops = {
 };
 
 struct volume_options options[] = {
+    {
+        .key = {"write-behind"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable write-behind",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
     {.key = {"flush-behind"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",

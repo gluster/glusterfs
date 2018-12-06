@@ -1222,6 +1222,14 @@ struct xlator_dumpops dumpops = {
 };
 
 struct volume_options options[] = {
+    {
+        .key = {"read-ahead"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable read-ahead",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
     {.key = {"force-atime-update"},
      .type = GF_OPTION_TYPE_BOOL,
      .op_version = {1},

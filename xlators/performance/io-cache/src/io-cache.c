@@ -2126,6 +2126,14 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
+    {
+        .key = {"io-cache"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable io-cache",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
     {.key = {"priority"},
      .type = GF_OPTION_TYPE_PRIORITY_LIST,
      .default_value = "",
