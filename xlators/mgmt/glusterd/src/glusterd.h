@@ -57,6 +57,7 @@
 #define GLUSTERD_SHARED_STORAGE_KEY "cluster.enable-shared-storage"
 #define GLUSTERD_BRICK_MULTIPLEX_KEY "cluster.brick-multiplex"
 #define GLUSTERD_BRICKMUX_LIMIT_KEY "cluster.max-bricks-per-process"
+#define GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE "250"
 #define GLUSTERD_LOCALTIME_LOGGING_KEY "cluster.localtime-logging"
 #define GLUSTERD_DAEMON_LOG_LEVEL_KEY "cluster.daemon-log-level"
 
