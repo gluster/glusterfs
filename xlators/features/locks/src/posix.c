@@ -1032,68 +1032,68 @@ pl_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
-pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
-            dict_t *xdata)
+static int32_t
+pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
+                  dict_t **dict, int32_t *op_errno)
 {
-    int32_t op_errno = EINVAL;
-    int op_ret = -1;
     int32_t bcount = 0;
     int32_t gcount = 0;
-    char key[PATH_MAX] = {
-        0,
-    };
+    char *key = NULL;
     char *lk_summary = NULL;
     pl_inode_t *pl_inode = NULL;
-    dict_t *dict = NULL;
     clrlk_args args = {
         0,
     };
     char *brickname = NULL;
+    int32_t op_ret = -1;
 
-    if (!name)
-        goto usual;
-
-    if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)))
-        goto usual;
+    *op_errno = EINVAL;
 
     if (clrlk_parse_args(name, &args)) {
-        op_errno = EINVAL;
+        *op_errno = EINVAL;
         goto out;
     }
 
-    dict = dict_new();
-    if (!dict) {
-        op_errno = ENOMEM;
+    *dict = dict_new();
+    if (!*dict) {
+        *op_errno = ENOMEM;
         goto out;
     }
 
-    pl_inode = pl_inode_get(this, loc->inode);
+    pl_inode = pl_inode_get(this, inode);
     if (!pl_inode) {
-        op_errno = ENOMEM;
+        *op_errno = ENOMEM;
         goto out;
     }
 
     switch (args.type) {
         case CLRLK_INODE:
         case CLRLK_ENTRY:
-            op_ret = clrlk_clear_lks_in_all_domains(
-                this, pl_inode, &args, &bcount, &gcount, &op_errno);
-            if (op_ret)
-                goto out;
+            op_ret = clrlk_clear_lks_in_all_domains(this, pl_inode, &args,
+                                                    &bcount, &gcount, op_errno);
             break;
         case CLRLK_POSIX:
             op_ret = clrlk_clear_posixlk(this, pl_inode, &args, &bcount,
-                                         &gcount, &op_errno);
-            if (op_ret)
-                goto out;
+                                         &gcount, op_errno);
             break;
-        case CLRLK_TYPE_MAX:
-            op_errno = EINVAL;
-            goto out;
+        default:
+            op_ret = -1;
+            *op_errno = EINVAL;
+    }
+    if (op_ret) {
+        if (args.type >= CLRLK_TYPE_MAX) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "clear locks: invalid lock type %d", args.type);
+        } else {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "clear locks of type %s failed: %s",
+                   clrlk_type_names[args.type], strerror(*op_errno));
+        }
+
+        goto out;
     }
 
-    op_ret = fetch_pathinfo(this, loc->inode, &op_errno, &brickname);
+    op_ret = fetch_pathinfo(this, inode, op_errno, &brickname);
     if (op_ret) {
         gf_log(this->name, GF_LOG_WARNING, "Couldn't get brickname");
     } else {
@@ -1108,43 +1108,62 @@ pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
     if (!gcount && !bcount) {
         if (gf_asprintf(&lk_summary, "No locks cleared.") == -1) {
             op_ret = -1;
-            op_errno = ENOMEM;
+            *op_errno = ENOMEM;
             goto out;
         }
-    } else if (gf_asprintf(
-                   &lk_summary,
-                   "%s: %s blocked locks=%d "
-                   "granted locks=%d",
-                   (brickname == NULL) ? this->name : brickname,
-                   (args.type == CLRLK_INODE)
-                       ? "inode"
-                       : (args.type == CLRLK_ENTRY)
-                             ? "entry"
-                             : (args.type == CLRLK_POSIX) ? "posix" : " ",
-                   bcount, gcount) == -1) {
+    } else if (gf_asprintf(&lk_summary,
+                           "%s: %s blocked locks=%d "
+                           "granted locks=%d",
+                           (brickname == NULL) ? this->name : brickname,
+                           clrlk_type_names[args.type], bcount, gcount) == -1) {
         op_ret = -1;
-        op_errno = ENOMEM;
+        *op_errno = ENOMEM;
         goto out;
     }
+    gf_log(this->name, GF_LOG_DEBUG, "%s", lk_summary);
 
-    if (snprintf(key, sizeof(key), "%s", name) >= sizeof(key)) {
+    key = gf_strdup(name);
+    if (!key) {
         op_ret = -1;
         goto out;
     }
-    if (dict_set_dynstr(dict, key, lk_summary)) {
+    if (dict_set_dynstr(*dict, key, lk_summary)) {
         op_ret = -1;
-        op_errno = ENOMEM;
+        *op_errno = ENOMEM;
         goto out;
     }
 
     op_ret = 0;
+
 out:
     GF_FREE(brickname);
+    GF_FREE(args.opts);
+    if (op_ret) {
+        GF_FREE(lk_summary);
+        GF_FREE(key);
+    }
+
+    return op_ret;
+}
+
+int32_t
+pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
+            dict_t *xdata)
+{
+    int32_t op_errno = EINVAL;
+    int32_t op_ret = -1;
+    dict_t *dict = NULL;
+
+    if (!name)
+        goto usual;
+
+    if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)))
+        goto usual;
+
+    op_ret = pl_getxattr_clrlk(this, name, loc->inode, &dict, &op_errno);
+
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, dict, xdata);
 
-    GF_FREE(args.opts);
-    if (op_ret && lk_summary)
-        GF_FREE(lk_summary);
     if (dict)
         dict_unref(dict);
     return 0;
@@ -1411,6 +1430,11 @@ pl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                    "failed (%s)",
                    fd, uuid_utoa(fd->inode->gfid), strerror(op_errno));
         }
+
+        goto unwind;
+    } else if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) ==
+               0) {
+        op_ret = pl_getxattr_clrlk(this, name, fd->inode, &dict, &op_errno);
 
         goto unwind;
     } else {
