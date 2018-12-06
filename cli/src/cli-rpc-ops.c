@@ -4108,6 +4108,7 @@ cli_quotad_getlimit(call_frame_t *frame, xlator_t *this, void *data)
                          cli_quotad_getlimit_cbk, (xdrproc_t)xdr_gf_cli_req);
 
 out:
+    GF_FREE(req.dict.dict_val);
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
     return ret;
 }
@@ -4846,6 +4847,7 @@ gf_cli_rename_volume(call_frame_t *frame, xlator_t *this, void *data)
                          gf_cli_rename_volume_cbk, (xdrproc_t)xdr_gf_cli_req);
 
 out:
+    GF_FREE(req.dict.dict_val);
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
     return ret;
@@ -5420,6 +5422,7 @@ out:
     if (op_dict) {
         dict_unref(op_dict);
     }
+    GF_FREE(req.xdata.xdata_val);
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
     return ret;
@@ -8708,6 +8711,7 @@ gf_cli_mount(call_frame_t *frame, xlator_t *this, void *data)
                          (xdrproc_t)xdr_gf1_cli_mount_req);
 
 out:
+    GF_FREE(req.dict.dict_val);
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
     return ret;
 }
