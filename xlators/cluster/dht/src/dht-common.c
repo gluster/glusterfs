@@ -2115,7 +2115,7 @@ dht_linkfile_create_lookup_cbk(call_frame_t *frame, void *cookie,
                          "Creating linkto file on %s(hash) to "
                          "%s on %s (gfid = %s)",
                          local->hashed_subvol->name, local->loc.path,
-                         local->cached_subvol->name, gfid);
+                         local->cached_subvol->name, gfid_str);
 
             ret = dht_linkfile_create(frame, dht_lookup_linkfile_create_cbk,
                                       this, local->cached_subvol,
@@ -2974,6 +2974,51 @@ out:
     return hash_subvol;
 }
 
+gf_boolean_t
+dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
+{
+    dht_layout_t *parent_layout = NULL;
+    int ret = 0;
+    gf_boolean_t lookup_everywhere = _gf_true;
+
+    /* lookup-optimize supersedes lookup-unhashed settings.
+     * If it is set, do not process search_unhashed
+     * If lookup-optimize if enabled, lookup everywhere if:
+     *  - this is the rebalance daemon.
+     *  - loc->parent is unavailable.
+     *  - parent_layout is unavailable
+     *  - parent_layout->commit_hash != conf->vol_commit_hash
+     */
+
+    if (conf->lookup_optimize) {
+        if (!conf->defrag && loc->parent) {
+            ret = dht_inode_ctx_layout_get(loc->parent, this, &parent_layout);
+            if (!ret && parent_layout &&
+                (parent_layout->commit_hash == conf->vol_commit_hash)) {
+                lookup_everywhere = _gf_false;
+            }
+        }
+        goto out;
+    } else {
+        if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
+            if (loc->parent) {
+                ret = dht_inode_ctx_layout_get(loc->parent, this,
+                                               &parent_layout);
+                if (ret || !parent_layout ||
+                    (!parent_layout->search_unhashed)) {
+                    lookup_everywhere = _gf_false;
+                }
+            } else {
+                lookup_everywhere = _gf_false;
+            }
+
+            goto out;
+        }
+    }
+out:
+    return lookup_everywhere;
+}
+
 int
 dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                int op_errno, inode_t *inode, struct iatt *stbuf, dict_t *xattr,
@@ -2987,7 +3032,6 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     loc_t *loc = NULL;
     xlator_t *prev = NULL;
     int ret = 0;
-    dht_layout_t *parent_layout = NULL;
     uint32_t vol_commit_hash = 0;
 
     GF_VALIDATE_OR_GOTO("dht", frame, err);
@@ -3002,15 +3046,45 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     local = frame->local;
     loc = &local->loc;
 
+    gf_msg_debug(this->name, op_errno,
+                 "%s: fresh_lookup on %s returned with op_ret %d", loc->path,
+                 prev->name, op_ret);
+
+    if (op_ret == -1) {
+        if (ENTRY_MISSING(op_ret, op_errno)) {
+            if (1 == conf->subvolume_cnt) {
+                /* No need to lookup again */
+                goto out;
+            }
+
+            gf_msg_debug(this->name, 0, "Entry %s missing on subvol %s",
+                         loc->path, prev->name);
+
+            if (dht_should_lookup_everywhere(this, conf, loc)) {
+                local->op_errno = ENOENT;
+                dht_lookup_everywhere(frame, this, loc);
+                return 0;
+            }
+
+        } else {
+            if (op_errno == ENOTCONN) {
+                dht_lookup_directory(frame, this, &local->loc);
+                return 0;
+            }
+        }
+        gf_msg_debug(this->name, op_errno, "%s: Lookup on subvolume %s failed",
+                     loc->path, prev->name);
+        goto out;
+    }
+
+    /* Lookup succeeded - op_ret = 0 */
+
     /* This is required for handling stale linkfile deletion,
      * or any more call which happens from this 'loc'.
      */
-    if (!op_ret && gf_uuid_is_null(local->gfid))
+    if (gf_uuid_is_null(local->gfid)) {
         memcpy(local->gfid, stbuf->ia_gfid, 16);
-
-    gf_msg_debug(this->name, op_errno,
-                 "fresh_lookup returned for %s with op_ret %d", loc->path,
-                 op_ret);
+    }
 
     if (!conf->vch_forced) {
         ret = dict_get_uint32(xattr, conf->commithash_xattr_name,
@@ -3020,75 +3094,12 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
     }
 
-    if (ENTRY_MISSING(op_ret, op_errno)) {
-        if (1 == conf->subvolume_cnt) {
-            /* No need to lookup again */
-            goto out;
-        }
-
-        gf_msg_debug(this->name, 0, "Entry %s missing on subvol %s", loc->path,
-                     prev->name);
-
-        /* lookup-optimize supersedes lookup-unhashed settings,
-         *   - so if it is set, do not process search_unhashed
-         *   - except, in the case of rebalance daemon, we want to
-         *     force the lookup_everywhere behavior */
-        if (!conf->defrag && conf->lookup_optimize && loc->parent) {
-            ret = dht_inode_ctx_layout_get(loc->parent, this, &parent_layout);
-            if (ret || !parent_layout ||
-                (parent_layout->commit_hash != conf->vol_commit_hash)) {
-                gf_msg_debug(this->name, 0,
-                             "hashes don't match (ret - %d,"
-                             " parent_layout - %p, parent_hash - %x,"
-                             " vol_hash - %x), do global lookup",
-                             ret, parent_layout,
-                             (parent_layout ? parent_layout->commit_hash : -1),
-                             conf->vol_commit_hash);
-                local->op_errno = ENOENT;
-                dht_lookup_everywhere(frame, this, loc);
-                return 0;
-            }
-        } else {
-            if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
-                local->op_errno = ENOENT;
-                dht_lookup_everywhere(frame, this, loc);
-                return 0;
-            }
-
-            if ((conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) &&
-                (loc->parent)) {
-                ret = dht_inode_ctx_layout_get(loc->parent, this,
-                                               &parent_layout);
-                if (ret || !parent_layout)
-                    goto out;
-                if (parent_layout->search_unhashed) {
-                    local->op_errno = ENOENT;
-                    dht_lookup_everywhere(frame, this, loc);
-                    return 0;
-                }
-            }
-        }
-    }
-
-    if (op_ret == 0) {
-        is_dir = check_is_dir(inode, stbuf, xattr);
-        if (is_dir) {
-            local->inode = inode_ref(inode);
-            local->xattr = dict_ref(xattr);
-        }
-    }
-
-    if (is_dir || (op_ret == -1 && op_errno == ENOTCONN)) {
+    is_dir = check_is_dir(inode, stbuf, xattr);
+    if (is_dir) {
+        local->inode = inode_ref(inode);
+        local->xattr = dict_ref(xattr);
         dht_lookup_directory(frame, this, &local->loc);
         return 0;
-    }
-
-    if (op_ret == -1) {
-        gf_msg_debug(this->name, op_errno,
-                     "Lookup of %s for subvolume"
-                     " %s failed",
-                     loc->path, prev->name);
-        goto out;
     }
 
     is_linkfile = check_is_linkfile(inode, stbuf, xattr, conf->link_xattr_name);
@@ -3099,7 +3110,8 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         ret = dht_layout_preset(this, prev, inode);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_LAYOUT_PRESET_FAILED,
-                   "could not set pre-set layout for subvolume %s", prev->name);
+                   "%s: could not set pre-set layout for subvolume %s",
+                   loc->path, prev->name);
             op_ret = -1;
             op_errno = EINVAL;
             goto out;
@@ -3110,19 +3122,13 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     subvol = dht_linkfile_subvol(this, inode, stbuf, xattr);
     if (!subvol) {
         gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_INFO,
-               "linkfile not having link "
-               "subvol for %s",
-               loc->path);
-
-        gf_msg_debug(this->name, 0,
-                     "linkfile not having link subvolume. path=%s", loc->path);
+               "%s: No link subvol for linkto", loc->path);
         dht_lookup_everywhere(frame, this, loc);
         return 0;
     }
 
-    gf_msg_debug(this->name, 0,
-                 "Calling lookup on linkto target %s for path %s", subvol->name,
-                 loc->path);
+    gf_msg_debug(this->name, 0, "%s: Calling lookup on linkto target %s",
+                 loc->path, subvol->name);
 
     STACK_WIND_COOKIE(frame, dht_lookup_linkfile_cbk, subvol, subvol,
                       subvol->fops->lookup, &local->loc, local->xattr_req);
@@ -3149,9 +3155,9 @@ err:
     return 0;
 }
 
-/* For directories, check if acl xattrs have been requested (by the acl xlator),
- * if not, request for them. These xattrs are needed for dht dir self-heal to
- * perform proper self-healing of dirs
+/* For directories, check if acl xattrs have been requested (by the acl
+ * xlator), if not, request for them. These xattrs are needed for dht dir
+ * self-heal to perform proper self-healing of dirs
  */
 void
 dht_check_and_set_acl_xattr_req(xlator_t *this, dict_t *xattr_req)
@@ -6538,12 +6544,13 @@ err:
 }
 
 /* dht_readdirp_cbk creates a new dentry and dentry->inode is not assigned.
-   This functions assigns an inode if all of the following conditions are true:
+   This functions assigns an inode if all of the following conditions are
+   true:
 
-   * DHT has only one child. In this case the entire layout is present on this
-     single child and hence we can set complete layout in inode.
-   * backend has complete layout and there are no anomalies in it and from this
-    information layout can be constructed and set in inode.
+   * DHT has only one child. In this case the entire layout is present on
+   this single child and hence we can set complete layout in inode.
+   * backend has complete layout and there are no anomalies in it and from
+   this information layout can be constructed and set in inode.
 */
 
 void
@@ -6590,7 +6597,8 @@ out:
     return;
 }
 
-/* Posix returns op_errno = ENOENT to indicate that there are no more entries
+/* Posix returns op_errno = ENOENT to indicate that there are no more
+ * entries
  */
 int
 dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
@@ -10164,8 +10172,8 @@ dht_rmdir_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 /* Keep sending readdirp on the subvol until it returns no more entries
- * It is possible that not all entries will fit in a single readdirp in which
- * case the rmdir will keep failing with ENOTEMPTY
+ * It is possible that not all entries will fit in a single readdirp in
+ * which case the rmdir will keep failing with ENOTEMPTY
  */
 
 int
@@ -10906,8 +10914,8 @@ dht_log_new_layout_for_dir_selfheal(xlator_t *this, loc_t *loc,
     len += ret;
 
     /* Calculation  of total length of the string required to calloc
-     * output_string. Log includes subvolume-name, start-range, end-range and
-     * err value.
+     * output_string. Log includes subvolume-name, start-range, end-range
+     * and err value.
      *
      * This log will help to debug cases where:
      * a) Different processes set different layout of a directory.
