@@ -1,9 +1,0 @@
-xlator_api
-fops
-cbks
-class_methods
-dht_methods
-options
-mem_acct_init
-reconfigure
-dumpops

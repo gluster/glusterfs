@@ -679,4 +679,19 @@ struct volume_options options[] = {
         .default_value = "",
     },
 
-    {.key = {NULL}}};
+    {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {GD_OP_VERSION_3_12_0},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "delay-gen",
+    .category = GF_TECH_PREVIEW,
+};

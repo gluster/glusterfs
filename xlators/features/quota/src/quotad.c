@@ -220,11 +220,6 @@ err:
     return ret;
 }
 
-class_methods_t class_methods = {.init = qd_init,
-                                 .fini = qd_fini,
-                                 .reconfigure = qd_reconfigure,
-                                 .notify = qd_notify};
-
 struct xlator_fops fops = {};
 
 struct xlator_cbks cbks = {};
@@ -240,4 +235,19 @@ struct volume_options options[] = {
         .key = {"transport.*"},
         .type = GF_OPTION_TYPE_ANY,
     },
-    {.key = {NULL}}};
+    {.key = {NULL}},
+};
+
+xlator_api_t xlator_api = {
+    .init = qd_init,
+    .fini = qd_fini,
+    .reconfigure = qd_reconfigure,
+    .notify = qd_notify,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "quotad",
+    .category = GF_MAINTAINED,
+};

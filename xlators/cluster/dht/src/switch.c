@@ -823,11 +823,6 @@ err:
     return -1;
 }
 
-class_methods_t class_methods = {.init = switch_init,
-                                 .fini = switch_fini,
-                                 .reconfigure = dht_reconfigure,
-                                 .notify = dht_notify};
-
 struct xlator_fops fops = {
     .lookup = switch_lookup,
     .create = switch_create,
@@ -869,3 +864,19 @@ struct xlator_fops fops = {
 };
 
 struct xlator_cbks cbks = {.forget = dht_forget};
+extern int32_t
+mem_acct_init(xlator_t *this);
+
+xlator_api_t xlator_api = {
+    .init = switch_init,
+    .fini = switch_fini,
+    .notify = dht_notify,
+    .reconfigure = dht_reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1}, /* Present from the initial version */
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = dht_options,
+    .identifier = "switch",
+    .category = GF_TECH_PREVIEW,
+};

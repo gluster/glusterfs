@@ -334,3 +334,15 @@ struct volume_options options[] = {
                     "to disk as a gzip file."},
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {GD_OP_VERSION_3_9_0},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "cdc",
+    .category = GF_TECH_PREVIEW,
+};

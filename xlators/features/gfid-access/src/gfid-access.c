@@ -1408,3 +1408,15 @@ struct volume_options options[] = {
     /* This translator doesn't take any options, or provide any options */
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "gfid-access",
+    .category = GF_MAINTAINED,
+};

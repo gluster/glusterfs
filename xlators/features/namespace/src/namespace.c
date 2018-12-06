@@ -1330,3 +1330,16 @@ struct volume_options options[] = {
     },
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .reconfigure = reconfigure,
+    .op_version = {GD_OP_VERSION_3_12_0},
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "namespace",
+    .category = GF_TECH_PREVIEW,
+};

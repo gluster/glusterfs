@@ -2691,3 +2691,16 @@ struct volume_options options[] = {
     },
     {.key = {NULL}},
 };
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1},
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "snapview-server",
+    .category = GF_MAINTAINED,
+};

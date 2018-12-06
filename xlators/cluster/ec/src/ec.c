@@ -1666,4 +1666,22 @@ struct volume_options options[] = {
                     "specially for sequential writes. However, this will also"
                     "lead to extra memory consumption, maximum "
                     "(cache size * stripe size) Bytes per open file."},
-    {.key = {NULL}}};
+    {
+        .key = {NULL},
+    },
+};
+
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .mem_acct_init = mem_acct_init,
+    .op_version = {1},
+    .dumpops = &dumpops,
+    .fops = &fops,
+    .cbks = &cbks,
+    .options = options,
+    .identifier = "disperse",
+    .category = GF_MAINTAINED,
+};
