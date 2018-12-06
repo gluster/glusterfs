@@ -22,6 +22,8 @@ typedef enum {
     CLRLK_TYPE_MAX
 } clrlk_type;
 
+extern const char *clrlk_type_names[];
+
 typedef enum {
     CLRLK_BLOCKED = 1,
     CLRLK_GRANTED,

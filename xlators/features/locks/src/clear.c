@@ -23,6 +23,12 @@
 #include <glusterfs/statedump.h>
 #include "clear.h"
 
+const char *clrlk_type_names[CLRLK_TYPE_MAX] = {
+    [CLRLK_INODE] = "inode",
+    [CLRLK_ENTRY] = "entry",
+    [CLRLK_POSIX] = "posix",
+};
+
 int
 clrlk_get_kind(char *kind)
 {
