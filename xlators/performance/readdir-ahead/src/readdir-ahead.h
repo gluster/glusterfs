@@ -67,6 +67,8 @@ struct rda_fd_ctx {
     call_stub_t *stub;
     int op_errno;
     dict_t *xattrs; /* md-cache keys to be sent in readdirp() */
+    dict_t *writes_during_prefetch;
+    gf_atomic_t prefetching;
 };
 
 struct rda_local {
