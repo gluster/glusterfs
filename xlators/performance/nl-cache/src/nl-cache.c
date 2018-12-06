@@ -779,6 +779,14 @@ struct xlator_dumpops nlc_dumpops = {
 
 struct volume_options nlc_options[] = {
     {
+        .key = {"nl-cache"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable nl-cache",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
+    {
         .key = {"nl-cache-positive-entry"},
         .type = GF_OPTION_TYPE_BOOL,
         .default_value = "false",

@@ -1306,6 +1306,14 @@ struct xlator_dumpops dumpops = {
 
 struct volume_options options[] = {
     {
+        .key = {"open-behind"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable open-behind",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
+    {
         .key = {"use-anonymous-fd"},
         .type = GF_OPTION_TYPE_BOOL,
         .default_value = "no",

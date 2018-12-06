@@ -356,5 +356,13 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
+    {
+        .key = {"symlink-cache"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .description = "enable/disable symlink-cache",
+        .op_version = {GD_OP_VERSION_6_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
     {.key = {NULL}},
 };
