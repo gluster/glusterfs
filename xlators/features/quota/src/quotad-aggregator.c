@@ -280,6 +280,8 @@ errx:
     if (dict)
         dict_unref(dict);
 
+    if (cli_req.dict.dict_val)
+        free(cli_req.dict.dict_val);
     return ret;
 }
 
@@ -347,6 +349,7 @@ err:
     rsp.op_errno = op_errno;
 
     quotad_aggregator_lookup_cbk(this, frame, &rsp);
+    free(args.xdata.xdata_val);
     return ret;
 }
 

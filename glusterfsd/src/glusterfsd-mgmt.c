@@ -282,6 +282,8 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
 err:
     if (!lockflag)
         UNLOCK(&ctx->volfile_lock);
+    if (xlator_req.input.input_val)
+        free(xlator_req.input.input_val);
     free(xlator_req.name);
     xlator_req.name = NULL;
     return 0;
@@ -1030,6 +1032,8 @@ out:
 
     GF_FREE(msg);
     GF_FREE(filepath);
+    if (xlator_req.input.input_val)
+        free(xlator_req.input.input_val);
 
     return ret;
 }
@@ -1250,6 +1254,7 @@ out:
     if (output)
         dict_unref(output);
     free(brick_req.input.input_val);
+    free(brick_req.name);
     GF_FREE(xname);
     GF_FREE(msg);
     GF_FREE(rsp.output.output_val);
@@ -2117,7 +2122,8 @@ out:
     GF_FREE(frame->local);
     frame->local = NULL;
     STACK_DESTROY(frame->root);
-
+    if (rsp.xdata.xdata_val)
+        free(rsp.xdata.xdata_val);
     free(rsp.spec);
 
     if (dict)
