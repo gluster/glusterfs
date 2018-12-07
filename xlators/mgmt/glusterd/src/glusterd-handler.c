@@ -1816,6 +1816,8 @@ out:
 
     glusterd_to_cli(req, &rsp, NULL, 0, NULL, (xdrproc_t)xdr_gf_cli_rsp, dict);
 
+    GF_FREE(rsp.dict.dict_val);
+
     return 0;
 }
 int
@@ -1881,6 +1883,8 @@ out:
 
     if (dict)
         dict_unref(dict);
+
+    GF_FREE(rsp.dict.dict_val);
 
     glusterd_friend_sm();
     glusterd_op_sm();
@@ -4998,6 +5002,7 @@ out:
                                       &rsp.dict.dict_len);
 
     glusterd_submit_reply(req, &rsp, NULL, 0, NULL, (xdrproc_t)xdr_gf_cli_rsp);
+    GF_FREE(rsp.dict.dict_val);
     GF_FREE(key_fixed);
     return ret;
 }
@@ -5954,6 +5959,7 @@ out:
     ret = dict_allocate_and_serialize(dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     glusterd_to_cli(req, &rsp, NULL, 0, NULL, (xdrproc_t)xdr_gf_cli_rsp, dict);
+    GF_FREE(rsp.dict.dict_val);
 
     return ret;
 }
