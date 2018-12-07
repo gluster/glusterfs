@@ -1796,6 +1796,7 @@ cli_cmd_bitrot_cbk(struct cli_state *state, struct cli_cmd_word *word,
     int event_type = -1;
     char *tmp = NULL;
     char *events_str = NULL;
+    char *volname = NULL;
 #endif
 
     ret = cli_cmd_bitrot_parse(words, wordcount, &options);
@@ -1841,10 +1842,9 @@ out:
         if (ret1)
             cmd_type = -1;
         else {
-            ret1 = dict_get_str(options, "volname", &tmp);
+            ret1 = dict_get_str(options, "volname", &volname);
             if (ret1)
-                tmp = "";
-            gf_asprintf(&events_str, "name=%s", tmp);
+                volname = "";
         }
 
         switch (cmd_type) {
@@ -1862,21 +1862,21 @@ out:
                 ret1 = dict_get_str(options, "scrub-throttle-value", &tmp);
                 if (ret1)
                     tmp = "";
-                gf_asprintf(&events_str, "%s;value=%s", events_str, tmp);
+                gf_asprintf(&events_str, "name=%s;value=%s", volname, tmp);
                 break;
             case GF_BITROT_OPTION_TYPE_SCRUB_FREQ:
                 event_type = EVENT_BITROT_SCRUB_FREQ;
                 ret1 = dict_get_str(options, "scrub-frequency-value", &tmp);
                 if (ret1)
                     tmp = "";
-                gf_asprintf(&events_str, "%s;value=%s", events_str, tmp);
+                gf_asprintf(&events_str, "name=%s;value=%s", volname, tmp);
                 break;
             case GF_BITROT_OPTION_TYPE_SCRUB:
                 event_type = EVENT_BITROT_SCRUB_OPTION;
                 ret1 = dict_get_str(options, "scrub-value", &tmp);
                 if (ret1)
                     tmp = "";
-                gf_asprintf(&events_str, "%s;value=%s", events_str, tmp);
+                gf_asprintf(&events_str, "name=%s;value=%s", volname, tmp);
                 break;
             default:
                 break;
