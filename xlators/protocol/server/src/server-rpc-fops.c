@@ -4255,6 +4255,7 @@ server3_3_release(rpcsvc_request_t *req)
 
     ret = 0;
 out:
+    free(args.xdata.xdata_val);
     return ret;
 }
 
@@ -4302,6 +4303,7 @@ server3_3_releasedir(rpcsvc_request_t *req)
 
     ret = 0;
 out:
+    free(args.xdata.xdata_val);
     return ret;
 }
 
