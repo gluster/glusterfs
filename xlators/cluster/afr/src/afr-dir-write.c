@@ -98,7 +98,9 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
     }
 
     if (local->inode) {
-        afr_replies_interpret(frame, this, local->inode, NULL);
+        if (local->op != GF_FOP_RENAME && local->op != GF_FOP_LINK)
+            afr_replies_interpret(frame, this, local->inode, NULL);
+
         inode_read_subvol = afr_data_subvol_get(local->inode, this, NULL, NULL,
                                                 NULL, &args);
     }
