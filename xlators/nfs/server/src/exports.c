@@ -203,7 +203,9 @@ _export_dir_deinit(struct export_dir *dir)
     GF_VALIDATE_OR_GOTO(GF_EXP, dir, out);
     GF_FREE(dir->dir_name);
     _exp_dict_destroy(dir->netgroups);
+    dict_unref(dir->netgroups);
     _exp_dict_destroy(dir->hosts);
+    dict_unref(dir->hosts);
     GF_FREE(dir);
 
 out:
@@ -1469,6 +1471,7 @@ exp_file_parse(const char *filepath, struct exports_file **expfile,
 
 free_and_done:
     exp_file_deinit(file);
+    _export_dir_deinit(expdir);
 
 parse_done:
     if (fp)
