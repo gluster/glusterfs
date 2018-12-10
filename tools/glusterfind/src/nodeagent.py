@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
@@ -58,7 +58,7 @@ def mode_create(args):
            logger=logger)
 
     if not os.path.exists(status_file) or args.reset_session_time:
-        with open(status_file, "w", buffering=0) as f:
+        with open(status_file, "w") as f:
             f.write(args.time_to_update)
 
     sys.exit(0)

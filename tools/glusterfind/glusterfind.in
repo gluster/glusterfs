@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
 # This file is part of GlusterFS.
@@ -10,6 +10,7 @@
 
 import sys
 sys.path.insert(1, '@GLUSTERFS_LIBEXECDIR@/')
+sys.path.insert(1, '@GLUSTERFS_LIBEXECDIR@/glusterfind')
 
 from glusterfind.main import main
 

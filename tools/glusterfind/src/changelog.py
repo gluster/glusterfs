@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
@@ -339,7 +339,7 @@ def changelog_crawl(brick, start, end, args):
 
     # WORKING_DIR/BRICKHASH/OUTFILE
     working_dir = os.path.dirname(args.outfile)
-    brickhash = hashlib.sha1(brick)
+    brickhash = hashlib.sha1(brick.encode())
     brickhash = str(brickhash.hexdigest())
     working_dir = os.path.join(working_dir, brickhash)
 
@@ -420,7 +420,7 @@ if __name__ == "__main__":
                                                                     end))
     actual_end = changelog_crawl(args.brick, start, end, args)
     if not args.only_query:
-        with open(status_file_pre, "w", buffering=0) as f:
+        with open(status_file_pre, "w") as f:
             f.write(str(actual_end))
 
     logger.info("%s Finished Changelog Crawl - End: %s" % (args.brick,
