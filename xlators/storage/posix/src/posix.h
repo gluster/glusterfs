@@ -152,9 +152,9 @@ struct posix_private {
     time_t last_landfill_check;
     int32_t janitor_sleep_duration;
 
-    int64_t read_value;  /* Total read, from init */
-    int64_t write_value; /* Total write, from init */
-    int64_t nr_files;
+    gf_atomic_t read_value;  /* Total read, from init */
+    gf_atomic_t write_value; /* Total write, from init */
+    gf_atomic_t nr_files;
     /*
        In some cases, two exported volumes may reside on the same
        partition on the server. Sending statvfs info for both

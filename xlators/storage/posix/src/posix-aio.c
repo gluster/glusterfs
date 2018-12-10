@@ -133,11 +133,7 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
     if (!postbuf.ia_size || (offset + iov.iov_len) >= postbuf.ia_size)
         op_errno = ENOENT;
 
-    LOCK(&priv->lock);
-    {
-        priv->read_value += op_ret;
-    }
-    UNLOCK(&priv->lock);
+    GF_ATOMIC_ADD(priv->read_value, op_ret);
 
 out:
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1, &postbuf,
@@ -301,11 +297,7 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
     op_ret = res;
     op_errno = 0;
 
-    LOCK(&priv->lock);
-    {
-        priv->write_value += op_ret;
-    }
-    UNLOCK(&priv->lock);
+    GF_ATOMIC_ADD(priv->write_value, op_ret);
 
 out:
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, &prebuf, &postbuf,
