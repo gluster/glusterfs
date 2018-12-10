@@ -852,10 +852,12 @@ out:
 #if (USE_EVENTS)
     if (ret == 0 && strcmp(words[2], "help") != 0) {
         ret1 = dict_get_int32(options, "count", &num_options);
-        if (ret1)
+        if (ret1) {
             num_options = 0;
-        else
+            goto end;
+        } else {
             num_options = num_options / 2;
+        }
 
         char *free_list_key[num_options];
         char *free_list_val[num_options];
@@ -896,6 +898,7 @@ out:
     }
 #endif
 
+end:
     CLI_STACK_DESTROY(frame);
 
     return ret;
