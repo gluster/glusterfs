@@ -125,9 +125,10 @@ posix_priv(xlator_t *this)
 
     gf_proc_dump_write("base_path", "%s", priv->base_path);
     gf_proc_dump_write("base_path_length", "%d", priv->base_path_length);
-    gf_proc_dump_write("max_read", "%" PRId64, priv->read_value);
-    gf_proc_dump_write("max_write", "%" PRId64, priv->write_value);
-    gf_proc_dump_write("nr_files", "%" PRId64, priv->nr_files);
+    gf_proc_dump_write("max_read", "%" PRId64, GF_ATOMIC_GET(priv->read_value));
+    gf_proc_dump_write("max_write", "%" PRId64,
+                       GF_ATOMIC_GET(priv->write_value));
+    gf_proc_dump_write("nr_files", "%ld", GF_ATOMIC_GET(priv->nr_files));
 
     return 0;
 }
@@ -775,6 +776,9 @@ posix_init(xlator_t *this)
     }
 
     LOCK_INIT(&_private->lock);
+    GF_ATOMIC_INIT(_private->nr_files, 0);
+    GF_ATOMIC_INIT(_private->read_value, 0);
+    GF_ATOMIC_INIT(_private->write_value, 0);
 
     _private->export_statfs = 1;
     tmp_data = dict_get(this->options, "export-statfs-size");

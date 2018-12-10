@@ -1476,12 +1476,7 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_FD_PATH_SETTING_FAILED,
                "failed to set the fd context path=%s fd=%p", real_path, fd);
 
-    LOCK(&priv->lock);
-    {
-        priv->nr_files++;
-    }
-    UNLOCK(&priv->lock);
-
+    GF_ATOMIC_INC(priv->nr_files);
     op_ret = 0;
 
 out:
@@ -1590,11 +1585,7 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto out;
     }
 
-    LOCK(&priv->lock);
-    {
-        priv->read_value += op_ret;
-    }
-    UNLOCK(&priv->lock);
+    GF_ATOMIC_ADD(priv->read_value, op_ret);
 
     vec.iov_base = iobuf->ptr;
     vec.iov_len = op_ret;
@@ -1940,11 +1931,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
     }
 
-    LOCK(&priv->lock);
-    {
-        priv->write_value += op_ret;
-    }
-    UNLOCK(&priv->lock);
+    GF_ATOMIC_ADD(priv->write_value, op_ret);
 
 out:
 
@@ -2208,11 +2195,7 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
      * this comment (or add comment to explain why it is not
      * needed).
      */
-    LOCK(&priv->lock);
-    {
-        priv->write_value += op_ret;
-    }
-    UNLOCK(&priv->lock);
+    GF_ATOMIC_ADD(priv->write_value, op_ret);
 
 out:
 
@@ -2371,12 +2354,7 @@ posix_release(xlator_t *this, fd_t *fd)
     if (!priv)
         goto out;
 
-    LOCK(&priv->lock);
-    {
-        priv->nr_files--;
-    }
-    UNLOCK(&priv->lock);
-
+    GF_ATOMIC_DEC(priv->nr_files);
 out:
     return 0;
 }
