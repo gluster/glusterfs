@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
@@ -322,6 +322,7 @@ def _get_args():
     parser = ArgumentParser(formatter_class=RawDescriptionHelpFormatter,
                             description=PROG_DESCRIPTION)
     subparsers = parser.add_subparsers(dest="mode")
+    subparsers.required = True
 
     # create <SESSION> <VOLUME> [--debug] [--force]
     parser_create = subparsers.add_parser('create')
@@ -511,15 +512,15 @@ def write_output(outfile, outfilemerger, field_separator):
                     continue
 
                 if row_2_rep and row_2_rep != "":
-                    f.write("{0}{1}{2}{3}{4}\n".format(row[0],
+                    f.write(u"{0}{1}{2}{3}{4}\n".format(row[0],
                                                         field_separator,
                                                         p_rep,
                                                         field_separator,
-                                                        row_2_rep))
+                                                        row_2_rep).encode())
                 else:
-                    f.write("{0}{1}{2}\n".format(row[0],
+                    f.write(u"{0}{1}{2}\n".format(row[0],
                                                   field_separator,
-                                                  p_rep))
+                                                  p_rep).encode())
 
 
 def mode_create(session_dir, args):
@@ -559,7 +560,7 @@ def mode_create(session_dir, args):
     run_cmd_nodes("create", args, time_to_update=str(time_to_update))
 
     if not os.path.exists(status_file) or args.reset_session_time:
-        with open(status_file, "w", buffering=0) as f:
+        with open(status_file, "w") as f:
             f.write(str(time_to_update))
 
     sys.stdout.write("Session %s created with volume %s\n" %
@@ -712,7 +713,7 @@ def mode_pre(session_dir, args):
 
     run_cmd_nodes("cleanup", args, tmpfilename=gtmpfilename)
 
-    with open(status_file_pre, "w", buffering=0) as f:
+    with open(status_file_pre, "w") as f:
         f.write(str(endtime_to_update))
 
     sys.stdout.write("Generated output file %s\n" % args.outfile)

@@ -10,11 +10,11 @@
 
 import os
 try:
-    from configparser import ConfigParser
+    from ConfigParser import ConfigParser
 except ImportError:
-    import ConfigParser
+    from configparser import ConfigParser
 
-config = ConfigParser.ConfigParser()
+config = ConfigParser()
 config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          "tool.conf"))
 

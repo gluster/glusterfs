@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com/>
@@ -113,6 +113,6 @@ if __name__ == "__main__":
     time_to_update = int(time.time())
     brickfind_crawl(args.brick, args)
     if not args.only_query:
-        with open(status_file_pre, "w", buffering=0) as f:
+        with open(status_file_pre, "w") as f:
             f.write(str(time_to_update))
     sys.exit(0)

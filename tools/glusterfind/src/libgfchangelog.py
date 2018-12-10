@@ -11,6 +11,9 @@
 import os
 from ctypes import CDLL, get_errno, create_string_buffer, c_ulong, byref
 from ctypes import RTLD_GLOBAL
+from gfind_py2py3 import bytearray_to_str, gf_create_string_buffer
+from gfind_py2py3 import gfind_history_changelog, gfind_changelog_register
+from gfind_py2py3 import gfind_history_changelog_done
 
 
 class ChangelogException(OSError):
@@ -33,8 +36,7 @@ def cl_init():
 
 
 def cl_register(brick, path, log_file, log_level, retries=0):
-    ret = libgfc.gf_changelog_register(brick, path, log_file,
-                                       log_level, retries)
+    ret = gfind_changelog_register(libgfc, brick, path, log_file,log_level, retries)
     if ret == -1:
         raise_oserr(prefix="gf_changelog_register")
 
@@ -49,7 +51,7 @@ def cl_history_scan():
 
 def cl_history_changelog(changelog_path, start, end, num_parallel):
     actual_end = c_ulong()
-    ret = libgfc.gf_history_changelog(changelog_path, start, end,
+    ret = gfind_history_changelog(libgfc,changelog_path, start, end,
                                       num_parallel,
                                       byref(actual_end))
     if ret == -1:
@@ -70,13 +72,15 @@ def cl_history_getchanges():
         return f.split('.')[-1]
 
     changes = []
-    buf = create_string_buffer('\0', 4096)
+    buf = gf_create_string_buffer(4096)
 
     while True:
         ret = libgfc.gf_history_changelog_next_change(buf, 4096)
         if ret in (0, -1):
             break
-        changes.append(buf.raw[:ret - 1])
+        # py2 and py3 compatibility
+        result = bytearray_to_str(buf.raw[:ret - 1])
+        changes.append(result)
     if ret == -1:
         raise_oserr(prefix="gf_history_changelog_next_change")
 
@@ -84,6 +88,6 @@ def cl_history_getchanges():
 
 
 def cl_history_done(clfile):
-    ret = libgfc.gf_history_changelog_done(clfile)
+    ret = gfind_history_changelog_done(libgfc, clfile)
     if ret == -1:
         raise_oserr(prefix="gf_history_changelog_done")
