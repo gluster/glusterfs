@@ -3255,6 +3255,6 @@ xlator_api_t xlator_api = {
     .fops = &fops,
     .cbks = &cbks,
     .options = options,
-    .identifier = "write-ahead",
+    .identifier = "write-behind",
     .category = GF_MAINTAINED,
 };
