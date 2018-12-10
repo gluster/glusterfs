@@ -2223,6 +2223,6 @@ xlator_api_t xlator_api = {
     .fops = &fops,
     .cbks = &cbks,
     .options = options,
-    .identifier = "bit-rot server",
+    .identifier = "bit-rot",
     .category = GF_MAINTAINED,
 };
