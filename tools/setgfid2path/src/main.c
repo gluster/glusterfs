@@ -28,7 +28,7 @@ main(int argc, char **argv)
     uuid_t pgfid_raw = {
         0,
     };
-    char pgfid[36] = "";
+    char pgfid[36 + 1] = "";
     char xxh64[GF_XXH64_DIGEST_LENGTH * 2 + 1] = {
         0,
     };
