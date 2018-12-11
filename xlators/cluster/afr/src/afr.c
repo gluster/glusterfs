@@ -559,10 +559,18 @@ init(xlator_t *this)
         goto out;
     }
 
-    ret = afr_selfheal_daemon_init(this);
-    if (ret) {
+    this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this);
+    if (!this->itable) {
         ret = -ENOMEM;
         goto out;
+    }
+
+    if (priv->shd.iamshd) {
+        ret = afr_selfheal_daemon_init(this);
+        if (ret) {
+            ret = -ENOMEM;
+            goto out;
+        }
     }
 
     /* keep more local here as we may need them for self-heal etc */
@@ -593,7 +601,10 @@ fini(xlator_t *this)
     UNLOCK(&priv->lock);
     this->private = NULL;
     afr_priv_destroy(priv);
-    // if (this->itable);//I don't see any destroy func
+    if (this->itable) {
+        inode_table_destroy(this->itable);
+        this->itable = NULL;
+    }
 
     return;
 }
