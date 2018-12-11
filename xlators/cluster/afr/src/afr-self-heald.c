@@ -16,7 +16,6 @@
 #include "afr-messages.h"
 #include <glusterfs/byte-order.h>
 
-#define SHD_INODE_LRU_LIMIT 2048
 #define AFR_EH_SPLIT_BRAIN_LIMIT 1024
 #define AFR_STATISTICS_HISTORY_SIZE 50
 
@@ -722,9 +721,9 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
         }
 
         ret = dict_set_bin(xattr, priv->pending_key[i], raw,
-                           AFR_NUM_CHANGE_LOGS * sizeof (int));
+                           AFR_NUM_CHANGE_LOGS * sizeof(int));
         if (ret) {
-            GF_FREE (raw);
+            GF_FREE(raw);
             goto out;
         }
 
@@ -1209,10 +1208,6 @@ afr_selfheal_daemon_init(xlator_t *this)
 
     priv = this->private;
     shd = &priv->shd;
-
-    this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this);
-    if (!this->itable)
-        goto out;
 
     shd->index_healers = GF_CALLOC(sizeof(*shd->index_healers),
                                    priv->child_count,
