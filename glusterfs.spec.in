@@ -1112,9 +1112,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground/template.so
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 
 %files fuse
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
