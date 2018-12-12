@@ -3259,7 +3259,7 @@ gf_ports_reserved(char *blocked_port, unsigned char *ports, uint32_t ceiling)
         if (blocked_port[strlen(blocked_port) - 1] == '\n')
             blocked_port[strlen(blocked_port) - 1] = '\0';
         if (gf_string2int32(blocked_port, &tmp_port1) == 0) {
-            if (tmp_port1 > ceiling || tmp_port1 < 0) {
+            if (tmp_port1 > GF_PORT_MAX || tmp_port1 < 0) {
                 gf_msg("glusterfs-socket", GF_LOG_WARNING, 0,
                        LG_MSG_INVALID_PORT, "invalid port %d", tmp_port1);
                 result = _gf_true;
