@@ -2850,6 +2850,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "cluster/replicate",
      .op_version = GD_OP_VERSION_3_11_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = VKEY_FEATURES_SELINUX,
+     .voltype = "features/selinux",
+     .type = NO_DOC,
+     .value = "on",
+     .op_version = GD_OP_VERSION_3_11_0,
+     .description = "Convert security.selinux xattrs to "
+                    "trusted.gluster.selinux on the bricks. Recommended "
+                    "to have enabled when clients and/or bricks support "
+                    "SELinux."},
     {.key = GLUSTERD_LOCALTIME_LOGGING_KEY,
      .voltype = "mgmt/glusterd",
      .type = GLOBAL_DOC,
