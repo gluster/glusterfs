@@ -254,14 +254,16 @@ blkd:
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
-    list_for_each_entry_safe(ilock, tmp, &released, blocked_locks)
-    {
-        list_del_init(&ilock->blocked_locks);
-        pl_trace_out(this, ilock->frame, NULL, NULL, F_SETLKW,
-                     &ilock->user_flock, -1, EAGAIN, ilock->volume);
-        STACK_UNWIND_STRICT(inodelk, ilock->frame, -1, EAGAIN, NULL);
-        // No need to take lock as the locks are only in one list
-        __pl_inodelk_unref(ilock);
+    if (!list_empty(&released)) {
+        list_for_each_entry_safe(ilock, tmp, &released, blocked_locks)
+        {
+            list_del_init(&ilock->blocked_locks);
+            pl_trace_out(this, ilock->frame, NULL, NULL, F_SETLKW,
+                         &ilock->user_flock, -1, EAGAIN, ilock->volume);
+            STACK_UNWIND_STRICT(inodelk, ilock->frame, -1, EAGAIN, NULL);
+            // No need to take lock as the locks are only in one list
+            __pl_inodelk_unref(ilock);
+        }
     }
 
     if (!(args->kind & CLRLK_GRANTED)) {
@@ -357,15 +359,17 @@ blkd:
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
-    list_for_each_entry_safe(elock, tmp, &released, blocked_locks)
-    {
-        list_del_init(&elock->blocked_locks);
-        entrylk_trace_out(this, elock->frame, elock->volume, NULL, NULL,
-                          elock->basename, ENTRYLK_LOCK, elock->type, -1,
-                          EAGAIN);
-        STACK_UNWIND_STRICT(entrylk, elock->frame, -1, EAGAIN, NULL);
+    if (!list_empty(&released)) {
+        list_for_each_entry_safe(elock, tmp, &released, blocked_locks)
+        {
+            list_del_init(&elock->blocked_locks);
+            entrylk_trace_out(this, elock->frame, elock->volume, NULL, NULL,
+                              elock->basename, ENTRYLK_LOCK, elock->type, -1,
+                              EAGAIN);
+            STACK_UNWIND_STRICT(entrylk, elock->frame, -1, EAGAIN, NULL);
 
-        __pl_entrylk_unref(elock);
+            __pl_entrylk_unref(elock);
+        }
     }
 
     if (!(args->kind & CLRLK_GRANTED)) {

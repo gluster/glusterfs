@@ -5314,9 +5314,7 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
     inode_t *inode = NULL;
     struct glfs_fd *glfd = NULL;
     struct glfs_fd *tmp = NULL;
-    struct list_head glfd_list = {
-        0,
-    };
+    struct list_head glfd_list;
     fd_t *fd = NULL;
     uint64_t value = 0;
     struct glfs_lease lease = {
@@ -5365,22 +5363,24 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
     }
     UNLOCK(&inode->lock);
 
-    list_for_each_entry_safe(glfd, tmp, &glfd_list, list)
-    {
-        LOCK(&glfd->lock);
+    if (!list_empty(&glfd_list)) {
+        list_for_each_entry_safe(glfd, tmp, &glfd_list, list)
         {
-            if (glfd->state != GLFD_CLOSE) {
-                gf_msg_trace(THIS->name, 0,
-                             "glfd (%p) has held lease, "
-                             "calling recall cbk",
-                             glfd);
-                glfd->cbk(lease, glfd->cookie);
+            LOCK(&glfd->lock);
+            {
+                if (glfd->state != GLFD_CLOSE) {
+                    gf_msg_trace(THIS->name, 0,
+                                 "glfd (%p) has held lease, "
+                                 "calling recall cbk",
+                                 glfd);
+                    glfd->cbk(lease, glfd->cookie);
+                }
             }
-        }
-        UNLOCK(&glfd->lock);
+            UNLOCK(&glfd->lock);
 
-        list_del_init(&glfd->list);
-        GF_REF_PUT(glfd);
+            list_del_init(&glfd->list);
+            GF_REF_PUT(glfd);
+        }
     }
 
 out:
