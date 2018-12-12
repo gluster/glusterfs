@@ -347,12 +347,14 @@ ob_inode_wake(xlator_t *this, struct list_head *ob_fds)
     ob_fd_t *ob_fd = NULL, *tmp = NULL;
     fd_t *fd = NULL;
 
-    list_for_each_entry_safe(ob_fd, tmp, ob_fds, ob_fds_on_inode)
-    {
-        ob_fd_wake(this, ob_fd->fd, ob_fd);
-        fd = ob_fd->fd;
-        ob_fd_free(ob_fd);
-        fd_unref(fd);
+    if (!list_empty(ob_fds)) {
+        list_for_each_entry_safe(ob_fd, tmp, ob_fds, ob_fds_on_inode)
+        {
+            ob_fd_wake(this, ob_fd->fd, ob_fd);
+            fd = ob_fd->fd;
+            ob_fd_free(ob_fd);
+            fd_unref(fd);
+        }
     }
 }
 
@@ -381,9 +383,7 @@ open_all_pending_fds_and_resume(xlator_t *this, inode_t *inode,
     ob_fd_t *ob_fd = NULL, *tmp = NULL;
     gf_boolean_t was_open_in_progress = _gf_false;
     gf_boolean_t wait_for_open = _gf_false;
-    struct list_head ob_fds = {
-        0,
-    };
+    struct list_head ob_fds;
 
     ob_inode = ob_inode_get(this, inode);
     if (ob_inode == NULL)

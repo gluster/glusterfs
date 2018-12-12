@@ -2562,25 +2562,33 @@ pl_forget(xlator_t *this, inode_t *inode)
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
-    list_for_each_entry_safe(ext_l, ext_tmp, &posixlks_released, list)
-    {
-        STACK_UNWIND_STRICT(lk, ext_l->frame, -1, 0, &ext_l->user_flock, NULL);
-        __destroy_lock(ext_l);
+    if (!list_empty(&posixlks_released)) {
+        list_for_each_entry_safe(ext_l, ext_tmp, &posixlks_released, list)
+        {
+            STACK_UNWIND_STRICT(lk, ext_l->frame, -1, 0, &ext_l->user_flock,
+                                NULL);
+            __destroy_lock(ext_l);
+        }
     }
 
-    list_for_each_entry_safe(ino_l, ino_tmp, &inodelks_released, blocked_locks)
-    {
-        STACK_UNWIND_STRICT(inodelk, ino_l->frame, -1, 0, NULL);
-        __pl_inodelk_unref(ino_l);
+    if (!list_empty(&inodelks_released)) {
+        list_for_each_entry_safe(ino_l, ino_tmp, &inodelks_released,
+                                 blocked_locks)
+        {
+            STACK_UNWIND_STRICT(inodelk, ino_l->frame, -1, 0, NULL);
+            __pl_inodelk_unref(ino_l);
+        }
     }
 
-    list_for_each_entry_safe(entry_l, entry_tmp, &entrylks_released,
-                             blocked_locks)
-    {
-        STACK_UNWIND_STRICT(entrylk, entry_l->frame, -1, 0, NULL);
-        GF_FREE((char *)entry_l->basename);
-        GF_FREE(entry_l->connection_id);
-        GF_FREE(entry_l);
+    if (!list_empty(&entrylks_released)) {
+        list_for_each_entry_safe(entry_l, entry_tmp, &entrylks_released,
+                                 blocked_locks)
+        {
+            STACK_UNWIND_STRICT(entrylk, entry_l->frame, -1, 0, NULL);
+            GF_FREE((char *)entry_l->basename);
+            GF_FREE(entry_l->connection_id);
+            GF_FREE(entry_l);
+        }
     }
 
     pthread_mutex_destroy(&pl_inode->mutex);

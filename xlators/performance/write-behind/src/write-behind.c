@@ -1744,15 +1744,9 @@ wb_do_winds(wb_inode_t *wb_inode, list_head_t *tasks)
 void
 wb_process_queue(wb_inode_t *wb_inode)
 {
-    list_head_t tasks = {
-        0,
-    };
-    list_head_t lies = {
-        0,
-    };
-    list_head_t liabilities = {
-        0,
-    };
+    list_head_t tasks;
+    list_head_t lies;
+    list_head_t liabilities;
     int wind_failure = 0;
 
     INIT_LIST_HEAD(&tasks);
@@ -1773,15 +1767,18 @@ wb_process_queue(wb_inode_t *wb_inode)
         }
         UNLOCK(&wb_inode->lock);
 
-        wb_do_unwinds(wb_inode, &lies);
+        if (!list_empty(&lies))
+            wb_do_unwinds(wb_inode, &lies);
 
-        wb_do_winds(wb_inode, &tasks);
+        if (!list_empty(&tasks))
+            wb_do_winds(wb_inode, &tasks);
 
         /* If there is an error in wb_fulfill before winding write
          * requests, we would miss invocation of wb_process_queue
          * from wb_fulfill_cbk. So, retry processing again.
          */
-        wind_failure = wb_fulfill(wb_inode, &liabilities);
+        if (!list_empty(&liabilities))
+            wind_failure = wb_fulfill(wb_inode, &liabilities);
     } while (wind_failure);
 
     return;

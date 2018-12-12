@@ -2176,9 +2176,7 @@ rpcsvc_request_handler(void *arg)
     rpcsvc_actor_t *actor = NULL;
     gf_boolean_t done = _gf_false;
     int ret = 0;
-    struct list_head tmp_list = {
-        0,
-    };
+    struct list_head tmp_list;
 
     queue = arg;
     program = queue->program;

@@ -91,8 +91,10 @@
                        (loc)->path);                                           \
             }                                                                  \
             break;                                                             \
+        } /* __ret == -1 && errno == ELOOP */                                  \
+        else {                                                                 \
+            op_ret = -1;                                                       \
         }                                                                      \
-        /* __ret == -1 && errno == ELOOP */                                    \
     } while (0)
 
 #define POSIX_ANCESTRY_PATH (1 << 0)

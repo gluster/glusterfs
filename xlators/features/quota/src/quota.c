@@ -674,39 +674,43 @@ quota_timeout(struct timeval *tv, int32_t timeout)
 
 /* Return: 1 if new entry added
  *         0 no entry added
+ *        -1 on errors
  */
 static int32_t
 quota_add_parent(struct list_head *list, char *name, uuid_t pgfid)
 {
     quota_dentry_t *entry = NULL;
     gf_boolean_t found = _gf_false;
+    int ret = 0;
 
-    if (list == NULL) {
-        goto out;
-    }
-
-    list_for_each_entry(entry, list, next)
-    {
-        if (gf_uuid_compare(pgfid, entry->par) == 0) {
-            found = _gf_true;
-            goto out;
+    if (!list_empty(list)) {
+        list_for_each_entry(entry, list, next)
+        {
+            if (gf_uuid_compare(pgfid, entry->par) == 0) {
+                found = _gf_true;
+                goto out;
+            }
         }
     }
 
     entry = __quota_dentry_new(NULL, name, pgfid);
     if (entry)
         list_add_tail(&entry->next, list);
+    else
+        ret = -1;
 
 out:
     if (found)
         return 0;
-    else
+    else if (ret == 0)
         return 1;
+    else
+        return -1;
 }
 
 /* This function iterates the parent list in inode
  * context and add unique parent to the list
- * Returns number of dentry added to the list
+ * Returns number of dentry added to the list, or -1 on errors
  */
 static int32_t
 quota_add_parents_from_ctx(quota_inode_ctx_t *ctx, struct list_head *list)
@@ -723,15 +727,16 @@ quota_add_parents_from_ctx(quota_inode_ctx_t *ctx, struct list_head *list)
         list_for_each_entry(dentry, &ctx->parents, next)
         {
             ret = quota_add_parent(list, dentry->name, dentry->par);
-
             if (ret == 1)
                 count++;
+            else if (ret == -1)
+                break;
         }
     }
     UNLOCK(&ctx->lock);
 
 out:
-    return count;
+    return (ret == -1) ? -1 : count;
 }
 
 int32_t
@@ -750,10 +755,9 @@ quota_build_ancestry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_dentry_t *dentry = NULL;
     quota_dentry_t *tmp = NULL;
     quota_inode_ctx_t *ctx = NULL;
-    struct list_head parents = {
-        0,
-    };
+    struct list_head parents;
     quota_local_t *local = NULL;
+    int ret;
 
     INIT_LIST_HEAD(&parents);
 
@@ -828,7 +832,11 @@ quota_build_ancestry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     quota_inode_ctx_get(local->loc.inode, this, &ctx, 0);
 
-    quota_add_parents_from_ctx(ctx, &parents);
+    ret = quota_add_parents_from_ctx(ctx, &parents);
+    if (ret == -1) {
+        op_errno = errno;
+        goto err;
+    }
 
     if (list_empty(&parents)) {
         /* we built ancestry for a directory */
@@ -843,7 +851,11 @@ quota_build_ancestry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
            GF_ASSERT (&entry->list != &entries->list);
         */
 
-        quota_add_parent(&parents, entry->d_name, parent->gfid);
+        ret = quota_add_parent(&parents, entry->d_name, parent->gfid);
+        if (ret == -1) {
+            op_errno = errno;
+            goto err;
+        }
     }
 
     local->ancestry_cbk(&parents, local->loc.inode, 0, 0, local->ancestry_data);
@@ -861,9 +873,11 @@ cleanup:
         parent = NULL;
     }
 
-    list_for_each_entry_safe(dentry, tmp, &parents, next)
-    {
-        __quota_dentry_free(dentry);
+    if (!list_empty(&parents)) {
+        list_for_each_entry_safe(dentry, tmp, &parents, next)
+        {
+            __quota_dentry_free(dentry);
+        }
     }
 
     return 0;
@@ -1839,9 +1853,7 @@ quota_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     quota_inode_ctx_t *ctx = NULL;
     quota_dentry_t *dentry = NULL, *tmp = NULL;
     call_stub_t *stub = NULL;
-    struct list_head head = {
-        0,
-    };
+    struct list_head head;
     inode_t *par_inode = NULL;
 
     priv = this->private;
@@ -1881,9 +1893,13 @@ quota_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, unwind);
 
-    size = iov_length(vector, count);
-
     parents = quota_add_parents_from_ctx(ctx, &head);
+    if (parents == -1) {
+        op_errno = errno;
+        goto unwind;
+    }
+
+    size = iov_length(vector, count);
 
     LOCK(&local->lock);
     {
@@ -4805,6 +4821,10 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
     GF_VALIDATE_OR_GOTO(this->name, priv, unwind);
 
     parents = quota_add_parents_from_ctx(ctx, &head);
+    if (parents == -1) {
+        op_errno = errno;
+        goto unwind;
+    }
 
     /*
      * Note that by using len as the delta we're assuming the range from
