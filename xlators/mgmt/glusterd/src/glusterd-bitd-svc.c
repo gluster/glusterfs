@@ -201,6 +201,6 @@ manager:
     ret = priv->bitd_svc.manager(&(priv->bitd_svc), NULL, PROC_START_NO_WAIT);
 
 out:
-    gf_msg_debug(this->name, 0, "Returning %d", ret);
+    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
     return ret;
 }
