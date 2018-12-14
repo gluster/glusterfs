@@ -2020,15 +2020,17 @@ dht_lookup_unlink_stale_linkto_cbk(call_frame_t *frame, void *cookie,
 
     local = frame->local;
 
-    if (local && local->loc.path)
-        path = local->loc.path;
+    if (local) {
+        FRAME_SU_UNDO(frame, dht_local_t);
+        if (local->loc.path)
+            path = local->loc.path;
+    }
 
     gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_UNLINK_LOOKUP_INFO,
            "Returned with op_ret %d and "
            "op_errno %d for %s",
            op_ret, op_errno, ((path == NULL) ? "null" : path));
 
-    FRAME_SU_UNDO(frame, dht_local_t);
     DHT_STACK_UNWIND(lookup, frame, -1, ENOENT, NULL, NULL, NULL, NULL);
 
     return 0;
@@ -4453,9 +4455,9 @@ dht_mds_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dht_local_t *local = NULL;
     dht_conf_t *conf = NULL;
 
-    VALIDATE_OR_GOTO(frame, out);
-    VALIDATE_OR_GOTO(frame->local, out);
-    VALIDATE_OR_GOTO(this->private, out);
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(frame->local, err);
+    VALIDATE_OR_GOTO(this->private, err);
 
     conf = this->private;
     local = frame->local;
@@ -4477,6 +4479,9 @@ out:
     DHT_STACK_UNWIND(getxattr, frame, local->op_ret, op_errno, local->xattr,
                      xdata);
     return 0;
+err:
+    DHT_STACK_UNWIND(getxattr, frame, -1, EINVAL, NULL, NULL);
+    return 0;
 }
 
 int
@@ -4487,9 +4492,9 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_local_t *local = NULL;
     dht_conf_t *conf = NULL;
 
-    VALIDATE_OR_GOTO(frame, out);
-    VALIDATE_OR_GOTO(frame->local, out);
-    VALIDATE_OR_GOTO(this->private, out);
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(frame->local, err);
+    VALIDATE_OR_GOTO(this->private, err);
 
     conf = this->private;
     local = frame->local;
@@ -4547,7 +4552,6 @@ unlock:
     UNLOCK(&frame->lock);
 
     this_call_cnt = dht_frame_return(frame);
-out:
     if (is_last_call(this_call_cnt)) {
         /* If we have a valid xattr received from any one of the
          * subvolume, let's return it */
@@ -4558,6 +4562,9 @@ out:
         DHT_STACK_UNWIND(getxattr, frame, local->op_ret, op_errno, local->xattr,
                          local->xdata);
     }
+    return 0;
+err:
+    DHT_STACK_UNWIND(getxattr, frame, -1, EINVAL, NULL, NULL);
     return 0;
 }
 
@@ -5085,8 +5092,7 @@ dht_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
         }
     }
 
-    if (fd->inode)
-        gf_uuid_unparse(fd->inode->gfid, gfid);
+    gf_uuid_unparse(fd->inode->gfid, gfid);
 
     if ((fd->inode->ia_type == IA_IFDIR) && key &&
         (strncmp(key, GF_XATTR_LOCKINFO_KEY, SLEN(GF_XATTR_LOCKINFO_KEY)) !=
@@ -7448,7 +7454,11 @@ dht_mknod_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     return 0;
 err:
-    dht_mknod_finish(frame, this, -1, 0);
+    if (local)
+        dht_mknod_finish(frame, this, -1, 0);
+    else
+        DHT_STACK_UNWIND(mknod, frame, -1, EINVAL, NULL, NULL, NULL, NULL,
+                         NULL);
     return 0;
 }
 
@@ -8556,7 +8566,11 @@ dht_create_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     return 0;
 err:
-    dht_create_finish(frame, this, -1, 0);
+    if (local)
+        dht_create_finish(frame, this, -1, 0);
+    else
+        DHT_STACK_UNWIND(create, frame, -1, EINVAL, NULL, NULL, NULL, NULL,
+                         NULL, NULL);
     return 0;
 }
 
@@ -9638,13 +9652,13 @@ dht_rmdir_do(call_frame_t *frame, xlator_t *this)
     xlator_t *hashed_subvol = NULL;
     char gfid[GF_UUID_BUF_SIZE] = {0};
 
-    VALIDATE_OR_GOTO(this->private, err);
-
-    conf = this->private;
+    VALIDATE_OR_GOTO(frame->local, err);
     local = frame->local;
+    VALIDATE_OR_GOTO(this->private, out);
+    conf = this->private;
 
     if (local->op_ret == -1)
-        goto err;
+        goto out;
 
     local->call_cnt = conf->subvolume_cnt;
 
@@ -9676,17 +9690,20 @@ dht_rmdir_do(call_frame_t *frame, xlator_t *this)
     if (ret < 0) {
         local->op_ret = -1;
         local->op_errno = errno ? errno : EINVAL;
-        goto err;
+        goto out;
     }
 
     return 0;
 
-err:
+out:
     dht_set_fixed_dir_stat(&local->preparent);
     dht_set_fixed_dir_stat(&local->postparent);
 
     DHT_STACK_UNWIND(rmdir, frame, local->op_ret, local->op_errno,
                      &local->preparent, &local->postparent, NULL);
+    return 0;
+err:
+    DHT_STACK_UNWIND(rmdir, frame, -1, EINVAL, NULL, NULL, NULL);
     return 0;
 }
 
