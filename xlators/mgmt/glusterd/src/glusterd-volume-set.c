@@ -1701,15 +1701,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = 1,
      .description = "enable/disable io-cache translator in the volume.",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
-    {.key = "performance.quick-read",
-     .voltype = "performance/quick-read",
-     .option = "!perf",
-     .value = "on",
-     .op_version = 1,
-     .description = "enable/disable quick-read translator in the volume.",
-     .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT
-
-    },
     {.key = "performance.open-behind",
      .voltype = "performance/open-behind",
      .option = "!perf",
@@ -1719,6 +1710,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT
 
     },
+    {.key = "performance.quick-read",
+     .voltype = "performance/quick-read",
+     .option = "!perf",
+     .value = "on",
+     .op_version = 1,
+     .description = "enable/disable quick-read translator in the volume.",
+     .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT},
     {.key = "performance.nl-cache",
      .voltype = "performance/nl-cache",
      .option = "!perf",
