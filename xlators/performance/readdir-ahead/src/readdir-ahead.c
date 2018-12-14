@@ -713,18 +713,10 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 {
     int op_errno = 0;
     struct rda_local *local = NULL;
-    dict_t *xdata_from_req = NULL;
 
     if (xdata) {
-        xdata_from_req = dict_new();
-        if (!xdata_from_req) {
-            op_errno = ENOMEM;
-            goto unwind;
-        }
-
         local = mem_get0(this->local_pool);
         if (!local) {
-            dict_unref(xdata_from_req);
             op_errno = ENOMEM;
             goto unwind;
         }
