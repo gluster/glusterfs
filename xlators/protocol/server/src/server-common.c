@@ -656,7 +656,8 @@ server4_post_rchecksum(gfx_rchecksum_rsp *rsp, uint32_t weak_checksum,
                        uint8_t *strong_checksum)
 {
     rsp->weak_checksum = weak_checksum;
-
+    /* When the length encoding changes, update the change
+       in posix code also. */
     rsp->strong_checksum.strong_checksum_val = (char *)strong_checksum;
     rsp->strong_checksum.strong_checksum_len = SHA256_DIGEST_LENGTH;
     rsp->flags = 1; /* Indicates SHA256 TYPE */

@@ -5571,7 +5571,9 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     ssize_t bytes_read = 0;
     int32_t weak_checksum = 0;
     int32_t zerofillcheck = 0;
-    unsigned char md5_checksum[MD5_DIGEST_LENGTH] = {0};
+    /* Protocol version 4 uses 32 bytes i.e SHA256_DIGEST_LENGTH,
+       so this is used. */
+    unsigned char md5_checksum[SHA256_DIGEST_LENGTH] = {0};
     unsigned char strong_checksum[SHA256_DIGEST_LENGTH] = {0};
     unsigned char *checksum = NULL;
     struct posix_private *priv = NULL;
