@@ -167,27 +167,23 @@ afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
 {
     int j = 0;
     int i = 0;
-    int src = -1;
-    int votes[child_count];
+    int votes;
 
     for (i = 0; i < child_count; i++) {
         if (!replies[i].valid || replies[i].op_ret == -1)
             continue;
 
-        votes[i] = 1;
+        votes = 1;
         for (j = i + 1; j < child_count; j++) {
             if ((!gf_uuid_compare(replies[i].poststat.ia_gfid,
                                   replies[j].poststat.ia_gfid)))
-                votes[i]++;
-            if (votes[i] > child_count / 2) {
-                src = i;
-                goto out;
-            }
+                votes++;
+            if (votes > child_count / 2)
+                return i;
         }
     }
 
-out:
-    return src;
+    return -1;
 }
 
 int
