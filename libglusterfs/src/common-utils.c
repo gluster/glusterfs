@@ -65,14 +65,14 @@
 
 char *vol_type_str[] = {
     "Distribute",
-    "Stripe",
+    "Stripe [NOT SUPPORTED from v6.0]",
     "Replicate",
-    "Striped-Replicate",
+    "Striped-Replicate [NOT SUPPORTED from v6.0]",
     "Disperse",
-    "Tier",
-    "Distributed-Stripe",
+    "Tier [NOT SUPPORTED from v6.0]",
+    "Distributed-Stripe [NOT SUPPORTED from v6.0]",
     "Distributed-Replicate",
-    "Distributed-Striped-Replicate",
+    "Distributed-Striped-Replicate [NOT SUPPORTED from v6.0]",
     "Distributed-Disperse",
 };
 

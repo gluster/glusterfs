@@ -3331,14 +3331,13 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
                 break;
 
             case GF_CLUSTER_TYPE_TIER:
-                if (volinfo->tier_info.cold_type == GF_CLUSTER_TYPE_DISPERSE)
-                    volinfo->tier_info
-                        .cold_dist_leaf_count = volinfo->disperse_count;
-                else
-                    volinfo->tier_info
-                        .cold_dist_leaf_count = glusterd_calc_dist_leaf_count(
-                        volinfo->tier_info.cold_replica_count, 1);
-
+            case GF_CLUSTER_TYPE_STRIPE:
+            case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                gf_msg(this->name, GF_LOG_CRITICAL, ENOTSUP,
+                       GD_MSG_VOLINFO_STORE_FAIL,
+                       "The volume type is no more supported. Please refer to "
+                       "glusterfs-6.0 release-notes for how to migrate from "
+                       "this volume type");
                 break;
 
             default:
