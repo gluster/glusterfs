@@ -4489,7 +4489,12 @@ gf_rdma_listen(rpc_transport_t *this)
         goto err;
     }
 
-    sprintf(this->myinfo.identifier, "%s:%s", host, service);
+    if (snprintf(this->myinfo.identifier, UNIX_PATH_MAX, "%s:%s", host,
+                 service) >= UNIX_PATH_MAX) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, RDMA_MSG_BUFFER_ERROR,
+               "host and service name too large");
+        goto err;
+    }
 
     ret = rdma_set_option(peer->cm_id, RDMA_OPTION_ID, RDMA_OPTION_ID_REUSEADDR,
                           (void *)&optval, sizeof(optval));
