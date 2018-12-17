@@ -432,7 +432,7 @@ nfs_fix_generation(xlator_t *this, inode_t *inode)
     priv = this->private;
 
     if (inode_ctx_get(inode, this, &raw_ctx) == 0) {
-        ictx = (struct nfs_inode_ctx *)raw_ctx;
+        ictx = (struct nfs_inode_ctx *)(uintptr_t)raw_ctx;
         ictx->generation = priv->generation;
     } else {
         ictx = GF_CALLOC(1, sizeof(struct nfs_inode_ctx), gf_nfs_mt_inode_ctx);
@@ -443,7 +443,7 @@ nfs_fix_generation(xlator_t *this, inode_t *inode)
         }
         INIT_LIST_HEAD(&ictx->shares);
         ictx->generation = priv->generation;
-        ret = inode_ctx_put(inode, this, (uint64_t)ictx);
+        ret = inode_ctx_put(inode, this, (uint64_t)(uintptr_t)ictx);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, NFS_MSG_INODE_CTX_STORE_FAIL,
                    "could not store nfs inode ctx");

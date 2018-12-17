@@ -914,7 +914,7 @@ nfs3_getattr_resume(void *carg)
      * haven't been validated since the state change are affected.
      */
     if (inode_ctx_get(cs->resolvedloc.inode, cs->nfsx, &raw_ctx) == 0) {
-        ictx = (struct nfs_inode_ctx *)raw_ctx;
+        ictx = (struct nfs_inode_ctx *)(uintptr_t)raw_ctx;
         priv = cs->nfsx->private;
         if (ictx->generation != priv->generation) {
             ret = nfs_lookup(cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
@@ -2587,14 +2587,15 @@ nfs3svc_create_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if ((cs->stbuf.ia_mtime == buf->ia_mtime) &&
         (cs->stbuf.ia_atime == buf->ia_atime)) {
-        gf_msg_debug(GF_NFS3, 0, "Create req retransmitted verf %ld %ld",
+        gf_msg_debug(GF_NFS3, 0,
+                     "Create req retransmitted verf %" PRId64 " %" PRId64,
                      cs->stbuf.ia_mtime, cs->stbuf.ia_atime);
         stat = NFS3_OK;
         nfs3_fh_build_child_fh(&cs->parent, buf, &cs->fh);
     } else {
         gf_msg_debug(GF_NFS3, 0,
-                     "File already exist new_verf %ld %ld"
-                     "old_verf %ld %ld",
+                     "File already exist new_verf %" PRId64 " %" PRId64
+                     "old_verf %" PRId64 " %" PRId64,
                      cs->stbuf.ia_mtime, cs->stbuf.ia_atime, buf->ia_mtime,
                      buf->ia_atime);
         stat = NFS3ERR_EXIST;

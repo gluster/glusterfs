@@ -383,7 +383,7 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
             gf_proc_dump_write("sizeof-type", "%lu", pool->sizeof_type);
             gf_proc_dump_write("padded-sizeof", "%d",
                                1 << pool->pool->power_of_two);
-            gf_proc_dump_write("size", "%lu",
+            gf_proc_dump_write("size", "%" PRId64,
                                (1 << pool->pool->power_of_two) * active);
             gf_proc_dump_write("shared-pool", "%p", pool->pool);
         }
@@ -461,17 +461,17 @@ gf_proc_dump_latency_info(xlator_t *xl);
 void
 gf_proc_dump_dict_info(glusterfs_ctx_t *ctx)
 {
-    uint64_t total_dicts = 0;
-    uint64_t total_pairs = 0;
+    int64_t total_dicts = 0;
+    int64_t total_pairs = 0;
 
     total_dicts = GF_ATOMIC_GET(ctx->stats.total_dicts_used);
     total_pairs = GF_ATOMIC_GET(ctx->stats.total_pairs_used);
 
     gf_proc_dump_write("max-pairs-per-dict", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ctx->stats.max_dict_pairs));
-    gf_proc_dump_write("total-pairs-used", "%lu", total_pairs);
-    gf_proc_dump_write("total-dicts-used", "%lu", total_dicts);
-    gf_proc_dump_write("average-pairs-per-dict", "%lu",
+    gf_proc_dump_write("total-pairs-used", "%" PRId64, total_pairs);
+    gf_proc_dump_write("total-dicts-used", "%" PRId64, total_dicts);
+    gf_proc_dump_write("average-pairs-per-dict", "%" PRId64,
                        (total_pairs / total_dicts));
 }
 

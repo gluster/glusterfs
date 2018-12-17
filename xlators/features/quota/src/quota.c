@@ -5158,7 +5158,8 @@ quota_priv_dump(xlator_t *this)
         gf_proc_dump_write("quota-on", "%d", priv->is_quota_on);
         gf_proc_dump_write("statfs", "%d", priv->consider_statfs);
         gf_proc_dump_write("volume-uuid", "%s", priv->volume_uuid);
-        gf_proc_dump_write("validation-count", "%ld", priv->validation_count);
+        gf_proc_dump_write("validation-count", "%" PRIu64,
+                           priv->validation_count);
     }
     UNLOCK(&priv->lock);
 

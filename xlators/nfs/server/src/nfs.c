@@ -1551,7 +1551,7 @@ nfs_forget(xlator_t *this, inode_t *inode)
     if (inode_ctx_del(inode, this, &ctx))
         return -1;
 
-    ictx = (struct nfs_inode_ctx *)ctx;
+    ictx = (struct nfs_inode_ctx *)(uintptr_t)ctx;
     GF_FREE(ictx);
 
     return 0;

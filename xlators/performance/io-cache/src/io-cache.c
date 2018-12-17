@@ -2105,9 +2105,9 @@ ioc_priv_dump(xlator_t *this)
     if (ret)
         goto out;
     {
-        gf_proc_dump_write("page_size", "%ld", priv->page_size);
-        gf_proc_dump_write("cache_size", "%ld", priv->cache_size);
-        gf_proc_dump_write("cache_used", "%ld", priv->cache_used);
+        gf_proc_dump_write("page_size", "%" PRIu64, priv->page_size);
+        gf_proc_dump_write("cache_size", "%" PRIu64, priv->cache_size);
+        gf_proc_dump_write("cache_used", "%" PRIu64, priv->cache_used);
         gf_proc_dump_write("inode_count", "%u", priv->inode_count);
         gf_proc_dump_write("cache_timeout", "%u", priv->cache_timeout);
         gf_proc_dump_write("min-file-size", "%" PRIu64, priv->min_file_size);

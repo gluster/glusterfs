@@ -2456,7 +2456,7 @@ inode_dump(inode_t *inode, char *prefix)
     {
         nlookup = GF_ATOMIC_GET(inode->nlookup);
         gf_proc_dump_write("gfid", "%s", uuid_utoa(inode->gfid));
-        gf_proc_dump_write("nlookup", "%ld", nlookup);
+        gf_proc_dump_write("nlookup", "%" PRIu64, nlookup);
         gf_proc_dump_write("fd-count", "%u", inode->fd_count);
         gf_proc_dump_write("active-fd-count", "%u", inode->active_fd_count);
         gf_proc_dump_write("ref", "%u", inode->ref);

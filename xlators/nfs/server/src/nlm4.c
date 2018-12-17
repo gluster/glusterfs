@@ -639,7 +639,7 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         goto err;
     }
     cs->resume_fn = resume;
-    fd = fd_lookup_uint64(cs->resolvedloc.inode, (uint64_t)nlmclnt);
+    fd = fd_lookup_uint64(cs->resolvedloc.inode, (uint64_t)(uintptr_t)nlmclnt);
     if (fd) {
         cs->fd = fd;
         cs->resolve_ret = 0;
@@ -648,7 +648,7 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         goto err;
     }
 
-    fd = fd_create_uint64(cs->resolvedloc.inode, (uint64_t)nlmclnt);
+    fd = fd_create_uint64(cs->resolvedloc.inode, (uint64_t)(uintptr_t)nlmclnt);
     if (fd == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, ENOLCK, NFS_MSG_NO_MEMORY,
                "fd_create_uint64() returned NULL");
@@ -1654,7 +1654,8 @@ nlm4_cancel_resume(void *carg)
                "nlm_get_uniq() returned NULL");
         goto nlm4err;
     }
-    cs->fd = fd_lookup_uint64(cs->resolvedloc.inode, (uint64_t)nlmclnt);
+    cs->fd = fd_lookup_uint64(cs->resolvedloc.inode,
+                              (uint64_t)(uintptr_t)nlmclnt);
     if (cs->fd == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_FD_LOOKUP_NULL,
                "fd_lookup_uint64 retrned NULL");
@@ -1814,7 +1815,8 @@ nlm4_unlock_resume(void *carg)
                "nlm_get_uniq() returned NULL for %s", caller_name);
         goto nlm4err;
     }
-    cs->fd = fd_lookup_uint64(cs->resolvedloc.inode, (uint64_t)nlmclnt);
+    cs->fd = fd_lookup_uint64(cs->resolvedloc.inode,
+                              (uint64_t)(uintptr_t)nlmclnt);
     if (cs->fd == NULL) {
         stat = nlm4_granted;
         gf_msg(GF_NLM, GF_LOG_WARNING, 0, NFS_MSG_FD_LOOKUP_NULL,
@@ -1964,14 +1966,14 @@ nlm4_add_share_to_inode(nlm_share_t *share)
         head = &ictx->shares;
         INIT_LIST_HEAD(head);
 
-        ret = inode_ctx_put(inode, this, (uint64_t)ictx);
+        ret = inode_ctx_put(inode, this, (uint64_t)(uintptr_t)ictx);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, NFS_MSG_SHARE_LIST_STORE_FAIL,
                    "could not store share list");
             goto out;
         }
     } else {
-        ictx = (struct nfs_inode_ctx *)ctx;
+        ictx = (struct nfs_inode_ctx *)(uintptr_t)ctx;
         head = &ictx->shares;
     }
 
@@ -2006,7 +2008,7 @@ nlm4_approve_share_reservation(nfs3_call_state_t *cs)
         ret = 0;
         goto out;
     }
-    ictx = (struct nfs_inode_ctx *)ctx;
+    ictx = (struct nfs_inode_ctx *)(uintptr_t)ctx;
 
     head = &ictx->shares;
     if (!head || list_empty(head))
@@ -2226,7 +2228,7 @@ nlm4_remove_share_reservation(nfs3_call_state_t *cs)
                inode->gfid, caller);
         goto out;
     }
-    ictx = (struct nfs_inode_ctx *)ctx;
+    ictx = (struct nfs_inode_ctx *)(uintptr_t)ctx;
 
     head = &ictx->shares;
     if (list_empty(head)) {
@@ -2735,7 +2737,7 @@ nlm_priv(xlator_t *this)
         file_count = 0;
         list_for_each_entry(fde, &client->fdes, fde_list)
         {
-            gf_proc_dump_build_key(key, "file", "%ld.gfid", file_count);
+            gf_proc_dump_build_key(key, "file", "%" PRIu64 ".gfid", file_count);
             memset(gfid_str, 0, 64);
             uuid_utoa_r(fde->fd->inode->gfid, gfid_str);
             gf_proc_dump_write(key, "%s", gfid_str);
@@ -2743,7 +2745,7 @@ nlm_priv(xlator_t *this)
         }
 
         gf_proc_dump_build_key(key, "client", "files-locked");
-        gf_proc_dump_write(key, "%ld\n", file_count);
+        gf_proc_dump_write(key, "%" PRIu64 "\n", file_count);
         client_count++;
     }
 

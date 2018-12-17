@@ -223,7 +223,7 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
                 if (val == 0)
                     continue;
 
-                fd_ctx = (void *)val;
+                fd_ctx = (void *)(uintptr_t)val;
                 uuid_utoa_r(inode->gfid, gfid);
                 if (!GF_ATOMIC_GET(fd_ctx->prefetching))
                     continue;
