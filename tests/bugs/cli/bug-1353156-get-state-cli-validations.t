@@ -43,7 +43,6 @@ push_trapfunc rm -rf $ODIR
 
 TEST $CLI volume create $V0 disperse $H0:$B0/b1 $H0:$B0/b2 $H0:$B0/b3
 TEST $CLI volume start $V0
-TEST $CLI volume tier $V0 attach replica 2 $H0:$B1/b4 $H0:$B1/b5
 
 TEST setup_lvm 1
 TEST $CLI volume create $V1 $H0:$L1;

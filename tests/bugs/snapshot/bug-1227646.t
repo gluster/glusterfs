@@ -20,7 +20,6 @@ TEST $CLI snapshot create snap1 $V0 no-timestamp;
 TEST $CLI volume stop $V0
 TEST $CLI snapshot restore snap1;
 TEST $CLI volume start $V0
-TEST $CLI volume tier $V0 attach $H0:$L1 $H0:$L2
 
 TEST pkill gluster
 TEST glusterd

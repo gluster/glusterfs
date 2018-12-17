@@ -4283,10 +4283,12 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
     }
 
-    xl = volgen_graph_add(graph, "features/utime", volname);
-    if (!xl) {
-        ret = -1;
-        goto out;
+    if (conf->op_version >= GD_OP_VERSION_5_0) {
+        xl = volgen_graph_add(graph, "features/utime", volname);
+        if (!xl) {
+            ret = -1;
+            goto out;
+        }
     }
 
     /* As of now snapshot volume is read-only. Read-only xlator is loaded
