@@ -12,5 +12,5 @@ volume management
 #   option lock-timer 180
 #   option transport.address-family inet6
 #   option base-port 49152
-#   option max-port  65535
+    option max-port  60999
 end-volume
