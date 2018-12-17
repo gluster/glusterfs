@@ -1702,7 +1702,7 @@ gf_uint64_2human_readable(uint64_t n)
         if (ret < 0)
             goto err;
     } else {
-        ret = gf_asprintf(&str, "%luBytes", n);
+        ret = gf_asprintf(&str, "%" PRIu64 "Bytes", n);
         if (ret < 0)
             goto err;
     }

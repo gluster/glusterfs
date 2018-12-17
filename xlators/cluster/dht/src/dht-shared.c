@@ -152,7 +152,7 @@ dht_priv_dump(xlator_t *this)
             gf_proc_dump_write(key, "%lf", conf->du_stats[i].avail_percent);
 
             snprintf(key, sizeof(key), "du_stats[%d].avail_space", i);
-            gf_proc_dump_write(key, "%lu", conf->du_stats[i].avail_space);
+            gf_proc_dump_write(key, "%" PRIu64, conf->du_stats[i].avail_space);
 
             snprintf(key, sizeof(key), "du_stats[%d].avail_inodes", i);
             gf_proc_dump_write(key, "%lf", conf->du_stats[i].avail_inodes);

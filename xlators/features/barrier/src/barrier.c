@@ -732,7 +732,7 @@ barrier_dump_priv(xlator_t *this)
         gf_proc_dump_build_key(key, "barrier", "enabled");
         gf_proc_dump_write(key, "%d", priv->barrier_enabled);
         gf_proc_dump_build_key(key, "barrier", "timeout");
-        gf_proc_dump_write(key, "%" PRId64, priv->timeout.tv_sec);
+        gf_proc_dump_write(key, "%ld", priv->timeout.tv_sec);
         if (priv->barrier_enabled) {
             gf_proc_dump_build_key(key, "barrier", "queue_size");
             gf_proc_dump_write(key, "%d", priv->queue_size);

@@ -451,7 +451,7 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
 static int32_t
 fuse_inode_invalidate_fn(xlator_t *this, inode_t *inode)
 {
-    fuse_invalidate_entry(this, (uint64_t)inode);
+    fuse_invalidate_entry(this, (uint64_t)(uintptr_t)inode);
     return 0;
 }
 #endif

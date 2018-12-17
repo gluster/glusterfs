@@ -1176,7 +1176,7 @@ nlc_dump_inodectx(xlator_t *this, inode_t *inode)
 
         gf_proc_dump_write("state", "%" PRIu64, nlc_ctx->state);
         gf_proc_dump_write("timer", "%p", nlc_ctx->timer);
-        gf_proc_dump_write("cache-time", "%" GF_PRI_TIME, nlc_ctx->cache_time);
+        gf_proc_dump_write("cache-time", "%ld", nlc_ctx->cache_time);
         gf_proc_dump_write("cache-size", "%zu", nlc_ctx->cache_size);
         gf_proc_dump_write("refd-inodes", "%" PRIu64, nlc_ctx->refd_inodes);
 
