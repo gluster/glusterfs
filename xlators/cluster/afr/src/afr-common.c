@@ -1794,11 +1794,9 @@ afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this)
 
     afr_matrix_cleanup(local->pending, priv->child_count);
 
-    GF_FREE(local->internal_lock.locked_nodes);
-
     GF_FREE(local->internal_lock.lower_locked_nodes);
 
-    afr_entry_lockee_cleanup(&local->internal_lock);
+    afr_lockees_cleanup(&local->internal_lock);
 
     GF_FREE(local->transaction.pre_op);
 
@@ -5707,11 +5705,6 @@ int
 afr_internal_lock_init(afr_internal_lock_t *lk, size_t child_count)
 {
     int ret = -ENOMEM;
-
-    lk->locked_nodes = GF_CALLOC(sizeof(*lk->locked_nodes), child_count,
-                                 gf_afr_mt_char);
-    if (NULL == lk->locked_nodes)
-        goto out;
 
     lk->lower_locked_nodes = GF_CALLOC(sizeof(*lk->lower_locked_nodes),
                                        child_count, gf_afr_mt_char);

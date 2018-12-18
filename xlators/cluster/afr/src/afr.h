@@ -288,12 +288,14 @@ afr_index_from_ia_type(ia_type_t type)
 }
 
 typedef struct {
+    struct gf_flock flock;
     loc_t loc;
+    fd_t *fd;
     char *basename;
     unsigned char *locked_nodes;
     int locked_count;
 
-} afr_entry_lockee_t;
+} afr_lockee_t;
 
 int
 afr_entry_lockee_cmp(const void *l1, const void *l2);
@@ -302,20 +304,17 @@ typedef struct {
     loc_t *lk_loc;
 
     int lockee_count;
-    afr_entry_lockee_t lockee[AFR_LOCKEE_COUNT_MAX];
+    afr_lockee_t lockee[AFR_LOCKEE_COUNT_MAX];
 
-    struct gf_flock flock;
     const char *lk_basename;
     const char *lower_basename;
     const char *higher_basename;
     char lower_locked;
     char higher_locked;
 
-    unsigned char *locked_nodes;
     unsigned char *lower_locked_nodes;
 
     int32_t lock_count;
-    int32_t entrylk_lock_count;
 
     int32_t lk_call_count;
     int32_t lk_expected_count;
@@ -980,11 +979,14 @@ int
 xattr_is_equal(dict_t *this, char *key1, data_t *value1, void *data);
 
 int
-afr_init_entry_lockee(afr_entry_lockee_t *lockee, afr_local_t *local,
-                      loc_t *loc, char *basename, int child_count);
+afr_add_entry_lockee(afr_local_t *local, loc_t *loc, char *basename,
+                     int child_count);
+
+int
+afr_add_inode_lockee(afr_local_t *local, int child_count);
 
 void
-afr_entry_lockee_cleanup(afr_internal_lock_t *int_lock);
+afr_lockees_cleanup(afr_internal_lock_t *int_lock);
 
 int
 afr_attempt_lock_recovery(xlator_t *this, int32_t child_index);
@@ -1002,10 +1004,7 @@ int32_t
 afr_unlock(call_frame_t *frame, xlator_t *this);
 
 int
-afr_nonblocking_entrylk(call_frame_t *frame, xlator_t *this);
-
-int
-afr_nonblocking_inodelk(call_frame_t *frame, xlator_t *this);
+afr_lock_nonblocking(call_frame_t *frame, xlator_t *this);
 
 int
 afr_blocking_lock(call_frame_t *frame, xlator_t *this);
@@ -1272,9 +1271,6 @@ afr_writev_copy_outvars(call_frame_t *src_frame, call_frame_t *dst_frame);
 void
 afr_update_uninodelk(afr_local_t *local, afr_internal_lock_t *int_lock,
                      int32_t child_index);
-int
-afr_is_inodelk_transaction(afr_transaction_type type);
-
 afr_fd_ctx_t *
 __afr_fd_ctx_get(fd_t *fd, xlator_t *this);
 
