@@ -797,21 +797,9 @@ afr_changelog_post_op_fail(call_frame_t *frame, xlator_t *this, int op_errno)
 unsigned char *
 afr_locked_nodes_get(afr_transaction_type type, afr_internal_lock_t *int_lock)
 {
-    unsigned char *locked_nodes = NULL;
-    switch (type) {
-        case AFR_DATA_TRANSACTION:
-        case AFR_METADATA_TRANSACTION:
-            locked_nodes = int_lock->locked_nodes;
-            break;
-
-        case AFR_ENTRY_TRANSACTION:
-        case AFR_ENTRY_RENAME_TRANSACTION:
-            /*Because same set of subvols participate in all lockee
-             * entities*/
-            locked_nodes = int_lock->lockee[0].locked_nodes;
-            break;
-    }
-    return locked_nodes;
+    /*Because same set of subvols participate in all lockee
+     * entities*/
+    return int_lock->lockee[0].locked_nodes;
 }
 
 int
@@ -2057,7 +2045,7 @@ err:
 }
 
 int
-afr_post_nonblocking_inodelk_cbk(call_frame_t *frame, xlator_t *this)
+afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
@@ -2068,36 +2056,12 @@ afr_post_nonblocking_inodelk_cbk(call_frame_t *frame, xlator_t *this)
     /* Initiate blocking locks if non-blocking has failed */
     if (int_lock->lock_op_ret < 0) {
         gf_msg_debug(this->name, 0,
-                     "Non blocking inodelks failed. Proceeding to blocking");
+                     "Non blocking locks failed. Proceeding to blocking");
         int_lock->lock_cbk = afr_internal_lock_finish;
         afr_blocking_lock(frame, this);
     } else {
         gf_msg_debug(this->name, 0,
-                     "Non blocking inodelks done. Proceeding to FOP");
-        afr_internal_lock_finish(frame, this);
-    }
-
-    return 0;
-}
-
-int
-afr_post_nonblocking_entrylk_cbk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    /* Initiate blocking locks if non-blocking has failed */
-    if (int_lock->lock_op_ret < 0) {
-        gf_msg_debug(this->name, 0,
-                     "Non blocking entrylks failed. Proceeding to blocking");
-        int_lock->lock_cbk = afr_internal_lock_finish;
-        afr_blocking_lock(frame, this);
-    } else {
-        gf_msg_debug(this->name, 0,
-                     "Non blocking entrylks done. Proceeding to FOP");
+                     "Non blocking locks done. Proceeding to FOP");
 
         afr_internal_lock_finish(frame, this);
     }
@@ -2115,7 +2079,7 @@ afr_post_blocking_rename_cbk(call_frame_t *frame, xlator_t *this)
     int_lock = &local->internal_lock;
 
     if (int_lock->lock_op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_BLOCKING_LKS_FAILED,
+        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_INTERNAL_LKS_FAILED,
                "Blocking entrylks failed.");
 
         afr_transaction_done(frame, this);
@@ -2146,25 +2110,26 @@ afr_post_lower_unlock_cbk(call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_set_transaction_flock(xlator_t *this, afr_local_t *local)
+afr_set_transaction_flock(xlator_t *this, afr_local_t *local,
+                          afr_lockee_t *lockee)
 {
-    afr_internal_lock_t *int_lock = NULL;
     afr_private_t *priv = NULL;
+    struct gf_flock *flock = NULL;
 
-    int_lock = &local->internal_lock;
     priv = this->private;
+    flock = &lockee->flock;
 
     if ((priv->arbiter_count || local->transaction.eager_lock_on ||
          priv->full_lock) &&
         local->transaction.type == AFR_DATA_TRANSACTION) {
         /*Lock entire file to avoid network split brains.*/
-        int_lock->flock.l_len = 0;
-        int_lock->flock.l_start = 0;
+        flock->l_len = 0;
+        flock->l_start = 0;
     } else {
-        int_lock->flock.l_len = local->transaction.len;
-        int_lock->flock.l_start = local->transaction.start;
+        flock->l_len = local->transaction.len;
+        flock->l_start = local->transaction.start;
     }
-    int_lock->flock.l_type = F_WRLCK;
+    flock->l_type = F_WRLCK;
 
     return 0;
 }
@@ -2174,26 +2139,21 @@ afr_lock(call_frame_t *frame, xlator_t *this)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
+    int i = 0;
 
     local = frame->local;
     int_lock = &local->internal_lock;
 
+    int_lock->lock_cbk = afr_post_nonblocking_lock_cbk;
     int_lock->domain = this->name;
 
     switch (local->transaction.type) {
         case AFR_DATA_TRANSACTION:
         case AFR_METADATA_TRANSACTION:
-            afr_set_transaction_flock(this, local);
+            for (i = 0; i < int_lock->lockee_count; i++) {
+                afr_set_transaction_flock(this, local, &int_lock->lockee[i]);
+            }
 
-            int_lock->lock_cbk = afr_post_nonblocking_inodelk_cbk;
-
-            afr_nonblocking_inodelk(frame, this);
-            break;
-
-        case AFR_ENTRY_RENAME_TRANSACTION:
-
-            int_lock->lock_cbk = afr_post_nonblocking_entrylk_cbk;
-            afr_nonblocking_entrylk(frame, this);
             break;
 
         case AFR_ENTRY_TRANSACTION:
@@ -2202,11 +2162,11 @@ afr_lock(call_frame_t *frame, xlator_t *this)
                 int_lock->lk_loc = &local->transaction.parent_loc;
             else
                 GF_ASSERT(local->fd);
-
-            int_lock->lock_cbk = afr_post_nonblocking_entrylk_cbk;
-            afr_nonblocking_entrylk(frame, this);
+            break;
+        case AFR_ENTRY_RENAME_TRANSACTION:
             break;
     }
+    afr_lock_nonblocking(frame, this);
 
     return 0;
 }
@@ -2277,17 +2237,19 @@ afr_has_lock_conflict(afr_local_t *local, gf_boolean_t waitlist_check)
 /* }}} */
 static void
 afr_copy_inodelk_vars(afr_internal_lock_t *dst, afr_internal_lock_t *src,
-                      xlator_t *this)
+                      xlator_t *this, int lockee_num)
 {
     afr_private_t *priv = this->private;
+    afr_lockee_t *sl = &src->lockee[lockee_num];
+    afr_lockee_t *dl = &dst->lockee[lockee_num];
 
     dst->domain = src->domain;
-    dst->flock.l_len = src->flock.l_len;
-    dst->flock.l_start = src->flock.l_start;
-    dst->flock.l_type = src->flock.l_type;
-    dst->lock_count = src->lock_count;
-    memcpy(dst->locked_nodes, src->locked_nodes,
-           priv->child_count * sizeof(*dst->locked_nodes));
+    dl->flock.l_len = sl->flock.l_len;
+    dl->flock.l_start = sl->flock.l_start;
+    dl->flock.l_type = sl->flock.l_type;
+    dl->locked_count = sl->locked_count;
+    memcpy(dl->locked_nodes, sl->locked_nodes,
+           priv->child_count * sizeof(*dl->locked_nodes));
 }
 
 void
@@ -2308,7 +2270,7 @@ __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared)
         if (conflict && !list_empty(&lock->owners))
             return;
         afr_copy_inodelk_vars(&each->internal_lock, &local->internal_lock,
-                              each->transaction.frame->this);
+                              each->transaction.frame->this, 0);
         list_move_tail(&each->transaction.wait_list, shared);
         list_add_tail(&each->transaction.owner_list, &lock->owners);
     }
@@ -2785,7 +2747,7 @@ __afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
             *timer_local = list_entry(lock->post_op.next, afr_local_t,
                                       transaction.owner_list);
             afr_copy_inodelk_vars(&local->internal_lock,
-                                  &(*timer_local)->internal_lock, this);
+                                  &(*timer_local)->internal_lock, this, 0);
             lock->delay_timer = NULL;
             *do_pre_op = _gf_true;
             list_add_tail(&local->transaction.owner_list, &lock->owners);
@@ -2802,7 +2764,7 @@ __afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
         owner_local = list_entry(lock->owners.next, afr_local_t,
                                  transaction.owner_list);
         afr_copy_inodelk_vars(&local->internal_lock,
-                              &owner_local->internal_lock, this);
+                              &owner_local->internal_lock, this, 0);
         *take_lock = _gf_false;
         *do_pre_op = _gf_true;
     }
@@ -2872,6 +2834,62 @@ fail:
 }
 
 int
+afr_transaction_lockee_init(call_frame_t *frame)
+{
+    afr_local_t *local = frame->local;
+    afr_internal_lock_t *int_lock = &local->internal_lock;
+    afr_private_t *priv = frame->this->private;
+    int ret = 0;
+
+    switch (local->transaction.type) {
+        case AFR_DATA_TRANSACTION:
+        case AFR_METADATA_TRANSACTION:
+            ret = afr_add_inode_lockee(local, priv->child_count);
+            break;
+
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+            ret = afr_add_entry_lockee(local, &local->transaction.parent_loc,
+                                       local->transaction.basename,
+                                       priv->child_count);
+            if (ret) {
+                goto out;
+            }
+            if (local->op == GF_FOP_RENAME) {
+                ret = afr_add_entry_lockee(
+                    local, &local->transaction.new_parent_loc,
+                    local->transaction.new_basename, priv->child_count);
+                if (ret) {
+                    goto out;
+                }
+
+                if (local->newloc.inode &&
+                    IA_ISDIR(local->newloc.inode->ia_type)) {
+                    ret = afr_add_entry_lockee(local, &local->newloc, NULL,
+                                               priv->child_count);
+                    if (ret) {
+                        goto out;
+                    }
+                }
+            } else if (local->op == GF_FOP_RMDIR) {
+                ret = afr_add_entry_lockee(local, &local->loc, NULL,
+                                           priv->child_count);
+                if (ret) {
+                    goto out;
+                }
+            }
+
+            if (int_lock->lockee_count > 1) {
+                qsort(int_lock->lockee, int_lock->lockee_count,
+                      sizeof(*int_lock->lockee), afr_entry_lockee_cmp);
+            }
+            break;
+    }
+out:
+    return ret;
+}
+
+int
 afr_transaction(call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 {
     afr_local_t *local = NULL;
@@ -2902,6 +2920,10 @@ afr_transaction(call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
     ret = afr_transaction_local_init(local, this);
     if (ret < 0)
+        goto out;
+
+    ret = afr_transaction_lockee_init(frame);
+    if (ret)
         goto out;
 
     if (type != AFR_METADATA_TRANSACTION) {

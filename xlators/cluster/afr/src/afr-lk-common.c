@@ -22,11 +22,40 @@
 #define LOCKED_YES 0x1   /* for DATA, METADATA, ENTRY and higher_path */
 #define LOCKED_LOWER 0x2 /* for lower path */
 
+void
+afr_lockee_cleanup(afr_lockee_t *lockee)
+{
+    if (lockee->fd) {
+        fd_unref(lockee->fd);
+        lockee->fd = NULL;
+    } else {
+        loc_wipe(&lockee->loc);
+    }
+
+    GF_FREE(lockee->basename);
+    lockee->basename = NULL;
+    GF_FREE(lockee->locked_nodes);
+    lockee->locked_nodes = NULL;
+
+    return;
+}
+
+void
+afr_lockees_cleanup(afr_internal_lock_t *int_lock)
+{
+    int i = 0;
+
+    for (i = 0; i < int_lock->lockee_count; i++) {
+        afr_lockee_cleanup(&int_lock->lockee[i]);
+    }
+
+    return;
+}
 int
 afr_entry_lockee_cmp(const void *l1, const void *l2)
 {
-    const afr_entry_lockee_t *r1 = l1;
-    const afr_entry_lockee_t *r2 = l2;
+    const afr_lockee_t *r1 = l1;
+    const afr_lockee_t *r2 = l2;
     int ret = 0;
     uuid_t gfid1 = {0};
     uuid_t gfid2 = {0};
@@ -81,31 +110,14 @@ internal_lock_count(call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_is_inodelk_transaction(afr_transaction_type type)
+afr_add_entry_lockee(afr_local_t *local, loc_t *loc, char *basename,
+                     int child_count)
 {
-    int ret = 0;
+    int ret = -ENOMEM;
+    afr_internal_lock_t *int_lock = &local->internal_lock;
+    afr_lockee_t *lockee = &int_lock->lockee[int_lock->lockee_count];
 
-    switch (type) {
-        case AFR_DATA_TRANSACTION:
-        case AFR_METADATA_TRANSACTION:
-            ret = 1;
-            break;
-
-        case AFR_ENTRY_RENAME_TRANSACTION:
-        case AFR_ENTRY_TRANSACTION:
-            ret = 0;
-            break;
-    }
-
-    return ret;
-}
-
-int
-afr_init_entry_lockee(afr_entry_lockee_t *lockee, afr_local_t *local,
-                      loc_t *loc, char *basename, int child_count)
-{
-    int ret = -1;
-
+    GF_ASSERT(int_lock->lockee_count < AFR_LOCKEE_COUNT_MAX);
     loc_copy(&lockee->loc, loc);
     lockee->basename = (basename) ? gf_strdup(basename) : NULL;
     if (basename && !lockee->basename)
@@ -119,28 +131,45 @@ afr_init_entry_lockee(afr_entry_lockee_t *lockee, afr_local_t *local,
         goto out;
 
     ret = 0;
+    int_lock->lockee_count++;
 out:
+    if (ret) {
+        afr_lockee_cleanup(lockee);
+    }
     return ret;
 }
 
-void
-afr_entry_lockee_cleanup(afr_internal_lock_t *int_lock)
+int
+afr_add_inode_lockee(afr_local_t *local, int child_count)
 {
-    int i = 0;
+    int ret = -ENOMEM;
+    afr_internal_lock_t *int_lock = &local->internal_lock;
+    afr_lockee_t *lockee = &int_lock->lockee[int_lock->lockee_count];
 
-    for (i = 0; i < int_lock->lockee_count; i++) {
-        loc_wipe(&int_lock->lockee[i].loc);
-        if (int_lock->lockee[i].basename)
-            GF_FREE(int_lock->lockee[i].basename);
-        if (int_lock->lockee[i].locked_nodes)
-            GF_FREE(int_lock->lockee[i].locked_nodes);
+    if (local->fd) {
+        lockee->fd = fd_ref(local->fd);
+    } else {
+        loc_copy(&lockee->loc, &local->loc);
     }
 
-    return;
+    lockee->locked_count = 0;
+    lockee->locked_nodes = GF_CALLOC(child_count, sizeof(*lockee->locked_nodes),
+                                     gf_afr_mt_afr_node_character);
+
+    if (!lockee->locked_nodes)
+        goto out;
+
+    ret = 0;
+    int_lock->lockee_count++;
+out:
+    if (ret) {
+        afr_lockee_cleanup(lockee);
+    }
+    return ret;
 }
 
 static int
-initialize_entrylk_variables(call_frame_t *frame, xlator_t *this)
+initialize_internal_lock_variables(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
     afr_internal_lock_t *int_lock = NULL;
@@ -152,9 +181,10 @@ initialize_entrylk_variables(call_frame_t *frame, xlator_t *this)
     local = frame->local;
     int_lock = &local->internal_lock;
 
-    int_lock->entrylk_lock_count = 0;
+    int_lock->lock_count = 0;
     int_lock->lock_op_ret = -1;
     int_lock->lock_op_errno = 0;
+    int_lock->lk_attempted_count = 0;
 
     for (i = 0; i < AFR_LOCKEE_COUNT_MAX; i++) {
         if (!int_lock->lockee[i].locked_nodes)
@@ -163,28 +193,6 @@ initialize_entrylk_variables(call_frame_t *frame, xlator_t *this)
         memset(int_lock->lockee[i].locked_nodes, 0,
                sizeof(*int_lock->lockee[i].locked_nodes) * priv->child_count);
     }
-
-    return 0;
-}
-
-static int
-initialize_inodelk_variables(call_frame_t *frame, xlator_t *this)
-{
-    afr_local_t *local = NULL;
-    afr_internal_lock_t *int_lock = NULL;
-    afr_private_t *priv = NULL;
-
-    priv = this->private;
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    int_lock->lock_count = 0;
-    int_lock->lk_attempted_count = 0;
-    int_lock->lock_op_ret = -1;
-    int_lock->lock_op_errno = 0;
-
-    memset(int_lock->locked_nodes, 0,
-           sizeof(*int_lock->locked_nodes) * priv->child_count);
 
     return 0;
 }
@@ -216,19 +224,74 @@ afr_locked_nodes_count(unsigned char *locked_nodes, int child_count)
     return call_count;
 }
 
-/* FIXME: What if UNLOCK fails */
+static void
+afr_log_locks_failure(call_frame_t *frame, char *where, char *what,
+                      int op_errno)
+{
+    xlator_t *this = frame->this;
+    gf_lkowner_t *lk_owner = &frame->root->lk_owner;
+    afr_local_t *local = frame->local;
+    const char *fop = NULL;
+    char *gfid = NULL;
+    const char *name = NULL;
+
+    fop = gf_fop_list[local->op];
+
+    switch (local->transaction.type) {
+        case AFR_ENTRY_RENAME_TRANSACTION:
+        case AFR_ENTRY_TRANSACTION:
+            switch (local->op) {
+                case GF_FOP_LINK:
+                    gfid = uuid_utoa(local->newloc.pargfid);
+                    name = local->newloc.name;
+                    break;
+                default:
+                    gfid = uuid_utoa(local->loc.pargfid);
+                    name = local->loc.name;
+                    break;
+            }
+            gf_msg(this->name, GF_LOG_WARNING, op_errno,
+                   AFR_MSG_INTERNAL_LKS_FAILED,
+                   "Unable to do entry %s with lk-owner:%s on %s "
+                   "while attempting %s on {pgfid:%s, name:%s}.",
+                   what, lkowner_utoa(lk_owner), where, fop, gfid, name);
+            break;
+        case AFR_DATA_TRANSACTION:
+        case AFR_METADATA_TRANSACTION:
+            gfid = uuid_utoa(local->inode->gfid);
+            gf_msg(this->name, GF_LOG_WARNING, op_errno,
+                   AFR_MSG_INTERNAL_LKS_FAILED,
+                   "Unable to do inode %s with lk-owner:%s on %s "
+                   "while attempting %s on gfid:%s.",
+                   what, lkowner_utoa(lk_owner), where, fop, gfid);
+            break;
+    }
+}
+
 static int32_t
 afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     afr_local_t *local = NULL;
+    afr_private_t *priv = NULL;
     afr_internal_lock_t *int_lock = NULL;
+    int lockee_num = 0;
     int call_count = 0;
+    int child_index = 0;
     int ret = 0;
 
     local = frame->local;
     int_lock = &local->internal_lock;
+    priv = this->private;
+    lockee_num = (int)((long)cookie) / priv->child_count;
+    child_index = (int)((long)cookie) % priv->child_count;
 
+    if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
+        afr_log_locks_failure(frame, priv->children[child_index]->name,
+                              "unlock", op_errno);
+    }
+
+    int_lock->lockee[lockee_num].locked_nodes[child_index] &= LOCKED_NO;
     if (local->transaction.type == AFR_DATA_TRANSACTION && op_ret != 1)
         ret = afr_write_subvol_reset(frame, this);
 
@@ -239,7 +302,6 @@ afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     UNLOCK(&frame->lock);
 
     if (call_count == 0) {
-        gf_msg_trace(this->name, 0, "All internal locks unlocked");
         int_lock->lock_cbk(frame, this);
     }
 
@@ -247,183 +309,114 @@ afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 void
-afr_update_uninodelk(afr_local_t *local, afr_internal_lock_t *int_lock,
-                     int32_t child_index)
+afr_internal_lock_wind(call_frame_t *frame,
+                       int32_t (*cbk)(call_frame_t *, void *, xlator_t *,
+                                      int32_t, int32_t, dict_t *),
+                       void *cookie, int child, int lockee_num,
+                       gf_boolean_t blocking, gf_boolean_t unlock)
 {
-    int_lock->locked_nodes[child_index] &= LOCKED_NO;
-}
-
-static int32_t
-afr_unlock_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-    afr_local_t *local = NULL;
-    afr_internal_lock_t *int_lock = NULL;
-    int32_t child_index = (long)cookie;
-    afr_private_t *priv = NULL;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    priv = this->private;
-
-    if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_UNLOCK_FAIL,
-               "path=%s gfid=%s: unlock failed on subvolume %s "
-               "with lock owner %s",
-               local->loc.path, loc_gfid_utoa(&(local->loc)),
-               priv->children[child_index]->name,
-               lkowner_utoa(&frame->root->lk_owner));
-    }
-
-    afr_update_uninodelk(local, int_lock, child_index);
-
-    afr_unlock_common_cbk(frame, cookie, this, op_ret, op_errno, xdata);
-
-    return 0;
-}
-
-static int
-afr_unlock_inodelk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-    afr_private_t *priv = NULL;
+    afr_local_t *local = frame->local;
+    xlator_t *this = frame->this;
+    afr_private_t *priv = this->private;
+    afr_internal_lock_t *int_lock = &local->internal_lock;
+    entrylk_cmd cmd = ENTRYLK_LOCK_NB;
+    int32_t cmd1 = F_SETLK;
     struct gf_flock flock = {
         0,
     };
-    int call_count = 0;
-    int i = 0;
 
-    local = frame->local;
-    int_lock = &local->internal_lock;
-    priv = this->private;
+    switch (local->transaction.type) {
+        case AFR_ENTRY_TRANSACTION:
+        case AFR_ENTRY_RENAME_TRANSACTION:
+            if (unlock) {
+                cmd = ENTRYLK_UNLOCK;
+            } else if (blocking) { /*Doesn't make sense to have blocking
+                                      unlock*/
+                cmd = ENTRYLK_LOCK;
+            }
 
-    flock.l_start = int_lock->flock.l_start;
-    flock.l_len = int_lock->flock.l_len;
-    flock.l_type = F_UNLCK;
+            if (local->fd) {
+                STACK_WIND_COOKIE(frame, cbk, cookie, priv->children[child],
+                                  priv->children[child]->fops->fentrylk,
+                                  int_lock->domain,
+                                  int_lock->lockee[lockee_num].fd,
+                                  int_lock->lockee[lockee_num].basename, cmd,
+                                  ENTRYLK_WRLCK, NULL);
+            } else {
+                STACK_WIND_COOKIE(frame, cbk, cookie, priv->children[child],
+                                  priv->children[child]->fops->entrylk,
+                                  int_lock->domain,
+                                  &int_lock->lockee[lockee_num].loc,
+                                  int_lock->lockee[lockee_num].basename, cmd,
+                                  ENTRYLK_WRLCK, NULL);
+            }
+            break;
 
-    call_count = afr_locked_nodes_count(int_lock->locked_nodes,
-                                        priv->child_count);
+        case AFR_DATA_TRANSACTION:
+        case AFR_METADATA_TRANSACTION:
+            flock = int_lock->lockee[lockee_num].flock;
+            if (unlock) {
+                flock.l_type = F_UNLCK;
+            } else if (blocking) { /*Doesn't make sense to have blocking
+                                      unlock*/
+                cmd1 = F_SETLKW;
+            }
 
-    int_lock->lk_call_count = call_count;
-
-    if (!call_count) {
-        GF_ASSERT(!local->transaction.do_eager_unlock);
-        gf_msg_trace(this->name, 0, "No internal locks unlocked");
-
-        int_lock->lock_cbk(frame, this);
-        goto out;
-    }
-
-    for (i = 0; i < priv->child_count; i++) {
-        if ((int_lock->locked_nodes[i] & LOCKED_YES) != LOCKED_YES)
-            continue;
-
-        if (local->fd) {
-            STACK_WIND_COOKIE(
-                frame, afr_unlock_inodelk_cbk, (void *)(long)i,
-                priv->children[i], priv->children[i]->fops->finodelk,
-                int_lock->domain, local->fd, F_SETLK, &flock, NULL);
-        } else {
-            STACK_WIND_COOKIE(
-                frame, afr_unlock_inodelk_cbk, (void *)(long)i,
-                priv->children[i], priv->children[i]->fops->inodelk,
-                int_lock->domain, &local->loc, F_SETLK, &flock, NULL);
-        }
-
-        if (!--call_count)
+            if (local->fd) {
+                STACK_WIND_COOKIE(
+                    frame, cbk, cookie, priv->children[child],
+                    priv->children[child]->fops->finodelk, int_lock->domain,
+                    int_lock->lockee[lockee_num].fd, cmd1, &flock, NULL);
+            } else {
+                STACK_WIND_COOKIE(
+                    frame, cbk, cookie, priv->children[child],
+                    priv->children[child]->fops->inodelk, int_lock->domain,
+                    &int_lock->lockee[lockee_num].loc, cmd1, &flock, NULL);
+            }
             break;
     }
-out:
-    return 0;
-}
-
-static int32_t
-afr_unlock_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-    afr_local_t *local = NULL;
-    afr_private_t *priv = NULL;
-    afr_internal_lock_t *int_lock = NULL;
-    int32_t child_index = 0;
-    int lockee_no = 0;
-
-    priv = this->private;
-    lockee_no = (int)((long)cookie) / priv->child_count;
-    child_index = (int)((long)cookie) % priv->child_count;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_ENTRY_UNLOCK_FAIL,
-               "%s: unlock failed on %s", local->loc.path,
-               priv->children[child_index]->name);
-    }
-
-    int_lock->lockee[lockee_no].locked_nodes[child_index] &= LOCKED_NO;
-    afr_unlock_common_cbk(frame, cookie, this, op_ret, op_errno, NULL);
-
-    return 0;
 }
 
 static int
-afr_unlock_entrylk(call_frame_t *frame, xlator_t *this)
+afr_unlock_now(call_frame_t *frame, xlator_t *this)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     int call_count = 0;
-    int index = 0;
-    int lockee_no = 0;
-    int copies = 0;
+    int child_index = 0;
+    int lockee_num = 0;
     int i = -1;
 
     local = frame->local;
     int_lock = &local->internal_lock;
     priv = this->private;
-    copies = priv->child_count;
 
     call_count = afr_lockee_locked_nodes_count(int_lock);
 
     int_lock->lk_call_count = call_count;
 
     if (!call_count) {
+        GF_ASSERT(!local->transaction.do_eager_unlock);
         gf_msg_trace(this->name, 0, "No internal locks unlocked");
         int_lock->lock_cbk(frame, this);
         goto out;
     }
 
     for (i = 0; i < int_lock->lockee_count * priv->child_count; i++) {
-        lockee_no = i / copies;
-        index = i % copies;
-        if (int_lock->lockee[lockee_no].locked_nodes[index] & LOCKED_YES) {
-            STACK_WIND_COOKIE(
-                frame, afr_unlock_entrylk_cbk, (void *)(long)i,
-                priv->children[index], priv->children[index]->fops->entrylk,
-                int_lock->domain, &int_lock->lockee[lockee_no].loc,
-                int_lock->lockee[lockee_no].basename, ENTRYLK_UNLOCK,
-                ENTRYLK_WRLCK, NULL);
-
+        lockee_num = i / priv->child_count;
+        child_index = i % priv->child_count;
+        if (int_lock->lockee[lockee_num].locked_nodes[child_index] &
+            LOCKED_YES) {
+            afr_internal_lock_wind(frame, afr_unlock_common_cbk,
+                                   (void *)(long)i, child_index, lockee_num,
+                                   _gf_false, _gf_true);
             if (!--call_count)
                 break;
         }
     }
 
 out:
-    return 0;
-}
-
-int32_t
-afr_unlock_now(call_frame_t *frame, xlator_t *this)
-{
-    afr_local_t *local = frame->local;
-
-    if (afr_is_inodelk_transaction(local->transaction.type))
-        afr_unlock_inodelk(frame, this);
-    else
-        afr_unlock_entrylk(frame, this);
     return 0;
 }
 
@@ -436,14 +429,14 @@ afr_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     afr_private_t *priv = NULL;
     int cky = (long)cookie;
     int child_index = 0;
-    int lockee_no = 0;
+    int lockee_num = 0;
 
     priv = this->private;
     local = frame->local;
     int_lock = &local->internal_lock;
 
     child_index = ((int)cky) % priv->child_count;
-    lockee_no = ((int)cky) / priv->child_count;
+    lockee_num = ((int)cky) / priv->child_count;
 
     LOCK(&frame->lock);
     {
@@ -470,53 +463,22 @@ afr_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         afr_unlock_now(frame, this);
     } else {
         if (op_ret == 0) {
-            if (local->transaction.type == AFR_ENTRY_TRANSACTION ||
-                local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-                int_lock->lockee[lockee_no]
-                    .locked_nodes[child_index] |= LOCKED_YES;
-                int_lock->lockee[lockee_no].locked_count++;
-                int_lock->entrylk_lock_count++;
-            } else {
-                int_lock->locked_nodes[child_index] |= LOCKED_YES;
-                int_lock->lock_count++;
-
-                if (local->transaction.type == AFR_DATA_TRANSACTION) {
-                    LOCK(&local->inode->lock);
-                    {
-                        local->inode_ctx->lock_count++;
-                    }
-                    UNLOCK(&local->inode->lock);
+            int_lock->lockee[lockee_num]
+                .locked_nodes[child_index] |= LOCKED_YES;
+            int_lock->lockee[lockee_num].locked_count++;
+            int_lock->lock_count++;
+            if (local->transaction.type == AFR_DATA_TRANSACTION) {
+                LOCK(&local->inode->lock);
+                {
+                    local->inode_ctx->lock_count++;
                 }
+                UNLOCK(&local->inode->lock);
             }
         }
         afr_lock_blocking(frame, this, cky + 1);
     }
 
     return 0;
-}
-
-static int32_t
-afr_blocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-    afr_lock_cbk(frame, cookie, this, op_ret, op_errno, xdata);
-    return 0;
-}
-
-static int32_t
-afr_blocking_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-    afr_lock_cbk(frame, cookie, this, op_ret, op_errno, xdata);
-    return 0;
-}
-
-static gf_boolean_t
-afr_is_entrylk(afr_transaction_type trans_type)
-{
-    if (afr_is_inodelk_transaction(trans_type))
-        return _gf_false;
-    return _gf_true;
 }
 
 static gf_boolean_t
@@ -528,40 +490,12 @@ _is_lock_wind_needed(afr_local_t *local, int child_index)
     return _gf_true;
 }
 
-static void
-afr_log_entry_locks_failure(xlator_t *this, afr_local_t *local,
-                            afr_internal_lock_t *int_lock)
-{
-    const char *fop = NULL;
-    char *pargfid = NULL;
-    const char *name = NULL;
-
-    fop = gf_fop_list[local->op];
-
-    switch (local->op) {
-        case GF_FOP_LINK:
-            pargfid = uuid_utoa(local->newloc.pargfid);
-            name = local->newloc.name;
-            break;
-        default:
-            pargfid = uuid_utoa(local->loc.pargfid);
-            name = local->loc.name;
-            break;
-    }
-
-    gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_BLOCKING_LKS_FAILED,
-           "Unable to obtain sufficient blocking entry locks on at least "
-           "one child while attempting %s on {pgfid:%s, name:%s}.",
-           fop, pargfid, name);
-}
-
 static gf_boolean_t
 is_blocking_locks_count_sufficient(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     afr_internal_lock_t *int_lock = NULL;
-    gf_boolean_t is_entrylk = _gf_false;
     int child = 0;
     int nlockee = 0;
     int lockee_count = 0;
@@ -571,42 +505,26 @@ is_blocking_locks_count_sufficient(call_frame_t *frame, xlator_t *this)
     priv = this->private;
     int_lock = &local->internal_lock;
     lockee_count = int_lock->lockee_count;
-    is_entrylk = afr_is_entrylk(local->transaction.type);
 
-    if (!is_entrylk) {
-        if (int_lock->lock_count == 0) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_BLOCKING_LKS_FAILED,
-                   "Unable to obtain "
-                   "blocking inode lock on even one child for "
-                   "gfid:%s.",
-                   uuid_utoa(local->inode->gfid));
-            return _gf_false;
-        } else {
-            /*inodelk succeeded on at least one child. */
-            return _gf_true;
-        }
-
-    } else {
-        if (int_lock->entrylk_lock_count == 0) {
-            afr_log_entry_locks_failure(this, local, int_lock);
-            return _gf_false;
-        }
-        /* For FOPS that take multiple sets of locks (mkdir, rename),
-         * there must be at least one brick on which the locks from
-         * all lock sets were successful. */
-        for (child = 0; child < priv->child_count; child++) {
-            ret = _gf_true;
-            for (nlockee = 0; nlockee < lockee_count; nlockee++) {
-                if (!(int_lock->lockee[nlockee].locked_nodes[child] &
-                      LOCKED_YES))
-                    ret = _gf_false;
-            }
-            if (ret)
-                return ret;
-        }
-        if (!ret)
-            afr_log_entry_locks_failure(this, local, int_lock);
+    if (int_lock->lock_count == 0) {
+        afr_log_locks_failure(frame, "any subvolume", "lock",
+                              int_lock->lock_op_errno);
+        return _gf_false;
     }
+    /* For FOPS that take multiple sets of locks (mkdir, rename),
+     * there must be at least one brick on which the locks from
+     * all lock sets were successful. */
+    for (child = 0; child < priv->child_count; child++) {
+        ret = _gf_true;
+        for (nlockee = 0; nlockee < lockee_count; nlockee++) {
+            if (!(int_lock->lockee[nlockee].locked_nodes[child] & LOCKED_YES))
+                ret = _gf_false;
+        }
+        if (ret)
+            return ret;
+    }
+    if (!ret)
+        afr_log_locks_failure(frame, "all", "lock", int_lock->lock_op_errno);
 
     return ret;
 }
@@ -617,27 +535,16 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
-    struct gf_flock flock = {
-        0,
-    };
     uint64_t ctx = 0;
     int ret = 0;
     int child_index = 0;
-    int lockee_no = 0;
-    gf_boolean_t is_entrylk = _gf_false;
+    int lockee_num = 0;
 
     local = frame->local;
     int_lock = &local->internal_lock;
     priv = this->private;
     child_index = cookie % priv->child_count;
-    lockee_no = cookie / priv->child_count;
-    is_entrylk = afr_is_entrylk(local->transaction.type);
-
-    if (!is_entrylk) {
-        flock.l_start = int_lock->flock.l_start;
-        flock.l_len = int_lock->flock.l_len;
-        flock.l_type = int_lock->flock.l_type;
-    }
+    lockee_num = cookie / priv->child_count;
 
     if (local->fd) {
         ret = fd_ctx_get(local->fd, this, &ctx);
@@ -681,52 +588,8 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
         return 0;
     }
 
-    switch (local->transaction.type) {
-        case AFR_DATA_TRANSACTION:
-        case AFR_METADATA_TRANSACTION:
-
-            if (local->fd) {
-                STACK_WIND_COOKIE(
-                    frame, afr_blocking_inodelk_cbk, (void *)(long)child_index,
-                    priv->children[child_index],
-                    priv->children[child_index]->fops->finodelk,
-                    int_lock->domain, local->fd, F_SETLKW, &flock, NULL);
-
-            } else {
-                STACK_WIND_COOKIE(
-                    frame, afr_blocking_inodelk_cbk, (void *)(long)child_index,
-                    priv->children[child_index],
-                    priv->children[child_index]->fops->inodelk,
-                    int_lock->domain, &local->loc, F_SETLKW, &flock, NULL);
-            }
-
-            break;
-
-        case AFR_ENTRY_RENAME_TRANSACTION:
-        case AFR_ENTRY_TRANSACTION:
-            /*Accounting for child_index increments on 'down'
-             *and 'fd-less' children */
-
-            if (local->fd) {
-                STACK_WIND_COOKIE(frame, afr_blocking_entrylk_cbk,
-                                  (void *)(long)cookie,
-                                  priv->children[child_index],
-                                  priv->children[child_index]->fops->fentrylk,
-                                  int_lock->domain, local->fd,
-                                  int_lock->lockee[lockee_no].basename,
-                                  ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
-            } else {
-                STACK_WIND_COOKIE(
-                    frame, afr_blocking_entrylk_cbk, (void *)(long)cookie,
-                    priv->children[child_index],
-                    priv->children[child_index]->fops->entrylk,
-                    int_lock->domain, &int_lock->lockee[lockee_no].loc,
-                    int_lock->lockee[lockee_no].basename, ENTRYLK_LOCK,
-                    ENTRYLK_WRLCK, NULL);
-            }
-
-            break;
-    }
+    afr_internal_lock_wind(frame, afr_lock_cbk, (void *)(long)cookie,
+                           child_index, lockee_num, _gf_true, _gf_false);
 
     return 0;
 }
@@ -743,20 +606,10 @@ afr_blocking_lock(call_frame_t *frame, xlator_t *this)
     local = frame->local;
     int_lock = &local->internal_lock;
 
-    switch (local->transaction.type) {
-        case AFR_DATA_TRANSACTION:
-        case AFR_METADATA_TRANSACTION:
-            initialize_inodelk_variables(frame, this);
-            break;
-
-        case AFR_ENTRY_RENAME_TRANSACTION:
-        case AFR_ENTRY_TRANSACTION:
-            up_count = AFR_COUNT(local->child_up, priv->child_count);
-            int_lock->lk_call_count = int_lock->lk_expected_count =
-                (int_lock->lockee_count * up_count);
-            initialize_entrylk_variables(frame, this);
-            break;
-    }
+    up_count = AFR_COUNT(local->child_up, priv->child_count);
+    int_lock->lk_call_count = int_lock->lk_expected_count =
+        (int_lock->lockee_count * up_count);
+    initialize_internal_lock_variables(frame, this);
 
     afr_lock_blocking(frame, this, 0);
 
@@ -764,171 +617,20 @@ afr_blocking_lock(call_frame_t *frame, xlator_t *this)
 }
 
 static int32_t
-afr_nonblocking_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
+afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
     int call_count = 0;
-    int child_index = (long)cookie;
-    int copies = 0;
-    int index = 0;
-    int lockee_no = 0;
+    int child_index = 0;
+    int lockee_num = 0;
     afr_private_t *priv = NULL;
 
     priv = this->private;
 
-    copies = priv->child_count;
-    index = child_index % copies;
-    lockee_no = child_index / copies;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    LOCK(&frame->lock);
-    {
-        if (op_ret < 0) {
-            if (op_errno == ENOSYS) {
-                /* return ENOTSUP */
-                gf_msg(this->name, GF_LOG_ERROR, ENOSYS,
-                       AFR_MSG_LOCK_XLATOR_NOT_LOADED,
-                       "subvolume does not support "
-                       "locking. please load features/locks"
-                       " xlator on server");
-                local->op_ret = op_ret;
-                int_lock->lock_op_ret = op_ret;
-
-                int_lock->lock_op_errno = op_errno;
-                local->op_errno = op_errno;
-            }
-        } else if (op_ret == 0) {
-            int_lock->lockee[lockee_no].locked_nodes[index] |= LOCKED_YES;
-            int_lock->lockee[lockee_no].locked_count++;
-            int_lock->entrylk_lock_count++;
-        }
-
-        call_count = --int_lock->lk_call_count;
-    }
-    UNLOCK(&frame->lock);
-
-    if (call_count == 0) {
-        gf_msg_trace(this->name, 0, "Last locking reply received");
-        /* all locks successful. Proceed to call FOP */
-        if (int_lock->entrylk_lock_count == int_lock->lk_expected_count) {
-            gf_msg_trace(this->name, 0, "All servers locked. Calling the cbk");
-            int_lock->lock_op_ret = 0;
-            int_lock->lock_cbk(frame, this);
-        }
-        /* Not all locks were successful. Unlock and try locking
-           again, this time with serially blocking locks */
-        else {
-            gf_msg_trace(this->name, 0,
-                         "%d servers locked. Trying again "
-                         "with blocking calls",
-                         int_lock->lock_count);
-
-            afr_unlock_now(frame, this);
-        }
-    }
-
-    return 0;
-}
-
-int
-afr_nonblocking_entrylk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-    afr_private_t *priv = NULL;
-    afr_fd_ctx_t *fd_ctx = NULL;
-    int copies = 0;
-    int index = 0;
-    int lockee_no = 0;
-    int32_t call_count = 0;
-    int i = 0;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-    priv = this->private;
-
-    copies = priv->child_count;
-    initialize_entrylk_variables(frame, this);
-
-    if (local->fd) {
-        fd_ctx = afr_fd_ctx_get(local->fd, this);
-        if (!fd_ctx) {
-            gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_FD_CTX_GET_FAILED,
-                   "unable to get fd ctx for fd=%p", local->fd);
-
-            local->op_ret = -1;
-            int_lock->lock_op_ret = -1;
-            local->op_errno = EINVAL;
-            int_lock->lock_op_errno = EINVAL;
-
-            afr_unlock_now(frame, this);
-            return -1;
-        }
-
-        call_count = int_lock->lockee_count * internal_lock_count(frame, this);
-        int_lock->lk_call_count = call_count;
-        int_lock->lk_expected_count = call_count;
-
-        if (!call_count) {
-            gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_INFO_COMMON,
-                   "fd not open on any subvolumes. aborting.");
-            afr_unlock_now(frame, this);
-            goto out;
-        }
-
-        /* Send non-blocking entrylk calls only on up children
-           and where the fd has been opened */
-        for (i = 0; i < int_lock->lockee_count * priv->child_count; i++) {
-            index = i % copies;
-            lockee_no = i / copies;
-            if (local->child_up[index]) {
-                STACK_WIND_COOKIE(frame, afr_nonblocking_entrylk_cbk,
-                                  (void *)(long)i, priv->children[index],
-                                  priv->children[index]->fops->fentrylk,
-                                  this->name, local->fd,
-                                  int_lock->lockee[lockee_no].basename,
-                                  ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
-                if (!--call_count)
-                    break;
-            }
-        }
-    } else {
-        call_count = int_lock->lockee_count * internal_lock_count(frame, this);
-        int_lock->lk_call_count = call_count;
-        int_lock->lk_expected_count = call_count;
-
-        for (i = 0; i < int_lock->lockee_count * priv->child_count; i++) {
-            index = i % copies;
-            lockee_no = i / copies;
-            if (local->child_up[index]) {
-                STACK_WIND_COOKIE(frame, afr_nonblocking_entrylk_cbk,
-                                  (void *)(long)i, priv->children[index],
-                                  priv->children[index]->fops->entrylk,
-                                  this->name, &int_lock->lockee[lockee_no].loc,
-                                  int_lock->lockee[lockee_no].basename,
-                                  ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
-
-                if (!--call_count)
-                    break;
-            }
-        }
-    }
-out:
-    return 0;
-}
-
-int32_t
-afr_nonblocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-    int call_count = 0;
-    int child_index = (long)cookie;
+    child_index = ((long)cookie) % priv->child_count;
+    lockee_num = ((long)cookie) / priv->child_count;
 
     local = frame->local;
     int_lock = &local->internal_lock;
@@ -953,11 +655,14 @@ afr_nonblocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        " xlator on server");
                 local->op_ret = op_ret;
                 int_lock->lock_op_ret = op_ret;
+
                 int_lock->lock_op_errno = op_errno;
                 local->op_errno = op_errno;
             }
-        } else {
-            int_lock->locked_nodes[child_index] |= LOCKED_YES;
+        } else if (op_ret == 0) {
+            int_lock->lockee[lockee_num]
+                .locked_nodes[child_index] |= LOCKED_YES;
+            int_lock->lockee[lockee_num].locked_count++;
             int_lock->lock_count++;
         }
 
@@ -966,7 +671,7 @@ afr_nonblocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     UNLOCK(&frame->lock);
 
     if (call_count == 0) {
-        gf_msg_trace(this->name, 0, "Last inode locking reply received");
+        gf_msg_trace(this->name, 0, "Last locking reply received");
         /* all locks successful. Proceed to call FOP */
         if (int_lock->lock_count == int_lock->lk_expected_count) {
             gf_msg_trace(this->name, 0, "All servers locked. Calling the cbk");
@@ -977,8 +682,8 @@ afr_nonblocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
            again, this time with serially blocking locks */
         else {
             gf_msg_trace(this->name, 0,
-                         "%d servers locked. "
-                         "Trying again with blocking calls",
+                         "%d servers locked. Trying again "
+                         "with blocking calls",
                          int_lock->lock_count);
 
             afr_unlock_now(frame, this);
@@ -989,12 +694,14 @@ afr_nonblocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-afr_nonblocking_inodelk(call_frame_t *frame, xlator_t *this)
+afr_lock_nonblocking(call_frame_t *frame, xlator_t *this)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     afr_fd_ctx_t *fd_ctx = NULL;
+    int child = 0;
+    int lockee_num = 0;
     int32_t call_count = 0;
     int i = 0;
     int ret = 0;
@@ -1003,7 +710,7 @@ afr_nonblocking_inodelk(call_frame_t *frame, xlator_t *this)
     int_lock = &local->internal_lock;
     priv = this->private;
 
-    initialize_inodelk_variables(frame, this);
+    initialize_internal_lock_variables(frame, this);
 
     if (local->fd) {
         fd_ctx = afr_fd_ctx_get(local->fd, this);
@@ -1022,36 +729,29 @@ afr_nonblocking_inodelk(call_frame_t *frame, xlator_t *this)
         }
     }
 
-    call_count = internal_lock_count(frame, this);
+    call_count = int_lock->lockee_count * internal_lock_count(frame, this);
     int_lock->lk_call_count = call_count;
     int_lock->lk_expected_count = call_count;
 
     if (!call_count) {
-        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SUBVOLS_DOWN,
-               "All bricks are down, aborting.");
+        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_INFO_COMMON,
+               "fd not open on any subvolumes. aborting.");
         afr_unlock_now(frame, this);
         goto out;
     }
 
-    /* Send non-blocking inodelk calls only on up children
+    /* Send non-blocking lock calls only on up children
        and where the fd has been opened */
-    for (i = 0; i < priv->child_count; i++) {
-        if (!local->child_up[i])
-            continue;
-
-        if (local->fd) {
-            STACK_WIND_COOKIE(
-                frame, afr_nonblocking_inodelk_cbk, (void *)(long)i,
-                priv->children[i], priv->children[i]->fops->finodelk,
-                int_lock->domain, local->fd, F_SETLK, &int_lock->flock, NULL);
-        } else {
-            STACK_WIND_COOKIE(
-                frame, afr_nonblocking_inodelk_cbk, (void *)(long)i,
-                priv->children[i], priv->children[i]->fops->inodelk,
-                int_lock->domain, &local->loc, F_SETLK, &int_lock->flock, NULL);
+    for (i = 0; i < int_lock->lockee_count * priv->child_count; i++) {
+        child = i % priv->child_count;
+        lockee_num = i / priv->child_count;
+        if (local->child_up[child]) {
+            afr_internal_lock_wind(frame, afr_nb_internal_lock_cbk,
+                                   (void *)(long)i, child, lockee_num,
+                                   _gf_false, _gf_false);
+            if (!--call_count)
+                break;
         }
-        if (!--call_count)
-            break;
     }
 out:
     return ret;
