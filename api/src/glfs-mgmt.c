@@ -660,13 +660,16 @@ volfile:
 	ret = 0;
 	size = rsp.op_ret;
 
+        pthread_mutex_lock(&fs->mutex);
 	if ((size == fs->oldvollen) &&
 	    (memcmp (fs->oldvolfile, rsp.spec, size) == 0)) {
+                pthread_mutex_unlock(&fs->mutex);
 		gf_msg (frame->this->name, GF_LOG_INFO, 0,
                         API_MSG_VOLFILE_INFO,
 			"No change in volfile, continuing");
 		goto out;
 	}
+        pthread_mutex_unlock(&fs->mutex);
 
 	tmpfp = tmpfile ();
 	if (!tmpfp) {
@@ -689,8 +692,11 @@ volfile:
 	*  return -1(or -ve) =======> Some Internal Error occurred during the operation
 	*/
 
+        pthread_mutex_lock(&fs->mutex);
         ret = gf_volfile_reconfigure (fs->oldvollen, tmpfp, fs->ctx,
                                       fs->oldvolfile);
+        pthread_mutex_unlock(&fs->mutex);
+
 	if (ret == 0) {
 		gf_msg_debug ("glusterfsd-mgmt", 0, "No need to re-load "
                               "volfile, reconfigure done");
