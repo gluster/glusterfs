@@ -2264,6 +2264,8 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
     int ret = -1, i = 0;
     rpcsvc_program_t *newprog = NULL;
     char already_registered = 0;
+    pthread_mutexattr_t attr[EVENT_MAX_THREADS];
+    pthread_mutexattr_t thr_attr;
 
     if (!svc) {
         goto out;
@@ -2299,15 +2301,19 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
     memcpy(newprog, program, sizeof(*program));
 
     INIT_LIST_HEAD(&newprog->program);
+    pthread_mutexattr_init(&thr_attr);
+    pthread_mutexattr_settype(&thr_attr, PTHREAD_MUTEX_ADAPTIVE_NP);
 
     for (i = 0; i < EVENT_MAX_THREADS; i++) {
+        pthread_mutexattr_init(&attr[i]);
+        pthread_mutexattr_settype(&attr[i], PTHREAD_MUTEX_ADAPTIVE_NP);
         INIT_LIST_HEAD(&newprog->request_queue[i].request_queue);
-        pthread_mutex_init(&newprog->request_queue[i].queue_lock, NULL);
+        pthread_mutex_init(&newprog->request_queue[i].queue_lock, &attr[i]);
         pthread_cond_init(&newprog->request_queue[i].queue_cond, NULL);
         newprog->request_queue[i].program = newprog;
     }
 
-    pthread_mutex_init(&newprog->thr_lock, NULL);
+    pthread_mutex_init(&newprog->thr_lock, &thr_attr);
     pthread_cond_init(&newprog->thr_cond, NULL);
 
     newprog->alive = _gf_true;
