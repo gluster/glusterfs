@@ -94,60 +94,91 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     call_pool_t *pool = NULL;
     int ret = -1;
 
+    if (!ctx)
+        return ret;
+
     ret = xlator_mem_acct_init(THIS, cli_mt_end);
     if (ret != 0) {
+        gf_log("cli", GF_LOG_ERROR, "Memory accounting init failed.");
         return ret;
     }
 
+    /* Resetting ret to -1 to so in case of failure
+     * we can relese allocated resource.
+     */
+    ret = -1;
+
     ctx->process_uuid = generate_glusterfs_ctx_id();
-    if (!ctx->process_uuid)
-        return -1;
+    if (!ctx->process_uuid) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to generate uuid.");
+        goto out;
+    }
 
     ctx->page_size = 128 * GF_UNIT_KB;
 
     ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool)
-        return -1;
+    if (!ctx->iobuf_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
+        goto out;
+    }
 
     ctx->event_pool = event_pool_new(DEFAULT_EVENT_POOL_SIZE,
                                      STARTING_EVENT_THREADS);
-    if (!ctx->event_pool)
-        return -1;
+    if (!ctx->event_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create event pool.");
+        goto out;
+    }
 
     pool = GF_CALLOC(1, sizeof(call_pool_t), cli_mt_call_pool_t);
-    if (!pool)
-        return -1;
+    if (!pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create call pool.");
+        goto out;
+    }
 
     /* frame_mem_pool size 112 * 64 */
     pool->frame_mem_pool = mem_pool_new(call_frame_t, 32);
-    if (!pool->frame_mem_pool)
-        return -1;
+    if (!pool->frame_mem_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create frame mem pool.");
+        goto out;
+    }
 
     /* stack_mem_pool size 256 * 128 */
     pool->stack_mem_pool = mem_pool_new(call_stack_t, 16);
 
-    if (!pool->stack_mem_pool)
-        return -1;
+    if (!pool->stack_mem_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create stack mem pool.");
+        goto out;
+    }
 
     ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool)
-        return -1;
+    if (!ctx->stub_mem_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to stub mem pool.");
+        goto out;
+    }
 
     ctx->dict_pool = mem_pool_new(dict_t, 32);
-    if (!ctx->dict_pool)
-        return -1;
+    if (!ctx->dict_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create dict pool.");
+        goto out;
+    }
 
     ctx->dict_pair_pool = mem_pool_new(data_pair_t, 512);
-    if (!ctx->dict_pair_pool)
-        return -1;
+    if (!ctx->dict_pair_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create dict pair pool.");
+        goto out;
+    }
 
     ctx->dict_data_pool = mem_pool_new(data_t, 512);
-    if (!ctx->dict_data_pool)
-        return -1;
+    if (!ctx->dict_data_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create dict data pool.");
+        goto out;
+    }
 
     ctx->logbuf_pool = mem_pool_new(log_buf_t, 256);
-    if (!ctx->logbuf_pool)
-        return -1;
+    if (!ctx->logbuf_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create logbuf pool.");
+        goto out;
+    }
 
     INIT_LIST_HEAD(&pool->all_frames);
     LOCK_INIT(&pool->lock);
@@ -161,7 +192,25 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     lim.rlim_max = RLIM_INFINITY;
     setrlimit(RLIMIT_CORE, &lim);
 
-    return 0;
+    ret = 0;
+
+out:
+    if (ret != 0) {
+        if (pool) {
+            mem_pool_destroy(pool->frame_mem_pool);
+            mem_pool_destroy(pool->stack_mem_pool);
+        }
+        GF_FREE(pool);
+        pool = NULL;
+        GF_FREE(ctx->process_uuid);
+        mem_pool_destroy(ctx->stub_mem_pool);
+        mem_pool_destroy(ctx->dict_pool);
+        mem_pool_destroy(ctx->dict_pair_pool);
+        mem_pool_destroy(ctx->dict_data_pool);
+        mem_pool_destroy(ctx->logbuf_pool);
+    }
+
+    return ret;
 }
 
 static int
