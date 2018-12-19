@@ -286,6 +286,7 @@ rbthash_insert(rbthash_table_t *tbl, void *data, void *key, int keylen)
         gf_msg(GF_RBTHASH, GF_LOG_ERROR, 0, LG_MSG_RBTHASH_INSERT_FAILED,
                "Failed to insert entry");
         rbthash_deinit_entry(tbl, entry);
+        goto err;
     }
 
     LOCK(&tbl->tablelock);

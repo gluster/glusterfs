@@ -3568,17 +3568,21 @@ gf_is_local_addr(char *hostname)
     }
 
     for (res = result; res != NULL; res = res->ai_next) {
-        gf_msg_debug(this->name, 0, "%s ", get_ip_from_addrinfo(res, &ip));
+        get_ip_from_addrinfo(res, &ip);
+        gf_msg_debug(this->name, 0, "%s ", ip);
 
         if (ip) {
-            found = gf_is_loopback_localhost(res->ai_addr, hostname) ||
-                    gf_interface_search(ip);
+            found = (gf_is_loopback_localhost(res->ai_addr, hostname) ||
+                     gf_interface_search(ip));
         }
         if (found) {
             GF_FREE(ip);
             goto out;
         }
         GF_FREE(ip);
+        /* the above free will not set ip to NULL, and hence, there is
+           double free possible as the loop continues. set ip to NULL. */
+        ip = NULL;
     }
 
 out:
