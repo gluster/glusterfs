@@ -367,7 +367,7 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
     list_offset = 0;
 
     while (remaining_size > 0) {
-        strcpy(key, list + list_offset);
+        strncpy(key, list + list_offset, sizeof(key));
         if (fnmatch(marker_contri_key, key, 0) == 0) {
             ret = _posix_xattr_get_set_from_backend(filler, key);
         }

@@ -803,6 +803,7 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
     char *v = NULL;
     char *k = NULL;
     gf_gsync_status_t *sts_val = NULL;
+    size_t len = 0;
 
     sts_val = (gf_gsync_status_t *)data;
 
@@ -836,47 +837,63 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
         }
 
         if (strcmp(k, "worker_status") == 0) {
-            memcpy(sts_val->worker_status, v, strlen(v));
-            sts_val->worker_status[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->worker_status) - 1));
+            memcpy(sts_val->worker_status, v, len);
+            sts_val->worker_status[len] = '\0';
         } else if (strcmp(k, "slave_node") == 0) {
-            memcpy(sts_val->slave_node, v, strlen(v));
-            sts_val->slave_node[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->slave_node) - 1));
+            memcpy(sts_val->slave_node, v, len);
+            sts_val->slave_node[len] = '\0';
         } else if (strcmp(k, "crawl_status") == 0) {
-            memcpy(sts_val->crawl_status, v, strlen(v));
-            sts_val->crawl_status[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->crawl_status) - 1));
+            memcpy(sts_val->crawl_status, v, len);
+            sts_val->crawl_status[len] = '\0';
         } else if (strcmp(k, "last_synced") == 0) {
-            memcpy(sts_val->last_synced, v, strlen(v));
-            sts_val->last_synced[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->last_synced) - 1));
+            memcpy(sts_val->last_synced, v, len);
+            sts_val->last_synced[len] = '\0';
         } else if (strcmp(k, "last_synced_utc") == 0) {
-            memcpy(sts_val->last_synced_utc, v, strlen(v));
-            sts_val->last_synced_utc[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->last_synced_utc) - 1));
+            memcpy(sts_val->last_synced_utc, v, len);
+            sts_val->last_synced_utc[len] = '\0';
         } else if (strcmp(k, "entry") == 0) {
-            memcpy(sts_val->entry, v, strlen(v));
-            sts_val->entry[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->entry) - 1));
+            memcpy(sts_val->entry, v, len);
+            sts_val->entry[len] = '\0';
         } else if (strcmp(k, "data") == 0) {
-            memcpy(sts_val->data, v, strlen(v));
-            sts_val->data[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->data) - 1));
+            memcpy(sts_val->data, v, len);
+            sts_val->data[len] = '\0';
         } else if (strcmp(k, "meta") == 0) {
-            memcpy(sts_val->meta, v, strlen(v));
-            sts_val->meta[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->meta) - 1));
+            memcpy(sts_val->meta, v, len);
+            sts_val->meta[len] = '\0';
         } else if (strcmp(k, "failures") == 0) {
-            memcpy(sts_val->failures, v, strlen(v));
-            sts_val->failures[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->failures) - 1));
+            memcpy(sts_val->failures, v, len);
+            sts_val->failures[len] = '\0';
         } else if (strcmp(k, "checkpoint_time") == 0) {
-            memcpy(sts_val->checkpoint_time, v, strlen(v));
-            sts_val->checkpoint_time[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->checkpoint_time) - 1));
+            memcpy(sts_val->checkpoint_time, v, len);
+            sts_val->checkpoint_time[len] = '\0';
         } else if (strcmp(k, "checkpoint_time_utc") == 0) {
-            memcpy(sts_val->checkpoint_time_utc, v, strlen(v));
-            sts_val->checkpoint_time_utc[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->checkpoint_time_utc) - 1));
+            memcpy(sts_val->checkpoint_time_utc, v, len);
+            sts_val->checkpoint_time_utc[len] = '\0';
         } else if (strcmp(k, "checkpoint_completed") == 0) {
-            memcpy(sts_val->checkpoint_completed, v, strlen(v));
-            sts_val->checkpoint_completed[strlen(v)] = '\0';
+            len = min(strlen(v), (sizeof(sts_val->checkpoint_completed) - 1));
+            memcpy(sts_val->checkpoint_completed, v, len);
+            sts_val->checkpoint_completed[len] = '\0';
         } else if (strcmp(k, "checkpoint_completion_time") == 0) {
-            memcpy(sts_val->checkpoint_completion_time, v, strlen(v));
-            sts_val->checkpoint_completion_time[strlen(v)] = '\0';
+            len = min(strlen(v),
+                      (sizeof(sts_val->checkpoint_completion_time) - 1));
+            memcpy(sts_val->checkpoint_completion_time, v, len);
+            sts_val->checkpoint_completion_time[len] = '\0';
         } else if (strcmp(k, "checkpoint_completion_time_utc") == 0) {
-            memcpy(sts_val->checkpoint_completion_time_utc, v, strlen(v));
-            sts_val->checkpoint_completion_time_utc[strlen(v)] = '\0';
+            len = min(strlen(v),
+                      (sizeof(sts_val->checkpoint_completion_time_utc) - 1));
+            memcpy(sts_val->checkpoint_completion_time_utc, v, len);
+            sts_val->checkpoint_completion_time_utc[len] = '\0';
         }
         GF_FREE(v);
         GF_FREE(k);
