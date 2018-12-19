@@ -448,14 +448,6 @@ ga_new_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         0,
     };
 
-    args = ga_newfile_parse_args(this, data);
-    if (!args)
-        goto out;
-
-    ret = gf_uuid_parse(args->gfid, gfid);
-    if (ret)
-        goto out;
-
     if (!xdata) {
         xdata = dict_new();
     } else {
@@ -466,6 +458,14 @@ ga_new_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         ret = -1;
         goto out;
     }
+
+    args = ga_newfile_parse_args(this, data);
+    if (!args)
+        goto out;
+
+    ret = gf_uuid_parse(args->gfid, gfid);
+    if (ret)
+        goto out;
 
     ret = ga_fill_tmp_loc(loc, this, gfid, args->bname, xdata, &tmp_loc);
     if (ret)

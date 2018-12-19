@@ -875,7 +875,7 @@ out:
         dict_unref(dict);
 
     if (xdata)
-        dict_unref(dict);
+        dict_unref(xdata);
 
     return ret;
 }

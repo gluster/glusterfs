@@ -3705,6 +3705,8 @@ unlock:
             (local->fop == GF_FOP_FSETXATTR)) {
             DHT_STACK_UNWIND(setxattr, frame, local->op_ret, local->op_errno,
                              NULL);
+            /* 'local' itself may not be valid after this */
+            goto out;
         }
         if ((local->fop == GF_FOP_REMOVEXATTR) ||
             (local->fop == GF_FOP_FREMOVEXATTR)) {
@@ -3713,6 +3715,7 @@ unlock:
         }
     }
 
+out:
     return 0;
 }
 
@@ -3759,20 +3762,27 @@ dht_common_mds_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (local->fop == GF_FOP_SETXATTR) {
         DHT_STACK_UNWIND(setxattr, frame, 0, op_errno, local->xdata);
+        /* 'local' itself may not be valid after this */
+        goto out;
     }
 
     if (local->fop == GF_FOP_FSETXATTR) {
         DHT_STACK_UNWIND(fsetxattr, frame, 0, op_errno, local->xdata);
+        /* 'local' itself may not be valid after this */
+        goto out;
     }
 
     if (local->fop == GF_FOP_REMOVEXATTR) {
         DHT_STACK_UNWIND(removexattr, frame, 0, op_errno, NULL);
+        /* 'local' itself may not be valid after this */
+        goto out;
     }
 
     if (local->fop == GF_FOP_FREMOVEXATTR) {
         DHT_STACK_UNWIND(fremovexattr, frame, 0, op_errno, NULL);
     }
 
+out:
     return 0;
 }
 
@@ -3836,41 +3846,56 @@ dht_setxattr_non_mds_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
             if (local->fop == GF_FOP_SETXATTR) {
                 DHT_STACK_UNWIND(setxattr, frame, 0, 0, local->xdata);
+                /* 'local' itself may not be valid after this */
+                goto just_return;
             }
 
             if (local->fop == GF_FOP_FSETXATTR) {
                 DHT_STACK_UNWIND(fsetxattr, frame, 0, 0, local->xdata);
+                /* 'local' itself may not be valid after this */
+                goto just_return;
             }
 
             if (local->fop == GF_FOP_REMOVEXATTR) {
                 DHT_STACK_UNWIND(removexattr, frame, 0, 0, NULL);
+                /* 'local' itself may not be valid after this */
+                goto just_return;
             }
 
             if (local->fop == GF_FOP_FREMOVEXATTR) {
                 DHT_STACK_UNWIND(fremovexattr, frame, 0, 0, NULL);
+                /* 'local' itself may not be valid after this */
+                goto just_return;
             }
         }
     }
 out:
-    if (xattrop)
-        dict_unref(xattrop);
     if (ret) {
         if (local->fop == GF_FOP_SETXATTR) {
             DHT_STACK_UNWIND(setxattr, frame, 0, 0, local->xdata);
+            /* 'local' itself may not be valid after this */
+            goto just_return;
         }
 
         if (local->fop == GF_FOP_FSETXATTR) {
             DHT_STACK_UNWIND(fsetxattr, frame, 0, 0, local->xdata);
+            /* 'local' itself may not be valid after this */
+            goto just_return;
         }
 
         if (local->fop == GF_FOP_REMOVEXATTR) {
             DHT_STACK_UNWIND(removexattr, frame, 0, 0, NULL);
+            /* 'local' itself may not be valid after this */
+            goto just_return;
         }
 
         if (local->fop == GF_FOP_FREMOVEXATTR) {
             DHT_STACK_UNWIND(fremovexattr, frame, 0, 0, NULL);
         }
     }
+just_return:
+    if (xattrop)
+        dict_unref(xattrop);
     return 0;
 }
 
@@ -3934,16 +3959,22 @@ out:
     if (local->fop == GF_FOP_SETXATTR) {
         DHT_STACK_UNWIND(setxattr, frame, local->op_ret, local->op_errno,
                          xdata);
+        /* 'local' itself may not be valid after this */
+        goto just_return;
     }
 
     if (local->fop == GF_FOP_FSETXATTR) {
         DHT_STACK_UNWIND(fsetxattr, frame, local->op_ret, local->op_errno,
                          xdata);
+        /* 'local' itself may not be valid after this */
+        goto just_return;
     }
 
     if (local->fop == GF_FOP_REMOVEXATTR) {
         DHT_STACK_UNWIND(removexattr, frame, local->op_ret, local->op_errno,
                          NULL);
+        /* 'local' itself may not be valid after this */
+        goto just_return;
     }
 
     if (local->fop == GF_FOP_FREMOVEXATTR) {
@@ -3951,6 +3982,7 @@ out:
                          NULL);
     }
 
+just_return:
     return 0;
 }
 
@@ -4001,16 +4033,22 @@ out:
     if (local->fop == GF_FOP_SETXATTR) {
         DHT_STACK_UNWIND(setxattr, frame, local->op_ret, local->op_errno,
                          xdata);
+        /* 'local' itself may not be valid after this */
+        goto just_return;
     }
 
     if (local->fop == GF_FOP_FSETXATTR) {
         DHT_STACK_UNWIND(fsetxattr, frame, local->op_ret, local->op_errno,
                          xdata);
+        /* 'local' itself may not be valid after this */
+        goto just_return;
     }
 
     if (local->fop == GF_FOP_REMOVEXATTR) {
         DHT_STACK_UNWIND(removexattr, frame, local->op_ret, local->op_errno,
                          NULL);
+        /* 'local' itself may not be valid after this */
+        goto just_return;
     }
 
     if (local->fop == GF_FOP_FREMOVEXATTR) {
@@ -4018,6 +4056,7 @@ out:
                          NULL);
     }
 
+just_return:
     return 0;
 }
 
