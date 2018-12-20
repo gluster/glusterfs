@@ -8,7 +8,7 @@ SCRIPT_TIMEOUT=800
 
 cleanup;
 
-NUM_VOLS=20
+NUM_VOLS=15
 MOUNT_BASE=$(dirname $M0)
 
 # GlusterD reports that bricks are started when in fact their attach requests
@@ -79,13 +79,14 @@ TEST $CLI volume set all cluster.brick-multiplex on
 # Our infrastructure can't handle an arithmetic expression here.  The formula
 # is (NUM_VOLS-1)*5 because it sees each TEST/EXPECT once but needs the other
 # NUM_VOLS-1 and there are 5 such statements in each iteration.
-TESTS_EXPECTED_IN_LOOP=114
+TESTS_EXPECTED_IN_LOOP=84
 for i in $(seq 1 $NUM_VOLS); do
 	create_volume $i
 	TEST dd if=/dev/zero of=$(get_mount_point $i)/a_file bs=4k count=1
         # Unmounting to reduce memory footprint on regression hosts
         mnt_point=$(get_mount_point $i)
         EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $mnt_point
+        pmap -x `pgrep glusterfsd` | grep total
 done
 
 # Kill glusterd, and wait a bit for all traces to disappear.
