@@ -208,7 +208,8 @@ glfs_iatt_to_stat(struct glfs *fs, struct iatt *iatt, struct stat *stat)
 }
 
 void
-glfs_iatt_to_statx(struct glfs *fs, struct iatt *iatt, struct glfs_stat *statx)
+glfs_iatt_to_statx(struct glfs *fs, const struct iatt *iatt,
+                   struct glfs_stat *statx)
 {
     statx->glfs_st_mask = 0;
 
@@ -290,6 +291,87 @@ glfs_iatt_to_statx(struct glfs *fs, struct iatt *iatt, struct glfs_stat *statx)
     statx->glfs_st_attributes = 0;
     statx->glfs_st_attributes_mask = 0;
 }
+
+void
+priv_glfs_iatt_from_statx(struct iatt *iatt, const struct glfs_stat *statx)
+{
+    /* Most code in xlators are not checking validity flags before accessing
+    the items. Hence zero everything before setting valid items */
+    memset(iatt, 0, sizeof(struct iatt));
+
+    if (GLFS_STAT_TYPE_VALID(statx->glfs_st_mask)) {
+        iatt->ia_type = ia_type_from_st_mode(statx->glfs_st_mode);
+        iatt->ia_flags |= IATT_TYPE;
+    }
+
+    if (GLFS_STAT_MODE_VALID(statx->glfs_st_mask)) {
+        iatt->ia_prot = ia_prot_from_st_mode(statx->glfs_st_mode);
+        iatt->ia_flags |= IATT_MODE;
+    }
+
+    if (GLFS_STAT_NLINK_VALID(statx->glfs_st_mask)) {
+        iatt->ia_nlink = statx->glfs_st_nlink;
+        iatt->ia_flags |= IATT_NLINK;
+    }
+
+    if (GLFS_STAT_UID_VALID(statx->glfs_st_mask)) {
+        iatt->ia_uid = statx->glfs_st_uid;
+        iatt->ia_flags |= IATT_UID;
+    }
+
+    if (GLFS_STAT_GID_VALID(statx->glfs_st_mask)) {
+        iatt->ia_gid = statx->glfs_st_gid;
+        iatt->ia_flags |= IATT_GID;
+    }
+
+    if (GLFS_STAT_ATIME_VALID(statx->glfs_st_mask)) {
+        iatt->ia_atime = statx->glfs_st_atime.tv_sec;
+        iatt->ia_atime_nsec = statx->glfs_st_atime.tv_nsec;
+        iatt->ia_flags |= IATT_ATIME;
+    }
+
+    if (GLFS_STAT_MTIME_VALID(statx->glfs_st_mask)) {
+        iatt->ia_mtime = statx->glfs_st_mtime.tv_sec;
+        iatt->ia_mtime_nsec = statx->glfs_st_mtime.tv_nsec;
+        iatt->ia_flags |= IATT_MTIME;
+    }
+
+    if (GLFS_STAT_CTIME_VALID(statx->glfs_st_mask)) {
+        iatt->ia_ctime = statx->glfs_st_ctime.tv_sec;
+        iatt->ia_ctime_nsec = statx->glfs_st_ctime.tv_nsec;
+        iatt->ia_flags |= IATT_CTIME;
+    }
+
+    if (GLFS_STAT_BTIME_VALID(statx->glfs_st_mask)) {
+        iatt->ia_btime = statx->glfs_st_btime.tv_sec;
+        iatt->ia_btime_nsec = statx->glfs_st_btime.tv_nsec;
+        iatt->ia_flags |= IATT_BTIME;
+    }
+
+    if (GLFS_STAT_INO_VALID(statx->glfs_st_mask)) {
+        iatt->ia_ino = statx->glfs_st_ino;
+        iatt->ia_flags |= IATT_INO;
+    }
+
+    if (GLFS_STAT_SIZE_VALID(statx->glfs_st_mask)) {
+        iatt->ia_size = statx->glfs_st_size;
+        iatt->ia_flags |= IATT_SIZE;
+    }
+
+    if (GLFS_STAT_BLOCKS_VALID(statx->glfs_st_mask)) {
+        iatt->ia_blocks = statx->glfs_st_blocks;
+        iatt->ia_flags |= IATT_BLOCKS;
+    }
+
+    /* unconditionally present, encode as is */
+    iatt->ia_blksize = statx->glfs_st_blksize;
+    iatt->ia_rdev = makedev(statx->glfs_st_rdev_major,
+                            statx->glfs_st_rdev_minor);
+    iatt->ia_dev = makedev(statx->glfs_st_dev_major, statx->glfs_st_dev_minor);
+    iatt->ia_attributes = statx->glfs_st_attributes;
+    iatt->ia_attributes_mask = statx->glfs_st_attributes_mask;
+}
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_iatt_from_statx, future);
 
 int
 glfs_loc_unlink(loc_t *loc)
@@ -541,7 +623,7 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_stat, 3.4.0);
 
 int
-priv_glfs_statx(struct glfs *fs, const char *path, unsigned int mask,
+priv_glfs_statx(struct glfs *fs, const char *path, const unsigned int mask,
                 struct glfs_stat *statxbuf)
 {
     int ret = -1;
@@ -905,7 +987,7 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lseek, 3.4.0);
 
 static ssize_t
 glfs_preadv_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                   off_t offset, int flags, struct stat *poststat)
+                   off_t offset, int flags, struct glfs_stat *poststat)
 {
     xlator_t *subvol = NULL;
     ssize_t ret = -1;
@@ -949,7 +1031,7 @@ glfs_preadv_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     DECODE_SYNCOP_ERR(ret);
 
     if (ret >= 0 && poststat)
-        glfs_iatt_to_stat(glfd->fs, &iatt, poststat);
+        glfs_iatt_to_statx(glfd->fs, &iatt, poststat);
 
     if (ret <= 0)
         goto out;
@@ -1028,7 +1110,7 @@ GFAPI_SYMVER_PUBLIC(glfs_pread34, glfs_pread, 3.4.0);
 
 ssize_t
 pub_glfs_pread(struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
-               int flags, struct stat *poststat)
+               int flags, struct glfs_stat *poststat)
 {
     struct iovec iov = {
         0,
@@ -1083,8 +1165,8 @@ glfs_io_async_cbk(int op_ret, int op_errno, call_frame_t *frame, void *cookie,
     struct glfs *fs = NULL;
     struct glfs_fd *glfd = NULL;
     int ret = -1;
-    struct stat prestat = {}, *prestatp = NULL;
-    struct stat poststat = {}, *poststatp = NULL;
+    struct glfs_stat prestat = {}, *prestatp = NULL;
+    struct glfs_stat poststat = {}, *poststatp = NULL;
 
     GF_VALIDATE_OR_GOTO("gfapi", frame, inval);
     GF_VALIDATE_OR_GOTO("gfapi", cookie, inval);
@@ -1120,12 +1202,12 @@ out:
     } else {
         if (prebuf) {
             prestatp = &prestat;
-            glfs_iatt_to_stat(fs, prebuf, prestatp);
+            glfs_iatt_to_statx(fs, prebuf, prestatp);
         }
 
         if (postbuf) {
             poststatp = &poststat;
-            glfs_iatt_to_stat(fs, postbuf, poststatp);
+            glfs_iatt_to_statx(fs, postbuf, poststatp);
         }
 
         gio->fn(gio->glfd, op_ret, prestatp, poststatp, gio->data);
@@ -1389,8 +1471,8 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readv_async, future);
 
 static ssize_t
 glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                    off_t offset, int flags, struct stat *prestat,
-                    struct stat *poststat)
+                    off_t offset, int flags, struct glfs_stat *prestat,
+                    struct glfs_stat *poststat)
 {
     xlator_t *subvol = NULL;
     int ret = -1;
@@ -1443,9 +1525,9 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 
     if (ret >= 0) {
         if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
+            glfs_iatt_to_statx(glfd->fs, &preiatt, prestat);
         if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
+            glfs_iatt_to_statx(glfd->fs, &postiatt, poststat);
     }
 
     if (ret <= 0)
@@ -1475,8 +1557,8 @@ invalid_fs:
 ssize_t
 pub_glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
                          struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
-                         unsigned int flags, struct stat *statbuf,
-                         struct stat *prestat, struct stat *poststat)
+                         unsigned int flags, struct glfs_stat *statbuf,
+                         struct glfs_stat *prestat, struct glfs_stat *poststat)
 {
     xlator_t *subvol = NULL;
     int ret = -1;
@@ -1572,11 +1654,11 @@ pub_glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
             *off_out = pos_out;
 
         if (statbuf)
-            glfs_iatt_to_stat(glfd_in->fs, &iattbuf, statbuf);
+            glfs_iatt_to_statx(glfd_in->fs, &iattbuf, statbuf);
         if (prestat)
-            glfs_iatt_to_stat(glfd_in->fs, &preiatt, prestat);
+            glfs_iatt_to_statx(glfd_in->fs, &preiatt, prestat);
         if (poststat)
-            glfs_iatt_to_stat(glfd_in->fs, &postiatt, poststat);
+            glfs_iatt_to_statx(glfd_in->fs, &postiatt, poststat);
     }
 
     if (ret <= 0)
@@ -1688,8 +1770,8 @@ GFAPI_SYMVER_PUBLIC(glfs_pwrite34, glfs_pwrite, 3.4.0);
 
 ssize_t
 pub_glfs_pwrite(struct glfs_fd *glfd, const void *buf, size_t count,
-                off_t offset, int flags, struct stat *prestat,
-                struct stat *poststat)
+                off_t offset, int flags, struct glfs_stat *prestat,
+                struct glfs_stat *poststat)
 {
     struct iovec iov = {
         0,
@@ -1953,8 +2035,8 @@ pub_glfs_writev_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev_async, future);
 
 static int
-glfs_fsync_common(struct glfs_fd *glfd, struct stat *prestat,
-                  struct stat *poststat)
+glfs_fsync_common(struct glfs_fd *glfd, struct glfs_stat *prestat,
+                  struct glfs_stat *poststat)
 {
     int ret = -1;
     xlator_t *subvol = NULL;
@@ -1996,9 +2078,9 @@ glfs_fsync_common(struct glfs_fd *glfd, struct stat *prestat,
 
     if (ret >= 0) {
         if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
+            glfs_iatt_to_statx(glfd->fs, &preiatt, prestat);
         if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
+            glfs_iatt_to_statx(glfd->fs, &postiatt, poststat);
     }
 out:
     if (fd)
@@ -2025,8 +2107,8 @@ pub_glfs_fsync34(struct glfs_fd *glfd)
 GFAPI_SYMVER_PUBLIC(glfs_fsync34, glfs_fsync, 3.4.0);
 
 int
-pub_glfs_fsync(struct glfs_fd *glfd, struct stat *prestat,
-               struct stat *poststat)
+pub_glfs_fsync(struct glfs_fd *glfd, struct glfs_stat *prestat,
+               struct glfs_stat *poststat)
 {
     return glfs_fsync_common(glfd, prestat, poststat);
 }
@@ -2150,8 +2232,8 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync_async, future);
 
 static int
-glfs_fdatasync_common(struct glfs_fd *glfd, struct stat *prestat,
-                      struct stat *poststat)
+glfs_fdatasync_common(struct glfs_fd *glfd, struct glfs_stat *prestat,
+                      struct glfs_stat *poststat)
 {
     int ret = -1;
     xlator_t *subvol = NULL;
@@ -2193,9 +2275,9 @@ glfs_fdatasync_common(struct glfs_fd *glfd, struct stat *prestat,
 
     if (ret >= 0) {
         if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
+            glfs_iatt_to_statx(glfd->fs, &preiatt, prestat);
         if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
+            glfs_iatt_to_statx(glfd->fs, &postiatt, poststat);
     }
 out:
     if (fd)
@@ -2222,8 +2304,8 @@ pub_glfs_fdatasync34(struct glfs_fd *glfd)
 GFAPI_SYMVER_PUBLIC(glfs_fdatasync34, glfs_fdatasync, 3.4.0);
 
 int
-pub_glfs_fdatasync(struct glfs_fd *glfd, struct stat *prestat,
-                   struct stat *poststat)
+pub_glfs_fdatasync(struct glfs_fd *glfd, struct glfs_stat *prestat,
+                   struct glfs_stat *poststat)
 {
     return glfs_fdatasync_common(glfd, prestat, poststat);
 }
@@ -2267,8 +2349,8 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync_async, future);
 
 static int
-glfs_ftruncate_common(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
-                      struct stat *poststat)
+glfs_ftruncate_common(struct glfs_fd *glfd, off_t offset,
+                      struct glfs_stat *prestat, struct glfs_stat *poststat)
 {
     int ret = -1;
     xlator_t *subvol = NULL;
@@ -2311,9 +2393,9 @@ glfs_ftruncate_common(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
 
     if (ret >= 0) {
         if (prestat)
-            glfs_iatt_to_stat(glfd->fs, &preiatt, prestat);
+            glfs_iatt_to_statx(glfd->fs, &preiatt, prestat);
         if (poststat)
-            glfs_iatt_to_stat(glfd->fs, &postiatt, poststat);
+            glfs_iatt_to_statx(glfd->fs, &postiatt, poststat);
     }
 out:
     if (fd)
@@ -2340,8 +2422,8 @@ pub_glfs_ftruncate34(struct glfs_fd *glfd, off_t offset)
 GFAPI_SYMVER_PUBLIC(glfs_ftruncate34, glfs_ftruncate, 3.4.0);
 
 int
-pub_glfs_ftruncate(struct glfs_fd *glfd, off_t offset, struct stat *prestat,
-                   struct stat *poststat)
+pub_glfs_ftruncate(struct glfs_fd *glfd, off_t offset,
+                   struct glfs_stat *prestat, struct glfs_stat *poststat)
 {
     return glfs_ftruncate_common(glfd, offset, prestat, poststat);
 }

@@ -18,6 +18,8 @@
 #include <glusterfs/syscall.h>
 #include <pthread.h>
 
+#include "glfs-internal.h"
+
 int
 gf_setcredentials(uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
 {
@@ -2256,7 +2258,7 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     };
     svs_fd_t *sfd = NULL;
     int ret = -1;
-    struct stat fstatbuf = {
+    struct glfs_stat fstatbuf = {
         0,
     };
     glfs_fd_t *glfd = NULL;
@@ -2333,7 +2335,7 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     iobref = iobref_new();
 
     iobref_add(iobref, iobuf);
-    iatt_from_stat(&stbuf, &fstatbuf);
+    glfs_iatt_from_statx(&stbuf, &fstatbuf);
     gf_uuid_copy(stbuf.ia_gfid, fd->inode->gfid);
     svs_fill_ino_from_gfid(&stbuf);
 
