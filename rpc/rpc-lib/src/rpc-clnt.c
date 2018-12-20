@@ -1684,7 +1684,8 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
                 goto unlock;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
             if (ret < 0) {
-                gf_log(conn->name, GF_LOG_WARNING,
+                gf_log(conn->name,
+                       (errno == EINPROGRESS) ? GF_LOG_DEBUG : GF_LOG_WARNING,
                        "error returned while attempting to "
                        "connect to host:%s, port:%d",
                        conn->config.remote_host, conn->config.remote_port);
