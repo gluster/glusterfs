@@ -1292,7 +1292,6 @@ gd_mgmt_v3_brick_op_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
 
         ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len, &rsp_dict);
         if (ret < 0) {
-            free(rsp.dict.dict_val);
             goto out;
         } else {
             rsp_dict->extra_stdfree = rsp.dict.dict_val;
