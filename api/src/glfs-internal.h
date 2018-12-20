@@ -695,4 +695,8 @@ int
 glfs_statx(struct glfs *fs, const char *path, unsigned int mask,
            struct glfs_stat *statxbuf) GFAPI_PRIVATE(glfs_statx, future);
 
+void
+glfs_iatt_from_statx(struct iatt *, const struct glfs_stat *)
+    GFAPI_PRIVATE(glfs_iatt_from_statx, future);
+
 #endif /* !_GLFS_INTERNAL_H */

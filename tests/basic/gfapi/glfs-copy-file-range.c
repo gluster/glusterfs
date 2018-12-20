@@ -48,10 +48,13 @@ main(int argc, char **argv)
     struct stat stbuf = {
         0,
     };
-    struct stat prestat_dst = {
+    struct glfs_stat stat_src = {
         0,
     };
-    struct stat poststat_dst = {
+    struct glfs_stat prestat_dst = {
+        0,
+    };
+    struct glfs_stat poststat_dst = {
         0,
     };
     size_t len;
@@ -153,7 +156,7 @@ main(int argc, char **argv)
 
     do {
         ret = glfs_copy_file_range(glfd_in, NULL, glfd_out, NULL, len, 0,
-                                   &stbuf, &prestat_dst, &poststat_dst);
+                                   &stat_src, &prestat_dst, &poststat_dst);
         if (ret == -1) {
             fprintf(stderr, "copy_file_range failed with %s\n",
                     strerror(errno));

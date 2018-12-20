@@ -435,6 +435,21 @@ typedef struct glfs_fd glfs_fd_t;
 #define GLFS_STAT_RESERVED                                                     \
     0x8000000000000000U /* Reserved to denote future expansion */
 
+/* Macros for checking validity of struct glfs_stat members.*/
+#define GLFS_STAT_TYPE_VALID(stmask) (stmask & GLFS_STAT_TYPE)
+#define GLFS_STAT_MODE_VALID(stmask) (stmask & GLFS_STAT_MODE)
+#define GLFS_STAT_NLINK_VALID(stmask) (stmask & GLFS_STAT_NLINK)
+#define GLFS_STAT_UID_VALID(stmask) (stmask & GLFS_STAT_UID)
+#define GLFS_STAT_GID_VALID(stmask) (stmask & GLFS_STAT_GID)
+#define GLFS_STAT_ATIME_VALID(stmask) (stmask & GLFS_STAT_ATIME)
+#define GLFS_STAT_MTIME_VALID(stmask) (stmask & GLFS_STAT_MTIME)
+#define GLFS_STAT_CTIME_VALID(stmask) (stmask & GLFS_STAT_CTIME)
+#define GLFS_STAT_INO_VALID(stmask) (stmask & GLFS_STAT_INO)
+#define GLFS_STAT_SIZE_VALID(stmask) (stmask & GLFS_STAT_SIZE)
+#define GLFS_STAT_BLOCKS_VALID(stmask) (stmask & GLFS_STAT_BLOCKS)
+#define GLFS_STAT_BTIME_VALID(stmask) (stmask & GLFS_STAT_BTIME)
+#define GLFS_STAT_GFID_VALID(stmask) (stmask & GLFS_STAT_GFID)
+
 /*
  * Attributes to be found in glfs_st_attributes and masked in
  * glfs_st_attributes_mask.
@@ -632,10 +647,14 @@ glfs_set_xlator_option(glfs_t *fs, const char *xlator, const char *key,
   time of issuing the async IO call. This can be used by the
   caller to differentiate different instances of the async requests
   in a common callback function.
+
+  @prestat and @poststat are allocated on the stack, that are auto destroyed
+  post the callback function returns.
 */
 
-typedef void (*glfs_io_cbk)(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                            struct stat *poststat, void *data);
+typedef void (*glfs_io_cbk)(glfs_fd_t *fd, ssize_t ret,
+                            struct glfs_stat *prestat,
+                            struct glfs_stat *poststat, void *data);
 
 // glfs_{read,write}[_async]
 
@@ -681,11 +700,12 @@ glfs_writev_async(glfs_fd_t *fd, const struct iovec *iov, int count, int flags,
 
 ssize_t
 glfs_pread(glfs_fd_t *fd, void *buf, size_t count, off_t offset, int flags,
-           struct stat *poststat) __THROW GFAPI_PUBLIC(glfs_pread, future);
+           struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_pread, future);
 
 ssize_t
 glfs_pwrite(glfs_fd_t *fd, const void *buf, size_t count, off_t offset,
-            int flags, struct stat *prestat, struct stat *poststat) __THROW
+            int flags, struct glfs_stat *prestat,
+            struct glfs_stat *poststat) __THROW
     GFAPI_PUBLIC(glfs_pwrite, future);
 
 int
@@ -725,8 +745,9 @@ glfs_lseek(glfs_fd_t *fd, off_t offset, int whence) __THROW
 ssize_t
 glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
                      struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
-                     unsigned int flags, struct stat *statbuf,
-                     struct stat *prestat, struct stat *poststat) __THROW
+                     unsigned int flags, struct glfs_stat *statbuf,
+                     struct glfs_stat *prestat,
+                     struct glfs_stat *poststat) __THROW
     GFAPI_PUBLIC(glfs_copy_file_range, future);
 
 int
@@ -734,8 +755,8 @@ glfs_truncate(glfs_t *fs, const char *path, off_t length) __THROW
     GFAPI_PUBLIC(glfs_truncate, 3.7.15);
 
 int
-glfs_ftruncate(glfs_fd_t *fd, off_t length, struct stat *prestat,
-               struct stat *poststat) __THROW
+glfs_ftruncate(glfs_fd_t *fd, off_t length, struct glfs_stat *prestat,
+               struct glfs_stat *poststat) __THROW
     GFAPI_PUBLIC(glfs_ftruncate, future);
 
 int
@@ -756,16 +777,16 @@ glfs_fstat(glfs_fd_t *fd, struct stat *buf) __THROW
     GFAPI_PUBLIC(glfs_fstat, 3.4.0);
 
 int
-glfs_fsync(glfs_fd_t *fd, struct stat *prestat, struct stat *poststat) __THROW
-    GFAPI_PUBLIC(glfs_fsync, future);
+glfs_fsync(glfs_fd_t *fd, struct glfs_stat *prestat,
+           struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_fsync, future);
 
 int
 glfs_fsync_async(glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
     GFAPI_PUBLIC(glfs_fsync_async, future);
 
 int
-glfs_fdatasync(glfs_fd_t *fd, struct stat *prestat,
-               struct stat *poststat) __THROW
+glfs_fdatasync(glfs_fd_t *fd, struct glfs_stat *prestat,
+               struct glfs_stat *poststat) __THROW
     GFAPI_PUBLIC(glfs_fdatasync, future);
 
 int

@@ -238,6 +238,7 @@ GFAPI_4.1.6 {
 GFAPI_PRIVATE_future {
 	global:
 		glfs_statx;
+		glfs_iatt_from_statx;
 } GFAPI_4.1.6;
 
 GFAPI_future {
