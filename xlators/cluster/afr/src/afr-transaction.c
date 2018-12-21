@@ -28,6 +28,12 @@ typedef enum {
 static void
 afr_lock_resume_shared(struct list_head *list);
 
+static void
+afr_post_op_handle_success(call_frame_t *frame, xlator_t *this);
+
+static void
+afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this);
+
 void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
 
@@ -660,6 +666,7 @@ afr_set_pending_dict(afr_private_t *priv, dict_t *xattr, int **pending)
 
     return ret;
 }
+
 static void
 afr_ta_dom_lock_check_and_release(afr_local_t *local, xlator_t *this)
 {
@@ -739,9 +746,9 @@ afr_ta_process_onwireq(afr_local_t *local, xlator_t *this)
             --priv->ta_on_wire_txn_count;
             UNLOCK(&priv->lock);
             if (entry->ta_failed_subvol == bad_child) {
-                afr_changelog_post_op_do(entry->transaction.frame, this);
+                afr_post_op_handle_success(entry->transaction.frame, this);
             } else {
-                afr_changelog_post_op_fail(entry->transaction.frame, this, EIO);
+                afr_post_op_handle_failure(entry->transaction.frame, this);
             }
         }
     }
@@ -1178,6 +1185,34 @@ afr_ta_post_op_done(int ret, call_frame_t *frame, void *opaque)
     return 0;
 }
 
+int **
+afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
+                        dict_t *xattr, afr_local_t *local)
+{
+    int **changelog = NULL;
+    int idx = 0;
+    int i;
+
+    if (local->is_new_entry == _gf_true) {
+        changelog = afr_mark_pending_changelog(priv, pending, xattr,
+                                               local->cont.dir_fop.buf.ia_type);
+    } else {
+        idx = afr_index_for_transaction_type(local->transaction.type);
+        changelog = afr_matrix_create(priv->child_count, AFR_NUM_CHANGE_LOGS);
+        if (!changelog) {
+            goto out;
+        }
+        for (i = 0; i < priv->child_count; i++) {
+            if (local->transaction.failed_subvols[i])
+                changelog[i][idx] = hton32(1);
+        }
+        afr_set_pending_dict(priv, xattr, changelog);
+    }
+
+out:
+    return changelog;
+}
+
 static int
 afr_ta_post_op_do(void *opaque)
 {
@@ -1186,13 +1221,13 @@ afr_ta_post_op_do(void *opaque)
     xlator_t *this = NULL;
     call_frame_t *txn_frame = NULL;
     dict_t *xattr = NULL;
-    int **pending = NULL;
+    unsigned char *pending = NULL;
+    int **changelog = NULL;
     int failed_subvol = -1;
     int success_subvol = -1;
     loc_t loc = {
         0,
     };
-    int idx = 0;
     int i = 0;
     int ret = 0;
 
@@ -1200,7 +1235,6 @@ afr_ta_post_op_do(void *opaque)
     txn_frame = local->transaction.frame;
     this = txn_frame->this;
     priv = this->private;
-    idx = afr_index_for_transaction_type(local->transaction.type);
 
     ret = afr_fill_ta_loc(this, &loc);
     if (ret) {
@@ -1215,22 +1249,20 @@ afr_ta_post_op_do(void *opaque)
         goto out;
     }
 
-    pending = afr_matrix_create(priv->child_count, AFR_NUM_CHANGE_LOGS);
-    if (!pending) {
-        ret = -ENOMEM;
-        goto out;
-    }
+    pending = alloca0(priv->child_count);
+
     for (i = 0; i < priv->child_count; i++) {
         if (local->transaction.failed_subvols[i]) {
-            pending[i][idx] = hton32(1);
+            pending[i] = 1;
             failed_subvol = i;
         } else {
             success_subvol = i;
         }
     }
 
-    ret = afr_set_pending_dict(priv, xattr, pending);
-    if (ret < 0)
+    changelog = afr_set_changelog_xattr(priv, pending, xattr, local);
+
+    if (!changelog)
         goto out;
 
     ret = afr_ta_post_op_lock(this, &loc);
@@ -1262,16 +1294,16 @@ out:
     if (xattr)
         dict_unref(xattr);
 
-    if (pending)
-        afr_matrix_cleanup(pending, priv->child_count);
+    if (changelog)
+        afr_matrix_cleanup(changelog, priv->child_count);
 
     loc_wipe(&loc);
 
     if (ret == 0) {
         /*Mark pending xattrs on the up data brick.*/
-        afr_changelog_post_op_do(local->transaction.frame, this);
+        afr_post_op_handle_success(local->transaction.frame, this);
     } else {
-        afr_changelog_post_op_fail(local->transaction.frame, this, -ret);
+        afr_post_op_handle_failure(local->transaction.frame, this);
     }
     return ret;
 }
@@ -1350,6 +1382,28 @@ afr_ta_fill_failed_subvol(afr_private_t *priv, afr_local_t *local)
 }
 
 static void
+afr_post_op_handle_success(call_frame_t *frame, xlator_t *this)
+{
+    afr_local_t *local = NULL;
+
+    local = frame->local;
+    if (local->is_new_entry == _gf_true) {
+        afr_mark_new_entry_changelog(frame, this);
+    }
+    afr_changelog_post_op_do(frame, this);
+
+    return;
+}
+
+static void
+afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this)
+{
+    afr_changelog_post_op_fail(frame, this, EIO);
+
+    return;
+}
+
+static void
 afr_ta_decide_post_op_state(call_frame_t *frame, xlator_t *this)
 {
     afr_private_t *priv = NULL;
@@ -1371,10 +1425,12 @@ afr_ta_decide_post_op_state(call_frame_t *frame, xlator_t *this)
             /*Post releasing the notify lock, we will act on this queue*/
             break;
         case TA_INFO_IN_MEMORY_SUCCESS:
-            afr_changelog_post_op_do(frame, this);
+            afr_post_op_handle_success(frame, this);
             break;
         case TA_INFO_IN_MEMORY_FAILED:
-            afr_changelog_post_op_fail(frame, this, EIO);
+            afr_post_op_handle_failure(frame, this);
+            break;
+        default:
             break;
     }
     return;

@@ -27,18 +27,28 @@ EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replica
 TEST touch $M0/b.txt
 EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.$V0-client-0 $B0/brick1
 EXPECT "000000010000000200000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/brick1/b.txt
-#TODO: New entry mark lead to pending data on the file but no such marking happened on ta
-#EXPECT "000000010000000100000001" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/trusted.afr.patchy-ta-2
+#New entry mark lead to pending data on the file and on ta
+EXPECT "000000010000000100000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/trusted.afr.patchy-ta-2
 TEST ! ls $B0/brick0/b.txt
 TEST ls $B0/brick1/b.txt
 
+#Try to create an entry while good brick is down and bad brick is UP. Should not create
+TEST ta_start_brick_process brick0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
+TEST ta_kill_brick brick1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 1
+TEST ! touch $M0/d.txt
+EXPECT "000000010000000100000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/trusted.afr.patchy-ta-2
+
+TEST ta_start_brick_process brick1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
+TEST ta_kill_brick brick0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 0
+
 TEST ta_kill_brick ta
-# Entry create must fail since only 1 brick is up.
+# Entry create must fail if only one brick is UP, even if that is a good brick.
 TEST ! touch $M0/c.txt
 TEST ! ls $B0/brick0/c.txt
 TEST ! ls $B0/brick1/c.txt
-
-TEST ta_start_brick_process brick0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
 
 cleanup;
