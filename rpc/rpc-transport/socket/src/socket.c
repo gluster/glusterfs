@@ -1304,7 +1304,6 @@ socket_event_poll_err(rpc_transport_t *this, int gen, int idx)
 
     priv = this->private;
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         if ((priv->gen == gen) && (priv->idx == idx) && (priv->sock != -1)) {
@@ -1314,7 +1313,6 @@ socket_event_poll_err(rpc_transport_t *this, int gen, int idx)
         }
     }
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
     if (socket_closed) {
         pthread_mutex_lock(&priv->notify.lock);
@@ -2164,12 +2162,8 @@ __socket_read_reply(rpc_transport_t *this)
          * and priv->lock, since we are doing an upcall here.
          */
         frag->state = SP_STATE_NOTIFYING_XID;
-        pthread_mutex_unlock(&priv->in_lock);
-        {
-            ret = rpc_transport_notify(this, RPC_TRANSPORT_MAP_XID_REQUEST,
-                                       in->request_info);
-        }
-        pthread_mutex_lock(&priv->in_lock);
+        ret = rpc_transport_notify(this, RPC_TRANSPORT_MAP_XID_REQUEST,
+                                   in->request_info);
 
         /* Transition back to externally visible state. */
         frag->state = SP_STATE_READ_MSGTYPE;
@@ -2485,19 +2479,11 @@ static int
 socket_proto_state_machine(rpc_transport_t *this,
                            rpc_transport_pollin_t **pollin)
 {
-    socket_private_t *priv = NULL;
-    int ret = 0;
+    int ret = -1;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
-    GF_VALIDATE_OR_GOTO("socket", this->private, out);
 
-    priv = this->private;
-
-    pthread_mutex_lock(&priv->in_lock);
-    {
-        ret = __socket_proto_state_machine(this, pollin);
-    }
-    pthread_mutex_unlock(&priv->in_lock);
+    ret = __socket_proto_state_machine(this, pollin);
 
 out:
     return ret;
@@ -2557,7 +2543,6 @@ socket_connect_finish(rpc_transport_t *this)
 
     priv = this->private;
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         if (priv->connected != 0)
@@ -2606,7 +2591,6 @@ socket_connect_finish(rpc_transport_t *this)
     }
 unlock:
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
     if (notify_rpc) {
         rpc_transport_notify(this, event, this);
@@ -2882,14 +2866,12 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     priv = this->private;
     ctx = this->ctx;
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         priv->idx = idx;
         priv->gen = gen;
     }
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
     gf_log(this->name, GF_LOG_TRACE, "%s (sock:%d) in:%d, out:%d, err:%d",
            (priv->is_server ? "server" : "client"), priv->sock, poll_in,
@@ -3228,13 +3210,11 @@ socket_disconnect(rpc_transport_t *this, gf_boolean_t wait)
 
     priv = this->private;
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         ret = __socket_disconnect(this);
     }
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
 out:
     return ret;
@@ -3335,7 +3315,6 @@ socket_connect(rpc_transport_t *this, int port)
         goto err;
     }
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         if (priv->sock != -1) {
@@ -3564,7 +3543,6 @@ socket_connect(rpc_transport_t *this, int port)
         sock = priv->sock;
     }
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
 err:
     /* if sock != -1, then cleanup is done from the event handler */
@@ -3616,13 +3594,11 @@ socket_listen(rpc_transport_t *this)
     myinfo = &this->myinfo;
     ctx = this->ctx;
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         sock = priv->sock;
     }
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
     if (sock != -1) {
         gf_log_callingfn(this->name, GF_LOG_DEBUG, "already listening");
@@ -3635,7 +3611,6 @@ socket_listen(rpc_transport_t *this)
         return ret;
     }
 
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         if (priv->sock != -1) {
@@ -3744,7 +3719,6 @@ socket_listen(rpc_transport_t *this)
     }
 unlock:
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
 
 out:
     return ret;
@@ -3909,7 +3883,6 @@ socket_throttle(rpc_transport_t *this, gf_boolean_t onoff)
        will never read() any more data until throttling
        is turned off.
     */
-    pthread_mutex_lock(&priv->in_lock);
     pthread_mutex_lock(&priv->out_lock);
     {
         /* Throttling is useless on a disconnected transport. In fact,
@@ -3922,7 +3895,6 @@ socket_throttle(rpc_transport_t *this, gf_boolean_t onoff)
                                         priv->idx, (int)!onoff, -1);
     }
     pthread_mutex_unlock(&priv->out_lock);
-    pthread_mutex_unlock(&priv->in_lock);
     return 0;
 }
 
@@ -4431,7 +4403,6 @@ socket_init(rpc_transport_t *this)
     memset(priv, 0, sizeof(*priv));
 
     this->private = priv;
-    pthread_mutex_init(&priv->in_lock, NULL);
     pthread_mutex_init(&priv->out_lock, NULL);
     pthread_mutex_init(&priv->cond_lock, NULL);
     pthread_cond_init(&priv->cond, NULL);
@@ -4596,18 +4567,15 @@ fini(rpc_transport_t *this)
     priv = this->private;
     if (priv) {
         if (priv->sock != -1) {
-            pthread_mutex_lock(&priv->in_lock);
             pthread_mutex_lock(&priv->out_lock);
             {
                 __socket_ioq_flush(this);
                 __socket_reset(this);
             }
             pthread_mutex_unlock(&priv->out_lock);
-            pthread_mutex_unlock(&priv->in_lock);
         }
         gf_log(this->name, GF_LOG_TRACE, "transport %p destroyed", this);
 
-        pthread_mutex_destroy(&priv->in_lock);
         pthread_mutex_destroy(&priv->out_lock);
         pthread_mutex_destroy(&priv->cond_lock);
         pthread_cond_destroy(&priv->cond);
