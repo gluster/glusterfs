@@ -5693,6 +5693,7 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         local->ta_child_up = priv->ta_child_up;
         local->ta_failed_subvol = AFR_CHILD_UNKNOWN;
     }
+    local->is_new_entry = _gf_false;
 
     INIT_LIST_HEAD(&local->healer);
     return 0;

@@ -367,6 +367,12 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
     if (pre_op_count == priv->child_count && !failed_count)
         return;
 
+    if (priv->thin_arbiter_count) {
+        /*Mark new entry using ta file*/
+        local->is_new_entry = _gf_true;
+        return;
+    }
+
     afr_mark_new_entry_changelog(frame, this);
 
     return;
