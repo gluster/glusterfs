@@ -3355,7 +3355,7 @@ __dump_posixlks(pl_inode_t *pl_inode)
         gf_proc_dump_build_key(key, "posixlk", "posixlk[%d](%s)", count,
                                lock->blocked ? "BLOCKED" : "ACTIVE");
         pl_dump_lock(tmp, sizeof(tmp), &lock->user_flock, &lock->owner,
-                     lock->client, NULL, &lock->granted_time.tv_sec,
+                     lock->client, lock->client_uid, &lock->granted_time.tv_sec,
                      &lock->blkd_time.tv_sec,
                      (lock->blocked) ? _gf_false : _gf_true);
         gf_proc_dump_write(key, "%s", tmp);
