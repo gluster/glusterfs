@@ -880,6 +880,7 @@ typedef struct _afr_local {
     struct list_head ta_onwireq;
     afr_ta_fop_state_t fop_state;
     int ta_failed_subvol;
+    gf_boolean_t is_new_entry;
 } afr_local_t;
 
 typedef struct afr_spbc_timeout {
@@ -1320,4 +1321,8 @@ afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local);
 
 void
 afr_ta_lock_release_synctask(xlator_t *this);
+
+void
+afr_mark_new_entry_changelog(call_frame_t *frame, xlator_t *this);
+
 #endif /* __AFR_H__ */
