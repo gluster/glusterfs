@@ -244,7 +244,7 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int len = -1;
 
     ops = meta_ops_get(loc->inode, this);
-    if (!ops->link_fill) {
+    if (!ops || !ops->link_fill) {
         META_STACK_UNWIND(readlink, frame, -1, EPERM, 0, 0, 0);
         return 0;
     }
