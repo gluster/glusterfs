@@ -208,7 +208,6 @@ typedef struct {
             struct ioq *ioq_prev;
         };
     };
-    pthread_mutex_t in_lock;
     pthread_mutex_t out_lock;
     pthread_mutex_t cond_lock;
     pthread_cond_t cond;
