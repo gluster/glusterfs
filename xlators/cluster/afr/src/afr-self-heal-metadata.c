@@ -190,6 +190,59 @@ out:
     return ret;
 }
 
+static int
+__afr_selfheal_metadata_mark_pending_xattrs(call_frame_t *frame, xlator_t *this,
+                                            inode_t *inode,
+                                            struct afr_reply *replies,
+                                            unsigned char *sources)
+{
+    int ret = 0;
+    int i = 0;
+    int m_idx = 0;
+    afr_private_t *priv = NULL;
+    int raw[AFR_NUM_CHANGE_LOGS] = {0};
+    dict_t *xattr = NULL;
+
+    priv = this->private;
+    m_idx = afr_index_for_transaction_type(AFR_METADATA_TRANSACTION);
+    raw[m_idx] = 1;
+
+    xattr = dict_new();
+    if (!xattr)
+        return -ENOMEM;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (sources[i])
+            continue;
+        ret = dict_set_static_bin(xattr, priv->pending_key[i], raw,
+                                  sizeof(int) * AFR_NUM_CHANGE_LOGS);
+        if (ret) {
+            ret = -1;
+            goto out;
+        }
+    }
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!sources[i])
+            continue;
+        ret = afr_selfheal_post_op(frame, this, inode, i, xattr, NULL);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_INFO, -ret, AFR_MSG_SELF_HEAL_INFO,
+                   "Failed to set pending metadata xattr on child %d for %s", i,
+                   uuid_utoa(inode->gfid));
+            goto out;
+        }
+    }
+
+    afr_replies_wipe(replies, priv->child_count);
+    ret = afr_selfheal_unlocked_discover(frame, inode, inode->gfid, replies);
+
+out:
+    if (xattr)
+        dict_unref(xattr);
+    return ret;
+}
+
 /*
  * Look for mismatching uid/gid or mode or user xattrs even if
  * AFR xattrs don't say so, and pick one arbitrarily as winner. */
@@ -210,6 +263,7 @@ __afr_selfheal_metadata_finalize_source(call_frame_t *frame, xlator_t *this,
     };
     int source = -1;
     int sources_count = 0;
+    int ret = 0;
 
     priv = this->private;
 
@@ -300,7 +354,13 @@ __afr_selfheal_metadata_finalize_source(call_frame_t *frame, xlator_t *this,
             healed_sinks[i] = 1;
         }
     }
-
+    if ((sources_count == priv->child_count) && (source > -1) &&
+        (AFR_COUNT(healed_sinks, priv->child_count) != 0)) {
+        ret = __afr_selfheal_metadata_mark_pending_xattrs(frame, this, inode,
+                                                          replies, sources);
+        if (ret < 0)
+            return ret;
+    }
 out:
     afr_mark_active_sinks(this, sources, locked_on, healed_sinks);
     return source;
