@@ -676,6 +676,7 @@ __remove_lease(xlator_t *this, inode_t *inode, lease_inode_ctx_t *lease_ctx,
     if (lease_ctx->lease_cnt == 0 && lease_ctx->timer) {
         ret = gf_tw_del_timer(priv->timer_wheel, lease_ctx->timer);
         lease_ctx->recall_in_progress = _gf_false;
+        lease_ctx->timer = NULL;
     }
 out:
     return ret;
