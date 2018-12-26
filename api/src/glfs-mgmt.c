@@ -656,9 +656,9 @@ volfile:
     pthread_mutex_lock(&fs->mutex);
     if ((size == fs->oldvollen) &&
         (memcmp(fs->oldvolfile, rsp.spec, size) == 0)) {
+        pthread_mutex_unlock(&fs->mutex);
         gf_msg(frame->this->name, GF_LOG_INFO, 0, API_MSG_VOLFILE_INFO,
                "No change in volfile, continuing");
-        pthread_mutex_unlock(&fs->mutex);
         goto out;
     }
     pthread_mutex_unlock(&fs->mutex);
