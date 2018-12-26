@@ -604,7 +604,7 @@ nlc_priv_dump(xlator_t *this)
                        GF_ATOMIC_GET(conf->nlc_counter.pe_inode_cnt));
     gf_proc_dump_write("inodes_with_negative_dentry_cache", "%" PRId64,
                        GF_ATOMIC_GET(conf->nlc_counter.ne_inode_cnt));
-    gf_proc_dump_write("dentry_invalidations_recieved", "%" PRId64,
+    gf_proc_dump_write("dentry_invalidations_received", "%" PRId64,
                        GF_ATOMIC_GET(conf->nlc_counter.nlc_invals));
     gf_proc_dump_write("cache_limit", "%" PRIu64, conf->cache_size);
     gf_proc_dump_write("consumed_cache_size", "%" PRId64,
@@ -637,7 +637,7 @@ nlc_dump_metrics(xlator_t *this, int fd)
             this->name, GF_ATOMIC_GET(conf->nlc_counter.pe_inode_cnt));
     dprintf(fd, "%s.inodes_with_negative_dentry_cache %" PRId64 "\n",
             this->name, GF_ATOMIC_GET(conf->nlc_counter.ne_inode_cnt));
-    dprintf(fd, "%s.dentry_invalidations_recieved %" PRId64 "\n", this->name,
+    dprintf(fd, "%s.dentry_invalidations_received %" PRId64 "\n", this->name,
             GF_ATOMIC_GET(conf->nlc_counter.nlc_invals));
     dprintf(fd, "%s.cache_limit %" PRIu64 "\n", this->name, conf->cache_size);
     dprintf(fd, "%s.consumed_cache_size %" PRId64 "\n", this->name,
