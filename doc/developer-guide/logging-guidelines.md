@@ -62,7 +62,7 @@ There are 2 interfaces provided to log messages,
       headers (like the time stamp, dom, errnum etc.). The primary users of
       the above interfaces are, when printing the final graph, or printing
       the configuration when a process is about dump core or abort, or
-      printing the backtrace when a process recieves a critical signal
+      printing the backtrace when a process receives a critical signal
       - These interfaces should not be used outside the scope of the users
       above, unless you know what you are doing
 
