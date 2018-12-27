@@ -1999,6 +1999,8 @@ init(xlator_t *this)
                op_version, GD_OP_VERSION_MAX);
         glusterd_recreate_volfiles(conf);
         ret = glusterd_store_max_op_version(this);
+        if (ret)
+            gf_log(this->name, GF_LOG_ERROR, "Failed to store max op-version");
     }
 
     /* If the peer count is less than 2 then this would be the best time to

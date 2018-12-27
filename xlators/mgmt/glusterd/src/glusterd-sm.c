@@ -868,6 +868,7 @@ glusterd_ac_friend_remove(glusterd_friend_sm_event_t *event, void *ctx)
                "Cleanup returned: %d", ret);
     }
 out:
+    /* coverity[ LOCK] */
     return 0;
 }
 
