@@ -108,7 +108,7 @@ TEST ! stat $B0/${V0}1/.glusterfs/indices/entry-changes/$ROOT_GFID
 TEST $CLI volume reset $V0
 # Ensure that granular entry heal is also disabled
 EXPECT "no" volume_get_field $V0 cluster.granular-entry-heal
-EXPECT "on" volume_get_field $V0 cluster.entry-self-heal
+EXPECT "off" volume_get_field $V0 cluster.entry-self-heal
 
 cleanup
 #G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1399038

@@ -26,6 +26,9 @@ TEST $CLI volume set $V0 quick-read off
 TEST $CLI volume set $V0 read-ahead off
 TEST $CLI volume set $V0 write-behind off
 TEST $CLI volume set $V0 io-cache off
+TEST $CLI volume set $V0 cluster.data-self-heal on
+TEST $CLI volume set $V0 cluster.metadata-self-heal on
+TEST $CLI volume set $V0 cluster.entry-self-heal on
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 

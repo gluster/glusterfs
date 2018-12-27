@@ -11,6 +11,9 @@ function get_split_brain_status {
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+TEST $CLI volume set $V0 cluster.data-self-heal on
+TEST $CLI volume set $V0 cluster.metadata-self-heal on
+TEST $CLI volume set $V0 cluster.entry-self-heal on
 TEST $CLI volume start $V0
 
 #Disable self-heal-daemon

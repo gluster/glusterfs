@@ -18,6 +18,9 @@ TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
 TEST $CLI volume set $V0 self-heal-daemon off
+TEST $CLI volume set $V0 cluster.data-self-heal on
+TEST $CLI volume set $V0 cluster.metadata-self-heal on
+TEST $CLI volume set $V0 cluster.entry-self-heal on
 TEST $CLI volume quota $V0 enable
 
 TEST kill_brick $V0 $H0 $B0/${V0}0

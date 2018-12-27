@@ -23,6 +23,9 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 client-log-level DEBUG
+TEST $CLI volume set $V0 cluster.data-self-heal on
+TEST $CLI volume set $V0 cluster.metadata-self-heal on
+TEST $CLI volume set $V0 cluster.entry-self-heal on
 TEST $CLI volume start $V0
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $M0;
 
