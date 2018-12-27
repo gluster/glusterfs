@@ -3292,12 +3292,11 @@ quota_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    LOCK(&ctx->lock);
-    {
-        if (buf)
-            ctx->buf = *buf;
+    if (buf) {
+        LOCK(&ctx->lock);
+        ctx->buf = *buf;
+        UNLOCK(&ctx->lock);
     }
-    UNLOCK(&ctx->lock);
 
 out:
     QUOTA_STACK_UNWIND(stat, frame, op_ret, op_errno, buf, xdata);
@@ -3371,12 +3370,11 @@ quota_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    LOCK(&ctx->lock);
-    {
-        if (buf)
-            ctx->buf = *buf;
+    if (buf) {
+        LOCK(&ctx->lock);
+        ctx->buf = *buf;
+        UNLOCK(&ctx->lock);
     }
-    UNLOCK(&ctx->lock);
 
 out:
     QUOTA_STACK_UNWIND(fstat, frame, op_ret, op_errno, buf, xdata);
@@ -3666,12 +3664,11 @@ quota_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    LOCK(&ctx->lock);
-    {
-        if (statpost)
-            ctx->buf = *statpost;
+    if (statpost) {
+        LOCK(&ctx->lock);
+        ctx->buf = *statpost;
+        UNLOCK(&ctx->lock);
     }
-    UNLOCK(&ctx->lock);
 
 out:
     QUOTA_STACK_UNWIND(setattr, frame, op_ret, op_errno, statpre, statpost,

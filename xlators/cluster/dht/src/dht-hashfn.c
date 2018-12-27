@@ -74,29 +74,30 @@ dht_hash_compute(xlator_t *this, int type, const char *name, uint32_t *hash_p)
 
     priv = this->private;
 
+    len = strlen(name) + 1;
+    rsync_friendly_name = alloca(len);
+
     LOCK(&priv->lock);
     {
         if (priv->extra_regex_valid) {
-            len = strlen(name) + 1;
-            rsync_friendly_name = alloca(len);
             munged = dht_munge_name(name, rsync_friendly_name, len,
                                     &priv->extra_regex);
         }
 
         if (!munged && priv->rsync_regex_valid) {
-            len = strlen(name) + 1;
-            rsync_friendly_name = alloca(len);
             gf_msg_trace(this->name, 0, "trying regex for %s", name);
             munged = dht_munge_name(name, rsync_friendly_name, len,
                                     &priv->rsync_regex);
             if (munged) {
+                UNLOCK(&priv->lock);
                 gf_msg_debug(this->name, 0, "munged down to %s",
                              rsync_friendly_name);
+                goto post_unlock;
             }
         }
     }
     UNLOCK(&priv->lock);
-
+post_unlock:
     if (!munged) {
         rsync_friendly_name = (char *)name;
     }

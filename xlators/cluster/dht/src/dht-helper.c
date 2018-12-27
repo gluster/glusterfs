@@ -94,12 +94,13 @@ dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
                 goto unlock;
             } else {
                 /* This would be a big problem*/
+                /* Overwrite and hope for the best*/
+                fd_ctx->opened_on_dst = (uint64_t)(uintptr_t)dst;
+                UNLOCK(&fd->lock);
                 gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_INVALID_VALUE,
                        "Different dst found in the fd ctx");
 
-                /* Overwrite and hope for the best*/
-                fd_ctx->opened_on_dst = (uint64_t)(uintptr_t)dst;
-                goto unlock;
+                goto out;
             }
         }
         ret = __dht_fd_ctx_set(this, fd, dst);
@@ -124,13 +125,13 @@ dht_fd_ctx_get(xlator_t *this, fd_t *fd)
     {
         ret = __fd_ctx_get(fd, this, &tmp_val);
         if ((ret < 0) || (tmp_val == 0)) {
-            UNLOCK(&fd->lock);
-            goto out;
+            goto unlock;
         }
 
         fd_ctx = (dht_fd_ctx_t *)(uintptr_t)tmp_val;
         GF_REF_GET(fd_ctx);
     }
+unlock:
     UNLOCK(&fd->lock);
 
 out:
@@ -2134,16 +2135,15 @@ dht_get_lock_subvolume(xlator_t *this, struct gf_flock *lock,
         ret = __dht_lock_subvol_set(inode, this, cached_subvol);
         if (ret) {
             gf_uuid_unparse(inode->gfid, gfid);
+            UNLOCK(&inode->lock);
             gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_SET_INODE_CTX_FAILED,
-                   "Failed to set lock_subvol in "
-                   "inode ctx for gfid %s",
-                   gfid);
-            goto unlock;
+                   "Failed to set lock_subvol in inode ctx for gfid %s", gfid);
+            goto post_unlock;
         }
         subvol = cached_subvol;
     }
-unlock:
     UNLOCK(&inode->lock);
+post_unlock:
     if (!subvol && inode && lock->l_type != F_UNLCK) {
         inode_unref(inode);
     }

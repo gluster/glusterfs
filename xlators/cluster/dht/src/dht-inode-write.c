@@ -1113,9 +1113,10 @@ dht_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                          prev->name);
-            goto unlock;
+            goto post_unlock;
         }
 
         dht_iatt_merge(this, &local->prebuf, statpre);
@@ -1124,9 +1125,8 @@ dht_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         local->op_ret = 0;
         local->op_errno = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         if (local->op_ret == 0)
@@ -1151,24 +1151,22 @@ dht_non_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     prev = cookie;
 
+    if (op_ret == -1) {
+        gf_msg(this->name, op_errno, 0, 0, "subvolume %s returned -1",
+               prev->name);
+        goto post_unlock;
+    }
+
     LOCK(&frame->lock);
     {
-        if (op_ret == -1) {
-            gf_msg(this->name, op_errno, 0, 0, "subvolume %s returned -1",
-                   prev->name);
-
-            goto unlock;
-        }
-
         dht_iatt_merge(this, &local->prebuf, statpre);
         dht_iatt_merge(this, &local->stbuf, statpost);
 
         local->op_ret = 0;
         local->op_errno = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         dht_inode_ctx_time_set(local->loc.inode, this, &local->stbuf);

@@ -720,8 +720,10 @@ br_scrubber_exit_control(xlator_t *this)
         if (scrub_monitor->state == BR_SCRUB_STATE_ACTIVE) {
             (void)br_fsscan_activate(this);
         } else {
+            UNLOCK(&scrub_monitor->lock);
             gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
                    "Volume waiting to get rescheduled..");
+            return;
         }
     }
     UNLOCK(&scrub_monitor->lock);

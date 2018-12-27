@@ -699,47 +699,42 @@ rpcsvc_drc_init(rpcsvc_t *svc, dict_t *options)
     LOCK_INIT(&drc->lock);
     svc->drc = drc;
 
-    LOCK(&drc->lock);
-
     /* Specify type of DRC to be used */
     ret = dict_get_uint32(options, "nfs.drc-type", &drc_type);
     if (ret) {
         gf_log(GF_RPCSVC, GF_LOG_DEBUG,
-               "drc type not set."
-               " Continuing with default");
+               "drc type not set. Continuing with default");
         drc_type = DRC_DEFAULT_TYPE;
     }
-
-    drc->type = drc_type;
 
     /* Set the global cache size (no. of ops to cache) */
     ret = dict_get_uint32(options, "nfs.drc-size", &drc_size);
     if (ret) {
         gf_log(GF_RPCSVC, GF_LOG_DEBUG,
-               "drc size not set."
-               " Continuing with default size");
+               "drc size not set. Continuing with default size");
         drc_size = DRC_DEFAULT_CACHE_SIZE;
     }
 
+    LOCK(&drc->lock);
+
+    drc->type = drc_type;
     drc->global_cache_size = drc_size;
 
     /* Mempool for cached ops */
     drc->mempool = mem_pool_new(drc_cached_op_t, drc->global_cache_size);
     if (!drc->mempool) {
+        UNLOCK(&drc->lock);
         gf_log(GF_RPCSVC, GF_LOG_ERROR,
-               "Failed to get mempool for"
-               " DRC, drc-size: %d",
-               drc->global_cache_size);
+               "Failed to get mempool for DRC, drc-size: %d", drc_size);
         ret = -1;
-        goto out;
+        goto post_unlock;
     }
 
     /* What percent of cache to be evicted whenever it fills up */
     ret = dict_get_uint32(options, "nfs.drc-lru-factor", &drc_factor);
     if (ret) {
         gf_log(GF_RPCSVC, GF_LOG_DEBUG,
-               "drc lru factor not set."
-               " Continuing with policy default");
+               "drc lru factor not set. Continuing with policy default");
         drc_factor = DRC_DEFAULT_LRU_FACTOR;
     }
 
@@ -750,15 +745,16 @@ rpcsvc_drc_init(rpcsvc_t *svc, dict_t *options)
 
     ret = rpcsvc_register_notify(svc, rpcsvc_drc_notify, THIS);
     if (ret) {
+        UNLOCK(&drc->lock);
         gf_log(GF_RPCSVC, GF_LOG_ERROR,
                "registration of drc_notify function failed");
-        goto out;
+        goto post_unlock;
     }
 
-    gf_log(GF_RPCSVC, GF_LOG_DEBUG, "drc init successful");
     drc->status = DRC_INITIATED;
-out:
     UNLOCK(&drc->lock);
+    gf_log(GF_RPCSVC, GF_LOG_DEBUG, "drc init successful");
+post_unlock:
     if (ret == -1) {
         if (drc->mempool) {
             mem_pool_destroy(drc->mempool);

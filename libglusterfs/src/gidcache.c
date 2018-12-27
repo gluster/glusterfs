@@ -64,8 +64,8 @@ gid_cache_lookup(gid_cache_t *cache, uint64_t id, uint64_t uid, uint64_t gid)
     time_t now;
     const gid_list_t *agl;
 
-    LOCK(&cache->gc_lock);
     now = time(NULL);
+    LOCK(&cache->gc_lock);
     bucket = id % cache->gc_nbuckets;
     agl = BUCKET_START(cache->gc_cache, bucket);
     for (i = 0; i < AUX_GID_CACHE_ASSOC; i++, agl++) {
@@ -132,8 +132,8 @@ gid_cache_add(gid_cache_t *cache, gid_list_t *gl)
     if (!cache->gc_max_age)
         return 0;
 
-    LOCK(&cache->gc_lock);
     now = time(NULL);
+    LOCK(&cache->gc_lock);
 
     /*
      * Scan for the first free entry or one that matches this id. The id

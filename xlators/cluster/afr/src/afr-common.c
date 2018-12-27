@@ -263,11 +263,7 @@ __afr_set_in_flight_sb_status(xlator_t *this, afr_local_t *local,
 
     count = gf_bits_count(tmp_map);
 
-    if (count == 1)
-        index = gf_bits_index(tmp_map);
-
     for (i = 0; i < priv->child_count; i++) {
-        mask = 0;
         if (!local->transaction.failed_subvols[i])
             continue;
 
@@ -281,6 +277,7 @@ __afr_set_in_flight_sb_status(xlator_t *this, afr_local_t *local,
     switch (txn_type) {
         case AFR_METADATA_TRANSACTION:
             if ((metadatamap_old != 0) && (metadatamap == 0) && (count == 1)) {
+                index = gf_bits_index(tmp_map);
                 local->transaction.in_flight_sb_errno = local->replies[index]
                                                             .op_errno;
                 local->transaction.in_flight_sb = _gf_true;
@@ -293,6 +290,7 @@ __afr_set_in_flight_sb_status(xlator_t *this, afr_local_t *local,
 
         case AFR_DATA_TRANSACTION:
             if ((datamap_old != 0) && (datamap == 0) && (count == 1)) {
+                index = gf_bits_index(tmp_map);
                 local->transaction.in_flight_sb_errno = local->replies[index]
                                                             .op_errno;
                 local->transaction.in_flight_sb = _gf_true;
@@ -776,6 +774,7 @@ afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
     {
         ret = __afr_inode_ctx_get(this, inode, &ctx);
         if (ret < 0 || !ctx) {
+            UNLOCK(&inode->lock);
             gf_msg(this->name, GF_LOG_WARNING, 0,
                    AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                    "Failed to cancel split-brain choice timer.");
@@ -788,8 +787,8 @@ afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
         }
         ret = 0;
     }
-out:
     UNLOCK(&inode->lock);
+out:
     return ret;
 }
 
@@ -865,10 +864,11 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
     {
         ret = __afr_inode_ctx_get(this, inode, &ctx);
         if (ret) {
+            UNLOCK(&inode->lock);
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                    "Failed to get inode_ctx for %s", loc->name);
-            goto unlock;
+            goto post_unlock;
         }
 
         old_spb_choice = ctx->spb_choice;
@@ -936,6 +936,7 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
     }
 unlock:
     UNLOCK(&inode->lock);
+post_unlock:
     if (!timer_set)
         inode_unref(inode);
     if (timer_cancelled)
@@ -3264,7 +3265,6 @@ afr_lookup_do(call_frame_t *frame, xlator_t *this, int err)
 
     if (err < 0) {
         local->op_errno = err;
-        ret = -1;
         goto out;
     }
 
@@ -3275,7 +3275,6 @@ afr_lookup_do(call_frame_t *frame, xlator_t *this, int err)
                                        &local->loc);
     if (ret) {
         local->op_errno = -ret;
-        ret = -1;
         goto out;
     }
 

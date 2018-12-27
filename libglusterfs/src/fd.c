@@ -766,13 +766,13 @@ fd_anonymous_with_flags(inode_t *inode, int32_t flags)
 {
     fd_t *fd = NULL;
 
+    if (flags & O_DIRECT)
+        flags = GF_ANON_FD_FLAGS | O_DIRECT;
+    else
+        flags = GF_ANON_FD_FLAGS;
+
     LOCK(&inode->lock);
     {
-        if (flags & O_DIRECT)
-            flags = GF_ANON_FD_FLAGS | O_DIRECT;
-        else
-            flags = GF_ANON_FD_FLAGS;
-
         fd = __fd_anonymous(inode, flags);
     }
     UNLOCK(&inode->lock);
