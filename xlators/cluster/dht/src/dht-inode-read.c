@@ -272,19 +272,19 @@ dht_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                          prev->name);
 
-            goto unlock;
+            goto post_unlock;
         }
 
         dht_iatt_merge(this, &local->stbuf, stbuf);
 
         local->op_ret = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         DHT_STACK_UNWIND(stat, frame, local->op_ret, local->op_errno,

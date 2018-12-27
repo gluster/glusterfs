@@ -252,10 +252,11 @@ rbthash_insert_entry(rbthash_table_t *tbl, rbthash_entry_t *entry)
     LOCK(&bucket->bucketlock);
     {
         if (!rb_probe(bucket->bucket, (void *)entry)) {
+            UNLOCK(&bucket->bucketlock);
             gf_msg(GF_RBTHASH, GF_LOG_ERROR, 0, LG_MSG_RBTHASH_INSERT_FAILED,
-                   "Failed to insert"
-                   " entry");
+                   "Failed to insert entry");
             ret = -1;
+            goto err;
         }
     }
     UNLOCK(&bucket->bucketlock);

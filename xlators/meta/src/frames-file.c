@@ -30,9 +30,10 @@ frames_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)
 
     pool = this->ctx->pool;
 
+    strprintf(strfd, "{ \n\t\"Stack\": [\n");
+
     LOCK(&pool->lock);
     {
-        strprintf(strfd, "{ \n\t\"Stack\": [\n");
         list_for_each_entry(stack, &pool->all_frames, all_frames)
         {
             strprintf(strfd, "\t   {\n");

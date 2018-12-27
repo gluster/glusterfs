@@ -3569,18 +3569,16 @@ dht_unlink_linkfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) &&
             !((op_errno == ENOENT) || (op_errno == ENOTCONN))) {
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno,
-                         "Unlink link: subvolume %s"
-                         " returned -1",
-                         prev->name);
-            goto unlock;
+                         "Unlink link: subvolume %s returned -1", prev->name);
+            goto post_unlock;
         }
 
         local->op_ret = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     dht_set_fixed_dir_stat(&local->preparent);
     dht_set_fixed_dir_stat(&local->postparent);
     DHT_STACK_UNWIND(unlink, frame, local->op_ret, local->op_errno,
@@ -3610,9 +3608,10 @@ dht_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             } else {
                 local->op_ret = 0;
             }
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno,
                          "Unlink: subvolume %s returned -1", prev->name);
-            goto unlock;
+            goto post_unlock;
         }
 
         local->op_ret = 0;
@@ -3627,9 +3626,8 @@ dht_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                       &local->postparent, 1);
         }
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     if (!local->op_ret) {
         hashed_subvol = dht_subvol_get_hashed(this, &local->loc);
         if (hashed_subvol && hashed_subvol != local->cached_subvol) {
@@ -3695,16 +3693,16 @@ dht_err_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                          prev->name);
-            goto unlock;
+            goto post_unlock;
         }
 
         local->op_ret = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         if ((local->fop == GF_FOP_SETXATTR) ||
@@ -3816,11 +3814,14 @@ dht_setxattr_non_mds_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret && !local->op_ret) {
             local->op_ret = op_ret;
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                          prev->this->name);
+            goto post_unlock;
         }
     }
     UNLOCK(&frame->lock);
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
 
     if (is_last_call(this_call_cnt)) {
@@ -4249,11 +4250,12 @@ dht_find_local_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         this_call_cnt = --local->call_cnt;
         if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_GET_XATTR_FAILED,
-                   "getxattr err for dir");
             local->op_ret = -1;
             local->op_errno = op_errno;
-            goto unlock;
+            UNLOCK(&frame->lock);
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_GET_XATTR_FAILED,
+                   "getxattr err for dir");
+            goto post_unlock;
         }
 
         ret = dict_get_str(xattr, local->xsel, &uuid_list);
@@ -4279,13 +4281,12 @@ dht_find_local_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
              uuid_str = next_uuid_str) {
             next_uuid_str = strtok_r(NULL, " ", &saveptr);
             if (gf_uuid_parse(uuid_str, node_uuid)) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UUID_PARSE_ERROR,
-                       "Failed to parse uuid"
-                       " for %s",
-                       prev->name);
                 local->op_ret = -1;
                 local->op_errno = EINVAL;
-                goto unlock;
+                UNLOCK(&frame->lock);
+                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UUID_PARSE_ERROR,
+                       "Failed to parse uuid for %s", prev->name);
+                goto post_unlock;
             }
 
             count++;
@@ -4342,7 +4343,7 @@ dht_find_local_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local->op_ret = 0;
 unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     if (!is_last_call(this_call_cnt))
         goto out;
 
@@ -4383,23 +4384,28 @@ dht_vgetxattr_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         this_call_cnt = --local->call_cnt;
         if (op_ret < 0) {
             if (op_errno != ENOTCONN) {
-                gf_msg(this->name, GF_LOG_ERROR, op_errno,
-                       DHT_MSG_GET_XATTR_FAILED, "getxattr err for dir");
                 local->op_ret = -1;
                 local->op_errno = op_errno;
+                UNLOCK(&frame->lock);
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       DHT_MSG_GET_XATTR_FAILED, "getxattr err for dir");
+                goto post_unlock;
             }
 
             goto unlock;
         }
 
         ret = dht_vgetxattr_alloc_and_fill(local, xattr, this, op_errno);
-        if (ret)
+        if (ret) {
+            UNLOCK(&frame->lock);
             gf_msg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_DICT_SET_FAILED,
                    "alloc or fill failure");
+            goto post_unlock;
+        }
     }
 unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     if (!is_last_call(this_call_cnt))
         goto out;
 
@@ -4511,9 +4517,7 @@ dht_mds_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_ret = op_ret;
         goto out;
     }
-    if (dict_get(xattr, conf->xattr_name)) {
-        dict_del(xattr, conf->xattr_name);
-    }
+    dict_del(xattr, conf->xattr_name);
     local->op_ret = 0;
 
     if (!local->xattr) {
@@ -4551,13 +4555,8 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             goto unlock;
         }
 
-        if (dict_get(xattr, conf->xattr_name)) {
-            dict_del(xattr, conf->xattr_name);
-        }
-
-        if (dict_get(xattr, conf->mds_xattr_key)) {
-            dict_del(xattr, conf->mds_xattr_key);
-        }
+        dict_del(xattr, conf->xattr_name);
+        dict_del(xattr, conf->mds_xattr_key);
 
         /* filter out following two xattrs that need not
          * be visible on the mount point for geo-rep -
@@ -4565,9 +4564,7 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
          * trusted.tier.tier-dht.commithash
          */
 
-        if (dict_get(xattr, conf->commithash_xattr_name)) {
-            dict_del(xattr, conf->commithash_xattr_name);
-        }
+        dict_del(xattr, conf->commithash_xattr_name);
 
         if (frame->root->pid >= 0 && dht_is_tier_xlator(this)) {
             dict_del(xattr, GF_XATTR_TIER_LAYOUT_FIXED_KEY);
@@ -4660,13 +4657,14 @@ dht_getxattr_get_real_filename_cbk(call_frame_t *frame, void *cookie,
 
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
+                UNLOCK(&frame->lock);
                 gf_msg(this->name, GF_LOG_WARNING, op_errno,
                        DHT_MSG_UPGRADE_BRICKS,
                        "At least "
                        "one of the bricks does not support "
                        "this operation. Please upgrade all "
                        "bricks.");
-                goto unlock;
+                goto post_unlock;
             }
 
             if (op_errno == ENOENT) {
@@ -4681,9 +4679,10 @@ dht_getxattr_get_real_filename_cbk(call_frame_t *frame, void *cookie,
              * down subvol and return a good result(if any)
              * from other subvol.
              */
+            UNLOCK(&frame->lock);
             gf_msg(this->name, GF_LOG_WARNING, op_errno,
                    DHT_MSG_GET_XATTR_FAILED, "Failed to get real filename.");
-            goto unlock;
+            goto post_unlock;
         }
 
         /* This subvol has the required file.
@@ -4704,13 +4703,13 @@ dht_getxattr_get_real_filename_cbk(call_frame_t *frame, void *cookie,
 
         local->op_ret = op_ret;
         local->op_errno = 0;
-        gf_msg_debug(this->name, 0,
-                     "Found a matching "
-                     "file.");
+        UNLOCK(&frame->lock);
+        gf_msg_debug(this->name, 0, "Found a matching file.");
+        goto post_unlock;
     }
 unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         DHT_STACK_UNWIND(getxattr, frame, local->op_ret, local->op_errno,
@@ -6061,16 +6060,16 @@ dht_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                          prev->name);
-            goto unlock;
+            goto post_unlock;
         }
 
         local->op_ret = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         DHT_STACK_UNWIND(removexattr, frame, local->op_ret, local->op_errno,
@@ -6257,16 +6256,16 @@ dht_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                          prev->name);
-            goto unlock;
+            goto post_unlock;
         }
 
         local->op_ret = 0;
     }
-unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt))
         DHT_STACK_UNWIND(open, frame, local->op_ret, local->op_errno, local->fd,
@@ -7146,12 +7145,10 @@ dht_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         if (op_ret == -1)
             local->op_errno = op_errno;
-
-        if (op_ret == 0)
+        else if (op_ret == 0)
             local->op_ret = 0;
     }
     UNLOCK(&frame->lock);
-
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt))
         DHT_STACK_UNWIND(fsyncdir, frame, local->op_ret, local->op_errno,

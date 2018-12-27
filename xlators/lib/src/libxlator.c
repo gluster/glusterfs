@@ -198,10 +198,11 @@ cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (dict_get_ptr(dict, marker_xattr, (void **)&net_timebuf)) {
+            local->count[MCNT_NOTFOUND]++;
+            UNLOCK(&frame->lock);
             gf_log(this->name, GF_LOG_WARNING,
                    "Unable to get <uuid>.xtime attr");
-            local->count[MCNT_NOTFOUND]++;
-            goto unlock;
+            goto post_unlock;
         }
 
         if (local->count[MCNT_FOUND]) {
@@ -221,7 +222,7 @@ cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 unlock:
     UNLOCK(&frame->lock);
-
+post_unlock:
     if (callcnt == 0)
         cluster_marker_unwind(frame, marker_xattr, local->net_timebuf, 8, dict);
 

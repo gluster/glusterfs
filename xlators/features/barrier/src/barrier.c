@@ -461,7 +461,7 @@ out:
 int
 notify(xlator_t *this, int event, void *data, ...)
 {
-    barrier_priv_t *priv = NULL;
+    barrier_priv_t *priv = this->private;
     dict_t *dict = NULL;
     int ret = -1;
     int barrier_enabled = _gf_false;
@@ -469,7 +469,6 @@ notify(xlator_t *this, int event, void *data, ...)
         0,
     };
 
-    priv = this->private;
     GF_ASSERT(priv);
     INIT_LIST_HEAD(&queue);
 
@@ -491,19 +490,23 @@ notify(xlator_t *this, int event, void *data, ...)
                     if (barrier_enabled) {
                         ret = __barrier_enable(this, priv);
                     } else {
+                        UNLOCK(&priv->lock);
                         gf_log(this->name, GF_LOG_ERROR, "Already disabled.");
+                        goto post_unlock;
                     }
                 } else {
                     if (!barrier_enabled) {
                         __barrier_disable(this, &queue);
                         ret = 0;
                     } else {
+                        UNLOCK(&priv->lock);
                         gf_log(this->name, GF_LOG_ERROR, "Already enabled");
+                        goto post_unlock;
                     }
                 }
             }
             UNLOCK(&priv->lock);
-
+        post_unlock:
             if (!list_empty(&queue))
                 barrier_dequeue_all(this, &queue);
 

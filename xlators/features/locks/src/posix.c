@@ -504,7 +504,9 @@ pl_check_n_create_fdctx(xlator_t *this, fd_t *fd)
         if (ret != 0) {
             GF_FREE(fdctx);
             fdctx = NULL;
+            UNLOCK(&fd->lock);
             gf_log(this->name, GF_LOG_DEBUG, "failed to set fd ctx");
+            goto out;
         }
     }
 unlock:

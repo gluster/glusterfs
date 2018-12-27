@@ -2008,10 +2008,11 @@ volfile:
             if (!strcmp(volfile_id, volfile_obj->vol_id)) {
                 if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
                             sizeof(volfile_obj->volfile_checksum))) {
+                    UNLOCK(&ctx->volfile_lock);
                     gf_log(frame->this->name, GF_LOG_INFO,
                            "No change in volfile,"
                            "continuing");
-                    goto out;
+                    goto post_unlock;
                 }
                 volfile_tmp = volfile_obj;
                 break;
@@ -2021,10 +2022,11 @@ volfile:
         /* coverity[secure_temp] mkstemp uses 0600 as the mode */
         tmp_fd = mkstemp(template);
         if (-1 == tmp_fd) {
+            UNLOCK(&ctx->volfile_lock);
             gf_msg(frame->this->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
                    "Unable to create temporary file: %s", template);
             ret = -1;
-            goto out;
+            goto post_unlock;
         }
 
         /* Calling unlink so that when the file is closed or program
@@ -2065,11 +2067,11 @@ volfile:
                    "No need to re-load volfile, reconfigure done");
             if (!volfile_tmp) {
                 ret = -1;
+                UNLOCK(&ctx->volfile_lock);
                 gf_log("mgmt", GF_LOG_ERROR,
-                       "Graph "
-                       "reconfigure succeeded with out having "
+                       "Graph reconfigure succeeded with out having "
                        "checksum.");
-                goto out;
+                goto post_unlock;
             }
             memcpy(volfile_tmp->volfile_checksum, sha256_hash,
                    sizeof(volfile_tmp->volfile_checksum));
@@ -2077,8 +2079,9 @@ volfile:
         }
 
         if (ret < 0) {
+            UNLOCK(&ctx->volfile_lock);
             gf_log("glusterfsd-mgmt", GF_LOG_DEBUG, "Reconfigure failed !!");
-            goto out;
+            goto post_unlock;
         }
 
         ret = glusterfs_process_volfp(ctx, tmpfp);
@@ -2118,7 +2121,7 @@ out:
 
     if (locked)
         UNLOCK(&ctx->volfile_lock);
-
+post_unlock:
     GF_FREE(frame->local);
     frame->local = NULL;
     STACK_DESTROY(frame->root);

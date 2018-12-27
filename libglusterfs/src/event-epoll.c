@@ -1018,7 +1018,7 @@ event_handled_epoll(struct event_pool *event_pool, int fd, int idx, int gen)
                          " from gen=%d to slot->gen=%d, fd=%d, "
                          "slot->fd=%d",
                          idx, gen, slot->gen, fd, slot->fd);
-            goto post_unlock;
+            goto unlock;
         }
 
         /* This call also picks up the changes made by another
@@ -1033,7 +1033,7 @@ event_handled_epoll(struct event_pool *event_pool, int fd, int idx, int gen)
             ret = epoll_ctl(event_pool->fd, EPOLL_CTL_MOD, fd, &epoll_event);
         }
     }
-post_unlock:
+unlock:
     UNLOCK(&slot->lock);
 
     event_slot_unref(event_pool, slot, idx);
