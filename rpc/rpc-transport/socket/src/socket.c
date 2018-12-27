@@ -682,8 +682,8 @@ __socket_rwv(rpc_transport_t *this, struct iovec *vector, int count,
             if (ret == 0 || (ret == -1 && errno == EAGAIN)) {
                 /* done for now */
                 break;
-            }
-            this->total_bytes_write += ret;
+            } else if (ret > 0)
+                this->total_bytes_write += ret;
         } else {
             ret = __socket_cached_read(this, opvector, opcount);
             if (ret == 0) {
@@ -697,8 +697,8 @@ __socket_rwv(rpc_transport_t *this, struct iovec *vector, int count,
             if (ret == -1 && errno == EAGAIN) {
                 /* done for now */
                 break;
-            }
-            this->total_bytes_read += ret;
+            } else if (ret > 0)
+                this->total_bytes_read += ret;
         }
 
         if (ret == 0) {
