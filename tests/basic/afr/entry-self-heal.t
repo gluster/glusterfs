@@ -79,6 +79,9 @@ TEST $CLI volume set $V0 performance.open-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 performance.quick-read off
+TEST $CLI volume set $V0 cluster.data-self-heal on
+TEST $CLI volume set $V0 cluster.metadata-self-heal on
+TEST $CLI volume set $V0 cluster.entry-self-heal on
 TEST $CLI volume start $V0
 
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 --use-readdirp=no $M0

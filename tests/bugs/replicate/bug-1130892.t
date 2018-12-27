@@ -16,6 +16,11 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 # Disable self-heal daemon
 TEST gluster volume set $V0 self-heal-daemon off
 
+# Enable Client side heal
+TEST $CLI volume set $V0 cluster.data-self-heal on
+TEST $CLI volume set $V0 cluster.metadata-self-heal on
+TEST $CLI volume set $V0 cluster.entry-self-heal on
+
 # Disable all perf-xlators
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
