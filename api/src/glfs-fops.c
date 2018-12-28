@@ -5945,16 +5945,18 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_stat, 3.11.0);
 void
 gf_lease_to_glfs_lease(struct gf_lease *gf_lease, struct glfs_lease *lease)
 {
+    u_int lease_type = gf_lease->lease_type;
     lease->cmd = gf_lease->cmd;
-    lease->lease_type = gf_lease->lease_type;
+    lease->lease_type = lease_type;
     memcpy(lease->lease_id, gf_lease->lease_id, LEASE_ID_SIZE);
 }
 
 void
 glfs_lease_to_gf_lease(struct glfs_lease *lease, struct gf_lease *gf_lease)
 {
+    u_int lease_type = lease->lease_type;
     gf_lease->cmd = lease->cmd;
-    gf_lease->lease_type = lease->lease_type;
+    gf_lease->lease_type = lease_type;
     memcpy(gf_lease->lease_id, lease->lease_id, LEASE_ID_SIZE);
 }
 
