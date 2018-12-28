@@ -200,10 +200,10 @@ shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
     } while (0)
 
 typedef enum {
-    SHARD_FIRST_LOOKUP_PENDING = 0,
-    SHARD_FIRST_LOOKUP_IN_PROGRESS,
-    SHARD_FIRST_LOOKUP_DONE,
-} shard_first_lookup_state_t;
+    SHARD_BG_DELETION_NONE = 0,
+    SHARD_BG_DELETION_LAUNCHING,
+    SHARD_BG_DELETION_IN_PROGRESS,
+} shard_bg_deletion_state_t;
 
 /* rm = "remove me" */
 
@@ -217,7 +217,8 @@ typedef struct shard_priv {
     int inode_count;
     struct list_head ilist_head;
     uint32_t deletion_rate;
-    shard_first_lookup_state_t first_lookup;
+    shard_bg_deletion_state_t bg_del_state;
+    gf_boolean_t first_lookup_done;
     uint64_t lru_limit;
 } shard_priv_t;
 
