@@ -122,10 +122,6 @@ rpcsvc_get_free_queue_index(rpcsvc_program_t *prog)
     } else {
         queue_index = i * 8;
         queue_index += right_most_unset_bit;
-
-        if (queue_index > EVENT_MAX_THREADS) {
-            queue_index = -1;
-        }
     }
 
     if (queue_index != -1) {
