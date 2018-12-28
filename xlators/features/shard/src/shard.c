@@ -1461,15 +1461,44 @@ int
 shard_start_background_deletion(xlator_t *this)
 {
     int ret = 0;
+    gf_boolean_t i_cleanup = _gf_true;
+    shard_priv_t *priv = NULL;
     call_frame_t *cleanup_frame = NULL;
+
+    priv = this->private;
+
+    LOCK(&priv->lock);
+    {
+        switch (priv->bg_del_state) {
+            case SHARD_BG_DELETION_NONE:
+                i_cleanup = _gf_true;
+                priv->bg_del_state = SHARD_BG_DELETION_LAUNCHING;
+                break;
+            case SHARD_BG_DELETION_LAUNCHING:
+                i_cleanup = _gf_false;
+                break;
+            case SHARD_BG_DELETION_IN_PROGRESS:
+                priv->bg_del_state = SHARD_BG_DELETION_LAUNCHING;
+                i_cleanup = _gf_false;
+                break;
+            default:
+                break;
+        }
+    }
+    UNLOCK(&priv->lock);
+    if (!i_cleanup)
+        return 0;
 
     cleanup_frame = create_frame(this, this->ctx->pool);
     if (!cleanup_frame) {
         gf_msg(this->name, GF_LOG_WARNING, ENOMEM, SHARD_MSG_MEMALLOC_FAILED,
                "Failed to create "
                "new frame to delete shards");
-        return -ENOMEM;
+        ret = -ENOMEM;
+        goto err;
     }
+
+    set_lk_owner_from_ptr(&cleanup_frame->root->lk_owner, cleanup_frame->root);
 
     ret = synctask_new(this->ctx->env, shard_delete_shards,
                        shard_delete_shards_cbk, cleanup_frame, cleanup_frame);
@@ -1479,7 +1508,16 @@ shard_start_background_deletion(xlator_t *this)
                "failed to create task to do background "
                "cleanup of shards");
         STACK_DESTROY(cleanup_frame->root);
+        goto err;
     }
+    return 0;
+
+err:
+    LOCK(&priv->lock);
+    {
+        priv->bg_del_state = SHARD_BG_DELETION_NONE;
+    }
+    UNLOCK(&priv->lock);
     return ret;
 }
 
@@ -1488,7 +1526,7 @@ shard_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
-    int ret = 0;
+    int ret = -1;
     shard_priv_t *priv = NULL;
     gf_boolean_t i_start_cleanup = _gf_false;
 
@@ -1521,23 +1559,25 @@ shard_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     LOCK(&priv->lock);
     {
-        if (priv->first_lookup == SHARD_FIRST_LOOKUP_PENDING) {
-            priv->first_lookup = SHARD_FIRST_LOOKUP_IN_PROGRESS;
+        if (priv->first_lookup_done == _gf_false) {
+            priv->first_lookup_done = _gf_true;
             i_start_cleanup = _gf_true;
         }
     }
     UNLOCK(&priv->lock);
 
-    if (i_start_cleanup) {
-        ret = shard_start_background_deletion(this);
-        if (ret) {
-            LOCK(&priv->lock);
-            {
-                priv->first_lookup = SHARD_FIRST_LOOKUP_PENDING;
-            }
-            UNLOCK(&priv->lock);
+    if (!i_start_cleanup)
+        goto unwind;
+
+    ret = shard_start_background_deletion(this);
+    if (ret < 0) {
+        LOCK(&priv->lock);
+        {
+            priv->first_lookup_done = _gf_false;
         }
+        UNLOCK(&priv->lock);
     }
+
 unwind:
     SHARD_STACK_UNWIND(lookup, frame, op_ret, op_errno, inode, buf, xdata,
                        postparent);
@@ -2924,10 +2964,10 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
         if (ctx->fsync_needed) {
             unref_base_inode++;
             list_del_init(&ctx->to_fsync_list);
-            if (base_inode)
+            if (base_inode) {
                 __shard_inode_ctx_get(base_inode, this, &base_ictx);
-            if (base_ictx)
                 base_ictx->fsync_count--;
+            }
         }
     }
     UNLOCK(&inode->lock);
@@ -3339,9 +3379,13 @@ shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
     loc.inode = inode_ref(priv->dot_shard_rm_inode);
 
     ret = syncop_entrylk(FIRST_CHILD(this), this->name, &loc, entry->d_name,
-                         ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL, NULL);
-    if (ret)
+                         ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL, NULL);
+    if (ret < 0) {
+        if (ret == -EAGAIN) {
+            ret = 0;
+        }
         goto out;
+    }
     {
         ret = __shard_delete_shards_of_entry(cleanup_frame, this, entry, inode);
     }
@@ -3355,20 +3399,6 @@ out:
 int
 shard_delete_shards_cbk(int ret, call_frame_t *frame, void *data)
 {
-    xlator_t *this = NULL;
-    shard_priv_t *priv = NULL;
-
-    this = frame->this;
-    priv = this->private;
-
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, -ret,
-               SHARD_MSG_SHARDS_DELETION_FAILED,
-               "Background deletion of shards failed");
-        priv->first_lookup = SHARD_FIRST_LOOKUP_PENDING;
-    } else {
-        priv->first_lookup = SHARD_FIRST_LOOKUP_DONE;
-    }
     SHARD_STACK_DESTROY(frame);
     return 0;
 }
@@ -3490,6 +3520,7 @@ shard_delete_shards(void *opaque)
     gf_dirent_t entries;
     gf_dirent_t *entry = NULL;
     call_frame_t *cleanup_frame = NULL;
+    gf_boolean_t done = _gf_false;
 
     this = THIS;
     priv = this->private;
@@ -3544,51 +3575,76 @@ shard_delete_shards(void *opaque)
         goto err;
     }
 
-    while ((ret = syncop_readdirp(FIRST_CHILD(this), local->fd, 131072, offset,
-                                  &entries, local->xattr_req, NULL))) {
-        if (ret > 0)
-            ret = 0;
-        list_for_each_entry(entry, &entries.list, list)
+    for (;;) {
+        offset = 0;
+        LOCK(&priv->lock);
         {
-            offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
-                continue;
-
-            if (!entry->inode) {
-                ret = shard_lookup_marker_entry(this, local, entry);
-                if (ret < 0)
-                    continue;
+            if (priv->bg_del_state == SHARD_BG_DELETION_LAUNCHING) {
+                priv->bg_del_state = SHARD_BG_DELETION_IN_PROGRESS;
+            } else if (priv->bg_del_state == SHARD_BG_DELETION_IN_PROGRESS) {
+                priv->bg_del_state = SHARD_BG_DELETION_NONE;
+                done = _gf_true;
             }
-            link_inode = inode_link(entry->inode, local->fd->inode,
-                                    entry->d_name, &entry->d_stat);
-
-            gf_msg_debug(this->name, 0,
-                         "Initiating deletion of "
-                         "shards of gfid %s",
-                         entry->d_name);
-            ret = shard_delete_shards_of_entry(cleanup_frame, this, entry,
-                                               link_inode);
-            inode_unlink(link_inode, local->fd->inode, entry->d_name);
-            inode_unref(link_inode);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, -ret,
-                       SHARD_MSG_SHARDS_DELETION_FAILED,
-                       "Failed to clean up shards of gfid %s", entry->d_name);
-                continue;
-            }
-            gf_msg(this->name, GF_LOG_INFO, 0,
-                   SHARD_MSG_SHARD_DELETION_COMPLETED,
-                   "Deleted "
-                   "shards of gfid=%s from backend",
-                   entry->d_name);
         }
-        gf_dirent_free(&entries);
-        if (ret)
+        UNLOCK(&priv->lock);
+        if (done)
             break;
+        while (
+            (ret = syncop_readdirp(FIRST_CHILD(this), local->fd, 131072, offset,
+                                   &entries, local->xattr_req, NULL))) {
+            if (ret > 0)
+                ret = 0;
+            list_for_each_entry(entry, &entries.list, list)
+            {
+                offset = entry->d_off;
+
+                if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+                    continue;
+
+                if (!entry->inode) {
+                    ret = shard_lookup_marker_entry(this, local, entry);
+                    if (ret < 0)
+                        continue;
+                }
+                link_inode = inode_link(entry->inode, local->fd->inode,
+                                        entry->d_name, &entry->d_stat);
+
+                gf_msg_debug(this->name, 0,
+                             "Initiating deletion of "
+                             "shards of gfid %s",
+                             entry->d_name);
+                ret = shard_delete_shards_of_entry(cleanup_frame, this, entry,
+                                                   link_inode);
+                inode_unlink(link_inode, local->fd->inode, entry->d_name);
+                inode_unref(link_inode);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, -ret,
+                           SHARD_MSG_SHARDS_DELETION_FAILED,
+                           "Failed to clean up shards of gfid %s",
+                           entry->d_name);
+                    continue;
+                }
+                gf_msg(this->name, GF_LOG_INFO, 0,
+                       SHARD_MSG_SHARD_DELETION_COMPLETED,
+                       "Deleted "
+                       "shards of gfid=%s from backend",
+                       entry->d_name);
+            }
+            gf_dirent_free(&entries);
+            if (ret)
+                break;
+        }
     }
     ret = 0;
+    loc_wipe(&loc);
+    return ret;
+
 err:
+    LOCK(&priv->lock);
+    {
+        priv->bg_del_state = SHARD_BG_DELETION_NONE;
+    }
+    UNLOCK(&priv->lock);
     loc_wipe(&loc);
     return ret;
 }
