@@ -1545,9 +1545,11 @@ br_scrubber_log_option(xlator_t *this, br_private_t *priv,
         [BR_SCRUB_THROTTLE_LAZY] = "lazy",
         [BR_SCRUB_THROTTLE_NORMAL] = "normal",
         [BR_SCRUB_THROTTLE_AGGRESSIVE] = "aggressive",
+        [BR_SCRUB_THROTTLE_STALLED] = "stalled",
     };
 
     char *scrub_freq_str[] = {
+        [0] = "",
         [BR_FSSCRUB_FREQ_HOURLY] = "hourly",
         [BR_FSSCRUB_FREQ_DAILY] = "daily",
         [BR_FSSCRUB_FREQ_WEEKLY] = "weekly",
@@ -1560,6 +1562,8 @@ br_scrubber_log_option(xlator_t *this, br_private_t *priv,
         return; /* logged as pause */
 
     if (fsscrub->frequency_reconf || fsscrub->throttle_reconf) {
+        if (fsscrub->throttle == BR_SCRUB_THROTTLE_VOID)
+            return;
         gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_TUNABLE,
                "SCRUB TUNABLES:: [Frequency: %s, Throttle: %s]",
                scrub_freq_str[fsscrub->frequency],

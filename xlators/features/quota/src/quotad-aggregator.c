@@ -132,6 +132,9 @@ quotad_aggregator_getlimit_cbk(xlator_t *this, call_frame_t *frame,
     int ret = -1;
     int type = 0;
 
+    if (!rsp || (rsp->op_ret == -1))
+        goto reply;
+
     GF_PROTOCOL_DICT_UNSERIALIZE(frame->this, xdata, (rsp->xdata.xdata_val),
                                  (rsp->xdata.xdata_len), rsp->op_ret,
                                  rsp->op_errno, out);

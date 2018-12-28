@@ -612,7 +612,7 @@ iot_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
     conf = this->private;
 
-    if (conf && name && strcmp(name, IO_THREADS_QUEUE_SIZE_KEY) == 0) {
+    if (name && strcmp(name, IO_THREADS_QUEUE_SIZE_KEY) == 0) {
         /*
          * We explicitly do not want a reference count
          * for this dict in this translator
