@@ -272,10 +272,9 @@ AC_ARG_ENABLE([debug],
                              [Enable debug build options.]))
 if test "x$enable_debug" = "xyes"; then
         BUILD_DEBUG=yes
-        CFLAGS="${CFLAGS} -g -rdynamic -O0 -DDEBUG"
+        GF_CFLAGS="${GF_CFLAGS} -g -rdynamic -O0 -DDEBUG"
 else
         BUILD_DEBUG=no
-        CFLAGS="${CFLAGS} -g -rdynamic"
 fi
 
 AC_ARG_ENABLE([asan],
@@ -358,7 +357,7 @@ case $host_os in
     fi
     # OSX version lesser than 9 has llvm/clang optimization issues which leads to various segfaults
     if test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -lt 9; then
-       CFLAGS="${CFLAGS} -g -O0 -DDEBUG"
+       GF_CFLAGS="${GF_CFLAGS} -g -O0 -DDEBUG"
     fi
     ;;
 esac
@@ -529,7 +528,7 @@ if test "x$have_uuid" != "xyes"; then
 fi
 
 dnl libglusterfs needs uuid.h, practically everything depends on it
-GF_CPPFLAGS="${GF_CPPFLAGS} ${UUID_CFLAGS}"
+GF_CFLAGS="${GF_CFLAGS} ${UUID_CFLAGS}"
 dnl PKGCONFIG_UUID is used for the dependency in *.pc.in files
 AC_SUBST(PKGCONFIG_UUID)
 
@@ -947,7 +946,7 @@ dnl FreeBSD, NetBSD
 AC_CHECK_MEMBERS([struct stat.st_atimespec.tv_nsec])
 case $host_os in
         *netbsd*)
-        CFLAGS="${CFLAGS} -D_INCOMPLETE_XOPEN_C063 -DCONFIG_MACHINE_BSWAP_H"
+        GF_CFLAGS="${GF_CFLAGS} -D_INCOMPLETE_XOPEN_C063 -DCONFIG_MACHINE_BSWAP_H"
         ;;
 esac
 AC_CHECK_FUNC([linkat], [have_linkat=yes])
@@ -1115,28 +1114,21 @@ CFLAGS="-Wformat -Werror=format-security"
 AC_MSG_CHECKING([whether $CC accepts -Werror=format-security])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_format_security=yes], [cc_werror_format_security=no])
 echo $cc_werror_format_security
-if test "x$cc_werror_format_security" = "xno"; then
-    CFLAGS="$saved_CFLAGS"
-else
-    CFLAGS="$saved_CFLAGS $CFLAGS"
-    GF_CFLAGS="$GF_CFLAGS $CFLAGS"
+if test "x$cc_werror_format_security" = "xyes"; then
+    GF_CFLAGS="$GF_CFLAGS ${CFLAGS}"
 fi
+CFLAGS="$saved_CFLAGS"
 
 dnl check for gcc -Werror=implicit-function-declaration
 saved_CFLAGS=$CFLAGS
-saved_GF_CFLAGS=$GF_CFLAGS
 CFLAGS="-Werror=implicit-function-declaration"
-GF_CFLAGS="-Werror=implicit-function-declaration"
 AC_MSG_CHECKING([whether $CC accepts -Werror=implicit-function-declaration])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_implicit=yes], [cc_werror_implicit=no])
 echo $cc_werror_implicit
-if test "x$cc_werror_implicit" = "xno"; then
-    CFLAGS="$saved_CFLAGS"
-    GF_CFLAGS="$saved_GF_CFLAGS"
-else
-    CFLAGS="$saved_CFLAGS $CFLAGS"
-    GF_CFLAGS="$saved_GF_CFLAGS $GF_CFLAGS"
+if test "x$cc_werror_implicit" = "xyes"; then
+    GF_CFLAGS="${GF_CFLAGS} ${CFLAGS}"
 fi
+CFLAGS="$saved_CFLAGS"
 
 dnl clang is mostly GCC-compatible, but its version is much lower,
 dnl so we have to check for it.
@@ -1200,6 +1192,7 @@ GLUSTERD_VOLFILE="$(eval echo ${sysconfdir})/glusterfs/glusterd.vol"
 prefix=$old_prefix
 
 
+GFAPI_EXTRA_LDFLAGS='-Wl,--version-script=$(top_srcdir)/api/src/gfapi.map'
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
@@ -1262,15 +1255,7 @@ case $host_os in
         BUILD_FUSERMOUNT="no"
         FUSERMOUNT_SUBDIR=""
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
-        ;;
-esac
-
-case $host_os in
-     darwin*)
         GFAPI_EXTRA_LDFLAGS='-Wl,-alias_list,$(top_srcdir)/api/src/gfapi.aliases'
-        ;;
-     *)
-        GFAPI_EXTRA_LDFLAGS='-Wl,--version-script=$(top_srcdir)/api/src/gfapi.map'
         ;;
 esac
 
@@ -1607,7 +1592,6 @@ echo "Enable ASAN          : $BUILD_ASAN"
 echo "Enable TSAN          : $BUILD_TSAN"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
-echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "Track priv ports     : $TRACK_PRIVPORTS"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
