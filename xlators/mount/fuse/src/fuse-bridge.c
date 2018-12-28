@@ -2339,7 +2339,9 @@ fuse_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 state->loc2.parent ? uuid_utoa(state->loc2.parent->gfid) : "",
                 state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : "");
 
-    if (op_ret == 0) {
+    /* need to check for loc->parent to keep clang-scan happy.
+       It gets dereferenced below, and is checked for NULL above. */
+    if ((op_ret == 0) && (state->loc.parent) && (state->loc.inode)) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "%" PRIu64 ": %s -> %s => 0 (buf->ia_ino=%" PRIu64 ")",
                frame->root->unique, state->loc.path, state->loc2.path,
@@ -3261,6 +3263,9 @@ fuse_release(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     GET_STATE(this, finh, state);
     fd = FH_TO_FD(fri->fh);
+    if (!fd)
+        goto out;
+
     state->fd = fd;
 
     priv = this->private;
@@ -3274,10 +3279,11 @@ fuse_release(xlator_t *this, fuse_in_header_t *finh, void *msg,
     fuse_fd_ctx_destroy(this, state->fd);
     fd_unref(fd);
 
-    state->fd = NULL;
-
     gf_fdptr_put(priv->fdtable, fd);
 
+    state->fd = NULL;
+
+out:
     send_fuse_err(this, finh, 0);
 
     free_fuse_state(state);
@@ -3748,6 +3754,8 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     GET_STATE(this, finh, state);
     state->fd = FH_TO_FD(fri->fh);
+    if (!state->fd)
+        goto out;
 
     priv = this->private;
 
@@ -3764,6 +3772,7 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     state->fd = NULL;
 
+out:
     send_fuse_err(this, finh, 0);
 
     free_fuse_state(state);

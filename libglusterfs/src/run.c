@@ -132,7 +132,7 @@ runner_insert_arg(runner_t *runner, char *arg)
 
     GF_ASSERT(arg);
 
-    if (runner->runerr)
+    if (runner->runerr || !runner->argv)
         return;
 
     for (i = 0; i < runner->argvlen; i++) {
@@ -263,8 +263,8 @@ runner_start(runner_t *runner)
     int i = 0;
     sigset_t set;
 
-    if (runner->runerr) {
-        errno = runner->runerr;
+    if (runner->runerr || !runner->argv) {
+        errno = (runner->runerr) ? runner->runerr : EINVAL;
         return -1;
     }
 
