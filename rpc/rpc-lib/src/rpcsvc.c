@@ -2211,9 +2211,9 @@ rpcsvc_request_handler(void *arg)
 
         list_for_each_entry_safe(req, tmp_req, &tmp_list, request_list)
         {
-            list_del_init(&req->request_list);
-
             if (req) {
+                list_del_init(&req->request_list);
+
                 if (req->prognum == RPCSVC_INFRA_PROGRAM) {
                     switch (req->procnum) {
                         case RPCSVC_PROC_EVENT_THREAD_DEATH:
