@@ -2131,6 +2131,9 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
 unlock:
     RCU_READ_UNLOCK;
 out:
+    if (req_dict)
+        dict_unref(req_dict);
+
     if (ret && frame)
         STACK_DESTROY(frame->root);
 
