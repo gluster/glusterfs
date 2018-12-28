@@ -3500,6 +3500,7 @@ shard_delete_shards(void *opaque)
         goto err;
     }
     cleanup_frame->local = local;
+    local->fop = GF_FOP_UNLINK;
 
     local->xattr_req = dict_new();
     if (!local->xattr_req) {
