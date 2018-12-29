@@ -1334,6 +1334,8 @@ socket_event_poll_out(rpc_transport_t *this)
     if (ret == 0)
         rpc_transport_notify(this, RPC_TRANSPORT_MSG_SENT, NULL);
 
+    if (ret > 0)
+        ret = 0;
 out:
     return ret;
 }
