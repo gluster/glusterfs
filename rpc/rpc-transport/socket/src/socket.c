@@ -139,7 +139,7 @@ ssl_setup_connection_params(rpc_transport_t *this);
                                                                                \
             gf_log(this->name, GF_LOG_TRACE,                                   \
                    "partial read on non-blocking socket");                     \
-                                                                               \
+            ret = 0;                                                           \
             break;                                                             \
         }                                                                      \
     }
@@ -1417,6 +1417,7 @@ __socket_read_simple_msg(rpc_transport_t *this)
             if (ret > 0) {
                 gf_log(this->name, GF_LOG_TRACE,
                        "partial read on non-blocking socket.");
+                ret = 0;
                 break;
             }
 
@@ -1704,6 +1705,7 @@ __socket_read_accepted_successful_reply(rpc_transport_t *this)
     XDR xdr;
     struct gf_sock_incoming *in = NULL;
     struct gf_sock_incoming_frag *frag = NULL;
+    uint32_t remaining_size = 0;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
@@ -1807,7 +1809,9 @@ __socket_read_accepted_successful_reply(rpc_transport_t *this)
         case SP_STATE_READ_PROC_HEADER:
             /* now read the entire remaining msg into new iobuf */
             ret = __socket_read_simple_msg(this);
-            if ((ret == -1) || ((ret == 0) && RPC_LASTFRAG(in->fraghdr))) {
+            remaining_size = RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read;
+            if ((ret == -1) || ((ret == 0) && (remaining_size == 0) &&
+                                RPC_LASTFRAG(in->fraghdr))) {
                 frag->call_body.reply.accepted_success_state =
                     SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT;
             }
@@ -1833,6 +1837,7 @@ __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
     XDR xdr;
     struct gf_sock_incoming *in = NULL;
     struct gf_sock_incoming_frag *frag = NULL;
+    uint32_t remaining_size = 0;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
@@ -1937,7 +1942,9 @@ __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
         case SP_STATE_READ_PROC_HEADER:
             /* now read the entire remaining msg into new iobuf */
             ret = __socket_read_simple_msg(this);
-            if ((ret == -1) || ((ret == 0) && RPC_LASTFRAG(in->fraghdr))) {
+            remaining_size = RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read;
+            if ((ret == -1) || ((ret == 0) && (remaining_size == 0) &&
+                                RPC_LASTFRAG(in->fraghdr))) {
                 frag->call_body.reply.accepted_success_state =
                     SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT;
             }
@@ -2340,6 +2347,7 @@ __socket_proto_state_machine(rpc_transport_t *this,
                     gf_log(this->name, GF_LOG_TRACE,
                            "partial "
                            "fragment header read");
+                    ret = 0;
                     goto out;
                 }
 
@@ -2470,10 +2478,6 @@ __socket_proto_state_machine(rpc_transport_t *this,
     }
 
 out:
-    if ((ret == -1) && (errno == EAGAIN)) {
-        ret = 0;
-    }
-
     return ret;
 }
 
