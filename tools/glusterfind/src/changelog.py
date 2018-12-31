@@ -374,6 +374,7 @@ def _get_args():
                         action="store_true")
     parser.add_argument("--output-prefix", help="File prefix in output",
                         default=".")
+    parser.add_argument("--type",default="both")
     parser.add_argument("-N", "--only-namespace-changes",
                         help="List only namespace changes",
                         action="store_true")

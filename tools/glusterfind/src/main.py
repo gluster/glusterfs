@@ -165,6 +165,7 @@ def run_cmd_nodes(task, args, **kwargs):
                 (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"] if args.only_namespace_changes
                  else []) + \
+                (["--type", args.type]) + \
                 (["--field-separator", FS] if args.full else [])
 
             opts["node_outfile"] = node_outfile
@@ -203,6 +204,7 @@ def run_cmd_nodes(task, args, **kwargs):
                 (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"]
                     if args.only_namespace_changes else []) + \
+                (["--type", args.type]) + \
                 (["--field-separator", FS] if args.full else [])
 
             opts["node_outfile"] = node_outfile
@@ -370,6 +372,9 @@ def _get_args():
                             help="Tag prefix for file names emitted during"
                             " a full find operation; default: \"NEW\"",
                             default="NEW")
+    parser_pre.add_argument('--type', help="type: f, f-files only"
+                            " d, d-directories only, by default = both",
+                            default='both', choices=["f", "d", "both"])
     parser_pre.add_argument("--field-separator", help="Field separator string",
                             default=" ")
 
@@ -399,6 +404,9 @@ def _get_args():
                               help="Tag prefix for file names emitted during"
                               " a full find operation; default: \"NEW\"",
                               default="NEW")
+    parser_query.add_argument('--type', help="type: f, f-files only"
+                              " d, d-directories only, by default = both",
+                              default='both', choices=["f", "d", "both"])
     parser_query.add_argument("--field-separator",
                               help="Field separator string",
                               default=" ")
@@ -589,6 +597,8 @@ def mode_query(session_dir, args):
     enable_volume_options(args)
 
     # Test options
+    if not args.full and args.type in ["f", "d"]:
+        fail("--type can only be used with --full")
     if not args.since_time and not args.end_time and not args.full:
         fail("Please specify either {--since-time and optionally --end-time} "
              "or --full", logger=logger)
@@ -655,6 +665,9 @@ def mode_pre(session_dir, args):
     status_file_pre = status_file + ".pre"
 
     mkdirp(os.path.dirname(args.outfile), exit_on_err=True, logger=logger)
+
+    if not args.full and args.type in ["f", "d"]:
+        fail("--type can only be used with --full")
 
     # If Pre status file exists and running pre command again
     if os.path.exists(status_file_pre) and not args.regenerate_outfile:
