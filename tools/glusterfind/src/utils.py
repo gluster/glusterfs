@@ -58,12 +58,13 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
     # Capture filter_func output and pass it to callback function
     filter_result = filter_func(path)
     if filter_result is not None:
-        callback_func(path, filter_result)
+        callback_func(path, filter_result, os.path.isdir(path))
 
     for p in os.listdir(path):
         full_path = os.path.join(path, p)
 
-        if os.path.isdir(full_path):
+        is_dir = os.path.isdir(full_path)
+        if is_dir:
             if subdirs_crawl:
                 find(full_path, callback_func, filter_func, ignore_dirs)
             else:
@@ -73,7 +74,7 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
         else:
             filter_result = filter_func(full_path)
             if filter_result is not None:
-                callback_func(full_path, filter_result)
+                callback_func(full_path, filter_result, is_dir)
 
 
 def output_write(f, path, prefix=".", encode=False, tag="",

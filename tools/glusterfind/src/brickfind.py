@@ -41,12 +41,20 @@ def brickfind_crawl(brick, args):
     with open(args.outfile, "a+") as fout:
         brick_path_len = len(brick)
 
-        def output_callback(path, filter_result):
+        def output_callback(path, filter_result, is_dir):
             path = path.strip()
             path = path[brick_path_len+1:]
-            output_write(fout, path, args.output_prefix,
-                         encode=(not args.no_encode), tag=args.tag,
-                         field_separator=args.field_separator)
+
+            if args.type == "both":
+                output_write(fout, path, args.output_prefix,
+                             encode=(not args.no_encode), tag=args.tag,
+                             field_separator=args.field_separator)
+            else:
+                if (is_dir and args.type == "d") or (
+                    (not is_dir) and args.type == "f"):
+                    output_write(fout, path, args.output_prefix,
+                    encode=(not args.no_encode), tag=args.tag,
+                    field_separator=args.field_separator)
 
         ignore_dirs = [os.path.join(brick, dirname)
                        for dirname in
@@ -77,6 +85,9 @@ def _get_args():
                         action="store_true")
     parser.add_argument("--output-prefix", help="File prefix in output",
                         default=".")
+    parser.add_argument('--type', help="type: f, f-files only"
+                        " d, d-directories only, by default = both",
+                        default='both')
     parser.add_argument("--field-separator", help="Field separator",
                         default=" ")
 
