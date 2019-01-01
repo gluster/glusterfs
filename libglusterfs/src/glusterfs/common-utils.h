@@ -875,7 +875,8 @@ valid_ipv4_address(char *address, int length, gf_boolean_t wildcard_acc);
 char
 valid_ipv6_address(char *address, int length, gf_boolean_t wildcard_acc);
 char
-valid_internet_address(char *address, gf_boolean_t wildcard_acc);
+valid_internet_address(char *address, gf_boolean_t wildcard_acc,
+                       gf_boolean_t cidr);
 gf_boolean_t
 valid_mount_auth_address(char *address);
 gf_boolean_t

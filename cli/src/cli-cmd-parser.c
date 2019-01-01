@@ -144,7 +144,7 @@ cli_cmd_bricks_parse(const char **words, int wordcount, int brick_index,
             GF_FREE(tmp_host);
             goto out;
         }
-        if (!valid_internet_address(host_name, _gf_false)) {
+        if (!valid_internet_address(host_name, _gf_false, _gf_false)) {
             cli_err(
                 "internet address '%s' does not conform to "
                 "standards",
@@ -3615,7 +3615,7 @@ cli_cmd_volume_statedump_options_parse(const char **words, int wordcount,
         }
         ip_addr = strtok(tmp, ":");
         pid = strtok(NULL, ":");
-        if (valid_internet_address(ip_addr, _gf_true) && pid &&
+        if (valid_internet_address(ip_addr, _gf_true, _gf_false) && pid &&
             gf_valid_pid(pid, strlen(pid))) {
             ret = gf_asprintf(&option_str, "%s %s %s", words[3], ip_addr, pid);
             if (ret < 0) {
@@ -3809,7 +3809,7 @@ extract_hostname_path_from_token(const char *tmp_words, char **hostname,
         ret = -1;
         goto out;
     }
-    if (!valid_internet_address(host_name, _gf_false)) {
+    if (!valid_internet_address(host_name, _gf_false, _gf_false)) {
         cli_err(
             "internet address '%s' does not conform to "
             "standards",

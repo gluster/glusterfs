@@ -65,10 +65,18 @@ compare_addr_and_update(char *option_str, char *peer_addr, char *subvol,
                 goto out;
             }
         } else {
-            match = fnmatch(addr_str, peer_addr, 0);
-            if (negate ? match : !match) {
-                *result = status;
-                goto out;
+            if (strstr(addr_str, "/")) {
+                match = gf_is_ip_in_net(addr_str, peer_addr);
+                if (negate ? !match : match) {
+                    *result = status;
+                    goto out;
+                }
+            } else {
+                match = fnmatch(addr_str, peer_addr, 0);
+                if (negate ? match : !match) {
+                    *result = status;
+                    goto out;
+                }
             }
         }
 
