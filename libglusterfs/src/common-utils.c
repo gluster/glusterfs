@@ -2090,7 +2090,7 @@ out:
  * @ip_str : The IP to check
  * @network: The network to check the IP against.
  *
- * @return: success: 0
+ * @return: success: _gf_true
  *          failure: -EINVAL for bad args, retval of inet_pton otherwise
  */
 gf_boolean_t
@@ -2457,6 +2457,31 @@ out:
     return ret;
 }
 
+char
+valid_cidr_address(char *cidr_address, gf_boolean_t wildcard_acc)
+{
+    unsigned int net_mask = 0, len = 0;
+    char *temp = NULL, *cidr_str = NULL, ret = 1;
+
+    cidr_str = strdupa(cidr_address);
+    temp = strstr(cidr_str, "/");
+    if (temp == NULL)
+        return 0; /* Since Invalid cidr ip address we return 0 */
+
+    *temp = '\0';
+    temp++;
+    net_mask = (unsigned int)atoi(temp);
+
+    if (net_mask > 32 || net_mask < 1)
+        return 0; /* Since Invalid cidr ip address we return 0*/
+
+    len = strlen(cidr_str);
+
+    ret = valid_ipv4_address(cidr_str, len, wildcard_acc);
+
+    return ret;
+}
+
 /**
  * valid_ipv4_subnetwork() takes the pattern and checks if it contains
  * a valid ipv4 subnetwork pattern i.e. xx.xx.xx.xx/n. IPv4 address
@@ -2593,7 +2618,8 @@ out:
 }
 
 char
-valid_internet_address(char *address, gf_boolean_t wildcard_acc)
+valid_internet_address(char *address, gf_boolean_t wildcard_acc,
+                       gf_boolean_t cidr)
 {
     char ret = 0;
     int length = 0;
@@ -2607,6 +2633,10 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc)
     length = strlen(address);
     if (length == 0)
         goto out;
+
+    if (cidr && valid_cidr_address(address, wildcard_acc)) {
+        ret = 1;
+    }
 
     if (valid_ipv4_address(address, length, wildcard_acc) ||
         valid_ipv6_address(address, length, wildcard_acc) ||

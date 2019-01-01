@@ -95,7 +95,7 @@ gf_quiesce_populate_failover_hosts(xlator_t *this, quiesce_priv_t *priv,
             __gf_quiesce_cleanup_failover_hosts(this, priv);
         addr_tok = strtok_r(dup_val, ",", &save_ptr);
         while (addr_tok) {
-            if (!valid_internet_address(addr_tok, _gf_true)) {
+            if (!valid_internet_address(addr_tok, _gf_true, _gf_false)) {
                 gf_msg(this->name, GF_LOG_INFO, 0, QUIESCE_MSG_INVAL_HOST,
                        "Specified "
                        "invalid internet address:%s",

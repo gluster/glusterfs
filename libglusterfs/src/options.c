@@ -551,7 +551,7 @@ xlator_option_validate_addr(xlator_t *xl, const char *key, const char *value,
     int ret = -1;
     char errstr[256];
 
-    if (!valid_internet_address((char *)value, _gf_false)) {
+    if (!valid_internet_address((char *)value, _gf_false, _gf_false)) {
         snprintf(errstr, 256, "option %s %s: Can not parse %s address", key,
                  value, value);
         gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
@@ -592,7 +592,7 @@ xlator_option_validate_addr_list(xlator_t *xl, const char *key,
         /* Possible old format, handle it for back-ward compatibility */
         addr_tok = strtok_r(dup_val, ",", &save_ptr);
         while (addr_tok) {
-            if (!valid_internet_address(addr_tok, _gf_true))
+            if (!valid_internet_address(addr_tok, _gf_true, _gf_true))
                 goto out;
 
             addr_tok = strtok_r(NULL, ",", &save_ptr);
@@ -627,7 +627,7 @@ xlator_option_validate_addr_list(xlator_t *xl, const char *key,
         if (addr_tok == NULL)
             goto out;
         while (addr_tok) {
-            if (!valid_internet_address(addr_tok, _gf_true))
+            if (!valid_internet_address(addr_tok, _gf_true, _gf_true))
                 goto out;
 
             addr_tok = strtok_r(NULL, "|", &save_ptr);
