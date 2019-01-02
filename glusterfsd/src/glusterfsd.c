@@ -1593,11 +1593,10 @@ cleanup_and_exit(int signum)
 #endif
 
         trav = NULL;
+        /* NOTE: Only the least significant 8 bits i.e (signum & 255)
+           will be available to parent process on calling exit() */
+        exit(abs(signum));
     }
-    pthread_mutex_unlock(&ctx->cleanup_lock);
-    /* NOTE: Only the least significant 8 bits i.e (signum & 255)
-       will be available to parent process on calling exit() */
-    exit(abs(signum));
 }
 
 static void
