@@ -2563,7 +2563,7 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
          */
         dict_del(svc->options, srchkey);
         if (!dict_get_str(options, srchkey, &keyval)) {
-            ret = dict_set_str(svc->options, srchkey, keyval);
+            ret = dict_set_dynstr_with_alloc(svc->options, srchkey, keyval);
             if (ret < 0) {
                 gf_log(GF_RPCSVC, GF_LOG_ERROR, "dict_set_str error");
                 GF_FREE(srchkey);
@@ -2595,7 +2595,7 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
          */
         dict_del(svc->options, srchkey);
         if (!dict_get_str(options, srchkey, &keyval)) {
-            ret = dict_set_str(svc->options, srchkey, keyval);
+            ret = dict_set_dynstr_with_alloc(svc->options, srchkey, keyval);
             if (ret < 0) {
                 gf_log(GF_RPCSVC, GF_LOG_ERROR, "dict_set_str error");
                 GF_FREE(srchkey);
