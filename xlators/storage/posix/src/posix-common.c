@@ -345,14 +345,21 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     }
 
     GF_OPTION_RECONF("reserve", priv->disk_reserve, options, uint32, out);
-    if (priv->disk_reserve)
-        posix_spawn_disk_space_check_thread(this);
+    if (priv->disk_reserve) {
+        ret = posix_spawn_disk_space_check_thread(this);
+        if (ret)
+            goto out;
+    }
 
     GF_OPTION_RECONF("health-check-interval", priv->health_check_interval,
                      options, uint32, out);
     GF_OPTION_RECONF("health-check-timeout", priv->health_check_timeout,
                      options, uint32, out);
-    posix_spawn_health_check_thread(this);
+    if (priv->health_check_interval) {
+        ret = posix_spawn_health_check_thread(this);
+        if (ret)
+            goto out;
+    }
 
     GF_OPTION_RECONF("shared-brick-count", priv->shared_brick_count, options,
                      int32, out);
@@ -958,23 +965,30 @@ posix_init(xlator_t *this)
     _private->disk_space_check_active = _gf_false;
     _private->disk_space_full = 0;
     GF_OPTION_INIT("reserve", _private->disk_reserve, uint32, out);
-    if (_private->disk_reserve)
-        posix_spawn_disk_space_check_thread(this);
+    if (_private->disk_reserve) {
+        ret = posix_spawn_disk_space_check_thread(this);
+        if (ret)
+            goto out;
+    }
 
     _private->health_check_active = _gf_false;
     GF_OPTION_INIT("health-check-interval", _private->health_check_interval,
                    uint32, out);
     GF_OPTION_INIT("health-check-timeout", _private->health_check_timeout,
                    uint32, out);
-    if (_private->health_check_interval)
-        posix_spawn_health_check_thread(this);
-
+    if (_private->health_check_interval) {
+        ret = posix_spawn_health_check_thread(this);
+        if (ret)
+            goto out;
+    }
     posix_janitor_timer_start(this);
 
     pthread_mutex_init(&_private->fsync_mutex, NULL);
     pthread_cond_init(&_private->fsync_cond, NULL);
     INIT_LIST_HEAD(&_private->fsyncs);
-    posix_spawn_ctx_janitor_thread(this);
+    ret = posix_spawn_ctx_janitor_thread(this);
+    if (ret)
+        goto out;
 
     ret = gf_thread_create(&_private->fsyncer, NULL, posix_fsyncer, this,
                            "posixfsy");

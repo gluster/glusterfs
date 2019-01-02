@@ -1597,7 +1597,7 @@ posix_ctx_janitor_thread_proc(void *data)
     return NULL;
 }
 
-void
+int
 posix_spawn_ctx_janitor_thread(xlator_t *this)
 {
     struct posix_private *priv = NULL;
@@ -1618,7 +1618,7 @@ posix_spawn_ctx_janitor_thread(xlator_t *this)
                                    posix_ctx_janitor_thread_proc, this,
                                    "posixctxjan");
 
-            if (ret < 0) {
+            if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
                        "spawning janitor "
                        "thread failed");
@@ -1628,6 +1628,7 @@ posix_spawn_ctx_janitor_thread(xlator_t *this)
     }
 unlock:
     UNLOCK(&priv->lock);
+    return ret;
 }
 
 static int
@@ -2193,7 +2194,7 @@ abort:
     return NULL;
 }
 
-void
+int
 posix_spawn_health_check_thread(xlator_t *xl)
 {
     struct posix_private *priv = NULL;
@@ -2215,7 +2216,7 @@ posix_spawn_health_check_thread(xlator_t *xl)
 
         ret = gf_thread_create(&priv->health_check, NULL,
                                posix_health_check_thread_proc, xl, "posixhc");
-        if (ret < 0) {
+        if (ret) {
             priv->health_check_interval = 0;
             priv->health_check_active = _gf_false;
             gf_msg(xl->name, GF_LOG_ERROR, errno, P_MSG_HEALTHCHECK_FAILED,
@@ -2227,6 +2228,7 @@ posix_spawn_health_check_thread(xlator_t *xl)
     }
 unlock:
     UNLOCK(&priv->lock);
+    return ret;
 }
 
 void
@@ -2309,7 +2311,7 @@ out:
     return NULL;
 }
 
-void
+int
 posix_spawn_disk_space_check_thread(xlator_t *xl)
 {
     struct posix_private *priv = NULL;
@@ -2328,7 +2330,7 @@ posix_spawn_disk_space_check_thread(xlator_t *xl)
         ret = gf_thread_create(&priv->disk_space_check, NULL,
                                posix_disk_space_check_thread_proc, xl,
                                "posix_reserve");
-        if (ret < 0) {
+        if (ret) {
             priv->disk_space_check_active = _gf_false;
             gf_msg(xl->name, GF_LOG_ERROR, errno, P_MSG_DISK_SPACE_CHECK_FAILED,
                    "unable to setup disk space check thread");
@@ -2339,6 +2341,7 @@ posix_spawn_disk_space_check_thread(xlator_t *xl)
     }
 unlock:
     UNLOCK(&priv->lock);
+    return ret;
 }
 
 int

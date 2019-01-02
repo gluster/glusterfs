@@ -362,10 +362,10 @@ posix_special_xattr(char **pattern, char *key);
 void
 __posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
                        off_t offset, size_t size);
-void
+int
 posix_spawn_health_check_thread(xlator_t *this);
 
-void
+int
 posix_spawn_disk_space_check_thread(xlator_t *this);
 
 void *
@@ -661,7 +661,7 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
 int
 posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
 
-void
+int
 posix_spawn_ctx_janitor_thread(xlator_t *this);
 
 #endif /* _POSIX_H */
