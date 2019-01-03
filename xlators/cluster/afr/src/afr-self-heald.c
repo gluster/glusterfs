@@ -373,6 +373,7 @@ afr_shd_sweep_prepare(struct subvol_healer *healer)
 
     time(&event->start_time);
     event->end_time = 0;
+    _mask_cancellation();
 }
 
 void
@@ -394,6 +395,7 @@ afr_shd_sweep_done(struct subvol_healer *healer)
 
     if (eh_save_history(shd->statistics[healer->subvol], history) < 0)
         GF_FREE(history);
+    _unmask_cancellation();
 }
 
 int

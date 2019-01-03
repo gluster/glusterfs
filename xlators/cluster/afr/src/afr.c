@@ -611,13 +611,70 @@ init(xlator_t *this)
 out:
     return ret;
 }
+void
+afr_destroy_healer_object(xlator_t *this, struct subvol_healer *healer)
+{
+    int ret = -1;
 
+    if (!healer)
+        return;
+
+    if (healer->running) {
+        /*
+         * If there are any resources to cleanup, We need
+         * to do that gracefully using pthread_cleanup_push
+         */
+        ret = gf_thread_cleanup_xint(healer->thread);
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_SELF_HEAL_FAILED,
+                   "Failed to clean up healer threads.");
+        healer->thread = 0;
+    }
+    pthread_cond_destroy(&healer->cond);
+    pthread_mutex_destroy(&healer->mutex);
+}
+
+void
+afr_selfheal_daemon_fini(xlator_t *this)
+{
+    struct subvol_healer *healer = NULL;
+    afr_self_heald_t *shd = NULL;
+    afr_private_t *priv = NULL;
+    int i = 0;
+
+    priv = this->private;
+    if (!priv)
+        return;
+
+    shd = &priv->shd;
+    if (!shd->iamshd)
+        return;
+
+    for (i = 0; i < priv->child_count; i++) {
+        healer = &shd->index_healers[i];
+        afr_destroy_healer_object(this, healer);
+
+        healer = &shd->full_healers[i];
+        afr_destroy_healer_object(this, healer);
+
+        if (shd->statistics[i])
+            eh_destroy(shd->statistics[i]);
+    }
+    GF_FREE(shd->index_healers);
+    GF_FREE(shd->full_healers);
+    GF_FREE(shd->statistics);
+    if (shd->split_brain)
+        eh_destroy(shd->split_brain);
+}
 void
 fini(xlator_t *this)
 {
     afr_private_t *priv = NULL;
 
     priv = this->private;
+
+    afr_selfheal_daemon_fini(this);
+
     LOCK(&priv->lock);
     if (priv->timer != NULL) {
         gf_timer_call_cancel(this->ctx, priv->timer);
