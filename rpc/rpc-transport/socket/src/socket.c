@@ -1356,7 +1356,7 @@ socket_event_poll_out(rpc_transport_t *this)
     pthread_mutex_unlock(&priv->out_lock);
 
     if (ret == 0)
-        ret = rpc_transport_notify(this, RPC_TRANSPORT_MSG_SENT, NULL);
+        rpc_transport_notify(this, RPC_TRANSPORT_MSG_SENT, NULL);
 
     if (ret > 0)
         ret = 0;
@@ -2519,7 +2519,7 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
         event_handled(ctx->event_pool, priv->sock, priv->idx, priv->gen);
 
     if (pollin) {
-        ret = rpc_transport_notify(this, RPC_TRANSPORT_MSG_RECEIVED, pollin);
+        rpc_transport_notify(this, RPC_TRANSPORT_MSG_RECEIVED, pollin);
 
         rpc_transport_pollin_destroy(pollin);
 
