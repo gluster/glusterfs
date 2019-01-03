@@ -350,6 +350,11 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
     gf_boolean_t cond_init = _gf_false;
     gf_boolean_t mut_init = _gf_false;
     gf_dirent_t entries;
+    xlator_t *this = NULL;
+
+    if (frame) {
+        this = frame->this;
+    }
 
     /*For this functionality to be implemented in general, we need
      * synccond_t infra which doesn't block the executing thread. Until then
@@ -397,6 +402,9 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
 
         list_for_each_entry_safe(entry, tmp, &entries.list, list)
         {
+            if (this && this->cleanup_starting)
+                goto out;
+
             list_del_init(&entry->list);
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
                 gf_dirent_entry_free(entry);
