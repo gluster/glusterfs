@@ -7,4 +7,5 @@ performance.md-cache-timeout=600
 network.inode-lru-limit=200000
 performance.nl-cache=on
 performance.nl-cache-timeout=600
+performance.readdir-ahead=on
 performance.parallel-readdir=on
