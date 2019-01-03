@@ -3413,7 +3413,7 @@ gf_dirent_to_dirent(gf_dirent_t *gf_dirent, struct dirent *dirent)
     dirent->d_namlen = strlen(gf_dirent->d_name);
 #endif
 
-    snprintf(dirent->d_name, NAME_MAX, "%s", gf_dirent->d_name);
+    snprintf(dirent->d_name, NAME_MAX + 1, "%s", gf_dirent->d_name);
 }
 
 int
@@ -4904,7 +4904,7 @@ retry:
         goto out;
 
     if (loc.path) {
-        snprintf(retpath, PATH_MAX, "%s", loc.path);
+        snprintf(retpath, PATH_MAX + 1, "%s", loc.path);
     }
 
 out:
