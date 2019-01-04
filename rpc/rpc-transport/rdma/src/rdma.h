@@ -325,6 +325,7 @@ typedef struct __gf_rdma_device gf_rdma_device_t;
 
 struct __gf_rdma_arena_mr {
     struct list_head list;
+    struct iobuf_arena *iobuf_arena;
     struct ibv_mr *mr;
 };
 

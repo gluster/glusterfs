@@ -344,6 +344,207 @@ gf_rdma_post_recv(struct ibv_srq *srq, gf_rdma_post_t *post)
     return ibv_post_srq_recv(srq, &wr, &bad_wr);
 }
 
+static void
+gf_rdma_deregister_iobuf_pool(gf_rdma_device_t *device)
+{
+    gf_rdma_arena_mr *arena_mr = NULL;
+    gf_rdma_arena_mr *tmp = NULL;
+
+    while (device) {
+        pthread_mutex_lock(&device->all_mr_lock);
+        {
+            if (!list_empty(&device->all_mr)) {
+                list_for_each_entry_safe(arena_mr, tmp, &device->all_mr, list)
+                {
+                    if (ibv_dereg_mr(arena_mr->mr)) {
+                        gf_msg("rdma", GF_LOG_WARNING, 0,
+                               RDMA_MSG_DEREGISTER_ARENA_FAILED,
+                               "deallocation of memory region "
+                               "failed");
+                        pthread_mutex_unlock(&device->all_mr_lock);
+                        return;
+                    }
+                    list_del(&arena_mr->list);
+                    GF_FREE(arena_mr);
+                }
+            }
+        }
+        pthread_mutex_unlock(&device->all_mr_lock);
+
+        device = device->next;
+    }
+}
+
+int
+gf_rdma_deregister_arena(struct list_head **mr_list,
+                         struct iobuf_arena *iobuf_arena)
+{
+    gf_rdma_arena_mr *tmp = NULL;
+    gf_rdma_arena_mr *dummy = NULL;
+    gf_rdma_device_t *device = NULL;
+    int count = 0, i = 0;
+
+    count = iobuf_arena->iobuf_pool->rdma_device_count;
+    for (i = 0; i < count; i++) {
+        device = iobuf_arena->iobuf_pool->device[i];
+        pthread_mutex_lock(&device->all_mr_lock);
+        {
+            list_for_each_entry_safe(tmp, dummy, mr_list[i], list)
+            {
+                if (tmp->iobuf_arena == iobuf_arena) {
+                    if (ibv_dereg_mr(tmp->mr)) {
+                        gf_msg("rdma", GF_LOG_WARNING, 0,
+                               RDMA_MSG_DEREGISTER_ARENA_FAILED,
+                               "deallocation of memory region "
+                               "failed");
+                        pthread_mutex_unlock(&device->all_mr_lock);
+                        return -1;
+                    }
+                    list_del(&tmp->list);
+                    GF_FREE(tmp);
+                    break;
+                }
+            }
+        }
+        pthread_mutex_unlock(&device->all_mr_lock);
+    }
+
+    return 0;
+}
+
+int
+gf_rdma_register_arena(void **arg1, void *arg2)
+{
+    struct ibv_mr *mr = NULL;
+    gf_rdma_arena_mr *new = NULL;
+    struct iobuf_pool *iobuf_pool = NULL;
+    gf_rdma_device_t **device = (gf_rdma_device_t **)arg1;
+    struct iobuf_arena *iobuf_arena = arg2;
+    int count = 0, i = 0;
+
+    iobuf_pool = iobuf_arena->iobuf_pool;
+    count = iobuf_pool->rdma_device_count;
+    for (i = 0; i < count; i++) {
+        new = GF_CALLOC(1, sizeof(gf_rdma_arena_mr),
+                        gf_common_mt_rdma_arena_mr);
+        if (new == NULL) {
+            gf_msg("rdma", GF_LOG_INFO, ENOMEM, RDMA_MSG_MR_ALOC_FAILED,
+                   "Out of "
+                   "memory: registering pre allocated buffer "
+                   "with rdma device failed.");
+            return -1;
+        }
+        INIT_LIST_HEAD(&new->list);
+        new->iobuf_arena = iobuf_arena;
+
+        mr = ibv_reg_mr(device[i]->pd, iobuf_arena->mem_base,
+                        iobuf_arena->arena_size,
+                        IBV_ACCESS_REMOTE_READ | IBV_ACCESS_LOCAL_WRITE |
+                            IBV_ACCESS_REMOTE_WRITE);
+        if (!mr)
+            gf_msg("rdma", GF_LOG_WARNING, 0, RDMA_MSG_MR_ALOC_FAILED,
+                   "allocation of mr "
+                   "failed");
+
+        new->mr = mr;
+        pthread_mutex_lock(&device[i]->all_mr_lock);
+        {
+            list_add(&new->list, &device[i]->all_mr);
+        }
+        pthread_mutex_unlock(&device[i]->all_mr_lock);
+        new = NULL;
+    }
+
+    return 0;
+}
+
+static void
+gf_rdma_register_iobuf_pool(gf_rdma_device_t *device,
+                            struct iobuf_pool *iobuf_pool)
+{
+    struct iobuf_arena *tmp = NULL;
+    struct iobuf_arena *dummy = NULL;
+    struct ibv_mr *mr = NULL;
+    gf_rdma_arena_mr *new = NULL;
+
+    if (!list_empty(&iobuf_pool->all_arenas)) {
+        list_for_each_entry_safe(tmp, dummy, &iobuf_pool->all_arenas, all_list)
+        {
+            new = GF_CALLOC(1, sizeof(gf_rdma_arena_mr),
+                            gf_common_mt_rdma_arena_mr);
+            if (new == NULL) {
+                gf_msg("rdma", GF_LOG_INFO, ENOMEM, RDMA_MSG_MR_ALOC_FAILED,
+                       "Out of "
+                       "memory: registering pre allocated "
+                       "buffer with rdma device failed.");
+                return;
+            }
+            INIT_LIST_HEAD(&new->list);
+            new->iobuf_arena = tmp;
+
+            mr = ibv_reg_mr(device->pd, tmp->mem_base, tmp->arena_size,
+                            IBV_ACCESS_REMOTE_READ | IBV_ACCESS_LOCAL_WRITE |
+                                IBV_ACCESS_REMOTE_WRITE);
+            if (!mr) {
+                gf_msg("rdma", GF_LOG_WARNING, 0, RDMA_MSG_MR_ALOC_FAILED,
+                       "failed"
+                       " to pre register buffers with rdma "
+                       "devices.");
+            }
+            new->mr = mr;
+            pthread_mutex_lock(&device->all_mr_lock);
+            {
+                list_add(&new->list, &device->all_mr);
+            }
+            pthread_mutex_unlock(&device->all_mr_lock);
+
+            new = NULL;
+        }
+    }
+
+    return;
+}
+
+static void
+gf_rdma_register_iobuf_pool_with_device(gf_rdma_device_t *device,
+                                        struct iobuf_pool *iobuf_pool)
+{
+    while (device) {
+        gf_rdma_register_iobuf_pool(device, iobuf_pool);
+        device = device->next;
+    }
+}
+
+static struct ibv_mr *
+gf_rdma_get_pre_registred_mr(rpc_transport_t *this, void *ptr, int size)
+{
+    gf_rdma_arena_mr *tmp = NULL;
+    gf_rdma_arena_mr *dummy = NULL;
+    gf_rdma_private_t *priv = NULL;
+    gf_rdma_device_t *device = NULL;
+
+    priv = this->private;
+    device = priv->device;
+
+    pthread_mutex_lock(&device->all_mr_lock);
+    {
+        if (!list_empty(&device->all_mr)) {
+            list_for_each_entry_safe(tmp, dummy, &device->all_mr, list)
+            {
+                if (tmp->iobuf_arena->mem_base <= ptr &&
+                    ptr < tmp->iobuf_arena->mem_base +
+                              tmp->iobuf_arena->arena_size) {
+                    pthread_mutex_unlock(&device->all_mr_lock);
+                    return tmp->mr;
+                }
+            }
+        }
+    }
+    pthread_mutex_unlock(&device->all_mr_lock);
+
+    return NULL;
+}
+
 static int32_t
 gf_rdma_create_posts(rpc_transport_t *this)
 {
@@ -492,11 +693,13 @@ gf_rdma_get_device(rpc_transport_t *this, struct ibv_context *ibctx,
     int32_t i = 0;
     gf_rdma_device_t *trav = NULL, *device = NULL;
     gf_rdma_ctx_t *rdma_ctx = NULL;
+    struct iobuf_pool *iobuf_pool = NULL;
 
     priv = this->private;
     options = &priv->options;
     ctx = this->ctx;
     rdma_ctx = ctx->ib;
+    iobuf_pool = ctx->iobuf_pool;
 
     trav = rdma_ctx->device;
 
@@ -517,6 +720,8 @@ gf_rdma_get_device(rpc_transport_t *this, struct ibv_context *ibctx,
         trav->next = rdma_ctx->device;
         rdma_ctx->device = trav;
 
+        iobuf_pool->device[iobuf_pool->rdma_device_count] = trav;
+        iobuf_pool->mr_list[iobuf_pool->rdma_device_count++] = &trav->all_mr;
         trav->request_ctx_pool = mem_pool_new(gf_rdma_request_context_t,
                                               GF_RDMA_POOL_SIZE);
         if (trav->request_ctx_pool == NULL) {
@@ -594,6 +799,7 @@ gf_rdma_get_device(rpc_transport_t *this, struct ibv_context *ibctx,
 
         INIT_LIST_HEAD(&trav->all_mr);
         pthread_mutex_init(&trav->all_mr_lock, NULL);
+        gf_rdma_register_iobuf_pool(trav, iobuf_pool);
 
         if (gf_rdma_create_posts(this) < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, RDMA_MSG_ALOC_POST_FAILED,
@@ -1229,8 +1435,12 @@ __gf_rdma_create_read_chunks_from_vector(gf_rdma_peer_t *peer,
         readch->rc_discrim = hton32(1);
         readch->rc_position = hton32(*pos);
 
-        mr = ibv_reg_mr(device->pd, vector[i].iov_base, vector[i].iov_len,
-                        IBV_ACCESS_REMOTE_READ);
+        mr = gf_rdma_get_pre_registred_mr(
+            peer->trans, (void *)vector[i].iov_base, vector[i].iov_len);
+        if (!mr) {
+            mr = ibv_reg_mr(device->pd, vector[i].iov_base, vector[i].iov_len,
+                            IBV_ACCESS_REMOTE_READ);
+        }
         if (!mr) {
             gf_msg(GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                    RDMA_MSG_MR_ALOC_FAILED,
@@ -1351,8 +1561,13 @@ __gf_rdma_create_write_chunks_from_vector(
     device = priv->device;
 
     for (i = 0; i < count; i++) {
-        mr = ibv_reg_mr(device->pd, vector[i].iov_base, vector[i].iov_len,
-                        IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+        mr = gf_rdma_get_pre_registred_mr(
+            peer->trans, (void *)vector[i].iov_base, vector[i].iov_len);
+        if (!mr) {
+            mr = ibv_reg_mr(device->pd, vector[i].iov_base, vector[i].iov_len,
+                            IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+        }
+
         if (!mr) {
             gf_msg(GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
                    RDMA_MSG_MR_ALOC_FAILED,
@@ -2033,6 +2248,9 @@ __gf_rdma_register_local_mr_for_rdma(gf_rdma_peer_t *peer, struct iovec *vector,
          * Infiniband Architecture Specification Volume 1
          * (Release 1.2.1)
          */
+        ctx->mr[ctx->mr_count] = gf_rdma_get_pre_registred_mr(
+            peer->trans, (void *)vector[i].iov_base, vector[i].iov_len);
+
         if (!ctx->mr[ctx->mr_count]) {
             ctx->mr[ctx->mr_count] = ibv_reg_mr(device->pd, vector[i].iov_base,
                                                 vector[i].iov_len,
@@ -4551,6 +4769,7 @@ init(rpc_transport_t *this)
 {
     gf_rdma_private_t *priv = NULL;
     gf_rdma_ctx_t *rdma_ctx = NULL;
+    struct iobuf_pool *iobuf_pool = NULL;
 
     priv = GF_CALLOC(1, sizeof(*priv), gf_common_mt_rdma_private_t);
     if (!priv)
@@ -4568,6 +4787,18 @@ init(rpc_transport_t *this)
     rdma_ctx = this->ctx->ib;
     if (!rdma_ctx)
         return -1;
+
+    pthread_mutex_lock(&rdma_ctx->lock);
+    {
+        if (this->dl_handle && (++(rdma_ctx->dlcount)) == 1) {
+            iobuf_pool = this->ctx->iobuf_pool;
+            iobuf_pool->rdma_registration = gf_rdma_register_arena;
+            iobuf_pool->rdma_deregistration = gf_rdma_deregister_arena;
+            gf_rdma_register_iobuf_pool_with_device(rdma_ctx->device,
+                                                    iobuf_pool);
+        }
+    }
+    pthread_mutex_unlock(&rdma_ctx->lock);
 
     return 0;
 }
@@ -4600,6 +4831,7 @@ fini(struct rpc_transport *this)
 {
     /* TODO: verify this function does graceful finish */
     gf_rdma_private_t *priv = NULL;
+    struct iobuf_pool *iobuf_pool = NULL;
     gf_rdma_ctx_t *rdma_ctx = NULL;
 
     priv = this->private;
@@ -4617,6 +4849,17 @@ fini(struct rpc_transport *this)
     rdma_ctx = this->ctx->ib;
     if (!rdma_ctx)
         return;
+
+    pthread_mutex_lock(&rdma_ctx->lock);
+    {
+        if (this->dl_handle && (--(rdma_ctx->dlcount)) == 0) {
+            iobuf_pool = this->ctx->iobuf_pool;
+            gf_rdma_deregister_iobuf_pool(rdma_ctx->device);
+            iobuf_pool->rdma_registration = NULL;
+            iobuf_pool->rdma_deregistration = NULL;
+        }
+    }
+    pthread_mutex_unlock(&rdma_ctx->lock);
 
     return;
 }
