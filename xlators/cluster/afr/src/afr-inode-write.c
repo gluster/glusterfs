@@ -2230,7 +2230,7 @@ afr_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     local->transaction.main_frame = frame;
 
-    local->transaction.start = local->cont.discard.offset;
+    local->transaction.start = local->cont.zerofill.offset;
     local->transaction.len = len;
 
     afr_fix_open(fd, this);
