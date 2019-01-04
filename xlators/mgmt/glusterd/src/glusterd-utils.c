@@ -10789,6 +10789,8 @@ glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     GF_ASSERT(this);
     conf = this->private;
 
+    if (conf->op_version < GD_OP_VERSION_6_0)
+        current_index = 2;
     if (aggr) {
         ctx_dict = aggr;
 
