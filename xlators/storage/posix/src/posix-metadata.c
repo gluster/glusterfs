@@ -343,7 +343,6 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
     posix_mdata_t *mdata = NULL;
     int ret = -1;
     int op_errno = 0;
-    bool free_mdata = false;
 
     GF_VALIDATE_OR_GOTO("posix", this, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
@@ -372,7 +371,7 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                  * down scenario
                  */
                 __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
-            } else if (ret && time) {
+            } else {
                 /*
                  * This is the first time creating the time
                  * attr. This happens when you activate this
@@ -414,8 +413,6 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                 mdata->mtime.tv_nsec = time->tv_nsec;
 
                 __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
-            } else {
-                free_mdata = true;
             }
         }
 
@@ -489,8 +486,6 @@ out:
         stbuf->ia_atime_nsec = mdata->atime.tv_nsec;
     }
 
-    if (free_mdata)
-        GF_FREE(mdata);
 
     return ret;
 }
