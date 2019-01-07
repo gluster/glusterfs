@@ -1476,7 +1476,7 @@ br_stub_listxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret < 0)
         goto unwind;
 
-    br_stub_remove_vxattrs(xattr);
+    br_stub_remove_vxattrs(xattr, _gf_true);
 
 unwind:
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, xattr, xdata);
@@ -1655,7 +1655,7 @@ br_stub_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     op_ret = totallen;
 
 delkeys:
-    br_stub_remove_vxattrs(xattr);
+    br_stub_remove_vxattrs(xattr, _gf_true);
 
 unwind:
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, xattr, xdata);
@@ -2703,17 +2703,37 @@ br_stub_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!IA_ISREG(entry->d_stat.ia_type))
             continue;
 
+        /*
+         * Readdirp for most part is a bulk lookup for all the entries
+         * present in the directory being read. Ideally, for each
+         * entry, the handling should be similar to that of a lookup
+         * callback. But for now, just keeping this as it has been
+         * until now (which means, this comment has been added much
+         * later as part of a change that wanted to send the flag
+         * of true/false to br_stub_remove_vxattrs to indicate whether
+         * the bad-object xattr should be removed from the entry->dict
+         * or not). Until this change, the function br_stub_remove_vxattrs
+         * was just removing all the xattrs associated with bit-rot-stub
+         * (like version, bad-object, signature etc). But, there are
+         * scenarios where we only want to send bad-object xattr and not
+         * others. So this comment is part of that change which also
+         * mentions about another possible change that might be needed
+         * in future.
+         * But for now, adding _gf_true means functionally its same as
+         * what this function was doing before. Just remove all the stub
+         * related xattrs.
+         */
         ret = br_stub_get_inode_ctx(this, entry->inode, &ctxaddr);
         if (ret < 0)
             ctxaddr = 0;
         if (ctxaddr) { /* already has the context */
-            br_stub_remove_vxattrs(entry->dict);
+            br_stub_remove_vxattrs(entry->dict, _gf_true);
             continue;
         }
 
         ret = br_stub_lookup_version(this, entry->inode->gfid, entry->inode,
                                      entry->dict);
-        br_stub_remove_vxattrs(entry->dict);
+        br_stub_remove_vxattrs(entry->dict, _gf_true);
         if (ret) {
             /**
              * there's no per-file granularity support in case of
@@ -2849,13 +2869,22 @@ br_stub_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int32_t ret = 0;
     br_stub_private_t *priv = NULL;
     gf_boolean_t ver_enabled = _gf_false;
+    gf_boolean_t remove_bad_file_marker = _gf_true;
 
     BR_STUB_VER_ENABLED_IN_CALLPATH(frame, ver_enabled);
     priv = this->private;
 
     if (op_ret < 0) {
         (void)br_stub_handle_lookup_error(this, inode, op_errno);
-        goto unwind;
+
+        /*
+         * If the lookup error is not ENOENT, then it is better
+         * to send the bad file marker to the higher layer (if
+         * it has been set)
+         */
+        if (op_errno != ENOENT)
+            remove_bad_file_marker = _gf_false;
+        goto delkey;
     }
 
     BR_STUB_VER_COND_GOTO(priv, (!ver_enabled), delkey);
@@ -2876,7 +2905,13 @@ br_stub_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret) {
             op_ret = -1;
             op_errno = EIO;
-            goto unwind;
+            /*
+             * This flag ensures that in the label @delkey below,
+             * bad file marker is not removed from the dictinary,
+             * but other virtual xattrs (such as version, signature)
+             * are removed.
+             */
+            remove_bad_file_marker = _gf_false;
         }
         goto delkey;
     }
@@ -2900,11 +2935,11 @@ br_stub_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          */
         op_ret = -1;
         op_errno = EIO;
-        goto unwind;
+        goto delkey;
     }
 
 delkey:
-    br_stub_remove_vxattrs(xattr);
+    br_stub_remove_vxattrs(xattr, remove_bad_file_marker);
 unwind:
     STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                         postparent);
