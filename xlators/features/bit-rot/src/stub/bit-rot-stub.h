@@ -359,10 +359,18 @@ br_stub_is_internal_xattr(const char *name)
 }
 
 static inline void
-br_stub_remove_vxattrs(dict_t *xattr)
+br_stub_remove_vxattrs(dict_t *xattr, gf_boolean_t remove_bad_marker)
 {
     if (xattr) {
-        dict_del(xattr, BITROT_OBJECT_BAD_KEY);
+        /*
+         * When a file is corrupted, bad-object should be
+         * set in the dict. But, other info such as version,
+         * signature etc should not be set. Hence the flag
+         * remove_bad_marker. The consumer should know whether
+         * to send the bad-object info in the dict or not.
+         */
+        if (remove_bad_marker)
+            dict_del(xattr, BITROT_OBJECT_BAD_KEY);
         dict_del(xattr, BITROT_CURRENT_VERSION_KEY);
         dict_del(xattr, BITROT_SIGNING_VERSION_KEY);
         dict_del(xattr, BITROT_SIGNING_XATTR_SIZE_KEY);
