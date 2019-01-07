@@ -4865,6 +4865,60 @@ out:
     return 0;
 }
 
+/* Virtual Xattr which returns 1 if all subvols are up,
+   else returns 0. Geo-rep then uses this virtual xattr
+   after a fresh mount and starts the I/O.
+*/
+
+enum dht_vxattr_subvol {
+    DHT_VXATTR_SUBVOLS_UP = 1,
+    DHT_VXATTR_SUBVOLS_DOWN = 0,
+};
+
+int
+dht_vgetxattr_subvol_status(call_frame_t *frame, xlator_t *this,
+                            const char *key)
+{
+    dht_local_t *local = NULL;
+    int ret = -1;
+    int op_errno = ENODATA;
+    int value = DHT_VXATTR_SUBVOLS_UP;
+    int i = 0;
+    dht_conf_t *conf = NULL;
+
+    conf = this->private;
+    local = frame->local;
+
+    if (!key) {
+        op_errno = EINVAL;
+        goto out;
+    }
+    local->xattr = dict_new();
+    if (!local->xattr) {
+        op_errno = ENOMEM;
+        goto out;
+    }
+    for (i = 0; i < conf->subvolume_cnt; i++) {
+        if (!conf->subvolume_status[i]) {
+            value = DHT_VXATTR_SUBVOLS_DOWN;
+            gf_msg_debug(this->name, 0, "subvol %s is down ",
+                         conf->subvolumes[i]->name);
+            break;
+        }
+    }
+    ret = dict_set_int8(local->xattr, (char *)key, value);
+    if (ret < 0) {
+        op_errno = -ret;
+        ret = -1;
+        goto out;
+    }
+    ret = 0;
+
+out:
+    DHT_STACK_UNWIND(getxattr, frame, ret, op_errno, local->xattr, NULL);
+    return 0;
+}
+
 int
 dht_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
              dict_t *xdata)
@@ -4920,6 +4974,11 @@ dht_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
     if (strncmp(key, conf->mds_xattr_key, strlen(key)) == 0) {
         op_errno = ENOTSUP;
         goto err;
+    }
+
+    if (strncmp(key, DHT_SUBVOL_STATUS_KEY, SLEN(DHT_SUBVOL_STATUS_KEY)) == 0) {
+        dht_vgetxattr_subvol_status(frame, this, key);
+        return 0;
     }
 
     /* skip over code which is irrelevant if !DHT_IS_DIR(layout) */

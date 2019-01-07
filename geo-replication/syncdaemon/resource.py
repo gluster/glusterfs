@@ -37,6 +37,7 @@ from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 from syncdutils import get_changelog_log_level, get_rsync_version
 from syncdutils import GX_GFID_CANONICAL_LEN
+from syncdutils import gf_mount_ready
 from gsyncdstatus import GeorepStatus
 from syncdutils import lf, Popen, sup
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
@@ -950,6 +951,16 @@ class Mounter(object):
                 logging.exception('mount cleanup failure:')
                 rv = 200
             os._exit(rv)
+
+        #Polling the dht.subvol.status value.
+        RETRIES = 10
+        while not gf_mount_ready():
+            if RETRIES < 0:
+                logging.error('Subvols are not up')
+                break
+            RETRIES -= 1
+            time.sleep(0.2)
+
         logging.debug('auxiliary glusterfs mount prepared')
 
 
