@@ -21,8 +21,8 @@ import subprocess
 import socket
 from subprocess import PIPE
 from threading import Lock, Thread as baseThread
-from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED
-from errno import EINTR, ENOENT, ESTALE, EBUSY, errorcode
+from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ENOMEM, ECONNABORTED
+from errno import EINTR, ENOENT, ESTALE, EBUSY, ENODATA, errorcode
 from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
@@ -54,6 +54,8 @@ import gsyncdconfig as gconf
 from rconf import rconf
 
 from hashlib import sha256 as sha256
+
+ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
 
 # auxiliary gfid based access prefix
 _CL_AUX_GFID_PFX = ".gfid/"
@@ -98,6 +100,19 @@ def unescape_space_newline(s):
             .replace(NEWLINE_ESCAPE_CHAR, "\n")\
             .replace(PERCENTAGE_ESCAPE_CHAR, "%")
 
+# gf_mount_ready() returns 1 if all subvols are up, else 0
+def gf_mount_ready():
+    ret = errno_wrap(Xattr.lgetxattr,
+                     ['.', 'dht.subvol.status', 16],
+                     [ENOENT, ENOTSUP, ENODATA], [ENOMEM])
+
+    if isinstance(ret, int):
+       logging.error("failed to get the xattr value")
+       return 1
+    ret = ret.rstrip('\x00')
+    if ret == "1":
+       return 1
+    return 0
 
 def norm(s):
     if s:
@@ -561,7 +576,6 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
 
 def lstat(e):
     return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE, EBUSY])
-
 
 def get_gfid_from_mnt(gfidpath):
     return errno_wrap(Xattr.lgetxattr,

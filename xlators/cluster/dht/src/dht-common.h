@@ -43,6 +43,10 @@
 #define DHT_DIR_STAT_BLOCKS 8
 #define DHT_DIR_STAT_SIZE 4096
 
+/* Virtual xattr for subvols status */
+
+#define DHT_SUBVOL_STATUS_KEY "dht.subvol.status"
+
 /* Virtual xattrs for debugging */
 
 #define DHT_DBG_HASHED_SUBVOL_PATTERN "dht.file.hashed-subvol.*"
