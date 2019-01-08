@@ -6126,7 +6126,7 @@ out:
 }
 
 static dict_t *
-afr_set_heal_info(char *status, const int status_len)
+afr_set_heal_info(char *status)
 {
     dict_t *dict = NULL;
     int ret = -1;
@@ -6137,8 +6137,7 @@ afr_set_heal_info(char *status, const int status_len)
         goto out;
     }
 
-    ret = dict_set_nstrn(dict, "heal-info", SLEN("heal-info"), status,
-                         status_len);
+    ret = dict_set_dynstr_sizen(dict, "heal-info", status);
     if (ret)
         gf_msg("", GF_LOG_WARNING, -ret, AFR_MSG_DICT_SET_FAILED,
                "Failed to set heal-info key to "
@@ -6170,7 +6169,6 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     inode_t *inode = NULL;
     char *substr = NULL;
     char *status = NULL;
-    int status_len = 0;
 
     ret = afr_selfheal_locked_inspect(frame, this, loc->gfid, &inode,
                                       &entry_selfheal, &data_selfheal,
@@ -6188,25 +6186,21 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     }
 
     if (ret == -EIO) {
-        status_len = gf_asprintf(&status, "split-brain%s",
-                                 substr ? substr : "");
-        if (status_len < 0) {
-            ret = status_len;
+        ret = gf_asprintf(&status, "split-brain%s", substr ? substr : "");
+        if (ret < 0) {
             goto out;
         }
-        dict = afr_set_heal_info(status, status_len);
+        dict = afr_set_heal_info(status);
         if (!dict) {
             ret = -1;
             goto out;
         }
     } else if (ret == -EAGAIN) {
-        status_len = gf_asprintf(&status, "possibly-healing%s",
-                                 substr ? substr : "");
-        if (status_len < 0) {
-            ret = status_len;
+        ret = gf_asprintf(&status, "possibly-healing%s", substr ? substr : "");
+        if (ret < 0) {
             goto out;
         }
-        dict = afr_set_heal_info(status, status_len);
+        dict = afr_set_heal_info(status);
         if (!dict) {
             ret = -1;
             goto out;
@@ -6222,18 +6216,17 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = -1;
                 goto out;
             }
-            dict = afr_set_heal_info(status, strlen(status));
+            dict = afr_set_heal_info(status);
             if (!dict) {
                 ret = -1;
                 goto out;
             }
         } else {
-            status_len = gf_asprintf(&status, "heal%s", substr ? substr : "");
-            if (status_len < 0) {
-                ret = status_len;
+            ret = gf_asprintf(&status, "heal%s", substr ? substr : "");
+            if (ret < 0) {
                 goto out;
             }
-            dict = afr_set_heal_info(status, status_len);
+            dict = afr_set_heal_info(status);
             if (!dict) {
                 ret = -1;
                 goto out;
@@ -6248,12 +6241,11 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
          * selfheal booleans is set.
          */
         if (data_selfheal || entry_selfheal || metadata_selfheal) {
-            status_len = gf_asprintf(&status, "heal%s", substr ? substr : "");
-            if (status_len < 0) {
-                ret = status_len;
+            ret = gf_asprintf(&status, "heal%s", substr ? substr : "");
+            if (ret < 0) {
                 goto out;
             }
-            dict = afr_set_heal_info(status, status_len);
+            dict = afr_set_heal_info(status);
             if (!dict) {
                 ret = -1;
                 goto out;
