@@ -623,6 +623,12 @@ event_dispatch_epoll_handler(struct event_pool *event_pool,
         handler = slot->handler;
         data = slot->data;
 
+        if (slot->in_handler > 0) {
+            /* Another handler is inprogress, skip this one. */
+            handler = NULL;
+            goto pre_unlock;
+        }
+
         if (slot->handled_error) {
             handled_error_previously = _gf_true;
         } else {
