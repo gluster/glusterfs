@@ -1919,10 +1919,10 @@ dht_heal_path(xlator_t *this, char *path, inode_table_t *itable)
              */
             linked_inode = loc.inode;
             bname = strtok_r(NULL, "/", &save_ptr);
-            inode_unref(loc.parent);
             if (!bname) {
                 goto out;
             }
+            inode_unref(loc.parent);
             loc.parent = loc.inode;
             gf_uuid_copy(loc.pargfid, loc.inode->gfid);
             loc.inode = NULL;
