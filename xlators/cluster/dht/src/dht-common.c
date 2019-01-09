@@ -9823,8 +9823,7 @@ dht_rmdir_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret != 0) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_FILE_LOOKUP_FAILED,
-               "lookup failed for %s on %s  (type=0%o)", local->loc.path,
-               src->name, stbuf->ia_type);
+               "lookup failed for %s on %s", local->loc.path, src->name);
         goto err;
     }
 
