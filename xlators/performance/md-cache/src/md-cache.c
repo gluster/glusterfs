@@ -1174,7 +1174,7 @@ uncached:
     return 0;
 
 out:
-    STACK_UNWIND_STRICT(statfs, frame, op_ret, op_errno, buf, xdata);
+    MDC_STACK_UNWIND(statfs, frame, op_ret, op_errno, buf, xdata);
     return 0;
 }
 
@@ -2834,7 +2834,7 @@ mdc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         dict_unref(xattr_alloc);
     return 0;
 out:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, ENOMEM, NULL, NULL);
+    MDC_STACK_UNWIND(readdirp, frame, -1, ENOMEM, NULL, NULL);
     return 0;
 }
 
