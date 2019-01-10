@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SCRIPT_TIMEOUT=250
+
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
