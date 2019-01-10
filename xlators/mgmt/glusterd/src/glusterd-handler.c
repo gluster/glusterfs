@@ -5548,10 +5548,9 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
         gf_asprintf(&filename, "%s", tmp_str);
     }
 
-    if (odir[odirlen - 1] != '/')
-        strcat(odir, "/");
+    ret = gf_asprintf(&ofilepath, "%s%s%s", odir,
+                      ((odir[odirlen - 1] != '/') ? "/" : ""), filename);
 
-    ret = gf_asprintf(&ofilepath, "%s%s", odir, filename);
     if (ret < 0) {
         GF_FREE(odir);
         GF_FREE(filename);
