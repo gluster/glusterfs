@@ -151,6 +151,9 @@ struct fuse_private {
     /* Writeback cache support */
     gf_boolean_t kernel_writeback_cache;
     int attr_times_granularity;
+
+    /* LRU Limit, if not set, default is 128k for now */
+    uint32_t lru_limit;
 };
 typedef struct fuse_private fuse_private_t;
 
