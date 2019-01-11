@@ -8,8 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef __QUIESCE_MEM_TYPES_H__
-#define __QUIESCE_MEM_TYPES_H__
+#ifndef __INDEX_MEM_TYPES_H__
+#define __INDEX_MEM_TYPES_H__
 
 #include <glusterfs/mem-types.h>
 
