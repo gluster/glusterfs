@@ -6,6 +6,8 @@
 . $(dirname $0)/../fileio.rc
 . $(dirname $0)/../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 function check_readonly()
 {
     $@ 2>&1 | grep -q 'Read-only file system'

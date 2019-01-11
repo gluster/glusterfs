@@ -4,6 +4,8 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 create_files () {
         for i in {1..10}; do
                 orig=$(printf %s/file%04d $1 $i)

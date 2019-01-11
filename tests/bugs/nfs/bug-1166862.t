@@ -5,6 +5,8 @@
 # Based on: bug-904065.t
 #
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 # count the lines of a file, return 0 if the file does not exist
 function count_lines()
 {

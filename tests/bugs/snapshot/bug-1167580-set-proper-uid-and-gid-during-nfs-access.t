@@ -4,6 +4,8 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../snapshot.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 # This function returns a value "Y" if user can execute
 # the given command. Else it will return "N"
 # @arg-1 : Name of the user

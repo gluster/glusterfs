@@ -6,6 +6,8 @@
 . $(dirname $0)/../dht.rc
 . $(dirname $0)/../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 cleanup;
 
 QDD=$(dirname $0)/quota

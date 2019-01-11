@@ -2,6 +2,14 @@
 # Copyright (c) 2013-2014 Red Hat, Inc. <http://www.redhat.com>
 #
 
+# As many tests are designed to take values of variables from 'env.rc',
+# it is good to source the file. While it is also required to source the
+# file individually in each tests (as it should be possible to run the
+# tests separately), exporting variables from env.rc is not harmful if
+# done here
+
+source ./tests/env.rc
+
 export TZ=UTC
 force="no"
 head="yes"
@@ -14,6 +22,8 @@ result_output="/tmp/gluster_regression.txt"
 section_separator="========================================"
 run_timeout=200
 kill_after_time=5
+nfs_tests=$RUN_NFS_TESTS
+
 # Option below preserves log tarballs for each run of a test separately
 #       named: <test>-iteration-<n>.tar
 # If set to any other value, then log tarball is just named after the test and
@@ -257,6 +267,7 @@ function match()
 # G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=123456
 # G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=4444444
 # G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=123456;555555
+# G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TESTS,BUG=1385758
 # You can change status of test to enabled or delete the line only if all the
 # bugs are closed or modified or if the patch fixes it.
 function get_test_status ()
@@ -361,6 +372,14 @@ function run_tests()
                 skipped_known_issue_tests=$((skipped_known_issue_tests+1))
                 echo "Skipping test file $t due to known issue"
                 echo "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
+                echo $section_separator$section_separator
+                echo
+                continue
+            fi
+            if [[ $(get_test_status $t) == "NFS_TEST" ]] && \
+               [[ $nfs_tests == "no" ]]
+            then
+                echo "Skipping nfs test file $t"
                 echo $section_separator$section_separator
                 echo
                 continue
@@ -493,7 +512,7 @@ function run_head_tests()
 }
 
 function parse_args () {
-    args=`getopt frcbkphHo:t: "$@"`
+    args=`getopt frcbkphHno:t: "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -507,6 +526,7 @@ function parse_args () {
         -p)    skip_preserve_logs="no" ;;
         -o)    result_output="$2"; shift;;
         -t)    run_timeout="$2"; shift;;
+        -n)    nfs_tests="no";;
         --)    shift; break;;
         esac
         shift
