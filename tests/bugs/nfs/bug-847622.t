@@ -4,6 +4,8 @@
 . $(dirname $0)/../../nfs.rc
 . $(dirname $0)/../../volume.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 case $OSTYPE in
 NetBSD)
         echo "Skip test on ACL which are not available on NetBSD" >&2

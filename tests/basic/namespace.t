@@ -4,6 +4,8 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 # These hashes are a result of calling SuperFastHash
 # on the corresponding folder names.
 NAMESPACE_HASH=28153613

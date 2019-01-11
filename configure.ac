@@ -1349,6 +1349,7 @@ if test "x${with_server}" = "xyes" -a "x$enable_gnfs" = "xyes"; then
     BUILD_GNFS="yes"
 fi
 AM_CONDITIONAL([BUILD_GNFS], [test x$BUILD_GNFS = xyes])
+AC_SUBST(BUILD_GNFS)
 dnl end gnfs section
 
 dnl Check for userspace-rcu

@@ -4,6 +4,8 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 cleanup;
 
 function gluster_client_list_status () {

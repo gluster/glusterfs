@@ -10,6 +10,7 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
 
 cleanup;
 TEST glusterd

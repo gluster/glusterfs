@@ -3,6 +3,8 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 # Our mount timeout must be as long as the time for a regular configuration
 # change to be acted upon *plus* AUTH_REFRESH_TIMEOUT, not one replacing the
 # other.  Otherwise this process races vs. the one making the change we're

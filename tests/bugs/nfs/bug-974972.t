@@ -4,6 +4,8 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 #This script checks that nfs mount does not fail lookup on files with split-brain
 cleanup;
 

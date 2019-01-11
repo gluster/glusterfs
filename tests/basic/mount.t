@@ -3,8 +3,9 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
 
-cleanup;
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
 
+cleanup;
 
 ## Start and create a volume
 TEST glusterd
