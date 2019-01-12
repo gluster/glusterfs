@@ -1736,7 +1736,6 @@ glusterfs_handle_barrier(rpcsvc_request_t *req)
         goto submit_reply;
     }
 
-
 submit_reply:
     THIS = old_THIS;
 
@@ -2841,7 +2840,6 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
         0,
     };
 
-    frame = create_frame(THIS, ctx->pool);
     cmd_args = &ctx->cmd_args;
 
     if (!cmd_args->brick_port || !cmd_args->brick_name) {
@@ -2865,6 +2863,7 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
     if (ctx->active) {
         top = ctx->active->first;
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+            frame = create_frame(THIS, ctx->pool);
             req.brick = (*trav_p)->xlator->name;
             ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
                                       GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
@@ -2874,11 +2873,8 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
                        "failed to send sign in request; brick = %s", req.brick);
             }
         }
-    } else {
-        ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
-                                  GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
-                                  (xdrproc_t)xdr_pmap_signin_req);
     }
+
     /* unfortunately, the caller doesn't care about the returned value */
 
 out:
