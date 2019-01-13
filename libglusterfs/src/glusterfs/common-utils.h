@@ -669,7 +669,7 @@ mem_0filled(const char *buf, size_t size)
 }
 
 static inline int
-iov_0filled(struct iovec *vector, int count)
+iov_0filled(const struct iovec *vector, int count)
 {
     int i = 0;
     int ret = 0;
