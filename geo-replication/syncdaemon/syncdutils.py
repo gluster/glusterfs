@@ -683,19 +683,15 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
                                gfid[2:4],
                                gfid], [ENOENT], [ESTALE])
         if dir_path != ENOENT:
-            break
-
-    if not isinstance(dir_path, int):
-        realpath = errno_wrap(os.readlink, [dir_path],
-                              [ENOENT], [ESTALE])
-
-        if not isinstance(realpath, int):
-            realpath_parts = realpath.split('/')
-            pargfid = realpath_parts[-2]
-            basename = realpath_parts[-1]
-            pfx = gauxpfx()
-            dir_entry = os.path.join(pfx, pargfid, basename)
-            return dir_entry
+            realpath = errno_wrap(os.readlink, [dir_path],
+                                  [ENOENT], [ESTALE])
+            if not isinstance(realpath, int):
+                realpath_parts = realpath.split('/')
+                pargfid = realpath_parts[-2]
+                basename = realpath_parts[-1]
+                pfx = gauxpfx()
+                dir_entry = os.path.join(pfx, pargfid, basename)
+                return dir_entry
 
     return None
 

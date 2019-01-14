@@ -579,6 +579,8 @@ class Server(object):
                     logging.info(lf("Special case: rename on mkdir",
                                     gfid=gfid, entry=repr(entry)))
                     src_entry = get_slv_dir_path(slv_host, slv_volume, gfid)
+                    if src_entry is None:
+                        collect_failure(e, ENOENT, uid, gid)
                     if src_entry is not None and src_entry != entry:
                         slv_entry_info = {}
                         slv_entry_info['gfid_mismatch'] = False
