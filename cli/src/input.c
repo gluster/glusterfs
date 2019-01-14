@@ -45,6 +45,9 @@ cli_input(void *d)
 
     state = d;
 
+    fprintf(stderr,
+            "Welcome to gluster prompt, type 'help' to see the available "
+            "commands.\n");
     for (;;) {
         printf("%s", state->prompt);
 
