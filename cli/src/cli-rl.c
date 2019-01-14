@@ -346,6 +346,9 @@ cli_rl_input(void *_data)
 
     state = _data;
 
+    fprintf(stderr,
+            "Welcome to gluster prompt, type 'help' to see the available "
+            "commands.\n");
     for (;;) {
         line = readline(state->prompt);
         if (!line)
