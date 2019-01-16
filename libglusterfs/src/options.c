@@ -966,7 +966,7 @@ xl_opt_validate(dict_t *dict, char *key, data_t *value, void *data)
         stub->errstr = errstr;
 
     if (fnmatch(opt->key[0], key, FNM_NOESCAPE) != 0) {
-        gf_msg(xl->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
+        gf_msg(xl->name, GF_LOG_DEBUG, 0, LG_MSG_INVALID_ENTRY,
                "option '%s' is deprecated, preferred is '%s', "
                "continuing with correction",
                key, opt->key[0]);
