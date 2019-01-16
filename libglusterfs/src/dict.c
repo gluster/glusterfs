@@ -39,14 +39,14 @@ struct dict_cmp {
 #define VALIDATE_DATA_AND_LOG(data, type, key, ret_val)                        \
     do {                                                                       \
         if (!data || !data->data) {                                            \
-            gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL,                   \
-                             LG_MSG_INVALID_ARG, "data is NULL");              \
+            gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG, \
+                             "data is NULL");                                  \
             return ret_val;                                                    \
         }                                                                      \
         /* Not of the asked type, or old version */                            \
         if ((data->data_type != type) &&                                       \
             (data->data_type != GF_DATA_TYPE_STR_OLD)) {                       \
-            gf_msg_callingfn("dict", GF_LOG_INFO, EINVAL, LG_MSG_INVALID_ARG,  \
+            gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG, \
                              "key %s, %s type asked, has %s type", key,        \
                              data_type_name[type],                             \
                              data_type_name[data->data_type]);                 \

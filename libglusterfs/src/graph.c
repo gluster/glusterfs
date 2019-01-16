@@ -393,7 +393,7 @@ _log_if_unknown_option(dict_t *dict, char *key, data_t *value, void *data)
     found = xlator_volume_option_get(xl, key);
 
     if (!found) {
-        gf_msg(xl->name, GF_LOG_WARNING, 0, LG_MSG_XLATOR_OPTION_INVALID,
+        gf_msg(xl->name, GF_LOG_DEBUG, 0, LG_MSG_XLATOR_OPTION_INVALID,
                "option '%s' is not recognized", key);
     }
 
