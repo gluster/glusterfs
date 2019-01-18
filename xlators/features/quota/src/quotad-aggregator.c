@@ -185,11 +185,6 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
         {0},
     };
     gf_cli_rsp cli_rsp = {0};
-    gfs3_lookup_req args = {
-        {
-            0,
-        },
-    };
     quotad_aggregator_state_t *state = NULL;
     xlator_t *this = NULL;
     dict_t *dict = NULL;
@@ -200,6 +195,8 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
     GF_VALIDATE_OR_GOTO("quotad-aggregator", req, err);
 
     this = THIS;
+
+    cli_req.dict.dict_val = alloca(req->msg[0].iov_len);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -256,12 +253,7 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
     if (ret)
         goto err;
 
-    memcpy(&args.gfid, &gfid, 16);
-
-    args.bname = alloca(req->msg[0].iov_len);
-    args.xdata.xdata_val = alloca(req->msg[0].iov_len);
-
-    ret = qd_nameless_lookup(this, frame, &args, state->xdata,
+    ret = qd_nameless_lookup(this, frame, (char *)gfid, state->xdata,
                              quotad_aggregator_getlimit_cbk);
     if (ret) {
         cli_rsp.op_errno = ret;
@@ -279,9 +271,6 @@ errx:
     quotad_aggregator_getlimit_cbk(this, frame, &cli_rsp);
     if (dict)
         dict_unref(dict);
-
-    if (cli_req.dict.dict_val)
-        free(cli_req.dict.dict_val);
     return ret;
 }
 
@@ -335,7 +324,7 @@ quotad_aggregator_lookup(rpcsvc_request_t *req)
     GF_PROTOCOL_DICT_UNSERIALIZE(this, state->xdata, (args.xdata.xdata_val),
                                  (args.xdata.xdata_len), ret, op_errno, err);
 
-    ret = qd_nameless_lookup(this, frame, &args, state->xdata,
+    ret = qd_nameless_lookup(this, frame, args.gfid, state->xdata,
                              quotad_aggregator_lookup_cbk);
     if (ret) {
         rsp.op_errno = ret;
@@ -349,7 +338,6 @@ err:
     rsp.op_errno = op_errno;
 
     quotad_aggregator_lookup_cbk(this, frame, &rsp);
-    free(args.xdata.xdata_val);
     return ret;
 }
 

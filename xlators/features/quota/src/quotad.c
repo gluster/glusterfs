@@ -104,7 +104,7 @@ out:
 }
 
 int
-qd_nameless_lookup(xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
+qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
                    dict_t *xdata, quotad_aggregator_lookup_cbk_t lookup_cbk)
 {
     gfs3_lookup_rsp rsp = {
@@ -128,7 +128,7 @@ qd_nameless_lookup(xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
         goto out;
     }
 
-    memcpy(loc.gfid, req->gfid, 16);
+    memcpy(loc.gfid, gfid, 16);
 
     ret = dict_get_strn(xdata, "volume-uuid", SLEN("volume-uuid"),
                         &volume_uuid);
