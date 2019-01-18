@@ -28,7 +28,7 @@ typedef struct {
 typedef int (*quotad_aggregator_lookup_cbk_t)(xlator_t *this,
                                               call_frame_t *frame, void *rsp);
 int
-qd_nameless_lookup(xlator_t *this, call_frame_t *frame, gfs3_lookup_req *req,
+qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
                    dict_t *xdata, quotad_aggregator_lookup_cbk_t lookup_cbk);
 int
 quotad_aggregator_init(xlator_t *this);
