@@ -26,6 +26,7 @@ TEST "truncate -s 0 $M0/file"
 
 #enable mandatory locking
 TEST $CLI volume set $V0 locks.mandatory-locking forced
+TEST $CLI volume set $V0 enforce-mandatory-lock on
 
 #write should pass
 TEST "echo "test" >> $M0/file"
