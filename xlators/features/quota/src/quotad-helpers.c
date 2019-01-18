@@ -47,6 +47,9 @@ quotad_aggregator_free_state(quotad_aggregator_state_t *state)
     if (state->xdata)
         dict_unref(state->xdata);
 
+    if (state->req_xdata)
+        dict_unref(state->req_xdata);
+
     GF_FREE(state);
 }
 

@@ -13,6 +13,13 @@
 #include "quotad-helpers.h"
 #include "quotad-aggregator.h"
 
+static char *qd_ext_xattrs[] = {
+    QUOTA_SIZE_KEY,
+    QUOTA_LIMIT_KEY,
+    QUOTA_LIMIT_OBJECTS_KEY,
+    NULL,
+};
+
 struct rpcsvc_program quotad_aggregator_prog;
 
 struct iobuf *
@@ -141,7 +148,7 @@ quotad_aggregator_getlimit_cbk(xlator_t *this, call_frame_t *frame,
 
     if (xdata) {
         state = frame->root->state;
-        ret = dict_get_int32n(state->xdata, "type", SLEN("type"), &type);
+        ret = dict_get_int32n(state->req_xdata, "type", SLEN("type"), &type);
         if (ret < 0)
             goto out;
 
@@ -191,6 +198,7 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
     int ret = -1, op_errno = 0;
     char *gfid_str = NULL;
     uuid_t gfid = {0};
+    char *volume_uuid = NULL;
 
     GF_VALIDATE_OR_GOTO("quotad-aggregator", req, err);
 
@@ -224,6 +232,11 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
         goto err;
     }
 
+    ret = dict_get_strn(dict, "volume-uuid", SLEN("volume-uuid"), &volume_uuid);
+    if (ret) {
+        goto err;
+    }
+
     gf_uuid_parse((const char *)gfid_str, gfid);
 
     frame = quotad_aggregator_get_frame_from_req(req);
@@ -232,7 +245,9 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
         goto errx;
     }
     state = frame->root->state;
-    state->xdata = dict;
+    state->req_xdata = dict;
+    state->xdata = dict_new();
+    dict = NULL;
 
     ret = dict_set_int32_sizen(state->xdata, QUOTA_LIMIT_KEY, 42);
     if (ret)
@@ -254,7 +269,7 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
         goto err;
 
     ret = qd_nameless_lookup(this, frame, (char *)gfid, state->xdata,
-                             quotad_aggregator_getlimit_cbk);
+                             volume_uuid, quotad_aggregator_getlimit_cbk);
     if (ret) {
         cli_rsp.op_errno = ret;
         goto errx;
@@ -293,12 +308,14 @@ quotad_aggregator_lookup(rpcsvc_request_t *req)
             0,
         },
     };
-    int ret = -1, op_errno = 0;
+    int i = 0, ret = -1, op_errno = 0;
     gfs3_lookup_rsp rsp = {
         0,
     };
     quotad_aggregator_state_t *state = NULL;
     xlator_t *this = NULL;
+    dict_t *dict = NULL;
+    char *volume_uuid = NULL;
 
     GF_VALIDATE_OR_GOTO("quotad-aggregator", req, err);
 
@@ -321,15 +338,33 @@ quotad_aggregator_lookup(rpcsvc_request_t *req)
 
     state = frame->root->state;
 
-    GF_PROTOCOL_DICT_UNSERIALIZE(this, state->xdata, (args.xdata.xdata_val),
+    GF_PROTOCOL_DICT_UNSERIALIZE(this, dict, (args.xdata.xdata_val),
                                  (args.xdata.xdata_len), ret, op_errno, err);
 
-    ret = qd_nameless_lookup(this, frame, args.gfid, state->xdata,
+    ret = dict_get_str(dict, "volume-uuid", &volume_uuid);
+    if (ret) {
+        goto err;
+    }
+
+    state->xdata = dict_new();
+
+    for (i = 0; qd_ext_xattrs[i]; i++) {
+        if (dict_get(dict, qd_ext_xattrs[i])) {
+            ret = dict_set_uint32(state->xdata, qd_ext_xattrs[i], 1);
+            if (ret < 0)
+                goto err;
+        }
+    }
+
+    ret = qd_nameless_lookup(this, frame, args.gfid, state->xdata, volume_uuid,
                              quotad_aggregator_lookup_cbk);
     if (ret) {
         rsp.op_errno = ret;
         goto err;
     }
+
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 
@@ -338,6 +373,9 @@ err:
     rsp.op_errno = op_errno;
 
     quotad_aggregator_lookup_cbk(this, frame, &rsp);
+    if (dict)
+        dict_unref(dict);
+
     return ret;
 }
 

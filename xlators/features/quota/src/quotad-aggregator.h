@@ -23,13 +23,15 @@ typedef struct {
     inode_table_t *itable;
     loc_t loc;
     dict_t *xdata;
+    dict_t *req_xdata;
 } quotad_aggregator_state_t;
 
 typedef int (*quotad_aggregator_lookup_cbk_t)(xlator_t *this,
                                               call_frame_t *frame, void *rsp);
 int
 qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
-                   dict_t *xdata, quotad_aggregator_lookup_cbk_t lookup_cbk);
+                   dict_t *xdata, char *volume_uuid,
+                   quotad_aggregator_lookup_cbk_t lookup_cbk);
 int
 quotad_aggregator_init(xlator_t *this);
 

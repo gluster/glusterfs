@@ -105,7 +105,8 @@ out:
 
 int
 qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
-                   dict_t *xdata, quotad_aggregator_lookup_cbk_t lookup_cbk)
+                   dict_t *xdata, char *volume_uuid,
+                   quotad_aggregator_lookup_cbk_t lookup_cbk)
 {
     gfs3_lookup_rsp rsp = {
         0,
@@ -116,7 +117,6 @@ qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
     };
     quotad_aggregator_state_t *state = NULL;
     xlator_t *subvol = NULL;
-    char *volume_uuid = NULL;
 
     state = frame->root->state;
 
@@ -129,13 +129,6 @@ qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
     }
 
     memcpy(loc.gfid, gfid, 16);
-
-    ret = dict_get_strn(xdata, "volume-uuid", SLEN("volume-uuid"),
-                        &volume_uuid);
-    if (ret < 0) {
-        op_errno = EINVAL;
-        goto out;
-    }
 
     ret = dict_set_int8(xdata, QUOTA_READ_ONLY_KEY, 1);
     if (ret < 0) {
