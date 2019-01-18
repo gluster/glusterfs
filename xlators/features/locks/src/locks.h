@@ -223,6 +223,7 @@ typedef struct {
     gf_boolean_t monkey_unlocking;
     gf_boolean_t revocation_clear_all;
     gf_boolean_t notify_contention;
+    gf_boolean_t mlock_enforced;
 } posix_locks_private_t;
 
 typedef struct {

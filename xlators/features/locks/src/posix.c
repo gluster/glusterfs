@@ -119,16 +119,19 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
         }                                                                      \
     } while (0)
 
-#define PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, fd)            \
+#define PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, fd, priv)      \
     do {                                                                       \
         if (dict_get(dict, GF_ENFORCE_MANDATORY_LOCK) ||                       \
             (name && (strcmp(name, GF_ENFORCE_MANDATORY_LOCK) == 0))) {        \
             inode_t *__inode = (loc ? loc->inode : fd->inode);                 \
             pl_inode_t *__pl_inode = pl_inode_get(this, __inode, NULL);        \
-            if (!pl_is_mandatory_locking_enabled(__pl_inode)) {                \
+            if (!pl_is_mandatory_locking_enabled(__pl_inode) ||                \
+                !priv->mlock_enforced) {                                       \
                 op_ret = -1;                                                   \
-                gf_msg(this->name, GF_LOG_ERROR, EINVAL, 0,                    \
-                       "option %s would need mandatory lock to be enabled",    \
+                gf_msg(this->name, GF_LOG_DEBUG, EINVAL, 0,                    \
+                       "option %s would need mandatory lock to be enabled "    \
+                       "and feature.enforce-mandatory-lock option to be set "  \
+                       "to on",                                                \
                        GF_ENFORCE_MANDATORY_LOCK);                             \
                 op_errno = EINVAL;                                             \
                 goto unwind;                                                   \
@@ -1654,6 +1657,7 @@ pl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
     void *lockinfo_buf = NULL;
     int len = 0;
     char *name = NULL;
+    posix_locks_private_t *priv = this->private;
 
     int32_t op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY,
                                           &lockinfo_buf, &len);
@@ -1670,7 +1674,8 @@ pl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 usual:
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
 
-    PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, ((loc_t *)NULL), fd);
+    PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, ((loc_t *)NULL), fd,
+                              priv);
 
     STACK_WIND(frame, pl_fsetxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
@@ -3367,6 +3372,7 @@ pl_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     int op_errno = EINVAL;
     dict_t *xdata_rsp = NULL;
     char *name = NULL;
+    posix_locks_private_t *priv = this->private;
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
 
@@ -3384,7 +3390,8 @@ pl_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     return 0;
 
 usual:
-    PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, ((fd_t *)NULL));
+    PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, ((fd_t *)NULL),
+                              priv);
 
     STACK_WIND(frame, pl_setxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
@@ -3897,6 +3904,10 @@ reconfigure(xlator_t *this, dict_t *options)
                      options, uint32, out);
 
     GF_OPTION_RECONF("mandatory-locking", tmp_str, options, str, out);
+
+    GF_OPTION_RECONF("enforce-mandatory-lock", priv->mlock_enforced, options,
+                     bool, out);
+
     if (!strcmp(tmp_str, "forced"))
         priv->mandatory_mode = MLK_FORCED;
     else if (!strcmp(tmp_str, "file"))
@@ -3972,6 +3983,8 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("notify-contention-delay", priv->notify_contention_delay,
                    uint32, out);
+
+    GF_OPTION_INIT("enforce-mandatory-lock", priv->mlock_enforced, bool, out);
 
     this->local_pool = mem_pool_new(pl_local_t, 32);
     if (!this->local_pool) {
@@ -4410,11 +4423,12 @@ pl_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
     int op_ret = 0;
     int op_errno = EINVAL;
+    posix_locks_private_t *priv = this->private;
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
 
     PL_CHECK_LOCK_ENFORCE_KEY(frame, ((dict_t *)NULL), name, this, loc,
-                              ((fd_t *)NULL));
+                              ((fd_t *)NULL), priv);
 
     STACK_WIND(frame, pl_removexattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
@@ -4463,11 +4477,12 @@ pl_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 {
     int op_ret = -1;
     int op_errno = EINVAL;
+    posix_locks_private_t *priv = this->private;
 
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
 
     PL_CHECK_LOCK_ENFORCE_KEY(frame, ((dict_t *)NULL), name, this,
-                              ((loc_t *)NULL), fd);
+                              ((loc_t *)NULL), fd, priv);
 
     STACK_WIND(frame, pl_fremovexattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fremovexattr, fd, name, xdata);
@@ -4802,6 +4817,12 @@ struct volume_options options[] = {
                     "on the same inode. If multiple lock requests are "
                     "received during this period, only one upcall will "
                     "be sent."},
+    {.key = {"enforce-mandatory-lock"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "off",
+     .flags = OPT_FLAG_SETTABLE,
+     .op_version = {GD_OP_VERSION_6_0},
+     .description = "option to enable lock enforcement"},
     {.key = {NULL}},
 };
 

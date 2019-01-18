@@ -18,6 +18,8 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST $CLI volume set $V0 diagnostics.client-log-flush-timeout 30
 TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 locks.mandatory-locking forced
+TEST $CLI volume set $V0 enforce-mandatory-lock on
+
 
 logdir=`gluster --print-logdir`
 
