@@ -492,6 +492,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
     uint64_t generation = 0;
+    call_frame_t *fill_frame = NULL;
 
     INIT_LIST_HEAD(&serve_entries.list);
     LOCK(&ctx->lock);
@@ -510,6 +511,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         list_for_each_entry_safe(dirent, tmp, &entries->list, list)
         {
             list_del_init(&dirent->list);
+
             /* must preserve entry order */
             list_add_tail(&dirent->list, &ctx->entries.list);
             if (dirent->inode) {
@@ -519,6 +521,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  * request was initiated. So, we pass 0 for
                  * generation number
                  */
+
                 generation = -1;
                 if (ctx->writes_during_prefetch) {
                     memset(gfid, 0, sizeof(gfid));
@@ -527,8 +530,12 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         generation = 0;
                 }
 
-                rda_inode_ctx_update_iatts(dirent->inode, this, &dirent->d_stat,
-                                           &dirent->d_stat, generation);
+                if (!((strcmp(dirent->d_name, ".") == 0) ||
+                      (strcmp(dirent->d_name, "..") == 0))) {
+                    rda_inode_ctx_update_iatts(dirent->inode, this,
+                                               &dirent->d_stat, &dirent->d_stat,
+                                               generation);
+                }
             }
 
             dirent_size = gf_dirent_size(dirent->d_name);
@@ -596,8 +603,7 @@ out:
             ctx->xattrs = NULL;
         }
 
-        rda_local_wipe(ctx->fill_frame->local);
-        STACK_DESTROY(ctx->fill_frame->root);
+        fill_frame = ctx->fill_frame;
         ctx->fill_frame = NULL;
     }
 
@@ -606,6 +612,10 @@ out:
         op_errno = 0;
 
     UNLOCK(&ctx->lock);
+    if (fill_frame) {
+        rda_local_wipe(fill_frame->local);
+        STACK_DESTROY(fill_frame->root);
+    }
 
     if (serve) {
         STACK_UNWIND_STRICT(readdirp, stub->frame, ret, op_errno,
