@@ -16,6 +16,7 @@
 . $(dirname $0)/../../volume.rc
 
 cleanup
+SCRIPT_TIMEOUT=350
 TEST truncate -s 10GB $B0/brick1
 TEST truncate -s 10GB $B0/brick2
 TEST truncate -s 10GB $B0/brick3
