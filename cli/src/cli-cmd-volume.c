@@ -3403,6 +3403,11 @@ struct cli_cmd volume_cmds[] = {
     {"volume set <VOLNAME> <KEY> <VALUE>", cli_cmd_volume_set_cbk,
      "set options for volume <VOLNAME>"},
 
+    {"volume set <VOLNAME> group  <GROUP>", cli_cmd_volume_set_cbk,
+     "This option can be used for setting multiple pre-defined volume options"
+     "where group_name is a file under /var/lib/glusterd/groups containing one"
+     "key, value pair per line"},
+
     {"volume log <VOLNAME> rotate [BRICK]", cli_cmd_log_rotate_cbk,
      "rotate the log file for corresponding volume/brick"},
 
