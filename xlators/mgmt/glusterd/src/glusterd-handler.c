@@ -1816,6 +1816,8 @@ out:
 
     glusterd_to_cli(req, &rsp, NULL, 0, NULL, (xdrproc_t)xdr_gf_cli_rsp, dict);
 
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     GF_FREE(rsp.dict.dict_val);
 
     return 0;
