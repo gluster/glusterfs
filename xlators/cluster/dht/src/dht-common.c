@@ -10029,7 +10029,10 @@ dht_rmdir_is_subvol_empty(call_frame_t *frame, xlator_t *this,
                      lookup_local->loc.path, src->name, gfid);
 
         subvol = dht_linkfile_subvol(this, NULL, &trav->d_stat, trav->dict);
-        if (!subvol) {
+        if (!subvol || (subvol == src)) {
+            /* we need to delete the linkto file if it does not have a
+             * valid subvol or it points to itself.
+             */
             gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_INVALID_LINKFILE,
                    "Linkfile does not have link subvolume. "
                    "path = %s, gfid = %s",
