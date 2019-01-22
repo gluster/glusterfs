@@ -81,13 +81,24 @@ TEST $CLI volume set all cluster.brick-multiplex on
 # NUM_VOLS-1 and there are 5 such statements in each iteration.
 TESTS_EXPECTED_IN_LOOP=84
 for i in $(seq 1 $NUM_VOLS); do
+        starttime="$(date +%s)";
+
 	create_volume $i
 	TEST dd if=/dev/zero of=$(get_mount_point $i)/a_file bs=4k count=1
         # Unmounting to reduce memory footprint on regression hosts
         mnt_point=$(get_mount_point $i)
         EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $mnt_point
-        pmap -x `pgrep glusterfsd` | grep total
+        endtime=$(expr $(date +%s) - $starttime)
+
+        echo "Memory Used after $i volumes : $(pmap -x $(pgrep glusterfsd) | grep total)"
+        echo "Thread Count after $i volumes: $(ps -T -p $(pgrep glusterfsd) | wc -l)"
+        echo "Time taken                   : ${endtime} seconds"
 done
+
+echo "=========="
+echo "List of all the threads in the Brick process"
+ps -T -p $(pgrep glusterfsd)
+echo "=========="
 
 # Kill glusterd, and wait a bit for all traces to disappear.
 TEST killall -9 glusterd
