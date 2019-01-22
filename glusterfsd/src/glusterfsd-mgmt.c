@@ -2122,8 +2122,6 @@ out:
     GF_FREE(frame->local);
     frame->local = NULL;
     STACK_DESTROY(frame->root);
-    if (rsp.xdata.xdata_val)
-        free(rsp.xdata.xdata_val);
     free(rsp.spec);
 
     if (dict)
