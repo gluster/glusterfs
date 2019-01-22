@@ -365,6 +365,7 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
     }
 
     INIT_LIST_HEAD(&trans->list);
+    GF_ATOMIC_INIT(trans->disconnect_progress, 0);
 
     return_trans = trans;
 

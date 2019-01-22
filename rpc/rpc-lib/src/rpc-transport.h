@@ -214,6 +214,7 @@ struct rpc_transport {
     gf_boolean_t connect_failed;
     char notify_poller_death;
     char poller_death_accept;
+    gf_atomic_t disconnect_progress;
 };
 
 struct rpc_transport_ops {
