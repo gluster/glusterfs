@@ -475,6 +475,10 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
                 break;
             }
 
+            /* Set the disconnect_progress flag to 1 to avoid races
+               during brick detach while brick mux is enabled
+            */
+            GF_ATOMIC_INIT(trans->disconnect_progress, 1);
             /* transport has to be removed from the list upon disconnect
              * irrespective of whether lock self heal is off or on, since
              * new transport will be created upon reconnect.
@@ -1536,6 +1540,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
     glusterfs_ctx_t *ctx = NULL;
     gf_boolean_t xprt_found = _gf_false;
     uint64_t totxprt = 0;
+    uint64_t totdisconnect = 0;
 
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
     conf = this->private;
@@ -1609,6 +1614,10 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                 if (!xprt->xl_private) {
                     continue;
                 }
+
+                if (GF_ATOMIC_GET(xprt->disconnect_progress))
+                    continue;
+
                 if (xprt->xl_private->bound_xl == data) {
                     totxprt++;
                 }
@@ -1635,13 +1644,21 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                 if (!xprt->xl_private) {
                     continue;
                 }
+
+                if (GF_ATOMIC_GET(xprt->disconnect_progress))
+                    continue;
+
                 if (xprt->xl_private->bound_xl == data) {
                     gf_log(this->name, GF_LOG_INFO, "disconnecting %s",
                            xprt->peerinfo.identifier);
                     xprt_found = _gf_true;
+                    totdisconnect++;
                     rpc_transport_disconnect(xprt, _gf_false);
                 }
             }
+
+            if (totxprt > totdisconnect)
+                GF_ATOMIC_SUB(victim->xprtrefcnt, (totxprt - totdisconnect));
 
             pthread_mutex_unlock(&conf->mutex);
             if (this->ctx->active) {
