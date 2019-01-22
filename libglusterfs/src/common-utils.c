@@ -503,8 +503,7 @@ gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
         if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) !=
             0) {
             gf_msg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETADDRINFO_FAILED,
-                   "getaddrinfo failed"
-                   " (%s)",
+                   "getaddrinfo failed (family:%d) (%s)", family,
                    gai_strerror(ret));
 
             GF_FREE(*dnscache);
@@ -5327,4 +5326,18 @@ gf_replace_new_iatt_in_dict(dict_t *xdata)
     }
 
     return ret;
+}
+
+xlator_cmdline_option_t *
+find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args)
+{
+    xlator_cmdline_option_t *pos = NULL;
+    xlator_cmdline_option_t *tmp = NULL;
+
+    list_for_each_entry_safe(pos, tmp, &args->xlator_options, cmd_args)
+    {
+        if (strcmp(pos->key, option_name) == 0)
+            return pos;
+    }
+    return NULL;
 }

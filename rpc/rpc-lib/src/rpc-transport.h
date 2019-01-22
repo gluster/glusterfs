@@ -307,7 +307,7 @@ rpc_transport_unix_options_build(dict_t **options, char *filepath,
 
 int
 rpc_transport_inet_options_build(dict_t **options, const char *hostname,
-                                 int port);
+                                 int port, char *af);
 
 void
 rpc_transport_cleanup(rpc_transport_t *);
