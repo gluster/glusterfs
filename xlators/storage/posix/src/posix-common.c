@@ -128,7 +128,7 @@ posix_priv(xlator_t *this)
     gf_proc_dump_write("max_read", "%" PRId64, GF_ATOMIC_GET(priv->read_value));
     gf_proc_dump_write("max_write", "%" PRId64,
                        GF_ATOMIC_GET(priv->write_value));
-    gf_proc_dump_write("nr_files", "%ld", GF_ATOMIC_GET(priv->nr_files));
+    gf_proc_dump_write("nr_files", "%" PRId64, GF_ATOMIC_GET(priv->nr_files));
 
     return 0;
 }
