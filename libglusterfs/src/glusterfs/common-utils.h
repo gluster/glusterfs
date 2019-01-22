@@ -1064,4 +1064,7 @@ gf_replace_old_iatt_in_dict(struct _dict *);
 int
 gf_replace_new_iatt_in_dict(struct _dict *);
 
+xlator_cmdline_option_t *
+find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args);
+
 #endif /* _COMMON_UTILS_H */

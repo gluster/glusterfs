@@ -648,7 +648,7 @@ out:
 
 int
 rpc_transport_inet_options_build(dict_t **options, const char *hostname,
-                                 int port)
+                                 int port, char *af)
 {
     dict_t *dict = NULL;
     char *host = NULL;
@@ -688,7 +688,7 @@ rpc_transport_inet_options_build(dict_t **options, const char *hostname,
         goto out;
     }
 
-    ret = dict_set_str(dict, "address-family", addr_family);
+    ret = dict_set_str(dict, "address-family", (af != NULL ? af : addr_family));
     if (ret) {
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set address-family to %s",
                addr_family);

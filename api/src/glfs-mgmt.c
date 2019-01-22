@@ -697,9 +697,9 @@ volfile:
      *  volfile if topology hasn't changed.
      *  glusterfs_volfile_reconfigure returns 3 possible return states
      *  return 0	     =======> reconfiguration of options has succeeded
-     *  return 1	     =======> the graph has to be reconstructed and all the
-     * xlators should be inited return -1(or -ve) =======> Some Internal Error
-     * occurred during the operation
+     *  return 1	     =======> the graph has to be reconstructed and all
+     * the xlators should be inited return -1(or -ve) =======> Some Internal
+     * Error occurred during the operation
      */
 
     pthread_mutex_lock(&fs->mutex);
@@ -1031,7 +1031,10 @@ glfs_mgmt_init(struct glfs *fs)
         !strcmp(cmd_args->volfile_server_transport, "unix")) {
         ret = rpc_transport_unix_options_build(&options, host, 0);
     } else {
-        ret = rpc_transport_inet_options_build(&options, host, port);
+        xlator_cmdline_option_t *opt = find_xlator_option_in_cmd_args_t(
+            "address-family", cmd_args);
+        ret = rpc_transport_inet_options_build(&options, host, port,
+                                               (opt ? opt->value : NULL));
     }
 
     if (ret)

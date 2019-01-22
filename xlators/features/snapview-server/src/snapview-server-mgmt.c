@@ -86,6 +86,7 @@ svs_mgmt_init(xlator_t *this)
     char *host = NULL;
     cmd_args_t *cmd_args = NULL;
     glusterfs_ctx_t *ctx = NULL;
+    xlator_cmdline_option_t *opt = NULL;
 
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
@@ -100,7 +101,9 @@ svs_mgmt_init(xlator_t *this)
     if (cmd_args->volfile_server)
         host = cmd_args->volfile_server;
 
-    ret = rpc_transport_inet_options_build(&options, host, port);
+    opt = find_xlator_option_in_cmd_args_t("address-family", cmd_args);
+    ret = rpc_transport_inet_options_build(&options, host, port,
+                                           (opt != NULL ? opt->value : NULL));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_BUILD_TRNSPRT_OPT_FAILED,
                "failed to build the "
