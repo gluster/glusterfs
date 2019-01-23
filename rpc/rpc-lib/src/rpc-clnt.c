@@ -495,6 +495,7 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
     int unref = 0;
     int ret = 0;
     gf_boolean_t timer_unref = _gf_false;
+    gf_boolean_t reconnect_unref = _gf_false;
 
     if (!conn) {
         goto out;
@@ -513,6 +514,12 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
             if (!ret)
                 timer_unref = _gf_true;
             conn->timer = NULL;
+        }
+        if (conn->reconnect) {
+            ret = gf_timer_call_cancel(clnt->ctx, conn->reconnect);
+            if (!ret)
+                reconnect_unref = _gf_true;
+            conn->reconnect = NULL;
         }
 
         conn->connected = 0;
@@ -533,6 +540,8 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
     if (timer_unref)
         rpc_clnt_unref(clnt);
 
+    if (reconnect_unref)
+        rpc_clnt_unref(clnt);
 out:
     return 0;
 }
@@ -830,7 +839,7 @@ rpc_clnt_handle_disconnect(struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
     pthread_mutex_lock(&conn->lock);
     {
         if (!conn->rpc_clnt->disabled && (conn->reconnect == NULL)) {
-            ts.tv_sec = 10;
+            ts.tv_sec = 3;
             ts.tv_nsec = 0;
 
             rpc_clnt_ref(clnt);

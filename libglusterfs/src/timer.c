@@ -75,13 +75,13 @@ gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
     if (ctx == NULL || event == NULL) {
         gf_msg_callingfn("timer", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid argument");
-        return 0;
+        return -1;
     }
 
     if (ctx->cleanup_started) {
         gf_msg_callingfn("timer", GF_LOG_INFO, 0, LG_MSG_CTX_CLEANUP_STARTED,
                          "ctx cleanup started");
-        return 0;
+        return -1;
     }
 
     LOCK(&ctx->lock);
@@ -93,10 +93,9 @@ gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
     if (!reg) {
         /* This can happen when cleanup may have just started and
          * gf_timer_registry_destroy() sets ctx->timer to NULL.
-         * Just bail out as success as gf_timer_proc() takes
-         * care of cleaning up the events.
+         * gf_timer_proc() takes care of cleaning up the events.
          */
-        return 0;
+        return -1;
     }
 
     LOCK(&reg->lock);
@@ -203,6 +202,13 @@ gf_timer_proc(void *data)
         list_for_each_entry_safe(event, tmp, &reg->active, list)
         {
             list_del(&event->list);
+            /* TODO Possible resource leak
+             * Before freeing the event, we need to call the respective
+             * event functions and free any resources.
+             * For example, In case of rpc_clnt_reconnect, we need to
+             * unref rpc object which was taken when added to timer
+             * wheel.
+             */
             GF_FREE(event);
         }
     }

@@ -3364,6 +3364,25 @@ out:
     return ret;
 }
 
+int
+glusterd_is_path_mounted(const char *path)
+{
+    FILE *mtab = NULL;
+    struct mntent *part = NULL;
+    int is_mounted = 0;
+
+    if ((mtab = setmntent("/etc/mtab", "r")) != NULL) {
+        while ((part = getmntent(mtab)) != NULL) {
+            if ((part->mnt_fsname != NULL) &&
+                (strcmp(part->mnt_dir, path)) == 0) {
+                is_mounted = 1;
+                break;
+            }
+        }
+        endmntent(mtab);
+    }
+    return is_mounted;
+}
 /* This function will do unmount for snaps.
  */
 int32_t
@@ -3388,14 +3407,11 @@ glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo)
             continue;
         }
 
-        /* Fetch the brick mount path from the brickinfo->path */
-        ret = glusterd_get_brick_root(brickinfo->path, &brick_mount_path);
+        ret = glusterd_find_brick_mount_path(brickinfo->path,
+                                             &brick_mount_path);
         if (ret) {
-            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_BRICK_PATH_UNMOUNTED,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRK_MNTPATH_GET_FAIL,
                    "Failed to find brick_mount_path for %s", brickinfo->path);
-            /* There is chance that brick path is already
-             * unmounted. */
-            ret = 0;
             goto out;
         }
         /* unmount cannot be done when the brick process is still in
@@ -3439,6 +3455,10 @@ glusterd_umount(const char *path)
     this = THIS;
     GF_ASSERT(this);
     GF_ASSERT(path);
+
+    if (!glusterd_is_path_mounted(path)) {
+        return 0;
+    }
 
     runinit(&runner);
     snprintf(msg, sizeof(msg), "umount path %s", path);
