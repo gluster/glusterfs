@@ -147,9 +147,8 @@ trap(void);
 /* pthread related */
 /* as per the man page, thread-name should be at max 16 bytes */
 /* with prefix of 'glfs_' (5), we are left with 11 more bytes */
-#define GF_THREAD_NAMEMAX 11
+#define GF_THREAD_NAME_LIMIT 16
 #define GF_THREAD_NAME_PREFIX "glfs_"
-#define GF_THREAD_NAME_PREFIX_LEN 5
 
 /*
  * we could have initialized these as +ve values and treated
@@ -950,10 +949,24 @@ gf_set_timestamp(const char *src, const char *dest);
 
 int
 gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
-                 void *(*start_routine)(void *), void *arg, const char *name);
+                 void *(*start_routine)(void *), void *arg, const char *name,
+                 ...) __attribute__((__format__(__printf__, 5, 6)));
+
+int
+gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
+                  void *(*start_routine)(void *), void *arg, const char *name,
+                  va_list args);
 int
 gf_thread_create_detached(pthread_t *thread, void *(*start_routine)(void *),
-                          void *arg, const char *name);
+                          void *arg, const char *name, ...)
+    __attribute__((__format__(__printf__, 4, 5)));
+
+void
+gf_thread_set_name(pthread_t thread, const char *name, ...)
+    __attribute__((__format__(__printf__, 2, 3)));
+
+void
+gf_thread_set_vname(pthread_t thread, const char *name, va_list args);
 gf_boolean_t
 gf_is_pid_running(int pid);
 gf_boolean_t
