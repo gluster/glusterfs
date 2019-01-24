@@ -2314,6 +2314,11 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
 
     newprog->alive = _gf_true;
 
+    if (gf_async_ctrl.enabled) {
+        newprog->ownthread = _gf_false;
+        newprog->synctask = _gf_false;
+    }
+
     /* make sure synctask gets priority over ownthread */
     if (newprog->synctask)
         newprog->ownthread = _gf_false;

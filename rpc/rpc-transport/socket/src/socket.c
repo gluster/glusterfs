@@ -2495,6 +2495,33 @@ out:
     return ret;
 }
 
+static void
+socket_event_poll_in_async(xlator_t *xl, gf_async_t *async)
+{
+    rpc_transport_pollin_t *pollin;
+    rpc_transport_t *this;
+    socket_private_t *priv;
+
+    pollin = caa_container_of(async, rpc_transport_pollin_t, async);
+    this = pollin->trans;
+    priv = this->private;
+
+    rpc_transport_notify(this, RPC_TRANSPORT_MSG_RECEIVED, pollin);
+
+    rpc_transport_unref(this);
+
+    rpc_transport_pollin_destroy(pollin);
+
+    pthread_mutex_lock(&priv->notify.lock);
+    {
+        --priv->notify.in_progress;
+
+        if (!priv->notify.in_progress)
+            pthread_cond_signal(&priv->notify.cond);
+    }
+    pthread_mutex_unlock(&priv->notify.lock);
+}
+
 static int
 socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
 {
@@ -2519,18 +2546,8 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
         event_handled(ctx->event_pool, priv->sock, priv->idx, priv->gen);
 
     if (pollin) {
-        rpc_transport_notify(this, RPC_TRANSPORT_MSG_RECEIVED, pollin);
-
-        rpc_transport_pollin_destroy(pollin);
-
-        pthread_mutex_lock(&priv->notify.lock);
-        {
-            --priv->notify.in_progress;
-
-            if (!priv->notify.in_progress)
-                pthread_cond_signal(&priv->notify.cond);
-        }
-        pthread_mutex_unlock(&priv->notify.lock);
+        rpc_transport_ref(this);
+        gf_async(&pollin->async, THIS, socket_event_poll_in_async);
     }
 
     return ret;

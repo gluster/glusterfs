@@ -1215,6 +1215,26 @@ loglevel_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
+threads_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+    char *role = param;
+    struct volopt_map_entry vme2 = {
+        0,
+    };
+
+    if ((strcmp(vme->option, "!client-threads") != 0 &&
+         strcmp(vme->option, "!brick-threads") != 0) ||
+        !strstr(vme->key, role))
+        return 0;
+
+    memcpy(&vme2, vme, sizeof(vme2));
+    vme2.option = "threads";
+
+    return basic_option_handler(graph, &vme2, NULL);
+}
+
+static int
 server_check_changelog_off(volgen_graph_t *graph, struct volopt_map_entry *vme,
                            glusterd_volinfo_t *volinfo)
 {
@@ -1505,6 +1525,9 @@ server_spec_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
 
     if (!ret)
         ret = log_localtime_logging_option_handler(graph, vme, "brick");
+
+    if (!ret)
+        ret = threads_option_handler(graph, vme, "brick");
 
     return ret;
 }
@@ -4085,6 +4108,14 @@ graph_set_generic_options(xlator_t *this, volgen_graph_t *graph,
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_GRAPH_SET_OPT_FAIL,
                "Failed to change "
                "log-localtime-logging option");
+
+    ret = volgen_graph_set_options_generic(graph, set_dict, "client",
+                                           &threads_option_handler);
+
+    if (ret)
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_GRAPH_SET_OPT_FAIL,
+               "changing %s threads failed", identifier);
+
     return 0;
 }
 

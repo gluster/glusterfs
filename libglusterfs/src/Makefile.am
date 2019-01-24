@@ -37,7 +37,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
 	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c locking.c \
 	$(CONTRIBDIR)/xxhash/xxhash.c \
-	compound-fop-utils.c throttle-tbf.c monitoring.c
+	compound-fop-utils.c throttle-tbf.c monitoring.c async.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
 nodist_libglusterfs_la_HEADERS = y.tab.h protocol-common.h
@@ -69,7 +69,7 @@ libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
 	glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
 	glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
 	glusterfs/events.h glusterfs/compound-fop-utils.h glusterfs/atomic.h \
-	glusterfs/monitoring.h
+	glusterfs/monitoring.h glusterfs/async.h
 
 libglusterfs_ladir = $(includedir)/glusterfs
 
@@ -79,6 +79,10 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.h \
 	$(CONTRIBDIR)/xxhash/xxhash.h \
+	$(CONTRIBDIR)/userspace-rcu/wfcqueue.h \
+	$(CONTRIBDIR)/userspace-rcu/wfstack.h \
+	$(CONTRIBDIR)/userspace-rcu/static-wfcqueue.h \
+	$(CONTRIBDIR)/userspace-rcu/static-wfstack.h \
 	tier-ctr-interface.h
 
 eventtypes.h: $(top_srcdir)/events/eventskeygen.py

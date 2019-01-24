@@ -1359,10 +1359,12 @@ PKG_CHECK_MODULES([URCU], [liburcu-bp], [],
      AC_MSG_ERROR([liburcu-bp not found]))])
 PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.8], [],
   [PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.7],
-    [AC_DEFINE(URCU_OLD, 1, [Define if liburcu 0.6 or 0.7 is found])],
+    [AC_DEFINE(URCU_OLD, 1, [Define if liburcu 0.6 or 0.7 is found])
+     USE_CONTRIB_URCU='yes'],
     [AC_CHECK_HEADERS([urcu/cds.h],
       [AC_DEFINE(URCU_OLD, 1, [Define if liburcu 0.6 or 0.7 is found])
-       URCU_CDS_LIBS='-lurcu-cds'],
+       URCU_CDS_LIBS='-lurcu-cds'
+       USE_CONTRIB_URCU='yes'],
       [AC_MSG_ERROR([liburcu-cds not found])])])])
 
 BUILD_UNITTEST="no"
@@ -1526,6 +1528,9 @@ AC_SUBST(CONTRIBDIR)
 
 GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)'
 GF_CPPINCLUDES='-include $(top_builddir)/config.h -include $(top_builddir)/site.h -I$(top_srcdir)/libglusterfs/src -I$(top_builddir)/libglusterfs/src'
+if test "x${USE_CONTRIB_URCU}" = "xyes"; then
+    GF_CPPINCLUDES="${GF_CPPINCLUDES} -I\$(CONTRIBDIR)/userspace-rcu"
+fi
 GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 

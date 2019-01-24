@@ -58,6 +58,7 @@ typedef struct rpc_transport rpc_transport_t;
 
 #include <glusterfs/dict.h>
 #include <glusterfs/compat.h>
+#include <glusterfs/async.h>
 #include "rpcsvc-common.h"
 
 struct peer_info {
@@ -155,16 +156,6 @@ struct rpc_request_info {
 };
 typedef struct rpc_request_info rpc_request_info_t;
 
-struct rpc_transport_pollin {
-    int count;
-    void *private;
-    struct iobref *iobref;
-    struct iovec vector[MAX_IOVEC];
-    char is_reply;
-    char vectored;
-};
-typedef struct rpc_transport_pollin rpc_transport_pollin_t;
-
 typedef int (*rpc_transport_notify_t)(rpc_transport_t *, void *mydata,
                                       rpc_transport_event_t, void *data, ...);
 
@@ -216,6 +207,18 @@ struct rpc_transport {
     char poller_death_accept;
     gf_atomic_t disconnect_progress;
 };
+
+struct rpc_transport_pollin {
+    struct rpc_transport *trans;
+    int count;
+    void *private;
+    struct iobref *iobref;
+    struct iovec vector[MAX_IOVEC];
+    char is_reply;
+    char vectored;
+    gf_async_t async;
+};
+typedef struct rpc_transport_pollin rpc_transport_pollin_t;
 
 struct rpc_transport_ops {
     /* no need of receive op, msg will be delivered through an event

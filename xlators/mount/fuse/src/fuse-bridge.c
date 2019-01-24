@@ -16,10 +16,17 @@
 #include <glusterfs/glusterfs-acl.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/timespec.h>
+#include <glusterfs/async.h>
 
 #ifdef __NetBSD__
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
 #endif
+typedef struct _fuse_async {
+    struct iobuf *iobuf;
+    fuse_in_header_t *finh;
+    void *msg;
+    gf_async_t async;
+} fuse_async_t;
 
 static int gf_fuse_xattr_enotsup_log;
 
@@ -5810,6 +5817,28 @@ fuse_get_mount_status(xlator_t *this)
     return kid_status;
 }
 
+static void
+fuse_dispatch(xlator_t *xl, gf_async_t *async)
+{
+    fuse_async_t *fasync;
+    fuse_private_t *priv;
+    fuse_in_header_t *finh;
+    struct iobuf *iobuf;
+
+    priv = xl->private;
+    fasync = caa_container_of(async, fuse_async_t, async);
+    finh = fasync->finh;
+    iobuf = fasync->iobuf;
+
+    priv->fuse_ops[finh->opcode](xl, finh, fasync->msg, iobuf);
+
+    iobuf_unref(iobuf);
+}
+
+/* We need 512 extra buffer size for BATCH_FORGET fop. By tests, it is
+ * found to be reduces 'REALLOC()' in the loop */
+#define FUSE_EXTRA_ALLOC 512
+
 static void *
 fuse_thread_proc(void *data)
 {
@@ -5821,24 +5850,20 @@ fuse_thread_proc(void *data)
     fuse_in_header_t *finh = NULL;
     struct iovec iov_in[2];
     void *msg = NULL;
-    /* we need 512 extra buffer size for BATCH_FORGET fop. By tests, it is
-       found to be reduces 'REALLOC()' in the loop */
-    const size_t msg0_size = sizeof(*finh) + 512;
-    fuse_handler_t **fuse_ops = NULL;
+    size_t msg0_size = sizeof(*finh) + sizeof(struct fuse_write_in);
+    fuse_async_t *fasync;
     struct pollfd pfd[2] = {{
         0,
     }};
+    uint32_t psize;
 
     this = data;
     priv = this->private;
-    fuse_ops = priv->fuse_ops;
 
     THIS = this;
 
-    iov_in[0].iov_len = sizeof(*finh) + sizeof(struct fuse_write_in);
-    iov_in[1].iov_len = ((struct iobuf_pool *)this->ctx->iobuf_pool)
-                            ->default_page_size;
-    priv->msg0_len_p = &iov_in[0].iov_len;
+    psize = ((struct iobuf_pool *)this->ctx->iobuf_pool)->default_page_size;
+    priv->msg0_len_p = &msg0_size;
 
     for (;;) {
         /* THIS has to be reset here */
@@ -5895,14 +5920,15 @@ fuse_thread_proc(void *data)
            changing this one too */
         iobuf = iobuf_get(this->ctx->iobuf_pool);
 
-        /* Add extra 128 byte to the first iov so that it can
+        /* Add extra 512 byte to the first iov so that it can
          * accommodate "ordinary" non-write requests. It's not
          * guaranteed to be big enough, as SETXATTR and namespace
          * operations with very long names may grow behind it,
          * but it's good enough in most cases (and we can handle
-         * rest via realloc).
-         */
-        iov_in[0].iov_base = GF_CALLOC(1, msg0_size, gf_fuse_mt_iov_base);
+         * rest via realloc). */
+        iov_in[0].iov_base = GF_MALLOC(
+            sizeof(fuse_async_t) + msg0_size + FUSE_EXTRA_ALLOC,
+            gf_fuse_mt_iov_base);
 
         if (!iobuf || !iov_in[0].iov_base) {
             gf_log(this->name, GF_LOG_ERROR, "Out of memory");
@@ -5914,6 +5940,9 @@ fuse_thread_proc(void *data)
         }
 
         iov_in[1].iov_base = iobuf->ptr;
+
+        iov_in[0].iov_len = msg0_size;
+        iov_in[1].iov_len = psize;
 
         res = sys_readv(priv->fd, iov_in, 2);
 
@@ -5941,7 +5970,7 @@ fuse_thread_proc(void *data)
 
             goto cont_err;
         }
-        if (res < sizeof(finh)) {
+        if (res < sizeof(*finh)) {
             gf_log("glusterfs-fuse", GF_LOG_WARNING, "short read on /dev/fuse");
             fuse_log_eh(this,
                         "glusterfs-fuse: short read on "
@@ -5983,8 +6012,9 @@ fuse_thread_proc(void *data)
         if (finh->opcode == FUSE_WRITE)
             msg = iov_in[1].iov_base;
         else {
-            if (res > msg0_size) {
-                void *b = GF_REALLOC(iov_in[0].iov_base, res);
+            if (res > msg0_size + FUSE_EXTRA_ALLOC) {
+                void *b = GF_REALLOC(iov_in[0].iov_base,
+                                     sizeof(fuse_async_t) + res);
                 if (b) {
                     iov_in[0].iov_base = b;
                     finh = (fuse_in_header_t *)iov_in[0].iov_base;
@@ -5996,22 +6026,29 @@ fuse_thread_proc(void *data)
                 }
             }
 
-            if (res > iov_in[0].iov_len)
+            if (res > iov_in[0].iov_len) {
                 memcpy(iov_in[0].iov_base + iov_in[0].iov_len,
                        iov_in[1].iov_base, res - iov_in[0].iov_len);
+                iov_in[0].iov_len = res;
+            }
 
             msg = finh + 1;
         }
         if (priv->uid_map_root && finh->uid == priv->uid_map_root)
             finh->uid = 0;
 
-        if (finh->opcode >= FUSE_OP_HIGH)
+        if (finh->opcode >= FUSE_OP_HIGH) {
             /* turn down MacFUSE specific messages */
             fuse_enosys(this, finh, msg, NULL);
-        else
-            fuse_ops[finh->opcode](this, finh, msg, iobuf);
+            iobuf_unref(iobuf);
+        } else {
+            fasync = iov_in[0].iov_base + iov_in[0].iov_len;
+            fasync->finh = finh;
+            fasync->msg = msg;
+            fasync->iobuf = iobuf;
+            gf_async(&fasync->async, this, fuse_dispatch);
+        }
 
-        iobuf_unref(iobuf);
         continue;
 
     cont_err:

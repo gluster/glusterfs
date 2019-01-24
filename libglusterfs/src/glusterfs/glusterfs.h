@@ -575,6 +575,8 @@ struct _cmd_args {
 
     int fuse_flush_handle_interrupt;
     int fuse_auto_inval;
+
+    bool global_threading;
 };
 typedef struct _cmd_args cmd_args_t;
 

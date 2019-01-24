@@ -2045,6 +2045,8 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
     int32_t len = 0;
     glusterd_brick_proc_t *brick_proc = NULL;
     char *inet_family = NULL;
+    char *global_threading = NULL;
+    bool threading = false;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
@@ -2201,6 +2203,15 @@ retry:
         runner_add_arg(&runner, "--xlator-option");
         runner_argprintf(&runner, "%s-server.transport.rdma.listen-port=%d",
                          volinfo->volname, rdma_port);
+    }
+
+    if (dict_get_strn(volinfo->dict, VKEY_CONFIG_GLOBAL_THREADING,
+                      SLEN(VKEY_CONFIG_GLOBAL_THREADING),
+                      &global_threading) == 0) {
+        if ((gf_string2boolean(global_threading, &threading) == 0) &&
+            threading) {
+            runner_add_arg(&runner, "--global-threading");
+        }
     }
 
     runner_add_arg(&runner, "--xlator-option");

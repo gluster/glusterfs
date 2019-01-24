@@ -38,6 +38,9 @@
 #define VKEY_RDA_CACHE_LIMIT "performance.rda-cache-limit"
 #define VKEY_RDA_REQUEST_SIZE "performance.rda-request-size"
 #define VKEY_CONFIG_GFPROXY "config.gfproxyd"
+#define VKEY_CONFIG_GLOBAL_THREADING "config.global-threading"
+#define VKEY_CONFIG_CLIENT_THREADS "config.client-threads"
+#define VKEY_CONFIG_BRICK_THREADS "config.brick-threads"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"

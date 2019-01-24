@@ -1255,12 +1255,14 @@ init(xlator_t *this)
         INIT_LIST_HEAD(&conf->no_client[i].reqs);
     }
 
-    ret = iot_workers_scale(conf);
+    if (!this->pass_through) {
+        ret = iot_workers_scale(conf);
 
-    if (ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_INIT_FAILED,
-               "cannot initialize worker threads, exiting init");
-        goto out;
+        if (ret == -1) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_INIT_FAILED,
+                   "cannot initialize worker threads, exiting init");
+            goto out;
+        }
     }
 
     this->private = conf;
