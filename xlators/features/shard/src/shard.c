@@ -273,6 +273,7 @@ shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
      * of the to_fsync_list.
      */
     inode_ref(base_inode);
+    inode_ref(shard_inode);
 
     LOCK(&base_inode->lock);
     LOCK(&shard_inode->lock);
@@ -286,8 +287,10 @@ shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
     /* Unref the base inode corresponding to the ref above, if the shard is
      * found to be already part of the fsync list.
      */
-    if (ret != 0)
+    if (ret != 0) {
         inode_unref(base_inode);
+        inode_unref(shard_inode);
+    }
     return ret;
 }
 
@@ -734,6 +737,10 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
                 inode_unlink(lru_inode, priv->dot_shard_inode, block_bname);
                 inode_forget(lru_inode, 0);
             } else {
+                /* The following unref corresponds to the ref
+                 * held when the shard was added to fsync list.
+                 */
+                inode_unref(lru_inode);
                 fsync_inode = lru_inode;
                 if (lru_base_inode)
                     inode_unref(lru_base_inode);
@@ -2932,8 +2939,8 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
     shard_priv_t *priv = NULL;
     shard_inode_ctx_t *ctx = NULL;
     shard_inode_ctx_t *base_ictx = NULL;
-    gf_boolean_t unlink_unref_forget = _gf_false;
     int unref_base_inode = 0;
+    int unref_shard_inode = 0;
 
     this = THIS;
     priv = this->private;
@@ -2958,11 +2965,12 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
             list_del_init(&ctx->ilist);
             priv->inode_count--;
             unref_base_inode++;
+            unref_shard_inode++;
             GF_ASSERT(priv->inode_count >= 0);
-            unlink_unref_forget = _gf_true;
         }
         if (ctx->fsync_needed) {
             unref_base_inode++;
+            unref_shard_inode++;
             list_del_init(&ctx->to_fsync_list);
             if (base_inode) {
                 __shard_inode_ctx_get(base_inode, this, &base_ictx);
@@ -2973,11 +2981,11 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
     UNLOCK(&inode->lock);
     if (base_inode)
         UNLOCK(&base_inode->lock);
-    if (unlink_unref_forget) {
-        inode_unlink(inode, priv->dot_shard_inode, block_bname);
-        inode_unref(inode);
-        inode_forget(inode, 0);
-    }
+
+    inode_unlink(inode, priv->dot_shard_inode, block_bname);
+    inode_ref_reduce_by_n(inode, unref_shard_inode);
+    inode_forget(inode, 0);
+
     if (base_inode && unref_base_inode)
         inode_ref_reduce_by_n(base_inode, unref_base_inode);
     UNLOCK(&priv->lock);
@@ -5793,6 +5801,7 @@ shard_fsync_shards_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     shard_inode_ctx_t *ctx = NULL;
     shard_inode_ctx_t *base_ictx = NULL;
     inode_t *base_inode = NULL;
+    gf_boolean_t unref_shard_inode = _gf_false;
 
     local = frame->local;
     base_inode = local->fd->inode;
@@ -5826,11 +5835,16 @@ out:
             if (ctx->fsync_needed != 0) {
                 list_add_tail(&ctx->to_fsync_list, &base_ictx->to_fsync_list);
                 base_ictx->fsync_count++;
+            } else {
+                unref_shard_inode = _gf_true;
             }
         }
         UNLOCK(&anon_fd->inode->lock);
         UNLOCK(&base_inode->lock);
     }
+
+    if (unref_shard_inode)
+        inode_unref(anon_fd->inode);
     if (anon_fd)
         fd_unref(anon_fd);
 
