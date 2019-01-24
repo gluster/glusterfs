@@ -5341,3 +5341,26 @@ find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args)
     }
     return NULL;
 }
+
+int
+gf_d_type_from_ia_type(ia_type_t type)
+{
+    switch (type) {
+        case IA_IFDIR:
+            return DT_DIR;
+        case IA_IFCHR:
+            return DT_CHR;
+        case IA_IFBLK:
+            return DT_BLK;
+        case IA_IFIFO:
+            return DT_FIFO;
+        case IA_IFLNK:
+            return DT_LNK;
+        case IA_IFREG:
+            return DT_REG;
+        case IA_IFSOCK:
+            return DT_SOCK;
+        default:
+            return DT_UNKNOWN;
+    }
+}

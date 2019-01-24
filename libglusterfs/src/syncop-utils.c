@@ -403,7 +403,7 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
                 continue;
             }
 
-            if (entry->d_type == IA_IFDIR) {
+            if (entry->d_stat.ia_type == IA_IFDIR) {
                 ret = fn(subvol, entry, loc, data);
                 gf_dirent_entry_free(entry);
                 if (ret)

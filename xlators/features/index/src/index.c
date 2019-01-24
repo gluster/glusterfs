@@ -1685,21 +1685,25 @@ index_get_gfid_type(void *opaque)
 
         loc_wipe(&loc);
 
-        entry->d_type = IA_INVAL;
+        entry->d_type = gf_d_type_from_ia_type(IA_INVAL);
+        entry->d_stat.ia_type = IA_INVAL;
         if (gf_uuid_parse(entry->d_name, loc.gfid))
             continue;
 
         loc.inode = inode_find(args->parent->table, loc.gfid);
         if (loc.inode) {
-            entry->d_type = loc.inode->ia_type;
+            entry->d_stat.ia_type = loc.inode->ia_type;
+            entry->d_type = gf_d_type_from_ia_type(loc.inode->ia_type);
             continue;
         }
         loc.inode = inode_new(args->parent->table);
         if (!loc.inode)
             continue;
         ret = syncop_lookup(FIRST_CHILD(this), &loc, &iatt, 0, 0, 0);
-        if (ret == 0)
-            entry->d_type = iatt.ia_type;
+        if (ret == 0) {
+            entry->d_type = gf_d_type_from_ia_type(iatt.ia_type);
+            entry->d_stat = iatt;
+        }
     }
     loc_wipe(&loc);
 
