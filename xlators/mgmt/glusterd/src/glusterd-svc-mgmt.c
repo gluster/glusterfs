@@ -213,6 +213,10 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
         runner_add_arg(&runner, daemon_log_level);
     }
 
+    if (this->ctx->cmd_args.global_threading) {
+        runner_add_arg(&runner, "--global-threading");
+    }
+
     if (cmdline)
         dict_foreach(cmdline, svc_add_args, (void *)&runner);
 

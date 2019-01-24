@@ -281,6 +281,10 @@ function quotad_up_status {
         gluster volume status | grep "Quota Daemon" | awk '{print $7}'
 }
 
+function get_glusterd_pid {
+        pgrep '^glusterd$' | head -1
+}
+
 function get_brick_pidfile {
         local vol=$1
         local host=$2

@@ -144,6 +144,8 @@ rpc_transport_pollin_alloc(rpc_transport_t *this, struct iovec *vector,
         goto out;
     }
 
+    msg->trans = this;
+
     if (count > 1) {
         msg->vectored = 1;
     }

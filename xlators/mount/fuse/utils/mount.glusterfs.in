@@ -189,6 +189,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --thin-client");
     fi
 
+    if [ -n "$global_threading" ]; then
+        cmd_line=$(echo "$cmd_line --global-threading");
+    fi
+
 #options with values start here
     if [ -n "$halo_max_latency" ]; then
       cmd_line=$(echo "$cmd_line --xlator-option \
@@ -628,6 +632,9 @@ without_options()
             ;;
          # "mount -t glusterfs" sends this, but it's useless.
         "rw")
+            ;;
+        "global-threading")
+            global_threading=1
             ;;
          # TODO: not sure how to handle this yet
         "async"|"sync"|"dirsync"|\

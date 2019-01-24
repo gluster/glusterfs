@@ -553,6 +553,11 @@ get_xlator_by_name
 get_xlator_by_type
 gf_array_insertionsort
 gf_asprintf
+gf_async
+gf_async_adjust_threads
+gf_async_ctrl
+gf_async_init
+gf_async_fini
 gf_backtrace_save
 gf_bits_count
 gf_bits_index

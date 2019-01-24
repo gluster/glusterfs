@@ -40,6 +40,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <glusterfs/upcall-utils.h>
+#include <glusterfs/async.h>
 
 #define MAX_LIST_MEMBERS 100
 #define DEFAULT_PWD_BUF_SZ 16384
@@ -3737,6 +3738,7 @@ reconfigure(xlator_t *this, dict_t *options)
     uint32_t log_buf_size = 0;
     uint32_t log_flush_timeout = 0;
     int32_t old_dump_interval;
+    int32_t threads;
 
     if (!this || !this->private)
         goto out;
@@ -3808,6 +3810,9 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("log-flush-timeout", log_flush_timeout, options, time,
                      out);
     gf_log_set_log_flush_timeout(log_flush_timeout);
+
+    GF_OPTION_RECONF("threads", threads, options, int32, out);
+    gf_async_adjust_threads(threads);
 
     ret = 0;
 out:
@@ -3888,6 +3893,7 @@ init(xlator_t *this)
     int ret = -1;
     uint32_t log_buf_size = 0;
     uint32_t log_flush_timeout = 0;
+    int32_t threads;
 
     if (!this)
         return -1;
@@ -3951,6 +3957,7 @@ init(xlator_t *this)
         gf_log(this->name, GF_LOG_ERROR, "Out of memory.");
         goto out;
     }
+    ret = -1;
 
     GF_OPTION_INIT("ios-dnscache-ttl-sec", conf->ios_dnscache_ttl_sec, int32,
                    out);
@@ -3986,6 +3993,9 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("log-flush-timeout", log_flush_timeout, time, out);
     gf_log_set_log_flush_timeout(log_flush_timeout);
+
+    GF_OPTION_INIT("threads", threads, int32, out);
+    gf_async_adjust_threads(threads);
 
     this->private = conf;
     if (conf->ios_dump_interval > 0) {
@@ -4430,8 +4440,37 @@ struct volume_options options[] = {
      .type = GF_OPTION_TYPE_STR,
      .default_value = "/no/such/path",
      .description = "Unique ID for our files."},
+    {.key = {"global-threading"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "off",
+     .op_version = {GD_OP_VERSION_6_0},
+     .flags = OPT_FLAG_SETTABLE,
+     .tags = {"io-stats", "threading"},
+     .description = "This option enables the global threading support for "
+                    "bricks. If enabled, it's recommended to also enable "
+                    "'performance.iot-pass-through'"},
+    {.key = {"threads"}, .type = GF_OPTION_TYPE_INT},
+    {.key = {"brick-threads"},
+     .type = GF_OPTION_TYPE_INT,
+     .default_value = "16",
+     .min = 0,
+     .max = GF_ASYNC_MAX_THREADS,
+     .op_version = {GD_OP_VERSION_6_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .tags = {"io-stats", "threading"},
+     .description = "When global threading is used, this value determines the "
+                    "maximum amount of threads that can be created on bricks"},
+    {.key = {"client-threads"},
+     .type = GF_OPTION_TYPE_INT,
+     .default_value = "16",
+     .min = 0,
+     .max = GF_ASYNC_MAX_THREADS,
+     .op_version = {GD_OP_VERSION_6_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .tags = {"io-stats", "threading"},
+     .description = "When global threading is used, this value determines the "
+                    "maximum amount of threads that can be created on clients"},
     {.key = {NULL}},
-
 };
 
 xlator_api_t xlator_api = {

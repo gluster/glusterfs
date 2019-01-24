@@ -203,6 +203,8 @@ static struct argp_option gf_options[] = {
      "Instantiate process global timer-wheel"},
     {"thin-client", ARGP_THIN_CLIENT_KEY, 0, 0,
      "Enables thin mount and connects via gfproxyd daemon"},
+    {"global-threading", ARGP_GLOBAL_THREADING_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+     "Use the global thread pool instead of io-threads"},
 
     {0, 0, 0, 0, "Fuse options:"},
     {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL|auto",
@@ -696,6 +698,14 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
             gf_msg_debug("glusterfsd", 0, "fuse-flush-handle-interrupt mode %d",
                          cmd_args->fuse_flush_handle_interrupt);
             break;
+    }
+    if (cmd_args->global_threading) {
+        ret = dict_set_static_ptr(options, "global-threading", "on");
+        if (ret < 0) {
+            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                   "failed to set dict value for key global-threading");
+            goto err;
+        }
     }
 
     ret = 0;
@@ -1497,6 +1507,7 @@ parse_opts(int key, char *arg, struct argp_state *state)
                          "unknown fuse flush handle interrupt setting \"%s\"",
                          arg);
             break;
+
         case ARGP_FUSE_AUTO_INVAL_KEY:
             if (!arg)
                 arg = "yes";
@@ -1506,6 +1517,20 @@ parse_opts(int key, char *arg, struct argp_state *state)
                 break;
             }
 
+            break;
+
+        case ARGP_GLOBAL_THREADING_KEY:
+            if (!arg || (*arg == 0)) {
+                arg = "yes";
+            }
+
+            if (gf_string2boolean(arg, &b) == 0) {
+                cmd_args->global_threading = b;
+                break;
+            }
+
+            argp_failure(state, -1, 0,
+                         "Invalid value for global threading \"%s\"", arg);
             break;
     }
     return 0;
@@ -2435,6 +2460,10 @@ glusterfs_signals_setup(glusterfs_ctx_t *ctx)
     sigaddset(&set, SIGUSR1); /* gf_proc_dump_info */
     sigaddset(&set, SIGUSR2);
 
+    /* Signals needed for asynchronous framework. */
+    sigaddset(&set, GF_ASYNC_SIGQUEUE);
+    sigaddset(&set, GF_ASYNC_SIGCTRL);
+
     ret = pthread_sigmask(SIG_BLOCK, &set, NULL);
     if (ret) {
         gf_msg("glusterfsd", GF_LOG_WARNING, errno, glusterfsd_msg_22,
@@ -2845,6 +2874,11 @@ main(int argc, char *argv[])
      */
     mem_pools_init_late();
 
+    ret = gf_async_init(ctx);
+    if (ret < 0) {
+        goto out;
+    }
+
 #ifdef GF_LINUX_HOST_OS
     ret = set_oom_score_adj(ctx);
     if (ret)
@@ -2871,6 +2905,7 @@ main(int argc, char *argv[])
     ret = event_dispatch(ctx->event_pool);
 
 out:
-    //        glusterfs_ctx_destroy (ctx);
+    //    glusterfs_ctx_destroy (ctx);
+    gf_async_fini();
     return ret;
 }
