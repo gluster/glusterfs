@@ -564,9 +564,6 @@ gf_history_consume(void *data)
         {0},
     };
     gf_changelog_consume_data_t *curr = NULL;
-    char thread_name[GF_THREAD_NAMEMAX] = {
-        0,
-    };
 
     hist_data = (gf_changelog_history_data_t *)data;
     if (hist_data == NULL) {
@@ -612,12 +609,10 @@ gf_history_consume(void *data)
 
             curr->retval = 0;
             memset(curr->changelog, '\0', PATH_MAX);
-            snprintf(thread_name, sizeof(thread_name), "clogc%03hx",
-                     ((iter + 1) & 0x3ff));
 
             ret = gf_thread_create(&th_id[iter], NULL,
                                    gf_changelog_consume_wrap, curr,
-                                   thread_name);
+                                   "clogc%03hx", (iter + 1) & 0x3ff);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, ret,
                        CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED,

@@ -695,9 +695,6 @@ syncenv_scale(struct syncenv *env)
     int scale = 0;
     int i = 0;
     int ret = 0;
-    char thread_name[GF_THREAD_NAMEMAX] = {
-        0,
-    };
 
     pthread_mutex_lock(&env->mutex);
     {
@@ -717,11 +714,9 @@ syncenv_scale(struct syncenv *env)
             }
 
             env->proc[i].env = env;
-            snprintf(thread_name, sizeof(thread_name), "sproc%03hx",
-                     (env->procs & 0x3ff));
             ret = gf_thread_create(&env->proc[i].processor, NULL,
                                    syncenv_processor, &env->proc[i],
-                                   thread_name);
+                                   "sproc%03hx", env->procs & 0x3ff);
             if (ret)
                 break;
             env->procs++;
@@ -783,9 +778,6 @@ syncenv_new(size_t stacksize, int procmin, int procmax)
     struct syncenv *newenv = NULL;
     int ret = 0;
     int i = 0;
-    char thread_name[GF_THREAD_NAMEMAX] = {
-        0,
-    };
 
     if (!procmin || procmin < 0)
         procmin = SYNCENV_PROC_MIN;
@@ -814,11 +806,9 @@ syncenv_new(size_t stacksize, int procmin, int procmax)
 
     for (i = 0; i < newenv->procmin; i++) {
         newenv->proc[i].env = newenv;
-        snprintf(thread_name, sizeof(thread_name), "%s%d", "sproc",
-                 (newenv->procs));
         ret = gf_thread_create(&newenv->proc[i].processor, NULL,
-                               syncenv_processor, &newenv->proc[i],
-                               thread_name);
+                               syncenv_processor, &newenv->proc[i], "sproc%d",
+                               newenv->procs);
         if (ret)
             break;
         newenv->procs++;

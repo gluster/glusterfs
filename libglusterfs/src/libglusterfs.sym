@@ -710,7 +710,10 @@ gf_strTrim
 gf_strstr
 gf_thread_cleanup_xint
 gf_thread_create
+gf_thread_vcreate
 gf_thread_create_detached
+gf_thread_set_name
+gf_thread_set_vname
 gf_timer_call_after
 gf_timer_call_cancel
 gf_timer_registry_destroy

@@ -3949,19 +3949,64 @@ error_return:
     return ret;
 }
 
+void
+gf_thread_set_vname(pthread_t thread, const char *name, va_list args)
+{
+    char thread_name[GF_THREAD_NAME_LIMIT];
+    int ret;
+
+    /* Initialize the thread name with the prefix (not NULL terminated). */
+    memcpy(thread_name, GF_THREAD_NAME_PREFIX,
+           sizeof(GF_THREAD_NAME_PREFIX) - 1);
+
+    ret = vsnprintf(thread_name + sizeof(GF_THREAD_NAME_PREFIX) - 1,
+                    sizeof(thread_name) - sizeof(GF_THREAD_NAME_PREFIX) + 1,
+                    name, args);
+    if (ret < 0) {
+        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PTHREAD_NAMING_FAILED,
+               "Failed to compose thread name ('%s')", name);
+        return;
+    }
+
+    if (ret >= sizeof(thread_name)) {
+        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PTHREAD_NAMING_FAILED,
+               "Thread name is too long. It has been truncated ('%s')",
+               thread_name);
+    }
+
+#ifdef GF_LINUX_HOST_OS
+    ret = pthread_setname_np(thread, thread_name);
+#elif defined(__NetBSD__)
+    ret = pthread_setname_np(thread, thread_name, NULL);
+#elif defined(__FreeBSD__)
+    pthread_set_name_np(thread, thread_name);
+    ret = 0;
+#else
+    ret = ENOSYS;
+#endif
+    if (ret != 0) {
+        gf_msg(THIS->name, GF_LOG_WARNING, ret, LG_MSG_PTHREAD_NAMING_FAILED,
+               "Could not set thread name: %s", thread_name);
+    }
+}
+
+void
+gf_thread_set_name(pthread_t thread, const char *name, ...)
+{
+    va_list args;
+
+    va_start(args, name);
+    gf_thread_set_vname(thread, name, args);
+    va_end(args);
+}
+
 int
-gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
-                 void *(*start_routine)(void *), void *arg, const char *name)
+gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
+                  void *(*start_routine)(void *), void *arg, const char *name,
+                  va_list args)
 {
     sigset_t set, old;
     int ret;
-    char thread_name[GF_THREAD_NAMEMAX + GF_THREAD_NAME_PREFIX_LEN] = {
-        0,
-    };
-    /* Max name on Linux is 16 and on NetBSD is 32
-     * All Gluster threads have a set prefix of gluster and hence the limit
-     * of 9 on GF_THREAD_NAMEMAX including the null character.
-     */
 
     sigemptyset(&old);
     sigfillset(&set);
@@ -3975,20 +4020,12 @@ gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
     pthread_sigmask(SIG_BLOCK, &set, &old);
 
     ret = pthread_create(thread, attr, start_routine, arg);
-    snprintf(thread_name, sizeof(thread_name), "%s%s", GF_THREAD_NAME_PREFIX,
-             name);
-
-    if (0 == ret && name) {
-#ifdef GF_LINUX_HOST_OS
-        pthread_setname_np(*thread, thread_name);
-#elif defined(__NetBSD__)
-        pthread_setname_np(*thread, thread_name, NULL);
-#elif defined(__FreeBSD__)
-        pthread_set_name_np(*thread, thread_name);
-#else
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PTHREAD_NAMING_FAILED,
-               "Could not set thread name: %s", thread_name);
-#endif
+    if (ret != 0) {
+        gf_msg(THIS->name, GF_LOG_ERROR, ret, LG_MSG_PTHREAD_FAILED,
+               "Thread creation failed");
+        ret = -1;
+    } else if (name != NULL) {
+        gf_thread_set_vname(*thread, name, args);
     }
 
     pthread_sigmask(SIG_SETMASK, &old, NULL);
@@ -3997,10 +4034,26 @@ gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
 }
 
 int
+gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
+                 void *(*start_routine)(void *), void *arg, const char *name,
+                 ...)
+{
+    va_list args;
+    int ret;
+
+    va_start(args, name);
+    ret = gf_thread_vcreate(thread, attr, start_routine, arg, name, args);
+    va_end(args);
+
+    return ret;
+}
+
+int
 gf_thread_create_detached(pthread_t *thread, void *(*start_routine)(void *),
-                          void *arg, const char *name)
+                          void *arg, const char *name, ...)
 {
     pthread_attr_t attr;
+    va_list args;
     int ret = -1;
 
     ret = pthread_attr_init(&attr);
@@ -4012,12 +4065,9 @@ gf_thread_create_detached(pthread_t *thread, void *(*start_routine)(void *),
 
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-    ret = gf_thread_create(thread, &attr, start_routine, arg, name);
-    if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, ret, LG_MSG_PTHREAD_FAILED,
-               "Thread creation failed");
-        ret = -1;
-    }
+    va_start(args, name);
+    ret = gf_thread_vcreate(thread, &attr, start_routine, arg, name, args);
+    va_end(args);
 
     pthread_attr_destroy(&attr);
 

@@ -781,9 +781,6 @@ event_dispatch_epoll(struct event_pool *event_pool)
     int pollercount = 0;
     int ret = -1;
     struct event_thread_data *ev_data = NULL;
-    char thread_name[GF_THREAD_NAMEMAX] = {
-        0,
-    };
 
     /* Start the configured number of pollers */
     pthread_mutex_lock(&event_pool->mutex);
@@ -817,10 +814,8 @@ event_dispatch_epoll(struct event_pool *event_pool)
             ev_data->event_pool = event_pool;
             ev_data->event_index = i + 1;
 
-            snprintf(thread_name, sizeof(thread_name), "epoll%03hx",
-                     (i & 0x3ff));
             ret = gf_thread_create(&t_id, NULL, event_dispatch_epoll_worker,
-                                   ev_data, thread_name);
+                                   ev_data, "epoll%03hx", i & 0x3ff);
             if (!ret) {
                 event_pool->pollers[i] = t_id;
 
@@ -883,9 +878,6 @@ event_reconfigure_threads_epoll(struct event_pool *event_pool, int value)
     pthread_t t_id;
     int oldthreadcount;
     struct event_thread_data *ev_data = NULL;
-    char thread_name[GF_THREAD_NAMEMAX] = {
-        0,
-    };
 
     pthread_mutex_lock(&event_pool->mutex);
     {
@@ -925,11 +917,9 @@ event_reconfigure_threads_epoll(struct event_pool *event_pool, int value)
                     ev_data->event_pool = event_pool;
                     ev_data->event_index = i + 1;
 
-                    snprintf(thread_name, sizeof(thread_name), "epoll%03hx",
-                             (i & 0x3ff));
                     ret = gf_thread_create(&t_id, NULL,
                                            event_dispatch_epoll_worker, ev_data,
-                                           thread_name);
+                                           "epoll%03hx", i & 0x3ff);
                     if (ret) {
                         gf_msg("epoll", GF_LOG_WARNING, 0,
                                LG_MSG_START_EPOLL_THREAD_FAILED,

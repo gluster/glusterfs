@@ -69,9 +69,6 @@ changelog_init_rpc_threads(xlator_t *this, changelog_priv_t *priv, rbuf_t *rbuf,
     int j = 0;
     int ret = 0;
     changelog_clnt_t *conn = NULL;
-    char thread_name[GF_THREAD_NAMEMAX] = {
-        0,
-    };
 
     conn = &priv->connections;
 
@@ -111,9 +108,9 @@ changelog_init_rpc_threads(xlator_t *this, changelog_priv_t *priv, rbuf_t *rbuf,
 
     /* spawn dispatcher threads */
     for (; j < nr_dispatchers; j++) {
-        snprintf(thread_name, sizeof(thread_name), "clogd%03hx", (j & 0x3ff));
         ret = gf_thread_create(&priv->ev_dispatcher[j], NULL,
-                               changelog_ev_dispatch, conn, thread_name);
+                               changelog_ev_dispatch, conn, "clogd%03hx",
+                               j & 0x3ff);
         if (ret != 0) {
             changelog_cleanup_dispatchers(this, priv, j);
             break;
