@@ -34,6 +34,9 @@ extern struct rpc_clnt *global_quotad_rpc;
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern rpc_clnt_prog_t cli_quotad_clnt;
 
+static int
+gf_asprintf_append(char **string_ptr, const char *format, ...);
+
 int
 cli_cmd_volume_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
                         const char **words, int wordcount);
@@ -2544,13 +2547,15 @@ out:
                     if (ret1)
                         tmp = "";
 
-                    gf_asprintf(&events_str, "%soption=%s;", events_str, tmp);
+                    gf_asprintf_append(&events_str, "%soption=%s;", events_str,
+                                       tmp);
 
                     ret1 = dict_get_str(options, "op_value", &tmp);
                     if (ret1)
                         tmp = "";
 
-                    gf_asprintf(&events_str, "%svalue=%s;", events_str, tmp);
+                    gf_asprintf_append(&events_str, "%svalue=%s;", events_str,
+                                       tmp);
                 } else if (strcmp(tmp, "del") == 0) {
                     event_type = EVENT_GEOREP_CONFIG_RESET;
 
@@ -2558,7 +2563,8 @@ out:
                     if (ret1)
                         tmp = "";
 
-                    gf_asprintf(&events_str, "%soption=%s;", events_str, tmp);
+                    gf_asprintf_append(&events_str, "%soption=%s;", events_str,
+                                       tmp);
                 }
                 break;
             default:
@@ -2568,42 +2574,49 @@ out:
         if (event_type > -1) {
             /* Capture all optional arguments used */
             ret1 = dict_get_int32(options, "force", &tmpi);
-            if (ret1 == 0)
-                gf_asprintf(&events_str, "%sforce=%d;", events_str, tmpi);
-
+            if (ret1 == 0) {
+                gf_asprintf_append(&events_str, "%sforce=%d;", events_str,
+                                   tmpi);
+            }
             ret1 = dict_get_int32(options, "push_pem", &tmpi);
-            if (ret1 == 0)
-                gf_asprintf(&events_str, "%spush_pem=%d;", events_str, tmpi);
-
+            if (ret1 == 0) {
+                gf_asprintf_append(&events_str, "%spush_pem=%d;", events_str,
+                                   tmpi);
+            }
             ret1 = dict_get_int32(options, "no_verify", &tmpi);
-            if (ret1 == 0)
-                gf_asprintf(&events_str, "%sno_verify=%d;", events_str, tmpi);
+            if (ret1 == 0) {
+                gf_asprintf_append(&events_str, "%sno_verify=%d;", events_str,
+                                   tmpi);
+            }
 
             ret1 = dict_get_int32(options, "ssh_port", &tmpi);
-            if (ret1 == 0)
-                gf_asprintf(&events_str, "%sssh_port=%d;", events_str, tmpi);
+            if (ret1 == 0) {
+                gf_asprintf_append(&events_str, "%sssh_port=%d;", events_str,
+                                   tmpi);
+            }
 
             ret1 = dict_get_int32(options, "reset-sync-time", &tmpi);
-            if (ret1 == 0)
-                gf_asprintf(&events_str, "%sreset_sync_time=%d;", events_str,
-                            tmpi);
-
+            if (ret1 == 0) {
+                gf_asprintf_append(&events_str, "%sreset_sync_time=%d;",
+                                   events_str, tmpi);
+            }
             /* Capture Master and Slave Info */
             ret1 = dict_get_str(options, "master", &tmp);
             if (ret1)
                 tmp = "";
-            gf_asprintf(&events_str, "%smaster=%s;", events_str, tmp);
+            gf_asprintf_append(&events_str, "%smaster=%s;", events_str, tmp);
 
             ret1 = dict_get_str(options, "slave", &tmp);
             if (ret1)
                 tmp = "";
-            gf_asprintf(&events_str, "%sslave=%s", events_str, tmp);
+            gf_asprintf_append(&events_str, "%sslave=%s", events_str, tmp);
 
             gf_event(event_type, "%s", events_str);
         }
 
         /* Allocated by gf_strdup and gf_asprintf */
-        GF_FREE(events_str);
+        if (events_str)
+            GF_FREE(events_str);
     }
 #endif
 
@@ -3616,4 +3629,21 @@ cli_cmd_volume_register(struct cli_state *state)
 
 out:
     return ret;
+}
+
+static int
+gf_asprintf_append(char **string_ptr, const char *format, ...)
+{
+    va_list arg;
+    int rv = 0;
+    char *tmp = *string_ptr;
+
+    va_start(arg, format);
+    rv = gf_vasprintf(string_ptr, format, arg);
+    va_end(arg);
+
+    if (tmp)
+        GF_FREE(tmp);
+
+    return rv;
 }
