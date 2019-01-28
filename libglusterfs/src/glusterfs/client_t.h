@@ -47,6 +47,8 @@ typedef struct _client {
     inode_t *subdir_inode;
     uuid_t subdir_gfid;
     int32_t opversion;
+    /* Variable to save fd_count for detach brick */
+    gf_atomic_t fd_cnt;
 } client_t;
 
 #define GF_CLIENTCTX_INITIAL_SIZE 8

@@ -257,7 +257,7 @@ server_connection_cleanup_flush_cbk(call_frame_t *frame, void *cookie,
         victim = client->bound_xl;
 
     if (victim) {
-        fd_cnt = GF_ATOMIC_DEC(victim->fd_cnt);
+        fd_cnt = GF_ATOMIC_DEC(client->fd_cnt);
         if (!fd_cnt && conf && detach) {
             pthread_mutex_lock(&conf->mutex);
             {
@@ -399,7 +399,7 @@ server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags,
             if (fd_cnt) {
                 if (fd_exist)
                     (*fd_exist) = _gf_true;
-                GF_ATOMIC_ADD(bound_xl->fd_cnt, fd_cnt);
+                GF_ATOMIC_ADD(client->fd_cnt, fd_cnt);
             }
         }
 

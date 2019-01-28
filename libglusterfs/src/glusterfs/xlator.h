@@ -856,9 +856,6 @@ struct _xlator {
     /* Flag to understand how this xlator is categorized */
     gf_category_t category;
 
-    /* Variable to save fd_count for detach brick */
-    gf_atomic_t fd_cnt;
-
     /* Variable to save xprt associated for detach brick */
     gf_atomic_t xprtrefcnt;
 
