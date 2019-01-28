@@ -2900,7 +2900,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {
         .key = "features.sdfs",
         .voltype = "features/sdfs",
-        .value = "on",
+        .value = "off",
         .option = "!features",
         .op_version = GD_OP_VERSION_4_0_0,
         .description = "enable/disable dentry serialization xlator in volume",
