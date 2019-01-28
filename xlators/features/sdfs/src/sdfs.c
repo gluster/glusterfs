@@ -1450,7 +1450,7 @@ struct xlator_cbks cbks;
 struct volume_options options[] = {
     {.key = {"pass-through"},
      .type = GF_OPTION_TYPE_BOOL,
-     .default_value = "false",
+     .default_value = "true",
      .op_version = {GD_OP_VERSION_4_1_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
      .tags = {"sdfs"},
