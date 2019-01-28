@@ -6764,6 +6764,12 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 }
             }
         } else {
+            if (orig_entry->dict &&
+                dict_get(orig_entry->dict, conf->link_xattr_name)) {
+                /* Strip out the S and T flags set by rebalance*/
+                DHT_STRIP_PHASE1_FLAGS(&entry->d_stat);
+            }
+
             if (orig_entry->inode) {
                 ret = dht_layout_preset(this, prev, orig_entry->inode);
                 if (ret)
