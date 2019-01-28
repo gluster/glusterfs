@@ -614,7 +614,6 @@ xlator_init(xlator_t *xl)
 
     xl->instance_name = NULL;
     GF_ATOMIC_INIT(xl->xprtrefcnt, 0);
-    GF_ATOMIC_INIT(xl->fd_cnt, 0);
     if (!xl->init) {
         gf_msg(xl->name, GF_LOG_WARNING, 0, LG_MSG_INIT_FAILED,
                "No init() found");

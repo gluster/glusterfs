@@ -224,6 +224,7 @@ gf_client_get(xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
 
         GF_ATOMIC_INIT(client->bind, 1);
         GF_ATOMIC_INIT(client->count, 1);
+        GF_ATOMIC_INIT(client->fd_cnt, 0);
 
         client->auth.flavour = cred->flavour;
         if (cred->flavour != AUTH_NONE) {
