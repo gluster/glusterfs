@@ -129,7 +129,10 @@ __rda_inode_ctx_update_iatts(inode_t *inode, xlator_t *this,
          * An example of this case can be response of write request
          * that is cached in write-behind.
          */
-        tmp_stat = ctx_p->statbuf;
+        if (stbuf_in)
+            tmp_stat = *stbuf_in;
+        else
+            tmp_stat = ctx_p->statbuf;
         memset(&ctx_p->statbuf, 0, sizeof(ctx_p->statbuf));
         gf_uuid_copy(ctx_p->statbuf.ia_gfid, tmp_stat.ia_gfid);
         ctx_p->statbuf.ia_type = tmp_stat.ia_type;
@@ -768,8 +771,6 @@ rda_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_inode_ctx_update_iatts(local->inode, this, postbuf, &postbuf_out,
                                local->generation);
 
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
 unwind:
     RDA_STACK_UNWIND(writev, frame, op_ret, op_errno, prebuf, &postbuf_out,
                      xdata);
@@ -804,9 +805,6 @@ rda_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_inode_ctx_update_iatts(local->inode, this, postbuf, &postbuf_out,
                                local->generation);
 
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
-
 unwind:
     RDA_STACK_UNWIND(fallocate, frame, op_ret, op_errno, prebuf, &postbuf_out,
                      xdata);
@@ -839,9 +837,6 @@ rda_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_mark_inode_dirty(this, local->inode);
     rda_inode_ctx_update_iatts(local->inode, this, postbuf, &postbuf_out,
                                local->generation);
-
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
 
 unwind:
     RDA_STACK_UNWIND(zerofill, frame, op_ret, op_errno, prebuf, &postbuf_out,
@@ -876,8 +871,6 @@ rda_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_inode_ctx_update_iatts(local->inode, this, postbuf, &postbuf_out,
                                local->generation);
 
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
 unwind:
     RDA_STACK_UNWIND(discard, frame, op_ret, op_errno, prebuf, &postbuf_out,
                      xdata);
@@ -911,9 +904,6 @@ rda_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_inode_ctx_update_iatts(local->inode, this, postbuf, &postbuf_out,
                                local->generation);
 
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
-
 unwind:
     RDA_STACK_UNWIND(ftruncate, frame, op_ret, op_errno, prebuf, &postbuf_out,
                      xdata);
@@ -946,8 +936,6 @@ rda_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_mark_inode_dirty(this, local->inode);
     rda_inode_ctx_update_iatts(local->inode, this, postbuf, &postbuf_out,
                                local->generation);
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
 
 unwind:
     RDA_STACK_UNWIND(ftruncate, frame, op_ret, op_errno, prebuf, &postbuf_out,
@@ -1035,8 +1023,6 @@ rda_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_mark_inode_dirty(this, local->inode);
     rda_inode_ctx_update_iatts(local->inode, this, statpost, &postbuf_out,
                                local->generation);
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
 
 unwind:
     RDA_STACK_UNWIND(setattr, frame, op_ret, op_errno, statpre, &postbuf_out,
@@ -1070,8 +1056,6 @@ rda_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     rda_mark_inode_dirty(this, local->inode);
     rda_inode_ctx_update_iatts(local->inode, this, statpost, &postbuf_out,
                                local->generation);
-    if (postbuf_out.ia_ctime == 0)
-        memset(&postbuf_out, 0, sizeof(postbuf_out));
 
 unwind:
     RDA_STACK_UNWIND(fsetattr, frame, op_ret, op_errno, statpre, &postbuf_out,
