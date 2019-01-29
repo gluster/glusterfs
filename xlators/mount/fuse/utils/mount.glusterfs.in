@@ -229,6 +229,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --reader-thread-count=$reader_thread_count");
     fi
 
+    if [ -n "$auto-invalidation" ]; then
+        cmd_line=$(echo "$cmd_line --auto-invalidation=$fuse_auto_invalidation");
+    fi
+
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
@@ -529,6 +533,9 @@ with_options()
         "reader-thread-count")
             reader_thread_count=$value
             ;;
+        "auto-invalidation")
+            fuse_auto_invalidation=$value
+	    ;;
         "no-root-squash")
             if [ $value = "yes" ] ||
                 [ $value = "on" ] ||

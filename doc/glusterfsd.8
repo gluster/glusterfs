@@ -107,6 +107,11 @@ Enable/Disable direct-io mode in fuse module [default: enable]
 .TP
 \fB\-\-resolve-gids\fR
 Resolve all auxiliary groups in fuse translator (max 32 otherwise)
+.TP
+\fB\-\-auto\-invalidation=BOOL\fR
+controls whether fuse-kernel can auto-invalidate attribute, dentry and
+page-cache. Disable this only if same files/directories are not
+accessed across two different mounts concurrently [default: on]
 
 .SS "Miscellaneous Options"
 .PP

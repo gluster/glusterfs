@@ -110,6 +110,7 @@ enum argp_option_keys {
     ARGP_PRINT_LIBEXECDIR_KEY = 188,
     ARGP_FUSE_FLUSH_HANDLE_INTERRUPT_KEY = 189,
     ARGP_FUSE_LRU_LIMIT_KEY = 190,
+    ARGP_FUSE_AUTO_INVAL_KEY = 191,
 };
 
 struct _gfd_vol_top_priv {

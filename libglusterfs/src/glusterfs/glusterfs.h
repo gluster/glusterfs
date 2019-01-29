@@ -574,6 +574,7 @@ struct _cmd_args {
     uint32_t attr_times_granularity;
 
     int fuse_flush_handle_interrupt;
+    int fuse_auto_inval;
 };
 typedef struct _cmd_args cmd_args_t;
 

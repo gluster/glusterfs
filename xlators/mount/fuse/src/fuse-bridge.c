@@ -5067,6 +5067,9 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
         /* If user did not explicitly set --fopen-keep-cache[=off],
            then check if kernel support FUSE_AUTO_INVAL_DATA and ...
         */
+
+        priv->fopen_keep_cache = 1;
+
 #if FUSE_KERNEL_MINOR_VERSION >= 20
         if (fini->flags & FUSE_AUTO_INVAL_DATA) {
             /* ... enable fopen_keep_cache mode if supported.
@@ -5075,25 +5078,26 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
                    "Detected "
                    "support for FUSE_AUTO_INVAL_DATA. Enabling "
                    "fopen_keep_cache automatically.");
-            fino.flags |= FUSE_AUTO_INVAL_DATA;
-            priv->fopen_keep_cache = 1;
+
+            if (priv->fuse_auto_inval)
+                fino.flags |= FUSE_AUTO_INVAL_DATA;
         } else
 #endif
         {
-
-            gf_log("glusterfs-fuse", GF_LOG_DEBUG,
-                   "No support "
-                   "for FUSE_AUTO_INVAL_DATA. Disabling "
-                   "fopen_keep_cache.");
-            /* ... else disable. */
-            priv->fopen_keep_cache = 0;
+            if (priv->fuse_auto_inval) {
+                gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+                       "No support for FUSE_AUTO_INVAL_DATA. Disabling "
+                       "fopen_keep_cache.");
+                /* ... else disable. */
+                priv->fopen_keep_cache = 0;
+            }
         }
     } else if (priv->fopen_keep_cache == 1) {
         /* If user explicitly set --fopen-keep-cache[=on],
            then enable FUSE_AUTO_INVAL_DATA if possible.
         */
 #if FUSE_KERNEL_MINOR_VERSION >= 20
-        if (fini->flags & FUSE_AUTO_INVAL_DATA) {
+        if (priv->fuse_auto_inval && (fini->flags & FUSE_AUTO_INVAL_DATA)) {
             gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                    "fopen_keep_cache "
                    "is explicitly set. Enabling FUSE_AUTO_INVAL_DATA");
@@ -6507,6 +6511,8 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("reader-thread-count", priv->reader_thread_count, uint32,
                    cleanup_exit);
 
+    GF_OPTION_INIT("auto-invalidation", priv->fuse_auto_inval, bool,
+                   cleanup_exit);
     GF_OPTION_INIT(ZR_ENTRY_TIMEOUT_OPT, priv->entry_timeout, double,
                    cleanup_exit);
 
@@ -6943,6 +6949,15 @@ struct volume_options options[] = {
         .min = 0,
         .description = "makes glusterfs invalidate kernel inodes after "
                        "reaching this limit (0 means 'unlimited')",
+    },
+    {
+        .key = {"auto-invalidation"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "true",
+        .description = "controls whether fuse-kernel can auto-invalidate "
+                       "attribute, dentry and page-cache. Disable this only "
+                       "if same files/directories are not accessed across "
+                       "two different mounts concurrently",
     },
     {.key = {NULL}},
 };

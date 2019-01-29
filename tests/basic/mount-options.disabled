@@ -127,6 +127,9 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --volfile-server-transport=ib-verbs
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
+TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --auto-invalidation=off
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
 TEST ! glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --volfile-server-port=socket
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --volume-name=$V0

@@ -270,6 +270,11 @@ static struct argp_option gf_options[] = {
     {"fuse-flush-handle-interrupt", ARGP_FUSE_FLUSH_HANDLE_INTERRUPT_KEY,
      "BOOL", OPTION_ARG_OPTIONAL | OPTION_HIDDEN,
      "handle interrupt in fuse FLUSH handler"},
+    {"auto-invalidation", ARGP_FUSE_AUTO_INVAL_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+     "controls whether fuse-kernel can auto-invalidate "
+     "attribute, dentry and page-cache. "
+     "Disable this only if same files/directories are not accessed across "
+     "two different mounts concurrently [default: \"on\"]"},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
         0,
@@ -623,6 +628,15 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
             goto err;
         }
     }
+
+    ret = dict_set_uint32(options, "auto-invalidation",
+                          cmd_args->fuse_auto_inval);
+    if (ret < 0) {
+        gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+               "failed to set dict value for key auto-invalidation");
+        goto err;
+    }
+
     switch (cmd_args->kernel_writeback_cache) {
         case GF_OPTION_ENABLE:
             ret = dict_set_static_ptr(options, "kernel-writeback-cache", "on");
@@ -1482,6 +1496,16 @@ parse_opts(int key, char *arg, struct argp_state *state)
             argp_failure(state, -1, 0,
                          "unknown fuse flush handle interrupt setting \"%s\"",
                          arg);
+            break;
+        case ARGP_FUSE_AUTO_INVAL_KEY:
+            if (!arg)
+                arg = "yes";
+
+            if (gf_string2boolean(arg, &b) == 0) {
+                cmd_args->fuse_auto_inval = b;
+                break;
+            }
+
             break;
     }
     return 0;
