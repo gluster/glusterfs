@@ -231,8 +231,9 @@ GFAPI_4.0.0 {
 } GFAPI_3.13.0;
 
 GFAPI_4.1.6 {
-                glfs_upcall_lease_get_object;
-                glfs_upcall_lease_get_lease_type;
+	global:
+		glfs_upcall_lease_get_object;
+		glfs_upcall_lease_get_lease_type;
 } GFAPI_4.0.0;
 
 GFAPI_PRIVATE_future {
