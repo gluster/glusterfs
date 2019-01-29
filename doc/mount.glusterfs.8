@@ -146,6 +146,11 @@ Enable fuse in-kernel writeback cache [default: off]
 .TP
 \fBattr\-times\-granularity=\fRNS
 Declare supported granularity of file attribute [default: 0]
+.TP
+\fBauto\-invalidation=\fRBOOL
+controls whether fuse-kernel can auto-invalidate attribute, dentry and
+page-cache. Disable this only if same files/directories are not
+accessed across two different mounts concurrently [default: on]
 .PP
 .SH FILES
 .TP

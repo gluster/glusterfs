@@ -139,6 +139,11 @@ Enable fuse in-kernel writeback cache.
 \fB\-\-negative\-timeout=SECONDS\fR
 Set negative timeout to SECONDS in fuse kernel module (the default is 0).
 .TP
+\fB\-\-auto\-invalidation=BOOL\fR
+controls whether fuse-kernel can auto-invalidate attribute, dentry and
+page-cache. Disable this only if same files/directories are not
+accessed across two different mounts concurrently [default: on].
+.TP
 \fB\-\-volfile-check\fR
 Enable strict volume file checking.
 
