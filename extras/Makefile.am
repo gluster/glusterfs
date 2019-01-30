@@ -22,12 +22,13 @@ conf_DATA = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.con
 endif
 
 voldir = $(sysconfdir)/glusterfs
+vol_DATA = thin-arbiter/thin-arbiter.vol
 if WITH_SERVER
-vol_DATA = glusterd.vol
+vol_DATA += glusterd.vol
 endif
 
 scriptsdir = $(datadir)/glusterfs/scripts
-scripts_SCRIPTS =
+scripts_SCRIPTS = thin-arbiter/setup-thin-arbiter.sh
 if WITH_SERVER
 scripts_SCRIPTS += post-upgrade-script-for-quota.sh \
 	pre-upgrade-script-for-quota.sh stop-all-gluster-processes.sh
@@ -47,7 +48,8 @@ EXTRA_DIST = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.co
 	pre-upgrade-script-for-quota.sh command-completion/gluster.bash \
 	command-completion/Makefile command-completion/README \
 	stop-all-gluster-processes.sh clang-checker.sh mount-shared-storage.sh \
-	control-cpu-load.sh control-mem.sh group-distributed-virt
+	control-cpu-load.sh control-mem.sh group-distributed-virt \
+	thin-arbiter/thin-arbiter.vol thin-arbiter/setup-thin-arbiter.sh
 
 if WITH_SERVER
 install-data-local:

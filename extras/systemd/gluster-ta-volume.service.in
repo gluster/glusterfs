@@ -1,0 +1,13 @@
+[Unit]
+Description=GlusterFS, Thin-arbiter process to maintain quorum for replica volume
+After=network.target
+
+[Service]
+Environment="LOG_LEVEL=WARNING"
+ExecStart=@prefix@/sbin/glusterfsd -N --volfile-id ta-vol -f @GLUSTERD_WORKDIR@/thin-arbiter/thin-arbiter.vol --brick-port 24007 --xlator-option ta-vol-server.transport.socket.listen-port=24007
+Restart=always
+KillMode=process
+SuccessExitStatus=15
+
+[Install]
+WantedBy=multi-user.target

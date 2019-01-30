@@ -177,6 +177,7 @@
 # can't seem to make a generic macro that works
 %global glusterd_svcfile   %{_unitdir}/glusterd.service
 %global glusterfsd_svcfile %{_unitdir}/glusterfsd.service
+%global glusterta_svcfile %{_unitdir}/gluster-ta-volume.service
 %global glustereventsd_svcfile %{_unitdir}/glustereventsd.service
 %global glusterfssharedstorage_svcfile %{_unitdir}/glusterfssharedstorage.service
 %else
@@ -639,6 +640,18 @@ is in user space and easily manageable.
 This package provides the glusterfs server daemon.
 %endif
 
+%package thin-arbiter
+Summary:          GlusterFS thin-arbiter module
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
+
+%description thin-arbiter
+This package provides a tie-breaker functionality to GlusterFS
+replicate volume. It includes translators required to provide the
+functionality, and also few other scripts required for getting the setup done.
+
+This package provides the glusterfs thin-arbiter translator.
+
 %package client-xlators
 Summary:          GlusterFS client-side translators
 
@@ -978,6 +991,14 @@ fi
 exit 0
 %endif
 
+%preun thin-arbiter
+if [ $1 -eq 0 ]; then
+    if [ -f %glusterta_svcfile ]; then
+        %service_stop gluster-ta-volume
+        %systemd_preun gluster-ta-volume
+    fi
+fi
+
 ##-----------------------------------------------------------------------------
 ## All %%postun should be placed here and keep them sorted
 ##
@@ -1134,6 +1155,19 @@ exit 0
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %endif
 
+%files thin-arbiter
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/thin-arbiter.so
+%dir %{_datadir}/glusterfs/scripts
+     %{_datadir}/glusterfs/scripts/setup-thin-arbiter.sh
+%config %{_sysconfdir}/glusterfs/thin-arbiter.vol
+
+%if ( 0%{?_with_systemd:1} )
+%{_unitdir}/gluster-ta-volume.service
+%endif
+
+
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-georep
@@ -1212,6 +1246,7 @@ exit 0
 %doc extras/clear_xattrs.sh
 # sysconf
 %config(noreplace) %{_sysconfdir}/glusterfs
+%exclude %{_sysconfdir}/glusterfs/thin-arbiter.vol
 %exclude %{_sysconfdir}/glusterfs/eventsconfig.json
 %exclude %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 %exclude %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
@@ -1248,7 +1283,6 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/thin-arbiter.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/sdfs.so
@@ -1388,6 +1422,9 @@ exit 0
 
 * Mon Mar 4 2019 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - s390x has RDMA, since around Fedora 27 and in RHEL7 since June 2016.
+
+* Tue Feb 26 2019 Ashish Pandey <aspandey@redhat.com>
+- Add thin-arbiter package
 
 * Sun Feb 24 2019 Aravinda VK <avishwan@redhat.com>
 - Renamed events package to gfevents
