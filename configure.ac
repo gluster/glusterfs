@@ -200,6 +200,7 @@ AC_CONFIG_FILES([Makefile
                 extras/systemd/glusterd.service
                 extras/systemd/glustereventsd.service
                 extras/systemd/glusterfssharedstorage.service
+                extras/systemd/gluster-ta-volume.service
                 extras/run-gluster.tmpfiles
                 extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile

@@ -1,6 +1,4 @@
-if WITH_SERVER
 xlator_LTLIBRARIES = thin-arbiter.la
-endif
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
