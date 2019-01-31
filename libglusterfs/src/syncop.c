@@ -327,7 +327,6 @@ synctask_yield(struct synctask *task)
 
     if (task->state != SYNCTASK_DONE) {
         task->state = SYNCTASK_SUSPEND;
-        (void)gf_backtrace_save(task->btbuf);
     }
     if (swapcontext(&task->ctx, &task->proc->sched) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
