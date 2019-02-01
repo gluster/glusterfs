@@ -10,9 +10,9 @@
 #
 
 try:
-    from configparser import ConfigParser, NoSectionError
-except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
+except ImportError:
+    from configparser import ConfigParser, NoSectionError
 import os
 from string import Template
 from datetime import datetime
