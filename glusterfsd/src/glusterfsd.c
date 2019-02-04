@@ -1642,6 +1642,16 @@ cleanup_and_exit(int signum)
 #endif
 
         trav = NULL;
+
+        /* previously we were releasing the cleanup mutex lock before the
+           process exit. As we are releasing the cleanup mutex lock, before
+           the process can exit some other thread which is blocked on
+           cleanup mutex lock is acquiring the cleanup mutex lock and
+           trying to acquire some resources which are already freed as a
+           part of cleanup. To avoid this, we are exiting the process without
+           releasing the cleanup mutex lock. This will not cause any lock
+           related issues as the process which acquired the lock is going down
+         */
         /* NOTE: Only the least significant 8 bits i.e (signum & 255)
            will be available to parent process on calling exit() */
         exit(abs(signum));
