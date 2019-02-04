@@ -5779,11 +5779,12 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
                        "statfs error: %s ", strerror(errno));
-                goto out;
+                memfree = 0;
+                memtotal = 0;
+            } else {
+                memfree = brickstat.f_bfree * brickstat.f_bsize;
+                memtotal = brickstat.f_blocks * brickstat.f_bsize;
             }
-
-            memfree = brickstat.f_bfree * brickstat.f_bsize;
-            memtotal = brickstat.f_blocks * brickstat.f_bsize;
 
             fprintf(fp, "Volume%d.Brick%d.spacefree: %" PRIu64 "Bytes\n",
                     count_bkp, count, memfree);
