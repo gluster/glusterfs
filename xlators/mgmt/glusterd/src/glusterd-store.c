@@ -2878,8 +2878,9 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                        brickinfo->path);
                 /* No need for treating it as an error, lets continue
                    with just a message */
+            } else {
+                brickinfo->statfs_fsid = brickstat.f_fsid;
             }
-            brickinfo->statfs_fsid = brickstat.f_fsid;
         }
 
         cds_list_add_tail(&brickinfo->brick_list, &volinfo->bricks);
