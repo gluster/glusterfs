@@ -1036,7 +1036,7 @@ loc_is_nameless(loc_t *loc);
 int
 xlator_mem_acct_init(xlator_t *xl, int num_types);
 int
-is_gf_log_command(xlator_t *trans, const char *name, char *value);
+is_gf_log_command(xlator_t *trans, const char *name, char *value, size_t size);
 int
 glusterd_check_log_level(const char *value);
 int

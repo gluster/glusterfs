@@ -3989,7 +3989,7 @@ fuse_setxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     /* Check if the command is for changing the log
        level of process or specific xlator */
-    ret = is_gf_log_command(this, name, value);
+    ret = is_gf_log_command(this, name, value, fsi->size);
     if (ret >= 0) {
         op_errno = ret;
         goto done;
@@ -4034,11 +4034,23 @@ fuse_setxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
          * fixups to make sure that's the case.  To avoid nasty
          * surprises, allocate an extra byte and add a NUL here.
          */
-        dict_value = memdup(value, fsi->size + 1);
+        dict_value = GF_MALLOC(fsi->size + 1, gf_common_mt_char);
+        if (dict_value == NULL) {
+            gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                   "%" PRIu64 ": SETXATTR value allocation failed",
+                   finh->unique);
+            op_errno = ENOMEM;
+            goto done;
+        }
+        memcpy(dict_value, value, fsi->size);
         dict_value[fsi->size] = '\0';
     }
-    dict_set(state->xattr, newkey,
-             data_from_dynptr((void *)dict_value, fsi->size));
+    ret = dict_set_dynptr(state->xattr, newkey, dict_value, fsi->size);
+    if (ret < 0) {
+        op_errno = -ret;
+        GF_FREE(dict_value);
+        goto done;
+    }
 
     state->flags = fsi->flags;
     state->name = newkey;
