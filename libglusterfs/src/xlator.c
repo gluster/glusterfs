@@ -1271,8 +1271,21 @@ xlator_destroy(xlator_t *xl)
     return 0;
 }
 
+static int32_t
+gf_bin_to_string(char *dst, size_t size, void *src, size_t len)
+{
+    if (len >= size) {
+        return EINVAL;
+    }
+
+    memcpy(dst, src, len);
+    dst[len] = 0;
+
+    return 0;
+}
+
 int
-is_gf_log_command(xlator_t *this, const char *name, char *value)
+is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
 {
     xlator_t *trav = NULL;
     char key[1024] = {
@@ -1284,7 +1297,11 @@ is_gf_log_command(xlator_t *this, const char *name, char *value)
     glusterfs_ctx_t *ctx = NULL;
 
     if (!strcmp("trusted.glusterfs.syslog", name)) {
-        ret = gf_string2boolean(value, &syslog_flag);
+        ret = gf_bin_to_string(key, sizeof(key), value, size);
+        if (ret != 0) {
+            goto out;
+        }
+        ret = gf_string2boolean(key, &syslog_flag);
         if (ret) {
             ret = EOPNOTSUPP;
             goto out;
@@ -1300,7 +1317,12 @@ is_gf_log_command(xlator_t *this, const char *name, char *value)
     if (fnmatch("trusted.glusterfs*set-log-level", name, FNM_NOESCAPE))
         goto out;
 
-    log_level = glusterd_check_log_level(value);
+    ret = gf_bin_to_string(key, sizeof(key), value, size);
+    if (ret != 0) {
+        goto out;
+    }
+
+    log_level = glusterd_check_log_level(key);
     if (log_level == -1) {
         ret = EOPNOTSUPP;
         goto out;
