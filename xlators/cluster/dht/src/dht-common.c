@@ -10373,6 +10373,8 @@ dht_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     dht_conf_t *conf = NULL;
     int op_errno = -1;
     int i = -1;
+    int ret = -1;
+    dict_t *xattr_req = NULL;
 
     VALIDATE_OR_GOTO(frame, err);
     VALIDATE_OR_GOTO(this, err);
@@ -10404,14 +10406,37 @@ dht_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     if (flags) {
         return dht_rmdir_do(frame, this);
     }
+    if (xdata) {
+        xattr_req = dict_ref(xdata);
+    } else {
+        xattr_req = dict_new();
+    }
+    if (xattr_req) {
+        ret = dict_set_uint32(xattr_req, conf->link_xattr_name, 256);
+        /* If parallel-readdir is enabled, this is required
+         * to handle stale linkto files in the directory
+         * being deleted. If this fails, log an error but
+         * do not prevent the operation.
+         */
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0, "%s: failed to set key %s",
+                   loc->path, conf->link_xattr_name);
+        }
+    } else {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0, "%s: failed to set key %s",
+               loc->path, conf->link_xattr_name);
+    }
 
     for (i = 0; i < conf->subvolume_cnt; i++) {
         STACK_WIND_COOKIE(frame, dht_rmdir_opendir_cbk, conf->subvolumes[i],
                           conf->subvolumes[i],
                           conf->subvolumes[i]->fops->opendir, loc, local->fd,
-                          NULL);
+                          xattr_req);
     }
 
+    if (xattr_req) {
+        dict_unref(xattr_req);
+    }
     return 0;
 
 err:
