@@ -696,10 +696,10 @@ unset_fop_attr(dict_t **fop_attr);
 
 int
 glfs_statx(struct glfs *fs, const char *path, unsigned int mask,
-           struct glfs_stat *statxbuf) GFAPI_PRIVATE(glfs_statx, future);
+           struct glfs_stat *statxbuf) GFAPI_PRIVATE(glfs_statx, 6.0);
 
 void
 glfs_iatt_from_statx(struct iatt *, const struct glfs_stat *)
-    GFAPI_PRIVATE(glfs_iatt_from_statx, future);
+    GFAPI_PRIVATE(glfs_iatt_from_statx, 6.0);
 
 #endif /* !_GLFS_INTERNAL_H */
