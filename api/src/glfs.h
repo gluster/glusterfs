@@ -680,12 +680,12 @@ glfs_write(glfs_fd_t *fd, const void *buf, size_t count, int flags) __THROW
 int
 glfs_read_async(glfs_fd_t *fd, void *buf, size_t count, int flags,
                 glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_read_async, future);
+    GFAPI_PUBLIC(glfs_read_async, 6.0);
 
 int
 glfs_write_async(glfs_fd_t *fd, const void *buf, size_t count, int flags,
                  glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_write_async, future);
+    GFAPI_PUBLIC(glfs_write_async, 6.0);
 
 // glfs_{read,write}v[_async]
 
@@ -700,34 +700,33 @@ glfs_writev(glfs_fd_t *fd, const struct iovec *iov, int iovcnt,
 int
 glfs_readv_async(glfs_fd_t *fd, const struct iovec *iov, int count, int flags,
                  glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_readv_async, future);
+    GFAPI_PUBLIC(glfs_readv_async, 6.0);
 
 int
 glfs_writev_async(glfs_fd_t *fd, const struct iovec *iov, int count, int flags,
                   glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_writev_async, future);
+    GFAPI_PUBLIC(glfs_writev_async, 6.0);
 
 // glfs_p{read,write}[_async]
 
 ssize_t
 glfs_pread(glfs_fd_t *fd, void *buf, size_t count, off_t offset, int flags,
-           struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_pread, future);
+           struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_pread, 6.0);
 
 ssize_t
 glfs_pwrite(glfs_fd_t *fd, const void *buf, size_t count, off_t offset,
             int flags, struct glfs_stat *prestat,
-            struct glfs_stat *poststat) __THROW
-    GFAPI_PUBLIC(glfs_pwrite, future);
+            struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_pwrite, 6.0);
 
 int
 glfs_pread_async(glfs_fd_t *fd, void *buf, size_t count, off_t offset,
                  int flags, glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_pread_async, future);
+    GFAPI_PUBLIC(glfs_pread_async, 6.0);
 
 int
 glfs_pwrite_async(glfs_fd_t *fd, const void *buf, int count, off_t offset,
                   int flags, glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_pwrite_async, future);
+    GFAPI_PUBLIC(glfs_pwrite_async, 6.0);
 
 // glfs_p{read,write}v[_async]
 
@@ -742,12 +741,12 @@ glfs_pwritev(glfs_fd_t *fd, const struct iovec *iov, int iovcnt, off_t offset,
 int
 glfs_preadv_async(glfs_fd_t *fd, const struct iovec *iov, int count,
                   off_t offset, int flags, glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_preadv_async, future);
+    GFAPI_PUBLIC(glfs_preadv_async, 6.0);
 
 int
 glfs_pwritev_async(glfs_fd_t *fd, const struct iovec *iov, int count,
                    off_t offset, int flags, glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_pwritev_async, future);
+    GFAPI_PUBLIC(glfs_pwritev_async, 6.0);
 
 off_t
 glfs_lseek(glfs_fd_t *fd, off_t offset, int whence) __THROW
@@ -759,7 +758,7 @@ glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
                      unsigned int flags, struct glfs_stat *statbuf,
                      struct glfs_stat *prestat,
                      struct glfs_stat *poststat) __THROW
-    GFAPI_PUBLIC(glfs_copy_file_range, future);
+    GFAPI_PUBLIC(glfs_copy_file_range, 6.0);
 
 int
 glfs_truncate(glfs_t *fs, const char *path, off_t length) __THROW
@@ -768,12 +767,12 @@ glfs_truncate(glfs_t *fs, const char *path, off_t length) __THROW
 int
 glfs_ftruncate(glfs_fd_t *fd, off_t length, struct glfs_stat *prestat,
                struct glfs_stat *poststat) __THROW
-    GFAPI_PUBLIC(glfs_ftruncate, future);
+    GFAPI_PUBLIC(glfs_ftruncate, 6.0);
 
 int
 glfs_ftruncate_async(glfs_fd_t *fd, off_t length, glfs_io_cbk fn,
                      void *data) __THROW
-    GFAPI_PUBLIC(glfs_ftruncate_async, future);
+    GFAPI_PUBLIC(glfs_ftruncate_async, 6.0);
 
 int
 glfs_lstat(glfs_t *fs, const char *path, struct stat *buf) __THROW
@@ -789,20 +788,20 @@ glfs_fstat(glfs_fd_t *fd, struct stat *buf) __THROW
 
 int
 glfs_fsync(glfs_fd_t *fd, struct glfs_stat *prestat,
-           struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_fsync, future);
+           struct glfs_stat *poststat) __THROW GFAPI_PUBLIC(glfs_fsync, 6.0);
 
 int
 glfs_fsync_async(glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_fsync_async, future);
+    GFAPI_PUBLIC(glfs_fsync_async, 6.0);
 
 int
 glfs_fdatasync(glfs_fd_t *fd, struct glfs_stat *prestat,
                struct glfs_stat *poststat) __THROW
-    GFAPI_PUBLIC(glfs_fdatasync, future);
+    GFAPI_PUBLIC(glfs_fdatasync, 6.0);
 
 int
 glfs_fdatasync_async(glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
-    GFAPI_PUBLIC(glfs_fdatasync_async, future);
+    GFAPI_PUBLIC(glfs_fdatasync_async, 6.0);
 
 int
 glfs_access(glfs_t *fs, const char *path, int mode) __THROW
@@ -984,7 +983,7 @@ glfs_discard(glfs_fd_t *fd, off_t offset, size_t len) __THROW
 
 int
 glfs_discard_async(glfs_fd_t *fd, off_t length, size_t lent, glfs_io_cbk fn,
-                   void *data) __THROW GFAPI_PUBLIC(glfs_discard_async, future);
+                   void *data) __THROW GFAPI_PUBLIC(glfs_discard_async, 6.0);
 
 int
 glfs_zerofill(glfs_fd_t *fd, off_t offset, off_t len) __THROW
@@ -992,8 +991,7 @@ glfs_zerofill(glfs_fd_t *fd, off_t offset, off_t len) __THROW
 
 int
 glfs_zerofill_async(glfs_fd_t *fd, off_t length, off_t len, glfs_io_cbk fn,
-                    void *data) __THROW
-    GFAPI_PUBLIC(glfs_zerofill_async, future);
+                    void *data) __THROW GFAPI_PUBLIC(glfs_zerofill_async, 6.0);
 
 char *
 glfs_getcwd(glfs_t *fs, char *buf, size_t size) __THROW
@@ -1449,11 +1447,11 @@ glfs_lease(glfs_fd_t *glfd, glfs_lease_t *lease, glfs_recall_cbk fn,
 
 int
 glfs_fsetattr(struct glfs_fd *glfd, struct stat *stat, int valid) __THROW
-    GFAPI_PUBLIC(glfs_fsetattr, future);
+    GFAPI_PUBLIC(glfs_fsetattr, 6.0);
 
 int
 glfs_setattr(struct glfs *fs, const char *path, struct stat *stat, int valid,
-             int follow) __THROW GFAPI_PUBLIC(glfs_setattr, future);
+             int follow) __THROW GFAPI_PUBLIC(glfs_setattr, 6.0);
 
 __END_DECLS
 #endif /* !_GLFS_H */
