@@ -236,13 +236,13 @@ GFAPI_4.1.6 {
 		glfs_upcall_lease_get_lease_type;
 } GFAPI_4.0.0;
 
-GFAPI_PRIVATE_future {
+GFAPI_PRIVATE_6.0 {
 	global:
 		glfs_statx;
 		glfs_iatt_from_statx;
 } GFAPI_4.1.6;
 
-GFAPI_future {
+GFAPI_6.0 {
 	global:
 		glfs_read_async;
 		glfs_write_async;
@@ -265,5 +265,5 @@ GFAPI_future {
 		glfs_copy_file_range;
 		glfs_setattr;
 		glfs_fsetattr;
-} GFAPI_PRIVATE_future;
+} GFAPI_PRIVATE_6.0;
 
