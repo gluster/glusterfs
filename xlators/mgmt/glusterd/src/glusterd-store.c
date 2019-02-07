@@ -4944,7 +4944,9 @@ glusterd_resolve_all_bricks(xlator_t *this)
                          "peer=%s;volume=%s;brick=%s", brickinfo->hostname,
                          volinfo->volname, brickinfo->path);
                 gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RESOLVE_BRICK_FAIL,
-                       "resolve brick failed in restore");
+                       "Failed to resolve brick %s with host %s of volume %s"
+                       " in restore",
+                       brickinfo->path, brickinfo->hostname, volinfo->volname);
                 goto out;
             }
         }
