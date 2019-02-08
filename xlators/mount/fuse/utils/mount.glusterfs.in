@@ -229,7 +229,7 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --reader-thread-count=$reader_thread_count");
     fi
 
-    if [ -n "$auto-invalidation" ]; then
+    if [ -n "$fuse_auto_invalidation" ]; then
         cmd_line=$(echo "$cmd_line --auto-invalidation=$fuse_auto_invalidation");
     fi
 
