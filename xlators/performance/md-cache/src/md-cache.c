@@ -71,6 +71,8 @@ struct mdc_conf {
     gf_boolean_t cache_swift_metadata;
     gf_boolean_t cache_samba_metadata;
     gf_boolean_t mdc_invalidation;
+    gf_boolean_t global_invalidation;
+
     time_t last_child_down;
     gf_lock_t lock;
     struct mdc_statistics mdc_counter;
@@ -470,6 +472,7 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
     uint32_t rollover = 0;
     uint64_t gen = 0;
     gf_boolean_t update_xa_time = _gf_false;
+    struct mdc_conf *conf = this->private;
 
     mdc = mdc_inode_prep(this, inode);
     if (!mdc) {
@@ -533,18 +536,20 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
             (iatt->ia_mtime_nsec != mdc->md_mtime_nsec) ||
             (iatt->ia_ctime != mdc->md_ctime) ||
             (iatt->ia_ctime_nsec != mdc->md_ctime_nsec)) {
-            if (!prebuf || (prebuf->ia_ctime != mdc->md_ctime) ||
-                (prebuf->ia_ctime_nsec != mdc->md_ctime_nsec) ||
-                (prebuf->ia_mtime != mdc->md_mtime) ||
-                (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec)) {
-                gf_msg_trace("md-cache", 0,
-                             "prebuf doesn't "
-                             "match the value we have cached,"
-                             " invalidate the inode(%s)",
-                             uuid_utoa(inode->gfid));
+            if (conf->global_invalidation &&
+                (!prebuf || (prebuf->ia_mtime != mdc->md_mtime) ||
+                 (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec) ||
+                 (prebuf->ia_ctime != mdc->md_ctime) ||
+                 (prebuf->ia_ctime_nsec != mdc->md_ctime_nsec))) {
+                if (IA_ISREG(inode->ia_type)) {
+                    gf_msg("md-cache", GF_LOG_TRACE, 0,
+                           MD_CACHE_MSG_DISCARD_UPDATE,
+                           "prebuf doesn't match the value we have cached,"
+                           " invalidate the inode(%s)",
+                           uuid_utoa(inode->gfid));
 
-                if (IA_ISREG(inode->ia_type))
                     inode_invalidate(inode);
+                }
             } else {
                 update_xa_time = _gf_true;
             }
@@ -3551,6 +3556,9 @@ mdc_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("cache-invalidation", conf->mdc_invalidation, options,
                      bool, out);
 
+    GF_OPTION_RECONF("global-cache-invalidation", conf->global_invalidation,
+                     options, bool, out);
+
     GF_OPTION_RECONF("pass-through", this->pass_through, options, bool, out);
 
     GF_OPTION_RECONF("md-cache-statfs", conf->cache_statfs, options, bool, out);
@@ -3621,6 +3629,9 @@ mdc_init(xlator_t *this)
     GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
 
     GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
+
+    GF_OPTION_INIT("global-cache-invalidation", conf->global_invalidation, bool,
+                   out);
 
     GF_OPTION_INIT("pass-through", this->pass_through, bool, out);
 
@@ -3857,6 +3868,29 @@ struct volume_options mdc_options[] = {
         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
         .description = "When \"on\", invalidates/updates the metadata cache,"
                        " on receiving the cache-invalidation notifications",
+    },
+    {
+        .key = {"global-cache-invalidation"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "true",
+        .op_version = {GD_OP_VERSION_7_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .description =
+            "When \"on\", purges all read caches in kernel and glusterfs stack "
+            "whenever a stat change is detected. Stat changes can be detected "
+            "while processing responses to file operations (fop) or through "
+            "upcall notifications. Since purging caches can be an expensive "
+            "operation, it's advised to have this option \"on\" only when a "
+            "file "
+            "can be accessed from multiple different Glusterfs mounts and "
+            "caches across these different mounts are required to be coherent. "
+            "If a file is not accessed across different mounts "
+            "(simple example is having only one mount for a volume), its "
+            "advised to keep "
+            "this option \"off\" as all file modifications go through caches "
+            "keeping them "
+            "coherent. This option overrides value of "
+            "performance.cache-invalidation.",
     },
     {
         .key = {"md-cache-statfs"},
