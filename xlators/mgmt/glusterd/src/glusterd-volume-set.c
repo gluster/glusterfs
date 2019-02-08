@@ -1795,6 +1795,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_3_9_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
 
+    {.key = "performance.global-cache-invalidation",
+     .voltype = "performance/md-cache",
+     .option = "global-cache-invalidation",
+     .op_version = GD_OP_VERSION_7_0,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
+
     /* Feature translators */
     {.key = "features.uss",
      .voltype = "features/snapview-server",
