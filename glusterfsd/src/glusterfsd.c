@@ -221,7 +221,7 @@ static struct argp_option gf_options[] = {
      "Resolve all auxiliary groups in fuse translator (max 32 otherwise)"},
     {"lru-limit", ARGP_FUSE_LRU_LIMIT_KEY, "N", 0,
      "Set fuse module's limit for number of inodes kept in LRU list to N "
-     "[default: 0]"},
+     "[default: 131072]"},
     {"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
      "Set fuse module's background queue length to N "
      "[default: 64]"},
