@@ -705,6 +705,7 @@ __dentry_create(inode_t *inode, inode_t *parent, const char *name)
         newd->parent = __inode_ref(parent, false);
 
     list_add(&newd->inode_list, &inode->dentry_list);
+
     newd->inode = inode;
 
 out:
@@ -712,7 +713,7 @@ out:
 }
 
 static inode_t *
-__inode_create(inode_table_t *table)
+inode_create(inode_table_t *table)
 {
     inode_t *newi = NULL;
 
@@ -747,11 +748,7 @@ __inode_create(inode_table_t *table)
         goto out;
     }
 
-    list_add(&newi->list, &table->lru);
-    table->lru_size++;
-
 out:
-
     return newi;
 }
 
@@ -768,14 +765,16 @@ inode_new(inode_table_t *table)
         return NULL;
     }
 
-    pthread_mutex_lock(&table->lock);
-    {
-        inode = __inode_create(table);
-        if (inode != NULL) {
+    inode = inode_create(table);
+    if (inode) {
+        pthread_mutex_lock(&table->lock);
+        {
+            list_add(&inode->list, &table->lru);
+            table->lru_size++;
             __inode_ref(inode, false);
         }
+        pthread_mutex_unlock(&table->lock);
     }
-    pthread_mutex_unlock(&table->lock);
 
     return inode;
 }
@@ -1695,7 +1694,10 @@ __inode_table_init_root(inode_table_t *table)
     if (!table)
         return;
 
-    root = __inode_create(table);
+    root = inode_create(table);
+
+    list_add(&root->list, &table->lru);
+    table->lru_size++;
 
     iatt.ia_gfid[15] = 1;
     iatt.ia_ino = 1;
