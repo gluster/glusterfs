@@ -159,27 +159,15 @@ hash_dentry(inode_t *parent, const char *name, int mod)
 static int
 hash_gfid(uuid_t uuid, int mod)
 {
-    int ret = 0;
-
-    ret = uuid[15] + (uuid[14] << 8);
-
-    return ret;
+    return ((uuid[15] + (uuid[14] << 8)) % mod);
 }
 
 static void
-__dentry_hash(dentry_t *dentry)
+__dentry_hash(dentry_t *dentry, const int hash)
 {
     inode_table_t *table = NULL;
-    int hash = 0;
-
-    if (!dentry) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
-                         "dentry not found");
-        return;
-    }
 
     table = dentry->inode->table;
-    hash = hash_dentry(dentry->parent, dentry->name, table->hashsize);
 
     list_del_init(&dentry->hash);
     list_add(&dentry->hash, &table->name_hash[hash]);
@@ -188,49 +176,44 @@ __dentry_hash(dentry_t *dentry)
 static int
 __is_dentry_hashed(dentry_t *dentry)
 {
-    if (!dentry) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
-                         "dentry not found");
-        return 0;
-    }
-
     return !list_empty(&dentry->hash);
 }
 
 static void
 __dentry_unhash(dentry_t *dentry)
 {
-    if (!dentry) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
-                         "dentry not found");
-        return;
-    }
-
     list_del_init(&dentry->hash);
 }
 
 static void
+dentry_destroy(dentry_t *dentry)
+{
+    if (!dentry)
+        return;
+
+    GF_FREE(dentry->name);
+    dentry->name = NULL;
+    mem_put(dentry);
+
+    return;
+}
+
+static dentry_t *
 __dentry_unset(dentry_t *dentry)
 {
-    if (!dentry) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
-                         "dentry not found");
-        return;
-    }
+    if (!dentry)
+        return NULL;
 
     __dentry_unhash(dentry);
 
     list_del_init(&dentry->inode_list);
-
-    GF_FREE(dentry->name);
-    dentry->name = NULL;
 
     if (dentry->parent) {
         __inode_unref(dentry->parent, false);
         dentry->parent = NULL;
     }
 
-    mem_put(dentry);
+    return dentry;
 }
 
 static int
@@ -289,22 +272,14 @@ static int
 __is_dentry_cyclic(dentry_t *dentry)
 {
     int ret = 0;
-    inode_t *inode = NULL;
-    char *name = "<nul>";
 
     ret = __foreach_ancestor_dentry(dentry, __check_cycle, dentry->inode);
     if (ret) {
-        inode = dentry->inode;
-
-        if (dentry->name)
-            name = dentry->name;
-
         gf_msg(dentry->inode->table->name, GF_LOG_CRITICAL, 0,
                LG_MSG_DENTRY_CYCLIC_LOOP,
-               "detected cyclic loop "
-               "formation during inode linkage. inode (%s) linking "
-               "under itself as %s",
-               uuid_utoa(inode->gfid), name);
+               "detected cyclic loop formation during inode linkage. "
+               "inode (%s) linking under itself as %s",
+               uuid_utoa(dentry->inode->gfid), dentry->name);
     }
 
     return ret;
@@ -313,41 +288,19 @@ __is_dentry_cyclic(dentry_t *dentry)
 static void
 __inode_unhash(inode_t *inode)
 {
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return;
-    }
-
     list_del_init(&inode->hash);
 }
 
 static int
 __is_inode_hashed(inode_t *inode)
 {
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return 0;
-    }
-
     return !list_empty(&inode->hash);
 }
 
 static void
-__inode_hash(inode_t *inode)
+__inode_hash(inode_t *inode, const int hash)
 {
-    inode_table_t *table = NULL;
-    int hash = 0;
-
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return;
-    }
-
-    table = inode->table;
-    hash = hash_gfid(inode->gfid, 65536);
+    inode_table_t *table = inode->table;
 
     list_del_init(&inode->hash);
     list_add(&inode->hash, &table->inode_hash[hash]);
@@ -358,12 +311,6 @@ __dentry_search_for_inode(inode_t *inode, uuid_t pargfid, const char *name)
 {
     dentry_t *dentry = NULL;
     dentry_t *tmp = NULL;
-
-    if (!inode || !name) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "inode || name not found");
-        return NULL;
-    }
 
     /* earlier, just the ino was sent, which could have been 0, now
        we deal with gfid, and if sent gfid is null or 0, no need to
@@ -389,12 +336,6 @@ __inode_ctx_free(inode_t *inode)
     int index = 0;
     xlator_t *xl = NULL;
     xlator_t *old_THIS = NULL;
-
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return;
-    }
 
     if (!inode->_ctx) {
         gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL,
@@ -423,12 +364,6 @@ noctx:
 static void
 __inode_destroy(inode_t *inode)
 {
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return;
-    }
-
     __inode_ctx_free(inode);
 
     LOCK_DESTROY(&inode->lock);
@@ -471,9 +406,6 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode)
 static void
 __inode_activate(inode_t *inode)
 {
-    if (!inode)
-        return;
-
     list_move(&inode->list, &inode->table->active);
     inode->table->active_size++;
 }
@@ -484,19 +416,13 @@ __inode_passivate(inode_t *inode)
     dentry_t *dentry = NULL;
     dentry_t *t = NULL;
 
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return;
-    }
-
     list_move_tail(&inode->list, &inode->table->lru);
     inode->table->lru_size++;
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
         if (!__is_dentry_hashed(dentry))
-            __dentry_unset(dentry);
+            dentry_destroy(__dentry_unset(dentry));
     }
 }
 
@@ -506,12 +432,6 @@ __inode_retire(inode_t *inode)
     dentry_t *dentry = NULL;
     dentry_t *t = NULL;
 
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return;
-    }
-
     list_move_tail(&inode->list, &inode->table->purge);
     inode->table->purge_size++;
 
@@ -519,7 +439,7 @@ __inode_retire(inode_t *inode)
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
-        __dentry_unset(dentry);
+        dentry_destroy(__dentry_unset(dentry));
     }
 }
 
@@ -545,9 +465,6 @@ __inode_unref(inode_t *inode, bool clear)
     int index = 0;
     xlator_t *this = NULL;
     uint64_t nlookup = 0;
-
-    if (!inode)
-        return NULL;
 
     /*
      * Root inode should always be in active list of inode table. So unrefs
@@ -676,15 +593,9 @@ inode_ref(inode_t *inode)
 }
 
 static dentry_t *
-__dentry_create(inode_t *inode, inode_t *parent, const char *name)
+dentry_create(inode_t *inode, inode_t *parent, const char *name)
 {
     dentry_t *newd = NULL;
-
-    if (!inode || !parent || !name) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "inode || parent || name not found");
-        return NULL;
-    }
 
     newd = mem_get0(parent->table->dentry_pool);
     if (newd == NULL) {
@@ -701,11 +612,6 @@ __dentry_create(inode_t *inode, inode_t *parent, const char *name)
         goto out;
     }
 
-    if (parent)
-        newd->parent = __inode_ref(parent, false);
-
-    list_add(&newd->inode_list, &inode->dentry_list);
-
     newd->inode = inode;
 
 out:
@@ -716,14 +622,6 @@ static inode_t *
 inode_create(inode_table_t *table)
 {
     inode_t *newi = NULL;
-
-    if (!table) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
-                         LG_MSG_INODE_TABLE_NOT_FOUND,
-                         "table not "
-                         "found");
-        return NULL;
-    }
 
     newi = mem_get0(table->inode_pool);
     if (!newi) {
@@ -793,9 +691,6 @@ __inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
 {
     uint64_t nlookup = 0;
 
-    if (!inode)
-        return NULL;
-
     GF_ASSERT(inode->ref >= nref);
 
     inode->ref -= nref;
@@ -835,16 +730,11 @@ inode_forget_atomic(inode_t *inode, uint64_t nlookup)
 }
 
 dentry_t *
-__dentry_grep(inode_table_t *table, inode_t *parent, const char *name)
+__dentry_grep(inode_table_t *table, inode_t *parent, const char *name,
+              const int hash)
 {
-    int hash = 0;
     dentry_t *dentry = NULL;
     dentry_t *tmp = NULL;
-
-    if (!table || !name || !parent)
-        return NULL;
-
-    hash = hash_dentry(parent, name, table->hashsize);
 
     list_for_each_entry(tmp, &table->name_hash[hash], hash)
     {
@@ -870,15 +760,16 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
         return NULL;
     }
 
+    int hash = hash_dentry(parent, name, table->hashsize);
+
     pthread_mutex_lock(&table->lock);
     {
-        dentry = __dentry_grep(table, parent, name);
-
-        if (dentry)
+        dentry = __dentry_grep(table, parent, name, hash);
+        if (dentry) {
             inode = dentry->inode;
-
-        if (inode)
-            __inode_ref(inode, false);
+            if (inode)
+                __inode_ref(inode, false);
+        }
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -942,17 +833,18 @@ inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
         return ret;
     }
 
+    int hash = hash_dentry(parent, name, table->hashsize);
+
     pthread_mutex_lock(&table->lock);
     {
-        dentry = __dentry_grep(table, parent, name);
-
-        if (dentry)
+        dentry = __dentry_grep(table, parent, name, hash);
+        if (dentry) {
             inode = dentry->inode;
-
-        if (inode) {
-            gf_uuid_copy(gfid, inode->gfid);
-            *type = inode->ia_type;
-            ret = 0;
+            if (inode) {
+                gf_uuid_copy(gfid, inode->gfid);
+                *type = inode->ia_type;
+                ret = 0;
+            }
         }
     }
     pthread_mutex_unlock(&table->lock);
@@ -973,24 +865,13 @@ __is_root_gfid(uuid_t gfid)
 }
 
 inode_t *
-__inode_find(inode_table_t *table, uuid_t gfid)
+__inode_find(inode_table_t *table, uuid_t gfid, const int hash)
 {
     inode_t *inode = NULL;
     inode_t *tmp = NULL;
-    int hash = 0;
-
-    if (!table) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
-                         LG_MSG_INODE_TABLE_NOT_FOUND,
-                         "table not "
-                         "found");
-        goto out;
-    }
 
     if (__is_root_gfid(gfid))
         return table->root;
-
-    hash = hash_gfid(gfid, 65536);
 
     list_for_each_entry(tmp, &table->inode_hash[hash], hash)
     {
@@ -1000,7 +881,6 @@ __inode_find(inode_table_t *table, uuid_t gfid)
         }
     }
 
-out:
     return inode;
 }
 
@@ -1017,9 +897,11 @@ inode_find(inode_table_t *table, uuid_t gfid)
         return NULL;
     }
 
+    int hash = hash_gfid(gfid, 65536);
+
     pthread_mutex_lock(&table->lock);
     {
-        inode = __inode_find(table, gfid);
+        inode = __inode_find(table, gfid, hash);
         if (inode)
             __inode_ref(inode, false);
     }
@@ -1030,7 +912,7 @@ inode_find(inode_table_t *table, uuid_t gfid)
 
 static inode_t *
 __inode_link(inode_t *inode, inode_t *parent, const char *name,
-             struct iatt *iatt)
+             struct iatt *iatt, const int dhash)
 {
     dentry_t *dentry = NULL;
     dentry_t *old_dentry = NULL;
@@ -1038,16 +920,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
     inode_table_t *table = NULL;
     inode_t *link_inode = NULL;
 
-    if (!inode) {
-        errno = EINVAL;
-        return NULL;
-    }
-
     table = inode->table;
-    if (!table) {
-        errno = EINVAL;
-        return NULL;
-    }
 
     if (parent) {
         /* We should prevent inode linking between different
@@ -1085,14 +958,16 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             return NULL;
         }
 
-        old_inode = __inode_find(table, iatt->ia_gfid);
+        int ihash = hash_gfid(iatt->ia_gfid, 65536);
+
+        old_inode = __inode_find(table, iatt->ia_gfid, ihash);
 
         if (old_inode) {
             link_inode = old_inode;
         } else {
             gf_uuid_copy(inode->gfid, iatt->ia_gfid);
             inode->ia_type = iatt->ia_type;
-            __inode_hash(inode);
+            __inode_hash(inode, ihash);
         }
     } else {
         /* @old_inode serves another important purpose - it indicates
@@ -1107,22 +982,16 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
         old_inode = inode;
     }
 
-    if (name) {
-        if (!strcmp(name, ".") || !strcmp(name, ".."))
-            return link_inode;
-
-        if (strchr(name, '/')) {
-            GF_ASSERT(!"inode link attempted with '/' in name");
-            return NULL;
-        }
+    if (name && (!strcmp(name, ".") || !strcmp(name, ".."))) {
+        return link_inode;
     }
 
     /* use only link_inode beyond this point */
     if (parent) {
-        old_dentry = __dentry_grep(table, parent, name);
+        old_dentry = __dentry_grep(table, parent, name, dhash);
 
         if (!old_dentry || old_dentry->inode != link_inode) {
-            dentry = __dentry_create(link_inode, parent, name);
+            dentry = dentry_create(link_inode, parent, name);
             if (!dentry) {
                 gf_msg_callingfn(
                     THIS->name, GF_LOG_ERROR, 0, LG_MSG_DENTRY_CREATE_FAILED,
@@ -1132,15 +1001,20 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
                 errno = ENOMEM;
                 return NULL;
             }
+
+            /* dentry linking needs to happen inside lock */
+            dentry->parent = __inode_ref(parent, false);
+            list_add(&dentry->inode_list, &link_inode->dentry_list);
+
             if (old_inode && __is_dentry_cyclic(dentry)) {
                 errno = ELOOP;
-                __dentry_unset(dentry);
+                dentry_destroy(__dentry_unset(dentry));
                 return NULL;
             }
-            __dentry_hash(dentry);
+            __dentry_hash(dentry, dhash);
 
             if (old_dentry)
-                __dentry_unset(old_dentry);
+                dentry_destroy(__dentry_unset(old_dentry));
         }
     }
 
@@ -1150,6 +1024,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 inode_t *
 inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
 {
+    int hash = 0;
     inode_table_t *table = NULL;
     inode_t *linked_inode = NULL;
 
@@ -1161,10 +1036,18 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
 
     table = inode->table;
 
+    if (parent && name) {
+        hash = hash_dentry(parent, name, table->hashsize);
+    }
+
+    if (name && strchr(name, '/')) {
+        GF_ASSERT(!"inode link attempted with '/' in name");
+        return NULL;
+    }
+
     pthread_mutex_lock(&table->lock);
     {
-        linked_inode = __inode_link(inode, parent, name, iatt);
-
+        linked_inode = __inode_link(inode, parent, name, iatt, hash);
         if (linked_inode)
             __inode_ref(linked_inode, false);
     }
@@ -1307,47 +1190,46 @@ inode_invalidate(inode_t *inode)
     return ret;
 }
 
-static void
+static dentry_t *
 __inode_unlink(inode_t *inode, inode_t *parent, const char *name)
 {
     dentry_t *dentry = NULL;
     char pgfid[64] = {0};
     char gfid[64] = {0};
 
-    if (!inode || !parent || !name)
-        return;
-
     dentry = __dentry_search_for_inode(inode, parent->gfid, name);
 
     /* dentry NULL for corrupted backend */
     if (dentry) {
-        __dentry_unset(dentry);
+        dentry = __dentry_unset(dentry);
     } else {
         gf_msg("inode", GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
                "%s/%s: dentry not found in %s",
                uuid_utoa_r(parent->gfid, pgfid), name,
                uuid_utoa_r(inode->gfid, gfid));
     }
+
+    return dentry;
 }
 
 void
 inode_unlink(inode_t *inode, inode_t *parent, const char *name)
 {
-    inode_table_t *table = NULL;
+    inode_table_t *table;
+    dentry_t *dentry;
 
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
+    if (!inode || !parent || !name)
         return;
-    }
 
     table = inode->table;
 
     pthread_mutex_lock(&table->lock);
     {
-        __inode_unlink(inode, parent, name);
+        dentry = __inode_unlink(inode, parent, name);
     }
     pthread_mutex_unlock(&table->lock);
+
+    dentry_destroy(dentry);
 
     inode_table_prune(table);
 }
@@ -1357,6 +1239,9 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
              inode_t *dstdir, const char *dstname, inode_t *inode,
              struct iatt *iatt)
 {
+    int hash = 0;
+    dentry_t *dentry = NULL;
+
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
@@ -1365,12 +1250,25 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 
     table = inode->table;
 
+    if (dstname && strchr(dstname, '/')) {
+        GF_ASSERT(!"inode link attempted with '/' in name");
+        return -1;
+    }
+
+    if (dstdir && dstname) {
+        hash = hash_dentry(dstdir, dstname, table->hashsize);
+    }
+
     pthread_mutex_lock(&table->lock);
     {
-        __inode_link(inode, dstdir, dstname, iatt);
-        __inode_unlink(inode, srcdir, srcname);
+        __inode_link(inode, dstdir, dstname, iatt, hash);
+        /* pick the old dentry */
+        dentry = __inode_unlink(inode, srcdir, srcname);
     }
     pthread_mutex_unlock(&table->lock);
+
+    /* free the old dentry */
+    dentry_destroy(dentry);
 
     inode_table_prune(table);
 
@@ -1442,12 +1340,6 @@ inode_parent(inode_t *inode, uuid_t pargfid, const char *name)
 static int
 __inode_has_dentry(inode_t *inode)
 {
-    if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
-                         "inode not found");
-        return 0;
-    }
-
     return !list_empty(&inode->dentry_list);
 }
 
@@ -1455,6 +1347,12 @@ int
 inode_has_dentry(inode_t *inode)
 {
     int dentry_present = 0;
+
+    if (!inode) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+                         "inode not found");
+        return 0;
+    }
 
     LOCK(&inode->lock);
     {
@@ -1703,7 +1601,7 @@ __inode_table_init_root(inode_table_t *table)
     iatt.ia_ino = 1;
     iatt.ia_type = IA_IFDIR;
 
-    __inode_link(root, NULL, NULL, &iatt);
+    __inode_link(root, NULL, NULL, &iatt, 0);
     table->root = root;
 }
 

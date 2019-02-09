@@ -357,7 +357,6 @@ default_copy_file_range
 default_copy_file_range_cbk
 default_copy_file_range_failure_cbk
 default_copy_file_range_resume
-__dentry_grep
 dht_is_linkfile
 dict_add
 dict_addn
