@@ -295,6 +295,9 @@ Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
 Obsoletes:        %{name}-ufo
 Obsoletes:        %{name}-ganesha
+%if ( 0%{!?_with_gnfs:1} )
+Obsoletes:        %{name}-gnfs
+%endif
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
@@ -1381,6 +1384,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Feb 21 2019 Jiffin Tony Thottan <jthottan@redhat.com>
+- Obsoleting gluster-gnfs package
+
 * Wed Nov 28 2018 Krutika Dhananjay <kdhananj@redhat.com>
 - Install /var/lib/glusterd/groups/distributed-virt by default
 
