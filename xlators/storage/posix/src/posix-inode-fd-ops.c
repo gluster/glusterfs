@@ -136,11 +136,15 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (op_ret == -1) {
         op_errno = errno;
         if (op_errno == ENOENT) {
-            gf_msg_debug(this->name, 0, "lstat on %s failed: %s",
-                         real_path ? real_path : "<null>", strerror(op_errno));
+            gf_msg_debug(this->name, 0,
+                         "lstat on gfid-handle %s (path: %s)"
+                         "failed: %s",
+                         real_path ? real_path : "<null>", loc->path,
+                         strerror(op_errno));
         } else {
             gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_LSTAT_FAILED,
-                   "lstat on %s failed", real_path ? real_path : "<null>");
+                   "lstat on gfid-handle %s (path: %s) failed",
+                   real_path ? real_path : "<null>", loc->path);
         }
         goto out;
     }
@@ -326,8 +330,8 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
-               "setattr (lstat) on %s failed",
-               real_path ? real_path : "<null>");
+               "setattr (lstat) on gfid-handle %s (path: %s) failed",
+               real_path ? real_path : "<null>", loc->path);
         goto out;
     }
 
@@ -348,9 +352,9 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (op_ret == -1) {
             op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_CHMOD_FAILED,
-                   "setattr (chmod) on %s "
+                   "setattr (chmod) on gfid-handle %s (path: %s) "
                    "failed",
-                   real_path);
+                   real_path, loc->path);
             goto out;
         }
     }
@@ -360,9 +364,9 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (op_ret == -1) {
             op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_UTIMES_FAILED,
-                   "setattr (utimes) on %s "
+                   "setattr (utimes) on gfid-handle %s (path: %s) "
                    "failed",
-                   real_path);
+                   real_path, loc->path);
             goto out;
         }
         posix_update_utime_in_mdata(this, real_path, -1, loc->inode, stbuf,
@@ -380,9 +384,9 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (op_ret == -1) {
             op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_UTIMES_FAILED,
-                   "setattr (utimes) on %s "
+                   "setattr (utimes) on gfid-handle %s (path: %s) "
                    "failed",
-                   real_path);
+                   real_path, loc->path);
             goto out;
         }
     }
@@ -392,9 +396,9 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (op_ret == -1) {
             op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LCHOWN_FAILED,
-                   "lchown (%s, -1, -1) "
+                   "lchown (gfid-handle: %s, path: %s, -1, -1) "
                    "failed",
-                   real_path);
+                   real_path, loc->path);
 
             goto out;
         }
@@ -405,7 +409,8 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
-               "setattr (lstat) on %s failed", real_path);
+               "setattr (lstat) on gfid-handle %s (path: %s) failed", real_path,
+               loc->path);
         goto out;
     }
 
@@ -1180,7 +1185,8 @@ posix_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     if (dir == NULL) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_OPENDIR_FAILED,
-               "opendir failed on %s", real_path);
+               "opendir failed on gfid-handle: %s (path: %s)", real_path,
+               loc->path);
         goto out;
     }
 
@@ -1188,7 +1194,8 @@ posix_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     if (op_ret < 0) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_DIRFD_FAILED,
-               "dirfd() failed on %s", real_path);
+               "dirfd() failed (path: %s, gfid-handle: %s", loc->path,
+               real_path);
         goto out;
     }
 
@@ -1206,8 +1213,9 @@ posix_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     if (op_ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_FD_PATH_SETTING_FAILED,
                "failed to set the fd"
-               "context path=%s fd=%p",
-               real_path, fd);
+               "context path=%s "
+               "gfid-handle= %s,fd=%p",
+               loc->path, real_path, fd);
 
     posix_set_ctime(frame, this, NULL, pfd->fd, fd->inode, NULL);
 
@@ -1306,7 +1314,8 @@ posix_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_READYLINK_FAILED,
-               "readlink on %s failed", real_path);
+               "readlink on gfid-handle: %s (path: %s) failed", real_path,
+               loc->path);
         goto out;
     }
 
@@ -1350,8 +1359,9 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
-               "pre-operation lstat on %s failed",
-               real_path ? real_path : "<null>");
+               "pre-operation lstat on (path: %s gfid-handle: %s) "
+               "failed",
+               loc->path, real_path ? real_path : "<null>");
         goto out;
     }
 
@@ -1370,7 +1380,8 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_TRUNCATE_FAILED,
-               "truncate on %s failed", real_path);
+               "truncate on gfid-handle: %s (path: %s) failed", real_path,
+               loc->path);
         goto out;
     }
 
@@ -1379,7 +1390,8 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
-               "lstat on %s failed", real_path);
+               "lstat on gfid-handle %s (path: %s) failed", real_path,
+               loc->path);
         goto out;
     }
 
@@ -1456,7 +1468,8 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         op_ret = -1;
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FILE_OP_FAILED,
-               "open on %s, flags: %d", real_path, flags);
+               "open on gfid-handle %s (path: %s), flags: %d", real_path,
+               loc->path, flags);
         goto out;
     }
 
@@ -1474,7 +1487,8 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     op_ret = fd_ctx_set(fd, this, (uint64_t)(long)pfd);
     if (op_ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_FD_PATH_SETTING_FAILED,
-               "failed to set the fd context path=%s fd=%p", real_path, fd);
+               "failed to set the fd context gfid-handle=%s path=%s fd=%p",
+               real_path, loc->path, fd);
 
     GF_ATOMIC_INC(priv->nr_files);
     op_ret = 0;
@@ -2245,7 +2259,8 @@ posix_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (op_ret == -1) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
-               "statvfs failed on %s", real_path);
+               "statvfs failed on gfid-handle %s (path: %s)", real_path,
+               loc->path);
         goto out;
     }
 
@@ -2811,7 +2826,9 @@ posix_xattr_get_real_filename(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
     if (op_ret == -1) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
-               "posix_xattr_get_real_filename (lstat) on %s failed", real_path);
+               "posix_xattr_get_real_filename (lstat) on "
+               "gfid-handle %s (path: %s) failed",
+               real_path, loc->path);
         return -errno;
     }
 
@@ -3278,8 +3295,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             op_errno = errno;
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_ACL_FAILED,
                    "could not get acl (%s) for"
-                   "%s",
-                   name, real_path);
+                   "gfid-handle %s (path: %s)",
+                   name, real_path, loc->path);
             op_ret = -1;
             goto out;
         }
@@ -3288,9 +3305,9 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (ret < 0) {
             GF_FREE(value);
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_ACL_FAILED,
-                   "could not set acl (%s) for"
-                   "%s in dictionary",
-                   name, real_path);
+                   "could not set acl (%s) for %s "
+                   "(gfid-handle: %s) in dictionary",
+                   name, loc->path, real_path);
             op_ret = -1;
             op_errno = ENOMEM;
             goto out;
@@ -3491,9 +3508,9 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             if (strncmp(key, "user.", 5) == 0) {
                 key += 5;
                 gf_msg_debug(this->name, 0,
-                             "getxattr for file %s"
+                             "getxattr for file %s (gfid-handle: %s)"
                              " stripping user key: %s -> %s",
-                             real_path, keybuffer, key);
+                             loc->path, real_path, keybuffer, key);
             }
         }
 #endif
@@ -3504,8 +3521,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             if (errno == ERANGE) {
                 gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_XATTR_FAILED,
                        "getxattr failed due to overflow of buffer"
-                       " on %s: %s ",
-                       real_path, key);
+                       " on gfid-handle %s (path: %s) : %s ",
+                       real_path, loc->path, key);
                 size = sys_lgetxattr(real_path, key, NULL, 0);
             }
             if (size == -1) {
@@ -3520,12 +3537,14 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
                 if ((op_errno == ENOATTR) || (op_errno == ENODATA)) {
                     gf_msg_debug(this->name, 0,
-                                 "No such attribute:%s for file %s", key,
-                                 real_path);
+                                 "No such attribute:%s for file %s (path: %s)",
+                                 key, real_path, loc->path);
                 } else {
                     gf_msg(this->name, GF_LOG_ERROR, op_errno,
-                           P_MSG_XATTR_FAILED, "getxattr failed on %s: %s ",
-                           real_path, key);
+                           P_MSG_XATTR_FAILED,
+                           "getxattr failed on "
+                           "%s (path: %s): %s ",
+                           real_path, loc->path, key);
                 }
                 goto out;
             }
@@ -3545,7 +3564,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 op_ret = -1;
                 op_errno = errno;
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
-                       "getxattr failed on %s: key = %s", real_path, key);
+                       "getxattr failed on %s (path: %s): key = %s", real_path,
+                       loc->path, key);
                 GF_FREE(value);
                 goto out;
             }
@@ -3556,8 +3576,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             op_errno = -op_ret;
             gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_DICT_SET_FAILED,
                    "dict set operation "
-                   "on %s for the key %s failed.",
-                   real_path, key);
+                   "on %s (gfid-handle: %s) for the key %s failed.",
+                   loc->path, real_path, key);
             GF_FREE(value);
             goto out;
         }
@@ -3573,8 +3593,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (errno == ERANGE) {
             gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_XATTR_FAILED,
                    "listxattr failed due to overflow of buffer"
-                   " on %s ",
-                   real_path);
+                   " on %s (path: %s) ",
+                   real_path, loc->path);
             size = sys_llistxattr(real_path, NULL, 0);
         }
         if (size == -1) {
@@ -3588,7 +3608,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                                     "flag)");
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
-                       "listxattr failed on %s", real_path);
+                       "listxattr failed on %s (path: %s)", real_path,
+                       loc->path);
             }
             goto out;
         }
@@ -3639,16 +3660,16 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             if (errno == ERANGE) {
                 gf_msg(this->name, GF_LOG_INFO, op_errno, P_MSG_XATTR_FAILED,
                        "getxattr failed due to overflow of"
-                       "  buffer on %s: %s ",
-                       real_path, keybuffer);
+                       "  buffer on %s (path: %s): %s ",
+                       real_path, loc->path, keybuffer);
                 size = sys_lgetxattr(real_path, keybuffer, NULL, 0);
             }
             if (size == -1) {
                 op_errno = errno;
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                        "getxattr failed on"
-                       " %s: key = %s ",
-                       real_path, keybuffer);
+                       " %s (path: %s): key = %s ",
+                       real_path, loc->path, keybuffer);
                 goto out;
             }
         }
@@ -3666,8 +3687,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 op_errno = errno;
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                        "getxattr failed on"
-                       " %s: key = %s ",
-                       real_path, keybuffer);
+                       " %s (path: %s): key = %s ",
+                       real_path, loc->path, keybuffer);
                 GF_FREE(value);
                 goto out;
             }
@@ -3685,8 +3706,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
             op_errno = -op_ret;
             gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_DICT_SET_FAILED,
                    "dict set operation "
-                   "on %s for the key %s failed.",
-                   real_path, keybuffer);
+                   "on %s (gfid-handle: %s) for the key %s failed.",
+                   loc->path, real_path, keybuffer);
             GF_FREE(value);
             goto out;
         }
