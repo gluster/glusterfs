@@ -34,7 +34,7 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H1 --volfile-server=$H2 --vol
 
 TEST kill_glusterd 1
 
-TEST $CLI_2 volume set $V0 performance.io-cache off
+TEST $CLI_2 volume set $V0 performance.write-behind off
 
 # make sure by this time directory will be created
 # TODO: suggest ideal time to wait
