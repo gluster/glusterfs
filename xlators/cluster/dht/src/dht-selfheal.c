@@ -1309,11 +1309,13 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
     int missing_dirs = 0;
     dht_layout_t *layout = NULL;
     dht_conf_t *conf = 0;
+    xlator_t *prev = 0;
     loc_t *loc = NULL;
     int check_mds = 0;
     int errst = 0;
     int32_t mds_xattr_val[1] = {0};
     char gfid_local[GF_UUID_BUF_SIZE] = {0};
+    int index = -1;
 
     VALIDATE_OR_GOTO(this->private, err);
 
@@ -1321,31 +1323,45 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
     layout = local->layout;
     loc = &local->loc;
     conf = this->private;
+    prev = cookie;
 
-    if (local->gfid)
+    if (!gf_uuid_is_null(local->gfid))
         gf_uuid_unparse(local->gfid, gfid_local);
-
-    this_call_cnt = dht_frame_return(frame);
 
     LOCK(&frame->lock);
     {
+        index = dht_layout_index_for_subvol(layout, prev);
         if ((op_ret < 0) && (op_errno == ENOENT || op_errno == ESTALE)) {
             local->selfheal.hole_cnt = !local->selfheal.hole_cnt
                                            ? 1
                                            : local->selfheal.hole_cnt + 1;
+            /* the status might have changed. Update the layout with the
+             * new status
+             */
+            if (index >= 0) {
+                layout->list[index].err = op_errno;
+            }
         }
 
         if (!op_ret) {
             dht_iatt_merge(this, &local->stbuf, stbuf);
-        }
-        check_mds = dht_dict_get_array(xattr, conf->mds_xattr_key,
-                                       mds_xattr_val, 1, &errst);
-        if (dict_get(xattr, conf->mds_xattr_key) && check_mds && !errst) {
-            dict_unref(local->xattr);
-            local->xattr = dict_ref(xattr);
+            check_mds = dht_dict_get_array(xattr, conf->mds_xattr_key,
+                                           mds_xattr_val, 1, &errst);
+            if (dict_get(xattr, conf->mds_xattr_key) && check_mds && !errst) {
+                dict_unref(local->xattr);
+                local->xattr = dict_ref(xattr);
+            }
+            /* the status might have changed. Update the layout with the
+             * new status
+             */
+            if (index >= 0) {
+                layout->list[index].err = -1;
+            }
         }
     }
     UNLOCK(&frame->lock);
+
+    this_call_cnt = dht_frame_return(frame);
 
     if (is_last_call(this_call_cnt)) {
         if (local->selfheal.hole_cnt == layout->cnt) {
