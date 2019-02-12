@@ -131,6 +131,8 @@ TEST $CLI volume create $V0 redundancy 2 $H0:$B0/${V0}{0..5}
 TEST $CLI volume set $V0 client-log-level DEBUG
 #Write-behind has a bug where lookup can race over write which leads to size mismatch on the mount after a 'cp'
 TEST $CLI volume set $V0 performance.write-behind off
+#md-cache can return stale stat due to default timeout being 1 sec
+TEST $CLI volume set $V0 performance.stat-prefetch off
 EXPECT "Created" volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Started" volinfo_field $V0 'Status'
