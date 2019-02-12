@@ -1079,17 +1079,16 @@ mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
         goto err;
     }
 
+    *buf = NULL;
+    timespec_now(&now);
+
     pthread_mutex_lock(&conf->statfs_cache.lock);
     {
-        *buf = NULL;
-
         /* Skip if the cache is not initialized */
         if (!conf->statfs_cache.initialized) {
             ret = -1;
             goto unlock;
         }
-
-        timespec_now(&now);
 
         cache_age = (now.tv_sec - conf->statfs_cache.last_refreshed.tv_sec);
 
