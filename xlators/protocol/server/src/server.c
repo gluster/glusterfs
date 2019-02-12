@@ -169,6 +169,7 @@ server_priv_to_dict(xlator_t *this, dict_t *dict, char *brickname)
     char key[32] = {
         0,
     };
+    int keylen;
     int count = 0;
     int ret = -1;
 
@@ -188,8 +189,8 @@ server_priv_to_dict(xlator_t *this, dict_t *dict, char *brickname)
                 (xprt->xl_private->bound_xl->name) && (brickname) &&
                 (!strcmp(brickname, xprt->xl_private->bound_xl->name))) {
                 peerinfo = &xprt->peerinfo;
-                snprintf(key, sizeof(key), "client%d.hostname", count);
-                ret = dict_set_str(dict, key, peerinfo->identifier);
+                keylen = snprintf(key, sizeof(key), "client%d.hostname", count);
+                ret = dict_set_strn(dict, key, keylen, peerinfo->identifier);
                 if (ret)
                     goto unlock;
 
@@ -208,8 +209,9 @@ server_priv_to_dict(xlator_t *this, dict_t *dict, char *brickname)
                 if (ret)
                     goto unlock;
 
-                snprintf(key, sizeof(key), "client%d.name", count);
-                ret = dict_set_str(dict, key, xprt->xl_private->client_name);
+                keylen = snprintf(key, sizeof(key), "client%d.name", count);
+                ret = dict_set_strn(dict, key, keylen,
+                                    xprt->xl_private->client_name);
                 if (ret)
                     goto unlock;
 
@@ -222,7 +224,7 @@ unlock:
     if (ret)
         goto out;
 
-    ret = dict_set_int32(dict, "clientcount", count);
+    ret = dict_set_int32_sizen(dict, "clientcount", count);
 
 out:
     return ret;
@@ -497,7 +499,7 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
                    " from %s",
                    client->client_uid);
 
-            ret = dict_get_str(this->options, "auth-path", &auth_path);
+            ret = dict_get_str_sizen(this->options, "auth-path", &auth_path);
             if (ret) {
                 gf_msg(this->name, GF_LOG_WARNING, 0, PS_MSG_DICT_GET_FAILED,
                        "failed to get auth-path");
@@ -742,14 +744,15 @@ server_reconfigure(xlator_t *this, dict_t *options)
      * translator itself.
      */
     kid = NULL;
-    if (dict_get_str(options, "auth-path", &auth_path) == 0) {
+    if (dict_get_str_sizen(options, "auth-path", &auth_path) == 0) {
         kid = get_xlator_by_name(this, auth_path);
     }
     if (!kid) {
         kid = this;
     }
 
-    if (dict_get_int32(options, "inode-lru-limit", &inode_lru_limit) == 0) {
+    if (dict_get_int32_sizen(options, "inode-lru-limit", &inode_lru_limit) ==
+        0) {
         conf->inode_lru_limit = inode_lru_limit;
         gf_msg_trace(this->name, 0,
                      "Reconfigured inode-lru-limit to "
@@ -764,7 +767,7 @@ server_reconfigure(xlator_t *this, dict_t *options)
         xlator_foreach(this, xlator_set_inode_lru_limit, &inode_lru_limit);
     }
 
-    data = dict_get(options, "trace");
+    data = dict_get_sizen(options, "trace");
     if (data) {
         ret = gf_string2boolean(data->data, &trace);
         if (ret != 0) {
@@ -867,8 +870,8 @@ do_rpc:
                  * connections that are relevant to the brick
                  * we're reconfiguring.
                  */
-                if (dict_get_str(xprt->clnt_options, "remote-subvolume",
-                                 &xprt_path) != 0) {
+                if (dict_get_str_sizen(xprt->clnt_options, "remote-subvolume",
+                                       &xprt_path) != 0) {
                     continue;
                 }
                 if (strcmp(xprt_path, auth_path) != 0) {
@@ -1004,7 +1007,7 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
         (void)event_pool_destroy(this->ctx->event_pool);
     }
 
-    if (dict_get(this->options, "config-directory")) {
+    if (dict_get_sizen(this->options, "config-directory")) {
         GF_FREE(conf->conf_dir);
         conf->conf_dir = NULL;
     }
@@ -1075,7 +1078,8 @@ server_init(xlator_t *this)
     if (ret)
         goto out;
 
-    ret = dict_get_str(this->options, "config-directory", &conf->conf_dir);
+    ret = dict_get_str_sizen(this->options, "config-directory",
+                             &conf->conf_dir);
     if (ret)
         conf->conf_dir = CONFDIR;
 
@@ -1161,7 +1165,7 @@ server_init(xlator_t *this)
      */
     this->ctx->secure_srvr = MGMT_SSL_COPY_IO;
 
-    ret = dict_get_str(this->options, "transport-type", &transport_type);
+    ret = dict_get_str_sizen(this->options, "transport-type", &transport_type);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_ERROR,
                "option transport-type not set");
@@ -1176,7 +1180,7 @@ server_init(xlator_t *this)
         goto out;
     }
 
-    ret = dict_set_int32(this->options, "notify-poller-death", 1);
+    ret = dict_set_int32_sizen(this->options, "notify-poller-death", 1);
 
     ret = rpcsvc_create_listeners(conf->rpc, this->options, this->name);
     if (ret < 1) {
