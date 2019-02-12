@@ -19,17 +19,16 @@
 
 #define GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf)                  \
     {                                                                          \
+        throttle_count = MAX((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);          \
         pthread_mutex_lock(&conf->defrag->dfq_mutex);                          \
                                                                                \
         if (!strcasecmp(conf->dthrottle, "lazy"))                              \
             conf->defrag->recon_thread_count = 1;                              \
                                                                                \
-        throttle_count = MAX((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);          \
-                                                                               \
-        if (!strcasecmp(conf->dthrottle, "normal"))                            \
+        else if (!strcasecmp(conf->dthrottle, "normal"))                       \
             conf->defrag->recon_thread_count = (throttle_count / 2);           \
                                                                                \
-        if (!strcasecmp(conf->dthrottle, "aggressive"))                        \
+        else if (!strcasecmp(conf->dthrottle, "aggressive"))                   \
             conf->defrag->recon_thread_count = throttle_count;                 \
                                                                                \
         pthread_mutex_unlock(&conf->defrag->dfq_mutex);                        \
@@ -401,18 +400,20 @@ dht_configure_throttle(xlator_t *this, dht_conf_t *conf, char *temp_str)
         } else if ((gf_string2int(temp_str, &rebal_thread_count) == 0)) {
             if ((rebal_thread_count > 0) &&
                 (rebal_thread_count <= MAX_REBAL_THREADS)) {
+                conf->defrag->recon_thread_count = rebal_thread_count;
+                pthread_mutex_unlock(&conf->defrag->dfq_mutex);
                 gf_msg(this->name, GF_LOG_INFO, 0, 0,
                        "rebal thread count configured to %d",
                        rebal_thread_count);
-                conf->defrag->recon_thread_count = rebal_thread_count;
+                goto out;
             } else {
+                pthread_mutex_unlock(&conf->defrag->dfq_mutex);
                 gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INVALID_OPTION,
                        "Invalid option: Reconfigure: "
                        "rebal-throttle should be "
                        "within range of 0 and maximum number of"
                        " cores available");
                 ret = -1;
-                pthread_mutex_unlock(&conf->defrag->dfq_mutex);
                 goto out;
             }
         } else {
