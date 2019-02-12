@@ -40,16 +40,12 @@ make_hashkey(struct nfs3_fh *fh, const char *host)
     char exportid[256] = {
         0,
     };
-    char gfid[256] = {
-        0,
-    };
     char mountid[256] = {
         0,
     };
     size_t nbytes = 0;
 
     gf_uuid_unparse(fh->exportid, exportid);
-    gf_uuid_unparse(fh->gfid, gfid);
     gf_uuid_unparse(fh->mountid, mountid);
 
     nbytes = strlen(exportid) + strlen(host) + strlen(mountid) + 3;
@@ -145,7 +141,7 @@ auth_cache_add(struct auth_cache *cache, char *hashkey,
 {
     int ret = -1;
     data_t *entry_data = NULL;
-
+    int hashkey_len;
     GF_VALIDATE_OR_GOTO(GF_NFS, cache, out);
     GF_VALIDATE_OR_GOTO(GF_NFS, cache->cache_dict, out);
 
@@ -168,9 +164,10 @@ auth_cache_add(struct auth_cache *cache, char *hashkey,
      * auth_cache_entry is released */
     entry->data = data_ref(entry_data);
 
+    hashkey_len = strlen(hashkey);
     LOCK(&cache->lock);
     {
-        ret = dict_set(cache->cache_dict, hashkey, entry_data);
+        ret = dict_setn(cache->cache_dict, hashkey, hashkey_len, entry_data);
     }
     UNLOCK(&cache->lock);
 
