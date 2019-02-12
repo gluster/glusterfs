@@ -3873,7 +3873,7 @@ struct volume_options mdc_options[] = {
         .key = {"global-cache-invalidation"},
         .type = GF_OPTION_TYPE_BOOL,
         .default_value = "true",
-        .op_version = {GD_OP_VERSION_7_0},
+        .op_version = {GD_OP_VERSION_6_0},
         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
         .description =
             "When \"on\", purges all read caches in kernel and glusterfs stack "

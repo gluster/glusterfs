@@ -1798,7 +1798,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {.key = "performance.global-cache-invalidation",
      .voltype = "performance/md-cache",
      .option = "global-cache-invalidation",
-     .op_version = GD_OP_VERSION_7_0,
+     .op_version = GD_OP_VERSION_6_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
 
     /* Feature translators */
