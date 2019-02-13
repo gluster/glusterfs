@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/sysmacros.h>
 
 #ifndef linux
 #include <sys/socket.h>
