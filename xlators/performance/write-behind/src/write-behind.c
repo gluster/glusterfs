@@ -226,7 +226,7 @@ out:
 }
 
 static void
-wb_set_invalidate(wb_inode_t *wb_inode, int set)
+wb_set_invalidate(wb_inode_t *wb_inode)
 {
     int readdirps = 0;
     inode_t *parent_inode = NULL;
@@ -240,20 +240,20 @@ wb_set_invalidate(wb_inode_t *wb_inode, int set)
         LOCK(&wb_parent_inode->lock);
         {
             readdirps = GF_ATOMIC_GET(wb_parent_inode->readdirps);
-            if (readdirps && set) {
-                GF_ATOMIC_SWAP(wb_inode->invalidate, 1);
-                list_del_init(&wb_inode->invalidate_list);
+            if (readdirps && list_empty(&wb_inode->invalidate_list)) {
+                inode_ref(wb_inode->inode);
+                GF_ATOMIC_INIT(wb_inode->invalidate, 1);
                 list_add(&wb_inode->invalidate_list,
                          &wb_parent_inode->invalidate_list);
-            } else if (readdirps == 0) {
-                GF_ATOMIC_SWAP(wb_inode->invalidate, 0);
-                list_del_init(&wb_inode->invalidate_list);
             }
         }
         UNLOCK(&wb_parent_inode->lock);
     } else {
-        GF_ATOMIC_SWAP(wb_inode->invalidate, 0);
+        GF_ATOMIC_INIT(wb_inode->invalidate, 0);
     }
+
+    if (parent_inode)
+        inode_unref(parent_inode);
 
     return;
 }
@@ -718,6 +718,10 @@ wb_inode_destroy(wb_inode_t *wb_inode)
 {
     GF_VALIDATE_OR_GOTO("write-behind", wb_inode, out);
 
+    GF_ASSERT(list_empty(&wb_inode->todo));
+    GF_ASSERT(list_empty(&wb_inode->liability));
+    GF_ASSERT(list_empty(&wb_inode->temptation));
+
     LOCK_DESTROY(&wb_inode->lock);
     GF_FREE(wb_inode);
 out:
@@ -1092,7 +1096,7 @@ wb_fulfill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * In the above scenario, stat for the file is sent back in readdirp
      * response but it is stale.
      * </comment> */
-    wb_set_invalidate(wb_inode, 1);
+    wb_set_invalidate(wb_inode);
 
     if (op_ret == -1) {
         wb_fulfill_err(head, op_errno);
@@ -2502,7 +2506,8 @@ wb_mark_readdirp_end(xlator_t *this, inode_t *directory)
                                  invalidate_list)
         {
             list_del_init(&wb_inode->invalidate_list);
-            GF_ATOMIC_SWAP(wb_inode->invalidate, 0);
+            GF_ATOMIC_INIT(wb_inode->invalidate, 0);
+            inode_unref(wb_inode->inode);
         }
     }
 unlock:
@@ -2544,16 +2549,19 @@ wb_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
                 entry->inode = NULL;
                 memset(&entry->d_stat, 0, sizeof(entry->d_stat));
-
-                inode_unref(inode);
             }
         }
         UNLOCK(&wb_inode->lock);
+
+        if (inode) {
+            inode_unref(inode);
+            inode = NULL;
+        }
     }
 
+unwind:
     wb_mark_readdirp_end(this, fd->inode);
 
-unwind:
     frame->local = NULL;
     STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, entries, xdata);
     return 0;
@@ -2804,11 +2812,7 @@ wb_forget(xlator_t *this, inode_t *inode)
     if (!wb_inode)
         return 0;
 
-    GF_ASSERT(list_empty(&wb_inode->todo));
-    GF_ASSERT(list_empty(&wb_inode->liability));
-    GF_ASSERT(list_empty(&wb_inode->temptation));
-
-    GF_FREE(wb_inode);
+    wb_inode_destroy(wb_inode);
 
     return 0;
 }
