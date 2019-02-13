@@ -3539,7 +3539,6 @@ server4_0_stat(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return 0;
@@ -3554,15 +3553,15 @@ server4_0_stat(rpcsvc_request_t *req)
     state->resolve.type = RESOLVE_MUST;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_stat_resume);
 
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -3578,7 +3577,6 @@ server4_0_setattr(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return 0;
@@ -3595,14 +3593,15 @@ server4_0_setattr(rpcsvc_request_t *req)
     gfx_stat_to_iattx(&args.stbuf, &state->stbuf);
     state->valid = args.valid;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_setattr_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -3616,7 +3615,6 @@ server4_0_fallocate(rpcsvc_request_t *req)
         {0},
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -3635,15 +3633,15 @@ server4_0_fallocate(rpcsvc_request_t *req)
     state->size = args.size;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fallocate_resume);
 
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -3657,7 +3655,6 @@ server4_0_discard(rpcsvc_request_t *req)
         {0},
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -3675,15 +3672,15 @@ server4_0_discard(rpcsvc_request_t *req)
     state->size = args.size;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_discard_resume);
 
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -3716,7 +3713,10 @@ server4_0_zerofill(rpcsvc_request_t *req)
     state->size = args.size;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
     ret = 0;
     resolve_and_resume(frame, server4_zerofill_resume);
 
@@ -3736,7 +3736,6 @@ server4_0_ipc(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
-    int op_errno = 0;
     xlator_t *bound_xl = NULL;
 
     if (!req)
@@ -3745,20 +3744,19 @@ server4_0_ipc(rpcsvc_request_t *req)
     ret = rpc_receive_common(req, &frame, &state, NULL, &args, xdr_gfx_ipc_req,
                              GF_FOP_IPC);
     if (ret != 0) {
-        op_errno = -1;
         goto out;
     }
 
     bound_xl = frame->root->client->bound_xl;
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
     ret = 0;
     STACK_WIND(frame, server4_ipc_cbk, bound_xl, bound_xl->fops->ipc, args.op,
                state->xdata);
 
 out:
-
-    if (op_errno)
-        req->rpc_err = GARBAGE_ARGS;
 
     return ret;
 }
@@ -3774,7 +3772,6 @@ server4_0_seek(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -3792,15 +3789,15 @@ server4_0_seek(rpcsvc_request_t *req)
     state->what = args.what;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_seek_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -3815,7 +3812,6 @@ server4_0_readlink(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -3831,15 +3827,15 @@ server4_0_readlink(rpcsvc_request_t *req)
 
     state->size = args.size;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_readlink_resume);
 
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -3855,7 +3851,6 @@ server4_0_create(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -3879,16 +3874,16 @@ server4_0_create(rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_DONTCARE;
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_create_resume);
 
 out:
     free(args.bname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -3904,7 +3899,6 @@ server4_0_open(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -3920,14 +3914,14 @@ server4_0_open(rpcsvc_request_t *req)
 
     state->flags = gf_flags_to_flags(args.flags);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_open_resume);
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -3942,7 +3936,6 @@ server4_0_readv(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         goto out;
@@ -3961,14 +3954,14 @@ server4_0_readv(rpcsvc_request_t *req)
 
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_readv_resume);
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -3985,7 +3978,6 @@ server4_0_writev(rpcsvc_request_t *req)
     ssize_t len = 0;
     int i = 0;
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4018,7 +4010,10 @@ server4_0_writev(rpcsvc_request_t *req)
 
     GF_ASSERT(state->size == len);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
 #ifdef GF_TESTING_IO_XDATA
     dict_dump_to_log(state->xdata);
@@ -4027,9 +4022,6 @@ server4_0_writev(rpcsvc_request_t *req)
     ret = 0;
     resolve_and_resume(frame, server4_writev_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4195,7 +4187,6 @@ server4_0_fsync(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4211,14 +4202,14 @@ server4_0_fsync(rpcsvc_request_t *req)
     state->flags = args.data;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fsync_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4234,7 +4225,6 @@ server4_0_flush(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4249,14 +4239,14 @@ server4_0_flush(rpcsvc_request_t *req)
     state->resolve.fd_no = args.fd;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_flush_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4272,7 +4262,6 @@ server4_0_ftruncate(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4288,14 +4277,14 @@ server4_0_ftruncate(rpcsvc_request_t *req)
     state->offset = args.offset;
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_ftruncate_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4311,7 +4300,6 @@ server4_0_fstat(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4326,14 +4314,14 @@ server4_0_fstat(rpcsvc_request_t *req)
     state->resolve.fd_no = args.fd;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fstat_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4349,7 +4337,6 @@ server4_0_truncate(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4364,14 +4351,14 @@ server4_0_truncate(rpcsvc_request_t *req)
     memcpy(state->resolve.gfid, args.gfid, 16);
     state->offset = args.offset;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_truncate_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4387,7 +4374,6 @@ server4_0_unlink(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4405,15 +4391,15 @@ server4_0_unlink(rpcsvc_request_t *req)
 
     state->flags = args.xflags;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_unlink_resume);
 out:
     free(args.bname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4429,7 +4415,6 @@ server4_0_setxattr(rpcsvc_request_t *req)
         },
     };
     int32_t ret = -1;
-    int32_t op_errno = 0;
 
     if (!req)
         return ret;
@@ -4444,22 +4429,23 @@ server4_0_setxattr(rpcsvc_request_t *req)
     state->flags = args.flags;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    ret = xdr_to_dict(&args.dict, &state->dict);
-    if (ret)
-        gf_msg_debug(THIS->name, EINVAL, "dictionary not received");
+    if (xdr_to_dict(&args.dict, &state->dict)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     /* There can be some commands hidden in key, check and proceed */
     gf_server_check_setxattr_cmd(frame, state->dict);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_setxattr_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -4474,7 +4460,6 @@ server4_0_fsetxattr(rpcsvc_request_t *req)
         },
     };
     int32_t ret = -1;
-    int32_t op_errno = 0;
 
     if (!req)
         return ret;
@@ -4490,19 +4475,20 @@ server4_0_fsetxattr(rpcsvc_request_t *req)
     state->flags = args.flags;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    ret = xdr_to_dict(&args.dict, &state->dict);
-    if (ret)
-        gf_msg_debug(THIS->name, EINVAL, "dictionary not received");
+    if (xdr_to_dict(&args.dict, &state->dict)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fsetxattr_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -4517,7 +4503,6 @@ server4_0_fxattrop(rpcsvc_request_t *req)
         },
     };
     int32_t ret = -1;
-    int32_t op_errno = 0;
 
     if (!req)
         return ret;
@@ -4533,19 +4518,20 @@ server4_0_fxattrop(rpcsvc_request_t *req)
     state->flags = args.flags;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    ret = xdr_to_dict(&args.dict, &state->dict);
-    if (ret)
-        gf_msg_debug(THIS->name, EINVAL, "dictionary not received");
+    if (xdr_to_dict(&args.dict, &state->dict)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fxattrop_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -4560,7 +4546,6 @@ server4_0_xattrop(rpcsvc_request_t *req)
         },
     };
     int32_t ret = -1;
-    int32_t op_errno = 0;
 
     if (!req)
         return ret;
@@ -4575,19 +4560,20 @@ server4_0_xattrop(rpcsvc_request_t *req)
     state->flags = args.flags;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    ret = xdr_to_dict(&args.dict, &state->dict);
-    if (ret)
-        gf_msg_debug(THIS->name, EINVAL, "dictionary not received");
+    if (xdr_to_dict(&args.dict, &state->dict)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_xattrop_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -4602,7 +4588,6 @@ server4_0_getxattr(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4622,15 +4607,15 @@ server4_0_getxattr(rpcsvc_request_t *req)
         gf_server_check_getxattr_cmd(frame, state->name);
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_getxattr_resume);
 out:
     free(args.name);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4646,7 +4631,6 @@ server4_0_fgetxattr(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4663,15 +4647,15 @@ server4_0_fgetxattr(rpcsvc_request_t *req)
     if (args.namelen)
         state->name = gf_strdup(args.name);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fgetxattr_resume);
 out:
     free(args.name);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4687,7 +4671,6 @@ server4_0_removexattr(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4702,15 +4685,15 @@ server4_0_removexattr(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
     state->name = gf_strdup(args.name);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_removexattr_resume);
 out:
     free(args.name);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4726,7 +4709,6 @@ server4_0_fremovexattr(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4742,15 +4724,15 @@ server4_0_fremovexattr(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
     state->name = gf_strdup(args.name);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fremovexattr_resume);
 out:
     free(args.name);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4766,7 +4748,6 @@ server4_0_opendir(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4780,14 +4761,14 @@ server4_0_opendir(rpcsvc_request_t *req)
     state->resolve.type = RESOLVE_MUST;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_opendir_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4804,7 +4785,6 @@ server4_0_readdirp(rpcsvc_request_t *req)
     };
     size_t headers_size = 0;
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4832,14 +4812,14 @@ server4_0_readdirp(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
     /* here, dict itself works as xdata */
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_readdirp_resume);
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -4855,7 +4835,6 @@ server4_0_readdir(rpcsvc_request_t *req)
     };
     size_t headers_size = 0;
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4882,14 +4861,14 @@ server4_0_readdir(rpcsvc_request_t *req)
     state->offset = args.offset;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_readdir_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4905,7 +4884,6 @@ server4_0_fsyncdir(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4921,14 +4899,14 @@ server4_0_fsyncdir(rpcsvc_request_t *req)
     state->flags = args.data;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fsyncdir_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4944,7 +4922,6 @@ server4_0_mknod(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -4964,16 +4941,16 @@ server4_0_mknod(rpcsvc_request_t *req)
     state->dev = args.dev;
     state->umask = args.umask;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_mknod_resume);
 
 out:
     free(args.bname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -4989,7 +4966,6 @@ server4_0_mkdir(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5007,16 +4983,16 @@ server4_0_mkdir(rpcsvc_request_t *req)
     state->mode = args.mode;
     state->umask = args.umask;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_mkdir_resume);
 
 out:
     free(args.bname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5032,7 +5008,6 @@ server4_0_rmdir(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5049,15 +5024,15 @@ server4_0_rmdir(rpcsvc_request_t *req)
 
     state->flags = args.xflags;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_rmdir_resume);
 out:
     free(args.bname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5074,7 +5049,6 @@ server4_0_inodelk(rpcsvc_request_t *req)
     };
     int cmd = 0;
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5118,7 +5092,10 @@ server4_0_inodelk(rpcsvc_request_t *req)
             break;
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_inodelk_resume);
@@ -5126,9 +5103,6 @@ out:
     free(args.volume);
 
     free(args.flock.lk_owner.lk_owner_val);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5144,7 +5118,6 @@ server4_0_finodelk(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5189,7 +5162,10 @@ server4_0_finodelk(rpcsvc_request_t *req)
             break;
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_finodelk_resume);
@@ -5197,9 +5173,6 @@ out:
     free(args.volume);
 
     free(args.flock.lk_owner.lk_owner_val);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5215,7 +5188,6 @@ server4_0_entrylk(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5236,16 +5208,16 @@ server4_0_entrylk(rpcsvc_request_t *req)
     state->cmd = args.cmd;
     state->type = args.type;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_entrylk_resume);
 out:
     free(args.volume);
     free(args.name);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5261,7 +5233,6 @@ server4_0_fentrylk(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5282,16 +5253,16 @@ server4_0_fentrylk(rpcsvc_request_t *req)
         state->name = gf_strdup(args.name);
     state->volume = gf_strdup(args.volume);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_fentrylk_resume);
 out:
     free(args.volume);
     free(args.name);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5307,7 +5278,6 @@ server4_0_access(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5322,14 +5292,14 @@ server4_0_access(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
     state->mask = args.mask;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_access_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5345,7 +5315,6 @@ server4_0_symlink(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5362,7 +5331,10 @@ server4_0_symlink(rpcsvc_request_t *req)
     state->name = gf_strdup(args.linkname);
     state->umask = args.umask;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_symlink_resume);
@@ -5370,9 +5342,6 @@ server4_0_symlink(rpcsvc_request_t *req)
 out:
     free(args.bname);
     free(args.linkname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5388,7 +5357,6 @@ server4_0_link(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5407,15 +5375,15 @@ server4_0_link(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve2.pargfid,
                      args.newgfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_link_resume);
 out:
     free(args.newbname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5431,7 +5399,6 @@ server4_0_rename(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5451,16 +5418,16 @@ server4_0_rename(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve2.pargfid,
                      args.newgfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_rename_resume);
 out:
     free(args.oldbname);
     free(args.newbname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5476,7 +5443,6 @@ server4_0_lease(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5491,14 +5457,14 @@ server4_0_lease(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
     gf_proto_lease_to_lease(&args.lease, &state->lease);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_lease_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5514,7 +5480,6 @@ server4_0_lk(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5577,16 +5542,16 @@ server4_0_lk(rpcsvc_request_t *req)
             break;
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_lk_resume);
 out:
 
     free(args.flock.lk_owner.lk_owner_val);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5637,7 +5602,10 @@ server4_0_lookup(rpcsvc_request_t *req)
         set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto err;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_lookup_resume);
@@ -5659,7 +5627,6 @@ server4_0_statfs(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5673,14 +5640,14 @@ server4_0_statfs(rpcsvc_request_t *req)
     state->resolve.type = RESOLVE_MUST;
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_statfs_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5696,7 +5663,6 @@ server4_0_getactivelk(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5711,14 +5677,14 @@ server4_0_getactivelk(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
     /* here, dict itself works as xdata */
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_getactivelk_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -5734,7 +5700,6 @@ server4_0_setactivelk(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5749,7 +5714,10 @@ server4_0_setactivelk(rpcsvc_request_t *req)
     set_resolve_gfid(frame->root->client, state->resolve.gfid, args.gfid);
 
     /* here, dict itself works as xdata */
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = unserialize_req_locklist_v2(&args, &state->locklist);
     if (ret)
@@ -5759,9 +5727,6 @@ server4_0_setactivelk(rpcsvc_request_t *req)
 
     resolve_and_resume(frame, server4_setactivelk_resume);
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -5776,7 +5741,6 @@ server4_0_namelink(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5792,14 +5756,14 @@ server4_0_namelink(rpcsvc_request_t *req)
 
     state->resolve.type = RESOLVE_NOT;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
     ret = 0;
     resolve_and_resume(frame, server4_namelink_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -5814,7 +5778,6 @@ server4_0_icreate(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
     uuid_t gfid = {
         0,
     };
@@ -5839,14 +5802,14 @@ server4_0_icreate(rpcsvc_request_t *req)
 
     state->resolve.type = RESOLVE_NOT;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
     ret = 0;
     resolve_and_resume(frame, server4_icreate_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -5859,7 +5822,6 @@ server4_0_fsetattr(rpcsvc_request_t *req)
         {0},
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5877,14 +5839,14 @@ server4_0_fsetattr(rpcsvc_request_t *req)
     gfx_stat_to_iattx(&args.stbuf, &state->stbuf);
     state->valid = args.valid;
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
     ret = 0;
     resolve_and_resume(frame, server4_fsetattr_resume);
 
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -5897,7 +5859,6 @@ server4_0_rchecksum(rpcsvc_request_t *req)
         {0},
     };
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -5915,13 +5876,13 @@ server4_0_rchecksum(rpcsvc_request_t *req)
 
     memcpy(state->resolve.gfid, args.gfid, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
     ret = 0;
     resolve_and_resume(frame, server4_rchecksum_resume);
 out:
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
     return ret;
 }
 
@@ -5936,7 +5897,6 @@ server4_0_put(rpcsvc_request_t *req)
         },
     };
     int ret = -1;
-    int op_errno = 0;
     ssize_t len = 0;
     int i = 0;
 
@@ -5979,17 +5939,20 @@ server4_0_put(rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_DONTCARE;
     }
 
-    xdr_to_dict(&args.xattr, &state->dict);
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xattr, &state->dict)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_put_resume);
 
 out:
     free(args.bname);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -6136,7 +6099,6 @@ server4_0_compound(rpcsvc_request_t *req)
     int length = 0;
     int i = 0;
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -6169,7 +6131,10 @@ server4_0_compound(rpcsvc_request_t *req)
         goto out;
     }
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_compound_resume);
@@ -6178,9 +6143,6 @@ out:
     length = args.compound_req_array.compound_req_array_len;
     server_compound_req_cleanup_v2(&args, length);
     free(args.compound_req_array.compound_req_array_val);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
@@ -6197,7 +6159,6 @@ server4_0_copy_file_range(rpcsvc_request_t *req)
     };
     ssize_t len = 0;
     int ret = -1;
-    int op_errno = 0;
 
     if (!req)
         return ret;
@@ -6220,14 +6181,14 @@ server4_0_copy_file_range(rpcsvc_request_t *req)
     memcpy(state->resolve.gfid, args.gfid1, 16);
     memcpy(state->resolve2.gfid, args.gfid2, 16);
 
-    xdr_to_dict(&args.xdata, &state->xdata);
+    if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
 
     ret = 0;
     resolve_and_resume(frame, server4_copy_file_range_resume);
 out:
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
 
     return ret;
 }
