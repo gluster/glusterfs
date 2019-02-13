@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SCRIPT_TIMEOUT=350
+
 # This tests for hard link preservation for files that are linked, when the
 # file is undergoing migration
 
@@ -16,7 +18,6 @@
 . $(dirname $0)/../../volume.rc
 
 cleanup
-SCRIPT_TIMEOUT=350
 TEST truncate -s 10GB $B0/brick1
 TEST truncate -s 10GB $B0/brick2
 TEST truncate -s 10GB $B0/brick3
@@ -153,6 +154,11 @@ TEST ln ./dir1/FILE7 ./FILE7
 cd /
 linkcountsrc=$(stat -c %h $M0/dir1/FILE1)
 TEST [[ $linkcountsrc == 14 ]]
+
+
+# Stop the volume
+TEST $CLI volume stop $V0;
+
 UMOUNT_LOOP ${B0}/${V0}{1..3}
 rm -f ${B0}/brick{1..3}
 cleanup;
