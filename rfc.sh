@@ -185,43 +185,6 @@ assert_diverge()
 }
 
 
-check_patches_for_coding_style()
-{
-    git fetch $ORIGIN;
-
-    check_patch_script=./build-aux/checkpatch.pl
-    if [ ! -e ${check_patch_script} ] ; then
-        echo "${check_patch_script} is not executable .. abort"
-        exit 1
-    fi
-
-    # The URL of our Gerrit server
-    export GERRIT_URL="review.gluster.org"
-
-    echo "Running coding guidelines check ..."
-    head=$(git rev-parse --abbrev-ref HEAD)
-    # Kludge: "1>&2 && echo $? || echo $?" is to get around
-    #         "-e" from script invocation
-    RES=$(git format-patch --stdout $ORIGIN/${branch}..${head} \
-          | ${check_patch_script} --strict --terse - 1>&2 && echo $? || echo $?)
-    if [ "$RES" -eq 1 ] ; then
-        echo "Errors caught, get details by:"
-        echo "  git format-patch --stdout  $ORIGIN/${branch}..${head} \\"
-        echo "  | ${check_patch_script} --strict --gerrit-url ${GERRIT_URL} -"
-        echo "and correct errors"
-        exit 1
-    elif [ "$RES" -eq 2 ] ; then
-        echo "Warnings or checks caught, get details by:"
-        echo "  git format-patch --stdout  $ORIGIN/${branch}..${head} \\"
-        echo "  | ${check_patch_script} --strict --gerrit-url ${GERRIT_URL} -"
-        echo -n "Do you want to continue anyway [no/yes]: "
-        read yesno
-        if [ "${yesno}" != "yes" ] ; then
-            echo "Aborting..."
-            exit 1
-        fi
-    fi
-}
 
 # Regex elaborated:
 #   grep -w -> --word-regexp (from the man page)
@@ -303,7 +266,7 @@ main()
         return;
     fi
 
-    # check_patches_for_coding_style
+    git fetch $ORIGIN;
 
     rebase_changes;
 
