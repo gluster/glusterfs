@@ -22,12 +22,12 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST touch $M0/testfile;
 
-function flock_interrupt {
-        flock $MO/testfile sleep 3 & flock -w 1 $M0/testfile true;
-        echo ok;
-}
+echo > got_lock
+flock $M0/testfile sleep 6 & { sleep 0.3; flock -w 2 $M0/testfile true; echo ok > got_lock; } &
 
-EXPECT_WITHIN 2 ok flock_interrupt;
+EXPECT_WITHIN 4 ok cat got_lock;
 
 ## Finish up
+sleep 7;
+rm -f got_lock;
 cleanup;
