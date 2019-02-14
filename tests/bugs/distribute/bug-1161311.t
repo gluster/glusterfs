@@ -91,6 +91,8 @@ done
 ## into separate bricks when brick count is 3
 TEST mv $M0/dir1/FILE2 $M0/dir1/FILE1
 
+brick_loc=$(get_backend_paths $M0/dir1/FILE1)
+
 # unmount and remount the volume
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
@@ -100,7 +102,7 @@ TEST $CLI volume rebalance $V0 start force
 
 # Wait for FILE to get the sticky bit on, so that file is under
 # active rebalance, before creating the links
-TEST checksticky $B0/${V0}3/dir1/FILE1
+TEST checksticky $brick_loc
 
 # Create the links
 ## FILE3 FILE5 FILE7 have hashes, c8c91469 566d26ce 22ce7eba
@@ -121,7 +123,7 @@ cd /
 
 # Ideally for this test to have done its job, the file should still be
 # under migration, so check the sticky bit again
-TEST checksticky $B0/${V0}3/dir1/FILE1
+TEST checksticky $brick_loc
 
 # Wait for rebalance to complete
 EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" rebalance_status_field $V0

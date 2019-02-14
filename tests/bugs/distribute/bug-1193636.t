@@ -41,11 +41,13 @@ dd if=/dev/zero of=$M0/dir1/FILE2 bs=64k count=10240
 # act on the file
 TEST mv $M0/dir1/FILE2 $M0/dir1/FILE1
 
+brick_loc=$(get_backend_paths $M0/dir1/FILE1)
+
 build_tester $(dirname $0)/bug-1193636.c
 
 TEST $CLI volume rebalance $V0 start force
 
-TEST checksticky $B0/${V0}3/dir1/FILE1
+TEST checksticky $brick_loc
 
 TEST setfattr -n "user.test1" -v "test1" $M0/dir1/FILE1
 TEST setfattr -n "user.test2" -v "test1" $M0/dir1/FILE1
