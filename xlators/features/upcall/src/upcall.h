@@ -100,32 +100,10 @@ upcall_local_t *
 upcall_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                   inode_t *inode, dict_t *xattr);
 
-upcall_client_t *
-add_upcall_client(call_frame_t *frame, client_t *client,
-                  upcall_inode_ctx_t *up_inode_ctx);
-upcall_client_t *
-__add_upcall_client(call_frame_t *frame, client_t *client,
-                    upcall_inode_ctx_t *up_inode_ctx);
-upcall_client_t *
-__get_upcall_client(call_frame_t *frame, client_t *client,
-                    upcall_inode_ctx_t *up_inode_ctx);
-int
-__upcall_cleanup_client_entry(upcall_client_t *up_client);
-int
-upcall_cleanup_expired_clients(xlator_t *this,
-                               upcall_inode_ctx_t *up_inode_ctx);
-
-int
-__upcall_inode_ctx_set(inode_t *inode, xlator_t *this);
-upcall_inode_ctx_t *
-__upcall_inode_ctx_get(inode_t *inode, xlator_t *this);
 upcall_inode_ctx_t *
 upcall_inode_ctx_get(inode_t *inode, xlator_t *this);
 int
 upcall_cleanup_inode_ctx(xlator_t *this, inode_t *inode);
-void
-upcall_cache_forget(xlator_t *this, inode_t *inode,
-                    upcall_inode_ctx_t *up_inode_ctx);
 
 void *
 upcall_reaper_thread(void *data);
@@ -142,12 +120,6 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
                         inode_t *inode, uint32_t flags, struct iatt *stbuf,
                         struct iatt *p_stbuf, struct iatt *oldp_stbuf,
                         dict_t *xattr);
-void
-upcall_client_cache_invalidate(xlator_t *xl, uuid_t gfid,
-                               upcall_client_t *up_client_entry, uint32_t flags,
-                               struct iatt *stbuf, struct iatt *p_stbuf,
-                               struct iatt *oldp_stbuf, dict_t *xattr);
-
 int
 up_filter_xattr(dict_t *xattr, dict_t *regd_xattrs);
 

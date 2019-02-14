@@ -35,62 +35,37 @@ gf_boolean_t
 is_upcall_enabled(xlator_t *this)
 {
     upcall_private_t *priv = NULL;
-    gf_boolean_t is_enabled = _gf_false;
 
     if (this->private) {
         priv = (upcall_private_t *)this->private;
-
-        if (priv->cache_invalidation_enabled) {
-            is_enabled = _gf_true;
-        }
+        return priv->cache_invalidation_enabled;
     }
 
-    return is_enabled;
+    return _gf_false;
 }
 
 /*
  * Get the cache_invalidation_timeout
  */
-int32_t
+static int32_t
 get_cache_invalidation_timeout(xlator_t *this)
 {
     upcall_private_t *priv = NULL;
-    int32_t timeout = 0;
 
     if (this->private) {
         priv = (upcall_private_t *)this->private;
-        timeout = priv->cache_invalidation_timeout;
+        return priv->cache_invalidation_timeout;
     }
 
-    return timeout;
+    return 0;
 }
 
-/*
- * Allocate and add a new client entry to the given upcall entry
- */
-upcall_client_t *
-add_upcall_client(call_frame_t *frame, client_t *client,
-                  upcall_inode_ctx_t *up_inode_ctx)
-{
-    upcall_client_t *up_client_entry = NULL;
-
-    pthread_mutex_lock(&up_inode_ctx->client_list_lock);
-    {
-        up_client_entry = __add_upcall_client(frame, client, up_inode_ctx);
-    }
-    pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
-
-    return up_client_entry;
-}
-
-upcall_client_t *
+static upcall_client_t *
 __add_upcall_client(call_frame_t *frame, client_t *client,
-                    upcall_inode_ctx_t *up_inode_ctx)
+                    upcall_inode_ctx_t *up_inode_ctx, time_t now)
 {
-    upcall_client_t *up_client_entry = NULL;
-
-    up_client_entry = GF_CALLOC(1, sizeof(*up_client_entry),
-                                gf_upcall_mt_upcall_client_entry_t);
+    upcall_client_t *up_client_entry = GF_MALLOC(
+        sizeof(*up_client_entry), gf_upcall_mt_upcall_client_entry_t);
     if (!up_client_entry) {
         gf_msg("upcall", GF_LOG_WARNING, 0, UPCALL_MSG_NO_MEMORY,
                "Memory allocation failed");
@@ -98,7 +73,7 @@ __add_upcall_client(call_frame_t *frame, client_t *client,
     }
     INIT_LIST_HEAD(&up_client_entry->client_list);
     up_client_entry->client_uid = gf_strdup(client->client_uid);
-    up_client_entry->access_time = time(NULL);
+    up_client_entry->access_time = now;
     up_client_entry->expire_time_attr = get_cache_invalidation_timeout(
         frame->this);
 
@@ -110,39 +85,7 @@ __add_upcall_client(call_frame_t *frame, client_t *client,
     return up_client_entry;
 }
 
-/*
- * Given client->uid, retrieve the corresponding upcall client entry.
- * If none found, create a new entry.
- */
-upcall_client_t *
-__get_upcall_client(call_frame_t *frame, client_t *client,
-                    upcall_inode_ctx_t *up_inode_ctx)
-{
-    upcall_client_t *up_client_entry = NULL;
-    upcall_client_t *tmp = NULL;
-    gf_boolean_t found_client = _gf_false;
-
-    list_for_each_entry_safe(up_client_entry, tmp, &up_inode_ctx->client_list,
-                             client_list)
-    {
-        if (strcmp(client->client_uid, up_client_entry->client_uid) == 0) {
-            /* found client entry. Update the access_time */
-            up_client_entry->access_time = time(NULL);
-            found_client = _gf_true;
-            gf_log(THIS->name, GF_LOG_DEBUG, "upcall_entry_t client found - %s",
-                   up_client_entry->client_uid);
-            break;
-        }
-    }
-
-    if (!found_client) { /* create one */
-        up_client_entry = __add_upcall_client(frame, client, up_inode_ctx);
-    }
-
-    return up_client_entry;
-}
-
-int
+static int
 __upcall_inode_ctx_set(inode_t *inode, xlator_t *this)
 {
     upcall_inode_ctx_t *inode_ctx = NULL;
@@ -158,7 +101,7 @@ __upcall_inode_ctx_set(inode_t *inode, xlator_t *this)
     if (!ret)
         goto out;
 
-    inode_ctx = GF_CALLOC(1, sizeof(upcall_inode_ctx_t),
+    inode_ctx = GF_MALLOC(sizeof(upcall_inode_ctx_t),
                           gf_upcall_mt_upcall_inode_ctx_t);
 
     if (!inode_ctx) {
@@ -190,7 +133,7 @@ out:
     return ret;
 }
 
-upcall_inode_ctx_t *
+static upcall_inode_ctx_t *
 __upcall_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
     upcall_inode_ctx_t *inode_ctx = NULL;
@@ -229,8 +172,20 @@ upcall_inode_ctx_get(inode_t *inode, xlator_t *this)
     return inode_ctx;
 }
 
-int
-upcall_cleanup_expired_clients(xlator_t *this, upcall_inode_ctx_t *up_inode_ctx)
+static int
+__upcall_cleanup_client_entry(upcall_client_t *up_client)
+{
+    list_del_init(&up_client->client_list);
+
+    GF_FREE(up_client->client_uid);
+    GF_FREE(up_client);
+
+    return 0;
+}
+
+static int
+upcall_cleanup_expired_clients(xlator_t *this, upcall_inode_ctx_t *up_inode_ctx,
+                               time_t now)
 {
     upcall_client_t *up_client = NULL;
     upcall_client_t *tmp = NULL;
@@ -245,7 +200,7 @@ upcall_cleanup_expired_clients(xlator_t *this, upcall_inode_ctx_t *up_inode_ctx)
         list_for_each_entry_safe(up_client, tmp, &up_inode_ctx->client_list,
                                  client_list)
         {
-            t_expired = time(NULL) - up_client->access_time;
+            t_expired = now - up_client->access_time;
 
             if (t_expired > (2 * timeout)) {
                 gf_log(THIS->name, GF_LOG_TRACE, "Cleaning up client_entry(%s)",
@@ -269,17 +224,6 @@ out:
     return ret;
 }
 
-int
-__upcall_cleanup_client_entry(upcall_client_t *up_client)
-{
-    list_del_init(&up_client->client_list);
-
-    GF_FREE(up_client->client_uid);
-    GF_FREE(up_client);
-
-    return 0;
-}
-
 /*
  * Free Upcall inode_ctx client list
  */
@@ -297,6 +241,10 @@ __upcall_cleanup_inode_ctx_client_list(upcall_inode_ctx_t *inode_ctx)
 
     return 0;
 }
+
+static void
+upcall_cache_forget(xlator_t *this, inode_t *inode,
+                    upcall_inode_ctx_t *up_inode_ctx);
 
 /*
  * Free upcall_inode_ctx
@@ -360,6 +308,7 @@ upcall_reaper_thread(void *data)
     upcall_inode_ctx_t *tmp = NULL;
     xlator_t *this = NULL;
     time_t timeout = 0;
+    time_t time_now;
 
     this = (xlator_t *)data;
     GF_ASSERT(this);
@@ -367,33 +316,35 @@ upcall_reaper_thread(void *data)
     priv = this->private;
     GF_ASSERT(priv);
 
+    time_now = time(NULL);
     while (!priv->fini) {
         list_for_each_entry_safe(inode_ctx, tmp, &priv->inode_ctx_list,
                                  inode_ctx_list)
         {
             /* cleanup expired clients */
-            upcall_cleanup_expired_clients(this, inode_ctx);
+            upcall_cleanup_expired_clients(this, inode_ctx, time_now);
 
             if (!inode_ctx->destroy) {
                 continue;
             }
 
+            /* client list would have been cleaned up*/
+            gf_msg_debug("upcall", 0, "Freeing upcall_inode_ctx (%p)",
+                         inode_ctx);
             LOCK(&priv->inode_ctx_lk);
             {
-                /* client list would have been cleaned up*/
-                gf_msg_debug("upcall", 0, "Freeing upcall_inode_ctx (%p)",
-                             inode_ctx);
                 list_del_init(&inode_ctx->inode_ctx_list);
                 pthread_mutex_destroy(&inode_ctx->client_list_lock);
-                GF_FREE(inode_ctx);
-                inode_ctx = NULL;
             }
             UNLOCK(&priv->inode_ctx_lk);
+            GF_FREE(inode_ctx);
+            inode_ctx = NULL;
         }
 
         /* don't do a very busy loop */
         timeout = get_cache_invalidation_timeout(this);
         sleep(timeout / 2);
+        time_now = time(NULL);
     }
 
     return NULL;
@@ -486,6 +437,13 @@ up_filter_xattr(dict_t *xattr, dict_t *regd_xattrs)
     return ret;
 }
 
+static void
+upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
+                               upcall_client_t *up_client_entry, uint32_t flags,
+                               struct iatt *stbuf, struct iatt *p_stbuf,
+                               struct iatt *oldp_stbuf, dict_t *xattr,
+                               time_t now);
+
 gf_boolean_t
 up_invalidate_needed(dict_t *xattrs)
 {
@@ -520,6 +478,7 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
     upcall_client_t *tmp = NULL;
     upcall_inode_ctx_t *up_inode_ctx = NULL;
     gf_boolean_t found = _gf_false;
+    time_t time_now;
 
     if (!is_upcall_enabled(this))
         return;
@@ -560,6 +519,7 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
         goto out;
     }
 
+    time_now = time(NULL);
     pthread_mutex_lock(&up_inode_ctx->client_list_lock);
     {
         list_for_each_entry_safe(up_client_entry, tmp,
@@ -567,7 +527,7 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
         {
             /* Do not send UPCALL event if same client. */
             if (!strcmp(client->client_uid, up_client_entry->client_uid)) {
-                up_client_entry->access_time = time(NULL);
+                up_client_entry->access_time = time_now;
                 found = _gf_true;
                 continue;
             }
@@ -589,13 +549,14 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
              *  Also if the file is frequently accessed, set
              *  expire_time_attr to 0.
              */
-            upcall_client_cache_invalidate(this, up_inode_ctx->gfid,
-                                           up_client_entry, flags, stbuf,
-                                           p_stbuf, oldp_stbuf, xattr);
+            upcall_client_cache_invalidate(
+                this, up_inode_ctx->gfid, up_client_entry, flags, stbuf,
+                p_stbuf, oldp_stbuf, xattr, time_now);
         }
 
         if (!found) {
-            up_client_entry = __add_upcall_client(frame, client, up_inode_ctx);
+            up_client_entry = __add_upcall_client(frame, client, up_inode_ctx,
+                                                  time_now);
         }
     }
     pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
@@ -607,11 +568,12 @@ out:
  * If the upcall_client_t has recently accessed the file (i.e, within
  * priv->cache_invalidation_timeout), send a upcall notification.
  */
-void
+static void
 upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
                                upcall_client_t *up_client_entry, uint32_t flags,
                                struct iatt *stbuf, struct iatt *p_stbuf,
-                               struct iatt *oldp_stbuf, dict_t *xattr)
+                               struct iatt *oldp_stbuf, dict_t *xattr,
+                               time_t now)
 {
     struct gf_upcall up_req = {
         0,
@@ -621,7 +583,7 @@ upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
     };
     time_t timeout = 0;
     int ret = -1;
-    time_t t_expired = time(NULL) - up_client_entry->access_time;
+    time_t t_expired = now - up_client_entry->access_time;
 
     GF_VALIDATE_OR_GOTO("upcall_client_cache_invalidate",
                         !(gf_uuid_is_null(gfid)), out);
@@ -678,32 +640,32 @@ out:
  * Send "UP_FORGET" to all the clients so that they invalidate their cache
  * entry and do a fresh lookup next time when any I/O comes in.
  */
-void
+static void
 upcall_cache_forget(xlator_t *this, inode_t *inode,
                     upcall_inode_ctx_t *up_inode_ctx)
 {
     upcall_client_t *up_client_entry = NULL;
     upcall_client_t *tmp = NULL;
-    uint32_t flags = 0;
+    uint32_t flags = UP_FORGET;
+    time_t time_now;
 
     if (!up_inode_ctx) {
         return;
     }
 
+    time_now = time(NULL);
     pthread_mutex_lock(&up_inode_ctx->client_list_lock);
     {
         list_for_each_entry_safe(up_client_entry, tmp,
                                  &up_inode_ctx->client_list, client_list)
         {
-            flags = UP_FORGET;
-
             /* Set the access time to time(NULL)
              * to send notify */
-            up_client_entry->access_time = time(NULL);
+            up_client_entry->access_time = time_now;
 
             upcall_client_cache_invalidate(this, up_inode_ctx->gfid,
                                            up_client_entry, flags, NULL, NULL,
-                                           NULL, NULL);
+                                           NULL, NULL, time_now);
         }
     }
     pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
