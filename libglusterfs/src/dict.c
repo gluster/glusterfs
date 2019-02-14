@@ -537,7 +537,7 @@ data_t *
 dict_get(dict_t *this, char *key)
 {
     if (!this || !key) {
-        gf_msg_callingfn("dict", GF_LOG_INFO, EINVAL, LG_MSG_INVALID_ARG,
+        gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
@@ -552,7 +552,7 @@ dict_getn(dict_t *this, char *key, const int keylen)
     uint32_t hash;
 
     if (!this || !key) {
-        gf_msg_callingfn("dict", GF_LOG_INFO, EINVAL, LG_MSG_INVALID_ARG,
+        gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
