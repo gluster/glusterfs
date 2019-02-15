@@ -35,7 +35,7 @@ event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
                     int poll_out, char notify_poller_death);
 
-static int
+static void
 __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
            int poll_err, char event_thread_died)
 {
@@ -43,7 +43,7 @@ __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
     int ret = -1;
 
     if (!poll_in)
-        return ret;
+        return;
 
     do {
         ret = sys_read(fd, buf, 64);
@@ -55,7 +55,7 @@ __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
         }
     } while (ret == 64);
 
-    return ret;
+    return;
 }
 
 static int
@@ -375,10 +375,10 @@ unlock:
     pthread_mutex_unlock(&event_pool->mutex);
 
     if (handler)
-        ret = handler(ufds[i].fd, idx, 0, data,
-                      (ufds[i].revents & (POLLIN | POLLPRI)),
-                      (ufds[i].revents & (POLLOUT)),
-                      (ufds[i].revents & (POLLERR | POLLHUP | POLLNVAL)), 0);
+        handler(ufds[i].fd, idx, 0, data,
+                (ufds[i].revents & (POLLIN | POLLPRI)),
+                (ufds[i].revents & (POLLOUT)),
+                (ufds[i].revents & (POLLERR | POLLHUP | POLLNVAL)), 0);
 
     return ret;
 }
