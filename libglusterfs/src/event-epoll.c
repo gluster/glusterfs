@@ -645,10 +645,9 @@ pre_unlock:
         goto out;
 
     if (!handled_error_previously) {
-        ret = handler(fd, idx, gen, data,
-                      (event->events & (EPOLLIN | EPOLLPRI)),
-                      (event->events & (EPOLLOUT)),
-                      (event->events & (EPOLLERR | EPOLLHUP)), 0);
+        handler(fd, idx, gen, data, (event->events & (EPOLLIN | EPOLLPRI)),
+                (event->events & (EPOLLOUT)),
+                (event->events & (EPOLLERR | EPOLLHUP)), 0);
     }
 out:
     event_slot_unref(event_pool, slot, idx);

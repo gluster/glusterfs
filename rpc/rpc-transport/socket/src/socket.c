@@ -2847,7 +2847,7 @@ socket_complete_connection(rpc_transport_t *this)
 }
 
 /* reads rpc_requests during pollin */
-static int
+static void
 socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
                      int poll_out, int poll_err, char event_thread_died)
 {
@@ -2861,7 +2861,7 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
     if (event_thread_died) {
         /* to avoid duplicate notifications, notify only for listener sockets */
-        return 0;
+        return;
     }
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
@@ -2900,7 +2900,7 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
             if (ret > 0) {
                 gf_log(this->name, GF_LOG_TRACE,
                        "(sock:%d) returning to wait on socket", priv->sock);
-                return 0;
+                return;
             }
         } else {
             char *sock_type = (priv->is_server ? "Server" : "Client");
@@ -2955,10 +2955,10 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     }
 
 out:
-    return ret;
+    return;
 }
 
-static int
+static void
 socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
                             int poll_out, int poll_err, char event_thread_died)
 {
@@ -2987,7 +2987,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     if (event_thread_died) {
         rpc_transport_notify(this, RPC_TRANSPORT_EVENT_THREAD_DIED,
                              (void *)(unsigned long)gen);
-        return 0;
+        return;
     }
 
     /* NOTE:
@@ -3202,7 +3202,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         }
     }
 out:
-    return ret;
+    return;
 }
 
 static int
