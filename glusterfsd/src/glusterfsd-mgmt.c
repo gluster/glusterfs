@@ -1504,6 +1504,11 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     GF_ASSERT(ctx);
 
     active = ctx->active;
+    if (active == NULL) {
+        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        ret = -1;
+        goto out;
+    }
     any = active->first;
 
     // is this needed?
