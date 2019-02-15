@@ -102,7 +102,7 @@ cli_rl_process_line(char *line)
     state->rl_processing = 0;
 }
 
-int
+void
 cli_rl_stdin(int fd, int idx, int gen, void *data, int poll_out, int poll_in,
              int poll_err, char event_thread_died)
 {
@@ -114,7 +114,7 @@ cli_rl_stdin(int fd, int idx, int gen, void *data, int poll_out, int poll_in,
 
     event_handled(state->ctx->event_pool, fd, idx, gen);
 
-    return 0;
+    return;
 }
 
 char *

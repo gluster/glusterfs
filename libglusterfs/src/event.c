@@ -159,12 +159,12 @@ out:
     return ret;
 }
 
-int
+void
 poller_destroy_handler(int fd, int idx, int gen, void *data, int poll_out,
                        int poll_in, int poll_err, char event_thread_exit)
 {
     struct event_destroy_data *destroy = NULL;
-    int readfd = -1, ret = -1;
+    int readfd = -1;
     char buf = '\0';
 
     destroy = data;
@@ -176,11 +176,10 @@ poller_destroy_handler(int fd, int idx, int gen, void *data, int poll_out,
     while (sys_read(readfd, &buf, 1) > 0) {
     }
 
-    ret = 0;
 out:
     event_handled(destroy->pool, fd, idx, gen);
 
-    return ret;
+    return;
 }
 
 /* This function destroys all the poller threads.
