@@ -73,7 +73,7 @@ out:
  * timeout value(in seconds) set as an option to this xlator.
  * -1 error case
  */
-int32_t
+static int32_t
 get_recall_lease_timeout(xlator_t *this)
 {
     leases_private_t *priv = NULL;
@@ -356,9 +356,8 @@ out:
 static lease_inode_t *
 new_lease_inode(inode_t *inode)
 {
-    lease_inode_t *l_inode = NULL;
-
-    l_inode = GF_CALLOC(1, sizeof(*l_inode), gf_leases_mt_lease_inode_t);
+    lease_inode_t *l_inode = GF_MALLOC(sizeof(*l_inode),
+                                       gf_leases_mt_lease_inode_t);
     if (!l_inode)
         goto out;
 
@@ -379,9 +378,8 @@ __destroy_lease_inode(lease_inode_t *l_inode)
 static lease_client_t *
 new_lease_client(const char *client_uid)
 {
-    lease_client_t *clnt = NULL;
-
-    clnt = GF_CALLOC(1, sizeof(*clnt), gf_leases_mt_lease_client_t);
+    lease_client_t *clnt = GF_MALLOC(sizeof(*clnt),
+                                     gf_leases_mt_lease_client_t);
     if (!clnt)
         goto out;
 
@@ -448,29 +446,29 @@ out:
 static int
 add_inode_to_client_list(xlator_t *this, inode_t *inode, const char *client_uid)
 {
-    int ret = 0;
-    leases_private_t *priv = NULL;
+    leases_private_t *priv = this->private;
     lease_client_t *clnt = NULL;
-    lease_inode_t *lease_inode = NULL;
 
-    priv = this->private;
+    lease_inode_t *lease_inode = new_lease_inode(inode);
+    if (!lease_inode)
+        return -ENOMEM;
+
     pthread_mutex_lock(&priv->mutex);
     {
         clnt = __get_or_new_lease_client(this, priv, client_uid);
-        GF_CHECK_ALLOC(clnt, ret, out);
-
-        lease_inode = new_lease_inode(inode);
-        GF_CHECK_ALLOC(lease_inode, ret, out);
-
+        if (!clnt) {
+            pthread_mutex_unlock(&priv->mutex);
+            __destroy_lease_inode(lease_inode);
+            return -ENOMEM;
+        }
         list_add_tail(&clnt->inode_list, &lease_inode->list);
-        gf_msg_debug(this->name, 0,
-                     "Added a new inode:%p to the client(%s) "
-                     "cleanup list, gfid(%s)",
-                     inode, client_uid, uuid_utoa(inode->gfid));
     }
-out:
     pthread_mutex_unlock(&priv->mutex);
-    return ret;
+    gf_msg_debug(this->name, 0,
+                 "Added a new inode:%p to the client(%s) "
+                 "cleanup list, gfid(%s)",
+                 inode, client_uid, uuid_utoa(inode->gfid));
+    return 0;
 }
 
 /* Add lease entry to the corresponding client entry.
@@ -587,15 +585,17 @@ remove_from_clnt_list(xlator_t *this, const char *client_uid, inode_t *inode)
     {
         clnt = __get_lease_client(this, priv, client_uid);
         if (!clnt) {
+            pthread_mutex_unlock(&priv->mutex);
             gf_msg(this->name, GF_LOG_ERROR, 0, LEASE_MSG_CLNT_NOTFOUND,
                    "There is no client entry found in the cleanup list");
-            pthread_mutex_unlock(&priv->mutex);
             goto out;
         }
         ret = __remove_inode_from_clnt_list(this, clnt, inode);
         if (ret) {
+            pthread_mutex_unlock(&priv->mutex);
             gf_msg(this->name, GF_LOG_ERROR, 0, LEASE_MSG_INODE_NOTFOUND,
                    "There is no inode entry found in the cleanup list");
+            goto out;
         }
     }
     pthread_mutex_unlock(&priv->mutex);
@@ -854,20 +854,20 @@ recall_lease_timer_handler(struct gf_tw_timer_list *timer, void *data,
 
     priv = timer_data->this->private;
     inode = timer_data->inode;
+    lease_inode = new_lease_inode(inode);
+    if (!lease_inode) {
+        errno = ENOMEM;
+        goto out;
+    }
     pthread_mutex_lock(&priv->mutex);
     {
-        lease_inode = new_lease_inode(inode);
-        if (!lease_inode) {
-            errno = ENOMEM;
-            goto out;
-        }
         list_add_tail(&lease_inode->list, &priv->recall_list);
         pthread_cond_broadcast(&priv->cond);
     }
+    pthread_mutex_unlock(&priv->mutex);
 out:
     /* unref the inode_ref taken by timer_data in __recall_lease */
     inode_unref(timer_data->inode);
-    pthread_mutex_unlock(&priv->mutex);
 
     GF_FREE(timer);
 }
@@ -887,6 +887,7 @@ __recall_lease(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     struct gf_tw_timer_list *timer = NULL;
     leases_private_t *priv = NULL;
     lease_timer_data_t *timer_data = NULL;
+    time_t recall_time;
 
     if (lease_ctx->recall_in_progress) {
         gf_msg_debug(this->name, 0,
@@ -896,6 +897,7 @@ __recall_lease(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     }
 
     priv = this->private;
+    recall_time = time(NULL);
     list_for_each_entry_safe(lease_entry, tmp, &lease_ctx->lease_id_list,
                              lease_id_list)
     {
@@ -919,9 +921,9 @@ __recall_lease(xlator_t *this, lease_inode_ctx_t *lease_ctx)
         }
 
         lease_ctx->recall_in_progress = _gf_true;
-        lease_entry->recall_time = time(NULL);
+        lease_entry->recall_time = recall_time;
     }
-    timer = GF_CALLOC(1, sizeof(*timer), gf_common_mt_tw_timer_list);
+    timer = GF_MALLOC(sizeof(*timer), gf_common_mt_tw_timer_list);
     if (!timer) {
         goto out;
     }
@@ -1146,12 +1148,13 @@ check_lease_conflict(call_frame_t *frame, inode_t *inode, const char *lease_id,
     pthread_mutex_lock(&lease_ctx->lock);
     {
         if (lease_ctx->lease_type == NONE) {
+            pthread_mutex_unlock(&lease_ctx->lock);
             gf_msg_debug(frame->this->name, 0,
                          "No leases found continuing with the"
                          " fop:%s",
                          gf_fop_list[frame->root->op]);
             ret = WIND_FOP;
-            goto unlock;
+            goto out;
         }
         conflicts = __check_lease_conflict(frame, lease_ctx, lease_id,
                                            is_write_fop);
@@ -1178,7 +1181,6 @@ check_lease_conflict(call_frame_t *frame, inode_t *inode, const char *lease_id,
             }
         }
     }
-unlock:
     pthread_mutex_unlock(&lease_ctx->lock);
 out:
     return ret;
@@ -1355,6 +1357,7 @@ expired_recall_cleanup(void *data)
     lease_inode_t *tmp = NULL;
     leases_private_t *priv = NULL;
     xlator_t *this = NULL;
+    time_t time_now;
 
     GF_VALIDATE_OR_GOTO("leases", data, out);
 
@@ -1364,6 +1367,7 @@ expired_recall_cleanup(void *data)
     gf_msg_debug(this->name, 0, "Started the expired_recall_cleanup thread");
 
     while (1) {
+        time_now = time(NULL);
         pthread_mutex_lock(&priv->mutex);
         {
             if (priv->fini) {
@@ -1372,7 +1376,7 @@ expired_recall_cleanup(void *data)
             }
             INIT_LIST_HEAD(&recall_cleanup_list);
             if (list_empty(&priv->recall_list)) {
-                sleep_till.tv_sec = time(NULL) + 600;
+                sleep_till.tv_sec = time_now + 600;
                 pthread_cond_timedwait(&priv->cond, &priv->mutex, &sleep_till);
             }
             if (!list_empty(&priv->recall_list)) {
