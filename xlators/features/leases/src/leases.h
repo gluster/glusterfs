@@ -186,11 +186,11 @@ struct _lease_inode_ctx {
     uint64_t openfd_cnt;             /* number of fds open */
     gf_boolean_t recall_in_progress; /* if lease recall is sent on this inode */
     gf_boolean_t blocked_fops_resuming; /* if blocked fops are being resumed */
-    struct list_head blocked_list;   /* List of fops blocked until the
-                                        lease recall is complete */
-    inode_t *inode;                  /* this represents the inode on which the
-                                        lock was taken, required mainly during
-                                        disconnect cleanup */
+    struct list_head blocked_list;      /* List of fops blocked until the
+                                           lease recall is complete */
+    inode_t *inode; /* this represents the inode on which the
+                       lock was taken, required mainly during
+                       disconnect cleanup */
     struct gf_tw_timer_list *timer;
     pthread_mutex_t lock;
 };
@@ -225,9 +225,6 @@ typedef struct __lease_timer_data lease_timer_data_t;
 
 gf_boolean_t
 is_leases_enabled(xlator_t *this);
-
-int32_t
-get_recall_lease_timeout(xlator_t *this);
 
 lease_inode_ctx_t *
 lease_ctx_get(inode_t *inode, xlator_t *this);
