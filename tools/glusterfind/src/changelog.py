@@ -114,6 +114,43 @@ def populate_pgfid_and_inodegfid(brick, changelog_data):
                 continue
 
 
+def enum_hard_links_using_gfid2path(brick, gfid, args):
+    hardlinks = []
+    p = os.path.join(brick, ".glusterfs", gfid[0:2], gfid[2:4], gfid)
+    if not os.path.isdir(p):
+        # we have a symlink or a normal file
+        try:
+            file_xattrs = xattr.list(p)
+            for x in file_xattrs:
+                if x.startswith("trusted.gfid2path."):
+                    # get the value for the xattr i.e. <PGFID>/<BN>
+                    v = xattr.getxattr(p, x)
+                    pgfid, bn = v.split(os.sep)
+                    try:
+                        path = symlink_gfid_to_path(brick, pgfid)
+                        fullpath = os.path.join(path, bn)
+                        fullpath = output_path_prepare(fullpath, args)
+                        hardlinks.append(fullpath)
+                    except (IOError, OSError) as e:
+                        logger.warn("Error converting to path: %s" % e)
+                        continue
+        except (IOError, OSError):
+            pass
+    return hardlinks
+
+
+def gfid_to_all_paths_using_gfid2path(brick, changelog_data, args):
+    path = ""
+    for row in changelog_data.gfidpath_get({"path1": "", "type": "MODIFY"}):
+        gfid = row[3].strip()
+        logger.debug("Processing gfid %s" % gfid)
+        hardlinks = enum_hard_links_using_gfid2path(brick, gfid, args)
+
+        path = ",".join(hardlinks)
+
+        changelog_data.gfidpath_update({"path1": path}, {"gfid": gfid})
+
+
 def gfid_to_path_using_pgfid(brick, changelog_data, args):
     """
     For all the pgfids collected, Converts to Path and
@@ -313,11 +350,11 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
     changelog_data.commit()
     logger.info("[2/4] Finished 'pgfid to path' conversions.")
 
-    # Convert all GFIDs for which no other additional details available
-    logger.info("[3/4] Starting 'gfid to path using pgfid' conversions ...")
-    gfid_to_path_using_pgfid(brick, changelog_data, args)
+    # Convert all gfids recorded for data and metadata to all hardlink paths
+    logger.info("[3/4] Starting 'gfid2path' conversions ...")
+    gfid_to_all_paths_using_gfid2path(brick, changelog_data, args)
     changelog_data.commit()
-    logger.info("[3/4] Finished 'gfid to path using pgfid' conversions.")
+    logger.info("[3/4] Finished 'gfid2path' conversions.")
 
     # If some GFIDs fail to get converted from previous step,
     # convert using find
