@@ -103,12 +103,12 @@ struct md_cache {
     uint32_t md_nlink;
     uint32_t md_uid;
     uint32_t md_gid;
-    uint32_t md_atime;
     uint32_t md_atime_nsec;
-    uint32_t md_mtime;
     uint32_t md_mtime_nsec;
-    uint32_t md_ctime;
     uint32_t md_ctime_nsec;
+    int64_t md_atime;
+    int64_t md_mtime;
+    int64_t md_ctime;
     uint64_t md_rdev;
     uint64_t md_size;
     uint64_t md_blocks;
