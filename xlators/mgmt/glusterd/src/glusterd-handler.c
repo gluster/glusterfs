@@ -5609,6 +5609,8 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
                        "fetch the value of all volume options "
                        "for volume %s",
                        volinfo->volname);
+                if (vol_all_opts)
+                    dict_unref(vol_all_opts);
                 continue;
             }
 
