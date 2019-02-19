@@ -1928,6 +1928,9 @@ wb_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 unwind:
     STACK_UNWIND_STRICT(readv, frame, -1, ENOMEM, NULL, 0, NULL, NULL, NULL);
+
+    if (stub)
+        call_stub_destroy(stub);
     return 0;
 
 noqueue:
@@ -2010,6 +2013,9 @@ wb_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 unwind:
     STACK_UNWIND_STRICT(flush, frame, -1, ENOMEM, NULL);
 
+    if (stub)
+        call_stub_destroy(stub);
+
     return 0;
 
 noqueue:
@@ -2053,6 +2059,8 @@ wb_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 unwind:
     STACK_UNWIND_STRICT(fsync, frame, -1, op_errno, NULL, NULL, NULL);
 
+    if (stub)
+        call_stub_destroy(stub);
     return 0;
 
 noqueue:
