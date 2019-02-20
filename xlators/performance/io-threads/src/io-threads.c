@@ -294,7 +294,9 @@ iot_schedule(call_frame_t *frame, xlator_t *this, call_stub_t *stub)
     gf_fop_pri_t pri = GF_FOP_PRI_MAX - 1;
     iot_conf_t *conf = this->private;
 
-    if ((frame->root->pid < GF_CLIENT_PID_MAX) && conf->least_priority) {
+    if ((frame->root->pid < GF_CLIENT_PID_MAX) &&
+        (frame->root->pid != GF_CLIENT_PID_NO_ROOT_SQUASH) &&
+        conf->least_priority) {
         pri = GF_FOP_PRI_LEAST;
         goto out;
     }
