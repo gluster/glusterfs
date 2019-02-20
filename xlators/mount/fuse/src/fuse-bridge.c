@@ -6054,7 +6054,11 @@ fuse_thread_proc(void *data)
     cont_err:
         iobuf_unref(iobuf);
         GF_FREE(iov_in[0].iov_base);
+        iov_in[0].iov_base = NULL;
     }
+
+    if (iov_in[0].iov_base)
+        GF_FREE(iov_in[0].iov_base);
 
     /*
      * We could be in all sorts of states with respect to iobuf and iov_in
