@@ -7013,3 +7013,21 @@ afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
 
     return _gf_false;
 }
+
+void
+afr_handle_replies_quorum(call_frame_t *frame, xlator_t *this)
+{
+    afr_local_t *local = frame->local;
+    afr_private_t *priv = this->private;
+    unsigned char *success_replies = NULL;
+
+    success_replies = alloca0(priv->child_count);
+    afr_fill_success_replies(local, priv, success_replies);
+
+    if (priv->quorum_count && !afr_has_quorum(success_replies, this, NULL)) {
+        local->op_errno = afr_final_errno(local, priv);
+        if (!local->op_errno)
+            local->op_errno = afr_quorum_errno(priv);
+        local->op_ret = -1;
+    }
+}
