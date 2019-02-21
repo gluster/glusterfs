@@ -73,6 +73,10 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     local = frame->local;
     fd_ctx = local->fd_ctx;
 
+    local->replies[child_index].valid = 1;
+    local->replies[child_index].op_ret = op_ret;
+    local->replies[child_index].op_errno = op_errno;
+
     LOCK(&frame->lock);
     {
         if (op_ret == -1) {
@@ -90,7 +94,11 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     call_count = afr_frame_return(frame);
 
     if (call_count == 0) {
-        if ((fd_ctx->flags & O_TRUNC) && (local->op_ret >= 0)) {
+        afr_handle_replies_quorum(frame, this);
+        if (local->op_ret == -1) {
+            AFR_STACK_UNWIND(open, frame, local->op_ret, local->op_errno, NULL,
+                             NULL);
+        } else if (fd_ctx->flags & O_TRUNC) {
             STACK_WIND(frame, afr_open_ftruncate_cbk, this,
                        this->fops->ftruncate, fd, 0, NULL);
         } else {
@@ -158,6 +166,11 @@ afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     fd_ctx = afr_fd_ctx_get(fd, this);
     if (!fd_ctx) {
         op_errno = ENOMEM;
+        goto out;
+    }
+
+    if (priv->quorum_count && !afr_has_quorum(local->child_up, this, NULL)) {
+        op_errno = afr_quorum_errno(priv);
         goto out;
     }
 

@@ -45,6 +45,10 @@ afr_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fd_ctx = local->fd_ctx;
     child_index = (long)cookie;
 
+    local->replies[child_index].valid = 1;
+    local->replies[child_index].op_ret = op_ret;
+    local->replies[child_index].op_errno = op_errno;
+
     LOCK(&frame->lock);
     {
         if (op_ret == -1) {
@@ -61,9 +65,12 @@ afr_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     call_count = afr_frame_return(frame);
 
-    if (call_count == 0)
+    if (call_count == 0) {
+        afr_handle_replies_quorum(frame, this);
         AFR_STACK_UNWIND(opendir, frame, local->op_ret, local->op_errno,
                          local->fd, NULL);
+    }
+
     return 0;
 }
 
@@ -84,6 +91,12 @@ afr_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         goto out;
 
     local->op = GF_FOP_OPENDIR;
+
+    if (priv->quorum_count && !afr_has_quorum(local->child_up, this, NULL)) {
+        op_errno = afr_quorum_errno(priv);
+        goto out;
+    }
+
     if (!afr_is_consistent_io_possible(local, priv, &op_errno))
         goto out;
 
