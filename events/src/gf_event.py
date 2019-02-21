@@ -12,10 +12,10 @@
 import socket
 import time
 
-from .eventsapiconf import SERVER_ADDRESS, EVENTS_ENABLED
-from .eventtypes import all_events
+from gfevents.eventsapiconf import SERVER_ADDRESS, EVENTS_ENABLED
+from gfevents.eventtypes import all_events
 
-from .utils import logger, setup_logger, get_config
+from gfevents.utils import logger, setup_logger, get_config
 
 # Run this when this lib loads
 setup_logger()
