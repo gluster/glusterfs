@@ -1446,11 +1446,11 @@ glfs_lease(glfs_fd_t *glfd, glfs_lease_t *lease, glfs_recall_cbk fn,
  */
 
 int
-glfs_fsetattr(struct glfs_fd *glfd, struct stat *stat, int valid) __THROW
+glfs_fsetattr(struct glfs_fd *glfd, struct glfs_stat *stat) __THROW
     GFAPI_PUBLIC(glfs_fsetattr, 6.0);
 
 int
-glfs_setattr(struct glfs *fs, const char *path, struct stat *stat, int valid,
+glfs_setattr(struct glfs *fs, const char *path, struct glfs_stat *stat,
              int follow) __THROW GFAPI_PUBLIC(glfs_setattr, 6.0);
 
 __END_DECLS

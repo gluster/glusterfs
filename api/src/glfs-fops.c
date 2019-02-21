@@ -373,6 +373,35 @@ priv_glfs_iatt_from_statx(struct iatt *iatt, const struct glfs_stat *statx)
 }
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_iatt_from_statx, 6.0);
 
+void
+glfsflags_from_gfapiflags(struct glfs_stat *stat, int *glvalid)
+{
+    *glvalid = 0;
+    if (stat->glfs_st_mask & GLFS_STAT_MODE) {
+        *glvalid |= GF_SET_ATTR_MODE;
+    }
+
+    if (stat->glfs_st_mask & GLFS_STAT_SIZE) {
+        *glvalid |= GF_SET_ATTR_SIZE;
+    }
+
+    if (stat->glfs_st_mask & GLFS_STAT_UID) {
+        *glvalid |= GF_SET_ATTR_UID;
+    }
+
+    if (stat->glfs_st_mask & GLFS_STAT_GID) {
+        *glvalid |= GF_SET_ATTR_GID;
+    }
+
+    if (stat->glfs_st_mask & GLFS_STAT_ATIME) {
+        *glvalid |= GF_SET_ATTR_ATIME;
+    }
+
+    if (stat->glfs_st_mask & GLFS_STAT_MTIME) {
+        *glvalid |= GF_SET_ATTR_MTIME;
+    }
+}
+
 int
 glfs_loc_unlink(loc_t *loc)
 {
@@ -3914,10 +3943,11 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_statvfs, 3.4.0);
 
 int
-pub_glfs_setattr(struct glfs *fs, const char *path, struct stat *stat,
-                 int valid, int follow)
+pub_glfs_setattr(struct glfs *fs, const char *path, struct glfs_stat *stat,
+                 int follow)
 {
     int ret = -1;
+    int glvalid;
     xlator_t *subvol = NULL;
     loc_t loc = {
         0,
@@ -3929,7 +3959,6 @@ pub_glfs_setattr(struct glfs *fs, const char *path, struct stat *stat,
         0,
     };
     int reval = 0;
-    int glvalid = 0;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
@@ -3953,7 +3982,8 @@ retry:
     if (ret)
         goto out;
 
-    glfs_iatt_from_stat(stat, valid, &iatt, &glvalid);
+    glfs_iatt_from_statx(&iatt, stat);
+    glfsflags_from_gfapiflags(stat, &glvalid);
 
     /* TODO : Add leaseid */
     ret = syncop_setattr(subvol, &loc, &iatt, glvalid, 0, 0, NULL, NULL);
@@ -3974,10 +4004,10 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_setattr, 6.0);
 
 int
-pub_glfs_fsetattr(struct glfs_fd *glfd, struct stat *stat, int valid)
+pub_glfs_fsetattr(struct glfs_fd *glfd, struct glfs_stat *stat)
 {
     int ret = -1;
-    int glvalid = 0;
+    int glvalid;
     struct iatt iatt = {
         0,
     };
@@ -4005,7 +4035,8 @@ pub_glfs_fsetattr(struct glfs_fd *glfd, struct stat *stat, int valid)
         goto out;
     }
 
-    glfs_iatt_from_stat(stat, valid, &iatt, &glvalid);
+    glfs_iatt_from_statx(&iatt, stat);
+    glfsflags_from_gfapiflags(stat, &glvalid);
 
     /* TODO : Add leaseid */
     ret = syncop_fsetattr(subvol, fd, &iatt, glvalid, 0, 0, NULL, NULL);
@@ -4030,15 +4061,14 @@ int
 pub_glfs_chmod(struct glfs *fs, const char *path, mode_t mode)
 {
     int ret = -1;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
-    int valid = 0;
 
-    stat.st_mode = mode;
-    valid = GFAPI_SET_ATTR_MODE;
+    stat.glfs_st_mode = mode;
+    stat.glfs_st_mask = GLFS_STAT_MODE;
 
-    ret = glfs_setattr(fs, path, &stat, valid, 1);
+    ret = glfs_setattr(fs, path, &stat, 1);
 
     return ret;
 }
@@ -4049,15 +4079,14 @@ int
 pub_glfs_fchmod(struct glfs_fd *glfd, mode_t mode)
 {
     int ret = -1;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
-    int valid = 0;
 
-    stat.st_mode = mode;
-    valid = GFAPI_SET_ATTR_MODE;
+    stat.glfs_st_mode = mode;
+    stat.glfs_st_mask = GLFS_STAT_MODE;
 
-    ret = glfs_fsetattr(glfd, &stat, valid);
+    ret = glfs_fsetattr(glfd, &stat);
 
     return ret;
 }
@@ -4068,23 +4097,22 @@ int
 pub_glfs_chown(struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 {
     int ret = 0;
-    int valid = 0;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
 
     if (uid != (uid_t)-1) {
-        stat.st_uid = uid;
-        valid = GFAPI_SET_ATTR_UID;
+        stat.glfs_st_uid = uid;
+        stat.glfs_st_mask = GLFS_STAT_UID;
     }
 
     if (gid != (uid_t)-1) {
-        stat.st_gid = gid;
-        valid = valid | GFAPI_SET_ATTR_GID;
+        stat.glfs_st_gid = gid;
+        stat.glfs_st_mask = stat.glfs_st_mask | GLFS_STAT_GID;
     }
 
-    if (valid)
-        ret = glfs_setattr(fs, path, &stat, valid, 1);
+    if (stat.glfs_st_mask)
+        ret = glfs_setattr(fs, path, &stat, 1);
 
     return ret;
 }
@@ -4095,23 +4123,22 @@ int
 pub_glfs_lchown(struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 {
     int ret = 0;
-    int valid = 0;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
 
     if (uid != (uid_t)-1) {
-        stat.st_uid = uid;
-        valid = GFAPI_SET_ATTR_UID;
+        stat.glfs_st_uid = uid;
+        stat.glfs_st_mask = GLFS_STAT_UID;
     }
 
     if (gid != (uid_t)-1) {
-        stat.st_gid = gid;
-        valid = valid | GFAPI_SET_ATTR_GID;
+        stat.glfs_st_gid = gid;
+        stat.glfs_st_mask = stat.glfs_st_mask | GLFS_STAT_GID;
     }
 
-    if (valid)
-        ret = glfs_setattr(fs, path, &stat, valid, 0);
+    if (stat.glfs_st_mask)
+        ret = glfs_setattr(fs, path, &stat, 0);
 
     return ret;
 }
@@ -4122,23 +4149,22 @@ int
 pub_glfs_fchown(struct glfs_fd *glfd, uid_t uid, gid_t gid)
 {
     int ret = 0;
-    int valid = 0;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
 
     if (uid != (uid_t)-1) {
-        stat.st_uid = uid;
-        valid = GFAPI_SET_ATTR_UID;
+        stat.glfs_st_uid = uid;
+        stat.glfs_st_mask = GLFS_STAT_UID;
     }
 
     if (gid != (uid_t)-1) {
-        stat.st_gid = gid;
-        valid = valid | GFAPI_SET_ATTR_GID;
+        stat.glfs_st_gid = gid;
+        stat.glfs_st_mask = stat.glfs_st_mask | GLFS_STAT_GID;
     }
 
-    if (valid)
-        ret = glfs_fsetattr(glfd, &stat, valid);
+    if (stat.glfs_st_mask)
+        ret = glfs_fsetattr(glfd, &stat);
 
     return ret;
 }
@@ -4150,17 +4176,16 @@ pub_glfs_utimens(struct glfs *fs, const char *path,
                  const struct timespec times[2])
 {
     int ret = -1;
-    int valid = 0;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
 
-    stat.st_atim = times[0];
-    stat.st_mtim = times[1];
+    stat.glfs_st_atime = times[0];
+    stat.glfs_st_mtime = times[1];
 
-    valid = GFAPI_SET_ATTR_ATIME | GFAPI_SET_ATTR_MTIME;
+    stat.glfs_st_mask = GLFS_STAT_ATIME | GLFS_STAT_MTIME;
 
-    ret = glfs_setattr(fs, path, &stat, valid, 1);
+    ret = glfs_setattr(fs, path, &stat, 1);
 
     return ret;
 }
@@ -4172,17 +4197,16 @@ pub_glfs_lutimens(struct glfs *fs, const char *path,
                   const struct timespec times[2])
 {
     int ret = -1;
-    int valid = 0;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
 
-    stat.st_atim = times[0];
-    stat.st_mtim = times[1];
+    stat.glfs_st_atime = times[0];
+    stat.glfs_st_mtime = times[1];
 
-    valid = GFAPI_SET_ATTR_ATIME | GFAPI_SET_ATTR_MTIME;
+    stat.glfs_st_mask = GLFS_STAT_ATIME | GLFS_STAT_MTIME;
 
-    ret = glfs_setattr(fs, path, &stat, valid, 0);
+    ret = glfs_setattr(fs, path, &stat, 0);
 
     return ret;
 }
@@ -4193,17 +4217,16 @@ int
 pub_glfs_futimens(struct glfs_fd *glfd, const struct timespec times[2])
 {
     int ret = -1;
-    int valid = 0;
-    struct stat stat = {
+    struct glfs_stat stat = {
         0,
     };
 
-    stat.st_atim = times[0];
-    stat.st_mtim = times[1];
+    stat.glfs_st_atime = times[0];
+    stat.glfs_st_mtime = times[1];
 
-    valid = GFAPI_SET_ATTR_ATIME | GFAPI_SET_ATTR_MTIME;
+    stat.glfs_st_mask = GLFS_STAT_ATIME | GLFS_STAT_MTIME;
 
-    ret = glfs_fsetattr(glfd, &stat, valid);
+    ret = glfs_fsetattr(glfd, &stat);
 
     return ret;
 }
