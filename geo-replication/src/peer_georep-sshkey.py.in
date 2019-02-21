@@ -30,8 +30,8 @@ from prettytable import PrettyTable
 
 SECRET_PEM = "@GLUSTERD_WORKDIR@/geo-replication/secret.pem"
 TAR_SSH_PEM = "@GLUSTERD_WORKDIR@/geo-replication/tar_ssh.pem"
-GSYNCD_CMD = 'command="@GLUSTERFS_LIBEXECDIR@/gsyncd"  '
-TAR_CMD = 'command="tar ${SSH_ORIGINAL_COMMAND#* }"  '
+GSYNCD_CMD = 'command="@GLUSTERFS_LIBEXECDIR@/gsyncd" '
+TAR_CMD = 'command="tar ${SSH_ORIGINAL_COMMAND#* }" '
 COMMON_SECRET_FILE = "@GLUSTERD_WORKDIR@/geo-replication/common_secret.pem.pub"
 
 
