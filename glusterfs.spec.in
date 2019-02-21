@@ -1374,7 +1374,7 @@ exit 0
 %dir %{_sharedstatedir}/glusterd
 %dir %{_sharedstatedir}/glusterd/events
 %dir %{_libexecdir}/glusterfs
-     %{_libexecdir}/glusterfs/events
+     %{_libexecdir}/glusterfs/gfevents
      %{_libexecdir}/glusterfs/peer_eventsapi.py*
 %{_sbindir}/glustereventsd
 %{_sbindir}/gluster-eventsapi
@@ -1387,6 +1387,9 @@ exit 0
 %endif
 
 %changelog
+* Sun Feb 24 2019 Aravinda VK <avishwan@redhat.com>
+- Renamed events package to gfevents
+
 * Thu Feb 21 2019 Jiffin Tony Thottan <jthottan@redhat.com>
 - Obsoleting gluster-gnfs package
 

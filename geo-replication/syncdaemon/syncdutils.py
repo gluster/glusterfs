@@ -37,10 +37,10 @@ from conf import GLUSTERFS_LIBEXECDIR, UUID_FILE
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
 EVENTS_ENABLED = True
 try:
-    from events.eventtypes import GEOREP_FAULTY as EVENT_GEOREP_FAULTY
-    from events.eventtypes import GEOREP_ACTIVE as EVENT_GEOREP_ACTIVE
-    from events.eventtypes import GEOREP_PASSIVE as EVENT_GEOREP_PASSIVE
-    from events.eventtypes import GEOREP_CHECKPOINT_COMPLETED \
+    from gfevents.eventtypes import GEOREP_FAULTY as EVENT_GEOREP_FAULTY
+    from gfevents.eventtypes import GEOREP_ACTIVE as EVENT_GEOREP_ACTIVE
+    from gfevents.eventtypes import GEOREP_PASSIVE as EVENT_GEOREP_PASSIVE
+    from gfevents.eventtypes import GEOREP_CHECKPOINT_COMPLETED \
         as EVENT_GEOREP_CHECKPOINT_COMPLETED
 except ImportError:
     # Events APIs not installed, dummy eventtypes with None
@@ -599,7 +599,7 @@ class ChangelogException(OSError):
 
 def gf_event(event_type, **kwargs):
     if EVENTS_ENABLED:
-        from events.gf_event import gf_event as gfevent
+        from gfevents.gf_event import gf_event as gfevent
         gfevent(event_type, **kwargs)
 
 

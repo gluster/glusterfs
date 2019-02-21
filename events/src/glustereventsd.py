@@ -28,10 +28,13 @@ from eventsapiconf import AUTO_BOOL_ATTRIBUTES, AUTO_INT_ATTRIBUTES
 from utils import logger, PidFile, PidFileLockFailed, boolify
 
 
-class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
+class GlusterEventsRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request[0].strip()
+        if sys.version_info >= (3,):
+            data = self.request[0].strip().decode("utf-8")
+
         logger.debug("EVENT: {0} from {1}".format(repr(data),
                                                   self.client_address[0]))
         try:
@@ -98,7 +101,7 @@ def init_event_server():
 
     # Start the Eventing Server, UDP Server
     try:
-        server = SocketServer.ThreadingUDPServer(
+        server = socketserver.ThreadingUDPServer(
             (SERVER_ADDRESS, port),
             GlusterEventsRequestHandler)
     except socket.error as e:
