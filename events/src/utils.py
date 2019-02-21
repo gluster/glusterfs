@@ -9,6 +9,7 @@
 #  cases as published by the Free Software Foundation.
 #
 
+import sys
 import json
 import os
 import logging
@@ -26,13 +27,15 @@ import hmac
 from hashlib import sha256
 from calendar import timegm
 
-from .eventsapiconf import (LOG_FILE,
-                           WEBHOOKS_FILE,
-                           DEFAULT_CONFIG_FILE,
-                           CUSTOM_CONFIG_FILE,
-                           UUID_FILE,
-                           CERTS_DIR)
-from . import eventtypes
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from gfevents.eventsapiconf import (LOG_FILE,
+                                    WEBHOOKS_FILE,
+                                    DEFAULT_CONFIG_FILE,
+                                    CUSTOM_CONFIG_FILE,
+                                    UUID_FILE,
+                                    CERTS_DIR)
+from gfevents import eventtypes
 
 
 # Webhooks list
@@ -387,7 +390,7 @@ class PidFile(object):
 def webhook_monitor(proc_queue, webhooks):
     queues = {}
     for url, data in webhooks.items():
-        if isinstance(data, str) or isinstance(data, unicode):
+        if isinstance(data, str):
             token = data
             secret = None
         else:
