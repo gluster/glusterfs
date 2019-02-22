@@ -317,6 +317,9 @@ Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
 Obsoletes:        %{name}-ufo
 Obsoletes:        %{name}-ganesha
+%if ( 0%{!?_with_gnfs:1} )
+Obsoletes:        %{name}-gnfs
+%endif
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
@@ -1507,6 +1510,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Feb 21 2019 Jiffin Tony Thottan <jthottan@redhat.com>
+- Obsoleting gluster-gnfs package
+
 * Tue Oct 30 2018 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - liblvm2-devel no longer has liblvm2app.so
 
