@@ -11,7 +11,7 @@ EditorModedir = $(docdir)
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
 SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM \
-          $(GEOREP_EXTRAS_SUBDIR) snap_scheduler firewalld cliutils
+          $(GEOREP_EXTRAS_SUBDIR) snap_scheduler firewalld cliutils python
 
 confdir = $(sysconfdir)/glusterfs
 if WITH_SERVER

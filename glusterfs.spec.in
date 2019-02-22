@@ -1186,9 +1186,12 @@ exit 0
 # so that all other gluster submodules can reside in the same namespace.
 %if ( %{_usepython3} )
 %dir %{python3_sitelib}/gluster
+     %{python3_sitelib}/gluster/__init__.*
+     %{python3_sitelib}/gluster/__pycache__
      %{python3_sitelib}/gluster/cliutils
 %else
 %dir %{python2_sitelib}/gluster
+     %{python2_sitelib}/gluster/__init__.*
      %{python2_sitelib}/gluster/cliutils
 %endif
 

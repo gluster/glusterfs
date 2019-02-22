@@ -226,6 +226,7 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/reset/Makefile
                 extras/hook-scripts/reset/post/Makefile
                 extras/hook-scripts/reset/pre/Makefile
+                extras/python/Makefile
                 extras/snap_scheduler/Makefile
                 events/Makefile
                 events/src/Makefile
@@ -630,6 +631,7 @@ AM_PATH_PYTHON([2.6],,[:])
 if test -n "${PYTHON}"; then
    have_python=yes
 fi
+AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = "xyes")
 
 dnl Use pkg-config to get runtime search path missing from ${PYTHON}-config
 dnl Just do "true" on failure so that configure does not bail out
