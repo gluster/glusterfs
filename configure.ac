@@ -252,7 +252,9 @@ AC_CONFIG_FILES([Makefile
                 tools/glusterfind/Makefile
                 tools/glusterfind/src/Makefile
                 tools/setgfid2path/Makefile
-                tools/setgfid2path/src/Makefile])
+                tools/setgfid2path/src/Makefile
+                tools/glusternbd/Makefile
+                tools/glusternbd/src/Makefile])
 
 AC_CANONICAL_HOST
 
@@ -591,6 +593,29 @@ if test "x${have_strnlen}" = "xyes"; then
 fi
 AC_SUBST(HAVE_STRNLEN)
 
+AC_ARG_WITH([libnl],
+	[AS_HELP_STRING([--without-libnl],
+		[do not use libnl])],
+	[],
+	[with_libnl=check]
+)
+if test "x$with_libnl" != "xno"; then
+	PKG_CHECK_MODULES(LIBNL3, libnl-genl-3.0 >= 3.1,
+		[HAVE_NETLINK=1
+		AC_DEFINE(HAVE_NETLINK, 1, [Define to 1 if we have netlink support])
+		CFLAGS="$CFLAGS $LIBNL3_CFLAGS"
+		LIBS="$LIBS $LIBNL3_LIBS"],
+		[if test "x$with_libnl" = "xyes"; then
+			AC_MSG_ERROR([--with-libnl given but cannot find libnl])
+		else
+			HAVE_NETLINK=0
+			AC_DEFINE(HAVE_NETLINK, 0)
+		fi]
+	)
+else
+	HAVE_NETLINK=0
+	AC_DEFINE(HAVE_NETLINK, 0, [Define to 1 if we have netlink support])
+fi
 
 AC_CHECK_FUNC([setfsuid], [have_setfsuid=yes])
 AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
@@ -605,6 +630,24 @@ AC_CHECK_FUNC([umount2], [have_umount2=yes])
 if test "x${have_umount2}" = "xyes"; then
    AC_DEFINE(HAVE_UMOUNT2, 1, [define if found umount2])
 fi
+
+PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.26.0 gthread-2.0 >= 2.26.0], [HAVE_GLIB=yes], AC_MSG_ERROR([Missing glib]))
+my_save_cflags="$CFLAGS"
+CFLAGS="-Wdeprecated-declarations -Werror $GLIB_CFLAGS"
+AC_MSG_CHECKING([if we are using an old glib 2.0 library])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+	[[#include <glib.h>]],
+	[[g_thread_init(NULL);]])],
+	[
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(HAVE_OLD_GLIB, 1, [Define to 1 if you have an old glib library])
+	],
+	[
+		AC_MSG_RESULT(no)
+		AC_DEFINE(HAVE_OLD_GLIB, 0, [Define to 1 if you have an old glib library])
+	]
+)
+CFLAGS="$my_save_cflags"
 
 dnl Check Python Availability
 have_python=no
