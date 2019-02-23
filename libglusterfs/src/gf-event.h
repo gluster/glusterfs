@@ -22,8 +22,8 @@ struct event_data {
     int gen;
 } __attribute__((__packed__, __may_alias__));
 
-typedef int (*event_handler_t)(int fd, int idx, int gen, void *data,
-                               int poll_in, int poll_out, int poll_err);
+typedef void (*event_handler_t)(int fd, int idx, int gen, void *data,
+                                int poll_in, int poll_out, int poll_err);
 
 #define EVENT_EPOLL_TABLES 1024
 #define EVENT_EPOLL_SLOTS 1024
