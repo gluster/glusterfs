@@ -18,11 +18,12 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-locks.c glusterd-snapshot.c glusterd-mgmt-handler.c \
 	glusterd-mgmt.c glusterd-peer-utils.c glusterd-statedump.c \
 	glusterd-snapshot-utils.c glusterd-conn-mgmt.c \
-	glusterd-proc-mgmt.c glusterd-svc-mgmt.c glusterd-shd-svc.c \
+	glusterd-proc-mgmt.c glusterd-svc-mgmt.c \
 	glusterd-nfs-svc.c glusterd-quotad-svc.c glusterd-svc-helper.c \
 	glusterd-conn-helper.c glusterd-snapd-svc.c glusterd-snapd-svc-helper.c \
 	glusterd-bitd-svc.c glusterd-scrub-svc.c glusterd-server-quorum.c \
 	glusterd-reset-brick.c glusterd-tierd-svc.c glusterd-tierd-svc-helper.c \
+        glusterd-shd-svc.c glusterd-shd-svc-helper.c \
         glusterd-gfproxyd-svc.c glusterd-gfproxyd-svc-helper.c
 
 
@@ -38,11 +39,12 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-mgmt.h glusterd-messages.h glusterd-peer-utils.h \
 	glusterd-statedump.h glusterd-snapshot-utils.h glusterd-geo-rep.h \
 	glusterd-conn-mgmt.h glusterd-conn-helper.h glusterd-proc-mgmt.h \
-	glusterd-svc-mgmt.h glusterd-shd-svc.h glusterd-nfs-svc.h \
+	glusterd-svc-mgmt.h glusterd-nfs-svc.h \
 	glusterd-quotad-svc.h glusterd-svc-helper.h glusterd-snapd-svc.h \
 	glusterd-snapd-svc-helper.h glusterd-rcu.h glusterd-bitd-svc.h \
 	glusterd-scrub-svc.h glusterd-server-quorum.h glusterd-errno.h \
 	glusterd-tierd-svc.h glusterd-tierd-svc-helper.h \
+        glusterd-shd-svc.h glusterd-shd-svc-helper.h \
         glusterd-gfproxyd-svc.h glusterd-gfproxyd-svc-helper.h \
 	$(CONTRIBDIR)/userspace-rcu/rculist-extra.h
 

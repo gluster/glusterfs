@@ -127,6 +127,12 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
     GF_UNUSED int ret = 0;
     xlator_t *victim = data;
 
+    glusterfs_graph_t *graph = NULL;
+
+    GF_VALIDATE_OR_GOTO("notify", this, out);
+    graph = this->graph;
+    GF_VALIDATE_OR_GOTO(this->name, graph, out);
+
     switch (event) {
         case GF_EVENT_PARENT_UP:
         case GF_EVENT_PARENT_DOWN: {
@@ -158,6 +164,17 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
                 if (parent->xlator->init_succeeded)
                     xlator_notify(parent->xlator, event, this, NULL);
                 parent = parent->next;
+            }
+
+            if (event == GF_EVENT_CHILD_DOWN &&
+                !(this->ctx && this->ctx->master) && (graph->top == this)) {
+                /* Make sure this is not a daemon with master xlator */
+                pthread_mutex_lock(&graph->mutex);
+                {
+                    graph->used = 0;
+                    pthread_cond_broadcast(&graph->child_down_cond);
+                }
+                pthread_mutex_unlock(&graph->mutex);
             }
         } break;
         case GF_EVENT_UPCALL: {
@@ -205,7 +222,7 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
              * nothing to do with readability.
              */
     }
-
+out:
     return 0;
 }
 

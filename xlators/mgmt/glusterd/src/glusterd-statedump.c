@@ -202,9 +202,6 @@ glusterd_dump_priv(xlator_t *this)
         gf_proc_dump_build_key(key, "glusterd", "ping-timeout");
         gf_proc_dump_write(key, "%d", priv->ping_timeout);
 
-        gf_proc_dump_build_key(key, "glusterd", "shd.online");
-        gf_proc_dump_write(key, "%d", priv->shd_svc.online);
-
         gf_proc_dump_build_key(key, "glusterd", "nfs.online");
         gf_proc_dump_write(key, "%d", priv->nfs_svc.online);
 

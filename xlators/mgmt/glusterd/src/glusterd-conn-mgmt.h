@@ -43,9 +43,11 @@ glusterd_conn_disconnect(glusterd_conn_t *conn);
 int
 glusterd_conn_common_notify(struct rpc_clnt *rpc, void *mydata,
                             rpc_clnt_event_t event, void *data);
+int
+glusterd_muxsvc_conn_common_notify(struct rpc_clnt *rpc, void *mydata,
+                                   rpc_clnt_event_t event, void *data);
 
 int32_t
 glusterd_conn_build_socket_filepath(char *rundir, uuid_t uuid, char *socketpath,
                                     int len);
-
 #endif

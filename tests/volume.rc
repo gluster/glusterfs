@@ -237,11 +237,13 @@ function ec_child_up_count_shd {
 }
 
 function get_shd_process_pid {
-        ps auxww | grep glusterfs | grep -E "glustershd/glustershd.pid" | awk '{print $2}' | head -1
+        local vol=$1
+        ps auxww | grep "process-name\ glustershd" | awk '{print $2}' | head -1
 }
 
 function generate_shd_statedump {
-        generate_statedump $(get_shd_process_pid)
+        local vol=$1
+        generate_statedump $(get_shd_process_pid $vol)
 }
 
 function generate_nfs_statedump {

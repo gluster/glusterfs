@@ -1485,3 +1485,19 @@ gluster_graph_take_reference(xlator_t *tree)
     }
     return;
 }
+
+gf_boolean_t
+mgmt_is_multiplexed_daemon(char *name)
+{
+    const char *mux_daemons[] = {"glustershd", NULL};
+    int i;
+
+    if (!name)
+        return _gf_false;
+
+    for (i = 0; mux_daemons[i]; i++) {
+        if (!strcmp(name, mux_daemons[i]))
+            return _gf_true;
+    }
+    return _gf_false;
+}

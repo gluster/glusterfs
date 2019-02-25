@@ -114,6 +114,53 @@ out:
     return cert_depth;
 }
 
+xlator_t *
+glusterfs_get_last_xlator(glusterfs_graph_t *graph)
+{
+    xlator_t *trav = graph->first;
+    if (!trav)
+        return NULL;
+
+    while (trav->next)
+        trav = trav->next;
+
+    return trav;
+}
+
+xlator_t *
+glusterfs_mux_xlator_unlink(xlator_t *pxl, xlator_t *cxl)
+{
+    xlator_list_t *unlink = NULL;
+    xlator_list_t *prev = NULL;
+    xlator_list_t **tmp = NULL;
+    xlator_t *next_child = NULL;
+    xlator_t *xl = NULL;
+
+    for (tmp = &pxl->children; *tmp; tmp = &(*tmp)->next) {
+        if ((*tmp)->xlator == cxl) {
+            unlink = *tmp;
+            *tmp = (*tmp)->next;
+            if (*tmp)
+                next_child = (*tmp)->xlator;
+            break;
+        }
+        prev = *tmp;
+    }
+
+    if (!prev)
+        xl = pxl;
+    else if (prev->xlator)
+        xl = prev->xlator->graph->last_xl;
+
+    if (xl)
+        xl->next = next_child;
+    if (next_child)
+        next_child->prev = xl;
+
+    GF_FREE(unlink);
+    return next_child;
+}
+
 int
 glusterfs_xlator_link(xlator_t *pxl, xlator_t *cxl)
 {
@@ -1092,6 +1139,8 @@ glusterfs_graph_destroy_residual(glusterfs_graph_t *graph)
     ret = xlator_tree_free_memacct(graph->first);
 
     list_del_init(&graph->list);
+    pthread_mutex_destroy(&graph->mutex);
+    pthread_cond_destroy(&graph->child_down_cond);
     GF_FREE(graph);
 
     return ret;
@@ -1131,6 +1180,25 @@ glusterfs_graph_destroy(glusterfs_graph_t *graph)
     ret = glusterfs_graph_destroy_residual(graph);
 out:
     return ret;
+}
+
+int
+glusterfs_graph_fini(glusterfs_graph_t *graph)
+{
+    xlator_t *trav = NULL;
+
+    trav = graph->first;
+
+    while (trav) {
+        if (trav->init_succeeded) {
+            trav->cleanup_starting = 1;
+            trav->fini(trav);
+            trav->init_succeeded = 0;
+        }
+        trav = trav->next;
+    }
+
+    return 0;
 }
 
 int
@@ -1255,4 +1323,387 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
     list_add(&volfile_obj->volfile_list, &this->ctx->volfile_list);
 
     return 0;
+}
+int
+glusterfs_muxsvc_cleanup_parent(glusterfs_ctx_t *ctx,
+                                glusterfs_graph_t *parent_graph)
+{
+    if (parent_graph) {
+        if (parent_graph->first) {
+            xlator_destroy(parent_graph->first);
+        }
+        ctx->active = NULL;
+        GF_FREE(parent_graph);
+        parent_graph = NULL;
+    }
+    return 0;
+}
+
+void *
+glusterfs_graph_cleanup(void *arg)
+{
+    glusterfs_graph_t *graph = NULL;
+    glusterfs_ctx_t *ctx = THIS->ctx;
+    int ret = -1;
+    graph = arg;
+
+    if (!graph)
+        return NULL;
+
+    /* To destroy the graph, fitst sent a GF_EVENT_PARENT_DOWN
+     * Then wait for GF_EVENT_CHILD_DOWN to get on the top
+     * xl. Once we have GF_EVENT_CHILD_DOWN event, then proceed
+     * to fini.
+     *
+     * During fini call, this will take a last unref on rpc and
+     * rpc_transport_object.
+     */
+    if (graph->first)
+        default_notify(graph->first, GF_EVENT_PARENT_DOWN, graph->first);
+
+    ret = pthread_mutex_lock(&graph->mutex);
+    if (ret != 0) {
+        gf_msg("glusterfs", GF_LOG_ERROR, EAGAIN, LG_MSG_GRAPH_CLEANUP_FAILED,
+               "Failed to aquire a lock");
+        goto out;
+    }
+    /* check and wait for CHILD_DOWN for top xlator*/
+    while (graph->used) {
+        ret = pthread_cond_wait(&graph->child_down_cond, &graph->mutex);
+        if (ret != 0)
+            gf_msg("glusterfs", GF_LOG_INFO, 0, LG_MSG_GRAPH_CLEANUP_FAILED,
+                   "cond wait failed ");
+    }
+
+    ret = pthread_mutex_unlock(&graph->mutex);
+    if (ret != 0) {
+        gf_msg("glusterfs", GF_LOG_ERROR, EAGAIN, LG_MSG_GRAPH_CLEANUP_FAILED,
+               "Failed to release a lock");
+    }
+
+    /* Though we got a child down on top xlator, we have to wait until
+     * all the notifier to exit. Because there should not be any threads
+     * that access xl variables.
+     */
+    pthread_mutex_lock(&ctx->notify_lock);
+    {
+        while (ctx->notifying)
+            pthread_cond_wait(&ctx->notify_cond, &ctx->notify_lock);
+    }
+    pthread_mutex_unlock(&ctx->notify_lock);
+
+    glusterfs_graph_fini(graph);
+    glusterfs_graph_destroy(graph);
+out:
+    return NULL;
+}
+
+glusterfs_graph_t *
+glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
+                                    char *type)
+{
+    glusterfs_graph_t *parent_graph = NULL;
+    xlator_t *ixl = NULL;
+    int ret = -1;
+    parent_graph = GF_CALLOC(1, sizeof(*parent_graph),
+                             gf_common_mt_glusterfs_graph_t);
+    if (!parent_graph)
+        goto out;
+
+    INIT_LIST_HEAD(&parent_graph->list);
+
+    ctx->active = parent_graph;
+    ixl = GF_CALLOC(1, sizeof(*ixl), gf_common_mt_xlator_t);
+    if (!ixl)
+        goto out;
+
+    ixl->ctx = ctx;
+    ixl->graph = parent_graph;
+    ixl->options = dict_new();
+    if (!ixl->options)
+        goto out;
+
+    ixl->name = gf_strdup(name);
+    if (!ixl->name)
+        goto out;
+
+    ixl->is_autoloaded = 1;
+
+    if (xlator_set_type(ixl, type) == -1) {
+        gf_msg("glusterfs", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
+               "%s (%s) set type failed", name, type);
+        goto out;
+    }
+
+    glusterfs_graph_set_first(parent_graph, ixl);
+    parent_graph->top = ixl;
+    ixl = NULL;
+
+    gettimeofday(&parent_graph->dob, NULL);
+    fill_uuid(parent_graph->graph_uuid, 128);
+    parent_graph->id = ctx->graph_id++;
+    ret = 0;
+out:
+    if (ixl)
+        xlator_destroy(ixl);
+
+    if (ret) {
+        glusterfs_muxsvc_cleanup_parent(ctx, parent_graph);
+        parent_graph = NULL;
+    }
+    return parent_graph;
+}
+
+int
+glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
+{
+    xlator_t *last_xl = NULL;
+    glusterfs_graph_t *graph = NULL;
+    glusterfs_graph_t *parent_graph = NULL;
+    pthread_t clean_graph = {
+        0,
+    };
+    int ret = -1;
+    xlator_t *xl = NULL;
+
+    if (!ctx || !ctx->active || !volfile_obj)
+        goto out;
+    parent_graph = ctx->active;
+    graph = volfile_obj->graph;
+    if (graph && graph->first)
+        xl = graph->first;
+
+    last_xl = graph->last_xl;
+    if (last_xl)
+        last_xl->next = NULL;
+    if (!xl || xl->cleanup_starting)
+        goto out;
+
+    xl->cleanup_starting = 1;
+    gf_msg("mgmt", GF_LOG_INFO, 0, LG_MSG_GRAPH_DETACH_STARTED,
+           "detaching child %s", volfile_obj->vol_id);
+
+    list_del_init(&volfile_obj->volfile_list);
+    glusterfs_mux_xlator_unlink(parent_graph->top, xl);
+    parent_graph->last_xl = glusterfs_get_last_xlator(parent_graph);
+    parent_graph->xl_count -= graph->xl_count;
+    parent_graph->leaf_count -= graph->leaf_count;
+    default_notify(xl, GF_EVENT_PARENT_DOWN, xl);
+    parent_graph->id++;
+    ret = 0;
+out:
+    if (!ret) {
+        list_del_init(&volfile_obj->volfile_list);
+        if (graph) {
+            ret = gf_thread_create_detached(
+                &clean_graph, glusterfs_graph_cleanup, graph, "graph_clean");
+            if (ret) {
+                gf_msg("glusterfs", GF_LOG_ERROR, EINVAL,
+                       LG_MSG_GRAPH_CLEANUP_FAILED,
+                       "%s failed to create clean "
+                       "up thread",
+                       volfile_obj->vol_id);
+                ret = 0;
+            }
+        }
+        GF_FREE(volfile_obj);
+    }
+    return ret;
+}
+
+int
+glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
+                                   char *volfile_id, char *checksum)
+{
+    glusterfs_graph_t *graph = NULL;
+    glusterfs_graph_t *parent_graph = NULL;
+    glusterfs_graph_t *clean_graph = NULL;
+    int ret = -1;
+    xlator_t *xl = NULL;
+    xlator_t *last_xl = NULL;
+    gf_volfile_t *volfile_obj = NULL;
+    pthread_t thread_id = {
+        0,
+    };
+
+    if (!ctx)
+        goto out;
+    parent_graph = ctx->active;
+    graph = glusterfs_graph_construct(fp);
+    if (!graph) {
+        gf_msg("glusterfsd", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_ATTACH_FAILED,
+               "failed to construct the graph");
+        goto out;
+    }
+    graph->last_xl = glusterfs_get_last_xlator(graph);
+
+    for (xl = graph->first; xl; xl = xl->next) {
+        if (strcmp(xl->type, "mount/fuse") == 0) {
+            gf_msg("glusterfsd", GF_LOG_ERROR, EINVAL,
+                   LG_MSG_GRAPH_ATTACH_FAILED,
+                   "fuse xlator cannot be specified in volume file");
+            goto out;
+        }
+    }
+
+    graph->leaf_count = glusterfs_count_leaves(glusterfs_root(graph));
+    xl = graph->first;
+    /* TODO memory leaks everywhere need to free graph in case of error */
+    if (glusterfs_graph_prepare(graph, ctx, xl->name)) {
+        gf_msg("glusterfsd", GF_LOG_WARNING, EINVAL, LG_MSG_GRAPH_ATTACH_FAILED,
+               "failed to prepare graph for xlator %s", xl->name);
+        ret = -1;
+        goto out;
+    } else if (glusterfs_graph_init(graph)) {
+        gf_msg("glusterfsd", GF_LOG_WARNING, EINVAL, LG_MSG_GRAPH_ATTACH_FAILED,
+               "failed to initialize graph for xlator %s", xl->name);
+        ret = -1;
+        goto out;
+    } else if (glusterfs_graph_parent_up(graph)) {
+        gf_msg("glusterfsd", GF_LOG_WARNING, EINVAL, LG_MSG_GRAPH_ATTACH_FAILED,
+               "failed to link the graphs for xlator %s ", xl->name);
+        ret = -1;
+        goto out;
+    }
+
+    if (!parent_graph) {
+        parent_graph = glusterfs_muxsvc_setup_parent_graph(ctx, "glustershd",
+                                                           "debug/io-stats");
+        if (!parent_graph)
+            goto out;
+        ((xlator_t *)parent_graph->top)->next = xl;
+        clean_graph = parent_graph;
+    } else {
+        last_xl = parent_graph->last_xl;
+        if (last_xl)
+            last_xl->next = xl;
+        xl->prev = last_xl;
+    }
+    parent_graph->last_xl = graph->last_xl;
+
+    ret = glusterfs_xlator_link(parent_graph->top, xl);
+    if (ret) {
+        gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
+               "parent up notification failed");
+        goto out;
+    }
+    parent_graph->xl_count += graph->xl_count;
+    parent_graph->leaf_count += graph->leaf_count;
+    parent_graph->id++;
+
+    if (!volfile_obj) {
+        volfile_obj = GF_CALLOC(1, sizeof(gf_volfile_t), gf_common_volfile_t);
+        if (!volfile_obj) {
+            ret = -1;
+            goto out;
+        }
+    }
+
+    graph->used = 1;
+    parent_graph->id++;
+    list_add(&graph->list, &ctx->graphs);
+    INIT_LIST_HEAD(&volfile_obj->volfile_list);
+    volfile_obj->graph = graph;
+    snprintf(volfile_obj->vol_id, sizeof(volfile_obj->vol_id), "%s",
+             volfile_id);
+    memcpy(volfile_obj->volfile_checksum, checksum,
+           sizeof(volfile_obj->volfile_checksum));
+    list_add_tail(&volfile_obj->volfile_list, &ctx->volfile_list);
+
+    gf_log_dump_graph(fp, graph);
+    graph = NULL;
+
+    ret = 0;
+out:
+    if (ret) {
+        if (graph) {
+            gluster_graph_take_reference(graph->first);
+            ret = gf_thread_create_detached(&thread_id, glusterfs_graph_cleanup,
+                                            graph, "graph_clean");
+            if (ret) {
+                gf_msg("glusterfs", GF_LOG_ERROR, EINVAL,
+                       LG_MSG_GRAPH_CLEANUP_FAILED,
+                       "%s failed to create clean "
+                       "up thread",
+                       volfile_id);
+                ret = 0;
+            }
+        }
+        if (clean_graph)
+            glusterfs_muxsvc_cleanup_parent(ctx, clean_graph);
+    }
+    return ret;
+}
+
+int
+glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+                                  gf_volfile_t *volfile_obj, char *checksum)
+{
+    glusterfs_graph_t *oldvolfile_graph = NULL;
+    glusterfs_graph_t *newvolfile_graph = NULL;
+
+    int ret = -1;
+
+    if (!ctx) {
+        gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
+               "ctx is NULL");
+        goto out;
+    }
+
+    /* Change the message id */
+    if (!volfile_obj) {
+        gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
+               "failed to get volfile object");
+        goto out;
+    }
+
+    oldvolfile_graph = volfile_obj->graph;
+    if (!oldvolfile_graph) {
+        goto out;
+    }
+
+    newvolfile_graph = glusterfs_graph_construct(newvolfile_fp);
+
+    if (!newvolfile_graph) {
+        goto out;
+    }
+    newvolfile_graph->last_xl = glusterfs_get_last_xlator(newvolfile_graph);
+
+    glusterfs_graph_prepare(newvolfile_graph, ctx, newvolfile_graph->first);
+
+    if (!is_graph_topology_equal(oldvolfile_graph, newvolfile_graph)) {
+        ret = glusterfs_process_svc_detach(ctx, volfile_obj);
+        if (ret) {
+            gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL,
+                   LG_MSG_GRAPH_CLEANUP_FAILED,
+                   "Could not detach "
+                   "old graph. Aborting the reconfiguration operation");
+            goto out;
+        }
+        ret = glusterfs_process_svc_attach_volfp(ctx, newvolfile_fp,
+                                                 volfile_obj->vol_id, checksum);
+        goto out;
+    }
+
+    gf_msg_debug("glusterfsd-mgmt", 0,
+                 "Only options have changed in the"
+                 " new graph");
+
+    ret = glusterfs_graph_reconfigure(oldvolfile_graph, newvolfile_graph);
+    if (ret) {
+        gf_msg_debug("glusterfsd-mgmt", 0,
+                     "Could not reconfigure "
+                     "new options in old graph");
+        goto out;
+    }
+    memcpy(volfile_obj->volfile_checksum, checksum,
+           sizeof(volfile_obj->volfile_checksum));
+
+    ret = 0;
+out:
+
+    if (newvolfile_graph)
+        glusterfs_graph_destroy(newvolfile_graph);
+
+    return ret;
 }

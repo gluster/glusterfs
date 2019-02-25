@@ -542,6 +542,9 @@ glusterfs_graph_new ()
 
         INIT_LIST_HEAD (&graph->list);
 
+        pthread_mutex_init(&graph->mutex, NULL);
+        pthread_cond_init(&graph->child_down_cond, NULL);
+
         gettimeofday (&graph->dob, NULL);
 
         return graph;
