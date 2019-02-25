@@ -727,13 +727,13 @@ make check
 %install
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
+%if ( 0%{!?_without_server:1} )
 %if ( 0%{_for_fedora_koji_builds} )
 install -D -p -m 0644 %{SOURCE1} \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd
 install -D -p -m 0644 %{SOURCE2} \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterfsd
 %else
-%if ( 0%{!?_without_server:1} )
 install -D -p -m 0644 extras/glusterd-sysconfig \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd
 %endif
@@ -781,8 +781,10 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %endif
 
 # Install glusterfsd .service or init.d file
+%if ( 0%{!?_without_server:1} )
 %if ( 0%{_for_fedora_koji_builds} )
 %service_install glusterfsd %{glusterfsd_svcfile}
+%endif
 %endif
 
 install -D -p -m 0644 extras/glusterfs-logrotate \
