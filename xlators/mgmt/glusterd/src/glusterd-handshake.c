@@ -30,6 +30,7 @@
 #include "rpcsvc.h"
 #include "rpc-common-xdr.h"
 #include "glusterd-gfproxyd-svc-helper.h"
+#include "glusterd-shd-svc-helper.h"
 
 extern struct rpc_clnt_program gd_peer_prog;
 extern struct rpc_clnt_program gd_mgmt_prog;
@@ -324,6 +325,26 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
         }
 
         glusterd_svc_build_gfproxyd_volfile_path(volinfo, path, path_len);
+        ret = 0;
+        goto out;
+    }
+
+    volid_ptr = strstr(volume_id, "shd/");
+    if (volid_ptr) {
+        volid_ptr = strchr(volid_ptr, '/');
+        if (!volid_ptr) {
+            ret = -1;
+            goto out;
+        }
+        volid_ptr++;
+
+        ret = glusterd_volinfo_find(volid_ptr, &volinfo);
+        if (ret == -1) {
+            gf_log(this->name, GF_LOG_ERROR, "Couldn't find volinfo");
+            goto out;
+        }
+
+        glusterd_svc_build_shd_volfile_path(volinfo, path, path_len);
         ret = 0;
         goto out;
     }

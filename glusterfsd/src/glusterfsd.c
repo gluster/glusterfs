@@ -2637,24 +2637,6 @@ out:
 #endif
 
 int
-glusterfs_graph_fini(glusterfs_graph_t *graph)
-{
-    xlator_t *trav = NULL;
-
-    trav = graph->first;
-
-    while (trav) {
-        if (trav->init_succeeded) {
-            trav->fini(trav);
-            trav->init_succeeded = 0;
-        }
-        trav = trav->next;
-    }
-
-    return 0;
-}
-
-int
 glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
 {
     glusterfs_graph_t *graph = NULL;

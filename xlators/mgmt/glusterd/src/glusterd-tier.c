@@ -27,6 +27,7 @@
 #include "glusterd-messages.h"
 #include "glusterd-mgmt.h"
 #include "glusterd-syncop.h"
+#include "glusterd-shd-svc-helper.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -615,7 +616,7 @@ glusterd_op_remove_tier_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     if (cmd == GF_DEFRAG_CMD_DETACH_START &&
         volinfo->status == GLUSTERD_STATUS_STARTED) {
-        ret = glusterd_svcs_reconfigure();
+        ret = glusterd_svcs_reconfigure(volinfo);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_NFS_RECONF_FAIL,
                    "Unable to reconfigure NFS-Server");

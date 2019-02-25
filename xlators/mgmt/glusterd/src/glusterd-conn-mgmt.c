@@ -138,3 +138,45 @@ glusterd_conn_build_socket_filepath(char *rundir, uuid_t uuid, char *socketpath,
     glusterd_set_socket_filepath(sockfilepath, socketpath, len);
     return 0;
 }
+
+int
+__glusterd_muxsvc_conn_common_notify(struct rpc_clnt *rpc, void *mydata,
+                                     rpc_clnt_event_t event, void *data)
+{
+    glusterd_conf_t *conf = THIS->private;
+    glusterd_svc_proc_t *mux_proc = mydata;
+    int ret = -1;
+
+    /* Silently ignoring this error, exactly like the current
+     * implementation */
+    if (!mux_proc)
+        return 0;
+
+    if (event == RPC_CLNT_DESTROY) {
+        /*RPC_CLNT_DESTROY will only called after mux_proc detached from the
+         * list. So it is safe to call without lock. Processing
+         * RPC_CLNT_DESTROY under a lock will lead to deadlock.
+         */
+        if (mux_proc->data) {
+            glusterd_volinfo_unref(mux_proc->data);
+            mux_proc->data = NULL;
+        }
+        GF_FREE(mux_proc);
+        ret = 0;
+    } else {
+        pthread_mutex_lock(&conf->attach_lock);
+        {
+            ret = mux_proc->notify(mux_proc, event);
+        }
+        pthread_mutex_unlock(&conf->attach_lock);
+    }
+    return ret;
+}
+
+int
+glusterd_muxsvc_conn_common_notify(struct rpc_clnt *rpc, void *mydata,
+                                   rpc_clnt_event_t event, void *data)
+{
+    return glusterd_big_locked_notify(rpc, mydata, event, data,
+                                      __glusterd_muxsvc_conn_common_notify);
+}

@@ -83,7 +83,6 @@ glusterd_tierdsvc_init(void *data)
         goto out;
 
     notify = glusterd_svc_common_rpc_notify;
-    glusterd_store_perform_node_state_store(volinfo);
 
     volinfo->type = GF_CLUSTER_TYPE_TIER;
 
@@ -395,6 +394,7 @@ int
 glusterd_tierdsvc_restart()
 {
     glusterd_volinfo_t *volinfo = NULL;
+    glusterd_volinfo_t *tmp = NULL;
     int ret = 0;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
@@ -405,7 +405,7 @@ glusterd_tierdsvc_restart()
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
+    cds_list_for_each_entry_safe(volinfo, tmp, &conf->volumes, vol_list)
     {
         /* Start per volume tierd svc */
         if (volinfo->status == GLUSTERD_STATUS_STARTED &&

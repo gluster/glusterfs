@@ -48,7 +48,20 @@ int
 glusterfs_graph_unknown_options(glusterfs_graph_t *graph);
 int
 emancipate(glusterfs_ctx_t *ctx, int ret);
+int
+glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
+                                   char *volfile_id, char *checksum);
+int
+glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+                                  gf_volfile_t *volfile_obj, char *checksum);
+int
+glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
+                                   char *volfile_id, char *checksum);
+int
+glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
 
+gf_boolean_t
+mgmt_is_multiplexed_daemon(char *name);
 int
 mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
@@ -59,6 +72,96 @@ mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
 
     glusterfs_volfile_fetch(ctx);
     return 0;
+}
+
+int
+mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id)
+{
+    glusterfs_ctx_t *ctx = NULL;
+    int ret = 0;
+    FILE *tmpfp = NULL;
+    gf_volfile_t *volfile_obj = NULL;
+    gf_volfile_t *volfile_tmp = NULL;
+    char sha256_hash[SHA256_DIGEST_LENGTH] = {
+        0,
+    };
+    int tmp_fd = -1;
+    char template[] = "/tmp/glfs.volfile.XXXXXX";
+
+    glusterfs_compute_sha256((const unsigned char *)volfile, size, sha256_hash);
+    ctx = THIS->ctx;
+    LOCK(&ctx->volfile_lock);
+    {
+        list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        {
+            if (!strcmp(volfile_id, volfile_obj->vol_id)) {
+                if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
+                            sizeof(volfile_obj->volfile_checksum))) {
+                    UNLOCK(&ctx->volfile_lock);
+                    gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_40,
+                           "No change in volfile, continuing");
+                    goto out;
+                }
+                volfile_tmp = volfile_obj;
+                break;
+            }
+        }
+
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode */
+        tmp_fd = mkstemp(template);
+        if (-1 == tmp_fd) {
+            UNLOCK(&ctx->volfile_lock);
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
+                   "Unable to create temporary file: %s", template);
+            ret = -1;
+            goto out;
+        }
+
+        /* Calling unlink so that when the file is closed or program
+         * terminates the temporary file is deleted.
+         */
+        ret = sys_unlink(template);
+        if (ret < 0) {
+            gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
+                   "Unable to delete temporary file: %s", template);
+            ret = 0;
+        }
+
+        tmpfp = fdopen(tmp_fd, "w+b");
+        if (!tmpfp) {
+            ret = -1;
+            goto unlock;
+        }
+
+        fwrite(volfile, size, 1, tmpfp);
+        fflush(tmpfp);
+        if (ferror(tmpfp)) {
+            ret = -1;
+            goto unlock;
+        }
+
+        if (!volfile_tmp) {
+            /* There is no checksum in the list, which means simple attach
+             * the volfile
+             */
+            ret = glusterfs_process_svc_attach_volfp(ctx, tmpfp, volfile_id,
+                                                     sha256_hash);
+            goto unlock;
+        }
+        ret = glusterfs_mux_volfile_reconfigure(tmpfp, ctx, volfile_obj,
+                                                sha256_hash);
+        if (ret < 0) {
+            gf_msg_debug("glusterfsd-mgmt", EINVAL, "Reconfigure failed !!");
+        }
+    }
+unlock:
+    UNLOCK(&ctx->volfile_lock);
+out:
+    if (tmpfp)
+        fclose(tmpfp);
+    else if (tmp_fd != -1)
+        sys_close(tmp_fd);
+    return ret;
 }
 
 int
@@ -966,6 +1069,110 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
 }
 
 int
+glusterfs_handle_svc_attach(rpcsvc_request_t *req)
+{
+    int32_t ret = -1;
+    gd1_mgmt_brick_op_req xlator_req = {
+        0,
+    };
+    xlator_t *this = NULL;
+    glusterfs_ctx_t *ctx = NULL;
+
+    GF_ASSERT(req);
+    this = THIS;
+    GF_ASSERT(this);
+
+    ctx = this->ctx;
+    ret = xdr_to_generic(req->msg[0], &xlator_req,
+                         (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+
+    if (ret < 0) {
+        /*failed to decode msg;*/
+        req->rpc_err = GARBAGE_ARGS;
+        goto out;
+    }
+    gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_41,
+           "received attach "
+           "request for volfile-id=%s",
+           xlator_req.name);
+    ret = 0;
+
+    if (ctx->active) {
+        ret = mgmt_process_volfile(xlator_req.input.input_val,
+                                   xlator_req.input.input_len, xlator_req.name);
+    } else {
+        gf_msg(this->name, GF_LOG_WARNING, EINVAL, glusterfsd_msg_42,
+               "got attach for %s but no active graph", xlator_req.name);
+    }
+out:
+    if (xlator_req.input.input_val)
+        free(xlator_req.input.input_val);
+    if (xlator_req.name)
+        free(xlator_req.name);
+    glusterfs_translator_info_response_send(req, ret, NULL, NULL);
+    return 0;
+}
+
+int
+glusterfs_handle_svc_detach(rpcsvc_request_t *req)
+{
+    gd1_mgmt_brick_op_req xlator_req = {
+        0,
+    };
+    ssize_t ret;
+    glusterfs_ctx_t *ctx = NULL;
+    gf_volfile_t *volfile_obj = NULL;
+    gf_volfile_t *volfile_tmp = NULL;
+
+    ret = xdr_to_generic(req->msg[0], &xlator_req,
+                         (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+    if (ret < 0) {
+        req->rpc_err = GARBAGE_ARGS;
+        return -1;
+    }
+    ctx = glusterfsd_ctx;
+
+    LOCK(&ctx->volfile_lock);
+    {
+        list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        {
+            if (!strcmp(xlator_req.name, volfile_obj->vol_id)) {
+                volfile_tmp = volfile_obj;
+                break;
+            }
+        }
+
+        if (!volfile_tmp) {
+            UNLOCK(&ctx->volfile_lock);
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_41,
+                   "can't detach %s - not found", xlator_req.name);
+            /*
+             * Used to be -ENOENT.  However, the caller asked us to
+             * make sure it's down and if it's already down that's
+             * good enough.
+             */
+            ret = 0;
+            goto out;
+        }
+        ret = glusterfs_process_svc_detach(ctx, volfile_tmp);
+        if (ret) {
+            UNLOCK(&ctx->volfile_lock);
+            gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL, glusterfsd_msg_41,
+                   "Could not detach "
+                   "old graph. Aborting the reconfiguration operation");
+            goto out;
+        }
+    }
+    UNLOCK(&ctx->volfile_lock);
+out:
+    glusterfs_terminate_response_send(req, ret);
+    free(xlator_req.name);
+    xlator_req.name = NULL;
+
+    return 0;
+}
+
+int
 glusterfs_handle_dump_metrics(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -1849,6 +2056,13 @@ rpcsvc_actor_t glusterfs_actors[GLUSTERD_BRICK_MAXVALUE] = {
 
     [GLUSTERD_DUMP_METRICS] = {"DUMP METRICS", GLUSTERD_DUMP_METRICS,
                                glusterfs_handle_dump_metrics, NULL, 0, DRC_NA},
+
+    [GLUSTERD_SVC_ATTACH] = {"ATTACH CLIENT", GLUSTERD_SVC_ATTACH,
+                             glusterfs_handle_svc_attach, NULL, 0, DRC_NA},
+
+    [GLUSTERD_SVC_DETACH] = {"DETACH CLIENT", GLUSTERD_SVC_DETACH,
+                             glusterfs_handle_svc_detach, NULL, 0, DRC_NA},
+
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {
@@ -1996,13 +2210,16 @@ mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
 volfile:
-    ret = 0;
     size = rsp.op_ret;
+    volfile_id = frame->local;
+    if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name)) {
+        ret = mgmt_process_volfile((const char *)rsp.spec, size, volfile_id);
+        goto post_graph_mgmt;
+    }
 
+    ret = 0;
     glusterfs_compute_sha256((const unsigned char *)rsp.spec, size,
                              sha256_hash);
-
-    volfile_id = frame->local;
 
     LOCK(&ctx->volfile_lock);
     {
@@ -2105,6 +2322,7 @@ volfile:
             }
 
             INIT_LIST_HEAD(&volfile_tmp->volfile_list);
+            volfile_tmp->graph = ctx->active;
             list_add(&volfile_tmp->volfile_list, &ctx->volfile_list);
             snprintf(volfile_tmp->vol_id, sizeof(volfile_tmp->vol_id), "%s",
                      volfile_id);
@@ -2116,6 +2334,7 @@ volfile:
 
     locked = 0;
 
+post_graph_mgmt:
     if (!is_mgmt_rpc_reconnect) {
         need_emancipate = 1;
         glusterfs_mgmt_pmap_signin(ctx);
@@ -2269,10 +2488,21 @@ glusterfs_volfile_fetch(glusterfs_ctx_t *ctx)
 {
     xlator_t *server_xl = NULL;
     xlator_list_t *trav;
-    int ret;
+    gf_volfile_t *volfile_obj = NULL;
+    int ret = 0;
 
     LOCK(&ctx->volfile_lock);
     {
+        if (ctx->active &&
+            mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name)) {
+            list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+            {
+                ret |= glusterfs_volfile_fetch_one(ctx, volfile_obj->vol_id);
+            }
+            UNLOCK(&ctx->volfile_lock);
+            return ret;
+        }
+
         if (ctx->active) {
             server_xl = ctx->active->first;
             if (strcmp(server_xl->type, "protocol/server") != 0) {

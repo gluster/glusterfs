@@ -2831,7 +2831,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     }
 
     if (start_remove && volinfo->status == GLUSTERD_STATUS_STARTED) {
-        ret = glusterd_svcs_reconfigure();
+        ret = glusterd_svcs_reconfigure(volinfo);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_NFS_RECONF_FAIL,
                    "Unable to reconfigure NFS-Server");

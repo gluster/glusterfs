@@ -55,9 +55,9 @@ TEST kill_glusterd 1
 #Bring back 1st glusterd
 TEST $glusterd_1
 
-# We need to wait till PROCESS_UP_TIMEOUT and then check shd service does not
-# come up on node 2
-sleep $PROCESS_UP_TIMEOUT
-EXPECT "N" shd_up_status_2
+# We need to wait till PROCESS_UP_TIMEOUT and then check shd service started
+#on node 2, because once glusterd regains quorum, it will restart all volume
+#level daemons
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" shd_up_status_2
 
 cleanup;

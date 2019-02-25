@@ -35,6 +35,7 @@ GLFS_MSGID(GLUSTERFSD, glusterfsd_msg_1, glusterfsd_msg_2, glusterfsd_msg_3,
            glusterfsd_msg_28, glusterfsd_msg_29, glusterfsd_msg_30,
            glusterfsd_msg_31, glusterfsd_msg_32, glusterfsd_msg_33,
            glusterfsd_msg_34, glusterfsd_msg_35, glusterfsd_msg_36,
-           glusterfsd_msg_37, glusterfsd_msg_38, glusterfsd_msg_39);
+           glusterfsd_msg_37, glusterfsd_msg_38, glusterfsd_msg_39,
+           glusterfsd_msg_40, glusterfsd_msg_41, glusterfsd_msg_42);
 
 #endif /* !_GLUSTERFSD_MESSAGES_H_ */

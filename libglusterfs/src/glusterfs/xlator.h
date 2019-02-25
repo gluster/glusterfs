@@ -1087,4 +1087,7 @@ handle_default_options(xlator_t *xl, dict_t *options);
 
 void
 gluster_graph_take_reference(xlator_t *tree);
+
+gf_boolean_t
+mgmt_is_multiplexed_daemon(char *name);
 #endif /* _XLATOR_H */

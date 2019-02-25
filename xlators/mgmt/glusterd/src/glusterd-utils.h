@@ -876,4 +876,8 @@ glusterd_is_profile_on(glusterd_volinfo_t *volinfo);
 
 char *
 search_brick_path_from_proc(pid_t brick_pid, char *brickpath);
+
+int32_t
+glusterd_add_shd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
+                         int32_t count);
 #endif

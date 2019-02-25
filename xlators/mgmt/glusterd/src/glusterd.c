@@ -1537,14 +1537,6 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = glusterd_init_var_run_dirs(this, rundir, GLUSTERD_GLUSTERSHD_RUN_DIR);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create "
-               "glustershd running directory");
-        exit(1);
-    }
-
     ret = glusterd_init_var_run_dirs(this, rundir, GLUSTERD_NFS_RUN_DIR);
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CREATE_DIR_FAILED,
@@ -1819,6 +1811,9 @@ init(xlator_t *this)
     CDS_INIT_LIST_HEAD(&conf->snapshots);
     CDS_INIT_LIST_HEAD(&conf->missed_snaps_list);
     CDS_INIT_LIST_HEAD(&conf->brick_procs);
+    CDS_INIT_LIST_HEAD(&conf->shd_procs);
+    pthread_mutex_init(&conf->attach_lock, NULL);
+    pthread_mutex_init(&conf->volume_lock, NULL);
 
     pthread_mutex_init(&conf->mutex, NULL);
     conf->rpc = rpc;
@@ -1899,7 +1894,6 @@ init(xlator_t *this)
     glusterd_mgmt_v3_lock_timer_init();
     glusterd_txn_opinfo_dict_init();
 
-    glusterd_shdsvc_build(&conf->shd_svc);
     glusterd_nfssvc_build(&conf->nfs_svc);
     glusterd_quotadsvc_build(&conf->quotad_svc);
     glusterd_bitdsvc_build(&conf->bitd_svc);

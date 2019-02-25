@@ -810,7 +810,8 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     if (!ctx)
         goto out;
 
-    if (ctx && ctx->active) {
+    if (!mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name) &&
+        (ctx && ctx->active)) {
         top = ctx->active->first;
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             brick_count++;
