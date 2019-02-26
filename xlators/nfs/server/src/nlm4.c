@@ -1121,6 +1121,8 @@ nlm4_establish_callback(nfs3_call_state_t *cs, call_frame_t *cbk_frame)
         ret = 0;
 
 err:
+    if (options)
+        dict_unref(options);
     if (ret == -1) {
         if (rpc_clnt)
             rpc_clnt_unref(rpc_clnt);
@@ -2708,8 +2710,13 @@ nlm4svc_init(xlator_t *nfsx)
 
     gf_timer_call_after(nfsx->ctx, timeout, nlm_grace_period_over, NULL);
     nlm4_inited = _gf_true;
+
+    if (options)
+        dict_unref(options);
     return &nlm4prog;
 err:
+    if (options)
+        dict_unref(options);
     return NULL;
 }
 

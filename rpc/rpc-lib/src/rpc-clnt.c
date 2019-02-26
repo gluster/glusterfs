@@ -1125,8 +1125,6 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
         mem_pool_destroy(rpc->saved_frames_pool);
         GF_FREE(rpc);
         rpc = NULL;
-        if (options)
-            dict_unref(options);
         goto out;
     }
 

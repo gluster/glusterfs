@@ -101,8 +101,12 @@ svs_mgmt_init(xlator_t *this)
     if (cmd_args->volfile_server)
         host = cmd_args->volfile_server;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     opt = find_xlator_option_in_cmd_args_t("address-family", cmd_args);
-    ret = rpc_transport_inet_options_build(&options, host, port,
+    ret = rpc_transport_inet_options_build(options, host, port,
                                            (opt != NULL ? opt->value : NULL));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_BUILD_TRNSPRT_OPT_FAILED,
@@ -145,6 +149,8 @@ svs_mgmt_init(xlator_t *this)
     gf_msg_debug(this->name, 0, "svs mgmt init successful");
 
 out:
+    if (options)
+        dict_unref(options);
     if (ret)
         if (priv) {
             rpc_clnt_connection_cleanup(&priv->rpc->conn);

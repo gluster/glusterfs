@@ -2620,18 +2620,13 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
 }
 
 int
-rpcsvc_transport_unix_options_build(dict_t **options, char *filepath)
+rpcsvc_transport_unix_options_build(dict_t *dict, char *filepath)
 {
-    dict_t *dict = NULL;
     char *fpath = NULL;
     int ret = -1;
 
     GF_ASSERT(filepath);
-    GF_ASSERT(options);
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
+    GF_VALIDATE_OR_GOTO("rpcsvc", dict, out);
 
     fpath = gf_strdup(filepath);
     if (!fpath) {
@@ -2654,13 +2649,9 @@ rpcsvc_transport_unix_options_build(dict_t **options, char *filepath)
     ret = dict_set_str(dict, "transport-type", "socket");
     if (ret)
         goto out;
-
-    *options = dict;
 out:
     if (ret) {
         GF_FREE(fpath);
-        if (dict)
-            dict_unref(dict);
     }
     return ret;
 }

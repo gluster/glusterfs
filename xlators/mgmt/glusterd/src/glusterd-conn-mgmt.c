@@ -29,6 +29,10 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
     if (!this)
         goto out;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     svc = glusterd_conn_get_svc_object(conn);
     if (!svc) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_GET_FAIL,
@@ -36,7 +40,7 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
         goto out;
     }
 
-    ret = rpc_transport_unix_options_build(&options, sockpath, frame_timeout);
+    ret = rpc_transport_unix_options_build(options, sockpath, frame_timeout);
     if (ret)
         goto out;
 
@@ -66,6 +70,8 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
     conn->rpc = rpc;
     conn->notify = notify;
 out:
+    if (options)
+        dict_unref(options);
     if (ret) {
         if (rpc) {
             rpc_clnt_unref(rpc);

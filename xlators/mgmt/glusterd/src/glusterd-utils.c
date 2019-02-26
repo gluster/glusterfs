@@ -1974,7 +1974,11 @@ glusterd_brick_connect(glusterd_volinfo_t *volinfo,
          * The default timeout of 30mins used for unreliable network
          * connections is too long for unix domain socket connections.
          */
-        ret = rpc_transport_unix_options_build(&options, socketpath, 600);
+        options = dict_new();
+        if (!options)
+            goto out;
+
+        ret = rpc_transport_unix_options_build(options, socketpath, 600);
         if (ret)
             goto out;
 
@@ -1993,7 +1997,8 @@ glusterd_brick_connect(glusterd_volinfo_t *volinfo,
         brickinfo->rpc = rpc;
     }
 out:
-
+    if (options)
+        dict_unref(options);
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
 }
