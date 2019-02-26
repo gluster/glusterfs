@@ -6069,7 +6069,8 @@ fuse_thread_proc(void *data)
     if (dict_get(this->options, ZR_MOUNTPOINT_OPT))
         mount_point = data_to_str(dict_get(this->options, ZR_MOUNTPOINT_OPT));
     if (mount_point) {
-        gf_log(this->name, GF_LOG_INFO, "initating unmount of %s", mount_point);
+        gf_log(this->name, GF_LOG_INFO, "initiating unmount of %s",
+               mount_point);
     }
 
     /* Kill the whole process, not just this thread. */
