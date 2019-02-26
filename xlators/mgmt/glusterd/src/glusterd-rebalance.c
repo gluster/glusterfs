@@ -391,6 +391,10 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     if (!defrag)
         goto out;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     GLUSTERD_GET_DEFRAG_SOCK_FILE(sockfile, volinfo);
     /* Check if defrag sockfile exists in the new location
      * in /var/run/ , if it does not try the old location
@@ -420,7 +424,7 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
      * default timeout of 30mins used for unreliable network connections is
      * too long for unix domain socket connections.
      */
-    ret = rpc_transport_unix_options_build(&options, sockfile, 600);
+    ret = rpc_transport_unix_options_build(options, sockfile, 600);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_UNIX_OP_BUILD_FAIL,
                "Unix options build failed");
@@ -437,6 +441,8 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     }
     ret = 0;
 out:
+    if (options)
+        dict_unref(options);
     return ret;
 }
 

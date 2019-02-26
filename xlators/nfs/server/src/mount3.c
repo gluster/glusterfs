@@ -4102,8 +4102,13 @@ mnt3svc_init(xlator_t *nfsx)
             gf_msg_debug(GF_MNT, GF_LOG_DEBUG, "Thread creation failed");
         }
     }
+    if (options)
+        dict_unref(options);
+
     return &mnt3prog;
 err:
+    if (options)
+        dict_unref(options);
     return NULL;
 }
 

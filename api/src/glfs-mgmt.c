@@ -1015,6 +1015,10 @@ glfs_mgmt_init(struct glfs *fs)
     if (ctx->mgmt)
         return 0;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     if (cmd_args->volfile_server_port)
         port = cmd_args->volfile_server_port;
 
@@ -1029,11 +1033,11 @@ glfs_mgmt_init(struct glfs *fs)
 
     if (cmd_args->volfile_server_transport &&
         !strcmp(cmd_args->volfile_server_transport, "unix")) {
-        ret = rpc_transport_unix_options_build(&options, host, 0);
+        ret = rpc_transport_unix_options_build(options, host, 0);
     } else {
         xlator_cmdline_option_t *opt = find_xlator_option_in_cmd_args_t(
             "address-family", cmd_args);
-        ret = rpc_transport_inet_options_build(&options, host, port,
+        ret = rpc_transport_inet_options_build(options, host, port,
                                                (opt ? opt->value : NULL));
     }
 
@@ -1075,5 +1079,7 @@ glfs_mgmt_init(struct glfs *fs)
 
     ret = rpc_clnt_start(rpc);
 out:
+    if (options)
+        dict_unref(options);
     return ret;
 }

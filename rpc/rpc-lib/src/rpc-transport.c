@@ -170,6 +170,11 @@ rpc_transport_cleanup(rpc_transport_t *trans)
     if (trans->fini)
         trans->fini(trans);
 
+    if (trans->options) {
+        dict_unref(trans->options);
+        trans->options = NULL;
+    }
+
     GF_FREE(trans->name);
 
     if (trans->xl)
@@ -354,7 +359,7 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
         }
     }
 
-    trans->options = options;
+    trans->options = dict_ref(options);
 
     pthread_mutex_init(&trans->lock, NULL);
     trans->xl = this;
@@ -593,19 +598,14 @@ out:
 }
 
 int
-rpc_transport_unix_options_build(dict_t **options, char *filepath,
+rpc_transport_unix_options_build(dict_t *dict, char *filepath,
                                  int frame_timeout)
 {
-    dict_t *dict = NULL;
     char *fpath = NULL;
     int ret = -1;
 
     GF_ASSERT(filepath);
-    GF_ASSERT(options);
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
+    GF_VALIDATE_OR_GOTO("rpc-transport", dict, out);
 
     fpath = gf_strdup(filepath);
     if (!fpath) {
@@ -640,20 +640,14 @@ rpc_transport_unix_options_build(dict_t **options, char *filepath,
         if (ret)
             goto out;
     }
-
-    *options = dict;
 out:
-    if (ret && dict) {
-        dict_unref(dict);
-    }
     return ret;
 }
 
 int
-rpc_transport_inet_options_build(dict_t **options, const char *hostname,
-                                 int port, char *af)
+rpc_transport_inet_options_build(dict_t *dict, const char *hostname, int port,
+                                 char *af)
 {
-    dict_t *dict = NULL;
     char *host = NULL;
     int ret = -1;
 #ifdef IPV6_DEFAULT
@@ -662,13 +656,9 @@ rpc_transport_inet_options_build(dict_t **options, const char *hostname,
     char *addr_family = "inet";
 #endif
 
-    GF_ASSERT(options);
     GF_ASSERT(hostname);
     GF_ASSERT(port >= 1024);
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
+    GF_VALIDATE_OR_GOTO("rpc-transport", dict, out);
 
     host = gf_strdup((char *)hostname);
     if (!host) {
@@ -704,12 +694,6 @@ rpc_transport_inet_options_build(dict_t **options, const char *hostname,
                "failed to set trans-type with socket");
         goto out;
     }
-
-    *options = dict;
 out:
-    if (ret && dict) {
-        dict_unref(dict);
-    }
-
     return ret;
 }

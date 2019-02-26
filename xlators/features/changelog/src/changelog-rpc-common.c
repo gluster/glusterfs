@@ -47,7 +47,7 @@ changelog_rpc_client_init(xlator_t *this, void *cbkdata, char *sockfile,
     if (!options)
         goto error_return;
 
-    ret = rpc_transport_unix_options_build(&options, sockfile, 0);
+    ret = rpc_transport_unix_options_build(options, sockfile, 0);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_BUILD_ERROR,
                "failed to build rpc options");
@@ -73,6 +73,7 @@ changelog_rpc_client_init(xlator_t *this, void *cbkdata, char *sockfile,
         goto dealloc_rpc_clnt;
     }
 
+    dict_unref(options);
     return rpc;
 
 dealloc_rpc_clnt:
@@ -303,7 +304,11 @@ changelog_rpc_server_init(xlator_t *this, char *sockfile, void *cbkdata,
     if (!cbkdata)
         cbkdata = this;
 
-    ret = rpcsvc_transport_unix_options_build(&options, sockfile);
+    options = dict_new();
+    if (!options)
+        return NULL;
+
+    ret = rpcsvc_transport_unix_options_build(options, sockfile);
     if (ret)
         goto dealloc_dict;
 

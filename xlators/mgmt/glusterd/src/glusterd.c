@@ -1111,11 +1111,15 @@ glusterd_init_uds_listener(xlator_t *this)
 
     GF_ASSERT(this);
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     sock_data = dict_get(this->options, "glusterd-sockfile");
     (void)snprintf(sockfile, sizeof(sockfile), "%s",
                    sock_data ? sock_data->data : DEFAULT_GLUSTERD_SOCKFILE);
 
-    ret = rpcsvc_transport_unix_options_build(&options, sockfile);
+    ret = rpcsvc_transport_unix_options_build(options, sockfile);
     if (ret)
         goto out;
 

@@ -3429,11 +3429,10 @@ out:
 }
 
 int
-glusterd_transport_inet_options_build(dict_t **options, const char *hostname,
+glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
                                       int port, char *af)
 {
     xlator_t *this = NULL;
-    dict_t *dict = NULL;
     int32_t interval = -1;
     int32_t time = -1;
     int32_t timeout = -1;
@@ -3441,14 +3440,14 @@ glusterd_transport_inet_options_build(dict_t **options, const char *hostname,
 
     this = THIS;
     GF_ASSERT(this);
-    GF_ASSERT(options);
+    GF_ASSERT(dict);
     GF_ASSERT(hostname);
 
     if (!port)
         port = GLUSTERD_DEFAULT_PORT;
 
     /* Build default transport options */
-    ret = rpc_transport_inet_options_build(&dict, hostname, port, af);
+    ret = rpc_transport_inet_options_build(dict, hostname, port, af);
     if (ret)
         goto out;
 
@@ -3488,7 +3487,6 @@ glusterd_transport_inet_options_build(dict_t **options, const char *hostname,
     if ((interval > 0) || (time > 0))
         ret = rpc_transport_keepalive_options_set(dict, interval, time,
                                                   timeout);
-    *options = dict;
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
@@ -3508,6 +3506,10 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     if (!peerctx)
         goto out;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     if (args)
         peerctx->args = *args;
 
@@ -3522,7 +3524,7 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     if (ret)
         gf_log(this->name, GF_LOG_TRACE,
                "option transport.address-family is not set in xlator options");
-    ret = glusterd_transport_inet_options_build(&options, peerinfo->hostname,
+    ret = glusterd_transport_inet_options_build(options, peerinfo->hostname,
                                                 peerinfo->port, af);
     if (ret)
         goto out;
@@ -3532,6 +3534,7 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
      * create our RPC endpoint with the same address that the peer would
      * use to reach us.
      */
+
     if (this->options) {
         data = dict_getn(this->options, "transport.socket.bind-address",
                          SLEN("transport.socket.bind-address"));
@@ -3573,6 +3576,9 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     peerctx = NULL;
     ret = 0;
 out:
+    if (options)
+        dict_unref(options);
+
     GF_FREE(peerctx);
     return ret;
 }

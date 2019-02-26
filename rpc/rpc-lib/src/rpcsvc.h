@@ -665,7 +665,7 @@ rpcsvc_actor_t *
 rpcsvc_program_actor(rpcsvc_request_t *req);
 
 int
-rpcsvc_transport_unix_options_build(dict_t **options, char *filepath);
+rpcsvc_transport_unix_options_build(dict_t *options, char *filepath);
 int
 rpcsvc_set_allow_insecure(rpcsvc_t *svc, dict_t *options);
 int

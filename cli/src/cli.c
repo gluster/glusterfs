@@ -670,9 +670,8 @@ cli_quotad_clnt_rpc_init(void)
 
     global_quotad_rpc = rpc;
 out:
-    if (ret) {
-        if (rpc_opts)
-            dict_unref(rpc_opts);
+    if (rpc_opts) {
+        dict_unref(rpc_opts);
     }
     return rpc;
 }
@@ -694,6 +693,10 @@ cli_rpc_init(struct cli_state *state)
     this = THIS;
     cli_rpc_prog = &cli_prog;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     /* If address family specified in CLI */
     if (state->address_family) {
         addr_family = state->address_family;
@@ -708,7 +711,7 @@ cli_rpc_init(struct cli_state *state)
                "Connecting to glusterd using "
                "sockfile %s",
                state->glusterd_sock);
-        ret = rpc_transport_unix_options_build(&options, state->glusterd_sock,
+        ret = rpc_transport_unix_options_build(options, state->glusterd_sock,
                                                0);
         if (ret)
             goto out;
@@ -717,10 +720,6 @@ cli_rpc_init(struct cli_state *state)
                "Connecting to remote glusterd at "
                "%s",
                state->remote_host);
-
-        options = dict_new();
-        if (!options)
-            goto out;
 
         ret = dict_set_str(options, "remote-host", state->remote_host);
         if (ret)
@@ -740,7 +739,7 @@ cli_rpc_init(struct cli_state *state)
         gf_log("cli", GF_LOG_DEBUG,
                "Connecting to glusterd using "
                "default socket");
-        ret = rpc_transport_unix_options_build(&options,
+        ret = rpc_transport_unix_options_build(options,
                                                DEFAULT_GLUSTERD_SOCKFILE, 0);
         if (ret)
             goto out;
@@ -758,6 +757,9 @@ cli_rpc_init(struct cli_state *state)
 
     ret = rpc_clnt_start(rpc);
 out:
+    if (options)
+        dict_unref(options);
+
     if (ret) {
         if (rpc)
             rpc_clnt_unref(rpc);

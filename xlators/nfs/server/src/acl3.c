@@ -787,9 +787,14 @@ acl3svc_init(xlator_t *nfsx)
         goto err;
     }
 
+    if (options)
+        dict_unref(options);
+
     acl3_inited = _gf_true;
     return &acl3prog;
 err:
+    if (options)
+        dict_unref(options);
     return NULL;
 }
 

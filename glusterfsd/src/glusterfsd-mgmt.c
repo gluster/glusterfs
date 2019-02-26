@@ -2551,7 +2551,11 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx)
     if (!cmd_args->sock_file)
         return 0;
 
-    ret = rpcsvc_transport_unix_options_build(&options, cmd_args->sock_file);
+    options = dict_new();
+    if (!options)
+        goto out;
+
+    ret = rpcsvc_transport_unix_options_build(options, cmd_args->sock_file);
     if (ret)
         goto out;
 
@@ -2578,6 +2582,8 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx)
     ctx->listener = rpc;
 
 out:
+    if (options)
+        dict_unref(options);
     return ret;
 }
 
@@ -2659,6 +2665,10 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
     if (ctx->mgmt)
         return 0;
 
+    options = dict_new();
+    if (!options)
+        goto out;
+
     LOCK_INIT(&ctx->volfile_lock);
 
     if (cmd_args->volfile_server_port)
@@ -2668,10 +2678,10 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
 
     if (cmd_args->volfile_server_transport &&
         !strcmp(cmd_args->volfile_server_transport, "unix")) {
-        ret = rpc_transport_unix_options_build(&options, host, 0);
+        ret = rpc_transport_unix_options_build(options, host, 0);
     } else {
         opt = find_xlator_option_in_cmd_args_t("address-family", cmd_args);
-        ret = rpc_transport_inet_options_build(&options, host, port,
+        ret = rpc_transport_inet_options_build(options, host, port,
                                                (opt ? opt->value : NULL));
     }
     if (ret)
@@ -2720,6 +2730,8 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
 
     ret = rpc_clnt_start(rpc);
 out:
+    if (options)
+        dict_unref(options);
     return ret;
 }
 
