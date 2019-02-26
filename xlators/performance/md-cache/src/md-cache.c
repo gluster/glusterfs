@@ -112,7 +112,6 @@ struct md_cache {
     uint64_t md_rdev;
     uint64_t md_size;
     uint64_t md_blocks;
-    uint64_t invalidation_time;
     uint64_t generation;
     dict_t *xattr;
     char *linkname;
@@ -169,7 +168,7 @@ out:
 }
 
 uint64_t
-__mdc_get_generation(xlator_t *this, struct md_cache *mdc)
+__mdc_inc_generation(xlator_t *this, struct md_cache *mdc)
 {
     uint64_t gen = 0, rollover;
     struct mdc_conf *conf = NULL;
@@ -182,11 +181,37 @@ __mdc_get_generation(xlator_t *this, struct md_cache *mdc)
         gen = GF_ATOMIC_INC(conf->generation);
         mdc->ia_time = 0;
         mdc->generation = 0;
-        mdc->invalidation_time = gen - 1;
     }
 
     rollover = mdc->gen_rollover;
     gen |= (rollover << 32);
+    return gen;
+}
+
+uint64_t
+mdc_inc_generation(xlator_t *this, inode_t *inode)
+{
+    struct mdc_conf *conf = NULL;
+    uint64_t gen = 0;
+    struct md_cache *mdc = NULL;
+
+    conf = this->private;
+
+    mdc_inode_ctx_get(this, inode, &mdc);
+
+    if (mdc) {
+        LOCK(&mdc->lock);
+        {
+            gen = __mdc_inc_generation(this, mdc);
+        }
+        UNLOCK(&mdc->lock);
+    } else {
+        gen = GF_ATOMIC_INC(conf->generation);
+        if (gen == 0) {
+            gen = GF_ATOMIC_INC(conf->generation);
+        }
+    }
+
     return gen;
 }
 
@@ -204,15 +229,11 @@ mdc_get_generation(xlator_t *this, inode_t *inode)
     if (mdc) {
         LOCK(&mdc->lock);
         {
-            gen = __mdc_get_generation(this, mdc);
+            gen = mdc->generation;
         }
         UNLOCK(&mdc->lock);
-    } else {
-        gen = GF_ATOMIC_INC(conf->generation);
-        if (gen == 0) {
-            gen = GF_ATOMIC_INC(conf->generation);
-        }
-    }
+    } else
+        gen = GF_ATOMIC_GET(conf->generation);
 
     return gen;
 }
@@ -400,8 +421,7 @@ is_md_cache_iatt_valid(xlator_t *this, struct md_cache *mdc)
             ret = __is_cache_valid(this, mdc->ia_time);
             if (ret == _gf_false) {
                 mdc->ia_time = 0;
-                mdc->invalidation_time = __mdc_get_generation(this, mdc) &
-                                         0xffffffff;
+                mdc->generation = 0;
             }
         }
     }
@@ -493,8 +513,8 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
             mdc->ia_time = 0;
             mdc->valid = 0;
 
-            gen = __mdc_get_generation(this, mdc);
-            mdc->invalidation_time = (gen & 0xffffffff);
+            gen = __mdc_inc_generation(this, mdc);
+            mdc->generation = (gen & 0xffffffff);
             goto unlock;
         }
 
@@ -556,10 +576,8 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
         }
 
         if ((mdc->gen_rollover == rollover) &&
-            ((incident_time > mdc->generation) &&
-             (mdc->valid || (incident_time > mdc->invalidation_time)))) {
+            (incident_time >= mdc->generation)) {
             mdc_from_iatt(mdc, iatt);
-            mdc->generation = incident_time;
             mdc->valid = _gf_true;
             if (update_time) {
                 time(&mdc->ia_time);
@@ -579,13 +597,11 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
                              "not updating cache (%s)"
                              "mdc-rollover=%u rollover=%u "
                              "mdc-generation=%llu "
-                             "mdc-ia_time=%llu incident_time=%llu "
-                             "mdc-invalidation-time=%llu",
+                             "mdc-ia_time=%llu incident_time=%llu ",
                              uuid_utoa(iatt->ia_gfid), mdc->gen_rollover,
                              rollover, (unsigned long long)mdc->generation,
                              (unsigned long long)mdc->ia_time,
-                             (unsigned long long)incident_time,
-                             (unsigned long long)mdc->invalidation_time);
+                             (unsigned long long)incident_time);
         }
     }
 unlock:
@@ -936,13 +952,13 @@ mdc_inode_iatt_invalidate(xlator_t *this, inode_t *inode)
     if (mdc_inode_ctx_get(this, inode, &mdc) != 0)
         goto out;
 
-    gen = mdc_get_generation(this, inode) & 0xffffffff;
+    gen = mdc_inc_generation(this, inode) & 0xffffffff;
 
     LOCK(&mdc->lock);
     {
         mdc->ia_time = 0;
         mdc->valid = _gf_false;
-        mdc->invalidation_time = gen;
+        mdc->generation = gen;
     }
     UNLOCK(&mdc->lock);
 
@@ -983,7 +999,7 @@ mdc_update_gfid_stat(xlator_t *this, struct iatt *iatt)
         goto out;
     }
     ret = mdc_inode_iatt_set_validate(this, inode, NULL, iatt, _gf_true,
-                                      mdc_get_generation(this, inode));
+                                      mdc_inc_generation(this, inode));
 out:
     return ret;
 }
@@ -3370,7 +3386,7 @@ mdc_invalidate(xlator_t *this, void *data)
     }
 
     if (up_ci->flags & IATT_UPDATE_FLAGS) {
-        gen = mdc_get_generation(this, inode);
+        gen = mdc_inc_generation(this, inode);
         ret = mdc_inode_iatt_set_validate(this, inode, NULL, &up_ci->stat,
                                           _gf_false, gen);
         /* one of the scenarios where ret < 0 is when this invalidate
