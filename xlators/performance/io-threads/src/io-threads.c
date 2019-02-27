@@ -61,7 +61,7 @@ iot_get_ctx(xlator_t *this, client_t *client)
     int i;
 
     if (client_ctx_get(client, this, (void **)&ctx) != 0) {
-        ctx = GF_CALLOC(GF_FOP_PRI_MAX, sizeof(*ctx), gf_iot_mt_client_ctx_t);
+        ctx = GF_MALLOC(GF_FOP_PRI_MAX * sizeof(*ctx), gf_iot_mt_client_ctx_t);
         if (ctx) {
             for (i = 0; i < GF_FOP_PRI_MAX; ++i) {
                 INIT_LIST_HEAD(&ctx[i].clients);
@@ -1001,8 +1001,8 @@ iot_priv_dump(xlator_t *this)
  */
 
 typedef struct {
-    uint32_t value;
     time_t update_time;
+    uint32_t value;
 } threshold_t;
 /*
  * Variables so that I can hack these for testing.
@@ -1309,20 +1309,21 @@ notify(xlator_t *this, int32_t event, void *data, ...)
 
     if (GF_EVENT_PARENT_DOWN == event) {
         if (victim->cleanup_starting) {
-            clock_gettime(CLOCK_REALTIME, &sleep_till);
-            sleep_till.tv_sec += 1;
             /* Wait for draining stub from queue before notify PARENT_DOWN */
             stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
-
-            pthread_mutex_lock(&conf->mutex);
-            {
-                while (stub_cnt) {
-                    (void)pthread_cond_timedwait(&conf->cond, &conf->mutex,
-                                                 &sleep_till);
-                    stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
+            if (stub_cnt) {
+                clock_gettime(CLOCK_REALTIME, &sleep_till);
+                sleep_till.tv_sec += 1;
+                pthread_mutex_lock(&conf->mutex);
+                {
+                    while (stub_cnt) {
+                        (void)pthread_cond_timedwait(&conf->cond, &conf->mutex,
+                                                     &sleep_till);
+                        stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
+                    }
                 }
+                pthread_mutex_unlock(&conf->mutex);
             }
-            pthread_mutex_unlock(&conf->mutex);
 
             gf_log(this->name, GF_LOG_INFO,
                    "Notify GF_EVENT_PARENT_DOWN for brick %s", victim->name);
