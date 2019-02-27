@@ -1337,6 +1337,7 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
     glusterd_volinfo_t *tmp = NULL;
     glusterd_snap_t *snapinfo = NULL;
     glusterd_snap_t *tmpsnap = NULL;
+    gf_boolean_t need_free = _gf_false;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1356,6 +1357,13 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
 
     if (cli_req.dict.dict_len) {
         dict = dict_new();
+
+        if (dict) {
+            need_free = _gf_true;
+        } else {
+            ret = -1;
+            goto out;
+        }
 
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
@@ -1452,12 +1460,17 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
                                      &op_errno);
     }
 
+    need_free = _gf_false;
+
 out:
     free(cli_req.dict.dict_val);
 
     if (ret) {
         ret = glusterd_xfer_cli_deprobe_resp(req, ret, op_errno, NULL, hostname,
                                              dict);
+        if (need_free) {
+            dict_unref(dict);
+        }
     }
 
     glusterd_friend_sm();
