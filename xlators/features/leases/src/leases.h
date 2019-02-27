@@ -45,6 +45,14 @@
             goto label;                                                        \
     } while (0)
 
+#define EXIT_IF_INTERNAL_FOP(frame, xdata, label)                              \
+    do {                                                                       \
+        if (frame->root->pid < 0)                                              \
+            goto label;                                                        \
+        if (xdata && dict_get(xdata, GLUSTERFS_INTERNAL_FOP_KEY))              \
+            goto label;                                                        \
+    } while (0)
+
 #define GET_LEASE_ID(xdata, lease_id, client_uid)                              \
     do {                                                                       \
         int ret_val = -1;                                                      \
