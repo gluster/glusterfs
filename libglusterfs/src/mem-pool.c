@@ -643,7 +643,7 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
     }
     pool = &pools[power - POOL_SMALLEST];
 
-    new = GF_CALLOC(sizeof(struct mem_pool), 1, gf_common_mt_mem_pool);
+    new = GF_MALLOC(sizeof(struct mem_pool), gf_common_mt_mem_pool);
     if (!new)
         return NULL;
 
@@ -671,15 +671,7 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
 void *
 mem_get0(struct mem_pool *mem_pool)
 {
-    void *ptr = NULL;
-
-    if (!mem_pool) {
-        gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-                         "invalid argument");
-        return NULL;
-    }
-
-    ptr = mem_get(mem_pool);
+    void *ptr = mem_get(mem_pool);
     if (ptr) {
 #if defined(GF_DISABLE_MEMPOOL)
         memset(ptr, 0, mem_pool->sizeof_type);
@@ -736,12 +728,14 @@ mem_get_pool_list(void)
 }
 
 pooled_obj_hdr_t *
-mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool,
-                  gf_boolean_t *hit)
+mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool)
 {
     per_thread_pool_list_t *pool_list;
     per_thread_pool_t *pt_pool;
     pooled_obj_hdr_t *retval;
+#ifdef DEBUG
+    gf_boolean_t hit = _gf_true;
+#endif
 
     pool_list = mem_get_pool_list();
     if (!pool_list || pool_list->poison) {
@@ -754,10 +748,6 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool,
     } else {
         pt_pool = &pool_list->pools[pool->power_of_two - POOL_SMALLEST];
     }
-
-#ifdef DEBUG
-    *hit = _gf_true;
-#endif
 
     (void)pthread_spin_lock(&pool_list->lock);
 
@@ -778,7 +768,7 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool,
             retval = malloc((1 << pt_pool->parent->power_of_two) +
                             sizeof(pooled_obj_hdr_t));
 #ifdef DEBUG
-            *hit = _gf_false;
+            hit = _gf_false;
 #endif
         }
     }
@@ -788,7 +778,7 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool,
             retval->pool = mem_pool;
             retval->power_of_two = mem_pool->pool->power_of_two;
 #ifdef DEBUG
-            if (*hit == _gf_true)
+            if (hit == _gf_true)
                 GF_ATOMIC_INC(mem_pool->hit);
             else
                 GF_ATOMIC_INC(mem_pool->miss);
@@ -807,19 +797,16 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool,
 void *
 mem_get(struct mem_pool *mem_pool)
 {
-#if defined(GF_DISABLE_MEMPOOL)
-    return GF_MALLOC(mem_pool->sizeof_type, gf_common_mt_mem_pool);
-#else
-    pooled_obj_hdr_t *retval;
-    gf_boolean_t hit;
-
     if (!mem_pool) {
         gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid argument");
         return NULL;
     }
 
-    retval = mem_get_from_pool(mem_pool, NULL, &hit);
+#if defined(GF_DISABLE_MEMPOOL)
+    return GF_MALLOC(mem_pool->sizeof_type, gf_common_mt_mem_pool);
+#else
+    pooled_obj_hdr_t *retval = mem_get_from_pool(mem_pool, NULL);
     if (!retval) {
         return NULL;
     }
