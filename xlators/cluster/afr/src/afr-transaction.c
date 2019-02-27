@@ -2560,8 +2560,10 @@ afr_changelog_fsync(call_frame_t *frame, xlator_t *this)
     local->call_count = call_count;
 
     xdata = dict_new();
-    if (xdata)
+    if (xdata) {
         ret = dict_set_int32_sizen(xdata, "batch-fsync", 1);
+        ret = dict_set_str(xdata, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
+    }
 
     for (i = 0; i < priv->child_count; i++) {
         if (!local->transaction.pre_op[i])
