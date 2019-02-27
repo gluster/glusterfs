@@ -35,6 +35,7 @@ leases_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     char *lease_id = NULL;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     fd_ctx = GF_CALLOC(1, sizeof(*fd_ctx), gf_leases_mt_fd_ctx_t);
     if (!fd_ctx) {
@@ -109,6 +110,7 @@ leases_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -157,6 +159,7 @@ leases_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -202,6 +205,7 @@ leases_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS_LK(cmd, flock->l_type, fd->flags);
@@ -240,6 +244,7 @@ leases_lease(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int32_t op_ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     ret = process_lease_req(frame, this, loc->inode, lease);
     if (ret < 0) {
@@ -282,6 +287,7 @@ leases_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, 0);
@@ -328,6 +334,7 @@ leases_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, 0);
@@ -376,6 +383,7 @@ leases_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     /* should the lease be also checked for newloc */
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
@@ -424,6 +432,7 @@ leases_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, 0);
@@ -470,6 +479,7 @@ leases_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, 0);
@@ -516,6 +526,7 @@ leases_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, flags);
@@ -563,6 +574,7 @@ leases_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -607,6 +619,7 @@ leases_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, 0); /* TODO:fd->flags?*/
@@ -652,6 +665,7 @@ leases_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -697,6 +711,7 @@ leases_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -744,6 +759,7 @@ leases_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -789,6 +805,7 @@ leases_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
@@ -834,6 +851,7 @@ leases_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     uint64_t ctx = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
+    EXIT_IF_INTERNAL_FOP(frame, xdata, out);
 
     GET_LEASE_ID(xdata, lease_id, frame->root->client->client_uid);
     GET_FLAGS(frame->root->op, fd->flags);
