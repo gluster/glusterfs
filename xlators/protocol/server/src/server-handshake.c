@@ -36,7 +36,6 @@ gf_compare_client_version(rpcsvc_request_t *req, int fop_prognum,
     return ret;
 }
 
-
 int
 server_getspec(rpcsvc_request_t *req)
 {
@@ -267,7 +266,7 @@ server_setvolume(rpcsvc_request_t *req)
      */
     config_params = dict_copy_with_ref(this->options, NULL);
 
-    buf = memdup(args.dict.dict_val, args.dict.dict_len);
+    buf = gf_memdup(args.dict.dict_val, args.dict.dict_len);
     if (buf == NULL) {
         op_ret = -1;
         op_errno = ENOMEM;

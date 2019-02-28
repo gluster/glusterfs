@@ -387,7 +387,7 @@ afr_shd_sweep_done(struct subvol_healer *healer)
     shd = &(((afr_private_t *)healer->this->private)->shd);
 
     time(&event->end_time);
-    history = memdup(event, sizeof(*event));
+    history = gf_memdup(event, sizeof(*event));
     event->start_time = 0;
 
     if (!history)

@@ -193,7 +193,7 @@ gf_memdup(const void *src, size_t size)
 {
     void *dup_mem = NULL;
 
-    dup_mem = GF_MALLOC(size, gf_common_mt_strdup);
+    dup_mem = GF_MALLOC(size, gf_common_mt_memdup);
     if (!dup_mem)
         goto out;
 

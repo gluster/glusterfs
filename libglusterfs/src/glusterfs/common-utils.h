@@ -682,19 +682,6 @@ iov_0filled(const struct iovec *vector, int count)
     return ret;
 }
 
-static inline void *
-memdup(const void *ptr, size_t size)
-{
-    void *newptr = NULL;
-
-    newptr = GF_MALLOC(size, gf_common_mt_memdup);
-    if (!newptr)
-        return NULL;
-
-    memcpy(newptr, ptr, size);
-    return newptr;
-}
-
 typedef enum {
     gf_timefmt_default = 0,
     gf_timefmt_FT = 0, /* YYYY-MM-DD hh:mm:ss */

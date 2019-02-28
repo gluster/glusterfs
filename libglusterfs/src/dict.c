@@ -306,7 +306,7 @@ data_copy(data_t *old)
 
     newdata->len = old->len;
     if (old->data) {
-        newdata->data = memdup(old->data, old->len);
+        newdata->data = gf_memdup(old->data, old->len);
         if (!newdata->data)
             goto err_out;
     }
@@ -3139,7 +3139,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
             goto out;
         }
         value->len = vallen;
-        value->data = memdup(buf, vallen);
+        value->data = gf_memdup(buf, vallen);
         value->data_type = GF_DATA_TYPE_STR_OLD;
         value->is_static = _gf_false;
         buf += vallen;

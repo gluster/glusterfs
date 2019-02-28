@@ -267,17 +267,17 @@ cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unlock;
             } else if (volmark->retval) {
                 GF_FREE(local->volmark);
-                local->volmark = memdup(volmark, sizeof(*volmark));
+                local->volmark = gf_memdup(volmark, sizeof(*volmark));
                 local->retval = volmark->retval;
             } else if ((volmark->sec > local->volmark->sec) ||
                        ((volmark->sec == local->volmark->sec) &&
                         (volmark->usec >= local->volmark->usec))) {
                 GF_FREE(local->volmark);
-                local->volmark = memdup(volmark, sizeof(*volmark));
+                local->volmark = gf_memdup(volmark, sizeof(*volmark));
             }
 
         } else {
-            local->volmark = memdup(volmark, sizeof(*volmark));
+            local->volmark = gf_memdup(volmark, sizeof(*volmark));
             VALIDATE_OR_GOTO(local->volmark, unlock);
             gf_uuid_unparse(volmark->uuid, vol_uuid);
             if (volmark->retval)

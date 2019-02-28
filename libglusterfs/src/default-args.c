@@ -1137,7 +1137,8 @@ args_rchecksum_cbk_store(default_args_cbk_t *args, int32_t op_ret,
     args->op_errno = op_errno;
     if (op_ret >= 0) {
         args->weak_checksum = weak_checksum;
-        args->strong_checksum = memdup(strong_checksum, SHA256_DIGEST_LENGTH);
+        args->strong_checksum = gf_memdup(strong_checksum,
+                                          SHA256_DIGEST_LENGTH);
     }
     if (xdata)
         args->xdata = dict_ref(xdata);

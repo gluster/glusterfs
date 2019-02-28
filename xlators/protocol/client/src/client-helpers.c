@@ -209,7 +209,7 @@ unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
 
         if (trav->dict.dict_val) {
             /* Dictionary is sent along with response */
-            buf = memdup(trav->dict.dict_val, trav->dict.dict_len);
+            buf = gf_memdup(trav->dict.dict_val, trav->dict.dict_len);
             if (!buf)
                 goto out;
 
