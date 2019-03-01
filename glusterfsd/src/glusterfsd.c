@@ -2513,9 +2513,6 @@ daemonize(glusterfs_ctx_t *ctx)
         goto out;
 
     if (cmd_args->no_daemon_mode) {
-        ret = glusterfs_pidfile_update(ctx, getpid());
-        if (ret)
-            goto out;
         goto postfork;
     }
 
@@ -2571,13 +2568,26 @@ daemonize(glusterfs_ctx_t *ctx)
                will be available to parent process on calling exit() */
             if (err)
                 _exit(abs(err));
-            ret = glusterfs_pidfile_update(ctx, child_pid);
-            if (ret)
-                _exit(1);
+
+            /* Update pid in parent only for glusterd process */
+            if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
+                ret = glusterfs_pidfile_update(ctx, child_pid);
+                if (ret)
+                    exit(1);
+            }
             _exit(0);
     }
 
 postfork:
+    /* Update pid in child either process_mode is not belong to glusterd
+       or process is spawned in no daemon mode
+    */
+    if ((ctx->process_mode != GF_GLUSTERD_PROCESS) ||
+        (cmd_args->no_daemon_mode)) {
+        ret = glusterfs_pidfile_update(ctx, getpid());
+        if (ret)
+            goto out;
+    }
     ret = gf_log_inject_timer_event(ctx);
 
     glusterfs_signals_setup(ctx);
