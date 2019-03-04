@@ -111,6 +111,8 @@
 
 #define GD_OP_VERSION_5_0 50000 /* Op-version for GlusterFS 5.0 */
 
+#define GD_OP_VERSION_5_4 50400 /* Op-version for GlusterFS 5.4 */
+
 #define GD_OP_VERSION_6_0 60000 /* Op-version for GlusterFS 6.0 */
 
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
