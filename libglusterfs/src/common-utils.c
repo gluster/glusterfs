@@ -49,6 +49,7 @@
 #include "lkowner.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
+#include "globals.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #include <ifaddrs.h>
@@ -2020,7 +2021,7 @@ compute_checksum(char *buf, const ssize_t size, uint32_t *checksum)
 #define GF_CHECKSUM_BUF_SIZE 1024
 
 int
-get_checksum_for_file(int fd, uint32_t *checksum)
+get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
 {
     int ret = -1;
     char buf[GF_CHECKSUM_BUF_SIZE] = {
@@ -2031,8 +2032,12 @@ get_checksum_for_file(int fd, uint32_t *checksum)
     sys_lseek(fd, 0L, SEEK_SET);
     do {
         ret = sys_read(fd, &buf, GF_CHECKSUM_BUF_SIZE);
-        if (ret > 0)
-            compute_checksum(buf, ret, checksum);
+        if (ret > 0) {
+            if (op_version < GD_OP_VERSION_5_4)
+                compute_checksum(buf, GF_CHECKSUM_BUF_SIZE, checksum);
+            else
+                compute_checksum(buf, ret, checksum);
+        }
     } while (ret > 0);
 
     /* set it back */
@@ -2042,7 +2047,7 @@ get_checksum_for_file(int fd, uint32_t *checksum)
 }
 
 int
-get_checksum_for_path(char *path, uint32_t *checksum)
+get_checksum_for_path(char *path, uint32_t *checksum, int op_version)
 {
     int ret = -1;
     int fd = -1;
@@ -2058,7 +2063,7 @@ get_checksum_for_path(char *path, uint32_t *checksum)
         goto out;
     }
 
-    ret = get_checksum_for_file(fd, checksum);
+    ret = get_checksum_for_file(fd, checksum, op_version);
 
 out:
     if (fd != -1)

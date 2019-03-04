@@ -45,7 +45,7 @@
     1 /* MIN is the fresh start op-version, mostly                             \
          should not change */
 #define GD_OP_VERSION_MAX                                                      \
-    GD_OP_VERSION_5_0 /* MAX VERSION is the maximum                            \
+    GD_OP_VERSION_5_4 /* MAX VERSION is the maximum                            \
                          count in VME table, should                            \
                          keep changing with                                    \
                          introduction of newer                                 \
@@ -110,6 +110,8 @@
 #define GD_OP_VERSION_4_1_0 40100 /* Op-version for GlusterFS 4.1.0 */
 
 #define GD_OP_VERSION_5_0 50000 /* Op-version for GlusterFS 5.0 */
+
+#define GD_OP_VERSION_5_4 50400 /* Op-version for GlusterFS 5.4 */
 
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
 
