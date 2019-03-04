@@ -84,8 +84,8 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
 %{?_without_rdma:%global _without_rdma --disable-ibverbs}
 
-# No RDMA Support on s390(x)
-%ifarch s390 s390x armv7hl
+# No RDMA Support on 32-bit ARM
+%ifarch armv7hl
 %global _without_rdma --disable-ibverbs
 %endif
 
@@ -1389,6 +1389,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Mar 4 2019 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- s390x has RDMA, since around Fedora 27 and in RHEL7 since June 2016.
+
 * Sun Feb 24 2019 Aravinda VK <avishwan@redhat.com>
 - Renamed events package to gfevents
 
