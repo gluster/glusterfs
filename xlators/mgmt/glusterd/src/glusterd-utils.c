@@ -2817,7 +2817,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
 
     cksum_path_final = is_quota_conf ? filepath : sort_filepath;
 
-    ret = get_checksum_for_path(cksum_path_final, &cksum);
+    ret = get_checksum_for_path(cksum_path_final, &cksum, priv->op_version);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
                "unable to get "
@@ -2834,7 +2834,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
         }
     }
 
-    ret = get_checksum_for_file(fd, &cksum);
+    ret = get_checksum_for_file(fd, &cksum, priv->op_version);
     if (ret)
         goto out;
 
@@ -9394,12 +9394,16 @@ glusterd_check_files_identical(char *filename1, char *filename2,
     uint32_t cksum1 = 0;
     uint32_t cksum2 = 0;
     xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
 
     GF_ASSERT(filename1);
     GF_ASSERT(filename2);
     GF_ASSERT(identical);
 
     this = THIS;
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
     ret = sys_stat(filename1, &buf1);
 
@@ -9426,11 +9430,11 @@ glusterd_check_files_identical(char *filename1, char *filename2,
         goto out;
     }
 
-    ret = get_checksum_for_path(filename1, &cksum1);
+    ret = get_checksum_for_path(filename1, &cksum1, priv->op_version);
     if (ret)
         goto out;
 
-    ret = get_checksum_for_path(filename2, &cksum2);
+    ret = get_checksum_for_path(filename2, &cksum2, priv->op_version);
     if (ret)
         goto out;
 

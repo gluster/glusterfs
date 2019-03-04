@@ -833,12 +833,12 @@ int
 gf_unlockfd(int fd);
 
 int
-get_checksum_for_file(int fd, uint32_t *checksum);
+get_checksum_for_file(int fd, uint32_t *checksum, int op_version);
 int
 log_base2(unsigned long x);
 
 int
-get_checksum_for_path(char *path, uint32_t *checksum);
+get_checksum_for_path(char *path, uint32_t *checksum, int op_version);
 int
 get_file_mtime(const char *path, time_t *stamp);
 char *
