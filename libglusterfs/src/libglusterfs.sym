@@ -875,8 +875,7 @@ mem_get0
 mem_pool_destroy
 mem_pool_new_fn
 mem_pools_fini
-mem_pools_init_early
-mem_pools_init_late
+mem_pools_init
 mem_put
 mkdir_p
 next_token

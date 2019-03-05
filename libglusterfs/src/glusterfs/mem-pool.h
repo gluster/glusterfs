@@ -279,9 +279,7 @@ struct mem_pool_shared {
 };
 
 void
-mem_pools_init_early(void); /* basic initialization of memory pools */
-void
-mem_pools_init_late(void); /* start the pool_sweeper thread */
+mem_pools_init(void); /* start the pool_sweeper thread */
 void
 mem_pools_fini(void); /* cleanup memory pools */
 
@@ -304,6 +302,9 @@ mem_get0(struct mem_pool *pool);
 
 void
 mem_pool_destroy(struct mem_pool *pool);
+
+void
+mem_pool_thread_destructor(void);
 
 void
 gf_mem_acct_enable_set(void *ctx);

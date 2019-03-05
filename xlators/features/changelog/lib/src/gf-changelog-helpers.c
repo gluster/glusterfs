@@ -58,20 +58,7 @@ gf_rfc3986_encode_space_newline(unsigned char *s, char *enc, char *estr)
  *       made a part of libglusterfs.
  */
 
-static pthread_key_t rl_key;
-static pthread_once_t rl_once = PTHREAD_ONCE_INIT;
-
-static void
-readline_destructor(void *ptr)
-{
-    GF_FREE(ptr);
-}
-
-static void
-readline_once(void)
-{
-    pthread_key_create(&rl_key, readline_destructor);
-}
+static __thread read_line_t thread_tsd = {};
 
 static ssize_t
 my_read(read_line_t *tsd, int fd, char *ptr)
@@ -91,27 +78,6 @@ my_read(read_line_t *tsd, int fd, char *ptr)
     return 1;
 }
 
-static int
-gf_readline_init_once(read_line_t **tsd)
-{
-    if (pthread_once(&rl_once, readline_once) != 0)
-        return -1;
-
-    *tsd = pthread_getspecific(rl_key);
-    if (*tsd)
-        goto out;
-
-    *tsd = GF_CALLOC(1, sizeof(**tsd), gf_changelog_mt_libgfchangelog_rl_t);
-    if (!*tsd)
-        return -1;
-
-    if (pthread_setspecific(rl_key, *tsd) != 0)
-        return -1;
-
-out:
-    return 0;
-}
-
 ssize_t
 gf_readline(int fd, void *vptr, size_t maxlen)
 {
@@ -119,10 +85,7 @@ gf_readline(int fd, void *vptr, size_t maxlen)
     size_t rc = 0;
     char c = ' ';
     char *ptr = NULL;
-    read_line_t *tsd = NULL;
-
-    if (gf_readline_init_once(&tsd))
-        return -1;
+    read_line_t *tsd = &thread_tsd;
 
     ptr = vptr;
     for (n = 1; n < maxlen; n++) {
@@ -145,10 +108,7 @@ off_t
 gf_lseek(int fd, off_t offset, int whence)
 {
     off_t off = 0;
-    read_line_t *tsd = NULL;
-
-    if (gf_readline_init_once(&tsd))
-        return -1;
+    read_line_t *tsd = &thread_tsd;
 
     off = sys_lseek(fd, offset, whence);
     if (off == -1)
@@ -163,10 +123,7 @@ gf_lseek(int fd, off_t offset, int whence)
 int
 gf_ftruncate(int fd, off_t length)
 {
-    read_line_t *tsd = NULL;
-
-    if (gf_readline_init_once(&tsd))
-        return -1;
+    read_line_t *tsd = &thread_tsd;
 
     if (sys_ftruncate(fd, 0))
         return -1;

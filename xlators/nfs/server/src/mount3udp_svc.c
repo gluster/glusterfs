@@ -216,11 +216,7 @@ mount3udp_thread(void *argv)
 
     GF_ASSERT(nfsx);
 
-    if (glusterfs_this_set(nfsx)) {
-        gf_msg(GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_XLATOR_SET_FAIL,
-               "Failed to set xlator, nfs.mount-udp will not work");
-        return NULL;
-    }
+    glusterfs_this_set(nfsx);
 
     transp = svcudp_create(RPC_ANYSOCK);
     if (transp == NULL) {

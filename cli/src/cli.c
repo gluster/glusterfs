@@ -804,8 +804,7 @@ main(int argc, char *argv[])
     int ret = -1;
     glusterfs_ctx_t *ctx = NULL;
 
-    mem_pools_init_early();
-    mem_pools_init_late();
+    mem_pools_init();
 
     ctx = glusterfs_ctx_new();
     if (!ctx)

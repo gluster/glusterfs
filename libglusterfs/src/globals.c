@@ -99,15 +99,18 @@ const char *gf_upcall_list[GF_UPCALL_FLAGS_MAXVALUE] = {
 glusterfs_ctx_t *global_ctx = NULL;
 pthread_mutex_t global_ctx_mutex = PTHREAD_MUTEX_INITIALIZER;
 xlator_t global_xlator;
-static pthread_key_t this_xlator_key;
-static pthread_key_t synctask_key;
-static pthread_key_t uuid_buf_key;
-static char global_uuid_buf[GF_UUID_BUF_SIZE];
-static pthread_key_t lkowner_buf_key;
-static char global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
-static pthread_key_t leaseid_buf_key;
 static int gf_global_mem_acct_enable = 1;
 static pthread_once_t globals_inited = PTHREAD_ONCE_INIT;
+
+static pthread_key_t free_key;
+
+static __thread xlator_t *thread_xlator = NULL;
+static __thread void *thread_synctask = NULL;
+static __thread void *thread_leaseid = NULL;
+static __thread struct syncopctx thread_syncopctx = {};
+static __thread char thread_uuid_buf[GF_UUID_BUF_SIZE] = {};
+static __thread char thread_lkowner_buf[GF_LKOWNER_BUF_SIZE] = {};
+static __thread char thread_leaseid_buf[GF_LEASE_ID_BUF_SIZE] = {};
 
 int
 gf_global_mem_acct_enable_get(void)
@@ -120,12 +123,6 @@ gf_global_mem_acct_enable_set(int val)
 {
     gf_global_mem_acct_enable = val;
     return 0;
-}
-
-void
-glusterfs_this_destroy(void *ptr)
-{
-    FREE(ptr);
 }
 
 static struct xlator_cbks global_cbks = {
@@ -212,18 +209,9 @@ struct volume_options global_xl_options[] = {
 
 static volume_opt_list_t global_xl_opt_list;
 
-int
+void
 glusterfs_this_init()
 {
-    int ret = 0;
-    ret = pthread_key_create(&this_xlator_key, glusterfs_this_destroy);
-    if (ret != 0) {
-        gf_msg("", GF_LOG_WARNING, ret, LG_MSG_PTHREAD_KEY_CREATE_FAILED,
-               "failed to create "
-               "the pthread key");
-        return ret;
-    }
-
     global_xlator.name = "glusterfs";
     global_xlator.type = GF_GLOBAL_XLATOR_NAME;
     global_xlator.cbks = &global_cbks;
@@ -237,248 +225,101 @@ glusterfs_this_init()
     global_xl_opt_list.given_opt = global_xl_options;
 
     list_add_tail(&global_xl_opt_list.list, &global_xlator.volume_options);
-
-    return ret;
 }
 
 xlator_t **
 __glusterfs_this_location()
 {
-    xlator_t **this_location = NULL;
-    int ret = 0;
+    xlator_t **this_location;
 
-    this_location = pthread_getspecific(this_xlator_key);
-
-    if (!this_location) {
-        this_location = CALLOC(1, sizeof(*this_location));
-        if (!this_location)
-            goto out;
-
-        ret = pthread_setspecific(this_xlator_key, this_location);
-        if (ret != 0) {
-            FREE(this_location);
-            this_location = NULL;
-            goto out;
-        }
+    this_location = &thread_xlator;
+    if (*this_location == NULL) {
+        thread_xlator = &global_xlator;
     }
-out:
-    if (this_location) {
-        if (!*this_location)
-            *this_location = &global_xlator;
-    }
+
     return this_location;
 }
 
 xlator_t *
 glusterfs_this_get()
 {
-    xlator_t **this_location = NULL;
-
-    this_location = __glusterfs_this_location();
-    if (!this_location)
-        return &global_xlator;
-
-    return *this_location;
+    return *__glusterfs_this_location();
 }
 
-int
+void
 glusterfs_this_set(xlator_t *this)
 {
-    xlator_t **this_location = NULL;
-
-    this_location = __glusterfs_this_location();
-    if (!this_location)
-        return -ENOMEM;
-
-    *this_location = this;
-
-    return 0;
+    thread_xlator = this;
 }
 
 /* SYNCOPCTX */
-static pthread_key_t syncopctx_key;
-
-static void
-syncopctx_key_destroy(void *ptr)
-{
-    struct syncopctx *opctx = ptr;
-
-    if (opctx) {
-        if (opctx->groups)
-            GF_FREE(opctx->groups);
-
-        GF_FREE(opctx);
-    }
-
-    return;
-}
 
 void *
 syncopctx_getctx()
 {
-    void *opctx = NULL;
-
-    opctx = pthread_getspecific(syncopctx_key);
-
-    return opctx;
-}
-
-int
-syncopctx_setctx(void *ctx)
-{
-    int ret = 0;
-
-    ret = pthread_setspecific(syncopctx_key, ctx);
-
-    return ret;
-}
-
-static int
-syncopctx_init(void)
-{
-    int ret;
-
-    ret = pthread_key_create(&syncopctx_key, syncopctx_key_destroy);
-
-    return ret;
+    return &thread_syncopctx;
 }
 
 /* SYNCTASK */
 
-int
-synctask_init()
-{
-    int ret = 0;
-
-    ret = pthread_key_create(&synctask_key, NULL);
-
-    return ret;
-}
-
 void *
 synctask_get()
 {
-    void *synctask = NULL;
-
-    synctask = pthread_getspecific(synctask_key);
-
-    return synctask;
+    return thread_synctask;
 }
 
-int
+void
 synctask_set(void *synctask)
 {
-    int ret = 0;
-
-    pthread_setspecific(synctask_key, synctask);
-
-    return ret;
+    thread_synctask = synctask;
 }
 
 // UUID_BUFFER
 
-void
-glusterfs_uuid_buf_destroy(void *ptr)
-{
-    FREE(ptr);
-}
-
-int
-glusterfs_uuid_buf_init()
-{
-    int ret = 0;
-
-    ret = pthread_key_create(&uuid_buf_key, glusterfs_uuid_buf_destroy);
-    return ret;
-}
-
 char *
 glusterfs_uuid_buf_get()
 {
-    char *buf;
-    int ret = 0;
-
-    buf = pthread_getspecific(uuid_buf_key);
-    if (!buf) {
-        buf = MALLOC(GF_UUID_BUF_SIZE);
-        ret = pthread_setspecific(uuid_buf_key, (void *)buf);
-        if (ret)
-            buf = global_uuid_buf;
-    }
-    return buf;
+    return thread_uuid_buf;
 }
 
 /* LKOWNER_BUFFER */
 
-void
-glusterfs_lkowner_buf_destroy(void *ptr)
-{
-    FREE(ptr);
-}
-
-int
-glusterfs_lkowner_buf_init()
-{
-    int ret = 0;
-
-    ret = pthread_key_create(&lkowner_buf_key, glusterfs_lkowner_buf_destroy);
-    return ret;
-}
-
 char *
 glusterfs_lkowner_buf_get()
 {
-    char *buf;
-    int ret = 0;
-
-    buf = pthread_getspecific(lkowner_buf_key);
-    if (!buf) {
-        buf = MALLOC(GF_LKOWNER_BUF_SIZE);
-        ret = pthread_setspecific(lkowner_buf_key, (void *)buf);
-        if (ret)
-            buf = global_lkowner_buf;
-    }
-    return buf;
+    return thread_lkowner_buf;
 }
 
 /* Leaseid buffer */
-void
-glusterfs_leaseid_buf_destroy(void *ptr)
-{
-    FREE(ptr);
-}
-
-int
-glusterfs_leaseid_buf_init()
-{
-    int ret = 0;
-
-    ret = pthread_key_create(&leaseid_buf_key, glusterfs_leaseid_buf_destroy);
-    return ret;
-}
 
 char *
 glusterfs_leaseid_buf_get()
 {
     char *buf = NULL;
-    int ret = 0;
 
-    buf = pthread_getspecific(leaseid_buf_key);
-    if (!buf) {
-        buf = CALLOC(1, GF_LEASE_ID_BUF_SIZE);
-        ret = pthread_setspecific(leaseid_buf_key, (void *)buf);
-        if (ret) {
-            FREE(buf);
-            buf = NULL;
-        }
+    buf = thread_leaseid;
+    if (buf == NULL) {
+        buf = thread_leaseid_buf;
+        thread_leaseid = buf;
     }
+
     return buf;
 }
 
 char *
 glusterfs_leaseid_exist()
 {
-    return pthread_getspecific(leaseid_buf_key);
+    return thread_leaseid;
+}
+
+static void
+glusterfs_cleanup(void *ptr)
+{
+    if (thread_syncopctx.groups != NULL) {
+        GF_FREE(thread_syncopctx.groups);
+    }
+
+    mem_pool_thread_destructor();
 }
 
 static void
@@ -486,52 +327,18 @@ gf_globals_init_once()
 {
     int ret = 0;
 
-    ret = glusterfs_this_init();
-    if (ret) {
-        gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_TRANSLATOR_INIT_FAILED,
-               "ERROR: glusterfs-translator init failed");
-        goto out;
-    }
+    glusterfs_this_init();
 
-    ret = glusterfs_uuid_buf_init();
-    if (ret) {
-        gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_UUID_BUF_INIT_FAILED,
-               "ERROR: glusterfs uuid buffer init failed");
-        goto out;
-    }
+    /* This is needed only to cleanup the potential allocation of
+     * thread_syncopctx.groups. */
+    ret = pthread_key_create(&free_key, glusterfs_cleanup);
+    if (ret != 0) {
+        gf_msg("", GF_LOG_ERROR, ret, LG_MSG_PTHREAD_KEY_CREATE_FAILED,
+               "failed to create the pthread key");
 
-    ret = glusterfs_lkowner_buf_init();
-    if (ret) {
-        gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_LKOWNER_BUF_INIT_FAILED,
-               "ERROR: glusterfs lkowner buffer init failed");
-        goto out;
-    }
-
-    ret = glusterfs_leaseid_buf_init();
-    if (ret) {
-        gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_LEASEID_BUF_INIT_FAILED,
-               "ERROR: glusterfs leaseid buffer init failed");
-        goto out;
-    }
-
-    ret = synctask_init();
-    if (ret) {
-        gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_SYNCTASK_INIT_FAILED,
-               "ERROR: glusterfs synctask init failed");
-        goto out;
-    }
-
-    ret = syncopctx_init();
-    if (ret) {
-        gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_SYNCOPCTX_INIT_FAILED,
-               "ERROR: glusterfs syncopctx init failed");
-        goto out;
-    }
-out:
-
-    if (ret) {
         gf_msg("", GF_LOG_CRITICAL, 0, LG_MSG_GLOBAL_INIT_FAILED,
                "Exiting as global initialization failed");
+
         exit(ret);
     }
 }

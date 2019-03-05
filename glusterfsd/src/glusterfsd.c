@@ -2770,8 +2770,6 @@ main(int argc, char *argv[])
     };
     cmd_args_t *cmd = NULL;
 
-    mem_pools_init_early();
-
     gf_check_and_set_mem_acct(argc, argv);
 
     ctx = glusterfs_ctx_new();
@@ -2886,7 +2884,7 @@ main(int argc, char *argv[])
      * the parent, but we want to do it as soon as possible after that in
      * case something else depends on pool allocations.
      */
-    mem_pools_init_late();
+    mem_pools_init();
 
     ret = gf_async_init(ctx);
     if (ret < 0) {
