@@ -237,9 +237,8 @@ gf_changelog_init_master()
 {
     int ret = 0;
 
-    mem_pools_init_early();
     ret = gf_changelog_init_context();
-    mem_pools_init_late();
+    mem_pools_init();
 
     return ret;
 }
