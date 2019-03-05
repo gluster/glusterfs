@@ -1330,8 +1330,9 @@ out:
     if (rsp.op_errstr)
         free(rsp.op_errstr);
 
-    if (rsp.dict.dict_val)
-        free(rsp.dict.dict_val);
+    if (rsp_dict)
+        dict_unref(rsp_dict);
+
     GF_FREE(peerid);
     /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
      * the caller function.
