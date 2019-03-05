@@ -130,7 +130,7 @@ xlator_t **
 __glusterfs_this_location(void);
 xlator_t *
 glusterfs_this_get(void);
-int
+void
 glusterfs_this_set(xlator_t *);
 
 extern xlator_t global_xlator;
@@ -139,13 +139,11 @@ extern struct volume_options global_xl_options[];
 /* syncopctx */
 void *
 syncopctx_getctx(void);
-int
-syncopctx_setctx(void *ctx);
 
 /* task */
 void *
 synctask_get(void);
-int
+void
 synctask_set(void *);
 
 /* uuid_buf */

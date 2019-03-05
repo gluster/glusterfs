@@ -26,28 +26,10 @@ syncopctx_setfsuid(void *uid)
 
     opctx = syncopctx_getctx();
 
-    /* alloc for this thread the first time */
-    if (!opctx) {
-        opctx = GF_CALLOC(1, sizeof(*opctx), gf_common_mt_syncopctx);
-        if (!opctx) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = syncopctx_setctx(opctx);
-        if (ret != 0) {
-            GF_FREE(opctx);
-            opctx = NULL;
-            goto out;
-        }
-    }
+    opctx->uid = *(uid_t *)uid;
+    opctx->valid |= SYNCOPCTX_UID;
 
 out:
-    if (opctx && uid) {
-        opctx->uid = *(uid_t *)uid;
-        opctx->valid |= SYNCOPCTX_UID;
-    }
-
     return ret;
 }
 
@@ -66,28 +48,10 @@ syncopctx_setfsgid(void *gid)
 
     opctx = syncopctx_getctx();
 
-    /* alloc for this thread the first time */
-    if (!opctx) {
-        opctx = GF_CALLOC(1, sizeof(*opctx), gf_common_mt_syncopctx);
-        if (!opctx) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = syncopctx_setctx(opctx);
-        if (ret != 0) {
-            GF_FREE(opctx);
-            opctx = NULL;
-            goto out;
-        }
-    }
+    opctx->gid = *(gid_t *)gid;
+    opctx->valid |= SYNCOPCTX_GID;
 
 out:
-    if (opctx && gid) {
-        opctx->gid = *(gid_t *)gid;
-        opctx->valid |= SYNCOPCTX_GID;
-    }
-
     return ret;
 }
 
@@ -107,43 +71,20 @@ syncopctx_setfsgroups(int count, const void *groups)
 
     opctx = syncopctx_getctx();
 
-    /* alloc for this thread the first time */
-    if (!opctx) {
-        opctx = GF_CALLOC(1, sizeof(*opctx), gf_common_mt_syncopctx);
-        if (!opctx) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = syncopctx_setctx(opctx);
-        if (ret != 0) {
-            GF_FREE(opctx);
-            opctx = NULL;
-            goto out;
-        }
-    }
-
     /* resize internal groups as required */
     if (count && opctx->grpsize < count) {
         if (opctx->groups) {
-            tmpgroups = GF_REALLOC(opctx->groups, (sizeof(gid_t) * count));
-            /* NOTE: Not really required to zero the reallocation,
-             * as ngrps controls the validity of data,
-             * making a note irrespective */
-            if (tmpgroups == NULL) {
-                opctx->grpsize = 0;
-                GF_FREE(opctx->groups);
-                opctx->groups = NULL;
-                ret = -1;
-                goto out;
-            }
-        } else {
-            tmpgroups = GF_CALLOC(count, sizeof(gid_t), gf_common_mt_syncopctx);
-            if (tmpgroups == NULL) {
-                opctx->grpsize = 0;
-                ret = -1;
-                goto out;
-            }
+            /* Group list will be updated later, so no need to keep current
+             * data and waste time copying it. It's better to free the current
+             * allocation and then allocate a fresh new memory block. */
+            GF_FREE(opctx->groups);
+            opctx->groups = NULL;
+            opctx->grpsize = 0;
+        }
+        tmpgroups = GF_MALLOC(count * sizeof(gid_t), gf_common_mt_syncopctx);
+        if (tmpgroups == NULL) {
+            ret = -1;
+            goto out;
         }
 
         opctx->groups = tmpgroups;
@@ -177,28 +118,10 @@ syncopctx_setfspid(void *pid)
 
     opctx = syncopctx_getctx();
 
-    /* alloc for this thread the first time */
-    if (!opctx) {
-        opctx = GF_CALLOC(1, sizeof(*opctx), gf_common_mt_syncopctx);
-        if (!opctx) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = syncopctx_setctx(opctx);
-        if (ret != 0) {
-            GF_FREE(opctx);
-            opctx = NULL;
-            goto out;
-        }
-    }
+    opctx->pid = *(pid_t *)pid;
+    opctx->valid |= SYNCOPCTX_PID;
 
 out:
-    if (opctx && pid) {
-        opctx->pid = *(pid_t *)pid;
-        opctx->valid |= SYNCOPCTX_PID;
-    }
-
     return ret;
 }
 
@@ -217,28 +140,10 @@ syncopctx_setfslkowner(gf_lkowner_t *lk_owner)
 
     opctx = syncopctx_getctx();
 
-    /* alloc for this thread the first time */
-    if (!opctx) {
-        opctx = GF_CALLOC(1, sizeof(*opctx), gf_common_mt_syncopctx);
-        if (!opctx) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = syncopctx_setctx(opctx);
-        if (ret != 0) {
-            GF_FREE(opctx);
-            opctx = NULL;
-            goto out;
-        }
-    }
+    opctx->lk_owner = *lk_owner;
+    opctx->valid |= SYNCOPCTX_LKOWNER;
 
 out:
-    if (opctx && lk_owner) {
-        opctx->lk_owner = *lk_owner;
-        opctx->valid |= SYNCOPCTX_LKOWNER;
-    }
-
     return ret;
 }
 

@@ -353,13 +353,14 @@ free:
     FREE(ptr);
 }
 
-static pthread_key_t pool_key;
 static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct list_head pool_threads;
 static pthread_mutex_t pool_free_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct list_head pool_free_threads;
 static struct mem_pool_shared pools[NPOOLS];
 static size_t pool_list_size;
+
+static __thread per_thread_pool_list_t *thread_pool_list = NULL;
 
 #if !defined(GF_DISABLE_MEMPOOL)
 #define N_COLD_LISTS 1024
@@ -373,7 +374,6 @@ typedef struct {
 
 enum init_state {
     GF_MEMPOOL_INIT_NONE = 0,
-    GF_MEMPOOL_INIT_PREINIT,
     GF_MEMPOOL_INIT_EARLY,
     GF_MEMPOOL_INIT_LATE,
     GF_MEMPOOL_INIT_DESTROY
@@ -486,9 +486,9 @@ pool_sweeper(void *arg)
 }
 
 void
-pool_destructor(void *arg)
+mem_pool_thread_destructor(void)
 {
-    per_thread_pool_list_t *pool_list = arg;
+    per_thread_pool_list_t *pool_list = thread_pool_list;
 
     /* The pool-sweeper thread will take it from here.
      *
@@ -499,7 +499,10 @@ pool_destructor(void *arg)
      * This change can modify what mem_put() does, but both possibilities are
      * fine until the sweeper thread kicks in. The real synchronization must be
      * between mem_put() and the sweeper thread. */
-    pool_list->poison = 1;
+    if (pool_list != NULL) {
+        pool_list->poison = 1;
+        thread_pool_list = NULL;
+    }
 }
 
 static __attribute__((constructor)) void
@@ -522,46 +525,14 @@ mem_pools_preinit(void)
     pool_list_size = sizeof(per_thread_pool_list_t) +
                      sizeof(per_thread_pool_t) * (NPOOLS - 1);
 
-    init_done = GF_MEMPOOL_INIT_PREINIT;
+    init_done = GF_MEMPOOL_INIT_EARLY;
 }
 
-/* Use mem_pools_init_early() function for basic initialization. There will be
- * no cleanup done by the pool_sweeper thread until mem_pools_init_late() has
- * been called. Calling mem_get() will be possible after this function has
- * setup the basic structures. */
+/* Call mem_pools_init() once threading has been configured completely. This
+ * prevent the pool_sweeper thread from getting killed once the main() thread
+ * exits during deamonizing. */
 void
-mem_pools_init_early(void)
-{
-    pthread_mutex_lock(&init_mutex);
-    /* Use a pthread_key destructor to clean up when a thread exits.
-     *
-     * We won't increase init_count here, that is only done when the
-     * pool_sweeper thread is started too.
-     */
-    if (init_done == GF_MEMPOOL_INIT_PREINIT ||
-        init_done == GF_MEMPOOL_INIT_DESTROY) {
-        /* key has not been created yet */
-        if (pthread_key_create(&pool_key, pool_destructor) != 0) {
-            gf_log("mem-pool", GF_LOG_CRITICAL,
-                   "failed to initialize mem-pool key");
-        }
-
-        init_done = GF_MEMPOOL_INIT_EARLY;
-    } else {
-        gf_log("mem-pool", GF_LOG_CRITICAL,
-               "incorrect order of mem-pool initialization "
-               "(init_done=%d)",
-               init_done);
-    }
-
-    pthread_mutex_unlock(&init_mutex);
-}
-
-/* Call mem_pools_init_late() once threading has been configured completely.
- * This prevent the pool_sweeper thread from getting killed once the main()
- * thread exits during deamonizing. */
-void
-mem_pools_init_late(void)
+mem_pools_init(void)
 {
     pthread_mutex_lock(&init_mutex);
     if ((init_count++) == 0) {
@@ -580,13 +551,12 @@ mem_pools_fini(void)
     switch (init_count) {
         case 0:
             /*
-             * If init_count is already zero (as e.g. if somebody called
-             * this before mem_pools_init_late) then the sweeper was
-             * probably never even started so we don't need to stop it.
-             * Even if there's some crazy circumstance where there is a
-             * sweeper but init_count is still zero, that just means we'll
-             * leave it running.  Not perfect, but far better than any
-             * known alternative.
+             * If init_count is already zero (as e.g. if somebody called this
+             * before mem_pools_init) then the sweeper was probably never even
+             * started so we don't need to stop it. Even if there's some crazy
+             * circumstance where there is a sweeper but init_count is still
+             * zero, that just means we'll leave it running. Not perfect, but
+             * far better than any known alternative.
              */
             break;
         case 1: {
@@ -594,20 +564,17 @@ mem_pools_fini(void)
             per_thread_pool_list_t *next_pl;
             unsigned int i;
 
-            /* if only mem_pools_init_early() was called, sweeper_tid will
-             * be invalid and the functions will error out. That is not
-             * critical. In all other cases, the sweeper_tid will be valid
-             * and the thread gets stopped. */
+            /* if mem_pools_init() was not called, sweeper_tid will be invalid
+             * and the functions will error out. That is not critical. In all
+             * other cases, the sweeper_tid will be valid and the thread gets
+             * stopped. */
             (void)pthread_cancel(sweeper_tid);
             (void)pthread_join(sweeper_tid, NULL);
 
-            /* Need to clean the pool_key to prevent further usage of the
-             * per_thread_pool_list_t structure that is stored for each
-             * thread.
-             * This also prevents calling pool_destructor() when a thread
-             * exits, so there is no chance on a use-after-free of the
-             * per_thread_pool_list_t structure. */
-            (void)pthread_key_delete(pool_key);
+            /* At this point all threads should have already terminated, so
+             * it should be safe to destroy all pending per_thread_pool_list_t
+             * structures that are stored for each thread. */
+            mem_pool_thread_destructor();
 
             /* free all objects from all pools */
             list_for_each_entry_safe(pool_list, next_pl, &pool_threads,
@@ -642,11 +609,7 @@ mem_pools_fini(void)
 
 #else
 void
-mem_pools_init_early(void)
-{
-}
-void
-mem_pools_init_late(void)
+mem_pools_init(void)
 {
 }
 void
@@ -734,7 +697,7 @@ mem_get_pool_list(void)
     per_thread_pool_list_t *pool_list;
     unsigned int i;
 
-    pool_list = pthread_getspecific(pool_key);
+    pool_list = thread_pool_list;
     if (pool_list) {
         return pool_list;
     }
@@ -767,7 +730,8 @@ mem_get_pool_list(void)
     list_add(&pool_list->thr_list, &pool_threads);
     (void)pthread_mutex_unlock(&pool_lock);
 
-    (void)pthread_setspecific(pool_key, pool_list);
+    thread_pool_list = pool_list;
+
     return pool_list;
 }
 
