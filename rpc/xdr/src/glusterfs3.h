@@ -728,6 +728,7 @@ dict_to_xdr(dict_t *this, gfx_dict *dict)
                 break;
 
             case GF_DATA_TYPE_PTR:
+            case GF_DATA_TYPE_STR_OLD:
                 index++;
                 /* Ideally, each type of data stored in dictionary
                    should have type. A pointer type shouldn't be
@@ -854,6 +855,7 @@ xdr_to_dict(gfx_dict *dict, dict_t **to)
                 ret = dict_set_iatt(this, key, iatt, false);
                 break;
             case GF_DATA_TYPE_PTR:
+            case GF_DATA_TYPE_STR_OLD:
                 value = GF_MALLOC(xpair->value.gfx_value_u.other.other_len + 1,
                                   gf_common_mt_char);
                 if (!value) {
