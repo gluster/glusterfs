@@ -60,6 +60,7 @@ union gfx_value switch (gf_dict_data_type_t type) {
         case GF_DATA_TYPE_GFUUID:
                 opaque uuid[16];
         case GF_DATA_TYPE_PTR:
+        case GF_DATA_TYPE_STR_OLD:
                 opaque other<>;
 };
 
