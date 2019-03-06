@@ -519,8 +519,8 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("worm", priv->readonly_or_worm_enabled, bool, out);
     GF_OPTION_INIT("worm-file-level", priv->worm_file, bool, out);
-    GF_OPTION_INIT("default-retention-period", priv->reten_period, uint64, out);
-    GF_OPTION_INIT("auto-commit-period", priv->com_period, uint64, out);
+    GF_OPTION_INIT("default-retention-period", priv->reten_period, int64, out);
+    GF_OPTION_INIT("auto-commit-period", priv->com_period, int64, out);
     GF_OPTION_INIT("retention-mode", reten_mode, str, out);
     set_reten_mode(priv, reten_mode);
     GF_OPTION_INIT("worm-files-deletable", priv->worm_files_deletable, bool,
@@ -545,10 +545,10 @@ reconfigure(xlator_t *this, dict_t *options)
                      out);
     GF_OPTION_RECONF("worm-file-level", priv->worm_file, options, bool, out);
     GF_OPTION_RECONF("default-retention-period", priv->reten_period, options,
-                     uint64, out);
+                     int64, out);
     GF_OPTION_RECONF("retention-mode", reten_mode, options, str, out);
     set_reten_mode(priv, reten_mode);
-    GF_OPTION_RECONF("auto-commit-period", priv->com_period, options, uint64,
+    GF_OPTION_RECONF("auto-commit-period", priv->com_period, options, int64,
                      out);
     GF_OPTION_RECONF("worm-files-deletable", priv->worm_files_deletable,
                      options, bool, out);
