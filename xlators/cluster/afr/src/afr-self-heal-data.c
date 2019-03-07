@@ -375,17 +375,18 @@ __afr_selfheal_truncate_sinks(call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
-    unsigned char arbiter_sink_status = 0;
     int i = 0;
 
     local = frame->local;
     priv = this->private;
 
-    if (priv->arbiter_count) {
-        arbiter_sink_status = healed_sinks[ARBITER_BRICK_INDEX];
-        healed_sinks[ARBITER_BRICK_INDEX] = 0;
-    }
-
+    /* This will send truncate on the arbiter brick as well if it is marked as
+     * sink. If changelog is enabled on the volume it captures truncate as a
+     * data transactions on the arbiter brick. This will help geo-rep to
+     * properly sync the data from master to slave if arbiter is the ACTIVE
+     * brick during syncing and which had got some entries healed for data as
+     * part of self heal.
+     */
     AFR_ONLIST(healed_sinks, frame, afr_sh_generic_fop_cbk, ftruncate, fd, size,
                NULL);
 
@@ -396,8 +397,6 @@ __afr_selfheal_truncate_sinks(call_frame_t *frame, xlator_t *this, fd_t *fd,
             */
             healed_sinks[i] = 0;
 
-    if (arbiter_sink_status)
-        healed_sinks[ARBITER_BRICK_INDEX] = arbiter_sink_status;
     return 0;
 }
 
@@ -693,19 +692,18 @@ __afr_selfheal_data(call_frame_t *frame, xlator_t *this, fd_t *fd,
             goto unlock;
         }
 
-        if (priv->arbiter_count &&
-            AFR_COUNT(healed_sinks, priv->child_count) == 1 &&
-            healed_sinks[ARBITER_BRICK_INDEX]) {
-            is_arbiter_the_only_sink = _gf_true;
-            goto restore_time;
-        }
-
         ret = __afr_selfheal_truncate_sinks(
             frame, this, fd, healed_sinks,
             locked_replies[source].poststat.ia_size);
         if (ret < 0)
             goto unlock;
 
+        if (priv->arbiter_count &&
+            AFR_COUNT(healed_sinks, priv->child_count) == 1 &&
+            healed_sinks[ARBITER_BRICK_INDEX]) {
+            is_arbiter_the_only_sink = _gf_true;
+            goto restore_time;
+        }
         ret = 0;
     }
 unlock:
