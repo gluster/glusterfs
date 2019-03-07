@@ -114,7 +114,7 @@ afr_ta_read_txn(void *opaque)
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
     int read_subvol = -1;
-    int up_child = AFR_CHILD_UNKNOWN;
+    int query_child = AFR_CHILD_UNKNOWN;
     int possible_bad_child = AFR_CHILD_UNKNOWN;
     int ret = 0;
     int op_errno = ENOMEM;
@@ -134,18 +134,18 @@ afr_ta_read_txn(void *opaque)
     this = frame->this;
     local = frame->local;
     priv = this->private;
+    query_child = local->read_txn_query_child;
 
-    if (local->child_up[AFR_CHILD_ZERO]) {
-        up_child = AFR_CHILD_ZERO;
+    if (query_child == AFR_CHILD_ZERO) {
         possible_bad_child = AFR_CHILD_ONE;
-    } else if (local->child_up[AFR_CHILD_ONE]) {
-        up_child = AFR_CHILD_ONE;
+    } else if (query_child == AFR_CHILD_ONE) {
         possible_bad_child = AFR_CHILD_ZERO;
+    } else {
+        /*read_txn_query_child is AFR_CHILD_UNKNOWN*/
+        goto out;
     }
 
-    GF_ASSERT(up_child != AFR_CHILD_UNKNOWN);
-
-    /* Query the up_child to see if it blames the down one. */
+    /* Ask the query_child to see if it blames the possibly bad one. */
     xdata_req = dict_new();
     if (!xdata_req)
         goto out;
@@ -159,29 +159,32 @@ afr_ta_read_txn(void *opaque)
         goto out;
 
     if (local->fd) {
-        ret = syncop_fxattrop(priv->children[up_child], local->fd,
+        ret = syncop_fxattrop(priv->children[query_child], local->fd,
                               GF_XATTROP_ADD_ARRAY, xdata_req, NULL, &xdata_rsp,
                               NULL);
     } else {
-        ret = syncop_xattrop(priv->children[up_child], &local->loc,
+        ret = syncop_xattrop(priv->children[query_child], &local->loc,
                              GF_XATTROP_ADD_ARRAY, xdata_req, NULL, &xdata_rsp,
                              NULL);
     }
     if (ret || !xdata_rsp) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed xattrop for gfid %s on %s",
-               uuid_utoa(local->inode->gfid), priv->children[up_child]->name);
+               uuid_utoa(local->inode->gfid),
+               priv->children[query_child]->name);
         op_errno = -ret;
         goto out;
     }
 
     if (afr_ta_dict_contains_pending_xattr(xdata_rsp, priv,
                                            possible_bad_child)) {
-        read_subvol = up_child;
+        read_subvol = query_child;
         goto out;
     }
     dict_unref(xdata_rsp);
-    /* Query thin-arbiter to see if it blames any data brick. */
+    xdata_rsp = NULL;
+
+    /* It doesn't. So query thin-arbiter to see if it blames any data brick. */
     ret = afr_fill_ta_loc(this, &loc);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
@@ -211,8 +214,8 @@ afr_ta_read_txn(void *opaque)
         goto unlock;
     }
 
-    if (!afr_ta_dict_contains_pending_xattr(xdata_rsp, priv, up_child)) {
-        read_subvol = up_child;
+    if (!afr_ta_dict_contains_pending_xattr(xdata_rsp, priv, query_child)) {
+        read_subvol = query_child;
     } else {
         gf_msg(this->name, GF_LOG_ERROR, EIO, AFR_MSG_THIN_ARB,
                "Failing read for gfid %s since good brick %s is down",
@@ -450,6 +453,11 @@ afr_read_txn(call_frame_t *frame, xlator_t *this, inode_t *inode,
 
     if (priv->thin_arbiter_count &&
         AFR_COUNT(local->child_up, priv->child_count) != priv->child_count) {
+        if (local->child_up[0]) {
+            local->read_txn_query_child = AFR_CHILD_ZERO;
+        } else if (local->child_up[1]) {
+            local->read_txn_query_child = AFR_CHILD_ONE;
+        }
         afr_ta_read_txn_synctask(frame, this);
         return 0;
     }
