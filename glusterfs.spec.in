@@ -982,22 +982,14 @@ exit 0
 ## All %%postun should be placed here and keep them sorted
 ##
 %postun
-/sbin/ldconfig
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %systemd_postun_with_restart rsyslog
 %endif
 %endif
 
-%postun api
-/sbin/ldconfig
-
-%postun libs
-/sbin/ldconfig
-
 %if ( 0%{!?_without_server:1} )
 %postun server
-/sbin/ldconfig
 %if (0%{?_with_firewalld:1})
     %firewalld_reload
 %endif
@@ -1389,6 +1381,11 @@ exit 0
 %endif
 
 %changelog
+* Wed Mar 6 2019 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- remove unneeded ldconfig in scriptlets
+-  reported by Igor Gnatenko in Fedora
+-   https://src.fedoraproject.org/rpms/glusterfs/pull-request/5
+
 * Mon Mar 4 2019 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - s390x has RDMA, since around Fedora 27 and in RHEL7 since June 2016.
 
