@@ -878,6 +878,7 @@ typedef struct _afr_local {
     afr_inode_ctx_t *inode_ctx;
 
     /*For thin-arbiter transactions.*/
+    unsigned char read_txn_query_child;
     unsigned char ta_child_up;
     struct list_head ta_waitq;
     struct list_head ta_onwireq;
