@@ -322,7 +322,8 @@ __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
 
         memset(&tmp_stat, 0, sizeof(tmp_stat));
 
-        if (dirent->inode) {
+        if (dirent->inode && (!((strcmp(dirent->d_name, ".") == 0) ||
+                                (strcmp(dirent->d_name, "..") == 0)))) {
             rda_inode_ctx_get_iatt(dirent->inode, this, &tmp_stat);
             dirent->d_stat = tmp_stat;
         }
