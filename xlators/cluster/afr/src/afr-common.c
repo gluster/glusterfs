@@ -1269,17 +1269,22 @@ afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
     success_replies = alloca0(priv->child_count);
     afr_fill_success_replies(local, priv, success_replies);
 
+    if (priv->thin_arbiter_count && local->is_read_txn &&
+        AFR_COUNT(success_replies, priv->child_count) != priv->child_count) {
+        /* We need to query the good bricks and/or thin-arbiter.*/
+        if (success_replies[0]) {
+            local->read_txn_query_child = AFR_CHILD_ZERO;
+        } else if (success_replies[1]) {
+            local->read_txn_query_child = AFR_CHILD_ONE;
+        }
+        error = EINVAL;
+        goto refresh_done;
+    }
+
     if (!afr_has_quorum(success_replies, this, frame)) {
         error = afr_final_errno(frame->local, this->private);
         if (!error)
             error = afr_quorum_errno(priv);
-        goto refresh_done;
-    }
-
-    if (priv->thin_arbiter_count && local->is_read_txn &&
-        AFR_COUNT(success_replies, priv->child_count) != priv->child_count) {
-        /* We need to query the good bricks and/or thin-arbiter.*/
-        error = EINVAL;
         goto refresh_done;
     }
 
@@ -5696,6 +5701,7 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
     if (priv->thin_arbiter_count) {
         local->ta_child_up = priv->ta_child_up;
         local->ta_failed_subvol = AFR_CHILD_UNKNOWN;
+        local->read_txn_query_child = AFR_CHILD_UNKNOWN;
     }
     local->is_new_entry = _gf_false;
 
