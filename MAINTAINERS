@@ -408,7 +408,6 @@ F: tests/
 Utilities
 M: Aravinda VK <avishwan@redhat.com>
 P: Niels de Vos <ndevos@redhat.com>
-P: Nigel Babu <nigelb@redhat.com>
 P: Raghavendra Talur <rtalur@redhat.com>
 P: Sachidanda Urs <surs@redhat.com>
 S: Maintained
@@ -435,7 +434,6 @@ S: Maintained
 Debian packages on download.gluster.org
 M: packaging@gluster.org
 M: Kaleb Keithley <kkeithle@redhat.com>
-P: Nigel Babu <nigelb@redhat.com>
 S: Maintained
 W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Debian/Debian.README
 T: https://github.com/gluster/glusterfs-debian.git
@@ -443,7 +441,6 @@ T: https://github.com/gluster/glusterfs-debian.git
 OpenSuSE
 M: packaging@gluster.org
 M: Kaleb Keithley <kkeithle@redhat.com>
-P: Nigel Babu <nigelb@redhat.com>
 S: Maintained
 W: https://build.opensuse.org/repositories/home:glusterfs
 W: https://download.gluster.org/pub/gluster/glusterfs/LATEST/SuSE/SuSE.README
@@ -460,7 +457,6 @@ T: https://github.com/CentOS-Storage-SIG/glusterfs.git
 Ubuntu PPA
 M: packaging@gluster.org
 M: Kaleb Keithley <kkeithle@redhat.com>
-P: Nigel Babu <nigelb@redhat.com>
 S: Maintained
 W: https://launchpad.net/~gluster
 W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Ubuntu/Ubuntu.README
@@ -530,7 +526,6 @@ Testing - Glusto-Tests
 M: Jonathan Holloway <jholloway@redhat.com>
 M: Vijay Bhaskar Reddy Avuthu <vavuthu@redhat.com>
 M: Akarsha Rai <akrai@redhat.com>
-P: Nigel Babu <nigelb@redhat.com>
 S: Maintained
 T: https://github.com/gluster/glusto-tests.git
 
@@ -545,13 +540,11 @@ Infrastructure
 --------------
 
 Platform
-M: Nigel Babu <nigelb@redhat.com>
 M: Michael Scherer <misc@redhat.com>
 P: Shyamsundar Ranganathan <srangana@redhat.com>
 P: Amar Tumballi <amarts@redhat.com>
 
 Continuous Integration
-M: Nigel Babu <nigelb@redhat.com>
 M: Michael Scherer <misc@redhat.com>
 M: Deepshikha Khandelwal <dkhandel@redhat.com>
 P: Kaushal M <kaushal@redhat.com>
