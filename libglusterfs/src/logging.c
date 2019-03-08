@@ -83,47 +83,31 @@ struct _log_msg {
 void
 gf_log_logrotate(int signum)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx) {
-        ctx->log.logrotate = 1;
-        ctx->log.cmd_history_logrotate = 1;
+    if (THIS->ctx) {
+        THIS->ctx->log.logrotate = 1;
+        THIS->ctx->log.cmd_history_logrotate = 1;
     }
 }
 
 void
 gf_log_enable_syslog(void)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        ctx->log.gf_log_syslog = 1;
+    if (THIS->ctx)
+        THIS->ctx->log.gf_log_syslog = 1;
 }
 
 void
 gf_log_disable_syslog(void)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        ctx->log.gf_log_syslog = 0;
+    if (THIS->ctx)
+        THIS->ctx->log.gf_log_syslog = 0;
 }
 
 gf_loglevel_t
 gf_log_get_loglevel(void)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        return ctx->log.loglevel;
+    if (THIS->ctx)
+        return THIS->ctx->log.loglevel;
     else
         /* return global defaults (see gf_log_globals_init) */
         return GF_LOG_INFO;
@@ -139,12 +123,8 @@ gf_log_set_loglevel(glusterfs_ctx_t *ctx, gf_loglevel_t level)
 int
 gf_log_get_localtime(void)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        return ctx->log.localtime;
+    if (THIS->ctx)
+        return THIS->ctx->log.localtime;
     else
         /* return global defaults (see gf_log_globals_init) */
         return 0;
@@ -153,22 +133,15 @@ gf_log_get_localtime(void)
 void
 gf_log_set_localtime(int on_off)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        ctx->log.localtime = on_off;
+    if (THIS->ctx)
+        THIS->ctx->log.localtime = on_off;
 }
 
 void
 gf_log_flush(void)
 {
-    xlator_t *this = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-
-    this = THIS;
-    ctx = this->ctx;
+    xlator_t *this = THIS;
+    glusterfs_ctx_t *ctx = this->ctx;
 
     if (ctx && ctx->log.logger == gf_logger_glusterlog) {
         pthread_mutex_lock(&ctx->log.logfile_mutex);
@@ -205,54 +178,19 @@ gf_log_set_xl_loglevel(void *this, gf_loglevel_t level)
  *
  * care needs to be taken to configure and start daemons based on the versions
  * that supports these features */
-gf_log_format_t
-gf_log_get_logformat(void)
-{
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        return ctx->log.logformat;
-    else
-        /* return global defaluts (see gf_log_globals_init) */
-        return gf_logformat_withmsgid;
-}
 
 void
 gf_log_set_logformat(gf_log_format_t format)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        ctx->log.logformat = format;
-}
-
-gf_log_logger_t
-gf_log_get_logger(void)
-{
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        return ctx->log.logger;
-    else
-        /* return global defaluts (see gf_log_globals_init) */
-        return gf_logger_glusterlog;
+    if (THIS->ctx)
+        THIS->ctx->log.logformat = format;
 }
 
 void
 gf_log_set_logger(gf_log_logger_t logger)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        ctx->log.logger = logger;
+    if (THIS->ctx)
+        THIS->ctx->log.logger = logger;
 }
 
 gf_loglevel_t
@@ -296,21 +234,11 @@ gf_log_set_log_flush_timeout(uint32_t timeout)
     THIS->ctx->log.timeout = timeout;
 }
 
-log_buf_t *
-log_buf_new()
-{
-    log_buf_t *buf = NULL;
-
-    buf = mem_get0(THIS->ctx->logbuf_pool);
-
-    return buf;
-}
-
 /* If log_buf_init() fails (indicated by a return value of -1),
  * call log_buf_destroy() to clean up memory allocated in heap and to return
  * the log_buf_t object back to its memory pool.
  */
-int
+static int
 log_buf_init(log_buf_t *buf, const char *domain, const char *file,
              const char *function, int32_t line, gf_loglevel_t level,
              int errnum, uint64_t msgid, char **appmsgstr, int graph_id)
@@ -349,7 +277,7 @@ out:
     return ret;
 }
 
-int
+static int
 log_buf_destroy(log_buf_t *buf)
 {
     if (!buf)
@@ -507,7 +435,7 @@ out:
  *
  * @return: void
  */
-void
+static void
 gf_openlog(const char *ident, int option, int facility)
 {
     int _option = option;
@@ -630,7 +558,7 @@ _json_escape(const char *str, char *buf, size_t len)
  *
  * @return: void
  */
-void
+static void
 gf_syslog(int facility_priority, char *format, ...)
 {
     char *msg = NULL;
@@ -680,11 +608,9 @@ gf_log_globals_init(void *data, gf_loglevel_t level)
 int
 gf_log_init(void *data, const char *file, const char *ident)
 {
-    glusterfs_ctx_t *ctx = NULL;
+    glusterfs_ctx_t *ctx = data;
     int fd = -1;
     struct stat buf;
-
-    ctx = data;
 
     if (ctx == NULL) {
         fprintf(stderr, "ERROR: ctx is NULL\n");
@@ -808,12 +734,8 @@ gf_log_init(void *data, const char *file, const char *ident)
 void
 set_sys_log_level(gf_loglevel_t level)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = THIS->ctx;
-
-    if (ctx)
-        ctx->log.sys_log_level = level;
+    if (THIS->ctx)
+        THIS->ctx->log.sys_log_level = level;
 }
 
 /* Check if we should be logging
@@ -823,21 +745,17 @@ set_sys_log_level(gf_loglevel_t level)
 static gf_boolean_t
 skip_logging(xlator_t *this, gf_loglevel_t level)
 {
-    gf_boolean_t ret = _gf_false;
-    gf_loglevel_t existing_level = GF_LOG_NONE;
+    gf_loglevel_t existing_level = this->loglevel ? this->loglevel
+                                                  : this->ctx->log.loglevel;
+    if (level > existing_level) {
+        return _gf_true;
+    }
 
     if (level == GF_LOG_NONE) {
-        ret = _gf_true;
-        goto out;
+        return _gf_true;
     }
 
-    existing_level = this->loglevel ? this->loglevel : this->ctx->log.loglevel;
-    if (level > existing_level) {
-        ret = _gf_true;
-        goto out;
-    }
-out:
-    return ret;
+    return _gf_false;
 }
 
 int
@@ -845,10 +763,10 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
                   int line, gf_loglevel_t level, const char *fmt, ...)
 {
     const char *basename = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *logline = NULL;
     char *msg = NULL;
-    char timestr[256] = {
+    char timestr[GF_LOG_TIMESTR_SIZE] = {
         0,
     };
     char *callstr = NULL;
@@ -857,10 +775,7 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     };
     int ret = 0;
     va_list ap;
-    glusterfs_ctx_t *ctx = NULL;
-
-    this = THIS;
-    ctx = this->ctx;
+    glusterfs_ctx_t *ctx = this->ctx;
 
     if (!ctx)
         goto out;
@@ -868,17 +783,17 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     if (skip_logging(this, level))
         goto out;
 
-    static char *level_strings[] = {"",  /* NONE */
-                                    "M", /* EMERGENCY */
-                                    "A", /* ALERT */
-                                    "C", /* CRITICAL */
-                                    "E", /* ERROR */
-                                    "W", /* WARNING */
-                                    "N", /* NOTICE */
-                                    "I", /* INFO */
-                                    "D", /* DEBUG */
-                                    "T", /* TRACE */
-                                    ""};
+    static const char *level_strings[] = {"",  /* NONE */
+                                          "M", /* EMERGENCY */
+                                          "A", /* ALERT */
+                                          "C", /* CRITICAL */
+                                          "E", /* ERROR */
+                                          "W", /* WARNING */
+                                          "N", /* NOTICE */
+                                          "I", /* INFO */
+                                          "D", /* DEBUG */
+                                          "T", /* TRACE */
+                                          ""};
 
     if (!domain || !file || !function || !fmt) {
         fprintf(stderr, "logging: %s:%s():%d: invalid argument\n", __FILE__,
@@ -924,12 +839,11 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
         goto out;
 
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-    snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
-             ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    ret = gf_asprintf(&logline, "[%s] %s [%s:%d:%s] %s %d-%s: %s", timestr,
-                      level_strings[level], basename, line, function, callstr,
-                      ((this->graph) ? this->graph->id : 0), domain, msg);
+    ret = gf_asprintf(
+        &logline, "[%s.%" GF_PRI_SUSECONDS "] %s [%s:%d:%s] %s %d-%s: %s\n",
+        timestr, tv.tv_usec, level_strings[level], basename, line, function,
+        callstr, ((this->graph) ? this->graph->id : 0), domain, msg);
     if (-1 == ret) {
         goto out;
     }
@@ -937,10 +851,10 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         if (ctx->log.logfile) {
-            fprintf(ctx->log.logfile, "%s\n", logline);
+            fputs(logline, ctx->log.logfile);
             fflush(ctx->log.logfile);
         } else if (ctx->log.loglevel >= level) {
-            fprintf(stderr, "%s\n", logline);
+            fputs(logline, stderr);
             fflush(stderr);
         }
 
@@ -949,7 +863,7 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
            and trace logs */
         if (ctx->log.gf_log_syslog && level &&
             (level <= ctx->log.sys_log_level))
-            syslog((level - 1), "%s\n", logline);
+            syslog((level - 1), "%s", logline);
 #endif
     }
 
@@ -964,7 +878,7 @@ out:
     return ret;
 }
 
-int
+static int
 _gf_msg_plain_internal(gf_loglevel_t level, const char *msg)
 {
     xlator_t *this = NULL;
@@ -1121,10 +1035,12 @@ _gf_msg_backtrace_nomem(gf_loglevel_t level, int stacksize)
         goto out;
 
     bt_size = backtrace(array, ((stacksize <= 200) ? stacksize : 200));
+    if (!bt_size)
+        goto out;
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         fd = ctx->log.logfile ? fileno(ctx->log.logfile) : fileno(stderr);
-        if (bt_size && (fd != -1)) {
+        if (fd != -1) {
             /* print to the file fd, to prevent any
                allocations from backtrace_symbols
              */
@@ -1218,24 +1134,20 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
     if (-1 == ret)
         goto out;
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-    ret = snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
-                   ".%" GF_PRI_SUSECONDS, tv.tv_usec);
-    if (-1 == ret) {
-        goto out;
-    }
 
     /* TODO: Currently we print in the enhanced format, with a message ID
      * of 0. Need to enhance this to support format as configured */
-    ret = snprintf(msg, sizeof msg,
-                   "[%s] %s [MSGID: %" PRIu64
-                   "]"
-                   " [%s:%d:%s] %s: no memory "
-                   "available for size (%" GF_PRI_SIZET
-                   ")"
-                   " [call stack follows]\n",
-                   timestr, gf_level_strings[level], (uint64_t)0, basename,
-                   line, function, domain, size);
-    if (-1 == ret) {
+    wlen = snprintf(msg, sizeof msg,
+                    "[%s.%" GF_PRI_SUSECONDS "] %s [MSGID: %" PRIu64
+                    "]"
+                    " [%s:%d:%s] %s: no memory "
+                    "available for size (%" GF_PRI_SIZET
+                    ")"
+                    " [call stack follows]\n",
+                    timestr, tv.tv_usec, gf_level_strings[level], (uint64_t)0,
+                    basename, line, function, domain, size);
+    if (-1 == wlen) {
+        ret = -1;
         goto out;
     }
 
@@ -1264,8 +1176,6 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
                     pthread_mutex_unlock(&ctx->log.logfile_mutex);
                     goto out;
                 }
-
-                wlen = strlen(msg);
 
                 /* write directly to the fd to prevent out of order
                  * message and stack */
@@ -1385,8 +1295,6 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     };
     char *header = NULL;
     char *footer = NULL;
-    char *msg = NULL;
-    size_t hlen = 0, flen = 0, mlen = 0;
     int ret = 0;
 
     /* rotate if required */
@@ -1394,79 +1302,70 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
 
     /* format the time stamp */
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-    snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
-             ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    /* generate header and footer */
+    /* generate footer */
+    if (errnum) {
+        ret = gf_asprintf(&footer, " [%s]\n", strerror(errnum));
+    } else {
+        ret = gf_asprintf(&footer, " \n");
+    }
+    if (-1 == ret) {
+        goto err;
+    }
+
+    /* generate message, inc. the header */
     if (fmt == gf_logformat_traditional) {
         if (!callstr) {
             ret = gf_asprintf(&header,
-                              "[%s] %s [%s:%d:%s]"
-                              " %d-%s: ",
-                              timestr, gf_level_strings[level], file, line,
-                              function, graph_id, domain);
+                              "[%s.%" GF_PRI_SUSECONDS
+                              "] %s [%s:%d:%s]"
+                              " %d-%s: %s",
+                              timestr, tv.tv_usec, gf_level_strings[level],
+                              file, line, function, graph_id, domain,
+                              *appmsgstr);
         } else {
             ret = gf_asprintf(&header,
-                              "[%s] %s [%s:%d:%s] %s"
-                              " %d-%s: ",
-                              timestr, gf_level_strings[level], file, line,
-                              function, callstr, graph_id, domain);
-        }
-        if (-1 == ret) {
-            goto err;
+                              "[%s.%" GF_PRI_SUSECONDS
+                              "] %s [%s:%d:%s] %s"
+                              " %d-%s: %s",
+                              timestr, tv.tv_usec, gf_level_strings[level],
+                              file, line, function, callstr, graph_id, domain,
+                              *appmsgstr);
         }
     } else { /* gf_logformat_withmsgid */
         /* CEE log format unsupported in logger_glusterlog, so just
          * print enhanced log format */
         if (!callstr) {
             ret = gf_asprintf(&header,
-                              "[%s] %s [MSGID: %" PRIu64
+                              "[%s.%" GF_PRI_SUSECONDS "] %s [MSGID: %" PRIu64
                               "]"
-                              " [%s:%d:%s] %d-%s: ",
-                              timestr, gf_level_strings[level], msgid, file,
-                              line, function, graph_id, domain);
+                              " [%s:%d:%s] %d-%s: %s",
+                              timestr, tv.tv_usec, gf_level_strings[level],
+                              msgid, file, line, function, graph_id, domain,
+                              *appmsgstr);
         } else {
             ret = gf_asprintf(&header,
-                              "[%s] %s [MSGID: %" PRIu64
+                              "[%s.%" GF_PRI_SUSECONDS "] %s [MSGID: %" PRIu64
                               "]"
-                              " [%s:%d:%s] %s %d-%s: ",
-                              timestr, gf_level_strings[level], msgid, file,
-                              line, function, callstr, graph_id, domain);
-        }
-        if (-1 == ret) {
-            goto err;
+                              " [%s:%d:%s] %s %d-%s: %s",
+                              timestr, tv.tv_usec, gf_level_strings[level],
+                              msgid, file, line, function, callstr, graph_id,
+                              domain, *appmsgstr);
         }
     }
-
-    if (errnum) {
-        ret = gf_asprintf(&footer, " [%s]", strerror(errnum));
-        if (-1 == ret) {
-            goto err;
-        }
-    }
-
-    /* generate the full message to log */
-    hlen = strlen(header);
-    flen = footer ? strlen(footer) : 0;
-    mlen = strlen(*appmsgstr);
-    msg = GF_MALLOC(hlen + flen + mlen + 1, gf_common_mt_char);
-    if (!msg) {
-        ret = -1;
+    if (-1 == ret) {
         goto err;
     }
 
-    strcpy(msg, header);
-    strcpy(msg + hlen, *appmsgstr);
-    if (footer)
-        strcpy(msg + hlen + mlen, footer);
+    /* send the full message to log */
 
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         if (ctx->log.logfile) {
-            fprintf(ctx->log.logfile, "%s\n", msg);
+            fprintf(ctx->log.logfile, "%s%s", header, footer);
             fflush(ctx->log.logfile);
         } else if (ctx->log.loglevel >= level) {
-            fprintf(stderr, "%s\n", msg);
+            fprintf(stderr, "%s%s", header, footer);
             fflush(stderr);
         }
 
@@ -1474,8 +1373,9 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
         /* We want only serious logs in 'syslog', not our debug
          * and trace logs */
         if (ctx->log.gf_log_syslog && level &&
-            (level <= ctx->log.sys_log_level))
-            syslog((level - 1), "%s\n", msg);
+            (level <= ctx->log.sys_log_level)) {
+            syslog((level - 1), "%s%s", header, footer);
+        }
 #endif
     }
 
@@ -1486,7 +1386,6 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     ret = 0;
 
 err:
-    GF_FREE(msg);
     GF_FREE(header);
     GF_FREE(footer);
 
@@ -1502,10 +1401,10 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
                           int graph_id)
 {
     int priority;
-    char timestr_latest[256] = {
+    char timestr_latest[GF_LOG_TIMESTR_SIZE] = {
         0,
     };
-    char timestr_oldest[256] = {
+    char timestr_oldest[GF_LOG_TIMESTR_SIZE] = {
         0,
     };
 
@@ -1513,30 +1412,28 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
 
     gf_time_fmt(timestr_latest, sizeof timestr_latest, latest.tv_sec,
                 gf_timefmt_FT);
-    snprintf(timestr_latest + strlen(timestr_latest),
-             sizeof(timestr_latest) - strlen(timestr_latest),
-             ".%" GF_PRI_SUSECONDS, latest.tv_usec);
-
     gf_time_fmt(timestr_oldest, sizeof timestr_oldest, oldest.tv_sec,
                 gf_timefmt_FT);
-    snprintf(timestr_oldest + strlen(timestr_oldest),
-             sizeof(timestr_oldest) - strlen(timestr_oldest),
-             ".%" GF_PRI_SUSECONDS, oldest.tv_usec);
 
     if (errnum) {
-        syslog(priority,
-               "The message \"[MSGID: %" PRIu64
-               "] [%s:%d:%s] "
-               "%d-%s: %s [%s] \" repeated %d times between %s and %s",
-               msgid, file, line, function, graph_id, domain, *appmsgstr,
-               strerror(errnum), refcount, timestr_oldest, timestr_latest);
+        syslog(
+            priority,
+            "The message \"[MSGID: %" PRIu64
+            "] [%s:%d:%s] "
+            "%d-%s: %s [%s] \" repeated %d times between %s.%" GF_PRI_SUSECONDS
+            " and %s.%" GF_PRI_SUSECONDS,
+            msgid, file, line, function, graph_id, domain, *appmsgstr,
+            strerror(errnum), refcount, timestr_oldest, oldest.tv_usec,
+            timestr_latest, latest.tv_usec);
     } else {
         syslog(priority,
                "The message \"[MSGID: %" PRIu64
                "] [%s:%d:%s] "
-               "%d-%s: %s \" repeated %d times between %s and %s",
+               "%d-%s: %s \" repeated %d times between %s.%" GF_PRI_SUSECONDS
+               " and %s.%" GF_PRI_SUSECONDS,
                msgid, file, line, function, graph_id, domain, *appmsgstr,
-               refcount, timestr_oldest, timestr_latest);
+               refcount, timestr_oldest, oldest.tv_usec, timestr_latest,
+               latest.tv_usec);
     }
     return 0;
 }
@@ -1550,13 +1447,10 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
                               struct timeval latest, int graph_id)
 {
     int ret = 0;
-    size_t hlen = 0;
-    size_t flen = 0;
-    size_t mlen = 0;
-    char timestr_latest[256] = {
+    char timestr_latest[GF_LOG_TIMESTR_SIZE] = {
         0,
     };
-    char timestr_oldest[256] = {
+    char timestr_oldest[GF_LOG_TIMESTR_SIZE] = {
         0,
     };
     char errstr[256] = {
@@ -1564,65 +1458,49 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
     };
     char *header = NULL;
     char *footer = NULL;
-    char *msg = NULL;
 
     if (!ctx)
         goto err;
 
     gf_log_rotate(ctx);
 
-    gf_time_fmt(timestr_latest, sizeof timestr_latest, latest.tv_sec,
-                gf_timefmt_FT);
-    snprintf(timestr_latest + strlen(timestr_latest),
-             sizeof(timestr_latest) - strlen(timestr_latest),
-             ".%" GF_PRI_SUSECONDS, latest.tv_usec);
-
-    gf_time_fmt(timestr_oldest, sizeof timestr_oldest, oldest.tv_sec,
-                gf_timefmt_FT);
-    snprintf(timestr_oldest + strlen(timestr_oldest),
-             sizeof(timestr_oldest) - strlen(timestr_oldest),
-             ".%" GF_PRI_SUSECONDS, oldest.tv_usec);
-
     ret = gf_asprintf(&header,
                       "The message \"%s [MSGID: %" PRIu64
                       "]"
-                      " [%s:%d:%s] %d-%s: ",
+                      " [%s:%d:%s] %d-%s: %s",
                       gf_level_strings[level], msgid, file, line, function,
-                      graph_id, domain);
-    if (-1 == ret)
+                      graph_id, domain, *appmsgstr);
+    if (-1 == ret) {
         goto err;
+    }
+
+    gf_time_fmt(timestr_latest, sizeof timestr_latest, latest.tv_sec,
+                gf_timefmt_FT);
+
+    gf_time_fmt(timestr_oldest, sizeof timestr_oldest, oldest.tv_sec,
+                gf_timefmt_FT);
 
     if (errnum)
         snprintf(errstr, sizeof(errstr) - 1, " [%s]", strerror(errnum));
 
     ret = gf_asprintf(&footer,
                       "%s\" repeated %d times between"
-                      " [%s] and [%s]",
-                      errstr, refcount, timestr_oldest, timestr_latest);
-    if (-1 == ret)
-        goto err;
-
-    /* generate the full message to log */
-    hlen = strlen(header);
-    flen = strlen(footer);
-    mlen = strlen(*appmsgstr);
-    msg = GF_MALLOC(hlen + flen + mlen + 1, gf_common_mt_char);
-    if (!msg) {
+                      " [%s.%" GF_PRI_SUSECONDS "] and [%s.%" GF_PRI_SUSECONDS
+                      "]",
+                      errstr, refcount, timestr_oldest, oldest.tv_usec,
+                      timestr_latest, latest.tv_usec);
+    if (-1 == ret) {
         ret = -1;
         goto err;
     }
 
-    strcpy(msg, header);
-    strcpy(msg + hlen, *appmsgstr);
-    strcpy(msg + hlen + mlen, footer);
-
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         if (ctx->log.logfile) {
-            fprintf(ctx->log.logfile, "%s\n", msg);
+            fprintf(ctx->log.logfile, "%s%s\n", header, footer);
             fflush(ctx->log.logfile);
         } else if (ctx->log.loglevel >= level) {
-            fprintf(stderr, "%s\n", msg);
+            fprintf(stderr, "%s%s\n", header, footer);
             fflush(stderr);
         }
 
@@ -1631,7 +1509,7 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
          * and trace logs */
         if (ctx->log.gf_log_syslog && level &&
             (level <= ctx->log.sys_log_level))
-            syslog((level - 1), "%s\n", msg);
+            syslog((level - 1), "%s%s\n", header, footer);
 #endif
     }
 
@@ -1642,7 +1520,6 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
     ret = 0;
 
 err:
-    GF_FREE(msg);
     GF_FREE(header);
     GF_FREE(footer);
 
@@ -1658,9 +1535,7 @@ gf_log_print_with_repetitions(glusterfs_ctx_t *ctx, const char *domain,
                               struct timeval latest, int graph_id)
 {
     int ret = -1;
-    gf_log_logger_t logger = 0;
-
-    logger = ctx->log.logger;
+    gf_log_logger_t logger = ctx->log.logger;
 
     switch (logger) {
         case gf_logger_syslog:
@@ -2011,7 +1886,7 @@ _gf_msg_internal(const char *domain, const char *file, const char *function,
         /* create a new list element, initialise and enqueue it.
          * Additionally, this being the first occurrence of the msg,
          * log it directly to disk after unlock. */
-        buf_new = log_buf_new();
+        buf_new = mem_get0(THIS->ctx->logbuf_pool);
         if (!buf_new) {
             ret = -1;
             goto unlock;
@@ -2065,10 +1940,7 @@ _gf_msg(const char *domain, const char *file, const char *function,
     va_list ap;
     xlator_t *this = NULL;
     glusterfs_ctx_t *ctx = NULL;
-    char callstr[GF_LOG_BACKTRACE_SIZE] = {
-        0,
-    };
-    int passcallstr = 0;
+    char *callstr = NULL;
     int log_inited = 0;
 
     /* in args check */
@@ -2093,21 +1965,6 @@ _gf_msg(const char *domain, const char *file, const char *function,
     if (skip_logging(this, level))
         goto out;
 
-    if (trace) {
-        ret = _gf_msg_backtrace(GF_LOG_BACKTRACE_DEPTH, callstr,
-                                GF_LOG_BACKTRACE_SIZE);
-        if (ret >= 0)
-            passcallstr = 1;
-    }
-
-    pthread_mutex_lock(&ctx->log.logfile_mutex);
-    {
-        if (ctx->log.logfile) {
-            log_inited = 1;
-        }
-    }
-    pthread_mutex_unlock(&ctx->log.logfile_mutex);
-
     /* form the message */
     va_start(ap, fmt);
     ret = vasprintf(&msgstr, fmt, ap);
@@ -2115,15 +1972,35 @@ _gf_msg(const char *domain, const char *file, const char *function,
 
     /* log */
     if (ret != -1) {
+        if (trace) {
+            callstr = GF_MALLOC(GF_LOG_BACKTRACE_SIZE, gf_common_mt_char);
+            if (callstr == NULL)
+                return -1;
+
+            ret = _gf_msg_backtrace(GF_LOG_BACKTRACE_DEPTH, callstr,
+                                    GF_LOG_BACKTRACE_SIZE);
+            if (ret < 0) {
+                GF_FREE(callstr);
+                callstr = NULL;
+            }
+        }
+
+        pthread_mutex_lock(&ctx->log.logfile_mutex);
+        {
+            if (ctx->log.logfile) {
+                log_inited = 1;
+            }
+        }
+        pthread_mutex_unlock(&ctx->log.logfile_mutex);
+
         if (!log_inited && ctx->log.gf_log_syslog) {
             ret = gf_log_syslog(
                 ctx, domain, file, function, line, level, errnum, msgid,
-                &msgstr, (passcallstr ? callstr : NULL),
+                &msgstr, (callstr ? callstr : NULL),
                 (this->graph) ? this->graph->id : 0, gf_logformat_traditional);
         } else {
             ret = _gf_msg_internal(domain, file, function, line, level, errnum,
-                                   msgid, &msgstr,
-                                   (passcallstr ? callstr : NULL),
+                                   msgid, &msgstr, (callstr ? callstr : NULL),
                                    (this->graph) ? this->graph->id : 0);
         }
     } else {
@@ -2131,7 +2008,8 @@ _gf_msg(const char *domain, const char *file, const char *function,
          * are undefined, be safe */
         msgstr = NULL;
     }
-
+    if (callstr)
+        GF_FREE(callstr);
     FREE(msgstr);
 
 out:
@@ -2157,11 +2035,8 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
     char *msg = NULL;
     int ret = 0;
     int fd = -1;
-    xlator_t *this = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-
-    this = THIS;
-    ctx = this->ctx;
+    xlator_t *this = THIS;
+    glusterfs_ctx_t *ctx = this->ctx;
 
     if (!ctx)
         goto out;
@@ -2169,17 +2044,17 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
     if (skip_logging(this, level))
         goto out;
 
-    static char *level_strings[] = {"",  /* NONE */
-                                    "M", /* EMERGENCY */
-                                    "A", /* ALERT */
-                                    "C", /* CRITICAL */
-                                    "E", /* ERROR */
-                                    "W", /* WARNING */
-                                    "N", /* NOTICE */
-                                    "I", /* INFO */
-                                    "D", /* DEBUG */
-                                    "T", /* TRACE */
-                                    ""};
+    static const char *level_strings[] = {"",  /* NONE */
+                                          "M", /* EMERGENCY */
+                                          "A", /* ALERT */
+                                          "C", /* CRITICAL */
+                                          "E", /* ERROR */
+                                          "W", /* WARNING */
+                                          "N", /* NOTICE */
+                                          "I", /* INFO */
+                                          "D", /* DEBUG */
+                                          "T", /* TRACE */
+                                          ""};
 
     if (!domain || !file || !function || !fmt) {
         fprintf(stderr, "logging: %s:%s():%d: invalid argument\n", __FILE__,
@@ -2249,12 +2124,11 @@ log:
         goto out;
 
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-    snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
-             ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    ret = gf_asprintf(&logline, "[%s] %s [%s:%d:%s] %d-%s: %s", timestr,
-                      level_strings[level], basename, line, function,
-                      ((this->graph) ? this->graph->id : 0), domain, msg);
+    ret = gf_asprintf(
+        &logline, "[%s.%" GF_PRI_SUSECONDS "] %s [%s:%d:%s] %d-%s: %s\n",
+        timestr, tv.tv_usec, level_strings[level], basename, line, function,
+        ((this->graph) ? this->graph->id : 0), domain, msg);
     if (-1 == ret) {
         goto err;
     }
@@ -2262,10 +2136,10 @@ log:
     pthread_mutex_lock(&ctx->log.logfile_mutex);
     {
         if (ctx->log.logfile) {
-            fprintf(ctx->log.logfile, "%s\n", logline);
+            fputs(logline, ctx->log.logfile);
             fflush(ctx->log.logfile);
         } else if (ctx->log.loglevel >= level) {
-            fprintf(stderr, "%s\n", logline);
+            fputs(logline, stderr);
             fflush(stderr);
         }
 
@@ -2274,7 +2148,7 @@ log:
            and trace logs */
         if (ctx->log.gf_log_syslog && level &&
             (level <= ctx->log.sys_log_level))
-            syslog((level - 1), "%s\n", logline);
+            syslog((level - 1), "%s", logline);
 #endif
     }
 
@@ -2410,10 +2284,9 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
     }
 
     gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-    snprintf(timestr + strlen(timestr), GF_LOG_TIMESTR_SIZE - strlen(timestr),
-             ".%" GF_PRI_SUSECONDS, tv.tv_usec);
 
-    ret = gf_asprintf(&logline, "[%s] %s : %s", timestr, domain, msg);
+    ret = gf_asprintf(&logline, "[%s.%" GF_PRI_SUSECONDS "] %s : %s\n", timestr,
+                      tv.tv_usec, domain, msg);
     if (ret == -1) {
         goto out;
     }
@@ -2450,7 +2323,7 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
         }
     }
 
-    fprintf(ctx->log.cmdlogfile, "%s\n", logline);
+    fputs(logline, ctx->log.cmdlogfile);
     fflush(ctx->log.cmdlogfile);
 
 out:

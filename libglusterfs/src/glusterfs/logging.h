@@ -98,11 +98,9 @@ typedef enum {
 
 typedef struct gf_log_handle_ {
     pthread_mutex_t logfile_mutex;
-    uint8_t logrotate;
-    uint8_t cmd_history_logrotate;
     gf_loglevel_t loglevel;
-    int gf_log_syslog;
     gf_loglevel_t sys_log_level;
+    int gf_log_syslog;
     char *filename;
     FILE *logfile;
     FILE *gf_log_logfile;
@@ -113,12 +111,14 @@ typedef struct gf_log_handle_ {
     char *ident;
     int log_control_file_found;
     struct list_head lru_queue;
-    uint32_t lru_size;
-    uint32_t lru_cur_size;
-    uint32_t timeout;
     pthread_mutex_t log_buf_lock;
     struct _gf_timer *log_flush_timer;
     int localtime;
+    uint32_t lru_size;
+    uint32_t lru_cur_size;
+    uint32_t timeout;
+    uint8_t logrotate;
+    uint8_t cmd_history_logrotate;
 } gf_log_handle_t;
 
 typedef struct log_buf_ {
