@@ -2015,7 +2015,7 @@ get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
     do {
         ret = sys_read(fd, &buf, GF_CHECKSUM_BUF_SIZE);
         if (ret > 0) {
-            if (op_version < GD_OP_VERSION_6_0)
+            if (op_version < GD_OP_VERSION_5_4)
                 compute_checksum(buf, GF_CHECKSUM_BUF_SIZE, checksum);
             else
                 compute_checksum(buf, ret, checksum);
