@@ -32,7 +32,7 @@ static void
 afr_post_op_handle_success(call_frame_t *frame, xlator_t *this);
 
 static void
-afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this);
+afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno);
 
 void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
@@ -748,7 +748,7 @@ afr_ta_process_onwireq(afr_local_t *local, xlator_t *this)
             if (entry->ta_failed_subvol == bad_child) {
                 afr_post_op_handle_success(entry->transaction.frame, this);
             } else {
-                afr_post_op_handle_failure(entry->transaction.frame, this);
+                afr_post_op_handle_failure(entry->transaction.frame, this, EIO);
             }
         }
     }
@@ -1303,7 +1303,7 @@ out:
         /*Mark pending xattrs on the up data brick.*/
         afr_post_op_handle_success(local->transaction.frame, this);
     } else {
-        afr_post_op_handle_failure(local->transaction.frame, this);
+        afr_post_op_handle_failure(local->transaction.frame, this, -ret);
     }
     return ret;
 }
@@ -1396,9 +1396,9 @@ afr_post_op_handle_success(call_frame_t *frame, xlator_t *this)
 }
 
 static void
-afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this)
+afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno)
 {
-    afr_changelog_post_op_fail(frame, this, EIO);
+    afr_changelog_post_op_fail(frame, this, op_errno);
 
     return;
 }
@@ -1428,7 +1428,7 @@ afr_ta_decide_post_op_state(call_frame_t *frame, xlator_t *this)
             afr_post_op_handle_success(frame, this);
             break;
         case TA_INFO_IN_MEMORY_FAILED:
-            afr_post_op_handle_failure(frame, this);
+            afr_post_op_handle_failure(frame, this, EIO);
             break;
         default:
             break;
