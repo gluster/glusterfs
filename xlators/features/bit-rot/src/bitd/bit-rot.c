@@ -973,6 +973,7 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     int32_t ret = -1;
     inode_t *linked_inode = NULL;
     gf_boolean_t need_signing = _gf_false;
+    gf_boolean_t need_reopen = _gf_true;
 
     GF_VALIDATE_OR_GOTO("bit-rot", subvol, out);
     GF_VALIDATE_OR_GOTO("bit-rot", data, out);
@@ -1046,6 +1047,18 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                    uuid_utoa(linked_inode->gfid));
     } else {
         need_signing = br_check_object_need_sign(this, xattr, child);
+
+        /*
+         * If we are here means, bitrot daemon has started. Is it just
+         * a simple restart of the daemon or is it started because the
+         * feature is enabled is something hard to determine. Hence,
+         * if need_signing is false (because bit-rot version and signature
+         * are present), then still go ahead and sign it.
+         */
+        if (!need_signing) {
+            need_signing = _gf_true;
+            need_reopen = _gf_true;
+        }
     }
 
     if (!need_signing)
@@ -1054,7 +1067,7 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_TRIGGER_SIGN,
            "Triggering signing for %s [GFID: %s | Brick: %s]", loc.path,
            uuid_utoa(linked_inode->gfid), child->brick_path);
-    br_trigger_sign(this, child, linked_inode, &loc, _gf_true);
+    br_trigger_sign(this, child, linked_inode, &loc, need_reopen);
 
     ret = 0;
 
