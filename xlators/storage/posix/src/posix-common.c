@@ -128,7 +128,6 @@ posix_priv(xlator_t *this)
     gf_proc_dump_write("max_read", "%" PRId64, GF_ATOMIC_GET(priv->read_value));
     gf_proc_dump_write("max_write", "%" PRId64,
                        GF_ATOMIC_GET(priv->write_value));
-    gf_proc_dump_write("nr_files", "%" PRId64, GF_ATOMIC_GET(priv->nr_files));
 
     return 0;
 }
@@ -776,7 +775,6 @@ posix_init(xlator_t *this)
     }
 
     LOCK_INIT(&_private->lock);
-    GF_ATOMIC_INIT(_private->nr_files, 0);
     GF_ATOMIC_INIT(_private->read_value, 0);
     GF_ATOMIC_INIT(_private->write_value, 0);
 
