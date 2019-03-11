@@ -2210,8 +2210,6 @@ fill_stat:
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_FD_PATH_SETTING_FAILED,
                "failed to set the fd context path=%s fd=%p", real_path, fd);
 
-    GF_ATOMIC_INC(priv->nr_files);
-
     op_ret = 0;
 
 out:

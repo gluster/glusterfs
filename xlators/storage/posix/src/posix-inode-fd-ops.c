@@ -1490,7 +1490,6 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                "failed to set the fd context gfid-handle=%s path=%s fd=%p",
                real_path, loc->path, fd);
 
-    GF_ATOMIC_INC(priv->nr_files);
     op_ret = 0;
 
 out:
@@ -2369,7 +2368,6 @@ posix_release(xlator_t *this, fd_t *fd)
     if (!priv)
         goto out;
 
-    GF_ATOMIC_DEC(priv->nr_files);
 out:
     return 0;
 }
