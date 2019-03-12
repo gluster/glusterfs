@@ -1874,7 +1874,7 @@ gf_unlockfd (int fd)
 }
 
 static void
-compute_checksum (char *buf, const ssize_t size, uint32_t *checksum)
+compute_checksum (char *buf, size_t size, uint32_t *checksum)
 {
         int  ret = -1;
         char *checksum_buf = NULL;
@@ -1915,7 +1915,8 @@ get_checksum_for_file (int fd, uint32_t *checksum)
         do {
                 ret = sys_read (fd, &buf, GF_CHECKSUM_BUF_SIZE);
                 if (ret > 0)
-                        compute_checksum (buf, ret, checksum);
+                        compute_checksum (buf, GF_CHECKSUM_BUF_SIZE,
+                                          checksum);
         } while (ret > 0);
 
         /* set it back */
