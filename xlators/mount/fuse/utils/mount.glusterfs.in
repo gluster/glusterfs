@@ -365,7 +365,10 @@ start_glusterfs ()
     cmd_line=$(echo "$cmd_line $mount_point");
     $cmd_line;
     if [ $? -ne 0 ]; then
-        warn "Mount failed. Please check the log file for more details."
+        # If this is true, then glusterfs process returned error without
+        # getting daemonized. We have made sure the logs are posted to
+        # 'stderr', so no need to point them to logfile.
+        warn "Mounting glusterfs on $mount_point failed."
         exit 1;
     fi
 
@@ -373,7 +376,9 @@ start_glusterfs ()
     inode=$( ${getinode} $mount_point 2>/dev/null);
     # this is required if the stat returns error
     if [ $? -ne 0 ]; then
-        warn "Mount failed. Please check the log file for more details."
+        # At this time, glusterfs got daemonized, and then later exited.
+        # These failures are only logged in log file.
+        warn "Mount failed. Check the log file ${log_file} for more details."
         umount $mount_point > /dev/null 2>&1;
         exit 1;
     fi
