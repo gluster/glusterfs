@@ -2498,6 +2498,11 @@ inode_table_dump_to_dict(inode_table_t *itable, char *prefix, dict_t *dict)
     if (ret)
         return;
 
+    snprintf(key, sizeof(key), "%s.itable.lru_limit", prefix);
+    ret = dict_set_uint32(dict, key, itable->lru_limit);
+    if (ret)
+        goto out;
+
     snprintf(key, sizeof(key), "%s.itable.active_size", prefix);
     ret = dict_set_uint32(dict, key, itable->active_size);
     if (ret)
@@ -2513,6 +2518,13 @@ inode_table_dump_to_dict(inode_table_t *itable, char *prefix, dict_t *dict)
     if (ret)
         goto out;
 
+#ifdef DEBUG
+    /* Dumping inode details in dictionary and sending it to CLI is not
+       required as when a developer (or support team) asks for this command
+       output, they just want to get top level detail of inode table.
+       If one wants to debug, let them take statedump and debug, this
+       wouldn't be available in CLI during production setup.
+    */
     list_for_each_entry(inode, &itable->active, list)
     {
         snprintf(key, sizeof(key), "%s.itable.active%d", prefix, count++);
@@ -2532,6 +2544,7 @@ inode_table_dump_to_dict(inode_table_t *itable, char *prefix, dict_t *dict)
         snprintf(key, sizeof(key), "%s.itable.purge%d", prefix, count++);
         inode_dump_to_dict(inode, key, dict);
     }
+#endif
 
 out:
     pthread_mutex_unlock(&itable->lock);

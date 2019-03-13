@@ -7606,15 +7606,24 @@ cli_print_volume_status_itables(dict_t *dict, char *prefix)
     uint32_t active_size = 0;
     uint32_t lru_size = 0;
     uint32_t purge_size = 0;
+    uint32_t lru_limit = 0;
     int i = 0;
 
     GF_ASSERT(dict);
     GF_ASSERT(prefix);
 
+    snprintf(key, sizeof(key), "%s.lru_limit", prefix);
+    ret = dict_get_uint32(dict, key, &lru_limit);
+    if (ret)
+        goto out;
+    cli_out("LRU limit     : %u", lru_limit);
+
     snprintf(key, sizeof(key), "%s.active_size", prefix);
     ret = dict_get_uint32(dict, key, &active_size);
     if (ret)
         goto out;
+
+#ifdef DEBUG
     if (active_size != 0) {
         cli_out("Active inodes:");
         cli_out("%-40s %14s %14s %9s", "GFID", "Lookups", "Ref", "IA type");
@@ -7625,11 +7634,17 @@ cli_print_volume_status_itables(dict_t *dict, char *prefix)
         cli_print_volume_status_inode_entry(dict, key);
     }
     cli_out(" ");
+#else
+    cli_out("Active Inodes : %u", active_size);
+
+#endif
 
     snprintf(key, sizeof(key), "%s.lru_size", prefix);
     ret = dict_get_uint32(dict, key, &lru_size);
     if (ret)
         goto out;
+
+#ifdef DEBUG
     if (lru_size != 0) {
         cli_out("LRU inodes:");
         cli_out("%-40s %14s %14s %9s", "GFID", "Lookups", "Ref", "IA type");
@@ -7640,11 +7655,15 @@ cli_print_volume_status_itables(dict_t *dict, char *prefix)
         cli_print_volume_status_inode_entry(dict, key);
     }
     cli_out(" ");
+#else
+    cli_out("LRU Inodes    : %u", lru_size);
+#endif
 
     snprintf(key, sizeof(key), "%s.purge_size", prefix);
     ret = dict_get_uint32(dict, key, &purge_size);
     if (ret)
         goto out;
+#ifdef DEBUG
     if (purge_size != 0) {
         cli_out("Purged inodes:");
         cli_out("%-40s %14s %14s %9s", "GFID", "Lookups", "Ref", "IA type");
@@ -7654,6 +7673,9 @@ cli_print_volume_status_itables(dict_t *dict, char *prefix)
         snprintf(key, sizeof(key), "%s.purge%d", prefix, i);
         cli_print_volume_status_inode_entry(dict, key);
     }
+#else
+    cli_out("Purge Inodes  : %u", purge_size);
+#endif
 
 out:
     return;
