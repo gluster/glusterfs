@@ -2004,10 +2004,9 @@ shard_truncate_last_shard(call_frame_t *frame, xlator_t *this, inode_t *inode)
      */
     if (!inode) {
         gf_msg_debug(this->name, 0,
-                     "Last shard to be truncated absent"
-                     " in backend: %s. Directly proceeding to update "
-                     "file size",
-                     uuid_utoa(inode->gfid));
+                     "Last shard to be truncated absent in backend: %d of "
+                     "gfid %s. Directly proceeding to update file size",
+                     local->first_block, uuid_utoa(local->loc.inode->gfid));
         shard_update_file_size(frame, this, NULL, &local->loc,
                                shard_post_update_size_truncate_handler);
         return 0;
