@@ -35,7 +35,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
 #Trigger heal and verify number of entries in backend
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
-EXPECT_WITHIN PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
