@@ -225,24 +225,40 @@ __afr_selfheal_data_read_write(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return ret;
 }
 
+static gf_boolean_t
+afr_source_sinks_locked(xlator_t *this, unsigned char *locked_on, int source,
+                        unsigned char *healed_sinks)
+{
+    afr_private_t *priv = this->private;
+    int i = 0;
+
+    if (!locked_on[source])
+        return _gf_false;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (healed_sinks[i] && locked_on[i])
+            return _gf_true;
+    }
+
+    return _gf_false;
+}
+
 static int
 afr_selfheal_data_block(call_frame_t *frame, xlator_t *this, fd_t *fd,
                         int source, unsigned char *healed_sinks, off_t offset,
                         size_t size, int type, struct afr_reply *replies)
 {
     int ret = -1;
-    int sink_count = 0;
     afr_private_t *priv = NULL;
     unsigned char *data_lock = NULL;
 
     priv = this->private;
-    sink_count = AFR_COUNT(healed_sinks, priv->child_count);
     data_lock = alloca0(priv->child_count);
 
     ret = afr_selfheal_inodelk(frame, this, fd->inode, this->name, offset, size,
                                data_lock);
     {
-        if (ret < sink_count) {
+        if (!afr_source_sinks_locked(this, data_lock, source, healed_sinks)) {
             ret = -ENOTCONN;
             goto unlock;
         }
