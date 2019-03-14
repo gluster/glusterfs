@@ -84,6 +84,10 @@ def upgrade():
     # fail when it does stat to check the existence.
     init_gsyncd_template_conf()
 
+    inet6 = False
+    if "--inet6" in sys.argv:
+        inet6 = True
+
     if "--monitor" in sys.argv:
         # python gsyncd.py --path=/bricks/b1
         # --monitor -c gsyncd.conf
@@ -147,8 +151,11 @@ def upgrade():
 
             user, hname = remote_addr.split("@")
 
+            if not inet6:
+                hname = gethostbyname(hname)
+
             print(("ssh://%s@%s:gluster://127.0.0.1:%s" % (
-                user, gethostbyname(hname), vol)))
+                user, hname, vol)))
 
         sys.exit(0)
     elif "--normalize-url" in sys.argv:
@@ -346,3 +353,7 @@ def upgrade():
 
         if pargs.reset_sync_time:
             sys.argv.append("--reset-sync-time")
+
+    if inet6:
+        # Add `--inet6` as first argument
+        sys.argv = [sys.argv[0], "--inet6"] + sys.argv[1:]
