@@ -1461,6 +1461,21 @@ invalid_fs:
 
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_ipc, 3.12.0);
 
+int
+priv_glfs_setfspid(struct glfs *fs, pid_t pid)
+{
+    cmd_args_t *cmd_args = NULL;
+    int ret = 0;
+
+    cmd_args = &fs->ctx->cmd_args;
+    cmd_args->client_pid = pid;
+    cmd_args->client_pid_set = 1;
+    ret = syncopctx_setfspid(&pid);
+
+    return ret;
+}
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_setfspid, 6.1);
+
 void
 pub_glfs_free(void *ptr)
 {
