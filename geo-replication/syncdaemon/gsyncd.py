@@ -47,6 +47,7 @@ def main():
         sys.exit(0)
 
     parser = ArgumentParser()
+    parser.add_argument("--inet6", action="store_true")
     sp = parser.add_subparsers(dest="subcmd")
 
     # Monitor Status File update

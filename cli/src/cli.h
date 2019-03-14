@@ -136,6 +136,7 @@ struct cli_state {
     gf_loglevel_t log_level;
 
     char *glusterd_sock;
+    char *address_family;
 };
 
 struct cli_local {
