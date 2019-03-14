@@ -14,6 +14,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
+#include <openssl/x509_vfy.h>
 #ifdef HAVE_OPENSSL_DH_H
 #include <openssl/dh.h>
 #endif
@@ -245,6 +246,7 @@ typedef struct {
     char *ssl_own_cert;
     char *ssl_private_key;
     char *ssl_ca_list;
+    char *crl_path;
     int pipe[2];
     struct gf_sock_incoming incoming;
     /* -1 = not connected. 0 = in progress. 1 = connected */

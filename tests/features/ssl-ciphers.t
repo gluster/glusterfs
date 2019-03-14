@@ -175,8 +175,6 @@ BRICK_PORT=`brick_port $V0`
 EXPECT "Y" openssl_connect -cipher EECDH -connect $H0:$BRICK_PORT
 
 # test revocation
-# no need to restart the volume since the options are used
-# by the client here.
 TEST $CLI volume set $V0 ssl.crl-path $TMPDIR
 EXPECT $TMPDIR volume_option $V0 ssl.crl-path
 $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
@@ -189,14 +187,25 @@ TEST openssl ca -batch -config $SSL_CFG -revoke $SSL_CERT 2>&1
 TEST openssl ca -config $SSL_CFG -gencrl -out $SSL_CRL 2>&1
 
 # Failed once revoked
+# Although client fails to mount without restarting the server after crl-path
+# is set when no actual crl file is found on the client, it would also fail
+# when server is restarted for the same reason. Since the socket initialization
+# code is the same for client and server, the crl verification flags need to
+# be turned off for the client to avoid SSL searching for CRLs in the
+# ssl.crl-path. If no CRL files are found in the ssl.crl-path, SSL fails the
+# connect() attempt on the client.
+TEST $CLI volume stop $V0
+TEST $CLI volume start $V0
 $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 EXPECT "N" wait_mount $M0
 TEST ! test -f $TEST_FILE
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # Succeed with CRL disabled
+TEST $CLI volume stop $V0
 TEST $CLI volume set $V0 ssl.crl-path NULL
 EXPECT NULL volume_option $V0 ssl.crl-path
+TEST $CLI volume start $V0
 $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 EXPECT "Y" wait_mount $M0
 TEST test -f $TEST_FILE

@@ -308,8 +308,65 @@ out:
 #define ssl_write_one(t, b, l)                                                 \
     ssl_do((t), (b), (l), (SSL_trinary_func *)SSL_write)
 
+/* set crl verify flags only for server */
+/* see man X509_VERIFY_PARAM_SET_FLAGS(3)
+ * X509_V_FLAG_CRL_CHECK enables CRL checking for the certificate chain
+ * leaf certificate. An error occurs if a suitable CRL cannot be found.
+ * Since we're never going to revoke a gluster node cert, we better disable
+ * CRL check for server certs to avoid getting error and failed connection
+ * attempts.
+ */
+static void
+ssl_clear_crl_verify_flags(SSL_CTX *ssl_ctx)
+{
+#ifdef X509_V_FLAG_CRL_CHECK_ALL
+#ifdef HAVE_SSL_CTX_GET0_PARAM
+    X509_VERIFY_PARAM *vpm;
+
+    vpm = SSL_CTX_get0_param(ssl_ctx);
+    if (vpm) {
+        X509_VERIFY_PARAM_clear_flags(
+            vpm, (X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL));
+    }
+#else
+    /* CRL verify flag need not be cleared for rhel6 kind of clients */
+#endif
+#else
+    gf_log(this->name, GF_LOG_ERROR, "OpenSSL version does not support CRL");
+#endif
+    return;
+}
+
+/* set crl verify flags only for server */
+static void
+ssl_set_crl_verify_flags(SSL_CTX *ssl_ctx)
+{
+#ifdef X509_V_FLAG_CRL_CHECK_ALL
+#ifdef HAVE_SSL_CTX_GET0_PARAM
+    X509_VERIFY_PARAM *vpm;
+
+    vpm = SSL_CTX_get0_param(ssl_ctx);
+    if (vpm) {
+        unsigned long flags;
+
+        flags = X509_VERIFY_PARAM_get_flags(vpm);
+        flags |= (X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+        X509_VERIFY_PARAM_set_flags(vpm, flags);
+    }
+#else
+    X509_STORE *x509store;
+
+    x509store = SSL_CTX_get_cert_store(ssl_ctx);
+    X509_STORE_set_flags(x509store,
+                         X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+#endif
+#else
+    gf_log(this->name, GF_LOG_ERROR, "OpenSSL version does not support CRL");
+#endif
+}
+
 int
-ssl_setup_connection_prefix(rpc_transport_t *this)
+ssl_setup_connection_prefix(rpc_transport_t *this, gf_boolean_t server)
 {
     int ret = -1;
     socket_private_t *priv = NULL;
@@ -331,6 +388,9 @@ ssl_setup_connection_prefix(rpc_transport_t *this)
     priv->ssl_connected = _gf_false;
     priv->ssl_accepted = _gf_false;
     priv->ssl_context_created = _gf_false;
+
+    if (!server && priv->crl_path)
+        ssl_clear_crl_verify_flags(priv->ssl_ctx);
 
     priv->ssl_ssl = SSL_new(priv->ssl_ctx);
     if (!priv->ssl_ssl) {
@@ -2681,7 +2741,7 @@ ssl_handle_server_connection_attempt(rpc_transport_t *this)
     fd = priv->sock;
 
     if (!priv->ssl_context_created) {
-        ret = ssl_setup_connection_prefix(this);
+        ret = ssl_setup_connection_prefix(this, _gf_true);
         if (ret < 0) {
             gf_log(this->name, GF_LOG_TRACE,
                    "> ssl_setup_connection_prefix() failed!");
@@ -2735,7 +2795,7 @@ ssl_handle_client_connection_attempt(rpc_transport_t *this)
         ret = -1;
     } else {
         if (!priv->ssl_context_created) {
-            ret = ssl_setup_connection_prefix(this);
+            ret = ssl_setup_connection_prefix(this, _gf_false);
             if (ret < 0) {
                 gf_log(this->name, GF_LOG_TRACE,
                        "> ssl_setup_connection_prefix() "
@@ -3102,7 +3162,30 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         gf_log(this->name, GF_LOG_TRACE, "XXX server:%s, client:%s",
                new_trans->myinfo.identifier, new_trans->peerinfo.identifier);
 
+        /* Make options available to local socket_init() to create new
+         * SSL_CTX per transport. A separate SSL_CTX per transport is
+         * required to avoid setting crl checking options for client
+         * connections. The verification options eventually get copied
+         * to the SSL object. Unfortunately, there's no way to identify
+         * whether socket_init() is being called after a client-side
+         * connect() or a server-side accept(). Although, we could pass
+         * a flag from the transport init() to the socket_init() and
+         * from this place, this doesn't identify the case where the
+         * server-side transport loading is done for the first time.
+         * Also, SSL doesn't apply for UNIX sockets.
+         */
+        if (new_sockaddr.ss_family != AF_UNIX)
+            new_trans->options = dict_ref(this->options);
+        new_trans->ctx = this->ctx;
+
         ret = socket_init(new_trans);
+
+        /* reset options to NULL to avoid double free */
+        if (new_sockaddr.ss_family != AF_UNIX) {
+            dict_unref(new_trans->options);
+            new_trans->options = NULL;
+        }
+
         if (ret != 0) {
             gf_log(this->name, GF_LOG_WARNING,
                    "initialization of new_trans "
@@ -4167,7 +4250,6 @@ ssl_setup_connection_params(rpc_transport_t *this)
     char *cipher_list = DEFAULT_CIPHER_LIST;
     char *dh_param = DEFAULT_DH_PARAM;
     char *ec_curve = DEFAULT_EC_CURVE;
-    char *crl_path = NULL;
 
     priv = this->private;
 
@@ -4209,6 +4291,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
     }
     priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
+    optstr = NULL;
     if (dict_get_str(this->options, SSL_CRL_PATH_OPT, &optstr) == 0) {
         if (!priv->ssl_enabled) {
             gf_log(this->name, GF_LOG_WARNING,
@@ -4216,9 +4299,9 @@ ssl_setup_connection_params(rpc_transport_t *this)
                    SSL_ENABLED_OPT);
         }
         if (strcasecmp(optstr, "NULL") == 0)
-            crl_path = NULL;
+            priv->crl_path = NULL;
         else
-            crl_path = optstr;
+            priv->crl_path = gf_strdup(optstr);
     }
 
     gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO : GF_LOG_DEBUG,
@@ -4360,25 +4443,15 @@ ssl_setup_connection_params(rpc_transport_t *this)
         }
 
         if (!SSL_CTX_load_verify_locations(priv->ssl_ctx, priv->ssl_ca_list,
-                                           crl_path)) {
+                                           priv->crl_path)) {
             gf_log(this->name, GF_LOG_ERROR, "could not load CA list");
             goto err;
         }
 
         SSL_CTX_set_verify_depth(priv->ssl_ctx, cert_depth);
 
-        if (crl_path) {
-#ifdef X509_V_FLAG_CRL_CHECK_ALL
-            X509_STORE *x509store;
-
-            x509store = SSL_CTX_get_cert_store(priv->ssl_ctx);
-            X509_STORE_set_flags(
-                x509store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-#else
-            gf_log(this->name, GF_LOG_ERROR,
-                   "OpenSSL version does not support CRL");
-#endif
-        }
+        if (priv->crl_path)
+            ssl_set_crl_verify_flags(priv->ssl_ctx);
 
         priv->ssl_session_id = session_id++;
         SSL_CTX_set_session_id_context(priv->ssl_ctx,
