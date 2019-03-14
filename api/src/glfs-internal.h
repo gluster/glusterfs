@@ -702,4 +702,10 @@ void
 glfs_iatt_from_statx(struct iatt *, const struct glfs_stat *)
     GFAPI_PRIVATE(glfs_iatt_from_statx, 6.0);
 
+/*
+ * This API is a per thread setting, similar to glfs_setfs{u/g}id, because of
+ * the call to syncopctx_setfspid.
+ */
+int
+glfs_setfspid(struct glfs *, pid_t) GFAPI_PRIVATE(glfs_setfspid, 6.1);
 #endif /* !_GLFS_INTERNAL_H */
