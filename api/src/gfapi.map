@@ -267,3 +267,7 @@ GFAPI_6.0 {
 		glfs_fsetattr;
 } GFAPI_PRIVATE_6.0;
 
+GFAPI_PRIVATE_6.1 {
+	global:
+		glfs_setfspid;
+} GFAPI_6.0;

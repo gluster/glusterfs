@@ -172,6 +172,7 @@ _pub_glfs_upcall_lease_get_lease_type _glfs_upcall_lease_get_lease_type$GFAPI_4.
 
 _priv_glfs_statx _glfs_statx$GFAPI_6.0
 _priv_glfs_iatt_from_statx _glfs_iatt_from_statx$GFAPI_6.0
+_priv_glfs_setfspid _glfs_setfspid$GFAPI_6.1
 
 _pub_glfs_read_async _glfs_read_async$GFAPI_6.0
 _pub_glfs_write_async _glfs_write_async$GFAPI_6.0
