@@ -1782,6 +1782,11 @@ main(int argc, char *argv[])
 
     ret = glfs_set_logging(fs2, "/dev/stderr", 7);
 
+    ret = glfs_set_statedump_path(fs2, "/tmp");
+    if (ret) {
+        fprintf(stderr, "glfs_set_statedump_path: %s\n", strerror(errno));
+    }
+
     ret = glfs_init(fs2);
 
     fprintf(stderr, "glfs_init: returned %d\n", ret);

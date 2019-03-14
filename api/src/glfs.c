@@ -1211,6 +1211,7 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
         glusterfs_graph_destroy_residual(trav_graph);
     }
 
+    GF_FREE(ctx->statedump_path);
     FREE(ctx);
 
     return ret;
@@ -1737,3 +1738,65 @@ invalid_fs:
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_unregister, 3.13.0);
+
+int
+pub_glfs_set_statedump_path(struct glfs *fs, const char *path)
+{
+    struct stat st;
+    int ret;
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
+
+    if (!path) {
+        gf_log("glfs", GF_LOG_ERROR, "path is NULL");
+        errno = EINVAL;
+        goto err;
+    }
+
+    /* If path is not present OR, if it is directory AND has enough permission
+     * to create files, then proceed */
+    ret = sys_stat(path, &st);
+    if (ret && errno != ENOENT) {
+        gf_log("glfs", GF_LOG_ERROR, "%s: not a valid path (%s)", path,
+               strerror(errno));
+        errno = EINVAL;
+        goto err;
+    }
+
+    if (!ret) {
+        /* file is present, now check other things */
+        if (!S_ISDIR(st.st_mode)) {
+            gf_log("glfs", GF_LOG_ERROR, "%s: path is not directory", path);
+            errno = EINVAL;
+            goto err;
+        }
+        if (sys_access(path, W_OK | X_OK) < 0) {
+            gf_log("glfs", GF_LOG_ERROR,
+                   "%s: path doesn't have write permission", path);
+            errno = EPERM;
+            goto err;
+        }
+    }
+
+    /* If set, it needs to be freed, so we don't have leak */
+    GF_FREE(fs->ctx->statedump_path);
+
+    fs->ctx->statedump_path = gf_strdup(path);
+    if (!fs->ctx->statedump_path) {
+        gf_log("glfs", GF_LOG_ERROR,
+               "%s: failed to set statedump path, no memory", path);
+        errno = ENOMEM;
+        goto err;
+    }
+
+    __GLFS_EXIT_FS;
+
+    return 0;
+err:
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return -1;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_statedump_path, future);
