@@ -1453,5 +1453,33 @@ int
 glfs_setattr(struct glfs *fs, const char *path, struct glfs_stat *stat,
              int follow) __THROW GFAPI_PUBLIC(glfs_setattr, 6.0);
 
+/*
+  SYNOPSIS
+
+  glfs_set_statedump_path: Function to set statedump path.
+
+  DESCRIPTION
+
+  This function is used to set statedump directory
+
+  PARAMETERS
+
+  @fs: The 'virtual mount' object to be configured with the volume
+       specification file.
+
+  @path: statedump path. Should be a directory. But the API won't fail if the
+  directory doesn't exist yet, as one may create it later.
+
+  RETURN VALUES
+
+   0 : Success.
+  -1 : Failure. @errno will be set with the type of failure.
+
+ */
+
+int
+glfs_set_statedump_path(struct glfs *fs, const char *path) __THROW
+    GFAPI_PUBLIC(glfs_set_statedump_path, future);
+
 __END_DECLS
 #endif /* !_GLFS_H */
