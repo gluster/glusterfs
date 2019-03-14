@@ -76,6 +76,19 @@ static char *gsync_reserved_opts[] = {"gluster-command",
 static char *gsync_no_restart_opts[] = {"checkpoint", "log_rsync_performance",
                                         "log-rsync-performance", NULL};
 
+void
+set_gsyncd_inet6_arg(runner_t *runner)
+{
+    xlator_t *this = NULL;
+    char *af;
+    int ret;
+
+    this = THIS;
+    ret = dict_get_str(this->options, "transport.address-family", &af);
+    if (ret == 0)
+        runner_argprintf(runner, "--%s", af);
+}
+
 int
 __glusterd_handle_sys_exec(rpcsvc_request_t *req)
 {
@@ -384,6 +397,7 @@ glusterd_urltransform_init(runner_t *runner, const char *transname)
 {
     runinit(runner);
     runner_add_arg(runner, GSYNCD_PREFIX "/gsyncd");
+    set_gsyncd_inet6_arg(runner);
     runner_argprintf(runner, "--%s-url", transname);
 }
 
@@ -725,6 +739,7 @@ glusterd_get_slave_voluuid(char *slave_host, char *slave_vol, char *vol_uuid)
 
     runinit(&runner);
     runner_add_arg(&runner, GSYNCD_PREFIX "/gsyncd");
+    set_gsyncd_inet6_arg(&runner);
     runner_add_arg(&runner, "--slavevoluuid-get");
     runner_argprintf(&runner, "%s::%s", slave_host, slave_vol);
 
@@ -788,6 +803,7 @@ glusterd_gsync_get_config(char *master, char *slave, char *conf_path,
     runinit(&runner);
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", "-c", NULL);
     runner_argprintf(&runner, "%s", conf_path);
+    set_gsyncd_inet6_arg(&runner);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
     runner_argprintf(&runner, ":%s", master);
     runner_add_args(&runner, slave, "--config-get-all", NULL);
@@ -917,6 +933,7 @@ glusterd_gsync_get_status(char *master, char *slave, char *conf_path,
     runinit(&runner);
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", "-c", NULL);
     runner_argprintf(&runner, "%s", conf_path);
+    set_gsyncd_inet6_arg(&runner);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
     runner_argprintf(&runner, ":%s", master);
     runner_add_args(&runner, slave, "--status-get", NULL);
@@ -937,6 +954,7 @@ glusterd_gsync_get_param_file(char *prmfile, const char *param, char *master,
     runinit(&runner);
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", "-c", NULL);
     runner_argprintf(&runner, "%s", conf_path);
+    set_gsyncd_inet6_arg(&runner);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
     runner_argprintf(&runner, ":%s", master);
     runner_add_args(&runner, slave, "--config-get", NULL);
@@ -2811,6 +2829,7 @@ glusterd_verify_slave(char *volname, char *slave_url, char *slave_vol,
     char *slave_ip = NULL;
     glusterd_conf_t *priv = NULL;
     xlator_t *this = NULL;
+    char *af = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -2852,9 +2871,16 @@ glusterd_verify_slave(char *volname, char *slave_url, char *slave_vol,
     runner_argprintf(&runner, "%s", slave_vol);
     runner_argprintf(&runner, "%d", ssh_port);
     runner_argprintf(&runner, "%s", log_file_path);
-    gf_msg_debug(this->name, 0, "gverify Args = %s %s %s %s %s %s %s",
+    ret = dict_get_str(this->options, "transport.address-family", &af);
+    if (ret)
+        af = "-";
+
+    runner_argprintf(&runner, "%s", af);
+
+    gf_msg_debug(this->name, 0, "gverify Args = %s %s %s %s %s %s %s %s",
                  runner.argv[0], runner.argv[1], runner.argv[2], runner.argv[3],
-                 runner.argv[4], runner.argv[5], runner.argv[6]);
+                 runner.argv[4], runner.argv[5], runner.argv[6],
+                 runner.argv[7]);
     runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
     synclock_unlock(&priv->big_lock);
     ret = runner_run(&runner);

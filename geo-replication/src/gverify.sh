@@ -94,6 +94,7 @@ echo $cmd_line;
 function master_stats()
 {
     MASTERVOL=$1;
+    local inet6=$2;
     local d;
     local i;
     local disk_size;
@@ -102,7 +103,12 @@ function master_stats()
     local m_status;
 
     d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
-    glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $MASTERVOL -l $master_log_file $d;
+    if [ "$inet6" = "inet6" ]; then
+        glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --xlator-option="transport.address-family=inet6" --volfile-id $MASTERVOL -l $master_log_file $d;
+    else
+        glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $MASTERVOL -l $master_log_file $d;
+    fi
+
     i=$(get_inode_num $d);
     if [[ "$i" -ne "1" ]]; then
         echo 0:0;
@@ -124,12 +130,18 @@ function slave_stats()
     SLAVEUSER=$1;
     SLAVEHOST=$2;
     SLAVEVOL=$3;
+    local inet6=$4;
     local cmd_line;
     local ver;
     local status;
 
     d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
-    glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
+    if [ "$inet6" = "inet6" ]; then
+        glusterfs --xlator-option="*dht.lookup-unhashed=off" --xlator-option="transport.address-family=inet6" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
+    else
+        glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
+    fi
+
     i=$(get_inode_num $d);
     if [[ "$i" -ne "1" ]]; then
         echo 0:0;
@@ -166,6 +178,8 @@ function main()
 {
     log_file=$6
     > $log_file
+
+    inet6=$7
 
     # Use FORCE_BLOCKER flag in the error message to differentiate
     # between the errors which the force command should bypass
@@ -204,8 +218,8 @@ function main()
     fi;
 
     ERRORS=0;
-    master_data=$(master_stats $1);
-    slave_data=$(slave_stats $2 $3 $4);
+    master_data=$(master_stats $1 ${inet6});
+    slave_data=$(slave_stats $2 $3 $4 ${inet6});
     master_disk_size=$(echo $master_data | cut -f1 -d':');
     slave_disk_size=$(echo $slave_data | cut -f1 -d':');
     master_used_size=$(echo $master_data | cut -f2 -d':');

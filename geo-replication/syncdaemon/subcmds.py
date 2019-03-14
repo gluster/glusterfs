@@ -110,8 +110,13 @@ def subcmd_voluuidget(args):
 
     ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
-    po = Popen(['gluster', '--xml', '--remote-host=' + args.host,
-                'volume', 'info', args.volname], bufsize=0,
+    cmd = ['gluster', '--xml', '--remote-host=' + args.host,
+           'volume', 'info', args.volname]
+
+    if args.inet6:
+        cmd.append("--inet6")
+
+    po = Popen(cmd, bufsize=0,
                stdin=None, stdout=PIPE, stderr=PIPE,
                universal_newlines=True)
 

@@ -442,6 +442,12 @@ cli_opt_parse(char *opt, struct cli_state *state)
         return 0;
     }
 
+    oarg = strtail(opt, "inet6");
+    if (oarg) {
+        state->address_family = "inet6";
+        return 0;
+    }
+
     oarg = strtail(opt, "log-file=");
     if (oarg) {
         state->log_file = oarg;
@@ -687,6 +693,11 @@ cli_rpc_init(struct cli_state *state)
 
     this = THIS;
     cli_rpc_prog = &cli_prog;
+
+    /* If address family specified in CLI */
+    if (state->address_family) {
+        addr_family = state->address_family;
+    }
 
     /* Connect to glusterd using the specified method, giving preference
      * to a unix socket connection.  If nothing is specified, connect to
