@@ -269,11 +269,12 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
                    gf_inode_type_to_str(replies[src_idx].poststat.ia_type),
                    priv->children[src_idx]->name);
             gf_event(EVENT_AFR_SPLIT_BRAIN,
+                     "client-pid=%d;"
                      "subvol=%s;type=file;"
                      "file=<gfid:%s>/%s>;count=2;child-%d=%s;type-"
                      "%d=%s;child-%d=%s;type-%d=%s",
-                     this->name, uuid_utoa(pargfid), bname, i,
-                     priv->children[i]->name, i,
+                     this->ctx->cmd_args.client_pid, this->name,
+                     uuid_utoa(pargfid), bname, i, priv->children[i]->name, i,
                      gf_inode_type_to_str(replies[i].poststat.ia_type), src_idx,
                      priv->children[src_idx]->name, src_idx,
                      gf_inode_type_to_str(replies[src_idx].poststat.ia_type));

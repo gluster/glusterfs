@@ -537,9 +537,11 @@ __afr_selfheal_data_finalize_source(
             replies, AFR_DATA_TRANSACTION);
         if (source < 0) {
             gf_event(EVENT_AFR_SPLIT_BRAIN,
+                     "client-pid=%d;"
                      "subvol=%s;type=data;"
                      "file=%s",
-                     this->name, uuid_utoa(inode->gfid));
+                     this->ctx->cmd_args.client_pid, this->name,
+                     uuid_utoa(inode->gfid));
             return -EIO;
         }
 

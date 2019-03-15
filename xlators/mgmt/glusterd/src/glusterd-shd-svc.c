@@ -147,6 +147,7 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
 {
     int ret = -1;
     char glusterd_uuid_option[PATH_MAX] = {0};
+    char client_pid[32] = {0};
     dict_t *cmdline = NULL;
 
     cmdline = dict_new();
@@ -155,6 +156,15 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
 
     ret = snprintf(glusterd_uuid_option, sizeof(glusterd_uuid_option),
                    "*replicate*.node-uuid=%s", uuid_utoa(MY_UUID));
+    if (ret < 0)
+        goto out;
+
+    ret = snprintf(client_pid, sizeof(client_pid), "--client-pid=%d",
+                   GF_CLIENT_PID_SELF_HEALD);
+    if (ret < 0)
+        goto out;
+
+    ret = dict_set_str(cmdline, "arg", client_pid);
     if (ret < 0)
         goto out;
 

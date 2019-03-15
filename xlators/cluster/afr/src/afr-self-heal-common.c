@@ -383,11 +383,12 @@ out:
                uuid_utoa_r(replies[src_idx].poststat.ia_gfid, g2),
                priv->children[src_idx]->name);
         gf_event(EVENT_AFR_SPLIT_BRAIN,
+                 "client-pid=%d;"
                  "subvol=%s;type=gfid;file="
                  "<gfid:%s>/%s>;count=2;child-%d=%s;gfid-%d=%s;"
                  "child-%d=%s;gfid-%d=%s",
-                 this->name, uuid_utoa(pargfid), bname, child_idx,
-                 priv->children[child_idx]->name, child_idx,
+                 this->ctx->cmd_args.client_pid, this->name, uuid_utoa(pargfid),
+                 bname, child_idx, priv->children[child_idx]->name, child_idx,
                  uuid_utoa_r(replies[child_idx].poststat.ia_gfid, g1), src_idx,
                  priv->children[src_idx]->name, src_idx,
                  uuid_utoa_r(replies[src_idx].poststat.ia_gfid, g2));
@@ -2296,11 +2297,13 @@ afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                    priv->children[i]->name,
                    uuid_utoa(replies[i].poststat.ia_gfid));
             gf_event(EVENT_AFR_SPLIT_BRAIN,
+                     "client-pid=%d;"
                      "subvol=%s;"
                      "type=file;gfid=%s;"
                      "ia_type-%d=%s;ia_type-%d=%s",
-                     this->name, uuid_utoa(replies[i].poststat.ia_gfid),
-                     first_idx, gf_inode_type_to_str(first.ia_type), i,
+                     this->ctx->cmd_args.client_pid, this->name,
+                     uuid_utoa(replies[i].poststat.ia_gfid), first_idx,
+                     gf_inode_type_to_str(first.ia_type), i,
                      gf_inode_type_to_str(replies[i].poststat.ia_type));
             ret = -EIO;
             goto out;
