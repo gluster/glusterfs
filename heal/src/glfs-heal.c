@@ -1688,6 +1688,12 @@ main(int argc, char **argv)
         goto out;
     }
 
+    ret = glfs_setfspid(fs, GF_CLIENT_PID_GLFS_HEAL);
+    if (ret) {
+        printf("Setting client pid failed, %s\n", strerror(errno));
+        goto out;
+    }
+
     ret = glfs_init(fs);
     if (ret < 0) {
         ret = -errno;

@@ -5233,7 +5233,8 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
                "Subvolume '%s' came back up; "
                "going online.",
                child_xlator->name);
-        gf_event(EVENT_AFR_SUBVOL_UP, "subvol=%s", this->name);
+        gf_event(EVENT_AFR_SUBVOL_UP, "client-pid=%d; subvol=%s",
+                 this->ctx->cmd_args.client_pid, this->name);
     } else {
         *event = GF_EVENT_SOME_DESCENDENT_UP;
     }
@@ -5310,7 +5311,8 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
                "All subvolumes are down. Going "
                "offline until at least one of them "
                "comes back up.");
-        gf_event(EVENT_AFR_SUBVOLS_DOWN, "subvol=%s", this->name);
+        gf_event(EVENT_AFR_SUBVOLS_DOWN, "client-pid=%d; subvol=%s",
+                 this->ctx->cmd_args.client_pid, this->name);
     } else {
         *event = GF_EVENT_SOME_DESCENDENT_DOWN;
     }
@@ -5585,12 +5587,14 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
         if (!had_quorum && has_quorum) {
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
                    "Client-quorum is met");
-            gf_event(EVENT_AFR_QUORUM_MET, "subvol=%s", this->name);
+            gf_event(EVENT_AFR_QUORUM_MET, "client-pid=%d; subvol=%s",
+                     this->ctx->cmd_args.client_pid, this->name);
         }
         if (had_quorum && !has_quorum) {
             gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
                    "Client-quorum is not met");
-            gf_event(EVENT_AFR_QUORUM_FAIL, "subvol=%s", this->name);
+            gf_event(EVENT_AFR_QUORUM_FAIL, "client-pid=%d; subvol=%s",
+                     this->ctx->cmd_args.client_pid, this->name);
         }
     }
 

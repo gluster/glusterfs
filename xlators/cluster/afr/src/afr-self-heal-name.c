@@ -222,13 +222,14 @@ afr_selfheal_name_type_mismatch_check(xlator_t *this, struct afr_reply *replies,
                        gf_inode_type_to_str(inode_type),
                        priv->children[type_idx]->name);
                 gf_event(EVENT_AFR_SPLIT_BRAIN,
+                         "client-pid=%d;"
                          "subvol=%s;type=file;"
                          "file=<gfid:%s>/%s;count=2;"
                          "child-%d=%s;type-%d=%s;child-%d=%s;"
                          "type-%d=%s",
-                         this->name, uuid_utoa(pargfid), bname, i,
-                         priv->children[i]->name, i,
-                         gf_inode_type_to_str(inode_type1), type_idx,
+                         this->ctx->cmd_args.client_pid, this->name,
+                         uuid_utoa(pargfid), bname, i, priv->children[i]->name,
+                         i, gf_inode_type_to_str(inode_type1), type_idx,
                          priv->children[type_idx]->name, type_idx,
                          gf_inode_type_to_str(inode_type));
                 return -EIO;

@@ -242,9 +242,11 @@ __afr_selfheal_metadata_finalize_source(call_frame_t *frame, xlator_t *this,
 
         if (!priv->metadata_splitbrain_forced_heal) {
             gf_event(EVENT_AFR_SPLIT_BRAIN,
+                     "client-pid=%d;"
                      "subvol=%s;"
                      "type=metadata;file=%s",
-                     this->name, uuid_utoa(inode->gfid));
+                     this->ctx->cmd_args.client_pid, this->name,
+                     uuid_utoa(inode->gfid));
             return -EIO;
         }
 
