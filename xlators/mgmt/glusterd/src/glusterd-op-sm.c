@@ -5652,6 +5652,9 @@ glusterd_op_ac_stage_op(glusterd_op_sm_event_t *event, void *ctx)
     dict_t *dict = NULL;
     xlator_t *this = NULL;
     uuid_t *txn_id = NULL;
+    glusterd_op_info_t txn_op_info = {
+        {0},
+    };
 
     this = THIS;
     GF_ASSERT(this);
@@ -5686,6 +5689,7 @@ glusterd_op_ac_stage_op(glusterd_op_sm_event_t *event, void *ctx)
         ret = -1;
         goto out;
     }
+    ret = glusterd_get_txn_opinfo(&event->txn_id, &txn_op_info);
 
     ret = dict_set_bin(rsp_dict, "transaction_id", txn_id, sizeof(*txn_id));
     if (ret) {
@@ -5703,6 +5707,12 @@ out:
         GF_FREE(op_errstr);
 
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
+
+    /* for no volname transactions, the txn_opinfo needs to be cleaned up
+     * as there's no unlock event triggered
+     */
+    if (txn_op_info.skip_locking)
+        ret = glusterd_clear_txn_opinfo(txn_id);
 
     if (rsp_dict)
         dict_unref(rsp_dict);
@@ -8159,12 +8169,16 @@ glusterd_op_sm()
                            "Unable to clear "
                            "transaction's opinfo");
             } else {
-                ret = glusterd_set_txn_opinfo(&event->txn_id, &opinfo);
-                if (ret)
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           GD_MSG_TRANS_OPINFO_SET_FAIL,
-                           "Unable to set "
-                           "transaction's opinfo");
+                if (!(event_type == GD_OP_EVENT_STAGE_OP &&
+                      opinfo.state.state == GD_OP_STATE_STAGED &&
+                      opinfo.skip_locking)) {
+                    ret = glusterd_set_txn_opinfo(&event->txn_id, &opinfo);
+                    if (ret)
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               GD_MSG_TRANS_OPINFO_SET_FAIL,
+                               "Unable to set "
+                               "transaction's opinfo");
+                }
             }
 
             glusterd_destroy_op_event_ctx(event);
