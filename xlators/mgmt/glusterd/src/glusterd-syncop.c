@@ -1392,6 +1392,8 @@ gd_commit_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     char *errstr = NULL;
     struct syncargs args = {0};
     int type = GF_QUOTA_OPTION_TYPE_NONE;
+    uint32_t cmd = 0;
+    gf_boolean_t origin_glusterd = _gf_false;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1449,6 +1451,20 @@ commit_done:
     gd_syncargs_init(&args, op_ctx);
     synctask_barrier_init((&args));
     peer_cnt = 0;
+    origin_glusterd = is_origin_glusterd(req_dict);
+
+    if (op == GD_OP_STATUS_VOLUME) {
+        ret = dict_get_uint32(req_dict, "cmd", &cmd);
+        if (ret)
+            goto out;
+
+        if (origin_glusterd) {
+            if ((cmd & GF_CLI_STATUS_ALL)) {
+                ret = 0;
+                goto out;
+            }
+        }
+    }
 
     RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
