@@ -2541,13 +2541,15 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
 
     /* Mount triggers heal only when it detects that it must need heal, shd
      * triggers heals periodically which need not be thorough*/
-    ec_heal_inspect(frame, ec, loc->inode, up_subvols, _gf_false,
-                    !ec->shd.iamshd, &need_heal);
+    if (ec->shd.iamshd) {
+        ec_heal_inspect(frame, ec, loc->inode, up_subvols, _gf_false, _gf_false,
+                        &need_heal);
 
-    if (need_heal == EC_HEAL_NONEED) {
-        gf_msg(ec->xl->name, GF_LOG_DEBUG, 0, EC_MSG_HEAL_FAIL,
-               "Heal is not required for : %s ", uuid_utoa(loc->gfid));
-        goto out;
+        if (need_heal == EC_HEAL_NONEED) {
+            gf_msg(ec->xl->name, GF_LOG_DEBUG, 0, EC_MSG_HEAL_FAIL,
+                   "Heal is not required for : %s ", uuid_utoa(loc->gfid));
+            goto out;
+        }
     }
     sources = alloca0(ec->nodes);
     healed_sinks = alloca0(ec->nodes);
@@ -2902,7 +2904,7 @@ out:
 static int32_t
 _need_heal_calculate(ec_t *ec, uint64_t *dirty, unsigned char *sources,
                      gf_boolean_t self_locked, int32_t lock_count,
-                     ec_heal_need_t *need_heal)
+                     ec_heal_need_t *need_heal, uint64_t *versions)
 {
     int i = 0;
     int source_count = 0;
@@ -2912,7 +2914,7 @@ _need_heal_calculate(ec_t *ec, uint64_t *dirty, unsigned char *sources,
         *need_heal = EC_HEAL_NONEED;
         if (self_locked || lock_count == 0) {
             for (i = 0; i < ec->nodes; i++) {
-                if (dirty[i]) {
+                if (dirty[i] || (versions[i] != versions[0])) {
                     *need_heal = EC_HEAL_MUST;
                     goto out;
                 }
@@ -2927,6 +2929,9 @@ _need_heal_calculate(ec_t *ec, uint64_t *dirty, unsigned char *sources,
                 if (dirty[i] > 1) {
                     *need_heal = EC_HEAL_MUST;
                     goto out;
+                }
+                if (dirty[i] != dirty[0] || (versions[i] != versions[0])) {
+                    *need_heal = EC_HEAL_MAYBE;
                 }
             }
         }
@@ -2948,7 +2953,6 @@ ec_need_metadata_heal(ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
     unsigned char *healed_sinks = NULL;
     uint64_t *meta_versions = NULL;
     int ret = 0;
-    int i = 0;
 
     sources = alloca0(ec->nodes);
     healed_sinks = alloca0(ec->nodes);
@@ -2961,15 +2965,7 @@ ec_need_metadata_heal(ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
     }
 
     ret = _need_heal_calculate(ec, dirty, sources, self_locked, lock_count,
-                               need_heal);
-    if (ret == ec->nodes && *need_heal == EC_HEAL_NONEED) {
-        for (i = 1; i < ec->nodes; i++) {
-            if (meta_versions[i] != meta_versions[0]) {
-                *need_heal = EC_HEAL_MUST;
-                goto out;
-            }
-        }
-    }
+                               need_heal, meta_versions);
 out:
     return ret;
 }
@@ -3005,7 +3001,7 @@ ec_need_data_heal(ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
     }
 
     ret = _need_heal_calculate(ec, dirty, sources, self_locked, lock_count,
-                               need_heal);
+                               need_heal, data_versions);
 out:
     return ret;
 }
@@ -3033,7 +3029,7 @@ ec_need_entry_heal(ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
     }
 
     ret = _need_heal_calculate(ec, dirty, sources, self_locked, lock_count,
-                               need_heal);
+                               need_heal, data_versions);
 out:
     return ret;
 }
@@ -3131,10 +3127,6 @@ ec_heal_inspect(call_frame_t *frame, ec_t *ec, inode_t *inode,
 need_heal:
     ret = ec_need_heal(ec, inode, replies, lock_count, self_locked, thorough,
                        need_heal);
-
-    if (!self_locked && *need_heal == EC_HEAL_MUST) {
-        *need_heal = EC_HEAL_MAYBE;
-    }
 out:
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
@@ -3220,7 +3212,7 @@ ec_get_heal_info(xlator_t *this, loc_t *entry_loc, dict_t **dict_rsp)
 
     ret = ec_heal_inspect(frame, ec, loc.inode, up_subvols, _gf_false,
                           _gf_false, &need_heal);
-    if (ret == ec->nodes && need_heal == EC_HEAL_NONEED) {
+    if (ret == ec->nodes && need_heal != EC_HEAL_MAYBE) {
         goto set_heal;
     }
     need_heal = EC_HEAL_NONEED;
