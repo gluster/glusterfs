@@ -40,9 +40,6 @@ void
 glusterd_mgmt_v3_lock_timer_fini();
 
 int32_t
-glusterd_get_mgmt_v3_lock_owner(char *volname, uuid_t *uuid);
-
-int32_t
 glusterd_mgmt_v3_lock(const char *key, uuid_t uuid, uint32_t *op_errno,
                       char *type);
 

@@ -36,22 +36,20 @@ glusterd_valid_entities valid_types[] = {
 };
 
 /* Checks if the lock request is for a valid entity */
-gf_boolean_t
+static gf_boolean_t
 glusterd_mgmt_v3_is_type_valid(char *type)
 {
-    int32_t i = 0;
-    gf_boolean_t ret = _gf_false;
+    int i = 0;
 
     GF_ASSERT(type);
 
     for (i = 0; valid_types[i].type; i++) {
         if (!strcmp(type, valid_types[i].type)) {
-            ret = _gf_true;
-            break;
+            return _gf_true;
         }
     }
 
-    return ret;
+    return _gf_false;
 }
 
 /* Initialize the global mgmt_v3 lock list(dict) when
@@ -138,15 +136,12 @@ out:
     return;
 }
 
-int32_t
+static int32_t
 glusterd_get_mgmt_v3_lock_owner(char *key, uuid_t *uuid)
 {
     int32_t ret = -1;
     glusterd_mgmt_v3_lock_obj *lock_obj = NULL;
     glusterd_conf_t *priv = NULL;
-    uuid_t no_owner = {
-        0,
-    };
     xlator_t *this = NULL;
 
     this = THIS;
@@ -164,8 +159,6 @@ glusterd_get_mgmt_v3_lock_owner(char *key, uuid_t *uuid)
     ret = dict_get_bin(priv->mgmt_v3_lock, key, (void **)&lock_obj);
     if (!ret)
         gf_uuid_copy(*uuid, lock_obj->lock_owner);
-    else
-        gf_uuid_copy(*uuid, no_owner);
 
     ret = 0;
 out:
@@ -199,11 +192,11 @@ glusterd_release_multiple_locks_per_entity(dict_t *dict, uuid_t uuid,
 
     /* Release all the locks held */
     for (i = 0; i < locked_count; i++) {
-        snprintf(name_buf, sizeof(name_buf), "%sname%d", type, i + 1);
+        ret = snprintf(name_buf, sizeof(name_buf), "%sname%d", type, i + 1);
 
         /* Looking for volname1, volname2 or snapname1, *
          * as key in the dict snapname2 */
-        ret = dict_get_str(dict, name_buf, &name);
+        ret = dict_get_strn(dict, name_buf, ret, &name);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "Unable to get %s locked_count = %d", name_buf,
@@ -248,11 +241,11 @@ glusterd_acquire_multiple_locks_per_entity(dict_t *dict, uuid_t uuid,
 
     /* Locking one element after other */
     for (i = 0; i < count; i++) {
-        snprintf(name_buf, sizeof(name_buf), "%sname%d", type, i + 1);
+        ret = snprintf(name_buf, sizeof(name_buf), "%sname%d", type, i + 1);
 
         /* Looking for volname1, volname2 or snapname1, *
          * as key in the dict snapname2 */
-        ret = dict_get_str(dict, name_buf, &name);
+        ret = dict_get_strn(dict, name_buf, ret, &name);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "Unable to get %s count = %d", name_buf, count);
@@ -321,13 +314,13 @@ glusterd_mgmt_v3_unlock_entity(dict_t *dict, uuid_t uuid, char *type,
     }
 
     /* Looking for volcount or snapcount in the dict */
-    snprintf(name_buf, sizeof(name_buf), "%scount", type);
-    ret = dict_get_int32(dict, name_buf, &count);
+    ret = snprintf(name_buf, sizeof(name_buf), "%scount", type);
+    ret = dict_get_int32n(dict, name_buf, ret, &count);
     if (ret) {
         /* count is not present. Only one *
          * element name needs to be unlocked */
-        snprintf(name_buf, sizeof(name_buf), "%sname", type);
-        ret = dict_get_str(dict, name_buf, &name);
+        ret = snprintf(name_buf, sizeof(name_buf), "%sname", type);
+        ret = dict_get_strn(dict, name_buf, ret, &name);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "Unable to fetch %sname", type);
@@ -390,13 +383,13 @@ glusterd_mgmt_v3_lock_entity(dict_t *dict, uuid_t uuid, uint32_t *op_errno,
     }
 
     /* Looking for volcount or snapcount in the dict */
-    snprintf(name_buf, sizeof(name_buf), "%scount", type);
-    ret = dict_get_int32(dict, name_buf, &count);
+    ret = snprintf(name_buf, sizeof(name_buf), "%scount", type);
+    ret = dict_get_int32n(dict, name_buf, ret, &count);
     if (ret) {
         /* count is not present. Only one *
          * element name needs to be locked */
-        snprintf(name_buf, sizeof(name_buf), "%sname", type);
-        ret = dict_get_str(dict, name_buf, &name);
+        ret = snprintf(name_buf, sizeof(name_buf), "%sname", type);
+        ret = dict_get_strn(dict, name_buf, ret, &name);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "Unable to fetch %sname", type);
@@ -569,8 +562,8 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
         goto out;
     }
 
-    gf_msg_debug(this->name, 0, "Trying to acquire lock of %s %s for %s as %s",
-                 type, name, uuid_utoa(uuid), key);
+    gf_msg_debug(this->name, 0, "Trying to acquire lock of %s for %s", key,
+                 uuid_utoa(uuid));
 
     ret = glusterd_get_mgmt_v3_lock_owner(key, &owner);
     if (ret) {
@@ -589,7 +582,7 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
         goto out;
     }
 
-    lock_obj = GF_CALLOC(1, sizeof(glusterd_mgmt_v3_lock_obj),
+    lock_obj = GF_MALLOC(sizeof(glusterd_mgmt_v3_lock_obj),
                          gf_common_mt_mgmt_v3_lock_obj_t);
     if (!lock_obj) {
         ret = -1;
@@ -616,9 +609,6 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     }
 
     mgmt_lock_timer->xl = THIS;
-    key_dup = gf_strdup(key);
-    delay.tv_sec = priv->mgmt_v3_lock_timeout;
-    delay.tv_nsec = 0;
     /*changing to default timeout value*/
     priv->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
 
@@ -626,16 +616,18 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     mgmt_lock_timer_xl = mgmt_lock_timer->xl;
     if (!mgmt_lock_timer_xl) {
         GF_FREE(mgmt_lock_timer);
-        GF_FREE(key_dup);
         goto out;
     }
 
     mgmt_lock_timer_ctx = mgmt_lock_timer_xl->ctx;
     if (!mgmt_lock_timer_ctx) {
         GF_FREE(mgmt_lock_timer);
-        GF_FREE(key_dup);
         goto out;
     }
+
+    key_dup = gf_strdup(key);
+    delay.tv_sec = priv->mgmt_v3_lock_timeout;
+    delay.tv_nsec = 0;
 
     mgmt_lock_timer->timer = gf_timer_call_after(
         mgmt_lock_timer_ctx, delay, gd_mgmt_v3_unlock_timer_cbk, key_dup);
@@ -652,18 +644,18 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
 
     /* Saving the backtrace into the pre-allocated buffer, ctx->btbuf*/
     if ((bt = gf_backtrace_save(NULL))) {
-        snprintf(key, sizeof(key), "debug.last-success-bt-%s-%s", name, type);
+        snprintf(key, sizeof(key), "debug.last-success-bt-%s", key_dup);
         ret = dict_set_dynstr_with_alloc(priv->mgmt_v3_lock, key, bt);
         if (ret)
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to save "
-                   "the back trace for lock %s-%s granted to %s",
-                   name, type, uuid_utoa(uuid));
+                   "the back trace for lock %s granted to %s",
+                   key_dup, uuid_utoa(uuid));
         ret = 0;
     }
 
-    gf_msg_debug(this->name, 0, "Lock for %s %s successfully held by %s", type,
-                 name, uuid_utoa(uuid));
+    gf_msg_debug(this->name, 0, "Lock for %s successfully held by %s", key_dup,
+                 uuid_utoa(uuid));
 
     ret = 0;
 out:
@@ -681,9 +673,9 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     glusterd_conf_t *conf = NULL;
     glusterd_mgmt_v3_lock_timer *mgmt_lock_timer = NULL;
     char *key = NULL;
-    char *type = NULL;
+    int keylen;
     char bt_key[PATH_MAX] = "";
-    char name[PATH_MAX] = "";
+    int bt_key_len = 0;
     int32_t ret = -1;
     glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
@@ -698,21 +690,18 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     GF_ASSERT(NULL != data);
     key = (char *)data;
 
-    dict_del(conf->mgmt_v3_lock, key);
+    keylen = strlen(key);
+    dict_deln(conf->mgmt_v3_lock, key, keylen);
 
-    type = strrchr(key, '_');
-    strncpy(name, key, strlen(key) - strlen(type) - 1);
-
-    ret = snprintf(bt_key, PATH_MAX, "debug.last-success-bt-%s-%s", name,
-                   type + 1);
-    if (ret != SLEN("debug.last-success-bt-") + strlen(name) + strlen(type)) {
+    bt_key_len = snprintf(bt_key, PATH_MAX, "debug.last-success-bt-%s", key);
+    if (bt_key_len != SLEN("debug.last-success-bt-") + keylen) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CREATE_KEY_FAIL,
                "Unable to create backtrace "
                "key");
         goto out;
     }
 
-    dict_del(conf->mgmt_v3_lock, bt_key);
+    dict_deln(conf->mgmt_v3_lock, bt_key, bt_key_len);
 
     ret = dict_get_bin(conf->mgmt_v3_lock_timer, key,
                        (void **)&mgmt_lock_timer);
@@ -732,12 +721,12 @@ out:
         timer = mgmt_lock_timer->timer;
         GF_FREE(timer->data);
         gf_timer_call_cancel(mgmt_lock_timer_ctx, mgmt_lock_timer->timer);
-        dict_del(conf->mgmt_v3_lock_timer, bt_key);
+        dict_deln(conf->mgmt_v3_lock_timer, bt_key, bt_key_len);
         mgmt_lock_timer->timer = NULL;
         gf_log(this->name, GF_LOG_INFO,
-               "unlock timer is cancelled for volume"
+               "unlock timer is cancelled for volume_type"
                " %s",
-               name);
+               key);
     }
 
 ret_function:
@@ -750,6 +739,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
 {
     char key[PATH_MAX] = "";
     char key_dup[PATH_MAX] = "";
+    int keylen;
     int32_t ret = -1;
     gf_boolean_t is_valid = _gf_true;
     glusterd_conf_t *priv = NULL;
@@ -784,14 +774,13 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         goto out;
     }
 
-    ret = snprintf(key, sizeof(key), "%s_%s", name, type);
-    if (ret != strlen(name) + 1 + strlen(type)) {
+    keylen = snprintf(key, sizeof(key), "%s_%s", name, type);
+    if (keylen != strlen(name) + 1 + strlen(type)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CREATE_KEY_FAIL,
                "Unable to create key");
         ret = -1;
         goto out;
     }
-    (void)snprintf(key_dup, sizeof(key_dup), "%s", key);
 
     gf_msg_debug(this->name, 0, "Trying to release lock of %s %s for %s as %s",
                  type, name, uuid_utoa(uuid), key);
@@ -820,7 +809,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
     }
 
     /* Removing the mgmt_v3 lock from the global list */
-    dict_del(priv->mgmt_v3_lock, key);
+    dict_deln(priv->mgmt_v3_lock, key, keylen);
 
     ret = dict_get_bin(priv->mgmt_v3_lock_timer, key,
                        (void **)&mgmt_lock_timer);
@@ -830,17 +819,18 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         goto out;
     }
 
+    (void)snprintf(key_dup, sizeof(key_dup), "%s", key);
+
     /* Remove the backtrace key as well */
-    ret = snprintf(key, sizeof(key), "debug.last-success-bt-%s-%s", name, type);
-    if (ret !=
-        SLEN("debug.last-success-bt-") + strlen(name) + strlen(type) + 1) {
+    ret = snprintf(key, sizeof(key), "debug.last-success-bt-%s", key_dup);
+    if (ret != SLEN("debug.last-success-bt-") + keylen) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CREATE_KEY_FAIL,
                "Unable to create backtrace "
                "key");
         ret = -1;
         goto out;
     }
-    dict_del(priv->mgmt_v3_lock, key);
+    dict_deln(priv->mgmt_v3_lock, key, ret);
 
     gf_msg_debug(this->name, 0, "Lock for %s %s successfully released", type,
                  name);
@@ -858,7 +848,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         timer = mgmt_lock_timer->timer;
         GF_FREE(timer->data);
         gf_timer_call_cancel(mgmt_lock_timer_ctx, mgmt_lock_timer->timer);
-        dict_del(priv->mgmt_v3_lock_timer, key_dup);
+        dict_deln(priv->mgmt_v3_lock_timer, key_dup, keylen);
     }
     ret = glusterd_volinfo_find(name, &volinfo);
     if (volinfo && volinfo->stage_deleted) {
@@ -869,8 +859,8 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         volinfo->stage_deleted = _gf_false;
         gf_log(this->name, GF_LOG_INFO,
                "Volume %s still exist, setting "
-               "stage deleted flag to false for the volume %s",
-               volinfo->volname, volinfo->volname);
+               "stage deleted flag to false for the volume",
+               volinfo->volname);
     }
     ret = 0;
 out:
