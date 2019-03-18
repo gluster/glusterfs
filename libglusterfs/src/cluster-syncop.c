@@ -1203,6 +1203,10 @@ cluster_tiebreaker_inodelk(xlator_t **subvols, unsigned char *on,
             if (num_success) {
                 FOP_SEQ(subvols, on, numsubvols, replies, locked_on, frame,
                         inodelk, dom, &loc, F_SETLKW, &flock, NULL);
+            } else {
+                loc_wipe(&loc);
+                memset(locked_on, 0, numsubvols);
+                return 0;
             }
             break;
         }
@@ -1244,7 +1248,9 @@ cluster_tiebreaker_entrylk(xlator_t **subvols, unsigned char *on,
                         entrylk, dom, &loc, name, ENTRYLK_LOCK, ENTRYLK_WRLCK,
                         NULL);
             } else {
+                loc_wipe(&loc);
                 memset(locked_on, 0, numsubvols);
+                return 0;
             }
             break;
         }
