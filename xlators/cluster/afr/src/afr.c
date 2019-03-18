@@ -368,7 +368,7 @@ afr_ta_init(afr_private_t *priv)
     priv->release_ta_notify_dom_lock = _gf_false;
     INIT_LIST_HEAD(&priv->ta_waitq);
     INIT_LIST_HEAD(&priv->ta_onwireq);
-    *priv->ta_gfid = 0;
+    gf_uuid_clear(priv->ta_gfid);
 }
 
 int32_t

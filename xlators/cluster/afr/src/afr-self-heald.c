@@ -592,7 +592,9 @@ _afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata)
 {
     afr_private_t *priv = NULL;
     dict_t *xattr = NULL;
-    int *raw = NULL;
+    int raw[AFR_NUM_CHANGE_LOGS] = {
+        0,
+    };
     int ret = -1;
     int i = 0;
 
@@ -604,18 +606,11 @@ _afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata)
                "Failed to create dict.");
         goto out;
     }
-
     for (i = 0; i < priv->child_count; i++) {
-        raw = GF_CALLOC(AFR_NUM_CHANGE_LOGS, sizeof(int), gf_afr_mt_int32_t);
-        if (!raw)
+        ret = dict_set_static_bin(xattr, priv->pending_key[i], &raw,
+                                  AFR_NUM_CHANGE_LOGS * sizeof(int));
+        if (ret)
             goto out;
-
-        ret = dict_set_bin(xattr, priv->pending_key[i], raw,
-                           AFR_NUM_CHANGE_LOGS * sizeof(int));
-        if (ret) {
-            GF_FREE(raw);
-            goto out;
-        }
     }
 
     ret = syncop_xattrop(priv->children[THIN_ARBITER_BRICK_INDEX], loc,
@@ -642,6 +637,7 @@ afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, struct subvol_healer *healer,
     if (afr_shd_fill_ta_loc(this, loc)) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to populate thin-arbiter loc for: %s.", loc->name);
+        ret = -1;
         goto out;
     }
 
@@ -856,9 +852,13 @@ afr_shd_index_healer(void *data)
             sleep(1);
         } while (ret > 0);
 
-        if (pre_crawl_xdata && !healer->crawl_event.heal_failed_count) {
+        if (ret == 0 && pre_crawl_xdata &&
+            !healer->crawl_event.heal_failed_count) {
             afr_shd_ta_check_and_unset_xattrs(this, &loc, healer,
                                               pre_crawl_xdata);
+        }
+
+        if (pre_crawl_xdata) {
             dict_unref(pre_crawl_xdata);
             pre_crawl_xdata = NULL;
         }
