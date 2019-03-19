@@ -2618,51 +2618,6 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
             local->writer, (xmlChar *)"transport", "%d", transport);
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-#ifdef HAVE_BD_XLATOR
-        /* <xlators> */
-        ret = xmlTextWriterStartElement(local->writer, (xmlChar *)"xlators");
-        XML_RET_CHECK_AND_GOTO(ret, out);
-
-        for (k = 0;; k++) {
-            snprintf(key, sizeof(key), "volume%d.xlator%d", i, k);
-            ret = dict_get_str(dict, key, &caps);
-            if (ret)
-                break;
-
-            /* <xlator> */
-            ret = xmlTextWriterStartElement(local->writer, (xmlChar *)"xlator");
-            XML_RET_CHECK_AND_GOTO(ret, out);
-
-            ret = xmlTextWriterWriteFormatElement(
-                local->writer, (xmlChar *)"name", "%s", caps);
-            XML_RET_CHECK_AND_GOTO(ret, out);
-
-            /* <capabilities> */
-            ret = xmlTextWriterStartElement(local->writer,
-                                            (xmlChar *)"capabilities");
-            XML_RET_CHECK_AND_GOTO(ret, out);
-
-            j = 0;
-            for (j = 0;; j++) {
-                snprintf(key, sizeof(key), "volume%d.xlator%d.caps%d", i, k, j);
-                ret = dict_get_str(dict, key, &caps);
-                if (ret)
-                    break;
-                ret = xmlTextWriterWriteFormatElement(
-                    local->writer, (xmlChar *)"capability", "%s", caps);
-                XML_RET_CHECK_AND_GOTO(ret, out);
-            }
-            /* </capabilities> */
-            ret = xmlTextWriterEndElement(local->writer);
-            XML_RET_CHECK_AND_GOTO(ret, out);
-            /* </xlator> */
-            ret = xmlTextWriterEndElement(local->writer);
-            XML_RET_CHECK_AND_GOTO(ret, out);
-        }
-        ret = xmlTextWriterFullEndElement(local->writer);
-        XML_RET_CHECK_AND_GOTO(ret, out);
-        /* </xlators> */
-#endif
         j = 1;
 
         /* <bricks> */

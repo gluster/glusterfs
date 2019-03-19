@@ -51,10 +51,6 @@
 #include "glusterd-syncop.h"
 #include "glusterd-messages.h"
 
-#ifdef HAVE_BD_XLATOR
-#include <lvm2app.h>
-#endif
-
 extern glusterd_op_info_t opinfo;
 static int volcount;
 
@@ -565,89 +561,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
     if (ret)
         goto out;
 
-#ifdef HAVE_BD_XLATOR
-    if (volinfo->caps) {
-        caps = 0;
-        keylen = snprintf(key, sizeof(key), "volume%d.xlator0", count);
-        buf = GF_MALLOC(256, gf_common_mt_char);
-        if (!buf) {
-            ret = ENOMEM;
-            goto out;
-        }
-        if (volinfo->caps & CAPS_BD)
-            snprintf(buf, 256, "BD");
-        ret = dict_set_dynstrn(volumes, key, keylen, buf);
-        if (ret) {
-            GF_FREE(buf);
-            goto out;
-        }
-
-        if (volinfo->caps & CAPS_THIN) {
-            snprintf(key, sizeof(key), "volume%d.xlator0.caps%d", count,
-                     caps++);
-            buf = GF_MALLOC(256, gf_common_mt_char);
-            if (!buf) {
-                ret = ENOMEM;
-                goto out;
-            }
-            snprintf(buf, 256, "thin");
-            ret = dict_set_dynstr(volumes, key, buf);
-            if (ret) {
-                GF_FREE(buf);
-                goto out;
-            }
-        }
-
-        if (volinfo->caps & CAPS_OFFLOAD_COPY) {
-            snprintf(key, sizeof(key), "volume%d.xlator0.caps%d", count,
-                     caps++);
-            buf = GF_MALLOC(256, gf_common_mt_char);
-            if (!buf) {
-                ret = ENOMEM;
-                goto out;
-            }
-            snprintf(buf, 256, "offload_copy");
-            ret = dict_set_dynstr(volumes, key, buf);
-            if (ret) {
-                GF_FREE(buf);
-                goto out;
-            }
-        }
-
-        if (volinfo->caps & CAPS_OFFLOAD_SNAPSHOT) {
-            snprintf(key, sizeof(key), "volume%d.xlator0.caps%d", count,
-                     caps++);
-            buf = GF_MALLOC(256, gf_common_mt_char);
-            if (!buf) {
-                ret = ENOMEM;
-                goto out;
-            }
-            snprintf(buf, 256, "offload_snapshot");
-            ret = dict_set_dynstr(volumes, key, buf);
-            if (ret) {
-                GF_FREE(buf);
-                goto out;
-            }
-        }
-
-        if (volinfo->caps & CAPS_OFFLOAD_ZERO) {
-            snprintf(key, sizeof(key), "volume%d.xlator0.caps%d", count,
-                     caps++);
-            buf = GF_MALLOC(256, gf_common_mt_char);
-            if (!buf) {
-                ret = ENOMEM;
-                goto out;
-            }
-            snprintf(buf, 256, "offload_zerofill");
-            ret = dict_set_dynstr(volumes, key, buf);
-            if (ret) {
-                GF_FREE(buf);
-                goto out;
-            }
-        }
-    }
-#endif
-
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
         char brick[1024] = {
@@ -677,16 +590,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         if (ret)
             goto out;
 
-#ifdef HAVE_BD_XLATOR
-        if (volinfo->caps & CAPS_BD) {
-            snprintf(key, sizeof(key), "volume%d.vg%d", count, i);
-            snprintf(brick, sizeof(brick), "%s", brickinfo->vg);
-            buf = gf_strdup(brick);
-            ret = dict_set_dynstr(volumes, key, buf);
-            if (ret)
-                goto out;
-        }
-#endif
         i++;
     }
     ret = glusterd_add_arbiter_info_to_bricks(volinfo, volumes, count);

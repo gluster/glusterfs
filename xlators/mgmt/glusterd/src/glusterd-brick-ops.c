@@ -1294,10 +1294,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
 
     if (count)
         brick = strtok_r(brick_list + 1, " \n", &saveptr);
-#ifdef HAVE_BD_XLATOR
-    if (brickinfo->vg[0])
-        caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
-#endif
 
     /* This check needs to be added to distinguish between
      * attach-tier commands and add-brick commands.
@@ -1324,22 +1320,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
                                                      _gf_true);
         if (ret)
             goto out;
-#ifdef HAVE_BD_XLATOR
-        char msg[1024] = "";
-        /* Check for VG/thin pool if its BD volume */
-        if (brickinfo->vg[0]) {
-            ret = glusterd_is_valid_vg(brickinfo, 0, msg);
-            if (ret) {
-                gf_msg(THIS->name, GF_LOG_CRITICAL, 0, GD_MSG_INVALID_VG, "%s",
-                       msg);
-                goto out;
-            }
-            /* if anyone of the brick does not have thin support,
-               disable it for entire volume */
-            caps &= brickinfo->caps;
-        } else
-            caps = 0;
-#endif
 
         if (gf_uuid_is_null(brickinfo->uuid)) {
             ret = glusterd_resolve_brick(brickinfo);
@@ -1708,18 +1688,6 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
-#ifdef HAVE_BD_XLATOR
-            if (brickinfo->vg[0]) {
-                ret = glusterd_is_valid_vg(brickinfo, 1, msg);
-                if (ret) {
-                    gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_VG,
-                           "%s", msg);
-                    *op_errstr = gf_strdup(msg);
-                    goto out;
-                }
-            }
-#endif
-
             ret = glusterd_validate_and_create_brickpath(
                 brickinfo, volinfo->volume_id, volinfo->volname, op_errstr,
                 is_force, _gf_false);

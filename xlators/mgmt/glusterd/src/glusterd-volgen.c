@@ -1788,26 +1788,6 @@ brick_graph_add_bd(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     ret = 0;
 
-#ifdef HAVE_BD_XLATOR
-    if (*brickinfo->vg != '\0') {
-        xlator_t *xl = NULL;
-        /* Now add BD v2 xlator if volume is BD type */
-        xl = volgen_graph_add(graph, "storage/bd", volinfo->volname);
-        if (!xl) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = xlator_set_fixed_option(xl, "device", "vg");
-        if (ret)
-            goto out;
-
-        ret = xlator_set_fixed_option(xl, "export", brickinfo->vg);
-        if (ret)
-            goto out;
-    }
-#endif
-
 out:
     return ret;
 }
