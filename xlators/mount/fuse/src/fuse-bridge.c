@@ -4056,6 +4056,7 @@ fuse_setxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
     if (ret < 0) {
         op_errno = -ret;
         GF_FREE(dict_value);
+        GF_FREE(newkey);
         goto done;
     }
 
@@ -5848,7 +5849,12 @@ fuse_thread_proc(void *data)
     ssize_t res = 0;
     struct iobuf *iobuf = NULL;
     fuse_in_header_t *finh = NULL;
-    struct iovec iov_in[2];
+    struct iovec iov_in[2] = {
+        {
+            0,
+        },
+    };
+
     void *msg = NULL;
     size_t msg0_size = sizeof(*finh) + sizeof(struct fuse_write_in);
     fuse_async_t *fasync;
