@@ -656,9 +656,6 @@ print_brick_details(dict_t *dict, int volcount, int start_index, int end_index,
     int isArbiter = 0;
     int ret = -1;
     char *brick = NULL;
-#ifdef HAVE_BD_XLATOR
-    char *caps = NULL;
-#endif
 
     while (index <= end_index) {
         snprintf(key, 1024, "volume%d.brick%d", volcount, index);
@@ -676,12 +673,6 @@ print_brick_details(dict_t *dict, int volcount, int start_index, int end_index,
             cli_out("Brick%d: %s (arbiter)", index, brick);
         else
             cli_out("Brick%d: %s", index, brick);
-#ifdef HAVE_BD_XLATOR
-        snprintf(key, 1024, "volume%d.vg%d", volcount, index);
-        ret = dict_get_str(dict, key, &caps);
-        if (!ret)
-            cli_out("Brick%d VG: %s", index, caps);
-#endif
         index++;
     }
     ret = 0;
@@ -1022,32 +1013,6 @@ xml_output:
         cli_out("Status: %s", cli_vol_status_str[status]);
         cli_out("Snapshot Count: %d", snap_count);
 
-#ifdef HAVE_BD_XLATOR
-        k = 0;
-        snprintf(key, sizeof(key), "volume%d.xlator%d", i, k);
-        ret = dict_get_str(dict, key, &caps);
-        if (ret)
-            goto next;
-        do {
-            j = 0;
-            cli_out("Xlator %d: %s", k + 1, caps);
-            do {
-                snprintf(key, sizeof(key), "volume%d.xlator%d.caps%d", i, k,
-                         j++);
-                ret = dict_get_str(dict, key, &caps);
-                if (ret)
-                    break;
-                cli_out("Capability %d: %s", j, caps);
-            } while (1);
-
-            snprintf(key, sizeof(key), "volume%d.xlator%d", i, ++k);
-            ret = dict_get_str(dict, key, &caps);
-            if (ret)
-                break;
-        } while (1);
-
-    next:
-#endif
         gf_cli_print_number_of_bricks(
             type, brick_count, dist_count, stripe_count, replica_count,
             disperse_count, redundancy_count, arbiter_count);

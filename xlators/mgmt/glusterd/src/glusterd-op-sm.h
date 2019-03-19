@@ -286,10 +286,6 @@ glusterd_stop_bricks(glusterd_volinfo_t *volinfo);
 int
 glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
                                 dict_t *op_ctx);
-#ifdef HAVE_BD_XLATOR
-int
-glusterd_is_valid_vg(glusterd_brickinfo_t *brick, int check_tag, char *msg);
-#endif
 
 int32_t
 glusterd_get_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo);

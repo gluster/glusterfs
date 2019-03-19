@@ -7,10 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifdef HAVE_BD_XLATOR
-#include <lvm2app.h>
-#endif
-
 #include <glusterfs/common-utils.h>
 #include <glusterfs/syscall.h>
 #include "cli1-xdr.h"
@@ -1133,108 +1129,6 @@ glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
                                        __glusterd_handle_cli_statedump_volume);
 }
 
-#ifdef HAVE_BD_XLATOR
-/*
- * Validates if given VG in the brick exists or not. Also checks if VG has
- * GF_XATTR_VOL_ID_KEY tag set to avoid using same VG for multiple bricks.
- * Tag is checked only during glusterd_op_stage_create_volume. Tag is set during
- * glusterd_validate_and_create_brickpath().
- * @brick - brick info, @check_tag - check for VG tag or not
- * @msg - Error message to return to caller
- */
-int
-glusterd_is_valid_vg(glusterd_brickinfo_t *brick, int check_tag, char *msg)
-{
-    lvm_t handle = NULL;
-    vg_t vg = NULL;
-    char *vg_name = NULL;
-    int retval = 0;
-    char *p = NULL;
-    char *ptr = NULL;
-    struct dm_list *dm_lvlist = NULL;
-    struct dm_list *dm_seglist = NULL;
-    struct lvm_lv_list *lv_list = NULL;
-    struct lvm_property_value prop = {
-        0,
-    };
-    struct lvm_lvseg_list *seglist = NULL;
-    struct dm_list *taglist = NULL;
-    struct lvm_str_list *strl = NULL;
-
-    handle = lvm_init(NULL);
-    if (!handle) {
-        sprintf(msg, "lvm_init failed, could not validate vg");
-        return -1;
-    }
-    if (*brick->vg == '\0') { /* BD xlator has vg in brick->path */
-        p = gf_strdup(brick->path);
-        vg_name = strtok_r(p, "/", &ptr);
-    } else
-        vg_name = brick->vg;
-
-    vg = lvm_vg_open(handle, vg_name, "r", 0);
-    if (!vg) {
-        sprintf(msg, "no such vg: %s", vg_name);
-        retval = -1;
-        goto out;
-    }
-    if (!check_tag)
-        goto next;
-
-    taglist = lvm_vg_get_tags(vg);
-    if (!taglist)
-        goto next;
-
-    dm_list_iterate_items(strl, taglist)
-    {
-        if (!strncmp(strl->str, GF_XATTR_VOL_ID_KEY,
-                     SLEN(GF_XATTR_VOL_ID_KEY))) {
-            sprintf(msg,
-                    "VG %s is already part of"
-                    " a brick",
-                    vg_name);
-            retval = -1;
-            goto out;
-        }
-    }
-next:
-
-    brick->caps = CAPS_BD | CAPS_OFFLOAD_COPY | CAPS_OFFLOAD_SNAPSHOT;
-
-    dm_lvlist = lvm_vg_list_lvs(vg);
-    if (!dm_lvlist)
-        goto out;
-
-    dm_list_iterate_items(lv_list, dm_lvlist)
-    {
-        dm_seglist = lvm_lv_list_lvsegs(lv_list->lv);
-        dm_list_iterate_items(seglist, dm_seglist)
-        {
-            prop = lvm_lvseg_get_property(seglist->lvseg, "segtype");
-            if (!prop.is_valid || !prop.value.string)
-                continue;
-            if (!strcmp(prop.value.string, "thin-pool")) {
-                brick->caps |= CAPS_THIN;
-                gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_THINPOOLS_FOR_THINLVS,
-                       "Thin Pool "
-                       "\"%s\" will be used for thin LVs",
-                       lvm_lv_get_name(lv_list->lv));
-                break;
-            }
-        }
-    }
-
-    retval = 0;
-out:
-    if (vg)
-        lvm_vg_close(vg);
-    lvm_quit(handle);
-    if (p)
-        GF_FREE(p);
-    return retval;
-}
-#endif
-
 /* op-sm */
 int
 glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
@@ -1373,13 +1267,6 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         }
 
         if (!gf_uuid_compare(brick_info->uuid, MY_UUID)) {
-#ifdef HAVE_BD_XLATOR
-            if (brick_info->vg[0]) {
-                ret = glusterd_is_valid_vg(brick_info, 1, msg);
-                if (ret)
-                    goto out;
-            }
-#endif
             ret = glusterd_validate_and_create_brickpath(
                 brick_info, volume_uuid, volname, op_errstr, is_force,
                 _gf_false);
@@ -1720,22 +1607,6 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 local_brick_count = brick_count;
             }
         }
-
-#ifdef HAVE_BD_XLATOR
-        if (brickinfo->vg[0])
-            caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY |
-                   CAPS_OFFLOAD_SNAPSHOT;
-        /* Check for VG/thin pool if its BD volume */
-        if (brickinfo->vg[0]) {
-            ret = glusterd_is_valid_vg(brickinfo, 0, msg);
-            if (ret)
-                goto out;
-            /* if anyone of the brick does not have thin support,
-               disable it for entire volume */
-            caps &= brickinfo->caps;
-        } else
-            caps = 0;
-#endif
     }
 
     ret = dict_set_int32n(rsp_dict, "brick_count", SLEN("brick_count"),
@@ -2518,25 +2389,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
                 goto out;
             }
             brickinfo->statfs_fsid = brickstat.f_fsid;
-
-#ifdef HAVE_BD_XLATOR
-            if (brickinfo->vg[0]) {
-                caps = CAPS_BD | CAPS_THIN | CAPS_OFFLOAD_COPY |
-                       CAPS_OFFLOAD_SNAPSHOT;
-                ret = glusterd_is_valid_vg(brickinfo, 0, msg);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_VG, "%s",
-                           msg);
-                    goto out;
-                }
-
-                /* if anyone of the brick does not have thin
-                   support, disable it for entire volume */
-                caps &= brickinfo->caps;
-            } else {
-                caps = 0;
-            }
-#endif
         }
 
         cds_list_add_tail(&brickinfo->brick_list, &volinfo->bricks);
