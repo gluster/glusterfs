@@ -440,13 +440,14 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
 
     this = xl;
     trans = data;
-    conf = this->private;
 
     if (!this || !data || !this->ctx || !this->ctx->active) {
         gf_msg_callingfn("server", GF_LOG_WARNING, 0, PS_MSG_RPC_NOTIFY_ERROR,
                          "Calling rpc_notify without initializing");
         goto out;
     }
+
+    conf = this->private;
 
     switch (event) {
         case RPCSVC_EVENT_ACCEPT: {
