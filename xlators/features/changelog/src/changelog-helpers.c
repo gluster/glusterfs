@@ -153,27 +153,6 @@ changelog_init_event_selection(xlator_t *this,
     return 0;
 }
 
-int
-changelog_cleanup_event_selection(xlator_t *this,
-                                  changelog_ev_selector_t *selection)
-{
-    int j = CHANGELOG_EV_SELECTION_RANGE;
-
-    LOCK(&selection->reflock);
-    {
-        while (j--) {
-            if (selection->ref[j] > 0)
-                gf_msg(this->name, GF_LOG_WARNING, 0,
-                       CHANGELOG_MSG_CLEANUP_ON_ACTIVE_REF,
-                       "changelog event selection cleaning up "
-                       " on active references");
-        }
-    }
-    UNLOCK(&selection->reflock);
-
-    return LOCK_DESTROY(&selection->reflock);
-}
-
 static void
 changelog_perform_dispatch(xlator_t *this, changelog_priv_t *priv, void *mem,
                            size_t size)

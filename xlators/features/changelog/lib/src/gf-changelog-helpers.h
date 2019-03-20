@@ -205,9 +205,6 @@ typedef struct gf_private {
 void *
 gf_changelog_process(void *data);
 
-ssize_t
-gf_changelog_read_path(int fd, char *buffer, size_t bufsize);
-
 void
 gf_rfc3986_encode_space_newline(unsigned char *s, char *enc, char *estr);
 
