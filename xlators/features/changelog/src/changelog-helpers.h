@@ -510,8 +510,6 @@ changelog_deselect_event(xlator_t *, changelog_ev_selector_t *, unsigned int);
 int
 changelog_init_event_selection(xlator_t *, changelog_ev_selector_t *);
 int
-changelog_cleanup_event_selection(xlator_t *, changelog_ev_selector_t *);
-int
 changelog_ev_selected(xlator_t *, changelog_ev_selector_t *, unsigned int);
 void
 changelog_dispatch_event(xlator_t *, changelog_priv_t *, changelog_event_t *);

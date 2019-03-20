@@ -13,12 +13,6 @@
 #include "changelog-lib-messages.h"
 #include <glusterfs/syscall.h>
 
-ssize_t
-gf_changelog_read_path(int fd, char *buffer, size_t bufsize)
-{
-    return sys_read(fd, buffer, bufsize);
-}
-
 size_t
 gf_changelog_write(int fd, char *buffer, size_t len)
 {
