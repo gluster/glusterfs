@@ -2494,11 +2494,14 @@ wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 entry->inode = NULL;
                                 memset (&entry->d_stat, 0,
                                         sizeof (entry->d_stat));
-
-                                inode_unref (inode);
                         }
                 }
                 UNLOCK (&wb_inode->lock);
+
+                if (inode) {
+                        inode_unref (inode);
+                        inode = NULL;
+                }
         }
 
 unwind:
