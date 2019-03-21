@@ -385,10 +385,6 @@ static size_t pool_list_size;
 #define N_COLD_LISTS 1024
 #define POOL_SWEEP_SECS 30
 
-static unsigned long sweep_times;
-static unsigned long sweep_usecs;
-static unsigned long frees_to_system;
-
 typedef struct {
     struct list_head death_row;
     pooled_obj_hdr_t *cold_lists[N_COLD_LISTS];
@@ -446,7 +442,6 @@ free_obj_list(pooled_obj_hdr_t *victim)
         next = victim->next;
         free(victim);
         victim = next;
-        ++frees_to_system;
     }
 }
 
@@ -458,9 +453,6 @@ pool_sweeper(void *arg)
     per_thread_pool_list_t *next_pl;
     per_thread_pool_t *pt_pool;
     unsigned int i;
-    struct timeval begin_time;
-    struct timeval end_time;
-    struct timeval elapsed;
     gf_boolean_t poisoned;
 
     /*
@@ -477,7 +469,6 @@ pool_sweeper(void *arg)
         state.n_cold_lists = 0;
 
         /* First pass: collect stuff that needs our attention. */
-        (void)gettimeofday(&begin_time, NULL);
         (void)pthread_mutex_lock(&pool_lock);
         list_for_each_entry_safe(pool_list, next_pl, &pool_threads, thr_list)
         {
@@ -490,10 +481,6 @@ pool_sweeper(void *arg)
             }
         }
         (void)pthread_mutex_unlock(&pool_lock);
-        (void)gettimeofday(&end_time, NULL);
-        timersub(&end_time, &begin_time, &elapsed);
-        sweep_usecs += elapsed.tv_sec * 1000000 + elapsed.tv_usec;
-        sweep_times += 1;
 
         /* Second pass: free dead pools. */
         (void)pthread_mutex_lock(&pool_free_lock);
@@ -897,63 +884,6 @@ mem_get(struct mem_pool *mem_pool)
 
     return retval + 1;
 #endif /* GF_DISABLE_MEMPOOL */
-}
-
-void *
-mem_pool_get(unsigned long sizeof_type, gf_boolean_t *hit)
-{
-#if defined(GF_DISABLE_MEMPOOL)
-    return GF_MALLOC(sizeof_type, gf_common_mt_mem_pool);
-#else
-    pooled_obj_hdr_t *retval;
-    unsigned int power;
-    struct mem_pool_shared *pool = NULL;
-
-    if (!sizeof_type) {
-        gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-                         "invalid argument");
-        return NULL;
-    }
-
-    /* We ensure sizeof_type > 1 and the next power of two will be, at least,
-     * 2^POOL_SMALLEST */
-    sizeof_type |= (1 << POOL_SMALLEST) - 1;
-    power = sizeof(sizeof_type) * 8 - __builtin_clzl(sizeof_type - 1) + 1;
-    if (power > POOL_LARGEST) {
-        gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-                         "invalid argument");
-        return NULL;
-    }
-    pool = &pools[power - POOL_SMALLEST];
-
-    retval = mem_get_from_pool(NULL, pool, hit);
-
-    return retval + 1;
-#endif /* GF_DISABLE_MEMPOOL */
-}
-
-void *
-mem_pool_get0(unsigned long sizeof_type, gf_boolean_t *hit)
-{
-    void *ptr = NULL;
-    unsigned int power;
-    struct mem_pool_shared *pool = NULL;
-
-    ptr = mem_pool_get(sizeof_type, hit);
-    if (ptr) {
-#if defined(GF_DISABLE_MEMPOOL)
-        memset(ptr, 0, sizeof_type);
-#else
-        /* We ensure sizeof_type > 1 and the next power of two will be, at
-         * least, 2^POOL_SMALLEST */
-        sizeof_type |= (1 << POOL_SMALLEST) - 1;
-        power = sizeof(sizeof_type) * 8 - __builtin_clzl(sizeof_type - 1) + 1;
-        pool = &pools[power - POOL_SMALLEST];
-        memset(ptr, 0, AVAILABLE_SIZE(pool->power_of_two));
-#endif
-    }
-
-    return ptr;
 }
 
 void
