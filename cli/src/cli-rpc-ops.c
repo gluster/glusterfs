@@ -7607,8 +7607,9 @@ cli_print_volume_status_itables(dict_t *dict, char *prefix)
     uint32_t lru_size = 0;
     uint32_t purge_size = 0;
     uint32_t lru_limit = 0;
+#ifdef DEBUG
     int i = 0;
-
+#endif
     GF_ASSERT(dict);
     GF_ASSERT(prefix);
 

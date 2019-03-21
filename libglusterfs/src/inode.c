@@ -2491,9 +2491,10 @@ inode_table_dump_to_dict(inode_table_t *itable, char *prefix, dict_t *dict)
         0,
     };
     int ret = 0;
+#ifdef DEBUG
     inode_t *inode = NULL;
     int count = 0;
-
+#endif
     ret = pthread_mutex_trylock(&itable->lock);
     if (ret)
         return;
