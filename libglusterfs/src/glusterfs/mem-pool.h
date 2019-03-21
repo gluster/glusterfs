@@ -308,15 +308,4 @@ mem_pool_destroy(struct mem_pool *pool);
 void
 gf_mem_acct_enable_set(void *ctx);
 
-/* hit will be set to :
- *   _gf_true if the memory is served from mem pool
- *   _gf_false if the requested size was not present in mem pool and hence
- *   std alloc'd.
- */
-void *
-mem_pool_get(unsigned long sizeof_type, gf_boolean_t *hit);
-
-void *
-mem_pool_get0(unsigned long sizeof_type, gf_boolean_t *hit);
-
 #endif /* _MEM_POOL_H */
