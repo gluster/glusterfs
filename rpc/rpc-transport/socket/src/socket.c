@@ -867,8 +867,8 @@ __socket_shutdown(rpc_transport_t *this)
         gf_log(this->name, GF_LOG_DEBUG, "shutdown() returned %d. %s", ret,
                strerror(errno));
     } else {
-        gf_log(this->name, GF_LOG_INFO, "intentional socket shutdown(%d)",
-               priv->sock);
+        GF_LOG_OCCASIONALLY(priv->shutdown_log_ctr, this->name, GF_LOG_INFO,
+                            "intentional socket shutdown(%d)", priv->sock);
     }
 
     return ret;
