@@ -220,6 +220,7 @@ typedef struct {
     int keepalivecnt;
     int timeout;
     int log_ctr;
+    int shutdown_log_ctr;
     /* ssl_error_required is used only during the SSL connection setup
      * phase.
      * It holds the error code returned by SSL_get_error() and is used to
