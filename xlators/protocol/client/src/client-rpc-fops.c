@@ -3234,11 +3234,13 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
     struct iobref *rsp_iobref = NULL;
     struct iobuf *rsp_iobuf = NULL;
     struct iovec *rsphdr = NULL;
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
     memset(vector, 0, sizeof(vector));
+    memset(&cp, 0, sizeof(client_payload_t));
 
     conf = this->private;
     args = data;
@@ -3288,9 +3290,12 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
         op_errno = -ret;
         goto unwind;
     }
+
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_LOOKUP,
-                                client3_3_lookup_cbk, NULL, rsphdr, count, NULL,
-                                0, local->iobref,
+                                client3_3_lookup_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_lookup_req);
 
     if (ret) {
@@ -3338,8 +3343,8 @@ client3_3_stat(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_STAT,
-                                client3_3_stat_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_stat_req);
+                                client3_3_stat_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_stat_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3381,8 +3386,8 @@ client3_3_truncate(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_TRUNCATE,
-                                client3_3_truncate_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_truncate_req);
+                                client3_3_truncate_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_truncate_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3425,8 +3430,7 @@ client3_3_ftruncate(call_frame_t *frame, xlator_t *this, void *data)
     }
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_FTRUNCATE, client3_3_ftruncate_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_ftruncate_req);
+                                NULL, (xdrproc_t)xdr_gfs3_ftruncate_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3468,8 +3472,8 @@ client3_3_access(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_ACCESS,
-                                client3_3_access_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_access_req);
+                                client3_3_access_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_access_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3505,10 +3509,12 @@ client3_3_readlink(call_frame_t *frame, xlator_t *this, void *data)
     struct iovec vector[MAX_IOVEC] = {
         {0},
     };
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
 
     conf = this->private;
@@ -3547,9 +3553,11 @@ client3_3_readlink(call_frame_t *frame, xlator_t *this, void *data)
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
 
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_READLINK,
-                                client3_3_readlink_cbk, NULL, rsphdr, count,
-                                NULL, 0, local->iobref,
+                                client3_3_readlink_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_readlink_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -3595,8 +3603,8 @@ client3_3_unlink(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_UNLINK,
-                                client3_3_unlink_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_unlink_req);
+                                client3_3_unlink_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_unlink_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3638,8 +3646,8 @@ client3_3_rmdir(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_RMDIR,
-                                client3_3_rmdir_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_rmdir_req);
+                                client3_3_rmdir_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_rmdir_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3697,8 +3705,8 @@ client3_3_symlink(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_SYMLINK,
-                                client3_3_symlink_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_symlink_req);
+                                client3_3_symlink_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_symlink_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3743,8 +3751,8 @@ client3_3_rename(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_RENAME,
-                                client3_3_rename_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_rename_req);
+                                client3_3_rename_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_rename_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3802,8 +3810,8 @@ client3_3_link(call_frame_t *frame, xlator_t *this, void *data)
     loc_path(&local->loc2, NULL);
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_LINK,
-                                client3_3_link_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_link_req);
+                                client3_3_link_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_link_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3857,8 +3865,8 @@ client3_3_mknod(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_MKNOD,
-                                client3_3_mknod_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_mknod_req);
+                                client3_3_mknod_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_mknod_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3924,8 +3932,8 @@ client3_3_mkdir(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_MKDIR,
-                                client3_3_mkdir_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_mkdir_req);
+                                client3_3_mkdir_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_mkdir_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -3982,8 +3990,8 @@ client3_3_create(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_CREATE,
-                                client3_3_create_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_create_req);
+                                client3_3_create_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_create_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4043,8 +4051,8 @@ client3_3_open(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPEN,
-                                client3_3_open_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_open_req);
+                                client3_3_open_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_open_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4079,10 +4087,12 @@ client3_3_readv(call_frame_t *frame, xlator_t *this, void *data)
     };
     struct iobuf *rsp_iobuf = NULL;
     struct iobref *rsp_iobref = NULL;
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4130,9 +4140,12 @@ client3_3_readv(call_frame_t *frame, xlator_t *this, void *data)
     local->iobref = rsp_iobref;
     rsp_iobref = NULL;
 
+    cp.rsp_payload = &rsp_vec;
+    cp.rsp_payload_cnt = 1;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_READ,
-                                client3_3_readv_cbk, NULL, NULL, 0, &rsp_vec, 1,
-                                local->iobref, (xdrproc_t)xdr_gfs3_read_req);
+                                client3_3_readv_cbk, &cp,
+                                (xdrproc_t)xdr_gfs3_read_req);
     if (ret) {
         // unwind is done in the cbk
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -4167,10 +4180,12 @@ client3_3_writev(call_frame_t *frame, xlator_t *this, void *data)
     };
     int op_errno = ESTALE;
     int ret = 0;
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4187,9 +4202,12 @@ client3_3_writev(call_frame_t *frame, xlator_t *this, void *data)
         op_errno = -ret;
         goto unwind;
     }
+
+    cp.iobref = args->iobref;
+    cp.payload = args->vector;
+    cp.payload_cnt = args->count;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_WRITE,
-                                client3_3_writev_cbk, args->iobref,
-                                args->vector, args->count, NULL, 0, NULL,
+                                client3_3_writev_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_write_req);
     if (ret) {
         /*
@@ -4248,8 +4266,8 @@ client3_3_flush(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FLUSH,
-                                client3_3_flush_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_flush_req);
+                                client3_3_flush_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_flush_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4291,8 +4309,8 @@ client3_3_fsync(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FSYNC,
-                                client3_3_fsync_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_fsync_req);
+                                client3_3_fsync_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_fsync_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4336,8 +4354,8 @@ client3_3_fstat(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FSTAT,
-                                client3_3_fstat_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_fstat_req);
+                                client3_3_fstat_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_fstat_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4391,8 +4409,8 @@ client3_3_opendir(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPENDIR,
-                                client3_3_opendir_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_opendir_req);
+                                client3_3_opendir_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_opendir_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4435,8 +4453,8 @@ client3_3_fsyncdir(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FSYNCDIR,
-                                client3_3_fsyncdir_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_fsyncdir_req);
+                                client3_3_fsyncdir_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_fsyncdir_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4479,8 +4497,8 @@ client3_3_statfs(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_STATFS,
-                                client3_3_statfs_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_statfs_req);
+                                client3_3_statfs_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_statfs_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4523,8 +4541,8 @@ client3_3_setxattr(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_SETXATTR,
-                                client3_3_setxattr_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_setxattr_req);
+                                client3_3_setxattr_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_setxattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4570,8 +4588,7 @@ client3_3_fsetxattr(call_frame_t *frame, xlator_t *this, void *data)
     }
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_FSETXATTR, client3_3_fsetxattr_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_fsetxattr_req);
+                                NULL, (xdrproc_t)xdr_gfs3_fsetxattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -4611,10 +4628,12 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
     struct iovec vector[MAX_IOVEC] = {
         {0},
     };
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4654,9 +4673,12 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
         op_errno = -ret;
         goto unwind;
     }
+
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops,
-                                GFS3_OP_FGETXATTR, client3_3_fgetxattr_cbk,
-                                NULL, rsphdr, count, NULL, 0, local->iobref,
+                                GFS3_OP_FGETXATTR, client3_3_fgetxattr_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_fgetxattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -4699,11 +4721,14 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
     struct iovec vector[MAX_IOVEC] = {
         {0},
     };
+    client_payload_t cp;
 
     if (!frame || !this || !data) {
         op_errno = 0;
         goto unwind;
     }
+
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
 
     local = mem_get0(this->local_pool);
@@ -4775,9 +4800,12 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
         op_errno = -ret;
         goto unwind;
     }
+
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_GETXATTR,
-                                client3_3_getxattr_cbk, NULL, rsphdr, count,
-                                NULL, 0, local->iobref,
+                                client3_3_getxattr_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_getxattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -4822,10 +4850,12 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
     struct iovec vector[MAX_IOVEC] = {
         {0},
     };
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
 
     if (!(args->loc && args->loc->inode))
@@ -4871,9 +4901,12 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
         op_errno = -ret;
         goto unwind;
     }
+
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_XATTROP,
-                                client3_3_xattrop_cbk, NULL, rsphdr, count,
-                                NULL, 0, local->iobref,
+                                client3_3_xattrop_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_xattrop_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -4918,10 +4951,12 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
     struct iovec vector[MAX_IOVEC] = {
         {0},
     };
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4962,9 +4997,11 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
 
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = local->iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FXATTROP,
-                                client3_3_fxattrop_cbk, NULL, rsphdr, count,
-                                NULL, 0, local->iobref,
+                                client3_3_fxattrop_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_fxattrop_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -5016,8 +5053,7 @@ client3_3_removexattr(call_frame_t *frame, xlator_t *this, void *data)
     }
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_REMOVEXATTR, client3_3_removexattr_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_removexattr_req);
+                                NULL, (xdrproc_t)xdr_gfs3_removexattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5059,10 +5095,9 @@ client3_3_fremovexattr(call_frame_t *frame, xlator_t *this, void *data)
         op_errno = -ret;
         goto unwind;
     }
-    ret = client_submit_request(this, &req, frame, conf->fops,
-                                GFS3_OP_FREMOVEXATTR,
-                                client3_3_fremovexattr_cbk, NULL, NULL, 0, NULL,
-                                0, NULL, (xdrproc_t)xdr_gfs3_fremovexattr_req);
+    ret = client_submit_request(
+        this, &req, frame, conf->fops, GFS3_OP_FREMOVEXATTR,
+        client3_3_fremovexattr_cbk, NULL, (xdrproc_t)xdr_gfs3_fremovexattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5104,8 +5139,8 @@ client3_3_lease(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_LEASE,
-                                client3_3_lease_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_lease_req);
+                                client3_3_lease_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_lease_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5167,7 +5202,7 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_LK,
-                                client3_3_lk_cbk, NULL, NULL, 0, NULL, 0, NULL,
+                                client3_3_lk_cbk, NULL,
                                 (xdrproc_t)xdr_gfs3_lk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -5210,8 +5245,8 @@ client3_3_inodelk(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_INODELK,
-                                client3_3_inodelk_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_inodelk_req);
+                                client3_3_inodelk_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_inodelk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5260,8 +5295,8 @@ client3_3_finodelk(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FINODELK,
-                                client3_3_finodelk_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_finodelk_req);
+                                client3_3_finodelk_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_finodelk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5305,8 +5340,8 @@ client3_3_entrylk(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_ENTRYLK,
-                                client3_3_entrylk_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_entrylk_req);
+                                client3_3_entrylk_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_entrylk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5349,8 +5384,8 @@ client3_3_fentrylk(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FENTRYLK,
-                                client3_3_fentrylk_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_fentrylk_req);
+                                client3_3_fentrylk_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_fentrylk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5391,8 +5426,7 @@ client3_3_rchecksum(call_frame_t *frame, xlator_t *this, void *data)
     }
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_RCHECKSUM, client3_3_rchecksum_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_rchecksum_req);
+                                NULL, (xdrproc_t)xdr_gfs3_rchecksum_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5433,10 +5467,12 @@ client3_3_readdir(call_frame_t *frame, xlator_t *this, void *data)
         {0},
     };
     int readdir_rsp_size = 0;
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -5486,9 +5522,11 @@ client3_3_readdir(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = rsp_iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_READDIR,
-                                client3_3_readdir_cbk, NULL, rsphdr, count,
-                                NULL, 0, rsp_iobref,
+                                client3_3_readdir_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_readdir_req);
 
     if (ret) {
@@ -5534,10 +5572,12 @@ client3_3_readdirp(call_frame_t *frame, xlator_t *this, void *data)
         {0},
     };
     clnt_local_t *local = NULL;
+    client_payload_t cp;
 
     if (!frame || !this || !data)
         goto unwind;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -5587,9 +5627,11 @@ client3_3_readdirp(call_frame_t *frame, xlator_t *this, void *data)
 
     local->fd = fd_ref(args->fd);
 
+    cp.rsphdr = rsphdr;
+    cp.rsphdr_cnt = count;
+    cp.rsp_iobref = rsp_iobref;
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_READDIRP,
-                                client3_3_readdirp_cbk, NULL, rsphdr, count,
-                                NULL, 0, rsp_iobref,
+                                client3_3_readdirp_cbk, &cp,
                                 (xdrproc_t)xdr_gfs3_readdirp_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -5637,8 +5679,8 @@ client3_3_setattr(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_SETATTR,
-                                client3_3_setattr_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_setattr_req);
+                                client3_3_setattr_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_setattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5679,8 +5721,8 @@ client3_3_fsetattr(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FSETATTR,
-                                client3_3_fsetattr_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_fsetattr_req);
+                                client3_3_fsetattr_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_fsetattr_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5722,8 +5764,7 @@ client3_3_fallocate(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_FALLOCATE, client3_3_fallocate_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_fallocate_req);
+                                NULL, (xdrproc_t)xdr_gfs3_fallocate_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5764,8 +5805,8 @@ client3_3_discard(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_DISCARD,
-                                client3_3_discard_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_discard_req);
+                                client3_3_discard_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_discard_req);
     if (ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5807,8 +5848,8 @@ client3_3_zerofill(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_ZEROFILL,
-                                client3_3_zerofill_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_zerofill_req);
+                                client3_3_zerofill_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_zerofill_req);
     if (ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -5850,7 +5891,7 @@ client3_3_ipc(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_IPC,
-                                client3_3_ipc_cbk, NULL, NULL, 0, NULL, 0, NULL,
+                                client3_3_ipc_cbk, NULL,
                                 (xdrproc_t)xdr_gfs3_ipc_req);
     if (ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
@@ -5895,8 +5936,8 @@ client3_3_seek(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_SEEK,
-                                client3_3_seek_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_seek_req);
+                                client3_3_seek_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_seek_req);
     if (ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -6083,8 +6124,7 @@ client3_3_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_GETACTIVELK, client3_3_getactivelk_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_getactivelk_req);
+                                NULL, (xdrproc_t)xdr_gfs3_getactivelk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
@@ -6141,8 +6181,7 @@ client3_3_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = client_submit_request(this, &req, frame, conf->fops,
                                 GFS3_OP_SETACTIVELK, client3_3_setactivelk_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_gfs3_setactivelk_req);
+                                NULL, (xdrproc_t)xdr_gfs3_setactivelk_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
                "failed to send the fop");
