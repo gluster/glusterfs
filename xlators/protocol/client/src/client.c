@@ -131,10 +131,7 @@ client_type_to_gf_type(short l_type)
 int
 client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
-                      struct iobref *iobref, struct iovec *payload,
-                      int payloadcnt, struct iovec *rsp_payload,
-                      int rsp_payload_count, struct iobref *rsp_iobref,
-                      xdrproc_t xdrproc)
+                      client_payload_t *cp, xdrproc_t xdrproc)
 {
     int ret = -1;
     clnt_conf_t *conf = NULL;
@@ -180,8 +177,8 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
             goto out;
         }
 
-        if (iobref != NULL) {
-            ret = iobref_merge(new_iobref, iobref);
+        if (cp && cp->iobref != NULL) {
+            ret = iobref_merge(new_iobref, cp->iobref);
             if (ret != 0) {
                 gf_msg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_NO_MEMORY,
                        "cannot merge "
@@ -224,9 +221,16 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
     }
 
     /* Send the msg */
-    ret = rpc_clnt_submit(conf->rpc, prog, procnum, cbkfn, &iov, count, payload,
-                          payloadcnt, new_iobref, frame, payload, payloadcnt,
-                          rsp_payload, rsp_payload_count, rsp_iobref);
+    if (cp) {
+        ret = rpc_clnt_submit(conf->rpc, prog, procnum, cbkfn, &iov, count,
+                              cp->payload, cp->payload_cnt, new_iobref, frame,
+                              cp->rsphdr, cp->rsphdr_cnt, cp->rsp_payload,
+                              cp->rsp_payload_cnt, cp->rsp_iobref);
+    } else {
+        ret = rpc_clnt_submit(conf->rpc, prog, procnum, cbkfn, &iov, count,
+                              NULL, 0, new_iobref, frame, NULL, 0, NULL, 0,
+                              NULL);
+    }
 
     if (ret < 0) {
         gf_msg_debug(this->name, 0, "rpc_clnt_submit failed");

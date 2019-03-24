@@ -3076,8 +3076,7 @@ send_release4_0_over_wire(xlator_t *this, clnt_fd_ctx_t *fdctx,
         gf_msg_trace(this->name, 0, "sending releasedir on fd");
         (void)client_submit_request(
             this, &req, fr, conf->fops, GFS3_OP_RELEASEDIR,
-            client4_0_releasedir_cbk, NULL, NULL, 0, NULL, 0, NULL,
-            (xdrproc_t)xdr_gfx_releasedir_req);
+            client4_0_releasedir_cbk, NULL, (xdrproc_t)xdr_gfx_releasedir_req);
     } else {
         gfx_release_req req = {
             {
@@ -3088,8 +3087,8 @@ send_release4_0_over_wire(xlator_t *this, clnt_fd_ctx_t *fdctx,
         req.fd = fdctx->remote_fd;
         gf_msg_trace(this->name, 0, "sending release on fd");
         (void)client_submit_request(this, &req, fr, conf->fops, GFS3_OP_RELEASE,
-                                    client4_0_release_cbk, NULL, NULL, 0, NULL,
-                                    0, NULL, (xdrproc_t)xdr_gfx_release_req);
+                                    client4_0_release_cbk, NULL,
+                                    (xdrproc_t)xdr_gfx_release_req);
     }
 
     return 0;
@@ -3112,8 +3111,7 @@ send_release3_3_over_wire(xlator_t *this, clnt_fd_ctx_t *fdctx,
         gf_msg_trace(this->name, 0, "sending releasedir on fd");
         (void)client_submit_request(
             this, &req, fr, conf->fops, GFS3_OP_RELEASEDIR,
-            client3_3_releasedir_cbk, NULL, NULL, 0, NULL, 0, NULL,
-            (xdrproc_t)xdr_gfs3_releasedir_req);
+            client3_3_releasedir_cbk, NULL, (xdrproc_t)xdr_gfs3_releasedir_req);
     } else {
         gfs3_release_req req = {
             {
@@ -3124,8 +3122,8 @@ send_release3_3_over_wire(xlator_t *this, clnt_fd_ctx_t *fdctx,
         req.fd = fdctx->remote_fd;
         gf_msg_trace(this->name, 0, "sending release on fd");
         (void)client_submit_request(this, &req, fr, conf->fops, GFS3_OP_RELEASE,
-                                    client3_3_release_cbk, NULL, NULL, 0, NULL,
-                                    0, NULL, (xdrproc_t)xdr_gfs3_release_req);
+                                    client3_3_release_cbk, NULL,
+                                    (xdrproc_t)xdr_gfs3_release_req);
     }
 
     return 0;

@@ -34,7 +34,6 @@ typedef struct client_fd_lk_local {
     clnt_fd_ctx_t *fdctx;
 } clnt_fd_lk_local_t;
 
-
 int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -201,8 +200,8 @@ clnt_release_reopen_fd(xlator_t *this, clnt_fd_ctx_t *fdctx)
     req.fd = fdctx->remote_fd;
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_RELEASE,
-                                clnt_release_reopen_fd_cbk, NULL, NULL, 0, NULL,
-                                0, NULL, (xdrproc_t)xdr_gfs3_releasedir_req);
+                                clnt_release_reopen_fd_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_releasedir_req);
 out:
     if (ret) {
         clnt_fd_lk_reacquire_failed(this, fdctx, conf);
@@ -486,8 +485,8 @@ protocol_client_reopendir(clnt_fd_ctx_t *fdctx, xlator_t *this)
     frame->local = local;
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPENDIR,
-                                client3_3_reopendir_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_opendir_req);
+                                client3_3_reopendir_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_opendir_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED,
                "failed to send the re-opendir request");
@@ -547,8 +546,8 @@ protocol_client_reopenfile(clnt_fd_ctx_t *fdctx, xlator_t *this)
                  local->loc.path);
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPEN,
-                                client3_3_reopen_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfs3_open_req);
+                                client3_3_reopen_cbk, NULL,
+                                (xdrproc_t)xdr_gfs3_open_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED,
                "failed to send the re-open request");
@@ -745,8 +744,8 @@ protocol_client_reopendir_v2(clnt_fd_ctx_t *fdctx, xlator_t *this)
     frame->local = local;
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPENDIR,
-                                client4_0_reopendir_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfx_opendir_req);
+                                client4_0_reopendir_cbk, NULL,
+                                (xdrproc_t)xdr_gfx_opendir_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED,
                "failed to send the re-opendir request");
@@ -806,8 +805,8 @@ protocol_client_reopenfile_v2(clnt_fd_ctx_t *fdctx, xlator_t *this)
                  local->loc.path);
 
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPEN,
-                                client4_0_reopen_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gfx_open_req);
+                                client4_0_reopen_cbk, NULL,
+                                (xdrproc_t)xdr_gfx_open_req);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED,
                "failed to send the re-open request");
@@ -1312,7 +1311,6 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
 
     ret = client_submit_request(this, &req, fr, conf->handshake,
                                 GF_HNDSK_SETVOLUME, client_setvolume_cbk, NULL,
-                                NULL, 0, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gf_setvolume_req);
 
 fail:
@@ -1522,8 +1520,7 @@ client_query_portmap(xlator_t *this, struct rpc_clnt *rpc)
 
     ret = client_submit_request(this, &req, fr, &clnt_pmap_prog,
                                 GF_PMAP_PORTBYBRICK, client_query_portmap_cbk,
-                                NULL, NULL, 0, NULL, 0, NULL,
-                                (xdrproc_t)xdr_pmap_port_by_brick_req);
+                                NULL, (xdrproc_t)xdr_pmap_port_by_brick_req);
 
 fail:
     return ret;
@@ -1624,8 +1621,8 @@ client_handshake(xlator_t *this, struct rpc_clnt *rpc)
 
     req.gfs_id = 0xbabe;
     ret = client_submit_request(this, &req, frame, conf->dump, GF_DUMP_DUMP,
-                                client_dump_version_cbk, NULL, NULL, 0, NULL, 0,
-                                NULL, (xdrproc_t)xdr_gf_dump_req);
+                                client_dump_version_cbk, NULL,
+                                (xdrproc_t)xdr_gf_dump_req);
 
 out:
     return ret;

@@ -345,6 +345,17 @@ typedef struct client_args {
     lock_migration_info_t *locklist;
 } clnt_args_t;
 
+typedef struct client_payload {
+    struct iobref *iobref;
+    struct iovec *payload;
+    struct iovec *rsphdr;
+    struct iovec *rsp_payload;
+    struct iobref *rsp_iobref;
+    int payload_cnt;
+    int rsphdr_cnt;
+    int rsp_payload_cnt;
+} client_payload_t;
+
 typedef ssize_t (*gfs_serialize_t)(struct iovec outmsg, void *args);
 
 clnt_fd_ctx_t *
@@ -359,10 +370,7 @@ client_local_wipe(clnt_local_t *local);
 int
 client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
-                      struct iobref *iobref, struct iovec *rsphdr,
-                      int rsphdr_count, struct iovec *rsp_payload,
-                      int rsp_count, struct iobref *rsp_iobref,
-                      xdrproc_t xdrproc);
+                      client_payload_t *cp, xdrproc_t xdrproc);
 
 int
 client_submit_compound_request(xlator_t *this, void *req, call_frame_t *frame,
