@@ -1033,18 +1033,27 @@ dht_selfheal_dir_setattr(call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
     int missing_attr = 0;
     int i = 0, ret = -1;
     dht_local_t *local = NULL;
+    dht_conf_t *conf = NULL;
     xlator_t *this = NULL;
     int cnt = 0;
 
     local = frame->local;
     this = frame->this;
+    conf = this->private;
+
+    /* We need to heal the attrs if:
+     * 1. Any directories were missing - the newly created dirs will need
+     *    to have the correct attrs set
+     * 2. An existing dir does not have the correct permissions -they may
+     *    have been changed when a brick was down.
+     */
 
     for (i = 0; i < layout->cnt; i++) {
         if (layout->list[i].err == -1)
             missing_attr++;
     }
 
-    if (missing_attr == 0) {
+    if ((missing_attr == 0) && (local->need_attrheal == 0)) {
         if (!local->heal_layout) {
             gf_msg_trace(this->name, 0, "Skip heal layout for %s gfid = %s ",
                          loc->path, uuid_utoa(loc->gfid));
@@ -1062,19 +1071,12 @@ dht_selfheal_dir_setattr(call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
         return 0;
     }
 
-    local->call_cnt = missing_attr;
-    cnt = layout->cnt;
+    cnt = local->call_cnt = conf->subvolume_cnt;
 
     for (i = 0; i < cnt; i++) {
-        if (layout->list[i].err == -1) {
-            gf_msg_trace(this->name, 0, "%s: setattr on subvol %s, gfid = %s",
-                         loc->path, layout->list[i].xlator->name,
-                         uuid_utoa(loc->gfid));
-
-            STACK_WIND(
-                frame, dht_selfheal_dir_setattr_cbk, layout->list[i].xlator,
-                layout->list[i].xlator->fops->setattr, loc, stbuf, valid, NULL);
-        }
+        STACK_WIND(frame, dht_selfheal_dir_setattr_cbk, layout->list[i].xlator,
+                   layout->list[i].xlator->fops->setattr, loc, stbuf, valid,
+                   NULL);
     }
 
     return 0;
@@ -1492,6 +1494,9 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
     }
 
     if (missing_dirs == 0) {
+        /* We don't need to create any directories. Proceed to heal the
+         * attrs and xattrs
+         */
         if (!__is_root_gfid(local->stbuf.ia_gfid)) {
             if (local->need_xattr_heal) {
                 local->need_xattr_heal = 0;
@@ -1499,8 +1504,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                 if (ret)
                     gf_msg(this->name, GF_LOG_ERROR, ret,
                            DHT_MSG_DIR_XATTR_HEAL_FAILED,
-                           "xattr heal failed for "
-                           "directory  %s gfid %s ",
+                           "%s:xattr heal failed for "
+                           "directory (gfid = %s)",
                            local->loc.path, local->gfid);
             } else {
                 if (!gf_uuid_is_null(local->gfid))
@@ -1512,8 +1517,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
 
                 gf_msg(this->name, GF_LOG_INFO, 0,
                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
-                       "Failed to set mds xattr "
-                       "for directory  %s gfid %s ",
+                       "%s: Failed to set mds xattr "
+                       "for directory (gfid = %s)",
                        local->loc.path, local->gfid);
             }
         }
@@ -2085,10 +2090,10 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
                        loc_t *loc, dht_layout_t *layout)
 {
     dht_local_t *local = NULL;
+    xlator_t *this = NULL;
     uint32_t down = 0;
     uint32_t misc = 0;
     int ret = 0;
-    xlator_t *this = NULL;
     char pgfid[GF_UUID_BUF_SIZE] = {0};
     char gfid[GF_UUID_BUF_SIZE] = {0};
     inode_t *linked_inode = NULL, *inode = NULL;
@@ -2098,6 +2103,11 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
     local->selfheal.dir_cbk = dir_cbk;
     local->selfheal.layout = dht_layout_ref(this, layout);
+
+    if (local->need_attrheal && !IA_ISINVAL(local->mds_stbuf.ia_type)) {
+        /*Use the one in the mds_stbuf*/
+        local->stbuf = local->mds_stbuf;
+    }
 
     if (!__is_root_gfid(local->stbuf.ia_gfid)) {
         gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
@@ -2118,6 +2128,13 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         inode_unref(inode);
     }
 
+    if (local->need_xattr_heal && (local->mds_xattr)) {
+        dht_dir_set_heal_xattr(this, local, local->xattr, local->mds_xattr,
+                               NULL, NULL);
+        dict_unref(local->mds_xattr);
+        local->mds_xattr = NULL;
+    }
+
     dht_layout_anomalies(this, loc, layout, &local->selfheal.hole_cnt,
                          &local->selfheal.overlaps_cnt,
                          &local->selfheal.missing_cnt, &local->selfheal.down,
@@ -2128,18 +2145,18 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
     if (down) {
         gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DIR_SELFHEAL_FAILED,
-               "Directory selfheal failed: %d subvolumes down."
-               "Not fixing. path = %s, gfid = %s",
-               down, loc->path, gfid);
+               "%s: Directory selfheal failed: %d subvolumes down."
+               "Not fixing. gfid = %s",
+               loc->path, down, gfid);
         ret = 0;
         goto sorry_no_fix;
     }
 
     if (misc) {
         gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DIR_SELFHEAL_FAILED,
-               "Directory selfheal failed : %d subvolumes "
-               "have unrecoverable errors. path = %s, gfid = %s",
-               misc, loc->path, gfid);
+               "%s: Directory selfheal failed : %d subvolumes "
+               "have unrecoverable errors. gfid = %s",
+               loc->path, misc, gfid);
 
         ret = 0;
         goto sorry_no_fix;
@@ -2369,13 +2386,13 @@ dht_dir_attr_heal(void *data)
 
     frame = data;
     local = frame->local;
-    mds_subvol = local->mds_subvol;
     this = frame->this;
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO("dht", local, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO("dht", conf, out);
 
+    mds_subvol = local->mds_subvol;
     call_cnt = conf->subvolume_cnt;
 
     if (!__is_root_gfid(local->stbuf.ia_gfid) && (!mds_subvol)) {
