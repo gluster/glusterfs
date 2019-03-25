@@ -586,20 +586,20 @@ typedef struct _cmd_args cmd_args_t;
 
 struct _glusterfs_graph {
     struct list_head list;
-    char graph_uuid[128];
     struct timeval dob;
     void *first;
     void *top; /* selected by -n */
-    uint32_t leaf_count;
     int xl_count;
     int id;   /* Used in logging */
     int used; /* Should be set when fuse gets
                         first CHILD_UP */
     uint32_t volfile_checksum;
+    uint32_t leaf_count;
     void *last_xl; /* Stores the last xl of the graph, as of now only populated
                       in client multiplexed code path */
     pthread_mutex_t mutex;
     pthread_cond_t child_down_cond; /* for broadcasting CHILD_DOWN */
+    char graph_uuid[128];
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
 
