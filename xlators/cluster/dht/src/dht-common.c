@@ -801,9 +801,8 @@ dht_common_mark_mdsxattr(call_frame_t *frame, int *errst,
     call_frame_t *xattr_frame = NULL;
     gf_boolean_t vol_down = _gf_false;
 
-    this = frame->this;
-
     GF_VALIDATE_OR_GOTO("dht", frame, out);
+    this = frame->this;
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
@@ -812,6 +811,7 @@ dht_common_mark_mdsxattr(call_frame_t *frame, int *errst,
     conf = this->private;
     layout = local->selfheal.layout;
     local->mds_heal_fresh_lookup = mark_during_fresh_lookup;
+
     gf_uuid_unparse(local->gfid, gfid_local);
 
     /* Code to update hashed subvol consider as a mds subvol
@@ -1240,6 +1240,31 @@ out:
 }
 
 int
+dht_needs_selfheal(call_frame_t *frame, xlator_t *this)
+{
+    dht_local_t *local = NULL;
+    dht_layout_t *layout = NULL;
+    int needs_selfheal = 0;
+    int ret = 0;
+
+    local = frame->local;
+    layout = local->layout;
+
+    if (local->need_attrheal || local->need_xattr_heal ||
+        local->need_selfheal) {
+        needs_selfheal = 1;
+    }
+
+    ret = dht_layout_normalize(this, &local->loc, layout);
+
+    if (ret != 0) {
+        gf_msg_debug(this->name, 0, "fixing assignment on %s", local->loc.path);
+        needs_selfheal = 1;
+    }
+    return needs_selfheal;
+}
+
+int
 dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, inode_t *inode, struct iatt *stbuf,
                    dict_t *xattr, struct iatt *postparent)
@@ -1256,8 +1281,6 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     char gfid_local[GF_UUID_BUF_SIZE] = {0};
     char gfid_node[GF_UUID_BUF_SIZE] = {0};
     int32_t mds_xattr_val[1] = {0};
-    call_frame_t *copy = NULL;
-    dht_local_t *copy_local = NULL;
 
     GF_VALIDATE_OR_GOTO("dht", frame, out);
     GF_VALIDATE_OR_GOTO("dht", this, out);
@@ -1270,7 +1293,11 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     conf = this->private;
 
     layout = local->layout;
+    gf_msg_debug(this->name, op_errno,
+                 "%s: lookup on %s returned with op_ret = %d, op_errno = %d",
+                 local->loc.path, prev->name, op_ret, op_errno);
 
+    /* The first successful lookup*/
     if (!op_ret && gf_uuid_is_null(local->gfid)) {
         memcpy(local->gfid, stbuf->ia_gfid, 16);
     }
@@ -1298,13 +1325,10 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
             local->op_errno = op_errno;
-            gf_msg_debug(this->name, op_errno,
-                         "%s: lookup on %s returned error", local->loc.path,
-                         prev->name);
 
             /* The GFID is missing on this subvol. Force a heal. */
             if (op_errno == ENODATA) {
-                local->need_selfheal = 1;
+                local->need_lookup_everywhere = 1;
             }
             goto unlock;
         }
@@ -1312,12 +1336,11 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         is_dir = check_is_dir(inode, stbuf, xattr);
         if (!is_dir) {
             gf_msg_debug(this->name, 0,
-                         "lookup of %s on %s returned non"
-                         "dir 0%o"
+                         "%s: lookup on %s returned non dir 0%o"
                          "calling lookup_everywhere",
                          local->loc.path, prev->name, stbuf->ia_type);
 
-            local->need_selfheal = 1;
+            local->need_lookup_everywhere = 1;
             goto unlock;
         }
 
@@ -1328,14 +1351,8 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dht_aggregate_xattr(local->xattr, xattr);
         }
 
-        if (dict_get(xattr, conf->mds_xattr_key)) {
-            local->mds_subvol = prev;
-            local->mds_stbuf.ia_gid = stbuf->ia_gid;
-            local->mds_stbuf.ia_uid = stbuf->ia_uid;
-            local->mds_stbuf.ia_prot = stbuf->ia_prot;
-        }
-
         if (local->stbuf.ia_type != IA_INVAL) {
+            /* This is not the first subvol to respond */
             if (!__is_root_gfid(stbuf->ia_gfid) &&
                 ((local->stbuf.ia_gid != stbuf->ia_gid) ||
                  (local->stbuf.ia_uid != stbuf->ia_uid) ||
@@ -1348,65 +1365,64 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->inode == NULL)
             local->inode = inode_ref(inode);
 
+        /* This could be a problem */
         dht_iatt_merge(this, &local->stbuf, stbuf);
         dht_iatt_merge(this, &local->postparent, postparent);
 
         if (!dict_get(xattr, conf->mds_xattr_key)) {
             gf_msg_debug(this->name, 0,
-                         "Internal xattr %s is not present "
-                         " on path %s gfid is %s ",
-                         conf->mds_xattr_key, local->loc.path, gfid_local);
+                         "%s: mds xattr %s is not present "
+                         "on %s(gfid = %s)",
+                         local->loc.path, conf->mds_xattr_key, prev->name,
+                         gfid_local);
             goto unlock;
-        } else {
-            /* Save mds subvol on inode ctx */
-            ret = dht_inode_ctx_mdsvol_set(local->inode, this, prev);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       DHT_MSG_SET_INODE_CTX_FAILED,
-                       "Failed to set hashed subvol for %s vol is %s",
-                       local->loc.path, prev->name);
-            }
+        }
+
+        local->mds_subvol = prev;
+        local->mds_stbuf = *stbuf;
+
+        /* Save mds subvol on inode ctx */
+
+        ret = dht_inode_ctx_mdsvol_set(local->inode, this, prev);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SET_INODE_CTX_FAILED,
+                   "%s: Failed to set mds (%s)", local->loc.path, prev->name);
         }
         check_mds = dht_dict_get_array(xattr, conf->mds_xattr_key,
                                        mds_xattr_val, 1, &errst);
         if ((check_mds < 0) && !errst) {
             local->mds_xattr = dict_ref(xattr);
             gf_msg_debug(this->name, 0,
-                         "Value of %s is not zero on hashed subvol "
-                         "so xattr needs to be heal on non hashed"
-                         " path is %s and vol name is %s "
-                         " gfid is %s",
-                         conf->mds_xattr_key, local->loc.path, prev->name,
+                         "%s: %s is not zero on %s. Xattrs need to be healed."
+                         "(gfid = %s)",
+                         local->loc.path, conf->mds_xattr_key, prev->name,
                          gfid_local);
             local->need_xattr_heal = 1;
-            local->mds_subvol = prev;
         }
     }
+
 unlock:
     UNLOCK(&frame->lock);
 
     this_call_cnt = dht_frame_return(frame);
 
     if (is_last_call(this_call_cnt)) {
-        /* No need to call xattr heal code if volume count is 1
-         */
-        if (conf->subvolume_cnt == 1)
-            local->need_xattr_heal = 0;
-
-        /* Code to update all extended attributed from hashed subvol
-           to local->xattr
-        */
-        if (local->need_xattr_heal && (local->mds_xattr)) {
-            dht_dir_set_heal_xattr(this, local, local->xattr, local->mds_xattr,
-                                   NULL, NULL);
-            dict_unref(local->mds_xattr);
-            local->mds_xattr = NULL;
+        /* If the mds subvol is not set correctly*/
+        if (!__is_root_gfid(local->gfid) &&
+            (!dict_get(local->xattr, conf->mds_xattr_key))) {
+            local->need_selfheal = 1;
         }
 
-        if (local->need_selfheal) {
-            local->need_selfheal = 0;
+        /* No need to call xattr heal code if volume count is 1
+         */
+        if (conf->subvolume_cnt == 1) {
+            local->need_xattr_heal = 0;
+        }
+
+        if (local->need_selfheal || local->need_lookup_everywhere) {
             /* Set the gfid-req so posix will set the GFID*/
             if (!gf_uuid_is_null(local->gfid)) {
+                /* Ok, this should _never_ happen */
                 ret = dict_set_static_bin(local->xattr_req, "gfid-req",
                                           local->gfid, 16);
             } else {
@@ -1414,73 +1430,36 @@ unlock:
                     ret = dict_set_static_bin(local->xattr_req, "gfid-req",
                                               local->gfid_req, 16);
             }
+        }
+
+        if (local->need_lookup_everywhere) {
+            local->need_lookup_everywhere = 0;
             dht_lookup_everywhere(frame, this, &local->loc);
             return 0;
         }
 
         if (local->op_ret == 0) {
-            ret = dht_layout_normalize(this, &local->loc, layout);
-
-            if (ret != 0) {
-                gf_msg_debug(this->name, 0, "fixing assignment on %s",
-                             local->loc.path);
+            if (dht_needs_selfheal(frame, this)) {
                 goto selfheal;
             }
 
             dht_layout_set(this, local->inode, layout);
-            if (!dict_get(local->xattr, conf->mds_xattr_key) ||
-                local->need_xattr_heal)
-                goto selfheal;
-        }
-
-        if (local->inode) {
-            dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
-        }
-
-        if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
-        }
-
-        if (local->need_attrheal) {
-            local->need_attrheal = 0;
-            if (!__is_root_gfid(inode->gfid)) {
-                local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
-                local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
-                local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
+            if (local->inode) {
+                dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
             }
-            copy = create_frame(this, this->ctx->pool);
-            if (copy) {
-                copy_local = dht_local_init(copy, &local->loc, NULL, 0);
-                if (!copy_local) {
-                    DHT_STACK_DESTROY(copy);
-                    goto skip_attr_heal;
-                }
-                copy_local->stbuf = local->stbuf;
-                gf_uuid_copy(copy_local->loc.gfid, local->stbuf.ia_gfid);
-                copy_local->mds_stbuf = local->mds_stbuf;
-                copy_local->mds_subvol = local->mds_subvol;
-                copy->local = copy_local;
-                FRAME_SU_DO(copy, dht_local_t);
-                ret = synctask_new(this->ctx->env, dht_dir_attr_heal,
-                                   dht_dir_attr_heal_done, copy, copy);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
-                           DHT_MSG_DIR_ATTR_HEAL_FAILED,
-                           "Synctask creation failed to heal attr "
-                           "for path %s gfid %s ",
-                           local->loc.path, local->gfid);
-                    DHT_STACK_DESTROY(copy);
-                }
+
+            if (local->loc.parent) {
+                dht_inode_ctx_time_update(local->loc.parent, this,
+                                          &local->postparent, 1);
             }
         }
 
-    skip_attr_heal:
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
         dht_set_fixed_dir_stat(&local->postparent);
         /* Delete mds xattr at the time of STACK UNWIND */
         if (local->xattr)
             GF_REMOVE_INTERNAL_XATTR(conf->mds_xattr_key, local->xattr);
+
         DHT_STACK_UNWIND(lookup, frame, local->op_ret, local->op_errno,
                          local->inode, &local->stbuf, local->xattr,
                          &local->postparent);
@@ -5444,9 +5423,8 @@ dht_dir_common_set_remove_xattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         } else {
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    DHT_MSG_HASHED_SUBVOL_GET_FAILED,
-                   "Failed to get mds subvol for path %s"
-                   "gfid is %s ",
-                   loc->path, gfid_local);
+                   "%s: Failed to get mds subvol. (gfid is %s)", loc->path,
+                   gfid_local);
         }
         (*op_errno) = ENOENT;
         goto err;
