@@ -460,27 +460,18 @@ glusterfs_graph_unknown_options(glusterfs_graph_t *graph)
     return 0;
 }
 
-void
-fill_uuid(char *uuid, int size)
+static void
+fill_uuid(char *uuid, int size, struct timeval tv)
 {
-    char hostname[256] = {
-        0,
-    };
-    struct timeval tv = {
+    char hostname[50] = {
         0,
     };
     char now_str[64];
 
-    if (gettimeofday(&tv, NULL) == -1) {
-        gf_msg("graph", GF_LOG_ERROR, errno, LG_MSG_GETTIMEOFDAY_FAILED,
-               "gettimeofday: "
-               "failed");
-    }
-
-    if (gethostname(hostname, 256) == -1) {
+    if (gethostname(hostname, sizeof(hostname) - 1) != 0) {
         gf_msg("graph", GF_LOG_ERROR, errno, LG_MSG_GETHOSTNAME_FAILED,
-               "gethostname: "
-               "failed");
+               "gethostname failed");
+        hostname[sizeof(hostname) - 1] = '\0';
     }
 
     gf_time_fmt(now_str, sizeof now_str, tv.tv_sec, gf_timefmt_dirent);
@@ -616,7 +607,7 @@ ok:
     /* XXX: DOB setting */
     gettimeofday(&graph->dob, NULL);
 
-    fill_uuid(graph->graph_uuid, 128);
+    fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
 
     graph->id = ctx->graph_id++;
 
@@ -1440,7 +1431,7 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
     ixl = NULL;
 
     gettimeofday(&parent_graph->dob, NULL);
-    fill_uuid(parent_graph->graph_uuid, 128);
+    fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
     parent_graph->id = ctx->graph_id++;
     ret = 0;
 out:
