@@ -232,9 +232,6 @@ typedef struct _afr_private {
     uint64_t spb_choice_timeout;
     gf_boolean_t need_heal;
 
-    /* pump dependencies */
-    void *pump_private;
-    gf_boolean_t use_afr_in_pump;
     gf_boolean_t granular_locks;
     gf_boolean_t full_lock;
     gf_boolean_t esh_granular;
