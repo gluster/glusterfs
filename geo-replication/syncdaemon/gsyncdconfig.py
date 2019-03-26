@@ -313,6 +313,9 @@ class Gconf(object):
         if item["validation"] == "unixtime":
             return validate_unixtime(value)
 
+        if item["validation"] == "int":
+            return validate_int(value)
+
         return False
 
     def _is_config_changed(self):
@@ -323,6 +326,14 @@ class Gconf(object):
                     self.prev_mtime = st.st_mtime
                     return True
 
+        return False
+
+
+def validate_int(value):
+    try:
+        _ = int(value)
+        return True
+    except ValueError:
         return False
 
 
@@ -338,11 +349,13 @@ def validate_unixtime(value):
 
 
 def validate_minmax(value, minval, maxval):
-    value = int(value)
-    minval = int(minval)
-    maxval = int(maxval)
-
-    return value >= minval and value <= maxval
+    try:
+        value = int(value)
+        minval = int(minval)
+        maxval = int(maxval)
+        return value >= minval and value <= maxval
+    except ValueError:
+        return False
 
 
 def validate_choice(value, allowed_values):
