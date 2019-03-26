@@ -3546,8 +3546,8 @@ glusterd_spawn_daemons(void *opaque)
     glusterd_conf_t *conf = THIS->private;
     int ret = -1;
 
-    synclock_lock(&conf->big_lock);
-    glusterd_restart_bricks();
+    /* glusterd_restart_brick() will take the sync_lock. */
+    glusterd_restart_bricks(NULL);
     glusterd_restart_gsyncds(conf);
     glusterd_restart_rebalance(conf);
     ret = glusterd_snapdsvc_restart();
@@ -6274,6 +6274,8 @@ glusterd_restart_bricks(void *opaque)
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, return_block);
+
+    synclock_lock(&conf->big_lock);
 
     /* We need to ensure that restarting the bricks during glusterd restart
      * shouldn't race with the import volume thread (refer

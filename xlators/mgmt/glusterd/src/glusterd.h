@@ -1230,7 +1230,7 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
                                    int count);
 
 int
-glusterd_restart_bricks();
+glusterd_restart_bricks(void *opaque);
 
 int32_t
 glusterd_volume_txn(rpcsvc_request_t *req, char *volname, int flags,
