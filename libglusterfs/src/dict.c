@@ -652,7 +652,7 @@ dict_unref (dict_t *this)
         uint64_t ref = 0;
 
         if (!this) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                gf_msg_callingfn ("dict", GF_LOG_DEBUG, EINVAL,
                                   LG_MSG_INVALID_ARG, "dict is NULL");
                 return;
         }
@@ -667,7 +667,7 @@ dict_t *
 dict_ref (dict_t *this)
 {
         if (!this) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                gf_msg_callingfn ("dict", GF_LOG_DEBUG, EINVAL,
                                   LG_MSG_INVALID_ARG, "dict is NULL");
                 return NULL;
         }
