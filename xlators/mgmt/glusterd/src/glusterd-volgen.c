@@ -1979,6 +1979,11 @@ brick_graph_add_sdfs(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xl = volgen_graph_add(graph, "features/sdfs", volinfo->volname);
     if (!xl)
         goto out;
+    /* If we don't set this option here, the translator by default marks
+       it 'pass-through' */
+    ret = xlator_set_fixed_option(xl, "pass-through", "false");
+    if (ret)
+        goto out;
 
     ret = 0;
 out:
