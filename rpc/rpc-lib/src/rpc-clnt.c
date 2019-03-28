@@ -1786,7 +1786,7 @@ rpc_clnt_trigger_destroy(struct rpc_clnt *rpc)
      * ref*/
     conn = &rpc->conn;
     trans = conn->trans;
-    rpc_clnt_disconnect(rpc);
+    rpc_clnt_disable(rpc);
 
     /* This is to account for rpc_clnt_disable that might have been called
      * before rpc_clnt_unref */
@@ -1920,78 +1920,6 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
          */
     }
 
-    if (unref)
-        rpc_clnt_unref(rpc);
-
-    if (timer_unref)
-        rpc_clnt_unref(rpc);
-
-    if (reconnect_unref)
-        rpc_clnt_unref(rpc);
-
-out:
-    return;
-}
-
-void
-rpc_clnt_disconnect(struct rpc_clnt *rpc)
-{
-    rpc_clnt_connection_t *conn = NULL;
-    rpc_transport_t *trans = NULL;
-    int unref = 0;
-    int ret = 0;
-    gf_boolean_t timer_unref = _gf_false;
-    gf_boolean_t reconnect_unref = _gf_false;
-
-    if (!rpc)
-        goto out;
-
-    conn = &rpc->conn;
-
-    pthread_mutex_lock(&conn->lock);
-    {
-        rpc->disabled = 1;
-        if (conn->timer) {
-            ret = gf_timer_call_cancel(rpc->ctx, conn->timer);
-            /* If the event is not fired and it actually cancelled
-             * the timer, do the unref else registered call back
-             * function will take care of unref.
-             */
-            if (!ret)
-                timer_unref = _gf_true;
-            conn->timer = NULL;
-        }
-
-        if (conn->reconnect) {
-            ret = gf_timer_call_cancel(rpc->ctx, conn->reconnect);
-            if (!ret)
-                reconnect_unref = _gf_true;
-            conn->reconnect = NULL;
-        }
-        conn->connected = 0;
-
-        unref = rpc_clnt_remove_ping_timer_locked(rpc);
-        trans = conn->trans;
-    }
-    pthread_mutex_unlock(&conn->lock);
-
-    if (trans) {
-        rpc_transport_disconnect(trans, _gf_true);
-        /* The auth_value was being reset to AUTH_GLUSTERFS_v2.
-         *    if (clnt->auth_value)
-         *           clnt->auth_value = AUTH_GLUSTERFS_v2;
-         * It should not be reset here. The disconnect during
-         * portmap request can race with handshake. If handshake
-         * happens first and disconnect later, auth_value would set
-         * to default value and it never sets back to actual auth_value
-         * supported by server. But it's important to set to lower
-         * version supported in the case where the server downgrades.
-         * So moving this code to RPC_TRANSPORT_CONNECT. Note that
-         * CONNECT cannot race with handshake as by nature it is
-         * serialized with handhake. An handshake can happen only
-         * on a connected transport and hence its strictly serialized.
-         */
-    }
     if (unref)
         rpc_clnt_unref(rpc);
 
