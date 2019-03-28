@@ -19,6 +19,18 @@ function check_common_secret_file()
     echo $?
 }
 
+function create_rename_symlink_case()
+{
+    mkdir ${mastermnt}/MUL_REN_SYMLINK
+    cd ${mastermnt}/MUL_REN_SYMLINK
+    mkdir sym_dir1
+    ln -s "sym_dir1" sym1
+    mv sym1 sym2
+    mv sym2 sym3
+    mv sym3 sym4
+    cd -
+}
+
 function create_data()
 {
     prefix=$1

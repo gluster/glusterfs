@@ -113,6 +113,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 chown_file_ok ${slave_mnt}/hybrid_chown_f1
 #Check History Crawl.
 TEST $GEOREP_CLI $master $slave stop
 TEST create_data "history"
+TEST create_rename_symlink_case
 TEST $GEOREP_CLI $master $slave start
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Active"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"

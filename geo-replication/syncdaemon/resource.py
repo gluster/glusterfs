@@ -625,15 +625,20 @@ class Server(object):
                 # exist with different gfid.
                 if not matching_disk_gfid(gfid, entry):
                     if e['stat'] and not stat.S_ISDIR(e['stat']['mode']):
-                        if stat.S_ISLNK(e['stat']['mode']) and \
-                           e['link'] is not None:
-                            st1 = lstat(en)
-                            if isinstance(st1, int):
-                                (pg, bname) = entry2pb(en)
-                                blob = entry_pack_symlink(cls, gfid, bname,
-                                                          e['link'], e['stat'])
-                            elif not matching_disk_gfid(gfid, en):
-                                collect_failure(e, EEXIST, uid, gid, True)
+                        if stat.S_ISLNK(e['stat']['mode']):
+                            # src is not present, so don't sync symlink as
+                            # we don't know target. It's ok to ignore. If
+                            # it's unliked, it's fine. If it's renamed to
+                            # something else, it will be synced then.
+                            if e['link'] is not None:
+                                st1 = lstat(en)
+                                if isinstance(st1, int):
+                                    (pg, bname) = entry2pb(en)
+                                    blob = entry_pack_symlink(cls, gfid, bname,
+                                                              e['link'],
+                                                              e['stat'])
+                                elif not matching_disk_gfid(gfid, en):
+                                    collect_failure(e, EEXIST, uid, gid, True)
                         else:
                             slink = os.path.join(pfx, gfid)
                             st = lstat(slink)
