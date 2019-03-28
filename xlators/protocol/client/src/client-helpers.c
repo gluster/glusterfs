@@ -419,7 +419,13 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
     {
         fdctx = this_fd_get_ctx(fd, this);
         if (!fdctx) {
-            *remote_fd = GF_ANON_FD_NO;
+            if (fd->anonymous) {
+                *remote_fd = GF_ANON_FD_NO;
+            } else {
+                *remote_fd = -1;
+                gf_msg_debug(this->name, EBADF, "not a valid fd for gfid: %s",
+                             uuid_utoa(fd->inode->gfid));
+            }
         } else {
             if (__is_fd_reopen_in_progress(fdctx))
                 *remote_fd = -1;
