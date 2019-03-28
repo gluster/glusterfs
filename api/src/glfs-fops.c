@@ -5714,6 +5714,16 @@ out:
 }
 
 static int
+glfs_upcall_syncop_cbk(int ret, call_frame_t *frame, void *opaque)
+{
+    struct upcall_syncop_args *args = opaque;
+
+    GF_FREE(args->upcall_data);
+    GF_FREE(args);
+    return 0;
+}
+
+static int
 glfs_cbk_upcall_syncop(void *opaque)
 {
     struct upcall_syncop_args *args = opaque;
@@ -5770,15 +5780,13 @@ out:
         GLFS_FREE(up_arg);
     }
 
-    return ret;
+    return 0;
 }
 
 static void
 glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
 {
-    struct upcall_syncop_args args = {
-        0,
-    };
+    struct upcall_syncop_args *args = NULL;
     int ret = -1;
 
     if (!fs || !upcall_data)
@@ -5789,16 +5797,34 @@ glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
         goto out;
     }
 
-    args.fs = fs;
-    args.upcall_data = upcall_data;
+    args = GF_CALLOC(1, sizeof(struct upcall_syncop_args),
+                     glfs_mt_upcall_entry_t);
+    if (!args) {
+        gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+               "Upcall syncop args allocation failed.");
+        goto out;
+    }
 
-    ret = synctask_new(THIS->ctx->env, glfs_cbk_upcall_syncop, NULL, NULL,
-                       &args);
+    /* Note: we are not taking any ref on fs here.
+     * Ideally applications have to unregister for upcall events
+     * or stop polling for upcall events before performing
+     * glfs_fini. And as for outstanding synctasks created, we wait
+     * for all syncenv threads to finish tasks before cleaning up the
+     * fs->ctx. Hence it seems safe to process these callback
+     * notification without taking any lock/ref.
+     */
+    args->fs = fs;
+    args->upcall_data = gf_memdup(upcall_data, sizeof(*upcall_data));
+
+    ret = synctask_new(THIS->ctx->env, glfs_cbk_upcall_syncop,
+                       glfs_upcall_syncop_cbk, NULL, args);
     /* should we retry incase of failure? */
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, errno, API_MSG_UPCALL_SYNCOP_FAILED,
                "Synctak for Upcall event_type(%d) and gfid(%s) failed",
                upcall_data->event_type, (char *)(upcall_data->gfid));
+        GF_FREE(args->upcall_data);
+        GF_FREE(args);
     }
 
 out:
