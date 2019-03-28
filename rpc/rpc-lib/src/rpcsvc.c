@@ -36,7 +36,6 @@
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <math.h>
 #include <dlfcn.h>
 
 #ifdef IPV6_DEFAULT
@@ -89,12 +88,6 @@ rpcsvc_toggle_queue_status(rpcsvc_program_t *prog,
     return;
 }
 
-static int
-get_rightmost_set_bit(int n)
-{
-    return log2(n & -n);
-}
-
 int
 rpcsvc_get_free_queue_index(rpcsvc_program_t *prog)
 {
@@ -109,7 +102,8 @@ rpcsvc_get_free_queue_index(rpcsvc_program_t *prog)
             right_most_unset_bit = 0;
             break;
         } else {
-            right_most_unset_bit = get_rightmost_set_bit(
+            /* get_rightmost_set_bit (sic)*/
+            right_most_unset_bit = __builtin_ctz(
                 ~prog->request_queue_status[i]);
             if (right_most_unset_bit < 8) {
                 break;
