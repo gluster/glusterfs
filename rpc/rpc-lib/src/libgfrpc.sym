@@ -3,7 +3,6 @@ rpcclnt_cbk_program_register
 rpc_clnt_cleanup_and_start
 rpc_clnt_connection_cleanup
 rpc_clnt_disable
-rpc_clnt_disconnect
 rpc_clnt_new
 rpc_clnt_reconfig
 rpc_clnt_reconnect

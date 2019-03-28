@@ -97,7 +97,7 @@ glusterd_conn_connect(glusterd_conn_t *conn)
 int
 glusterd_conn_disconnect(glusterd_conn_t *conn)
 {
-    rpc_clnt_disconnect(conn->rpc);
+    rpc_clnt_disable(conn->rpc);
 
     return 0;
 }

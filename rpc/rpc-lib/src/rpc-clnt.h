@@ -253,9 +253,6 @@ rpcclnt_cbk_program_register(struct rpc_clnt *svc,
 void
 rpc_clnt_disable(struct rpc_clnt *rpc);
 
-void
-rpc_clnt_disconnect(struct rpc_clnt *rpc);
-
 int
 rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brick_name);
 
