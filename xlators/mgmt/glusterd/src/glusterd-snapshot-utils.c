@@ -2099,6 +2099,9 @@ glusterd_compare_friend_snapshots(dict_t *peer_data, char *peername,
         goto out;
     }
 
+    if (!snap_count)
+        goto out;
+
     for (i = 1; i <= snap_count; i++) {
         /* Compare one snapshot from peer_data at a time */
         ret = glusterd_compare_snap(peer_data, i, peername, peerid);

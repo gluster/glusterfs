@@ -87,6 +87,7 @@ glusterd_all_vol_opts valid_all_vol_opts[] = {
      * TBD: Discuss the default value for this. Maybe this should be a
      * dynamic value depending on the memory specifications per node */
     {GLUSTERD_BRICKMUX_LIMIT_KEY, GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE},
+    {GLUSTERD_VOL_CNT_PER_THRD, GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE},
     {GLUSTERD_LOCALTIME_LOGGING_KEY, "disable"},
     {GLUSTERD_DAEMON_LOG_LEVEL_KEY, "INFO"},
     {NULL},

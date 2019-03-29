@@ -590,6 +590,51 @@ out:
 }
 
 static int
+validate_volume_per_thread_limit(glusterd_volinfo_t *volinfo, dict_t *dict,
+                                 char *key, char *value, char **op_errstr)
+{
+    xlator_t *this = NULL;
+    uint val = 0;
+    int ret = -1;
+
+    this = THIS;
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+
+    if (!is_brick_mx_enabled()) {
+        gf_asprintf(op_errstr,
+                    "Brick-multiplexing is not enabled. "
+                    "Please enable brick multiplexing before trying "
+                    "to set this option.");
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING, "%s",
+               *op_errstr);
+        goto out;
+    }
+
+    ret = gf_string2uint(value, &val);
+    if (ret) {
+        gf_asprintf(op_errstr,
+                    "%s is not a valid count. "
+                    "%s expects an unsigned integer.",
+                    value, key);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+               *op_errstr);
+    }
+
+    if ((val < 5) || (val > 200)) {
+        gf_asprintf(
+            op_errstr,
+            "Please set this option to a greater than 5 or less than 200 "
+            "to optimize dict generated while no. of volumes are more");
+        ret = -1;
+        goto out;
+    }
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+
+    return ret;
+}
+
+static int
 validate_boolean(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                  char *value, char **op_errstr)
 {
@@ -2785,6 +2830,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                     "brick multiplexing. Brick multiplexing ensures that "
                     "compatible brick instances can share one single "
                     "brick process."},
+    {.key = GLUSTERD_VOL_CNT_PER_THRD,
+     .voltype = "mgmt/glusterd",
+     .value = GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE,
+     .op_version = 700000,
+     .validate_fn = validate_volume_per_thread_limit,
+     .type = GLOBAL_NO_DOC,
+     .description =
+         "This option can be used to limit the number of volumes "
+         "handled by per thread to populate peer data.The option accepts "
+         " the value in the range of 5 to 200"},
     {.key = GLUSTERD_BRICKMUX_LIMIT_KEY,
      .voltype = "mgmt/glusterd",
      .value = GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE,

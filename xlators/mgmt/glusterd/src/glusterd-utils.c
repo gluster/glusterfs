@@ -152,6 +152,47 @@ out:
     return ret;
 }
 
+int
+get_gd_vol_thread_limit(int *thread_limit)
+{
+    char *value = NULL;
+    int ret = -1;
+    int vol_per_thread_limit = 0;
+    xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
+
+    this = THIS;
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, priv, out);
+
+    if (!is_brick_mx_enabled()) {
+        vol_per_thread_limit = 1;
+        ret = 0;
+        goto out;
+    }
+
+    ret = dict_get_strn(priv->opts, GLUSTERD_VOL_CNT_PER_THRD,
+                        SLEN(GLUSTERD_VOL_CNT_PER_THRD), &value);
+    if (ret) {
+        value = GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE;
+    }
+    ret = gf_string2int(value, &vol_per_thread_limit);
+    if (ret)
+        goto out;
+
+out:
+    *thread_limit = vol_per_thread_limit;
+
+    gf_msg_debug("glusterd", 0,
+                 "Per Thread volume limit set to %d glusterd to populate dict "
+                 "data parallel",
+                 *thread_limit);
+
+    return ret;
+}
+
 extern struct volopt_map_entry glusterd_volopt_map[];
 extern glusterd_all_vol_opts valid_all_vol_opts[];
 
@@ -2991,50 +3032,55 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
 
     /* tiering related variables */
 
-    snprintf(key, sizeof(key), "%s%d.cold_brick_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_brick_count);
-    if (ret)
-        goto out;
+    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+        snprintf(key, sizeof(key), "%s%d.cold_brick_count", prefix, count);
+        ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_brick_count);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.cold_type", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_type);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.cold_type", prefix, count);
+        ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_type);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.cold_replica_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_replica_count);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.cold_replica_count", prefix, count);
+        ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_replica_count);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.cold_disperse_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_disperse_count);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.cold_disperse_count", prefix, count);
+        ret = dict_set_uint32(dict, key,
+                              volinfo->tier_info.cold_disperse_count);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.cold_redundancy_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_redundancy_count);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.cold_redundancy_count", prefix, count);
+        ret = dict_set_uint32(dict, key,
+                              volinfo->tier_info.cold_redundancy_count);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.cold_dist_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_dist_leaf_count);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.cold_dist_count", prefix, count);
+        ret = dict_set_uint32(dict, key,
+                              volinfo->tier_info.cold_dist_leaf_count);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.hot_brick_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_brick_count);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.hot_brick_count", prefix, count);
+        ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_brick_count);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.hot_type", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_type);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.hot_type", prefix, count);
+        ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_type);
+        if (ret)
+            goto out;
 
-    snprintf(key, sizeof(key), "%s%d.hot_replica_count", prefix, count);
-    ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_replica_count);
-    if (ret)
-        goto out;
+        snprintf(key, sizeof(key), "%s%d.hot_replica_count", prefix, count);
+        ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_replica_count);
+        if (ret)
+            goto out;
+    }
 
     snprintf(key, sizeof(key), "%s%d", prefix, count);
     ret = gd_add_vol_snap_details_to_dict(dict, key, volinfo);
@@ -3284,16 +3330,77 @@ out:
     return ret;
 }
 
+void *
+glusterd_add_bulk_volumes_create_thread(void *data)
+{
+    int32_t ret = -1;
+    glusterd_conf_t *priv = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    int32_t count = 0;
+    xlator_t *this = NULL;
+    glusterd_add_dict_args_t *arg = NULL;
+    dict_t *dict = NULL;
+    int start = 0;
+    int end = 0;
+
+    GF_ASSERT(data);
+
+    arg = data;
+    dict = arg->voldict;
+    start = arg->start;
+    end = arg->end;
+    this = arg->this;
+    THIS = arg->this;
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
+    {
+        count++;
+        if ((count < start) || (count > end))
+            continue;
+
+        ret = glusterd_add_volume_to_dict(volinfo, dict, count, "volume");
+        if (ret)
+            goto out;
+        if (!dict_get_sizen(volinfo->dict, VKEY_FEATURES_QUOTA))
+            continue;
+        ret = glusterd_vol_add_quota_conf_to_dict(volinfo, dict, count,
+                                                  "volume");
+        if (ret)
+            goto out;
+    }
+
+out:
+    GF_ATOMIC_DEC(priv->thread_count);
+    free(arg);
+    return NULL;
+}
+
 int32_t
 glusterd_add_volumes_to_export_dict(dict_t **peer_data)
 {
     int32_t ret = -1;
     dict_t *dict = NULL;
+    dict_t *dict_arr[128] = {
+        0,
+    };
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     int32_t count = 0;
     glusterd_dict_ctx_t ctx = {0};
     xlator_t *this = NULL;
+    int totthread = 0;
+    int volcnt = 0;
+    int start = 1;
+    int endindex = 0;
+    int vol_per_thread_limit = 0;
+    glusterd_add_dict_args_t *arg = NULL;
+    pthread_t th_id = {
+        0,
+    };
+    int th_ret = 0;
+    int i = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -3304,21 +3411,82 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
     if (!dict)
         goto out;
 
-    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
-    {
-        count++;
-        ret = glusterd_add_volume_to_dict(volinfo, dict, count, "volume");
-        if (ret)
-            goto out;
-        if (!glusterd_is_volume_quota_enabled(volinfo))
-            continue;
-        ret = glusterd_vol_add_quota_conf_to_dict(volinfo, dict, count,
-                                                  "volume");
-        if (ret)
-            goto out;
+    /* Count the total number of volumes */
+    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) volcnt++;
+
+    get_gd_vol_thread_limit(&vol_per_thread_limit);
+
+    if ((vol_per_thread_limit == 1) || (vol_per_thread_limit > 100)) {
+        totthread = 0;
+    } else {
+        totthread = volcnt / vol_per_thread_limit;
+        endindex = volcnt % vol_per_thread_limit;
+        if (endindex)
+            totthread++;
     }
 
-    ret = dict_set_int32n(dict, "count", SLEN("count"), count);
+    if (totthread == 0) {
+        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
+        {
+            count++;
+            ret = glusterd_add_volume_to_dict(volinfo, dict, count, "volume");
+            if (ret)
+                goto out;
+
+            if (!dict_get_sizen(volinfo->dict, VKEY_FEATURES_QUOTA))
+                continue;
+
+            ret = glusterd_vol_add_quota_conf_to_dict(volinfo, dict, count,
+                                                      "volume");
+            if (ret)
+                goto out;
+        }
+    } else {
+        for (i = 0; i < totthread; i++) {
+            arg = calloc(1, sizeof(*arg));
+            dict_arr[i] = dict_new();
+            arg->this = this;
+            arg->voldict = dict_arr[i];
+            arg->start = start;
+            if (!endindex) {
+                arg->end = ((i + 1) * vol_per_thread_limit);
+            } else {
+                arg->end = (start + endindex);
+            }
+            th_ret = gf_thread_create_detached(
+                &th_id, glusterd_add_bulk_volumes_create_thread, arg,
+                "bulkvoldict");
+            if (th_ret) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "glusterd_add_bulk_volume %s"
+                       " thread creation failed",
+                       "bulkvoldict");
+                free(arg);
+                goto out;
+            }
+
+            start = start + vol_per_thread_limit;
+            GF_ATOMIC_INC(priv->thread_count);
+            gf_log(this->name, GF_LOG_INFO,
+                   "Create thread %d to populate dict data for volume"
+                   " start index is %d end index is %d",
+                   (i + 1), arg->start, arg->end);
+        }
+        while (GF_ATOMIC_GET(priv->thread_count)) {
+            sleep(1);
+        }
+
+        gf_log(this->name, GF_LOG_INFO,
+               "Finished dictionary popluation in all threads");
+        for (i = 0; i < totthread; i++) {
+            dict_copy_with_ref(dict_arr[i], dict);
+            dict_unref(dict_arr[i]);
+        }
+        gf_log(this->name, GF_LOG_INFO,
+               "Finished merger of all dictionraies into single one");
+    }
+
+    ret = dict_set_int32n(dict, "count", SLEN("count"), volcnt);
     if (ret)
         goto out;
 
@@ -3420,6 +3588,9 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
         goto out;
     }
 
+    if (!dict_get_sizen(volinfo->dict, VKEY_FEATURES_QUOTA))
+        goto skip_quota;
+
     snprintf(key, sizeof(key), "volume%d.quota-version", count);
     ret = dict_get_uint32(peer_data, key, &quota_version);
     if (ret) {
@@ -3471,6 +3642,8 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
             goto out;
         }
     }
+
+skip_quota:
     *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
