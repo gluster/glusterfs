@@ -235,6 +235,8 @@ typedef struct clnt_conf {
                                       * up, disconnects can be
                                       * logged
                                       */
+
+    gf_boolean_t old_protocol; /* used only for old-protocol testing */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

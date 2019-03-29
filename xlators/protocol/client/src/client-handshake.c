@@ -1338,11 +1338,15 @@ select_server_supported_programs(xlator_t *this, gf_prog_detail *prog)
     while (trav) {
         /* Select 'programs' */
         if ((clnt3_3_fop_prog.prognum == trav->prognum) &&
-            (clnt3_3_fop_prog.progver == trav->progver) && !conf->fops) {
+            (clnt3_3_fop_prog.progver == trav->progver)) {
             conf->fops = &clnt3_3_fop_prog;
             if (conf->rpc)
                 conf->rpc->auth_value = AUTH_GLUSTERFS_v2;
             ret = 0;
+            /* In normal flow, we don't want to use old protocol type.
+               but if it is for testing, lets use it */
+            if (conf->old_protocol)
+                goto done;
         }
 
         if ((clnt4_0_fop_prog.prognum == trav->prognum) &&
@@ -1351,8 +1355,10 @@ select_server_supported_programs(xlator_t *this, gf_prog_detail *prog)
             if (conf->rpc)
                 conf->rpc->auth_value = AUTH_GLUSTERFS_v3;
             ret = 0;
-            /* this is latest program, lets use it */
-            goto out;
+            /* this is latest program, lets use this program only */
+            /* if we are testing for old-protocol, lets not break this */
+            if (!conf->old_protocol)
+                goto done;
         }
 
         if (ret) {
@@ -1362,6 +1368,7 @@ select_server_supported_programs(xlator_t *this, gf_prog_detail *prog)
         trav = trav->next;
     }
 
+done:
     if (!ret)
         gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_VERSION_INFO,
                "Using Program %s,"

@@ -2508,6 +2508,8 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
 
     GF_OPTION_INIT("send-gids", conf->send_gids, bool, out);
 
+    GF_OPTION_INIT("testing.old-protocol", conf->old_protocol, bool, out);
+
     conf->client_id = glusterfs_leaf_position(this);
 
     ret = client_check_remote_host(this, this->options);
@@ -3048,6 +3050,16 @@ struct volume_options options[] = {
                     " power. Range 1-32 threads.",
      .op_version = {GD_OP_VERSION_3_7_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+
+    /* This option is required for running code-coverage tests with
+       old protocol */
+    {
+        .key = {"testing.old-protocol"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "off",
+        .op_version = {GD_OP_VERSION_7_0},
+        .flags = OPT_FLAG_SETTABLE,
+    },
     {.key = {NULL}},
 };
 
