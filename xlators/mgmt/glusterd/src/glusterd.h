@@ -57,8 +57,10 @@
 #define GLUSTER_SHARED_STORAGE "gluster_shared_storage"
 #define GLUSTERD_SHARED_STORAGE_KEY "cluster.enable-shared-storage"
 #define GLUSTERD_BRICK_MULTIPLEX_KEY "cluster.brick-multiplex"
+#define GLUSTERD_VOL_CNT_PER_THRD "glusterd.vol_count_per_thread"
 #define GLUSTERD_BRICKMUX_LIMIT_KEY "cluster.max-bricks-per-process"
 #define GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE "250"
+#define GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE "100"
 #define GLUSTERD_LOCALTIME_LOGGING_KEY "cluster.localtime-logging"
 #define GLUSTERD_DAEMON_LOG_LEVEL_KEY "cluster.daemon-log-level"
 
@@ -222,7 +224,15 @@ typedef struct {
                                     which might lead the modification of volinfo
                                     list.
                                  */
+    gf_atomic_t thread_count;
 } glusterd_conf_t;
+
+typedef struct glusterd_add_dict_args {
+    xlator_t *this;
+    dict_t *voldict;
+    int start;
+    int end;
+} glusterd_add_dict_args_t;
 
 typedef enum gf_brick_status {
     GF_BRICK_STOPPED,
