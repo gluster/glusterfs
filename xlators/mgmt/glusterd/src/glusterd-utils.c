@@ -13173,8 +13173,6 @@ glusterd_get_default_val_for_volopt(dict_t *ctx, gf_boolean_t all_opts,
                    "Failed to "
                    "set %s in dictionary",
                    vme->key);
-            if (get_value_vme)
-                GF_FREE(def_val);
             goto out;
         }
         sprintf(dict_key, "value%d", count);
@@ -13184,8 +13182,6 @@ glusterd_get_default_val_for_volopt(dict_t *ctx, gf_boolean_t all_opts,
                    "Failed to "
                    "set %s for key %s in dictionary",
                    def_val, vme->key);
-            if (get_value_vme)
-                GF_FREE(def_val);
             goto out;
         }
         if (get_value_vme)
