@@ -236,7 +236,11 @@ typedef struct clnt_conf {
                                       * logged
                                       */
 
-    gf_boolean_t old_protocol; /* used only for old-protocol testing */
+    gf_boolean_t old_protocol;         /* used only for old-protocol testing */
+    pthread_cond_t fini_complete_cond; /* Used to wait till we finsh the fini
+                                          compltely, ie client_fini_complete
+                                          to return*/
+    gf_boolean_t fini_completed;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
