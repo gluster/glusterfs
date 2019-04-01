@@ -77,6 +77,10 @@ cd $M0
 ## was up at the time of updated xattrs
 TEST stat ./tmp{1..10}
 
+# Make sure to send a write and read on the file inside mount
+echo "helloworld" > ./tmp1/file
+TEST cat ./tmp1/file
+
 ## Compare succ value with updated acl attributes
 count=`getfacl -p $B0/${V0}5/tmp{1..10} | grep -c "user:tmpuser:rw-"`
 EXPECT "$succ" echo $count
@@ -87,4 +91,5 @@ EXPECT "$succ1" echo $count
 
 cd -
 userdel --force tmpuser
+
 cleanup
