@@ -206,6 +206,12 @@ TEST "echo sampledata > $master_mnt/rsync_option_test_file"
 #Verify arequal for whole volume
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 arequal_checksum ${master_mnt} ${slave_mnt}
 
+#Pause geo-replication session
+TEST $GEOREP_CLI  $master $slave pause force
+
+#Resume geo-replication session
+TEST $GEOREP_CLI  $master $slave resume force
+
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
