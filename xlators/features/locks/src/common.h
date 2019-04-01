@@ -51,7 +51,8 @@
 
 posix_lock_t *
 new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
-               gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags, int can_block);
+               gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags, int blocking,
+               int32_t *op_errno);
 
 pl_inode_t *
 pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local);
@@ -212,4 +213,6 @@ pl_clean_local(pl_local_t *local);
 int
 pl_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd);
 
+gf_boolean_t
+pl_is_lk_owner_valid(gf_lkowner_t *owner, client_t *client);
 #endif /* __COMMON_H__ */

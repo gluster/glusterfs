@@ -873,17 +873,23 @@ pl_inode_setlk(xlator_t *this, pl_ctx_t *ctx, pl_inode_t *pl_inode,
 }
 
 /* Create a new inode_lock_t */
-pl_inode_lock_t *
+static pl_inode_lock_t *
 new_inode_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
                call_frame_t *frame, xlator_t *this, const char *volume,
-               char *conn_id)
+               char *conn_id, int32_t *op_errno)
 
 {
     pl_inode_lock_t *lock = NULL;
 
+    if (!pl_is_lk_owner_valid(&frame->root->lk_owner, frame->root->client)) {
+        *op_errno = EINVAL;
+        goto out;
+    }
+
     lock = GF_CALLOC(1, sizeof(*lock), gf_locks_mt_pl_inode_lock_t);
     if (!lock) {
-        return NULL;
+        *op_errno = ENOMEM;
+        goto out;
     }
 
     lock->fl_start = flock->l_start;
@@ -911,6 +917,7 @@ new_inode_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     INIT_LIST_HEAD(&lock->contend);
     __pl_inodelk_ref(lock);
 
+out:
     return lock;
 }
 
@@ -1005,11 +1012,10 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
     }
 
     reqlock = new_inode_lock(flock, frame->root->client, frame->root->pid,
-                             frame, this, dom->domain, conn_id);
+                             frame, this, dom->domain, conn_id, &op_errno);
 
     if (!reqlock) {
         op_ret = -1;
-        op_errno = ENOMEM;
         goto unwind;
     }
 

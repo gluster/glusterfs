@@ -493,7 +493,8 @@ unlock:
 /* Create a new posix_lock_t */
 posix_lock_t *
 new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
-               gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags, int blocking)
+               gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags, int blocking,
+               int32_t *op_errno)
 {
     posix_lock_t *lock = NULL;
 
@@ -501,8 +502,14 @@ new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     GF_VALIDATE_OR_GOTO("posix-locks", client, out);
     GF_VALIDATE_OR_GOTO("posix-locks", fd, out);
 
+    if (!pl_is_lk_owner_valid(owner, client)) {
+        *op_errno = EINVAL;
+        goto out;
+    }
+
     lock = GF_CALLOC(1, sizeof(posix_lock_t), gf_locks_mt_posix_lock_t);
     if (!lock) {
+        *op_errno = ENOMEM;
         goto out;
     }
 
@@ -520,6 +527,7 @@ new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     if (lock->client_uid == NULL) {
         GF_FREE(lock);
         lock = NULL;
+        *op_errno = ENOMEM;
         goto out;
     }
 
@@ -988,6 +996,7 @@ pl_send_prelock_unlock(xlator_t *this, pl_inode_t *pl_inode,
         0,
     };
     posix_lock_t *unlock_lock = NULL;
+    int32_t op_errno = 0;
 
     struct list_head granted_list;
     posix_lock_t *tmp = NULL;
@@ -1005,7 +1014,7 @@ pl_send_prelock_unlock(xlator_t *this, pl_inode_t *pl_inode,
 
     unlock_lock = new_posix_lock(&flock, old_lock->client, old_lock->client_pid,
                                  &old_lock->owner, old_lock->fd,
-                                 old_lock->lk_flags, 0);
+                                 old_lock->lk_flags, 0, &op_errno);
     GF_VALIDATE_OR_GOTO(this->name, unlock_lock, out);
     ret = 0;
 
@@ -1272,4 +1281,17 @@ pl_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
     }
 
     return 0;
+}
+
+gf_boolean_t
+pl_is_lk_owner_valid(gf_lkowner_t *owner, client_t *client)
+{
+    if (client && (client->opversion < GD_OP_VERSION_7_0)) {
+        return _gf_true;
+    }
+
+    if (is_lk_owner_null(owner)) {
+        return _gf_false;
+    }
+    return _gf_true;
 }
