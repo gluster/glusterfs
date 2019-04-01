@@ -1347,14 +1347,17 @@ fi
 
 dnl gnfs section
 BUILD_GNFS="no"
+RPCBIND_SERVICE=""
 AC_ARG_ENABLE([gnfs],
               AC_HELP_STRING([--enable-gnfs],
                              [Enable legacy gnfs server xlator.]))
 if test "x${with_server}" = "xyes" -a "x$enable_gnfs" = "xyes"; then
     BUILD_GNFS="yes"
+    RPCBIND_SERVICE="rpcbind.service"
 fi
 AM_CONDITIONAL([BUILD_GNFS], [test x$BUILD_GNFS = xyes])
 AC_SUBST(BUILD_GNFS)
+AC_SUBST(RPCBIND_SERVICE)
 dnl end gnfs section
 
 dnl Check for userspace-rcu

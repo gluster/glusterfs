@@ -1,8 +1,8 @@
 [Unit]
 Description=GlusterFS, a clustered file-system server
 Documentation=man:glusterd(8)
-Requires=rpcbind.service
-After=network.target rpcbind.service
+Requires=@RPCBIND_SERVICE@
+After=network.target @RPCBIND_SERVICE@
 Before=network-online.target
 
 [Service]
