@@ -6463,6 +6463,8 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
     int op_errno = 0;
     dict_t *dict = NULL;
     afr_local_t *local = NULL;
+    afr_local_t *heal_local = NULL;
+    call_frame_t *heal_frame = NULL;
 
     local = frame->local;
     dict = dict_new();
@@ -6472,7 +6474,16 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
         goto out;
     }
 
-    ret = afr_selfheal_do(frame, this, loc->gfid);
+    heal_frame = afr_frame_create(this, &op_errno);
+    if (!heal_frame) {
+        ret = -1;
+        goto out;
+    }
+    heal_local = heal_frame->local;
+    heal_frame->local = frame->local;
+    /*Initiate heal with heal_frame with lk-owner set so that inodelk/entrylk
+     * work correctly*/
+    ret = afr_selfheal_do(heal_frame, this, loc->gfid);
 
     if (ret == 1 || ret == 2) {
         ret = dict_set_sizen_str_sizen(dict, "sh-fail-msg",
@@ -6494,6 +6505,10 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
     }
 
 out:
+    if (heal_frame) {
+        heal_frame->local = heal_local;
+        AFR_STACK_DESTROY(heal_frame);
+    }
     if (local->op == GF_FOP_GETXATTR)
         AFR_STACK_UNWIND(getxattr, frame, ret, op_errno, dict, NULL);
     else if (local->op == GF_FOP_SETXATTR)
