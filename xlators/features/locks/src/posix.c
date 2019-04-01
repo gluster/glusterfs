@@ -2297,9 +2297,10 @@ __fd_has_locks(pl_inode_t *pl_inode, fd_t *fd)
 static posix_lock_t *
 lock_dup(posix_lock_t *lock)
 {
+    int32_t op_errno = 0;
     return new_posix_lock(&lock->user_flock, lock->client, lock->client_pid,
                           &lock->owner, (fd_t *)lock->fd_num, lock->lk_flags,
-                          lock->blocking);
+                          lock->blocking, &op_errno);
 }
 
 static int
@@ -2516,11 +2517,11 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     }
 
     reqlock = new_posix_lock(flock, frame->root->client, frame->root->pid,
-                             &frame->root->lk_owner, fd, lk_flags, can_block);
+                             &frame->root->lk_owner, fd, lk_flags, can_block,
+                             &op_errno);
 
     if (!reqlock) {
         op_ret = -1;
-        op_errno = ENOMEM;
         goto unwind;
     }
 
