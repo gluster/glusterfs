@@ -49,11 +49,12 @@ client_fini_complete(xlator_t *this)
     if (!conf->destroy)
         return 0;
 
-    this->private = NULL;
-
-    pthread_spin_destroy(&conf->fd_lock);
-    pthread_mutex_destroy(&conf->lock);
-    GF_FREE(conf);
+    pthread_mutex_lock(&conf->lock);
+    {
+        conf->fini_completed = _gf_true;
+        pthread_cond_broadcast(&conf->fini_complete_cond);
+    }
+    pthread_mutex_unlock(&conf->lock);
 
 out:
     return 0;
@@ -2723,6 +2724,7 @@ init(xlator_t *this)
         goto out;
 
     pthread_mutex_init(&conf->lock, NULL);
+    pthread_cond_init(&conf->fini_complete_cond, NULL);
     pthread_spin_init(&conf->fd_lock, 0);
     INIT_LIST_HEAD(&conf->saved_fds);
 
@@ -2781,12 +2783,25 @@ fini(xlator_t *this)
     if (!conf)
         return;
 
+    conf->fini_completed = _gf_false;
     conf->destroy = 1;
     if (conf->rpc) {
         /* cleanup the saved-frames before last unref */
         rpc_clnt_connection_cleanup(&conf->rpc->conn);
         rpc_clnt_unref(conf->rpc);
     }
+
+    pthread_mutex_lock(&conf->lock);
+    {
+        while (!conf->fini_completed)
+            pthread_cond_wait(&conf->fini_complete_cond, &conf->lock);
+    }
+    pthread_mutex_unlock(&conf->lock);
+
+    pthread_spin_destroy(&conf->fd_lock);
+    pthread_mutex_destroy(&conf->lock);
+    pthread_cond_destroy(&conf->fini_complete_cond);
+    GF_FREE(conf);
 
     /* Saved Fds */
     /* TODO: */
