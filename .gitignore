@@ -60,6 +60,7 @@ extras/ocf/glusterd
 extras/ocf/volume
 extras/run-gluster.tmpfiles
 extras/systemd/glusterd.service
+extras/systemd/gluster-ta-volume.service
 extras/systemd/glusterfssharedstorage.service
 extras/who-wrote-glusterfs/gitdm
 geo-replication/.tox
