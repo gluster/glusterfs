@@ -1214,6 +1214,7 @@ _afr_handle_empty_brick(void *opaque)
     char *op_type = NULL;
     int op_type_len = 0;
     afr_empty_brick_args_t *data = NULL;
+    call_frame_t *op_frame = NULL;
 
     data = opaque;
     frame = data->frame;
@@ -1221,12 +1222,20 @@ _afr_handle_empty_brick(void *opaque)
     if (!data->op_type)
         goto out;
 
+    op_frame = copy_frame(frame);
+    if (!op_frame) {
+        ret = -1;
+        op_errno = ENOMEM;
+        goto out;
+    }
+
     op_type = data->op_type;
     op_type_len = strlen(op_type);
-    this = frame->this;
+    this = op_frame->this;
     priv = this->private;
 
-    local = AFR_FRAME_INIT(frame, op_errno);
+    afr_set_lk_owner(op_frame, this, op_frame->root);
+    local = AFR_FRAME_INIT(op_frame, op_errno);
     if (!local)
         goto out;
 
@@ -1235,7 +1244,7 @@ _afr_handle_empty_brick(void *opaque)
     gf_msg(this->name, GF_LOG_INFO, 0, 0, "New brick is : %s",
            priv->children[empty_index]->name);
 
-    ret = _afr_handle_empty_brick_type(this, frame, &local->loc, empty_index,
+    ret = _afr_handle_empty_brick_type(this, op_frame, &local->loc, empty_index,
                                        AFR_METADATA_TRANSACTION, op_type,
                                        op_type_len);
     if (ret) {
@@ -1251,7 +1260,7 @@ _afr_handle_empty_brick(void *opaque)
     local->xattr_req = NULL;
     local->xdata_req = NULL;
 
-    ret = _afr_handle_empty_brick_type(this, frame, &local->loc, empty_index,
+    ret = _afr_handle_empty_brick_type(this, op_frame, &local->loc, empty_index,
                                        AFR_ENTRY_TRANSACTION, op_type,
                                        op_type_len);
     if (ret) {
@@ -1261,6 +1270,9 @@ _afr_handle_empty_brick(void *opaque)
     }
     ret = 0;
 out:
+    if (op_frame) {
+        AFR_STACK_DESTROY(op_frame);
+    }
     AFR_STACK_UNWIND(setxattr, frame, ret, op_errno, NULL);
     return 0;
 }
@@ -1365,7 +1377,8 @@ int
 afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
                                 dict_t *dict)
 {
-    void *value = NULL;
+    void *choice_value = NULL;
+    void *resolve_value = NULL;
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     afr_spbc_timeout_t *data = NULL;
@@ -1376,6 +1389,14 @@ afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
 
     priv = this->private;
 
+    ret = dict_get_ptr_and_len(dict, GF_AFR_SBRAIN_CHOICE, &choice_value, &len);
+    ret = dict_get_ptr_and_len(dict, GF_AFR_SBRAIN_RESOLVE, &resolve_value,
+                               &len);
+    if (!choice_value && !resolve_value) {
+        ret = -1;
+        goto out;
+    }
+
     local = AFR_FRAME_INIT(frame, op_errno);
     if (!local) {
         ret = 1;
@@ -1384,9 +1405,9 @@ afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
 
     local->op = GF_FOP_SETXATTR;
 
-    ret = dict_get_ptr_and_len(dict, GF_AFR_SBRAIN_CHOICE, &value, &len);
-    if (value) {
-        spb_child_index = afr_get_split_brain_child_index(this, value, len);
+    if (choice_value) {
+        spb_child_index = afr_get_split_brain_child_index(this, choice_value,
+                                                          len);
         if (spb_child_index < 0) {
             /* Case where value was "none" */
             if (spb_child_index == -2)
@@ -1424,9 +1445,9 @@ afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
         goto out;
     }
 
-    ret = dict_get_ptr_and_len(dict, GF_AFR_SBRAIN_RESOLVE, &value, &len);
-    if (value) {
-        spb_child_index = afr_get_split_brain_child_index(this, value, len);
+    if (resolve_value) {
+        spb_child_index = afr_get_split_brain_child_index(this, resolve_value,
+                                                          len);
         if (spb_child_index < 0) {
             ret = 1;
             goto out;
