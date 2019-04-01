@@ -12,6 +12,7 @@
 
 #include <glusterfs/xlator.h>
 #include <glusterfs/glusterfs.h>
+#include <glusterfs/defaults.h>
 
 #include "posix-acl.h"
 #include "posix-acl-xattr.h"
@@ -608,9 +609,8 @@ posix_acl_set_specific(inode_t *inode, xlator_t *this, struct posix_acl *acl,
     }
     UNLOCK(&conf->acl_lock);
 
-    if (oldret == 0) {
-        if (old_acl)
-            posix_acl_unref(this, old_acl);
+    if (!oldret && old_acl) {
+        posix_acl_unref(this, old_acl);
     }
 
     return ret;
@@ -1113,17 +1113,6 @@ unwind:
 }
 
 int
-posix_acl_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, struct iatt *prebuf,
-                       struct iatt *postbuf, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(truncate, frame, op_ret, op_errno, prebuf, postbuf,
-                        xdata);
-
-    return 0;
-}
-
-int
 posix_acl_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t off,
                    dict_t *xdata)
 {
@@ -1146,17 +1135,8 @@ posix_acl_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t off,
     return 0;
 
 green:
-    STACK_WIND(frame, posix_acl_truncate_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_truncate_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->truncate, loc, off, xdata);
-    return 0;
-}
-
-int
-posix_acl_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(open, frame, op_ret, op_errno, fd, xdata);
-
     return 0;
 }
 
@@ -1193,21 +1173,11 @@ posix_acl_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_open_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_open_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(open, frame, -1, EACCES, NULL, NULL);
-    return 0;
-}
-
-int
-posix_acl_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int op_ret, int op_errno, struct iovec *vector, int count,
-                    struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, vector, count, stbuf,
-                        iobref, xdata);
     return 0;
 }
 
@@ -1224,21 +1194,11 @@ posix_acl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto red;
 
 green:
-    STACK_WIND(frame, posix_acl_readv_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_readv_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readv, fd, size, offset, flags, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(readv, frame, -1, EACCES, NULL, 0, NULL, NULL, NULL);
-    return 0;
-}
-
-int
-posix_acl_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, struct iatt *prebuf,
-                     struct iatt *postbuf, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,
-                        xdata);
     return 0;
 }
 
@@ -1256,22 +1216,12 @@ posix_acl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
         goto red;
 
 green:
-    STACK_WIND(frame, posix_acl_writev_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_writev_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
                flags, iobref, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(writev, frame, -1, EACCES, NULL, NULL, NULL);
-    return 0;
-}
-
-int
-posix_acl_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, struct iatt *prebuf,
-                        struct iatt *postbuf, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
-                        xdata);
     return 0;
 }
 
@@ -1288,20 +1238,11 @@ posix_acl_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto red;
 
 green:
-    STACK_WIND(frame, posix_acl_ftruncate_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_ftruncate_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(ftruncate, frame, -1, EACCES, NULL, NULL, NULL);
-    return 0;
-}
-
-int
-posix_acl_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(opendir, frame, op_ret, op_errno, fd, xdata);
-
     return 0;
 }
 
@@ -1314,7 +1255,7 @@ posix_acl_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_opendir_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_opendir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
     return 0;
 red:
@@ -1478,16 +1419,6 @@ red:
 }
 
 int
-posix_acl_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(unlink, frame, op_ret, op_errno, preparent, postparent,
-                        xdata);
-    return 0;
-}
-
-int
 posix_acl_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                  dict_t *xdata)
 {
@@ -1499,21 +1430,11 @@ posix_acl_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_unlink_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_unlink_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(unlink, frame, -1, EACCES, NULL, NULL, NULL);
-    return 0;
-}
-
-int
-posix_acl_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int op_ret, int op_errno, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(rmdir, frame, op_ret, op_errno, preparent, postparent,
-                        xdata);
     return 0;
 }
 
@@ -1529,23 +1450,11 @@ posix_acl_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_rmdir_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_rmdir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->rmdir, loc, flags, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(rmdir, frame, -1, EACCES, NULL, NULL, NULL);
-    return 0;
-}
-
-int
-posix_acl_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, struct iatt *buf,
-                     struct iatt *preoldparent, struct iatt *postoldparent,
-                     struct iatt *prenewparent, struct iatt *postnewparent,
-                     dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(rename, frame, op_ret, op_errno, buf, preoldparent,
-                        postoldparent, prenewparent, postnewparent, xdata);
     return 0;
 }
 
@@ -1567,23 +1476,12 @@ posix_acl_rename(call_frame_t *frame, xlator_t *this, loc_t *old, loc_t *new,
             goto red;
     }
 
-    STACK_WIND(frame, posix_acl_rename_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_rename_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->rename, old, new, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(rename, frame, -1, EACCES, NULL, NULL, NULL, NULL, NULL,
                         NULL);
-    return 0;
-}
-
-int
-posix_acl_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
-                   struct iatt *preparent, struct iatt *postparent,
-                   dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(link, frame, op_ret, op_errno, inode, buf, preparent,
-                        postparent, xdata);
     return 0;
 }
 
@@ -1610,22 +1508,13 @@ posix_acl_link(call_frame_t *frame, xlator_t *this, loc_t *old, loc_t *new,
         goto red;
     }
 
-    STACK_WIND(frame, posix_acl_link_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_link_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->link, old, new, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(link, frame, -1, op_errno, NULL, NULL, NULL, NULL,
                         NULL);
 
-    return 0;
-}
-
-int
-posix_acl_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, gf_dirent_t *entries,
-                      dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(readdir, frame, op_ret, op_errno, entries, xdata);
     return 0;
 }
 
@@ -1638,7 +1527,7 @@ posix_acl_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_readdir_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_readdir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readdir, fd, size, offset, xdata);
     return 0;
 red:
@@ -2094,15 +1983,6 @@ red:
 }
 
 int
-posix_acl_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(fsetxattr, frame, op_ret, op_errno, xdata);
-
-    return 0;
-}
-
-int
 posix_acl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                     dict_t *xattr, int flags, dict_t *xdata)
 {
@@ -2117,20 +1997,11 @@ posix_acl_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
         dict_get(xattr, POSIX_ACL_DEFAULT_XATTR))
         posix_acl_setxattr_update(this, fd->inode, xattr);
 
-    STACK_WIND(frame, posix_acl_fsetxattr_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_fsetxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fsetxattr, fd, xattr, flags, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(fsetxattr, frame, -1, op_errno, NULL);
-
-    return 0;
-}
-
-int
-posix_acl_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, xattr, xdata);
 
     return 0;
 }
@@ -2148,21 +2019,12 @@ posix_acl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         goto red;
 
 green:
-    STACK_WIND(frame, posix_acl_getxattr_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_getxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
     return 0;
 
 red:
     STACK_UNWIND_STRICT(getxattr, frame, -1, EACCES, NULL, NULL);
-
-    return 0;
-}
-
-int
-posix_acl_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(fgetxattr, frame, op_ret, op_errno, xattr, xdata);
 
     return 0;
 }
@@ -2179,20 +2041,11 @@ posix_acl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_fgetxattr_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_fgetxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fgetxattr, fd, name, xdata);
     return 0;
 red:
     STACK_UNWIND_STRICT(fgetxattr, frame, -1, EACCES, NULL, NULL);
-
-    return 0;
-}
-
-int
-posix_acl_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int op_ret, int op_errno, dict_t *xdata)
-{
-    STACK_UNWIND_STRICT(removexattr, frame, op_ret, op_errno, xdata);
 
     return 0;
 }
@@ -2225,7 +2078,7 @@ posix_acl_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     else
         goto red;
 green:
-    STACK_WIND(frame, posix_acl_removexattr_cbk, FIRST_CHILD(this),
+    STACK_WIND(frame, default_removexattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
     return 0;
 red:
