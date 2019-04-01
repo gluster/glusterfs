@@ -82,6 +82,12 @@ TEST pidof glusterd
 TEST $CLI get-state detail
 TEST pidof glusterd
 
+#Pause geo-replication session
+TEST $GEOREP_CLI  $master $slave pause
+
+#Resume geo-replication session
+TEST $GEOREP_CLI  $master $slave resume
+
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
