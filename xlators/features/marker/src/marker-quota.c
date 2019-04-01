@@ -134,27 +134,14 @@ out:
     return -1;
 }
 
-int32_t
+static void
 mq_set_ctx_dirty_status(quota_inode_ctx_t *ctx, gf_boolean_t status)
 {
     GF_VALIDATE_OR_GOTO("marker", ctx, out);
 
     mq_set_ctx_status(ctx, &ctx->dirty_status, status);
-    return 0;
 out:
-    return -1;
-}
-
-int32_t
-mq_test_and_set_ctx_dirty_status(quota_inode_ctx_t *ctx, gf_boolean_t *status)
-{
-    GF_VALIDATE_OR_GOTO("marker", ctx, out);
-    GF_VALIDATE_OR_GOTO("marker", status, out);
-
-    mq_test_and_set_ctx_status(ctx, &ctx->dirty_status, status);
-    return 0;
-out:
-    return -1;
+    return;
 }
 
 int
@@ -872,13 +859,6 @@ mq_get_size(xlator_t *this, loc_t *loc, quota_meta_t *size)
 }
 
 int32_t
-mq_get_contri(xlator_t *this, loc_t *loc, quota_meta_t *contri,
-              uuid_t contri_gfid)
-{
-    return _mq_get_metadata(this, loc, contri, NULL, contri_gfid);
-}
-
-int32_t
 mq_get_delta(xlator_t *this, loc_t *loc, quota_meta_t *delta,
              quota_inode_ctx_t *ctx, inode_contribution_t *contribution)
 {
@@ -1333,19 +1313,6 @@ mq_create_xattrs_txn(xlator_t *this, loc_t *loc, struct iatt *buf)
     GF_VALIDATE_OR_GOTO("marker", loc->inode, out);
 
     ret = _mq_create_xattrs_txn(this, loc, buf, _gf_true);
-out:
-    return ret;
-}
-
-int
-mq_create_xattrs_blocking_txn(xlator_t *this, loc_t *loc, struct iatt *buf)
-{
-    int32_t ret = -1;
-
-    GF_VALIDATE_OR_GOTO("marker", loc, out);
-    GF_VALIDATE_OR_GOTO("marker", loc->inode, out);
-
-    ret = _mq_create_xattrs_txn(this, loc, buf, _gf_false);
 out:
     return ret;
 }
@@ -2046,8 +2013,8 @@ mq_update_dirty_inode_txn(xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx)
     GF_VALIDATE_OR_GOTO("marker", loc, out);
     GF_VALIDATE_OR_GOTO("marker", loc->inode, out);
 
-    ret = mq_test_and_set_ctx_dirty_status(ctx, &status);
-    if (ret < 0 || status == _gf_true)
+    mq_test_and_set_ctx_status(ctx, &ctx->dirty_status, &status);
+    if (status == _gf_true)
         goto out;
 
     ret = mq_synctask(this, mq_update_dirty_inode_task, _gf_true, loc);
