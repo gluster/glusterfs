@@ -65,6 +65,9 @@ def _volinfo_hook_relax_foreign(self):
 def edct(op, **ed):
     dct = {}
     dct['op'] = op
+    # This is used in automatic gfid conflict resolution.
+    # When marked True, it's skipped during re-processing.
+    dct['skip_entry'] = False
     for k in ed:
         if k == 'stat':
             st = ed[k]
@@ -792,6 +795,7 @@ class GMasterChangelogMixin(GMasterCommon):
         pfx = gauxpfx()
         fix_entry_ops = []
         failures1 = []
+        remove_gfids = set()
         for failure in failures:
             if failure[2]['name_mismatch']:
                 pbname = failure[2]['slave_entry']
@@ -822,6 +826,18 @@ class GMasterChangelogMixin(GMasterCommon):
                             edct('UNLINK',
                                  gfid=failure[2]['slave_gfid'],
                                  entry=pbname))
+                    remove_gfids.add(slave_gfid)
+                    if op in ['RENAME']:
+                        # If renamed gfid doesn't exists on master, remove
+                        # rename entry and unlink src on slave
+                        st = lstat(os.path.join(pfx, failure[0]['gfid']))
+                        if isinstance(st, int) and st == ENOENT:
+                            logging.debug("Unlink source %s" % repr(failure))
+                            remove_gfids.add(failure[0]['gfid'])
+                            fix_entry_ops.append(
+                                edct('UNLINK',
+                                     gfid=failure[0]['gfid'],
+                                     entry=failure[0]['entry']))
                 # Takes care of scenarios of hardlinks/renames on master
                 elif not isinstance(st, int):
                     if matching_disk_gfid(slave_gfid, pbname):
@@ -831,7 +847,12 @@ class GMasterChangelogMixin(GMasterCommon):
                                         ' Safe to ignore, take out entry',
                                         retry_count=retry_count,
                                         entry=repr(failure)))
-                        entries.remove(failure[0])
+                        remove_gfids.add(failure[0]['gfid'])
+                        if op == 'RENAME':
+                            fix_entry_ops.append(
+                                edct('UNLINK',
+                                     gfid=failure[0]['gfid'],
+                                     entry=failure[0]['entry']))
                     # The file exists on master but with different name.
                     # Probably renamed and got missed during xsync crawl.
                     elif failure[2]['slave_isdir']:
@@ -856,7 +877,10 @@ class GMasterChangelogMixin(GMasterCommon):
                                             'take out entry',
                                             retry_count=retry_count,
                                             entry=repr(failure)))
-                            entries.remove(failure[0])
+                            try:
+                                entries.remove(failure[0])
+                            except ValueError:
+                                pass
                         else:
                             rename_dict = edct('RENAME', gfid=slave_gfid,
                                                entry=src_entry,
@@ -896,7 +920,10 @@ class GMasterChangelogMixin(GMasterCommon):
                                     'ignore, take out entry',
                                     retry_count=retry_count,
                                     entry=repr(failure)))
-                    entries.remove(failure[0])
+                    try:
+                        entries.remove(failure[0])
+                    except ValueError:
+                        pass
                 else:
                     logging.info(lf('Fixing ENOENT error in slave. Create '
                                     'parent directory on slave.',
@@ -912,6 +939,14 @@ class GMasterChangelogMixin(GMasterCommon):
                     fix_entry_ops.append(
                         edct('MKDIR', gfid=pargfid, entry=dir_entry,
                              mode=st.st_mode, uid=st.st_uid, gid=st.st_gid))
+
+        logging.debug("remove_gfids: %s" % repr(remove_gfids))
+        if remove_gfids:
+            for e in entries:
+                if e['op'] in ['MKDIR', 'MKNOD', 'CREATE', 'RENAME'] \
+                   and e['gfid'] in remove_gfids:
+                    logging.debug("Removed entry op from retrial list: entry: %s" % repr(e))
+                    e['skip_entry'] = True
 
         if fix_entry_ops:
             # Process deletions of entries whose gfids are mismatched

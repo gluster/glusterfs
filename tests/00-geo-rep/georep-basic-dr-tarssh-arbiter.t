@@ -202,6 +202,11 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_symlink_rename_mkdir_data ${slave_mnt}/s
 #rsnapshot usecase
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rsnapshot_data ${slave_mnt}
 
+#rename with existing destination case BUG:1694820
+TEST create_rename_with_existing_destination ${master_mnt}
+#verify rename with existing destination case BUG:1694820
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rename_with_existing_destination ${slave_mnt}
+
 #Verify arequal for whole volume
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 arequal_checksum ${master_mnt} ${slave_mnt}
 

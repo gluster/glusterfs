@@ -426,7 +426,7 @@ class Server(object):
                 e['stat']['uid'] = uid
                 e['stat']['gid'] = gid
 
-            if cmd_ret == EEXIST:
+            if cmd_ret in [EEXIST, ESTALE]:
                 if dst:
                     en = e['entry1']
                 else:
@@ -510,6 +510,12 @@ class Server(object):
             entry = e['entry']
             uid = 0
             gid = 0
+
+            # Skip entry processing if it's marked true during gfid
+            # conflict resolution
+            if e['skip_entry']:
+                continue
+
             if e.get("stat", {}):
                 # Copy UID/GID value and then reset to zero. Copied UID/GID
                 # will be used to run chown once entry is created.
@@ -688,7 +694,7 @@ class Server(object):
             if blob:
                 cmd_ret = errno_wrap(Xattr.lsetxattr,
                                      [pg, 'glusterfs.gfid.newfile', blob],
-                                     [EEXIST, ENOENT],
+                                     [EEXIST, ENOENT, ESTALE],
                                      [ESTALE, EINVAL, EBUSY])
                 collect_failure(e, cmd_ret, uid, gid)
 
