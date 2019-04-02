@@ -403,3 +403,39 @@ function check_slave_read_only()
     gluster volume info $1 | grep 'features.read-only: on'
     echo $?
 }
+
+function create_rename_with_existing_destination()
+{
+    dir=$1/rename_with_existing_destination
+    mkdir $dir
+    for i in {1..5}
+    do
+        echo "Data_set$i" > $dir/data_set$i
+        mv $dir/data_set$i $dir/data_set -f
+    done
+}
+
+function verify_rename_with_existing_destination()
+{
+    dir=$1/rename_with_existing_destination
+
+    if [ ! -d $dir ]; then
+        echo 1
+    elif [ ! -f $dir/data_set ]; then
+        echo 2
+    elif [ -f $dir/data_set1 ]; then
+        echo 3
+    elif [ -f $dir/data_set2 ]; then
+        echo 4
+    elif [ -f $dir/data_set3 ]; then
+        echo 5
+    elif [ -f $dir/data_set4 ]; then
+        echo 6
+    elif [ -f $dir/data_set5 ]; then
+        echo 7
+    elif test "XData_set5" != "X$(cat $dir/data_set)"; then
+        echo 8
+    else
+        echo 0
+    fi
+}
