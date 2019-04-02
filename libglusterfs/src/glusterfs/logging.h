@@ -300,7 +300,7 @@ _gf_log_eh(const char *function, const char *fmt, ...)
 
 /* Log once in GF_UNIVERSAL_ANSWER times */
 #define GF_LOG_OCCASIONALLY(var, args...)                                      \
-    if (!(var++ % GF_UNIVERSAL_ANSWER)) {                                      \
+    if (var++ == 0 || !((var - 1) % GF_UNIVERSAL_ANSWER)) {                    \
         gf_log(args);                                                          \
     }
 
