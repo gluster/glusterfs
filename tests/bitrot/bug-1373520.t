@@ -59,6 +59,9 @@ TEST rm -rf $(find $B0/${V0}5 -inum $(stat -c %i $B0/${V0}5/FILE1))
 #New mount for recovery
 TEST $GFS -s $H0 --use-readdirp=no --attribute-timeout=0 --entry-timeout=0 --volfile-id $V0 $M1
 
+$CLI volume set $V0 self-heal-daemon on
+TEST $CLI volume heal $V0
+
 #Access files
 TEST cat $M1/FILE1
 EXPECT_WITHIN $HEAL_TIMEOUT "$SIZE" path_size $B0/${V0}5/FILE1
