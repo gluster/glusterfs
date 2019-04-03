@@ -2306,7 +2306,6 @@ glusterd_verify_gsync_status_opts(dict_t *dict, char **op_errstr)
     char errmsg[PATH_MAX] = {
         0,
     };
-    gf_boolean_t exists = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
     int ret = 0;
     char *conf_path = NULL;
@@ -2334,9 +2333,8 @@ glusterd_verify_gsync_status_opts(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
     ret = glusterd_volinfo_find(volname, &volinfo);
-    if ((ret) || (!exists)) {
+    if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_FOUND,
                "volume name does not exist");
         snprintf(errmsg, sizeof(errmsg),
@@ -2344,7 +2342,6 @@ glusterd_verify_gsync_status_opts(dict_t *dict, char **op_errstr)
                  " exist",
                  volname);
         *op_errstr = gf_strdup(errmsg);
-        ret = -1;
         goto out;
     }
 
@@ -3140,7 +3137,6 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
     gf_boolean_t is_force = -1;
     gf_boolean_t is_no_verify = -1;
     gf_boolean_t is_force_blocker = -1;
-    gf_boolean_t exists = _gf_false;
     gf_boolean_t is_template_in_use = _gf_false;
     glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
@@ -3190,18 +3186,15 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
     ret = glusterd_volinfo_find(volname, &volinfo);
-    if ((ret) || (!exists)) {
+    if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_FOUND,
                "volume name does not exist");
         snprintf(errmsg, sizeof(errmsg),
                  "Volume name %s does not"
                  " exist",
                  volname);
-        *op_errstr = gf_strdup(errmsg);
-        gf_msg_debug(this->name, 0, "Returning %d", ret);
-        return -1;
+        goto out;
     }
 
     ret = glusterd_get_slave_details_confpath(volinfo, dict, &slave_url,
@@ -3536,7 +3529,6 @@ out:
     if (slave_url_buf)
         GF_FREE(slave_url_buf);
 
-    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -3615,7 +3607,6 @@ glusterd_op_stage_gsync_set(dict_t *dict, char **op_errstr)
     char *statedir = NULL;
     char *path_list = NULL;
     char *conf_path = NULL;
-    gf_boolean_t exists = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
     char errmsg[PATH_MAX] = {
         0,
@@ -3666,14 +3657,12 @@ glusterd_op_stage_gsync_set(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
     ret = glusterd_volinfo_find(volname, &volinfo);
-    if ((ret) || (!exists)) {
+    if (ret) {
         snprintf(errmsg, sizeof(errmsg),
                  "Volume name %s does not"
                  " exist",
                  volname);
-        ret = -1;
         goto out;
     }
 
@@ -5118,7 +5107,6 @@ glusterd_get_gsync_status(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char errmsg[PATH_MAX] = {
         0,
     };
-    gf_boolean_t exists = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
     int ret = 0;
     char my_hostname[256] = {
@@ -5141,9 +5129,8 @@ glusterd_get_gsync_status(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
     ret = glusterd_volinfo_find(volname, &volinfo);
-    if ((ret) || (!exists)) {
+    if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_FOUND,
                "volume name does not exist");
         snprintf(errmsg, sizeof(errmsg),
@@ -5151,7 +5138,6 @@ glusterd_get_gsync_status(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  " exist",
                  volname);
         *op_errstr = gf_strdup(errmsg);
-        ret = -1;
         goto out;
     }
 

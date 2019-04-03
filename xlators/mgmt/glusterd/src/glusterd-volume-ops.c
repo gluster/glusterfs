@@ -1173,8 +1173,6 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         snprintf(msg, sizeof(msg), "Volume %s already exists", volname);
         ret = -1;
         goto out;
-    } else {
-        ret = 0;
     }
 
     ret = dict_get_int32n(dict, "count", SLEN("count"), &brick_count);
@@ -1428,7 +1426,6 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     int flags = 0;
     int32_t brick_count = 0;
     int32_t local_brick_count = 0;
-    gf_boolean_t exists = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     char msg[2048] = {
@@ -1458,16 +1455,9 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     if (ret)
         goto out;
 
-    exists = glusterd_check_volume_exists(volname);
-
-    if (!exists) {
-        snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
-        ret = -1;
-        goto out;
-    }
-
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
+        snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
                FMTSTR_CHECK_VOL_EXISTS, volname);
         goto out;
@@ -1637,7 +1627,6 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     int ret = -1;
     char *volname = NULL;
     int flags = 0;
-    gf_boolean_t exists = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
     xlator_t *this = NULL;
@@ -1651,15 +1640,6 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     ret = glusterd_op_stop_volume_args_get(dict, &volname, &flags);
     if (ret)
         goto out;
-
-    exists = glusterd_check_volume_exists(volname);
-
-    if (!exists) {
-        snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND, "%s", msg);
-        ret = -1;
-        goto out;
-    }
 
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
@@ -1717,7 +1697,6 @@ glusterd_op_stage_delete_volume(dict_t *dict, char **op_errstr)
 {
     int ret = 0;
     char *volname = NULL;
-    gf_boolean_t exists = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
     xlator_t *this = NULL;
@@ -1730,15 +1709,6 @@ glusterd_op_stage_delete_volume(dict_t *dict, char **op_errstr)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
         goto out;
-    }
-
-    exists = glusterd_check_volume_exists(volname);
-    if (!exists) {
-        snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
-        ret = -1;
-        goto out;
-    } else {
-        ret = 0;
     }
 
     ret = glusterd_volinfo_find(volname, &volinfo);

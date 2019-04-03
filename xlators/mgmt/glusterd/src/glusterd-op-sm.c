@@ -1104,17 +1104,9 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
     }
 
     if (strcasecmp(volname, "all") != 0) {
-        exists = glusterd_check_volume_exists(volname);
-        if (!exists) {
-            snprintf(errstr, sizeof(errstr), FMTSTR_CHECK_VOL_EXISTS, volname);
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND, "%s",
-                   errstr);
-            ret = -1;
-            goto out;
-        }
-
         ret = glusterd_volinfo_find(volname, &volinfo);
         if (ret) {
+            snprintf(errstr, sizeof(errstr), FMTSTR_CHECK_VOL_EXISTS, volname);
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
                    FMTSTR_CHECK_VOL_EXISTS, volname);
             goto out;
@@ -1654,12 +1646,6 @@ glusterd_op_stage_reset_volume(dict_t *dict, char **op_errstr)
     }
 
     if (strcasecmp(volname, "all") != 0) {
-        exists = glusterd_check_volume_exists(volname);
-        if (!exists) {
-            snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
-            ret = -1;
-            goto out;
-        }
         ret = glusterd_volinfo_find(volname, &volinfo);
         if (ret) {
             snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
@@ -1753,7 +1739,6 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
     char msg[2048] = {
         0,
     };
-    glusterd_volinfo_t *volinfo = NULL;
 
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
     if (ret) {
@@ -1778,12 +1763,6 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
                 ret = -1;
                 goto out;
             }
-            ret = glusterd_volinfo_find(volname, &volinfo);
-            if (ret)
-                goto out;
-
-        } else {
-            ret = 0;
         }
     } else {
         RCU_READ_LOCK;
@@ -2008,7 +1987,6 @@ glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr)
 {
     int ret = -1;
     char *volname = NULL;
-    gf_boolean_t exists = _gf_false;
     char msg[2048] = {
         0,
     };
@@ -2021,14 +1999,12 @@ glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
     ret = glusterd_volinfo_find(volname, &volinfo);
-    if ((!exists) || (ret < 0)) {
+    if (ret) {
         snprintf(msg, sizeof(msg),
                  "Volume %s, "
                  "doesn't exist",
                  volname);
-        ret = -1;
         goto out;
     }
 

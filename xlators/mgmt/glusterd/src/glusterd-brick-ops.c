@@ -351,10 +351,13 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
         goto out;
     }
 
-    if (!(ret = glusterd_check_volume_exists(volname))) {
-        ret = -1;
-        snprintf(err_str, sizeof(err_str), "Volume %s does not exist", volname);
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_VOL_NOT_FOUND, "%s",
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (ret) {
+        snprintf(err_str, sizeof(err_str),
+                 "Unable to get volinfo "
+                 "for volume name %s",
+                 volname);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL, "%s",
                err_str);
         goto out;
     }
@@ -393,17 +396,6 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     if (!dict_getn(dict, "force", SLEN("force"))) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                "Failed to get flag");
-        goto out;
-    }
-
-    ret = glusterd_volinfo_find(volname, &volinfo);
-    if (ret) {
-        snprintf(err_str, sizeof(err_str),
-                 "Unable to get volinfo "
-                 "for volume name %s",
-                 volname);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL, "%s",
-               err_str);
         goto out;
     }
 
@@ -3070,11 +3062,14 @@ __glusterd_handle_add_tier_brick(rpcsvc_request_t *req)
         goto out;
     }
 
-    if (!glusterd_check_volume_exists(volname)) {
-        snprintf(err_str, sizeof(err_str), "Volume %s does not exist", volname);
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_VOL_NOT_FOUND, "%s",
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (ret) {
+        snprintf(err_str, sizeof(err_str),
+                 "Unable to get volinfo "
+                 "for volume name %s",
+                 volname);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL, "%s",
                err_str);
-        ret = -1;
         goto out;
     }
 
@@ -3106,17 +3101,6 @@ __glusterd_handle_add_tier_brick(rpcsvc_request_t *req)
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                "Failed to get flag");
         ret = -1;
-        goto out;
-    }
-
-    ret = glusterd_volinfo_find(volname, &volinfo);
-    if (ret) {
-        snprintf(err_str, sizeof(err_str),
-                 "Unable to get volinfo "
-                 "for volume name %s",
-                 volname);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL, "%s",
-               err_str);
         goto out;
     }
 
