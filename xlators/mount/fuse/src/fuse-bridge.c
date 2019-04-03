@@ -5976,6 +5976,16 @@ fuse_thread_proc(void *data)
                             "glusterfs-fuse: read from "
                             "/dev/fuse returned -1 (%s)",
                             strerror(errno));
+                if (errno == EPERM) {
+                    /*
+                     * sleep a while to avoid busy looping
+                     * on EPERM condition
+                     */
+                    nanosleep(
+                        &(struct timespec){0,
+                                           priv->fuse_dev_eperm_ratelimit_ns},
+                        NULL);
+                }
             }
 
             goto cont_err;
@@ -6692,6 +6702,9 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("flush-handle-interrupt", priv->flush_handle_interrupt, bool,
                    cleanup_exit);
 
+    GF_OPTION_INIT("fuse-dev-eperm-ratelimit-ns",
+                   priv->fuse_dev_eperm_ratelimit_ns, uint32, cleanup_exit);
+
     /* user has set only background-qlen, not congestion-threshold,
        use the fuse kernel driver formula to set congestion. ie, 75% */
     if (dict_get(this_xl->options, "background-qlen") &&
@@ -7022,6 +7035,15 @@ struct volume_options options[] = {
                        "attribute, dentry and page-cache. Disable this only "
                        "if same files/directories are not accessed across "
                        "two different mounts concurrently",
+    },
+    {
+        .key = {"fuse-dev-eperm-ratelimit-ns"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = "10000000", /* 0.01 sec */
+        .min = 0,
+        .max = 1000000000,
+        .description = "Rate limit reading from fuse device upon EPERM "
+                       "failure.",
     },
     {.key = {NULL}},
 };
