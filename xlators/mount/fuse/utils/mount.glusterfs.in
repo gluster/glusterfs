@@ -362,6 +362,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --subdir-mount=/$subdir_mount");
     fi
 
+    if [ -n "$fuse_dev_eperm_ratelimit_ns" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-dev-eperm-ratelimit-ns=$fuse_dev_eperm_ratelimit_ns");
+    fi
+
     cmd_line=$(echo "$cmd_line $mount_point");
     $cmd_line;
     if [ $? -ne 0 ]; then
@@ -570,6 +574,9 @@ with_options()
             ;;
         "fuse-flush-handle-interrupt")
             fuse_flush_handle_interrupt=$value
+            ;;
+        "fuse-dev-eperm-ratelimit-ns")
+            fuse_dev_eperm_ratelimit_ns=$value
             ;;
         "context"|"fscontext"|"defcontext"|"rootcontext")
             # standard SElinux mount options to pass to the kernel

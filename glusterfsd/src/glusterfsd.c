@@ -276,6 +276,9 @@ static struct argp_option gf_options[] = {
      "attribute, dentry and page-cache. "
      "Disable this only if same files/directories are not accessed across "
      "two different mounts concurrently [default: \"on\"]"},
+    {"fuse-dev-eperm-ratelimit-ns", ARGP_FUSE_DEV_EPERM_RATELIMIT_NS_KEY,
+     "OPTIONS", OPTION_HIDDEN,
+     "rate limit reading from fuse device upon EPERM failure"},
     {"brick-mux", ARGP_BRICK_MUX_KEY, 0, 0, "Enable brick mux. "},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
@@ -704,6 +707,16 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
         if (ret < 0) {
             gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
                    "failed to set dict value for key global-threading");
+            goto err;
+        }
+    }
+    if (cmd_args->fuse_dev_eperm_ratelimit_ns) {
+        ret = dict_set_uint32(options, "fuse-dev-eperm-ratelimit-ns",
+                              cmd_args->fuse_dev_eperm_ratelimit_ns);
+        if (ret < 0) {
+            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                   "failed to set dict value for key "
+                   "fuse-dev-eperm-ratelimit-ns");
             goto err;
         }
     }
@@ -1535,6 +1548,21 @@ parse_opts(int key, char *arg, struct argp_state *state)
 
             argp_failure(state, -1, 0,
                          "Invalid value for global threading \"%s\"", arg);
+            break;
+
+        case ARGP_FUSE_DEV_EPERM_RATELIMIT_NS_KEY:
+            if (gf_string2uint32(arg, &cmd_args->fuse_dev_eperm_ratelimit_ns)) {
+                argp_failure(state, -1, 0,
+                             "Non-numerical value for "
+                             "'fuse-dev-eperm-ratelimit-ns' option %s",
+                             arg);
+            } else if (cmd_args->fuse_dev_eperm_ratelimit_ns > 1000000000) {
+                argp_failure(state, -1, 0,
+                             "Invalid 'fuse-dev-eperm-ratelimit-ns' value %s. "
+                             "Valid range: [\"0, 1000000000\"]",
+                             arg);
+            }
+
             break;
     }
     return 0;

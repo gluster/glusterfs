@@ -191,6 +191,8 @@ struct fuse_private {
 
     /* LRU Limit, if not set, default is 128k for now */
     uint32_t lru_limit;
+
+    uint32_t fuse_dev_eperm_ratelimit_ns;
 };
 typedef struct fuse_private fuse_private_t;
 

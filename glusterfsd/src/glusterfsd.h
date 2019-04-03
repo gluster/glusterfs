@@ -112,7 +112,8 @@ enum argp_option_keys {
     ARGP_FUSE_LRU_LIMIT_KEY = 190,
     ARGP_FUSE_AUTO_INVAL_KEY = 191,
     ARGP_GLOBAL_THREADING_KEY = 192,
-    ARGP_BRICK_MUX_KEY = 193
+    ARGP_BRICK_MUX_KEY = 193,
+    ARGP_FUSE_DEV_EPERM_RATELIMIT_NS_KEY = 194,
 };
 
 struct _gfd_vol_top_priv {
