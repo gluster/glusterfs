@@ -105,7 +105,6 @@ glusterd_op_stage_log_rotate(dict_t *dict, char **op_errstr)
     int ret = -1;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    gf_boolean_t exists = _gf_false;
     char msg[2048] = {0};
     char *brick = NULL;
 
@@ -116,13 +115,11 @@ glusterd_op_stage_log_rotate(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
     ret = glusterd_volinfo_find(volname, &volinfo);
-    if (!exists) {
+    if (ret) {
         snprintf(msg, sizeof(msg), "Volume %s does not exist", volname);
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND, "%s", msg);
         *op_errstr = gf_strdup(msg);
-        ret = -1;
         goto out;
     }
 

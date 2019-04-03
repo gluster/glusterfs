@@ -2050,7 +2050,6 @@ glusterd_op_stage_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
     int ret = 0;
     char *volname = NULL;
-    gf_boolean_t exists = _gf_false;
     int type = 0;
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
@@ -2074,12 +2073,6 @@ glusterd_op_stage_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
-    if (!exists) {
-        gf_asprintf(op_errstr, FMTSTR_CHECK_VOL_EXISTS, volname);
-        ret = -1;
-        goto out;
-    }
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
         gf_asprintf(op_errstr, FMTSTR_CHECK_VOL_EXISTS, volname);
