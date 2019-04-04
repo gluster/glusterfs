@@ -372,6 +372,8 @@ afr_transaction_done(call_frame_t *frame, xlator_t *this)
     }
     local->transaction.unwind(frame, this);
 
+    GF_ASSERT(list_empty(&local->transaction.owner_list));
+    GF_ASSERT(list_empty(&local->transaction.wait_list));
     AFR_STACK_DESTROY(frame);
 
     return 0;
@@ -393,7 +395,7 @@ afr_lock_fail_shared(afr_local_t *local, struct list_head *list)
 }
 
 static void
-afr_handle_lock_acquire_failure(afr_local_t *local, gf_boolean_t locked)
+afr_handle_lock_acquire_failure(afr_local_t *local)
 {
     struct list_head shared;
     afr_lock_t *lock = NULL;
@@ -414,13 +416,8 @@ afr_handle_lock_acquire_failure(afr_local_t *local, gf_boolean_t locked)
     afr_lock_fail_shared(local, &shared);
     local->transaction.do_eager_unlock = _gf_true;
 out:
-    if (locked) {
-        local->internal_lock.lock_cbk = afr_transaction_done;
-        afr_unlock(local->transaction.frame, local->transaction.frame->this);
-    } else {
-        afr_transaction_done(local->transaction.frame,
-                             local->transaction.frame->this);
-    }
+    local->internal_lock.lock_cbk = afr_transaction_done;
+    afr_unlock(local->transaction.frame, local->transaction.frame->this);
 }
 
 call_frame_t *
@@ -619,7 +616,7 @@ afr_transaction_perform_fop(call_frame_t *frame, xlator_t *this)
     failure_count = AFR_COUNT(local->transaction.failed_subvols,
                               priv->child_count);
     if (failure_count == priv->child_count) {
-        afr_handle_lock_acquire_failure(local, _gf_true);
+        afr_handle_lock_acquire_failure(local);
         return 0;
     } else {
         lock = &local->inode_ctx->lock[local->transaction.type];
@@ -2092,7 +2089,7 @@ err:
     local->op_ret = -1;
     local->op_errno = op_errno;
 
-    afr_handle_lock_acquire_failure(local, _gf_true);
+    afr_handle_lock_acquire_failure(local);
 
     if (xdata_req)
         dict_unref(xdata_req);
@@ -2361,7 +2358,7 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
     } else {
         lock = &local->inode_ctx->lock[local->transaction.type];
         if (local->internal_lock.lock_op_ret < 0) {
-            afr_handle_lock_acquire_failure(local, _gf_false);
+            afr_handle_lock_acquire_failure(local);
         } else {
             lock->event_generation = local->event_generation;
             afr_changelog_pre_op(frame, this);
