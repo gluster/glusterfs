@@ -1089,8 +1089,8 @@ afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
 #define AFR_FRAME_INIT(frame, op_errno)                                        \
     ({                                                                         \
         frame->local = mem_get0(THIS->local_pool);                             \
-        if (afr_local_init(frame->local, THIS->private, &op_errno)) {          \
-            afr_local_cleanup(frame->local, THIS);                             \
+        if (afr_local_init(frame->local, frame->this->private, &op_errno)) {   \
+            afr_local_cleanup(frame->local, frame->this);                      \
             mem_put(frame->local);                                             \
             frame->local = NULL;                                               \
         };                                                                     \

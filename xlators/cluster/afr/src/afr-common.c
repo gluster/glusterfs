@@ -5770,6 +5770,10 @@ afr_transaction_local_init(afr_local_t *local, xlator_t *this)
     afr_private_t *priv = NULL;
 
     priv = this->private;
+    INIT_LIST_HEAD(&local->transaction.wait_list);
+    INIT_LIST_HEAD(&local->transaction.owner_list);
+    INIT_LIST_HEAD(&local->ta_waitq);
+    INIT_LIST_HEAD(&local->ta_onwireq);
     ret = afr_internal_lock_init(&local->internal_lock, priv->child_count);
     if (ret < 0)
         goto out;
@@ -5807,10 +5811,6 @@ afr_transaction_local_init(afr_local_t *local, xlator_t *this)
         goto out;
 
     ret = 0;
-    INIT_LIST_HEAD(&local->transaction.wait_list);
-    INIT_LIST_HEAD(&local->transaction.owner_list);
-    INIT_LIST_HEAD(&local->ta_waitq);
-    INIT_LIST_HEAD(&local->ta_onwireq);
 out:
     return ret;
 }
