@@ -74,6 +74,18 @@ TEST setfattr -n replica.split-brain-choice -v none $M0/data-split-brain.txt
 TEST ! getfattr -n user.test $M0/metadata-split-brain.txt
 TEST ! cat $M0/data-split-brain.txt
 
+#Check that after timeout fops result in EIO again.
+#Set one minute timeout
+TEST setfattr -n replica.split-brain-choice-timeout -v 1 $M0/
+TEST setfattr -n replica.split-brain-choice -v $V0-client-1 $M0/data-split-brain.txt
+EXPECT "brick1_alive" cat $M0/data-split-brain.txt
+TEST setfattr -n replica.split-brain-choice -v $V0-client-0 $M0/metadata-split-brain.txt
+EXPECT "brick0" get_text_xattr user.test $M0/metadata-split-brain.txt
+#Wait until timeout completes and test that the fops fail again
+sleep 62
+TEST ! getfattr -n user.test $M0/metadata-split-brain.txt
+TEST ! cat $M0/data-split-brain.txt
+
 #Negative test cases should fail
 TEST ! setfattr -n replica.split-brain-choice -v $V0-client-4 $M0/data-split-brain.txt
 TEST ! setfattr -n replica.split-brain-heal-finalize -v $V0-client-4 $M0/metadata-split-brain.txt

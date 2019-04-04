@@ -820,7 +820,6 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
     gf_boolean_t timer_set = _gf_false;
     gf_boolean_t timer_cancelled = _gf_false;
     gf_boolean_t timer_reset = _gf_false;
-    gf_boolean_t need_invalidate = _gf_true;
     int old_spb_choice = -1;
 
     frame = data->frame;
@@ -932,7 +931,6 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
             timer_set = _gf_true;
         if (timer_reset && !ctx->timer)
             timer_cancelled = _gf_true;
-        need_invalidate = _gf_false;
     }
 unlock:
     UNLOCK(&inode->lock);
@@ -946,8 +944,7 @@ post_unlock:
      * reads from an older cached value despite a change in spb_choice to
      * a new value.
      */
-    if (need_invalidate)
-        inode_invalidate(inode);
+    inode_invalidate(inode);
 out:
     GF_FREE(data);
     AFR_STACK_UNWIND(setxattr, frame, ret, op_errno, NULL);
