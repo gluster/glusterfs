@@ -3705,19 +3705,23 @@ xlator_set_loglevel(xlator_t *this, int log_level)
     active = ctx->active;
     top = active->first;
 
-    if (strcmp(top->type, "protocol/server") || (log_level == -1))
+    if (log_level == -1)
         return;
 
-    /* Set log-level for server xlator */
-    top->loglevel = log_level;
+    if (ctx->cmd_args.brick_mux) {
+        /* Set log-level for all brick xlators */
+        top->loglevel = log_level;
 
-    /* Set log-level for parent xlator */
-    if (this->parents)
-        this->parents->xlator->loglevel = log_level;
+        /* Set log-level for parent xlator */
+        if (this->parents)
+            this->parents->xlator->loglevel = log_level;
 
-    while (trav) {
-        trav->loglevel = log_level;
-        trav = trav->next;
+        while (trav) {
+            trav->loglevel = log_level;
+            trav = trav->next;
+        }
+    } else {
+        gf_log_set_loglevel(this->ctx, log_level);
     }
 }
 
