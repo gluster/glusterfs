@@ -397,7 +397,6 @@ afr_unlock_now(call_frame_t *frame, xlator_t *this)
     int_lock->lk_call_count = call_count;
 
     if (!call_count) {
-        GF_ASSERT(!local->transaction.do_eager_unlock);
         gf_msg_trace(this->name, 0, "No internal locks unlocked");
         int_lock->lock_cbk(frame, this);
         goto out;
