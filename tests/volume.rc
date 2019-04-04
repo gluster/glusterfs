@@ -839,6 +839,9 @@ function get_fd_count {
         else
             count=$(grep "${brick}.active.1" -A3 $statedump | grep "gfid=$gfid_str" -A2 | grep fd-count | cut -f2 -d'=' | tail -1)
         fi
+# If no information is found for a given gfid, it means it has not been
+# accessed, so it doesn't have any open fd. In this case we return 0.
+        count="${count:-0}"
         rm -f $statedump
         echo $count
 }
