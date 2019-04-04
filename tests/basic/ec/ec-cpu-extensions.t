@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DISPERSE=6
+DISPERSE=18
 REDUNDANCY=2
 
 . $(dirname $0)/../../include.rc
@@ -39,6 +39,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 redundancy $REDUNDANCY $H0:$B0/${V0}{1..$DISPERSE}
 TEST $CLI volume set $V0 performance.flush-behind off
+TEST $CLI volume set $V0 disperse.read-policy round-robin
 EXPECT 'Created' volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
