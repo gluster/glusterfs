@@ -581,6 +581,7 @@ struct _cmd_args {
     int fuse_auto_inval;
 
     bool global_threading;
+    bool brick_mux;
 };
 typedef struct _cmd_args cmd_args_t;
 

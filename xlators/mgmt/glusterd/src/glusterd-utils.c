@@ -2161,6 +2161,9 @@ retry:
     if (volinfo->memory_accounting)
         runner_add_arg(&runner, "--mem-accounting");
 
+    if (is_brick_mx_enabled())
+        runner_add_arg(&runner, "--brick-mux");
+
     runner_log(&runner, "", 0, "Starting GlusterFS");
 
     brickinfo->port = port;
@@ -2296,6 +2299,10 @@ unsafe_option(dict_t *this, char *key, data_t *value, void *arg)
     }
 
     if (fnmatch("*diagnostics.brick-log*", key, 0) == 0) {
+        return _gf_false;
+    }
+
+    if (fnmatch("*diagnostics.client-log*", key, 0) == 0) {
         return _gf_false;
     }
 
