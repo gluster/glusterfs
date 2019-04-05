@@ -689,8 +689,7 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
             ctx->block_num = block_num;
             list_add_tail(&ctx->ilist, &priv->ilist_head);
             priv->inode_count++;
-            if (base_inode)
-                ctx->base_inode = inode_ref(base_inode);
+            ctx->base_inode = inode_ref(base_inode);
         } else {
             /*If on the other hand there is no available slot for this inode
              * in the list, delete the lru inode from the head of the list,
@@ -765,8 +764,7 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
             else
                 gf_uuid_copy(ctx->base_gfid, gfid);
             ctx->block_num = block_num;
-            if (base_inode)
-                ctx->base_inode = inode_ref(base_inode);
+            ctx->base_inode = inode_ref(base_inode);
             list_add_tail(&ctx->ilist, &priv->ilist_head);
         }
     } else {
