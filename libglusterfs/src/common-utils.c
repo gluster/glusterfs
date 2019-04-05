@@ -4000,15 +4000,14 @@ gf_is_service_running (char *pidfile, int *pid)
         ret = lockf (fno, F_TEST, 0);
         if (ret == -1)
                 running = _gf_true;
-        if (!pid) {
-                goto out;
-        }
 
         ret = fscanf (file, "%d", pid);
         if (ret <= 0) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
                         "Unable to read pidfile: %s", pidfile);
                 *pid = -1;
+                running = _gf_false;
+                goto out;
         }
 
         running = gf_is_pid_running (*pid);
