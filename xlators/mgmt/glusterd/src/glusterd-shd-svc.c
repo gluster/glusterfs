@@ -101,6 +101,8 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
         svc->conn.rpc = rpc_clnt_ref(mux_svc->rpc);
         ret = snprintf(svc->conn.sockpath, sizeof(svc->conn.sockpath), "%s",
                        mux_conn->sockpath);
+        if (ret < 0)
+            goto out;
     } else {
         ret = mkdir_p(logdir, 0755, _gf_true);
         if ((ret == -1) && (EEXIST != errno)) {
@@ -673,6 +675,10 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
         glusterd_volinfo_ref(volinfo);
         svc_proc->data = volinfo;
         ret = glusterd_svc_stop(svc, sig);
+        if (ret) {
+            glusterd_volinfo_unref(volinfo);
+            goto out;
+        }
     }
     if (!empty && pid != -1) {
         ret = glusterd_detach_svc(svc, volinfo, sig);
