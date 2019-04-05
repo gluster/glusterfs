@@ -2212,13 +2212,19 @@ shard_link_block_inode(shard_local_t *local, int block_num, inode_t *inode,
     xlator_t *this = NULL;
     inode_t *fsync_inode = NULL;
     shard_priv_t *priv = NULL;
+    inode_t *base_inode = NULL;
 
     this = THIS;
     priv = this->private;
-    if (local->loc.inode)
+    if (local->loc.inode) {
         gf_uuid_copy(gfid, local->loc.inode->gfid);
-    else
+        base_inode = local->loc.inode;
+    } else if (local->resolver_base_inode) {
+        gf_uuid_copy(gfid, local->resolver_base_inode->gfid);
+        base_inode = local->resolver_base_inode;
+    } else {
         gf_uuid_copy(gfid, local->base_gfid);
+    }
 
     shard_make_block_bname(block_num, gfid, block_bname, sizeof(block_bname));
 
@@ -2231,7 +2237,7 @@ shard_link_block_inode(shard_local_t *local, int block_num, inode_t *inode,
     LOCK(&priv->lock);
     {
         fsync_inode = __shard_update_shards_inode_list(
-            linked_inode, this, local->loc.inode, block_num, gfid);
+            linked_inode, this, base_inode, block_num, gfid);
     }
     UNLOCK(&priv->lock);
     if (fsync_inode)
