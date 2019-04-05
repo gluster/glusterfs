@@ -506,6 +506,7 @@ volgen_graph_set_options_generic(volgen_graph_t *graph, dict_t *dict,
         0,
     };
     data_t *data = NULL;
+    const int skip_cliot = dict_get_str_boolean(dict, "skip-CLIOT", _gf_false);
 
     odt.graph = graph;
     odt.handler = handler;
@@ -518,8 +519,8 @@ volgen_graph_set_options_generic(volgen_graph_t *graph, dict_t *dict,
         odt.data_t_fake = _gf_false;
 
         data = dict_get(dict, vme->key);
-        if (!strcmp(vme->key, "performance.client-io-threads") &&
-            dict_get_str_boolean(dict, "skip-CLIOT", _gf_false) == _gf_true) {
+        if (skip_cliot == _gf_true &&
+            !strcmp(vme->key, "performance.client-io-threads")) {
             continue;
         }
 
