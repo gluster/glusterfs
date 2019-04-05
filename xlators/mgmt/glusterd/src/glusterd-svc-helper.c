@@ -411,9 +411,14 @@ __gf_find_compatible_svc(gd_node_type daemon)
     conf = THIS->private;
     GF_VALIDATE_OR_GOTO("glusterd", conf, out);
 
-    if (daemon == GD_NODE_SHD) {
-        svc_procs = &conf->shd_procs;
-        if (!svc_procs)
+    switch (daemon) {
+        case GD_NODE_SHD: {
+            svc_procs = &conf->shd_procs;
+            if (!svc_procs)
+                goto out;
+        } break;
+        default:
+            /* Add support for other client daemons here */
             goto out;
     }
 
@@ -540,11 +545,16 @@ __gf_find_compatible_svc_from_pid(gd_node_type daemon, pid_t pid)
     if (!conf)
         return NULL;
 
-    if (daemon == GD_NODE_SHD) {
-        svc_procs = &conf->shd_procs;
-        if (!svc_proc)
+    switch (daemon) {
+        case GD_NODE_SHD: {
+            svc_procs = &conf->shd_procs;
+            if (!svc_procs)
+                return NULL;
+        } break;
+        default:
+            /* Add support for other client daemons here */
             return NULL;
-    } /* Can be moved to switch when mux is implemented for other daemon; */
+    }
 
     cds_list_for_each_entry(svc_proc, svc_procs, svc_proc_list)
     {

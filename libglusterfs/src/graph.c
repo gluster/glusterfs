@@ -1461,7 +1461,9 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
         goto out;
     parent_graph = ctx->active;
     graph = volfile_obj->graph;
-    if (graph && graph->first)
+    if (!graph)
+        goto out;
+    if (graph->first)
         xl = graph->first;
 
     last_xl = graph->last_xl;
@@ -1582,12 +1584,10 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
     parent_graph->leaf_count += graph->leaf_count;
     parent_graph->id++;
 
+    volfile_obj = GF_CALLOC(1, sizeof(gf_volfile_t), gf_common_volfile_t);
     if (!volfile_obj) {
-        volfile_obj = GF_CALLOC(1, sizeof(gf_volfile_t), gf_common_volfile_t);
-        if (!volfile_obj) {
-            ret = -1;
-            goto out;
-        }
+        ret = -1;
+        goto out;
     }
 
     graph->used = 1;
@@ -1632,6 +1632,7 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
 {
     glusterfs_graph_t *oldvolfile_graph = NULL;
     glusterfs_graph_t *newvolfile_graph = NULL;
+    char vol_id[NAME_MAX + 1];
 
     int ret = -1;
 
@@ -1663,6 +1664,9 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
     glusterfs_graph_prepare(newvolfile_graph, ctx, newvolfile_graph->first);
 
     if (!is_graph_topology_equal(oldvolfile_graph, newvolfile_graph)) {
+        ret = snprintf(vol_id, sizeof(vol_id), "%s", volfile_obj->vol_id);
+        if (ret < 0)
+            goto out;
         ret = glusterfs_process_svc_detach(ctx, volfile_obj);
         if (ret) {
             gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL,
@@ -1671,8 +1675,9 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
                    "old graph. Aborting the reconfiguration operation");
             goto out;
         }
-        ret = glusterfs_process_svc_attach_volfp(ctx, newvolfile_fp,
-                                                 volfile_obj->vol_id, checksum);
+        volfile_obj = NULL;
+        ret = glusterfs_process_svc_attach_volfp(ctx, newvolfile_fp, vol_id,
+                                                 checksum);
         goto out;
     }
 
