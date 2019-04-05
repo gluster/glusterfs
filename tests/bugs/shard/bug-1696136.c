@@ -102,6 +102,15 @@ main(int argc, char *argv[])
         goto out;
     }
 
+    ret = glfs_unlink(fs, argv[6]);
+    if (ret < 0) {
+        fprintf(stderr, "glfs_unlink: returned %d\n", ret);
+        goto out;
+    }
+    /* Sleep for 3s to give enough time for background deletion to complete
+     * during which if the bug exists, the process will crash.
+     */
+    sleep(3);
     ret = 0;
 
 out:
