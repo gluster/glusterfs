@@ -1310,12 +1310,8 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
     int this_call_cnt = 0;
     int missing_dirs = 0;
     dht_layout_t *layout = NULL;
-    dht_conf_t *conf = 0;
     xlator_t *prev = 0;
     loc_t *loc = NULL;
-    int check_mds = 0;
-    int errst = 0;
-    int32_t mds_xattr_val[1] = {0};
     char gfid_local[GF_UUID_BUF_SIZE] = {0};
     int index = -1;
 
@@ -1324,7 +1320,6 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
     local = frame->local;
     layout = local->layout;
     loc = &local->loc;
-    conf = this->private;
     prev = cookie;
 
     if (!gf_uuid_is_null(local->gfid))
@@ -1347,9 +1342,7 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
 
         if (!op_ret) {
             dht_iatt_merge(this, &local->stbuf, stbuf);
-            check_mds = dht_dict_get_array(xattr, conf->mds_xattr_key,
-                                           mds_xattr_val, 1, &errst);
-            if (dict_get(xattr, conf->mds_xattr_key) && check_mds && !errst) {
+            if (prev == local->mds_subvol) {
                 dict_unref(local->xattr);
                 local->xattr = dict_ref(xattr);
             }
