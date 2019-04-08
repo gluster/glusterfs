@@ -4500,9 +4500,13 @@ fop_log_level(glusterfs_fop_t fop, int op_errno)
             return GF_LOG_DEBUG;
 
     if (fop == GF_FOP_SEEK) {
+#ifdef HAVE_SEEK_HOLE
         if (op_errno == ENXIO) {
             return GF_LOG_DEBUG;
         }
+#else
+        return GF_LOG_DEBUG;
+#endif
     }
 
     return GF_LOG_ERROR;
