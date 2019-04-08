@@ -300,6 +300,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
 #else
     char *addr_family = "inet";
 #endif
+    glusterd_volinfo_t *volinfo = NULL;
 
     GF_ASSERT(req);
 
@@ -353,7 +354,9 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    if ((ret = glusterd_check_volume_exists(volname))) {
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (!ret) {
+        ret = -1;
         snprintf(err_str, sizeof(err_str), "Volume %s already exists", volname);
         gf_msg(this->name, GF_LOG_ERROR, EEXIST, GD_MSG_VOL_ALREADY_EXIST, "%s",
                err_str);
@@ -1136,7 +1139,6 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
 {
     int ret = 0;
     char *volname = NULL;
-    gf_boolean_t exists = _gf_false;
     char *bricks = NULL;
     char *brick_list = NULL;
     char *free_ptr = NULL;
@@ -1154,6 +1156,7 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
     uuid_t volume_uuid;
     char *volume_uuid_str;
     gf_boolean_t is_force = _gf_false;
+    glusterd_volinfo_t *volinfo = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1168,8 +1171,8 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(volname);
-    if (exists) {
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (!ret) {
         snprintf(msg, sizeof(msg), "Volume %s already exists", volname);
         ret = -1;
         goto out;

@@ -145,9 +145,6 @@ glusterd_auth_set_password(glusterd_volinfo_t *volinfo, char *password);
 void
 glusterd_auth_cleanup(glusterd_volinfo_t *volinfo);
 
-gf_boolean_t
-glusterd_check_volume_exists(char *volname);
-
 int32_t
 glusterd_brickprocess_new(glusterd_brick_proc_t **brickprocess);
 

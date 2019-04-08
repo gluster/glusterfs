@@ -2247,6 +2247,7 @@ glusterd_snapshot_clone_prevalidate(dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
     uuid_t *snap_volid = NULL;
     gf_loglevel_t loglevel = GF_LOG_ERROR;
+    glusterd_volinfo_t *volinfo = NULL;
 
     this = THIS;
     GF_ASSERT(op_errstr);
@@ -2267,7 +2268,8 @@ glusterd_snapshot_clone_prevalidate(dict_t *dict, char **op_errstr,
         goto out;
     }
 
-    if (glusterd_check_volume_exists(clonename)) {
+    ret = glusterd_volinfo_find(clonename, &volinfo);
+    if (!ret) {
         ret = -1;
         snprintf(err_str, sizeof(err_str),
                  "Volume with name:%s "

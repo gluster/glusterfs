@@ -779,13 +779,13 @@ static int
 glusterd_validate_shared_storage(char *key, char *value, char *errstr)
 {
     int32_t ret = -1;
-    int32_t exists = -1;
     int32_t count = -1;
     char *op = NULL;
     char hook_script[PATH_MAX] = "";
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int32_t len = 0;
+    glusterd_volinfo_t *volinfo = NULL;
 
     this = THIS;
     GF_VALIDATE_OR_GOTO("glusterd", this, out);
@@ -853,8 +853,8 @@ glusterd_validate_shared_storage(char *key, char *value, char *errstr)
         goto out;
     }
 
-    exists = glusterd_check_volume_exists(GLUSTER_SHARED_STORAGE);
-    if (exists) {
+    ret = glusterd_volinfo_find(GLUSTER_SHARED_STORAGE, &volinfo);
+    if (!ret) {
         snprintf(errstr, PATH_MAX,
                  "Shared storage volume(" GLUSTER_SHARED_STORAGE
                  ") already exists.");
@@ -1734,11 +1734,11 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
     int ret = -1;
     char *volname = NULL;
     char *hostname = NULL;
-    gf_boolean_t exists = _gf_false;
     glusterd_peerinfo_t *peerinfo = NULL;
     char msg[2048] = {
         0,
     };
+    glusterd_volinfo_t *volinfo = NULL;
 
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
     if (ret) {
@@ -1753,14 +1753,13 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
         // volname is not present in case of sync all
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
         if (!ret) {
-            exists = glusterd_check_volume_exists(volname);
-            if (!exists) {
+            ret = glusterd_volinfo_find(volname, &volinfo);
+            if (ret) {
                 snprintf(msg, sizeof(msg),
                          "Volume %s "
                          "does not exist",
                          volname);
                 *op_errstr = gf_strdup(msg);
-                ret = -1;
                 goto out;
             }
         }

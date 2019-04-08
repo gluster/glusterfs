@@ -569,14 +569,6 @@ out:
     return ret;
 }
 
-gf_boolean_t
-glusterd_check_volume_exists(char *volname)
-{
-    glusterd_volinfo_t *volinfo = NULL;
-
-    return (glusterd_volinfo_find(volname, &volinfo) == 0);
-}
-
 glusterd_volinfo_t *
 glusterd_volinfo_unref(glusterd_volinfo_t *volinfo)
 {
