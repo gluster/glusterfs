@@ -8458,6 +8458,10 @@ glusterd_set_dump_options(char *dumpoptions_path, char *options, int option_cnt)
         goto out;
     }
     dup_options = gf_strdup(options);
+
+    if (!dup_options) {
+        goto out;
+    }
     gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_STATEDUMP_OPTS_RCVD,
            "Received following statedump options: %s", dup_options);
     option = strtok_r(dup_options, " ", &tmpptr);
@@ -8608,6 +8612,10 @@ glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
     GF_ASSERT(conf);
 
     dup_options = gf_strdup(options);
+
+    if (!dup_options) {
+        goto out;
+    }
     option = strtok_r(dup_options, " ", &tmpptr);
     if (strcmp(option, conf->nfs_svc.name)) {
         snprintf(msg, sizeof(msg),
@@ -8679,6 +8687,9 @@ glusterd_client_statedump(char *volname, char *options, int option_cnt,
     char *pid = NULL;
 
     dup_options = gf_strdup(options);
+    if (!dup_options) {
+        goto out;
+    }
     option = strtok_r(dup_options, " ", &tmpptr);
     if (strcmp(option, "client")) {
         snprintf(msg, sizeof(msg),
@@ -8732,6 +8743,9 @@ glusterd_quotad_statedump(char *options, int option_cnt, char **op_errstr)
     GF_ASSERT(conf);
 
     dup_options = gf_strdup(options);
+    if (!dup_options) {
+        goto out;
+    }
     option = strtok_r(dup_options, " ", &tmpptr);
     if (strcmp(option, conf->quotad_svc.name)) {
         snprintf(msg, sizeof(msg),
