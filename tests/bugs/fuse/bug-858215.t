@@ -41,8 +41,8 @@ TEST stat $M0/newfile;
 TEST rm $M0/newfile;
 
 nfs_pid=$(cat $GLUSTERD_PIDFILEDIR/nfs/nfs.pid || echo -1);
-glustershd_pid=$(cat $GLUSTERD_PIDFILEDIR/glustershd/glustershd.pid || echo -1);
-
+glustershd_pid=`ps auxwww | grep glustershd | grep -v grep | awk -F " " '{print $2}'`
+TEST [ $glustershd_pid != 0 ];
 pids=$(pidof glusterfs);
 for i in $pids
 do

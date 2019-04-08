@@ -88,7 +88,8 @@ for i in $(seq 1 $NUM_VOLS); do
         EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $mnt_point
 done
 
-glustershd_pid=$(cat $GLUSTERD_PIDFILEDIR/glustershd/glustershd.pid || echo -1);
+glustershd_pid=`ps auxwww | grep glustershd | grep -v grep | awk -F " " '{print $2}'`
+TEST [ $glustershd_pid != 0 ]
 start=`pmap -x $glustershd_pid | grep total | awk -F " " '{print $4}'`
 echo "Memory consumption for glustershd process"
 for i in $(seq 1 50); do
