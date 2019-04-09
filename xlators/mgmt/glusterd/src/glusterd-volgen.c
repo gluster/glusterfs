@@ -4301,7 +4301,8 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
     }
 
-    if (conf->op_version >= GD_OP_VERSION_5_0) {
+    if (conf->op_version >= GD_OP_VERSION_5_0 &&
+        !dict_get_str_boolean(set_dict, "features.ctime", _gf_false)) {
         xl = volgen_graph_add(graph, "features/utime", volname);
         if (!xl) {
             ret = -1;
