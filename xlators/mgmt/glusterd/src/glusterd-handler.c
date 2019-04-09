@@ -3973,8 +3973,11 @@ set_deprobe_error_str(int op_ret, int op_errno, char *op_errstr, char *errstr,
 
             case GF_DEPROBE_BRICK_EXIST:
                 snprintf(errstr, len,
-                         "Brick(s) with the peer "
-                         "%s exist in cluster",
+                         "Peer %s hosts one or more bricks. If the peer is in "
+                         "not recoverable state then use either replace-brick "
+                         "or remove-brick command with force to remove all "
+                         "bricks from the peer and attempt the peer detach "
+                         "again.",
                          hostname);
                 break;
 
