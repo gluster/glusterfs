@@ -74,6 +74,14 @@ afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this);
 static void
 afr_changelog_post_op_fail(call_frame_t *frame, xlator_t *this, int op_errno);
 
+void
+afr_ta_locked_priv_invalidate(afr_private_t *priv)
+{
+    priv->ta_bad_child_index = AFR_CHILD_UNKNOWN;
+    priv->release_ta_notify_dom_lock = _gf_false;
+    priv->ta_notify_dom_lock_offset = 0;
+}
+
 static void
 afr_ta_process_waitq(xlator_t *this)
 {
@@ -127,17 +135,16 @@ afr_release_notify_lock_for_ta(void *opaque)
     flock.l_len = 1;
     ret = syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX],
                          AFR_TA_DOM_NOTIFY, &loc, F_SETLK, &flock, NULL, NULL);
-    if (!ret) {
-        LOCK(&priv->lock);
-        priv->ta_bad_child_index = AFR_CHILD_UNKNOWN;
-        priv->release_ta_notify_dom_lock = _gf_false;
-        priv->ta_notify_dom_lock_offset = 0;
-        UNLOCK(&priv->lock);
-    } else {
+    if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to unlock AFR_TA_DOM_NOTIFY lock.");
     }
 
+    LOCK(&priv->lock);
+    {
+        afr_ta_locked_priv_invalidate(priv);
+    }
+    UNLOCK(&priv->lock);
 out:
     loc_wipe(&loc);
     return ret;
@@ -665,7 +672,7 @@ afr_set_pending_dict(afr_private_t *priv, dict_t *xattr, int **pending)
 }
 
 static void
-afr_ta_dom_lock_check_and_release(afr_local_t *local, xlator_t *this)
+afr_ta_dom_lock_check_and_release(afr_ta_fop_state_t fop_state, xlator_t *this)
 {
     afr_private_t *priv = this->private;
     unsigned int inmem_count = 0;
@@ -675,17 +682,25 @@ afr_ta_dom_lock_check_and_release(afr_local_t *local, xlator_t *this)
     LOCK(&priv->lock);
     {
         /*Once we get notify lock release upcall notification,
-         if two fop states are non empty/non zero, we will
-         not release lock.
-         1 - If anything in memory txn
-         2 - If anything in onwire or onwireq
+         if any of the fop state counters are non-zero, we will
+         not release the lock.
          */
-        if (local->fop_state == TA_INFO_IN_MEMORY_SUCCESS) {
-            inmem_count = --priv->ta_in_mem_txn_count;
-        } else {
-            inmem_count = priv->ta_in_mem_txn_count;
-        }
         onwire_count = priv->ta_on_wire_txn_count;
+        inmem_count = priv->ta_in_mem_txn_count;
+        switch (fop_state) {
+            case TA_GET_INFO_FROM_TA_FILE:
+                onwire_count = --priv->ta_on_wire_txn_count;
+                break;
+            case TA_INFO_IN_MEMORY_SUCCESS:
+            case TA_INFO_IN_MEMORY_FAILED:
+                inmem_count = --priv->ta_in_mem_txn_count;
+                break;
+            case TA_WAIT_FOR_NOTIFY_LOCK_REL:
+                GF_ASSERT(0);
+                break;
+            case TA_SUCCESS:
+                break;
+        }
         release = priv->release_ta_notify_dom_lock;
     }
     UNLOCK(&priv->lock);
@@ -697,7 +712,7 @@ afr_ta_dom_lock_check_and_release(afr_local_t *local, xlator_t *this)
 }
 
 static void
-afr_ta_process_onwireq(afr_local_t *local, xlator_t *this)
+afr_ta_process_onwireq(afr_ta_fop_state_t fop_state, xlator_t *this)
 {
     afr_private_t *priv = this->private;
     afr_local_t *entry = NULL;
@@ -710,15 +725,6 @@ afr_ta_process_onwireq(afr_local_t *local, xlator_t *this)
 
     LOCK(&priv->lock);
     {
-        if (--priv->ta_on_wire_txn_count == 0) {
-            UNLOCK(&priv->lock);
-            /*Only one write fop came and after taking notify
-             *lock and before doing xattrop, it has received
-             *lock contention upcall, so this is the only place
-             *to find this out and release the lock*/
-            afr_ta_dom_lock_check_and_release(local, this);
-            return;
-        }
         bad_child = priv->ta_bad_child_index;
         if (bad_child == AFR_CHILD_UNKNOWN) {
             /*The previous on-wire ta_post_op was a failure. Just dequeue
@@ -739,9 +745,6 @@ afr_ta_process_onwireq(afr_local_t *local, xlator_t *this)
         while (!list_empty(&onwireq)) {
             entry = list_entry(onwireq.next, afr_local_t, ta_onwireq);
             list_del_init(&entry->ta_onwireq);
-            LOCK(&priv->lock);
-            --priv->ta_on_wire_txn_count;
-            UNLOCK(&priv->lock);
             if (entry->ta_failed_subvol == bad_child) {
                 afr_post_op_handle_success(entry->transaction.frame, this);
             } else {
@@ -764,7 +767,7 @@ afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this)
 
     if (priv->thin_arbiter_count) {
         /*fop should not come here with TA_WAIT_FOR_NOTIFY_LOCK_REL state */
-        afr_ta_dom_lock_check_and_release(frame->local, this);
+        afr_ta_dom_lock_check_and_release(local->fop_state, this);
     }
 
     /* Fail the FOP if post-op did not succeed on quorum no. of bricks. */
@@ -1172,12 +1175,23 @@ afr_ta_post_op_done(int ret, call_frame_t *frame, void *opaque)
 {
     xlator_t *this = NULL;
     afr_local_t *local = NULL;
+    call_frame_t *txn_frame = NULL;
+    afr_ta_fop_state_t fop_state;
 
     local = (afr_local_t *)opaque;
+    fop_state = local->fop_state;
+    txn_frame = local->transaction.frame;
     this = frame->this;
 
+    if (ret == 0) {
+        /*Mark pending xattrs on the up data brick.*/
+        afr_post_op_handle_success(txn_frame, this);
+    } else {
+        afr_post_op_handle_failure(txn_frame, this, -ret);
+    }
+
     STACK_DESTROY(frame->root);
-    afr_ta_process_onwireq(local, this);
+    afr_ta_process_onwireq(fop_state, this);
 
     return 0;
 }
@@ -1215,13 +1229,25 @@ out:
     return changelog;
 }
 
+static void
+afr_ta_locked_xattrop_validate(afr_private_t *priv, afr_local_t *local,
+                               gf_boolean_t *valid)
+{
+    if (priv->ta_event_gen > local->ta_event_gen) {
+        /* We can't trust the ta's response anymore.*/
+        afr_ta_locked_priv_invalidate(priv);
+        *valid = _gf_false;
+        return;
+    }
+    return;
+}
+
 static int
 afr_ta_post_op_do(void *opaque)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     xlator_t *this = NULL;
-    call_frame_t *txn_frame = NULL;
     dict_t *xattr = NULL;
     unsigned char *pending = NULL;
     int **changelog = NULL;
@@ -1232,10 +1258,10 @@ afr_ta_post_op_do(void *opaque)
     };
     int i = 0;
     int ret = 0;
+    gf_boolean_t valid = _gf_true;
 
     local = (afr_local_t *)opaque;
-    txn_frame = local->transaction.frame;
-    this = txn_frame->this;
+    this = local->transaction.frame->this;
     priv = this->private;
 
     ret = afr_fill_ta_loc(this, &loc);
@@ -1275,22 +1301,31 @@ afr_ta_post_op_do(void *opaque)
 
     ret = syncop_xattrop(priv->children[THIN_ARBITER_BRICK_INDEX], &loc,
                          GF_XATTROP_ADD_ARRAY, xattr, NULL, NULL, NULL);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+               "Post-op on thin-arbiter id file %s failed for gfid %s.",
+               priv->pending_key[THIN_ARBITER_BRICK_INDEX],
+               uuid_utoa(local->inode->gfid));
+    }
     LOCK(&priv->lock);
     {
         if (ret == 0) {
             priv->ta_bad_child_index = failed_subvol;
         } else if (ret == -EINVAL) {
             priv->ta_bad_child_index = success_subvol;
+            ret = -EIO; /* TA failed the fop. Return EIO to application. */
         }
+
+        afr_ta_locked_xattrop_validate(priv, local, &valid);
     }
     UNLOCK(&priv->lock);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
-               "Post-op on thin-arbiter id file %s failed for gfid %s.",
+    if (valid == _gf_false) {
+        gf_msg(this->name, GF_LOG_ERROR, EIO, AFR_MSG_THIN_ARB,
+               "Post-op on thin-arbiter id file %s for gfid %s invalidated due "
+               "to event-gen mismatch.",
                priv->pending_key[THIN_ARBITER_BRICK_INDEX],
                uuid_utoa(local->inode->gfid));
-        if (ret == -EINVAL)
-            ret = -EIO; /* TA failed the fop. Return EIO to application. */
+        ret = -EIO;
     }
 
     afr_ta_post_op_unlock(this, &loc);
@@ -1303,12 +1338,6 @@ out:
 
     loc_wipe(&loc);
 
-    if (ret == 0) {
-        /*Mark pending xattrs on the up data brick.*/
-        afr_post_op_handle_success(local->transaction.frame, this);
-    } else {
-        afr_post_op_handle_failure(local->transaction.frame, this, -ret);
-    }
     return ret;
 }
 
@@ -1367,6 +1396,7 @@ afr_ta_set_fop_state(afr_private_t *priv, afr_local_t *local,
             /* Post-op on TA not needed as the fop succeeded only on the
              * in-memory bad data brick and not the good one. Fail the fop.*/
             local->fop_state = TA_INFO_IN_MEMORY_FAILED;
+            priv->ta_in_mem_txn_count++;
         }
     }
     UNLOCK(&priv->lock);
