@@ -63,6 +63,7 @@ EXPECT "$D0" cat $M1/test1.txt
 sleep 30
 EXPECT "$D1" cat $M1/test1.txt
 
+TEST $CLI volume set $V0 performance.quick-read-cache-invalidation on
 TEST $CLI volume set $V0 performance.cache-invalidation on
 
 TEST write_to "$M0/test2.txt" "$D0"

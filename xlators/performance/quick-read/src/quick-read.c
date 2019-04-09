@@ -1218,8 +1218,8 @@ qr_reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("cache-timeout", conf->cache_timeout, options, int32, out);
 
-    GF_OPTION_RECONF("cache-invalidation", conf->qr_invalidation, options, bool,
-                     out);
+    GF_OPTION_RECONF("quick-read-cache-invalidation", conf->qr_invalidation,
+                     options, bool, out);
 
     GF_OPTION_RECONF("ctime-invalidation", conf->ctime_invalidation, options,
                      bool, out);
@@ -1369,7 +1369,8 @@ qr_init(xlator_t *this)
 
     GF_OPTION_INIT("cache-timeout", conf->cache_timeout, int32, out);
 
-    GF_OPTION_INIT("cache-invalidation", conf->qr_invalidation, bool, out);
+    GF_OPTION_INIT("quick-read-cache-invalidation", conf->qr_invalidation, bool,
+                   out);
 
     GF_OPTION_INIT("cache-size", conf->cache_size, size_uint64, out);
     if (!check_cache_size_ok(this, conf->cache_size)) {
@@ -1615,7 +1616,7 @@ struct volume_options qr_options[] = {
         .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
     },
     {
-        .key = {"cache-invalidation"},
+        .key = {"quick-read-cache-invalidation"},
         .type = GF_OPTION_TYPE_BOOL,
         .default_value = "false",
         .op_version = {GD_OP_VERSION_4_0_0},
