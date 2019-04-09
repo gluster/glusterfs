@@ -2026,8 +2026,8 @@ glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr)
             ret = -1;
             goto out;
         }
-    }
-    if ((GF_CLI_STATS_STOP == stats_op) || (GF_CLI_STATS_INFO == stats_op)) {
+    } else if ((GF_CLI_STATS_STOP == stats_op) ||
+               (GF_CLI_STATS_INFO == stats_op)) {
         if (_gf_false == glusterd_is_profile_on(volinfo)) {
             snprintf(msg, sizeof(msg),
                      "Profile on Volume %s is"
@@ -3548,6 +3548,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t nfs_disabled = _gf_false;
     gf_boolean_t shd_enabled = _gf_false;
     gf_boolean_t origin_glusterd = _gf_false;
+    int snapd_enabled, bitrot_enabled, volume_quota_enabled;
 
     this = THIS;
     GF_ASSERT(this);
@@ -3666,6 +3667,13 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
 
     } else {
+        snapd_enabled = glusterd_is_snapd_enabled(volinfo);
+        shd_enabled = gd_is_self_heal_enabled(volinfo, vol_opts);
+        nfs_disabled = dict_get_str_boolean(vol_opts, NFS_DISABLE_MAP_KEY,
+                                            _gf_false);
+        volume_quota_enabled = glusterd_is_volume_quota_enabled(volinfo);
+        bitrot_enabled = glusterd_is_bitrot_enabled(volinfo);
+
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
             brick_index++;
@@ -3684,7 +3692,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) {
             other_index = brick_index + 1;
-            if (glusterd_is_snapd_enabled(volinfo)) {
+            if (snapd_enabled) {
                 ret = glusterd_add_snapd_to_dict(volinfo, rsp_dict,
                                                  other_index);
                 if (ret)
@@ -3705,7 +3713,6 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             }
 
             if (glusterd_is_shd_compatible_volume(volinfo)) {
-                shd_enabled = gd_is_self_heal_enabled(volinfo, vol_opts);
                 if (shd_enabled) {
                     ret = glusterd_add_shd_to_dict(volinfo, rsp_dict,
                                                    other_index);
@@ -3717,8 +3724,6 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
             }
 
-            nfs_disabled = dict_get_str_boolean(vol_opts, NFS_DISABLE_MAP_KEY,
-                                                _gf_false);
             if (!nfs_disabled) {
                 ret = glusterd_add_node_to_dict(priv->nfs_svc.name, rsp_dict,
                                                 other_index, vol_opts);
@@ -3729,7 +3734,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 node_count++;
             }
 
-            if (glusterd_is_volume_quota_enabled(volinfo)) {
+            if (volume_quota_enabled) {
                 ret = glusterd_add_node_to_dict(priv->quotad_svc.name, rsp_dict,
                                                 other_index, vol_opts);
                 if (ret)
@@ -3739,7 +3744,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 other_index++;
             }
 
-            if (glusterd_is_bitrot_enabled(volinfo)) {
+            if (bitrot_enabled) {
                 ret = glusterd_add_node_to_dict(priv->bitd_svc.name, rsp_dict,
                                                 other_index, vol_opts);
                 if (ret)
@@ -3747,11 +3752,8 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 other_count++;
                 node_count++;
                 other_index++;
-            }
-
-            /* For handling scrub status. Scrub daemon will be
-             * running automatically when bitrot is enable*/
-            if (glusterd_is_bitrot_enabled(volinfo)) {
+                /* For handling scrub status. Scrub daemon will be
+                 * running automatically when bitrot is enable */
                 ret = glusterd_add_node_to_dict(priv->scrub_svc.name, rsp_dict,
                                                 other_index, vol_opts);
                 if (ret)
