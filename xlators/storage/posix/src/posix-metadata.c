@@ -79,6 +79,7 @@ posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
         fd_based_fop = _gf_true;
     }
     if (!(fd_based_fop || real_path_arg)) {
+        GF_VALIDATE_OR_GOTO(this->name, inode, out);
         MAKE_HANDLE_PATH(real_path, this, inode->gfid, NULL);
         if (!real_path) {
             uuid_utoa_r(inode->gfid, gfid_str);
@@ -114,14 +115,14 @@ posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
                          key,
                          real_path ? real_path
                                    : (real_path_arg ? real_path_arg : "null"),
-                         uuid_utoa(inode->gfid));
+                         inode ? uuid_utoa(inode->gfid) : "null");
         } else {
             gf_msg(this->name, GF_LOG_DEBUG, *op_errno, P_MSG_XATTR_FAILED,
                    "getxattr failed"
                    " on %s gfid: %s key: %s ",
                    real_path ? real_path
                              : (real_path_arg ? real_path_arg : "null"),
-                   uuid_utoa(inode->gfid), key);
+                   inode ? uuid_utoa(inode->gfid) : "null", key);
         }
         op_ret = -1;
         goto out;
@@ -148,7 +149,7 @@ posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
                "getxattr failed on "
                " on %s gfid: %s key: %s ",
                real_path ? real_path : (real_path_arg ? real_path_arg : "null"),
-               uuid_utoa(inode->gfid), key);
+               inode ? uuid_utoa(inode->gfid) : "null", key);
         goto out;
     }
 
@@ -233,9 +234,14 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
     int ret = -1;
     int op_errno = 0;
 
-    GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    /* Handle readdirp: inode might be null, time attributes should be served
+     * from xattr not from backend's file attributes */
+    if (inode) {
+        ret = __inode_ctx_get1(inode, this, (uint64_t *)&mdata);
+    } else {
+        ret = -1;
+    }
 
-    ret = __inode_ctx_get1(inode, this, (uint64_t *)&mdata);
     if (ret == -1 || !mdata) {
         mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
         if (!mdata) {
@@ -251,7 +257,9 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
              * is hit when in-memory status is lost due to brick
              * down scenario
              */
-            __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+            if (inode) {
+                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+            }
         } else {
             /* Failed to get mdata from disk, xattr missing.
              * This happens on two cases.
@@ -278,7 +286,8 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
                  */
                 gf_msg(this->name, GF_LOG_WARNING, op_errno,
                        P_MSG_FETCHMDATA_FAILED, "file: %s: gfid: %s key:%s ",
-                       real_path ? real_path : "null", uuid_utoa(inode->gfid),
+                       real_path ? real_path : "null",
+                       inode ? uuid_utoa(inode->gfid) : "null",
                        GF_XATTR_MDATA_KEY);
                 GF_FREE(mdata);
                 ret = 0;
@@ -296,6 +305,10 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
         stbuf->ia_mtime_nsec = mdata->mtime.tv_nsec;
         stbuf->ia_atime = mdata->atime.tv_sec;
         stbuf->ia_atime_nsec = mdata->atime.tv_nsec;
+    }
+    /* Not set in inode context, hence free mdata */
+    if (!inode) {
+        GF_FREE(mdata);
     }
 
 out:
@@ -416,6 +429,11 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
             }
         }
 
+        if ((flag->ctime == 0) && (flag->mtime == 0) && (flag->atime == 0)) {
+            ret = 0;
+            goto unlock;
+        }
+
         /* Earlier, mdata was updated only if the existing time is less
          * than the time to be updated. This would fail the scenarios
          * where mtime can be set to any time using the syscall. Hence
@@ -485,7 +503,6 @@ out:
         stbuf->ia_atime = mdata->atime.tv_sec;
         stbuf->ia_atime_nsec = mdata->atime.tv_nsec;
     }
-
 
     return ret;
 }
@@ -604,10 +621,6 @@ posix_set_ctime(call_frame_t *frame, xlator_t *this, const char *real_path,
 
     if (priv->ctime) {
         (void)posix_get_mdata_flag(frame->root->flags, &flag);
-        if ((flag.ctime == 0) && (flag.mtime == 0) && (flag.atime == 0)) {
-            goto out;
-        }
-
         if (frame->root->ctime.tv_sec == 0) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_SETMDATA_FAILED,
                    "posix set mdata failed, No ctime : %s gfid:%s", real_path,
@@ -643,9 +656,6 @@ posix_set_parent_ctime(call_frame_t *frame, xlator_t *this,
 
     if (inode && priv->ctime) {
         (void)posix_get_parent_mdata_flag(frame->root->flags, &flag);
-        if ((flag.ctime == 0) && (flag.mtime == 0) && (flag.atime == 0)) {
-            goto out;
-        }
         ret = posix_set_mdata_xattr(this, real_path, fd, inode,
                                     &frame->root->ctime, stbuf, &flag,
                                     _gf_false);
@@ -655,7 +665,6 @@ posix_set_parent_ctime(call_frame_t *frame, xlator_t *this,
                    uuid_utoa(inode->gfid));
         }
     }
-out:
     return;
 }
 

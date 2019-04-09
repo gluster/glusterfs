@@ -832,17 +832,26 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
-    if (inode && priv->ctime) {
-        if (!inode_locked) {
-            ret = posix_get_mdata_xattr(this, path, -1, inode, &stbuf);
+    if (priv->ctime) {
+        if (inode) {
+            if (!inode_locked) {
+                ret = posix_get_mdata_xattr(this, path, -1, inode, &stbuf);
+            } else {
+                ret = __posix_get_mdata_xattr(this, path, -1, inode, &stbuf);
+            }
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
+                       "posix get mdata failed on gfid: %s",
+                       uuid_utoa(inode->gfid));
+                goto out;
+            }
         } else {
-            ret = __posix_get_mdata_xattr(this, path, -1, inode, &stbuf);
-        }
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
-                   "posix get mdata failed on gfid: %s",
-                   uuid_utoa(inode->gfid));
-            goto out;
+            ret = __posix_get_mdata_xattr(this, path, -1, NULL, &stbuf);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
+                       "posix get mdata failed on path: %s", path);
+                goto out;
+            }
         }
     }
 
