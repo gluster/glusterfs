@@ -5350,6 +5350,11 @@ afr_handle_inodelk_contention(xlator_t *this, struct gf_upcall *upcall)
     }
     LOCK(&priv->lock);
     {
+        if (priv->release_ta_notify_dom_lock == _gf_true) {
+            /* Ignore multiple release requests from shds.*/
+            UNLOCK(&priv->lock);
+            return;
+        }
         priv->release_ta_notify_dom_lock = _gf_true;
         inmem_count = priv->ta_in_mem_txn_count;
         onwire_count = priv->ta_on_wire_txn_count;
@@ -5357,7 +5362,7 @@ afr_handle_inodelk_contention(xlator_t *this, struct gf_upcall *upcall)
     UNLOCK(&priv->lock);
     if (inmem_count || onwire_count)
         /* lock release will happen in txn code path after
-         * inflight or on-wire txns are over.*/
+         * in-memory or on-wire txns are over.*/
         return;
 
     afr_ta_lock_release_synctask(this);
@@ -5515,6 +5520,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
                 if (priv->thin_arbiter_count &&
                     (idx == AFR_CHILD_THIN_ARBITER)) {
                     priv->ta_child_up = 1;
+                    priv->ta_event_gen++;
                     break;
                 }
                 __afr_handle_child_up_event(this, child_xlator, idx,
@@ -5526,6 +5532,8 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
                 if (priv->thin_arbiter_count &&
                     (idx == AFR_CHILD_THIN_ARBITER)) {
                     priv->ta_child_up = 0;
+                    priv->ta_event_gen++;
+                    afr_ta_locked_priv_invalidate(priv);
                     break;
                 }
                 __afr_handle_child_down_event(this, child_xlator, idx,
@@ -5686,6 +5694,8 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         local->ta_child_up = priv->ta_child_up;
         local->ta_failed_subvol = AFR_CHILD_UNKNOWN;
         local->read_txn_query_child = AFR_CHILD_UNKNOWN;
+        local->ta_event_gen = priv->ta_event_gen;
+        local->fop_state = TA_SUCCESS;
     }
     local->is_new_entry = _gf_false;
 

@@ -126,6 +126,7 @@ typedef enum {
                                   *on BAD brick - Success*/
     TA_INFO_IN_MEMORY_FAILED,    /*Bad brick info is in memory and fop failed
                                   *on GOOD brick - Failed*/
+    TA_SUCCESS,                  /*FOP succeeded on both data bricks.*/
 } afr_ta_fop_state_t;
 
 struct afr_nfsd {
@@ -148,6 +149,7 @@ typedef struct _afr_private {
     uuid_t ta_gfid;
     unsigned char ta_child_up;
     int ta_bad_child_index;
+    int ta_event_gen;
     off_t ta_notify_dom_lock_offset;
     gf_boolean_t release_ta_notify_dom_lock;
     unsigned int ta_in_mem_txn_count;
@@ -884,6 +886,7 @@ typedef struct _afr_local {
     struct list_head ta_onwireq;
     afr_ta_fop_state_t fop_state;
     int ta_failed_subvol;
+    int ta_event_gen;
     gf_boolean_t is_new_entry;
 } afr_local_t;
 
@@ -1322,6 +1325,9 @@ afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local);
 
 void
 afr_ta_lock_release_synctask(xlator_t *this);
+
+void
+afr_ta_locked_priv_invalidate(afr_private_t *priv);
 
 gf_boolean_t
 afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
