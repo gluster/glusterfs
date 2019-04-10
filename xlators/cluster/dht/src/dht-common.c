@@ -1365,7 +1365,6 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->inode == NULL)
             local->inode = inode_ref(inode);
 
-        /* This could be a problem */
         dht_iatt_merge(this, &local->stbuf, stbuf);
         dht_iatt_merge(this, &local->postparent, postparent);
 
@@ -1509,8 +1508,6 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int is_dir = 0;
     int is_linkfile = 0;
     int follow_link = 0;
-    call_frame_t *copy = NULL;
-    dht_local_t *copy_local = NULL;
     char gfid[GF_UUID_BUF_SIZE] = {0};
     uint32_t vol_commit_hash = 0;
     xlator_t *subvol = NULL;
@@ -1538,16 +1535,15 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     gf_uuid_unparse(local->loc.gfid, gfid);
 
+    gf_msg_debug(this->name, op_errno,
+                 "%s: revalidate lookup on %s returned op_ret %d",
+                 local->loc.path, prev->name, op_ret);
+
     LOCK(&frame->lock);
     {
         if (gf_uuid_is_null(local->gfid)) {
             memcpy(local->gfid, local->loc.gfid, 16);
         }
-
-        gf_msg_debug(this->name, op_errno,
-                     "revalidate lookup of %s "
-                     "returned with op_ret %d",
-                     local->loc.path, op_ret);
 
         if (op_ret == -1) {
             local->op_errno = op_errno;
@@ -1580,6 +1576,8 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  local->loc.path);
 
                     local->need_lookup_everywhere = 1;
+                } else if (IA_ISDIR(local->loc.inode->ia_type)) {
+                    local->need_selfheal = 1;
                 }
             }
 
@@ -1638,15 +1636,16 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     (local->stbuf.ia_uid != stbuf->ia_uid) ||
                     is_permission_different(&local->stbuf.ia_prot,
                                             &stbuf->ia_prot)) {
-                    local->need_selfheal = 1;
+                    local->need_attrheal = 1;
                 }
             }
 
             if (!dict_get(xattr, conf->mds_xattr_key)) {
                 gf_msg_debug(this->name, 0,
-                             "internal xattr %s is not present"
-                             " on path %s gfid is %s ",
-                             conf->mds_xattr_key, local->loc.path, gfid);
+                             "%s: internal xattr %s is not present"
+                             " on subvol %s(gfid is %s)",
+                             local->loc.path, conf->mds_xattr_key, prev->name,
+                             gfid);
             } else {
                 check_mds = dht_dict_get_array(xattr, conf->mds_xattr_key,
                                                mds_xattr_val, 1, &errst);
@@ -1734,71 +1733,28 @@ unlock:
             local->need_xattr_heal = 0;
 
         if (IA_ISDIR(local->stbuf.ia_type)) {
-            /* Code to update all extended attributed from hashed
-               subvol to local->xattr and call heal code to heal
-               custom xattr from hashed subvol to non-hashed subvol
-            */
-            if (local->need_xattr_heal && (local->mds_xattr)) {
-                dht_dir_set_heal_xattr(this, local, local->xattr,
-                                       local->mds_xattr, NULL, NULL);
-                dict_unref(local->mds_xattr);
-                local->mds_xattr = NULL;
-                local->need_xattr_heal = 0;
-                ret = dht_dir_xattr_heal(this, local);
-                if (ret)
-                    gf_msg(this->name, GF_LOG_ERROR, ret,
-                           DHT_MSG_DIR_XATTR_HEAL_FAILED,
-                           "xattr heal failed for directory %s "
-                           " gfid %s ",
-                           local->loc.path, gfid);
-            } else {
-                /* Call function to save hashed subvol on inode
-                   ctx if internal mds xattr is not present and
-                   all subvols are up
-                */
-                if (inode && !__is_root_gfid(inode->gfid) && (!local->op_ret))
-                    (void)dht_common_mark_mdsxattr(frame, NULL, 1);
-            }
-        }
-        if (local->need_selfheal) {
-            local->need_selfheal = 0;
-            if (!__is_root_gfid(inode->gfid)) {
-                gf_uuid_copy(local->gfid, local->mds_stbuf.ia_gfid);
-                local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
-                local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
-                local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
-            } else {
-                gf_uuid_copy(local->gfid, local->stbuf.ia_gfid);
-                local->stbuf.ia_gid = local->prebuf.ia_gid;
-                local->stbuf.ia_uid = local->prebuf.ia_uid;
-                local->stbuf.ia_prot = local->prebuf.ia_prot;
-            }
+            if (!__is_root_gfid(local->loc.inode->gfid) &&
+                (!dict_get(local->xattr, conf->mds_xattr_key)))
+                local->need_selfheal = 1;
 
-            copy = create_frame(this, this->ctx->pool);
-            if (copy) {
-                copy_local = dht_local_init(copy, &local->loc, NULL, 0);
-                if (!copy_local) {
-                    DHT_STACK_DESTROY(copy);
-                    goto cont;
+            if (dht_needs_selfheal(frame, this)) {
+                if (!__is_root_gfid(local->loc.inode->gfid)) {
+                    local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
+                    local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
+                    local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
+                } else {
+                    local->stbuf.ia_gid = local->prebuf.ia_gid;
+                    local->stbuf.ia_uid = local->prebuf.ia_uid;
+                    local->stbuf.ia_prot = local->prebuf.ia_prot;
                 }
-                copy_local->stbuf = local->stbuf;
-                copy_local->mds_stbuf = local->mds_stbuf;
-                copy_local->mds_subvol = local->mds_subvol;
-                copy->local = copy_local;
-                FRAME_SU_DO(copy, dht_local_t);
-                ret = synctask_new(this->ctx->env, dht_dir_attr_heal,
-                                   dht_dir_attr_heal_done, copy, copy);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
-                           DHT_MSG_DIR_ATTR_HEAL_FAILED,
-                           "Synctask creation failed to heal attr "
-                           "for path %s gfid %s ",
-                           local->loc.path, local->gfid);
-                    DHT_STACK_DESTROY(copy);
-                }
+
+                layout = local->layout;
+                dht_selfheal_directory(frame, dht_lookup_selfheal_cbk,
+                                       &local->loc, layout);
+                return 0;
             }
         }
-    cont:
+
         if (local->layout_mismatch) {
             /* Found layout mismatch in the directory, need to
                fix this in the inode context */
@@ -1814,7 +1770,7 @@ unlock:
             dht_layout_unref(this, local->layout);
             local->layout = NULL;
 
-            /* We know that current cached subvol is no more
+            /* We know that current cached subvol is no longer
                valid, get the new one */
             local->cached_subvol = NULL;
             if (local->xattr_req) {
