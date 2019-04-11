@@ -2740,6 +2740,7 @@ init(xlator_t *this)
     GF_ATOMIC_INIT(priv->clntcnt, 0);
     GF_ATOMIC_INIT(priv->xprtcnt, 0);
     INIT_LIST_HEAD(&priv->xprt_list);
+    priv->htime_fd = -1;
 
     ret = changelog_init_options(this, priv);
     if (ret)
