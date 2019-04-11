@@ -1938,7 +1938,6 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         if (ret) {
             gf_log("cli", GF_LOG_WARNING, "failed to get %s from dict",
                    GF_REBALANCE_TID_KEY);
-            goto out;
         }
         if (rsp.op_ret && strcmp(rsp.op_errstr, "")) {
             snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
