@@ -736,6 +736,19 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
 }
 
 void
+xlator_mem_acct_unref(struct mem_acct *mem_acct)
+{
+    uint32_t i;
+
+    if (GF_ATOMIC_DEC(mem_acct->refcnt) == 0) {
+        for (i = 0; i < mem_acct->num_types; i++) {
+            LOCK_DESTROY(&(mem_acct->rec[i].lock));
+        }
+        FREE(mem_acct);
+    }
+}
+
+void
 xlator_tree_fini(xlator_t *xl)
 {
     xlator_t *top = NULL;
@@ -766,7 +779,6 @@ xlator_list_destroy(xlator_list_t *list)
 int
 xlator_memrec_free(xlator_t *xl)
 {
-    uint32_t i = 0;
     struct mem_acct *mem_acct = NULL;
 
     if (!xl) {
@@ -775,13 +787,8 @@ xlator_memrec_free(xlator_t *xl)
     mem_acct = xl->mem_acct;
 
     if (mem_acct) {
-        for (i = 0; i < mem_acct->num_types; i++) {
-            LOCK_DESTROY(&(mem_acct->rec[i].lock));
-        }
-        if (GF_ATOMIC_DEC(mem_acct->refcnt) == 0) {
-            FREE(mem_acct);
-            xl->mem_acct = NULL;
-        }
+        xlator_mem_acct_unref(mem_acct);
+        xl->mem_acct = NULL;
     }
 
     return 0;

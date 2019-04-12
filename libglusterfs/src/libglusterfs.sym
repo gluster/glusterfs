@@ -1097,6 +1097,7 @@ xlator_foreach
 xlator_foreach_depth_first
 xlator_init
 xlator_mem_acct_init
+xlator_mem_acct_unref
 xlator_notify
 xlator_option_info_list
 xlator_option_init_bool
