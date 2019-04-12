@@ -308,9 +308,9 @@ struct _ec_fop_data {
     int32_t id; /* ID of the file operation */
     int32_t refs;
     int32_t state;
-    int32_t minimum; /* Minimum number of successful
-                        operation required to conclude a
-                        fop as successful */
+    uint32_t minimum; /* Minimum number of successful
+                         operation required to conclude a
+                         fop as successful */
     int32_t expected;
     int32_t winds;
     int32_t jobs;
@@ -325,11 +325,12 @@ struct _ec_fop_data {
     ec_cbk_data_t *answer;         /* accepted answer */
     int32_t lock_count;
     int32_t locked;
+    gf_lock_t lock;
     ec_lock_link_t locks[2];
     int32_t first_lock;
-    gf_lock_t lock;
 
-    uint32_t flags;
+    uint32_t fop_flags; /* Flags passed by the caller. */
+    uint32_t flags;     /* Internal flags. */
     uint32_t first;
     uintptr_t mask;
     uintptr_t healing; /*Dispatch is done but call is successful only

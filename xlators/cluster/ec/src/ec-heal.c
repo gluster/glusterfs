@@ -367,16 +367,16 @@ ec_heal_data_block(ec_heal_t *heal)
 /* FOP: fheal */
 
 void
-ec_fheal(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-         fop_fheal_cbk_t func, void *data, fd_t *fd, int32_t partial,
-         dict_t *xdata)
+ec_fheal(call_frame_t *frame, xlator_t *this, uintptr_t target,
+         uint32_t fop_flags, fop_fheal_cbk_t func, void *data, fd_t *fd,
+         int32_t partial, dict_t *xdata)
 {
     ec_fd_t *ctx = ec_fd_get(fd, this);
 
     if (ctx != NULL) {
         gf_msg_trace("ec", 0, "FHEAL ctx: flags=%X, open=%" PRIXPTR, ctx->flags,
                      ctx->open);
-        ec_heal(frame, this, target, minimum, func, data, &ctx->loc, partial,
+        ec_heal(frame, this, target, fop_flags, func, data, &ctx->loc, partial,
                 xdata);
     }
 }
@@ -1975,7 +1975,7 @@ ec_manager_heal_block(ec_fop_data_t *fop, int32_t state)
 /*Takes lock */
 void
 ec_heal_block(call_frame_t *frame, xlator_t *this, uintptr_t target,
-              int32_t minimum, fop_heal_cbk_t func, ec_heal_t *heal)
+              uint32_t fop_flags, fop_heal_cbk_t func, ec_heal_t *heal)
 {
     ec_cbk_t callback = {.heal = func};
     ec_fop_data_t *fop = NULL;
@@ -1986,7 +1986,7 @@ ec_heal_block(call_frame_t *frame, xlator_t *this, uintptr_t target,
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, EC_FOP_HEAL, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, EC_FOP_HEAL, 0, target, fop_flags,
                                NULL, ec_manager_heal_block, callback, heal);
     if (fop == NULL)
         goto out;
@@ -2763,9 +2763,9 @@ ec_heal_throttle(xlator_t *this, ec_fop_data_t *fop)
 }
 
 void
-ec_heal(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-        fop_heal_cbk_t func, void *data, loc_t *loc, int32_t partial,
-        dict_t *xdata)
+ec_heal(call_frame_t *frame, xlator_t *this, uintptr_t target,
+        uint32_t fop_flags, fop_heal_cbk_t func, void *data, loc_t *loc,
+        int32_t partial, dict_t *xdata)
 {
     ec_cbk_t callback = {.heal = func};
     ec_fop_data_t *fop = NULL;
@@ -2781,7 +2781,7 @@ ec_heal(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
 
     if (frame && frame->local)
         goto fail;
-    fop = ec_fop_data_allocate(frame, this, EC_FOP_HEAL, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, EC_FOP_HEAL, 0, target, fop_flags,
                                NULL, NULL, callback, data);
 
     err = ENOMEM;
