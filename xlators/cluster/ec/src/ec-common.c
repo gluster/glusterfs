@@ -44,16 +44,16 @@ ec_update_fd_status(fd_t *fd, xlator_t *xl, int idx, int32_t ret_status)
     UNLOCK(&fd->lock);
 }
 
-static int
-ec_fd_ctx_need_open(fd_t *fd, xlator_t *this, uintptr_t *need_open)
+static uintptr_t
+ec_fd_ctx_need_open(fd_t *fd, xlator_t *this, uintptr_t mask)
 {
     int i = 0;
     int count = 0;
     ec_t *ec = NULL;
     ec_fd_t *fd_ctx = NULL;
+    uintptr_t need_open = 0;
 
     ec = this->private;
-    *need_open = 0;
 
     fd_ctx = ec_fd_get(fd, this);
     if (!fd_ctx)
@@ -63,9 +63,9 @@ ec_fd_ctx_need_open(fd_t *fd, xlator_t *this, uintptr_t *need_open)
     {
         for (i = 0; i < ec->nodes; i++) {
             if ((fd_ctx->fd_status[i] == EC_FD_NOT_OPENED) &&
-                (ec->xl_up & (1 << i))) {
+                ((ec->xl_up & (1 << i)) != 0) && ((mask & (1 << i)) != 0)) {
                 fd_ctx->fd_status[i] = EC_FD_OPENING;
-                *need_open |= (1 << i);
+                need_open |= (1 << i);
                 count++;
             }
         }
@@ -76,10 +76,11 @@ ec_fd_ctx_need_open(fd_t *fd, xlator_t *this, uintptr_t *need_open)
      * then ignore fixing the fd as it has been
      * requested from heal operation.
      */
-    if (count >= ec->fragments)
-        count = 0;
+    if (count >= ec->fragments) {
+        need_open = 0;
+    }
 
-    return count;
+    return need_open;
 }
 
 static gf_boolean_t
@@ -96,9 +97,8 @@ ec_is_fd_fixable(fd_t *fd)
 }
 
 static void
-ec_fix_open(ec_fop_data_t *fop)
+ec_fix_open(ec_fop_data_t *fop, uintptr_t mask)
 {
-    int call_count = 0;
     uintptr_t need_open = 0;
     int ret = 0;
     loc_t loc = {
@@ -109,9 +109,10 @@ ec_fix_open(ec_fop_data_t *fop)
         goto out;
 
     /* Evaluate how many remote fd's to be opened */
-    call_count = ec_fd_ctx_need_open(fop->fd, fop->xl, &need_open);
-    if (!call_count)
+    need_open = ec_fd_ctx_need_open(fop->fd, fop->xl, mask);
+    if (need_open == 0) {
         goto out;
+    }
 
     loc.inode = inode_ref(fop->fd->inode);
     gf_uuid_copy(loc.gfid, fop->fd->inode->gfid);
@@ -121,11 +122,13 @@ ec_fix_open(ec_fop_data_t *fop)
     }
 
     if (IA_IFDIR == fop->fd->inode->ia_type) {
-        ec_opendir(fop->frame, fop->xl, need_open, EC_MINIMUM_ONE, NULL, NULL,
+        ec_opendir(fop->frame, fop->xl, need_open,
+                   EC_MINIMUM_ONE | EC_FOP_NO_PROPAGATE_ERROR, NULL, NULL,
                    &fop->loc[0], fop->fd, NULL);
     } else {
-        ec_open(fop->frame, fop->xl, need_open, EC_MINIMUM_ONE, NULL, NULL,
-                &loc, fop->fd->flags, fop->fd, NULL);
+        ec_open(fop->frame, fop->xl, need_open,
+                EC_MINIMUM_ONE | EC_FOP_NO_PROPAGATE_ERROR, NULL, NULL, &loc,
+                fop->fd->flags, fop->fd, NULL);
     }
 
 out:
@@ -495,12 +498,16 @@ ec_resume(ec_fop_data_t *fop, int32_t error)
 }
 
 void
-ec_resume_parent(ec_fop_data_t *fop, int32_t error)
+ec_resume_parent(ec_fop_data_t *fop)
 {
     ec_fop_data_t *parent;
+    int32_t error = 0;
 
     parent = fop->parent;
     if (parent != NULL) {
+        if ((fop->fop_flags & EC_FOP_NO_PROPAGATE_ERROR) == 0) {
+            error = fop->error;
+        }
         ec_trace("RESUME_PARENT", fop, "error=%u", error);
         fop->parent = NULL;
         ec_resume(parent, error);
@@ -593,6 +600,8 @@ ec_internal_op(ec_fop_data_t *fop)
         return _gf_true;
     if (fop->id == GF_FOP_FXATTROP)
         return _gf_true;
+    if (fop->id == GF_FOP_OPEN)
+        return _gf_true;
     return _gf_false;
 }
 
@@ -631,7 +640,7 @@ ec_msg_str(ec_fop_data_t *fop)
     return fop->errstr;
 }
 
-int32_t
+static int32_t
 ec_child_select(ec_fop_data_t *fop)
 {
     ec_t *ec = fop->xl->private;
@@ -692,8 +701,6 @@ ec_child_select(ec_fop_data_t *fop)
                num, fop->minimum, ec_msg_str(fop));
         return 0;
     }
-
-    ec_sleep(fop);
 
     return 1;
 }
@@ -773,6 +780,8 @@ ec_dispatch_one(ec_fop_data_t *fop)
     ec_dispatch_start(fop);
 
     if (ec_child_select(fop)) {
+        ec_sleep(fop);
+
         fop->expected = 1;
         fop->first = ec_select_first_by_read_policy(fop->xl->private, fop);
 
@@ -807,6 +816,8 @@ ec_dispatch_inc(ec_fop_data_t *fop)
     ec_dispatch_start(fop);
 
     if (ec_child_select(fop)) {
+        ec_sleep(fop);
+
         fop->expected = gf_bits_count(fop->remaining);
         fop->first = 0;
 
@@ -820,6 +831,8 @@ ec_dispatch_all(ec_fop_data_t *fop)
     ec_dispatch_start(fop);
 
     if (ec_child_select(fop)) {
+        ec_sleep(fop);
+
         fop->expected = gf_bits_count(fop->remaining);
         fop->first = 0;
 
@@ -838,6 +851,8 @@ ec_dispatch_min(ec_fop_data_t *fop)
     ec_dispatch_start(fop);
 
     if (ec_child_select(fop)) {
+        ec_sleep(fop);
+
         fop->expected = count = ec->fragments;
         fop->first = ec_select_first_by_read_policy(fop->xl->private, fop);
         idx = fop->first - 1;
@@ -849,6 +864,23 @@ ec_dispatch_min(ec_fop_data_t *fop)
         }
 
         ec_dispatch_mask(fop, mask);
+    }
+}
+
+void
+ec_succeed_all(ec_fop_data_t *fop)
+{
+    ec_dispatch_start(fop);
+
+    if (ec_child_select(fop)) {
+        fop->expected = gf_bits_count(fop->remaining);
+        fop->first = 0;
+
+        /* Simulate a successful execution on all bricks */
+        ec_trace("SUCCEED", fop, "");
+
+        fop->good = fop->remaining;
+        fop->remaining = 0;
     }
 }
 
@@ -1825,7 +1857,8 @@ ec_lock_acquired(ec_lock_link_t *link)
 
     if (fop->use_fd &&
         (link->update[EC_DATA_TXN] || link->update[EC_METADATA_TXN])) {
-        ec_fix_open(fop);
+        /* Try to reopen closed fd's only if lock has succeeded. */
+        ec_fix_open(fop, lock->mask);
     }
 
     ec_lock_resume_shared(&list);

@@ -135,7 +135,7 @@ ec_manager_access(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_access(call_frame_t *frame, xlator_t *this, uintptr_t target,
-          int32_t minimum, fop_access_cbk_t func, void *data, loc_t *loc,
+          uint32_t fop_flags, fop_access_cbk_t func, void *data, loc_t *loc,
           int32_t mask, dict_t *xdata)
 {
     ec_cbk_t callback = {.access = func};
@@ -149,7 +149,7 @@ ec_access(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_ACCESS, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_access,
+                               target, fop_flags, ec_wind_access,
                                ec_manager_access, callback, data);
     if (fop == NULL) {
         goto out;
@@ -446,7 +446,7 @@ out:
 
 void
 ec_getxattr(call_frame_t *frame, xlator_t *this, uintptr_t target,
-            int32_t minimum, fop_getxattr_cbk_t func, void *data, loc_t *loc,
+            uint32_t fop_flags, fop_getxattr_cbk_t func, void *data, loc_t *loc,
             const char *name, dict_t *xdata)
 {
     ec_cbk_t callback = {.getxattr = func};
@@ -468,7 +468,7 @@ ec_getxattr(call_frame_t *frame, xlator_t *this, uintptr_t target,
     }
 
     fop = ec_fop_data_allocate(
-        frame, this, GF_FOP_GETXATTR, EC_FLAG_LOCK_SHARED, target, minimum,
+        frame, this, GF_FOP_GETXATTR, EC_FLAG_LOCK_SHARED, target, fop_flags,
         ec_wind_getxattr, ec_manager_getxattr, callback, data);
     if (fop == NULL) {
         goto out;
@@ -588,7 +588,7 @@ ec_wind_fgetxattr(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
 
 void
 ec_fgetxattr(call_frame_t *frame, xlator_t *this, uintptr_t target,
-             int32_t minimum, fop_fgetxattr_cbk_t func, void *data, fd_t *fd,
+             uint32_t fop_flags, fop_fgetxattr_cbk_t func, void *data, fd_t *fd,
              const char *name, dict_t *xdata)
 {
     ec_cbk_t callback = {.fgetxattr = func};
@@ -602,7 +602,7 @@ ec_fgetxattr(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(
-        frame, this, GF_FOP_FGETXATTR, EC_FLAG_LOCK_SHARED, target, minimum,
+        frame, this, GF_FOP_FGETXATTR, EC_FLAG_LOCK_SHARED, target, fop_flags,
         ec_wind_fgetxattr, ec_manager_getxattr, callback, data);
     if (fop == NULL) {
         goto out;
@@ -869,9 +869,9 @@ ec_manager_open(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_open(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-        fop_open_cbk_t func, void *data, loc_t *loc, int32_t flags, fd_t *fd,
-        dict_t *xdata)
+ec_open(call_frame_t *frame, xlator_t *this, uintptr_t target,
+        uint32_t fop_flags, fop_open_cbk_t func, void *data, loc_t *loc,
+        int32_t flags, fd_t *fd, dict_t *xdata)
 {
     ec_cbk_t callback = {.open = func};
     ec_fop_data_t *fop = NULL;
@@ -884,7 +884,7 @@ ec_open(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_OPEN, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_open, ec_manager_open,
+                               target, fop_flags, ec_wind_open, ec_manager_open,
                                callback, data);
     if (fop == NULL) {
         goto out;
@@ -1071,7 +1071,7 @@ ec_manager_readlink(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_readlink(call_frame_t *frame, xlator_t *this, uintptr_t target,
-            int32_t minimum, fop_readlink_cbk_t func, void *data, loc_t *loc,
+            uint32_t fop_flags, fop_readlink_cbk_t func, void *data, loc_t *loc,
             size_t size, dict_t *xdata)
 {
     ec_cbk_t callback = {.readlink = func};
@@ -1085,7 +1085,7 @@ ec_readlink(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(
-        frame, this, GF_FOP_READLINK, EC_FLAG_LOCK_SHARED, target, minimum,
+        frame, this, GF_FOP_READLINK, EC_FLAG_LOCK_SHARED, target, fop_flags,
         ec_wind_readlink, ec_manager_readlink, callback, data);
     if (fop == NULL) {
         goto out;
@@ -1417,9 +1417,9 @@ ec_manager_readv(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_readv(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-         fop_readv_cbk_t func, void *data, fd_t *fd, size_t size, off_t offset,
-         uint32_t flags, dict_t *xdata)
+ec_readv(call_frame_t *frame, xlator_t *this, uintptr_t target,
+         uint32_t fop_flags, fop_readv_cbk_t func, void *data, fd_t *fd,
+         size_t size, off_t offset, uint32_t flags, dict_t *xdata)
 {
     ec_cbk_t callback = {.readv = func};
     ec_fop_data_t *fop = NULL;
@@ -1432,8 +1432,8 @@ ec_readv(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_READ, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_readv, ec_manager_readv,
-                               callback, data);
+                               target, fop_flags, ec_wind_readv,
+                               ec_manager_readv, callback, data);
     if (fop == NULL) {
         goto out;
     }
@@ -1637,9 +1637,9 @@ ec_manager_seek(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_seek(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-        fop_seek_cbk_t func, void *data, fd_t *fd, off_t offset,
-        gf_seek_what_t what, dict_t *xdata)
+ec_seek(call_frame_t *frame, xlator_t *this, uintptr_t target,
+        uint32_t fop_flags, fop_seek_cbk_t func, void *data, fd_t *fd,
+        off_t offset, gf_seek_what_t what, dict_t *xdata)
 {
     ec_cbk_t callback = {.seek = func};
     ec_fop_data_t *fop = NULL;
@@ -1652,7 +1652,7 @@ ec_seek(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_SEEK, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_seek, ec_manager_seek,
+                               target, fop_flags, ec_wind_seek, ec_manager_seek,
                                callback, data);
     if (fop == NULL) {
         goto out;
@@ -1855,8 +1855,9 @@ ec_manager_stat(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_stat(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-        fop_stat_cbk_t func, void *data, loc_t *loc, dict_t *xdata)
+ec_stat(call_frame_t *frame, xlator_t *this, uintptr_t target,
+        uint32_t fop_flags, fop_stat_cbk_t func, void *data, loc_t *loc,
+        dict_t *xdata)
 {
     ec_cbk_t callback = {.stat = func};
     ec_fop_data_t *fop = NULL;
@@ -1869,7 +1870,7 @@ ec_stat(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_STAT, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_stat, ec_manager_stat,
+                               target, fop_flags, ec_wind_stat, ec_manager_stat,
                                callback, data);
     if (fop == NULL) {
         goto out;
@@ -1965,8 +1966,9 @@ ec_wind_fstat(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
 }
 
 void
-ec_fstat(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-         fop_fstat_cbk_t func, void *data, fd_t *fd, dict_t *xdata)
+ec_fstat(call_frame_t *frame, xlator_t *this, uintptr_t target,
+         uint32_t fop_flags, fop_fstat_cbk_t func, void *data, fd_t *fd,
+         dict_t *xdata)
 {
     ec_cbk_t callback = {.fstat = func};
     ec_fop_data_t *fop = NULL;
@@ -1979,8 +1981,8 @@ ec_fstat(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_FSTAT, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_fstat, ec_manager_stat,
-                               callback, data);
+                               target, fop_flags, ec_wind_fstat,
+                               ec_manager_stat, callback, data);
     if (fop == NULL) {
         goto out;
     }
