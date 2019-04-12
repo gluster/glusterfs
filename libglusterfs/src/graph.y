@@ -164,6 +164,7 @@ new_volume (char *name)
                 goto out;
         }
 
+        INIT_LIST_HEAD(&curr->volume_options);
         curr->options = dict_new ();
 
         if (!curr->options) {
