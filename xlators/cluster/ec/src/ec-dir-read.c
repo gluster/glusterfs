@@ -219,7 +219,7 @@ ec_manager_opendir(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_opendir(call_frame_t *frame, xlator_t *this, uintptr_t target,
-           int32_t minimum, fop_opendir_cbk_t func, void *data, loc_t *loc,
+           uint32_t fop_flags, fop_opendir_cbk_t func, void *data, loc_t *loc,
            fd_t *fd, dict_t *xdata)
 {
     ec_cbk_t callback = {.opendir = func};
@@ -233,7 +233,7 @@ ec_opendir(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_OPENDIR, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_opendir,
+                               target, fop_flags, ec_wind_opendir,
                                ec_manager_opendir, callback, data);
     if (fop == NULL) {
         goto out;
@@ -514,7 +514,7 @@ ec_manager_readdir(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_readdir(call_frame_t *frame, xlator_t *this, uintptr_t target,
-           int32_t minimum, fop_readdir_cbk_t func, void *data, fd_t *fd,
+           uint32_t fop_flags, fop_readdir_cbk_t func, void *data, fd_t *fd,
            size_t size, off_t offset, dict_t *xdata)
 {
     ec_cbk_t callback = {.readdir = func};
@@ -528,7 +528,7 @@ ec_readdir(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_READDIR, EC_FLAG_LOCK_SHARED,
-                               target, minimum, ec_wind_readdir,
+                               target, fop_flags, ec_wind_readdir,
                                ec_manager_readdir, callback, data);
     if (fop == NULL) {
         goto out;
@@ -584,7 +584,7 @@ ec_wind_readdirp(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
 
 void
 ec_readdirp(call_frame_t *frame, xlator_t *this, uintptr_t target,
-            int32_t minimum, fop_readdirp_cbk_t func, void *data, fd_t *fd,
+            uint32_t fop_flags, fop_readdirp_cbk_t func, void *data, fd_t *fd,
             size_t size, off_t offset, dict_t *xdata)
 {
     ec_cbk_t callback = {.readdirp = func};
@@ -598,7 +598,7 @@ ec_readdirp(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
     fop = ec_fop_data_allocate(
-        frame, this, GF_FOP_READDIRP, EC_FLAG_LOCK_SHARED, target, minimum,
+        frame, this, GF_FOP_READDIRP, EC_FLAG_LOCK_SHARED, target, fop_flags,
         ec_wind_readdirp, ec_manager_readdir, callback, data);
     if (fop == NULL) {
         goto out;

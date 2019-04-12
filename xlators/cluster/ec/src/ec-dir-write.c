@@ -262,7 +262,7 @@ ec_manager_create(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_create(call_frame_t *frame, xlator_t *this, uintptr_t target,
-          int32_t minimum, fop_create_cbk_t func, void *data, loc_t *loc,
+          uint32_t fop_flags, fop_create_cbk_t func, void *data, loc_t *loc,
           int32_t flags, mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
     ec_cbk_t callback = {.create = func};
@@ -275,7 +275,7 @@ ec_create(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_CREATE, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_CREATE, 0, target, fop_flags,
                                ec_wind_create, ec_manager_create, callback,
                                data);
     if (fop == NULL) {
@@ -432,9 +432,9 @@ ec_manager_link(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_link(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-        fop_link_cbk_t func, void *data, loc_t *oldloc, loc_t *newloc,
-        dict_t *xdata)
+ec_link(call_frame_t *frame, xlator_t *this, uintptr_t target,
+        uint32_t fop_flags, fop_link_cbk_t func, void *data, loc_t *oldloc,
+        loc_t *newloc, dict_t *xdata)
 {
     ec_cbk_t callback = {.link = func};
     ec_fop_data_t *fop = NULL;
@@ -446,7 +446,7 @@ ec_link(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_LINK, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_LINK, 0, target, fop_flags,
                                ec_wind_link, ec_manager_link, callback, data);
     if (fop == NULL) {
         goto out;
@@ -613,9 +613,9 @@ ec_manager_mkdir(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_mkdir(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-         fop_mkdir_cbk_t func, void *data, loc_t *loc, mode_t mode,
-         mode_t umask, dict_t *xdata)
+ec_mkdir(call_frame_t *frame, xlator_t *this, uintptr_t target,
+         uint32_t fop_flags, fop_mkdir_cbk_t func, void *data, loc_t *loc,
+         mode_t mode, mode_t umask, dict_t *xdata)
 {
     ec_cbk_t callback = {.mkdir = func};
     ec_fop_data_t *fop = NULL;
@@ -627,7 +627,7 @@ ec_mkdir(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKDIR, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKDIR, 0, target, fop_flags,
                                ec_wind_mkdir, ec_manager_mkdir, callback, data);
     if (fop == NULL) {
         goto out;
@@ -815,9 +815,9 @@ ec_manager_mknod(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_mknod(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-         fop_mknod_cbk_t func, void *data, loc_t *loc, mode_t mode, dev_t rdev,
-         mode_t umask, dict_t *xdata)
+ec_mknod(call_frame_t *frame, xlator_t *this, uintptr_t target,
+         uint32_t fop_flags, fop_mknod_cbk_t func, void *data, loc_t *loc,
+         mode_t mode, dev_t rdev, mode_t umask, dict_t *xdata)
 {
     ec_cbk_t callback = {.mknod = func};
     ec_fop_data_t *fop = NULL;
@@ -829,7 +829,7 @@ ec_mknod(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKNOD, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_MKNOD, 0, target, fop_flags,
                                ec_wind_mknod, ec_manager_mknod, callback, data);
     if (fop == NULL) {
         goto out;
@@ -975,7 +975,7 @@ ec_manager_rename(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_rename(call_frame_t *frame, xlator_t *this, uintptr_t target,
-          int32_t minimum, fop_rename_cbk_t func, void *data, loc_t *oldloc,
+          uint32_t fop_flags, fop_rename_cbk_t func, void *data, loc_t *oldloc,
           loc_t *newloc, dict_t *xdata)
 {
     ec_cbk_t callback = {.rename = func};
@@ -988,7 +988,7 @@ ec_rename(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_RENAME, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_RENAME, 0, target, fop_flags,
                                ec_wind_rename, ec_manager_rename, callback,
                                data);
     if (fop == NULL) {
@@ -1125,9 +1125,9 @@ ec_manager_rmdir(ec_fop_data_t *fop, int32_t state)
 }
 
 void
-ec_rmdir(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
-         fop_rmdir_cbk_t func, void *data, loc_t *loc, int xflags,
-         dict_t *xdata)
+ec_rmdir(call_frame_t *frame, xlator_t *this, uintptr_t target,
+         uint32_t fop_flags, fop_rmdir_cbk_t func, void *data, loc_t *loc,
+         int xflags, dict_t *xdata)
 {
     ec_cbk_t callback = {.rmdir = func};
     ec_fop_data_t *fop = NULL;
@@ -1139,7 +1139,7 @@ ec_rmdir(call_frame_t *frame, xlator_t *this, uintptr_t target, int32_t minimum,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_RMDIR, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_RMDIR, 0, target, fop_flags,
                                ec_wind_rmdir, ec_manager_rmdir, callback, data);
     if (fop == NULL) {
         goto out;
@@ -1281,7 +1281,7 @@ ec_manager_symlink(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_symlink(call_frame_t *frame, xlator_t *this, uintptr_t target,
-           int32_t minimum, fop_symlink_cbk_t func, void *data,
+           uint32_t fop_flags, fop_symlink_cbk_t func, void *data,
            const char *linkname, loc_t *loc, mode_t umask, dict_t *xdata)
 {
     ec_cbk_t callback = {.symlink = func};
@@ -1294,9 +1294,9 @@ ec_symlink(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_SYMLINK, 0, target, minimum,
-                               ec_wind_symlink, ec_manager_symlink, callback,
-                               data);
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_SYMLINK, 0, target,
+                               fop_flags, ec_wind_symlink, ec_manager_symlink,
+                               callback, data);
     if (fop == NULL) {
         goto out;
     }
@@ -1435,7 +1435,7 @@ ec_manager_unlink(ec_fop_data_t *fop, int32_t state)
 
 void
 ec_unlink(call_frame_t *frame, xlator_t *this, uintptr_t target,
-          int32_t minimum, fop_unlink_cbk_t func, void *data, loc_t *loc,
+          uint32_t fop_flags, fop_unlink_cbk_t func, void *data, loc_t *loc,
           int xflags, dict_t *xdata)
 {
     ec_cbk_t callback = {.unlink = func};
@@ -1448,7 +1448,7 @@ ec_unlink(call_frame_t *frame, xlator_t *this, uintptr_t target,
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(frame, this, GF_FOP_UNLINK, 0, target, minimum,
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_UNLINK, 0, target, fop_flags,
                                ec_wind_unlink, ec_manager_unlink, callback,
                                data);
     if (fop == NULL) {

@@ -98,7 +98,7 @@ ec_cbk_data_destroy(ec_cbk_data_t *cbk)
 
 ec_fop_data_t *
 ec_fop_data_allocate(call_frame_t *frame, xlator_t *this, int32_t id,
-                     uint32_t flags, uintptr_t target, int32_t minimum,
+                     uint32_t flags, uintptr_t target, uint32_t fop_flags,
                      ec_wind_f wind, ec_handler_f handler, ec_cbk_t cbks,
                      void *data)
 {
@@ -151,7 +151,8 @@ ec_fop_data_allocate(call_frame_t *frame, xlator_t *this, int32_t id,
     fop->refs = 1;
 
     fop->flags = flags;
-    fop->minimum = minimum;
+    fop->minimum = EC_FOP_MINIMUM(fop_flags);
+    fop->fop_flags = EC_FOP_FLAGS(fop_flags);
     fop->mask = target;
 
     fop->wind = wind;
@@ -271,7 +272,7 @@ ec_fop_data_release(ec_fop_data_t *fop)
         loc_wipe(&fop->loc[1]);
         GF_FREE(fop->errstr);
 
-        ec_resume_parent(fop, fop->error);
+        ec_resume_parent(fop);
 
         ec_fop_cleanup(fop);
 
