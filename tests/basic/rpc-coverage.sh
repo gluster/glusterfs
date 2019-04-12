@@ -419,9 +419,15 @@ function test_rmdir()
     rm -rf $PFX || fail "rm -rf"
 }
 
+function test_statvfs()
+{
+    df $DIR 2>&1 || fail "df"
+}
+
 
 function run_tests()
 {
+    test_statvfs;
     test_mkdir;
     test_create;
     test_statfs;

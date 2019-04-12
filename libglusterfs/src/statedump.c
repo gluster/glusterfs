@@ -805,6 +805,8 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     int brick_count = 0;
     int len = 0;
 
+    gf_msg_trace("dump", 0, "received statedump request (sig:USR1)");
+
     gf_proc_dump_lock();
 
     if (!ctx)
