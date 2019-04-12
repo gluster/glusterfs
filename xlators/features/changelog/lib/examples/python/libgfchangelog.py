@@ -1,8 +1,10 @@
 import os
 from ctypes import *
+from ctypes.util import find_library
 
 class Changes(object):
-    libgfc = CDLL("libgfchangelog.so", mode=RTLD_GLOBAL, use_errno=True)
+    libgfc = CDLL(find_library("gfchangelog"), mode=RTLD_GLOBAL,
+                  use_errno=True)
 
     @classmethod
     def geterrno(cls):
