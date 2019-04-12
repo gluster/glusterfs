@@ -1405,6 +1405,7 @@ int32_t
 ec_manager_truncate(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk;
+    off_t offset_down;
 
     switch (state) {
         case EC_STATE_INIT:
@@ -1416,16 +1417,19 @@ ec_manager_truncate(ec_fop_data_t *fop, int32_t state)
             /* Fall through */
 
         case EC_STATE_LOCK:
+            offset_down = fop->user_size;
+            ec_adjust_offset_down(fop->xl->private, &offset_down, _gf_true);
+
             if (fop->id == GF_FOP_TRUNCATE) {
                 ec_lock_prepare_inode(
                     fop, &fop->loc[0],
                     EC_UPDATE_DATA | EC_UPDATE_META | EC_QUERY_INFO,
-                    fop->offset, EC_RANGE_FULL);
+                    offset_down, EC_RANGE_FULL);
             } else {
                 ec_lock_prepare_fd(
                     fop, fop->fd,
                     EC_UPDATE_DATA | EC_UPDATE_META | EC_QUERY_INFO,
-                    fop->offset, EC_RANGE_FULL);
+                    offset_down, EC_RANGE_FULL);
             }
             ec_lock(fop);
 
