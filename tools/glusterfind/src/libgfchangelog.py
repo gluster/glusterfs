@@ -9,8 +9,8 @@
 # cases as published by the Free Software Foundation.
 
 import os
-from ctypes import CDLL, get_errno, create_string_buffer, c_ulong, byref
-from ctypes import RTLD_GLOBAL
+from ctypes import CDLL, RTLD_GLOBAL, get_errno, create_string_buffer, c_ulong, byref
+from ctypes.util import find_library
 from gfind_py2py3 import bytearray_to_str, gf_create_string_buffer
 from gfind_py2py3 import gfind_history_changelog, gfind_changelog_register
 from gfind_py2py3 import gfind_history_changelog_done
@@ -19,8 +19,7 @@ from gfind_py2py3 import gfind_history_changelog_done
 class ChangelogException(OSError):
     pass
 
-
-libgfc = CDLL("libgfchangelog.so", use_errno=True, mode=RTLD_GLOBAL)
+libgfc = CDLL(find_library("gfchangelog"), mode=RTLD_GLOBAL, use_errno=True)
 
 
 def raise_oserr(prefix=None):
