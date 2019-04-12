@@ -36,25 +36,6 @@ gp_write_file(struct gf_printer *gp, char *buf, size_t len)
     return len;
 }
 
-static ssize_t
-gp_write_buf(struct gf_printer *gp, char *buf, size_t len)
-{
-    struct iovec *iov = gp->priv;
-
-    if (iov->iov_len < len) {
-        gf_msg("graph-print", GF_LOG_ERROR, 0, LG_MSG_BUFFER_FULL,
-               "buffer full");
-
-        return -1;
-    }
-
-    memcpy(iov->iov_base, buf, len);
-    iov->iov_base += len;
-    iov->iov_len -= len;
-
-    return len;
-}
-
 static int
 gpprintf(struct gf_printer *gp, const char *format, ...)
 {
@@ -151,44 +132,4 @@ glusterfs_graph_print_file(FILE *file, glusterfs_graph_t *graph)
     struct gf_printer gp = {.write = gp_write_file, .priv = file};
 
     return glusterfs_graph_print(&gp, graph);
-}
-
-char *
-glusterfs_graph_print_buf(glusterfs_graph_t *graph)
-{
-    FILE *f = NULL;
-    struct iovec iov = {
-        0,
-    };
-    int len = 0;
-    char *buf = NULL;
-    struct gf_printer gp = {.write = gp_write_buf, .priv = &iov};
-
-    f = fopen("/dev/null", "a");
-    if (!f) {
-        gf_msg("graph-print", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED,
-               "cannot open /dev/null");
-
-        return NULL;
-    }
-    len = glusterfs_graph_print_file(f, graph);
-    fclose(f);
-    if (len == -1)
-        return NULL;
-
-    buf = GF_CALLOC(1, len + 1, gf_common_mt_graph_buf);
-    if (!buf) {
-        return NULL;
-    }
-    iov.iov_base = buf;
-    iov.iov_len = len;
-
-    len = glusterfs_graph_print(&gp, graph);
-    if (len == -1) {
-        GF_FREE(buf);
-
-        return NULL;
-    }
-
-    return buf;
 }
