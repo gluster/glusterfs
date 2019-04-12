@@ -26,6 +26,6 @@ TEST $GFS -s $H0 --volfile-id $V0 $M1;
 
 ## TODO: best way to increase coverage is to have a gfapi program
 ## which covers maximum fops
-TEST $(dirname $0)/rpc-coverage.sh $M1
+TEST $(dirname $0)/../basic/rpc-coverage.sh $M1
 
 cleanup;

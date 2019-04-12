@@ -1672,14 +1672,12 @@ reincarnate(int signum)
     ctx = glusterfsd_ctx;
     cmd_args = &ctx->cmd_args;
 
+    gf_msg_trace("gluster", 0, "received reincarnate request (sig:HUP)");
+
     if (cmd_args->volfile_server) {
         gf_msg("glusterfsd", GF_LOG_INFO, 0, glusterfsd_msg_11,
                "Fetching the volume file from server...");
         ret = glusterfs_volfile_fetch(ctx);
-    } else {
-        gf_msg_debug("glusterfsd", 0,
-                     "Not reloading volume specification file"
-                     " on SIGHUP");
     }
 
     /* Also, SIGHUP should do logrotate */

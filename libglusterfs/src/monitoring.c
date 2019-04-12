@@ -230,6 +230,8 @@ gf_monitor_metrics(glusterfs_ctx_t *ctx)
     int fd = 0;
     char *filepath = NULL, *dumppath = NULL;
 
+    gf_msg_trace("monitoring", 0, "received monitoring request (sig:USR2)");
+
     dumppath = ctx->config.metrics_dumppath;
     if (dumppath == NULL) {
         dumppath = GLUSTER_METRICS_DIR;
