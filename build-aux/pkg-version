@@ -3,7 +3,11 @@
 # To override version/release from git,
 # create VERSION file containing text with version/release
 # eg. v3.4.0-1
-PKG_VERSION=`cat VERSION 2> /dev/null || git describe --tags --match "v[0-9]*"`
+
+# One thing to note, If one does 'git clone --depth N glusterfs.git',
+# the git describe command doesn't work. Hence you notice below that
+# we have added timestamp as version (YYYY.MM.DD) and release (HH.mmss)
+PKG_VERSION=`cat VERSION 2> /dev/null || git describe --tags --match "v[0-9]*" 2>/dev/null`
 
 get_version()
 {
@@ -18,7 +22,11 @@ get_version()
       sub(/^v/,"") ; print $1
     }'
 
-    echo $PKG_VERSION | awk "$AWK_VERSION" | tr -cd '[:alnum:].'
+    version=$(echo $PKG_VERSION | awk "$AWK_VERSION" | tr -cd '[:alnum:].')
+    if [ "x${version}" == "x" ] ; then
+       version=$(date +%Y.%m.%d | tr -d '\n')
+    fi
+    echo $version | tr -d '\n'
 }
 
 get_release()
@@ -37,7 +45,11 @@ get_release()
       else if (NF == 4) print $2, $3, "git" substr($4, 2)
     }'
 
-    echo $PKG_VERSION | awk "$AWK_RELEASE" | tr -cd '[:alnum:].'
+    release=$(echo $PKG_VERSION | awk "$AWK_RELEASE" | tr -cd '[:alnum:].')
+    if [ "x${release}" == "x" ] ; then
+       release=$(date +%H.%M%S | tr -d '\n')
+    fi
+    echo $release | tr -d '\n'
 }
 
 if test "x$1" = "x--full"; then
