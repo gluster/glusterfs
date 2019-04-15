@@ -275,6 +275,7 @@ static struct argp_option gf_options[] = {
      "attribute, dentry and page-cache. "
      "Disable this only if same files/directories are not accessed across "
      "two different mounts concurrently [default: \"on\"]"},
+    {"brick-mux", ARGP_BRICK_MUX_KEY, 0, 0, "Enable brick mux. "},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
         0,
@@ -711,7 +712,6 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
     xlator_t *master = NULL;
 
     cmd_args = &ctx->cmd_args;
-
     if (!cmd_args->mount_point) {
         gf_msg_trace("glusterfsd", 0,
                      "mount point not found, not a client process");
@@ -1099,6 +1099,10 @@ parse_opts(int key, char *arg, struct argp_state *state)
             cmd_args->thin_client = _gf_true;
             break;
 
+        case ARGP_BRICK_MUX_KEY:
+            cmd_args->brick_mux = _gf_true;
+            break;
+
         case ARGP_PID_FILE_KEY:
             cmd_args->pid_file = gf_strdup(arg);
             break;
@@ -1216,7 +1220,6 @@ parse_opts(int key, char *arg, struct argp_state *state)
         case ARGP_KEY_ARG:
             if (state->arg_num >= 1)
                 argp_usage(state);
-
             cmd_args->mount_point = gf_strdup(arg);
             break;
 
@@ -2549,6 +2552,8 @@ postfork:
         if (ret)
             goto out;
     }
+    gf_log("glusterfs", GF_LOG_INFO, "Pid of current running process is %d",
+           getpid());
     ret = gf_log_inject_timer_event(ctx);
 
     glusterfs_signals_setup(ctx);
@@ -2813,6 +2818,14 @@ main(int argc, char *argv[])
     ret = logging_init(ctx, argv[0]);
     if (ret)
         goto out;
+
+    /* set brick_mux mode only for server process */
+    if ((ctx->process_mode != GF_SERVER_PROCESS) && cmd->brick_mux) {
+        gf_msg("glusterfs", GF_LOG_CRITICAL, 0, glusterfsd_msg_40,
+               "command line argument --brick-mux is valid only for brick "
+               "process");
+        goto out;
+    }
 
     /* log the version of glusterfs running here along with the actual
        command line options. */
