@@ -26,6 +26,15 @@
 
 #define BR_STUB_REQUEST_COOKIE 0x1
 
+void
+br_stub_lock_cleaner(void *arg)
+{
+    pthread_mutex_t *clean_mutex = arg;
+
+    pthread_mutex_unlock(clean_mutex);
+    return;
+}
+
 void *
 br_stub_signth(void *);
 
@@ -166,8 +175,11 @@ init(xlator_t *this)
 
     ret = gf_thread_create(&priv->signth, NULL, br_stub_signth, this,
                            "brssign");
-    if (ret != 0)
+    if (ret != 0) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SPAWN_SIGN_THRD_FAILED,
+               "failed to create the new thread for signer");
         goto cleanup_lock;
+    }
 
     ret = br_stub_bad_object_container_init(this, priv);
     if (ret) {
@@ -214,11 +226,15 @@ reconfigure(xlator_t *this, dict_t *options)
     priv = this->private;
 
     GF_OPTION_RECONF("bitrot", priv->do_versioning, options, bool, err);
-    if (priv->do_versioning) {
+    if (priv->do_versioning && !priv->signth) {
         ret = gf_thread_create(&priv->signth, NULL, br_stub_signth, this,
                                "brssign");
-        if (ret != 0)
+        if (ret != 0) {
+            gf_msg(this->name, GF_LOG_WARNING, 0,
+                   BRS_MSG_SPAWN_SIGN_THRD_FAILED,
+                   "failed to create the new thread for signer");
             goto err;
+        }
 
         ret = br_stub_bad_object_container_init(this, priv);
         if (ret) {
@@ -232,8 +248,11 @@ reconfigure(xlator_t *this, dict_t *options)
                 gf_msg(this->name, GF_LOG_ERROR, 0,
                        BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
                        "Could not cancel sign serializer thread");
+            } else {
+                gf_msg(this->name, GF_LOG_INFO, 0, BRS_MSG_KILL_SIGN_THREAD,
+                       "killed the signer thread");
+                priv->signth = 0;
             }
-            priv->signth = 0;
         }
 
         if (priv->container.thread) {
@@ -902,6 +921,24 @@ br_stub_signth(void *arg)
 
     THIS = this;
     while (1) {
+        /*
+         * Disabling bit-rot feature leads to this particular thread
+         * getting cleaned up by reconfigure via a call to the function
+         * gf_thread_cleanup_xint (which in turn calls pthread_cancel
+         * and pthread_join). But, if this thread had held the mutex
+         * &priv->lock at the time of cancellation, then it leads to
+         * deadlock in future when bit-rot feature is enabled (which
+         * again spawns this thread which cant hold the lock as the
+         * mutex is still held by the previous instance of the thread
+         * which got killed). Also, the br_stub_handle_object_signature
+         * function which is called whenever file has to be signed
+         * also gets blocked as it too attempts to acquire &priv->lock.
+         *
+         * So, arrange for the lock to be unlocked as part of the
+         * cleanup of this thread using pthread_cleanup_push and
+         * pthread_cleanup_pop.
+         */
+        pthread_cleanup_push(br_stub_lock_cleaner, &priv->lock);
         pthread_mutex_lock(&priv->lock);
         {
             while (list_empty(&priv->squeue))
@@ -912,6 +949,7 @@ br_stub_signth(void *arg)
             list_del_init(&sigstub->list);
         }
         pthread_mutex_unlock(&priv->lock);
+        pthread_cleanup_pop(0);
 
         call_resume(sigstub->stub);
 
@@ -1042,12 +1080,22 @@ br_stub_handle_object_signature(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     priv = this->private;
 
-    if (frame->root->pid != GF_CLIENT_PID_BITD)
+    if (frame->root->pid != GF_CLIENT_PID_BITD) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno, BRS_MSG_NON_BITD_PID,
+               "PID %d from where signature request"
+               "came, does not belong to bit-rot daemon."
+               "Unwinding the fop",
+               frame->root->pid);
         goto dofop;
+    }
 
     ret = br_stub_prepare_signature(this, dict, fd->inode, sign, &fakesuccess);
-    if (ret)
+    if (ret) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SIGN_PREPARE_FAIL,
+               "failed to prepare the signature for %s. Unwinding the fop",
+               uuid_utoa(fd->inode->gfid));
         goto dofop;
+    }
     if (fakesuccess) {
         op_ret = op_errno = 0;
         goto dofop;
@@ -1387,6 +1435,8 @@ br_stub_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
     /* object signature request */
     ret = dict_get_bin(dict, GLUSTERFS_SET_OBJECT_SIGNATURE, (void **)&sign);
     if (!ret) {
+        gf_msg_debug(this->name, 0, "got SIGNATURE request on %s",
+                     uuid_utoa(fd->inode->gfid));
         br_stub_handle_object_signature(frame, this, fd, dict, sign, xdata);
         goto done;
     }
