@@ -6,6 +6,8 @@
 #include <string.h>
 #include <time.h>
 
+#define TEST_STR_LEN 2048
+
 int
 test_dirops(glfs_t *fs)
 {
@@ -32,6 +34,8 @@ int
 test_xattr(glfs_t *fs)
 {
     char *filename = "/filename2";
+    char *linkfile = "/linkfile";
+    glfs_fd_t *fd = NULL;
     char buf[512];
     char *ptr;
     int ret;
@@ -42,8 +46,41 @@ test_xattr(glfs_t *fs)
     ret = glfs_setxattr(fs, filename, "user.testkey2", "testval", 8, 0);
     fprintf(stderr, "setxattr(%s): %d (%s)\n", filename, ret, strerror(errno));
 
+    ret = glfs_getxattr(fs, filename, "user.testkey", buf, 512);
+    fprintf(stderr, "getxattr(%s): %d (%s)\n", filename, ret, strerror(errno));
+    if (ret < 0)
+        return -1;
+
     ret = glfs_listxattr(fs, filename, buf, 512);
     fprintf(stderr, "listxattr(%s): %d (%s)\n", filename, ret, strerror(errno));
+    if (ret < 0)
+        return -1;
+
+    ret = glfs_symlink(fs, "filename", linkfile);
+    fprintf(stderr, "symlink(%s %s): %s\n", filename, linkfile,
+            strerror(errno));
+    if (ret < 0)
+        return -1;
+
+    ret = glfs_readlink(fs, linkfile, buf, 512);
+    fprintf(stderr, "readlink(%s) : %d (%s)\n", filename, ret, strerror(errno));
+    if (ret < 0)
+        return -1;
+
+    ret = glfs_lsetxattr(fs, filename, "user.testkey3", "testval", 8, 0);
+    fprintf(stderr, "lsetxattr(%s) : %d (%s)\n", linkfile, ret,
+            strerror(errno));
+    if (ret < 0)
+        return -1;
+
+    ret = glfs_llistxattr(fs, linkfile, buf, 512);
+    fprintf(stderr, "llistxattr(%s): %d (%s)\n", filename, ret,
+            strerror(errno));
+    if (ret < 0)
+        return -1;
+
+    ret = glfs_lgetxattr(fs, filename, "user.testkey3", buf, 512);
+    fprintf(stderr, "lgetxattr(%s): %d (%s)\n", linkfile, ret, strerror(errno));
     if (ret < 0)
         return -1;
 
@@ -52,6 +89,36 @@ test_xattr(glfs_t *fs)
         ptr += strlen(ptr);
     }
 
+    ret = glfs_removexattr(fs, filename, "user.testkey2");
+    fprintf(stderr, "removexattr(%s): %d (%s)\n", filename, ret,
+            strerror(errno));
+
+    fd = glfs_open(fs, filename, O_RDWR);
+    fprintf(stderr, "open(%s): (%p) %s\n", filename, fd, strerror(errno));
+
+    ret = glfs_fsetxattr(fd, "user.testkey2", "testval", 8, 0);
+    fprintf(stderr, "fsetxattr(%s): %d (%s)\n", filename, ret, strerror(errno));
+
+    ret = glfs_fgetxattr(fd, "user.testkey2", buf, 512);
+    fprintf(stderr, "fgetxattr(%s): %d (%s)\n", filename, ret, strerror(errno));
+
+    ret = glfs_flistxattr(fd, buf, 512);
+    fprintf(stderr, "flistxattr(%s): %d (%s)\n", filename, ret,
+            strerror(errno));
+    if (ret < 0)
+        return -1;
+
+    for (ptr = buf; ptr < buf + ret; ptr++) {
+        printf("key=%s\n", ptr);
+        ptr += strlen(ptr);
+    }
+
+    ret = glfs_fremovexattr(fd, "user.testkey2");
+    fprintf(stderr, "fremovexattr(%s): %d (%s)\n", filename, ret,
+            strerror(errno));
+
+    glfs_close(fd);
+
     return 0;
 }
 
@@ -59,22 +126,28 @@ int
 test_chdir(glfs_t *fs)
 {
     int ret = -1;
+    char *dir = "/dir";
     char *topdir = "/topdir";
     char *linkdir = "/linkdir";
+    char *linkdir2 = "/linkdir2";
     char *subdir = "./subdir";
     char *respath = NULL;
     char pathbuf[4096];
 
     ret = glfs_mkdir(fs, topdir, 0755);
-    if (ret) {
-        fprintf(stderr, "mkdir(%s): %s\n", topdir, strerror(errno));
+    fprintf(stderr, "mkdir(%s): %s\n", topdir, strerror(errno));
+    if (ret)
         return -1;
-    }
+
+    ret = glfs_mkdir(fs, dir, 0755);
+    fprintf(stderr, "mkdir(%s): %s\n", dir, strerror(errno));
+    if (ret)
+        return -1;
 
     respath = glfs_getcwd(fs, pathbuf, 4096);
     fprintf(stdout, "getcwd() = %s\n", respath);
 
-    ret = glfs_symlink(fs, topdir, linkdir);
+    ret = glfs_symlink(fs, "topdir", linkdir);
     if (ret) {
         fprintf(stderr, "symlink(%s, %s): %s\n", topdir, linkdir,
                 strerror(errno));
@@ -234,7 +307,7 @@ test_h_unlink(void)
     }
     peek_stat(&sb);
 
-    dir = glfs_h_mkdir(fs, parent, my_dir, 0644, &sb);
+    dir = glfs_h_mkdir(fs, parent, my_dir, 0755, &sb);
     if (dir == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_dir, parent, strerror(errno));
@@ -250,7 +323,7 @@ test_h_unlink(void)
         goto out;
     }
 
-    subdir = glfs_h_mkdir(fs, dir, my_subdir, 0644, &sb);
+    subdir = glfs_h_mkdir(fs, dir, my_subdir, 0755, &sb);
     if (subdir == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_subdir, dir, strerror(errno));
@@ -374,7 +447,7 @@ test_h_getsetattrs(void)
     }
     peek_stat(&sb);
 
-    dir = glfs_h_mkdir(fs, parent, my_dir, 0644, &sb);
+    dir = glfs_h_mkdir(fs, parent, my_dir, 0755, &sb);
     if (dir == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_dir, parent, strerror(errno));
@@ -472,7 +545,7 @@ test_h_truncate(void)
     }
     peek_stat(&sb);
 
-    parent = glfs_h_mkdir(fs, root, my_dir, 0644, &sb);
+    parent = glfs_h_mkdir(fs, root, my_dir, 0755, &sb);
     if (parent == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_dir, root, strerror(errno));
@@ -611,7 +684,7 @@ test_h_links(void)
     }
     peek_stat(&sb);
 
-    parent = glfs_h_mkdir(fs, root, my_dir, 0644, &sb);
+    parent = glfs_h_mkdir(fs, root, my_dir, 0755, &sb);
     if (parent == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_dir, root, strerror(errno));
@@ -629,7 +702,7 @@ test_h_links(void)
     }
     peek_stat(&sb);
 
-    dirsrc = glfs_h_mkdir(fs, parent, linksrc_dir, 0644, &sb);
+    dirsrc = glfs_h_mkdir(fs, parent, linksrc_dir, 0755, &sb);
     if (dirsrc == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 linksrc_dir, parent, strerror(errno));
@@ -638,7 +711,7 @@ test_h_links(void)
     }
     peek_stat(&sb);
 
-    dirtgt = glfs_h_mkdir(fs, parent, linktgt_dir, 0644, &sb);
+    dirtgt = glfs_h_mkdir(fs, parent, linktgt_dir, 0755, &sb);
     if (dirtgt == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 linktgt_dir, parent, strerror(errno));
@@ -758,7 +831,7 @@ test_h_rename(void)
     }
     peek_stat(&sb);
 
-    parent = glfs_h_mkdir(fs, root, my_dir, 0644, &sb);
+    parent = glfs_h_mkdir(fs, root, my_dir, 0755, &sb);
     if (parent == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_dir, root, strerror(errno));
@@ -776,7 +849,7 @@ test_h_rename(void)
     }
     peek_stat(&sb);
 
-    dirsrc = glfs_h_mkdir(fs, parent, src_dir, 0644, &sb);
+    dirsrc = glfs_h_mkdir(fs, parent, src_dir, 0755, &sb);
     if (dirsrc == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 src_dir, parent, strerror(errno));
@@ -785,7 +858,7 @@ test_h_rename(void)
     }
     peek_stat(&sb);
 
-    dirtgt = glfs_h_mkdir(fs, parent, tgt_dir, 0644, &sb);
+    dirtgt = glfs_h_mkdir(fs, parent, tgt_dir, 0755, &sb);
     if (dirtgt == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 tgt_dir, parent, strerror(errno));
@@ -932,7 +1005,7 @@ test_h_performance(void)
         goto out;
     }
 
-    dir = glfs_h_mkdir(fs, parent, my_dir, 0644, &sb);
+    dir = glfs_h_mkdir(fs, parent, my_dir, 0755, &sb);
     if (dir == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error creating %s: from (%p),%s\n",
                 my_dir, parent, strerror(errno));
@@ -1007,7 +1080,7 @@ test_h_performance(void)
     c_ts.tv_nsec = o_ts.tv_nsec = 0;
 
     sprintf(my_file_name, "%s1", full_dir_path);
-    ret = glfs_mkdir(fs, my_file_name, 0644);
+    ret = glfs_mkdir(fs, my_file_name, 0755);
     if (ret != 0) {
         fprintf(stderr, "glfs_mkdir: error creating %s: from (%p),%s\n", my_dir,
                 parent, strerror(errno));
@@ -1097,7 +1170,7 @@ test_handleops(int argc, char *argv[])
     char *full_newnod_name = "/testdir/nod1", *newnod_name = "nod1";
 
     /* Initialize test area */
-    ret = glfs_mkdir(fs, full_parent_name, 0644);
+    ret = glfs_mkdir(fs, full_parent_name, 0755);
     if (ret != 0 && errno != EEXIST) {
         fprintf(stderr, "%s: (%p) %s\n", full_parent_name, fd, strerror(errno));
         printf("Test initialization failed on volume %s\n", argv[1]);
@@ -1398,7 +1471,7 @@ test_handleops(int argc, char *argv[])
     }
     peek_stat(&sb);
 
-    leaf = glfs_h_mkdir(fs, parent, newparent_name, 0644, &sb);
+    leaf = glfs_h_mkdir(fs, parent, newparent_name, 0755, &sb);
     if (leaf == NULL) {
         fprintf(stderr, "glfs_h_mkdir: error on mkdir of %s: from (%p),%s\n",
                 newparent_name, parent, strerror(errno));
@@ -1410,7 +1483,7 @@ test_handleops(int argc, char *argv[])
     glfs_h_close(leaf);
     leaf = NULL;
 
-    leaf = glfs_h_mkdir(fs, parent, newparent_name, 0644, &sb);
+    leaf = glfs_h_mkdir(fs, parent, newparent_name, 0755, &sb);
     if (leaf != NULL || errno != EEXIST) {
         fprintf(stderr,
                 "glfs_h_mkdir: existing directory, leaf = (%p), errno = %s\n",
@@ -1522,6 +1595,135 @@ out:
 }
 
 int
+test_write_apis(glfs_t *fs)
+{
+    /* Add more content here */
+    /* Some apis we can get are */
+    /*
+      0. glfs_set_xlator_option()
+
+      Read/Write combinations:
+      . glfs_{p,}readv/{p,}writev
+      . glfs_pread/pwrite
+
+      tests/basic/gfapi/gfapi-async-calls-test.c
+      . glfs_read_async/write_async
+      . glfs_pread_async/pwrite_async
+      . glfs_readv_async/writev_async
+      . glfs_preadv_async/pwritev_async
+
+      . ftruncate/ftruncate_async
+      . fsync/fsync_async
+      . fdatasync/fdatasync_async
+
+    */
+
+    glfs_fd_t *fd = NULL;
+    char *filename = "/filename2";
+    int flags = O_RDWR;
+    char *buf = "some bytes!";
+    char writestr[TEST_STR_LEN];
+    struct iovec iov = {&writestr, TEST_STR_LEN};
+    int ret, i;
+
+    for (i = 0; i < TEST_STR_LEN; i++)
+        writestr[i] = 0x11;
+
+    fd = glfs_open(fs, filename, flags);
+    if (!fd)
+        fprintf(stderr, "open(%s): (%p) %s\n", filename, fd, strerror(errno));
+
+    ret = glfs_writev(fd, &iov, 1, flags);
+    if (ret < 0) {
+        fprintf(stderr, "writev(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+    }
+
+    ret = glfs_pwrite(fd, buf, 10, 4, flags, NULL, NULL);
+    if (ret < 0) {
+        fprintf(stderr, "pwrite(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+    }
+
+    ret = glfs_pwritev(fd, &iov, 1, 4, flags);
+    if (ret < 0) {
+        fprintf(stderr, "pwritev(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+    }
+
+    return 0;
+}
+
+int
+test_metadata_ops(glfs_t *fs, glfs_t *fs2)
+{
+    glfs_fd_t *fd = NULL;
+    glfs_fd_t *fd2 = NULL;
+    struct stat sb = {
+        0,
+    };
+    struct glfs_stat gsb = {
+        0,
+    };
+    struct statvfs sfs;
+    char readbuf[32];
+    char writebuf[32];
+
+    char *filename = "/filename2";
+    int ret;
+
+    ret = glfs_lstat(fs, filename, &sb);
+    fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
+
+    fd = glfs_creat(fs, filename, O_RDWR, 0644);
+    fprintf(stderr, "creat(%s): (%p) %s\n", filename, fd, strerror(errno));
+
+    fd2 = glfs_open(fs2, filename, O_RDWR);
+    fprintf(stderr, "open(%s): (%p) %s\n", filename, fd, strerror(errno));
+
+    glfs_lseek(fd2, 0, SEEK_SET);
+
+    ret = glfs_read(fd2, readbuf, 32, 0);
+
+    printf("read %d, %s", ret, readbuf);
+
+    /* get stat */
+    ret = glfs_fstat(fd2, &sb);
+
+    ret = glfs_access(fs, filename, R_OK);
+
+    /* set stat */
+    /* TODO: got some errors, need to fix */
+    /* ret = glfs_fsetattr(fd2, &gsb); */
+
+    glfs_close(fd);
+    glfs_close(fd2);
+
+    filename = "/filename3";
+    ret = glfs_mknod(fs, filename, S_IFIFO, 0);
+    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
+
+    ret = glfs_lstat(fs, filename, &sb);
+    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
+
+    ret = glfs_rename(fs, filename, "/filename4");
+    fprintf(stderr, "rename(%s): (%d) %s\n", filename, ret, strerror(errno));
+
+    ret = glfs_unlink(fs, "/filename4");
+    fprintf(stderr, "unlink(%s): (%d) %s\n", "/filename4", ret,
+            strerror(errno));
+
+    filename = "/dirname2";
+    ret = glfs_mkdir(fs, filename, 0);
+    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
+
+    ret = glfs_lstat(fs, filename, &sb);
+    fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
+
+    ret = glfs_rmdir(fs, filename);
+    fprintf(stderr, "rmdir(%s): (%d) %s\n", filename, ret, strerror(errno));
+}
+int
 main(int argc, char *argv[])
 {
     glfs_t *fs2 = NULL;
@@ -1531,6 +1733,10 @@ main(int argc, char *argv[])
     struct stat sb = {
         0,
     };
+    struct glfs_stat gsb = {
+        0,
+    };
+    struct statvfs sfs;
     char readbuf[32];
     char writebuf[32];
 
@@ -1559,6 +1765,9 @@ main(int argc, char *argv[])
 
     fprintf(stderr, "glfs_init: returned %d\n", ret);
 
+    if (ret)
+        goto out;
+
     sleep(2);
 
     fs2 = glfs_new(argv[1]);
@@ -1577,50 +1786,7 @@ main(int argc, char *argv[])
 
     fprintf(stderr, "glfs_init: returned %d\n", ret);
 
-    ret = glfs_lstat(fs, filename, &sb);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
-
-    fd = glfs_creat(fs, filename, O_RDWR, 0644);
-    fprintf(stderr, "%s: (%p) %s\n", filename, fd, strerror(errno));
-
-    fd2 = glfs_open(fs2, filename, O_RDWR);
-    fprintf(stderr, "%s: (%p) %s\n", filename, fd, strerror(errno));
-
-    sprintf(writebuf, "hi there\n");
-    ret = glfs_write(fd, writebuf, 32, 0);
-
-    glfs_lseek(fd2, 0, SEEK_SET);
-
-    ret = glfs_read(fd2, readbuf, 32, 0);
-
-    printf("read %d, %s", ret, readbuf);
-
-    glfs_close(fd);
-    glfs_close(fd2);
-
-    filename = "/filename3";
-    ret = glfs_mknod(fs, filename, S_IFIFO, 0);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
-
-    ret = glfs_lstat(fs, filename, &sb);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
-
-    ret = glfs_rename(fs, filename, "/filename4");
-    fprintf(stderr, "rename(%s): (%d) %s\n", filename, ret, strerror(errno));
-
-    ret = glfs_unlink(fs, "/filename4");
-    fprintf(stderr, "unlink(%s): (%d) %s\n", "/filename4", ret,
-            strerror(errno));
-
-    filename = "/dirname2";
-    ret = glfs_mkdir(fs, filename, 0);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
-
-    ret = glfs_lstat(fs, filename, &sb);
-    fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
-
-    ret = glfs_rmdir(fs, filename);
-    fprintf(stderr, "rmdir(%s): (%d) %s\n", filename, ret, strerror(errno));
+    test_metadata_ops(fs, fs2);
 
     test_dirops(fs);
 
@@ -1631,8 +1797,15 @@ main(int argc, char *argv[])
     test_handleops(argc, argv);
     // done
 
+    /* Test some extra apis */
+    test_write_apis(fs);
+
+    glfs_statvfs(fs, "/", &sfs);
+
     glfs_fini(fs);
     glfs_fini(fs2);
 
+    ret = 0;
+out:
     return ret;
 }
