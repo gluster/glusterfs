@@ -39,20 +39,13 @@ __pl_entrylk_ref(pl_entry_lock_t *lock)
 
 static pl_entry_lock_t *
 new_entrylk_lock(pl_inode_t *pinode, const char *basename, entrylk_type type,
-                 const char *domain, call_frame_t *frame, char *conn_id,
-                 int32_t *op_errno)
+                 const char *domain, call_frame_t *frame, char *conn_id)
 {
     pl_entry_lock_t *newlock = NULL;
-
-    if (!pl_is_lk_owner_valid(&frame->root->lk_owner, frame->root->client)) {
-        *op_errno = EINVAL;
-        goto out;
-    }
 
     newlock = GF_CALLOC(1, sizeof(pl_entry_lock_t),
                         gf_locks_mt_pl_entry_lock_t);
     if (!newlock) {
-        *op_errno = ENOMEM;
         goto out;
     }
 
@@ -800,9 +793,10 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     entrylk_trace_in(this, frame, volume, fd, loc, basename, cmd, type);
 
     reqlock = new_entrylk_lock(pinode, basename, type, dom->domain, frame,
-                               conn_id, &op_errno);
+                               conn_id);
     if (!reqlock) {
         op_ret = -1;
+        op_errno = ENOMEM;
         goto unwind;
     }
 
