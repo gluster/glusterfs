@@ -139,6 +139,8 @@ sdfs_get_new_frame_common(call_frame_t *frame, call_frame_t **new_frame)
     }
 
     local->main_frame = frame;
+    /*Set unique lk-owner for the fop*/
+    set_lk_owner_from_ptr(&(*new_frame)->root->lk_owner, (*new_frame)->root);
 
     ret = 0;
 err:
@@ -868,6 +870,8 @@ sdfs_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         op_errno = ENOMEM;
         goto err;
     }
+    /*Set unique lk-owner for the fop*/
+    set_lk_owner_from_ptr(&new_frame->root->lk_owner, new_frame->root);
 
     gf_client_ref(client);
     new_frame->root->client = client;
@@ -1121,6 +1125,8 @@ sdfs_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         op_errno = ENOMEM;
         goto err;
     }
+    /*Set unique lk-owner for the fop*/
+    set_lk_owner_from_ptr(&new_frame->root->lk_owner, new_frame->root);
 
     gf_client_ref(client);
     new_frame->root->client = client;
