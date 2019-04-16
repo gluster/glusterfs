@@ -4312,9 +4312,15 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             goto out;
         }
     }
-
-    if (conf->op_version >= GD_OP_VERSION_5_0 &&
-        !dict_get_str_boolean(set_dict, "features.ctime", _gf_false)) {
+    /* a. ret will be -1 if features.ctime is not set in the volinfo->dict which
+     * means ctime should be loaded into the graph.
+     * b. ret will be 1 if features.ctime is explicitly turned on through
+     * volume set and in that case ctime should be loaded into the graph.
+     * c. ret will be 0 if features.ctime is explicitly turned off and in that
+     * case ctime shouldn't be loaded into the graph.
+     */
+    ret = dict_get_str_boolean(set_dict, "features.ctime", -1);
+    if (conf->op_version >= GD_OP_VERSION_5_0 && ret) {
         xl = volgen_graph_add(graph, "features/utime", volname);
         if (!xl) {
             ret = -1;
