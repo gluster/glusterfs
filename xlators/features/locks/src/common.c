@@ -478,7 +478,7 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
 unlock:
     UNLOCK(&inode->lock);
 
-    if (pl_is_mandatory_locking_enabled(pl_inode) &&
+    if ((pl_inode != NULL) && pl_is_mandatory_locking_enabled(pl_inode) &&
         pl_inode->check_mlock_info && local) {
         /* Note: The lock enforcement information per file can be stored in the
            attribute flag of stat(x) in posix. With that there won't be a need

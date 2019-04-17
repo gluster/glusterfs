@@ -125,6 +125,11 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
             (name && (strcmp(name, GF_ENFORCE_MANDATORY_LOCK) == 0))) {        \
             inode_t *__inode = (loc ? loc->inode : fd->inode);                 \
             pl_inode_t *__pl_inode = pl_inode_get(this, __inode, NULL);        \
+            if (__pl_inode == NULL) {                                          \
+                op_ret = -1;                                                   \
+                op_errno = ENOMEM;                                             \
+                goto unwind;                                                   \
+            }                                                                  \
             if (!pl_is_mandatory_locking_enabled(__pl_inode) ||                \
                 !priv->mlock_enforced) {                                       \
                 op_ret = -1;                                                   \
