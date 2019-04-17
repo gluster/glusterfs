@@ -2413,8 +2413,11 @@ afr_frame_create(xlator_t *this, int32_t *op_errno)
     pid_t pid = GF_CLIENT_PID_SELF_HEALD;
 
     frame = create_frame(this, this->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        if (op_errno)
+            *op_errno = ENOMEM;
         return NULL;
+    }
 
     local = AFR_FRAME_INIT(frame, (*op_errno));
     if (!local) {

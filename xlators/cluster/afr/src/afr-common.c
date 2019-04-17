@@ -1172,7 +1172,6 @@ afr_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
     inode_t *inode = NULL;
     int event_generation = 0;
     int read_subvol = -1;
-    int op_errno = ENOMEM;
     int ret = 0;
 
     local = frame->local;
@@ -1201,18 +1200,12 @@ afr_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
             goto refresh_done;
         }
 
-        heal_frame = copy_frame(frame);
+        heal_frame = afr_frame_create(this, NULL);
         if (!heal_frame) {
             err = EIO;
             goto refresh_done;
         }
-        heal_frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
-        heal_local = AFR_FRAME_INIT(heal_frame, op_errno);
-        if (!heal_local) {
-            err = EIO;
-            AFR_STACK_DESTROY(heal_frame);
-            goto refresh_done;
-        }
+        heal_local = heal_frame->local;
         heal_local->xdata_req = dict_new();
         if (!heal_local->xdata_req) {
             err = EIO;
@@ -1254,7 +1247,6 @@ afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
     gf_boolean_t start_heal = _gf_false;
     afr_local_t *heal_local = NULL;
     unsigned char *success_replies = NULL;
-    int op_errno = ENOMEM;
     int ret = 0;
 
     if (error != 0) {
@@ -1288,15 +1280,10 @@ afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
     ret = afr_replies_interpret(frame, this, local->refreshinode, &start_heal);
 
     if (ret && afr_selfheal_enabled(this) && start_heal) {
-        heal_frame = copy_frame(frame);
+        heal_frame = afr_frame_create(this, NULL);
         if (!heal_frame)
             goto refresh_done;
-        heal_frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
-        heal_local = AFR_FRAME_INIT(heal_frame, op_errno);
-        if (!heal_local) {
-            AFR_STACK_DESTROY(heal_frame);
-            goto refresh_done;
-        }
+        heal_local = heal_frame->local;
         heal_local->refreshinode = inode_ref(local->refreshinode);
         heal_local->heal_frame = heal_frame;
         if (!afr_throttled_selfheal(heal_frame, this)) {
@@ -6176,8 +6163,18 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     inode_t *inode = NULL;
     char *substr = NULL;
     char *status = NULL;
+    call_frame_t *heal_frame = NULL;
+    afr_local_t *heal_local = NULL;
 
-    ret = afr_selfheal_locked_inspect(frame, this, loc->gfid, &inode,
+    /*Use frame with lk-owner set*/
+    heal_frame = afr_frame_create(frame->this, &op_errno);
+    if (!heal_frame) {
+        ret = -1;
+        goto out;
+    }
+    heal_local = heal_frame->local;
+    heal_frame->local = frame->local;
+    ret = afr_selfheal_locked_inspect(heal_frame, this, loc->gfid, &inode,
                                       &entry_selfheal, &data_selfheal,
                                       &metadata_selfheal, &pending);
 
@@ -6264,6 +6261,10 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     op_errno = 0;
 
 out:
+    if (heal_frame) {
+        heal_frame->local = heal_local;
+        AFR_STACK_DESTROY(heal_frame);
+    }
     AFR_STACK_UNWIND(getxattr, frame, ret, op_errno, dict, NULL);
     if (dict)
         dict_unref(dict);
