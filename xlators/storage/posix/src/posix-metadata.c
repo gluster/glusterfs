@@ -429,11 +429,6 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
             }
         }
 
-        if ((flag->ctime == 0) && (flag->mtime == 0) && (flag->atime == 0)) {
-            ret = 0;
-            goto unlock;
-        }
-
         /* Earlier, mdata was updated only if the existing time is less
          * than the time to be updated. This would fail the scenarios
          * where mtime can be set to any time using the syscall. Hence
@@ -621,13 +616,9 @@ posix_set_ctime(call_frame_t *frame, xlator_t *this, const char *real_path,
 
     if (priv->ctime) {
         (void)posix_get_mdata_flag(frame->root->flags, &flag);
-        if (frame->root->ctime.tv_sec == 0) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_SETMDATA_FAILED,
-                   "posix set mdata failed, No ctime : %s gfid:%s", real_path,
-                   inode ? uuid_utoa(inode->gfid) : "No inode");
+        if ((flag.ctime == 0) && (flag.mtime == 0) && (flag.atime == 0)) {
             goto out;
         }
-
         ret = posix_set_mdata_xattr(this, real_path, fd, inode,
                                     &frame->root->ctime, stbuf, &flag,
                                     _gf_false);
@@ -656,6 +647,9 @@ posix_set_parent_ctime(call_frame_t *frame, xlator_t *this,
 
     if (inode && priv->ctime) {
         (void)posix_get_parent_mdata_flag(frame->root->flags, &flag);
+        if ((flag.ctime == 0) && (flag.mtime == 0) && (flag.atime == 0)) {
+            goto out;
+        }
         ret = posix_set_mdata_xattr(this, real_path, fd, inode,
                                     &frame->root->ctime, stbuf, &flag,
                                     _gf_false);
@@ -665,6 +659,7 @@ posix_set_parent_ctime(call_frame_t *frame, xlator_t *this,
                    uuid_utoa(inode->gfid));
         }
     }
+out:
     return;
 }
 
