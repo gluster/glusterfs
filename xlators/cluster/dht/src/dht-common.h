@@ -150,8 +150,8 @@ struct dht_rebalance_ {
     dict_t *xdata;
     dict_t *xattr;
     dict_t *dict;
-    int32_t set;
     struct gf_flock flock;
+    int32_t set;
     int lock_cmd;
 };
 
@@ -174,24 +174,24 @@ typedef enum {
 } dht_reaction_type_t;
 
 struct dht_skip_linkto_unlink {
-    gf_boolean_t handle_valid_link;
-    int opend_fd_count;
     xlator_t *hash_links_to;
     uuid_t cached_gfid;
     uuid_t hashed_gfid;
+    int opend_fd_count;
+    gf_boolean_t handle_valid_link;
 };
 
 typedef struct {
     xlator_t *xl;
     loc_t loc;      /* contains/points to inode to lock on. */
-    short type;     /* read/write lock.                     */
     char *domain;   /* Only locks within a single domain
                      * contend with each other
                      */
     char *basename; /* Required for entrylk */
-    gf_lkowner_t lk_owner;
     gf_boolean_t locked;
     dht_reaction_type_t do_on_failure;
+    short type; /* read/write lock.                     */
+    gf_lkowner_t lk_owner;
 } dht_lock_t;
 
 /* The lock structure represents inodelk. */
@@ -256,9 +256,9 @@ typedef struct {
 } tier_statvfs_t;
 
 struct dht_local {
-    int call_cnt;
     loc_t loc;
     loc_t loc2;
+    int call_cnt;
     int op_ret;
     int op_errno;
     int layout_mismatch;
@@ -288,9 +288,6 @@ struct dht_local {
     xlator_t *cached_subvol;
     xlator_t *hashed_subvol;
     xlator_t *mds_subvol; /* This is use for dir only */
-    char need_selfheal;
-    char need_xattr_heal;
-    char need_attrheal;
     int file_count;
     int dir_count;
     call_frame_t *main_frame;
@@ -308,12 +305,12 @@ struct dht_local {
         uint32_t overlaps_cnt;
         uint32_t down;
         uint32_t misc;
-        uint32_t missing_cnt;
         dht_selfheal_dir_cbk_t dir_cbk;
         dht_selfheal_layout_t healer;
         dht_need_heal_t should_heal;
-        gf_boolean_t force_mkdir;
         dht_layout_t *layout, *refreshed_layout;
+        uint32_t missing_cnt;
+        gf_boolean_t force_mkdir;
     } selfheal;
 
     dht_refresh_layout_unlock refresh_layout_unlock;
@@ -323,15 +320,17 @@ struct dht_local {
     uint32_t gid;
     pid_t pid;
 
+    glusterfs_fop_t fop;
+
+    /* need for file-info */
+    char *xattr_val;
+    char *key;
+
     /* needed by nufa */
     int32_t flags;
     mode_t mode;
     dev_t rdev;
     mode_t umask;
-
-    /* need for file-info */
-    char *xattr_val;
-    char *key;
 
     /* which xattr request? */
     char xsel[256];
@@ -341,23 +340,10 @@ struct dht_local {
     uuid_t gfid;
     uuid_t gfid_req;
 
-    /* flag used to make sure we need to return estale in
-       {lookup,revalidate}_cbk */
-    char return_estale;
-    char need_lookup_everywhere;
-
-    glusterfs_fop_t fop;
-
-    gf_boolean_t linked;
     xlator_t *link_subvol;
 
     struct dht_rebalance_ rebalance;
     xlator_t *first_up_subvol;
-
-    gf_boolean_t quota_deem_statfs;
-
-    gf_boolean_t added_link;
-    gf_boolean_t is_linkfile;
 
     struct dht_skip_linkto_unlink skip_unlink;
 
@@ -365,9 +351,6 @@ struct dht_local {
 
     /* inodelks during filerename for backward compatibility */
     dht_lock_t **rename_inodelk_backward_compatible;
-    int rename_inodelk_bc_count;
-
-    short lock_type;
 
     call_stub_t *stub;
     int32_t parent_disk_layout[4];
@@ -375,13 +358,27 @@ struct dht_local {
     /* rename rollback */
     int *ret_cache;
 
-    /* fd open check */
-    gf_boolean_t fd_checked;
+    loc_t loc2_copy;
+
+    int rename_inodelk_bc_count;
     /* This is use only for directory operation */
     int32_t valid;
-    gf_boolean_t heal_layout;
     int32_t mds_heal_fresh_lookup;
-    loc_t loc2_copy;
+    short lock_type;
+    char need_selfheal;
+    char need_xattr_heal;
+    char need_attrheal;
+    /* flag used to make sure we need to return estale in
+       {lookup,revalidate}_cbk */
+    char return_estale;
+    char need_lookup_everywhere;
+    /* fd open check */
+    gf_boolean_t fd_checked;
+    gf_boolean_t linked;
+    gf_boolean_t added_link;
+    gf_boolean_t is_linkfile;
+    gf_boolean_t quota_deem_statfs;
+    gf_boolean_t heal_layout;
     gf_boolean_t locked;
     gf_boolean_t dont_create_linkto;
     gf_boolean_t gfid_missing;
@@ -493,11 +490,11 @@ typedef struct gf_tier_conf {
     unsigned long block_size;
     fsblkcnt_t blocks_total;
     fsblkcnt_t blocks_used;
-    int percent_full;
     uint64_t max_migrate_bytes;
     int max_migrate_files;
     int query_limit;
     tier_mode_t mode;
+    int percent_full;
     /* These flags are only used for tier-compact */
     gf_boolean_t compact_active;
     /* These 3 flags are set to true when the client changes the */
@@ -520,7 +517,6 @@ typedef struct gf_tier_conf {
     int tier_compact_cold_frequency;
     uint64_t st_last_promoted_size;
     uint64_t st_last_demoted_size;
-    tier_pause_state_t pause_state;
     struct synctask *pause_synctask;
     gf_timer_t *pause_timer;
     pthread_mutex_t pause_mutex;
@@ -532,6 +528,7 @@ typedef struct gf_tier_conf {
      * in the last cycle of promote or demote */
     int32_t last_promote_qfile_index;
     int32_t last_demote_qfile_index;
+    tier_pause_state_t pause_state;
     char volname[GD_VOLUME_NAME_MAX + 1];
 } gf_tier_conf_t;
 
@@ -554,18 +551,17 @@ struct gf_defrag_info_ {
     uint64_t num_dirs_processed;
     uint64_t size_processed;
     gf_lock_t lock;
-    int cmd;
     pthread_t th;
-    gf_defrag_status_t defrag_status;
     struct rpc_clnt *rpc;
     uint32_t connected;
     uint32_t is_exiting;
     pid_t pid;
+    int cmd;
     inode_t *root_inode;
     uuid_t node_uuid;
     struct timeval start_time;
-    gf_boolean_t stats;
     uint32_t new_commit_hash;
+    gf_defrag_status_t defrag_status;
     gf_defrag_pattern_list_t *defrag_pattern;
     gf_tier_conf_t tier_conf;
 
@@ -588,18 +584,20 @@ struct gf_defrag_info_ {
     /*Throttle params*/
     /*stands for reconfigured thread count*/
     int32_t recon_thread_count;
-    /*stands for current running thread count*/
-    int32_t current_thread_count;
     pthread_cond_t df_wakeup_thread;
-
-    /* lock migration flag */
-    gf_boolean_t lock_migration_enabled;
 
     /* backpointer to make it easier to write functions for rebalance */
     xlator_t *this;
 
     pthread_cond_t fc_wakeup_cond;
     pthread_mutex_t fc_mutex;
+
+    /*stands for current running thread count*/
+    int32_t current_thread_count;
+
+    gf_boolean_t stats;
+    /* lock migration flag */
+    gf_boolean_t lock_migration_enabled;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -615,35 +613,25 @@ struct dht_methods_s {
 typedef struct dht_methods_s dht_methods_t;
 
 struct dht_conf {
-    gf_lock_t subvolume_lock;
-    int subvolume_cnt;
     xlator_t **subvolumes;
     char *subvolume_status;
     int *last_event;
     dht_layout_t **file_layouts;
     dht_layout_t **dir_layouts;
     unsigned int search_unhashed;
-    gf_boolean_t lookup_optimize;
     int gen;
     dht_du_t *du_stats;
     double min_free_disk;
     double min_free_inodes;
-    char disk_unit;
+    int subvolume_cnt;
     int32_t refresh_interval;
-    gf_boolean_t unhashed_sticky_bit;
+    gf_lock_t subvolume_lock;
     struct timeval last_stat_fetch;
     gf_lock_t layout_lock;
     dict_t *leaf_to_subvol;
     void *private; /* Can be used by wrapper xlators over
                       dht */
-    gf_boolean_t use_readdirp;
-    char vol_uuid[UUID_SIZE + 1];
-    gf_boolean_t assert_no_child_down;
     time_t *subvol_up_time;
-
-    /* This is the count used as the distribute layout for a directory */
-    /* Will be a global flag to control the layout spread count */
-    uint32_t dir_spread_cnt;
 
     /* to keep track of nodes which are decommissioned */
     xlator_t **decommissioned_bricks;
@@ -653,15 +641,9 @@ struct dht_conf {
     /* defrag related */
     gf_defrag_info_t *defrag;
 
-    /* Request to filter directory entries in readdir request */
-
-    gf_boolean_t readdir_optimize;
-
     /* Support regex-based name reinterpretation. */
     regex_t rsync_regex;
-    gf_boolean_t rsync_regex_valid;
     regex_t extra_regex;
-    gf_boolean_t extra_regex_valid;
 
     /* Support variable xattr names. */
     char *xattr_name;
@@ -669,11 +651,6 @@ struct dht_conf {
     char *link_xattr_name;
     char *commithash_xattr_name;
     char *wild_xattr_name;
-
-    /* Support size-weighted rebalancing (heterogeneous bricks). */
-    gf_boolean_t do_weighting;
-    gf_boolean_t randomize_by_gfid;
-    int dthrottle;
 
     dht_methods_t methods;
 
@@ -684,24 +661,55 @@ struct dht_conf {
     subvol_nodeuuids_info_t *local_nodeuuids;
     int32_t local_subvols_cnt;
 
+    int dthrottle;
+
+    /* Hard link handle requirement for migration triggered from client*/
+    synclock_t link_lock;
+
+    /* lock migration */
+    gf_lock_t lock;
+
+    /* This is the count used as the distribute layout for a directory */
+    /* Will be a global flag to control the layout spread count */
+    uint32_t dir_spread_cnt;
+
     /*
      * "Commit hash" for this volume topology.  Changed whenever bricks
      * are added or removed.
      */
     uint32_t vol_commit_hash;
-    gf_boolean_t vch_forced;
 
-    /* lock migration */
+    char vol_uuid[UUID_SIZE + 1];
+
+    char disk_unit;
 
     gf_boolean_t lock_migration_enabled;
-    gf_lock_t lock;
 
-    /* Hard link handle requirement for migration triggered from client*/
-    synclock_t link_lock;
+    gf_boolean_t vch_forced;
 
     gf_boolean_t use_fallocate;
 
     gf_boolean_t force_migration;
+
+    gf_boolean_t lookup_optimize;
+
+    gf_boolean_t unhashed_sticky_bit;
+
+    gf_boolean_t assert_no_child_down;
+
+    gf_boolean_t use_readdirp;
+
+    /* Request to filter directory entries in readdir request */
+    gf_boolean_t readdir_optimize;
+
+    gf_boolean_t rsync_regex_valid;
+
+    gf_boolean_t extra_regex_valid;
+
+    /* Support size-weighted rebalancing (heterogeneous bricks). */
+    gf_boolean_t do_weighting;
+
+    gf_boolean_t randomize_by_gfid;
 };
 typedef struct dht_conf dht_conf_t;
 
