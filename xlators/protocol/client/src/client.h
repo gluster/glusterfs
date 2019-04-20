@@ -36,9 +36,6 @@ typedef enum {
     FALLBACK_TO_ANON_FD = 1
 } clnt_remote_fd_flags_t;
 
-#define CPD_REQ_FIELD(v, f) (v)->compound_req_u.compound_##f##_req
-#define CPD_RSP_FIELD(v, f) (v)->compound_rsp_u.compound_##f##_rsp
-
 #define CLIENT_POST_FOP(fop, this_rsp_u, this_args_cbk, params...)             \
     do {                                                                       \
         gf_common_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp_u, fop);            \
@@ -59,43 +56,6 @@ typedef enum {
         _op_ret = _this_rsp->op_ret;                                           \
         _op_errno = gf_error_to_errno(_this_rsp->op_errno);                    \
         args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
-    } while (0)
-
-#define CLIENT_PRE_FOP(fop, xl, compound_req, op_errno, label, params...)      \
-    do {                                                                       \
-        gfs3_##fop##_req *_req = (gfs3_##fop##_req *)compound_req;             \
-        int _ret = 0;                                                          \
-                                                                               \
-        _ret = client_pre_##fop(xl, _req, params);                             \
-        if (_ret < 0) {                                                        \
-            op_errno = -ret;                                                   \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
-
-#define CLIENT_COMPOUND_FOP_CLEANUP(curr_req, fop)                             \
-    do {                                                                       \
-        gfs3_##fop##_req *_req = &CPD_REQ_FIELD(curr_req, fop);                \
-                                                                               \
-        GF_FREE(_req->xdata.xdata_val);                                        \
-    } while (0)
-
-#define CLIENT_COMMON_RSP_CLEANUP(rsp, fop, i)                                 \
-    do {                                                                       \
-        compound_rsp *this_rsp = NULL;                                         \
-        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];         \
-        gf_common_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp, fop);              \
-                                                                               \
-        free(_this_rsp->xdata.xdata_val);                                      \
-    } while (0)
-
-#define CLIENT_FOP_RSP_CLEANUP(rsp, fop, i)                                    \
-    do {                                                                       \
-        compound_rsp *this_rsp = NULL;                                         \
-        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];         \
-        gfs3_##fop##_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp, fop);           \
-                                                                               \
-        free(_this_rsp->xdata.xdata_val);                                      \
     } while (0)
 
 #define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, label)        \
@@ -124,52 +84,6 @@ typedef enum {
         frame->local = NULL;                                                   \
         STACK_UNWIND_STRICT(op, frame, params);                                \
         client_local_wipe(__local);                                            \
-    } while (0)
-
-/* compound v2 */
-#define CPD4_REQ_FIELD(v, f) ((v)->compound_req_v2_u.compound_##f##_req)
-#define CPD4_RSP_FIELD(v, f) ((v)->compound_rsp_v2_u.compound_##f##_rsp)
-
-#define CLIENT4_POST_FOP(fop, this_rsp_u, this_args_cbk, params...)            \
-    do {                                                                       \
-        gfx_common_rsp *_this_rsp = &CPD4_RSP_FIELD(this_rsp_u, fop);          \
-        int _op_ret = 0;                                                       \
-        int _op_errno = 0;                                                     \
-                                                                               \
-        _op_ret = _this_rsp->op_ret;                                           \
-        _op_errno = gf_error_to_errno(_this_rsp->op_errno);                    \
-        args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
-    } while (0)
-
-#define CLIENT4_POST_FOP_TYPE(fop, rsp_type, this_rsp_u, this_args_cbk,        \
-                              params...)                                       \
-    do {                                                                       \
-        gfx_##rsp_type##_rsp *_this_rsp = &CPD4_RSP_FIELD(this_rsp_u, fop);    \
-        int _op_ret = 0;                                                       \
-        int _op_errno = 0;                                                     \
-                                                                               \
-        _op_ret = _this_rsp->op_ret;                                           \
-        _op_errno = gf_error_to_errno(_this_rsp->op_errno);                    \
-        args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
-    } while (0)
-
-#define CLIENT4_PRE_FOP(fop, xl, compound_req, op_errno, label, params...)     \
-    do {                                                                       \
-        gfx_##fop##_req *_req = (gfx_##fop##_req *)compound_req;               \
-        int _ret = 0;                                                          \
-                                                                               \
-        _ret = client_pre_##fop##_v2(xl, _req, params);                        \
-        if (_ret < 0) {                                                        \
-            op_errno = -ret;                                                   \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
-
-#define CLIENT4_COMPOUND_FOP_CLEANUP(curr_req, fop)                            \
-    do {                                                                       \
-        gfx_##fop##_req *_req = &CPD4_REQ_FIELD(curr_req, fop);                \
-                                                                               \
-        GF_FREE(_req->xdata.pairs.pairs_val);                                  \
     } while (0)
 
 struct clnt_options {
@@ -292,11 +206,6 @@ typedef struct client_local {
      * only for copy_file_range fop
      */
     gf_boolean_t attempt_reopen_out;
-    /* required for compound fops */
-    compound_args_t *compound_args;
-    unsigned int length; /* length of a compound fop */
-    unsigned int
-        read_length; /* defines the last processed length for a compound read */
 } clnt_local_t;
 
 typedef struct client_args {
@@ -379,15 +288,6 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
                       client_payload_t *cp, xdrproc_t xdrproc);
 
 int
-client_submit_compound_request(xlator_t *this, void *req, call_frame_t *frame,
-                               rpc_clnt_prog_t *prog, int procnum,
-                               fop_cbk_fn_t cbkfn, struct iovec *req_vector,
-                               int req_count, struct iobref *iobref,
-                               struct iovec *rsphdr, int rsphdr_count,
-                               struct iovec *rsp_payload, int rsp_payload_count,
-                               struct iobref *rsp_iobref, xdrproc_t xdrproc);
-
-int
 unserialize_rsp_dirent(xlator_t *this, struct gfs3_readdir_rsp *rsp,
                        gf_dirent_t *entries);
 int
@@ -449,19 +349,6 @@ int
 client_add_fd_to_saved_fds(xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
                            int64_t remote_fd, int is_dir);
 int
-client_handle_fop_requirements(
-    xlator_t *this, call_frame_t *frame, gfs3_compound_req *req,
-    clnt_local_t *local, struct iobref **req_iobref, struct iobref **rsp_iobref,
-    struct iovec *req_vector, struct iovec *rsp_vector, int *req_count,
-    int *rsp_count, default_args_t *args, int fop_enum, int index);
-int
-client_process_response(call_frame_t *frame, xlator_t *this,
-                        struct rpc_req *req, gfs3_compound_rsp *rsp,
-                        compound_args_cbk_t *args_cbk, int index);
-void
-compound_request_cleanup(gfs3_compound_req *req);
-
-int
 clnt_unserialize_rsp_locklist(xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
                               lock_migration_info_t *lmi);
 void
@@ -473,9 +360,6 @@ clnt_setactivelk_req_cleanup(gfs3_setactivelk_req *req);
 int
 serialize_req_locklist(lock_migration_info_t *locklist,
                        gfs3_setactivelk_req *req);
-
-void
-client_compound_rsp_cleanup(gfs3_compound_rsp *rsp, int len);
 
 void
 clnt_getactivelk_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp);
@@ -503,20 +387,5 @@ int
 clnt_readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp);
 int
 clnt_readdirp_rsp_cleanup_v2(gfx_readdirp_rsp *rsp);
-
-int
-client_handle_fop_requirements_v2(
-    xlator_t *this, call_frame_t *frame, gfx_compound_req *req,
-    clnt_local_t *local, struct iobref **req_iobref, struct iobref **rsp_iobref,
-    struct iovec *req_vector, struct iovec *rsp_vector, int *req_count,
-    int *rsp_count, default_args_t *args, int fop_enum, int index);
-int
-client_process_response_v2(call_frame_t *frame, xlator_t *this,
-                           struct rpc_req *req, gfx_compound_rsp *rsp,
-                           compound_args_cbk_t *args_cbk, int index);
-void
-compound_request_cleanup_v2(gfx_compound_req *req);
-void
-client_compound_rsp_cleanup_v2(gfx_compound_rsp *rsp, int len);
 
 #endif /* !_CLIENT_H */

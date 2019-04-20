@@ -21,7 +21,6 @@
 #include <glusterfs/default-args.h>
 #include "server-common.h"
 #include <glusterfs/xlator.h>
-#include <glusterfs/compound-fop-utils.h>
 
 #include "xdr-nfs3.h"
 
@@ -2261,83 +2260,6 @@ out:
     return 0;
 }
 
-int
-server_compound_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, void *data, dict_t *xdata)
-{
-    struct gfs3_compound_rsp rsp = {
-        0,
-    };
-    server_state_t *state = NULL;
-    rpcsvc_request_t *req = NULL;
-    compound_args_cbk_t *args_cbk = data;
-    int i = 0;
-
-    req = frame->local;
-    state = CALL_STATE(frame);
-
-    GF_PROTOCOL_DICT_SERIALIZE(this, xdata, (&rsp.xdata.xdata_val),
-                               rsp.xdata.xdata_len, op_errno, out);
-
-    if (op_ret) {
-        gf_msg(this->name, fop_log_level(GF_FOP_COMPOUND, op_errno), op_errno,
-               PS_MSG_COMPOUND_INFO,
-               "%" PRId64 ": COMPOUND%" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
-    }
-
-    /* TODO: I assume a single 10MB payload is large, if not, we need to
-       agree to valid payload */
-    if (!args_cbk) {
-        op_ret = -1;
-        goto out;
-    }
-
-    if ((args_cbk->fop_length <= 0) ||
-        ((args_cbk->fop_length > (10 * 1024 * 1024)))) {
-        op_ret = -1;
-        op_errno = EINVAL;
-        goto out;
-    }
-
-    rsp.compound_rsp_array.compound_rsp_array_val = GF_CALLOC(
-        args_cbk->fop_length, sizeof(compound_rsp),
-        gf_server_mt_compound_rsp_t);
-
-    if (!rsp.compound_rsp_array.compound_rsp_array_val) {
-        op_ret = -1;
-        op_errno = ENOMEM;
-        goto out;
-    }
-    rsp.compound_rsp_array.compound_rsp_array_len = args_cbk->fop_length;
-
-    for (i = 0; i < args_cbk->fop_length; i++) {
-        op_ret = server_populate_compound_response(this, &rsp, frame, args_cbk,
-                                                   i);
-
-        if (op_ret) {
-            op_errno = op_ret;
-            op_ret = -1;
-            goto out;
-        }
-    }
-out:
-    rsp.op_ret = op_ret;
-    rsp.op_errno = gf_errno_to_error(op_errno);
-
-    server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
-                        (xdrproc_t)xdr_gfs3_compound_rsp);
-    if (args_cbk)
-        server_compound_rsp_cleanup(&rsp, args_cbk);
-    GF_FREE(rsp.xdata.xdata_val);
-
-    return 0;
-}
-
 /* Resume function section */
 
 int
@@ -3456,60 +3378,6 @@ err:
     server_setactivelk_cbk(frame, NULL, frame->this, state->resolve.op_ret,
                            state->resolve.op_errno, NULL);
     return 0;
-}
-
-int
-server_compound_resume(call_frame_t *frame, xlator_t *bound_xl)
-{
-    server_state_t *state = NULL;
-    gfs3_compound_req *req = NULL;
-    compound_args_t *args = NULL;
-    int i = 0;
-    int ret = -1;
-    int length = 0;
-    int op_errno = ENOMEM;
-    compound_req *c_req = NULL;
-
-    state = CALL_STATE(frame);
-
-    if (state->resolve.op_ret != 0) {
-        ret = state->resolve.op_ret;
-        op_errno = state->resolve.op_errno;
-        goto err;
-    }
-
-    req = &state->req;
-
-    length = req->compound_req_array.compound_req_array_len;
-    state->args = compound_fop_alloc(length, req->compound_fop_enum,
-                                     state->xdata);
-    args = state->args;
-
-    if (!args)
-        goto err;
-
-    for (i = 0; i < length; i++) {
-        c_req = &req->compound_req_array.compound_req_array_val[i];
-        args->enum_list[i] = c_req->fop_enum;
-
-        ret = server_populate_compound_request(req, frame, &args->req_list[i],
-                                               i);
-
-        if (ret) {
-            op_errno = ret;
-            ret = -1;
-            goto err;
-        }
-    }
-
-    STACK_WIND(frame, server_compound_cbk, bound_xl, bound_xl->fops->compound,
-               args, state->xdata);
-
-    return 0;
-err:
-    server_compound_cbk(frame, NULL, frame->this, ret, op_errno, NULL, NULL);
-
-    return ret;
 }
 
 /* Fop section */
@@ -6094,64 +5962,8 @@ out:
 int
 server3_3_compound(rpcsvc_request_t *req)
 {
-    server_state_t *state = NULL;
-    call_frame_t *frame = NULL;
-    gfs3_compound_req args = {
-        0,
-    };
-    ssize_t len = 0;
-    int length = 0;
-    int i = 0;
     int ret = -1;
-    int op_errno = 0;
-
-    if (!req)
-        return ret;
-
-    ret = rpc_receive_common(req, &frame, &state, &len, &args,
-                             xdr_gfs3_compound_req, GF_FOP_COMPOUND);
-    if (ret != 0) {
-        goto out;
-    }
-
-    state->req = args;
-    state->iobref = iobref_ref(req->iobref);
-
-    if (len < req->msg[0].iov_len) {
-        state->payload_vector[0].iov_base = (req->msg[0].iov_base + len);
-        state->payload_vector[0].iov_len = req->msg[0].iov_len - len;
-        state->payload_count = 1;
-    }
-
-    for (i = 1; i < req->count; i++) {
-        state->payload_vector[state->payload_count++] = req->msg[i];
-    }
-
-    state->size = iov_length(state->payload_vector, state->payload_count);
-
-    ret = server_get_compound_resolve(state, &args);
-
-    if (ret) {
-        SERVER_REQ_SET_ERROR(req, ret);
-        goto out;
-    }
-
-    GF_PROTOCOL_DICT_UNSERIALIZE(frame->root->client->bound_xl, state->xdata,
-                                 args.xdata.xdata_val, args.xdata.xdata_len,
-                                 ret, op_errno, out);
-
-    ret = 0;
-    resolve_and_resume(frame, server_compound_resume);
-out:
-    free(args.xdata.xdata_val);
-
-    length = args.compound_req_array.compound_req_array_len;
-    server_compound_req_cleanup(&args, length);
-    free(args.compound_req_array.compound_req_array_val);
-
-    if (op_errno)
-        SERVER_REQ_SET_ERROR(req, ret);
-
+    SERVER_REQ_SET_ERROR(req, ret);
     return ret;
 }
 

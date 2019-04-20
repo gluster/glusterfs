@@ -16,7 +16,6 @@
 #include "client-messages.h"
 #include <glusterfs/defaults.h>
 #include "client-common.h"
-#include <glusterfs/compound-fop-utils.h>
 
 int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data);
@@ -3050,84 +3049,6 @@ out:
     return 0;
 }
 
-int
-client3_3_compound_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                       void *myframe)
-{
-    gfs3_compound_rsp rsp = {
-        0,
-    };
-    compound_args_cbk_t *args_cbk = NULL;
-    call_frame_t *frame = NULL;
-    xlator_t *this = NULL;
-    dict_t *xdata = NULL;
-    clnt_local_t *local = NULL;
-    int i = 0;
-    int length = 0;
-    int ret = -1;
-
-    this = THIS;
-
-    frame = myframe;
-    local = frame->local;
-
-    if (-1 == req->rpc_status) {
-        rsp.op_ret = -1;
-        rsp.op_errno = ENOTCONN;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfs3_compound_rsp);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    length = local->length;
-
-    GF_PROTOCOL_DICT_UNSERIALIZE(this, xdata, (rsp.xdata.xdata_val),
-                                 (rsp.xdata.xdata_len), rsp.op_ret,
-                                 rsp.op_errno, out);
-
-    args_cbk = compound_args_cbk_alloc(length, xdata);
-    if (!args_cbk) {
-        rsp.op_ret = -1;
-        rsp.op_errno = ENOMEM;
-        goto out;
-    }
-
-    /* TODO: see https://bugzilla.redhat.com/show_bug.cgi?id=1376328 */
-    for (i = 0; i < args_cbk->fop_length; i++) {
-        ret = client_process_response(frame, this, req, &rsp, args_cbk, i);
-        if (ret) {
-            rsp.op_ret = -1;
-            rsp.op_errno = -ret;
-            goto out;
-        }
-    }
-    rsp.op_ret = 0;
-out:
-    if (rsp.op_ret == -1) {
-        gf_msg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
-               PC_MSG_REMOTE_OP_FAILED, "remote operation failed");
-    }
-    CLIENT_STACK_UNWIND(compound, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), args_cbk, xdata);
-
-    free(rsp.xdata.xdata_val);
-    client_compound_rsp_cleanup(&rsp, length);
-    free(rsp.compound_rsp_array.compound_rsp_array_val);
-
-    if (xdata)
-        dict_unref(xdata);
-
-    compound_args_cbk_cleanup(args_cbk);
-    return 0;
-}
-
 int32_t
 client3_3_releasedir(call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -5952,143 +5873,6 @@ unwind:
     return 0;
 }
 
-/* Brief explanation of gfs3_compound_req structure :
- * 1) It consists of version of compounding.
- * 2) A compound-fop enum, new enum for compound fops
- * 3) A 'compound_req_arrray' structure that has
- *      a) array len - based on the number of fops compounded
- *      b) compound_req_array_val - pointer to an array of compound_req's
- * 4) compound_req - structure that contains:
- *      a) fop enum of type glusterfs_fop_t
- *      b) union of structures of xdr requests of all fops.
- */
-
-int32_t
-client3_3_compound(call_frame_t *frame, xlator_t *this, void *data)
-{
-    clnt_conf_t *conf = NULL;
-    compound_args_t *c_args = data;
-    gfs3_compound_req req = {
-        0,
-    };
-    clnt_local_t *local = NULL;
-    int op_errno = ENOMEM;
-    int ret = 0;
-    int i = 0;
-    int rsp_count = 0;
-    struct iovec rsp_vector[MAX_IOVEC] = {
-        {0},
-    };
-    struct iovec req_vector[MAX_IOVEC] = {
-        {0},
-    };
-    struct iovec vector[MAX_IOVEC] = {
-        {0},
-    };
-    struct iovec *rsphdr = NULL;
-    struct iobref *req_iobref = NULL;
-    struct iobref *rsp_iobref = NULL;
-    struct iobref *rsphdr_iobref = NULL;
-    struct iobuf *rsphdr_iobuf = NULL;
-    int rsphdr_count = 0;
-    int req_count = 0;
-    dict_t *xdata = c_args->xdata;
-
-    GF_ASSERT(frame);
-
-    if (!this)
-        goto unwind;
-
-    memset(req_vector, 0, sizeof(req_vector));
-    memset(rsp_vector, 0, sizeof(rsp_vector));
-
-    conf = this->private;
-
-    local = mem_get0(this->local_pool);
-    if (!local) {
-        op_errno = ENOMEM;
-        goto unwind;
-    }
-    frame->local = local;
-
-    local->length = c_args->fop_length;
-    local->compound_args = c_args;
-
-    rsphdr_iobref = iobref_new();
-    if (rsphdr_iobref == NULL) {
-        goto unwind;
-    }
-
-    /* TODO: what is the size we should send ? */
-    rsphdr_iobuf = iobuf_get(this->ctx->iobuf_pool);
-    if (rsphdr_iobuf == NULL) {
-        goto unwind;
-    }
-
-    rsphdr = &vector[0];
-    rsphdr->iov_base = iobuf_ptr(rsphdr_iobuf);
-    rsphdr->iov_len = iobuf_pagesize(rsphdr_iobuf);
-    rsphdr_count = 1;
-    iobref_add(rsphdr_iobref, rsphdr_iobuf);
-    iobuf_unref(rsphdr_iobuf);
-    rsphdr_iobuf = NULL;
-
-    req.compound_fop_enum = c_args->fop_enum;
-    req.compound_req_array.compound_req_array_len = c_args->fop_length;
-    req.compound_version = 0;
-    if (xdata) {
-        GF_PROTOCOL_DICT_SERIALIZE(this, xdata, (&req.xdata.xdata_val),
-                                   req.xdata.xdata_len, op_errno, unwind);
-    }
-
-    req.compound_req_array.compound_req_array_val = GF_CALLOC(
-        local->length, sizeof(compound_req), gf_client_mt_compound_req_t);
-
-    if (!req.compound_req_array.compound_req_array_val) {
-        op_errno = ENOMEM;
-        goto unwind;
-    }
-
-    for (i = 0; i < local->length; i++) {
-        ret = client_handle_fop_requirements(
-            this, frame, &req, local, &req_iobref, &rsp_iobref, req_vector,
-            rsp_vector, &req_count, &rsp_count, &c_args->req_list[i],
-            c_args->enum_list[i], i);
-        if (ret) {
-            op_errno = ret;
-            goto unwind;
-        }
-    }
-
-    local->iobref = rsp_iobref;
-    rsp_iobref = NULL;
-
-    ret = client_submit_compound_request(
-        this, &req, frame, conf->fops, GFS3_OP_COMPOUND, client3_3_compound_cbk,
-        req_vector, req_count, req_iobref, rsphdr, rsphdr_count, rsp_vector,
-        rsp_count, local->iobref, (xdrproc_t)xdr_gfs3_compound_req);
-
-    GF_FREE(req.xdata.xdata_val);
-
-    iobref_unref(rsphdr_iobref);
-
-    compound_request_cleanup(&req);
-    return 0;
-unwind:
-    CLIENT_STACK_UNWIND(compound, frame, -1, op_errno, NULL, NULL);
-
-    if (rsp_iobref)
-        iobref_unref(rsp_iobref);
-
-    if (rsphdr_iobref)
-        iobref_unref(rsphdr_iobref);
-
-    GF_FREE(req.xdata.xdata_val);
-
-    compound_request_cleanup(&req);
-    return 0;
-}
-
 static int32_t
 client3_3_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -6259,7 +6043,7 @@ rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
     [GF_FOP_LEASE] = {"LEASE", client3_3_lease},
     [GF_FOP_GETACTIVELK] = {"GETACTIVELK", client3_3_getactivelk},
     [GF_FOP_SETACTIVELK] = {"SETACTIVELK", client3_3_setactivelk},
-    [GF_FOP_COMPOUND] = {"COMPOUND", client3_3_compound},
+    [GF_FOP_COMPOUND] = {"COMPOUND", NULL},
 };
 
 /* Used From RPC-CLNT library to log proper name of procedure based on number */
