@@ -217,7 +217,7 @@ out:
     return ret;
 }
 
-void
+static void
 set_error_str(char *errstr, size_t len, volume_option_t *opt, const char *key,
               const char *value)
 {
@@ -239,18 +239,15 @@ set_error_str(char *errstr, size_t len, volume_option_t *opt, const char *key,
     return;
 }
 
-int
+static int
 is_all_whitespaces(const char *value)
 {
     int i = 0;
-    size_t len = 0;
 
     if (value == NULL)
         return -1;
 
-    len = strlen(value);
-
-    for (i = 0; i < len; i++) {
+    for (i = 0; value[i] != '\0'; i++) {
         if (value[i] == ' ')
             continue;
         else
@@ -266,9 +263,6 @@ xlator_option_validate_str(xlator_t *xl, const char *key, const char *value,
 {
     int ret = -1;
     int i = 0;
-    char errstr[4096] = {
-        0,
-    };
 
     /* Check if the '*str' is valid */
     if (GF_OPTION_LIST_EMPTY(opt)) {
@@ -308,6 +302,7 @@ xlator_option_validate_str(xlator_t *xl, const char *key, const char *value,
 
 out:
     if (ret) {
+        char errstr[4096];
         set_error_str(errstr, sizeof(errstr), opt, key, value);
 
         gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
@@ -580,9 +575,6 @@ xlator_option_validate_addr_list(xlator_t *xl, const char *key,
     char *addr_list = NULL;
     char *addr = NULL;
     char *dir = NULL;
-    char errstr[4096] = {
-        0,
-    };
 
     dup_val = gf_strdup(value);
     if (!dup_val)
@@ -643,6 +635,7 @@ xlator_option_validate_addr_list(xlator_t *xl, const char *key,
 
 out:
     if (ret) {
+        char errstr[4096];
         snprintf(errstr, sizeof(errstr),
                  "option %s %s: '%s' is not "
                  "a valid internet-address-list",
@@ -665,9 +658,6 @@ xlator_option_validate_mntauth(xlator_t *xl, const char *key, const char *value,
     char *dup_val = NULL;
     char *addr_tok = NULL;
     char *save_ptr = NULL;
-    char errstr[4096] = {
-        0,
-    };
 
     dup_val = gf_strdup(value);
     if (!dup_val)
@@ -686,6 +676,7 @@ xlator_option_validate_mntauth(xlator_t *xl, const char *key, const char *value,
 
 out:
     if (ret) {
+        char errstr[4096];
         snprintf(errstr, sizeof(errstr),
                  "option %s %s: '%s' is not "
                  "a valid mount-auth-address",
@@ -759,7 +750,7 @@ validate_list_elements(const char *string, volume_option_t *opt,
             gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
                    "invalid list '%s', key "
                    "'%s' not valid.",
-                   string, key);
+                   string, key ? key : "");
             goto out;
         }
 
@@ -891,7 +882,6 @@ xlator_volume_option_get_list(volume_opt_list_t *vol_list, const char *key)
 {
     volume_option_t *opt = NULL;
     volume_opt_list_t *opt_list = NULL;
-    volume_option_t *found = NULL;
     int index = 0;
     int i = 0;
     char *cmp_key = NULL;
@@ -908,13 +898,12 @@ xlator_volume_option_get_list(volume_opt_list_t *vol_list, const char *key)
             if (!cmp_key)
                 break;
             if (fnmatch(cmp_key, key, FNM_NOESCAPE) == 0) {
-                found = &opt[index];
-                goto out;
+                return &opt[index];
             }
         }
     }
-out:
-    return found;
+
+    return NULL;
 }
 
 volume_option_t *

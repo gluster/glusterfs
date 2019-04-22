@@ -264,7 +264,7 @@ DECLARE_INIT_OPT(uint32_t, time);
 
 #define DECLARE_RECONF_OPT(type_t, type)                                       \
     int xlator_option_reconf_##type(xlator_t *this, dict_t *options,           \
-                                    char *key, type_t *val_p);
+                                    char *key, int keylen, type_t *val_p);
 
 DECLARE_RECONF_OPT(char *, str);
 DECLARE_RECONF_OPT(uint64_t, uint64);
@@ -283,56 +283,44 @@ DECLARE_RECONF_OPT(uint32_t, time);
 
 #define DEFINE_RECONF_OPT(type_t, type, conv)                                  \
     int xlator_option_reconf_##type(xlator_t *this, dict_t *options,           \
-                                    char *key, type_t *val_p)                  \
+                                    char *key, int keylen, type_t *val_p)      \
     {                                                                          \
         int ret = 0;                                                           \
-        volume_option_t *opt = NULL;                                           \
-        char *def_value = NULL;                                                \
-        char *set_value = NULL;                                                \
         char *value = NULL;                                                    \
         xlator_t *old_THIS = NULL;                                             \
                                                                                \
-        opt = xlator_volume_option_get(this, key);                             \
+        volume_option_t *opt = xlator_volume_option_get(this, key);            \
         if (!opt) {                                                            \
             gf_msg(this->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ENTRY,   \
                    "unknown option: %s", key);                                 \
-            ret = -1;                                                          \
-            return ret;                                                        \
+            return -1;                                                         \
         }                                                                      \
-        def_value = opt->default_value;                                        \
-        ret = dict_get_str(options, key, &set_value);                          \
-                                                                               \
-        if (def_value)                                                         \
-            value = def_value;                                                 \
-        if (set_value)                                                         \
-            value = set_value;                                                 \
-        if (!value) {                                                          \
+        ret = dict_get_strn(options, key, keylen, &value);                     \
+        if (ret == 0 && value) {                                               \
+            gf_msg(this->name, GF_LOG_INFO, 0, 0,                              \
+                   "option %s using set value %s", key, value);                \
+        } else if (opt->default_value) {                                       \
+            value = opt->default_value;                                        \
+            gf_msg_trace(this->name, 0, "option %s using default value %s",    \
+                         key, value);                                          \
+        } else {                                                               \
             gf_msg_trace(this->name, 0, "option %s not set", key);             \
             *val_p = (type_t)0;                                                \
             return 0;                                                          \
         }                                                                      \
-        if (value == def_value) {                                              \
-            gf_msg_trace(this->name, 0, "option %s using default value %s",    \
-                         key, value);                                          \
-        } else {                                                               \
-            gf_msg(this->name, GF_LOG_INFO, 0, 0,                              \
-                   "option %s using set value %s", key, value);                \
-        }                                                                      \
+                                                                               \
         old_THIS = THIS;                                                       \
         THIS = this;                                                           \
         ret = conv(value, val_p);                                              \
         THIS = old_THIS;                                                       \
         if (ret)                                                               \
             return ret;                                                        \
-        ret = xlator_option_validate(this, key, value, opt, NULL);             \
-        return ret;                                                            \
+        return xlator_option_validate(this, key, value, opt, NULL);            \
     }
 
 #define GF_OPTION_RECONF(key, val, opt, type, err_label)                       \
     do {                                                                       \
-        int val_ret = 0;                                                       \
-        val_ret = xlator_option_reconf_##type(THIS, opt, key, &(val));         \
-        if (val_ret)                                                           \
+        if (xlator_option_reconf_##type(THIS, opt, key, SLEN(key), &(val)))    \
             goto err_label;                                                    \
     } while (0)
 
