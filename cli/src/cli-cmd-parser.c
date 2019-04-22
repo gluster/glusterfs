@@ -392,11 +392,6 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                 ret = 2;
             }
             break;
-        case GF_CLUSTER_TYPE_TIER:
-            cli_err(
-                "tier-dispersed volume is not "
-                "supported");
-            goto out;
         case GF_CLUSTER_TYPE_REPLICATE:
             cli_err(
                 "replicated-dispersed volume is not "
@@ -542,12 +537,6 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                 case GF_CLUSTER_TYPE_STRIPE:
                     cli_err("stripe option not supported");
                     goto out;
-                case GF_CLUSTER_TYPE_TIER:
-                    cli_err(
-                        "replicated-tiered volume is not "
-                        "supported");
-                    goto out;
-                    break;
                 case GF_CLUSTER_TYPE_DISPERSE:
                     cli_err(
                         "replicated-dispersed volume is not "
@@ -1858,146 +1847,6 @@ out:
 
     if (ret) {
         gf_log("cli", GF_LOG_ERROR, "Unable to parse add-brick CLI");
-        if (dict)
-            dict_unref(dict);
-    }
-
-    return ret;
-}
-
-int32_t
-cli_cmd_volume_tier_parse(const char **words, int wordcount, dict_t **options)
-{
-    dict_t *dict = NULL;
-    char *volname = NULL;
-    int ret = -1;
-    int32_t command = GF_DEFRAG_CMD_NONE;
-    int32_t is_force = 0;
-
-    GF_ASSERT(words);
-    GF_ASSERT(options);
-
-    dict = dict_new();
-
-    if (!dict)
-        goto out;
-
-    if (!(wordcount == 4 || wordcount == 5)) {
-        gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
-        ret = -1;
-        goto out;
-    }
-
-    volname = (char *)words[2];
-
-    GF_ASSERT(volname);
-
-    ret = cli_cmd_validate_volume(volname);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to validate volume name");
-        goto out;
-    }
-
-    ret = dict_set_str(dict, "volname", volname);
-
-    if (ret)
-        goto out;
-
-    volname = (char *)words[2];
-    if (wordcount == 4) {
-        if (!strcmp(words[3], "status"))
-            command = GF_DEFRAG_CMD_STATUS_TIER;
-        else if (!strcmp(words[3], "start"))
-            command = GF_DEFRAG_CMD_START_TIER;
-        else if (!strcmp(words[3], "stop"))
-            command = GF_DEFRAG_CMD_STOP_TIER;
-        else {
-            ret = -1;
-            goto out;
-        }
-    } else if (wordcount == 5) {
-        if ((!strcmp(words[3], "start")) && (!strcmp(words[4], "force"))) {
-            command = GF_DEFRAG_CMD_START_TIER;
-            is_force = 1;
-            ret = dict_set_int32(dict, "force", is_force);
-            if (ret)
-                goto out;
-        } else {
-            ret = -1;
-            goto out;
-        }
-    }
-
-    ret = dict_set_int32(dict, "rebalance-command", command);
-    if (ret)
-        goto out;
-
-    *options = dict;
-out:
-
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR, "Unable to parse tier CLI");
-        if (dict)
-            dict_unref(dict);
-    }
-
-    return ret;
-}
-
-int32_t
-cli_cmd_volume_detach_tier_parse(const char **words, int wordcount,
-                                 dict_t **options, int *question)
-{
-    int ret = -1;
-    char *word = NULL;
-    dict_t *dict = NULL;
-    int32_t command = GF_DEFRAG_CMD_NONE;
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    ret = dict_set_str(dict, "volname", (char *)words[2]);
-    if (ret)
-        goto out;
-
-    if (wordcount == 3 && !strcmp((char *)words[2], "help")) {
-        return -1;
-    }
-
-    if (wordcount != 4) {
-        ret = -1;
-        goto out;
-    }
-
-    word = (char *)words[3];
-
-    ret = -1;
-
-    if (!strcmp(word, "start")) {
-        command = GF_DEFRAG_CMD_DETACH_START;
-    } else if (!strcmp(word, "commit")) {
-        *question = 1;
-        command = GF_DEFRAG_CMD_DETACH_COMMIT;
-    } else if (!strcmp(word, "force")) {
-        *question = 1;
-        command = GF_DEFRAG_CMD_DETACH_COMMIT_FORCE;
-    } else if (!strcmp(word, "stop"))
-        command = GF_DEFRAG_CMD_DETACH_STOP;
-    else if (!strcmp(word, "status"))
-        command = GF_DEFRAG_CMD_DETACH_STATUS;
-    else
-        goto out;
-
-    ret = dict_set_int32(dict, "command", command);
-    if (ret)
-        goto out;
-
-    *options = dict;
-    ret = 0;
-out:
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR, "Unable to parse detach tier CLI");
         if (dict)
             dict_unref(dict);
     }
@@ -3455,8 +3304,6 @@ cli_cmd_volume_status_parse(const char **words, int wordcount, dict_t **options)
                         cmd |= GF_CLI_STATUS_QUOTAD;
                     } else if (!strcmp(words[3], "snapd")) {
                         cmd |= GF_CLI_STATUS_SNAPD;
-                    } else if (!strcmp(words[3], "tierd")) {
-                        cmd |= GF_CLI_STATUS_TIERD;
                     } else if (!strcmp(words[3], "bitd")) {
                         cmd |= GF_CLI_STATUS_BITD;
                     } else if (!strcmp(words[3], "scrub")) {
@@ -3532,16 +3379,6 @@ cli_cmd_volume_status_parse(const char **words, int wordcount, dict_t **options)
                     goto out;
                 }
                 cmd |= GF_CLI_STATUS_SNAPD;
-            } else if (!strcmp(words[3], "tierd")) {
-                if (cmd == GF_CLI_STATUS_FD || cmd == GF_CLI_STATUS_CLIENTS ||
-                    cmd == GF_CLI_STATUS_DETAIL || cmd == GF_CLI_STATUS_INODE) {
-                    cli_err(
-                        "Detail/FD/Clients/Inode status not "
-                        "available for tier daemon");
-                    ret = -1;
-                    goto out;
-                }
-                cmd |= GF_CLI_STATUS_TIERD;
             } else {
                 if (cmd == GF_CLI_STATUS_TASKS) {
                     cli_err(
@@ -4062,55 +3899,6 @@ out:
         dict_unref(dict);
         *options = NULL;
     }
-
-    return ret;
-}
-
-int
-cli_cmd_volume_old_tier_parse(const char **words, int wordcount,
-                              dict_t **options)
-{
-    dict_t *dict = NULL;
-    int ret = -1;
-    char *volname = NULL;
-    gf_cli_defrag_type cmd = 0;
-
-    GF_ASSERT(words);
-    GF_ASSERT(options);
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    if (wordcount != 4)
-        goto out;
-
-    if ((strcmp(words[1], "tier") == 0) && (strcmp(words[3], "start") == 0)) {
-        cmd = GF_DEFRAG_CMD_START_TIER;
-    } else
-        goto out;
-
-    volname = (char *)words[2];
-
-    ret = dict_set_str(dict, "volname", volname);
-
-    if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR, "failed to set dict");
-        goto out;
-    }
-
-    ret = dict_set_int32(dict, "rebalance-command", (int32_t)cmd);
-
-    if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR, "failed to set dict");
-        goto out;
-    }
-
-    *options = dict;
-
-out:
-    if (ret && dict)
-        dict_unref(dict);
 
     return ret;
 }

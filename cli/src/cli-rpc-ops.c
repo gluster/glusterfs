@@ -685,7 +685,7 @@ gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
                               int disperse_count, int redundancy_count,
                               int arbiter_count)
 {
-    if (type == GF_CLUSTER_TYPE_NONE || type == GF_CLUSTER_TYPE_TIER) {
+    if (type == GF_CLUSTER_TYPE_NONE) {
         cli_out("Number of Bricks: %d", brick_count);
     } else if (type == GF_CLUSTER_TYPE_DISPERSE) {
         cli_out("Number of Bricks: %d x (%d + %d) = %d",
@@ -703,107 +703,6 @@ gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
                     arbiter_count, brick_count);
         }
     }
-}
-
-int
-gf_cli_print_tier_info(dict_t *dict, int i, int brick_count)
-{
-    int hot_brick_count = -1;
-    int cold_type = 0;
-    int cold_brick_count = 0;
-    int cold_replica_count = 0;
-    int cold_arbiter_count = 0;
-    int cold_disperse_count = 0;
-    int cold_redundancy_count = 0;
-    int cold_dist_count = 0;
-    int hot_type = 0;
-    int hot_replica_count = 0;
-    int hot_dist_count = 0;
-    int ret = -1;
-    int vol_type = -1;
-    char key[256] = {
-        0,
-    };
-
-    GF_ASSERT(dict);
-
-    snprintf(key, sizeof(key), "volume%d.cold_brick_count", i);
-    ret = dict_get_int32(dict, key, &cold_brick_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.cold_type", i);
-    ret = dict_get_int32(dict, key, &cold_type);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.cold_dist_count", i);
-    ret = dict_get_int32(dict, key, &cold_dist_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.cold_replica_count", i);
-    ret = dict_get_int32(dict, key, &cold_replica_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.cold_arbiter_count", i);
-    ret = dict_get_int32(dict, key, &cold_arbiter_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.cold_disperse_count", i);
-    ret = dict_get_int32(dict, key, &cold_disperse_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.cold_redundancy_count", i);
-    ret = dict_get_int32(dict, key, &cold_redundancy_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.hot_brick_count", i);
-    ret = dict_get_int32(dict, key, &hot_brick_count);
-    if (ret)
-        goto out;
-
-    snprintf(key, sizeof(key), "volume%d.hot_type", i);
-    ret = dict_get_int32(dict, key, &hot_type);
-    if (ret)
-        goto out;
-    snprintf(key, sizeof(key), "volume%d.hot_replica_count", i);
-    ret = dict_get_int32(dict, key, &hot_replica_count);
-    if (ret)
-        goto out;
-
-    cli_out("Hot Tier :");
-    hot_dist_count = (hot_replica_count ? hot_replica_count : 1);
-
-    vol_type = get_vol_type(hot_type, hot_dist_count, hot_brick_count);
-    cli_out("Hot Tier Type : %s", vol_type_str[vol_type]);
-
-    gf_cli_print_number_of_bricks(hot_type, hot_brick_count, hot_dist_count, 0,
-                                  hot_replica_count, 0, 0, 0);
-
-    ret = print_brick_details(dict, i, 1, hot_brick_count, hot_replica_count);
-    if (ret)
-        goto out;
-
-    cli_out("Cold Tier:");
-
-    vol_type = get_vol_type(cold_type, cold_dist_count, cold_brick_count);
-    cli_out("Cold Tier Type : %s", vol_type_str[vol_type]);
-
-    gf_cli_print_number_of_bricks(cold_type, cold_brick_count, cold_dist_count,
-                                  0, cold_replica_count, cold_disperse_count,
-                                  cold_redundancy_count, cold_arbiter_count);
-
-    ret = print_brick_details(dict, i, hot_brick_count + 1, brick_count,
-                              cold_replica_count);
-    if (ret)
-        goto out;
-out:
-    return ret;
 }
 
 int
@@ -1025,17 +924,10 @@ xml_output:
         GF_FREE(local->get_vol.volname);
         local->get_vol.volname = gf_strdup(volname);
 
-        if (type == GF_CLUSTER_TYPE_TIER) {
-            ret = gf_cli_print_tier_info(dict, i, brick_count);
-            if (ret)
-                goto out;
-
-        } else {
-            cli_out("Bricks:");
-            ret = print_brick_details(dict, i, j, brick_count, replica_count);
-            if (ret)
-                goto out;
-        }
+        cli_out("Bricks:");
+        ret = print_brick_details(dict, i, j, brick_count, replica_count);
+        if (ret)
+            goto out;
 
         snprintf(key, 256, "volume%d.opt_count", i);
         ret = dict_get_int32(dict, key, &opt_count);
@@ -1527,8 +1419,7 @@ out:
 }
 
 int
-gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type,
-                              gf_boolean_t is_tier)
+gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
 {
     int ret = -1;
     int count = 0;
@@ -1549,7 +1440,6 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type,
     int32_t hrs = 0;
     uint32_t min = 0;
     uint32_t sec = 0;
-    gf_boolean_t down = _gf_false;
     gf_boolean_t fix_layout = _gf_false;
     uint64_t max_time = 0;
     uint64_t max_elapsed = 0;
@@ -1616,7 +1506,6 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type,
             gf_log("cli", GF_LOG_ERROR,
                    "node down and has failed"
                    " to set dict");
-            down = _gf_true;
             continue;
             /* skip this node if value not available*/
         } else if (ret) {
@@ -1717,12 +1606,6 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type,
         }
         GF_FREE(size_str);
     }
-    if (is_tier && down)
-        cli_out(
-            "WARNING: glusterd might be down on one or more nodes."
-            " Please check the nodes that are down using \'gluster"
-            " peer status\' and start the glusterd on those nodes,"
-            " else tier detach commit might fail!");
 
     /* Max time will be non-zero if rebalance is still running */
     if (max_time) {
@@ -1759,112 +1642,6 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type,
                 "try again later.");
         }
     }
-out:
-    return ret;
-}
-
-int
-gf_cli_print_tier_status(dict_t *dict, enum gf_task_types task_type)
-{
-    int ret = -1;
-    int count = 0;
-    int i = 1;
-    uint64_t promoted = 0;
-    uint64_t demoted = 0;
-    char key[256] = {
-        0,
-    };
-    char *node_name = NULL;
-    gf_defrag_status_t status_rcd = GF_DEFRAG_STATUS_NOT_STARTED;
-    char *status_str = NULL;
-    gf_boolean_t down = _gf_false;
-    double elapsed = 0;
-    int hrs = 0;
-    int min = 0;
-    int sec = 0;
-
-    ret = dict_get_int32(dict, "count", &count);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR, "count not set");
-        goto out;
-    }
-
-    cli_out("%-20s %-20s %-20s %-20s %-20s", "Node", "Promoted files",
-            "Demoted files", "Status", "run time in h:m:s");
-    cli_out("%-20s %-20s %-20s %-20s %-20s", "---------", "---------",
-            "---------", "---------", "---------");
-
-    for (i = 1; i <= count; i++) {
-        /* Reset the variables to prevent carryover of values */
-        node_name = NULL;
-        promoted = 0;
-        demoted = 0;
-
-        /* Check if status is NOT_STARTED, and continue early */
-        snprintf(key, sizeof(key), "status-%d", i);
-
-        ret = dict_get_int32(dict, key, (int32_t *)&status_rcd);
-        if (ret == -ENOENT) {
-            gf_log("cli", GF_LOG_TRACE,
-                   "count: %d, %d,"
-                   "failed to get status",
-                   count, i);
-            gf_log("cli", GF_LOG_ERROR,
-                   "node down and has failed"
-                   " to set dict");
-            down = _gf_true;
-            continue;
-            /*skipping this node as value unavailable*/
-        } else if (ret) {
-            gf_log("cli", GF_LOG_TRACE,
-                   "count: %d, %d,"
-                   "failed to get status",
-                   count, i);
-            continue;
-        }
-
-        if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
-            continue;
-
-        snprintf(key, sizeof(key), "node-name-%d", i);
-        ret = dict_get_str(dict, key, &node_name);
-        if (ret)
-            gf_log("cli", GF_LOG_TRACE, "failed to get node-name");
-
-        snprintf(key, sizeof(key), "promoted-%d", i);
-        ret = dict_get_uint64(dict, key, &promoted);
-        if (ret)
-            gf_log("cli", GF_LOG_TRACE, "failed to get promoted count");
-
-        snprintf(key, sizeof(key), "demoted-%d", i);
-        ret = dict_get_uint64(dict, key, &demoted);
-        if (ret)
-            gf_log("cli", GF_LOG_TRACE, "failed to get demoted count");
-
-        snprintf(key, sizeof(key), "run-time-%d", i);
-        ret = dict_get_double(dict, key, &elapsed);
-        if (ret)
-            gf_log("cli", GF_LOG_TRACE, "failed to get run-time");
-
-        /* Check for array bound */
-        if (status_rcd >= GF_DEFRAG_STATUS_MAX)
-            status_rcd = GF_DEFRAG_STATUS_MAX;
-
-        hrs = elapsed / 3600;
-        min = ((int)elapsed % 3600) / 60;
-        sec = ((int)elapsed % 3600) % 60;
-
-        status_str = cli_vol_task_status_str[status_rcd];
-        cli_out("%-20s %-20" PRIu64 " %-20" PRIu64
-                " %-20s"
-                " %d:%d:%d",
-                node_name, promoted, demoted, status_str, hrs, min, sec);
-    }
-    if (down)
-        cli_out(
-            "WARNING: glusterd might be down on one or more nodes."
-            " Please check the nodes that are down using \'gluster"
-            " peer status\' and start the glusterd on those nodes.");
 out:
     return ret;
 }
@@ -1931,8 +1708,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS) ||
-          (cmd == GF_DEFRAG_CMD_STATUS_TIER)) &&
+    if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS)) &&
         !(global_state->mode & GLUSTER_MODE_XML)) {
         ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
         if (ret) {
@@ -1947,26 +1723,13 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                  * case since unlock failures can be highlighted
                  * event though rebalance command was successful
                  */
-                if (cmd == GF_DEFRAG_CMD_START_TIER) {
-                    snprintf(msg, sizeof(msg),
-                             "Tier "
-                             "start is successful on %s.",
-                             volname);
-                } else if (cmd == GF_DEFRAG_CMD_STOP_TIER) {
-                    snprintf(msg, sizeof(msg),
-                             "Tier "
-                             "daemon stopped "
-                             "on %s.",
-                             volname);
-                } else {
-                    snprintf(msg, sizeof(msg),
-                             "Rebalance on %s has been "
-                             "started successfully. Use "
-                             "rebalance status command to"
-                             " check status of the "
-                             "rebalance process.\nID: %s",
-                             volname, task_id_str);
-                }
+                snprintf(msg, sizeof(msg),
+                         "Rebalance on %s has been "
+                         "started successfully. Use "
+                         "rebalance status command to"
+                         " check status of the "
+                         "rebalance process.\nID: %s",
+                         volname, task_id_str);
             } else {
                 snprintf(msg, sizeof(msg),
                          "Starting rebalance on volume %s has "
@@ -1999,7 +1762,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                      rsp.op_errstr);
         }
     }
-    if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STATUS_TIER) {
+    if (cmd == GF_DEFRAG_CMD_STATUS) {
         if (rsp.op_ret == -1) {
             if (strcmp(rsp.op_errstr, ""))
                 snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
@@ -2019,15 +1782,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (cmd == GF_DEFRAG_CMD_STATUS_TIER)
-        ret = gf_cli_print_tier_status(dict, GF_TASK_TYPE_REBALANCE);
-    else if (cmd == GF_DEFRAG_CMD_DETACH_STATUS)
-        ret = gf_cli_print_rebalance_status(dict, GF_TASK_TYPE_REBALANCE,
-                                            _gf_true);
-    else
-        ret = gf_cli_print_rebalance_status(dict, GF_TASK_TYPE_REBALANCE,
-                                            _gf_false);
-
+    ret = gf_cli_print_rebalance_status(dict, GF_TASK_TYPE_REBALANCE);
     if (ret)
         gf_log("cli", GF_LOG_ERROR, "Failed to print rebalance status");
 
@@ -2037,23 +1792,9 @@ done:
                            rsp.op_errstr);
     else {
         if (rsp.op_ret)
-
-            if (cmd == GF_DEFRAG_CMD_START_TIER ||
-                cmd == GF_DEFRAG_CMD_STATUS_TIER) {
-                cli_err(
-                    "Tiering Migration Functionality: %s:"
-                    " failed%s%s",
-                    volname, strlen(msg) ? ": " : "", msg);
-            } else
-                cli_err("volume rebalance: %s: failed%s%s", volname,
-                        strlen(msg) ? ": " : "", msg);
-        else if (cmd == GF_DEFRAG_CMD_START_TIER ||
-                 cmd == GF_DEFRAG_CMD_STATUS_TIER) {
-            cli_out(
-                "Tiering Migration Functionality: %s:"
-                " success%s%s",
-                volname, strlen(msg) ? ": " : "", msg);
-        } else
+            cli_err("volume rebalance: %s: failed%s%s", volname,
+                    strlen(msg) ? ": " : "", msg);
+        else
             cli_out("volume rebalance: %s: success%s%s", volname,
                     strlen(msg) ? ": " : "", msg);
     }
@@ -2317,408 +2058,6 @@ out:
 }
 
 int
-gf_cli_add_tier_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                          void *myframe)
-{
-    gf_cli_rsp rsp = {
-        0,
-    };
-    int ret = -1;
-    char msg[1024] = {
-        0,
-    };
-
-    GF_VALIDATE_OR_GOTO("cli", myframe, out);
-
-    if (-1 == req->rpc_status) {
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-    if (ret < 0) {
-        gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
-               "Failed to decode xdr response");
-        goto out;
-    }
-
-    gf_log("cli", GF_LOG_INFO, "Received resp to attach tier");
-
-    if (rsp.op_ret && strcmp(rsp.op_errstr, ""))
-        snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
-    else
-        snprintf(msg, sizeof(msg), "Attach tier %s",
-                 (rsp.op_ret) ? "unsuccessful" : "successful");
-
-    if (global_state->mode & GLUSTER_MODE_XML) {
-        ret = cli_xml_output_str("volAttachTier", msg, rsp.op_ret, rsp.op_errno,
-                                 rsp.op_errstr);
-        if (ret)
-            gf_log("cli", GF_LOG_ERROR, "Error outputting to xml");
-        goto out;
-    }
-
-    if (rsp.op_ret)
-        cli_err("volume attach-tier: failed: %s", msg);
-    else
-        cli_out("volume attach-tier: success");
-    ret = rsp.op_ret;
-
-out:
-    cli_cmd_broadcast_response(ret);
-    gf_free_xdr_cli_rsp(rsp);
-    return ret;
-}
-
-int
-gf_cli_attach_tier_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                       void *myframe)
-{
-    gf_cli_rsp rsp = {
-        0,
-    };
-    int ret = -1;
-    char msg[1024] = {
-        0,
-    };
-
-    GF_VALIDATE_OR_GOTO("cli", myframe, out);
-
-    if (-1 == req->rpc_status) {
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-    if (ret < 0) {
-        gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
-               "Failed to decode xdr response");
-        goto out;
-    }
-
-    gf_log("cli", GF_LOG_INFO, "Received resp to attach tier");
-
-    if (rsp.op_ret && strcmp(rsp.op_errstr, ""))
-        snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
-    else
-        snprintf(msg, sizeof(msg), "Attach tier %s",
-                 (rsp.op_ret) ? "unsuccessful" : "successful");
-
-    if (global_state->mode & GLUSTER_MODE_XML) {
-        ret = cli_xml_output_str("volAttachTier", msg, rsp.op_ret, rsp.op_errno,
-                                 rsp.op_errstr);
-        if (ret)
-            gf_log("cli", GF_LOG_ERROR, "Error outputting to xml");
-        goto out;
-    }
-
-    if (rsp.op_ret)
-        cli_err("volume attach-tier: failed: %s", msg);
-    else
-        cli_out("volume attach-tier: success");
-    ret = rsp.op_ret;
-
-out:
-    cli_cmd_broadcast_response(ret);
-    gf_free_xdr_cli_rsp(rsp);
-    return ret;
-}
-
-int
-gf_cli_remove_tier_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                             void *myframe)
-{
-    gf_cli_rsp rsp = {
-        0,
-    };
-    int ret = -1;
-    char msg[1024] = {
-        0,
-    };
-    char *cmd_str = "unknown";
-    cli_local_t *local = NULL;
-    call_frame_t *frame = NULL;
-    char *task_id_str = NULL;
-    dict_t *rsp_dict = NULL;
-    int32_t command = 0;
-
-    GF_ASSERT(myframe);
-
-    if (-1 == req->rpc_status) {
-        goto out;
-    }
-
-    frame = myframe;
-
-    GF_ASSERT(frame->local);
-
-    local = frame->local;
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-    if (ret < 0) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "Failed to decode xdr response");
-        goto out;
-    }
-
-    ret = dict_get_int32(local->dict, "command", &command);
-    if (ret) {
-        gf_log("", GF_LOG_ERROR, "failed to get command");
-        goto out;
-    }
-
-    if (rsp.dict.dict_len) {
-        rsp_dict = dict_new();
-        if (!rsp_dict) {
-            ret = -1;
-            goto out;
-        }
-
-        ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len, &rsp_dict);
-        if (ret) {
-            gf_log("cli", GF_LOG_ERROR, "Failed to unserialize rsp_dict");
-            goto out;
-        }
-    }
-
-    switch (command) {
-        case GF_DEFRAG_CMD_DETACH_START:
-            cmd_str = "start";
-
-            ret = dict_get_str(rsp_dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
-            if (ret) {
-                gf_log("cli", GF_LOG_ERROR,
-                       "remove-brick-id is not present in dict");
-            }
-            break;
-        case GF_DEFRAG_CMD_DETACH_COMMIT:
-            cmd_str = "commit";
-            break;
-        case GF_DEFRAG_CMD_DETACH_COMMIT_FORCE:
-            cmd_str = "commit force";
-            break;
-        case GF_DEFRAG_CMD_DETACH_STOP:
-            cmd_str = "stop";
-            break;
-        case GF_DEFRAG_CMD_DETACH_STATUS:
-            cmd_str = "status";
-            break;
-
-        default:
-            cmd_str = "unknown";
-            break;
-    }
-
-    gf_log("cli", GF_LOG_INFO, "Received resp to detach tier");
-
-    if (rsp.op_ret && strcmp(rsp.op_errstr, ""))
-        snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
-    else
-        snprintf(msg, sizeof(msg), "Detach tier %s %s", cmd_str,
-                 (rsp.op_ret) ? "unsuccessful" : "successful");
-
-    ret = rsp.op_ret;
-    if (global_state->mode & GLUSTER_MODE_XML) {
-        ret = cli_xml_output_vol_remove_brick_detach_tier(
-            _gf_true, rsp_dict, rsp.op_ret, rsp.op_errno, msg, "volDetachTier");
-
-        if (ret)
-            gf_log("cli", GF_LOG_ERROR, "Error outputting to xml");
-        goto out;
-    } else {
-        if (rsp.op_ret) {
-            if (strcmp(rsp.op_errstr, ""))
-                snprintf(msg, sizeof(msg),
-                         "volume tier "
-                         "detach %s: failed: %s",
-                         cmd_str, rsp.op_errstr);
-            else
-                snprintf(msg, sizeof(msg),
-                         "volume tier "
-                         "detach %s: failed",
-                         cmd_str);
-
-            cli_err("%s", msg);
-            goto out;
-
-        } else {
-            cli_out("volume detach tier %s: success", cmd_str);
-            if (GF_DEFRAG_CMD_DETACH_START == command && task_id_str != NULL)
-                cli_out("ID: %s", task_id_str);
-            if (GF_DEFRAG_CMD_DETACH_COMMIT == command)
-                cli_out(
-                    "Check the detached bricks to ensure "
-                    "all files are migrated.\nIf files "
-                    "with data are found on the brick "
-                    "path, copy them via a gluster mount "
-                    "point before re-purposing the "
-                    "removed brick. ");
-        }
-    }
-    if (command == GF_DEFRAG_CMD_DETACH_STOP ||
-        command == GF_DEFRAG_CMD_DETACH_STATUS)
-        ret = gf_cli_print_rebalance_status(rsp_dict, GF_TASK_TYPE_REMOVE_BRICK,
-                                            _gf_true);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR,
-               "Failed to print remove-brick "
-               "rebalance status");
-        goto out;
-    }
-
-    if ((command == GF_DEFRAG_CMD_DETACH_STOP) && (rsp.op_ret == 0)) {
-        cli_out(
-            "'detach tier' process may be in the middle of a "
-            "file migration.\nThe process will be fully stopped "
-            "once the migration of the file is complete.\nPlease "
-            "check detach tier process for completion before "
-            "doing any further brick related tasks on the "
-            "volume.");
-    }
-    ret = rsp.op_ret;
-
-out:
-    cli_cmd_broadcast_response(ret);
-    gf_free_xdr_cli_rsp(rsp);
-
-    if (rsp_dict)
-        dict_unref(rsp_dict);
-    return ret;
-}
-
-int
-gf_cli_detach_tier_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                              void *myframe)
-{
-    gf_cli_rsp rsp = {
-        0,
-    };
-    int ret = -1;
-    dict_t *dict = NULL;
-    char msg[1024] = {
-        0,
-    };
-    int32_t command = 0;
-    gf1_op_commands cmd = GF_OP_CMD_NONE;
-    cli_local_t *local = NULL;
-    call_frame_t *frame = NULL;
-    char *cmd_str = "unknown";
-
-    GF_ASSERT(myframe);
-
-    if (-1 == req->rpc_status) {
-        goto out;
-    }
-
-    frame = myframe;
-
-    GF_ASSERT(frame->local);
-
-    local = frame->local;
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-    if (ret < 0) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "Failed to decode xdr response");
-        goto out;
-    }
-
-    ret = dict_get_int32(local->dict, "command", &command);
-    if (ret)
-        goto out;
-
-    cmd = command;
-
-    switch (cmd) {
-        case GF_OP_CMD_STOP_DETACH_TIER:
-            cmd_str = "stop";
-            break;
-        case GF_OP_CMD_STATUS:
-            cmd_str = "status";
-            break;
-        default:
-            break;
-    }
-
-    ret = rsp.op_ret;
-    if (rsp.op_ret == -1) {
-        if (strcmp(rsp.op_errstr, ""))
-            snprintf(msg, sizeof(msg),
-                     "volume tier detach %s: "
-                     "failed: %s",
-                     cmd_str, rsp.op_errstr);
-        else
-            snprintf(msg, sizeof(msg),
-                     "volume tier detach %s: "
-                     "failed",
-                     cmd_str);
-
-        if (global_state->mode & GLUSTER_MODE_XML)
-            goto xml_output;
-
-        cli_err("%s", msg);
-        goto out;
-    }
-
-    if (rsp.dict.dict_len) {
-        /* Unserialize the dictionary */
-        dict = dict_new();
-
-        ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len, &dict);
-        if (ret < 0) {
-            strncpy(msg,
-                    "failed to unserialize req-buffer to "
-                    "dictionary",
-                    sizeof(msg));
-
-            if (global_state->mode & GLUSTER_MODE_XML) {
-                rsp.op_ret = -1;
-                goto xml_output;
-            }
-
-            gf_log("cli", GF_LOG_ERROR, "%s", msg);
-            goto out;
-        }
-    }
-xml_output:
-    if (global_state->mode & GLUSTER_MODE_XML) {
-        if (strcmp(rsp.op_errstr, "")) {
-            ret = cli_xml_output_vol_remove_brick_detach_tier(
-                _gf_true, dict, rsp.op_ret, rsp.op_errno, rsp.op_errstr,
-                "volDetachTier");
-        } else {
-            ret = cli_xml_output_vol_remove_brick_detach_tier(
-                _gf_true, dict, rsp.op_ret, rsp.op_errno, msg, "volDetachTier");
-        }
-        goto out;
-    }
-
-    ret = gf_cli_print_rebalance_status(dict, GF_TASK_TYPE_REMOVE_BRICK,
-                                        _gf_true);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR,
-               "Failed to print remove-brick "
-               "rebalance status");
-        goto out;
-    }
-
-    if ((cmd == GF_OP_CMD_STOP_DETACH_TIER) && (rsp.op_ret == 0)) {
-        cli_out(
-            "'detach tier' process may be in the middle of a "
-            "file migration.\nThe process will be fully stopped "
-            "once the migration of the file is complete.\nPlease "
-            "check detach tier process for completion before "
-            "doing any further brick related tasks on the "
-            "volume.");
-    }
-
-out:
-    if (dict)
-        dict_unref(dict);
-    cli_cmd_broadcast_response(ret);
-    gf_free_xdr_cli_rsp(rsp);
-    return ret;
-}
-
-int
 gf_cli_add_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
@@ -2869,19 +2208,18 @@ gf_cli3_remove_brick_status_cbk(struct rpc_req *req, struct iovec *iov,
 xml_output:
     if (global_state->mode & GLUSTER_MODE_XML) {
         if (strcmp(rsp.op_errstr, "")) {
-            ret = cli_xml_output_vol_remove_brick_detach_tier(
-                _gf_true, dict, rsp.op_ret, rsp.op_errno, rsp.op_errstr,
-                "volRemoveBrick");
+            ret = cli_xml_output_vol_remove_brick(_gf_true, dict, rsp.op_ret,
+                                                  rsp.op_errno, rsp.op_errstr,
+                                                  "volRemoveBrick");
         } else {
-            ret = cli_xml_output_vol_remove_brick_detach_tier(
-                _gf_true, dict, rsp.op_ret, rsp.op_errno, msg,
-                "volRemoveBrick");
+            ret = cli_xml_output_vol_remove_brick(_gf_true, dict, rsp.op_ret,
+                                                  rsp.op_errno, msg,
+                                                  "volRemoveBrick");
         }
         goto out;
     }
 
-    ret = gf_cli_print_rebalance_status(dict, GF_TASK_TYPE_REMOVE_BRICK,
-                                        _gf_false);
+    ret = gf_cli_print_rebalance_status(dict, GF_TASK_TYPE_REMOVE_BRICK);
     if (ret) {
         gf_log("cli", GF_LOG_ERROR,
                "Failed to print remove-brick "
@@ -2995,9 +2333,9 @@ gf_cli_remove_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
                  (rsp.op_ret) ? "unsuccessful" : "successful");
 
     if (global_state->mode & GLUSTER_MODE_XML) {
-        ret = cli_xml_output_vol_remove_brick_detach_tier(
-            _gf_false, rsp_dict, rsp.op_ret, rsp.op_errno, msg,
-            "volRemoveBrick");
+        ret = cli_xml_output_vol_remove_brick(_gf_false, rsp_dict, rsp.op_ret,
+                                              rsp.op_errno, msg,
+                                              "volRemoveBrick");
         if (ret)
             gf_log("cli", GF_LOG_ERROR, "Error outputting to xml");
         goto out;
@@ -4905,182 +4243,6 @@ out:
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
     GF_FREE(req.dict.dict_val);
-
-    return ret;
-}
-
-int32_t
-gf_cli_tier(call_frame_t *frame, xlator_t *this, void *data)
-{
-    int ret = 0;
-    int32_t command = 0;
-    gf_cli_req req = {{
-        0,
-    }};
-    dict_t *dict = NULL;
-
-    if (!frame || !this || !data) {
-        ret = -1;
-        goto out;
-    }
-    dict = data;
-
-    ret = dict_get_int32(dict, "rebalance-command", &command);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to get rebalance-command");
-        goto out;
-    }
-
-    ret = cli_to_glusterd(&req, frame, gf_cli_defrag_volume_cbk,
-                          (xdrproc_t)xdr_gf_cli_req, dict, GLUSTER_CLI_TIER,
-                          this, cli_rpc_prog, NULL);
-
-out:
-    gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-    GF_FREE(req.dict.dict_val);
-
-    return ret;
-}
-
-int32_t
-gf_cli_add_tier_brick(call_frame_t *frame, xlator_t *this, void *data)
-{
-    gf_cli_req req = {{
-        0,
-    }};
-    int ret = 0;
-    dict_t *dict = NULL;
-
-    if (!frame || !this || !data) {
-        ret = -1;
-        goto out;
-    }
-
-    dict = data;
-
-    ret = cli_to_glusterd(&req, frame, gf_cli_add_tier_brick_cbk,
-                          (xdrproc_t)xdr_gf_cli_req, dict,
-                          GLUSTER_CLI_ADD_TIER_BRICK, this, cli_rpc_prog, NULL);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR,
-               "Failed to send request to "
-               "glusterd");
-        goto out;
-    }
-
-out:
-    gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-    GF_FREE(req.dict.dict_val);
-    return ret;
-}
-
-int32_t
-gf_cli_attach_tier(call_frame_t *frame, xlator_t *this, void *data)
-{
-    gf_cli_req req = {{
-        0,
-    }};
-    int ret = 0;
-    dict_t *dict = NULL;
-    dict_t *newdict = NULL;
-    char *tierwords[] = {"volume", "tier", "", "start", NULL};
-    const char **words = (const char **)tierwords;
-    char *volname = NULL;
-    cli_local_t *local = NULL;
-    cli_local_t *oldlocal = NULL;
-
-    if (!frame || !this || !data) {
-        ret = -1;
-        goto out;
-    }
-
-    dict = data;
-
-    ret = cli_to_glusterd(&req, frame, gf_cli_attach_tier_cbk,
-                          (xdrproc_t)xdr_gf_cli_req, dict,
-                          GLUSTER_CLI_ATTACH_TIER, this, cli_rpc_prog, NULL);
-    if (ret)
-        goto out;
-    ret = dict_get_str(dict, "volname", &volname);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to get volume name");
-        goto notify_cli;
-    }
-
-    words[2] = volname;
-    ret = cli_cmd_volume_old_tier_parse((const char **)words, 4, &newdict);
-    if (ret) {
-        gf_log("cli", GF_LOG_ERROR,
-               "Failed to parse tier start "
-               "command");
-        goto notify_cli;
-    }
-
-    gf_log("cli", GF_LOG_DEBUG, "Sending tier start");
-
-    oldlocal = frame->local;
-    CLI_LOCAL_INIT(local, words, frame, newdict);
-    ret = gf_cli_tier(frame, this, newdict);
-    frame->local = oldlocal;
-    cli_local_wipe(local);
-
-notify_cli:
-    if (ret) {
-        cli_out(
-            "Failed to run tier start. Please execute tier start "
-            "command explicitly");
-        cli_out("Usage : gluster volume tier <volname> start");
-    }
-
-out:
-    gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-    GF_FREE(req.dict.dict_val);
-    return ret;
-}
-
-int32_t
-gf_cli_remove_tier_brick(call_frame_t *frame, xlator_t *this, void *data)
-{
-    gf_cli_req status_req = {{
-        0,
-    }};
-    int ret = 0;
-    dict_t *dict = NULL;
-    int32_t command = 0;
-    char *volname = NULL;
-
-    if (!frame || !this || !data) {
-        ret = -1;
-        goto out;
-    }
-
-    dict = data;
-
-    ret = dict_get_str(dict, "volname", &volname);
-    if (ret)
-        goto out;
-
-    ret = dict_get_int32(dict, "command", &command);
-    if (ret)
-        goto out;
-
-    ret = dict_set_int32(dict, "rebalance-command", (int32_t)command);
-    if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to set dict");
-        goto out;
-    }
-
-    ret = cli_to_glusterd(&status_req, frame, gf_cli_remove_tier_brick_cbk,
-                          (xdrproc_t)xdr_gf_cli_req, dict, GLUSTER_CLI_TIER,
-                          this, cli_rpc_prog, NULL);
-
-out:
-    gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-    GF_FREE(status_req.dict.dict_val);
 
     return ret;
 }
@@ -7279,7 +6441,6 @@ cli_print_volume_status_client_list(dict_t *dict, gf_boolean_t notbrick)
     char *name = NULL;
     gf_boolean_t is_fuse_done = _gf_false;
     gf_boolean_t is_gfapi_done = _gf_false;
-    gf_boolean_t is_tierd_done = _gf_false;
     gf_boolean_t is_rebalance_done = _gf_false;
     gf_boolean_t is_glustershd_done = _gf_false;
     gf_boolean_t is_quotad_done = _gf_false;
@@ -7317,16 +6478,6 @@ cli_print_volume_status_client_list(dict_t *dict, gf_boolean_t notbrick)
             if (!is_gfapi_done) {
                 is_gfapi_done = _gf_true;
                 ret = dict_get_int32(dict, "gfapi-count", &current_count);
-                if (ret)
-                    goto out;
-                total = total + current_count;
-                goto print;
-            }
-            continue;
-        } else if (!strcmp(name, "tierd")) {
-            if (!is_tierd_done) {
-                is_tierd_done = _gf_true;
-                ret = dict_get_int32(dict, "tierd-count", &current_count);
                 if (ret)
                     goto out;
                 total = total + current_count;
@@ -8291,8 +7442,7 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD) ||
         (cmd & GF_CLI_STATUS_QUOTAD) || (cmd & GF_CLI_STATUS_SNAPD) ||
-        (cmd & GF_CLI_STATUS_BITD) || (cmd & GF_CLI_STATUS_SCRUB) ||
-        (cmd & GF_CLI_STATUS_TIERD))
+        (cmd & GF_CLI_STATUS_BITD) || (cmd & GF_CLI_STATUS_SCRUB))
         notbrick = _gf_true;
 
     if (global_state->mode & GLUSTER_MODE_XML) {
@@ -8398,13 +7548,7 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 "Gluster process", "TCP Port", "RDMA Port", "Online", "Pid");
         cli_print_line(CLI_BRICK_STATUS_LINE_LEN);
     }
-    if (type == GF_CLUSTER_TYPE_TIER) {
-        cli_out("Hot Bricks:");
-    }
     for (i = 0; i <= index_max; i++) {
-        if (type == GF_CLUSTER_TYPE_TIER && i == hot_brick_count) {
-            cli_out("Cold Bricks:");
-        }
         status.rdma_port = 0;
 
         snprintf(key, sizeof(key), "brick%d.hostname", i);
@@ -8426,8 +7570,7 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
             !strcmp(hostname, "Quota Daemon") ||
             !strcmp(hostname, "Snapshot Daemon") ||
             !strcmp(hostname, "Scrubber Daemon") ||
-            !strcmp(hostname, "Bitrot Daemon") ||
-            !strcmp(hostname, "Tier Daemon"))
+            !strcmp(hostname, "Bitrot Daemon"))
             snprintf(status.brick, PATH_MAX + 255, "%s on %s", hostname, path);
         else {
             snprintf(key, sizeof(key), "brick%d.rdma_port", i);
@@ -12182,12 +11325,9 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
     [GLUSTER_CLI_BARRIER_VOLUME] = {"BARRIER VOLUME", gf_cli_barrier_volume},
     [GLUSTER_CLI_GET_VOL_OPT] = {"GET_VOL_OPT", gf_cli_get_vol_opt},
     [GLUSTER_CLI_BITROT] = {"BITROT", gf_cli_bitrot},
-    [GLUSTER_CLI_ATTACH_TIER] = {"ATTACH_TIER", gf_cli_attach_tier},
-    [GLUSTER_CLI_TIER] = {"TIER", gf_cli_tier},
     [GLUSTER_CLI_GET_STATE] = {"GET_STATE", gf_cli_get_state},
     [GLUSTER_CLI_RESET_BRICK] = {"RESET_BRICK", gf_cli_reset_brick},
-    [GLUSTER_CLI_REMOVE_TIER_BRICK] = {"DETACH_TIER", gf_cli_remove_tier_brick},
-    [GLUSTER_CLI_ADD_TIER_BRICK] = {"ADD_TIER_BRICK", gf_cli_add_tier_brick}};
+};
 
 struct rpc_clnt_program cli_prog = {
     .progname = "Gluster CLI",

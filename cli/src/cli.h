@@ -290,17 +290,6 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
                                int wordcount, dict_t **options, int *type);
 
 int32_t
-cli_cmd_volume_detach_tier_parse(const char **words, int wordcount,
-                                 dict_t **options, int *question);
-
-int32_t
-cli_cmd_volume_tier_parse(const char **words, int wordcount, dict_t **options);
-
-int32_t
-cli_cmd_volume_old_tier_parse(const char **words, int wordcount,
-                              dict_t **options);
-
-int32_t
 cli_cmd_volume_remove_brick_parse(struct cli_state *state, const char **words,
                                   int wordcount, dict_t **options,
                                   int *question, int *brick_count,
@@ -445,10 +434,9 @@ cli_xml_output_vol_rebalance(gf_cli_defrag_type op, dict_t *dict, int op_ret,
                              int op_errno, char *op_errstr);
 
 int
-cli_xml_output_vol_remove_brick_detach_tier(gf_boolean_t status_op,
-                                            dict_t *dict, int op_ret,
-                                            int op_errno, char *op_errstr,
-                                            const char *op);
+cli_xml_output_vol_remove_brick(gf_boolean_t status_op, dict_t *dict,
+                                int op_ret, int op_errno, char *op_errstr,
+                                const char *op);
 
 int
 cli_xml_output_vol_replace_brick(dict_t *dict, int op_ret, int op_errno,
