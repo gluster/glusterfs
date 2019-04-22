@@ -25,7 +25,6 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 extern struct cli_cmd volume_cmds[];
 extern struct cli_cmd bitrot_cmds[];
 extern struct cli_cmd quota_cmds[];
-extern struct cli_cmd tier_cmds[];
 extern struct cli_cmd cli_probe_cmds[];
 extern struct cli_cmd cli_log_cmds[];
 extern struct cli_cmd cli_system_cmds[];
@@ -59,18 +58,8 @@ cli_cmd_display_help(struct cli_state *state, struct cli_cmd_word *in_word,
                      const char **words, int wordcount)
 {
     struct cli_cmd *cmd[] = {
-        cli_misc_cmds,
-        cli_probe_cmds,
-        volume_cmds,
-        bitrot_cmds,
-        quota_cmds,
-#if !defined(__NetBSD__)
-        tier_cmds,
-#endif
-        snapshot_cmds,
-        global_cmds,
-        NULL
-    };
+        cli_misc_cmds, cli_probe_cmds, volume_cmds, bitrot_cmds,
+        quota_cmds,    snapshot_cmds,  global_cmds, NULL};
     struct cli_cmd *cmd_ind = NULL;
     int i = 0;
     gf_boolean_t list_all = _gf_false;

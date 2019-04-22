@@ -377,8 +377,6 @@ cli_opt_parse(char *opt, struct cli_state *state)
             " bitrot commands\n"
             " volume quota help        - display help for volume"
             " quota commands\n"
-            " volume tier help         - display help for volume"
-            " tier commands\n"
             " snapshot help            - display help for snapshot commands\n"
             " global help              - list global commands\n");
         exit(0);
