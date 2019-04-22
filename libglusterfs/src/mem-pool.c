@@ -327,7 +327,6 @@ __gf_free(void *free_ptr)
 
     LOCK(&mem_acct->rec[header->type].lock);
     {
-        GF_ASSERT(mem_acct->rec[header->type].size >= header->size);
         mem_acct->rec[header->type].size -= header->size;
         mem_acct->rec[header->type].num_allocs--;
         /* If all the instances are freed up then ensure typestr is set
