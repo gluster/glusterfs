@@ -695,6 +695,10 @@ out:
     if (flag) {
         GF_FREE(flag);
     }
+
+    if (volinfo)
+        glusterd_volinfo_unref(volinfo);
+
     GF_ATOMIC_DEC(conf->blockers);
     STACK_DESTROY(frame->root);
     return 0;
