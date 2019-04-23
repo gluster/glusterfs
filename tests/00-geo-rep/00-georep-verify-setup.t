@@ -51,6 +51,10 @@ TEST glusterfs -s $H0 --volfile-id $GSV0 $M1
 #BASIC GEO-REPLICATION TESTS
 ############################################################
 
+#Test invalid slave url
+TEST ! $GEOREP_CLI $master ${SH0}:${GSV0} create push-pem
+TEST ! $GEOREP_CLI $master ${SH0}:::${GSV0} create push-pem
+
 #Create geo-rep session
 TEST create_georep_session $master $slave
 
