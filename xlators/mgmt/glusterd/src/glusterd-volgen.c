@@ -1638,9 +1638,16 @@ brick_graph_add_posix(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     gf_boolean_t pgfid_feat = _gf_false;
     char *value = NULL;
     xlator_t *xl = NULL;
+    xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
 
     if (!graph || !volinfo || !set_dict || !brickinfo)
         goto out;
+
+    this = THIS;
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO("glusterd", priv, out);
 
     ret = glusterd_volinfo_get(volinfo, VKEY_FEATURES_QUOTA, &value);
     if (value) {
@@ -1685,6 +1692,12 @@ brick_graph_add_posix(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
     }
 
+    if (priv->op_version >= GD_OP_VERSION_7_0) {
+        ret = xlator_set_fixed_option(xl, "fips-mode-rchecksum", "on");
+        if (ret) {
+            goto out;
+        }
+    }
     snprintf(tmpstr, sizeof(tmpstr), "%d", brickinfo->fs_share_count);
     ret = xlator_set_fixed_option(xl, "shared-brick-count", tmpstr);
 out:
