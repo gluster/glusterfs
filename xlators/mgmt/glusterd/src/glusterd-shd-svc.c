@@ -452,8 +452,11 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
     }
 
     if (shd->attached) {
+        glusterd_volinfo_ref(volinfo);
+        /* Unref will happen from glusterd_svc_attach_cbk */
         ret = glusterd_attach_svc(svc, volinfo, flags);
         if (ret) {
+            glusterd_volinfo_unref(volinfo);
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
                    "Failed to attach shd svc(volume=%s) to pid=%d. Starting"
                    "a new process",
