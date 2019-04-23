@@ -1170,7 +1170,6 @@ class GMasterChangelogMixin(GMasterCommon):
         logging.debug('entries: %s' % repr(entries))
 
         # Increment counters for Status
-        self.status.inc_value("entry", len(entries))
         self.files_in_batch += len(datas)
         self.status.inc_value("data", len(datas))
 
@@ -1233,10 +1232,10 @@ class GMasterChangelogMixin(GMasterCommon):
                     continue
                 meta_entries.append(edct('META', go=go[0], stat=st))
             if meta_entries:
-                self.status.inc_value("meta", len(entries))
+                self.status.inc_value("meta", len(meta_entries))
                 failures = self.slave.server.meta_ops(meta_entries)
                 self.log_failures(failures, 'go', '', 'META')
-                self.status.dec_value("meta", len(entries))
+                self.status.dec_value("meta", len(meta_entries))
 
         self.batch_stats["META_SYNC_TIME"] += time.time() - meta_start_time
 
