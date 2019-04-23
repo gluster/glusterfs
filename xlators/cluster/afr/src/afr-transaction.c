@@ -1188,6 +1188,7 @@ afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
 {
     int **changelog = NULL;
     int idx = 0;
+    int ret = 0;
     int i;
 
     if (local->is_new_entry == _gf_true) {
@@ -1203,7 +1204,11 @@ afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
             if (local->transaction.failed_subvols[i])
                 changelog[i][idx] = hton32(1);
         }
-        afr_set_pending_dict(priv, xattr, changelog);
+        ret = afr_set_pending_dict(priv, xattr, changelog);
+        if (ret < 0) {
+            afr_matrix_cleanup(changelog, priv->child_count);
+            return NULL;
+        }
     }
 
 out:
@@ -1259,8 +1264,10 @@ afr_ta_post_op_do(void *opaque)
 
     changelog = afr_set_changelog_xattr(priv, pending, xattr, local);
 
-    if (!changelog)
+    if (!changelog) {
+        ret = -ENOMEM;
         goto out;
+    }
 
     ret = afr_ta_post_op_lock(this, &loc);
     if (ret)
