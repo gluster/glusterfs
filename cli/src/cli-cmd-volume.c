@@ -2138,6 +2138,7 @@ cli_cmd_volume_gsync_set_cbk(struct cli_state *state, struct cli_cmd_word *word,
     rpc_clnt_procedure_t *proc = NULL;
     call_frame_t *frame = NULL;
     cli_local_t *local = NULL;
+    char *errstr = NULL;
 #if (USE_EVENTS)
     int ret1 = -1;
     int cmd_type = -1;
@@ -2155,9 +2156,14 @@ cli_cmd_volume_gsync_set_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    ret = cli_cmd_gsync_set_parse(words, wordcount, &options);
+    ret = cli_cmd_gsync_set_parse(words, wordcount, &options, &errstr);
     if (ret) {
-        cli_usage_out(word->pattern);
+        if (errstr) {
+            cli_err("%s", errstr);
+            GF_FREE(errstr);
+        } else {
+            cli_usage_out(word->pattern);
+        }
         parse_err = 1;
         goto out;
     }

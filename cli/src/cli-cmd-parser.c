@@ -2486,6 +2486,17 @@ gsyncd_url_check(const char *w)
 }
 
 static gf_boolean_t
+valid_slave_gsyncd_url(const char *w)
+{
+    if (strstr(w, ":::"))
+        return _gf_false;
+    else if (strstr(w, "::"))
+        return _gf_true;
+    else
+        return _gf_false;
+}
+
+static gf_boolean_t
 gsyncd_glob_check(const char *w)
 {
     return !!strpbrk(w, "*?[");
@@ -2708,7 +2719,8 @@ out:
 }
 
 int32_t
-cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options)
+cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options,
+                        char **errstr)
 {
     int32_t ret = -1;
     dict_t *dict = NULL;
@@ -2797,8 +2809,11 @@ cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options)
 
     if (masteri && gsyncd_url_check(words[masteri]))
         goto out;
-    if (slavei && !glob && !gsyncd_url_check(words[slavei]))
+
+    if (slavei && !glob && !valid_slave_gsyncd_url(words[slavei])) {
+        gf_asprintf(errstr, "Invalid slave url: %s", words[slavei]);
         goto out;
+    }
 
     w = str_getunamb(words[cmdi], opwords);
     if (!w)
