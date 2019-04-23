@@ -1017,6 +1017,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
     int estale_count = 0;
     int i = 0;
     call_frame_t *frame = name_data->frame;
+    uuid_t gfid;
 
     ec = name_data->frame->this->private;
     EC_REPLIES_ALLOC(replies, ec->nodes);
@@ -1025,12 +1026,16 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
         goto out;
     }
 
+    loc.parent = inode_ref(name_data->parent);
     loc.inode = inode_new(name_data->parent->table);
     if (!loc.inode) {
         ret = -ENOMEM;
         goto out;
     }
-    gf_uuid_parse(key, loc.gfid);
+
+    gf_uuid_parse(key, gfid);
+    gf_uuid_copy(loc.pargfid, name_data->parent->gfid);
+    loc.name = name_data->name;
     output = alloca0(ec->nodes);
     ret = cluster_lookup(ec->xl_list, name_data->participants, ec->nodes,
                          replies, output, name_data->frame, ec->xl, &loc, NULL);
@@ -1043,6 +1048,11 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
                 estale_count++;
             else
                 name_data->participants[i] = 0;
+        } else if (gf_uuid_compare(gfid, replies[i].stat.ia_gfid)) {
+            estale_count++;
+            gf_msg_debug(ec->xl->name, 0, "%s/%s: different gfid as %s",
+                         uuid_utoa(name_data->parent->gfid), name_data->name,
+                         key);
         }
     }
 
