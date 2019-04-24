@@ -757,7 +757,10 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
 
     /* Sending mgmt_v3 lock req to other nodes in the cluster */
     gd_syncargs_init(&args, NULL);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     RCU_READ_LOCK;
@@ -1107,7 +1110,10 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
 
     /* Sending Pre Validation req to other nodes in the cluster */
     gd_syncargs_init(&args, req_dict);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     RCU_READ_LOCK;
@@ -1457,7 +1463,10 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
     /* Sending brick op req to other nodes in the cluster */
     gd_syncargs_init(&args, op_ctx);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     RCU_READ_LOCK;
@@ -1721,7 +1730,9 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
     /* Sending commit req to other nodes in the cluster */
     gd_syncargs_init(&args, op_ctx);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
     peer_cnt = 0;
 
     RCU_READ_LOCK;
@@ -1962,7 +1973,10 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
 
     /* Sending Post Validation req to other nodes in the cluster */
     gd_syncargs_init(&args, req_dict);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     RCU_READ_LOCK;

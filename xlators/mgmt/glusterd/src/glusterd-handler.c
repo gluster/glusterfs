@@ -3288,6 +3288,12 @@ glusterd_friend_remove(uuid_t uuid, char *hostname)
     ret = glusterd_peerinfo_cleanup(peerinfo);
 out:
     gf_msg_debug(THIS->name, 0, "returning %d", ret);
+    /* We don't need to do a mutex unlock of peerinfo->delete_lock as the same
+     * will be anyway destroyed within glusterd_peerinfo_cleanup, coverity
+     * though cries about it
+     */
+    /* coverity[LOCK] */
+
     return ret;
 }
 
