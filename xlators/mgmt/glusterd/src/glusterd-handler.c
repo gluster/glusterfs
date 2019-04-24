@@ -357,6 +357,7 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
     };
     int keylen;
     glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
     char *buf = NULL;
     int i = 1;
     dict_t *dict = NULL;
@@ -367,6 +368,10 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
     };
     xlator_t *this = NULL;
     int32_t len = 0;
+
+    char ta_brick[4096] = {
+        0,
+    };
 
     GF_ASSERT(volinfo);
     GF_ASSERT(volumes);
@@ -431,6 +436,11 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
     if (ret)
         goto out;
 
+    keylen = snprintf(key, sizeof(key), "volume%d.thin_arbiter_count", count);
+    ret = dict_set_int32n(volumes, key, keylen, volinfo->thin_arbiter_count);
+    if (ret)
+        goto out;
+
     volume_id_str = gf_strdup(uuid_utoa(volinfo->volume_id));
     if (!volume_id_str)
         goto out;
@@ -481,6 +491,23 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
 
         i++;
     }
+    if (volinfo->thin_arbiter_count == 1) {
+        ta_brickinfo = list_first_entry(&volinfo->ta_bricks,
+                                        glusterd_brickinfo_t, brick_list);
+        len = snprintf(ta_brick, sizeof(ta_brick), "%s:%s",
+                       ta_brickinfo->hostname, ta_brickinfo->path);
+        if ((len < 0) || (len >= sizeof(ta_brick))) {
+            ret = -1;
+            goto out;
+        }
+        buf = gf_strdup(ta_brick);
+        keylen = snprintf(key, sizeof(key), "volume%d.thin_arbiter_brick",
+                          count);
+        ret = dict_set_dynstrn(volumes, key, keylen, buf);
+        if (ret)
+            goto out;
+    }
+
     ret = glusterd_add_arbiter_info_to_bricks(volinfo, volumes, count);
     if (ret)
         goto out;

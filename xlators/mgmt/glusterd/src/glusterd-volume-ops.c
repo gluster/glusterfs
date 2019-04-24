@@ -276,6 +276,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
     char *bricks = NULL;
     char *volname = NULL;
     int brick_count = 0;
+    int thin_arbiter_count = 0;
     void *cli_rsp = NULL;
     char err_str[2048] = {
         0,
@@ -432,6 +433,21 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
                  volname);
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
                err_str);
+        goto out;
+    }
+
+    ret = dict_get_int32n(dict, "thin-arbiter-count",
+                          SLEN("thin-arbiter-count"), &thin_arbiter_count);
+    if (thin_arbiter_count && conf->op_version < GD_OP_VERSION_7_0) {
+        snprintf(err_str, sizeof(err_str),
+                 "Cannot execute command. "
+                 "The cluster is operating at version %d. "
+                 "Thin-arbiter volume creation is unavailable in "
+                 "this version",
+                 conf->op_version);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_OP_FAILED, "%s",
+               err_str);
+        ret = -1;
         goto out;
     }
 
@@ -2028,14 +2044,20 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     glusterd_volinfo_t *volinfo = NULL;
     gf_boolean_t vol_added = _gf_false;
     glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
     xlator_t *this = NULL;
     char *brick = NULL;
+    char *ta_brick = NULL;
     int32_t count = 0;
     int32_t i = 1;
     char *bricks = NULL;
+    char *ta_bricks = NULL;
     char *brick_list = NULL;
+    char *ta_brick_list = NULL;
     char *free_ptr = NULL;
+    char *ta_free_ptr = NULL;
     char *saveptr = NULL;
+    char *ta_saveptr = NULL;
     char *trans_type = NULL;
     char *str = NULL;
     char *username = NULL;
@@ -2153,6 +2175,20 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
         /* coverity[unused_value] arbiter count is optional */
         ret = dict_get_int32n(dict, "arbiter-count", SLEN("arbiter-count"),
                               &volinfo->arbiter_count);
+        ret = dict_get_int32n(dict, "thin-arbiter-count",
+                              SLEN("thin-arbiter-count"),
+                              &volinfo->thin_arbiter_count);
+        if (volinfo->thin_arbiter_count) {
+            ret = dict_get_strn(dict, "ta-brick", SLEN("ta-brick"), &ta_bricks);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                       "Unable to get thin arbiter brick for "
+                       "volume %s",
+                       volname);
+                goto out;
+            }
+        }
+
     } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
         ret = dict_get_int32n(dict, "disperse-count", SLEN("disperse-count"),
                               &volinfo->disperse_count);
@@ -2241,6 +2277,38 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
         volinfo->transport_type = GF_TRANSPORT_BOTH_TCP_RDMA;
     }
 
+    if (ta_bricks) {
+        ta_brick_list = gf_strdup(ta_bricks);
+        ta_free_ptr = ta_brick_list;
+    }
+
+    if (volinfo->thin_arbiter_count) {
+        ta_brick = strtok_r(ta_brick_list + 1, " \n", &ta_saveptr);
+
+        count = 1;
+        brickid = volinfo->replica_count;
+        /* assign brickid to ta_bricks
+         * Following loop runs for number of subvols times. Although
+         * there is only one ta-brick for a volume but the volume fuse volfile
+         * requires an entry of ta-brick for each subvolume. Also, the ta-brick
+         * id needs to be adjusted according to the subvol count.
+         * For eg- For first subvolume ta-brick id is volname-ta-2, for second
+         * subvol ta-brick id is volname-ta-5.
+         */
+        while (count <= volinfo->subvol_count) {
+            ret = glusterd_brickinfo_new_from_brick(ta_brick, &ta_brickinfo,
+                                                    _gf_false, op_errstr);
+            if (ret)
+                goto out;
+
+            GLUSTERD_ASSIGN_BRICKID_TO_TA_BRICKINFO(ta_brickinfo, volinfo,
+                                                    brickid);
+            cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
+            count++;
+            brickid += volinfo->replica_count + 1;
+        }
+    }
+
     if (bricks) {
         brick_list = gf_strdup(bricks);
         free_ptr = brick_list;
@@ -2259,7 +2327,10 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
                                                 op_errstr);
         if (ret)
             goto out;
-
+        if (volinfo->thin_arbiter_count == 1 &&
+            (brickid + 1) % (volinfo->replica_count + 1) == 0) {
+            brickid = brickid + 1;
+        }
         GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid++);
 
         ret = glusterd_resolve_brick(brickinfo);
@@ -2350,6 +2421,7 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
 
 out:
     GF_FREE(free_ptr);
+    GF_FREE(ta_free_ptr);
     if (!vol_added && volinfo)
         glusterd_volinfo_unref(volinfo);
     return ret;
