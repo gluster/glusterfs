@@ -1303,8 +1303,6 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/posix.so
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
 
 # snap_scheduler
 %{_sbindir}/snap_scheduler.py
