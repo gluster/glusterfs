@@ -266,7 +266,8 @@ out:
 int32_t
 glusterd_store_volinfo_brick_fname_write(int vol_fd,
                                          glusterd_brickinfo_t *brickinfo,
-                                         int32_t brick_count)
+                                         int32_t brick_count,
+                                         int is_thin_arbiter)
 {
     char key[64] = {
         0,
@@ -276,8 +277,13 @@ glusterd_store_volinfo_brick_fname_write(int vol_fd,
     };
     int32_t ret = -1;
 
-    snprintf(key, sizeof(key), "%s-%d", GLUSTERD_STORE_KEY_VOL_BRICK,
-             brick_count);
+    if (!is_thin_arbiter) {
+        snprintf(key, sizeof(key), "%s-%d", GLUSTERD_STORE_KEY_VOL_BRICK,
+                 brick_count);
+    } else {
+        snprintf(key, sizeof(key), "%s-%d", GLUSTERD_STORE_KEY_VOL_TA_BRICK,
+                 brick_count);
+    }
     glusterd_store_brickinfofname_set(brickinfo, brickfname,
                                       sizeof(brickfname));
     ret = gf_store_save_value(vol_fd, key, brickfname);
@@ -498,14 +504,14 @@ glusterd_store_perform_brick_store(glusterd_brickinfo_t *brickinfo)
         ret = -1;
         goto out;
     }
-
     ret = glusterd_store_brickinfo_write(fd, brickinfo);
     if (ret)
         goto out;
 
 out:
-    if (ret && (fd > 0))
+    if (ret && (fd > 0)) {
         gf_store_unlink_tmppath(brickinfo->shandle);
+    }
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
 }
@@ -553,15 +559,15 @@ out:
 static int32_t
 glusterd_store_brickinfo(glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo, int32_t brick_count,
-                         int vol_fd)
+                         int vol_fd, int is_thin_arbiter)
 {
     int32_t ret = -1;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
 
-    ret = glusterd_store_volinfo_brick_fname_write(vol_fd, brickinfo,
-                                                   brick_count);
+    ret = glusterd_store_volinfo_brick_fname_write(
+        vol_fd, brickinfo, brick_count, is_thin_arbiter);
     if (ret)
         goto out;
 
@@ -988,6 +994,18 @@ glusterd_volume_exclude_options_write(int fd, glusterd_volinfo_t *volinfo)
         total_len += ret;
     }
 
+    if ((conf->op_version >= GD_OP_VERSION_7_0) &&
+        volinfo->thin_arbiter_count) {
+        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%d\n",
+                       GLUSTERD_STORE_KEY_VOL_THIN_ARBITER_CNT,
+                       volinfo->thin_arbiter_count);
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
+            ret = -1;
+            goto out;
+        }
+        total_len += ret;
+    }
+
     ret = gf_store_save_items(fd, buf);
     if (ret)
         goto out;
@@ -1320,17 +1338,29 @@ glusterd_store_brickinfos(glusterd_volinfo_t *volinfo, int vol_fd)
 {
     int32_t ret = 0;
     glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
     int32_t brick_count = 0;
+    int32_t ta_brick_count = 0;
 
     GF_ASSERT(volinfo);
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        ret = glusterd_store_brickinfo(volinfo, brickinfo, brick_count, vol_fd);
+        ret = glusterd_store_brickinfo(volinfo, brickinfo, brick_count, vol_fd,
+                                       0);
         if (ret)
             goto out;
         brick_count++;
     }
+    if (volinfo->thin_arbiter_count == 1) {
+        ta_brickinfo = list_first_entry(&volinfo->ta_bricks,
+                                        glusterd_brickinfo_t, brick_list);
+        ret = glusterd_store_brickinfo(volinfo, ta_brickinfo, ta_brick_count,
+                                       vol_fd, 1);
+        if (ret)
+            goto out;
+    }
+
 out:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
@@ -1507,6 +1537,7 @@ glusterd_store_brickinfos_atomic_update(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
 
     GF_ASSERT(volinfo);
 
@@ -1516,6 +1547,15 @@ glusterd_store_brickinfos_atomic_update(glusterd_volinfo_t *volinfo)
         if (ret)
             goto out;
     }
+
+    if (volinfo->thin_arbiter_count == 1) {
+        ta_brickinfo = list_first_entry(&volinfo->ta_bricks,
+                                        glusterd_brickinfo_t, brick_list);
+        ret = gf_store_rename_tmppath(ta_brickinfo->shandle);
+        if (ret)
+            goto out;
+    }
+
 out:
     return ret;
 }
@@ -1670,6 +1710,7 @@ glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
 unlock:
     pthread_mutex_unlock(&volinfo->store_volinfo_lock);
     pthread_mutex_unlock(&ctx->cleanup_lock);
+
     if (ret)
         glusterd_store_volume_cleanup_tmp(volinfo);
 
@@ -2435,6 +2476,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
 {
     int32_t ret = 0;
     glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
     gf_store_iter_t *iter = NULL;
     char *key = NULL;
     char *value = NULL;
@@ -2446,6 +2488,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     };
     glusterd_conf_t *priv = NULL;
     int32_t brick_count = 0;
+    int32_t ta_brick_count = 0;
     char tmpkey[4096] = {
         0,
     };
@@ -2455,6 +2498,10 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     struct pmap_registry *pmap = NULL;
     xlator_t *this = NULL;
     int brickid = 0;
+    /* ta_brick_id initialization with 2 since ta-brick id starts with
+     * volname-ta-2
+     */
+    int ta_brick_id = 2;
     gf_store_op_errno_t op_errno = GD_STORE_SUCCESS;
     int32_t len = 0;
 
@@ -2748,6 +2795,175 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
         brick_count++;
     }
 
+    ret = gf_store_iter_new(volinfo->shandle, &tmpiter);
+
+    if (ret)
+        goto out;
+
+    if (volinfo->thin_arbiter_count == 1) {
+        while (ta_brick_count < volinfo->subvol_count) {
+            ret = glusterd_brickinfo_new(&ta_brickinfo);
+            if (ret)
+                goto out;
+
+            snprintf(tmpkey, sizeof(tmpkey), "%s-%d",
+                     GLUSTERD_STORE_KEY_VOL_TA_BRICK, 0);
+
+            ret = gf_store_iter_get_matching(tmpiter, tmpkey, &tmpvalue);
+
+            len = snprintf(path, sizeof(path), "%s/%s", brickdir, tmpvalue);
+            if ((len < 0) || (len >= sizeof(path))) {
+                ret = -1;
+                goto out;
+            }
+
+            ret = gf_store_handle_retrieve(path, &ta_brickinfo->shandle);
+
+            if (ret)
+                goto out;
+
+            ret = gf_store_iter_new(ta_brickinfo->shandle, &iter);
+
+            if (ret)
+                goto out;
+
+            ret = gf_store_iter_get_next(iter, &key, &value, &op_errno);
+            if (ret) {
+                gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                       GD_MSG_STORE_ITER_GET_FAIL,
+                       "Unable to iterate "
+                       "the store for brick: %s",
+                       path);
+                goto out;
+            }
+
+            while (!ret) {
+                if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_HOSTNAME,
+                             SLEN(GLUSTERD_STORE_KEY_BRICK_HOSTNAME))) {
+                    if (snprintf(ta_brickinfo->hostname,
+                                 sizeof(ta_brickinfo->hostname), "%s",
+                                 value) >= sizeof(ta_brickinfo->hostname)) {
+                        gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                               GD_MSG_PARSE_BRICKINFO_FAIL,
+                               "brick hostname truncated: %s",
+                               ta_brickinfo->hostname);
+                        goto out;
+                    }
+                } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_PATH,
+                                    SLEN(GLUSTERD_STORE_KEY_BRICK_PATH))) {
+                    if (snprintf(ta_brickinfo->path, sizeof(ta_brickinfo->path),
+                                 "%s", value) >= sizeof(ta_brickinfo->path)) {
+                        gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                               GD_MSG_PARSE_BRICKINFO_FAIL,
+                               "brick path truncated: %s", ta_brickinfo->path);
+                        goto out;
+                    }
+                } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_REAL_PATH,
+                                    SLEN(GLUSTERD_STORE_KEY_BRICK_REAL_PATH))) {
+                    if (snprintf(ta_brickinfo->real_path,
+                                 sizeof(ta_brickinfo->real_path), "%s",
+                                 value) >= sizeof(ta_brickinfo->real_path)) {
+                        gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                               GD_MSG_PARSE_BRICKINFO_FAIL,
+                               "real_path truncated: %s",
+                               ta_brickinfo->real_path);
+                        goto out;
+                    }
+                } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_PORT,
+                                    SLEN(GLUSTERD_STORE_KEY_BRICK_PORT))) {
+                    ret = gf_string2int(value, &ta_brickinfo->port);
+                    if (ret == -1) {
+                        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                               GD_MSG_INCOMPATIBLE_VALUE,
+                               "Failed to convert "
+                               "string to integer");
+                    }
+
+                    if (ta_brickinfo->port < priv->base_port) {
+                        /* This is required to adhere to the
+                        IANA standards */
+                        ta_brickinfo->port = 0;
+                    }
+                } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
+                                    SLEN(GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
+                    ret = gf_string2int(value, &ta_brickinfo->rdma_port);
+                    if (ret == -1) {
+                        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                               GD_MSG_INCOMPATIBLE_VALUE,
+                               "Failed to convert "
+                               "string to integer");
+                    }
+
+                    if (ta_brickinfo->rdma_port < priv->base_port) {
+                        /* This is required to adhere to the
+                        IANA standards */
+                        ta_brickinfo->rdma_port = 0;
+                    }
+                } else if (!strncmp(
+                               key, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
+                               SLEN(GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
+                    ret = gf_string2int(value, &ta_brickinfo->decommissioned);
+                    if (ret == -1) {
+                        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                               GD_MSG_INCOMPATIBLE_VALUE,
+                               "Failed to convert "
+                               "string to integer");
+                    }
+
+                } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_ID)) {
+                    if (snprintf(ta_brickinfo->brick_id,
+                                 sizeof(ta_brickinfo->brick_id), "%s",
+                                 value) >= sizeof(ta_brickinfo->brick_id)) {
+                        gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                               GD_MSG_PARSE_BRICKINFO_FAIL,
+                               "brick_id truncated: %s",
+                               ta_brickinfo->brick_id);
+                        goto out;
+                    }
+                } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_FSID,
+                                    SLEN(GLUSTERD_STORE_KEY_BRICK_FSID))) {
+                    ret = gf_string2uint64(value, &ta_brickinfo->statfs_fsid);
+                    if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               GD_MSG_INVALID_ENTRY,
+                               "%s "
+                               "is not a valid uint64_t value",
+                               value);
+                    }
+                } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_UUID)) {
+                    gf_uuid_parse(value, brickinfo->uuid);
+                } else if (!strncmp(
+                               key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
+                               SLEN(GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
+                    ret = gf_string2int(value, &ta_brickinfo->snap_status);
+                    if (ret == -1) {
+                        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                               GD_MSG_INCOMPATIBLE_VALUE,
+                               "Failed to convert "
+                               "string to integer");
+                    }
+
+                } else {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNKNOWN_KEY,
+                           "Unknown key: %s", key);
+                }
+
+                GF_FREE(key);
+                GF_FREE(value);
+                key = NULL;
+                value = NULL;
+                ret = gf_store_iter_get_next(iter, &key, &value, &op_errno);
+            }
+
+            GLUSTERD_ASSIGN_BRICKID_TO_TA_BRICKINFO(ta_brickinfo, volinfo,
+                                                    ta_brick_id);
+            ta_brick_id += 3;
+
+            cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
+            ta_brick_count++;
+        }
+    }
+
     assign_brick_groups(volinfo);
     ret = 0;
 
@@ -2994,6 +3210,8 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
             volinfo->replica_count = atoi(value);
         } else if (!strcmp(key, GLUSTERD_STORE_KEY_VOL_ARBITER_CNT)) {
             volinfo->arbiter_count = atoi(value);
+        } else if (!strcmp(key, GLUSTERD_STORE_KEY_VOL_THIN_ARBITER_CNT)) {
+            volinfo->thin_arbiter_count = atoi(value);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT))) {
             volinfo->disperse_count = atoi(value);

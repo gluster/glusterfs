@@ -1479,6 +1479,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .value = "9",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
 
+    /* Although the following option is named ta-remote-port but it will be
+     * added as remote-port in client volfile for ta-bricks only.
+     */
+    {.key = "client.ta-brick-port",
+     .voltype = "protocol/client",
+     .option = "ta-remote-port",
+     .op_version = GD_OP_VERSION_7_0},
+
     /* Server xlator options */
     {.key = "network.tcp-window-size",
      .voltype = "protocol/server",

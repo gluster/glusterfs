@@ -639,6 +639,7 @@ glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
     CDS_INIT_LIST_HEAD(&new_volinfo->vol_list);
     CDS_INIT_LIST_HEAD(&new_volinfo->snapvol_list);
     CDS_INIT_LIST_HEAD(&new_volinfo->bricks);
+    CDS_INIT_LIST_HEAD(&new_volinfo->ta_bricks);
     CDS_INIT_LIST_HEAD(&new_volinfo->snap_volumes);
 
     new_volinfo->dict = dict_new();
@@ -1521,6 +1522,37 @@ glusterd_volume_brickinfo_get(uuid_t uuid, char *hostname, char *path,
     }
 
 out:
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
+    return ret;
+}
+
+int32_t
+glusterd_volume_ta_brickinfo_get(uuid_t uuid, char *hostname, char *path,
+                                 glusterd_volinfo_t *volinfo,
+                                 glusterd_brickinfo_t **ta_brickinfo)
+{
+    glusterd_brickinfo_t *ta_brickiter = NULL;
+    int32_t ret = -1;
+    xlator_t *this = NULL;
+
+    this = THIS;
+
+    ret = -1;
+
+    cds_list_for_each_entry(ta_brickiter, &volinfo->ta_bricks, brick_list)
+    {
+        if (strcmp(ta_brickiter->path, path) == 0 &&
+            strcmp(ta_brickiter->hostname, hostname) == 0) {
+            gf_msg_debug(this->name, 0, LOGSTR_FOUND_BRICK,
+                         ta_brickiter->hostname, ta_brickiter->path,
+                         volinfo->volname);
+            ret = 0;
+            if (ta_brickinfo)
+                *ta_brickinfo = ta_brickiter;
+            break;
+        }
+    }
+
     gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
@@ -2831,6 +2863,7 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     char key[64] = "";
     int keylen;
     glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
     int32_t i = 1;
     char *volume_id_str = NULL;
     char *str = NULL;
@@ -2881,6 +2914,11 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     if (ret)
         goto out;
 
+    keylen = snprintf(key, sizeof(key), "%s.subvol_count", pfx);
+    ret = dict_set_int32n(dict, key, keylen, volinfo->subvol_count);
+    if (ret)
+        goto out;
+
     keylen = snprintf(key, sizeof(key), "%s.stripe_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->stripe_count);
     if (ret)
@@ -2893,6 +2931,11 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
 
     keylen = snprintf(key, sizeof(key), "%s.arbiter_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->arbiter_count);
+    if (ret)
+        goto out;
+
+    keylen = snprintf(key, sizeof(key), "%s.thin_arbiter_count", pfx);
+    ret = dict_set_int32n(dict, key, keylen, volinfo->thin_arbiter_count);
     if (ret)
         goto out;
 
@@ -3056,6 +3099,44 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
             goto out;
 
         i++;
+    }
+
+    i = 1;
+    if (volinfo->thin_arbiter_count == 1) {
+        cds_list_for_each_entry(ta_brickinfo, &volinfo->ta_bricks, brick_list)
+        {
+            keylen = snprintf(key, sizeof(key), "%s.ta-brick%d.hostname", pfx,
+                              i);
+            ret = dict_set_strn(dict, key, keylen, ta_brickinfo->hostname);
+            if (ret)
+                goto out;
+
+            keylen = snprintf(key, sizeof(key), "%s.ta-brick%d.path", pfx, i);
+            ret = dict_set_strn(dict, key, keylen, ta_brickinfo->path);
+            if (ret)
+                goto out;
+
+            keylen = snprintf(key, sizeof(key), "%s.ta-brick%d.decommissioned",
+                              pfx, i);
+            ret = dict_set_int32n(dict, key, keylen,
+                                  ta_brickinfo->decommissioned);
+            if (ret)
+                goto out;
+
+            keylen = snprintf(key, sizeof(key), "%s.ta-brick%d.brick_id", pfx,
+                              i);
+            ret = dict_set_strn(dict, key, keylen, ta_brickinfo->brick_id);
+            if (ret)
+                goto out;
+
+            snprintf(key, sizeof(key), "%s.ta-brick%d.uuid", pfx, i);
+            ret = dict_set_dynstr_with_alloc(dict, key,
+                                             uuid_utoa(ta_brickinfo->uuid));
+            if (ret)
+                goto out;
+
+            i++;
+        }
     }
 
     /* Add volume op-versions to dict. This prevents volume inconsistencies
@@ -3746,6 +3827,100 @@ out:
     return ret;
 }
 
+static int32_t
+glusterd_import_new_ta_brick(dict_t *peer_data, int32_t vol_count,
+                             int32_t brick_count,
+                             glusterd_brickinfo_t **ta_brickinfo, char *prefix)
+{
+    char key[128];
+    char key_prefix[64];
+    int keylen;
+    int ret = -1;
+    char *hostname = NULL;
+    char *path = NULL;
+    char *brick_id = NULL;
+    int decommissioned = 0;
+    glusterd_brickinfo_t *new_ta_brickinfo = NULL;
+    char msg[256] = "";
+    char *brick_uuid_str = NULL;
+
+    GF_ASSERT(peer_data);
+    GF_ASSERT(vol_count >= 0);
+    GF_ASSERT(ta_brickinfo);
+    GF_ASSERT(prefix);
+
+    ret = snprintf(key_prefix, sizeof(key_prefix), "%s%d.ta-brick%d", prefix,
+                   vol_count, brick_count);
+
+    if (ret < 0 || ret >= sizeof(key_prefix)) {
+        ret = -1;
+        snprintf(msg, sizeof(msg), "key_prefix too long");
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "%s.hostname", key_prefix);
+    ret = dict_get_strn(peer_data, key, keylen, &hostname);
+    if (ret) {
+        snprintf(msg, sizeof(msg), "%s missing in payload", key);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "%s.path", key_prefix);
+    ret = dict_get_strn(peer_data, key, keylen, &path);
+    if (ret) {
+        snprintf(msg, sizeof(msg), "%s missing in payload", key);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "%s.brick_id", key_prefix);
+    ret = dict_get_strn(peer_data, key, keylen, &brick_id);
+
+    keylen = snprintf(key, sizeof(key), "%s.decommissioned", key_prefix);
+    ret = dict_get_int32n(peer_data, key, keylen, &decommissioned);
+    if (ret) {
+        /* For backward compatibility */
+        ret = 0;
+    }
+
+    ret = glusterd_brickinfo_new(&new_ta_brickinfo);
+    if (ret)
+        goto out;
+
+    ret = snprintf(new_ta_brickinfo->path, sizeof(new_ta_brickinfo->path), "%s",
+                   path);
+    if (ret < 0 || ret >= sizeof(new_ta_brickinfo->path)) {
+        ret = -1;
+        goto out;
+    }
+    ret = snprintf(new_ta_brickinfo->hostname,
+                   sizeof(new_ta_brickinfo->hostname), "%s", hostname);
+    if (ret < 0 || ret >= sizeof(new_ta_brickinfo->hostname)) {
+        ret = -1;
+        goto out;
+    }
+    new_ta_brickinfo->decommissioned = decommissioned;
+    if (brick_id)
+        (void)snprintf(new_ta_brickinfo->brick_id,
+                       sizeof(new_ta_brickinfo->brick_id), "%s", brick_id);
+    keylen = snprintf(key, sizeof(key), "%s.uuid", key_prefix);
+    ret = dict_get_strn(peer_data, key, keylen, &brick_uuid_str);
+    if (ret)
+        goto out;
+    gf_uuid_parse(brick_uuid_str, new_ta_brickinfo->uuid);
+
+    *ta_brickinfo = new_ta_brickinfo;
+
+out:
+    if (msg[0]) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_BRICK_IMPORT_FAIL, "%s",
+               msg);
+        gf_event(EVENT_IMPORT_BRICK_FAILED, "peer=%s;ta-brick=%s",
+                 new_ta_brickinfo->hostname, new_ta_brickinfo->path);
+    }
+    gf_msg_debug("glusterd", 0, "Returning with %d", ret);
+    return ret;
+}
+
 /* The prefix represents the type of volume to be added.
  * It will be "volume" for normal volumes, and snap# like
  * snap1, snap2, for snapshot volumes
@@ -3857,8 +4032,10 @@ glusterd_import_bricks(dict_t *peer_data, int32_t vol_count,
 {
     int ret = -1;
     int brick_count = 1;
+    int ta_brick_count = 1;
     int brickid = 0;
     glusterd_brickinfo_t *new_brickinfo = NULL;
+    glusterd_brickinfo_t *new_ta_brickinfo = NULL;
 
     GF_ASSERT(peer_data);
     GF_ASSERT(vol_count >= 0);
@@ -3876,6 +4053,19 @@ glusterd_import_bricks(dict_t *peer_data, int32_t vol_count,
                                                  brickid++);
         cds_list_add_tail(&new_brickinfo->brick_list, &new_volinfo->bricks);
         brick_count++;
+    }
+
+    if (new_volinfo->thin_arbiter_count == 1) {
+        while (ta_brick_count <= new_volinfo->subvol_count) {
+            ret = glusterd_import_new_ta_brick(peer_data, vol_count,
+                                               ta_brick_count,
+                                               &new_ta_brickinfo, prefix);
+            if (ret)
+                goto out;
+            cds_list_add_tail(&new_ta_brickinfo->brick_list,
+                              &new_volinfo->ta_bricks);
+            ta_brick_count++;
+        }
     }
     ret = 0;
 out:
@@ -4155,6 +4345,14 @@ glusterd_import_volinfo(dict_t *peer_data, int count,
         goto out;
     }
 
+    keylen = snprintf(key, sizeof(key), "%s.subvol_count", key_prefix);
+    ret = dict_get_int32n(peer_data, key, keylen, &new_volinfo->subvol_count);
+    if (ret) {
+        snprintf(msg, sizeof(msg), "%s missing in payload for %s", key,
+                 volname);
+        goto out;
+    }
+
     /* not having a 'stripe_count' key is not a error
        (as peer may be of old version) */
     keylen = snprintf(key, sizeof(key), "%s.stripe_count", key_prefix);
@@ -4175,6 +4373,15 @@ glusterd_import_volinfo(dict_t *peer_data, int count,
        (as peer may be of old version) */
     keylen = snprintf(key, sizeof(key), "%s.arbiter_count", key_prefix);
     ret = dict_get_int32n(peer_data, key, keylen, &new_volinfo->arbiter_count);
+    if (ret)
+        gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
+               "peer is possibly old version");
+
+    /* not having a 'thin_arbiter_count' key is not a error
+       (as peer may be of old version) */
+    keylen = snprintf(key, sizeof(key), "%s.thin_arbiter_count", key_prefix);
+    ret = dict_get_int32n(peer_data, key, keylen,
+                          &new_volinfo->thin_arbiter_count);
     if (ret)
         gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
                "peer is possibly old version");
@@ -4392,6 +4599,8 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
 {
     glusterd_brickinfo_t *new_brickinfo = NULL;
     glusterd_brickinfo_t *old_brickinfo = NULL;
+    glusterd_brickinfo_t *new_ta_brickinfo = NULL;
+    glusterd_brickinfo_t *old_ta_brickinfo = NULL;
     glusterd_conf_t *priv = NULL;
     int ret = 0;
     xlator_t *this = NULL;
@@ -4437,6 +4646,46 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
                 (void)strncpy(new_brickinfo->real_path,
                               old_brickinfo->real_path,
                               sizeof(new_brickinfo->real_path));
+            }
+        }
+    }
+    if (new_volinfo->thin_arbiter_count == 1) {
+        cds_list_for_each_entry(new_ta_brickinfo, &new_volinfo->ta_bricks,
+                                brick_list)
+        {
+            ret = glusterd_volume_ta_brickinfo_get(
+                new_ta_brickinfo->uuid, new_ta_brickinfo->hostname,
+                new_ta_brickinfo->path, old_volinfo, &old_ta_brickinfo);
+            if (ret == 0) {
+                new_ta_brickinfo->port = old_ta_brickinfo->port;
+
+                if (old_ta_brickinfo->real_path[0] == '\0') {
+                    if (!realpath(new_ta_brickinfo->path, abspath)) {
+                        /* Here an ENOENT should also be a
+                         * failure as the brick is expected to
+                         * be in existence
+                         */
+                        gf_msg(this->name, GF_LOG_CRITICAL, errno,
+                               GD_MSG_BRICKINFO_CREATE_FAIL,
+                               "realpath () failed for brick "
+                               "%s. The underlying filesystem "
+                               "may be in bad state",
+                               new_brickinfo->path);
+                        ret = -1;
+                        goto out;
+                    }
+                    if (strlen(abspath) >=
+                        sizeof(new_ta_brickinfo->real_path)) {
+                        ret = -1;
+                        goto out;
+                    }
+                    (void)strncpy(new_ta_brickinfo->real_path, abspath,
+                                  sizeof(new_ta_brickinfo->real_path));
+                } else {
+                    (void)strncpy(new_ta_brickinfo->real_path,
+                                  old_ta_brickinfo->real_path,
+                                  sizeof(new_ta_brickinfo->real_path));
+                }
             }
         }
     }
@@ -4608,8 +4857,8 @@ gd_check_and_update_rebalance_info(glusterd_volinfo_t *old_volinfo,
     new->rebalance_time = old->rebalance_time;
 
     /* glusterd_rebalance_t.{op, id, defrag_cmd} are copied during volume
-     * import
-     * a new defrag object should come to life with rebalance being restarted
+     * import a new defrag object should come to life with rebalance being
+     * restarted
      */
 out:
     return ret;

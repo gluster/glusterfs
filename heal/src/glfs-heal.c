@@ -1144,7 +1144,8 @@ glfsh_gather_heal_info(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
     while (xl->next)
         xl = xl->next;
     while (xl) {
-        if (strcmp(xl->type, "protocol/client") == 0) {
+        if (strcmp(xl->type, "protocol/client") == 0 &&
+            !strstr(xl->name, "-ta-")) {
             heal_xl = _get_ancestor(xl, heal_op);
             if (heal_xl) {
                 old_THIS = THIS;

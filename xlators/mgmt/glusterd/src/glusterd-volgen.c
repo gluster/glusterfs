@@ -566,7 +566,13 @@ no_filter_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     for (trav = first_of(graph); trav; trav = trav->next) {
         if (strcmp(trav->type, vme->voltype) != 0)
             continue;
-
+        if (strcmp(vme->option, "ta-remote-port") == 0) {
+            if (strstr(trav->name, "-ta-") != NULL) {
+                ret = xlator_set_option(trav, "remote-port",
+                                        strlen(vme->option), vme->value);
+            }
+            continue;
+        }
         ret = xlator_set_option(trav, vme->option, strlen(vme->option),
                                 vme->value);
         if (ret)
@@ -3185,7 +3191,10 @@ volgen_graph_build_clients(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         0,
     };
     glusterd_brickinfo_t *brick = NULL;
+    glusterd_brickinfo_t *ta_brick = NULL;
     xlator_t *xl = NULL;
+    int subvol_index = 0;
+    int thin_arbiter_index = 0;
 
     if (volinfo->brick_count == 0) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLUME_INCONSISTENCY,
@@ -3212,6 +3221,30 @@ volgen_graph_build_clients(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     i = 0;
     cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
     {
+        /* insert ta client xlator entry.
+         * eg - If subvol count is > 1, then after every two client xlator
+         * entries there should be a ta client xlator entry in the volfile. ta
+         * client xlator indexes are - 2, 5, 8 etc depending on the index of
+         * subvol.
+         */
+        if (volinfo->thin_arbiter_count &&
+            (i + 1) % (volinfo->replica_count + 1) == 0) {
+            thin_arbiter_index = 0;
+            cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks, brick_list)
+            {
+                if (thin_arbiter_index == subvol_index) {
+                    xl = volgen_graph_build_client(
+                        graph, volinfo, ta_brick->hostname, NULL,
+                        ta_brick->path, ta_brick->brick_id, transt, set_dict);
+                    if (!xl) {
+                        ret = -1;
+                        goto out;
+                    }
+                }
+                thin_arbiter_index++;
+            }
+            subvol_index++;
+        }
         xl = volgen_graph_build_client(graph, volinfo, brick->hostname, NULL,
                                        brick->path, brick->brick_id, transt,
                                        set_dict);
@@ -3221,6 +3254,28 @@ volgen_graph_build_clients(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         i++;
+    }
+
+    /* Add ta client xlator entry for last subvol
+     * Above loop will miss out on making the ta client
+     * xlator entry for the last subvolume in the volfile
+     */
+    if (volinfo->thin_arbiter_count) {
+        thin_arbiter_index = 0;
+        cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks, brick_list)
+        {
+            if (thin_arbiter_index == subvol_index) {
+                xl = volgen_graph_build_client(
+                    graph, volinfo, ta_brick->hostname, NULL, ta_brick->path,
+                    ta_brick->brick_id, transt, set_dict);
+                if (!xl) {
+                    ret = -1;
+                    goto out;
+                }
+            }
+
+            thin_arbiter_index++;
+        }
     }
 
     if (i != volinfo->brick_count) {
@@ -3599,12 +3654,15 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     glusterd_brickinfo_t *brick = NULL;
+    glusterd_brickinfo_t *ta_brick = NULL;
     char *ptr = NULL;
     int i = 0;
     int index = -1;
     int ret = 0;
     char *afr_xattrs_list = NULL;
     int list_size = -1;
+    int ta_brick_index = 0;
+    int subvol_index = 0;
 
     this = THIS;
     GF_VALIDATE_OR_GOTO("glusterd", this, out);
@@ -3643,6 +3701,26 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
             break;
         strncat(ptr, brick->brick_id, strlen(brick->brick_id));
         if (i == volinfo->replica_count) {
+            /* add ta client xlator in afr-pending-xattrs before making entries
+             * for client xlators in volfile.
+             * ta client xlator indexes are - 2, 5, 8 depending on the index of
+             * subvol. e.g- For first subvol ta client xlator id is volname-ta-2
+             */
+            ta_brick_index = 0;
+            if (volinfo->thin_arbiter_count == 1) {
+                ptr[strlen(brick->brick_id)] = ',';
+                cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks,
+                                        brick_list)
+                {
+                    if (ta_brick_index == subvol_index) {
+                        break;
+                    }
+                    ta_brick_index++;
+                }
+
+                strncat(ptr, ta_brick->brick_id, strlen(ta_brick->brick_id));
+            }
+
             ret = xlator_set_fixed_option(afr_xlators_list[index++],
                                           "afr-pending-xattr", afr_xattrs_list);
             if (ret)
@@ -3650,6 +3728,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
             memset(afr_xattrs_list, 0, list_size);
             ptr = afr_xattrs_list;
             i = 1;
+            subvol_index++;
             continue;
         }
         ptr[strlen(brick->brick_id)] = ',';
@@ -3674,6 +3753,13 @@ volgen_graph_build_afr_clusters(volgen_graph_t *graph,
     char *replicate_name = "%s-replicate-%d";
     xlator_t *afr = NULL;
     char option[32] = {0};
+    glusterd_brickinfo_t *ta_brick = NULL;
+    int ta_brick_index = 0;
+    int ta_replica_offset = 0;
+    int ta_brick_offset = 0;
+    char ta_option[4096] = {
+        0,
+    };
 
     if (glusterd_volinfo_get_boolean(volinfo, "cluster.jbr") > 0) {
         replicate_type = "experimental/jbrc";
@@ -3681,9 +3767,20 @@ volgen_graph_build_afr_clusters(volgen_graph_t *graph,
         replicate_type = "cluster/replicate";
     }
 
+    /* In thin-arbiter case brick count and replica count remain same
+     * but due to additional entries of ta client xlators in the volfile,
+     * GD1 is manipulated to include these client xlators while linking them to
+     * afr/cluster entry in the volfile.
+     */
+    if (volinfo->thin_arbiter_count == 1) {
+        ta_replica_offset = 1;
+        ta_brick_offset = volinfo->subvol_count;
+    }
+
     clusters = volgen_link_bricks_from_list_tail(
-        graph, volinfo, replicate_type, replicate_name, volinfo->brick_count,
-        volinfo->replica_count);
+        graph, volinfo, replicate_type, replicate_name,
+        volinfo->brick_count + ta_brick_offset,
+        volinfo->replica_count + ta_replica_offset);
 
     if (clusters < 0)
         goto out;
@@ -3693,18 +3790,43 @@ volgen_graph_build_afr_clusters(volgen_graph_t *graph,
         clusters = -1;
         goto out;
     }
-    if (!volinfo->arbiter_count)
+    if (!volinfo->arbiter_count && !volinfo->thin_arbiter_count)
         goto out;
 
     afr = first_of(graph);
-    sprintf(option, "%d", volinfo->arbiter_count);
-    for (i = 0; i < clusters; i++) {
-        ret = xlator_set_fixed_option(afr, "arbiter-count", option);
-        if (ret) {
-            clusters = -1;
-            goto out;
+
+    if (volinfo->arbiter_count) {
+        sprintf(option, "%d", volinfo->arbiter_count);
+        for (i = 0; i < clusters; i++) {
+            ret = xlator_set_fixed_option(afr, "arbiter-count", option);
+            if (ret) {
+                clusters = -1;
+                goto out;
+            }
+
+            afr = afr->next;
         }
-        afr = afr->next;
+    }
+
+    if (volinfo->thin_arbiter_count == 1) {
+        for (i = 0; i < clusters; i++) {
+            ta_brick_index = 0;
+            cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks, brick_list)
+            {
+                if (ta_brick_index == i) {
+                    break;
+                }
+                ta_brick_index++;
+            }
+            snprintf(ta_option, sizeof(ta_option), "%s:%s", ta_brick->hostname,
+                     ta_brick->path);
+            ret = xlator_set_fixed_option(afr, "thin-arbiter", ta_option);
+            if (ret) {
+                clusters = -1;
+                goto out;
+            }
+            afr = afr->next;
+        }
     }
 out:
     return clusters;

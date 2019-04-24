@@ -80,6 +80,95 @@ str_getunamb(const char *tok, char **opwords)
 }
 
 int32_t
+cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
+{
+    char *host_name = NULL;
+    char *tmp_host = NULL;
+    char *delimiter = NULL;
+    cli_brick_t *brick = NULL;
+    int ret = 0;
+
+    GF_ASSERT(words);
+    GF_ASSERT(wordcount);
+
+    if (validate_brick_name((char *)words[wordcount - 1])) {
+        cli_err(
+            "Wrong brick type: %s, use <HOSTNAME>:"
+            "<export-dir-abs-path>",
+            words[wordcount - 1]);
+        ret = -1;
+        goto out;
+    } else {
+        delimiter = strrchr(words[wordcount - 1], ':');
+        ret = gf_canonicalize_path(delimiter + 1);
+        if (ret)
+            goto out;
+    }
+
+    tmp_host = gf_strdup((char *)words[wordcount - 1]);
+    if (!tmp_host) {
+        gf_log("cli", GF_LOG_ERROR, "Out of memory");
+        ret = -1;
+        goto out;
+    }
+    get_host_name(tmp_host, &host_name);
+    if (!host_name) {
+        ret = -1;
+        gf_log("cli", GF_LOG_ERROR,
+               "Unable to retrieve "
+               "hostname");
+        goto out;
+    }
+
+    if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1") &&
+          strncmp(host_name, "0.", 2))) {
+        cli_err(
+            "Please provide a valid hostname/ip other "
+            "than localhost, 127.0.0.1 or loopback "
+            "address (0.0.0.0 to 0.255.255.255).");
+        ret = -1;
+        goto out;
+    }
+    if (!valid_internet_address(host_name, _gf_false, _gf_false)) {
+        cli_err(
+            "internet address '%s' does not conform to "
+            "standards",
+            host_name);
+    }
+
+    brick = GF_MALLOC(sizeof(cli_brick_t), gf_common_list_node);
+    if (brick == NULL) {
+        ret = -1;
+        gf_log("cli", GF_LOG_ERROR, "Out of memory");
+        goto out;
+    }
+
+    brick->name = words[wordcount - 1];
+    brick->len = strlen(words[wordcount - 1]);
+    *ta_brick = GF_MALLOC(brick->len + 3, gf_common_mt_char);
+    if (*ta_brick == NULL) {
+        ret = -1;
+        gf_log("cli", GF_LOG_ERROR, "Out of memory");
+        goto out;
+    }
+
+    strcat(*ta_brick, " ");
+    strcat(*ta_brick, brick->name);
+    strcat(*ta_brick, " ");
+out:
+    if (tmp_host) {
+        GF_FREE(tmp_host);
+        tmp_host = NULL;
+    }
+    if (brick) {
+        GF_FREE(brick);
+        brick = NULL;
+    }
+
+    return ret;
+}
+
+int32_t
 cli_cmd_bricks_parse(const char **words, int wordcount, int brick_index,
                      char **bricks, int *brick_count)
 {
@@ -476,14 +565,17 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
     char *trans_type = NULL;
     int32_t index = 0;
     char *bricks = NULL;
+    char *ta_brick = NULL;
     int32_t brick_count = 0;
-    char *opwords[] = {"replica",    "stripe",        "transport", "disperse",
-                       "redundancy", "disperse-data", "arbiter",   NULL};
+    char *opwords[] = {"replica",  "stripe",       "transport",
+                       "disperse", "redundancy",   "disperse-data",
+                       "arbiter",  "thin-arbiter", NULL};
 
     char *w = NULL;
     int op_count = 0;
     int32_t replica_count = 1;
     int32_t arbiter_count = 0;
+    int32_t thin_arbiter_count = 0;
     int32_t stripe_count = 1;
     int32_t disperse_count = -1;
     int32_t redundancy_count = -1;
@@ -581,6 +673,25 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                     if (ret)
                         goto out;
                     index += 2;
+                } else if (!strcmp(words[index], "thin-arbiter")) {
+                    ret = gf_string2int(words[index + 1], &thin_arbiter_count);
+                    if ((ret == -1) || (thin_arbiter_count != 1)) {
+                        cli_err(
+                            "For thin-arbiter "
+                            "configuration, "
+                            "replica count must be"
+                            " 2 and thin-arbiter count "
+                            "must be 1. The 3rd "
+                            "brick of the replica "
+                            "will be the thin-arbiter brick");
+                        ret = -1;
+                        goto out;
+                    }
+                    ret = dict_set_int32(dict, "thin-arbiter-count",
+                                         thin_arbiter_count);
+                    if (ret)
+                        goto out;
+                    index += 2;
                 }
             }
 
@@ -589,7 +700,7 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             if ((arbiter_count == 1) && (replica_count == 2))
                 replica_count += arbiter_count;
 
-            if (replica_count == 2) {
+            if (replica_count == 2 && thin_arbiter_count == 0) {
                 if (strcmp(words[wordcount - 1], "force")) {
                     question =
                         "Replica 2 volumes are prone"
@@ -657,6 +768,12 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                 "option.");
             ret = -1;
             goto out;
+        } else if ((strcmp(w, "thin-arbiter") == 0)) {
+            cli_err(
+                "thin-arbiter option must be preceded by replica "
+                "option.");
+            ret = -1;
+            goto out;
         } else {
             GF_ASSERT(!"opword mismatch");
             ret = -1;
@@ -680,7 +797,20 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
         wc = wordcount - 1;
     }
 
-    ret = cli_cmd_bricks_parse(words, wc, brick_index, &bricks, &brick_count);
+    // Exclude the thin-arbiter-brick i.e. last brick in the bricks list
+    if (thin_arbiter_count == 1) {
+        ret = cli_cmd_bricks_parse(words, wc - 1, brick_index, &bricks,
+                                   &brick_count);
+        if (ret)
+            goto out;
+
+        ret = cli_cmd_ta_brick_parse(words, wc, &ta_brick);
+
+    } else {
+        ret = cli_cmd_bricks_parse(words, wc, brick_index, &bricks,
+                                   &brick_count);
+    }
+
     if (ret)
         goto out;
 
@@ -739,6 +869,12 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
     if (ret)
         goto out;
 
+    if (thin_arbiter_count == 1) {
+        ret = dict_set_dynstr(dict, "ta-brick", ta_brick);
+        if (ret)
+            goto out;
+    }
+
     ret = dict_set_int32(dict, "count", brick_count);
     if (ret)
         goto out;
@@ -752,6 +888,7 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
 out:
     if (ret) {
         GF_FREE(bricks);
+        GF_FREE(ta_brick);
         gf_log("cli", GF_LOG_ERROR, "Unable to parse create volume CLI");
         if (dict)
             dict_unref(dict);

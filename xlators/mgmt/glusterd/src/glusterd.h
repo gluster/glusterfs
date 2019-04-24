@@ -440,6 +440,7 @@ struct glusterd_volinfo_ {
     /* This is a current pointer for
        glusterd_volinfo_t->snap_volumes */
     struct cds_list_head bricks;
+    struct cds_list_head ta_bricks;
     struct cds_list_head snap_volumes;
     /* TODO : Need to remove this, as this
      * is already part of snapshot object.
@@ -449,6 +450,7 @@ struct glusterd_volinfo_ {
     int stripe_count;
     int replica_count;
     int arbiter_count;
+    int thin_arbiter_count;
     int disperse_count;
     int redundancy_count;
     int subvol_count;    /* Number of subvolumes in a
