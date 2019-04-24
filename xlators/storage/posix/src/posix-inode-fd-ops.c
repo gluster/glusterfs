@@ -5491,6 +5491,8 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
             continue;
         }
 
+        posix_update_iatt_buf(&stbuf, -1, hpath, dict);
+
         if (!inode)
             inode = inode_find(itable, stbuf.ia_gfid);
 
