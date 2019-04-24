@@ -723,10 +723,12 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int32_t redundancy_count = 0;
     int32_t arbiter_count = 0;
     int32_t snap_count = 0;
+    int32_t thin_arbiter_count = 0;
     int32_t vol_type = 0;
     int32_t transport = 0;
     char *volume_id_str = NULL;
     char *volname = NULL;
+    char *ta_brick = NULL;
     dict_t *dict = NULL;
     cli_local_t *local = NULL;
     char key[1024] = {0};
@@ -903,6 +905,11 @@ xml_output:
         if (ret)
             goto out;
 
+        snprintf(key, 256, "volume%d.thin_arbiter_count", i);
+        ret = dict_get_int32(dict, key, &thin_arbiter_count);
+        if (ret)
+            goto out;
+
         // Distributed (stripe/replicate/stripe-replica) setups
         vol_type = get_vol_type(type, dist_count, brick_count);
 
@@ -928,6 +935,14 @@ xml_output:
         ret = print_brick_details(dict, i, j, brick_count, replica_count);
         if (ret)
             goto out;
+
+        if (thin_arbiter_count) {
+            snprintf(key, 1024, "volume%d.thin_arbiter_brick", i);
+            ret = dict_get_str(dict, key, &ta_brick);
+            if (ret)
+                goto out;
+            cli_out("Thin-arbiter-path: %s", ta_brick);
+        }
 
         snprintf(key, 256, "volume%d.opt_count", i);
         ret = dict_get_int32(dict, key, &opt_count);

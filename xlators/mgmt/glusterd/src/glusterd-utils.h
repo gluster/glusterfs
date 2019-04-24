@@ -32,6 +32,13 @@
                 brickid);                                                      \
     } while (0)
 
+#define GLUSTERD_ASSIGN_BRICKID_TO_TA_BRICKINFO(ta_brickinfo, volinfo,         \
+                                                brickid)                       \
+    do {                                                                       \
+        sprintf(ta_brickinfo->brick_id, "%s-ta-%d", volinfo->volname,          \
+                brickid);                                                      \
+    } while (0)
+
 #define ALL_VOLUME_OPTION_CHECK(volname, get_opt, key, ret, op_errstr, label)  \
     do {                                                                       \
         gf_boolean_t _all = !strcmp("all", volname);                           \

@@ -2999,9 +2999,9 @@ struct cli_cmd volume_cmds[] = {
      "list information of all volumes"},
 
     {"volume create <NEW-VOLNAME> [stripe <COUNT>] "
-     "[replica <COUNT> [arbiter <COUNT>]] "
+     "[[replica <COUNT> [arbiter <COUNT>]]|[replica 2 thin-arbiter 1]] "
      "[disperse [<COUNT>]] [disperse-data <COUNT>] [redundancy <COUNT>] "
-     "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK>"
+     "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> <TA-BRICK>"
      "... [force]",
 
      cli_cmd_volume_create_cbk,
