@@ -39,7 +39,15 @@ cs_@NAME@ (call_frame_t *frame, xlator_t *this,
         else
                 state = GF_CS_LOCAL;
 
-        local->xattr_req = xdata ? dict_ref (xdata) : (xdata = dict_new ());
+        xdata = xdata ? dict_ref (xdata) : dict_new ();
+
+        if (!xdata) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        local->xattr_req = xdata;
 
         ret = dict_set_uint32 (local->xattr_req, GF_CS_OBJECT_STATUS, 1);
         if (ret) {
@@ -187,19 +195,29 @@ int32_t
 cs_@NAME@ (call_frame_t *frame, xlator_t *this,
            @LONG_ARGS@)
 {
+        int              op_errno = EINVAL;
         cs_local_t      *local = NULL;
         int              ret   = 0;
 
         local = cs_local_init (this, frame, loc, NULL, GF_FOP_@UPNAME@);
         if (!local) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, 0, "local is NULL");
+                op_errno = ENOMEM;
                 goto err;
         }
 
         if (loc->inode->ia_type == IA_IFDIR)
                 goto wind;
 
-        local->xattr_req = xdata ? dict_ref (xdata) : dict_new ();
+        xdata = xdata ? dict_ref (xdata) : dict_new ();
+
+        if (!xdata) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        local->xattr_req = xdata;
 
         ret = dict_set_uint32 (local->xattr_req, GF_CS_OBJECT_STATUS, 1);
         if (ret) {
@@ -215,7 +233,7 @@ wind:
 
         return 0;
 err:
-        CS_STACK_UNWIND (@NAME@, frame, -1, errno, @CBK_ERROR_ARGS@);
+        CS_STACK_UNWIND (@NAME@, frame, -1, op_errno, @CBK_ERROR_ARGS@);
 
         return 0;
 }
