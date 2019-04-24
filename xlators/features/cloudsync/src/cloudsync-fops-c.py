@@ -285,7 +285,7 @@ loc_stat_op_fop_template = ['lookup', 'stat', 'discover', 'access', 'setattr',
 
 # These fops need a separate implementation
 special_fops = ['statfs', 'setxattr', 'unlink', 'getxattr',
-                'truncate', 'fstat', 'readv']
+                'truncate', 'fstat', 'readv', 'readdirp']
 
 def gen_defaults():
     for name in ops:

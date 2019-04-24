@@ -276,6 +276,40 @@ out:
 }
 
 int32_t
+cs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+            off_t off, dict_t *xdata)
+{
+    int ret = 0;
+    int op_errno = ENOMEM;
+
+    if (!xdata) {
+        xdata = dict_new();
+        if (!xdata) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
+                   "failed to create "
+                   "dict");
+            goto err;
+        }
+    }
+
+    ret = dict_set_uint32(xdata, GF_CS_OBJECT_STATUS, 1);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+               "dict_set failed key:"
+               " %s",
+               GF_CS_OBJECT_STATUS);
+        goto err;
+    }
+
+    STACK_WIND(frame, default_readdirp_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
+    return 0;
+err:
+    STACK_UNWIND_STRICT(readdirp, frame, -1, op_errno, NULL, NULL);
+    return 0;
+}
+
+int32_t
 cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
@@ -2022,6 +2056,7 @@ cs_notify(xlator_t *this, int event, void *data, ...)
 
 struct xlator_fops cs_fops = {
     .stat = cs_stat,
+    .readdirp = cs_readdirp,
     .truncate = cs_truncate,
     .seek = cs_seek,
     .statfs = cs_statfs,
