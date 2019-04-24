@@ -103,12 +103,6 @@ P: Kotresh HR <khiremat@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
 
-Decompounder
-M: Krutika Dhananjay <kdhananj@redhat.com>
-P: Pranith Karampuri <pkarampu@redhat.com>
-S: Maintained
-F: xlators/features/decompounder/
-
 Distributed Hashing Table (DHT)
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 M: Nithya Balachandran <nbalacha@redhat.com>

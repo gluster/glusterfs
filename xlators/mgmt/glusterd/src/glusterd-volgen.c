@@ -1747,28 +1747,6 @@ out:
 }
 
 static int
-brick_graph_add_decompounder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                             dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
-{
-    xlator_t *xl = NULL;
-    xlator_t *this = NULL;
-    glusterd_conf_t *conf = NULL;
-    int ret = -1;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
-
-    xl = volgen_graph_add_as(graph, "performance/decompounder",
-                             brickinfo->path);
-    if (xl)
-        ret = 0;
-out:
-    return ret;
-}
-
-static int
 brick_graph_add_arbiter(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2348,10 +2326,10 @@ brick_graph_add_io_stats(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     xlator_t *xl = NULL;
 
-    if (!graph || !volinfo || !set_dict || !brickinfo)
+    if (!graph || !set_dict || !brickinfo)
         goto out;
 
-    xl = volgen_graph_add(graph, "debug/io-stats", volinfo->volname);
+    xl = volgen_graph_add_as(graph, "debug/io-stats", brickinfo->path);
     if (!xl)
         goto out;
 
@@ -2617,7 +2595,6 @@ out:
  * the topology of the brick graph */
 static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_server, NULL},
-    {brick_graph_add_decompounder, "decompounder"},
     {brick_graph_add_io_stats, "NULL"},
     {brick_graph_add_sdfs, "sdfs"},
     {brick_graph_add_namespace, "namespace"},

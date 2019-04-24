@@ -106,18 +106,13 @@ volume ${V0}-index
     subvolumes ${V0}-io-threads
 end-volume
 
-volume ${V0}-io-stats
+volume $b
     type debug/io-stats
     option count-fop-hits off
     option latency-measurement off
     option log-level INFO
     option unique-id $b
     subvolumes ${V0}-index
-end-volume
-
-volume $b
-    type performance/decompounder
-    subvolumes ${V0}-io-stats
 end-volume
 
 volume ${V0}-server
