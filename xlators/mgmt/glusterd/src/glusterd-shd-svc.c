@@ -456,11 +456,11 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
         /* Unref will happen from glusterd_svc_attach_cbk */
         ret = glusterd_attach_svc(svc, volinfo, flags);
         if (ret) {
-            glusterd_volinfo_unref(volinfo);
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
                    "Failed to attach shd svc(volume=%s) to pid=%d. Starting"
                    "a new process",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
+            glusterd_volinfo_unref(volinfo);
             ret = glusterd_recover_shd_attach_failure(volinfo, svc, flags);
         }
         goto out;
@@ -668,7 +668,9 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     glusterd_volinfo_ref(volinfo);
     pthread_mutex_lock(&conf->attach_lock);
     {
-        gf_is_service_running(svc->proc.pidfile, &pid);
+        if (!gf_is_service_running(svc->proc.pidfile, &pid)) {
+            gf_msg_debug(THIS->name, 0, "shd isn't running");
+        }
         cds_list_del_init(&svc->mux_svc);
         empty = cds_list_empty(&svc_proc->svcs);
     }

@@ -1191,7 +1191,12 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
     struct syncargs args = {0};
 
     this = THIS;
-    synctask_barrier_init((&args));
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     RCU_READ_LOCK;
@@ -1321,7 +1326,10 @@ stage_done:
     }
 
     gd_syncargs_init(&args, aggr_dict);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     RCU_READ_LOCK;
@@ -1449,7 +1457,10 @@ commit_done:
     }
 
     gd_syncargs_init(&args, op_ctx);
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
     origin_glusterd = is_origin_glusterd(req_dict);
 
@@ -1541,7 +1552,10 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
         goto out;
     }
 
-    synctask_barrier_init((&args));
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+
     peer_cnt = 0;
 
     if (cluster_lock) {
