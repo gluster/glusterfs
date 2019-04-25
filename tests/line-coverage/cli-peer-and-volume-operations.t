@@ -54,6 +54,7 @@ TEST $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0 $H3:$B3/$V0
 # create a volume with already existing volume name
 TEST ! $CLI_1 volume create $V0 $H1:$B1/$V1 $H2:$B2/$V1
 TEST $CLI_1 volume start $V0
+EXPECT 'Started' cluster_volinfo_field 1 $V0 'Status';
 
 # Mount the volume and create files
 TEST glusterfs -s $H1 --volfile-id $V0 $M1
