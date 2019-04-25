@@ -334,7 +334,10 @@ make_ghadoop_mountspec(gf_mount_spec_t *mspec, const char *volname, char *user,
     if (ret == -1)
         return ret;
 
-    return parse_mount_pattern_desc(mspec, hadoop_mnt_desc);
+    ret = parse_mount_pattern_desc(mspec, hadoop_mnt_desc);
+    GF_FREE(hadoop_mnt_desc);
+
+    return ret;
 }
 
 static gf_boolean_t

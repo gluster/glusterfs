@@ -111,7 +111,7 @@ glusterd_svc_get_gfproxyd_volfile(glusterd_volinfo_t *volinfo, char *svc_name,
         goto out;
     }
 
-    /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
+    /* coverity[SECURE_TEMP] mkstemp uses 0600 as the mode and is safe */
     tmp_fd = mkstemp(*tmpvol);
     if (tmp_fd < 0) {
         gf_msg("glusterd", GF_LOG_WARNING, errno, GD_MSG_FILE_OP_FAILED,

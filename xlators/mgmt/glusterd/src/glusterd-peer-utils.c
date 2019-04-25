@@ -82,6 +82,7 @@ glusterd_peerinfo_cleanup(glusterd_peerinfo_t *peerinfo)
     call_rcu(&peerinfo->rcu_head.head, glusterd_peerinfo_destroy);
 
     if (quorum_action)
+        /* coverity[SLEEP] */
         glusterd_do_quorum_action();
     return 0;
 }
@@ -358,6 +359,7 @@ glusterd_uuid_to_hostname(uuid_t uuid)
 
     if (!gf_uuid_compare(MY_UUID, uuid)) {
         hostname = gf_strdup("localhost");
+        return hostname;
     }
     RCU_READ_LOCK;
     if (!cds_list_empty(&priv->peers)) {

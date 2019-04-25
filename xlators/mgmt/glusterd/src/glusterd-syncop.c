@@ -1766,6 +1766,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 if (dict_get(op_ctx, "client-count"))
                     break;
             }
+            /* coverity[MIXED_ENUMS] */
         } else if (cmd == GF_OP_CMD_DETACH_START) {
             op = GD_OP_REMOVE_BRICK;
             dict_del(req_dict, "rebalance-command");

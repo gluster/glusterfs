@@ -903,6 +903,7 @@ glusterd_create_sub_tier_volinfo(glusterd_volinfo_t *volinfo,
         (*dup_volinfo)->brick_count = tier_info->cold_brick_count;
     }
 out:
+    /* coverity[REVERSE_NULL] */
     if (ret && *dup_volinfo) {
         glusterd_volinfo_delete(*dup_volinfo);
         *dup_volinfo = NULL;
@@ -2662,6 +2663,7 @@ glusterd_readin_file(const char *filepath, int *line_count)
     /* Reduce allocation to minimal size.  */
     p = GF_REALLOC(lines, (counter + 1) * sizeof(char *));
     if (!p) {
+        /* coverity[TAINTED_SCALAR] */
         free_lines(lines, counter);
         lines = NULL;
         goto out;
@@ -6573,6 +6575,7 @@ glusterd_restart_bricks(void *opaque)
                 if (!brickinfo->start_triggered) {
                     pthread_mutex_lock(&brickinfo->restart_mutex);
                     {
+                        /* coverity[SLEEP] */
                         glusterd_brick_start(volinfo, brickinfo, _gf_false,
                                              _gf_false);
                     }
@@ -8682,7 +8685,7 @@ glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
     kill(pid, SIGUSR1);
 
     sleep(1);
-
+    /* coverity[TAINTED_STRING] */
     sys_unlink(dumpoptions_path);
     ret = 0;
 out:
@@ -8814,6 +8817,7 @@ glusterd_quotad_statedump(char *options, int option_cnt, char **op_errstr)
 
     sleep(1);
 
+    /* coverity[TAINTED_STRING] */
     sys_unlink(dumpoptions_path);
     ret = 0;
 out:
@@ -13206,7 +13210,7 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
         if (key_fixed)
             key = key_fixed;
     }
-
+    /* coverity[CONSTANT_EXPRESSION_RESULT] */
     ALL_VOLUME_OPTION_CHECK("all", _gf_true, key, ret, op_errstr, out);
 
     for (i = 0; valid_all_vol_opts[i].option; i++) {
@@ -13904,6 +13908,7 @@ glusterd_disallow_op_for_tier(glusterd_volinfo_t *volinfo, glusterd_op_t op,
             break;
         case GD_OP_REMOVE_BRICK:
             switch (cmd) {
+                /* coverity[MIXED_ENUMS] */
                 case GF_DEFRAG_CMD_DETACH_START:
                 case GF_OP_CMD_DETACH_COMMIT_FORCE:
                 case GF_OP_CMD_DETACH_COMMIT:

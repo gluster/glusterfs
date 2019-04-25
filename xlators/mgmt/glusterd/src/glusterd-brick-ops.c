@@ -1974,7 +1974,6 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
         case GF_OP_CMD_STATUS:
             ret = 0;
             goto out;
-
         case GF_OP_CMD_DETACH_START:
             if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
                 snprintf(msg, sizeof(msg),
@@ -1986,7 +1985,7 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                        errstr);
                 goto out;
             }
-
+        /* Fall through */
         case GF_OP_CMD_START: {
             if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
                 dict_getn(dict, "replica-count", SLEN("replica-count"))) {
@@ -2190,7 +2189,8 @@ out:
         if (op_errstr)
             *op_errstr = errstr;
     }
-
+    if (!op_errstr && errstr)
+        GF_FREE(errstr);
     return ret;
 }
 
@@ -2618,6 +2618,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
              * Update defrag_cmd as well or it will only be done
              * for nodes on which the brick to be removed exists.
              */
+            /* coverity[MIXED_ENUMS] */
             volinfo->rebal.defrag_cmd = cmd;
             volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
             ret = dict_get_strn(dict, GF_REMOVE_BRICK_TID_KEY,

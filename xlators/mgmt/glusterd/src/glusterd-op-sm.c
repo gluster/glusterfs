@@ -2417,6 +2417,7 @@ glusterd_start_bricks(glusterd_volinfo_t *volinfo)
         if (!brickinfo->start_triggered) {
             pthread_mutex_lock(&brickinfo->restart_mutex);
             {
+                /* coverity[SLEEP] */
                 ret = glusterd_brick_start(volinfo, brickinfo, _gf_false,
                                            _gf_false);
             }
@@ -3425,6 +3426,7 @@ _add_task_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
 
     switch (op) {
         case GD_OP_REMOVE_TIER_BRICK:
+        /* Fall through */
         case GD_OP_REMOVE_BRICK:
             snprintf(key, sizeof(key), "task%d", index);
             ret = _add_remove_bricks_to_dict(dict, volinfo, key);
@@ -7504,6 +7506,7 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
     glusterd_op_t op = GD_OP_NONE;
     glusterd_req_ctx_t *req_ctx = NULL;
     char *op_errstr = NULL;
+    gf_boolean_t free_req_ctx = _gf_false;
 
     this = THIS;
     priv = this->private;
@@ -7512,6 +7515,9 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
         req_ctx = ctx;
     } else {
         req_ctx = GF_CALLOC(1, sizeof(*req_ctx), gf_gld_mt_op_allack_ctx_t);
+        if (!req_ctx)
+            goto out;
+        free_req_ctx = _gf_true;
         op = glusterd_op_get_op();
         req_ctx->op = op;
         gf_uuid_copy(req_ctx->uuid, MY_UUID);
@@ -7542,6 +7548,8 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
     }
 
 out:
+    if (ret && req_ctx && free_req_ctx)
+        GF_FREE(req_ctx);
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
 
     return ret;

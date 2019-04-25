@@ -323,7 +323,7 @@ volopt_trie_cbk(char *word, void *param)
 }
 
 static int
-process_nodevec(struct trienodevec *nodevec, char **hint)
+process_nodevec(struct trienodevec *nodevec, char **outputhint, char *inputhint)
 {
     int ret = 0;
     char *hint1 = NULL;
@@ -332,14 +332,14 @@ process_nodevec(struct trienodevec *nodevec, char **hint)
     trienode_t **nodes = nodevec->nodes;
 
     if (!nodes[0]) {
-        *hint = NULL;
+        *outputhint = NULL;
         return 0;
     }
 
 #if 0
         /* Limit as in git */
         if (trienode_get_dist (nodes[0]) >= 6) {
-                *hint = NULL;
+                *outputhint = NULL;
                 return 0;
         }
 #endif
@@ -348,23 +348,30 @@ process_nodevec(struct trienodevec *nodevec, char **hint)
         return -1;
 
     if (nodevec->cnt < 2 || !nodes[1]) {
-        *hint = hint1;
+        *outputhint = hint1;
         return 0;
     }
 
-    if (trienode_get_word(nodes[1], &hint2))
+    if (trienode_get_word(nodes[1], &hint2)) {
+        GF_FREE(hint1);
         return -1;
+    }
 
-    if (*hint)
-        hintinfx = *hint;
-    ret = gf_asprintf(hint, "%s or %s%s", hint1, hintinfx, hint2);
+    if (inputhint)
+        hintinfx = inputhint;
+    ret = gf_asprintf(outputhint, "%s or %s%s", hint1, hintinfx, hint2);
     if (ret > 0)
         ret = 0;
+    if (hint1)
+        GF_FREE(hint1);
+    if (hint2)
+        GF_FREE(hint2);
     return ret;
 }
 
 static int
-volopt_trie_section(int lvl, char **patt, char *word, char **hint, int hints)
+volopt_trie_section(int lvl, char **patt, char *word, char **outputhint,
+                    char *inputhint, int hints)
 {
     trienode_t *nodes[] = {NULL, NULL};
     struct trienodevec nodevec = {nodes, 2};
@@ -385,7 +392,7 @@ volopt_trie_section(int lvl, char **patt, char *word, char **hint, int hints)
     nodevec.cnt = hints;
     ret = trie_measure_vec(trie, word, &nodevec);
     if (!ret && nodevec.nodes[0])
-        ret = process_nodevec(&nodevec, hint);
+        ret = process_nodevec(&nodevec, outputhint, inputhint);
 
     trie_destroy(trie);
 
@@ -397,6 +404,7 @@ volopt_trie(char *key, char **hint)
 {
     char *patt[] = {NULL};
     char *fullhint = NULL;
+    char *inputhint = NULL;
     char *dot = NULL;
     char *dom = NULL;
     int len = 0;
@@ -406,7 +414,7 @@ volopt_trie(char *key, char **hint)
 
     dot = strchr(key, '.');
     if (!dot)
-        return volopt_trie_section(1, patt, key, hint, 2);
+        return volopt_trie_section(1, patt, key, hint, inputhint, 2);
 
     len = dot - key;
     dom = gf_strdup(key);
@@ -414,7 +422,7 @@ volopt_trie(char *key, char **hint)
         return -1;
     dom[len] = '\0';
 
-    ret = volopt_trie_section(0, NULL, dom, patt, 1);
+    ret = volopt_trie_section(0, NULL, dom, patt, inputhint, 1);
     GF_FREE(dom);
     if (ret) {
         patt[0] = NULL;
@@ -423,8 +431,8 @@ volopt_trie(char *key, char **hint)
     if (!patt[0])
         goto out;
 
-    *hint = "...";
-    ret = volopt_trie_section(1, patt, dot + 1, hint, 2);
+    inputhint = "...";
+    ret = volopt_trie_section(1, patt, dot + 1, hint, inputhint, 2);
     if (ret)
         goto out;
     if (*hint) {

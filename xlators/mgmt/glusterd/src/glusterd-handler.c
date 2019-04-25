@@ -833,6 +833,7 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
 
     op_ctx = dict_new();
     if (!op_ctx) {
+        ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
                "Unable to set new dict");
         goto out;
@@ -858,6 +859,9 @@ out:
 
     glusterd_friend_sm();
     glusterd_op_sm();
+
+    if (ret)
+        GF_FREE(ctx);
 
     return ret;
 }
@@ -3305,6 +3309,7 @@ glusterd_rpc_create(struct rpc_clnt **rpc, dict_t *options,
     GF_ASSERT(this);
 
     GF_ASSERT(options);
+    GF_VALIDATE_OR_GOTO(this->name, rpc, out);
 
     if (force && rpc && *rpc) {
         (void)rpc_clnt_unref(*rpc);
@@ -3317,7 +3322,6 @@ glusterd_rpc_create(struct rpc_clnt **rpc, dict_t *options,
         goto out;
 
     ret = rpc_clnt_register_notify(new_rpc, notify_fn, notify_data);
-    *rpc = new_rpc;
     if (ret)
         goto out;
     ret = rpc_clnt_start(new_rpc);
@@ -3326,6 +3330,8 @@ out:
         if (new_rpc) {
             (void)rpc_clnt_unref(new_rpc);
         }
+    } else {
+        *rpc = new_rpc;
     }
 
     gf_msg_debug(this->name, 0, "returning %d", ret);

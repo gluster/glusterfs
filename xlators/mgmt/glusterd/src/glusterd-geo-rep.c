@@ -4096,6 +4096,7 @@ gd_pause_or_resume_gsync(dict_t *dict, char *master, char *slave,
 
 out:
     sys_close(pfd);
+    /* coverity[INTEGER_OVERFLOW] */
     return ret;
 }
 
@@ -4172,7 +4173,7 @@ stop_gsync(char *master, char *slave, char **msg, char *conf_path,
 
 out:
     sys_close(pfd);
-
+    /* coverity[INTEGER_OVERFLOW] */
     return ret;
 }
 

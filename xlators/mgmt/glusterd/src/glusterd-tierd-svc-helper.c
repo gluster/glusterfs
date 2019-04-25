@@ -116,7 +116,7 @@ glusterd_svc_check_tier_volfile_identical(char *svc_name,
         goto out;
     }
 
-    /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
+    /* coverity[SECURE_TEMP] mkstemp uses 0600 as the mode and is safe */
     tmp_fd = mkstemp(tmpvol);
     if (tmp_fd < 0) {
         gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_FILE_OP_FAILED,
@@ -177,7 +177,7 @@ glusterd_svc_check_tier_topology_identical(char *svc_name,
         goto out;
     }
 
-    /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
+    /* coverity[SECURE_TEMP] mkstemp uses 0600 as the mode and is safe */
     tmpfd = mkstemp(tmpvol);
     if (tmpfd < 0) {
         gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_FILE_OP_FAILED,
