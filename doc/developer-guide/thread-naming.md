@@ -99,6 +99,5 @@ such that it can be matched with a table below without ambiguity.
 - spoller  - socket poller
 - sprocN   - syncop worker thread
 - tbfclock - token bucket filter token generator thread
-- tierfixl - tier fix layout
 - timer    - timer thread
 - upreaper - upcall reaper
