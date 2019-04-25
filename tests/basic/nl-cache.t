@@ -64,5 +64,35 @@ TEST rm $M0/dir1/file_link
 TEST rmdir $M0/dir1/dir2
 TEST rmdir $M0/dir1
 
+#Check mknod
+TEST ! ls -l $M0/dir
+TEST mkdir $M0/dir
+TEST mknod -m 0666 $M0/dir/block b 4 5
+TEST mknod -m 0666 $M0/dir/char c 1 5
+TEST mknod -m 0666 $M0/dir/fifo p
+TEST rm $M0/dir/block
+TEST rm $M0/dir/char
+TEST rm $M0/dir/fifo
+
+#Check getxattr
+TEST touch $M0/file1
+TEST getfattr -d -m. -e hex $M0/file1
+TEST getfattr -n "glusterfs.get_real_filename:file1" $M0;
+TEST getfattr -n "glusterfs.get_real_filename:FILE1" $M0;
+TEST ! getfattr -n "glusterfs.get_real_filename:FILE2" $M0;
+
+#Check statedump
+TEST generate_mount_statedump $V0 $M0
+TEST cleanup_mount_statedump $V0
+
+#Check reconfigure
+TEST $CLI volume reset $V0 nl-cache-timeout
+TEST $CLI volume reset $V0 nl-cache-positive-entry
+TEST $CLI volume reset $V0 nl-cache-limit
+TEST $CLI volume reset $V0 nl-cache-pass-through
+
+TEST $CLI volume stop $V0
+TEST $CLI volume delete $V0
+
 cleanup;
 #G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
