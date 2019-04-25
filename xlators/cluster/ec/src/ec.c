@@ -714,6 +714,7 @@ init(xlator_t *this)
     if (ec_assign_read_policy(ec, read_policy))
         goto failed;
 
+    GF_OPTION_INIT("heal-timeout", ec->shd.timeout, int32, failed);
     GF_OPTION_INIT("shd-max-threads", ec->shd.max_threads, uint32, failed);
     GF_OPTION_INIT("shd-wait-qlength", ec->shd.wait_qlength, uint32, failed);
     GF_OPTION_INIT("optimistic-change-log", ec->optimistic_changelog, bool,
