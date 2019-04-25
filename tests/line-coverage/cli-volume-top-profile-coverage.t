@@ -46,8 +46,8 @@ function test_volume_top_cmds () {
 # Testing volume profile command with and without xml
 function test_volume_profile_cmds () {
     local ret=0
-    declare -a profile_cmds=("start" "info" "stop")
-    for cmd in ${profile_cmds[@]}; do
+    declare -a profile_cmds=("start" "info" "info peek" "info cumulative" "info clear" "info incremental peek" "stop")
+    for cmd in "${profile_cmds[@]}"; do
         $CLI_1 volume profile $V0 $cmd
         (( ret += $? ))
         $CLI_1 volume profile $V0 $cmd --xml
