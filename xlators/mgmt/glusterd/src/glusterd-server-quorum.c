@@ -372,6 +372,7 @@ glusterd_do_volume_quorum_action(xlator_t *this, glusterd_volinfo_t *volinfo,
             if (!brickinfo->start_triggered) {
                 pthread_mutex_lock(&brickinfo->restart_mutex);
                 {
+                    /* coverity[SLEEP] */
                     ret = glusterd_brick_start(volinfo, brickinfo, _gf_false,
                                                _gf_false);
                 }
