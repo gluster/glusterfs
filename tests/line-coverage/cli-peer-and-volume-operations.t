@@ -12,6 +12,8 @@ cleanup
 
 TEST launch_cluster 3
 
+TEST $CLI_1 system uuid reset
+
 ## basic peer commands
 TEST $CLI_1 peer probe $H2
 EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count 1
@@ -39,6 +41,15 @@ TEST ! $CLI_1 peer probe 1024.1024.1024.1024
 
 TEST $CLI_1 pool list
 
+TEST $CLI_1 --help
+TEST $CLI_1 --version
+TEST $CLI_1 --print-logdir
+TEST $CLI_1 --print-statedumpdir
+
+# try unrecognised command
+TEST ! $CLI_1 volume
+TEST pidof glusterd
+
 ## all help commands
 TEST $CLI_1 global help
 TEST $CLI_1 help
@@ -62,5 +73,15 @@ TEST touch $M1/file{1..100}
 
 #fails because $V0 is not shd compatible
 TEST ! $CLI_1 volume status $V0 shd
+
+#test explicitly provided options
+TEST $CLI_1 --timeout=120 --log-level=INFO volume status
+
+# system commnds
+TEST $CLI_1 system help
+TEST $CLI_1 system uuid get
+TEST $CLI_1 system getspec $V0
+TEST $CLI_1 system getwd
+TEST $CLI_1 system fsm log
 
 cleanup
