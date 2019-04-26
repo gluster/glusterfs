@@ -460,8 +460,8 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
                    "Failed to attach shd svc(volume=%s) to pid=%d. Starting"
                    "a new process",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
-            glusterd_volinfo_unref(volinfo);
             ret = glusterd_recover_shd_attach_failure(volinfo, svc, flags);
+            glusterd_volinfo_unref(volinfo);
         }
         goto out;
     }

@@ -5617,7 +5617,13 @@ attach_brick_callback(struct rpc_req *req, struct iovec *iov, int count,
         /* PID file is copied once brick has attached
            successfully
         */
-        glusterd_copy_file(pidfile1, pidfile2);
+        ret = glusterd_copy_file(pidfile1, pidfile2);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                   "Could not copy file %s to %s", pidfile1, pidfile2);
+            goto out;
+        }
+
         brickinfo->status = GF_BRICK_STARTED;
         brickinfo->rpc = rpc_clnt_ref(other_brick->rpc);
         gf_log(THIS->name, GF_LOG_INFO, "brick %s is attached successfully",
