@@ -32,6 +32,16 @@ function get_brick_host_uuid()
     echo $host_uuid_list | awk '{print $1}'
 }
 
+function generate_statedump_and_check_for_glusterd_info {
+        pid=`pidof glusterd`
+        #remove old stale statedumps
+        cleanup_statedump $pid
+        kill -USR1 $pid
+        #Wait till the statedump is generated
+        sleep 1
+        fname=$(ls $statedumpdir | grep -E "\.$pid\.dump\.")
+        cat $statedumpdir/$fname | grep "xlator.glusterd.priv" | wc -l
+}
 
 cleanup;
 
@@ -279,4 +289,7 @@ mkdir -p /xyz/var/lib/glusterd/abc
 TEST  $CLI volume create "test" $H0:/xyz/var/lib/glusterd/abc
 EXPECT 'Created' volinfo_field "test" 'Status';
 
+EXPECT "1" generate_statedump_and_check_for_glusterd_info
+
+cleanup_statedump `pidof glusterd`
 cleanup

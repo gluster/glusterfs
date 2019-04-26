@@ -2231,6 +2231,7 @@ xlator_api_t xlator_api = {
     .fini = fini,
     .mem_acct_init = mem_acct_init,
     .op_version = {1}, /* Present from the initial version */
+    .dumpops = &dumpops,
     .fops = &fops,
     .cbks = &cbks,
     .options = options,
