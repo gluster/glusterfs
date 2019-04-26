@@ -48,6 +48,7 @@ glusterd_peerinfo_destroy(struct rcu_head *head)
     }
 
     glusterd_sm_tr_log_delete(&peerinfo->sm_log);
+    pthread_mutex_unlock(&peerinfo->delete_lock);
     pthread_mutex_destroy(&peerinfo->delete_lock);
     GF_FREE(peerinfo);
 
