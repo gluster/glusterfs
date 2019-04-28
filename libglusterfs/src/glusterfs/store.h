@@ -69,6 +69,9 @@ int32_t
 gf_store_save_value(int fd, char *key, char *value);
 
 int32_t
+gf_store_save_items(int fd, char *items);
+
+int32_t
 gf_store_handle_new(const char *path, gf_store_handle_t **handle);
 
 int

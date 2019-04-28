@@ -388,6 +388,53 @@ out:
 }
 
 int32_t
+gf_store_save_items(int fd, char *items)
+{
+    int32_t ret = -1;
+    int dup_fd = -1;
+    FILE *fp = NULL;
+
+    GF_ASSERT(fd > 0);
+    GF_ASSERT(items);
+
+    dup_fd = dup(fd);
+    if (dup_fd == -1)
+        goto out;
+
+    fp = fdopen(dup_fd, "a+");
+    if (fp == NULL) {
+        gf_msg(THIS->name, GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+               "fdopen failed.");
+        ret = -1;
+        goto out;
+    }
+
+    ret = fputs(items, fp);
+    if (ret < 0) {
+        gf_msg(THIS->name, GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+               "Unable to store items: %s", items);
+        ret = -1;
+        goto out;
+    }
+
+    ret = fflush(fp);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+               "fflush failed.");
+        ret = -1;
+        goto out;
+    }
+
+    ret = 0;
+out:
+    if (fp)
+        fclose(fp);
+
+    gf_msg_debug(THIS->name, 0, "returning: %d", ret);
+    return ret;
+}
+
+int32_t
 gf_store_handle_new(const char *path, gf_store_handle_t **handle)
 {
     int32_t ret = -1;
