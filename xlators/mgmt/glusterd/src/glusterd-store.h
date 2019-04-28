@@ -28,6 +28,8 @@ typedef enum glusterd_store_ver_ac_ {
     GLUSTERD_VOLINFO_VER_AC_DECREMENT = 2,
 } glusterd_volinfo_ver_ac_t;
 
+#define UUID_SIZE 36
+
 #define GLUSTERD_STORE_UUID_KEY "UUID"
 
 #define GLUSTERD_STORE_KEY_VOL_TYPE "type"
@@ -175,9 +177,6 @@ glusterd_store_options(xlator_t *this, dict_t *opts);
 
 void
 glusterd_replace_slash_with_hyphen(char *str);
-
-int32_t
-glusterd_store_perform_volume_store(glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_store_create_quota_conf_sh_on_absence(glusterd_volinfo_t *volinfo);
