@@ -354,6 +354,8 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
 
     if (frame) {
         this = frame->this;
+    } else {
+        this = THIS;
     }
 
     /*For this functionality to be implemented in general, we need

@@ -429,6 +429,51 @@ ec_disable_delays(ec_t *ec)
 }
 
 void
+ec_cleanup_healer_object(ec_t *ec)
+{
+    struct subvol_healer *healer = NULL;
+    ec_self_heald_t *shd = NULL;
+    void *res = NULL;
+    int i = 0;
+    gf_boolean_t is_join = _gf_false;
+
+    shd = &ec->shd;
+    if (!shd->iamshd)
+        return;
+
+    for (i = 0; i < ec->nodes; i++) {
+        healer = &shd->index_healers[i];
+        pthread_mutex_lock(&healer->mutex);
+        {
+            healer->rerun = 1;
+            if (healer->running) {
+                pthread_cond_signal(&healer->cond);
+                is_join = _gf_true;
+            }
+        }
+        pthread_mutex_unlock(&healer->mutex);
+        if (is_join) {
+            pthread_join(healer->thread, &res);
+            is_join = _gf_false;
+        }
+
+        healer = &shd->full_healers[i];
+        pthread_mutex_lock(&healer->mutex);
+        {
+            healer->rerun = 1;
+            if (healer->running) {
+                pthread_cond_signal(&healer->cond);
+                is_join = _gf_true;
+            }
+        }
+        pthread_mutex_unlock(&healer->mutex);
+        if (is_join) {
+            pthread_join(healer->thread, &res);
+            is_join = _gf_false;
+        }
+    }
+}
+void
 ec_pending_fops_completed(ec_t *ec)
 {
     if (ec->shutdown) {
@@ -544,6 +589,7 @@ ec_notify(xlator_t *this, int32_t event, void *data, void *data2)
         /* If there aren't pending fops running after we have waken up
          * them, we immediately propagate the notification. */
         propagate = ec_disable_delays(ec);
+        ec_cleanup_healer_object(ec);
         goto unlock;
     }
 
@@ -760,6 +806,7 @@ failed:
 void
 fini(xlator_t *this)
 {
+    ec_selfheal_daemon_fini(this);
     __ec_destroy_private(this);
 }
 

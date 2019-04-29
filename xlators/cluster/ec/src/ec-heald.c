@@ -71,6 +71,11 @@ disabled_loop:
             break;
     }
 
+    if (ec->shutdown) {
+        healer->running = _gf_false;
+        return -1;
+    }
+
     ret = healer->rerun;
     healer->rerun = 0;
 
@@ -241,9 +246,11 @@ ec_shd_index_sweep(struct subvol_healer *healer)
         goto out;
     }
 
+    _mask_cancellation();
     ret = syncop_mt_dir_scan(NULL, subvol, &loc, GF_CLIENT_PID_SELF_HEALD,
                              healer, ec_shd_index_heal, xdata,
                              ec->shd.max_threads, ec->shd.wait_qlength);
+    _unmask_cancellation();
 out:
     if (xdata)
         dict_unref(xdata);
@@ -263,6 +270,11 @@ ec_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     int ret = 0;
 
     ec = this->private;
+
+    if (this->cleanup_starting) {
+        return -ENOTCONN;
+    }
+
     if (ec->xl_up_count <= ec->fragments) {
         return -ENOTCONN;
     }
@@ -305,11 +317,15 @@ ec_shd_full_sweep(struct subvol_healer *healer, inode_t *inode)
 {
     ec_t *ec = NULL;
     loc_t loc = {0};
+    int ret = -1;
 
     ec = healer->this->private;
     loc.inode = inode;
-    return syncop_ftw(ec->xl_list[healer->subvol], &loc,
-                      GF_CLIENT_PID_SELF_HEALD, healer, ec_shd_full_heal);
+    _mask_cancellation();
+    ret = syncop_ftw(ec->xl_list[healer->subvol], &loc,
+                     GF_CLIENT_PID_SELF_HEALD, healer, ec_shd_full_heal);
+    _unmask_cancellation();
+    return ret;
 }
 
 void *
@@ -317,13 +333,16 @@ ec_shd_index_healer(void *data)
 {
     struct subvol_healer *healer = NULL;
     xlator_t *this = NULL;
+    int run = 0;
 
     healer = data;
     THIS = this = healer->this;
     ec_t *ec = this->private;
 
     for (;;) {
-        ec_shd_healer_wait(healer);
+        run = ec_shd_healer_wait(healer);
+        if (run == -1)
+            break;
 
         if (ec->xl_up_count > ec->fragments) {
             gf_msg_debug(this->name, 0, "starting index sweep on subvol %s",
@@ -352,16 +371,12 @@ ec_shd_full_healer(void *data)
 
     rootloc.inode = this->itable->root;
     for (;;) {
-        pthread_mutex_lock(&healer->mutex);
-        {
-            run = __ec_shd_healer_wait(healer);
-            if (!run)
-                healer->running = _gf_false;
-        }
-        pthread_mutex_unlock(&healer->mutex);
-
-        if (!run)
+        run = ec_shd_healer_wait(healer);
+        if (run < 0) {
             break;
+        } else if (run == 0) {
+            continue;
+        }
 
         if (ec->xl_up_count > ec->fragments) {
             gf_msg(this->name, GF_LOG_INFO, 0, EC_MSG_FULL_SWEEP_START,
@@ -561,4 +576,42 @@ ec_xl_op(xlator_t *this, dict_t *input, dict_t *output)
 out:
     dict_del(output, this->name);
     return ret;
+}
+
+void
+ec_destroy_healer_object(xlator_t *this, struct subvol_healer *healer)
+{
+    if (!healer)
+        return;
+
+    pthread_cond_destroy(&healer->cond);
+    pthread_mutex_destroy(&healer->mutex);
+}
+
+void
+ec_selfheal_daemon_fini(xlator_t *this)
+{
+    struct subvol_healer *healer = NULL;
+    ec_self_heald_t *shd = NULL;
+    ec_t *priv = NULL;
+    int i = 0;
+
+    priv = this->private;
+    if (!priv)
+        return;
+
+    shd = &priv->shd;
+    if (!shd->iamshd)
+        return;
+
+    for (i = 0; i < priv->nodes; i++) {
+        healer = &shd->index_healers[i];
+        ec_destroy_healer_object(this, healer);
+
+        healer = &shd->full_healers[i];
+        ec_destroy_healer_object(this, healer);
+    }
+
+    GF_FREE(shd->index_healers);
+    GF_FREE(shd->full_healers);
 }

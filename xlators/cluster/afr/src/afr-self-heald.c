@@ -524,6 +524,11 @@ afr_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     afr_private_t *priv = NULL;
 
     priv = this->private;
+
+    if (this->cleanup_starting) {
+        return -ENOTCONN;
+    }
+
     if (!priv->shd.enabled)
         return -EBUSY;
 
