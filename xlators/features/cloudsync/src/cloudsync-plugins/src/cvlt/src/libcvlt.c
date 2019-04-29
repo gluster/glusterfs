@@ -264,10 +264,12 @@ cvlt_init_xlator(xlator_t *this, archive_t *arch, int num_req, int num_iatt)
     return ret;
 
 err:
-    cvlt_free_resources(arch);
+    if (arch) {
+        cvlt_free_resources(arch);
 
-    if (locked) {
-        UNLOCK(&(arch->lock));
+        if (locked) {
+            UNLOCK(&(arch->lock));
+        }
     }
 
     return ret;
@@ -445,9 +447,7 @@ out:
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1, &postbuf,
                         req->iobref, local->xattr_rsp);
 
-    if (req) {
-        cvlt_free_req(priv, req);
-    }
+    cvlt_free_req(priv, req);
 
     return;
 }
