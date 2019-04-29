@@ -3357,8 +3357,18 @@ glusterd_add_bulk_volumes_create_thread(void *data)
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
     {
         count++;
-        if ((count < start) || (count > end))
+
+        /* Skip volumes if index count is less than start
+           index to handle volume for specific thread
+        */
+        if (count < start)
             continue;
+
+        /* No need to process volume if index count is greater
+           than end index
+        */
+        if (count > end)
+            break;
 
         ret = glusterd_add_volume_to_dict(volinfo, dict, count, "volume");
         if (ret)
@@ -3420,9 +3430,11 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
         totthread = 0;
     } else {
         totthread = volcnt / vol_per_thread_limit;
-        endindex = volcnt % vol_per_thread_limit;
-        if (endindex)
-            totthread++;
+        if (totthread) {
+            endindex = volcnt % vol_per_thread_limit;
+            if (endindex)
+                totthread++;
+        }
     }
 
     if (totthread == 0) {
@@ -3448,10 +3460,10 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
             arg->this = this;
             arg->voldict = dict_arr[i];
             arg->start = start;
-            if (!endindex) {
+            if ((i + 1) != totthread) {
                 arg->end = ((i + 1) * vol_per_thread_limit);
             } else {
-                arg->end = (start + endindex);
+                arg->end = ((i * vol_per_thread_limit) + endindex);
             }
             th_ret = gf_thread_create_detached(
                 &th_id, glusterd_add_bulk_volumes_create_thread, arg,
