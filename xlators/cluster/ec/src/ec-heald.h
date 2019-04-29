@@ -24,4 +24,7 @@ ec_selfheal_daemon_init(xlator_t *this);
 void
 ec_shd_index_healer_wake(ec_t *ec);
 
+void
+ec_selfheal_daemon_fini(xlator_t *this);
+
 #endif /* __EC_HEALD_H__ */
