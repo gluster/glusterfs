@@ -473,6 +473,41 @@ __inode_unref(inode_t *inode, bool clear)
     if (__is_root_gfid(inode->gfid))
         return inode;
 
+    /*
+     * No need to acquire inode table's lock
+     * as __inode_unref is called after acquiding
+     * the inode table's lock.
+     */
+    if (inode->table->cleanup_started && !inode->ref)
+        /*
+         * There is a good chance that, the inode
+         * on which unref came has already been
+         * zero refed and added to the purge list.
+         * This can happen when inode table is
+         * being destroyed (glfs_fini is something
+         * which destroys the inode table).
+         *
+         * Consider a directory 'a' which has a file
+         * 'b'. Now as part of inode table destruction
+         * zero refing of inodes does not happen from
+         * leaf to the root. It happens in the order
+         * inodes are present in the list. So, in this
+         * example, the dentry of 'b' would have its
+         * parent set to the inode of 'a'. So if
+         * 'a' gets zero refed first (as part of
+         * inode table cleanup) and then 'b' has to
+         * zero refed, then dentry_unset is called on
+         * the dentry of 'b' and it further goes on to
+         * call inode_unref on b's parent which is 'a'.
+         * In this situation, GF_ASSERT would be called
+         * below as the refcount of 'a' has been already set
+         * to zero.
+         *
+         * So return the inode if the inode table cleanup
+         * has already started and inode refcount is 0.
+         */
+        return inode;
+
     this = THIS;
 
     if (clear && inode->invalidate_sent) {
@@ -1679,6 +1714,8 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
         ;
     }
 
+    new->cleanup_started = _gf_false;
+
     __inode_table_init_root(new);
 
     pthread_mutex_init(&new->lock, NULL);
@@ -1829,6 +1866,7 @@ inode_table_destroy(inode_table_t *inode_table)
      */
     pthread_mutex_lock(&inode_table->lock);
     {
+        inode_table->cleanup_started = _gf_true;
         /* Process lru list first as we need to unset their dentry
          * entries (the ones which may not be unset during
          * '__inode_passivate' as they were hashed) which in turn
