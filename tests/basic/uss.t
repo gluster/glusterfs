@@ -384,4 +384,26 @@ TEST ls $M0/.history/snap6/;
 
 TEST ! stat $M0/.history/snap6/aaa;
 
+# done with the tests start cleaning up of things
+TEST $CLI volume set $V0 features.uss disable
+
+TEST $CLI snapshot delete snap6;
+
+TEST $CLI snapshot delete snap5;
+
+TEST $CLI snapshot delete snap4;
+
+TEST $CLI snapshot delete snap3;
+
+TEST $CLI snapshot delete snap2;
+
+TEST $CLI snapshot delete snap1;
+
+# nfs client has been already unmounted at line 333
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
+TEST $CLI volume stop $V0
+
+TEST $CLI volume delete $V0
+
 cleanup;
