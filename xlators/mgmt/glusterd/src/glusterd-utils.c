@@ -2877,22 +2877,25 @@ out:
     return ret;
 }
 
-int
+static int
 _add_dict_to_prdict(dict_t *this, char *key, data_t *value, void *data)
 {
-    glusterd_dict_ctx_t *ctx = NULL;
-    char optkey[512] = "";
+    glusterd_dict_ctx_t *ctx = data;
+    char optkey[64]; /* optkey are usually quite small */
     int ret = -1;
 
-    ctx = data;
     ret = snprintf(optkey, sizeof(optkey), "%s.%s%d", ctx->prefix,
                    ctx->key_name, ctx->opt_count);
+    if (ret < 0 || ret >= sizeof(optkey))
+        return -1;
     ret = dict_set_strn(ctx->dict, optkey, ret, key);
     if (ret)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "option add for %s%d %s", ctx->key_name, ctx->opt_count, key);
     ret = snprintf(optkey, sizeof(optkey), "%s.%s%d", ctx->prefix,
                    ctx->val_name, ctx->opt_count);
+    if (ret < 0 || ret >= sizeof(optkey))
+        return -1;
     ret = dict_set_strn(ctx->dict, optkey, ret, value->data);
     if (ret)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -2939,8 +2942,8 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
                             int32_t count, char *prefix)
 {
     int32_t ret = -1;
-    char pfx[512] = "";
-    char key[512] = "";
+    char pfx[32] = ""; /* prefix should be quite small */
+    char key[64] = "";
     int keylen;
     glusterd_brickinfo_t *brickinfo = NULL;
     int32_t i = 1;
@@ -2957,77 +2960,83 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     GF_ASSERT(volinfo);
     GF_ASSERT(prefix);
 
-    keylen = snprintf(key, sizeof(key), "%s%d.name", prefix, count);
+    ret = snprintf(pfx, sizeof(pfx), "%s%d", prefix, count);
+    if (ret < 0 || ret >= sizeof(pfx)) {
+        ret = -1;
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "%s.name", pfx);
     ret = dict_set_strn(dict, key, keylen, volinfo->volname);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.type", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.type", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->type);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.brick_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.brick_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->brick_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.version", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.version", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->version);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.status", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.status", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->status);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.sub_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.sub_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->sub_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.stripe_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.stripe_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->stripe_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.replica_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.replica_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->replica_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.arbiter_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.arbiter_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->arbiter_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.disperse_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.disperse_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->disperse_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.redundancy_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.redundancy_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->redundancy_count);
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.dist_count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.dist_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->dist_leaf_count);
     if (ret)
         goto out;
 
-    snprintf(key, sizeof(key), "%s%d.ckusm", prefix, count);
+    snprintf(key, sizeof(key), "%s.ckusm", pfx);
     ret = dict_set_int64(dict, key, volinfo->cksum);
     if (ret)
         goto out;
 
-    snprintf(key, sizeof(key), "%s%d.transport_type", prefix, count);
+    snprintf(key, sizeof(key), "%s.transport_type", pfx);
     ret = dict_set_uint32(dict, key, volinfo->transport_type);
     if (ret)
         goto out;
 
-    snprintf(key, sizeof(key), "%s%d.stage_deleted", prefix, count);
+    snprintf(key, sizeof(key), "%s.stage_deleted", pfx);
     ret = dict_set_uint32(dict, key, (uint32_t)volinfo->stage_deleted);
     if (ret)
         goto out;
@@ -3035,57 +3044,56 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     /* tiering related variables */
 
     if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        snprintf(key, sizeof(key), "%s%d.cold_brick_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.cold_brick_count", pfx);
         ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_brick_count);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.cold_type", prefix, count);
+        snprintf(key, sizeof(key), "%s.cold_type", pfx);
         ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_type);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.cold_replica_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.cold_replica_count", pfx);
         ret = dict_set_uint32(dict, key, volinfo->tier_info.cold_replica_count);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.cold_disperse_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.cold_disperse_count", pfx);
         ret = dict_set_uint32(dict, key,
                               volinfo->tier_info.cold_disperse_count);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.cold_redundancy_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.cold_redundancy_count", pfx);
         ret = dict_set_uint32(dict, key,
                               volinfo->tier_info.cold_redundancy_count);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.cold_dist_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.cold_dist_count", pfx);
         ret = dict_set_uint32(dict, key,
                               volinfo->tier_info.cold_dist_leaf_count);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.hot_brick_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.hot_brick_count", pfx);
         ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_brick_count);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.hot_type", prefix, count);
+        snprintf(key, sizeof(key), "%s.hot_type", pfx);
         ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_type);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.hot_replica_count", prefix, count);
+        snprintf(key, sizeof(key), "%s.hot_replica_count", pfx);
         ret = dict_set_uint32(dict, key, volinfo->tier_info.hot_replica_count);
         if (ret)
             goto out;
     }
 
-    snprintf(key, sizeof(key), "%s%d", prefix, count);
-    ret = gd_add_vol_snap_details_to_dict(dict, key, volinfo);
+    ret = gd_add_vol_snap_details_to_dict(dict, pfx, volinfo);
     if (ret)
         goto out;
 
@@ -3094,13 +3102,13 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
         ret = -1;
         goto out;
     }
-    keylen = snprintf(key, sizeof(key), "%s%d.volume_id", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.volume_id", pfx);
     ret = dict_set_dynstrn(dict, key, keylen, volume_id_str);
     if (ret)
         goto out;
     volume_id_str = NULL;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.username", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.username", pfx);
     str = glusterd_auth_get_username(volinfo);
     if (str) {
         ret = dict_set_dynstrn(dict, key, keylen, gf_strdup(str));
@@ -3108,7 +3116,7 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
             goto out;
     }
 
-    keylen = snprintf(key, sizeof(key), "%s%d.password", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.password", pfx);
     str = glusterd_auth_get_password(volinfo);
     if (str) {
         ret = dict_set_dynstrn(dict, key, keylen, gf_strdup(str));
@@ -3116,7 +3124,7 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
             goto out;
     }
 
-    keylen = snprintf(key, sizeof(key), "%s%d.rebalance", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.rebalance", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->rebal.defrag_cmd);
     if (ret)
         goto out;
@@ -3126,19 +3134,18 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
         ret = -1;
         goto out;
     }
-    keylen = snprintf(key, sizeof(key), "%s%d.rebalance-id", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.rebalance-id", pfx);
     ret = dict_set_dynstrn(dict, key, keylen, rebalance_id_str);
     if (ret)
         goto out;
     rebalance_id_str = NULL;
 
-    snprintf(key, sizeof(key), "%s%d.rebalance-op", prefix, count);
+    snprintf(key, sizeof(key), "%s.rebalance-op", pfx);
     ret = dict_set_uint32(dict, key, volinfo->rebal.op);
     if (ret)
         goto out;
 
     if (volinfo->rebal.dict) {
-        snprintf(pfx, sizeof(pfx), "%s%d", prefix, count);
         ctx.dict = dict;
         ctx.prefix = pfx;
         ctx.opt_count = 1;
@@ -3153,7 +3160,6 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
             goto out;
     }
 
-    snprintf(pfx, sizeof(pfx), "%s%d", prefix, count);
     ctx.dict = dict;
     ctx.prefix = pfx;
     ctx.opt_count = 1;
@@ -3163,7 +3169,7 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
 
     dict_foreach(volinfo->dict, _add_dict_to_prdict, &ctx);
     ctx.opt_count--;
-    keylen = snprintf(key, sizeof(key), "%s%d.opt-count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.opt-count", pfx);
     ret = dict_set_int32n(dict, key, keylen, ctx.opt_count);
     if (ret)
         goto out;
@@ -3178,43 +3184,40 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     dict_foreach(volinfo->gsync_slaves, _add_dict_to_prdict, &ctx);
     ctx.opt_count--;
 
-    keylen = snprintf(key, sizeof(key), "%s%d.gsync-count", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.gsync-count", pfx);
     ret = dict_set_int32n(dict, key, keylen, ctx.opt_count);
     if (ret)
         goto out;
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        keylen = snprintf(key, sizeof(key), "%s%d.brick%d.hostname", prefix,
-                          count, i);
+        keylen = snprintf(key, sizeof(key), "%s.brick%d.hostname", pfx, i);
         ret = dict_set_strn(dict, key, keylen, brickinfo->hostname);
         if (ret)
             goto out;
 
-        keylen = snprintf(key, sizeof(key), "%s%d.brick%d.path", prefix, count,
-                          i);
+        keylen = snprintf(key, sizeof(key), "%s.brick%d.path", pfx, i);
         ret = dict_set_strn(dict, key, keylen, brickinfo->path);
         if (ret)
             goto out;
 
-        keylen = snprintf(key, sizeof(key), "%s%d.brick%d.decommissioned",
-                          prefix, count, i);
+        keylen = snprintf(key, sizeof(key), "%s.brick%d.decommissioned", pfx,
+                          i);
         ret = dict_set_int32n(dict, key, keylen, brickinfo->decommissioned);
         if (ret)
             goto out;
 
-        keylen = snprintf(key, sizeof(key), "%s%d.brick%d.brick_id", prefix,
-                          count, i);
+        keylen = snprintf(key, sizeof(key), "%s.brick%d.brick_id", pfx, i);
         ret = dict_set_strn(dict, key, keylen, brickinfo->brick_id);
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.brick%d.uuid", prefix, count, i);
+        snprintf(key, sizeof(key), "%s.brick%d.uuid", pfx, i);
         ret = dict_set_dynstr_with_alloc(dict, key, uuid_utoa(brickinfo->uuid));
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s%d.brick%d", prefix, count, i);
+        snprintf(key, sizeof(key), "%s.brick%d", pfx, i);
         ret = gd_add_brick_snap_details_to_dict(dict, key, brickinfo);
         if (ret)
             goto out;
@@ -3225,22 +3228,20 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     /* Add volume op-versions to dict. This prevents volume inconsistencies
      * in the cluster
      */
-    keylen = snprintf(key, sizeof(key), "%s%d.op-version", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.op-version", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->op_version);
     if (ret)
         goto out;
-    keylen = snprintf(key, sizeof(key), "%s%d.client-op-version", prefix,
-                      count);
+    keylen = snprintf(key, sizeof(key), "%s.client-op-version", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->client_op_version);
     if (ret)
         goto out;
 
     /*Add volume Capability (BD Xlator) to dict*/
-    keylen = snprintf(key, sizeof(key), "%s%d.caps", prefix, count);
+    keylen = snprintf(key, sizeof(key), "%s.caps", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->caps);
 
-    keylen = snprintf(key, sizeof(key), "%s%d.quota-xattr-version", prefix,
-                      count);
+    keylen = snprintf(key, sizeof(key), "%s.quota-xattr-version", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->quota_xattr_version);
 out:
     GF_FREE(volume_id_str);
