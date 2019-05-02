@@ -58,8 +58,6 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
     ctx = op_ctx;
 
     switch (op) {
-        case GD_OP_DETACH_TIER:
-        case GD_OP_REMOVE_TIER_BRICK:
         case GD_OP_REMOVE_BRICK: {
             if (ctx)
                 ret = dict_get_strn(ctx, "errstr", SLEN("errstr"), &errstr);
@@ -70,9 +68,6 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
                 errstr = "Error while resetting options";
             break;
         }
-        case GD_OP_TIER_MIGRATE:
-        case GD_OP_TIER_STATUS:
-        case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_REBALANCE:
         case GD_OP_DEFRAG_BRICK_VOLUME: {
             if (ctx) {
@@ -138,9 +133,14 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
         case GD_OP_SCRUB_ONDEMAND:
         case GD_OP_RESET_BRICK:
         case GD_OP_MAX_OPVERSION:
-        case GD_OP_TIER_START_STOP:
         case GD_OP_DETACH_NOT_STARTED:
         case GD_OP_GANESHA:
+        case GD_OP_DETACH_TIER:
+        case GD_OP_TIER_MIGRATE:
+        case GD_OP_TIER_START_STOP:
+        case GD_OP_TIER_STATUS:
+        case GD_OP_DETACH_TIER_STATUS:
+        case GD_OP_REMOVE_TIER_BRICK:
         case GD_OP_ADD_TIER_BRICK:
 
         {
@@ -2279,8 +2279,7 @@ glusterd_brick_op(call_frame_t *frame, xlator_t *this, void *data)
 
         rpc = glusterd_pending_node_get_rpc(pending_node);
         if (!rpc) {
-            if (pending_node->type == GD_NODE_REBALANCE ||
-                pending_node->type == GD_NODE_TIERD) {
+            if (pending_node->type == GD_NODE_REBALANCE) {
                 opinfo.brick_pending_count = 0;
                 ret = 0;
                 GF_FREE(req->input.input_val);

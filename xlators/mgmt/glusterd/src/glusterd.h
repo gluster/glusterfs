@@ -27,7 +27,6 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
-#include "glusterd-tierd-svc.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
@@ -402,28 +401,11 @@ typedef enum gd_quorum_status_ {
     DOESNT_MEET_QUORUM,     // Follows quorum and does not meet.
 } gd_quorum_status_t;
 
-typedef struct tier_info_ {
-    int cold_type;
-    int cold_brick_count;
-    int cold_replica_count;
-    int cold_disperse_count;
-    int cold_dist_leaf_count;
-    int cold_redundancy_count;
-    int hot_type;
-    int hot_brick_count;
-    int hot_replica_count;
-    int promoted;
-    int demoted;
-    uint16_t cur_tier_hot;
-} gd_tier_info_t;
-
 struct glusterd_volinfo_ {
     gf_lock_t lock;
     gf_boolean_t is_snap_volume;
     glusterd_snap_t *snapshot;
     uuid_t restored_from_snap;
-    gd_tier_info_t tier_info;
-    gf_boolean_t is_tier_enabled;
     char parent_volname[GD_VOLUME_NAME_MAX];
     /* In case of a snap volume
        i.e (is_snap_volume == TRUE) this
@@ -483,8 +465,6 @@ struct glusterd_volinfo_ {
     /* Bitrot scrub status*/
     glusterd_bitrot_scrub_t bitrot_scrub;
 
-    glusterd_rebalance_t tier;
-
     int version;
     uint32_t quota_conf_version;
     uint32_t cksum;
@@ -513,7 +493,6 @@ struct glusterd_volinfo_ {
     gd_quorum_status_t quorum_status;
 
     glusterd_snapdsvc_t snapd;
-    glusterd_tierdsvc_t tierd;
     glusterd_shdsvc_t shd;
     glusterd_gfproxydsvc_t gfproxyd;
     int32_t quota_xattr_version;
@@ -670,28 +649,6 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
                                     priv->workdir, volinfo->volname);          \
         }                                                                      \
         if ((_vol_dir_len < 0) || (_vol_dir_len >= PATH_MAX)) {                \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_TIER_DIR(path, volinfo, priv)                             \
-    do {                                                                       \
-        int32_t _tier_dir_len;                                                 \
-        _tier_dir_len = snprintf(path, PATH_MAX, "%s/tier/%s", priv->workdir,  \
-                                 volinfo->volname);                            \
-        if ((_tier_dir_len < 0) || (_tier_dir_len >= PATH_MAX)) {              \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_TIER_PID_FILE(path, volinfo, priv)                        \
-    do {                                                                       \
-        char tier_path[PATH_MAX];                                              \
-        int32_t _tier_pid_len;                                                 \
-        GLUSTERD_GET_TIER_DIR(tier_path, volinfo, priv);                       \
-        _tier_pid_len = snprintf(path, PATH_MAX, "%s/run/%s-tierd.pid",        \
-                                 tier_path, volinfo->volname);                 \
-        if ((_tier_pid_len < 0) || (_tier_pid_len >= PATH_MAX)) {              \
             path[0] = 0;                                                       \
         }                                                                      \
     } while (0)
@@ -882,10 +839,7 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
 
 #define GLUSTERD_GET_DEFRAG_PROCESS(path, volinfo)                             \
     do {                                                                       \
-        if (volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER)             \
-            snprintf(path, NAME_MAX, "tier");                                  \
-        else                                                                   \
-            snprintf(path, NAME_MAX, "rebalance");                             \
+        snprintf(path, NAME_MAX, "rebalance");                                 \
     } while (0)
 
 #define GLUSTERD_GET_DEFRAG_DIR(path, volinfo, priv)                           \
@@ -1261,10 +1215,6 @@ int
 glusterd_fetchsnap_notify(xlator_t *this);
 
 int
-glusterd_add_tier_volume_detail_to_dict(glusterd_volinfo_t *volinfo,
-                                        dict_t *volumes, int count);
-
-int
 glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
                                    int count);
 
@@ -1399,8 +1349,6 @@ manage_export_config(char *volname, char *value, char **op_errstr);
 
 int
 glusterd_op_add_brick(dict_t *dict, char **op_errstr);
-int
-glusterd_op_add_tier_brick(dict_t *dict, char **op_errstr);
 int
 glusterd_op_remove_brick(dict_t *dict, char **op_errstr);
 int
@@ -1543,19 +1491,8 @@ glusterd_should_i_stop_bitd();
 int
 glusterd_remove_brick_migrate_cbk(glusterd_volinfo_t *volinfo,
                                   gf_defrag_status_t status);
-/* tier */
-
 int
 __glusterd_handle_reset_brick(rpcsvc_request_t *req);
-int
-glusterd_op_stage_tier(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
-int
-glusterd_op_tier_start_stop(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
-int
-glusterd_op_remove_tier_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict);
-int
-glusterd_tier_prevalidate(dict_t *dict, char **op_errstr, dict_t *rsp_dict,
-                          uint32_t *op_errno);
 
 int
 glusterd_options_init(xlator_t *this);

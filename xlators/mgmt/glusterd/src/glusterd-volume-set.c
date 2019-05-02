@@ -474,18 +474,6 @@ validate_disperse_heal_enable_disable(glusterd_volinfo_t *volinfo, dict_t *dict,
                                       char *key, char *value, char **op_errstr)
 {
     int ret = 0;
-    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        if (volinfo->tier_info.cold_type != GF_CLUSTER_TYPE_DISPERSE &&
-            volinfo->tier_info.hot_type != GF_CLUSTER_TYPE_DISPERSE) {
-            gf_asprintf(op_errstr,
-                        "Volume %s is not containing "
-                        "disperse type",
-                        volinfo->volname);
-
-            return -1;
-        } else
-            return 0;
-    }
 
     if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
         gf_asprintf(op_errstr, "Volume %s is not of disperse type",
@@ -508,8 +496,7 @@ validate_lock_migration_option(glusterd_volinfo_t *volinfo, dict_t *dict,
     this = THIS;
     GF_ASSERT(this);
 
-    if (volinfo->replica_count > 1 || volinfo->disperse_count ||
-        volinfo->type == GF_CLUSTER_TYPE_TIER) {
+    if (volinfo->replica_count > 1 || volinfo->disperse_count) {
         snprintf(errstr, sizeof(errstr),
                  "Lock migration is "
                  "a experimental feature. Currently works with"

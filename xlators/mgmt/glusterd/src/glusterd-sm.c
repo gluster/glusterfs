@@ -738,16 +738,6 @@ glusterd_peer_detach_cleanup(glusterd_conf_t *priv)
                 }
             }
 
-            if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                svc = &(volinfo->tierd.svc);
-                ret = svc->stop(svc, SIGTERM);
-                if (ret) {
-                    gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
-                           "Failed "
-                           "to stop tierd daemon service");
-                }
-            }
-
             if (glusterd_is_shd_compatible_volume(volinfo)) {
                 svc = &(volinfo->shd.svc);
                 ret = svc->stop(svc, SIGTERM);

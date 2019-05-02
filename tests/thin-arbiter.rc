@@ -261,33 +261,20 @@ end-volume
 
 volume ${V0}-distribute
      type cluster/distribute
-     option tier-hot-compact-frequency 604800
      option rebal-throttle normal
      option force-migration off
      option lookup-optimize on
      option weighted-rebalance on
      option write-freq-threshold 0
      option assert-no-child-down off
-     option tier-pause off
-     option watermark-low 75
-     option tier-compact off
      option lock-migration off
      option lookup-unhashed on
-     option tier-demote-frequency 3600
-     option watermark-hi 90
-     option tier-cold-compact-frequency 604800
      option randomize-hash-range-by-gfid off
      option unhashed-sticky-bit off
      option use-readdirp on
      option readdir-optimize off
      option xattr-name trusted.glusterfs.dht
-     option tier-max-mb 4000
-     option tier-max-files 10000
-     option tier-query-limit 100
      option read-freq-threshold 0
-     option tier-mode test
-     option tier-max-promote-file-size 0
-     option tier-promote-frequency 120
      option min-free-disk 10%
      option min-free-inodes 5%
      option rebalance-stats off

@@ -323,81 +323,6 @@ _build_option_key(dict_t *d, char *k, data_t *v, void *tmp)
 }
 
 int
-glusterd_add_tier_volume_detail_to_dict(glusterd_volinfo_t *volinfo,
-                                        dict_t *dict, int count)
-{
-    int ret = -1;
-    char key[64] = {
-        0,
-    };
-    int keylen;
-
-    GF_ASSERT(volinfo);
-    GF_ASSERT(dict);
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_type", count);
-    ret = dict_set_int32n(dict, key, keylen, volinfo->tier_info.cold_type);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_brick_count", count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.cold_brick_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_dist_count", count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.cold_dist_leaf_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_replica_count", count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.cold_replica_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_arbiter_count", count);
-    ret = dict_set_int32n(dict, key, keylen, volinfo->arbiter_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_disperse_count", count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.cold_disperse_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.cold_redundancy_count",
-                      count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.cold_redundancy_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.hot_type", count);
-    ret = dict_set_int32n(dict, key, keylen, volinfo->tier_info.hot_type);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.hot_brick_count", count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.hot_brick_count);
-    if (ret)
-        goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.hot_replica_count", count);
-    ret = dict_set_int32n(dict, key, keylen,
-                          volinfo->tier_info.hot_replica_count);
-    if (ret)
-        goto out;
-
-out:
-    return ret;
-}
-
-int
 glusterd_add_arbiter_info_to_bricks(glusterd_volinfo_t *volinfo,
                                     dict_t *volumes, int count)
 {
@@ -406,41 +331,18 @@ glusterd_add_arbiter_info_to_bricks(glusterd_volinfo_t *volinfo,
     };
     int keylen;
     int i = 0;
-    int start_index = 0;
     int ret = 0;
 
-    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        /*TODO: Add info for hot tier once attach tier of arbiter
-         * volumes is supported. */
-
-        /* cold tier */
-        if (volinfo->tier_info.cold_replica_count == 1 ||
-            volinfo->arbiter_count != 1)
-            return 0;
-
-        i = start_index = volinfo->tier_info.hot_brick_count + 1;
-        for (; i <= volinfo->brick_count; i++) {
-            if ((i - start_index + 1) % volinfo->tier_info.cold_replica_count !=
-                0)
-                continue;
-            keylen = snprintf(key, sizeof(key), "volume%d.brick%d.isArbiter",
-                              count, i);
-            ret = dict_set_int32n(volumes, key, keylen, 1);
-            if (ret)
-                return ret;
-        }
-    } else {
-        if (volinfo->replica_count == 1 || volinfo->arbiter_count != 1)
-            return 0;
-        for (i = 1; i <= volinfo->brick_count; i++) {
-            if (i % volinfo->replica_count != 0)
-                continue;
-            keylen = snprintf(key, sizeof(key), "volume%d.brick%d.isArbiter",
-                              count, i);
-            ret = dict_set_int32n(volumes, key, keylen, 1);
-            if (ret)
-                return ret;
-        }
+    if (volinfo->replica_count == 1 || volinfo->arbiter_count != 1)
+        return 0;
+    for (i = 1; i <= volinfo->brick_count; i++) {
+        if (i % volinfo->replica_count != 0)
+            continue;
+        keylen = snprintf(key, sizeof(key), "volume%d.brick%d.isArbiter", count,
+                          i);
+        ret = dict_set_int32n(volumes, key, keylen, 1);
+        if (ret)
+            return ret;
     }
     return 0;
 }
@@ -494,18 +396,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
     ret = dict_set_int32n(volumes, key, keylen, volinfo->brick_count);
     if (ret)
         goto out;
-
-    keylen = snprintf(key, sizeof(key), "volume%d.hot_brick_count", count);
-    ret = dict_set_int32n(volumes, key, keylen,
-                          volinfo->tier_info.hot_brick_count);
-    if (ret)
-        goto out;
-
-    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        ret = glusterd_add_tier_volume_detail_to_dict(volinfo, volumes, count);
-        if (ret)
-            goto out;
-    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.dist_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->dist_leaf_count);
@@ -4385,17 +4275,6 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    if ((cmd & GF_CLI_STATUS_TIERD) &&
-        (conf->op_version < GD_OP_VERSION_3_10_0)) {
-        snprintf(err_str, sizeof(err_str),
-                 "The cluster is operating "
-                 "at a lesser version than %d. Getting the status of "
-                 "tierd is not allowed in this state",
-                 GD_OP_VERSION_3_6_0);
-        ret = -1;
-        goto out;
-    }
-
     if ((cmd & GF_CLI_STATUS_SCRUB) &&
         (conf->op_version < GD_OP_VERSION_3_7_0)) {
         snprintf(err_str, sizeof(err_str),
@@ -5412,14 +5291,11 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     uint32_t get_state_cmd = 0;
     uint64_t memtotal = 0;
     uint64_t memfree = 0;
-    int start_index = 0;
     char id_str[64] = {
         0,
     };
 
     char *vol_type_str = NULL;
-    char *hot_tier_type_str = NULL;
-    char *cold_tier_type_str = NULL;
 
     char transport_type_str[STATUS_STRLEN] = {
         0,
@@ -5666,26 +5542,11 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
                     brickinfo->hostname);
             /* Determine which one is the arbiter brick */
             if (volinfo->arbiter_count == 1) {
-                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                    if (volinfo->tier_info.cold_replica_count != 1) {
-                        start_index = volinfo->tier_info.hot_brick_count + 1;
-                        if (count >= start_index &&
-                            ((count - start_index + 1) %
-                                 volinfo->tier_info.cold_replica_count ==
-                             0)) {
-                            fprintf(fp,
-                                    "Volume%d.Brick%d."
-                                    "is_arbiter: 1\n",
-                                    count_bkp, count);
-                        }
-                    }
-                } else {
-                    if (count % volinfo->replica_count == 0) {
-                        fprintf(fp,
-                                "Volume%d.Brick%d."
-                                "is_arbiter: 1\n",
-                                count_bkp, count);
-                    }
+                if (count % volinfo->replica_count == 0) {
+                    fprintf(fp,
+                            "Volume%d.Brick%d."
+                            "is_arbiter: 1\n",
+                            count_bkp, count);
                 }
             }
             /* Add following information only for bricks
@@ -5700,14 +5561,6 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
                     count, brickinfo->port_registered);
             fprintf(fp, "Volume%d.Brick%d.status: %s\n", count_bkp, count,
                     brickinfo->status ? "Started" : "Stopped");
-
-            /*FIXME: This is a hacky way of figuring out whether a
-             * brick belongs to the hot or cold tier */
-            if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                fprintf(fp, "Volume%d.Brick%d.tier: %s\n", count_bkp, count,
-                        count <= volinfo->tier_info.hot_brick_count ? "Hot"
-                                                                    : "Cold");
-            }
 
             ret = sys_statvfs(brickinfo->path, &brickstat);
             if (ret) {
@@ -5789,51 +5642,6 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
                 volinfo->shd.svc.online ? "Online" : "Offline");
         fprintf(fp, "Volume%d.shd_svc.inited: %s\n", count,
                 volinfo->shd.svc.inited ? "True" : "False");
-
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-            ret = glusterd_volume_get_hot_tier_type_str(volinfo,
-                                                        &hot_tier_type_str);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STATE_STR_GET_FAILED,
-                       "Failed to get hot tier type for "
-                       "volume: %s",
-                       volinfo->volname);
-                goto out;
-            }
-
-            ret = glusterd_volume_get_cold_tier_type_str(volinfo,
-                                                         &cold_tier_type_str);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STATE_STR_GET_FAILED,
-                       "Failed to get cold tier type for "
-                       "volume: %s",
-                       volinfo->volname);
-                goto out;
-            }
-
-            fprintf(fp, "Volume%d.tier_info.cold_tier_type: %s\n", count,
-                    cold_tier_type_str);
-            fprintf(fp, "Volume%d.tier_info.cold_brick_count: %d\n", count,
-                    volinfo->tier_info.cold_brick_count);
-            fprintf(fp, "Volume%d.tier_info.cold_replica_count: %d\n", count,
-                    volinfo->tier_info.cold_replica_count);
-            fprintf(fp, "Volume%d.tier_info.cold_disperse_count: %d\n", count,
-                    volinfo->tier_info.cold_disperse_count);
-            fprintf(fp, "Volume%d.tier_info.cold_dist_leaf_count: %d\n", count,
-                    volinfo->tier_info.cold_dist_leaf_count);
-            fprintf(fp, "Volume%d.tier_info.cold_redundancy_count: %d\n", count,
-                    volinfo->tier_info.cold_redundancy_count);
-            fprintf(fp, "Volume%d.tier_info.hot_tier_type: %s\n", count,
-                    hot_tier_type_str);
-            fprintf(fp, "Volume%d.tier_info.hot_brick_count: %d\n", count,
-                    volinfo->tier_info.hot_brick_count);
-            fprintf(fp, "Volume%d.tier_info.hot_replica_count: %d\n", count,
-                    volinfo->tier_info.hot_replica_count);
-            fprintf(fp, "Volume%d.tier_info.promoted: %d\n", count,
-                    volinfo->tier_info.promoted);
-            fprintf(fp, "Volume%d.tier_info.demoted: %d\n", count,
-                    volinfo->tier_info.demoted);
-        }
 
         if (volinfo->rep_brick.src_brick && volinfo->rep_brick.dst_brick) {
             fprintf(fp, "Volume%d.replace_brick.src: %s:%s\n", count,
@@ -6641,3 +6449,14 @@ struct rpcsvc_program gd_svc_cli_trusted_progs = {
     .actors = gd_svc_cli_trusted_actors,
     .synctask = _gf_true,
 };
+
+/* As we cant remove the handlers, I'm moving the tier based
+ * handlers to this file as we no longer have gluster-tier.c
+ * and other tier.c files
+ */
+
+int
+glusterd_handle_tier(rpcsvc_request_t *req)
+{
+    return 0;
+}
