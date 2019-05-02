@@ -284,17 +284,6 @@ int
 glusterd_brick_stop(glusterd_volinfo_t *volinfo,
                     glusterd_brickinfo_t *brickinfo, gf_boolean_t del_brick);
 
-gf_boolean_t
-glusterd_is_tier_daemon_running(glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_add_tierd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
-                           int32_t count);
-
-int
-glusterd_op_tier_status(dict_t *dict, char **op_errstr, dict_t *rsp_dict,
-                        glusterd_op_t op);
-
 int
 glusterd_is_defrag_on(glusterd_volinfo_t *volinfo);
 
@@ -441,11 +430,6 @@ glusterd_get_trusted_client_filepath(char *filepath,
 int
 glusterd_restart_rebalance(glusterd_conf_t *conf);
 
-int32_t
-glusterd_create_sub_tier_volinfo(glusterd_volinfo_t *volinfo,
-                                 glusterd_volinfo_t **dup_volinfo,
-                                 gf_boolean_t is_hot_tier,
-                                 const char *new_name);
 int
 glusterd_restart_rebalance_for_volume(glusterd_volinfo_t *volinfo);
 
@@ -505,8 +489,6 @@ int
 glusterd_volume_status_copy_to_op_ctx_dict(dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict);
-int
-glusterd_volume_tier_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_volume_heal_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict);
 int
@@ -614,12 +596,6 @@ glusterd_is_status_tasks_op(glusterd_op_t op, dict_t *dict);
 
 gf_boolean_t
 gd_should_i_start_rebalance(glusterd_volinfo_t *volinfo);
-
-int
-glusterd_is_tierd_enabled(glusterd_volinfo_t *volinfo);
-
-int
-glusterd_is_tierd_supposed_to_be_enabled(glusterd_volinfo_t *volinfo);
 
 int
 glusterd_is_volume_quota_enabled(glusterd_volinfo_t *volinfo);
@@ -789,21 +765,10 @@ int
 glusterd_volume_get_rebalance_status_str(glusterd_volinfo_t *volinfo,
                                          char *rebal_status_str);
 
-int
-glusterd_volume_get_hot_tier_type_str(glusterd_volinfo_t *volinfo,
-                                      char **hot_tier_type_str);
-
-int
-glusterd_volume_get_cold_tier_type_str(glusterd_volinfo_t *volinfo,
-                                       char **cold_tier_type_str);
-
 void
 glusterd_list_add_order(struct cds_list_head *new, struct cds_list_head *head,
                         int (*compare)(struct cds_list_head *,
                                        struct cds_list_head *));
-int
-glusterd_disallow_op_for_tier(glusterd_volinfo_t *volinfo, glusterd_op_t op,
-                              int cmd);
 
 struct rpc_clnt *
 glusterd_defrag_rpc_get(glusterd_defrag_info_t *defrag);

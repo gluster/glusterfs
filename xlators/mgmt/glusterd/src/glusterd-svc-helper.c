@@ -19,8 +19,6 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-bitd-svc.h"
-#include "glusterd-tierd-svc.h"
-#include "glusterd-tierd-svc-helper.h"
 #include "glusterd-shd-svc-helper.h"
 #include "glusterd-scrub-svc.h"
 #include "glusterd-svc-helper.h"

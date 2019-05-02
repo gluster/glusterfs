@@ -1905,133 +1905,6 @@ out:
 }
 
 int
-glusterd_snapshot_pause_tier(xlator_t *this, glusterd_volinfo_t *volinfo)
-{
-    int ret = -1;
-    dict_t *dict = NULL;
-    char *op_errstr = NULL;
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
-
-    if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-        ret = 0;
-        goto out;
-    }
-
-    dict = dict_new();
-    if (!dict) {
-        goto out;
-    }
-
-    ret = dict_set_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
-                          GF_DEFRAG_CMD_PAUSE_TIER);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-               "Failed to set rebalance-command");
-        goto out;
-    }
-
-    ret = dict_set_strn(dict, "volname", SLEN("volname"), volinfo->volname);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-               "Failed to set volname");
-        goto out;
-    }
-
-    ret = gd_brick_op_phase(GD_OP_DEFRAG_BRICK_VOLUME, NULL, dict, &op_errstr);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_PAUSE_TIER_FAIL,
-               "Failed to pause tier. Errstr=%s", op_errstr);
-        goto out;
-    }
-
-out:
-    if (dict)
-        dict_unref(dict);
-
-    return ret;
-}
-
-int
-glusterd_snapshot_resume_tier(xlator_t *this, dict_t *snap_dict)
-{
-    int ret = -1;
-    dict_t *dict = NULL;
-    int64_t volcount = 0;
-    char key[64] = "";
-    int keylen;
-    char *volname = NULL;
-    int i = 0;
-    char *op_errstr = NULL;
-    glusterd_volinfo_t *volinfo = NULL;
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, snap_dict, out);
-
-    ret = dict_get_int64(snap_dict, "volcount", &volcount);
-    if (ret) {
-        goto out;
-    }
-    if (volcount <= 0) {
-        ret = -1;
-        goto out;
-    }
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    for (i = 1; i <= volcount; i++) {
-        keylen = snprintf(key, sizeof(key), "volname%d", i);
-        ret = dict_get_strn(snap_dict, key, keylen, &volname);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                   "Failed to get key %s", volname);
-            goto out;
-        }
-
-        ret = glusterd_volinfo_find(volname, &volinfo);
-        if (ret)
-            goto out;
-
-        if (volinfo->type != GF_CLUSTER_TYPE_TIER)
-            continue;
-
-        ret = dict_set_int32n(dict, "rebalance-command",
-                              SLEN("rebalance-command"),
-                              GF_DEFRAG_CMD_RESUME_TIER);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                   "Failed to set rebalance-command");
-
-            goto out;
-        }
-
-        ret = dict_set_strn(dict, "volname", SLEN("volname"), volname);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                   "Failed to set volname");
-            goto out;
-        }
-
-        ret = gd_brick_op_phase(GD_OP_DEFRAG_BRICK_VOLUME, NULL, dict,
-                                &op_errstr);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_RESUME_TIER_FAIL,
-                   "Failed to resume tier");
-            goto out;
-        }
-    }
-
-out:
-    if (dict)
-        dict_unref(dict);
-
-    return ret;
-}
-
-int
 glusterd_snap_create_clone_common_prevalidate(
     dict_t *rsp_dict, int flags, char *snapname, char *err_str,
     char *snap_volname, int64_t volcount, glusterd_volinfo_t *volinfo,
@@ -2523,13 +2396,6 @@ glusterd_snapshot_create_prevalidate(dict_t *dict, char **op_errstr,
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PRE_VALIDATION_FAIL,
                    "Failed to pre validate");
-            goto out;
-        }
-
-        ret = glusterd_snapshot_pause_tier(this, volinfo);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_PAUSE_TIER_FAIL,
-                   "Failed to pause tier in snap prevalidate.");
             goto out;
         }
     }
@@ -8321,12 +8187,6 @@ glusterd_snapshot_create_postvalidate(dict_t *dict, int32_t op_ret,
             /* ignore the errors of autodelete */
             ret = 0;
         }
-    }
-
-    ret = glusterd_snapshot_resume_tier(this, dict);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_RESUME_TIER_FAIL,
-               "Failed to resume tier in snapshot postvalidate.");
     }
 
 out:

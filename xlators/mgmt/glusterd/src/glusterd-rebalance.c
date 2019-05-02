@@ -249,8 +249,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     GLUSTERD_GET_DEFRAG_SOCK_FILE(sockfile, volinfo);
     GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
     snprintf(logfile, PATH_MAX, "%s/%s-%s.log", DEFAULT_LOG_FILE_DIRECTORY,
-             volinfo->volname,
-             (cmd == GF_DEFRAG_CMD_START_TIER ? "tier" : "rebalance"));
+             volinfo->volname, "rebalance");
     runinit(&runner);
 
     if (this->ctx->cmd_args.valgrind) {
@@ -273,8 +272,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
 
         GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(sockfile, volinfo, priv);
         snprintf(logfile, PATH_MAX, "%s/%s-%s-%s.log",
-                 DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname,
-                 (cmd == GF_DEFRAG_CMD_START_TIER ? "tier" : "rebalance"),
+                 DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname, "rebalance",
                  uuid_utoa(MY_UUID));
 
     } else {
@@ -287,11 +285,6 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
         "*dht.lookup-unhashed=yes", "--xlator-option",
         "*dht.assert-no-child-down=yes", "--xlator-option",
         "*dht.readdir-optimize=on", "--process-name", "rebalance", NULL);
-
-    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        runner_add_arg(&runner, "--xlator-option");
-        runner_argprintf(&runner, "*tier-dht.xattr-name=trusted.tier.tier-dht");
-    }
 
     runner_add_arg(&runner, "--xlator-option");
     runner_argprintf(&runner, "*dht.rebalance-cmd=%d", cmd);
@@ -486,18 +479,6 @@ glusterd_rebalance_cmd_validate(int cmd, char *volname,
         goto out;
     }
 
-    ret = glusterd_disallow_op_for_tier(*volinfo, GD_OP_REBALANCE, cmd);
-    if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REBALANCE_CMD_IN_TIER_VOL,
-               "Received rebalance command "
-               "on Tier volume %s",
-               volname);
-        snprintf(op_errstr, len,
-                 "Rebalance operations are not "
-                 "supported on a tiered volume");
-        goto out;
-    }
-
     ret = 0;
 
 out:
@@ -572,9 +553,7 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
     if (ret)
         goto out;
 
-    if ((cmd == GF_DEFRAG_CMD_STATUS) || (cmd == GF_DEFRAG_CMD_STATUS_TIER) ||
-        (cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER) ||
-        (cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_DETACH_STATUS)) {
+    if ((cmd == GF_DEFRAG_CMD_STATUS) || (cmd == GF_DEFRAG_CMD_STOP)) {
         op = GD_OP_DEFRAG_BRICK_VOLUME;
     } else
         op = GD_OP_REBALANCE;
@@ -686,8 +665,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
      * here. So that cli can display the rebalance id.*/
     if ((cmd == GF_DEFRAG_CMD_START) ||
         (cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX) ||
-        (cmd == GF_DEFRAG_CMD_START_FORCE) ||
-        (cmd == GF_DEFRAG_CMD_START_TIER)) {
+        (cmd == GF_DEFRAG_CMD_START_FORCE)) {
         if (is_origin_glusterd(rsp_dict)) {
             ret = dict_get_strn(req_dict, GF_REBALANCE_TID_KEY,
                                 SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
@@ -715,8 +693,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
     /* Set task-id, if available, in rsp_dict for operations other than
      * start. This is needed when we want rebalance id in xml output
      */
-    if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP ||
-        cmd == GF_DEFRAG_CMD_STATUS_TIER) {
+    if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP) {
         if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
             if (GD_OP_REMOVE_BRICK == volinfo->rebal.op)
                 ret = glusterd_copy_uuid_to_dict(
@@ -748,7 +725,6 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
     glusterd_volinfo_t *volinfo = NULL;
     char *task_id_str = NULL;
     xlator_t *this = 0;
-    int32_t is_force = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -773,28 +749,6 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
         goto out;
     }
     switch (cmd) {
-        case GF_DEFRAG_CMD_START_TIER:
-            ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
-            if (ret)
-                is_force = 0;
-
-            if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                gf_asprintf(op_errstr,
-                            "volume %s is not a tier "
-                            "volume.",
-                            volinfo->volname);
-                ret = -1;
-                goto out;
-            }
-            if ((!is_force) && glusterd_is_tier_daemon_running(volinfo)) {
-                ret = gf_asprintf(op_errstr,
-                                  "A Tier daemon is "
-                                  "already running on volume %s",
-                                  volname);
-                ret = -1;
-                goto out;
-            }
-            /* Fall through */
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
             /* Check if the connected clients are all of version
@@ -847,7 +801,6 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
                 goto out;
             }
             break;
-        case GF_DEFRAG_CMD_STATUS_TIER:
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
 
@@ -892,38 +845,8 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
                     goto out;
                 }
             }
-            if (cmd == GF_DEFRAG_CMD_STATUS_TIER) {
-                if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                    snprintf(msg, sizeof(msg),
-                             "volume %s is not "
-                             "a tier volume.",
-                             volinfo->volname);
-                    ret = -1;
-                    goto out;
-                }
-            }
-
             break;
 
-        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
-        case GF_DEFRAG_CMD_DETACH_STATUS:
-            if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                snprintf(msg, sizeof(msg),
-                         "volume %s is not "
-                         "a tier volume.",
-                         volinfo->volname);
-                ret = -1;
-                goto out;
-            }
-
-            if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
-                snprintf(msg, sizeof(msg),
-                         "Detach-tier "
-                         "not started");
-                ret = -1;
-                goto out;
-            }
-            break;
         default:
             break;
     }
@@ -979,7 +902,6 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
-        case GF_DEFRAG_CMD_START_TIER:
 
             ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
             if (ret)
@@ -1048,7 +970,6 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 break;
             }
         case GF_DEFRAG_CMD_STOP:
-        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
             /* Clear task-id only on explicitly stopping rebalance.
              * Also clear the stored operation, so it doesn't cause trouble
              * with future rebalance/remove-brick starts
@@ -1086,20 +1007,10 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
             }
 
-            if (volinfo->type == GF_CLUSTER_TYPE_TIER &&
-                cmd == GF_OP_CMD_STOP_DETACH_TIER) {
-                glusterd_defrag_info_set(volinfo, dict,
-                                         GF_DEFRAG_CMD_START_TIER,
-                                         GF_DEFRAG_CMD_START, GD_OP_REBALANCE);
-                glusterd_restart_rebalance_for_volume(volinfo);
-            }
-
             ret = 0;
             break;
 
-        case GF_DEFRAG_CMD_START_DETACH_TIER:
         case GF_DEFRAG_CMD_STATUS:
-        case GF_DEFRAG_CMD_STATUS_TIER:
             break;
         default:
             break;
@@ -1124,7 +1035,6 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
     char *task_id_str = NULL;
     dict_t *op_ctx = NULL;
     xlator_t *this = 0;
-    int32_t is_force = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1149,28 +1059,6 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
         goto out;
     }
     switch (cmd) {
-        case GF_DEFRAG_CMD_START_TIER:
-            ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
-            if (ret)
-                is_force = 0;
-
-            if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                gf_asprintf(op_errstr,
-                            "volume %s is not a tier "
-                            "volume.",
-                            volinfo->volname);
-                ret = -1;
-                goto out;
-            }
-            if ((!is_force) && glusterd_is_tier_daemon_running(volinfo)) {
-                ret = gf_asprintf(op_errstr,
-                                  "A Tier daemon is "
-                                  "already running on volume %s",
-                                  volname);
-                ret = -1;
-                goto out;
-            }
-            /* Fall through */
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
             /* Check if the connected clients are all of version
@@ -1231,7 +1119,6 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
                 goto out;
             }
             break;
-        case GF_DEFRAG_CMD_STATUS_TIER:
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
 
@@ -1276,38 +1163,8 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
                     goto out;
                 }
             }
-            if (cmd == GF_DEFRAG_CMD_STATUS_TIER) {
-                if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                    snprintf(msg, sizeof(msg),
-                             "volume %s is not "
-                             "a tier volume.",
-                             volinfo->volname);
-                    ret = -1;
-                    goto out;
-                }
-            }
-
             break;
 
-        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
-        case GF_DEFRAG_CMD_DETACH_STATUS:
-            if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
-                snprintf(msg, sizeof(msg),
-                         "volume %s is not "
-                         "a tier volume.",
-                         volinfo->volname);
-                ret = -1;
-                goto out;
-            }
-
-            if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
-                snprintf(msg, sizeof(msg),
-                         "Detach-tier "
-                         "not started");
-                ret = -1;
-                goto out;
-            }
-            break;
         default:
             break;
     }
@@ -1363,8 +1220,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     /* Set task-id, if available, in op_ctx dict for operations other than
      * start
      */
-    if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP ||
-        cmd == GF_DEFRAG_CMD_STATUS_TIER) {
+    if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP) {
         if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
             ctx = glusterd_op_get_ctx();
             if (!ctx) {
@@ -1394,7 +1250,6 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
-        case GF_DEFRAG_CMD_START_TIER:
 
             ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
             if (ret)
@@ -1463,7 +1318,6 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 break;
             }
         case GF_DEFRAG_CMD_STOP:
-        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
             /* Clear task-id only on explicitly stopping rebalance.
              * Also clear the stored operation, so it doesn't cause trouble
              * with future rebalance/remove-brick starts
@@ -1501,20 +1355,10 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
             }
 
-            if (volinfo->type == GF_CLUSTER_TYPE_TIER &&
-                cmd == GF_OP_CMD_STOP_DETACH_TIER) {
-                glusterd_defrag_info_set(volinfo, dict,
-                                         GF_DEFRAG_CMD_START_TIER,
-                                         GF_DEFRAG_CMD_START, GD_OP_REBALANCE);
-                glusterd_restart_rebalance_for_volume(volinfo);
-            }
-
             ret = 0;
             break;
 
-        case GF_DEFRAG_CMD_START_DETACH_TIER:
         case GF_DEFRAG_CMD_STATUS:
-        case GF_DEFRAG_CMD_STATUS_TIER:
             break;
         default:
             break;
@@ -1552,23 +1396,11 @@ glusterd_defrag_event_notify_handle(dict_t *dict)
         volname_ptr = strchr(volname_ptr, '/');
         volname = volname_ptr + 1;
     } else {
-        volname_ptr = strstr(volname, "tierd/");
-        if (volname_ptr) {
-            volname_ptr = strchr(volname_ptr, '/');
-            if (!volname_ptr) {
-                ret = -1;
-                goto out;
-            }
-            volname = volname_ptr + 1;
-        } else {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_NO_REBALANCE_PFX_IN_VOLNAME,
-                   "volname received (%s) is not prefixed with "
-                   "rebalance or tierd.",
-                   volname);
-            ret = -1;
-            goto out;
-        }
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_REBALANCE_PFX_IN_VOLNAME,
+               "volname received (%s) is not prefixed with rebalance.",
+               volname);
+        ret = -1;
+        goto out;
     }
 
     ret = glusterd_volinfo_find(volname, &volinfo);

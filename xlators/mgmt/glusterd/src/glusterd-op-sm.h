@@ -259,9 +259,6 @@ glusterd_op_init_commit_rsp_dict(glusterd_op_t op);
 void
 glusterd_op_modify_op_ctx(glusterd_op_t op, void *op_ctx);
 
-void
-glusterd_op_perform_detach_tier(glusterd_volinfo_t *volinfo);
-
 int
 glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo);
 
@@ -304,9 +301,6 @@ glusterd_set_opinfo(char *errstr, int32_t op_errno, int32_t op_ret);
 
 int
 glusterd_dict_set_volid(dict_t *dict, char *volname, char **op_errstr);
-
-int32_t
-glusterd_tier_op(xlator_t *this, void *data);
 
 int
 glusterd_op_stats_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict);

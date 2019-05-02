@@ -779,51 +779,6 @@ glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
     return glusterd_big_locked_handler(req,
                                        __glusterd_handle_cli_delete_volume);
 }
-int
-glusterd_handle_shd_option_for_tier(glusterd_volinfo_t *volinfo, char *value,
-                                    dict_t *dict)
-{
-    int count = 0;
-    char dict_key[64] = {
-        0,
-    };
-    int keylen;
-    char *key = NULL;
-    int ret = 0;
-
-    key = gd_get_shd_key(volinfo->tier_info.cold_type);
-    if (key) {
-        count++;
-        keylen = snprintf(dict_key, sizeof(dict_key), "key%d", count);
-        ret = dict_set_strn(dict, dict_key, keylen, key);
-        if (ret)
-            goto out;
-        keylen = snprintf(dict_key, sizeof(dict_key), "value%d", count);
-        ret = dict_set_strn(dict, dict_key, keylen, value);
-        if (ret)
-            goto out;
-    }
-
-    key = gd_get_shd_key(volinfo->tier_info.hot_type);
-    if (key) {
-        count++;
-        keylen = snprintf(dict_key, sizeof(dict_key), "key%d", count);
-        ret = dict_set_strn(dict, dict_key, keylen, key);
-        if (ret)
-            goto out;
-        keylen = snprintf(dict_key, sizeof(dict_key), "value%d", count);
-        ret = dict_set_strn(dict, dict_key, keylen, value);
-        if (ret)
-            goto out;
-    }
-
-    ret = dict_set_int32n(dict, "count", SLEN("count"), count);
-    if (ret)
-        goto out;
-
-out:
-    return ret;
-}
 static int
 glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
                                             glusterd_volinfo_t *volinfo)
@@ -863,23 +818,6 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
         value = "disable";
     }
 
-    /* Convert this command to volume-set command based on volume type */
-    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        switch (heal_op) {
-            case GF_SHD_OP_HEAL_ENABLE:
-            case GF_SHD_OP_HEAL_DISABLE:
-                ret = glusterd_handle_shd_option_for_tier(volinfo, value, dict);
-                if (!ret)
-                    goto set_volume;
-                goto out;
-                /* For any other heal_op, including granular-entry heal,
-                 * just break out of the block but don't goto out yet.
-                 */
-            default:
-                break;
-        }
-    }
-
     if ((heal_op == GF_SHD_OP_HEAL_ENABLE) ||
         (heal_op == GF_SHD_OP_HEAL_DISABLE)) {
         key = volgen_get_shd_key(volinfo->type);
@@ -906,7 +844,6 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
     if (ret)
         goto out;
 
-set_volume:
     ret = glusterd_op_begin_synctask(req, GD_OP_SET_VOLUME, dict);
 
 out:
@@ -2566,25 +2503,6 @@ glusterd_op_start_volume(dict_t *dict, char **op_errstr)
         if (ret)
             goto out;
     }
-    if (conf->op_version <= GD_OP_VERSION_3_7_6) {
-        /*
-         * Starting tier daemon on originator node will fail if
-         * at least one of the peer host  brick for the volume.
-         * Because The bricks in the peer haven't started when you
-         * commit on originator node.
-         * Please upgrade to version greater than GD_OP_VERSION_3_7_6
-         */
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-            if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
-                glusterd_defrag_info_set(volinfo, dict,
-                                         GF_DEFRAG_CMD_START_TIER,
-                                         GF_DEFRAG_CMD_START, GD_OP_REBALANCE);
-            }
-            glusterd_restart_rebalance_for_volume(volinfo);
-        }
-    } else {
-        /* Starting tier daemon is moved into post validate phase */
-    }
 
     svc = &(volinfo->gfproxyd.svc);
     ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
@@ -2621,16 +2539,6 @@ glusterd_stop_volume(glusterd_volinfo_t *volinfo)
                    brickinfo->path);
             goto out;
         }
-    }
-
-    /* call tier manager before the voluem status is set as stopped
-     * as tier uses that as a check in the manager
-     * */
-    if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-        svc = &(volinfo->tierd.svc);
-        ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
-        if (ret)
-            goto out;
     }
 
     glusterd_set_volume_status(volinfo, GLUSTERD_STATUS_STOPPED);
