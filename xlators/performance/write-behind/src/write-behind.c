@@ -1813,6 +1813,12 @@ wb_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     frame->local = NULL;
     wb_inode = req->wb_inode;
 
+    LOCK(&req->wb_inode->lock);
+    {
+        list_del_init(&req->wip);
+    }
+    UNLOCK(&req->wb_inode->lock);
+
     wb_request_unref(req);
 
     /* requests could be pending while this was in progress */
