@@ -7529,7 +7529,6 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
             if (op_errstr == NULL)
                 gf_asprintf(&op_errstr, OPERRSTR_BUILD_PAYLOAD);
             opinfo.op_errstr = op_errstr;
-            GF_FREE(req_ctx);
             goto out;
         }
     }
@@ -7548,7 +7547,7 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
     }
 
 out:
-    if (ret && req_ctx && free_req_ctx)
+    if (ret && free_req_ctx)
         GF_FREE(req_ctx);
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
 
