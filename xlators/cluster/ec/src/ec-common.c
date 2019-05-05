@@ -128,7 +128,7 @@ ec_fix_open(ec_fop_data_t *fop, uintptr_t mask)
     } else {
         ec_open(fop->frame, fop->xl, need_open,
                 EC_MINIMUM_ONE | EC_FOP_NO_PROPAGATE_ERROR, NULL, NULL, &loc,
-                fop->fd->flags, fop->fd, NULL);
+                fop->fd->flags & (~O_TRUNC), fop->fd, NULL);
     }
 
 out:
