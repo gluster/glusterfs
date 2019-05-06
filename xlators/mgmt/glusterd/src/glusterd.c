@@ -1819,6 +1819,7 @@ init(xlator_t *this)
     conf->rpc = rpc;
     conf->uds_rpc = uds_rpc;
     conf->gfs_mgmt = &gd_brick_prog;
+    conf->restart_shd = _gf_false;
     this->private = conf;
     /* conf->workdir and conf->rundir are smaller than PATH_MAX; gcc's
      * snprintf checking will throw an error here if sprintf is used.

@@ -219,6 +219,9 @@ typedef struct {
     gf_atomic_t blockers;
     uint32_t mgmt_v3_lock_timeout;
     gf_boolean_t restart_bricks;
+    gf_boolean_t restart_shd;    /* This flag prevents running two shd manager
+                                    simultaneously
+                                 */
     pthread_mutex_t attach_lock; /* Lock can be per process or a common one */
     pthread_mutex_t volume_lock; /* We release the big_lock from lot of places
                                     which might lead the modification of volinfo
