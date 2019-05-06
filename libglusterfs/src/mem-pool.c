@@ -616,6 +616,11 @@ void
 mem_pools_fini(void)
 {
 }
+void
+mem_pool_thread_destructor(void)
+{
+}
+
 #endif
 
 struct mem_pool *
