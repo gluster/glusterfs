@@ -2687,7 +2687,13 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                 }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_PORT,
                                 SLEN(GLUSTERD_STORE_KEY_BRICK_PORT))) {
-                gf_string2int(value, &brickinfo->port);
+                ret = gf_string2int(value, &brickinfo->port);
+                if (ret == -1) {
+                    gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                           GD_MSG_INCOMPATIBLE_VALUE,
+                           "Failed to convert "
+                           "string to integer");
+                }
 
                 if (brickinfo->port < priv->base_port) {
                     /* This is required to adhere to the
@@ -2702,7 +2708,13 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                 }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
                                 SLEN(GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
-                gf_string2int(value, &brickinfo->rdma_port);
+                ret = gf_string2int(value, &brickinfo->rdma_port);
+                if (ret == -1) {
+                    gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                           GD_MSG_INCOMPATIBLE_VALUE,
+                           "Failed to convert "
+                           "string to integer");
+                }
 
                 if (brickinfo->rdma_port < priv->base_port) {
                     /* This is required to adhere to the
