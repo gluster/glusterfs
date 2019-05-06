@@ -254,13 +254,25 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
 {
     int ret = -1;
     glusterd_volinfo_t *volinfo = NULL;
+    glusterd_conf_t *conf = NULL;
+    gf_boolean_t shd_restart = _gf_false;
 
+    conf = THIS->private;
     volinfo = data;
+    GF_VALIDATE_OR_GOTO("glusterd", conf, out);
     GF_VALIDATE_OR_GOTO("glusterd", svc, out);
     GF_VALIDATE_OR_GOTO("glusterd", volinfo, out);
 
     if (volinfo)
         glusterd_volinfo_ref(volinfo);
+
+    while (conf->restart_shd) {
+        synclock_unlock(&conf->big_lock);
+        sleep(2);
+        synclock_lock(&conf->big_lock);
+    }
+    conf->restart_shd = _gf_true;
+    shd_restart = _gf_true;
 
     ret = glusterd_shdsvc_create_volfile(volinfo);
     if (ret)
@@ -310,6 +322,8 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
         }
     }
 out:
+    if (shd_restart)
+        conf->restart_shd = _gf_false;
     if (volinfo)
         glusterd_volinfo_unref(volinfo);
     if (ret)
