@@ -2728,20 +2728,16 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
     int fd = -1;
     int sort_fd = 0;
     char sort_filepath[PATH_MAX] = "";
-    char *cksum_path_final = NULL;
-    char buf[4096] = "";
+    char buf[32];
     gf_boolean_t unlink_sortfile = _gf_false;
-    glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    glusterd_conf_t *priv = THIS->private;
+    xlator_t *this = THIS;
     mode_t orig_umask = 0;
 
     GF_ASSERT(volinfo);
-    this = THIS;
-    priv = THIS->private;
     GF_ASSERT(priv);
 
     fd = open(cksum_path, O_RDWR | O_APPEND | O_CREAT | O_TRUNC, 0600);
-
     if (-1 == fd) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
                "Unable to open %s,"
@@ -2758,7 +2754,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
         orig_umask = umask(S_IRWXG | S_IRWXO);
         sort_fd = mkstemp(sort_filepath);
         umask(orig_umask);
-        if (sort_fd < 0) {
+        if (-1 == sort_fd) {
             gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
                    "Could not generate "
                    "temp file, reason: %s for volume: %s",
@@ -2781,21 +2777,18 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
         ret = sys_close(sort_fd);
         if (ret)
             goto out;
-    }
 
-    cksum_path_final = is_quota_conf ? filepath : sort_filepath;
+        ret = get_checksum_for_path(sort_filepath, &cksum, priv->op_version);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
+                   "unable to get "
+                   "checksum for path: %s",
+                   sort_filepath);
+            goto out;
+        }
 
-    ret = get_checksum_for_path(cksum_path_final, &cksum, priv->op_version);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
-               "unable to get "
-               "checksum for path: %s",
-               cksum_path_final);
-        goto out;
-    }
-    if (!is_quota_conf) {
-        snprintf(buf, sizeof(buf), "%s=%u\n", "info", cksum);
-        ret = sys_write(fd, buf, strlen(buf));
+        ret = snprintf(buf, sizeof(buf), "info=%u\n", cksum);
+        ret = sys_write(fd, buf, ret);
         if (ret <= 0) {
             ret = -1;
             goto out;
@@ -2803,8 +2796,11 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
     }
 
     ret = get_checksum_for_file(fd, &cksum, priv->op_version);
-    if (ret)
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
+               "unable to get checksum for path: %s", filepath);
         goto out;
+    }
 
     *cs = cksum;
 
