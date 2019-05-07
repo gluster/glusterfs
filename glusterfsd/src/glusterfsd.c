@@ -198,7 +198,7 @@ static struct argp_option gf_options[] = {
     {"brick-port", ARGP_BRICK_PORT_KEY, "BRICK-PORT", OPTION_HIDDEN,
      "Brick Port to be registered with Gluster portmapper"},
     {"fopen-keep-cache", ARGP_FOPEN_KEEP_CACHE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
-     "Do not purge the cache on file open"},
+     "Do not purge the cache on file open [default: false]"},
     {"global-timer-wheel", ARGP_GLOBAL_TIMER_WHEEL, "BOOL", OPTION_ARG_OPTIONAL,
      "Instantiate process global timer-wheel"},
     {"thin-client", ARGP_THIN_CLIENT_KEY, 0, 0,

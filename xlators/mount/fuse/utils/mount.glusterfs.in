@@ -161,10 +161,6 @@ start_glusterfs ()
        cmd_line=$(echo "$cmd_line --volfile-max-fetch-attempts=$volfile_max_fetch_attempts")
     fi
 
-    if [ -n "$fopen_keep_cache" ]; then
-        cmd_line=$(echo "$cmd_line --fopen-keep-cache");
-    fi
-
     if [ -n "$volfile_check" ]; then
         cmd_line=$(echo "$cmd_line --volfile-check");
     fi
@@ -193,7 +189,12 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --global-threading");
     fi
 
-#options with values start here
+#options with optional values start here
+    if [ -n "$fopen_keep_cache" ]; then
+        cmd_line=$(echo "$cmd_line --fopen-keep-cache=$fopen_keep_cache");
+    fi
+
+#options with mandatory values start here
     if [ -n "$halo_max_latency" ]; then
       cmd_line=$(echo "$cmd_line --xlator-option \
  *replicate*.halo-max-latency=$halo_max_latency");
@@ -602,6 +603,10 @@ with_options()
         "process-name")
             process_name=$value
             ;;
+        # Values that are optional
+        "fopen-keep-cache")
+            fopen_keep_cache="=$value"
+            ;;
         x-*)
             # comments or userspace application-specific options, drop them
             ;;
@@ -628,9 +633,6 @@ without_options()
             ;;
         "worm")
             worm=1
-            ;;
-        "fopen-keep-cache")
-            fopen_keep_cache=1
             ;;
         "enable-ino32")
             enable_ino32=1
@@ -675,6 +677,10 @@ without_options()
         "auto"|"noauto")
             ;;
         "_netdev")
+            ;;
+        # Values that are optional
+        "fopen-keep-cache")
+            fopen_keep_cache="true"
             ;;
         x-*)
             # comments or userspace application-specific options, drop them
