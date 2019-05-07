@@ -63,8 +63,8 @@ and \fB\-\-log\-file\fR to console.
 \fB\-\-enable\-ino32=BOOL\fR
 Use 32-bit inodes when mounting to workaround application that doesn't support 64-bit inodes.
 .TP
-\fB\-\-fopen\-keep\-cache\fR
-Do not purge the cache on file open.
+\fB\-\-fopen\-keep\-cache[=BOOL]\fR
+Do not purge the cache on file open (default: false).
 .TP
 \fB\-\-mac\-compat=BOOL\fR
 Provide stubs for attributes needed for seamless operation on Macs (the default is off).
