@@ -159,7 +159,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 chown_file_ok ${slave_mnt}/changelog_chown_f1
 
 #logrotate
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/logrotate
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 arequal_checksum ${master_mnt}/logrotate ${slave_mnt}/logrotate
+EXPECT_WITHIN $GEO_REP_TIMEOUT "x0" arequal_checksum ${master_mnt}/logrotate ${slave_mnt}/logrotate
 
 #CREATE+RENAME
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 create_rename_ok ${slave_mnt}/create_rename_test_file
@@ -209,7 +209,7 @@ TEST create_rename_with_existing_destination ${master_mnt}
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rename_with_existing_destination ${slave_mnt}
 
 #Verify arequal for whole volume
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 arequal_checksum ${master_mnt} ${slave_mnt}
+EXPECT_WITHIN $GEO_REP_TIMEOUT "x0" arequal_checksum ${master_mnt} ${slave_mnt}
 
 #Pause geo-replication session
 TEST $GEOREP_CLI  $master $slave pause force
