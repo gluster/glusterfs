@@ -1540,15 +1540,29 @@ class SSH(object):
 
         p0.stdin.close()
         p0.stdout.close()  # Allow p0 to receive a SIGPIPE if p1 exits.
-        # wait for tar to terminate, collecting any errors, further
-        # waiting for transfer to complete
-        _, stderr1 = p1.communicate()
 
         # stdin and stdout of p0 is already closed, Reset to None and
         # wait for child process to complete
         p0.stdin = None
         p0.stdout = None
-        p0.communicate()
+
+        def wait_for_tar(p0):
+            _, stderr = p0.communicate()
+            if log_err:
+                for errline in stderr.strip().split("\n")[:-1]:
+                    if "No such file or directory" not in errline:
+                        logging.error(lf("SYNC Error",
+                                         sync_engine="Tarssh",
+                                         error=errline))
+
+        t = syncdutils.Thread(target=wait_for_tar, args=(p0, ))
+        # wait for tar to terminate, collecting any errors, further
+        # waiting for transfer to complete
+        t.start()
+
+        # wait for ssh process
+        _, stderr1 = p1.communicate()
+        t.join()
 
         if log_err:
             for errline in stderr1.strip().split("\n")[:-1]:
