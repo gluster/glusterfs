@@ -1137,6 +1137,7 @@ shard_update_file_size(call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
     int ret = -1;
     int64_t *size_attr = NULL;
+    int64_t delta_blocks = 0;
     inode_t *inode = NULL;
     shard_local_t *local = NULL;
     dict_t *xattr_req = NULL;
@@ -1158,13 +1159,13 @@ shard_update_file_size(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     /* If both size and block count have not changed, then skip the xattrop.
      */
-    if ((local->delta_size + local->hole_size == 0) &&
-        (local->delta_blocks == 0)) {
+    delta_blocks = GF_ATOMIC_GET(local->delta_blocks);
+    if ((local->delta_size + local->hole_size == 0) && (delta_blocks == 0)) {
         goto out;
     }
 
     ret = shard_set_size_attrs(local->delta_size + local->hole_size,
-                               local->delta_blocks, &size_attr);
+                               delta_blocks, &size_attr);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_SIZE_SET_FAILED,
                "Failed to set size attrs for %s", uuid_utoa(inode->gfid));
@@ -1949,6 +1950,7 @@ shard_truncate_last_shard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               dict_t *xdata)
 {
     inode_t *inode = NULL;
+    int64_t delta_blocks = 0;
     shard_local_t *local = NULL;
 
     local = frame->local;
@@ -1969,14 +1971,15 @@ shard_truncate_last_shard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     local->postbuf.ia_size = local->offset;
-    local->postbuf.ia_blocks -= (prebuf->ia_blocks - postbuf->ia_blocks);
     /* Let the delta be negative. We want xattrop to do subtraction */
     local->delta_size = local->postbuf.ia_size - local->prebuf.ia_size;
-    local->delta_blocks = postbuf->ia_blocks - prebuf->ia_blocks;
+    delta_blocks = GF_ATOMIC_ADD(local->delta_blocks,
+                                 postbuf->ia_blocks - prebuf->ia_blocks);
+    GF_ASSERT(delta_blocks <= 0);
+    local->postbuf.ia_blocks += delta_blocks;
     local->hole_size = 0;
 
-    shard_inode_ctx_set(inode, this, postbuf, 0, SHARD_MASK_TIMES);
-
+    shard_inode_ctx_set(inode, this, &local->postbuf, 0, SHARD_MASK_TIMES);
     shard_update_file_size(frame, this, NULL, &local->loc,
                            shard_post_update_size_truncate_handler);
     return 0;
@@ -2036,8 +2039,10 @@ shard_truncate_htol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *preparent, struct iatt *postparent,
                         dict_t *xdata)
 {
+    int ret = 0;
     int call_count = 0;
     int shard_block_num = (long)cookie;
+    uint64_t block_count = 0;
     shard_local_t *local = NULL;
 
     local = frame->local;
@@ -2046,6 +2051,16 @@ shard_truncate_htol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_ret = op_ret;
         local->op_errno = op_errno;
         goto done;
+    }
+    ret = dict_get_uint64(xdata, GF_GET_FILE_BLOCK_COUNT, &block_count);
+    if (!ret) {
+        GF_ATOMIC_SUB(local->delta_blocks, block_count);
+    } else {
+        /* dict_get failed possibly due to a heterogeneous cluster? */
+        gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+               "Failed to get key %s from dict during truncate of gfid %s",
+               GF_GET_FILE_BLOCK_COUNT,
+               uuid_utoa(local->resolver_base_inode->gfid));
     }
 
     shard_unlink_block_inode(local, shard_block_num);
@@ -2076,6 +2091,7 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
     gf_boolean_t wind_failed = _gf_false;
     shard_local_t *local = NULL;
     shard_priv_t *priv = NULL;
+    dict_t *xdata_req = NULL;
 
     local = frame->local;
     priv = this->private;
@@ -2103,7 +2119,7 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
         local->postbuf.ia_size = local->offset;
         local->postbuf.ia_blocks = local->prebuf.ia_blocks;
         local->delta_size = local->postbuf.ia_size - local->prebuf.ia_size;
-        local->delta_blocks = 0;
+        GF_ATOMIC_INIT(local->delta_blocks, 0);
         local->hole_size = 0;
         shard_update_file_size(frame, this, local->fd, &local->loc,
                                shard_post_update_size_truncate_handler);
@@ -2112,6 +2128,21 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
 
     local->call_count = call_count;
     i = 1;
+    xdata_req = dict_new();
+    if (!xdata_req) {
+        shard_common_failure_unwind(local->fop, frame, -1, ENOMEM);
+        return 0;
+    }
+    ret = dict_set_uint64(xdata_req, GF_GET_FILE_BLOCK_COUNT, 8 * 8);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+               "Failed to set key %s into dict during truncate of %s",
+               GF_GET_FILE_BLOCK_COUNT,
+               uuid_utoa(local->resolver_base_inode->gfid));
+        dict_unref(xdata_req);
+        shard_common_failure_unwind(local->fop, frame, -1, ENOMEM);
+        return 0;
+    }
 
     SHARD_SET_ROOT_FS_ID(frame, local);
     while (cur_block <= last_block) {
@@ -2150,7 +2181,7 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
 
         STACK_WIND_COOKIE(frame, shard_truncate_htol_cbk,
                           (void *)(long)cur_block, FIRST_CHILD(this),
-                          FIRST_CHILD(this)->fops->unlink, &loc, 0, NULL);
+                          FIRST_CHILD(this)->fops->unlink, &loc, 0, xdata_req);
         loc_wipe(&loc);
     next:
         i++;
@@ -2158,6 +2189,7 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
         if (!--call_count)
             break;
     }
+    dict_unref(xdata_req);
     return 0;
 }
 
@@ -2604,7 +2636,7 @@ shard_post_lookup_truncate_handler(call_frame_t *frame, xlator_t *this)
          */
         local->hole_size = local->offset - local->prebuf.ia_size;
         local->delta_size = 0;
-        local->delta_blocks = 0;
+        GF_ATOMIC_INIT(local->delta_blocks, 0);
         local->postbuf.ia_size = local->offset;
         tmp_stbuf.ia_size = local->offset;
         shard_inode_ctx_set(local->loc.inode, this, &tmp_stbuf, 0,
@@ -2620,7 +2652,7 @@ shard_post_lookup_truncate_handler(call_frame_t *frame, xlator_t *this)
          */
         local->hole_size = 0;
         local->delta_size = (local->offset - local->prebuf.ia_size);
-        local->delta_blocks = 0;
+        GF_ATOMIC_INIT(local->delta_blocks, 0);
         tmp_stbuf.ia_size = local->offset;
         shard_inode_ctx_set(local->loc.inode, this, &tmp_stbuf, 0,
                             SHARD_INODE_WRITE_MASK);
@@ -2676,6 +2708,7 @@ shard_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     if (!local->xattr_req)
         goto err;
     local->resolver_base_inode = loc->inode;
+    GF_ATOMIC_INIT(local->delta_blocks, 0);
 
     shard_lookup_base_file(frame, this, &local->loc,
                            shard_post_lookup_truncate_handler);
@@ -2731,6 +2764,7 @@ shard_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     local->loc.inode = inode_ref(fd->inode);
     gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
     local->resolver_base_inode = fd->inode;
+    GF_ATOMIC_INIT(local->delta_blocks, 0);
 
     shard_lookup_base_file(frame, this, &local->loc,
                            shard_post_lookup_truncate_handler);
@@ -5291,7 +5325,8 @@ shard_common_inode_write_do_cbk(call_frame_t *frame, void *cookie,
             local->op_errno = op_errno;
         } else {
             local->written_size += op_ret;
-            local->delta_blocks += (post->ia_blocks - pre->ia_blocks);
+            GF_ATOMIC_ADD(local->delta_blocks,
+                          post->ia_blocks - pre->ia_blocks);
             local->delta_size += (post->ia_size - pre->ia_size);
             shard_inode_ctx_set(local->fd->inode, this, post, 0,
                                 SHARD_MASK_TIMES);
@@ -6595,6 +6630,7 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     local->fd = fd_ref(fd);
     local->block_size = block_size;
     local->resolver_base_inode = local->fd->inode;
+    GF_ATOMIC_INIT(local->delta_blocks, 0);
 
     local->loc.inode = inode_ref(fd->inode);
     gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
