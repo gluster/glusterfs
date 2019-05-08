@@ -324,6 +324,9 @@ afr_selfheal_data_do(call_frame_t *frame, xlator_t *this, fd_t *fd, int source,
     call_frame_t *iter_frame = NULL;
     unsigned char arbiter_sink_status = 0;
 
+    gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SELF_HEAL_INFO,
+           "performing data selfheal on %s", uuid_utoa(fd->inode->gfid));
+
     priv = this->private;
     if (priv->arbiter_count) {
         arbiter_sink_status = healed_sinks[ARBITER_BRICK_INDEX];
