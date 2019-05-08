@@ -81,7 +81,7 @@ TEST $GEOREP_CLI $master $slave config use_meta_volume true
 TEST $CLI volume set $GMV0 changelog.rollover-time 3
 
 #Config tarssh as sync-engine
-TEST $GEOREP_CLI $master $slave config use_tarssh true
+TEST $GEOREP_CLI $master $slave config sync-method tarssh
 
 #Wait for common secret pem file to be created
 EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_common_secret_file

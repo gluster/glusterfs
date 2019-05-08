@@ -128,10 +128,11 @@ value=
 value=5
 type=int
 
-[use-tarssh]
-value=false
-type=bool
-help=Use sync-mode as tarssh
+[sync-method]
+value=rsync
+help=Sync method for data sync. Available methods are tar over ssh and rsync. Default is rsync.
+validation=choice
+allowed_values=tarssh,rsync
 
 [remote-gsyncd]
 value =

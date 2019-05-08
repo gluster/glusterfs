@@ -1512,7 +1512,7 @@ class SSH(object):
 
         return po
 
-    def tarssh(self, files, slaveurl, log_err=False):
+    def tarssh(self, files, log_err=False):
         """invoke tar+ssh
         -z (compress) can be use if needed, but omitting it now
         as it results in weird error (tar+ssh errors out (errcode: 2)
@@ -1520,10 +1520,11 @@ class SSH(object):
         if not files:
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
-        (host, rdir) = slaveurl.split(':')
+        (host, rdir) = self.slaveurl.split(':')
+
         tar_cmd = ["tar"] + \
             ["--sparse", "-cf", "-", "--files-from", "-"]
-        ssh_cmd = gconf.get("ssh-command-tar").split() + \
+        ssh_cmd = gconf.get("ssh-command").split() + \
             gconf.get("ssh-options-tar").split() + \
             ["-p", str(gconf.get("ssh-port"))] + \
             [host, "tar"] + \
