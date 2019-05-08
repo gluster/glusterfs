@@ -1071,6 +1071,7 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     char *real_path = NULL;
     char *par_path = NULL;
     int32_t fd = -1;
+    int ret = -1;
     struct iatt stbuf = {
         0,
     };
@@ -1233,6 +1234,14 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         op_errno = ENOMEM;
         op_ret = -1;
         goto out;
+    }
+
+    if (xdata && dict_get(xdata, GF_GET_FILE_BLOCK_COUNT)) {
+        ret = dict_set_uint64(unwind_dict, GF_GET_FILE_BLOCK_COUNT,
+                              stbuf.ia_blocks);
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
+                   "Failed to set %s in rsp dict", GF_GET_FILE_BLOCK_COUNT);
     }
 
     if (xdata && dict_get(xdata, GET_LINK_COUNT))

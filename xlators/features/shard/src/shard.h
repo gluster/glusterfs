@@ -275,7 +275,7 @@ typedef struct shard_local {
     size_t req_size;
     size_t readdir_size;
     int64_t delta_size;
-    int64_t delta_blocks;
+    gf_atomic_t delta_blocks;
     loc_t loc;
     loc_t dot_shard_loc;
     loc_t dot_shard_rm_loc;
