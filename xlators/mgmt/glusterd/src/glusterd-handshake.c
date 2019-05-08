@@ -927,6 +927,8 @@ __server_getspec(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+               "Failed to decode the message");
         goto fail;
     }
 
@@ -940,6 +942,9 @@ __server_getspec(rpcsvc_request_t *req)
                "volume name too long (%s)", volume);
         goto fail;
     }
+
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_MOUNT_REQ_RCVD,
+           "Recevied mount request for valume %s", volume);
 
     /* Need to strip leading '/' from volnames. This was introduced to
      * support nfs style mount parameters for native gluster mount
@@ -974,8 +979,12 @@ __server_getspec(rpcsvc_request_t *req)
     trans = req->trans;
     /* addrstr will be empty for cli socket connections */
     ret = rpcsvc_transport_peername(trans, (char *)&addrstr, sizeof(addrstr));
-    if (ret)
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0,
+               GD_MSG_RPC_TRANSPORT_GET_PEERNAME_FAIL,
+               "Failed to get the peername");
         goto fail;
+    }
 
     tmp = strrchr(addrstr, ':');
     if (tmp)
@@ -1045,6 +1054,9 @@ fail:
     GF_FREE(brick_name);
 
     rsp.op_ret = ret;
+    if (rsp.op_ret)
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MOUNT_REQ_FAIL,
+               "Failed to mount the volume");
 
     if (op_errno)
         rsp.op_errno = gf_errno_to_error(op_errno);
