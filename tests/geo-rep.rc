@@ -168,7 +168,8 @@ function arequal_checksum()
 {
     master=$1
     slave=$2
-    diff <(arequal-checksum -p $master) <(arequal-checksum -p $slave) | wc -l
+    ret=$(diff <(arequal-checksum -p $master) <(arequal-checksum -p $slave) | wc -l)
+    echo x$ret
 }
 
 function symlink_ok()
