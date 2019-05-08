@@ -328,6 +328,8 @@ enum gf_internal_fop_indicator {
 #define GF_RESPONSE_LINK_COUNT_XDATA "gf_response_link_count"
 #define GF_REQUEST_LINK_COUNT_XDATA "gf_request_link_count"
 
+#define GF_GET_FILE_BLOCK_COUNT "gf_get_file_block_count"
+
 #define CTR_ATTACH_TIER_LOOKUP "ctr_attach_tier_lookup"
 
 #define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
