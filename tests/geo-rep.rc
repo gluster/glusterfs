@@ -101,6 +101,23 @@ function create_data()
     chown 1000:1000 ${master_mnt}/${prefix}_chown_f1_ಸಂತಸ
 }
 
+function create_data_hang()
+{
+    prefix=$1
+    mkdir ${master_mnt}/${prefix}
+    cd ${master_mnt}/${prefix}
+    # ~1k files is required with 1 sync-job and hang happens if
+    # stderr buffer of tar/ssh executed with Popen is full (i.e., 64k).
+    # 64k is hit when ~800 files were  not found while syncing data
+    # from master. So around 1k files is required to hit the condition.
+    for i in {1..1000}
+    do
+        echo "test data" > file$i
+        mv -f file$i file
+    done
+    cd -
+}
+
 function chown_file_ok()
 {
     local file_owner=$(stat --format "%u:%g" "$1")
