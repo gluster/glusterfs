@@ -929,3 +929,18 @@ function volgen_check_ancestry {
                 echo "N"
         fi
 }
+
+function get_shd_mux_pid {
+   local volume=$1
+   pid=`$CLI volume status $volume shd | awk '/Self-heal/{print $8}'`
+   echo $pid
+}
+
+function shd_count {
+   ps aux | grep "glustershd" | grep -v grep | wc -l
+}
+
+function number_healer_threads_shd {
+   local pid=$(get_shd_mux_pid $1)
+   pstack $pid | grep $2 | wc -l
+}
