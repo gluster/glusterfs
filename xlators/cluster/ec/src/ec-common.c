@@ -2497,7 +2497,7 @@ ec_lock_release(ec_t *ec, inode_t *inode)
         goto done;
     }
     lock = ctx->inode_lock;
-    if ((lock == NULL) || !lock->acquired || lock->release) {
+    if ((lock == NULL) || lock->release) {
         goto done;
     }
 
