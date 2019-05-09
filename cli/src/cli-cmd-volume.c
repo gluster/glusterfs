@@ -3061,8 +3061,8 @@ struct cli_cmd volume_cmds[] = {
      "reset all the reconfigured options"},
 
 #if (SYNCDAEMON_COMPILE)
-    {"volume " GEOREP " [<VOLNAME>] [<SLAVE-URL>] {\\\n create [[ssh-port n] "
-     "[[no-verify] | [push-pem]]] [force] \\\n"
+    {"volume " GEOREP " [<MASTER-VOLNAME>] [<SLAVE-IP>]::[<SLAVE-VOLNAME>] {"
+     "\\\n create [[ssh-port n] [[no-verify] \\\n | [push-pem]]] [force] \\\n"
      " | start [force] \\\n | stop [force] \\\n | pause [force] \\\n | resume "
      "[force] \\\n"
      " | config [[[\\!]<option>] [<value>]] \\\n | status "
