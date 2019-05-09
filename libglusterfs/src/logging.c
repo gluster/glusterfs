@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <sys/resource.h>
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
@@ -1112,6 +1113,7 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
     glusterfs_ctx_t *ctx = NULL;
     int wlen = 0;
     int priority;
+    struct rusage r_usage;
 
     this = THIS;
     ctx = this->ctx;
@@ -1137,15 +1139,17 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
 
     /* TODO: Currently we print in the enhanced format, with a message ID
      * of 0. Need to enhance this to support format as configured */
-    wlen = snprintf(msg, sizeof msg,
-                    "[%s.%" GF_PRI_SUSECONDS "] %s [MSGID: %" PRIu64
-                    "]"
-                    " [%s:%d:%s] %s: no memory "
-                    "available for size (%" GF_PRI_SIZET
-                    ")"
-                    " [call stack follows]\n",
-                    timestr, tv.tv_usec, gf_level_strings[level], (uint64_t)0,
-                    basename, line, function, domain, size);
+    wlen = snprintf(
+        msg, sizeof msg,
+        "[%s.%" GF_PRI_SUSECONDS "] %s [MSGID: %" PRIu64
+        "]"
+        " [%s:%d:%s] %s: no memory "
+        "available for size (%" GF_PRI_SIZET
+        ") current memory usage in kilobytes %ld"
+        " [call stack follows]\n",
+        timestr, tv.tv_usec, gf_level_strings[level], (uint64_t)0, basename,
+        line, function, domain, size,
+        (!getrusage(RUSAGE_SELF, &r_usage) ? r_usage.ru_maxrss : 0));
     if (-1 == wlen) {
         ret = -1;
         goto out;
