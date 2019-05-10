@@ -129,10 +129,6 @@ cluster_uninodelk
 cluster_unlink
 cluster_xattrop
 cluster_xattrop_cbk
-compound_args_cbk_alloc
-compound_args_cbk_cleanup
-compound_args_cleanup
-compound_fop_alloc
 copy_opts_to_child
 create_frame
 data_copy
