@@ -289,7 +289,9 @@ mkdir -p /xyz/var/lib/glusterd/abc
 TEST  $CLI volume create "test" $H0:/xyz/var/lib/glusterd/abc
 EXPECT 'Created' volinfo_field "test" 'Status';
 
-EXPECT "1" generate_statedump_and_check_for_glusterd_info
+#While taking a statedump, there is a TRY_LOCK on call_frame, which might may cause
+#failure. So Adding a EXPECT_WITHIN
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" generate_statedump_and_check_for_glusterd_info
 
 cleanup_statedump `pidof glusterd`
 cleanup
