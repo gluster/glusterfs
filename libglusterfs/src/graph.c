@@ -1383,8 +1383,12 @@ glusterfs_graph_cleanup(void *arg)
     }
     pthread_mutex_unlock(&ctx->notify_lock);
 
-    glusterfs_graph_fini(graph);
-    glusterfs_graph_destroy(graph);
+    pthread_mutex_lock(&ctx->cleanup_lock);
+    {
+        glusterfs_graph_fini(graph);
+        glusterfs_graph_destroy(graph);
+    }
+    pthread_mutex_unlock(&ctx->cleanup_lock);
 out:
     return NULL;
 }
@@ -1459,31 +1463,37 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
 
     if (!ctx || !ctx->active || !volfile_obj)
         goto out;
-    parent_graph = ctx->active;
-    graph = volfile_obj->graph;
-    if (!graph)
-        goto out;
-    if (graph->first)
-        xl = graph->first;
 
-    last_xl = graph->last_xl;
-    if (last_xl)
-        last_xl->next = NULL;
-    if (!xl || xl->cleanup_starting)
-        goto out;
+    pthread_mutex_lock(&ctx->cleanup_lock);
+    {
+        parent_graph = ctx->active;
+        graph = volfile_obj->graph;
+        if (!graph)
+            goto unlock;
+        if (graph->first)
+            xl = graph->first;
 
-    xl->cleanup_starting = 1;
-    gf_msg("mgmt", GF_LOG_INFO, 0, LG_MSG_GRAPH_DETACH_STARTED,
-           "detaching child %s", volfile_obj->vol_id);
+        last_xl = graph->last_xl;
+        if (last_xl)
+            last_xl->next = NULL;
+        if (!xl || xl->cleanup_starting)
+            goto unlock;
 
-    list_del_init(&volfile_obj->volfile_list);
-    glusterfs_mux_xlator_unlink(parent_graph->top, xl);
-    parent_graph->last_xl = glusterfs_get_last_xlator(parent_graph);
-    parent_graph->xl_count -= graph->xl_count;
-    parent_graph->leaf_count -= graph->leaf_count;
-    default_notify(xl, GF_EVENT_PARENT_DOWN, xl);
-    parent_graph->id++;
-    ret = 0;
+        xl->cleanup_starting = 1;
+        gf_msg("mgmt", GF_LOG_INFO, 0, LG_MSG_GRAPH_DETACH_STARTED,
+               "detaching child %s", volfile_obj->vol_id);
+
+        list_del_init(&volfile_obj->volfile_list);
+        glusterfs_mux_xlator_unlink(parent_graph->top, xl);
+        parent_graph->last_xl = glusterfs_get_last_xlator(parent_graph);
+        parent_graph->xl_count -= graph->xl_count;
+        parent_graph->leaf_count -= graph->leaf_count;
+        default_notify(xl, GF_EVENT_PARENT_DOWN, xl);
+        parent_graph->id++;
+        ret = 0;
+    }
+unlock:
+    pthread_mutex_unlock(&ctx->cleanup_lock);
 out:
     if (!ret) {
         list_del_init(&volfile_obj->volfile_list);
