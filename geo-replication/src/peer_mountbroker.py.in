@@ -47,7 +47,7 @@ class MountbrokerUserMgmt(object):
             for line in f:
                 line = line.strip()
                 if line.startswith("option "):
-                    key, value = line.split(" ")[1:]
+                    key, value = line.split()[1:]
                     self._options[key] = value
                 if line.startswith("#"):
                     self.commented_lines.append(line)
