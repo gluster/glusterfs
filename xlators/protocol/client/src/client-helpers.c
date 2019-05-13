@@ -412,6 +412,7 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
 {
     clnt_fd_ctx_t *fdctx = NULL;
     clnt_conf_t *conf = NULL;
+    gf_boolean_t locks_held = _gf_false;
 
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, remote_fd, out);
@@ -433,11 +434,13 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
                 *remote_fd = -1;
             else
                 *remote_fd = fdctx->remote_fd;
+
+            locks_held = !list_empty(&fdctx->lock_list);
         }
     }
     pthread_spin_unlock(&conf->fd_lock);
 
-    if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1))
+    if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1) && (!locks_held))
         *remote_fd = GF_ANON_FD_NO;
 
     return 0;

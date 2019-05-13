@@ -681,7 +681,8 @@ client_post_handshake(call_frame_t *frame, xlator_t *this)
     {
         list_for_each_entry_safe(fdctx, tmp, &conf->saved_fds, sfd_pos)
         {
-            if (fdctx->remote_fd != -1)
+            if (fdctx->remote_fd != -1 ||
+                (!list_empty(&fdctx->lock_list) && conf->strict_locks))
                 continue;
 
             fdctx->reopen_done = client_child_up_reopen_done;

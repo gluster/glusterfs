@@ -351,7 +351,7 @@ delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner)
 
     list_for_each_entry_safe(lock, tmp, &fdctx->lock_list, list)
     {
-        if (!is_same_lkowner(&lock->owner, owner)) {
+        if (is_same_lkowner(&lock->owner, owner)) {
             list_del_init(&lock->list);
             list_add_tail(&lock->list, &delete_list);
             count++;
