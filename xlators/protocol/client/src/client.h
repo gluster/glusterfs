@@ -155,6 +155,14 @@ typedef struct clnt_conf {
                                           compltely, ie client_fini_complete
                                           to return*/
     gf_boolean_t fini_completed;
+    gf_boolean_t strict_locks; /* When set, doesn't reopen saved fds after
+                                  reconnect if POSIX locks are held on them.
+                                  Hence subsequent operations on these fds will
+                                  fail. This is necessary for stricter lock
+                                  complaince as bricks cleanup any granted
+                                  locks when a client disconnects.
+                               */
+
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
@@ -385,5 +393,12 @@ int
 clnt_readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp);
 int
 clnt_readdirp_rsp_cleanup_v2(gfx_readdirp_rsp *rsp);
+
+int
+client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
+                             gf_lkowner_t *owner, int32_t cmd);
+
+int
+client_is_setlk(int32_t cmd);
 
 #endif /* !_CLIENT_H */

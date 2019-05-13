@@ -2588,6 +2588,7 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
     GF_OPTION_INIT("send-gids", conf->send_gids, bool, out);
 
     GF_OPTION_INIT("testing.old-protocol", conf->old_protocol, bool, out);
+    GF_OPTION_INIT("strict-locks", conf->strict_locks, bool, out);
 
     conf->client_id = glusterfs_leaf_position(this);
 
@@ -2773,6 +2774,7 @@ reconfigure(xlator_t *this, dict_t *options)
                      out);
 
     GF_OPTION_RECONF("send-gids", conf->send_gids, options, bool, out);
+    GF_OPTION_RECONF("strict-locks", conf->strict_locks, options, bool, out);
 
     ret = 0;
 out:
@@ -3153,6 +3155,17 @@ struct volume_options options[] = {
         .op_version = {GD_OP_VERSION_7_0},
         .flags = OPT_FLAG_SETTABLE,
     },
+    {.key = {"strict-locks"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "off",
+     .op_version = {GD_OP_VERSION_7_0},
+     .flags = OPT_FLAG_SETTABLE,
+     .description = "When set, doesn't reopen saved fds after reconnect "
+                    "if POSIX locks are held on them. Hence subsequent "
+                    "operations on these fds will fail. This is "
+                    "necessary for stricter lock complaince as bricks "
+                    "cleanup any granted locks when a client "
+                    "disconnects."},
     {.key = {NULL}},
 };
 

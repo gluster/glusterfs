@@ -1514,6 +1514,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_3_10_2,
      .value = "9",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = "client.strict-locks",
+     .voltype = "protocol/client",
+     .option = "strict-locks",
+     .value = "off",
+     .op_version = GD_OP_VERSION_8_0,
+     .validate_fn = validate_boolean,
+     .type = GLOBAL_DOC,
+     .description = "When set, doesn't reopen saved fds after reconnect "
+                    "if POSIX locks are held on them. Hence subsequent "
+                    "operations on these fds will fail. This is "
+                    "necessary for stricter lock complaince as bricks "
+                    "cleanup any granted locks when a client "
+                    "disconnects."},
 
     /* Although the following option is named ta-remote-port but it will be
      * added as remote-port in client volfile for ta-bricks only.

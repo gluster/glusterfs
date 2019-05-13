@@ -717,7 +717,8 @@ client4_0_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (rsp.op_ret >= 0 && !fd_is_anonymous(local->fd)) {
+    if ((rsp.op_ret >= 0 || (rsp.op_errno == ENOTCONN)) &&
+        !fd_is_anonymous(local->fd)) {
         /* Delete all saved locks of the owner issuing flush */
         ret = delete_granted_locks_owner(local->fd, &local->owner);
         gf_msg_trace(this->name, 0, "deleting locks of owner (%s) returned %d",
@@ -2172,10 +2173,12 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
     xlator_t *this = NULL;
     dict_t *xdata = NULL;
+    clnt_local_t *local = NULL;
 
     this = THIS;
 
     frame = myframe;
+    local = frame->local;
 
     if (-1 == req->rpc_status) {
         rsp.op_ret = -1;
@@ -2196,6 +2199,18 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         ret = client_post_lk_v2(this, &rsp, &lock, &xdata);
         if (ret < 0)
             goto out;
+
+        /* Save the lock to the client lock cache to be able
+           to recover in the case of server reboot.*/
+
+        if (client_is_setlk(local->cmd)) {
+            ret = client_add_lock_for_recovery(local->fd, &lock, &local->owner,
+                                               local->cmd);
+            if (ret < 0) {
+                rsp.op_ret = -1;
+                rsp.op_errno = -ret;
+            }
+        }
     }
 
 out:
@@ -3972,6 +3987,13 @@ client4_0_flush(call_frame_t *frame, xlator_t *this, void *data)
     ret = client_pre_flush_v2(this, &req, args->fd, args->xdata);
     if (ret) {
         op_errno = -ret;
+        if (op_errno == EBADF) {
+            ret = delete_granted_locks_owner(local->fd, &local->owner);
+            gf_msg_trace(this->name, 0,
+                         "deleting locks of owner (%s) returned %d",
+                         lkowner_utoa(&local->owner), ret);
+        }
+
         goto unwind;
     }
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_FLUSH,
@@ -4745,8 +4767,16 @@ client4_0_lk(call_frame_t *frame, xlator_t *this, void *data)
                            args->xdata);
     if (ret) {
         op_errno = -ret;
+
+        if ((op_errno == EBADF) && (args->flock->l_type == F_UNLCK) &&
+            client_is_setlk(local->cmd)) {
+            client_add_lock_for_recovery(local->fd, args->flock, &local->owner,
+                                         local->cmd);
+        }
+
         goto unwind;
     }
+
     ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_LK,
                                 client4_0_lk_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_lk_req);
