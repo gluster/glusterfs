@@ -335,6 +335,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
         if (temp_parent) {
             inode_unref(loc.parent);
             loc.parent = temp_parent;
+            gf_uuid_copy(loc.pargfid, temp_parent->gfid);
             inode_find_directory_name(loc.inode, &loc.name);
         }
 
@@ -345,10 +346,12 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             if (temp_parent) {
                 inode_unref(loc.parent);
                 loc.parent = temp_parent;
+                gf_uuid_copy(loc.pargfid, temp_parent->gfid);
                 inode_find_directory_name(loc.inode, &loc.name);
             } else if (__is_root_gfid(loc.inode->gfid)) {
                 inode_unref(loc.parent);
                 loc.parent = inode_ref(loc.inode);
+                gf_uuid_copy(loc.pargfid, loc.inode->gfid);
                 loc.name = ".";
             } else {
                 inode_unref(loc.inode);
