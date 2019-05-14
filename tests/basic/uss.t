@@ -36,6 +36,7 @@ TEST glusterd;
 TEST pidof glusterd;
 
 TEST $CLI volume create $V0 $H0:$L1 $H0:$L2 $H0:$L3;
+
 TEST $CLI volume set $V0 nfs.disable false
 
 
@@ -374,6 +375,15 @@ TEST rm -f $M0/aaa;
 
 TEST $CLI snapshot delete snap6;
 
+# drop the caches so that, the dentry for "snap6" is
+# is forgotten from the client cache.
+drop_cache $M0
+
+EXPECT_WITHIN 30 "5" count_snaps $M0;
+
+# This should fail, as snap6 just got deleted.
+TEST ! stat $M0/.history/snap6
+
 TEST $CLI snapshot create snap6 $V0 no-timestamp
 
 TEST ls $M0/.history;
@@ -383,6 +393,8 @@ EXPECT_WITHIN 30 "6" count_snaps $M0;
 TEST ls $M0/.history/snap6/;
 
 TEST ! stat $M0/.history/snap6/aaa;
+
+TEST stat $M0
 
 # done with the tests start cleaning up of things
 TEST $CLI volume set $V0 features.uss disable

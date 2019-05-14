@@ -58,9 +58,16 @@
         {                                                                      \
             for (i = 0; i < _private->num_snaps; i++) {                        \
                 tmp_fs = _private->dirents[i].fs;                              \
-                gf_log(this->name, GF_LOG_DEBUG, "dirent->fs: %p", tmp_fs);    \
+                gf_log(this->name, GF_LOG_DEBUG,                               \
+                       "snap name: %s, snap volume: %s,"                       \
+                       "dirent->fs: %p",                                       \
+                       _private->dirents[i].name,                              \
+                       _private->dirents[i].snap_volname, tmp_fs);             \
                 if (tmp_fs && fs && (tmp_fs == fs)) {                          \
                     found = _gf_true;                                          \
+                    gf_msg_debug(this->name, 0,                                \
+                                 "found the fs "                               \
+                                 "instance");                                  \
                     break;                                                     \
                 }                                                              \
             }                                                                  \

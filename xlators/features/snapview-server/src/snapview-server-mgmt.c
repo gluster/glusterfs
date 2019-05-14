@@ -407,7 +407,12 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (old_dirents) {
         for (i = 0; i < oldcount; i++) {
             if (old_dirents[i].fs)
-                glfs_fini(old_dirents[i].fs);
+                gf_msg_debug(this->name, 0,
+                             "calling glfs_fini on "
+                             "name: %s, snap_volname: %s, uuid: %s",
+                             old_dirents[i].name, old_dirents[i].snap_volname,
+                             old_dirents[i].uuid);
+            glfs_fini(old_dirents[i].fs);
         }
     }
 
