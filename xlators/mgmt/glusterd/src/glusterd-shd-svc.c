@@ -311,10 +311,11 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
          */
         ret = svc->stop(svc, SIGTERM);
     } else if (volinfo) {
-        ret = svc->stop(svc, SIGTERM);
-        if (ret)
-            goto out;
-
+        if (volinfo->status != GLUSTERD_STATUS_STARTED) {
+            ret = svc->stop(svc, SIGTERM);
+            if (ret)
+                goto out;
+        }
         if (volinfo->status == GLUSTERD_STATUS_STARTED) {
             ret = svc->start(svc, flags);
             if (ret)

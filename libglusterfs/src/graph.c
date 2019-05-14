@@ -1488,7 +1488,6 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
         parent_graph->last_xl = glusterfs_get_last_xlator(parent_graph);
         parent_graph->xl_count -= graph->xl_count;
         parent_graph->leaf_count -= graph->leaf_count;
-        default_notify(xl, GF_EVENT_PARENT_DOWN, xl);
         parent_graph->id++;
         ret = 0;
     }
