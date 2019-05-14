@@ -811,7 +811,7 @@ class GMasterChangelogMixin(GMasterCommon):
                 st = lstat(os.path.join(pfx, slave_gfid))
                 # Takes care of scenarios with no hardlinks
                 if isinstance(st, int) and st == ENOENT:
-                    logging.info(lf('Entry not present on master. Fixing gfid '
+                    logging.debug(lf('Entry not present on master. Fixing gfid '
                                     'mismatch in slave. Deleting the entry',
                                     retry_count=retry_count,
                                     entry=repr(failure)))
@@ -843,7 +843,7 @@ class GMasterChangelogMixin(GMasterCommon):
                     if matching_disk_gfid(slave_gfid, pbname):
                         # Safe to ignore the failure as master contains same
                         # file with same gfid. Remove entry from entries list
-                        logging.info(lf('Fixing gfid mismatch in slave. '
+                        logging.debug(lf('Fixing gfid mismatch in slave. '
                                         ' Safe to ignore, take out entry',
                                         retry_count=retry_count,
                                         entry=repr(failure)))
@@ -865,14 +865,14 @@ class GMasterChangelogMixin(GMasterCommon):
                         dst_entry = os.path.join(pfx, realpath.split('/')[-2],
                                                  realpath.split('/')[-1])
                         src_entry = pbname
-                        logging.info(lf('Fixing dir name/gfid mismatch in '
+                        logging.debug(lf('Fixing dir name/gfid mismatch in '
                                         'slave', retry_count=retry_count,
                                         entry=repr(failure)))
                         if src_entry == dst_entry:
                             # Safe to ignore the failure as master contains
                             # same directory as in slave with same gfid.
                             # Remove the failure entry from entries list
-                            logging.info(lf('Fixing dir name/gfid mismatch'
+                            logging.debug(lf('Fixing dir name/gfid mismatch'
                                             ' in slave. Safe to ignore, '
                                             'take out entry',
                                             retry_count=retry_count,
@@ -886,7 +886,7 @@ class GMasterChangelogMixin(GMasterCommon):
                                                entry=src_entry,
                                                entry1=dst_entry, stat=st,
                                                link=None)
-                            logging.info(lf('Fixing dir name/gfid mismatch'
+                            logging.debug(lf('Fixing dir name/gfid mismatch'
                                             ' in slave. Renaming',
                                             retry_count=retry_count,
                                             entry=repr(rename_dict)))
@@ -896,7 +896,7 @@ class GMasterChangelogMixin(GMasterCommon):
                         # renamed file exists and we are sure from
                         # matching_disk_gfid check that the entry doesn't
                         # exist with same gfid so we can safely delete on slave
-                        logging.info(lf('Fixing file gfid mismatch in slave. '
+                        logging.debug(lf('Fixing file gfid mismatch in slave. '
                                         'Hardlink/Rename Case. Deleting entry',
                                         retry_count=retry_count,
                                         entry=repr(failure)))
@@ -915,7 +915,7 @@ class GMasterChangelogMixin(GMasterCommon):
                 # Safe to ignore the failure as master doesn't contain
                 # parent directory.
                 if isinstance(st, int):
-                    logging.info(lf('Fixing ENOENT error in slave. Parent '
+                    logging.debug(lf('Fixing ENOENT error in slave. Parent '
                                     'does not exist on master. Safe to '
                                     'ignore, take out entry',
                                     retry_count=retry_count,
@@ -925,7 +925,7 @@ class GMasterChangelogMixin(GMasterCommon):
                     except ValueError:
                         pass
                 else:
-                    logging.info(lf('Fixing ENOENT error in slave. Create '
+                    logging.debug(lf('Fixing ENOENT error in slave. Create '
                                     'parent directory on slave.',
                                     retry_count=retry_count,
                                     entry=repr(failure)))
@@ -1222,10 +1222,13 @@ class GMasterChangelogMixin(GMasterCommon):
 
             if gconf.get("gfid-conflict-resolution"):
                 count = 0
+                if failures:
+                    logging.info(lf('Entry ops failed with gfid mismatch',
+                                count=len(failures)))
                 while failures and count < self.MAX_OE_RETRIES:
                     count += 1
                     self.handle_entry_failures(failures, entries)
-                    logging.info("Retry original entries. count = %s" % count)
+                    logging.info(lf('Retry original entries', count=count))
                     failures = self.slave.server.entry_ops(entries)
                     if not failures:
                         logging.info("Successfully fixed all entry ops with "
