@@ -2002,7 +2002,9 @@ svs_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                    "failed",
                    loc->name, uuid_utoa(loc->inode->gfid));
             goto out;
-        }
+        } else
+            gf_msg_debug(this->name, 0, "stat on %s (%s) successful", loc->path,
+                         uuid_utoa(loc->inode->gfid));
 
         iatt_from_stat(&buf, &stat);
         gf_uuid_copy(buf.ia_gfid, loc->inode->gfid);
