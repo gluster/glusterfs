@@ -7793,9 +7793,12 @@ glusterd_op_sm()
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
     xlator_t *this = NULL;
     glusterd_op_info_t txn_op_info;
+    glusterd_conf_t *priv = NULL;
 
     this = THIS;
     GF_ASSERT(this);
+    priv = this->private;
+    GF_ASSERT(priv);
 
     ret = synclock_trylock(&gd_op_sm_lock);
     if (ret) {
@@ -7873,7 +7876,8 @@ glusterd_op_sm()
                            "Unable to clear "
                            "transaction's opinfo");
             } else {
-                if (!(event_type == GD_OP_EVENT_STAGE_OP &&
+                if ((priv->op_version < GD_OP_VERSION_6_0) ||
+                    !(event_type == GD_OP_EVENT_STAGE_OP &&
                       opinfo.state.state == GD_OP_STATE_STAGED &&
                       opinfo.skip_locking)) {
                     ret = glusterd_set_txn_opinfo(&event->txn_id, &opinfo);
