@@ -134,7 +134,7 @@ _GFS () {
 		touch $mount_point/xy_zzy 2> /dev/null && break
 		i=$((i+1))
 		[ $i -lt 100 ] || break
-		usleep 100000
+		sleep 0.1
 	done
 	rm -f $mount_point/xy_zzy
 	return $mount_ret
@@ -378,7 +378,7 @@ function _EXPECT_WITHIN()
                 if [[ "$a" =~ $e ]]; then
                         break;
                 fi
-                usleep 250000;
+                sleep 0.25;
                 EW_RETRIES=$((EW_RETRIES+1))
         done
 
