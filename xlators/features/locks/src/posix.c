@@ -1226,9 +1226,9 @@ pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
 out:
     GF_FREE(brickname);
     GF_FREE(args.opts);
+    GF_FREE(key);
     if (op_ret) {
         GF_FREE(lk_summary);
-        GF_FREE(key);
     }
 
     return op_ret;
