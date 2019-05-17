@@ -402,14 +402,15 @@ __inode_ctx_free(inode_t *inode)
         goto noctx;
     }
 
-    for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
+    for (index = 0; index < inode->table->ctxcount; index++) {
         if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
-            old_THIS = THIS;
-            THIS = xl;
-            if (!xl->call_cleanup && xl->cbks->forget)
+            if (xl && !xl->call_cleanup && xl->cbks->forget) {
+                old_THIS = THIS;
+                THIS = xl;
                 xl->cbks->forget(xl, inode);
-            THIS = old_THIS;
+                THIS = old_THIS;
+            }
         }
     }
 
