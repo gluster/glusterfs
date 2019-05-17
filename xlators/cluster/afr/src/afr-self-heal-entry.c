@@ -832,6 +832,8 @@ afr_selfheal_entry_granular(call_frame_t *frame, xlator_t *this, fd_t *fd,
     subvol = priv->children[subvol_idx];
 
     args.frame = afr_copy_frame(frame);
+    if (!args.frame)
+        goto out;
     args.xl = this;
     /* args.heal_fd represents the fd associated with the original directory
      * on which entry heal is being attempted.
@@ -850,9 +852,10 @@ afr_selfheal_entry_granular(call_frame_t *frame, xlator_t *this, fd_t *fd,
          * do not treat heal as failure.
          */
         if (is_src)
-            return -errno;
+            ret = -errno;
         else
-            return 0;
+            ret = 0;
+        goto out;
     }
 
     ret = syncop_dir_scan(subvol, &loc, GF_CLIENT_PID_SELF_HEALD, &args,
@@ -862,7 +865,9 @@ afr_selfheal_entry_granular(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     if (args.mismatch == _gf_true)
         ret = -1;
-
+out:
+    if (args.frame)
+        AFR_STACK_DESTROY(args.frame);
     return ret;
 }
 
