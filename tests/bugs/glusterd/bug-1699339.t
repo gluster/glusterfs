@@ -52,18 +52,22 @@ done
 
 TEST kill_glusterd 1
 
-vol1=$(printf "%s-vol%02d" $V0 1)
+TESTS_EXPECTED_IN_LOOP=4
+for i in `seq 1 3 15`
+do
+vol1=$(printf "%s-vol%02d" $V0 $i)
 TEST $CLI_2 volume set $vol1 performance.readdir-ahead on
-vol2=$(printf "%s-vol%02d" $V0 2)
-TEST $CLI_2 volume set $vol2 performance.readdir-ahead on
+done
 
 # Bring back 1st glusterd
 TEST $glusterd_1
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 
+TESTS_EXPECTED_IN_LOOP=4
+for i in `seq 1 3 15`
+do
+vol1=$(printf "%s-vol%02d" $V0 $i)
 EXPECT_WITHIN $PROBE_TIMEOUT "on" volinfo_field_1 $vol1 performance.readdir-ahead
-
-vol_name=$(printf "%s-vol%02d" $V0 2)
-EXPECT_WITHIN $PROBE_TIMEOUT "on" volinfo_field_1 $vol2 performance.readdir-ahead
+done
 
 cleanup

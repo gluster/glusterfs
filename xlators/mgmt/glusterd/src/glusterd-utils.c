@@ -3281,7 +3281,7 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
             if ((i + 1) != totthread) {
                 arg->end = ((i + 1) * vol_per_thread_limit);
             } else {
-                arg->end = ((i * vol_per_thread_limit) + endindex);
+                arg->end = (((i + 1) * vol_per_thread_limit) + endindex);
             }
             th_ret = gf_thread_create_detached(
                 &th_id, glusterd_add_bulk_volumes_create_thread, arg,
