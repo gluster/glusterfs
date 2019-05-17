@@ -232,12 +232,15 @@ unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
         list_add_tail(&entry->list, &entries->list);
 
         trav = trav->nextentry;
+        entry = NULL;
     }
 
     ret = 0;
 out:
     if (buf)
         GF_FREE(buf);
+    if (entry)
+        gf_dirent_entry_free(entry);
     return ret;
 }
 

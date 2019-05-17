@@ -1215,7 +1215,6 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     {
         pl_clean_local(rw->stub->frame->local);
         call_unwind_error(rw->stub, -1, EBUSY);
-        GF_FREE(lock);
     }
 
     return ret;

@@ -647,6 +647,7 @@ __exp_line_opt_parse(const char *opt_str, struct export_options **exp_opts)
             if (!opts) {
                 ret = -ENOMEM;
                 parser_unset_string(options_parser);
+                GF_FREE(strmatch);
                 goto out;
             }
         }
@@ -677,7 +678,7 @@ __exp_line_opt_parse(const char *opt_str, struct export_options **exp_opts)
                 _export_options_deinit(opts);
                 goto out;
             }
-        } else
+        } else {
             /* Cannot change to gf_msg.
              * gf_msg not giving output to STDOUT
              * Bug id : BZ1215017
@@ -686,6 +687,7 @@ __exp_line_opt_parse(const char *opt_str, struct export_options **exp_opts)
                    "Could not find any valid options for "
                    "string: %s",
                    strmatch);
+        }
         GF_FREE(strmatch);
     }
 
@@ -1448,7 +1450,7 @@ exp_file_parse(const char *filepath, struct exports_file **expfile,
             GF_CHECK_ALLOC_AND_LOG(GF_EXP, file, ret,
                                    "Allocation error while "
                                    "allocating file struct",
-                                   parse_done);
+                                   free_and_done);
 
             file->filename = gf_strdup(filepath);
             GF_CHECK_ALLOC_AND_LOG(GF_EXP, file, ret,
@@ -1470,7 +1472,8 @@ exp_file_parse(const char *filepath, struct exports_file **expfile,
     goto parse_done;
 
 free_and_done:
-    exp_file_deinit(file);
+    if (file)
+        exp_file_deinit(file);
     _export_dir_deinit(expdir);
 
 parse_done:

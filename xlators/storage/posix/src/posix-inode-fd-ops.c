@@ -4824,6 +4824,7 @@ unlock:
             op_ret = -1;
             op_errno = EINVAL;
             GF_FREE(array);
+            array = NULL;
             goto out;
         }
         array = NULL;
