@@ -3561,7 +3561,7 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
          * deleting a volume, so we shouldn't be trying to create a
          * fresh volume here which would lead to a stale entry
          */
-        if (stage_deleted == 0)
+        if (!ret && stage_deleted == 0)
             *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
         goto out;
     }
