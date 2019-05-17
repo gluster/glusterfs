@@ -224,7 +224,8 @@ glusterd_volume_brickinfo_get_by_brick(char *brick, glusterd_volinfo_t *volinfo,
                                        gf_boolean_t construct_real_path);
 
 int32_t
-glusterd_add_volumes_to_export_dict(dict_t **peer_data);
+glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
+                                    u_int *length);
 
 int32_t
 glusterd_compare_friend_data(dict_t *peer_data, int32_t *status,

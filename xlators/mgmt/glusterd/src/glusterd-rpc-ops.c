@@ -1528,11 +1528,9 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
 
     RCU_READ_UNLOCK;
 
-    ret = glusterd_add_volumes_to_export_dict(&peer_data);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-               "Unable to add list of volumes "
-               "in the peer_data dict for handshake");
+    peer_data = dict_new();
+    if (!peer_data) {
+        errno = ENOMEM;
         goto out;
     }
 
@@ -1563,10 +1561,23 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
         }
     }
 
-    ret = dict_allocate_and_serialize(peer_data, &req.vols.vols_val,
-                                      &req.vols.vols_len);
-    if (ret)
+    /* Don't add any key-value in peer_data dictionary after call this function
+     */
+    ret = glusterd_add_volumes_to_export_dict(peer_data, &req.vols.vols_val,
+                                              &req.vols.vols_len);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Unable to add list of volumes "
+               "in the peer_data dict for handshake");
         goto out;
+    }
+
+    if (!req.vols.vols_len) {
+        ret = dict_allocate_and_serialize(peer_data, &req.vols.vols_val,
+                                          &req.vols.vols_len);
+        if (ret)
+            goto out;
+    }
 
     ret = glusterd_submit_request(
         peerinfo->rpc, &req, frame, peerinfo->peer, GLUSTERD_FRIEND_ADD, NULL,

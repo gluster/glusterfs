@@ -400,6 +400,7 @@ dict_rename_key
 dict_reset
 dict_serialize
 dict_serialized_length
+dict_serialized_length_lk
 dict_serialize_value_with_delim
 dict_set
 dict_setn

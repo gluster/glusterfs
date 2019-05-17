@@ -3204,11 +3204,118 @@ out:
     return NULL;
 }
 
+int
+glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
+{
+    int i = 0;
+    int32_t keylen = 0;
+    int64_t netword = 0;
+    data_pair_t *pair = NULL;
+    int dict_count = 0;
+    int ret = 0;
+
+    netword = hton32(totcount);
+    memcpy(buf, &netword, sizeof(netword));
+    buf += DICT_HDR_LEN;
+
+    for (i = 0; i < count; i++) {
+        if (dict_arr[i]) {
+            dict_count = dict_arr[i]->count;
+            pair = dict_arr[i]->members_list;
+            while (dict_count) {
+                if (!pair) {
+                    gf_msg("glusterd", GF_LOG_ERROR, 0,
+                           LG_MSG_PAIRS_LESS_THAN_COUNT,
+                           "less than count data pairs found!");
+                    ret = -1;
+                    goto out;
+                }
+
+                if (!pair->key) {
+                    gf_msg("glusterd", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR,
+                           "pair->key is null!");
+                    ret = -1;
+                    goto out;
+                }
+
+                keylen = strlen(pair->key);
+                netword = hton32(keylen);
+                memcpy(buf, &netword, sizeof(netword));
+                buf += DICT_DATA_HDR_KEY_LEN;
+                if (!pair->value) {
+                    gf_msg("glusterd", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR,
+                           "pair->value is null!");
+                    ret = -1;
+                    goto out;
+                }
+
+                netword = hton32(pair->value->len);
+                memcpy(buf, &netword, sizeof(netword));
+                buf += DICT_DATA_HDR_VAL_LEN;
+
+                memcpy(buf, pair->key, keylen);
+                buf += keylen;
+                *buf++ = '\0';
+
+                if (pair->value->data) {
+                    memcpy(buf, pair->value->data, pair->value->len);
+                    buf += pair->value->len;
+                }
+
+                pair = pair->next;
+                dict_count--;
+            }
+        }
+    }
+
+out:
+    for (i = 0; i < count; i++) {
+        if (dict_arr[i])
+            dict_unref(dict_arr[i]);
+    }
+    return ret;
+}
+
+int
+glusterd_dict_arr_serialize(dict_t *dict_arr[], int count, char **buf,
+                            u_int *length)
+{
+    ssize_t len = 0;
+    int i = 0;
+    int totcount = 0;
+    int ret = 0;
+
+    for (i = 0; i < count; i++) {
+        if (dict_arr[i]) {
+            len += dict_serialized_length_lk(dict_arr[i]);
+            totcount += dict_arr[i]->count;
+        }
+    }
+
+    // Subtract HDR_LEN except one dictionary
+    len = len - ((count - 1) * DICT_HDR_LEN);
+
+    *buf = GF_MALLOC(len, gf_common_mt_char);
+    if (*buf == NULL) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    if (length != NULL) {
+        *length = len;
+    }
+
+    ret = glusterd_dict_searialize(dict_arr, count, totcount, *buf);
+
+out:
+    return ret;
+}
+
 int32_t
-glusterd_add_volumes_to_export_dict(dict_t **peer_data)
+glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
+                                    u_int *length)
 {
     int32_t ret = -1;
-    dict_t *dict = NULL;
     dict_t *dict_arr[128] = {
         0,
     };
@@ -3234,10 +3341,6 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
     priv = this->private;
     GF_ASSERT(priv);
 
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
     /* Count the total number of volumes */
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) volcnt++;
 
@@ -3259,14 +3362,15 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
         cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
         {
             count++;
-            ret = glusterd_add_volume_to_dict(volinfo, dict, count, "volume");
+            ret = glusterd_add_volume_to_dict(volinfo, peer_data, count,
+                                              "volume");
             if (ret)
                 goto out;
 
             if (!dict_get_sizen(volinfo->dict, VKEY_FEATURES_QUOTA))
                 continue;
 
-            ret = glusterd_vol_add_quota_conf_to_dict(volinfo, dict, count,
+            ret = glusterd_vol_add_quota_conf_to_dict(volinfo, peer_data, count,
                                                       "volume");
             if (ret)
                 goto out;
@@ -3308,34 +3412,34 @@ glusterd_add_volumes_to_export_dict(dict_t **peer_data)
 
         gf_log(this->name, GF_LOG_INFO,
                "Finished dictionary popluation in all threads");
-        for (i = 0; i < totthread; i++) {
-            dict_copy_with_ref(dict_arr[i], dict);
-            dict_unref(dict_arr[i]);
-        }
-        gf_log(this->name, GF_LOG_INFO,
-               "Finished merger of all dictionraies into single one");
     }
 
-    ret = dict_set_int32n(dict, "count", SLEN("count"), volcnt);
+    ret = dict_set_int32n(peer_data, "count", SLEN("count"), volcnt);
     if (ret)
         goto out;
 
-    ctx.dict = dict;
+    ctx.dict = peer_data;
     ctx.prefix = "global";
     ctx.opt_count = 1;
     ctx.key_name = "key";
     ctx.val_name = "val";
     dict_foreach(priv->opts, _add_dict_to_prdict, &ctx);
     ctx.opt_count--;
-    ret = dict_set_int32n(dict, "global-opt-count", SLEN("global-opt-count"),
-                          ctx.opt_count);
+    ret = dict_set_int32n(peer_data, "global-opt-count",
+                          SLEN("global-opt-count"), ctx.opt_count);
     if (ret)
         goto out;
 
-    *peer_data = dict;
+    if (totthread) {
+        gf_log(this->name, GF_LOG_INFO,
+               "Finished merger of all dictionraies into single one");
+        dict_arr[totthread++] = peer_data;
+        ret = glusterd_dict_arr_serialize(dict_arr, totthread, buf, length);
+        gf_log(this->name, GF_LOG_INFO,
+               "Serialize dictionary data return is %d", ret);
+    }
+
 out:
-    if (ret)
-        dict_unref(dict);
 
     gf_msg_trace(this->name, 0, "Returning %d", ret);
     return ret;
@@ -4607,6 +4711,7 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     dict_t *peer_data = NULL;
+    glusterd_friend_synctask_args_t *arg = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -4614,8 +4719,17 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     conf = this->private;
     GF_ASSERT(conf);
 
-    peer_data = (dict_t *)opaque;
-    GF_ASSERT(peer_data);
+    arg = opaque;
+    peer_data = dict_new();
+    if (!peer_data) {
+        goto out;
+    }
+
+    ret = dict_unserialize(arg->dict_buf, arg->dictlen, &peer_data);
+    if (ret) {
+        errno = ENOMEM;
+        goto out;
+    }
 
     ret = dict_get_int32n(peer_data, "count", SLEN("count"), &count);
     if (ret)
@@ -4647,6 +4761,10 @@ glusterd_import_friend_volumes_synctask(void *opaque)
 out:
     if (peer_data)
         dict_unref(peer_data);
+    if (arg->dict_buf)
+        GF_FREE(arg->dict_buf);
+    if (arg)
+        GF_FREE(arg);
 
     gf_msg_debug("glusterd", 0, "Returning with %d", ret);
     return ret;
@@ -4813,7 +4931,7 @@ glusterd_compare_friend_data(dict_t *peer_data, int32_t *status, char *hostname)
     gf_boolean_t update = _gf_false;
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
-    dict_t *peer_data_copy = NULL;
+    glusterd_friend_synctask_args_t *arg = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -4855,9 +4973,17 @@ glusterd_compare_friend_data(dict_t *peer_data, int32_t *status, char *hostname)
          * first brick to come up before attaching the subsequent bricks
          * in case brick multiplexing is enabled
          */
-        peer_data_copy = dict_copy_with_ref(peer_data, NULL);
-        glusterd_launch_synctask(glusterd_import_friend_volumes_synctask,
-                                 peer_data_copy);
+        arg = GF_CALLOC(1, sizeof(*arg), gf_common_mt_char);
+        ret = dict_allocate_and_serialize(peer_data, &arg->dict_buf,
+                                          &arg->dictlen);
+        if (ret < 0) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "dict_serialize failed while handling "
+                   " import friend volume request");
+            goto out;
+        }
+
+        glusterd_launch_synctask(glusterd_import_friend_volumes_synctask, arg);
     }
 
 out:

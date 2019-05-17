@@ -2799,10 +2799,6 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
  *     4        4         4       <key len>   <value len>
  */
 
-#define DICT_HDR_LEN 4
-#define DICT_DATA_HDR_KEY_LEN 4
-#define DICT_DATA_HDR_VAL_LEN 4
-
 /**
  * dict_serialized_length_lk - return the length of serialized dict. This
  *                             procedure has to be called with this->lock held.
@@ -2812,7 +2808,7 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
  *        : failure: -errno
  */
 
-static int
+int
 dict_serialized_length_lk(dict_t *this)
 {
     int ret = -EINVAL;

@@ -91,6 +91,9 @@ typedef struct _data_pair data_pair_t;
 #define DICT_MAX_FLAGS 256
 #define DICT_FLAG_SET 1
 #define DICT_FLAG_CLEAR 0
+#define DICT_HDR_LEN 4
+#define DICT_DATA_HDR_KEY_LEN 4
+#define DICT_DATA_HDR_VAL_LEN 4
 
 struct _data {
     char *data;
@@ -412,4 +415,7 @@ are_dicts_equal(dict_t *one, dict_t *two,
                 gf_boolean_t (*value_ignore)(char *k));
 int
 dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result);
+
+int
+dict_serialized_length_lk(dict_t *this);
 #endif
