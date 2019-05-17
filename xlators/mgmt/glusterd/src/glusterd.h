@@ -236,6 +236,11 @@ typedef struct glusterd_add_dict_args {
     int end;
 } glusterd_add_dict_args_t;
 
+typedef struct glusterd_friend_synctask_args {
+    char *dict_buf;
+    u_int dictlen;
+} glusterd_friend_synctask_args_t;
+
 typedef enum gf_brick_status {
     GF_BRICK_STOPPED,
     GF_BRICK_STARTED,
