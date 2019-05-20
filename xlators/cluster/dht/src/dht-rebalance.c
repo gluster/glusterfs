@@ -2729,12 +2729,6 @@ gf_defrag_migrate_single_file(void *opaque)
         goto out;
     }
 
-    if (!gf_defrag_should_i_migrate(this, rebal_entry->local_subvol_index,
-                                    entry->d_stat.ia_gfid)) {
-        gf_msg_debug(this->name, 0, "Don't migrate %s ", entry_loc.path);
-        goto out;
-    }
-
     gf_uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
 
     gf_uuid_copy(entry_loc.pargfid, loc->gfid);
@@ -2757,6 +2751,12 @@ gf_defrag_migrate_single_file(void *opaque)
         }
 
         ret = 0;
+        goto out;
+    }
+
+    if (!gf_defrag_should_i_migrate(this, rebal_entry->local_subvol_index,
+                                    entry->d_stat.ia_gfid)) {
+        gf_msg_debug(this->name, 0, "Don't migrate %s ", entry_loc.path);
         goto out;
     }
 
