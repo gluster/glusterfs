@@ -1873,7 +1873,7 @@ _gf_msg_internal(const char *domain, const char *file, const char *function,
         if (size == 0) {
             flush_logged_msg = _gf_true;
             goto unlock;
-        } else if ((ctx->log.lru_cur_size + 1) > size) {
+        } else if (((ctx->log.lru_cur_size + 1) > size) && (first)) {
             /* If the list is full, flush the lru msg to disk and also
              * release it after unlock, and ...
              * */

@@ -1274,7 +1274,7 @@ pl_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
             return -1;
         }
 
-        local->inode = (fd ? inode_ref(fd->inode) : inode_ref(loc->inode));
+        local->inode = (loc ? inode_ref(loc->inode) : inode_ref(fd->inode));
 
         frame->local = local;
     }

@@ -269,11 +269,9 @@ ssl_do(rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
         }
         r = func(priv->ssl_ssl, buf, len);
     } else {
-        /*
-         * We actually need these functions to get to
-         * priv->connected == 1.
-         */
-        r = ((SSL_unary_func *)func)(priv->ssl_ssl);
+        /* This should be treated as error */
+        gf_log(this->name, GF_LOG_ERROR, "buffer is empty %s", __func__);
+        goto out;
     }
     switch (SSL_get_error(priv->ssl_ssl, r)) {
         case SSL_ERROR_NONE:
