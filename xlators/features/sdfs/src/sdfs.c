@@ -177,9 +177,10 @@ sdfs_get_new_frame(call_frame_t *frame, loc_t *loc, call_frame_t **new_frame)
 
     ret = 0;
 err:
-    if ((ret < 0) && (*new_frame != NULL)) {
+    if (ret && (*new_frame)) {
         SDFS_STACK_DESTROY((*new_frame));
         *new_frame = NULL;
+        ret = -1;
     }
 
     return ret;

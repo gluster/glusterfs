@@ -886,26 +886,34 @@ int
 shard_common_inode_write_success_unwind(glusterfs_fop_t fop,
                                         call_frame_t *frame, int32_t op_ret)
 {
-    shard_local_t *local = NULL;
+    shard_local_t *local = frame->local;
 
-    local = frame->local;
+    /* the below 3 variables are required because, in SHARD_STACK_UNWIND()
+       macro, there is a check for local being null. So many static analyzers
+       backtrace the code with assumption of possible (local == NULL) case,
+       and complains for below lines. By handling it like below, we overcome
+       the warnings */
+
+    struct iatt *prebuf = ((local) ? &local->prebuf : NULL);
+    struct iatt *postbuf = ((local) ? &local->postbuf : NULL);
+    dict_t *xattr_rsp = ((local) ? local->xattr_rsp : NULL);
 
     switch (fop) {
         case GF_FOP_WRITE:
-            SHARD_STACK_UNWIND(writev, frame, op_ret, 0, &local->prebuf,
-                               &local->postbuf, local->xattr_rsp);
+            SHARD_STACK_UNWIND(writev, frame, op_ret, 0, prebuf, postbuf,
+                               xattr_rsp);
             break;
         case GF_FOP_FALLOCATE:
-            SHARD_STACK_UNWIND(fallocate, frame, op_ret, 0, &local->prebuf,
-                               &local->postbuf, local->xattr_rsp);
+            SHARD_STACK_UNWIND(fallocate, frame, op_ret, 0, prebuf, postbuf,
+                               xattr_rsp);
             break;
         case GF_FOP_ZEROFILL:
-            SHARD_STACK_UNWIND(zerofill, frame, op_ret, 0, &local->prebuf,
-                               &local->postbuf, local->xattr_rsp);
+            SHARD_STACK_UNWIND(zerofill, frame, op_ret, 0, prebuf, postbuf,
+                               xattr_rsp);
             break;
         case GF_FOP_DISCARD:
-            SHARD_STACK_UNWIND(discard, frame, op_ret, 0, &local->prebuf,
-                               &local->postbuf, local->xattr_rsp);
+            SHARD_STACK_UNWIND(discard, frame, op_ret, 0, prebuf, postbuf,
+                               xattr_rsp);
             break;
         default:
             gf_msg(THIS->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,

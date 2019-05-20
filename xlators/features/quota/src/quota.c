@@ -1921,10 +1921,12 @@ quota_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
             par_inode = do_quota_check_limit(frame, fd->inode, this, dentry,
                                              _gf_false);
             if (par_inode == NULL) {
-                /* remove stale entry from inode ctx */
-                quota_dentry_del(ctx, dentry->name, dentry->par);
-                parents--;
-                fail_count++;
+                if (ctx) {
+                    /* remove stale entry from inode ctx */
+                    quota_dentry_del(ctx, dentry->name, dentry->par);
+                    parents--;
+                    fail_count++;
+                }
             } else {
                 inode_unref(par_inode);
             }

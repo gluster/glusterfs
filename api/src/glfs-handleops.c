@@ -2216,7 +2216,7 @@ pub_glfs_h_poll_upcall370(struct glfs *fs, struct glfs_callback_arg *up_arg)
     ret = pub_glfs_h_poll_upcall(fs, &upcall);
     if (ret == 0) {
         up_arg->fs = fs;
-        if (errno == ENOENT || upcall->event == NULL) {
+        if ((errno == ENOENT) || !upcall || !upcall->event) {
             up_arg->reason = GLFS_UPCALL_EVENT_NULL;
             goto out;
         }

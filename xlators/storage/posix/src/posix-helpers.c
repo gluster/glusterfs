@@ -2416,7 +2416,7 @@ posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
         return;
     }
 
-    if (do_fsync) {
+    if (do_fsync && pfd) {
         if (stub->args.datasync)
             ret = sys_fdatasync(pfd->fd);
         else

@@ -2063,6 +2063,9 @@ mq_inspect_directory_xattr(xlator_t *this, quota_inode_ctx_t *ctx,
     if (ret < 0)
         goto create_xattr;
 
+    if (!contribution)
+        goto create_xattr;
+
     if (!loc_is_root(loc)) {
         GET_CONTRI_KEY(this, contri_key, contribution->gfid, keylen);
         if (keylen < 0) {

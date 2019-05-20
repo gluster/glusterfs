@@ -176,8 +176,9 @@ out:
     }
 
 reply:
-    quotad_aggregator_submit_reply(frame, frame->local, (void *)&cli_rsp, NULL,
-                                   0, NULL, (xdrproc_t)xdr_gf_cli_rsp);
+    quotad_aggregator_submit_reply(frame, (frame) ? frame->local : NULL,
+                                   (void *)&cli_rsp, NULL, 0, NULL,
+                                   (xdrproc_t)xdr_gf_cli_rsp);
 
     dict_unref(xdata);
     GF_FREE(cli_rsp.dict.dict_val);
