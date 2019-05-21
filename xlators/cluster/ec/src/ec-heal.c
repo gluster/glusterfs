@@ -2855,6 +2855,10 @@ ec_replace_brick_heal_wrap(void *opaque)
         itable = ec->xl->itable;
     else
         goto out;
+
+    if (xlator_is_cleanup_starting(ec->xl))
+        goto out;
+
     ret = ec_replace_heal(ec, itable->root);
 out:
     return ret;

@@ -444,6 +444,9 @@ unlock:
 int
 ec_shd_full_healer_spawn(xlator_t *this, int subvol)
 {
+    if (xlator_is_cleanup_starting(this))
+        return -1;
+
     return ec_shd_healer_spawn(this, NTH_FULL_HEALER(this, subvol),
                                ec_shd_full_healer);
 }
@@ -451,6 +454,9 @@ ec_shd_full_healer_spawn(xlator_t *this, int subvol)
 int
 ec_shd_index_healer_spawn(xlator_t *this, int subvol)
 {
+    if (xlator_is_cleanup_starting(this))
+        return -1;
+
     return ec_shd_healer_spawn(this, NTH_INDEX_HEALER(this, subvol),
                                ec_shd_index_healer);
 }

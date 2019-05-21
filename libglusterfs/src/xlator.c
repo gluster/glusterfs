@@ -1508,3 +1508,24 @@ mgmt_is_multiplexed_daemon(char *name)
     }
     return _gf_false;
 }
+
+gf_boolean_t
+xlator_is_cleanup_starting(xlator_t *this)
+{
+    gf_boolean_t cleanup = _gf_false;
+    glusterfs_graph_t *graph = NULL;
+    xlator_t *xl = NULL;
+
+    if (!this)
+        goto out;
+    graph = this->graph;
+
+    if (!graph)
+        goto out;
+
+    xl = graph->first;
+    if (xl && xl->cleanup_starting)
+        cleanup = _gf_true;
+out:
+    return cleanup;
+}
