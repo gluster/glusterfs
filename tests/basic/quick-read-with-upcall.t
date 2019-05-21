@@ -37,7 +37,11 @@ TEST write_to "$M0/test.txt" "$D1"
 EXPECT "$D1" cat $M0/test.txt
 EXPECT "$D0" cat $M1/test.txt
 
-sleep 2
+# This is 3.7 for no good reason. We could have kept this to
+# any number above 2 seconds. Noticed that when it is 2 seconds, or
+# less, there is a possibility of not getting a lookup on the same inode.
+sleep 3.7
+
 EXPECT "$D1" cat $M1/test.txt
 
 TEST $CLI volume set $V0 features.cache-invalidation on
