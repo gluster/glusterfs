@@ -392,16 +392,8 @@ rpc_clnt_reconnect(void *conn_ptr)
         conn->reconnect = 0;
 
         if ((conn->connected == 0) && !clnt->disabled) {
-            if (conn->reconnect_delay.tv_sec < 3) {
-                conn->reconnect_delay.tv_sec *= 2;
-                int64_t ns = conn->reconnect_delay.tv_nsec * 2;
-                if (ns >= 1000000000ULL) {
-                    conn->reconnect_delay.tv_sec++;
-                    ns -= 1000000000ULL;
-                }
-                conn->reconnect_delay.tv_nsec = ns;
-            }
-            ts = conn->reconnect_delay;
+            ts.tv_sec = 3;
+            ts.tv_nsec = 0;
 
             gf_log(conn->name, GF_LOG_TRACE, "attempting reconnect");
             (void)rpc_transport_connect(trans, conn->config.remote_port);
@@ -846,11 +838,9 @@ rpc_clnt_handle_disconnect(struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
 
     pthread_mutex_lock(&conn->lock);
     {
-        conn->reconnect_delay.tv_sec = 0;
-        conn->reconnect_delay.tv_nsec = 100000000;
-
         if (!conn->rpc_clnt->disabled && (conn->reconnect == NULL)) {
-            ts = conn->reconnect_delay;
+            ts.tv_sec = 3;
+            ts.tv_nsec = 0;
 
             rpc_clnt_ref(clnt);
             conn->reconnect = gf_timer_call_after(clnt->ctx, ts,
@@ -1170,8 +1160,6 @@ rpc_clnt_start(struct rpc_clnt *rpc)
      * rpc_clnt_reconnect fire event.
      */
     rpc_clnt_ref(rpc);
-    conn->reconnect_delay.tv_sec = 0;
-    conn->reconnect_delay.tv_nsec = 50000000;
     rpc_clnt_reconnect(conn);
 
     return 0;
@@ -1189,7 +1177,18 @@ rpc_clnt_cleanup_and_start(struct rpc_clnt *rpc)
 
     rpc_clnt_connection_cleanup(conn);
 
-    return rpc_clnt_start(rpc);
+    pthread_mutex_lock(&conn->lock);
+    {
+        rpc->disabled = 0;
+    }
+    pthread_mutex_unlock(&conn->lock);
+    /* Corresponding unref will be either on successful timer cancel or last
+     * rpc_clnt_reconnect fire event.
+     */
+    rpc_clnt_ref(rpc);
+    rpc_clnt_reconnect(conn);
+
+    return 0;
 }
 
 int
