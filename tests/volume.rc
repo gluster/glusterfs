@@ -902,6 +902,17 @@ function check_changelog_op {
         $PYTHON $(dirname $0)/../../utils/changelogparser.py ${clog_path}/CHANGELOG | grep "$op" | wc -l
 }
 
+function processed_changelogs {
+        local processed_dir=$1
+        count=$(ls -l $processed_dir | grep CHANGELOG | wc -l)
+        if [ $count -gt 0 ];
+        then
+            echo "Y"
+        else
+            echo "N"
+        fi
+}
+
 function volgen_check_ancestry {
         #Returns Y if ancestor_xl is an ancestor of $child_xl according to the volfile
         local volfile="$1"

@@ -82,5 +82,6 @@ EXPECT "0" $HISTORY_BIN_PATH/get-history $time_in_sec_htime1 $time_in_sec_htime2
 EXPECT "0" $HISTORY_BIN_PATH/get-history $time_in_sec_htime2 $time_after_disable
 
 TEST rm $HISTORY_BIN_PATH/get-history
+rm -rf /tmp/scratch_v1/*
 
 cleanup;

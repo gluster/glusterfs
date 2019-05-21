@@ -116,4 +116,10 @@ int
 gf_history_changelog(char *changelog_dir, unsigned long start,
                      unsigned long end, int n_parallel,
                      unsigned long *actual_end);
+int
+gf_history_changelog_scan();
+ssize_t
+gf_history_changelog_next_change(char *bufptr, size_t maxlen);
+int
+gf_history_changelog_done(char *file);
 #endif
