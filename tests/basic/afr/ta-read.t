@@ -25,7 +25,7 @@ TEST ! ls $B0/ta/FILE
 
 # Kill one brick and write to FILE.
 TEST ta_kill_brick brick0
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" ta_mount_child_up_status $M0 $V0 0
 echo "brick0 down">> $M0/FILE
 TEST [ $? -eq 0 ]
 EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/brick1/FILE
@@ -35,7 +35,7 @@ EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST ta_start_mount_process $M0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_up_status $V0 $M0 0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 1
 # Read must be allowed since good brick is up.
 TEST  cat $M0/FILE
 
@@ -45,15 +45,15 @@ TEST ta_start_mount_process $M0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_up_status $V0 $M0 0
 # Toggle good and bad data brick processes.
 TEST ta_start_brick_process brick0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 0
 TEST ta_kill_brick brick1
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" ta_mount_child_up_status $M0 $V0 1
 # Read must now fail.
 TEST ! cat $M0/FILE
 
 # Bring all data bricks up, and kill TA.
 TEST ta_start_brick_process brick1
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 1
 TA_PID=$(ta_get_pid_by_brick_name ta)
 TEST [ -n $TA_PID ]
 TEST ta_kill_brick ta

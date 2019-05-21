@@ -26,26 +26,26 @@ TEST dd if=/dev/zero of=$M0/a.txt bs=1M count=5
 #Good Data brick is down. TA and bad brick are UP
 
 TEST ta_kill_brick brick1
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" ta_mount_child_up_status $M0 $V0 1
 TEST dd if=/dev/zero of=$M0/a.txt bs=1M count=5
 TEST ta_kill_brick brick0
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0"  ta_mount_child_up_status $M0 $V0 0
 TEST ta_start_brick_process brick1
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 1
 TEST ! dd if=/dev/zero of=$M0/a.txt bs=1M count=5
 
 # Good Data brick is UP. Bad and TA are down
 TEST ta_kill_brick brick1
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0"  ta_mount_child_up_status $M0 $V0 1
 TEST ta_start_brick_process brick0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 0
 TEST ta_kill_brick ta
 TEST ! dd if=/dev/zero of=$M0/a.txt bs=1M count=5
 
 # Good and Bad data bricks are UP. TA is down
 TEST ta_start_brick_process brick1
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 0
 TEST dd if=/dev/zero of=$M0/a.txt bs=1M count=5
 
 cleanup;

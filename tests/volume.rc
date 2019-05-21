@@ -138,7 +138,6 @@ function wait_statedump_ready {
 }
 
 function generate_statedump {
-        local fpath=""
         pid=$1
         #remove old stale statedumps
         cleanup_statedump $pid

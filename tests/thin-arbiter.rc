@@ -173,13 +173,20 @@ function ta_start_mount_process()
 {
         mkdir -p $1
         identifier=$(echo $1 | tr / .)
-        if glusterfs  -p $B0/${identifier}.pid --volfile=$B0/mount.vol $1
+        if glusterfs --entry-timeout=0 --attribute-timeout=0 -p $B0/${identifier}.pid --volfile=$B0/mount.vol $1
         then
                 cat $B0/$identifier.pid
         else
                 echo ""
                 return 1
         fi
+}
+
+function ta_get_mount_pid()
+{
+    local mount_path=$1
+    identifier=$(echo $mount_path | tr / .)
+    cat $B0/${identifier}.pid
 }
 
 function ta_create_mount_volfile()
@@ -606,4 +613,17 @@ function ta_start_shd_process()
                 echo ""
                 return 1
         fi
+}
+
+function ta_mount_child_up_status()
+{
+        local mount_path=$1
+        #brick_id is (brick-num in volume info - 1)
+        local vol=$2
+        local brick_id=$3
+        local pid=$(ta_get_mount_pid $mount_path)
+        local fpath=$(generate_statedump $pid)
+        up=$(grep -a -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
+        rm -f $fpath
+        echo "$up"
 }
