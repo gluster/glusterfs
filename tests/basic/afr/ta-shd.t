@@ -22,7 +22,7 @@ TEST ta_start_shd_process glustershd
 
 TEST touch $M0/a.txt
 TEST ta_kill_brick brick0
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" ta_mount_child_up_status $M0 $V0 0
 echo "Hello" >> $M0/a.txt
 EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/brick1/a.txt
 EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/trusted.afr.$V0-ta-2
@@ -33,14 +33,14 @@ EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/
 #the SHD process.
 
 TEST ta_start_brick_process brick0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" ta_mount_child_up_status $M0 $V0 0
 EXPECT_WITHIN $HEAL_TIMEOUT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/brick1/a.txt
 EXPECT_WITHIN $HEAL_TIMEOUT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/trusted.afr.$V0-ta-2
 
 #Kill the previously up brick and try reading from other brick. Since the heal
 #has happened file content should be same.
 TEST ta_kill_brick brick1
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" ta_mount_child_up_status $M0 $V0 1
 #Umount and mount to remove cached data.
 TEST umount $M0
 TEST ta_start_mount_process $M0
