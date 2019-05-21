@@ -1790,7 +1790,7 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
                 question =
                     "Replica 2 volumes are prone to "
                     "split-brain. Use Arbiter or "
-                    "Replica 3 to avaoid this. See: "
+                    "Replica 3 to avoid this. See: "
                     "http://docs.gluster.org/en/latest/Administrator%20Guide/"
                     "Split%20brain%20and%20ways%20to%20deal%20with%20it/."
                     "\nDo you still want to continue?\n";
@@ -1917,7 +1917,7 @@ cli_cmd_volume_remove_brick_parse(struct cli_state *state, const char **words,
                 ques =
                     "Replica 2 volumes are prone to "
                     "split-brain. Use Arbiter or Replica 3 "
-                    "to avaoid this. See: "
+                    "to avoid this. See: "
                     "http://docs.gluster.org/en/latest/Administrator%20Guide/"
                     "Split%20brain%20and%20ways%20to%20deal%20with%20it/."
                     "\nDo you still want to continue?\n";
