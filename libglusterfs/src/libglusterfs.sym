@@ -1164,3 +1164,4 @@ glusterfs_process_svc_attach_volfp
 glusterfs_mux_volfile_reconfigure
 glusterfs_process_svc_detach
 mgmt_is_multiplexed_daemon
+xlator_is_cleanup_starting

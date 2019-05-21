@@ -486,6 +486,9 @@ ec_set_up_state(ec_t *ec, uintptr_t index_mask, uintptr_t new_state)
 {
     uintptr_t current_state = 0;
 
+    if (xlator_is_cleanup_starting(ec->xl))
+        return _gf_false;
+
     if ((ec->xl_notify & index_mask) == 0) {
         ec->xl_notify |= index_mask;
         ec->xl_notify_count++;
