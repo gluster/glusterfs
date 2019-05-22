@@ -2873,6 +2873,10 @@ rpcsvc_transport_peer_check_search(dict_t *options, char *pattern, char *ip,
     }
 
     dup_addrstr = gf_strdup(addrstr);
+    if (dup_addrstr == NULL) {
+        ret = -1;
+        goto err;
+    }
     addrtok = strtok_r(dup_addrstr, ",", &svptr);
     while (addrtok) {
         /* CASEFOLD not present on Solaris */

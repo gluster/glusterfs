@@ -170,7 +170,7 @@ store_eliminate_path(char *str, trash_elim_path **eliminate)
     int ret = 0;
     char *strtokptr = NULL;
 
-    if (eliminate == NULL) {
+    if ((str == NULL) || (eliminate == NULL)) {
         ret = EINVAL;
         goto out;
     }

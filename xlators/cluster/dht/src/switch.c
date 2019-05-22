@@ -610,9 +610,15 @@ set_switch_pattern(xlator_t *this, dht_conf_t *conf, const char *pattern_str)
     /* Get the pattern for considering switch case.
        "option block-size *avi:10MB" etc */
     option_string = gf_strdup(pattern_str);
+    if (option_string == NULL) {
+        goto err;
+    }
     switch_str = strtok_r(option_string, ";", &tmp_str);
     while (switch_str) {
         dup_str = gf_strdup(switch_str);
+        if (dup_str == NULL) {
+            goto err;
+        }
         switch_opt = GF_CALLOC(1, sizeof(struct switch_struct),
                                gf_switch_mt_switch_struct);
         if (!switch_opt) {
@@ -647,6 +653,9 @@ set_switch_pattern(xlator_t *this, dht_conf_t *conf, const char *pattern_str)
 
         if (childs) {
             dup_childs = gf_strdup(childs);
+            if (dup_childs == NULL) {
+                goto err;
+            }
             child = strtok_r(dup_childs, ",", &tmp);
             while (child) {
                 if (gf_switch_valid_child(this, child)) {

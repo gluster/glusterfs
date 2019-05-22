@@ -1232,9 +1232,12 @@ client_set_remote_options(char *value, xlator_t *this)
     char *remote_port_str = NULL;
     char *tmp = NULL;
     int remote_port = 0;
-    int ret = 0;
+    int ret = -1;
 
     dup_value = gf_strdup(value);
+    if (dup_value == NULL) {
+        goto out;
+    }
     host = strtok_r(dup_value, ":", &tmp);
     subvol = strtok_r(NULL, ":", &tmp);
     remote_port_str = strtok_r(NULL, ":", &tmp);
@@ -1248,6 +1251,7 @@ client_set_remote_options(char *value, xlator_t *this)
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
                    "failed to set remote-host with %s", host);
+            GF_FREE(host_dup);
             goto out;
         }
     }
@@ -1262,6 +1266,7 @@ client_set_remote_options(char *value, xlator_t *this)
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
                    "failed to set remote-host with %s", host);
+            GF_FREE(subvol_dup);
             goto out;
         }
     }

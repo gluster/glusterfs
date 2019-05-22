@@ -277,6 +277,10 @@ dht_parse_decommissioned_bricks(xlator_t *this, dht_conf_t *conf,
         goto out;
 
     dup_brick = gf_strdup(bricks);
+    if (dup_brick == NULL) {
+        goto out;
+    }
+
     node = strtok_r(dup_brick, ",", &tmpstr);
     while (node) {
         for (i = 0; i < conf->subvolume_cnt; i++) {
