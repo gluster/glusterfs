@@ -789,6 +789,9 @@ inode_resolve(inode_table_t *table, char *path)
 
     parent = inode_ref(table->root);
     str = tmp = gf_strdup(path);
+    if (str == NULL) {
+        goto out;
+    }
 
     while (1) {
         bname = strtok_r(str, "/", &saveptr);

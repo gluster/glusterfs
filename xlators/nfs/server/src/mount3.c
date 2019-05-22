@@ -3205,6 +3205,12 @@ mnt3_export_parse_auth_param(struct mnt3_export *exp, char *exportpath)
     struct host_auth_spec *host = NULL;
     int ret = 0;
 
+    if (exportpath == NULL) {
+        gf_msg(GF_MNT, GF_LOG_ERROR, EINVAL, NFS_MSG_PARSE_HOSTSPEC_FAIL,
+               "Export path is NULL");
+        return -1;
+    }
+
     /* Using exportpath directly in strtok_r because we want
      * to strip off AUTH parameter from exportpath. */
     token = strtok_r(exportpath, "(", &savPtr);

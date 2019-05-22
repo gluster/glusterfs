@@ -390,6 +390,9 @@ _posix_get_marker_quota_contributions(posix_xattr_filler_t *filler, char *key)
     int i = 0, ret = 0;
 
     tmp_key = ptr = gf_strdup(key);
+    if (tmp_key == NULL) {
+        return -1;
+    }
     for (i = 0; i < 4; i++) {
         token = strtok_r(tmp_key, ".", &saveptr);
         tmp_key = NULL;

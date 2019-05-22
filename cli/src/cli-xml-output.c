@@ -64,7 +64,7 @@ cli_begin_xml_output(xmlTextWriterPtr *writer, xmlDocPtr *doc)
     int ret = -1;
 
     *writer = xmlNewTextWriterDoc(doc, 0);
-    if (writer == NULL) {
+    if (*writer == NULL) {
         ret = -1;
         goto out;
     }

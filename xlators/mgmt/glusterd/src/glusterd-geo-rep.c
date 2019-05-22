@@ -5968,7 +5968,7 @@ glusterd_get_slave_info(char *slave, char **slave_url, char **hostname,
     GF_ASSERT(this);
 
     ret = glusterd_urltransform_single(slave, "normalize", &linearr);
-    if (ret == -1) {
+    if ((ret == -1) || (linearr[0] == NULL)) {
         ret = snprintf(errmsg, sizeof(errmsg) - 1, "Invalid Url: %s", slave);
         errmsg[ret] = '\0';
         *op_errstr = gf_strdup(errmsg);
@@ -5979,7 +5979,10 @@ glusterd_get_slave_info(char *slave, char **slave_url, char **hostname,
 
     tmp = strtok_r(linearr[0], "/", &save_ptr);
     tmp = strtok_r(NULL, "/", &save_ptr);
-    slave = strtok_r(tmp, ":", &save_ptr);
+    slave = NULL;
+    if (tmp != NULL) {
+        slave = strtok_r(tmp, ":", &save_ptr);
+    }
     if (slave) {
         ret = glusterd_geo_rep_parse_slave(slave, hostname, op_errstr);
         if (ret) {

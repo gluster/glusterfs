@@ -446,7 +446,7 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
     dict_t *dict = NULL;
     cli_local_t *local = NULL;
 
-    if (wordcount < 3) {
+    if ((wordcount < 3) || (words[2] == NULL)) {
         cli_usage_out(word->pattern);
         goto out;
     }
