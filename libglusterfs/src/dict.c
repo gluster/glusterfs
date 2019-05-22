@@ -382,8 +382,8 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 }
 
 static int32_t
-dict_set_lk(dict_t *this, char *key, data_t *value, const uint32_t hash,
-            gf_boolean_t replace)
+dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
+            const uint32_t hash, gf_boolean_t replace)
 {
     int hashval = 0;
     data_pair_t *pair;
@@ -399,7 +399,7 @@ dict_set_lk(dict_t *this, char *key, data_t *value, const uint32_t hash,
         key_free = 1;
         key_hash = (uint32_t)XXH64(key, keylen, 0);
     } else {
-        keylen = strlen(key);
+        keylen = key_len;
         key_hash = hash;
     }
 
@@ -496,12 +496,12 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
     }
 
     if (key) {
-        key_hash = (int32_t)XXH64(key, keylen, 0);
+        key_hash = (uint32_t)XXH64(key, keylen, 0);
     }
 
     LOCK(&this->lock);
 
-    ret = dict_set_lk(this, key, value, key_hash, 1);
+    ret = dict_set_lk(this, key, keylen, value, key_hash, 1);
 
     UNLOCK(&this->lock);
 
@@ -535,7 +535,7 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
 
     LOCK(&this->lock);
 
-    ret = dict_set_lk(this, key, value, key_hash, 0);
+    ret = dict_set_lk(this, key, keylen, value, key_hash, 0);
 
     UNLOCK(&this->lock);
 
@@ -2079,7 +2079,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
      */
     GF_ASSERT(flag >= 0 && flag < DICT_MAX_FLAGS);
 
-    hash = (int32_t)XXH64(key, strlen(key), 0);
+    hash = (uint32_t)XXH64(key, strlen(key), 0);
     LOCK(&this->lock);
     {
         pair = dict_lookup_common(this, key, hash);
@@ -2807,6 +2807,7 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
     int ret = -EINVAL;
     uint32_t hash;
     uint32_t replacekey_hash;
+    int replacekey_len;
 
     /* replacing a key by itself is a NO-OP */
     if (strcmp(key, replace_key) == 0)
@@ -2819,7 +2820,8 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
     }
 
     hash = (uint32_t)XXH64(key, strlen(key), 0);
-    replacekey_hash = (uint32_t)XXH64(replace_key, strlen(replace_key), 0);
+    replacekey_len = strlen(replace_key);
+    replacekey_hash = (uint32_t)XXH64(replace_key, replacekey_len, 0);
 
     LOCK(&this->lock);
     {
@@ -2828,8 +2830,8 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
         if (!pair)
             ret = -ENODATA;
         else
-            ret = dict_set_lk(this, replace_key, pair->value, replacekey_hash,
-                              1);
+            ret = dict_set_lk(this, replace_key, replacekey_len, pair->value,
+                              replacekey_hash, 1);
     }
     UNLOCK(&this->lock);
 
