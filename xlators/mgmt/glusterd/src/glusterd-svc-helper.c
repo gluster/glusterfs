@@ -84,25 +84,25 @@ glusterd_svcs_stop(glusterd_volinfo_t *volinfo)
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = glusterd_svc_stop(&(priv->nfs_svc), SIGKILL);
+    ret = priv->nfs_svc.stop(&(priv->nfs_svc), SIGKILL);
     if (ret)
         goto out;
 
-    ret = glusterd_svc_stop(&(priv->quotad_svc), SIGTERM);
+    ret = priv->quotad_svc.stop(&(priv->quotad_svc), SIGTERM);
     if (ret)
         goto out;
 
     if (volinfo) {
-        ret = glusterd_svc_stop(&(volinfo->shd.svc), PROC_START_NO_WAIT);
+        ret = volinfo->shd.svc.stop(&(volinfo->shd.svc), SIGTERM);
         if (ret)
             goto out;
     }
 
-    ret = glusterd_svc_stop(&(priv->bitd_svc), SIGTERM);
+    ret = priv->bitd_svc.stop(&(priv->bitd_svc), SIGTERM);
     if (ret)
         goto out;
 
-    ret = glusterd_svc_stop(&(priv->scrub_svc), SIGTERM);
+    ret = priv->scrub_svc.stop(&(priv->scrub_svc), SIGTERM);
 out:
     return ret;
 }

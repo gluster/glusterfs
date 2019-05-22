@@ -656,10 +656,18 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     int pid = -1;
 
     conf = THIS->private;
+    GF_VALIDATE_OR_GOTO("glusterd", conf, out);
     GF_VALIDATE_OR_GOTO("glusterd", svc, out);
     svc_proc = svc->svc_proc;
-    GF_VALIDATE_OR_GOTO("glusterd", svc_proc, out);
-    GF_VALIDATE_OR_GOTO("glusterd", conf, out);
+    if (!svc_proc) {
+        /*
+         * This can happen when stop was called on a volume that is not shd
+         * compatible.
+         */
+        gf_msg_debug("glusterd", 0, "svc_proc is null, ie shd already stopped");
+        ret = 0;
+        goto out;
+    }
 
     /* Get volinfo->shd from svc object */
     shd = cds_list_entry(svc, glusterd_shdsvc_t, svc);
