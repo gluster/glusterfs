@@ -362,6 +362,9 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
     dict_t *options = NULL;
     int32_t ret = 0;
 
+    /* initializes addr_len */
+    *addr_len = 0;
+
     options = this->options;
 
     listen_port_data = dict_get(options, "transport.socket.listen-port");
@@ -413,11 +416,13 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
         }
     }
 
-    if (!(*addr_len) && res && res->ai_addr) {
-        memcpy(addr, res->ai_addr, res->ai_addrlen);
-        *addr_len = res->ai_addrlen;
-    } else {
-        ret = -1;
+    if (!(*addr_len)) {
+        if (res && res->ai_addr) {
+            memcpy(addr, res->ai_addr, res->ai_addrlen);
+            *addr_len = res->ai_addrlen;
+        } else {
+            ret = -1;
+        }
     }
 
     freeaddrinfo(res);
@@ -596,7 +601,7 @@ socket_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
     switch (addr->sa_family) {
         case AF_INET_SDP:
             addr->sa_family = AF_INET;
-            /* Fall through */
+        /* Fall through */
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
