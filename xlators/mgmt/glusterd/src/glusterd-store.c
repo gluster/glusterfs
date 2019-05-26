@@ -941,16 +941,6 @@ glusterd_volume_exclude_options_write(int fd, glusterd_volinfo_t *volinfo)
     }
     total_len += ret;
 
-    if (volinfo->caps) {
-        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%d\n",
-                       GLUSTERD_STORE_KEY_VOL_CAPS, volinfo->caps);
-        if (ret < 0 || ret >= sizeof(buf) - total_len) {
-            ret = -1;
-            goto out;
-        }
-        total_len += ret;
-    }
-
     if (conf->op_version >= GD_OP_VERSION_3_7_6) {
         ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%d\n",
                        GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
@@ -3021,9 +3011,6 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION,
                             SLEN(GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION))) {
             volinfo->client_op_version = atoi(value);
-        } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_CAPS,
-                            SLEN(GLUSTERD_STORE_KEY_VOL_CAPS))) {
-            volinfo->caps = atoi(value);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                             SLEN(GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT))) {
             volinfo->snap_max_hard_limit = (uint64_t)atoll(value);

@@ -278,7 +278,6 @@ struct glusterd_brickinfo {
     struct rpc_clnt *rpc;
     int decommissioned;
     char vg[PATH_MAX]; /* FIXME: Use max size for length of vg */
-    int caps;          /* Capability */
     int32_t snap_status;
     /*
      * The group is used to identify which bricks are part of the same
@@ -489,7 +488,6 @@ struct glusterd_volinfo_ {
     xlator_t *xl;
 
     gf_boolean_t memory_accounting;
-    int caps; /* Capability */
 
     int op_version;
     int client_op_version;

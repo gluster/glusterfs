@@ -366,7 +366,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         0,
     };
     xlator_t *this = NULL;
-    GF_UNUSED int caps = 0;
     int32_t len = 0;
 
     GF_ASSERT(volinfo);

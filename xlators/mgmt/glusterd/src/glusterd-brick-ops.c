@@ -985,7 +985,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         0,
     };
     gf_boolean_t restart_needed = 0;
-    int caps = 0;
     int brickid = 0;
     char key[64] = "";
     char *brick_mount_dir = NULL;
@@ -1206,7 +1205,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         dict_foreach(volinfo->gsync_slaves, _glusterd_restart_gsync_session,
                      &param);
     }
-    volinfo->caps = caps;
 
 generate_volfiles:
     if (conf->op_version <= GD_OP_VERSION_3_7_5) {
