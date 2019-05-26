@@ -1779,21 +1779,6 @@ out:
 }
 
 static int
-brick_graph_add_bd(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                   dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
-{
-    int ret = -1;
-
-    if (!graph || !volinfo || !set_dict || !brickinfo)
-        goto out;
-
-    ret = 0;
-
-out:
-    return ret;
-}
-
-static int
 brick_graph_add_bitrot_stub(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                             dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2623,7 +2608,6 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_acl, "acl"},
     {brick_graph_add_bitrot_stub, "bitrot-stub"},
     {brick_graph_add_changelog, "changelog"},
-    {brick_graph_add_bd, "bd"},
     {brick_graph_add_trash, "trash"},
     {brick_graph_add_arbiter, "arbiter"},
     {brick_graph_add_posix, "posix"},

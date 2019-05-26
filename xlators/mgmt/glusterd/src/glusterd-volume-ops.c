@@ -1382,7 +1382,6 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char xattr_volid[50] = {
         0,
     };
-    int caps = 0;
     int32_t len = 0;
 
     this = THIS;
@@ -1547,7 +1546,6 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    volinfo->caps = caps;
     ret = 0;
 out:
     if (volinfo)
@@ -2042,7 +2040,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     char *str = NULL;
     char *username = NULL;
     char *password = NULL;
-    int caps = 0;
     int brickid = 0;
     char msg[1024] __attribute__((unused)) = {
         0,
@@ -2330,8 +2327,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     }
 
     gd_update_volume_op_versions(volinfo);
-
-    volinfo->caps = caps;
 
     ret = glusterd_store_volinfo(volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
     if (ret) {

@@ -92,8 +92,7 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_PEER_UUID "uuid"
 #define GLUSTERD_STORE_KEY_PEER_HOSTNAME "hostname"
 #define GLUSTERD_STORE_KEY_PEER_STATE "state"
-
-#define GLUSTERD_STORE_KEY_VOL_CAPS "caps"
+#define GLUSTERD_STORE_KEY_VOL_CAPS "caps" /* left just for backward compat */
 
 #define GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES "rebalanced-files"
 #define GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE "size"

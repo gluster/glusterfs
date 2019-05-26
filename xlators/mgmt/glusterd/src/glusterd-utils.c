@@ -3047,10 +3047,6 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     if (ret)
         goto out;
 
-    /*Add volume Capability (BD Xlator) to dict*/
-    keylen = snprintf(key, sizeof(key), "%s.caps", pfx);
-    ret = dict_set_int32n(dict, key, keylen, volinfo->caps);
-
     keylen = snprintf(key, sizeof(key), "%s.quota-xattr-version", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->quota_xattr_version);
 out:
@@ -4308,10 +4304,6 @@ glusterd_import_volinfo(dict_t *peer_data, int count,
         new_volinfo->op_version = 1;
         new_volinfo->client_op_version = 1;
     }
-
-    keylen = snprintf(key, sizeof(key), "%s.caps", key_prefix);
-    /*This is not present in older glusterfs versions, so ignore ret value*/
-    ret = dict_get_int32n(peer_data, key, keylen, &new_volinfo->caps);
 
     keylen = snprintf(key, sizeof(key), "%s.quota-xattr-version", key_prefix);
     /*This is not present in older glusterfs versions, so ignore ret value*/
