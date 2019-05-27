@@ -76,7 +76,6 @@ quotad_aggregator_alloc_frame(rpcsvc_request_t *req)
         goto out;
 
     frame->root->state = state;
-    frame->root->unique = 0;
 
     frame->this = this;
 out:
@@ -95,8 +94,6 @@ quotad_aggregator_get_frame_from_req(rpcsvc_request_t *req)
         goto out;
 
     frame->root->op = req->procnum;
-
-    frame->root->unique = req->xid;
 
     frame->root->uid = req->uid;
     frame->root->gid = req->gid;

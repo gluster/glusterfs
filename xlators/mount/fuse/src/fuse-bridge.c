@@ -3277,11 +3277,11 @@ fuse_release(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     priv = this->private;
 
-    fuse_log_eh(this, "RELEASE(): %" PRIu64 ":, fd: %p, gfid: %s", finh->unique,
-                fd, uuid_utoa(fd->inode->gfid));
+    fuse_log_eh(this, "RELEASE(): finh->unique: %" PRIu64 ":, fd: %p, gfid: %s",
+                finh->unique, fd, uuid_utoa(fd->inode->gfid));
 
-    gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": RELEASE %p",
-           finh->unique, state->fd);
+    gf_log("glusterfs-fuse", GF_LOG_TRACE,
+           "finh->unique: %" PRIu64 ": RELEASE %p", finh->unique, state->fd);
 
     fuse_fd_ctx_destroy(this, state->fd);
     fd_unref(fd);
@@ -3766,11 +3766,12 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     priv = this->private;
 
-    fuse_log_eh(this, "RELEASEDIR (): %" PRIu64 ": fd: %p, gfid: %s",
+    fuse_log_eh(this,
+                "RELEASEDIR (): finh->unique: %" PRIu64 ": fd: %p, gfid: %s",
                 finh->unique, state->fd, uuid_utoa(state->fd->inode->gfid));
 
-    gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": RELEASEDIR %p",
-           finh->unique, state->fd);
+    gf_log("glusterfs-fuse", GF_LOG_TRACE,
+           "finh->unique: %" PRIu64 ": RELEASEDIR %p", finh->unique, state->fd);
 
     fuse_fd_ctx_destroy(this, state->fd);
     fd_unref(state->fd);

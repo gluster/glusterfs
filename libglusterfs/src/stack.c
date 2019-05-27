@@ -17,6 +17,7 @@ create_frame(xlator_t *xl, call_pool_t *pool)
 {
     call_stack_t *stack = NULL;
     call_frame_t *frame = NULL;
+    static uint64_t unique = 0;
 
     if (!xl || !pool) {
         return NULL;
@@ -52,6 +53,7 @@ create_frame(xlator_t *xl, call_pool_t *pool)
     {
         list_add(&stack->all_frames, &pool->all_frames);
         pool->cnt++;
+        stack->unique = unique++;
     }
     UNLOCK(&pool->lock);
     GF_ATOMIC_INC(pool->total_count);
