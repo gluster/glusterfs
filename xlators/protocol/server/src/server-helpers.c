@@ -456,7 +456,6 @@ server_alloc_frame(rpcsvc_request_t *req)
 
     frame->root->client = client;
     frame->root->state = state; /* which socket */
-    frame->root->unique = 0;    /* which call */
 
     frame->this = client->this;
 out:
@@ -483,8 +482,6 @@ get_frame_from_request(rpcsvc_request_t *req)
         goto out;
 
     frame->root->op = req->procnum;
-
-    frame->root->unique = req->xid;
 
     client = req->trans->xl_private;
     this = req->trans->xl;
