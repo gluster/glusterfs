@@ -1587,8 +1587,6 @@ glusterd_op_stage_reset_volume(dict_t *dict, char **op_errstr)
             ret = -1;
             goto out;
         }
-        if (ret)
-            goto out;
 
         if (!exists) {
             ret = snprintf(msg, sizeof(msg), "Option %s does not exist", key);
