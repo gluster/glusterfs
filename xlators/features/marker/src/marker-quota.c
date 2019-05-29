@@ -853,12 +853,6 @@ out:
 }
 
 int32_t
-mq_get_size(xlator_t *this, loc_t *loc, quota_meta_t *size)
-{
-    return _mq_get_metadata(this, loc, NULL, size, 0);
-}
-
-int32_t
 mq_get_delta(xlator_t *this, loc_t *loc, quota_meta_t *delta,
              quota_inode_ctx_t *ctx, inode_contribution_t *contribution)
 {
@@ -1944,7 +1938,7 @@ mq_update_dirty_inode_task(void *opaque)
     /* Inculde for self */
     contri_sum.dir_count++;
 
-    ret = mq_get_size(this, loc, &size);
+    ret = _mq_get_metadata(this, loc, NULL, &size, 0);
     if (ret < 0)
         goto out;
 

@@ -242,24 +242,19 @@ out:
     return ret;
 }
 
-int32_t
+void
 marker_error_handler(xlator_t *this, marker_local_t *local, int32_t op_errno)
 {
-    marker_conf_t *priv = NULL;
-    const char *path = NULL;
-
-    priv = (marker_conf_t *)this->private;
-    path = local ? (local->loc.path ? local->loc.path
-                                    : uuid_utoa(local->loc.gfid))
-                 : "<nul>";
+    marker_conf_t *priv = (marker_conf_t *)this->private;
+    const char *path = local ? ((local->loc.path) ? local->loc.path
+                                                  : uuid_utoa(local->loc.gfid))
+                             : "<nul>";
 
     gf_log(this->name, GF_LOG_CRITICAL,
            "Indexing gone corrupt at %s (reason: %s)."
            " Geo-replication slave content needs to be revalidated",
            path, strerror(op_errno));
     sys_unlink(priv->timestamp_file);
-
-    return 0;
 }
 
 int32_t
@@ -567,24 +562,21 @@ marker_specific_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     int32_t ret = 0;
-    int32_t done = 0;
+    int32_t done = 1;
     marker_local_t *local = NULL;
 
     local = (marker_local_t *)frame->local;
 
     if (op_ret == -1 && op_errno == ENOSPC) {
         marker_error_handler(this, local, op_errno);
-        done = 1;
         goto out;
     }
 
     if (local) {
         if (local->loc.path && strcmp(local->loc.path, "/") == 0) {
-            done = 1;
             goto out;
         }
         if (__is_root_gfid(local->loc.gfid)) {
-            done = 1;
             goto out;
         }
     }
@@ -595,14 +587,11 @@ marker_specific_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         gf_log(this->name, GF_LOG_DEBUG,
                "Error occurred "
                "while traversing to the parent, stopping marker");
-
-        done = 1;
-
         goto out;
     }
 
     marker_start_setxattr(frame, this);
-
+    done = 0;
 out:
     if (done) {
         marker_setxattr_done(frame);

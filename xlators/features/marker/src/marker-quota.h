@@ -23,15 +23,6 @@
 #define QUOTA_KEY_MAX 512
 #define READDIR_BUF 4096
 
-#define QUOTA_STACK_DESTROY(_frame, _this)                                     \
-    do {                                                                       \
-        quota_local_t *_local = NULL;                                          \
-        _local = _frame->local;                                                \
-        _frame->local = NULL;                                                  \
-        STACK_DESTROY(_frame->root);                                           \
-        mq_local_unref(_this, _local);                                         \
-    } while (0)
-
 #define QUOTA_ALLOC(var, type, ret)                                            \
     do {                                                                       \
         ret = 0;                                                               \

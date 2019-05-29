@@ -57,22 +57,10 @@ mq_delete_contribution_node(dict_t *, char *, inode_contribution_t *);
 int32_t
 mq_inode_loc_fill(const char *, inode_t *, loc_t *);
 
-quota_local_t *
-mq_local_new();
-
-quota_local_t *
-mq_local_ref(quota_local_t *);
-
-int32_t
-mq_local_unref(xlator_t *, quota_local_t *);
-
 inode_contribution_t *
 mq_contri_init(inode_t *inode);
 
 inode_contribution_t *
 mq_get_contribution_node(inode_t *, quota_inode_ctx_t *);
-
-inode_contribution_t *
-mq_get_contribution_from_loc(xlator_t *this, loc_t *loc);
 
 #endif
