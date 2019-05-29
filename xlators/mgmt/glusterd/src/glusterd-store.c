@@ -961,6 +961,15 @@ glusterd_volume_exclude_options_write(int fd, glusterd_volinfo_t *volinfo)
         }
         total_len += ret;
     }
+    if (conf->op_version >= GD_OP_VERSION_3_10_0) {
+        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=0\n",
+                       GF_TIER_ENABLED);
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
+            ret = -1;
+            goto out;
+        }
+        total_len += ret;
+    }
 
     ret = gf_store_save_items(fd, buf);
     if (ret)
