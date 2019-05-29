@@ -14,6 +14,7 @@ try:
 except ImportError:
     from configparser import ConfigParser, NoSectionError
 import os
+import shutil
 from string import Template
 from datetime import datetime
 
@@ -327,6 +328,46 @@ class Gconf(object):
                     return True
 
         return False
+
+def is_config_file_old(config_file, mastervol, slavevol):
+    cnf = ConfigParser()
+    cnf.read(config_file)
+    session_section = "peers %s %s" % (mastervol, slavevol)
+    try:
+        return dict(cnf.items(session_section))
+    except NoSectionError:
+        return None
+
+def config_upgrade(config_file, ret):
+    config_file_backup = os.path.join(os.path.dirname(config_file), "gsyncd.conf.bkp")
+
+    #copy old config file in a backup file
+    shutil.copyfile(config_file, config_file_backup)
+
+    #write a new config file
+    config = ConfigParser()
+    config.add_section('vars')
+
+    for key, value in ret.items():
+        #handle option name changes
+        if key == "use_tarssh":
+            new_key = "sync-method"
+            if value == "true":
+                new_value = "tarssh"
+            else:
+                new_value = "rsync"
+                config.set('vars', new_key, new_value)
+
+        if key == "timeout":
+            new_key = "slave-timeout"
+            config.set('vars', new_key, value)
+
+        #for changes like: ignore_deletes to ignore-deletes
+        new_key = key.replace("_", "-")
+        config.set('vars', new_key, value)
+
+    with open(config_file, 'w') as configfile:
+        config.write(configfile)
 
 
 def validate_int(value):
