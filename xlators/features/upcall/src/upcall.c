@@ -57,14 +57,13 @@ static int32_t
 up_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         fd_t *fd, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -111,14 +110,13 @@ up_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
           int count, off_t off, uint32_t flags, struct iobref *iobref,
           dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -167,14 +165,13 @@ static int32_t
 up_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
          off_t offset, uint32_t flags, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -220,14 +217,13 @@ static int32_t
 up_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
       struct gf_flock *flock, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -274,14 +270,13 @@ static int32_t
 up_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
             dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -343,14 +338,13 @@ static int32_t
 up_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
            int32_t valid, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -410,14 +404,13 @@ static int32_t
 up_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
           dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, newloc, NULL, oldloc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -472,14 +465,13 @@ static int32_t
 up_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
           dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -531,14 +523,13 @@ static int32_t
 up_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, newloc, NULL, oldloc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -592,14 +583,13 @@ static int32_t
 up_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
          dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -653,14 +643,13 @@ static int32_t
 up_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
          mode_t umask, dict_t *params)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->parent, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -717,15 +706,13 @@ static int32_t
 up_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           mode_t mode, mode_t umask, fd_t *fd, dict_t *params)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->parent, NULL);
-
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -774,14 +761,13 @@ out:
 static int32_t
 up_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -826,14 +812,13 @@ out:
 static int32_t
 up_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -852,14 +837,13 @@ err:
 static int32_t
 up_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -879,14 +863,13 @@ static int32_t
 up_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
              dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -932,14 +915,13 @@ static int32_t
 up_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
           dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -986,14 +968,13 @@ static int32_t
 up_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
             dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1047,14 +1028,13 @@ static int32_t
 up_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
          dev_t rdev, mode_t umask, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->parent, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1110,14 +1090,13 @@ static int32_t
 up_symlink(call_frame_t *frame, xlator_t *this, const char *linkpath,
            loc_t *loc, mode_t umask, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->parent, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1164,14 +1143,13 @@ static int32_t
 up_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
            dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1216,14 +1194,13 @@ out:
 static int32_t
 up_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1270,14 +1247,13 @@ static int32_t
 up_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
            off_t off, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1334,14 +1310,13 @@ static int32_t
 up_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             off_t off, dict_t *dict)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1361,14 +1336,13 @@ static int32_t
 up_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
             int32_t valid, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1415,14 +1389,13 @@ static int32_t
 up_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
              off_t offset, size_t len, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1470,14 +1443,13 @@ static int32_t
 up_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
            size_t len, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1524,14 +1496,13 @@ static int
 up_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             off_t len, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1577,14 +1548,13 @@ static int32_t
 up_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         gf_seek_what_t what, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1652,14 +1622,13 @@ static int32_t
 up_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
             int32_t flags, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, loc, NULL, loc->inode, dict);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1727,14 +1696,13 @@ static int32_t
 up_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
              int32_t flags, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, fd, fd->inode, dict);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1800,7 +1768,7 @@ static int32_t
 up_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                 dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
     dict_t *xattr = NULL;
 
@@ -1808,13 +1776,11 @@ up_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 
     xattr = dict_for_key_value(name, "", 1, _gf_true);
     if (!xattr) {
-        op_errno = ENOMEM;
         goto err;
     }
 
     local = upcall_local_init(frame, this, NULL, fd, fd->inode, xattr);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1885,7 +1851,7 @@ static int32_t
 up_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                const char *name, dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
     dict_t *xattr = NULL;
 
@@ -1893,13 +1859,11 @@ up_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     xattr = dict_for_key_value(name, "", 1, _gf_true);
     if (!xattr) {
-        op_errno = ENOMEM;
         goto err;
     }
 
     local = upcall_local_init(frame, this, loc, NULL, loc->inode, xattr);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1950,14 +1914,13 @@ static int32_t
 up_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
              dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, fd->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -2000,14 +1963,13 @@ static int32_t
 up_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
             dict_t *xdata)
 {
-    int32_t op_errno = -1;
+    int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
-        op_errno = ENOMEM;
         goto err;
     }
 
