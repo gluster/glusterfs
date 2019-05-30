@@ -486,9 +486,9 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
 
             if (!mux_proc) {
                 if (pid != -1 && sys_access(svc->proc.pidfile, R_OK) == 0) {
-                    /* stale pid file, unlink it. */
-                    kill(pid, SIGTERM);
-                    sys_unlink(svc->proc.pidfile);
+                    /* stale pid file, stop and unlink it */
+                    glusterd_proc_stop(&svc->proc, SIGTERM, PROC_STOP_FORCE);
+                    glusterd_unlink_file(svc->proc.pidfile);
                 }
                 mux_proc = __gf_find_compatible_svc(GD_NODE_SHD);
             }
