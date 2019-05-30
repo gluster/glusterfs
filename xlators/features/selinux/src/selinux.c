@@ -234,7 +234,6 @@ init(xlator_t *this)
     priv = GF_CALLOC(1, sizeof(*priv), gf_selinux_mt_selinux_priv_t);
     if (!priv) {
         gf_log(this->name, GF_LOG_ERROR, "out of memory");
-        ret = ENOMEM;
         goto out;
     }
 
@@ -242,7 +241,6 @@ init(xlator_t *this)
 
     this->local_pool = mem_pool_new(selinux_priv_t, 64);
     if (!this->local_pool) {
-        ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, SL_MSG_ENOMEM,
                "Failed to create local_t's memory pool");
         goto out;
@@ -252,9 +250,7 @@ init(xlator_t *this)
     ret = 0;
 out:
     if (ret) {
-        if (priv) {
-            GF_FREE(priv);
-        }
+        GF_FREE(priv);
         mem_pool_destroy(this->local_pool);
     }
     return ret;

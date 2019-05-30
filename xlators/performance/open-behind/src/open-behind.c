@@ -576,7 +576,7 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
 {
     fd_t *old_fd = NULL;
     int ret = -1;
-    int op_errno = 0;
+    int op_errno = ENOMEM;
     call_stub_t *stub = NULL;
 
     old_fd = fd_lookup(fd->inode, 0);
@@ -584,7 +584,6 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         /* open-behind only when this is the first FD */
         stub = fop_open_stub(frame, default_open_resume, loc, flags, fd, xdata);
         if (!stub) {
-            op_errno = ENOMEM;
             fd_unref(old_fd);
             goto err;
         }
@@ -598,7 +597,6 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
 
     ret = ob_open_behind(frame, this, loc, flags, fd, xdata);
     if (ret) {
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -869,18 +867,12 @@ int
 ob_finodelk(call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
             int cmd, struct gf_flock *flock, dict_t *xdata)
 {
-    call_stub_t *stub = NULL;
-
-    stub = fop_finodelk_stub(frame, default_finodelk_resume, volume, fd, cmd,
-                             flock, xdata);
-    if (!stub)
-        goto err;
-
-    open_and_resume(this, fd, stub);
-
-    return 0;
-err:
-    STACK_UNWIND_STRICT(finodelk, frame, -1, ENOMEM, 0);
+    call_stub_t *stub = fop_finodelk_stub(frame, default_finodelk_resume,
+                                          volume, fd, cmd, flock, xdata);
+    if (stub)
+        open_and_resume(this, fd, stub);
+    else
+        STACK_UNWIND_STRICT(finodelk, frame, -1, ENOMEM, 0);
 
     return 0;
 }
@@ -890,18 +882,12 @@ ob_fentrylk(call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
             const char *basename, entrylk_cmd cmd, entrylk_type type,
             dict_t *xdata)
 {
-    call_stub_t *stub = NULL;
-
-    stub = fop_fentrylk_stub(frame, default_fentrylk_resume, volume, fd,
-                             basename, cmd, type, xdata);
-    if (!stub)
-        goto err;
-
-    open_and_resume(this, fd, stub);
-
-    return 0;
-err:
-    STACK_UNWIND_STRICT(fentrylk, frame, -1, ENOMEM, 0);
+    call_stub_t *stub = fop_fentrylk_stub(
+        frame, default_fentrylk_resume, volume, fd, basename, cmd, type, xdata);
+    if (stub)
+        open_and_resume(this, fd, stub);
+    else
+        STACK_UNWIND_STRICT(fentrylk, frame, -1, ENOMEM, 0);
 
     return 0;
 }
@@ -910,18 +896,12 @@ int
 ob_fxattrop(call_frame_t *frame, xlator_t *this, fd_t *fd,
             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-    call_stub_t *stub = NULL;
-
-    stub = fop_fxattrop_stub(frame, default_fxattrop_resume, fd, optype, xattr,
-                             xdata);
-    if (!stub)
-        goto err;
-
-    open_and_resume(this, fd, stub);
-
-    return 0;
-err:
-    STACK_UNWIND_STRICT(fxattrop, frame, -1, ENOMEM, 0, 0);
+    call_stub_t *stub = fop_fxattrop_stub(frame, default_fxattrop_resume, fd,
+                                          optype, xattr, xdata);
+    if (stub)
+        open_and_resume(this, fd, stub);
+    else
+        STACK_UNWIND_STRICT(fxattrop, frame, -1, ENOMEM, 0, 0);
 
     return 0;
 }
