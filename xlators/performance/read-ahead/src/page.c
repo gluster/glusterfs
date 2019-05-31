@@ -347,18 +347,14 @@ ra_frame_fill(ra_page_t *page, call_frame_t *frame)
         new->size = copy_size;
         new->iobref = iobref_ref(page->iobref);
         new->count = iov_subset(page->vector, page->count, src_offset,
-                                src_offset + copy_size, NULL);
-        new->vector = GF_CALLOC(new->count, sizeof(struct iovec),
-                                gf_ra_mt_iovec);
-        if (new->vector == NULL) {
+                                copy_size, &new->vector, 0);
+        if (new->count < 0) {
             local->op_ret = -1;
             local->op_errno = ENOMEM;
+            iobref_unref(new->iobref);
             GF_FREE(new);
             goto out;
         }
-
-        new->count = iov_subset(page->vector, page->count, src_offset,
-                                src_offset + copy_size, new->vector);
 
         new->next = fill;
         new->prev = new->next->prev;

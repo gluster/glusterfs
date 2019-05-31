@@ -1769,18 +1769,12 @@ quota_writev_helper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if ((op_errno == EDQUOT) && (local->space_available > 0)) {
             new_count = iov_subset(vector, count, 0, local->space_available,
-                                   NULL);
-
-            new_vector = GF_CALLOC(new_count, sizeof(struct iovec),
-                                   gf_common_mt_iovec);
-            if (new_vector == NULL) {
+                                   &new_vector, 0);
+            if (new_count < 0) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto unwind;
             }
-
-            new_count = iov_subset(vector, count, 0, local->space_available,
-                                   new_vector);
 
             vector = new_vector;
             count = new_count;
