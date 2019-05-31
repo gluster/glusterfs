@@ -92,6 +92,9 @@ TEST $GEOREP_CLI  $master $slave pause
 #Resume geo-replication session
 TEST $GEOREP_CLI  $master $slave resume
 
+#Validate failure of volume stop when geo-rep is running
+TEST ! $CLI volume stop $GMV0
+
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
