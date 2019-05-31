@@ -442,15 +442,15 @@ function run_tests()
     test_rename;
     test_chmod;
     test_chown;
-    test_utimes;
-    if [ "$run_lock_tests" = "1" ]; then
-        test_locks;
-    fi
     test_readdir;
     test_setxattr;
     test_listxattr;
     test_getxattr;
     test_removexattr;
+    if [ "$run_lock_tests" = "1" ]; then
+        test_locks;
+    fi
+    test_utimes;
     test_unlink;
     test_rmdir;
 }
