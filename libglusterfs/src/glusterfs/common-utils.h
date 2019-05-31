@@ -512,65 +512,193 @@ static inline struct iovec *
 iov_dup(const struct iovec *vector, int count)
 {
     int bytecount = 0;
-    int i;
     struct iovec *newvec = NULL;
 
     bytecount = (count * sizeof(struct iovec));
     newvec = GF_MALLOC(bytecount, gf_common_mt_iovec);
-    if (!newvec)
-        return NULL;
-
-    for (i = 0; i < count; i++) {
-        newvec[i].iov_len = vector[i].iov_len;
-        newvec[i].iov_base = vector[i].iov_base;
+    if (newvec != NULL) {
+        memcpy(newvec, vector, bytecount);
     }
 
     return newvec;
 }
 
-static inline int
-iov_subset(struct iovec *orig, int orig_count, off_t src_offset,
-           off_t dst_offset, struct iovec *new)
+typedef struct _iov_iter {
+    const struct iovec *iovec;
+    void *ptr;
+    uint32_t len;
+    uint32_t count;
+} iov_iter_t;
+
+static inline bool
+iov_iter_init(iov_iter_t *iter, const struct iovec *iovec, uint32_t count,
+              uint32_t offset)
 {
-    int new_count = 0;
-    int i;
-    off_t offset = 0;
-    size_t start_offset = 0;
-    size_t end_offset = 0, origin_iov_len = 0;
+    uint32_t len;
 
-    for (i = 0; i < orig_count; i++) {
-        origin_iov_len = orig[i].iov_len;
+    while (count > 0) {
+        count--;
+        len = iovec->iov_len;
+        if (offset < len) {
+            iter->ptr = iovec->iov_base + offset;
+            iter->len = len - offset;
+            iter->iovec = iovec + 1;
+            iter->count = count;
 
-        if ((offset + orig[i].iov_len < src_offset) || (offset > dst_offset)) {
-            goto not_subset;
+            return true;
         }
-
-        if (!new) {
-            goto count_only;
-        }
-
-        start_offset = 0;
-        end_offset = orig[i].iov_len;
-
-        if (src_offset >= offset) {
-            start_offset = (src_offset - offset);
-        }
-
-        if (dst_offset <= (offset + orig[i].iov_len)) {
-            end_offset = (dst_offset - offset);
-        }
-
-        new[new_count].iov_base = orig[i].iov_base + start_offset;
-        new[new_count].iov_len = end_offset - start_offset;
-
-    count_only:
-        new_count++;
-
-    not_subset:
-        offset += origin_iov_len;
+        offset -= len;
     }
 
-    return new_count;
+    memset(iter, 0, sizeof(*iter));
+
+    return false;
+}
+
+static inline bool
+iov_iter_end(iov_iter_t *iter)
+{
+    return iter->count == 0;
+}
+
+static inline bool
+iov_iter_next(iov_iter_t *iter, uint32_t size)
+{
+    GF_ASSERT(size <= iter->len);
+
+    if (iter->len > size) {
+        iter->len -= size;
+        iter->ptr += size;
+
+        return true;
+    }
+    if (iter->count > 0) {
+        iter->count--;
+        iter->ptr = iter->iovec->iov_base;
+        iter->len = iter->iovec->iov_len;
+        iter->iovec++;
+
+        return true;
+    }
+
+    memset(iter, 0, sizeof(*iter));
+
+    return false;
+}
+
+static inline uint32_t
+iov_iter_copy(iov_iter_t *dst, iov_iter_t *src, uint32_t size)
+{
+    uint32_t len;
+
+    len = src->len;
+    if (len > dst->len) {
+        len = dst->len;
+    }
+    if (len > size) {
+        len = size;
+    }
+    memcpy(dst->ptr, src->ptr, len);
+
+    return len;
+}
+
+static inline uint32_t
+iov_iter_to_iovec(iov_iter_t *iter, struct iovec *iovec, int32_t idx,
+                  uint32_t size)
+{
+    uint32_t len;
+
+    len = iter->len;
+    if (len > size) {
+        len = size;
+    }
+    iovec[idx].iov_base = iter->ptr;
+    iovec[idx].iov_len = len;
+
+    return len;
+}
+
+static inline int
+iov_subset(struct iovec *src, int src_count, uint32_t start, uint32_t size,
+           struct iovec **dst, int32_t dst_count)
+{
+    struct iovec iovec[src_count];
+    iov_iter_t iter;
+    uint32_t len;
+    int32_t idx;
+
+    if ((size == 0) || !iov_iter_init(&iter, src, src_count, start)) {
+        return 0;
+    }
+
+    idx = 0;
+    do {
+        len = iov_iter_to_iovec(&iter, iovec, idx, size);
+        idx++;
+        size -= len;
+    } while ((size > 0) && iov_iter_next(&iter, len));
+
+    if (*dst == NULL) {
+        *dst = iov_dup(iovec, idx);
+        if (*dst == NULL) {
+            return -1;
+        }
+    } else if (idx > dst_count) {
+        return -1;
+    } else {
+        memcpy(*dst, iovec, idx * sizeof(struct iovec));
+    }
+
+    return idx;
+}
+
+static inline int
+iov_skip(struct iovec *iovec, uint32_t count, uint32_t size)
+{
+    uint32_t len, idx;
+
+    idx = 0;
+    while ((size > 0) && (idx < count)) {
+        len = iovec[idx].iov_len;
+        if (len > size) {
+            iovec[idx].iov_len -= size;
+            iovec[idx].iov_base += size;
+            break;
+        }
+        idx++;
+        size -= len;
+    }
+
+    if (idx > 0) {
+        memmove(iovec, iovec + idx, (count - idx) * sizeof(struct iovec));
+    }
+
+    return count - idx;
+}
+
+static inline size_t
+iov_range_copy(const struct iovec *dst, uint32_t dst_count, uint32_t dst_offset,
+               const struct iovec *src, uint32_t src_count, uint32_t src_offset,
+               uint32_t size)
+{
+    iov_iter_t src_iter, dst_iter;
+    uint32_t len, total;
+
+    if ((size == 0) || !iov_iter_init(&src_iter, src, src_count, src_offset) ||
+        !iov_iter_init(&dst_iter, dst, dst_count, dst_offset)) {
+        return 0;
+    }
+
+    total = 0;
+    do {
+        len = iov_iter_copy(&dst_iter, &src_iter, size);
+        total += len;
+        size -= len;
+    } while ((size > 0) && iov_iter_next(&src_iter, len) &&
+             iov_iter_next(&dst_iter, len));
+
+    return total;
 }
 
 static inline void
@@ -609,35 +737,7 @@ iov_load(const struct iovec *vector, int count, char *buf, int size)
 static inline size_t
 iov_copy(const struct iovec *dst, int dcnt, const struct iovec *src, int scnt)
 {
-    size_t ret = 0;
-    size_t left = 0;
-    size_t min_i = 0;
-    int s_i = 0, s_ii = 0;
-    int d_i = 0, d_ii = 0;
-
-    ret = min(iov_length(dst, dcnt), iov_length(src, scnt));
-    left = ret;
-
-    while (left) {
-        min_i = min(dst[d_i].iov_len - d_ii, src[s_i].iov_len - s_ii);
-        memcpy(dst[d_i].iov_base + d_ii, src[s_i].iov_base + s_ii, min_i);
-
-        d_ii += min_i;
-        if (d_ii == dst[d_i].iov_len) {
-            d_ii = 0;
-            d_i++;
-        }
-
-        s_ii += min_i;
-        if (s_ii == src[s_i].iov_len) {
-            s_ii = 0;
-            s_i++;
-        }
-
-        left -= min_i;
-    }
-
-    return ret;
+    return iov_range_copy(dst, dcnt, 0, src, scnt, 0, UINT32_MAX);
 }
 
 /* based on the amusing discussion @ https://rusty.ozlabs.org/?p=560 */

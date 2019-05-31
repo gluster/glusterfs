@@ -5476,21 +5476,17 @@ shard_common_inode_write_do(call_frame_t *frame, xlator_t *this)
         remaining_size -= shard_write_size;
 
         if (local->fop == GF_FOP_WRITE) {
+            vec = NULL;
             count = iov_subset(local->vector, local->count, vec_offset,
-                               vec_offset + shard_write_size, NULL);
-
-            vec = GF_CALLOC(count, sizeof(struct iovec), gf_shard_mt_iovec);
-            if (!vec) {
+                               shard_write_size, &vec, 0);
+            if (count < 0) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 wind_failed = _gf_true;
-                GF_FREE(vec);
                 shard_common_inode_write_do_cbk(frame, (void *)(long)0, this,
                                                 -1, ENOMEM, NULL, NULL, NULL);
                 goto next;
             }
-            count = iov_subset(local->vector, local->count, vec_offset,
-                               vec_offset + shard_write_size, vec);
         }
 
         if (cur_block == 0) {

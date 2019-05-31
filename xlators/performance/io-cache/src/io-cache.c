@@ -87,14 +87,6 @@ ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
           write_offset = 0;
     off_t page_offset = 0, page_end = 0;
     ioc_page_t *trav = NULL;
-    struct iovec pagevector =
-                     {
-                         0,
-                     },
-                 writevector = {
-                     0,
-                 };
-    int pvcount = 0, wvcount;
 
     size = iov_length(vector, count);
     size = min(size, op_ret);
@@ -120,16 +112,8 @@ ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
                     page_end = trav->size;
                 }
 
-                wvcount = iov_subset(vector, count, write_offset,
-                                     write_offset + (page_end - page_offset),
-                                     &writevector);
-                if (wvcount) {
-                    pvcount = iov_subset(trav->vector, trav->count, page_offset,
-                                         page_end, &pagevector);
-                    if (pvcount) {
-                        iov_copy(&pagevector, pvcount, &writevector, wvcount);
-                    }
-                }
+                iov_range_copy(trav->vector, trav->count, page_offset, vector,
+                               count, write_offset, page_end - page_offset);
             } else if (trav) {
                 if (!trav->waitq)
                     ioc_inode->table->cache_used -= __ioc_page_destroy(trav);

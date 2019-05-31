@@ -971,8 +971,7 @@ __wb_modify_write_request(wb_request_t *req, int synced_size)
     vector = req->stub->args.vector;
     count = req->stub->args.count;
 
-    req->stub->args.count = iov_subset(vector, count, synced_size,
-                                       iov_length(vector, count), vector);
+    req->stub->args.count = iov_skip(vector, count, synced_size);
 
 out:
     return;

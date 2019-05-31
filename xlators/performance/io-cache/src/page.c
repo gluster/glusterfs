@@ -727,11 +727,8 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
             new->size = copy_size;
             new->iobref = iobref_ref(page->iobref);
             new->count = iov_subset(page->vector, page->count, src_offset,
-                                    src_offset + copy_size, NULL);
-
-            new->vector = GF_CALLOC(new->count, sizeof(struct iovec),
-                                    gf_ioc_mt_iovec);
-            if (new->vector == NULL) {
+                                    copy_size, &new->vector, 0);
+            if (new->count < 0) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
 
@@ -739,9 +736,6 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
                 GF_FREE(new);
                 goto out;
             }
-
-            new->count = iov_subset(page->vector, page->count, src_offset,
-                                    src_offset + copy_size, new->vector);
 
             /* add the ioc_fill to fill_list for this frame */
             if (list_empty(&local->fill_list)) {
