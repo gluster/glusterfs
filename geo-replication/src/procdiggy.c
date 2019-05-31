@@ -31,6 +31,10 @@ pidinfo(pid_t pid, char **name)
     };
     char *p = NULL;
     int ret = 0;
+    pid_t lpid = -1;
+
+    if (name)
+        *name = NULL;
 
     snprintf(path, sizeof path, PROC "/%d/status", pid);
 
@@ -38,14 +42,12 @@ pidinfo(pid_t pid, char **name)
     if (!f)
         return -1;
 
-    if (name)
-        *name = NULL;
     for (;;) {
         size_t len;
         memset(buf, 0, sizeof(buf));
         if (fgets(buf, sizeof(buf), f) == NULL || (len = strlen(buf)) == 0 ||
             buf[len - 1] != '\n') {
-            pid = -1;
+            lpid = -1;
             goto out;
         }
         buf[len - 1] = '\0';
@@ -57,7 +59,7 @@ pidinfo(pid_t pid, char **name)
                     ;
                 *name = gf_strdup(p);
                 if (!*name) {
-                    pid = -2;
+                    lpid = -2;
                     goto out;
                 }
                 continue;
@@ -71,17 +73,17 @@ pidinfo(pid_t pid, char **name)
 
     while (isspace(*++p))
         ;
-    ret = gf_string2int(p, &pid);
+    ret = gf_string2int(p, &lpid);
     if (ret == -1)
-        pid = -1;
+        lpid = -1;
 
 out:
     fclose(f);
-    if (pid == -1 && name && *name)
+    if (lpid == -1 && name && *name)
         GF_FREE(*name);
-    if (pid == -2)
+    if (lpid == -2)
         fprintf(stderr, "out of memory\n");
-    return pid;
+    return lpid;
 }
 
 int
