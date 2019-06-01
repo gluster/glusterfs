@@ -20,7 +20,13 @@ TEST stat $M1/.meta/
 # expect failures in rpc-coverage.sh execution.
 res=$($(dirname $0)/../basic/rpc-coverage.sh $M1/.meta)
 
-res=$(find $M1/.meta -type f -print | xargs cat > /dev/null)
+
+# Expect errors here, hence no need to 'check for success'
+for file in $(find $M1/.meta type f -print); do
+    cat $file >/dev/null
+    echo 1>$file
+    echo hello>$file
+done
 
 TEST umount $M1
 

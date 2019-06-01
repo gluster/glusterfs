@@ -36,5 +36,17 @@ create_max_latency=$($CLI volume profile $V0 info | grep CREATE | awk 'BEGIN {ma
 TEST [ ! -z $write_max_latency ];
 TEST [ -z $create_max_latency ];
 
+# Not providing a particular fop will make it test everything
+TEST $CLI volume reset $V0 delay-gen.enable
+TEST $CLI volume set $V0 delay-gen.delay-duration 100
+
+cp $(dirname ${0})/../../api/examples/glfsxmp.c glfsxmp.c
+build_tester ./glfsxmp.c -lgfapi
+./glfsxmp $V0 $H0 >/dev/null
+cleanup_tester ./glfsxmp
+rm ./glfsxmp.c
+
+$(dirname $0)/../basic/rpc-coverage.sh $M0 >/dev/null
+
 cleanup;
 #G_TESTDEF_TEST_STATUS_NETBSD7=1501397
