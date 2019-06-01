@@ -1932,7 +1932,6 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
-    gf_boolean_t is_alloc = _gf_true;
     uuid_t *txn_id = NULL;
 
     if (!this) {
@@ -1991,7 +1990,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
                                   (xdrproc_t)xdr_gd1_mgmt_stage_op_req);
 
 out:
-    if ((_gf_true == is_alloc) && req.buf.buf_val)
+    if (req.buf.buf_val)
         GF_FREE(req.buf.buf_val);
 
     gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
@@ -2010,7 +2009,6 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
-    gf_boolean_t is_alloc = _gf_true;
     uuid_t *txn_id = NULL;
 
     if (!this) {
@@ -2068,7 +2066,7 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
                                   (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
 
 out:
-    if ((_gf_true == is_alloc) && req.buf.buf_val)
+    if (req.buf.buf_val)
         GF_FREE(req.buf.buf_val);
 
     gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
