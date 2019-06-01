@@ -355,6 +355,7 @@ ec_notify_cbk(void *data)
     ec_t *ec = data;
     glusterfs_event_t event = GF_EVENT_MAXVAL;
     gf_boolean_t propagate = _gf_false;
+    gf_boolean_t launch_heal = _gf_false;
 
     LOCK(&ec->lock);
     {
@@ -384,6 +385,11 @@ ec_notify_cbk(void *data)
              * still bricks DOWN, they will be healed when they
              * come up. */
             ec_up(ec->xl, ec);
+
+            if (ec->shd.iamshd && !ec->shutdown) {
+                launch_heal = _gf_true;
+                GF_ATOMIC_INC(ec->async_fop_count);
+            }
         }
 
         propagate = _gf_true;
@@ -391,13 +397,12 @@ ec_notify_cbk(void *data)
 unlock:
     UNLOCK(&ec->lock);
 
+    if (launch_heal) {
+        /* We have just brought the volume UP, so we trigger
+         * a self-heal check on the root directory. */
+        ec_launch_replace_heal(ec);
+    }
     if (propagate) {
-        if ((event == GF_EVENT_CHILD_UP) && ec->shd.iamshd) {
-            /* We have just brought the volume UP, so we trigger
-             * a self-heal check on the root directory. */
-            ec_launch_replace_heal(ec);
-        }
-
         default_notify(ec->xl, event, NULL);
     }
 }
@@ -425,7 +430,7 @@ ec_disable_delays(ec_t *ec)
 {
     ec->shutdown = _gf_true;
 
-    return list_empty(&ec->pending_fops);
+    return __ec_is_last_fop(ec);
 }
 
 void
@@ -603,7 +608,10 @@ ec_notify(xlator_t *this, int32_t event, void *data, void *data2)
         if (event == GF_EVENT_CHILD_UP) {
             /* We need to trigger a selfheal if a brick changes
              * to UP state. */
-            needs_shd_check = ec_set_up_state(ec, mask, mask);
+            if (ec_set_up_state(ec, mask, mask) && ec->shd.iamshd &&
+                !ec->shutdown) {
+                needs_shd_check = _gf_true;
+            }
         } else if (event == GF_EVENT_CHILD_DOWN) {
             ec_set_up_state(ec, mask, 0);
         }
@@ -633,17 +641,21 @@ ec_notify(xlator_t *this, int32_t event, void *data, void *data2)
             }
         } else {
             propagate = _gf_false;
+            needs_shd_check = _gf_false;
+        }
+
+        if (needs_shd_check) {
+            GF_ATOMIC_INC(ec->async_fop_count);
         }
     }
 unlock:
     UNLOCK(&ec->lock);
 
 done:
+    if (needs_shd_check) {
+        ec_launch_replace_heal(ec);
+    }
     if (propagate) {
-        if (needs_shd_check && ec->shd.iamshd) {
-            ec_launch_replace_heal(ec);
-        }
-
         error = default_notify(this, event, data);
     }
 
@@ -705,6 +717,7 @@ init(xlator_t *this)
     ec->xl = this;
     LOCK_INIT(&ec->lock);
 
+    GF_ATOMIC_INIT(ec->async_fop_count, 0);
     INIT_LIST_HEAD(&ec->pending_fops);
     INIT_LIST_HEAD(&ec->heal_waiting);
     INIT_LIST_HEAD(&ec->healing);

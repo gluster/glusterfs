@@ -2814,8 +2814,20 @@ int
 ec_replace_heal_done(int ret, call_frame_t *heal, void *opaque)
 {
     ec_t *ec = opaque;
+    gf_boolean_t last_fop = _gf_false;
 
+    if (GF_ATOMIC_DEC(ec->async_fop_count) == 0) {
+        LOCK(&ec->lock);
+        {
+            last_fop = __ec_is_last_fop(ec);
+        }
+        UNLOCK(&ec->lock);
+    }
     gf_msg_debug(ec->xl->name, 0, "getxattr on bricks is done ret %d", ret);
+
+    if (last_fop)
+        ec_pending_fops_completed(ec);
+
     return 0;
 }
 
@@ -2869,14 +2881,15 @@ ec_launch_replace_heal(ec_t *ec)
 {
     int ret = -1;
 
-    if (!ec)
-        return ret;
     ret = synctask_new(ec->xl->ctx->env, ec_replace_brick_heal_wrap,
                        ec_replace_heal_done, NULL, ec);
+
     if (ret < 0) {
         gf_msg_debug(ec->xl->name, 0, "Heal failed for replace brick ret = %d",
                      ret);
+        ec_replace_heal_done(-1, NULL, ec);
     }
+
     return ret;
 }
 

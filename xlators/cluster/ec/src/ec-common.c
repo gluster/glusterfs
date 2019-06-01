@@ -2955,3 +2955,13 @@ ec_manager(ec_fop_data_t *fop, int32_t error)
 
     __ec_manager(fop, error);
 }
+
+gf_boolean_t
+__ec_is_last_fop(ec_t *ec)
+{
+    if ((list_empty(&ec->pending_fops)) &&
+        (GF_ATOMIC_GET(ec->async_fop_count) == 0)) {
+        return _gf_true;
+    }
+    return _gf_false;
+}

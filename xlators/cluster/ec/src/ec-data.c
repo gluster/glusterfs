@@ -202,11 +202,13 @@ ec_handle_last_pending_fop_completion(ec_fop_data_t *fop, gf_boolean_t *notify)
 {
     ec_t *ec = fop->xl->private;
 
+    *notify = _gf_false;
+
     if (!list_empty(&fop->pending_list)) {
         LOCK(&ec->lock);
         {
             list_del_init(&fop->pending_list);
-            *notify = list_empty(&ec->pending_fops);
+            *notify = __ec_is_last_fop(ec);
         }
         UNLOCK(&ec->lock);
     }
