@@ -204,4 +204,6 @@ void
 ec_reset_entry_healing(ec_fop_data_t *fop);
 char *
 ec_msg_str(ec_fop_data_t *fop);
+gf_boolean_t
+__ec_is_last_fop(ec_t *ec);
 #endif /* __EC_COMMON_H__ */
