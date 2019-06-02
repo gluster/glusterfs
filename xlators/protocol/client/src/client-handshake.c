@@ -1287,18 +1287,10 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
                "Failed to set client opversion in handshake message");
     }
 
-    ret = dict_serialized_length(options);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_ERROR,
-               "failed to get serialized length of dict");
+    ret = dict_allocate_and_serialize(options, (char **)&req.dict.dict_val,
+                                      &req.dict.dict_len);
+    if (ret != 0) {
         ret = -1;
-        goto fail;
-    }
-    req.dict.dict_len = ret;
-    req.dict.dict_val = GF_CALLOC(1, req.dict.dict_len,
-                                  gf_client_mt_clnt_req_buf_t);
-    ret = dict_serialize(options, req.dict.dict_val);
-    if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SERIALIZE_FAIL,
                "failed to serialize "
                "dictionary");

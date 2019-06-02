@@ -899,7 +899,6 @@ serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
     gfs3_dirplist *trav = NULL;
     gfs3_dirplist *prev = NULL;
     int ret = -1;
-    int temp = 0;
 
     GF_VALIDATE_OR_GOTO("server", entries, out);
     GF_VALIDATE_OR_GOTO("server", rsp, out);
@@ -920,28 +919,10 @@ serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
 
         /* if 'dict' is present, pack it */
         if (entry->dict) {
-            temp = dict_serialized_length(entry->dict);
-
-            if (temp < 0) {
-                gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
-                       "failed to get "
-                       "serialized length of reply dict");
-                errno = EINVAL;
-                trav->dict.dict_len = 0;
-                goto out;
-            }
-            trav->dict.dict_len = temp;
-
-            trav->dict.dict_val = GF_CALLOC(1, trav->dict.dict_len,
-                                            gf_server_mt_rsp_buf_t);
-            if (!trav->dict.dict_val) {
-                errno = ENOMEM;
-                trav->dict.dict_len = 0;
-                goto out;
-            }
-
-            ret = dict_serialize(entry->dict, trav->dict.dict_val);
-            if (ret < 0) {
+            ret = dict_allocate_and_serialize(entry->dict,
+                                              (char **)&trav->dict.dict_val,
+                                              &trav->dict.dict_len);
+            if (ret != 0) {
                 gf_msg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_DICT_SERIALIZE_FAIL,
                        "failed to serialize reply dict");
                 errno = -ret;
