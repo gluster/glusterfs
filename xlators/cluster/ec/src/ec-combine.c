@@ -485,22 +485,12 @@ ec_dict_data_merge(ec_cbk_data_t *cbk, int32_t which, char *key)
 
     tmp = NULL;
 
-    len = dict_serialized_length(lockinfo);
-    if (len < 0) {
-        err = len;
-
-        goto out;
-    }
-    ptr = GF_MALLOC(len, gf_common_mt_char);
-    if (ptr == NULL) {
-        err = -ENOMEM;
-
-        goto out;
-    }
-    err = dict_serialize(lockinfo, ptr);
+    err = dict_allocate_and_serialize(lockinfo, (char **)&ptr,
+                                      (unsigned int *)&len);
     if (err != 0) {
         goto out;
     }
+
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
     err = dict_set_dynptr(dict, key, ptr, len);
     if (err != 0) {

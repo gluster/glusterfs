@@ -663,22 +663,16 @@ fail:
     GF_ASSERT(rsp);
 
     rsp->op_ret = 0;
-    ret = dict_serialized_length(reply);
-    if (ret > 0) {
-        rsp->dict.dict_len = ret;
-        rsp->dict.dict_val = GF_CALLOC(1, rsp->dict.dict_len,
-                                       gf_server_mt_rsp_buf_t);
-        if (rsp->dict.dict_val) {
-            ret = dict_serialize(reply, rsp->dict.dict_val);
-            if (ret < 0) {
-                gf_msg_debug("server-handshake", 0,
-                             "failed "
-                             "to serialize reply dict");
-                op_ret = -1;
-                op_errno = -ret;
-            }
-        }
+
+    ret = dict_allocate_and_serialize(reply, (char **)&rsp->dict.dict_val,
+                                      &rsp->dict.dict_len);
+    if (ret != 0) {
+        ret = -1;
+        gf_msg_debug("server-handshake", 0, "failed to serialize reply dict");
+        op_ret = -1;
+        op_errno = -ret;
     }
+
     rsp->op_ret = op_ret;
     rsp->op_errno = gf_errno_to_error(op_errno);
 

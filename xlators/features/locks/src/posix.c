@@ -1436,31 +1436,14 @@ pl_fgetxattr_handle_lockinfo(xlator_t *this, fd_t *fd, dict_t *dict,
         goto out;
     }
 
-    len = dict_serialized_length(tmp);
-    if (len < 0) {
+    op_ret = dict_allocate_and_serialize(tmp, (char **)&buf,
+                                         (unsigned int *)&len);
+    if (op_ret != 0) {
         *op_errno = -op_ret;
         op_ret = -1;
         gf_log(this->name, GF_LOG_WARNING,
                "dict_serialized_length failed (%s) while handling "
                "lockinfo for fd (ptr:%p inode-gfid:%s)",
-               strerror(*op_errno), fd, uuid_utoa(fd->inode->gfid));
-        goto out;
-    }
-
-    buf = GF_CALLOC(1, len, gf_common_mt_char);
-    if (buf == NULL) {
-        op_ret = -1;
-        *op_errno = ENOMEM;
-        goto out;
-    }
-
-    op_ret = dict_serialize(tmp, buf);
-    if (op_ret < 0) {
-        *op_errno = -op_ret;
-        op_ret = -1;
-        gf_log(this->name, GF_LOG_WARNING,
-               "dict_serialize failed (%s) while handling lockinfo "
-               "for fd (ptr: %p inode-gfid:%s)",
                strerror(*op_errno), fd, uuid_utoa(fd->inode->gfid));
         goto out;
     }

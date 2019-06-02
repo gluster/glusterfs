@@ -945,22 +945,11 @@ unlock:
             goto unwind;
         }
 
-        len = dict_serialized_length(local->dict);
-        if (len <= 0) {
-            goto unwind;
-        }
-
-        lockinfo_buf = GF_CALLOC(1, len, gf_common_mt_char);
-        if (!lockinfo_buf) {
+        op_ret = dict_allocate_and_serialize(
+            local->dict, (char **)&lockinfo_buf, (unsigned int *)&len);
+        if (op_ret != 0) {
             local->op_ret = -1;
-            local->op_errno = ENOMEM;
             goto unwind;
-        }
-
-        op_ret = dict_serialize(local->dict, lockinfo_buf);
-        if (op_ret < 0) {
-            local->op_ret = -1;
-            local->op_errno = -op_ret;
         }
 
         op_ret = dict_set_dynptr(newdict, GF_XATTR_LOCKINFO_KEY,
@@ -1061,22 +1050,11 @@ unlock:
             goto unwind;
         }
 
-        len = dict_serialized_length(local->dict);
-        if (len <= 0) {
-            goto unwind;
-        }
-
-        lockinfo_buf = GF_CALLOC(1, len, gf_common_mt_char);
-        if (!lockinfo_buf) {
+        op_ret = dict_allocate_and_serialize(
+            local->dict, (char **)&lockinfo_buf, (unsigned int *)&len);
+        if (op_ret != 0) {
             local->op_ret = -1;
-            local->op_errno = ENOMEM;
             goto unwind;
-        }
-
-        op_ret = dict_serialize(local->dict, lockinfo_buf);
-        if (op_ret < 0) {
-            local->op_ret = -1;
-            local->op_errno = -op_ret;
         }
 
         op_ret = dict_set_dynptr(newdict, GF_XATTR_LOCKINFO_KEY,
