@@ -31,6 +31,7 @@
 #include <glusterfs/syscall.h>
 #include "rpcsvc.h"
 #include "nfs-messages.h"
+#include "glusterfs/statedump.h"
 
 #define OPT_SERVER_AUX_GIDS "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT "nfs.server.aux-gid-timeout"
@@ -1667,6 +1668,20 @@ out:
     return ret;
 }
 
+int32_t
+nfs_itable_dump(xlator_t *this)
+{
+    if (!this)
+        return -1;
+
+    if (this->next && this->next->itable) {
+        gf_proc_dump_add_section("xlator.nfs.itable");
+        inode_table_dump(this->next->itable, "xlator.nfs.itable");
+    }
+
+    return 0;
+}
+
 struct xlator_cbks cbks = {
     .forget = nfs_forget,
 };
@@ -1676,6 +1691,7 @@ struct xlator_fops fops;
 struct xlator_dumpops dumpops = {
     .priv = nfs_priv,
     .priv_to_dict = nfs_priv_to_dict,
+    .inode = nfs_itable_dump,
 };
 
 /* TODO: If needed, per-volume options below can be extended to be export
