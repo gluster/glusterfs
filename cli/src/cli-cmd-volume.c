@@ -1760,14 +1760,15 @@ cli_cmd_volume_remove_brick_cbk(struct cli_state *state,
             " on the volume.\nDo you want to continue?";
     } else if (command == GF_OP_CMD_START) {
         question =
-            "Running remove-brick with cluster.force-migration"
-            " enabled can result in data corruption. It is safer"
-            " to disable this option so that files that receive "
-            "writes during migration are not migrated.\nFiles "
-            "that are not migrated can then be manually copied "
-            "after the remove-brick commit operation.\nDo you "
-            "want to continue with your current "
-            "cluster.force-migration settings?";
+            "It is recommended that remove-brick be run with"
+            " cluster.force-migration option disabled to prevent"
+            " possible data corruption. Doing so will ensure that"
+            " files that receive writes during migration will not"
+            " be migrated and will need to be manually copied"
+            " after the remove-brick commit operation. Please"
+            " check the value of the option and update accordingly."
+            " \nDo you want to continue with your current"
+            " cluster.force-migration settings?";
     }
 
     if (!brick_count) {
