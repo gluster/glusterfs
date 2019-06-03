@@ -6,6 +6,25 @@ function check_status_num_rows()
     $GEOREP_CLI $master $slave status | grep -F "$search_key" | wc -l
 }
 
+function check_fanout_status_num_rows()
+{
+    local search_key=$1
+    $GEOREP_CLI $master status | grep -F "$search_key" | wc -l
+}
+
+function check_all_status_num_rows()
+{
+    local search_key=$1
+    $GEOREP_CLI status | grep -F "$search_key" | wc -l
+}
+
+function verify_checkpoint_met()
+{
+    local master=$1
+    local slave=$2
+    $GEOREP_CLI $master $slave status detail| grep -F "Yes" | wc -l
+}
+
 function check_keys_distributed()
 {
     local search_key=$(cat /var/lib/glusterd/geo-replication/master_slave_common_secret.pem.pub)
