@@ -4720,10 +4720,12 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     GF_ASSERT(conf);
 
     arg = opaque;
-    peer_data = dict_new();
-    if (!peer_data) {
+    if (!arg)
         goto out;
-    }
+
+    peer_data = dict_new();
+    if (!peer_data)
+        goto out;
 
     ret = dict_unserialize(arg->dict_buf, arg->dictlen, &peer_data);
     if (ret) {
@@ -4761,10 +4763,11 @@ glusterd_import_friend_volumes_synctask(void *opaque)
 out:
     if (peer_data)
         dict_unref(peer_data);
-    if (arg->dict_buf)
-        GF_FREE(arg->dict_buf);
-    if (arg)
+    if (arg) {
+        if (arg->dict_buf)
+            GF_FREE(arg->dict_buf);
         GF_FREE(arg);
+    }
 
     gf_msg_debug("glusterd", 0, "Returning with %d", ret);
     return ret;
@@ -4987,6 +4990,9 @@ glusterd_compare_friend_data(dict_t *peer_data, int32_t *status, char *hostname)
     }
 
 out:
+    if (ret && arg) {
+        GF_FREE(arg);
+    }
     gf_msg_debug(this->name, 0, "Returning with ret: %d, status: %d", ret,
                  *status);
     return ret;
