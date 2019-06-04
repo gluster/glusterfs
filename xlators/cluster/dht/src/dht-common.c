@@ -1739,9 +1739,11 @@ unlock:
 
             if (dht_needs_selfheal(frame, this)) {
                 if (!__is_root_gfid(local->loc.inode->gfid)) {
-                    local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
-                    local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
-                    local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
+                    if (local->mds_subvol) {
+                        local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
+                        local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
+                        local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
+                    }
                 } else {
                     local->stbuf.ia_gid = local->prebuf.ia_gid;
                     local->stbuf.ia_uid = local->prebuf.ia_uid;
