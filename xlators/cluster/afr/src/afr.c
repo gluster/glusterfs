@@ -681,6 +681,12 @@ fini(xlator_t *this)
         priv->timer = NULL;
     }
     UNLOCK(&priv->lock);
+
+    if (this->local_pool != NULL) {
+        mem_pool_destroy(this->local_pool);
+        this->local_pool = NULL;
+    }
+
     this->private = NULL;
     afr_priv_destroy(priv);
     if (this->itable) {
