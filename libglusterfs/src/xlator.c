@@ -1516,12 +1516,18 @@ xlator_is_cleanup_starting(xlator_t *this)
     glusterfs_graph_t *graph = NULL;
     xlator_t *xl = NULL;
 
-    if (!this)
+    if (!this) {
+        gf_msg("xlator", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+               "xlator object is null, returning false");
         goto out;
-    graph = this->graph;
+    }
 
-    if (!graph)
+    graph = this->graph;
+    if (!graph) {
+        gf_msg("xlator", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+               "Graph is not set for xlator %s", this->name);
         goto out;
+    }
 
     xl = graph->first;
     if (xl && xl->cleanup_starting)
