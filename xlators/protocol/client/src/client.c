@@ -2231,6 +2231,12 @@ client_mark_fd_bad(xlator_t *this)
     return 0;
 }
 
+static int
+is_connection_to_brick(struct rpc_clnt *rpc)
+{
+    return (rpc->conn.config.remote_port != 0);
+}
+
 int
 client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                   void *data)
@@ -2251,10 +2257,12 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
     switch (event) {
         case RPC_CLNT_PING: {
-            ret = default_notify(this, GF_EVENT_CHILD_PING, data);
-            if (ret)
-                gf_log(this->name, GF_LOG_INFO, "CHILD_PING notify failed");
-            conf->last_sent_event = GF_EVENT_CHILD_PING;
+            if (is_connection_to_brick(rpc)) {
+                ret = default_notify(this, GF_EVENT_CHILD_PING, data);
+                if (ret)
+                    gf_log(this->name, GF_LOG_INFO, "CHILD_PING notify failed");
+                conf->last_sent_event = GF_EVENT_CHILD_PING;
+            }
             break;
         }
         case RPC_CLNT_CONNECT: {
