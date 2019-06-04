@@ -22,6 +22,7 @@
 #  script or by any other mean. The same location should be used in
 #  the gluster CLI when creating thin-arbiter volumes.
 
+MYPATH=`dirname $0`
 
 volloc="/var/lib/glusterd/thin-arbiter"
 mkdir -p $volloc
@@ -29,7 +30,7 @@ mkdir -p $volloc
 if [ -f /etc/glusterfs/thin-arbiter.vol ]; then
     volfile=/etc/glusterfs/thin-arbiter.vol
 else
-    volfile=extras/thin-arbiter/thin-arbiter.vol
+    volfile=$MYPATH/thin-arbiter.vol
 fi
 
 tafile="$volloc/thin-arbiter.vol"
@@ -135,7 +136,7 @@ setup () {
     if [ -f /usr/lib/systemd/system/gluster-ta-volume.service ]; then
         echo "Starting thin-arbiter process"
     else
-        cp ../systemd/gluster-ta-volume.service /etc/systemd/system/
+        cp $MYPATH/../systemd/gluster-ta-volume.service /etc/systemd/system/
         echo "Starting thin-arbiter process"
         chmod 0644 /etc/systemd/system/gluster-ta-volume.service
     fi
