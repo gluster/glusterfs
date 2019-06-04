@@ -12,10 +12,22 @@ function check_fanout_status_num_rows()
     $GEOREP_CLI $master status | grep -F "$search_key" | wc -l
 }
 
+function check_fanout_status_detail_num_rows()
+{
+    local search_key=$1
+    $GEOREP_CLI $master status detail | grep -F "$search_key" | wc -l
+}
+
 function check_all_status_num_rows()
 {
     local search_key=$1
     $GEOREP_CLI status | grep -F "$search_key" | wc -l
+}
+
+function check_all_status_detail_num_rows()
+{
+    local search_key=$1
+    $GEOREP_CLI status detail | grep -F "$search_key" | wc -l
 }
 
 function verify_checkpoint_met()

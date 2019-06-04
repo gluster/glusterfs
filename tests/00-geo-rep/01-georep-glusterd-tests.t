@@ -124,8 +124,15 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_fanout_status_num_rows "Active"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  4 check_fanout_status_num_rows "Passive"
 
+EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_fanout_status_detail_num_rows "Active"
+EXPECT_WITHIN $GEO_REP_TIMEOUT  4 check_fanout_status_detail_num_rows "Passive"
+
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_all_status_num_rows "Active"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  4 check_all_status_num_rows "Passive"
+
+EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_all_status_detail_num_rows "Active"
+EXPECT_WITHIN $GEO_REP_TIMEOUT  4 check_all_status_detail_num_rows "Passive"
+
 ##------------------- Fanout status testcases End --------------##
 
 ##------Checkpoint Testcase Begin---------------##
