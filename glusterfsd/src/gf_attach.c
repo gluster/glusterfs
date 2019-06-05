@@ -75,10 +75,6 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     if (!iobref)
         goto out;
 
-    frame = create_frame(this, this->ctx->pool);
-    if (!frame)
-        goto out;
-
     iobref_add(iobref, iobuf);
 
     iov.iov_base = iobuf->ptr;
@@ -96,6 +92,12 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
             break;
         }
         sleep(1);
+    }
+
+    frame = create_frame(this, this->ctx->pool);
+    if (!frame) {
+        ret = -1;
+        goto out;
     }
 
     /* Send the msg */

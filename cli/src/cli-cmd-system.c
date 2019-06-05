@@ -43,18 +43,14 @@ cli_cmd_getspec_cbk(struct cli_state *state, struct cli_cmd_word *word,
     call_frame_t *frame = NULL;
     dict_t *dict = NULL;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
-        goto out;
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
     if (wordcount != 3) {
         cli_usage_out(word->pattern);
         goto out;
     }
+
+    dict = dict_new();
+    if (!dict)
+        goto out;
 
     ret = dict_set_str(dict, "volid", (char *)words[2]);
     if (ret)
@@ -62,6 +58,11 @@ cli_cmd_getspec_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GETSPEC];
     if (proc->fn) {
+        frame = create_frame(THIS, THIS->ctx->pool);
+        if (!frame) {
+            ret = -1;
+            goto out;
+        }
         ret = proc->fn(frame, THIS, dict);
     }
 
@@ -74,6 +75,7 @@ out:
     if (dict)
         dict_unref(dict);
 
+    CLI_STACK_DESTROY(frame);
     return ret;
 }
 
@@ -86,18 +88,14 @@ cli_cmd_pmap_b2p_cbk(struct cli_state *state, struct cli_cmd_word *word,
     call_frame_t *frame = NULL;
     dict_t *dict = NULL;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
-        goto out;
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
     if (wordcount != 4) {
         cli_usage_out(word->pattern);
         goto out;
     }
+
+    dict = dict_new();
+    if (!dict)
+        goto out;
 
     ret = dict_set_str(dict, "brick", (char *)words[3]);
     if (ret)
@@ -105,6 +103,11 @@ cli_cmd_pmap_b2p_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PMAP_PORTBYBRICK];
     if (proc->fn) {
+        frame = create_frame(THIS, THIS->ctx->pool);
+        if (!frame) {
+            ret = -1;
+            goto out;
+        }
         ret = proc->fn(frame, THIS, dict);
     }
 
@@ -116,6 +119,8 @@ out:
 
     if (dict)
         dict_unref(dict);
+
+    CLI_STACK_DESTROY(frame);
     return ret;
 }
 
@@ -175,6 +180,7 @@ make_seq_dict(int argc, char **argv)
 {
     char index[] = "4294967296";  // 1<<32
     int i = 0;
+    int len;
     int ret = 0;
     dict_t *dict = dict_new();
 
@@ -182,8 +188,8 @@ make_seq_dict(int argc, char **argv)
         return NULL;
 
     for (i = 0; i < argc; i++) {
-        snprintf(index, sizeof(index), "%d", i);
-        ret = dict_set_str(dict, index, argv[i]);
+        len = snprintf(index, sizeof(index), "%d", i);
+        ret = dict_set_strn(dict, index, len, argv[i]);
         if (ret == -1)
             break;
     }
@@ -439,6 +445,7 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
     char *tmp = NULL;
     int ret = -1;
     int i = -1;
+    int len;
     int cmd_args_count = 0;
     int in_cmd_args_count = 0;
     rpc_clnt_procedure_t *proc = NULL;
@@ -451,15 +458,16 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
     command = strtok_r((char *)words[2], " ", &saveptr);
     if (command == NULL) {
         gf_log("cli", GF_LOG_ERROR, "Failed to parse command");
         goto out;
     }
+
+    dict = dict_new();
+    if (!dict)
+        goto out;
+
     do {
         tmp = strtok_r(NULL, " ", &saveptr);
         if (tmp) {
@@ -487,9 +495,9 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     for (i = 1; i <= cmd_args_count; i++) {
         in_cmd_args_count++;
-        snprintf(cmd_arg_name, sizeof(cmd_arg_name), "cmd_arg_%d",
-                 in_cmd_args_count);
-        ret = dict_set_str(dict, cmd_arg_name, (char *)words[2 + i]);
+        len = snprintf(cmd_arg_name, sizeof(cmd_arg_name), "cmd_arg_%d",
+                       in_cmd_args_count);
+        ret = dict_set_strn(dict, cmd_arg_name, len, (char *)words[2 + i]);
         if (ret) {
             gf_log("", GF_LOG_ERROR, "Unable to set %s in dict", cmd_arg_name);
             goto out;

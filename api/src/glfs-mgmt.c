@@ -767,7 +767,7 @@ glfs_volfile_fetch(struct glfs *fs)
     gf_getspec_req req = {
         0,
     };
-    int ret = 0;
+    int ret = -1;
     call_frame_t *frame = NULL;
     glusterfs_ctx_t *ctx = NULL;
     dict_t *dict = NULL;
@@ -775,14 +775,11 @@ glfs_volfile_fetch(struct glfs *fs)
     ctx = fs->ctx;
     cmd_args = &ctx->cmd_args;
 
-    frame = create_frame(THIS, ctx->pool);
-
     req.key = cmd_args->volfile_id;
     req.flags = 0;
 
     dict = dict_new();
     if (!dict) {
-        ret = -1;
         goto out;
     }
 
@@ -812,6 +809,12 @@ glfs_volfile_fetch(struct glfs *fs)
     if (ret < 0) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, API_MSG_DICT_SERIALIZE_FAILED,
                "Failed to serialize dictionary");
+        goto out;
+    }
+
+    frame = create_frame(THIS, ctx->pool);
+    if (!frame) {
+        ret = -1;
         goto out;
     }
 

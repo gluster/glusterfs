@@ -36,12 +36,6 @@ cli_cmd_snapshot_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SNAP];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
-    if (frame == NULL) {
-        ret = -1;
-        goto out;
-    }
-
     /* Parses the command entered by the user */
     ret = cli_cmd_snapshot_parse(words, wordcount, &options, state);
     if (ret) {
@@ -52,6 +46,12 @@ cli_cmd_snapshot_cbk(struct cli_state *state, struct cli_cmd_word *word,
             /* User might have cancelled the snapshot operation */
             ret = 0;
         }
+        goto out;
+    }
+
+    frame = create_frame(THIS, THIS->ctx->pool);
+    if (frame == NULL) {
+        ret = -1;
         goto out;
     }
 

@@ -101,10 +101,6 @@ cli_cmd_get_state_cbk(struct cli_state *state, struct cli_cmd_word *word,
     cli_local_t *local = NULL;
     char *op_errstr = NULL;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
-        goto out;
-
     ret = cli_cmd_get_state_parse(state, words, wordcount, &options,
                                   &op_errstr);
 
@@ -117,6 +113,12 @@ cli_cmd_get_state_cbk(struct cli_state *state, struct cli_cmd_word *word,
             cli_usage_out(word->pattern);
 
         parse_error = 1;
+        goto out;
+    }
+
+    frame = create_frame(THIS, THIS->ctx->pool);
+    if (!frame) {
+        ret = -1;
         goto out;
     }
 
