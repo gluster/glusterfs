@@ -48,10 +48,6 @@ cli_cmd_peer_probe_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PROBE];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
-        goto out;
-
     dict = dict_new();
     if (!dict)
         goto out;
@@ -76,6 +72,12 @@ cli_cmd_peer_probe_cbk(struct cli_state *state, struct cli_cmd_word *word,
                             goto out;
             }
     */
+
+    frame = create_frame(THIS, THIS->ctx->pool);
+    if (!frame) {
+        ret = -1;
+        goto out;
+    }
 
     CLI_LOCAL_INIT(local, words, frame, dict);
 
@@ -127,10 +129,6 @@ cli_cmd_peer_deprobe_cbk(struct cli_state *state, struct cli_cmd_word *word,
         "want to proceed?";
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_DEPROBE];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
-    if (!frame)
-        goto out;
-
     dict = dict_new();
 
     ret = dict_set_str(dict, "hostname", (char *)words[2]);
@@ -159,6 +157,12 @@ cli_cmd_peer_deprobe_cbk(struct cli_state *state, struct cli_cmd_word *word,
     answer = cli_cmd_get_confirmation(state, question);
     if (GF_ANSWER_NO == answer) {
         ret = 0;
+        goto out;
+    }
+
+    frame = create_frame(THIS, THIS->ctx->pool);
+    if (!frame) {
+        ret = -1;
         goto out;
     }
 
