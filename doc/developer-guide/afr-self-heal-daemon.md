@@ -39,7 +39,7 @@ When a client (mount) performs an operation on the file, the index xlator presen
 and removes it in post-op phase if the operation is successful. Thus if an entry is present inside the .glusterfs/indices/xattrop/ directory when there is no I/O 
 happening on the file, it means the file needs healing (or atleast an examination if the brick crashed after the post-op completed but just before the removal of the hardlink).
 
-####Index heal steps:
+#### Index heal steps:
 <pre><code>
 In shd process of *each node* {
         opendir +readdir (.glusterfs/indices/xattrop/)

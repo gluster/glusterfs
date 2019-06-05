@@ -1,4 +1,4 @@
-#Resource usage reduction in brick multiplexing
+# Resource usage reduction in brick multiplexing
 
 Each brick is regresented with a graph of translators in a brick process.
 Each translator in the graph has its own set of threads and mem pools
@@ -24,7 +24,7 @@ threads:
      4. aio-thread
 - changelog and bitrot threads(even when the features are not enabled)
 
-##io-threads
+## io-threads
 
 io-threads should be made global to the process, having 16+ threads for
 each brick does not make sense. But io-thread translator is loaded in
@@ -38,7 +38,7 @@ This poses performance issues due to lock-contention in the io-threds
 layer. This also shall be addressed by having multiple locks instead of
 one global lock for io-threads.
 
-##Posix threads
+## Posix threads
 Most of the posix threads execute tasks in a timely manner, hence it can be
 replaced with a timer whose handler register a task to synctask framework, once
 the task is complete, the timer is registered again. With this we can eliminate
@@ -56,7 +56,7 @@ api in synctask that can cancel all the tasks from a given translator.
 
 For future, this will be replced to use global thread-pool(once implemented).
 
-##Changelog and bitrot threads
+## Changelog and bitrot threads
 
 In the initial implementation, the threads are not created if the feature is
 not enabled. We need to share threads across changelog instances if we plan

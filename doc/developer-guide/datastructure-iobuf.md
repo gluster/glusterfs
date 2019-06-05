@@ -1,6 +1,6 @@
-#Iobuf-pool
-##Datastructures
-###iobuf
+# Iobuf-pool
+## Datastructures
+### iobuf
 Short for IO Buffer. It is one allocatable unit for the consumers of the IOBUF
 API, each unit hosts @page_size(defined in arena structure) bytes of memory. As
 initial step of processing a fop, the IO buffer passed onto GlusterFS by the
@@ -28,7 +28,7 @@ struct iobuf {
 };
 ```
 
-###iobref
+### iobref
 There may be need of multiple iobufs for a single fop, like in vectored read/write.
 Hence multiple iobufs(default 16) are encapsulated under one iobref.
 ```
@@ -40,7 +40,7 @@ struct iobref {
         int                used;    /* number of iobufs added to this iobref */
 };
 ```
-###iobuf_arenas
+### iobuf_arenas
 One region of memory MMAPed from the operating system. Each region MMAPs
 @arena_size bytes of memory, and hosts @arena_size / @page_size IOBUFs.
 The same sized iobufs are grouped into one arena, for sanity of access.
@@ -77,7 +77,7 @@ struct iobuf_arena {
 };
 
 ```
-###iobuf_pool
+### iobuf_pool
 Pool of Iobufs. As there may be many Io buffers required by the filesystem,
 a pool of iobufs are preallocated and kept, if these preallocated ones are
 exhausted only then the standard malloc/free is called, thus improving the
@@ -139,8 +139,8 @@ arenas in the purge list are destroyed only if there is  atleast one arena in
 (e.g: If there is an arena (page_size=128KB, count=32) in purge list, this arena
 is destroyed(munmap) only if there is an arena in 'arenas' list with page_size=128KB).
 
-##APIs
-###iobuf_get
+## APIs
+### iobuf_get
 
 ```
 struct iobuf *iobuf_get (struct iobuf_pool *iobuf_pool);
@@ -149,7 +149,7 @@ Creates a new iobuf of the default page size(128KB hard coded as of yet).
 Also takes a reference(increments ref count), hence no need of doing it
 explicitly after getting iobuf.
 
-###iobuf_get2
+### iobuf_get2
 
 ```
 struct iobuf * iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size);
@@ -179,7 +179,7 @@ if (requested iobuf size > Max iobuf size in the pool(1MB as of yet))
 Also takes a reference(increments ref count), hence no need of doing it
 explicitly after getting iobuf.
 
-###iobuf_ref
+### iobuf_ref
 
 ```
 struct iobuf *iobuf_ref (struct iobuf *iobuf);
@@ -188,7 +188,7 @@ struct iobuf *iobuf_ref (struct iobuf *iobuf);
 xlator/function/, its a good practice to take a reference so that iobuf is not
 deleted by the allocator.
 
-###iobuf_unref
+### iobuf_unref
 ```
 void iobuf_unref (struct iobuf *iobuf);
 ```
@@ -203,33 +203,33 @@ Unreference the iobuf, if the ref count is zero iobuf is considered free.
 Every iobuf_ref should have a corresponding iobuf_unref, and also every
 iobuf_get/2 should have a correspondning iobuf_unref.
 
-###iobref_new
+### iobref_new
 ```
 struct iobref *iobref_new ();
 ```
 Creates a new iobref structure and returns its pointer.
 
-###iobref_ref
+### iobref_ref
 ```
 struct iobref *iobref_ref (struct iobref *iobref);
 ```
 Take a reference on the iobref.
 
-###iobref_unref
+### iobref_unref
 ```
 void iobref_unref (struct iobref *iobref);
 ```
 Decrements the reference count of the iobref. If the ref count is 0, then unref
 all the iobufs(iobuf_unref) in the iobref, and destroy the iobref.
 
-###iobref_add
+### iobref_add
 ```
 int iobref_add (struct iobref *iobref, struct iobuf *iobuf);
 ```
 Adds the given iobuf into the iobref, it takes a ref on the iobuf before adding
 it, hence explicit iobuf_ref is not required if adding to the iobref.
 
-###iobref_merge
+### iobref_merge
 ```
 int iobref_merge (struct iobref *to, struct iobref *from);
 ```
@@ -239,13 +239,13 @@ on all the iobufs added to the 'to' iobref. Hence iobref_unref should be
 performed both on 'from' and 'to' iobrefs (performing iobref_unref only on 'to'
 will not free the iobufs and may result in leak).
 
-###iobref_clear
+### iobref_clear
 ```
 void iobref_clear (struct iobref *iobref);
 ```
 Unreference all the iobufs in the iobref, and also unref the iobref.
 
-##Iobuf Leaks
+## Iobuf Leaks
 If all iobuf_refs/iobuf_new do not have correspondning iobuf_unref, then the
 iobufs are not freed and recurring execution of such code path may lead to huge
 memory leaks. The easiest way to identify if a memory leak is caused by iobufs

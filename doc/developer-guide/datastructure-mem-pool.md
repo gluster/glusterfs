@@ -1,5 +1,5 @@
-#Mem-pool
-##Background
+# Mem-pool
+## Background
 There was a time when every fop in glusterfs used to incur cost of allocations/de-allocations for every stack wind/unwind between xlators because stack/frame/*_localt_t in every wind/unwind was allocated and de-allocated. Because of all these system calls in the fop path there was lot of latency and the worst part is that most of the times the number of frames/stacks active at any time wouldn't cross a threshold. So it was decided that this threshold number of frames/stacks would be allocated in the beginning of the process only once. Get one of them from the pool of stacks/frames whenever `STACK_WIND` is performed and put it back into the pool in `STACK_UNWIND`/`STACK_DESTROY` without incurring any extra system calls. The data structures are allocated only when threshold number of such items are in active use i.e. pool is in complete use.% increase in the performance once this was added to all the common data structures (inode/fd/dict etc) in xlators throughout the stack was tremendous.
 
 ## Data structure
@@ -27,7 +27,7 @@ will be served from here until all the elements in the pool are in use i.e. cold
 };
 ```
 
-##Life-cycle
+## Life-cycle
 ```
 mem_pool_new (data_type, unsigned long count)
 
@@ -120,5 +120,5 @@ mem_pool_destroy (struct mem_pool *pool)
 Deletes this pool from the `global_list` maintained by `glusterfs-ctx` and frees all the memory allocated in `mem_pool_new`.
 
 
-###How to pick pool-size
+### How to pick pool-size
 This varies from work-load to work-load. Create the mem-pool with some random size and run the work-load. Take the statedump after the work-load is complete. In the statedump if `max_alloc` is always less than `cold_count` may be reduce the size of the pool closer to `max_alloc`. On the otherhand if there are lots of `pool-misses` then increase the `pool_size` by `max_stdalloc` to achieve better 'hit-rate' of the pool.

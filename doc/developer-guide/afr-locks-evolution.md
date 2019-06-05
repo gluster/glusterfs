@@ -32,10 +32,10 @@ AFR makes use of locks xlator extensively:
 * For Entry self-heal, it is `entrylk(NULL name, parent inode)`. Specifying NULL for the name takes full lock on the directory referred to by the inode.
 * For data self-heal, there is a bit of history as to how locks evolved:
 
-###Initial version (say version 1) :
+### Initial version (say version 1) :
 There was no concept of selfheal daemon (shd). Only client lookups triggered heals. so AFR always took `inodelk(0,0,DATA_DOMAIN)` for healing. The issue with this approach was that when heal was in progress, I/O from clients was blocked .
 
-###version 2:
+### version 2:
 shd was introduced. We needed to allow I/O to go through when heal was going,provided the ranges did not overlap. To that extent, the following approach was adopted:
 
 + 1.shd takes (full inodelk in DATA_DOMAIN). Thus client FOPS are blocked and cannot modify changelog-xattrs
@@ -79,7 +79,7 @@ It modifies data but the FOP succeeds only on brick 2. writev returns success, a
 and thus goes ahead and copies stale 128Kb from brick 1 to brick2. Thus as far as application is concerned, `writev` returned success but bricks have stale data.
 What needs to be done is `writev` must return success only if it succeeded on atleast one source brick (brick b1 in this case). Otherwise  The heal still happens in reverse direction but as far as the application is concerned, it received an error.  
 
-###Note on lock **domains**
+### Note on lock **domains**
 We have used conceptual names in this document like DATA_DOMAIN/ METADATA_DOMAIN/ SELF_HEAL_DOMAIN. In the code, these are mapped to strings that are based on the AFR xlator name like so:
 
 DATA_DOMAIN     --->"vol_name-replicate-n"

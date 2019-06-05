@@ -472,7 +472,7 @@ hello
 Now let's interrupt the process and see where we are.
 
 ```
-^C
+
 Program received signal SIGINT, Interrupt.
 0x0000003a0060b3dc in pthread_cond_wait@@GLIBC_2.3.2 ()
                    from /lib64/libpthread.so.0

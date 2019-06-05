@@ -1,9 +1,9 @@
-#On-Wire Compression + Decompression
+# On-Wire Compression + Decompression
 
 The 'compression translator' compresses and decompresses data in-flight
 between client and bricks.
 
-###Working
+### Working
 When a writev call occurs, the client compresses the data before sending it to
 brick. On the brick, compressed data is decompressed. Similarly, when a readv
 call occurs, the brick compresses the data before sending it to client. On the
@@ -19,7 +19,7 @@ During normal operation, this is the format of data sent over wire:
 The trailer contains the CRC32 checksum and length of original uncompressed
 data. This is used for validation.
 
-###Usage
+### Usage
 
 Turning on compression xlator:
 
@@ -27,7 +27,7 @@ Turning on compression xlator:
 gluster volume set <vol_name> network.compression on
 ~~~
 
-###Configurable parameters (optional)
+### Configurable parameters (optional)
 
 **Compression level**
 ~~~
@@ -35,10 +35,10 @@ gluster volume set <vol_name> network.compression.compression-level 8
 ~~~
 
 ~~~
-0  : no compression
-1  : best speed
-9  : best compression
--1 : default compression
+ 0  : no compression
+ 1  : best speed
+ 9  : best compression
+-1  : default compression
 ~~~
 
 **Minimum file size**
@@ -55,7 +55,7 @@ Other less frequently used parameters include `network.compression.mem-level`
 and `network.compression.window-size`. More details can about these options
 can be found by running `gluster volume set help` command.
 
-###Known Issues and Limitations
+### Known Issues and Limitations
 
 * Compression translator cannot work with striped volumes.
 * Mount point hangs when writing a file with write-behind xlator turned on. To
@@ -65,7 +65,7 @@ set`performance.strict-write-ordering` to on.
 distribute volumes. This limitation is caused by AFR not being able to
 propagate xdata. This issue has been fixed in glusterfs versions > 3.5
 
-###TODO
+### TODO
 Although zlib offers high compression ratio, it is very slow. We can make the
 translator pluggable to add support for other compression methods such as
 [lz4 compression](https://code.google.com/p/lz4/)

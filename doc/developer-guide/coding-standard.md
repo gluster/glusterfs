@@ -6,23 +6,23 @@ Before you get started
 Before starting with other part of coding standard, install `clang-format`
 
 On Fedora:
-
+```
 $ dnf install clang
-
+```
 On debian/Ubuntu:
-
+```
 $ apt-get install clang
-
+```
 Once you are done with all the local changes, you need to run below set of commands,
 before submitting the patch for review.
-
- $ git add $file # if any
- $ git commit -a -s -m "commit message"
- $ git show --pretty="format:" --name-only | grep -v "contrib/" | egrep "*\.[ch]$" | xargs clang-format -i
- $ git diff # see if there are any changes
- $ git commit -a --amend # get the format changes done
- $ ./submit-for-review.sh
-
+```
+$ git add $file # if any
+$ git commit -a -s -m "commit message"
+$ git show --pretty="format:" --name-only | grep -v "contrib/" | egrep "*\.[ch]$" | xargs clang-format -i
+$ git diff # see if there are any changes
+$ git commit -a --amend # get the format changes done
+$ ./submit-for-review.sh
+```
 
 
 Structure definitions should have a comment per member
@@ -620,8 +620,8 @@ If a value isn't supposed/expected to change, there's no cost to adding a
 
 ### Avoid global variables (including 'static' auto variables)
 Almost all state in Gluster is contextual and should be contained in the
-appropriate structure reflecting its scope (e.g. call\_frame\_t, call\_stack\_t,
-xlator\_t, glusterfs\_ctx\_t).  With dynamic loading and graph switches in play,
+appropriate structure reflecting its scope (e.g. `call\_frame\_t`, `call\_stack\_t`,
+`xlator\_t`, `glusterfs\_ctx\_t`).  With dynamic loading and graph switches in play,
 each global requires careful consideration of when it should be initialized or
 reinitialized, when it might _accidentally_ be reinitialized, when its value
 might become stale, and so on.  A few global variables are needed to serve as
