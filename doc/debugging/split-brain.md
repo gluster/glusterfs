@@ -1,33 +1,36 @@
-Steps to recover from File split-brain.
-======================================
+# Steps to recover from File split-brain
+This document contains steps to recover from a file split-brain.
+## Quick Start:
+### Step 1. Get the path of the file that is in split-brain:
+It can be obtained either by
+1. The command `gluster volume heal info split-brain`.
+2. Identify the files for which file operations performed from the client keep failing with Input/Output error.
 
-Quick Start:
-============
-1. Get the path of the file that is in split-brain:  
->  It can be obtained either by  
->       a) The command `gluster volume heal info split-brain`.  
->       b) Identify the files for which file operations performed
-           from the client keep failing with Input/Output error.
-
-2. Close the applications that opened this file from the mount point.
+### Step 2. Close the applications that opened this file from the mount point.
 In case of VMs, they need to be powered-off.
 
-3. Decide on the correct copy:  
-> This is done by observing the afr changelog extended attributes of the file on
+### Step 3. Decide on the correct copy:  
+This is done by observing the afr changelog extended attributes of the file on
 the bricks using the getfattr command; then identifying the type of split-brain 
 (data split-brain, metadata split-brain, entry split-brain or split-brain due to
 gfid-mismatch); and finally determining which of the bricks contains the 'good copy'
 of the file.  
->   `getfattr -d -m . -e hex <file-path-on-brick>`.  
+```
+getfattr -d -m . -e hex <file-path-on-brick>
+```
+  
 It is also possible that one brick might contain the correct data while the
 other might contain the correct metadata.
 
-4. Reset the relevant extended attribute on the brick(s) that contains the
-'bad copy' of the file data/metadata using the setfattr command.  
->   `setfattr -n <attribute-name> -v <attribute-value> <file-path-on-brick>`
+### Step 4. Reset the relevant extended attribute on the brick(s) that contains the 'bad copy' of the file data/metadata using the setfattr command.  
+```
+setfattr -n <attribute-name> -v <attribute-value> <file-path-on-brick>
+```
 
-5. Trigger self-heal on the file by performing lookup from the client:  
->   `ls -l <file-path-on-gluster-mount>`
+### Step 5. Trigger self-heal on the file by performing lookup from the client:  
+```
+ls -l <file-path-on-gluster-mount>
+```
 
 Detailed Instructions for steps 3 through 5:  
 ===========================================
@@ -36,13 +39,15 @@ afr changelog extended attributes.
 
 Execute `getfattr -d -m . -e hex <file-path-on-brick>`
 
-* Example:  
+Example:  
+```
 [root@store3 ~]# getfattr -d -e hex -m. brick-a/file.txt  
 \#file: brick-a/file.txt  
 security.selinux=0x726f6f743a6f626a6563745f723a66696c655f743a733000  
 trusted.afr.vol-client-2=0x000000000000000000000000  
 trusted.afr.vol-client-3=0x000000000200000000000000  
 trusted.gfid=0x307a5c9efddd4e7c96e94fd4bcdcbd1b  
+```
 
 The extended attributes with `trusted.afr.<volname>-client-<subvolume-index>`
 are used by afr to maintain changelog of the file.The values of the
@@ -51,10 +56,11 @@ client (fuse or nfs-server) processes. When the glusterfs client modifies a file
 or directory, the client contacts each brick and updates the changelog extended 
 attribute according to the response of the brick.
 
-'subvolume-index' is nothing but (brick number - 1) in
+`subvolume-index` is nothing but (brick number - 1) in
 `gluster volume info <volname>` output.
 
-* Example:  
+Example:
+```
 [root@pranithk-laptop ~]# gluster volume info vol  
  Volume Name: vol  
  Type: Distributed-Replicate  
@@ -71,6 +77,7 @@ attribute according to the response of the brick.
  brick-f: pranithk-laptop:/gfs/brick-f  
  brick-g: pranithk-laptop:/gfs/brick-g  
  brick-h: pranithk-laptop:/gfs/brick-h  
+```
 
 In the example above:  
 ```
@@ -91,12 +98,15 @@ present in all the other bricks in it's replica set as seen by that brick.
 
 In the example volume given above, all files in brick-a will have 2 entries, 
 one for itself and the other for the file present in it's replica pair, i.e.brick-b:  
+```
 trusted.afr.vol-client-0=0x000000000000000000000000 -->changelog for itself (brick-a)  
 trusted.afr.vol-client-1=0x000000000000000000000000 -->changelog for brick-b as seen by brick-a  
-
+```
 Likewise, all files in brick-b will have:  
+```
 trusted.afr.vol-client-0=0x000000000000000000000000 -->changelog for brick-a as seen by brick-b  
 trusted.afr.vol-client-1=0x000000000000000000000000 -->changelog for itself (brick-b)  
+```
 
 The same can be extended for other replica pairs.  
 
@@ -122,7 +132,8 @@ When a file split-brain happens it could be either data split-brain or
 meta-data split-brain or both. When a split-brain happens the changelog of the
 file would be something like this:  
 
-* Example:(Lets consider both data, metadata split-brain on same file).  
+Example:(Lets consider both data, metadata split-brain on same file).  
+```
 [root@pranithk-laptop vol]# getfattr -d -m . -e hex /gfs/brick-?/a  
 getfattr: Removing leading '/' from absolute path names  
 \#file: gfs/brick-a/a  
@@ -133,10 +144,11 @@ trusted.gfid=0x80acdbd886524f6fbefa21fc356fed57
 trusted.afr.vol-client-0=0x000003b00000000100000000  
 trusted.afr.vol-client-1=0x000000000000000000000000  
 trusted.gfid=0x80acdbd886524f6fbefa21fc356fed57  
+```
 
-###Observations:
+### Observations:
 
-####According to changelog extended attributes on file /gfs/brick-a/a:  
+#### According to changelog extended attributes on file /gfs/brick-a/a:  
 The first 8 digits of trusted.afr.vol-client-0 are all
 zeros (0x00000000................), and the first 8 digits of
 trusted.afr.vol-client-1 are not all zeros (0x000003d7................).
@@ -149,7 +161,7 @@ trusted.afr.vol-client-1 are not all zeros (0x........00000001........).
 So the changelog on /gfs/brick-a/a implies that some metadata operations succeeded 
 on itself but failed on /gfs/brick-b/a.
 
-####According to Changelog extended attributes on file /gfs/brick-b/a:  
+#### According to Changelog extended attributes on file /gfs/brick-b/a:  
 The first 8 digits of trusted.afr.vol-client-0 are not all
 zeros (0x000003b0................), and the first 8 digits of
 trusted.afr.vol-client-1 are all zeros (0x00000000................).
@@ -205,6 +217,7 @@ Hence execute
 `setfattr -n trusted.afr.vol-client-1 -v 0x000003d70000000000000000 /gfs/brick-a/a`
 
 Thus after the above operations are done, the changelogs look like this:  
+```
 [root@pranithk-laptop vol]# getfattr -d -m . -e hex /gfs/brick-?/a  
 getfattr: Removing leading '/' from absolute path names  
 \#file: gfs/brick-a/a  
@@ -216,7 +229,7 @@ trusted.gfid=0x80acdbd886524f6fbefa21fc356fed57
 trusted.afr.vol-client-0=0x000000000000000100000000  
 trusted.afr.vol-client-1=0x000000000000000000000000  
 trusted.gfid=0x80acdbd886524f6fbefa21fc356fed57  
-
+```
 
 Triggering Self-heal:
 ---------------------
@@ -243,9 +256,9 @@ needs to be removed.The gfid-link files are present in the .glusterfs folder
 in the top-level directory of the brick. If the gfid of the file is
 0x307a5c9efddd4e7c96e94fd4bcdcbd1b (the trusted.gfid extended attribute got
 from the getfattr command earlier),the gfid-link file can be found at
-> /gfs/brick-a/.glusterfs/30/7a/307a5c9efddd4e7c96e94fd4bcdcbd1b
+`/gfs/brick-a/.glusterfs/30/7a/307a5c9efddd4e7c96e94fd4bcdcbd1b`
 
-####Word of caution:
+#### Word of caution:
 Before deleting the gfid-link, we have to ensure that there are no hard links
 to the file present on that brick. If hard-links exist,they must be deleted as
 well.

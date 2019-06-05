@@ -1,4 +1,4 @@
-#syncop framework
+# syncop framework
 A coroutines-based, cooperative multi-tasking framework.
 
 ## Topics
