@@ -1578,7 +1578,7 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
         }
     }
 
-    if (type == AFR_DATA_TRANSACTION) {
+    if (type == AFR_DATA_TRANSACTION || type == AFR_METADATA_TRANSACTION) {
         min_participants = priv->child_count;
     } else {
         min_participants = AFR_SH_MIN_PARTICIPANTS;
@@ -1644,7 +1644,7 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
         }
     }
 
-    if (type == AFR_DATA_TRANSACTION)
+    if (type == AFR_DATA_TRANSACTION || type == AFR_METADATA_TRANSACTION)
         afr_selfheal_post_op_failure_accounting(priv, accused, sources,
                                                 locked_on);
 
