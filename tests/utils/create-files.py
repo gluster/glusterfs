@@ -19,6 +19,11 @@ import argparse
 datsiz = 0
 timr = 0
 
+def get_ascii_upper_alpha_digits():
+    if sys.version_info > (3,0):
+        return string.ascii_uppercase+string.digits
+    else:
+        return string.uppercase+string.digits
 
 def setLogger(filename):
     global logger
@@ -111,7 +116,7 @@ def create_tar_file(fil, size, mins, maxs, rand):
 
 def get_filename(flen):
     size = flen
-    char = string.uppercase+string.digits
+    char = get_ascii_upper_alpha_digits()
     st = ''.join(random.choice(char) for i in range(size))
     ti = str((hex(int(str(time.time()).split('.')[0])))[2:])
     return ti+"%%"+st
@@ -175,7 +180,7 @@ def tar_files(files, file_count, inter, size, mins, maxs,
 
 
 def setxattr_files(files, randname, dir_path):
-    char = string.uppercase+string.digits
+    char = get_ascii_upper_alpha_digits()
     if not randname:
         for k in range(files):
             v = ''.join(random.choice(char) for i in range(10))
