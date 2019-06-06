@@ -17,7 +17,7 @@ def calculate_one (ov, nv):
 
 def calculate_all (values):
     total = 0
-    nv_index = len(values) / 2
+    nv_index = len(values) // 2
     for old_val in values[:nv_index]:
         new_val = values[nv_index]
         nv_index += 1

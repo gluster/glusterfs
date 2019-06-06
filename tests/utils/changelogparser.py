@@ -125,7 +125,10 @@ class Record(object):
             return repr(self.__dict__)
 
     def __str__(self):
-        return unicode(self).encode('utf-8')
+        if sys.version_info >= (3,):
+            return self.__unicode__()
+        else:
+            return unicode(self).encode('utf-8')
 
 
 def get_num_tokens(data, tokens, version=Version.V11):
