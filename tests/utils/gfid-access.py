@@ -33,23 +33,51 @@ def _fmt_mkdir(l):
 def _fmt_symlink(l1, l2):
     return "!II%dsI%ds%ds" % (37, l1+1, l2+1)
 
-def entry_pack_reg(gf, bn, mo, uid, gid):
-    blen = len(bn)
-    return struct.pack(_fmt_mknod(blen),
-                       uid, gid, gf, mo, bn,
-                       stat.S_IMODE(mo), 0, umask())
 
-def entry_pack_dir(gf, bn, mo, uid, gid):
-    blen = len(bn)
-    return struct.pack(_fmt_mkdir(blen),
-                       uid, gid, gf, mo, bn,
-                       stat.S_IMODE(mo), umask())
+if sys.version_info > (3,):
+    def entry_pack_reg(gf, bn, mo, uid, gid):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        return struct.pack(_fmt_mknod(blen),
+                           uid, gid, gf.encode(), mo, bn_encoded,
+                           stat.S_IMODE(mo), 0, umask())
 
-def entry_pack_symlink(gf, bn, lnk, mo, uid, gid):
-    blen = len(bn)
-    llen = len(lnk)
-    return struct.pack(_fmt_symlink(blen, llen),
-                       uid, gid, gf, mo, bn, lnk)
+    # mkdir
+    def entry_pack_dir(gf, bn, mo, uid, gid):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        return struct.pack(_fmt_mkdir(blen),
+                           uid, gid, gf.encode(), mo, bn_encoded,
+                           stat.S_IMODE(mo), umask())
+    # symlink
+    def entry_pack_symlink(gf, bn, lnk, st):
+        bn_encoded = bn.encode()
+        blen = len(bn_encoded)
+        lnk_encoded = lnk.encode()
+        llen = len(lnk_encoded)
+        return struct.pack(_fmt_symlink(blen, llen),
+                           st['uid'], st['gid'],
+                           gf.encode(), st['mode'], bn_encoded,
+                           lnk_encoded)
+
+else:
+    def entry_pack_reg(gf, bn, mo, uid, gid):
+        blen = len(bn)
+        return struct.pack(_fmt_mknod(blen),
+                           uid, gid, gf, mo, bn,
+                           stat.S_IMODE(mo), 0, umask())
+
+    def entry_pack_dir(gf, bn, mo, uid, gid):
+        blen = len(bn)
+        return struct.pack(_fmt_mkdir(blen),
+                           uid, gid, gf, mo, bn,
+                           stat.S_IMODE(mo), umask())
+
+    def entry_pack_symlink(gf, bn, lnk, mo, uid, gid):
+        blen = len(bn)
+        llen = len(lnk)
+        return struct.pack(_fmt_symlink(blen, llen),
+                           uid, gid, gf, mo, bn, lnk)
 
 if __name__ == '__main__':
     if len(sys.argv) < 9:
