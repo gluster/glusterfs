@@ -4798,7 +4798,7 @@ struct volume_options options[] = {
                     "be used in conjunction w/ revocation-clear-all."},
     {.key = {"notify-contention"},
      .type = GF_OPTION_TYPE_BOOL,
-     .default_value = "no",
+     .default_value = "yes",
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
      .op_version = {GD_OP_VERSION_4_0_0},
      .tags = {"locks", "contention"},
