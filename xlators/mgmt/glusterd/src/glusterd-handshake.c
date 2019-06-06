@@ -923,7 +923,7 @@ __server_getspec(rpcsvc_request_t *req)
     }
 
     gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_MOUNT_REQ_RCVD,
-           "Recevied mount request for valume %s", volume);
+           "Received mount request for volume %s", volume);
 
     /* Need to strip leading '/' from volnames. This was introduced to
      * support nfs style mount parameters for native gluster mount
