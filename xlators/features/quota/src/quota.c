@@ -560,15 +560,14 @@ quota_handle_validate_error(call_frame_t *frame, int32_t op_ret,
     if (local == NULL)
         goto out;
 
-    LOCK(&local->lock);
-    {
-        if (op_ret < 0) {
+    if (op_ret < 0) {
+        LOCK(&local->lock);
+        {
             local->op_ret = op_ret;
             local->op_errno = op_errno;
         }
+        UNLOCK(&local->lock);
     }
-    UNLOCK(&local->lock);
-
     /* we abort checking limits on this path to root */
     quota_link_count_decrement(frame);
 out:

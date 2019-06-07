@@ -5052,20 +5052,18 @@ __afr_launch_notify_timer(xlator_t *this, afr_private_t *priv)
     }
 }
 
-int
+static int
 __get_heard_from_all_status(xlator_t *this)
 {
     afr_private_t *priv = this->private;
-    int heard_from_all = 1;
-    int i = 0;
+    int i;
 
     for (i = 0; i < priv->child_count; i++) {
         if (!priv->last_event[i]) {
-            heard_from_all = 0;
-            break;
+            return 0;
         }
     }
-    return heard_from_all;
+    return 1;
 }
 
 static int

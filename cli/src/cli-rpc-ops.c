@@ -3181,13 +3181,13 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
 
     LOCK(&local->lock);
     {
-        ret = dict_get_int32(gd_rsp_dict, "quota-list-success-count",
-                             &success_count);
+        ret = dict_get_int32_sizen(gd_rsp_dict, "quota-list-success-count",
+                                   &success_count);
         if (ret)
             success_count = 0;
 
-        ret = dict_set_int32(gd_rsp_dict, "quota-list-success-count",
-                             success_count + 1);
+        ret = dict_set_int32_sizen(gd_rsp_dict, "quota-list-success-count",
+                                   success_count + 1);
     }
     UNLOCK(&local->lock);
     if (ret) {
@@ -3286,12 +3286,13 @@ cli_quotad_getlimit_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     LOCK(&local->lock);
     {
-        ret = dict_get_int32(local->dict, "quota-list-count", &list_count);
+        ret = dict_get_int32_sizen(local->dict, "quota-list-count",
+                                   &list_count);
         if (ret)
             list_count = 0;
 
         list_count++;
-        ret = dict_set_int32(local->dict, "quota-list-count", list_count);
+        ret = dict_set_int32_sizen(local->dict, "quota-list-count", list_count);
     }
     UNLOCK(&local->lock);
 

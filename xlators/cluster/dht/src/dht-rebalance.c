@@ -4787,9 +4787,9 @@ out:
 
     dht_send_rebalance_event(this, defrag->cmd, defrag->defrag_status);
 
+    status = dict_new();
     LOCK(&defrag->lock);
     {
-        status = dict_new();
         gf_defrag_status_get(conf, status);
         if (ctx && ctx->notify)
             ctx->notify(GF_EN_DEFRAG_STATUS, status);
