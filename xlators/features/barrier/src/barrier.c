@@ -729,10 +729,10 @@ barrier_dump_priv(xlator_t *this)
 
     gf_proc_dump_build_key(key, "xlator.features.barrier", "priv");
     gf_proc_dump_add_section("%s", key);
+    gf_proc_dump_build_key(key, "barrier", "enabled");
 
     LOCK(&priv->lock);
     {
-        gf_proc_dump_build_key(key, "barrier", "enabled");
         gf_proc_dump_write(key, "%d", priv->barrier_enabled);
         gf_proc_dump_build_key(key, "barrier", "timeout");
         gf_proc_dump_write(key, "%ld", priv->timeout.tv_sec);

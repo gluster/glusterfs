@@ -89,11 +89,12 @@ gf_quiesce_populate_failover_hosts(xlator_t *this, quiesce_priv_t *priv,
     if (!dup_val)
         goto out;
 
+    addr_tok = strtok_r(dup_val, ",", &save_ptr);
     LOCK(&priv->lock);
     {
         if (!list_empty(&priv->failover_list))
             __gf_quiesce_cleanup_failover_hosts(this, priv);
-        addr_tok = strtok_r(dup_val, ",", &save_ptr);
+
         while (addr_tok) {
             if (!valid_internet_address(addr_tok, _gf_true, _gf_false)) {
                 gf_msg(this->name, GF_LOG_INFO, 0, QUIESCE_MSG_INVAL_HOST,

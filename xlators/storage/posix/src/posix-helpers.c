@@ -2956,7 +2956,7 @@ posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata)
 
     LOCK(&fd->inode->lock);
     {
-        val = dict_get(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
+        val = dict_get_sizen(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
         if (val) {
             ret = sys_fsetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES,
                                 val->data, val->len, 0);
@@ -2969,7 +2969,7 @@ posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata)
             goto out;
         }
 
-        if (dict_get(xdata, GF_AVOID_OVERWRITE)) {
+        if (dict_get_sizen(xdata, GF_AVOID_OVERWRITE)) {
             xattrsize = sys_fgetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES,
                                       NULL, 0);
             if ((xattrsize == -1) &&
@@ -3344,14 +3344,20 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
 {
     gf_cs_obj_state state = GF_CS_ERROR;
     int ret = 0;
+    gf_boolean_t is_cs_obj_status = _gf_false;
+    gf_boolean_t is_cs_obj_repair = _gf_false;
 
-    if (!(dict_get(xattr_req, GF_CS_OBJECT_STATUS) ||
-          dict_get(xattr_req, GF_CS_OBJECT_REPAIR)))
+    if (dict_get_sizen(xattr_req, GF_CS_OBJECT_STATUS))
+        is_cs_obj_status = _gf_true;
+    if (dict_get_sizen(xattr_req, GF_CS_OBJECT_REPAIR))
+        is_cs_obj_repair = _gf_true;
+
+    if (!(is_cs_obj_status || is_cs_obj_repair))
         return 0;
 
     if (fd) {
         LOCK(&fd->inode->lock);
-        if (dict_get(xattr_req, GF_CS_OBJECT_STATUS)) {
+        if (is_cs_obj_status) {
             state = posix_cs_check_status(this, NULL, pfd, buf);
             gf_msg_debug(this->name, 0, "state : %d", state);
             ret = posix_cs_set_state(this, xattr_rsp, state, NULL, pfd);
@@ -3371,7 +3377,7 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
             }
         }
 
-        if (dict_get(xattr_req, GF_CS_OBJECT_REPAIR)) {
+        if (is_cs_obj_repair) {
             state = posix_cs_check_status(this, NULL, pfd, buf);
             gf_msg_debug(this->name, 0, "state : %d", state);
 
@@ -3402,7 +3408,7 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
         }
 
         LOCK(&loc->inode->lock);
-        if (dict_get(xattr_req, GF_CS_OBJECT_STATUS)) {
+        if (is_cs_obj_status) {
             state = posix_cs_check_status(this, realpath, NULL, buf);
             gf_msg_debug(this->name, 0, "state : %d", state);
             ret = posix_cs_set_state(this, xattr_rsp, state, realpath, NULL);
@@ -3422,7 +3428,7 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
             }
         }
 
-        if (dict_get(xattr_req, GF_CS_OBJECT_REPAIR)) {
+        if (is_cs_obj_repair) {
             state = posix_cs_check_status(this, realpath, NULL, buf);
             gf_msg_debug(this->name, 0, "state : %d", state);
 
