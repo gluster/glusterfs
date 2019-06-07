@@ -33,7 +33,7 @@
 
 struct upcall_syncop_args {
     struct glfs *fs;
-    struct gf_upcall *upcall_data;
+    struct glfs_upcall *up_arg;
 };
 
 #define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
@@ -4865,12 +4865,28 @@ out:
 }
 
 static int
+upcall_syncop_args_free(struct upcall_syncop_args *args)
+{
+    if (args && args->up_arg)
+        GLFS_FREE(args->up_arg);
+    GF_FREE(args);
+    return 0;
+}
+
+static int
 glfs_upcall_syncop_cbk(int ret, call_frame_t *frame, void *opaque)
 {
     struct upcall_syncop_args *args = opaque;
 
-    GF_FREE(args->upcall_data);
-    GF_FREE(args);
+    /* Here we not using upcall_syncop_args_free as application
+     * will be cleaning up the args->up_arg using glfs_free
+     * post processing upcall.
+     */
+    if (ret) {
+        upcall_syncop_args_free(args);
+    } else
+        GF_FREE(args);
+
     return 0;
 }
 
@@ -4878,19 +4894,34 @@ static int
 glfs_cbk_upcall_syncop(void *opaque)
 {
         struct upcall_syncop_args *args = opaque;
-        int ret = -1;
         struct glfs_upcall *up_arg = NULL;
         struct glfs *fs;
-        struct gf_upcall *upcall_data;
 
         fs = args->fs;
-        upcall_data = args->upcall_data;
+        up_arg = args->up_arg;
 
-        up_arg = GLFS_CALLOC (1, sizeof (struct gf_upcall),
-                              glfs_release_upcall,
-                              glfs_mt_upcall_entry_t);
+        if (fs->up_cbk && up_arg) {
+                (fs->up_cbk)(up_arg, fs->up_data);
+                return 0;
+        }
+
+        return -1;
+}
+
+static struct upcall_syncop_args *
+upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
+{
+        struct upcall_syncop_args *args = NULL;
+        int ret = -1;
+        struct glfs_upcall *up_arg = NULL;
+
+        if (!fs || !upcall_data)
+                goto out;
+
+        up_arg = GLFS_CALLOC(1, sizeof(struct gf_upcall), glfs_release_upcall,
+                             glfs_mt_upcall_entry_t);
         if (!up_arg) {
-                gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+                gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
                         "Upcall entry allocation failed.");
                 goto out;
         }
@@ -4906,35 +4937,51 @@ glfs_cbk_upcall_syncop(void *opaque)
                 errno = EINVAL;
         }
 
-        if (!ret && (up_arg->reason != GLFS_UPCALL_EVENT_NULL)) {
-                /* It could so happen that the file which got
-                 * upcall notification may have got deleted by
-                 * the same client. In such cases up_arg->reason
-                 * is set to GLFS_UPCALL_EVENT_NULL. No need to
-                 * send upcall then */
-                (fs->up_cbk) (up_arg, fs->up_data);
-        } else if (up_arg->reason == GLFS_UPCALL_EVENT_NULL) {
-                gf_msg (THIS->name, GF_LOG_DEBUG, errno,
-                        API_MSG_INVALID_ENTRY,
+        /* It could so happen that the file which got
+         * upcall notification may have got deleted by
+         * the same client. In such cases up_arg->reason
+         * is set to GLFS_UPCALL_EVENT_NULL. No need to
+         * send upcall then
+         */
+        if (up_arg->reason == GLFS_UPCALL_EVENT_NULL) {
+                gf_msg(THIS->name, GF_LOG_DEBUG, errno, API_MSG_INVALID_ENTRY,
                         "Upcall_EVENT_NULL received. Skipping it.");
                 goto out;
-        } else {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
-                        API_MSG_INVALID_ENTRY,
+        } else if (ret) {
+                gf_msg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY,
                         "Upcall entry validation failed.");
                 goto out;
         }
 
-        /* application takes care of calling glfs_free on up_arg post
-         * their processing */
-        ret = 0;
-
-out:
-        if (ret && up_arg) {
-                GLFS_FREE (up_arg);
+        args = GF_CALLOC(1, sizeof(struct upcall_syncop_args),
+                        glfs_mt_upcall_entry_t);
+        if (!args) {
+                gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+                        "Upcall syncop args allocation failed.");
+                goto out;
         }
 
-        return 0;
+        /* Note: we are not taking any ref on fs here.
+         * Ideally applications have to unregister for upcall events
+         * or stop polling for upcall events before performing
+         * glfs_fini. And as for outstanding synctasks created, we wait
+         * for all syncenv threads to finish tasks before cleaning up the
+         * fs->ctx. Hence it seems safe to process these callback
+         * notification without taking any lock/ref.
+         */
+        args->fs = fs;
+        args->up_arg = up_arg;
+
+        /* application takes care of calling glfs_free on up_arg post
+         * their processing */
+
+    return args;
+out:
+        if (up_arg) {
+                GLFS_FREE(up_arg);
+        }
+
+        return NULL;
 }
 
 static void
@@ -4951,24 +4998,10 @@ glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
         goto out;
     }
 
-    args = GF_CALLOC(1, sizeof(struct upcall_syncop_args),
-                     glfs_mt_upcall_entry_t);
-    if (!args) {
-        gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
-               "Upcall syncop args allocation failed.");
-        goto out;
-    }
+    args = upcall_syncop_args_init(fs, upcall_data);
 
-    /* Note: we are not taking any ref on fs here.
-     * Ideally applications have to unregister for upcall events
-     * or stop polling for upcall events before performing
-     * glfs_fini. And as for outstanding synctasks created, we wait
-     * for all syncenv threads to finish tasks before cleaning up the
-     * fs->ctx. Hence it seems safe to process these callback
-     * notification without taking any lock/ref.
-     */
-    args->fs = fs;
-    args->upcall_data = gf_memdup(upcall_data, sizeof(*upcall_data));
+    if (!args)
+        goto out;
 
     ret = synctask_new(THIS->ctx->env, glfs_cbk_upcall_syncop,
                        glfs_upcall_syncop_cbk, NULL, args);
@@ -4977,8 +5010,7 @@ glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
         gf_msg(THIS->name, GF_LOG_ERROR, errno, API_MSG_UPCALL_SYNCOP_FAILED,
                "Synctak for Upcall event_type(%d) and gfid(%s) failed",
                upcall_data->event_type, (char *)(upcall_data->gfid));
-        GF_FREE(args->upcall_data);
-        GF_FREE(args);
+        upcall_syncop_args_free(args);
     }
 
 out:
