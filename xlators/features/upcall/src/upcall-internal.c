@@ -545,6 +545,7 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
         upcall_client_t *tmp             = NULL;
         upcall_inode_ctx_t *up_inode_ctx = NULL;
         gf_boolean_t     found           = _gf_false;
+        inode_t *linked_inode = NULL;
 
         if (!is_upcall_enabled(this))
                 return;
@@ -557,8 +558,21 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                 return;
         }
 
-        if (inode)
-                up_inode_ctx = upcall_inode_ctx_get (inode, this);
+        /* For nameless LOOKUPs, inode created shall always be
+         * invalid. Hence check if there is any already linked inode.
+         * If yes, update the inode_ctx of that valid inode
+         */
+        if (inode && (inode->ia_type == IA_INVAL) && stbuf) {
+                linked_inode = inode_find(inode->table, stbuf->ia_gfid);
+                if (linked_inode) {
+                    gf_log("upcall", GF_LOG_DEBUG,
+                           "upcall_inode_ctx_get of linked inode (%p)", inode);
+                    up_inode_ctx = upcall_inode_ctx_get(linked_inode, this);
+                }
+        }
+
+        if (inode && !up_inode_ctx)
+                up_inode_ctx = upcall_inode_ctx_get(inode, this);
 
         if (!up_inode_ctx) {
                 gf_msg ("upcall", GF_LOG_WARNING, 0,
@@ -633,6 +647,9 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
         }
         pthread_mutex_unlock (&up_inode_ctx->client_list_lock);
 out:
+        /* release the ref from inode_find */
+        if (linked_inode)
+                inode_unref(linked_inode);
         return;
 }
 
