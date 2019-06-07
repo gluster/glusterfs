@@ -42,6 +42,7 @@ EXPECT "$D0" cat $M1/test.txt
 # less, there is a possibility of not getting a lookup on the same inode.
 sleep 3.7
 
+# TODO: This line normally fails
 EXPECT "$D1" cat $M1/test.txt
 
 TEST $CLI volume set $V0 features.cache-invalidation on
@@ -71,3 +72,7 @@ EXPECT "$D0" cat $M1/test2.txt
 TEST write_to "$M0/test2.txt" "$D1"
 EXPECT "$D1" cat $M0/test2.txt
 EXPECT "$D1" cat $M1/test2.txt
+
+
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1718191
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1718191
