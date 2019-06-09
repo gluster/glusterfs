@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include "glusterfs/daemon.h"

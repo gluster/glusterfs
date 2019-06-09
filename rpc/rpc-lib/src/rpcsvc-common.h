@@ -12,11 +12,8 @@
 #define _RPCSVC_COMMON_H
 
 #include <pthread.h>
-#include <glusterfs/list.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 
 typedef enum {
     RPCSVC_EVENT_ACCEPT,

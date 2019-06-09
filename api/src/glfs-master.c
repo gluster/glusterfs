@@ -8,14 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <inttypes.h>
-#include <limits.h>
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/glusterfs.h>
 
 #include "glfs-internal.h"

@@ -10,9 +10,6 @@
 #ifndef _POSIX_AIO_H
 #define _POSIX_AIO_H
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
-
 // Maximum number of concurrently submitted IO events. The heaviest load
 // GlusterFS has been able to handle had 60-80 concurrent calls
 #define POSIX_AIO_MAX_NR_EVENTS 256

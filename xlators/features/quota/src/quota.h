@@ -10,10 +10,7 @@
 #ifndef _QUOTA_H
 #define _QUOTA_H
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include "quota-mem-types.h"
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>

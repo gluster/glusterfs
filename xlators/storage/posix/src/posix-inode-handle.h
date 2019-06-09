@@ -12,7 +12,6 @@
 
 #include <limits.h>
 #include <sys/types.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/gf-dirent.h>
 #include "posix.h"
 

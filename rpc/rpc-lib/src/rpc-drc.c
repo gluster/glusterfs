@@ -13,8 +13,6 @@
 #include "rpc-drc.h"
 #endif
 #include <glusterfs/locking.h>
-#include <glusterfs/hashfn.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/mem-pool.h>
 

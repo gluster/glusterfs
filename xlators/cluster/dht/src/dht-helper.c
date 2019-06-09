@@ -8,10 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "dht-common.h"
 #include "dht-lock.h"
+#include "glusterfs/compat-errno.h"  // for ENODATA on BSD
 
 static void
 dht_free_fd_ctx(dht_fd_ctx_t *fd_ctx)

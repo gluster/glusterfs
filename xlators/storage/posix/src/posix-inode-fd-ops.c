@@ -37,14 +37,10 @@
 #include <fcntl.h>
 #endif /* HAVE_LINKAT */
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/checksum.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
-#include "posix.h"
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
+#include "posix-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/byte-order.h>
@@ -53,8 +49,6 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timer.h>
 #include "glusterfs3-xdr.h"
-#include <glusterfs/hashfn.h>
-#include "posix-aio.h"
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-messages.h"
 #include "posix-metadata.h"

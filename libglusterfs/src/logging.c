@@ -38,9 +38,7 @@
 #define GF_LOG_TIMESTR_SIZE 256
 #define GF_MAX_SLOG_PAIR_COUNT 100
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/logging.h"
-#include "glusterfs/defaults.h"
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/timer.h"
 #include "glusterfs/libglusterfs-messages.h"

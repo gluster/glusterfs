@@ -38,15 +38,11 @@ trap(void);
 /* To solve type punned error */
 #define VOID(ptr) ((void **)((void *)ptr))
 
-#include "glusterfs/logging.h"
-#include "glusterfs/glusterfs.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/mem-pool.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/iatt.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "protocol-common.h"
-#include "glusterfs/iobuf.h"
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)

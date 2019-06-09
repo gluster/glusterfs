@@ -14,8 +14,6 @@
 
 #include <regex.h>
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 
 #include "glusterfs/parse-utils.h"
 #include "glusterfs/mem-pool.h"

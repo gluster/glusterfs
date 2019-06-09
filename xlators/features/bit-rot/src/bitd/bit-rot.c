@@ -9,10 +9,7 @@
 */
 
 #include <ctype.h>
-#include <sys/uio.h>
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/compat-errno.h>
 

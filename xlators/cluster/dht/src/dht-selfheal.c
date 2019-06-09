@@ -8,10 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "dht-common.h"
-#include "dht-messages.h"
 #include "dht-lock.h"
 #include <glusterfs/glusterfs-acl.h>
 

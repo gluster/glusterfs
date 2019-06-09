@@ -63,9 +63,6 @@
 #include <pthread.h>
 #include <errno.h>
 
-//#include <urcu/uatomic.h>
-
-#include "glusterfs/logging.h"
 #include "glusterfs/list.h"
 #include "glusterfs/mem-types.h"
 #include "glusterfs/async.h"

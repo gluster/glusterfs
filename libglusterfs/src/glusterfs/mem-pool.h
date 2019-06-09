@@ -12,7 +12,6 @@
 #define _MEM_POOL_H_
 
 #include "glusterfs/list.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/atomic.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/mem-types.h"

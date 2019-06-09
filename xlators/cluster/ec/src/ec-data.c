@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "ec-mem-types.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-data.h"

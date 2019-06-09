@@ -11,8 +11,6 @@
 /* TODO: link(oldpath, newpath) fails if newpath already exists. DHT should
  *       delete the newpath if it gets EEXISTS from link() call.
  */
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "dht-common.h"
 #include "dht-lock.h"
 #include <glusterfs/defaults.h>

@@ -8,17 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <sys/poll.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <string.h>
 
-#include "glusterfs/logging.h"
 #include "glusterfs/gf-event.h"
-#include "glusterfs/mem-pool.h"
 #include "glusterfs/common-utils.h"
 #include "glusterfs/syscall.h"
 #include "glusterfs/libglusterfs-messages.h"

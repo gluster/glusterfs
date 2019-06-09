@@ -11,8 +11,10 @@
 #ifndef _EH_H
 #define _EH_H
 
-#include "glusterfs/mem-types.h"
-#include "glusterfs/circ-buff.h"
+#include <pthread.h>              // for pthread_mutex_t
+#include <stddef.h>               // for size_t
+#include "glusterfs/circ-buff.h"  // for buffer_t, circular_buffer_t
+#include "glusterfs/glusterfs.h"  // for gf_boolean_t
 
 struct event_hist {
     buffer_t *buffer;

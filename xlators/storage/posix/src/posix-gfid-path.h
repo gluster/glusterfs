@@ -11,10 +11,13 @@
 #ifndef _POSIX_GFID_PATH_H
 #define _POSIX_GFID_PATH_H
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 
+#include <stdint.h>               // for int32_t
+#include "glusterfs/dict.h"       // for dict_t
+#include "glusterfs/glusterfs.h"  // for gf_boolean_t
+#include "glusterfs/inode.h"      // for inode_t
+#include "uuid.h"                 // for uuid_t
 #define MAX_GFID2PATH_LINK_SUP 500
 
 int32_t

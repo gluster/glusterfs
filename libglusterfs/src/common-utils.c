@@ -24,7 +24,6 @@
 #include <time.h>
 #include <locale.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -35,13 +34,11 @@
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
 #endif
-#include <libgen.h>
 #ifndef GF_LINUX_HOST_OS
 #include <sys/resource.h>
 #endif
 
 #include "glusterfs/compat-errno.h"
-#include "glusterfs/logging.h"
 #include "glusterfs/common-utils.h"
 #include "glusterfs/revision.h"
 #include "glusterfs/glusterfs.h"

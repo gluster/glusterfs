@@ -19,7 +19,6 @@
 static mach_timebase_info_data_t gf_timebase;
 #endif
 
-#include "glusterfs/logging.h"
 #include "glusterfs/timespec.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "glusterfs/common-utils.h"

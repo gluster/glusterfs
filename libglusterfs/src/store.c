@@ -13,7 +13,6 @@
 
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/store.h"
-#include "glusterfs/dict.h"
 #include "glusterfs/xlator.h"
 #include "glusterfs/syscall.h"
 #include "glusterfs/libglusterfs-messages.h"

@@ -12,7 +12,6 @@
 #define _POSIX_ACL_H
 
 #include <glusterfs/xlator.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/byte-order.h>
 #include <glusterfs/glusterfs-acl.h>
 

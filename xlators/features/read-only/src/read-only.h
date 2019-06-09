@@ -11,8 +11,9 @@
 #ifndef __READONLY_H__
 #define __READONLY_H__
 
-#include "read-only-mem-types.h"
-#include <glusterfs/xlator.h>
+#include <stdint.h>               // for uint64_t, uint8_t
+#include <sys/time.h>             // for time_t
+#include "glusterfs/glusterfs.h"  // for gf_boolean_t
 
 typedef struct {
     uint8_t worm : 1;

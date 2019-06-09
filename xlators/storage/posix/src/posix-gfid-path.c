@@ -8,8 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/common-utils.h>
-#include <glusterfs/xlator.h>
+#include <stdint.h>
+
+#include <glusterfs/compat-errno.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/logging.h>
 #include "posix-messages.h"

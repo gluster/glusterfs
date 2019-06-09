@@ -8,11 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/compat.h>
 #include "dht-common.h"
-#include "dht-messages.h"
 
 int
 dht_linkfile_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,

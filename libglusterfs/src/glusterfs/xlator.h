@@ -11,19 +11,16 @@
 #ifndef _XLATOR_H
 #define _XLATOR_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
-
-#include "glusterfs/event-history.h"
-#include "glusterfs/logging.h"
-#include "glusterfs/common-utils.h"
-#include "glusterfs/dict.h"
+#include <stdint.h>                 // for int32_t
+#include <sys/types.h>              // for off_t, mode_t, off64_t, dev_t
+#include "glusterfs-fops.h"         // for GF_FOP_MAXVALUE, entrylk_cmd
+#include "glusterfs/atomic.h"       // for gf_atomic_t
+#include "glusterfs/glusterfs.h"    // for gf_boolean_t, glusterfs_ctx_t
+#include "glusterfs/compat-uuid.h"  // for uuid_t
 #include "glusterfs/compat.h"
-#include "glusterfs/list.h"
+#include "glusterfs/event-history.h"
+#include "glusterfs/dict.h"
 #include "glusterfs/latency.h"
-#include "glusterfs/compat-uuid.h"
-#include "glusterfs/syscall.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 #define SECOND_CHILD(xl) (xl->children->next->xlator)

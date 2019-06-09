@@ -15,11 +15,8 @@
 
 #include "rpc-clnt.h"
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/byte-order.h>
-//#include "glusterd.h"
 #include "rpcsvc.h"
 #include <glusterfs/store.h>
 

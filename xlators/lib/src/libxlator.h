@@ -10,10 +10,12 @@
 #ifndef _LIBXLATOR_H
 #define _LIBXLATOR_H
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/logging.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
+
+#include <stdint.h>             // for int32_t
+#include "glusterfs/dict.h"     // for dict_t, data_t
+#include "glusterfs/globals.h"  // for xlator_t, loc_t
+#include "glusterfs/stack.h"    // for call_frame_t
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 

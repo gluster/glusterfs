@@ -9,16 +9,12 @@
 */
 
 #include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
-#include <arpa/inet.h>
 #include <rpc/xdr.h>
 #include <sys/uio.h>
 #include <rpc/auth_unix.h>
 
-#include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
 #include "xdr-common.h"
-#include <glusterfs/logging.h>
 #include <glusterfs/common-utils.h>
 
 /* Decodes the XDR format in msgbuf into rpc_msg.

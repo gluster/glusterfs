@@ -8,11 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "dht-common.h"
 #include <glusterfs/byte-order.h>
-#include "dht-messages.h"
 #include "unittest/unittest.h"
 
 #define layout_base_size (sizeof(dht_layout_t))

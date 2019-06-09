@@ -9,10 +9,11 @@
 */
 
 #include "glusterfs/fd.h"
-#include "glusterfs/glusterfs.h"
-#include "glusterfs/dict.h"
+#include <errno.h>     // for EINVAL, errno, ENOMEM
+#include <inttypes.h>  // for PRIu64
+#include <stdint.h>    // for UINT32_MAX
+#include <string.h>    // for NULL, memcpy, memset, size_t
 #include "glusterfs/statedump.h"
-#include "glusterfs/libglusterfs-messages.h"
 
 static int
 gf_fd_fdtable_expand(fdtable_t *fdtable, uint32_t nr);

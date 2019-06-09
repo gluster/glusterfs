@@ -12,20 +12,15 @@
 #include "name.h"
 #include <glusterfs/dict.h>
 #include "rpc-transport.h"
-#include <glusterfs/logging.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/byte-order.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include "socket-mem-types.h"
-#include <glusterfs/timer.h>
 
 /* ugly #includes below */
 #include "protocol-common.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs4-xdr.h"
-#include "xdr-nfs3.h"
 #include "rpcsvc.h"
 
 /* for TCP_USER_TIMEOUT */

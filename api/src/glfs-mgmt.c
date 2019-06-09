@@ -18,22 +18,15 @@
 #include <glusterfs/glusterfs.h>
 #include "glfs.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/gf-event.h>
-#include <glusterfs/defaults.h>
 
 #include "rpc-clnt.h"
 #include "protocol-common.h"
-#include "glusterfs3.h"
-#include "portmap-xdr.h"
-#include "xdr-common.h"
 #include "xdr-generic.h"
 #include "rpc-common-xdr.h"
 
 #include <glusterfs/syncop.h>
-#include <glusterfs/xlator.h>
 
 #include "glfs-internal.h"
-#include "glfs-mem-types.h"
 #include "gfapi-messages.h"
 #include <glusterfs/syscall.h>
 

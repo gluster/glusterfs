@@ -12,11 +12,8 @@
 #include <limits.h>
 #include <pthread.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 
 #include "locks.h"
 #include "common.h"
@@ -24,7 +21,6 @@
 #include "clear.h"
 #include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
-#include "pl-messages.h"
 
 #ifndef LLONG_MAX
 #define LLONG_MAX LONG_LONG_MAX /* compat with old gcc */

@@ -11,8 +11,6 @@
 #ifndef _XDR_RPCCLNT_H
 #define _XDR_RPCCLNT_H
 
-//#include <rpc/rpc.h>
-//#include <rpc/pmap_clnt.h>
 #include <arpa/inet.h>
 #include <rpc/xdr.h>
 #include <sys/uio.h>

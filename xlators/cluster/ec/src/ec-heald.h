@@ -11,9 +11,9 @@
 #ifndef __EC_HEALD_H__
 #define __EC_HEALD_H__
 
-#include <glusterfs/xlator.h>
-
-#include "ec-types.h"
+#include "ec-types.h"           // for ec_t
+#include "glusterfs/dict.h"     // for dict_t
+#include "glusterfs/globals.h"  // for xlator_t
 
 int
 ec_xl_op(xlator_t *this, dict_t *input, dict_t *output);
