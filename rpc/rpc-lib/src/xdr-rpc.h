@@ -20,7 +20,6 @@
 #include <rpc/auth_sys.h>
 #endif
 
-//#include <rpc/pmap_clnt.h>
 #include <arpa/inet.h>
 #include <rpc/xdr.h>
 #include <sys/uio.h>

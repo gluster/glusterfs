@@ -10,8 +10,6 @@
 
 #include <errno.h>
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/defaults.h>
 
 #include "posix-acl.h"

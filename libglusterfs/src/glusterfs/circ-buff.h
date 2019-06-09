@@ -12,8 +12,6 @@
 #define _CB_H
 
 #include "glusterfs/common-utils.h"
-#include "glusterfs/logging.h"
-#include "glusterfs/mem-types.h"
 
 #define BUFFER_SIZE 10
 #define TOTAL_SIZE BUFFER_SIZE + 1

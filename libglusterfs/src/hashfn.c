@@ -11,23 +11,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "glusterfs/hashfn.h"
-
 #define get16bits(d) (*((const uint16_t *)(d)))
 
 #define DM_DELTA 0x9E3779B9
 #define DM_FULLROUNDS 10 /* 32 is overkill, 16 is strong crypto */
 #define DM_PARTROUNDS 6  /* 6 gets complete mixing */
-
-uint32_t
-ReallySimpleHash(char *path, int len)
-{
-    uint32_t hash = 0;
-    for (; len > 0; len--)
-        hash ^= (char)path[len];
-
-    return hash;
-}
 
 /*
   This is apparently the "fastest hash function for strings".

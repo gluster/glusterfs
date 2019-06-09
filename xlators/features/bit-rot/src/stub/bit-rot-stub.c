@@ -13,7 +13,6 @@
 #include <signal.h>
 
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include "changelog.h"
 #include <glusterfs/compat-errno.h>

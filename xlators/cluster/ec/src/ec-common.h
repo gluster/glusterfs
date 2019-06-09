@@ -11,8 +11,7 @@
 #ifndef __EC_COMMON_H__
 #define __EC_COMMON_H__
 
-#include <glusterfs/xlator.h>
-
+#include "glusterfs/compat-errno.h"  // for ENODATA on BSD
 #include "ec-data.h"
 
 typedef enum { EC_DATA_TXN, EC_METADATA_TXN } ec_txn_t;

@@ -10,14 +10,12 @@
 
 #ifndef __RBTHASH_TABLE_H_
 #define __RBTHASH_TABLE_H_
-#include "rb.h"
-#include "glusterfs/locking.h"
-#include "glusterfs/mem-pool.h"
-#include "glusterfs/logging.h"
-#include "glusterfs/common-utils.h"
-#include "glusterfs/list.h"
 
-#include <pthread.h>
+#include <stdint.h>               // for uint32_t
+#include "glusterfs/glusterfs.h"  // for gf_boolean_t, glusterfs_ctx_t
+#include "glusterfs/list.h"       // for list_head
+#include "glusterfs/locking.h"    // for gf_lock_t
+struct mem_pool;
 
 #define GF_RBTHASH_MEMPOOL 16384  // 1048576
 #define GF_RBTHASH "rbthash"

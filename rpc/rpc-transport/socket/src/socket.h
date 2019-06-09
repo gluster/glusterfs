@@ -22,12 +22,7 @@
 #include <openssl/ecdh.h>
 #endif
 
-#include <glusterfs/gf-event.h>
 #include "rpc-transport.h"
-#include <glusterfs/logging.h>
-#include <glusterfs/dict.h>
-#include <glusterfs/mem-pool.h>
-#include <glusterfs/globals.h>
 #include <glusterfs/refcount.h>
 
 #ifndef MAX_IOVEC

@@ -9,8 +9,8 @@
 */
 
 #include "glusterfs/mem-pool.h"
-#include "glusterfs/logging.h"
-#include "glusterfs/xlator.h"
+#include "glusterfs/common-utils.h"  // for GF_ASSERT, gf_thread_cr...
+#include "glusterfs/globals.h"       // for xlator_t, THIS
 #include <stdlib.h>
 #include <stdarg.h>
 

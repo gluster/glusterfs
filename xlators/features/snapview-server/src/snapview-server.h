@@ -19,10 +19,8 @@
 #include <ctype.h>
 #include <sys/uio.h>
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include "glfs.h"
-#include <glusterfs/common-utils.h>
 #include "glfs-handles.h"
 #include "glfs-internal.h"
 #include "glusterfs3-xdr.h"

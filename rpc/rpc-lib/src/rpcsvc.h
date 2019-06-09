@@ -13,14 +13,8 @@
 
 #include <glusterfs/gf-event.h>
 #include "rpc-transport.h"
-#include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/mem-pool.h>
-#include <glusterfs/list.h>
-#include <glusterfs/iobuf.h>
 #include "xdr-rpc.h"
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "rpcsvc-common.h"
 
 #include <pthread.h>

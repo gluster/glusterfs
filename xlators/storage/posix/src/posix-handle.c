@@ -16,11 +16,8 @@
 #include <alloca.h>
 #endif
 
-#include <glusterfs/common-utils.h>
-
 #include "posix-handle.h"
 #include "posix.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/syscall.h>
 #include "posix-messages.h"
 #include "posix-metadata.h"

@@ -7,13 +7,9 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <fnmatch.h>
 
 #include "quota.h"
-#include <glusterfs/common-utils.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/quota-common-utils.h>
 #include "quota-messages.h"
 #include <glusterfs/events.h>
 

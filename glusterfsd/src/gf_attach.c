@@ -12,9 +12,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-//#include "config.h"
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/globals.h>
 #include "glfs-internal.h"
 #include "rpc-clnt.h"
 #include "protocol-common.h"

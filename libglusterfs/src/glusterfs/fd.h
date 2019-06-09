@@ -17,7 +17,6 @@
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/locking.h"
 #include "glusterfs/fd-lk.h"
-#include "glusterfs/common-utils.h"
 
 #define GF_ANON_FD_NO -2
 #define GF_ANON_FD_FLAGS (O_RDWR | O_LARGEFILE)

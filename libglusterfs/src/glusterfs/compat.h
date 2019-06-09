@@ -40,10 +40,6 @@
 #define GF_XATTR_NAME_MAX XATTR_NAME_MAX
 #endif /* GF_LINUX_HOST_OS */
 
-#ifdef HAVE_XATTR_H
-#include <sys/xattr.h>
-#endif
-
 /*
  * Define the fallocate flags in case we do not have the header. This also
  * accounts for older systems that do not define FALLOC_FL_PUNCH_HOLE.

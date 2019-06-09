@@ -14,9 +14,7 @@
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/syncop.h>
 
 #include "locks.h"

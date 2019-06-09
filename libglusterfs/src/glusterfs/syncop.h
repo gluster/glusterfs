@@ -11,11 +11,11 @@
 #ifndef _SYNCOP_H
 #define _SYNCOP_H
 
-#include "glusterfs/xlator.h"
 #include <sys/time.h>
 #include <pthread.h>
 #include <ucontext.h>
-
+#include "glusterfs/dict.h"   // for dict_t
+#include "glusterfs/stack.h"  // for call_frame_t, STACK_DESTROY, STACK_...
 #define SYNCENV_PROC_MAX 16
 #define SYNCENV_PROC_MIN 2
 #define SYNCPROC_IDLE_TIME 600

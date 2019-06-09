@@ -12,14 +12,12 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "glfs.h"
-#include "glfs-handles.h"
 #include "glfs-internal.h"
 #include "protocol-common.h"
 #include <glusterfs/syscall.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include <string.h>
-#include <time.h>
 #include <glusterfs/glusterfs.h>
 #include <libgen.h>
 

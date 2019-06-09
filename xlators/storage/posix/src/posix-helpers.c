@@ -33,17 +33,10 @@
 #endif /* GF_BSD_HOST_OS */
 
 #include <fnmatch.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/checksum.h>
-#include <glusterfs/dict.h>
-#include <glusterfs/logging.h>
 #include "posix.h"
 #include "posix-messages.h"
 #include "posix-metadata.h"
 #include "posix-handle.h"
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/byte-order.h>
@@ -52,7 +45,6 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timer.h>
 #include "glusterfs3-xdr.h"
-#include <glusterfs/hashfn.h>
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-gfid-path.h"
 #include <glusterfs/events.h>

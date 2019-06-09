@@ -32,11 +32,9 @@
 #include <sys/extattr.h>
 #endif
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/timer.h>
 #include "posix-mem-types.h"
-#include "posix-handle.h"
 #include <glusterfs/call-stub.h>
 
 #ifdef HAVE_LIBAIO

@@ -7,8 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include "posix.h"
 #include <sys/uio.h>
 #include "posix-messages.h"

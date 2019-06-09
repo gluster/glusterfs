@@ -8,16 +8,32 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs/xlator.h"
-#include <dlfcn.h>
-#include <netdb.h>
-#include <fnmatch.h>
-#include <stdlib.h>
+#include <stdint.h>                  // for uint32_t
+#include <sys/time.h>                // for timeval
+#include <errno.h>                   // for EIO, errno, EINVAL, ENOMEM
+#include <fnmatch.h>                 // for fnmatch, FNM_NOESCAPE
+#include <openssl/sha.h>             // for SHA256_DIGEST_LENGTH
+#include <regex.h>                   // for regmatch_t, regcomp
+#include <stdio.h>                   // for fclose, fopen, snprintf
+#include <stdlib.h>                  // for NULL, atoi, mkstemp
+#include <string.h>                  // for strcmp, strerror, memcpy
+#include <strings.h>                 // for rindex
+#include <sys/stat.h>                // for stat
+#include <sys/time.h>                // for gettimeofday
+#include <unistd.h>                  // for gethostname, getpid
+#include "glusterfs-fops.h"          // for GF_EVENT_GRAPH_NEW, GF_...
+#include "glusterfs/common-utils.h"  // for gf_strncpy, gf_time_fmt
 #include "glusterfs/defaults.h"
-#include <unistd.h>
-#include "glusterfs/syscall.h"
-#include <regex.h>
-#include "glusterfs/libglusterfs-messages.h"
+#include "glusterfs/dict.h"                   // for dict_foreach, dict_set_...
+#include "glusterfs/globals.h"                // for xlator_t, xlator_list_t
+#include "glusterfs/glusterfs.h"              // for glusterfs_graph_t, glus...
+#include "glusterfs/libglusterfs-messages.h"  // for LG_MSG_GRAPH_ERROR, LG_...
+#include "glusterfs/list.h"                   // for list_add, list_del_init
+#include "glusterfs/logging.h"                // for gf_msg, GF_LOG_ERROR
+#include "glusterfs/mem-pool.h"               // for GF_FREE, gf_strdup, GF_...
+#include "glusterfs/mem-types.h"              // for gf_common_mt_xlator_list_t
+#include "glusterfs/options.h"                // for xlator_tree_reconfigure
+#include "glusterfs/syscall.h"                // for sys_close, sys_stat
 
 #if 0
 static void

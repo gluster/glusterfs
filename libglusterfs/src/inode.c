@@ -15,7 +15,6 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include "glusterfs/list.h"
-#include <time.h>
 #include <assert.h>
 #include "glusterfs/libglusterfs-messages.h"
 

@@ -9,12 +9,11 @@
 */
 
 #include "dht-common.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/syscall.h>
-#include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>
 #include <glusterfs/events.h>
+#include "glusterfs/compat-errno.h"  // for ENODATA on BSD
 
 #define GF_DISK_SECTOR_SIZE 512
 #define DHT_REBALANCE_PID 4242              /* Change it if required */

@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/byte-order.h>
@@ -17,7 +16,6 @@
 #include <glusterfs/cluster-syncop.h>
 
 #include "ec.h"
-#include "ec-mem-types.h"
 #include "ec-types.h"
 #include "ec-messages.h"
 #include "ec-helpers.h"

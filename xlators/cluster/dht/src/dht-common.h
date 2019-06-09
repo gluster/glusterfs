@@ -9,8 +9,6 @@
 */
 
 #include <regex.h>
-#include <signal.h>
-#include <fnmatch.h>
 
 #include "dht-mem-types.h"
 #include "dht-messages.h"

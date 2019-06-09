@@ -12,7 +12,6 @@
 #include <string.h>
 #include <stdint.h>
 #include "glusterfs/compat.h"
-#include "glusterfs/xlator.h"
 #include "glusterfs/syncop.h"
 
 #define ONE 1ULL

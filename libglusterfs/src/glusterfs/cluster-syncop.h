@@ -11,10 +11,10 @@
 #ifndef _CLUSTER_SYNCOP_H
 #define _CLUSTER_SYNCOP_H
 
-#include "glusterfs/xlator.h"
 #include <sys/time.h>
 #include <pthread.h>
 #include <ucontext.h>
+
 #include "glusterfs/defaults.h"
 #include "glusterfs/default-args.h"
 #include "glusterfs/syncop.h"

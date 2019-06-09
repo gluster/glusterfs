@@ -10,9 +10,6 @@
 
 #include <string.h>
 
-#include <glusterfs/mem-pool.h>
-#include <glusterfs/list.h>
-
 #include "ec-mem-types.h"
 #include "ec-gf8.h"
 #include "ec-helpers.h"

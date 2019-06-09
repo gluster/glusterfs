@@ -10,11 +10,7 @@
 
 /* TODO: add NS locking */
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "dht-common.h"
-#include "dht-messages.h"
-#include <glusterfs/defaults.h>
 
 #include <sys/time.h>
 #include <glusterfs/events.h>

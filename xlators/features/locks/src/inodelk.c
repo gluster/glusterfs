@@ -9,16 +9,14 @@
 */
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
+#include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/list.h>
 #include <glusterfs/upcall-utils.h>
 
 #include "locks.h"
 #include "clear.h"
 #include "common.h"
-#include "pl-messages.h"
 
 void
 __delete_inode_lock(pl_inode_lock_t *lock)

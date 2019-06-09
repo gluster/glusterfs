@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -16,14 +15,9 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-#ifdef GF_SOLARIS_HOST_OS
 #include "glusterfs/logging.h"
-#endif /* GF_SOLARIS_HOST_OS */
-
 #include "glusterfs/compat.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/iatt.h"
-#include "glusterfs/inode.h"
 #include "glusterfs/syscall.h"
 #include "glusterfs/run.h"
 #include "glusterfs/libglusterfs-messages.h"

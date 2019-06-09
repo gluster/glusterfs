@@ -10,13 +10,8 @@
 
 #include <pthread.h>
 
-#include "glusterfs/glusterfs.h"
-#include "glusterfs/globals.h"
-#include "glusterfs/xlator.h"
-#include "glusterfs/mem-pool.h"
 #include "glusterfs/syncop.h"
 #include "glusterfs/libglusterfs-messages.h"
-#include "glusterfs/upcall-utils.h"
 
 const char *gf_fop_list[GF_FOP_MAXVALUE] = {
     [GF_FOP_NULL] = "NULL",

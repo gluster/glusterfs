@@ -18,10 +18,6 @@
 #include <glusterfs/logging.h>
 #include "rpc-transport.h"
 #include <glusterfs/glusterfs.h>
-/* FIXME: xlator.h is needed for volume_option_t, need to define the datatype
- * in some other header
- */
-#include <glusterfs/xlator.h>
 #include <glusterfs/list.h>
 
 #ifndef GF_OPTION_LIST_EMPTY

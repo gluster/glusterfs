@@ -16,7 +16,6 @@
 #include <pthread.h>
 
 #include "glusterfs/common-utils.h"
-#include "glusterfs/libglusterfs-messages.h"
 
 typedef struct _data data_t;
 typedef struct _dict dict_t;

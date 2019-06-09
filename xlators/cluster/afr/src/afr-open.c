@@ -8,9 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <libgen.h>
 #include <unistd.h>
-#include <fnmatch.h>
 #include <sys/time.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -18,11 +16,7 @@
 #include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/hashfn.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/list.h>
-#include <glusterfs/call-stub.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
@@ -30,10 +24,6 @@
 #include <glusterfs/byte-order.h>
 #include <glusterfs/statedump.h>
 
-#include "afr-inode-read.h"
-#include "afr-inode-write.h"
-#include "afr-dir-read.h"
-#include "afr-dir-write.h"
 #include "afr-transaction.h"
 
 gf_boolean_t

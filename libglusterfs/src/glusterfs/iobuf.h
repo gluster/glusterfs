@@ -11,11 +11,12 @@
 #ifndef _IOBUF_H_
 #define _IOBUF_H_
 
-#include "glusterfs/list.h"
-#include "glusterfs/common-utils.h"
-#include <pthread.h>
+#include <stddef.h>  // for size_t
 #include <sys/mman.h>
-#include <sys/uio.h>
+#include "glusterfs/atomic.h"   // for gf_atomic_t
+#include <sys/uio.h>            // for struct iovec
+#include "glusterfs/locking.h"  // for gf_lock_t
+#include "glusterfs/list.h"
 
 #define GF_VARIABLE_IOBUF_COUNT 32
 

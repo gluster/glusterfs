@@ -18,9 +18,7 @@
 #include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/hashfn.h>
-#include <glusterfs/logging.h>
 #include <glusterfs/list.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/defaults.h>

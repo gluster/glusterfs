@@ -14,11 +14,7 @@
 #include "glusterfs/fd.h"
 #include "glusterfs/locking.h"
 #include "glusterfs/list.h"
-#include "glusterfs/logging.h"
-#include "glusterfs/mem-pool.h"
-#include "glusterfs/mem-types.h"
 #include "glusterfs/glusterfs.h"
-#include "glusterfs/common-utils.h"
 
 #define get_lk_type(type)                                                      \
     type == F_UNLCK ? "F_UNLCK" : (type == F_RDLCK ? "F_RDLCK" : "F_WRLCK")
