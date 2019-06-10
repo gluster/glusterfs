@@ -16,6 +16,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
+TEST $CLI volume set $V0 cluster.heal-timeout 5
 TEST $CLI volume start $V0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST touch $M0/file
@@ -38,7 +39,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 
-#file fill in split-brain
+#file still in split-brain
 cat $M0/file > /dev/null
 EXPECT "1" echo $?
 
@@ -124,7 +125,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 
-#file fill in split-brain
+#file still in split-brain
 cat $M0/file > /dev/null
 EXPECT "1" echo $?
 
@@ -179,7 +180,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 TEST $CLI volume heal $V0
 
-#file fill in split-brain
+#file still in split-brain
 cat $M0/file > /dev/null
 EXPECT "1" echo $?
 
