@@ -19,7 +19,7 @@ TEST $GFS -s $H0 --volfile-id $V0 $M1;
 # create operations
 TEST $(dirname $0)/rpc-coverage.sh $M1
 
-TEST cp $(dirname ${0})/../../api/examples/glfsxmp.c glfsxmp.c
+TEST cp $(dirname ${0})/gfapi/glfsxmp-coverage.c glfsxmp.c
 TEST build_tester ./glfsxmp.c -lgfapi
 TEST ./glfsxmp $V0 $H0
 TEST cleanup_tester ./glfsxmp

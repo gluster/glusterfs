@@ -40,7 +40,7 @@ TEST [ -z $create_max_latency ];
 TEST $CLI volume reset $V0 delay-gen.enable
 TEST $CLI volume set $V0 delay-gen.delay-duration 100
 
-cp $(dirname ${0})/../../api/examples/glfsxmp.c glfsxmp.c
+cp $(dirname ${0})/../basic/gfapi/glfsxmp-coverage.c glfsxmp.c
 build_tester ./glfsxmp.c -lgfapi
 ./glfsxmp $V0 $H0 >/dev/null
 cleanup_tester ./glfsxmp

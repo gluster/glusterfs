@@ -35,7 +35,7 @@ TEST $GFS -s $H0 --volfile-id $V0 $M1;
 ## which covers maximum fops
 TEST $(dirname $0)/../basic/rpc-coverage.sh $M1
 
-TEST cp $(dirname ${0})/../../api/examples/glfsxmp.c glfsxmp.c
+TEST cp $(dirname ${0})/../basic/gfapi/glfsxmp-coverage.c glfsxmp.c
 TEST build_tester ./glfsxmp.c -lgfapi
 TEST ./glfsxmp $V0 $H0
 TEST cleanup_tester ./glfsxmp

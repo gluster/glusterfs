@@ -22,7 +22,7 @@ TEST $CLI volume start $V0;
 
 TEST $GFS -s $H0 --volfile-id $V0 $M1;
 
-cp $(dirname ${0})/../../api/examples/glfsxmp.c glfsxmp.c
+cp $(dirname ${0})/../basic/gfapi/glfsxmp-coverage.c glfsxmp.c
 build_tester ./glfsxmp.c -lgfapi
 for i in $(seq 1 10); do
     # as there is error-gen, there can be errors, so no
@@ -33,8 +33,6 @@ done
 
 TEST cleanup_tester ./glfsxmp
 TEST rm ./glfsxmp.c
-
-
 
 ## Finish up
 TEST $CLI volume stop $V0;
