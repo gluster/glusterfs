@@ -552,6 +552,38 @@ function process_pids() {
         echo "${pids[@]}"
 }
 
+## Lock files should get automatically removed once "usradd" or "groupadd"
+## command finishes. But sometimes we encounter situations (bugs) where
+## some of these files may not get properly unlocked after the execution of
+## the command. In that case, when we execute useradd next time, it may show
+## the error “cannot lock /etc/password” or “unable to lock group file”.
+## So, to avoid any such errors, check for any lock files under /etc.
+## and remove those.
+
+function remove_lock_files()
+{
+        if [ ! -f /etc/passwd.lock ];
+        then
+                rm -rf /etc/passwd.lock;
+        fi
+
+        if [ ! -f /etc/group.lock ];
+        then
+                rm -rf /etc/group.lock;
+        fi
+
+        if [ ! -f /etc/shadow.lock ];
+        then
+                rm -rf /etc/shadow.lock;
+        fi
+
+        if [ ! -f /etc/gshadow.lock ];
+        then
+                rm -rf /etc/gshadow.lock;
+        fi
+}
+
+
 function cleanup()
 {
         local end_time
@@ -571,6 +603,9 @@ function cleanup()
                 flag=""
                 ;;
         esac
+
+        # Clean up lock files.
+        remove_lock_files
 
         # Clean up all client mounts
         for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
