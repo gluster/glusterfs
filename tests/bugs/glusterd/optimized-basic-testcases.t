@@ -286,7 +286,9 @@ TEST ! $CLI volume create "test" $H0:/var/lib/glusterd force
 TEST ! $CLI volume create "test" $H0:/var/lib/glusterd/abc
 TEST ! $CLI volume create "test" $H0:/var/lib/glusterd/abc force
 mkdir -p /xyz/var/lib/glusterd/abc
-TEST  $CLI volume create "test" $H0:/xyz/var/lib/glusterd/abc
+
+#bug 1716812 - volfile should be created with transport type both
+TEST  $CLI volume create "test" transport tcp,rdma $H0:/xyz/var/lib/glusterd/abc
 EXPECT 'Created' volinfo_field "test" 'Status';
 
 #While taking a statedump, there is a TRY_LOCK on call_frame, which might may cause
