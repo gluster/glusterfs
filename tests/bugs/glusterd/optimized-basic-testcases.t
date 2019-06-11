@@ -269,5 +269,10 @@ pkill glusterd;
 pkill glusterfsd;
 TEST glusterd
 TEST $CLI volume status $V1
+TEST $CLI volume stop $V1
+TEST $CLI volume delete $V1
+
+#bug 1721109 - volfile should be created with transport type both
+TEST $CLI volume create $V1 transport tcp,rdma $H0:$B0/${V1}2
 
 cleanup

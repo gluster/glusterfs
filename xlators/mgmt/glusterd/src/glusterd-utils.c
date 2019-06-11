@@ -12760,6 +12760,7 @@ glusterd_get_gfproxy_client_volfile (glusterd_volinfo_t *volinfo,
 
         switch (volinfo->transport_type) {
         case GF_TRANSPORT_TCP:
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
                 snprintf (path, path_len,
                                 "%s/trusted-%s.tcp-gfproxy-fuse.vol",
                                 workdir, volinfo->volname);
