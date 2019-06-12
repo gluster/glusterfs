@@ -246,6 +246,19 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
         if (replies[i].op_ret != 0)
             continue;
 
+        if (gf_uuid_is_null(replies[i].poststat.ia_gfid))
+            continue;
+
+        if (replies[i].poststat.ia_type == IA_INVAL)
+            continue;
+
+        if (ia_type == IA_INVAL || gf_uuid_is_null(gfid)) {
+            src_idx = i;
+            ia_type = replies[src_idx].poststat.ia_type;
+            gfid = &replies[src_idx].poststat.ia_gfid;
+            continue;
+        }
+
         if (gf_uuid_compare(gfid, replies[i].poststat.ia_gfid) &&
             (ia_type == replies[i].poststat.ia_type)) {
             ret = afr_gfid_split_brain_source(this, replies, inode, pargfid,
