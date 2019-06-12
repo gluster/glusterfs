@@ -55,7 +55,8 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
     for (i = 0; i < priv->child_count; i++) {
         if (source == -1) {
             /* case (a) above. */
-            if (replies[i].valid && replies[i].op_ret == 0) {
+            if (replies[i].valid && replies[i].op_ret == 0 &&
+                replies[i].poststat.ia_type != IA_INVAL) {
                 ia_type = replies[i].poststat.ia_type;
                 break;
             }
@@ -63,7 +64,8 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
             /* case (b) above. */
             if (i == source)
                 continue;
-            if (sources[i] && replies[i].valid && replies[i].op_ret == 0) {
+            if (sources[i] && replies[i].valid && replies[i].op_ret == 0 &&
+                replies[i].poststat.ia_type != IA_INVAL) {
                 ia_type = replies[i].poststat.ia_type;
                 break;
             }
@@ -77,6 +79,12 @@ heal:
     for (i = 0; i < priv->child_count; i++) {
         if (!replies[i].valid || replies[i].op_ret != 0)
             continue;
+
+        if (gf_uuid_is_null(gfid) &&
+            !gf_uuid_is_null(replies[i].poststat.ia_gfid) &&
+            replies[i].poststat.ia_type == ia_type)
+            gfid = replies[i].poststat.ia_gfid;
+
         if (!gf_uuid_is_null(replies[i].poststat.ia_gfid) ||
             replies[i].poststat.ia_type != ia_type)
             continue;
