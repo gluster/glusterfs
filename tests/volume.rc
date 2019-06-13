@@ -944,3 +944,33 @@ function number_healer_threads_shd {
    local pid=$(get_shd_mux_pid $1)
    pstack $pid | grep $2 | wc -l
 }
+
+function get_mtime {
+    local time=$(get-mdata-xattr -m $1)
+    if [ $time == "-1" ];
+    then
+        echo $(stat -c %Y $1)
+    else
+        echo $time
+    fi
+}
+
+function get_ctime {
+    local time=$(get-mdata-xattr -c $1)
+    if [ $time == "-1" ];
+    then
+        echo $(stat -c %Z $2)
+    else
+        echo $time
+    fi
+}
+
+function get_atime {
+    local time=$(get-mdata-xattr -a $1)
+    if [ $time == "-1" ];
+    then
+        echo $(stat -c %X $1)
+    else
+        echo $time
+    fi
+}
