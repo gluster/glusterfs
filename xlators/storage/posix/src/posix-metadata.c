@@ -416,6 +416,22 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                  * still fine as the times would get eventually
                  * accurate.
                  */
+
+                /* Don't create xattr with utimes/utimensat, only update if
+                 * present. This otherwise causes issues during inservice
+                 * upgrade. It causes inconsistent xattr values with in replica
+                 * set. The scenario happens during upgrade where clients are
+                 * older versions (without the ctime feature) and the server is
+                 * upgraded to the new version (with the ctime feature which
+                 * is enabled by default).
+                 */
+
+                if (update_utime) {
+                    UNLOCK(&inode->lock);
+                    GF_FREE(mdata);
+                    return 0;
+                }
+
                 mdata->version = 1;
                 mdata->flags = 0;
                 mdata->ctime.tv_sec = time->tv_sec;
@@ -527,6 +543,11 @@ posix_update_utime_in_mdata(xlator_t *this, const char *real_path, int fd,
 
     priv = this->private;
 
+    /* NOTE:
+     * This routine (utimes) is intentionally allowed for all internal and
+     * external clients even if ctime is not set. This is because AFR and
+     * WORM uses time attributes for it's internal operations
+     */
     if (inode && priv->ctime) {
         if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
             tv.tv_sec = stbuf->ia_atime;
