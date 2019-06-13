@@ -91,6 +91,26 @@
 #define NLMV4_VERSION 4
 #define NLMV1_VERSION 1
 
+#define GLUSTERD_GET_NFS_PIDFILE(pidfile, priv)                                \
+    do {                                                                       \
+        int32_t _nfs_pid_len;                                                  \
+        _nfs_pid_len = snprintf(pidfile, PATH_MAX, "%s/nfs/nfs.pid",           \
+                                priv->rundir);                                 \
+        if ((_nfs_pid_len < 0) || (_nfs_pid_len >= PATH_MAX)) {                \
+            pidfile[0] = 0;                                                    \
+        }                                                                      \
+    } while (0)
+
+#define GLUSTERD_GET_QUOTAD_PIDFILE(pidfile, priv)                             \
+    do {                                                                       \
+        int32_t _quotad_pid_len;                                               \
+        _quotad_pid_len = snprintf(pidfile, PATH_MAX, "%s/quotad/quotad.pid",  \
+                                   priv->rundir);                              \
+        if ((_quotad_pid_len < 0) || (_quotad_pid_len >= PATH_MAX)) {          \
+            pidfile[0] = 0;                                                    \
+        }                                                                      \
+    } while (0)
+
 gf_boolean_t
 is_brick_mx_enabled(void)
 {
@@ -8443,7 +8463,6 @@ glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     char pidfile_path[PATH_MAX] = "";
-    char path[PATH_MAX] = "";
     FILE *pidfile = NULL;
     pid_t pid = -1;
     char dumpoptions_path[PATH_MAX] = "";
@@ -8472,8 +8491,7 @@ glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
         goto out;
     }
 
-    GLUSTERD_GET_NFS_DIR(path, conf);
-    GLUSTERD_GET_NFS_PIDFILE(pidfile_path, path, conf);
+    GLUSTERD_GET_NFS_PIDFILE(pidfile_path, conf);
 
     pidfile = fopen(pidfile_path, "r");
     if (!pidfile) {
@@ -8574,7 +8592,6 @@ glusterd_quotad_statedump(char *options, int option_cnt, char **op_errstr)
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     char pidfile_path[PATH_MAX] = "";
-    char path[PATH_MAX] = "";
     FILE *pidfile = NULL;
     pid_t pid = -1;
     char dumpoptions_path[PATH_MAX] = "";
@@ -8602,8 +8619,7 @@ glusterd_quotad_statedump(char *options, int option_cnt, char **op_errstr)
         goto out;
     }
 
-    GLUSTERD_GET_QUOTAD_DIR(path, conf);
-    GLUSTERD_GET_QUOTAD_PIDFILE(pidfile_path, path, conf);
+    GLUSTERD_GET_QUOTAD_PIDFILE(pidfile_path, conf);
 
     pidfile = fopen(pidfile_path, "r");
     if (!pidfile) {

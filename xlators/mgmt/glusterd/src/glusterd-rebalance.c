@@ -34,6 +34,31 @@
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 
+#define GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(path, volinfo, priv)                 \
+    do {                                                                       \
+        char defrag_path[PATH_MAX];                                            \
+        int32_t _sockfile_old_len;                                             \
+        GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);                   \
+        _sockfile_old_len = snprintf(path, PATH_MAX, "%s/%s.sock",             \
+                                     defrag_path, uuid_utoa(MY_UUID));         \
+        if ((_sockfile_old_len < 0) || (_sockfile_old_len >= PATH_MAX)) {      \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
+#define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo)                           \
+    do {                                                                       \
+        int32_t _defrag_sockfile_len;                                          \
+        _defrag_sockfile_len = snprintf(                                       \
+            path, UNIX_PATH_MAX,                                               \
+            DEFAULT_VAR_RUN_DIRECTORY "/gluster-%s-%s.sock", "rebalance",      \
+            uuid_utoa(volinfo->volume_id));                                    \
+        if ((_defrag_sockfile_len < 0) ||                                      \
+            (_defrag_sockfile_len >= PATH_MAX)) {                              \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
 int32_t
 glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe);

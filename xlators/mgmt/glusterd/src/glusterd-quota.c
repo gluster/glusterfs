@@ -40,6 +40,49 @@
 /* Any negative pid to make it special client */
 #define QUOTA_CRAWL_PID "-100"
 
+#define GLUSTERFS_GET_QUOTA_LIMIT_MOUNT_PIDFILE(pidfile, volname)              \
+    {                                                                          \
+        snprintf(pidfile, PATH_MAX - 1,                                        \
+                 DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_limit.pid", volname);    \
+    }
+
+#define GLUSTERFS_GET_QUOTA_LIST_MOUNT_PIDFILE(pidfile, volname)               \
+    {                                                                          \
+        snprintf(pidfile, PATH_MAX - 1,                                        \
+                 DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_list.pid", volname);     \
+    }
+
+#define GLUSTERD_GET_QUOTA_CRAWL_PIDDIR(piddir, volinfo, type)                 \
+    do {                                                                       \
+        char _volpath[PATH_MAX] = {                                            \
+            0,                                                                 \
+        };                                                                     \
+        int32_t _crawl_pid_len;                                                \
+        GLUSTERD_GET_VOLUME_DIR(_volpath, volinfo, priv);                      \
+        if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||                             \
+            type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)                       \
+            _crawl_pid_len = snprintf(piddir, PATH_MAX, "%s/run/quota/enable", \
+                                      _volpath);                               \
+        else                                                                   \
+            _crawl_pid_len = snprintf(piddir, PATH_MAX,                        \
+                                      "%s/run/quota/disable", _volpath);       \
+        if ((_crawl_pid_len < 0) || (_crawl_pid_len >= PATH_MAX)) {            \
+            piddir[0] = 0;                                                     \
+        }                                                                      \
+    } while (0)
+
+#define GLUSTERD_GET_TMP_PATH(abspath, path)                                   \
+    do {                                                                       \
+        snprintf(abspath, sizeof(abspath) - 1,                                 \
+                 DEFAULT_VAR_RUN_DIRECTORY "/tmp%s", path);                    \
+    } while (0)
+
+#define GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(abspath, volname, path)             \
+    do {                                                                       \
+        snprintf(abspath, sizeof(abspath) - 1,                                 \
+                 DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_list%s", volname, path); \
+    } while (0)
+
 const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
     [GF_QUOTA_OPTION_TYPE_NONE] = "none",
     [GF_QUOTA_OPTION_TYPE_ENABLE] = "enable",
