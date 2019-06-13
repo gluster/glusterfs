@@ -656,22 +656,36 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         }                                                                      \
     } while (0)
 
+#define GLUSTERD_GET_DEFRAG_DIR(path, volinfo, priv)                           \
+    do {                                                                       \
+        char vol_path[PATH_MAX];                                               \
+        int32_t _defrag_dir_len;                                               \
+        GLUSTERD_GET_VOLUME_DIR(vol_path, volinfo, priv);                      \
+        _defrag_dir_len = snprintf(path, PATH_MAX, "%s/%s", vol_path,          \
+                                   "rebalance");                               \
+        if ((_defrag_dir_len < 0) || (_defrag_dir_len >= PATH_MAX)) {          \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
+#define GLUSTERD_GET_DEFRAG_PID_FILE(path, volinfo, priv)                      \
+    do {                                                                       \
+        char defrag_path[PATH_MAX];                                            \
+        int32_t _defrag_pidfile_len;                                           \
+        GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);                   \
+        _defrag_pidfile_len = snprintf(path, PATH_MAX, "%s/%s.pid",            \
+                                       defrag_path, uuid_utoa(MY_UUID));       \
+        if ((_defrag_pidfile_len < 0) || (_defrag_pidfile_len >= PATH_MAX)) {  \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
 #define GLUSTERD_GET_SHD_RUNDIR(path, volinfo, priv)                           \
     do {                                                                       \
         int32_t _shd_dir_len;                                                  \
         _shd_dir_len = snprintf(path, PATH_MAX, "%s/shd/%s", priv->rundir,     \
                                 volinfo->volname);                             \
         if ((_shd_dir_len < 0) || (_shd_dir_len >= PATH_MAX)) {                \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_SHD_PID_FILE(path, volinfo, priv)                         \
-    do {                                                                       \
-        int32_t _shd_pid_len;                                                  \
-        _shd_pid_len = snprintf(path, PATH_MAX, "%s/shd/%s-shd.pid",           \
-                                priv->rundir, volinfo->volname);               \
-        if ((_shd_pid_len < 0) || (_shd_pid_len >= PATH_MAX)) {                \
             path[0] = 0;                                                       \
         }                                                                      \
     } while (0)
@@ -692,16 +706,6 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         }                                                                      \
     } while (0)
 
-#define GLUSTERD_GET_SNAP_DIR(path, snap, priv)                                \
-    do {                                                                       \
-        int32_t _snap_dir_len;                                                 \
-        _snap_dir_len = snprintf(path, PATH_MAX, "%s/snaps/%s", priv->workdir, \
-                                 snap->snapname);                              \
-        if ((_snap_dir_len < 0) || (_snap_dir_len >= PATH_MAX)) {              \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
 #define GLUSTERD_GET_SNAP_GEO_REP_DIR(path, snap, priv)                        \
     do {                                                                       \
         int32_t _snap_geo_len;                                                 \
@@ -712,59 +716,11 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         }                                                                      \
     } while (0)
 
-#define GLUSTERD_GET_BRICK_DIR(path, volinfo, priv)                            \
-    do {                                                                       \
-        int32_t _brick_len;                                                    \
-        if (volinfo->is_snap_volume) {                                         \
-            _brick_len = snprintf(path, PATH_MAX, "%s/snaps/%s/%s/%s",         \
-                                  priv->workdir, volinfo->snapshot->snapname,  \
-                                  volinfo->volname, GLUSTERD_BRICK_INFO_DIR);  \
-        } else {                                                               \
-            _brick_len = snprintf(path, PATH_MAX, "%s/%s/%s/%s",               \
-                                  priv->workdir, GLUSTERD_VOLUME_DIR_PREFIX,   \
-                                  volinfo->volname, GLUSTERD_BRICK_INFO_DIR);  \
-        }                                                                      \
-        if ((_brick_len < 0) || (_brick_len >= PATH_MAX)) {                    \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_NFS_DIR(path, priv)                                       \
-    do {                                                                       \
-        int32_t _nfs_dir_len;                                                  \
-        _nfs_dir_len = snprintf(path, PATH_MAX, "%s/nfs", priv->workdir);      \
-        if ((_nfs_dir_len < 0) || (_nfs_dir_len >= PATH_MAX)) {                \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_QUOTAD_DIR(path, priv)                                    \
-    do {                                                                       \
-        int32_t _quotad_dir_len;                                               \
-        _quotad_dir_len = snprintf(path, PATH_MAX, "%s/quotad",                \
-                                   priv->workdir);                             \
-        if ((_quotad_dir_len < 0) || (_quotad_dir_len >= PATH_MAX)) {          \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
 #define GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH(abspath, volname, path)            \
     do {                                                                       \
         snprintf(abspath, sizeof(abspath) - 1,                                 \
                  DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_limit%s", volname,       \
                  path);                                                        \
-    } while (0)
-
-#define GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(abspath, volname, path)             \
-    do {                                                                       \
-        snprintf(abspath, sizeof(abspath) - 1,                                 \
-                 DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_list%s", volname, path); \
-    } while (0)
-
-#define GLUSTERD_GET_TMP_PATH(abspath, path)                                   \
-    do {                                                                       \
-        snprintf(abspath, sizeof(abspath) - 1,                                 \
-                 DEFAULT_VAR_RUN_DIRECTORY "/tmp%s", path);                    \
     } while (0)
 
 #define GLUSTERD_REMOVE_SLASH_FROM_PATH(path, string)                          \
@@ -793,136 +749,6 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         if ((_brick_pid_len < 0) || (_brick_pid_len >= PATH_MAX)) {            \
             pidfile[0] = 0;                                                    \
         }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_NFS_PIDFILE(pidfile, nfspath, priv)                       \
-    do {                                                                       \
-        int32_t _nfs_pid_len;                                                  \
-        _nfs_pid_len = snprintf(pidfile, PATH_MAX, "%s/nfs/nfs.pid",           \
-                                priv->rundir);                                 \
-        if ((_nfs_pid_len < 0) || (_nfs_pid_len >= PATH_MAX)) {                \
-            pidfile[0] = 0;                                                    \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_QUOTAD_PIDFILE(pidfile, quotadpath, priv)                 \
-    do {                                                                       \
-        int32_t _quotad_pid_len;                                               \
-        _quotad_pid_len = snprintf(pidfile, PATH_MAX, "%s/quotad/quotad.pid",  \
-                                   priv->rundir);                              \
-        if ((_quotad_pid_len < 0) || (_quotad_pid_len >= PATH_MAX)) {          \
-            pidfile[0] = 0;                                                    \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_QUOTA_CRAWL_PIDDIR(piddir, volinfo, type)                 \
-    do {                                                                       \
-        char _volpath[PATH_MAX] = {                                            \
-            0,                                                                 \
-        };                                                                     \
-        int32_t _crawl_pid_len;                                                \
-        GLUSTERD_GET_VOLUME_DIR(_volpath, volinfo, priv);                      \
-        if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||                             \
-            type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)                       \
-            _crawl_pid_len = snprintf(piddir, PATH_MAX, "%s/run/quota/enable", \
-                                      _volpath);                               \
-        else                                                                   \
-            _crawl_pid_len = snprintf(piddir, PATH_MAX,                        \
-                                      "%s/run/quota/disable", _volpath);       \
-        if ((_crawl_pid_len < 0) || (_crawl_pid_len >= PATH_MAX)) {            \
-            piddir[0] = 0;                                                     \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_STACK_DESTROY(frame)                                          \
-    do {                                                                       \
-        frame->local = NULL;                                                   \
-        STACK_DESTROY(frame->root);                                            \
-    } while (0)
-
-#define GLUSTERD_GET_DEFRAG_PROCESS(path, volinfo)                             \
-    do {                                                                       \
-        snprintf(path, NAME_MAX, "rebalance");                                 \
-    } while (0)
-
-#define GLUSTERD_GET_DEFRAG_DIR(path, volinfo, priv)                           \
-    do {                                                                       \
-        char vol_path[PATH_MAX];                                               \
-        char operation[NAME_MAX];                                              \
-        int32_t _defrag_dir_len;                                               \
-        GLUSTERD_GET_VOLUME_DIR(vol_path, volinfo, priv);                      \
-        GLUSTERD_GET_DEFRAG_PROCESS(operation, volinfo);                       \
-        _defrag_dir_len = snprintf(path, PATH_MAX, "%s/%s", vol_path,          \
-                                   operation);                                 \
-        if ((_defrag_dir_len < 0) || (_defrag_dir_len >= PATH_MAX)) {          \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(path, volinfo, priv)                 \
-    do {                                                                       \
-        char defrag_path[PATH_MAX];                                            \
-        int32_t _sockfile_old_len;                                             \
-        GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);                   \
-        _sockfile_old_len = snprintf(path, PATH_MAX, "%s/%s.sock",             \
-                                     defrag_path, uuid_utoa(MY_UUID));         \
-        if ((_sockfile_old_len < 0) || (_sockfile_old_len >= PATH_MAX)) {      \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo)                           \
-    do {                                                                       \
-        char operation[NAME_MAX];                                              \
-        int32_t _defrag_sockfile_len;                                          \
-        GLUSTERD_GET_DEFRAG_PROCESS(operation, volinfo);                       \
-        _defrag_sockfile_len = snprintf(                                       \
-            path, UNIX_PATH_MAX,                                               \
-            DEFAULT_VAR_RUN_DIRECTORY "/gluster-%s-%s.sock", operation,        \
-            uuid_utoa(volinfo->volume_id));                                    \
-        if ((_defrag_sockfile_len < 0) ||                                      \
-            (_defrag_sockfile_len >= PATH_MAX)) {                              \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_DEFRAG_PID_FILE(path, volinfo, priv)                      \
-    do {                                                                       \
-        char defrag_path[PATH_MAX];                                            \
-        int32_t _defrag_pidfile_len;                                           \
-        GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);                   \
-        _defrag_pidfile_len = snprintf(path, PATH_MAX, "%s/%s.pid",            \
-                                       defrag_path, uuid_utoa(MY_UUID));       \
-        if ((_defrag_pidfile_len < 0) || (_defrag_pidfile_len >= PATH_MAX)) {  \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERFS_GET_QUOTA_LIMIT_MOUNT_PIDFILE(pidfile, volname)              \
-    {                                                                          \
-        snprintf(pidfile, PATH_MAX - 1,                                        \
-                 DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_limit.pid", volname);    \
-    }
-
-#define GLUSTERFS_GET_QUOTA_LIST_MOUNT_PIDFILE(pidfile, volname)               \
-    {                                                                          \
-        snprintf(pidfile, PATH_MAX - 1,                                        \
-                 DEFAULT_VAR_RUN_DIRECTORY "/%s_quota_list.pid", volname);     \
-    }
-
-#define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid)                           \
-    do {                                                                       \
-        char *snap_volname_ptr = ret_string;                                   \
-        char tmp_uuid[64];                                                     \
-        char *snap_volid_ptr = uuid_utoa_r(uuid, tmp_uuid);                    \
-        while (*snap_volid_ptr) {                                              \
-            if (*snap_volid_ptr == '-') {                                      \
-                snap_volid_ptr++;                                              \
-            } else {                                                           \
-                (*snap_volname_ptr++) = (*snap_volid_ptr++);                   \
-            }                                                                  \
-        }                                                                      \
-        *snap_volname_ptr = '\0';                                              \
     } while (0)
 
 #define RCU_READ_LOCK                                                          \

@@ -27,6 +27,12 @@
 
 #define SERVER_PATH_MAX (16 * 1024)
 
+#define GLUSTERD_STACK_DESTROY(frame)                                          \
+    do {                                                                       \
+        frame->local = NULL;                                                   \
+        STACK_DESTROY(frame->root);                                            \
+    } while (0)
+
 extern glusterd_op_info_t opinfo;
 extern uuid_t global_txn_id;
 

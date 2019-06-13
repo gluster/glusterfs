@@ -62,6 +62,21 @@
 #include <glusterfs/lvm-defaults.h>
 #include <glusterfs/events.h>
 
+#define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid)                           \
+    do {                                                                       \
+        char *snap_volname_ptr = ret_string;                                   \
+        char tmp_uuid[64];                                                     \
+        char *snap_volid_ptr = uuid_utoa_r(uuid, tmp_uuid);                    \
+        while (*snap_volid_ptr) {                                              \
+            if (*snap_volid_ptr == '-') {                                      \
+                snap_volid_ptr++;                                              \
+            } else {                                                           \
+                (*snap_volname_ptr++) = (*snap_volid_ptr++);                   \
+            }                                                                  \
+        }                                                                      \
+        *snap_volname_ptr = '\0';                                              \
+    } while (0)
+
 char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 struct snap_create_args_ {
     xlator_t *this;

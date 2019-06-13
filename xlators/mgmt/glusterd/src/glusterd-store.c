@@ -48,6 +48,33 @@
 #include "mntent_compat.h"
 #endif
 
+#define GLUSTERD_GET_SNAP_DIR(path, snap, priv)                                \
+    do {                                                                       \
+        int32_t _snap_dir_len;                                                 \
+        _snap_dir_len = snprintf(path, PATH_MAX, "%s/snaps/%s", priv->workdir, \
+                                 snap->snapname);                              \
+        if ((_snap_dir_len < 0) || (_snap_dir_len >= PATH_MAX)) {              \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
+#define GLUSTERD_GET_BRICK_DIR(path, volinfo, priv)                            \
+    do {                                                                       \
+        int32_t _brick_len;                                                    \
+        if (volinfo->is_snap_volume) {                                         \
+            _brick_len = snprintf(path, PATH_MAX, "%s/snaps/%s/%s/%s",         \
+                                  priv->workdir, volinfo->snapshot->snapname,  \
+                                  volinfo->volname, GLUSTERD_BRICK_INFO_DIR);  \
+        } else {                                                               \
+            _brick_len = snprintf(path, PATH_MAX, "%s/%s/%s/%s",               \
+                                  priv->workdir, GLUSTERD_VOLUME_DIR_PREFIX,   \
+                                  volinfo->volname, GLUSTERD_BRICK_INFO_DIR);  \
+        }                                                                      \
+        if ((_brick_len < 0) || (_brick_len >= PATH_MAX)) {                    \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
 void
 glusterd_replace_slash_with_hyphen(char *str)
 {
