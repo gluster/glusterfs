@@ -577,20 +577,24 @@ gf_svc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
                 dict_t *xdata)
 {
-    /* Consider a testcase:
+    /* TODO: FIX ME
+     * Consider a testcase:
      * #mount -t nfs host1:/vol1 /mnt
      * #ls /mnt
      * #ls /mnt/.snaps (As expected this fails)
      * #gluster volume set vol1 features.uss enable
-     * Now `ls /mnt/.snaps` should work,
-     * but fails with No such file or directory.
-     * This is because NFS client caches the list of files in
-     * a directory. This cache is updated if there are any changes
-     * in the directory attributes. To solve this problem change
-     * a attribute 'ctime' when USS is enabled
+     * Now `ls /mnt/.snaps` should work, but fails with No such file or
+     * directory. This is because NFS client (gNFS) caches the list of files
+     * in a directory. This cache is updated if there are any changes in the
+     * directory attributes. So, one way to solve this problem is to change
+     * 'ctime' attribute when USS is enabled as below.
+     *
+     * if (op_ret == 0 && IA_ISDIR(buf->ia_type))
+     *     buf->ia_ctime_nsec++;
+     *
+     * But this is not the ideal solution as applications see the unexpected
+     * ctime change causing failures.
      */
-    if (op_ret == 0 && IA_ISDIR(buf->ia_type))
-        buf->ia_ctime_nsec++;
 
     SVC_STACK_UNWIND(stat, frame, op_ret, op_errno, buf, xdata);
     return 0;
