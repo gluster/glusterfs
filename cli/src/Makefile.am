@@ -1,6 +1,4 @@
-if WITH_SERVER
 sbin_PROGRAMS = gluster
-endif
 
 gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c cli-cmd-global.c \
 	 cli-cmd-volume.c cli-cmd-peer.c cli-rpc-ops.c cli-cmd-parser.c\
