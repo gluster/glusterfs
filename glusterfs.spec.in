@@ -348,7 +348,6 @@ is in user space and easily manageable.
 
 This package provides the api include files.
 
-%if ( 0%{!?_without_server:1} )
 %package cli
 Summary:          GlusterFS CLI
 Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
@@ -363,7 +362,6 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
 This package provides the GlusterFS CLI application and its man page
-%endif
 
 %package cloudsync-plugins
 Summary:          Cloudsync Plugins
@@ -835,10 +833,8 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
 ## Install bash completion for cli
-%if ( 0%{!?_without_server:1} )
 install -p -m 0744 -D extras/command-completion/gluster.bash \
     %{buildroot}%{_sysconfdir}/bash_completion.d/gluster
-%endif
 
 %clean
 rm -rf %{buildroot}
@@ -1098,12 +1094,10 @@ exit 0
 %dir %{_includedir}/glusterfs/api
      %{_includedir}/glusterfs/api/*
 
-%if ( 0%{!?_without_server:1} )
 %files cli
 %{_sbindir}/gluster
 %{_mandir}/man8/gluster.8*
 %{_sysconfdir}/bash_completion.d/gluster
-%endif
 
 %files cloudsync-plugins
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins
@@ -1414,6 +1408,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Jun 14 2019 Niels de Vos <ndevos@redhat.com>
+- always build glusterfs-cli to allow monitoring/managing from clients
+
 * Wed Mar 6 2019 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - remove unneeded ldconfig in scriptlets
 -  reported by Igor Gnatenko in Fedora
