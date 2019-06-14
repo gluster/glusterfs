@@ -3435,6 +3435,12 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
             goto out;
         }
 
+        /* There is a remote possibility that slave_host can be NULL when
+           control reaches here. Add a check so we wouldn't crash in next
+           line */
+        if (!slave_host)
+            goto out;
+
         /* Now, check whether session is already started.If so, warn!*/
         is_different_slavehost = (strcmp(slave_host, slave1.old_slvhost) != 0)
                                      ? _gf_true
