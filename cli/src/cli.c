@@ -223,7 +223,6 @@ logging_init(glusterfs_ctx_t *ctx, struct cli_state *state)
     /* passing ident as NULL means to use default ident for syslog */
     if (gf_log_init(ctx, log_file, NULL) == -1) {
         fprintf(stderr, "ERROR: failed to open logfile %s\n", log_file);
-        return -1;
     }
 
     /* CLI should not have something to DEBUG after the release,
