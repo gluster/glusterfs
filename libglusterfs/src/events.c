@@ -41,6 +41,7 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     char *host = NULL;
     struct addrinfo hints;
     struct addrinfo *result = NULL;
+    xlator_t *this = THIS;
 
     /* Global context */
     ctx = THIS->ctx;
@@ -82,7 +83,12 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     /* Socket Configurations */
     server.sin_family = AF_INET;
     server.sin_port = htons(EVENT_PORT);
-    server.sin_addr.s_addr = inet_addr(host);
+    ret = inet_pton(server.sin_family, host, &server.sin_addr);
+    if (ret <= 0) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+               "inet_pton failed with return code %d", ret);
+        goto out;
+    }
     memset(&server.sin_zero, '\0', sizeof(server.sin_zero));
 
     va_start(arguments, fmt);
