@@ -12,6 +12,8 @@
 # the groups into their own structures, this testcase passes.
 #
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../nfs.rc
 . $(dirname $0)/../../volume.rc
