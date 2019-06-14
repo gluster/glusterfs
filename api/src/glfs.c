@@ -45,6 +45,7 @@
 #include <glusterfs/hashfn.h>
 #include "rpc-clnt.h"
 #include <glusterfs/statedump.h>
+#include <glusterfs/syscall.h>
 
 #include "gfapi-messages.h"
 #include "glfs.h"
