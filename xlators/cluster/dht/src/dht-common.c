@@ -9052,8 +9052,6 @@ dht_mkdir_hashed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_boolean_t parent_layout_changed = _gf_false;
     call_stub_t *stub = NULL;
 
-    VALIDATE_OR_GOTO(this->private, err);
-
     local = frame->local;
     prev = cookie;
     layout = local->layout;
@@ -9643,8 +9641,6 @@ dht_rmdir_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dht_conf_t *conf = NULL;
     int i = 0;
     xlator_t *hashed_subvol;
-
-    VALIDATE_OR_GOTO(this->private, err);
 
     conf = this->private;
     local = frame->local;
