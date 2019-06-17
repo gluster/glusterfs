@@ -1085,7 +1085,7 @@ err:
 
     gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_MOUNT_SPEC_INSTALL_FAIL,
            "adding %smount spec failed: label: %s desc: %s",
-           georep ? GEOREP " " : "", label, pdesc);
+           georep ? GEOREP " " : "", label, pdesc ? pdesc : "");
 
     if (mspec) {
         if (mspec->patterns) {

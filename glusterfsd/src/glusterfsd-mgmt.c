@@ -1336,7 +1336,6 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
     xlator_t *brick_xl = NULL;
     dict_t *dict = NULL;
     dict_t *output = NULL;
-    char *xname = NULL;
     uint32_t cmd = 0;
     char *msg = NULL;
     char *brickname = NULL;
@@ -1399,7 +1398,7 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
 
     brick_xl = get_xlator_by_name(server_xl, brickname);
     if (!brick_xl) {
-        gf_log(this->name, GF_LOG_ERROR, "xlator %s is not loaded", xname);
+        gf_log(this->name, GF_LOG_ERROR, "xlator is not loaded");
         ret = -1;
         goto out;
     }
@@ -1462,7 +1461,6 @@ out:
         dict_unref(output);
     free(brick_req.input.input_val);
     free(brick_req.name);
-    GF_FREE(xname);
     GF_FREE(msg);
     GF_FREE(rsp.output.output_val);
 

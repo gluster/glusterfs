@@ -123,7 +123,7 @@ new_volume (char *name)
         int          ret = 0;
 
         if (!name) {
-                gf_msg_debug ("parser", 0,"Invalid argument name: '%s'", name);
+                gf_msg_debug ("parser", 0,"Invalid argument name");
                 ret = -1;
                 goto out;
         }

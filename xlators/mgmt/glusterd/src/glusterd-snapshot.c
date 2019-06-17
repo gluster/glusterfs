@@ -7709,7 +7709,6 @@ glusterd_snapshot_status_commit(dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
     int ret = -1;
     glusterd_conf_t *conf = NULL;
-    char *get_buffer = NULL;
     int32_t cmd = -1;
     char *snapname = NULL;
     glusterd_snap_t *snap = NULL;
@@ -7778,8 +7777,7 @@ glusterd_snapshot_status_commit(dict_t *dict, char **op_errstr,
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_STATUS_FAIL,
                        "Unable to "
-                       "get status of snap %s",
-                       get_buffer);
+                       "get status of snap");
                 goto out;
             }
 

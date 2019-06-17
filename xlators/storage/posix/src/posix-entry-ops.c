@@ -890,7 +890,7 @@ posix_add_unlink_to_ctx(inode_t *inode, xlator_t *this, char *unlink_path)
 
     if (!unlink_path) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
-               "Creation of unlink entry failed for gfid: %s", unlink_path);
+               "Creation of unlink entry failed");
         ret = -1;
         goto out;
     }
