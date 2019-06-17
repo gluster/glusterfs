@@ -1439,29 +1439,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "performance/nl-cache",
      .option = "pass-through",
      .op_version = GD_OP_VERSION_4_1_0},
-    /* Crypt xlator options */
-
-    {.key = "features.encryption",
-     .voltype = "encryption/crypt",
-     .option = "!feat",
-     .value = "off",
-     .op_version = 3,
-     .description = "enable/disable client-side encryption for "
-                    "the volume.",
-     .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT},
-
-    {.key = "encryption.master-key",
-     .voltype = "encryption/crypt",
-     .op_version = 3,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
-    {.key = "encryption.data-key-size",
-     .voltype = "encryption/crypt",
-     .op_version = 3,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
-    {.key = "encryption.block-size",
-     .voltype = "encryption/crypt",
-     .op_version = 3,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
 
     /* Client xlator options */
     {.key = "network.frame-timeout",

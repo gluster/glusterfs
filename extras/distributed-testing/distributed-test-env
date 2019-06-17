@@ -32,7 +32,6 @@ BROKEN_TESTS="\
   tests/bugs/gfapi/bug-1093594.t\
   tests/bugs/replicate/bug-1473026.t\
   tests/bugs/replicate/bug-802417.t\
-  tests/encryption/crypt.t\
   tests/basic/inode-leak.t\
   tests/basic/distribute/force-migration.t\
   tests/basic/ec/heal-info.t\

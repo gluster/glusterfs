@@ -4093,17 +4093,6 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             goto out;
     }
 
-    ret = dict_get_str_boolean(set_dict, "features.encryption", _gf_false);
-    if (ret == -1)
-        goto out;
-    if (ret) {
-        xl = volgen_graph_add(graph, "encryption/crypt", volname);
-        if (!xl) {
-            ret = -1;
-            goto out;
-        }
-    }
-
     /* gfproxy needs the quiesce translator */
     if (gfproxy_clnt) {
         xl = volgen_graph_add(graph, "features/quiesce", volname);
