@@ -4160,7 +4160,7 @@ gf_rdma_handle_failed_send_completion(gf_rdma_peer_t *peer, struct ibv_wc *wc)
            "send work request on `%s' returned error "
            "wc.status = %d, wc.vendor_err = %d, post->buf = %p, "
            "wc.byte_len = %d, post->reused = %d",
-           (device != NULL) ? device->device_name : NULL, wc->status,
+           (device != NULL) ? device->device_name : "", wc->status,
            wc->vendor_err, post->buf, wc->byte_len, post->reused);
 
     if (wc->status == IBV_WC_RETRY_EXC_ERR) {

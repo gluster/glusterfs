@@ -997,8 +997,8 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 op_errno = ENOMEM;
                 gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
                        "failed to add xattrs from the list to "
-                       "dict for %s (gfid: %s, key: %s)",
-                       loc->path, uuid_utoa(loc->inode->gfid), name);
+                       "dict for %s (gfid: %s)",
+                       loc->path, uuid_utoa(loc->inode->gfid));
                 goto out;
             }
             GF_FREE(value);
@@ -1179,8 +1179,8 @@ svs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                 op_errno = ENOMEM;
                 gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
                        "failed to add xattrs from the list "
-                       "to dict (gfid: %s, key: %s)",
-                       uuid_utoa(fd->inode->gfid), name);
+                       "to dict (gfid: %s)",
+                       uuid_utoa(fd->inode->gfid));
                 goto out;
             }
             GF_FREE(value);
