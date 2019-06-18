@@ -11210,6 +11210,8 @@ dht_pt_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     conf = this->private;
     dict_del(xattr, conf->xattr_name);
+    dict_del(xattr, conf->mds_xattr_key);
+    dict_del(xattr, conf->commithash_xattr_name);
 
     if (frame->root->pid >= 0) {
         GF_REMOVE_INTERNAL_XATTR("trusted.glusterfs.quota*", xattr);
