@@ -1027,6 +1027,7 @@ posix_glfallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
     struct iatt statpost = {
         0,
     };
+    dict_t *rsp_xdata = NULL;
 
 #ifdef FALLOC_FL_KEEP_SIZE
     if (keep_size)
@@ -1034,15 +1035,15 @@ posix_glfallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
 #endif /* FALLOC_FL_KEEP_SIZE */
 
     ret = posix_do_fallocate(frame, this, fd, flags, offset, len, &statpre,
-                             &statpost, xdata, NULL);
+                             &statpost, xdata, &rsp_xdata);
     if (ret < 0)
         goto err;
 
-    STACK_UNWIND_STRICT(fallocate, frame, 0, 0, &statpre, &statpost, NULL);
+    STACK_UNWIND_STRICT(fallocate, frame, 0, 0, &statpre, &statpost, rsp_xdata);
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(fallocate, frame, -1, -ret, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fallocate, frame, -1, -ret, NULL, NULL, rsp_xdata);
     return 0;
 }
 
