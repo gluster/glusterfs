@@ -528,6 +528,9 @@ dirname_r(char *path);
 /* Use run API, see run.h */
 #include <stdlib.h> /* system(), mkostemp() */
 #include <stdio.h>  /* popen() */
+#ifdef GF_LINUX_HOST_OS
+#include <sys/sysmacros.h>
+#endif
 #pragma GCC poison system mkostemp popen
 #endif
 
