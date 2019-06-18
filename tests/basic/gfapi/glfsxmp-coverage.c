@@ -12,7 +12,7 @@ int
 test_dirops(glfs_t *fs)
 {
     glfs_fd_t *fd = NULL;
-    char buf[512];
+    char buf[2048];
     struct dirent *entry = NULL;
 
     fd = glfs_opendir(fs, "/");
@@ -25,6 +25,9 @@ test_dirops(glfs_t *fs)
     while (glfs_readdir_r(fd, (struct dirent *)buf, &entry), entry) {
         fprintf(stderr, "%s: %lu\n", entry->d_name, glfs_telldir(fd));
     }
+
+    /* Should internally call fsyncdir(), hopefully */
+    glfs_fsync(fd, NULL, NULL);
 
     glfs_closedir(fd);
     return 0;
@@ -1313,7 +1316,7 @@ test_handleops(int argc, char *argv[])
     memcpy(writebuf, "abcdefghijklmnopqrstuvwxyz012345", 32);
     ret = glfs_write(fd, writebuf, 32, 0);
 
-    glfs_lseek(fd, 0, SEEK_SET);
+    glfs_lseek(fd, 10, SEEK_SET);
 
     ret = glfs_read(fd, readbuf, 32, 0);
     if (memcmp(readbuf, writebuf, 32)) {
@@ -1651,6 +1654,13 @@ test_write_apis(glfs_t *fs)
                 strerror(errno));
     }
 
+    ret = glfs_fsync(fd, NULL, NULL);
+    if (ret < 0) {
+        fprintf(stderr, "fsync(%s): %d (%s)\n", filename, ret, strerror(errno));
+    }
+
+    glfs_close(fd);
+
     return 0;
 }
 
@@ -1667,7 +1677,7 @@ test_metadata_ops(glfs_t *fs, glfs_t *fs2)
     };
     struct statvfs sfs;
     char readbuf[32];
-    char writebuf[32];
+    char writebuf[11] = "helloworld";
 
     char *filename = "/filename2";
     int ret;
@@ -1676,12 +1686,26 @@ test_metadata_ops(glfs_t *fs, glfs_t *fs2)
     fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
 
     fd = glfs_creat(fs, filename, O_RDWR, 0644);
-    fprintf(stderr, "creat(%s): (%p) %s\n", filename, fd, strerror(errno));
+    if (!fd)
+        fprintf(stderr, "creat(%s): (%p) %s\n", filename, fd, strerror(errno));
 
     fd2 = glfs_open(fs2, filename, O_RDWR);
-    fprintf(stderr, "open(%s): (%p) %s\n", filename, fd, strerror(errno));
+    if (!fd2)
+        fprintf(stderr, "open(%s): (%p) %s\n", filename, fd, strerror(errno));
 
-    glfs_lseek(fd2, 0, SEEK_SET);
+    ret = glfs_lstat(fs, filename, &sb);
+    if (ret)
+        fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
+
+    ret = glfs_write(fd, writebuf, 11, 0);
+    if (ret < 0) {
+        fprintf(stderr, "writev(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+    }
+
+    glfs_fsync(fd, NULL, NULL);
+
+    glfs_lseek(fd2, 5, SEEK_SET);
 
     ret = glfs_read(fd2, readbuf, 32, 0);
 
@@ -1689,39 +1713,67 @@ test_metadata_ops(glfs_t *fs, glfs_t *fs2)
 
     /* get stat */
     ret = glfs_fstat(fd2, &sb);
+    if (ret)
+        fprintf(stderr, "fstat(%s): %d (%s)\n", filename, ret, strerror(errno));
 
     ret = glfs_access(fs, filename, R_OK);
+    if (ret)
+        fprintf(stderr, "access(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+
+    ret = glfs_fallocate(fd2, 1024, 1024, 1024);
+    if (ret)
+        fprintf(stderr, "fallocate(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+
+    ret = glfs_discard(fd2, 1024, 512);
+    if (ret)
+        fprintf(stderr, "discard(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
+
+    ret = glfs_zerofill(fd2, 2048, 1024);
+    if (ret)
+        fprintf(stderr, "zerofill(%s): %d (%s)\n", filename, ret,
+                strerror(errno));
 
     /* set stat */
     /* TODO: got some errors, need to fix */
-    /* ret = glfs_fsetattr(fd2, &gsb); */
+    ret = glfs_fsetattr(fd2, &gsb);
 
     glfs_close(fd);
     glfs_close(fd2);
 
     filename = "/filename3";
     ret = glfs_mknod(fs, filename, S_IFIFO, 0);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
+    if (ret)
+        fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
 
     ret = glfs_lstat(fs, filename, &sb);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
+    if (ret)
+        fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
 
     ret = glfs_rename(fs, filename, "/filename4");
-    fprintf(stderr, "rename(%s): (%d) %s\n", filename, ret, strerror(errno));
+    if (ret)
+        fprintf(stderr, "rename(%s): (%d) %s\n", filename, ret,
+                strerror(errno));
 
     ret = glfs_unlink(fs, "/filename4");
-    fprintf(stderr, "unlink(%s): (%d) %s\n", "/filename4", ret,
-            strerror(errno));
+    if (ret)
+        fprintf(stderr, "unlink(%s): (%d) %s\n", "/filename4", ret,
+                strerror(errno));
 
     filename = "/dirname2";
     ret = glfs_mkdir(fs, filename, 0);
-    fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
+    if (ret)
+        fprintf(stderr, "%s: (%d) %s\n", filename, ret, strerror(errno));
 
     ret = glfs_lstat(fs, filename, &sb);
-    fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
+    if (ret)
+        fprintf(stderr, "lstat(%s): (%d) %s\n", filename, ret, strerror(errno));
 
     ret = glfs_rmdir(fs, filename);
-    fprintf(stderr, "rmdir(%s): (%d) %s\n", filename, ret, strerror(errno));
+    if (ret)
+        fprintf(stderr, "rmdir(%s): (%d) %s\n", filename, ret, strerror(errno));
 }
 int
 main(int argc, char *argv[])
@@ -1756,14 +1808,18 @@ main(int argc, char *argv[])
     //      ret = glfs_set_volfile (fs, "/tmp/posix.vol");
 
     ret = glfs_set_volfile_server(fs, "tcp", argv[2], 24007);
+    if (ret)
+        fprintf(stderr, "glfs_set_volfile_server failed\n");
 
     //      ret = glfs_set_volfile_server (fs, "unix", "/tmp/gluster.sock", 0);
 
     ret = glfs_set_logging(fs, "/dev/stderr", 7);
+    if (ret)
+        fprintf(stderr, "glfs_set_logging failed\n");
 
     ret = glfs_init(fs);
-
-    fprintf(stderr, "glfs_init: returned %d\n", ret);
+    if (ret)
+        fprintf(stderr, "glfs_init: returned %d\n", ret);
 
     if (ret)
         goto out;
@@ -1779,8 +1835,12 @@ main(int argc, char *argv[])
     //      ret = glfs_set_volfile (fs2, "/tmp/posix.vol");
 
     ret = glfs_set_volfile_server(fs2, "tcp", argv[2], 24007);
+    if (ret)
+        fprintf(stderr, "glfs_set_volfile_server failed\n");
 
     ret = glfs_set_logging(fs2, "/dev/stderr", 7);
+    if (ret)
+        fprintf(stderr, "glfs_set_logging failed\n");
 
     ret = glfs_set_statedump_path(fs2, "/tmp");
     if (ret) {
@@ -1788,8 +1848,8 @@ main(int argc, char *argv[])
     }
 
     ret = glfs_init(fs2);
-
-    fprintf(stderr, "glfs_init: returned %d\n", ret);
+    if (ret)
+        fprintf(stderr, "glfs_init: returned %d\n", ret);
 
     test_metadata_ops(fs, fs2);
 

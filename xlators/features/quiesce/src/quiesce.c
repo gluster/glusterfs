@@ -2364,19 +2364,10 @@ quiesce_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 {
     quiesce_priv_t *priv = NULL;
     call_stub_t *stub = NULL;
-    quiesce_local_t *local = NULL;
 
     priv = this->private;
 
     if (priv && priv->pass_through) {
-        local = mem_get0(priv->local_pool);
-        local->fd = fd_ref(fd);
-        local->offset = offset;
-        local->len = len;
-        local->flag = mode;
-
-        frame->local = local;
-
         STACK_WIND(frame, default_fallocate_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fallocate, fd, mode, offset, len,
                    xdata);
