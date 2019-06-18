@@ -467,6 +467,9 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *parent_svc = NULL;
     int pid = -1;
+    char pidfile[PATH_MAX] = {
+        0,
+    };
 
     GF_VALIDATE_OR_GOTO("glusterd", svc, out);
     GF_VALIDATE_OR_GOTO("glusterd", volinfo, out);
@@ -476,8 +479,26 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
 
     pthread_mutex_lock(&conf->attach_lock);
     {
+        if (svc->inited && !glusterd_proc_is_running(&(svc->proc))) {
+            /* This is the case when shd process was abnormally killed */
+            pthread_mutex_unlock(&conf->attach_lock);
+            glusterd_shd_svcproc_cleanup(&volinfo->shd);
+            pthread_mutex_lock(&conf->attach_lock);
+        }
+
         if (!svc->inited) {
-            if (gf_is_service_running(svc->proc.pidfile, &pid)) {
+            glusterd_svc_build_shd_pidfile(volinfo, pidfile, sizeof(pidfile));
+            ret = snprintf(svc->proc.name, sizeof(svc->proc.name), "%s",
+                           "glustershd");
+            if (ret < 0)
+                goto unlock;
+
+            ret = snprintf(svc->proc.pidfile, sizeof(svc->proc.pidfile), "%s",
+                           pidfile);
+            if (ret < 0)
+                goto unlock;
+
+            if (gf_is_service_running(pidfile, &pid)) {
                 /* Just connect is required, but we don't know what happens
                  * during the disconnect. So better to reattach.
                  */
@@ -485,10 +506,10 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
             }
 
             if (!mux_proc) {
-                if (pid != -1 && sys_access(svc->proc.pidfile, R_OK) == 0) {
+                if (pid != -1 && sys_access(pidfile, R_OK) == 0) {
                     /* stale pid file, stop and unlink it */
                     glusterd_proc_stop(&svc->proc, SIGTERM, PROC_STOP_FORCE);
-                    glusterd_unlink_file(svc->proc.pidfile);
+                    glusterd_unlink_file(pidfile);
                 }
                 mux_proc = __gf_find_compatible_svc(GD_NODE_SHD);
             }
@@ -682,11 +703,10 @@ glusterd_svc_attach_cbk(struct rpc_req *req, struct iovec *iov, int count,
                volinfo->volname, glusterd_proc_get_pid(&svc->proc));
     } else {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_ATTACH_FAIL,
-               "svc %s of volume %s failed to "
-               "attach to pid %d. Starting a new process",
-               svc->name, volinfo->volname, glusterd_proc_get_pid(&svc->proc));
+               "svc %s of volume %s failed to attach to pid %d", svc->name,
+               volinfo->volname, glusterd_proc_get_pid(&svc->proc));
         if (!strcmp(svc->name, "glustershd")) {
-            glusterd_recover_shd_attach_failure(volinfo, svc, *flag);
+            glusterd_shd_svcproc_cleanup(&volinfo->shd);
         }
     }
 out:

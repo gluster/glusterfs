@@ -90,8 +90,8 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
     GLUSTERD_GET_SHD_RUNDIR(rundir, volinfo, priv);
     glusterd_svc_create_rundir(rundir);
 
-    glusterd_svc_build_shd_logdir(logdir, volinfo->volname, sizeof(logdir));
-    glusterd_svc_build_shd_logfile(logfile, logdir, sizeof(logfile));
+    glusterd_svc_build_logfile_path(shd_svc_name, DEFAULT_LOG_FILE_DIRECTORY,
+                                    logfile, sizeof(logfile));
 
     /* Initialize the connection mgmt */
     if (mux_conn && mux_svc->rpc) {
@@ -104,7 +104,7 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
         if (ret < 0)
             goto out;
     } else {
-        ret = mkdir_p(logdir, 0755, _gf_true);
+        ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY, 0755, _gf_true);
         if ((ret == -1) && (EEXIST != errno)) {
             gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
                    "Unable to create logdir %s", logdir);
@@ -460,6 +460,7 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
         return -1;
 
     glusterd_volinfo_ref(volinfo);
+
     if (!svc->inited) {
         ret = glusterd_shd_svc_mux_init(volinfo, svc);
         if (ret)
@@ -472,10 +473,9 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
         ret = glusterd_attach_svc(svc, volinfo, flags);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
-                   "Failed to attach shd svc(volume=%s) to pid=%d. Starting"
-                   "a new process",
+                   "Failed to attach shd svc(volume=%s) to pid=%d",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
-            ret = glusterd_recover_shd_attach_failure(volinfo, svc, flags);
+            glusterd_shd_svcproc_cleanup(&volinfo->shd);
             glusterd_volinfo_unref(volinfo);
         }
         goto out;

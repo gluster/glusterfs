@@ -74,6 +74,10 @@ glusterd_svc_build_volfile_path(char *server, char *workdir, char *volfile,
                                 size_t len);
 
 void
+glusterd_svc_build_logfile_path(char *server, char *logdir, char *logfile,
+                                size_t len);
+
+void
 glusterd_svc_build_svcdir(char *server, char *workdir, char *path, size_t len);
 
 void
