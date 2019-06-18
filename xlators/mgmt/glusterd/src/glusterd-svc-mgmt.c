@@ -33,14 +33,14 @@ glusterd_svc_create_rundir(char *rundir)
     return ret;
 }
 
-static void
+void
 glusterd_svc_build_logfile_path(char *server, char *logdir, char *logfile,
                                 size_t len)
 {
     snprintf(logfile, len, "%s/%s.log", logdir, server);
 }
 
-static void
+void
 glusterd_svc_build_volfileid_path(char *server, char *volfileid, size_t len)
 {
     snprintf(volfileid, len, "gluster/%s", server);

@@ -27,12 +27,6 @@ glusterd_svc_build_shd_volfile_path(glusterd_volinfo_t *volinfo, char *path,
                                     int path_len);
 
 void
-glusterd_svc_build_shd_logdir(char *logdir, char *volname, size_t len);
-
-void
-glusterd_svc_build_shd_logfile(char *logfile, char *logdir, size_t len);
-
-void
 glusterd_shd_svcproc_cleanup(glusterd_shdsvc_t *shd);
 
 int
