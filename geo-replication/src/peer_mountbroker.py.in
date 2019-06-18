@@ -197,7 +197,7 @@ class NodeSetup(Cmd):
         execute(["chgrp", "-R", args.group, GEOREP_DIR])
         execute(["chgrp", "-R", args.group, LOG_DIR])
         execute(["chgrp", args.group, CLI_LOG])
-        execute(["chmod", "770", args.group, GEOREP_DIR])
+        execute(["chmod", "770", GEOREP_DIR])
         execute(["find", LOG_DIR, "-type", "d", "-exec", "chmod", "770", "{}",
                  "+"])
         execute(["find", LOG_DIR, "-type", "f", "-exec", "chmod", "660", "{}",
