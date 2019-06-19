@@ -96,6 +96,15 @@ typedef int (*afr_changelog_resume_t)(call_frame_t *frame, xlator_t *this);
     } while (0)
 
 typedef enum {
+    AFR_READ_POLICY_FIRST_UP,
+    AFR_READ_POLICY_GFID_HASH,
+    AFR_READ_POLICY_GFID_PID_HASH,
+    AFR_READ_POLICY_LESS_LOAD,
+    AFR_READ_POLICY_LEAST_LATENCY,
+    AFR_READ_POLICY_LOAD_LATENCY_HYBRID,
+} afr_read_hash_mode_t;
+
+typedef enum {
     AFR_FAV_CHILD_NONE,
     AFR_FAV_CHILD_BY_SIZE,
     AFR_FAV_CHILD_BY_CTIME,
@@ -183,10 +192,10 @@ typedef struct _afr_private {
 
     gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
     int read_child;                               /* read-subvolume */
-    unsigned int hash_mode;     /* for when read_child is not set */
-    gf_atomic_t *pending_reads; /*No. of pending read cbks per child.*/
-    int favorite_child;         /* subvolume to be preferred in resolving
-                                            split-brain cases */
+    afr_read_hash_mode_t hash_mode; /* for when read_child is not set */
+    gf_atomic_t *pending_reads;     /*No. of pending read cbks per child.*/
+    int favorite_child;             /* subvolume to be preferred in resolving
+                                                split-brain cases */
 
     afr_favorite_child_policy fav_child_policy; /*Policy to use for automatic
                                               resolution of split-brains.*/

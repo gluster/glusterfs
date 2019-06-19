@@ -790,7 +790,7 @@ struct volume_options options[] = {
     {.key = {"read-hash-mode"},
      .type = GF_OPTION_TYPE_INT,
      .min = 0,
-     .max = 3,
+     .max = 5,
      .default_value = "1",
      .op_version = {2},
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
@@ -803,7 +803,10 @@ struct volume_options options[] = {
          "1 = hash by GFID of file (all clients use "
          "same subvolume).\n"
          "2 = hash by GFID of file and client PID.\n"
-         "3 = brick having the least outstanding read requests."},
+         "3 = brick having the least outstanding read requests.\n"
+         "4 = brick having the least network ping latency.\n"
+         "5 = Hybrid mode between 3 and 4, ie least value among "
+         "network-latency multiplied by outstanding-read-requests."},
     {
         .key = {"choose-local"},
         .type = GF_OPTION_TYPE_BOOL,

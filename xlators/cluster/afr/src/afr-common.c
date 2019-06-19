@@ -1597,19 +1597,18 @@ out:
 }
 
 int
-afr_least_pending_reads_child(afr_private_t *priv)
+afr_least_pending_reads_child(afr_private_t *priv, unsigned char *readable)
 {
     int i = 0;
-    int child = 0;
+    int child = -1;
     int64_t read_iter = -1;
     int64_t pending_read = -1;
 
-    pending_read = GF_ATOMIC_GET(priv->pending_reads[0]);
-    for (i = 1; i < priv->child_count; i++) {
-        if (AFR_IS_ARBITER_BRICK(priv, i))
+    for (i = 0; i < priv->child_count; i++) {
+        if (AFR_IS_ARBITER_BRICK(priv, i) || !readable[i])
             continue;
         read_iter = GF_ATOMIC_GET(priv->pending_reads[i]);
-        if (read_iter < pending_read) {
+        if (child == -1 || read_iter < pending_read) {
             pending_read = read_iter;
             child = i;
         }
@@ -1618,8 +1617,54 @@ afr_least_pending_reads_child(afr_private_t *priv)
     return child;
 }
 
+static int32_t
+afr_least_latency_child(afr_private_t *priv, unsigned char *readable)
+{
+    int32_t i = 0;
+    int child = -1;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (AFR_IS_ARBITER_BRICK(priv, i) || !readable[i] ||
+            priv->child_latency[i] < 0)
+            continue;
+
+        if (child == -1 ||
+            priv->child_latency[i] < priv->child_latency[child]) {
+            child = i;
+        }
+    }
+    return child;
+}
+
+static int32_t
+afr_least_latency_times_pending_reads_child(afr_private_t *priv,
+                                            unsigned char *readable)
+{
+    int32_t i = 0;
+    int child = -1;
+    int64_t pending_read = 0;
+    int64_t latency = -1;
+    int64_t least_latency = -1;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (AFR_IS_ARBITER_BRICK(priv, i) || !readable[i] ||
+            priv->child_latency[i] < 0)
+            continue;
+
+        pending_read = GF_ATOMIC_GET(priv->pending_reads[i]);
+        latency = (pending_read + 1) * priv->child_latency[i];
+
+        if (child == -1 || latency < least_latency) {
+            least_latency = latency;
+            child = i;
+        }
+    }
+    return child;
+}
+
 int
-afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv)
+afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv,
+               unsigned char *readable)
 {
     uuid_t gfid_copy = {
         0,
@@ -1628,14 +1673,14 @@ afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv)
     int child = -1;
 
     switch (priv->hash_mode) {
-        case 0:
+        case AFR_READ_POLICY_FIRST_UP:
             break;
-        case 1:
+        case AFR_READ_POLICY_GFID_HASH:
             gf_uuid_copy(gfid_copy, args->gfid);
             child = SuperFastHash((char *)gfid_copy, sizeof(gfid_copy)) %
                     priv->child_count;
             break;
-        case 2:
+        case AFR_READ_POLICY_GFID_PID_HASH:
             if (args->ia_type != IA_IFDIR) {
                 /*
                  * Why getpid?  Because it's one of the cheapest calls
@@ -1653,8 +1698,14 @@ afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv)
             child = SuperFastHash((char *)gfid_copy, sizeof(gfid_copy)) %
                     priv->child_count;
             break;
-        case 3:
-            child = afr_least_pending_reads_child(priv);
+        case AFR_READ_POLICY_LESS_LOAD:
+            child = afr_least_pending_reads_child(priv, readable);
+            break;
+        case AFR_READ_POLICY_LEAST_LATENCY:
+            child = afr_least_latency_child(priv, readable);
+            break;
+        case AFR_READ_POLICY_LOAD_LATENCY_HYBRID:
+            child = afr_least_latency_times_pending_reads_child(priv, readable);
             break;
     }
 
@@ -1687,7 +1738,7 @@ afr_read_subvol_select_by_policy(inode_t *inode, xlator_t *this,
     }
 
     /* second preference - use hashed mode */
-    read_subvol = afr_hash_child(&local_args, priv);
+    read_subvol = afr_hash_child(&local_args, priv, readable);
     if (read_subvol >= 0 && readable[read_subvol])
         return read_subvol;
 
@@ -5174,7 +5225,10 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
      * want to set the child_latency to MAX to indicate
      * the child needs ping data to be available before doing child-up
      */
-    if (child_latency_msec < 0 && priv->halo_enabled) {
+    if (!priv->halo_enabled)
+        goto out;
+
+    if (child_latency_msec < 0) {
         /*set to INT64_MAX-1 so that it is found for best_down_child*/
         priv->child_latency[idx] = AFR_HALO_MAX_LATENCY;
     }
@@ -5214,7 +5268,7 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
                      "up_children (%d) > halo_max_replicas (%d)",
                      worst_up_child, up_children, priv->halo_max_replicas);
     }
-
+out:
     if (up_children == 1) {
         gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SUBVOL_UP,
                "Subvolume '%s' came back up; "
@@ -5277,7 +5331,7 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
      * as we want it to be up to date if we are going to
      * begin using it synchronously.
      */
-    if (up_children < priv->halo_min_replicas) {
+    if (priv->halo_enabled && up_children < priv->halo_min_replicas) {
         best_down_child = find_best_down_child(this);
         if (best_down_child >= 0) {
             gf_msg_debug(this->name, 0,
@@ -5289,7 +5343,6 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
             *up_child = best_down_child;
         }
     }
-
     for (i = 0; i < priv->child_count; i++)
         if (priv->child_up[i] == 0)
             down_children++;
@@ -5461,18 +5514,24 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
 
     had_quorum = priv->quorum_count &&
                  afr_has_quorum(priv->child_up, this, NULL);
-    if (priv->halo_enabled) {
-        halo_max_latency_msec = afr_get_halo_latency(this);
+    if (event == GF_EVENT_CHILD_PING) {
+        child_latency_msec = (int64_t)(uintptr_t)data2;
+        if (priv->halo_enabled) {
+            halo_max_latency_msec = afr_get_halo_latency(this);
 
-        if (event == GF_EVENT_CHILD_PING) {
             /* Calculates the child latency and sets event
              */
-            child_latency_msec = (int64_t)(uintptr_t)data2;
             LOCK(&priv->lock);
             {
                 __afr_handle_ping_event(this, child_xlator, idx,
                                         halo_max_latency_msec, &event,
                                         child_latency_msec);
+            }
+            UNLOCK(&priv->lock);
+        } else {
+            LOCK(&priv->lock);
+            {
+                priv->child_latency[idx] = child_latency_msec;
             }
             UNLOCK(&priv->lock);
         }
