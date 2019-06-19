@@ -750,30 +750,6 @@ out:
 
     return ret;
 }
-static int
-validate_size(glusterd_volinfo_t *volinfo, dict_t *dict, char *key, char *value,
-              char **op_errstr)
-{
-    xlator_t *this = NULL;
-    uint64_t size = 0;
-    int ret = -1;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    ret = gf_string2bytesize_uint64(value, &size);
-    if (ret < 0) {
-        gf_asprintf(op_errstr,
-                    "%s is not a valid size. %s "
-                    "expects a valid value in bytes",
-                    value, key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
-               *op_errstr);
-    }
-out:
-    gf_msg_debug("glusterd", 0, "Returning %d", ret);
-
-    return ret;
-}
 
 /* dispatch table for VOLUME SET
  * -----------------------------
@@ -2345,15 +2321,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .key = "storage.reserve",
         .voltype = "storage/posix",
         .op_version = GD_OP_VERSION_3_13_0,
-    },
-    {
-        .key = "storage.reserve-size",
-        .voltype = "storage/posix",
-        .value = "0",
-        .validate_fn = validate_size,
-        .description = "If set, priority will be given to "
-                       "storage.reserve-size over storage.reserve",
-        .op_version = GD_OP_VERSION_7_0,
     },
     {
         .option = "health-check-timeout",
