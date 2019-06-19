@@ -2257,25 +2257,17 @@ posix_disk_space_check(xlator_t *this)
     struct posix_private *priv = NULL;
     char *subvol_path = NULL;
     int op_ret = 0;
-    uint64_t size = 0;
-    int percent = 0;
+    double size = 0;
+    double percent = 0;
     struct statvfs buf = {0};
-    uint64_t totsz = 0;
-    uint64_t freesz = 0;
+    double totsz = 0;
+    double freesz = 0;
 
     GF_VALIDATE_OR_GOTO(this->name, this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
     subvol_path = priv->base_path;
-
-    if (priv->disk_reserve_size) {
-        size = priv->disk_reserve_size;
-    } else {
-        percent = priv->disk_reserve_percent;
-        totsz = (buf.f_blocks * buf.f_bsize);
-        size = ((totsz * percent) / 100);
-    }
 
     op_ret = sys_statvfs(subvol_path, &buf);
 
@@ -2284,8 +2276,16 @@ posix_disk_space_check(xlator_t *this)
                "statvfs failed on %s", subvol_path);
         goto out;
     }
-    freesz = (buf.f_bfree * buf.f_bsize);
 
+    if (priv->disk_unit == 'p') {
+        percent = priv->disk_reserve;
+        totsz = (buf.f_blocks * buf.f_bsize);
+        size = ((totsz * percent) / 100);
+    } else {
+        size = priv->disk_reserve;
+    }
+
+    freesz = (buf.f_bfree * buf.f_bsize);
     if (freesz <= size) {
         priv->disk_space_full = 1;
     } else {

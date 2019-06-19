@@ -17,26 +17,8 @@ TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 
-TEST $CLI volume set $V0 storage.reserve-size 10MB
-
-#No effect as priority to reserve-size
-TEST $CLI volume set $V0 storage.reserve 20
-
-TEST dd if=/dev/zero of=$M0/a bs=100M count=1
-sleep 5
-
-#Below dd confirms posix is giving priority to reserve-size
-TEST dd if=/dev/zero of=$M0/b bs=40M count=1
-
-sleep 5
-TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1
-
-rm -rf $M0/*
-#Size will reserve from the previously set reserve option = 20%
-TEST $CLI volume set $V0 storage.reserve-size 0
-
-#Overwrite reserve option
-TEST $CLI volume set $V0 storage.reserve-size 40MB
+#Setting the size in bytes
+TEST $CLI volume set $V0 storage.reserve 40MB
 
 #wait 5s to reset disk_space_full flag
 sleep 5
@@ -50,6 +32,19 @@ TEST dd if=/dev/zero of=$M0/b bs=10M count=1
 sleep 5
 # setup_lvm create lvm partition of 150M and 40M are reserve so after
 # consuming more than 110M next dd should fail
+TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1
+
+rm -rf $M0/*
+
+#Setting the size in percent and repeating the above steps
+TEST $CLI volume set $V0 storage.reserve 40
+
+sleep 5
+
+TEST dd if=/dev/zero of=$M0/a bs=80M count=1
+TEST dd if=/dev/zero of=$M0/b bs=10M count=1
+
+sleep 5
 TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1
 
 TEST $CLI volume stop $V0
