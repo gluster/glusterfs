@@ -696,6 +696,9 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
         }
         cds_list_del_init(&svc->mux_svc);
         empty = cds_list_empty(&svc_proc->svcs);
+        if (empty) {
+            cds_list_del_init(&svc_proc->svc_proc_list);
+        }
     }
     pthread_mutex_unlock(&conf->attach_lock);
     if (empty) {
