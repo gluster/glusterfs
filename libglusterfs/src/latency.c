@@ -78,8 +78,10 @@ gf_proc_dump_latency_info(xlator_t *xl)
         if (!lat->count)
             continue;
 
-        gf_proc_dump_write(key, "%.03f,%" PRId64 ",%.03f",
-                           (lat->total / lat->count), lat->count, lat->total);
+        gf_proc_dump_write(
+            key, "AVG:%.03f,CNT:%" PRId64 ",TOTAL:%.03f,MIN:%.03f,MAX:%.03f",
+            (lat->total / lat->count), lat->count, lat->total, lat->min,
+            lat->max);
     }
 
     memset(xl->stats.interval.latencies, 0,
