@@ -169,7 +169,7 @@ def load_fragments ():
         cur_value = ""
         result = {}
         basepath = os.path.abspath(os.path.dirname(__file__))
-        fragpath = basepath + "/new-xlator-tmpl.c"
+        fragpath = basepath + "/new-xlator.c.tmpl"
         for line in open(fragpath, "r").readlines():
                 m = pragma_re.search(line)
                 if m:
