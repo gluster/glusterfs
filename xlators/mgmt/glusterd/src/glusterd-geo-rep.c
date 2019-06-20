@@ -4167,10 +4167,10 @@ stop_gsync(char *master, char *slave, char **msg, char *conf_path,
                  * still be alive, give some more time
                  * before SIGKILL (hack)
                  */
-                usleep(50000);
+                gf_nanosleep(50000 * GF_US_IN_NS);
                 break;
             }
-            usleep(50000);
+            gf_nanosleep(50000 * GF_US_IN_NS);
         }
         kill(-pid, SIGKILL);
         sys_unlink(pidfile);

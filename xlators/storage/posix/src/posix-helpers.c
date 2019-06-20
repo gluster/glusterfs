@@ -2473,7 +2473,7 @@ posix_fsyncer(void *d)
 
         count = posix_fsyncer_pick(this, &list);
 
-        usleep(priv->batch_fsync_delay_usec);
+        gf_nanosleep(priv->batch_fsync_delay_usec * GF_US_IN_NS);
 
         gf_msg_debug(this->name, 0, "picked %d fsyncs", count);
 
