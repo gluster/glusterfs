@@ -115,6 +115,9 @@ trap(void);
 #define GF_HOUR_IN_SECONDS (60 * 60)
 #define GF_DAY_IN_SECONDS (24 * 60 * 60)
 #define GF_WEEK_IN_SECONDS (7 * 24 * 60 * 60)
+#define GF_SEC_IN_NS 1000000000
+#define GF_MS_IN_NS 1000000
+#define GF_US_IN_NS 1000
 
 /* Default timeout for both barrier and changelog translator */
 #define BARRIER_TIMEOUT "120"
@@ -1164,5 +1167,8 @@ find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args);
 
 int
 gf_d_type_from_ia_type(ia_type_t type);
+
+int
+gf_nanosleep(uint64_t nsec);
 
 #endif /* _COMMON_UTILS_H */

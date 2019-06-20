@@ -1268,7 +1268,7 @@ pub_glfs_fini(struct glfs *fs)
             }
         }
         pthread_mutex_unlock(&fs->mutex);
-        usleep(100000);
+        gf_nanosleep(100000 * GF_US_IN_NS);
     }
 
     /* leaked frames may exist, we ignore */

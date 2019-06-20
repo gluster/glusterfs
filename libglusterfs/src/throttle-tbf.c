@@ -99,7 +99,7 @@ tbf_tokengenerator(void *arg)
     token_gen_interval = bucket->token_gen_interval;
 
     while (1) {
-        usleep(token_gen_interval);
+        gf_nanosleep(token_gen_interval * GF_US_IN_NS);
 
         LOCK(&bucket->lock);
         {

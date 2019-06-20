@@ -5421,3 +5421,21 @@ gf_d_type_from_ia_type(ia_type_t type)
             return DT_UNKNOWN;
     }
 }
+
+int
+gf_nanosleep(uint64_t nsec)
+{
+    struct timespec req;
+    struct timespec rem;
+    int ret = -1;
+
+    req.tv_sec = nsec / GF_SEC_IN_NS;
+    req.tv_nsec = nsec % GF_SEC_IN_NS;
+
+    do {
+        ret = nanosleep(&req, &rem);
+        req = rem;
+    } while (ret == -1 && errno == EINTR);
+
+    return ret;
+}
