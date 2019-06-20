@@ -1403,6 +1403,10 @@ ec_get_size_version(ec_lock_link_t *link)
         !ec_is_data_fop(fop->id))
         link->optimistic_changelog = _gf_true;
 
+    memset(&loc, 0, sizeof(loc));
+
+    LOCK(&lock->loc.inode->lock);
+
     set_dirty = ec_set_dirty_flag(link, ctx, dirty);
 
     /* If ec metadata has already been retrieved, do not try again. */
@@ -1410,19 +1414,15 @@ ec_get_size_version(ec_lock_link_t *link)
         if (ec_is_data_fop(fop->id)) {
             fop->healing |= lock->healing;
         }
-        return;
+        goto unlock;
     }
 
     /* Determine if there's something we need to retrieve for the current
      * operation. */
     if (!set_dirty && !lock->query && (lock->loc.inode->ia_type != IA_IFREG) &&
         (lock->loc.inode->ia_type != IA_INVAL)) {
-        return;
+        goto unlock;
     }
-
-    memset(&loc, 0, sizeof(loc));
-
-    LOCK(&lock->loc.inode->lock);
 
     changed_flags = ec_set_xattrop_flags_and_params(lock, link, dirty);
     if (link->waiting_flags) {
@@ -1434,6 +1434,7 @@ ec_get_size_version(ec_lock_link_t *link)
         GF_ASSERT(!changed_flags);
     }
 
+unlock:
     UNLOCK(&lock->loc.inode->lock);
 
     if (!changed_flags)
