@@ -35,6 +35,32 @@ function check_all_status_detail_num_rows()
     $GEOREP_CLI status detail | grep -F "$search_key" | wc -l
 }
 
+function check_active_brick_status()
+{
+    local search_key=$1
+    $GEOREP_CLI $master $slave status | grep -F "$search_key" | grep -F "Active" | wc -l
+}
+
+function check_passive_brick_status()
+{
+    local search_key=$1
+    $GEOREP_CLI $master $slave status | grep -F "$search_key" | grep -F "Passive" | wc -l
+}
+
+function check_master3_active_status()
+{
+    local ret=0
+    ret=$($GEOREP_CLI $master $slave status | grep -F "master3" | grep -F "Active" | wc -l)
+    echo $ret
+}
+
+function check_master3_passive_status()
+{
+    local ret=0
+    ret=$($GEOREP_CLI $master $slave status | grep -F "master3" | grep -F "Passive" | wc -l)
+    echo $ret
+}
+
 function verify_checkpoint_met()
 {
     local master=$1
@@ -492,4 +518,11 @@ function verify_rename_with_existing_destination()
     else
         echo 0
     fi
+}
+
+function check_xattr()
+{
+    local search_key=$1
+    local path=$2
+    getfattr -d -e hex -m . $path | grep -F "$search_key" | wc -l
 }
