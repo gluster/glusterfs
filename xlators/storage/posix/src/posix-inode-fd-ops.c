@@ -2840,7 +2840,7 @@ posix_xattr_get_real_filename(call_frame_t *frame, xlator_t *this, loc_t *loc,
     (void)sys_closedir(fd);
 
     if (!found)
-        return -ENOENT;
+        return -ENOATTR;
 
     ret = dict_set_dynstr(dict, (char *)key, found);
     if (ret) {
@@ -3308,7 +3308,7 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (ret < 0) {
             op_ret = -1;
             op_errno = -ret;
-            if (op_errno == ENOENT) {
+            if (op_errno == ENOATTR) {
                 gf_msg_debug(this->name, 0,
                              "Failed to get "
                              "real filename (%s, %s)",
