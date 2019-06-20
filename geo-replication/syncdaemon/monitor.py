@@ -369,7 +369,7 @@ def distribute(master, slave):
     if rconf.args.use_gconf_volinfo:
         mvol = VolinfoFromGconf(master.volume, master=True)
     else:
-        mvol = Volinfo(master.volume, master.host)
+        mvol = Volinfo(master.volume, master.host, master=True)
     logging.debug('master bricks: ' + repr(mvol.bricks))
     prelude = []
     slave_host = None
@@ -385,7 +385,7 @@ def distribute(master, slave):
     if rconf.args.use_gconf_volinfo:
         svol = VolinfoFromGconf(slave.volume, master=False)
     else:
-        svol = Volinfo(slave.volume, "localhost", prelude)
+        svol = Volinfo(slave.volume, "localhost", prelude, master=False)
 
     sbricks = svol.bricks
     suuid = svol.uuid

@@ -672,7 +672,7 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
     dir_path = ENOENT
 
     if not slv_bricks:
-        slv_info = Volinfo(slv_volume, slv_host)
+        slv_info = Volinfo(slv_volume, slv_host, master=False)
         slv_bricks = slv_info.bricks
     # Result of readlink would be of format as below.
     # readlink = "../../pgfid[0:2]/pgfid[2:4]/pgfid/basename"
@@ -854,8 +854,14 @@ class Popen(subprocess.Popen):
 
 class Volinfo(object):
 
-    def __init__(self, vol, host='localhost', prelude=[]):
-        po = Popen(prelude + ['gluster', '--xml', '--remote-host=' + host,
+    def __init__(self, vol, host='localhost', prelude=[], master=True):
+        if master:
+            gluster_cmd_dir = gconf.get("gluster-command-dir")
+        else:
+            gluster_cmd_dir = gconf.get("slave-gluster-command-dir")
+
+        gluster_cmd = os.path.join(gluster_cmd_dir, 'gluster')
+        po = Popen(prelude + [gluster_cmd, '--xml', '--remote-host=' + host,
                               'volume', 'info', vol],
                    stdout=PIPE, stderr=PIPE, universal_newlines=True)
         vix = po.stdout.read()
