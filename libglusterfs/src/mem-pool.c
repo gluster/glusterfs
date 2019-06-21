@@ -627,6 +627,7 @@ struct mem_pool *
 mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
                 unsigned long count, char *name)
 {
+    unsigned long extra_size, size;
     unsigned int power;
     struct mem_pool *new = NULL;
     struct mem_pool_shared *pool = NULL;
@@ -637,10 +638,25 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
         return NULL;
     }
 
-    /* We ensure sizeof_type > 1 and the next power of two will be, at least,
-     * 2^POOL_SMALLEST */
-    sizeof_type |= (1 << POOL_SMALLEST) - 1;
-    power = sizeof(sizeof_type) * 8 - __builtin_clzl(sizeof_type - 1) + 1;
+    /* This is the overhead we'll have because of memory accounting for each
+     * memory block. */
+    extra_size = sizeof(pooled_obj_hdr_t);
+
+    /* We need to compute the total space needed to hold the data type and
+     * the header. Given that the smallest block size we have in the pools
+     * is 2^POOL_SMALLEST, we need to take the MAX(size, 2^POOL_SMALLEST).
+     * However, since this value is only needed to compute its rounded
+     * logarithm in base 2, and this only depends on the highest bit set,
+     * we can simply do a bitwise or with the minimum size. We need to
+     * subtract 1 for correct handling of sizes that are exactly a power
+     * of 2. */
+    size = (sizeof_type + extra_size - 1UL) | ((1UL << POOL_SMALLEST) - 1UL);
+
+    /* We compute the logarithm in base 2 rounded up of the resulting size.
+     * This value will identify which pool we need to use from the pools of
+     * powers of 2. This is equivalent to finding the position of the highest
+     * bit set. */
+    power = sizeof(size) * 8 - __builtin_clzl(size);
     if (power > POOL_LARGEST) {
         gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid argument");
@@ -732,8 +748,8 @@ mem_get_pool_list(void)
     return pool_list;
 }
 
-pooled_obj_hdr_t *
-mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool)
+static pooled_obj_hdr_t *
+mem_get_from_pool(struct mem_pool *mem_pool)
 {
     per_thread_pool_list_t *pool_list;
     per_thread_pool_t *pt_pool;
@@ -747,12 +763,7 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool)
         return NULL;
     }
 
-    if (mem_pool) {
-        pt_pool = &pool_list
-                       ->pools[mem_pool->pool->power_of_two - POOL_SMALLEST];
-    } else {
-        pt_pool = &pool_list->pools[pool->power_of_two - POOL_SMALLEST];
-    }
+    pt_pool = &pool_list->pools[mem_pool->pool->power_of_two - POOL_SMALLEST];
 
     (void)pthread_spin_lock(&pool_list->lock);
 
@@ -770,8 +781,7 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool)
         } else {
             (void)pthread_spin_unlock(&pool_list->lock);
             GF_ATOMIC_INC(pt_pool->parent->allocs_stdc);
-            retval = malloc((1 << pt_pool->parent->power_of_two) +
-                            sizeof(pooled_obj_hdr_t));
+            retval = malloc(1 << pt_pool->parent->power_of_two);
 #ifdef DEBUG
             hit = _gf_false;
 #endif
@@ -779,19 +789,14 @@ mem_get_from_pool(struct mem_pool *mem_pool, struct mem_pool_shared *pool)
     }
 
     if (retval != NULL) {
-        if (mem_pool) {
-            retval->pool = mem_pool;
-            retval->power_of_two = mem_pool->pool->power_of_two;
+        retval->pool = mem_pool;
+        retval->power_of_two = mem_pool->pool->power_of_two;
 #ifdef DEBUG
-            if (hit == _gf_true)
-                GF_ATOMIC_INC(mem_pool->hit);
-            else
-                GF_ATOMIC_INC(mem_pool->miss);
+        if (hit == _gf_true)
+            GF_ATOMIC_INC(mem_pool->hit);
+        else
+            GF_ATOMIC_INC(mem_pool->miss);
 #endif
-        } else {
-            retval->power_of_two = pool->power_of_two;
-            retval->pool = NULL;
-        }
         retval->magic = GF_MEM_HEADER_MAGIC;
         retval->pool_list = pool_list;
     }
@@ -811,7 +816,7 @@ mem_get(struct mem_pool *mem_pool)
 #if defined(GF_DISABLE_MEMPOOL)
     return GF_MALLOC(mem_pool->sizeof_type, gf_common_mt_mem_pool);
 #else
-    pooled_obj_hdr_t *retval = mem_get_from_pool(mem_pool, NULL);
+    pooled_obj_hdr_t *retval = mem_get_from_pool(mem_pool);
     if (!retval) {
         return NULL;
     }

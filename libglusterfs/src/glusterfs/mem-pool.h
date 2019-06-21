@@ -230,7 +230,10 @@ typedef struct pooled_obj_hdr {
     struct mem_pool *pool;
 } pooled_obj_hdr_t;
 
-#define AVAILABLE_SIZE(p2) (1 << (p2))
+/* Each memory block inside a pool has a fixed size that is a power of two.
+ * However each object will have a header that will reduce the available
+ * space. */
+#define AVAILABLE_SIZE(p2) ((1UL << (p2)) - sizeof(pooled_obj_hdr_t))
 
 typedef struct per_thread_pool {
     /* the pool that was used to request this allocation */
