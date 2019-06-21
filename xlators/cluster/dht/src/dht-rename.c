@@ -1007,9 +1007,11 @@ dht_rename_links_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     xlator_t *prev = NULL;
     dht_local_t *local = NULL;
+    call_frame_t *main_frame = NULL;
 
     prev = cookie;
     local = frame->local;
+    main_frame = local->main_frame;
 
     /* TODO: Handle this case in lookup-optimize */
     if (op_ret == -1) {
@@ -1022,7 +1024,8 @@ dht_rename_links_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_linkfile_attr_heal(frame, this);
     }
 
-    dht_rename_unlink(frame, this);
+    dht_rename_unlink(main_frame, this);
+    DHT_STACK_DESTROY(frame);
     return 0;
 }
 
@@ -1038,7 +1041,8 @@ dht_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     xlator_t *src_cached = NULL;
     xlator_t *dst_hashed = NULL;
     xlator_t *dst_cached = NULL;
-    loc_t link_loc = {0};
+    call_frame_t *link_frame = NULL;
+    dht_local_t *link_local = NULL;
 
     local = frame->local;
     prev = cookie;
@@ -1108,18 +1112,36 @@ dht_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* Create the linkto file for the dst file */
     if ((src_cached == dst_cached) && (dst_hashed != dst_cached)) {
-        loc_copy(&link_loc, &local->loc2);
-        if (link_loc.inode)
-            inode_unref(link_loc.inode);
-        link_loc.inode = inode_ref(local->loc.inode);
-        gf_uuid_copy(local->gfid, local->loc.inode->gfid);
-        gf_uuid_copy(link_loc.gfid, local->loc.inode->gfid);
+        link_frame = copy_frame(frame);
+        if (!link_frame) {
+            goto unlink;
+        }
 
-        dht_linkfile_create(frame, dht_rename_links_create_cbk, this,
-                            src_cached, dst_hashed, &link_loc);
+        /* fop value sent as maxvalue because it is not used
+         * anywhere in this case */
+        link_local = dht_local_init(link_frame, &local->loc2, NULL,
+                                    GF_FOP_MAXVALUE);
+        if (!link_local) {
+            goto unlink;
+        }
+
+        if (link_local->loc.inode)
+            inode_unref(link_local->loc.inode);
+        link_local->loc.inode = inode_ref(local->loc.inode);
+        link_local->main_frame = frame;
+        link_local->stbuf = local->stbuf;
+        gf_uuid_copy(link_local->gfid, local->loc.inode->gfid);
+
+        dht_linkfile_create(link_frame, dht_rename_links_create_cbk, this,
+                            src_cached, dst_hashed, &link_local->loc);
         return 0;
     }
 
+unlink:
+
+    if (link_frame) {
+        DHT_STACK_DESTROY(link_frame);
+    }
     dht_rename_unlink(frame, this);
     return 0;
 
