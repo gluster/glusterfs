@@ -163,11 +163,7 @@ typedef struct {
     struct _volfile_ctx *volfile;
     pthread_mutex_t mutex;
     struct cds_list_head peers;
-    gf_boolean_t verify_volfile_checksum;
-    gf_boolean_t trace;
     uuid_t uuid;
-    char workdir[VALID_GLUSTERD_PATHMAX];
-    char rundir[VALID_GLUSTERD_PATHMAX];
     rpcsvc_t *rpc;
     glusterd_svc_t nfs_svc;
     glusterd_svc_t bitd_svc;
@@ -199,13 +195,15 @@ typedef struct {
     pthread_t brick_thread;
     void *hooks_priv;
 
+    xlator_t *xl; /* Should be set to 'THIS' before creating thread */
     /* need for proper handshake_t */
     int op_version; /* Starts with 1 for 3.3.0 */
-    xlator_t *xl;   /* Should be set to 'THIS' before creating thread */
     gf_boolean_t pending_quorum_action;
+    gf_boolean_t verify_volfile_checksum;
+    gf_boolean_t trace;
+    gf_boolean_t restart_done;
     dict_t *opts;
     synclock_t big_lock;
-    gf_boolean_t restart_done;
     rpcsvc_t *uds_rpc; /* RPCSVC for the unix domain socket */
     uint32_t base_port;
     uint32_t max_port;
@@ -215,18 +213,20 @@ typedef struct {
     int ping_timeout;
     uint32_t generation;
     int32_t workers;
-    gf_atomic_t blockers;
     uint32_t mgmt_v3_lock_timeout;
-    gf_boolean_t restart_bricks;
-    gf_boolean_t restart_shd;    /* This flag prevents running two shd manager
-                                    simultaneously
-                                 */
+    gf_atomic_t blockers;
     pthread_mutex_t attach_lock; /* Lock can be per process or a common one */
     pthread_mutex_t volume_lock; /* We release the big_lock from lot of places
                                     which might lead the modification of volinfo
                                     list.
                                  */
     gf_atomic_t thread_count;
+    gf_boolean_t restart_bricks;
+    gf_boolean_t restart_shd; /* This flag prevents running two shd manager
+                                 simultaneously
+                              */
+    char workdir[VALID_GLUSTERD_PATHMAX];
+    char rundir[VALID_GLUSTERD_PATHMAX];
 } glusterd_conf_t;
 
 typedef struct glusterd_add_dict_args {
@@ -260,24 +260,15 @@ struct glusterd_brick_proc {
 typedef struct glusterd_brick_proc glusterd_brick_proc_t;
 
 struct glusterd_brickinfo {
-    char hostname[NAME_MAX];
-    char path[VALID_GLUSTERD_PATHMAX];
-    char real_path[VALID_GLUSTERD_PATHMAX];
-    char device_path[VALID_GLUSTERD_PATHMAX];
-    char mount_dir[VALID_GLUSTERD_PATHMAX];
-    char brick_id[1024];   /*Client xlator name, AFR changelog name*/
-    char fstype[NAME_MAX]; /* Brick file-system type */
-    char mnt_opts[1024];   /* Brick mount options */
     struct cds_list_head brick_list;
     uuid_t uuid;
     int port;
     int rdma_port;
     char *logfile;
     gf_store_handle_t *shandle;
-    gf_brick_status_t status;
     struct rpc_clnt *rpc;
     int decommissioned;
-    char vg[PATH_MAX]; /* FIXME: Use max size for length of vg */
+    gf_brick_status_t status;
     int32_t snap_status;
     /*
      * The group is used to identify which bricks are part of the same
@@ -288,21 +279,30 @@ struct glusterd_brickinfo {
      */
     uint16_t group;
     uuid_t jbr_uuid;
+    gf_boolean_t port_registered;
+    gf_boolean_t start_triggered;
 
     /* Below are used for handling the case of multiple bricks sharing
        the backend filesystem */
     uint64_t statfs_fsid;
-    uint32_t fs_share_count;
-    gf_boolean_t port_registered;
-    gf_boolean_t start_triggered;
     pthread_mutex_t restart_mutex;
     glusterd_brick_proc_t *brick_proc; /* Information regarding mux bricks */
     struct cds_list_head mux_bricks; /* List to store the bricks in brick_proc*/
+    uint32_t fs_share_count;
+    char hostname[NAME_MAX];
+    char path[VALID_GLUSTERD_PATHMAX];
+    char real_path[VALID_GLUSTERD_PATHMAX];
+    char device_path[VALID_GLUSTERD_PATHMAX];
+    char mount_dir[VALID_GLUSTERD_PATHMAX];
+    char brick_id[1024];   /*Client xlator name, AFR changelog name*/
+    char fstype[NAME_MAX]; /* Brick file-system type */
+    char mnt_opts[1024];   /* Brick mount options */
+    char vg[PATH_MAX];     /* FIXME: Use max size for length of vg */
 };
 
 struct glusterd_gfproxyd_info {
-    short port;
     char *logfile;
+    short port;
 };
 
 struct gf_defrag_brickinfo_ {
@@ -321,14 +321,13 @@ struct glusterd_defrag_info_ {
     uint64_t total_failures;
     gf_lock_t lock;
     int cmd;
-    pthread_t th;
-    gf_defrag_status_t defrag_status;
-    struct rpc_clnt *rpc;
     uint32_t connected;
-    char mount[1024];
+    pthread_t th;
+    struct rpc_clnt *rpc;
     struct gf_defrag_brickinfo_ *bricks; /* volinfo->brick_count */
-
     defrag_cbk_fn_t cbk_fn;
+    gf_defrag_status_t defrag_status;
+    char mount[1024];
 };
 
 typedef struct glusterd_defrag_info_ glusterd_defrag_info_t;
@@ -373,20 +372,20 @@ struct glusterd_bitrot_scrub_ {
 typedef struct glusterd_bitrot_scrub_ glusterd_bitrot_scrub_t;
 
 struct glusterd_rebalance_ {
-    gf_defrag_status_t defrag_status;
     uint64_t rebalance_files;
     uint64_t rebalance_data;
     uint64_t lookedup_files;
     uint64_t skipped_files;
+    uint64_t rebalance_failures;
     glusterd_defrag_info_t *defrag;
     gf_cli_defrag_type defrag_cmd;
-    uint64_t rebalance_failures;
+    gf_defrag_status_t defrag_status;
     uuid_t rebalance_id;
     double rebalance_time;
     uint64_t time_left;
-    glusterd_op_t op;
     dict_t *dict; /* Dict to store misc information
                    * like list of bricks being removed */
+    glusterd_op_t op;
     uint32_t commit_hash;
 };
 
@@ -407,25 +406,8 @@ typedef enum gd_quorum_status_ {
 
 struct glusterd_volinfo_ {
     gf_lock_t lock;
-    gf_boolean_t is_snap_volume;
     glusterd_snap_t *snapshot;
     uuid_t restored_from_snap;
-    char parent_volname[GD_VOLUME_NAME_MAX];
-    /* In case of a snap volume
-       i.e (is_snap_volume == TRUE) this
-       field will contain the name of
-       the volume which is snapped. In
-       case of a non-snap volume, this
-       field will be initialized as N/A */
-    char volname[NAME_MAX + 1];
-    /* NAME_MAX + 1 will be equal to
-     * GD_VOLUME_NAME_MAX + 5.(also to
-     * GD_VOLUME_NAME_MAX_TIER). An extra 5
-     * bytes are added to GD_VOLUME_NAME_MAX
-     * because, as part of the tiering
-     * volfile generation code, we are
-     * temporarily appending either "-hot"
-     * or "-cold" */
     int type;
     int brick_count;
     uint64_t snap_count;
@@ -475,7 +457,6 @@ struct glusterd_volinfo_ {
     uint32_t quota_conf_version;
     uint32_t cksum;
     uint32_t quota_conf_cksum;
-    gf_transport_type transport_type;
 
     dict_t *dict;
 
@@ -486,13 +467,12 @@ struct glusterd_volinfo_ {
     dict_t *gsync_slaves;
     dict_t *gsync_active_slaves;
 
-    int decommission_in_progress;
     xlator_t *xl;
-
-    gf_boolean_t memory_accounting;
+    int decommission_in_progress;
 
     int op_version;
     int client_op_version;
+    int32_t quota_xattr_version;
     pthread_mutex_t reflock;
     int refcnt;
     gd_quorum_status_t quorum_status;
@@ -500,13 +480,31 @@ struct glusterd_volinfo_ {
     glusterd_snapdsvc_t snapd;
     glusterd_shdsvc_t shd;
     glusterd_gfproxydsvc_t gfproxyd;
-    int32_t quota_xattr_version;
-    gf_boolean_t stage_deleted;         /* volume has passed staging
-                                         * for delete operation
-                                         */
     pthread_mutex_t store_volinfo_lock; /* acquire lock for
                                          * updating the volinfo
                                          */
+    gf_transport_type transport_type;
+    gf_boolean_t is_snap_volume;
+    gf_boolean_t memory_accounting;
+    gf_boolean_t stage_deleted; /* volume has passed staging
+                                 * for delete operation
+                                 */
+    char parent_volname[GD_VOLUME_NAME_MAX];
+    /* In case of a snap volume
+       i.e (is_snap_volume == TRUE) this
+       field will contain the name of
+       the volume which is snapped. In
+       case of a non-snap volume, this
+       field will be initialized as N/A */
+    char volname[NAME_MAX + 1];
+    /* NAME_MAX + 1 will be equal to
+     * GD_VOLUME_NAME_MAX + 5.(also to
+     * GD_VOLUME_NAME_MAX_TIER). An extra 5
+     * bytes are added to GD_VOLUME_NAME_MAX
+     * because, as part of the tiering
+     * volfile generation code, we are
+     * temporarily appending either "-hot"
+     * or "-cold" */
 };
 
 typedef enum gd_snap_status_ {
@@ -522,22 +520,22 @@ struct glusterd_snap_ {
     gf_lock_t lock;
     struct cds_list_head volumes;
     struct cds_list_head snap_list;
-    char snapname[GLUSTERD_MAX_SNAP_NAME];
-    uuid_t snap_id;
     char *description;
+    uuid_t snap_id;
     time_t time_stamp;
-    gf_boolean_t snap_restored;
-    gd_snap_status_t snap_status;
     gf_store_handle_t *shandle;
+    gd_snap_status_t snap_status;
+    gf_boolean_t snap_restored;
+    char snapname[GLUSTERD_MAX_SNAP_NAME];
 };
 
 typedef struct glusterd_snap_op_ {
     char *snap_vol_id;
-    int32_t brick_num;
     char *brick_path;
+    struct cds_list_head snap_ops_list;
+    int32_t brick_num;
     int32_t op;
     int32_t status;
-    struct cds_list_head snap_ops_list;
 } glusterd_snap_op_t;
 
 typedef struct glusterd_missed_snap_ {
@@ -575,9 +573,9 @@ typedef struct glusterd_pending_node_ {
 
 struct gsync_config_opt_vals_ {
     char *op_name;
+    char *values[GEO_CONF_MAX_OPT_VALS];
     int no_of_pos_vals;
     gf_boolean_t case_sensitive;
-    char *values[GEO_CONF_MAX_OPT_VALS];
 };
 
 enum glusterd_op_ret {
