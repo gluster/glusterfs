@@ -6788,6 +6788,9 @@ fini(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO("shard", this, out);
 
+    /*Itable was not created by shard, hence setting to NULL.*/
+    this->itable = NULL;
+
     mem_pool_destroy(this->local_pool);
     this->local_pool = NULL;
 

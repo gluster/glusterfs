@@ -1401,7 +1401,7 @@ glusterfs_graph_cleanup(void *arg)
 
     pthread_mutex_lock(&ctx->cleanup_lock);
     {
-        glusterfs_graph_fini(graph);
+        glusterfs_graph_deactivate(graph);
         glusterfs_graph_destroy(graph);
     }
     pthread_mutex_unlock(&ctx->cleanup_lock);
