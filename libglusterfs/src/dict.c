@@ -118,6 +118,7 @@ int32_t
 is_data_equal(data_t *one, data_t *two)
 {
     struct iatt *iatt1, *iatt2;
+    struct mdata_iatt *mdata_iatt1, *mdata_iatt2;
 
     if (!one || !two || !one->data || !two->data) {
         gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
@@ -180,6 +181,24 @@ is_data_equal(data_t *one, data_t *two)
                                 }
                         }
         */
+        return 1;
+    }
+    if (one->data_type == GF_DATA_TYPE_MDATA) {
+        if ((one->len < sizeof(struct mdata_iatt)) ||
+            (two->len < sizeof(struct mdata_iatt))) {
+            return 0;
+        }
+        mdata_iatt1 = (struct mdata_iatt *)one->data;
+        mdata_iatt2 = (struct mdata_iatt *)two->data;
+
+        if (mdata_iatt1->ia_atime != mdata_iatt2->ia_atime ||
+            mdata_iatt1->ia_mtime != mdata_iatt2->ia_mtime ||
+            mdata_iatt1->ia_ctime != mdata_iatt2->ia_ctime ||
+            mdata_iatt1->ia_atime_nsec != mdata_iatt2->ia_atime_nsec ||
+            mdata_iatt1->ia_mtime_nsec != mdata_iatt2->ia_mtime_nsec ||
+            mdata_iatt1->ia_ctime_nsec != mdata_iatt2->ia_ctime_nsec) {
+            return 0;
+        }
         return 1;
     }
 
@@ -1072,6 +1091,7 @@ static char *data_type_name[GF_DATA_TYPE_MAX] = {
     [GF_DATA_TYPE_PTR] = "pointer",
     [GF_DATA_TYPE_GFUUID] = "gf-uuid",
     [GF_DATA_TYPE_IATT] = "iatt",
+    [GF_DATA_TYPE_MDATA] = "mdata",
 };
 
 int64_t
@@ -2651,6 +2671,45 @@ dict_get_gfuuid(dict_t *this, char *key, uuid_t *gfid)
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_GFUUID, key, -EINVAL);
 
     memcpy(*gfid, data->data, min(data->len, sizeof(uuid_t)));
+
+err:
+    if (data)
+        data_unref(data);
+
+    return ret;
+}
+
+int
+dict_set_mdata(dict_t *this, char *key, struct mdata_iatt *mdata,
+               bool is_static)
+{
+    return dict_set_bin_common(this, key, mdata, sizeof(struct mdata_iatt),
+                               is_static, GF_DATA_TYPE_MDATA);
+}
+
+int
+dict_get_mdata(dict_t *this, char *key, struct mdata_iatt *mdata)
+{
+    data_t *data = NULL;
+    int ret = -EINVAL;
+
+    if (!this || !key || !mdata) {
+        goto err;
+    }
+    ret = dict_get_with_ref(this, key, &data);
+    if (ret < 0) {
+        goto err;
+    }
+
+    VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_MDATA, key, -EINVAL);
+    if (data->len < sizeof(struct mdata_iatt)) {
+        gf_msg("glusterfs", GF_LOG_ERROR, ENOBUFS, LG_MSG_UNDERSIZED_BUF,
+               "data value for '%s' is smaller than expected", key);
+        ret = -ENOBUFS;
+        goto err;
+    }
+
+    memcpy(mdata, data->data, min(data->len, sizeof(struct mdata_iatt)));
 
 err:
     if (data)

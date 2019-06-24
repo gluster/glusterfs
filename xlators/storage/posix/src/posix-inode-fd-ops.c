@@ -2629,6 +2629,9 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     gf_cs_obj_state state = -1;
     int i = 0;
     int len;
+    struct mdata_iatt mdata_iatt = {
+        0,
+    };
 
     DECLARE_OLD_FS_ID_VAR;
     SET_FS_ID(frame->root->uid, frame->root->gid);
@@ -2641,6 +2644,20 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
     priv = this->private;
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
+
+    ret = dict_get_mdata(dict, CTIME_MDATA_XDATA_KEY, &mdata_iatt);
+    if (ret == 0) {
+        /* This is initiated by lookup when ctime feature is enabled to create
+         * "trusted.glusterfs.mdata" xattr if not present. These are the files
+         * which were created when ctime feature is disabled.
+         */
+        ret = posix_set_mdata_xattr_legacy_files(this, loc->inode, &mdata_iatt,
+                                                 &op_errno);
+        if (ret != 0) {
+            op_ret = -1;
+        }
+        goto out;
+    }
 
     MAKE_INODE_HANDLE(real_path, this, loc, NULL);
     if (!real_path) {
