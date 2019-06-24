@@ -11,7 +11,6 @@
 #ifndef _UTIME_HELPERS_H
 #define _UTIME_HELPERS_H
 
-#include "glusterfs-fops.h"
 #include <glusterfs/stack.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/timespec.h>

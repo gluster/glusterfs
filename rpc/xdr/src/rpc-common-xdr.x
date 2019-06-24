@@ -11,13 +11,12 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include <glusterfs/compat.h>
+%#include <glusterfs/glusterfs-fops.h>
 
 /* This file has definition of few XDR structures which are
  * not captured in any section specific file */
 
 %#include "xdr-common.h"
-%#include "glusterfs-fops.h"
 
 struct auth_glusterfs_parms_v2 {
         int pid;

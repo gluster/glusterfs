@@ -11,9 +11,8 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include <glusterfs/compat.h>
+%#include <glusterfs/glusterfs-fops.h>
 %#include "rpc-common-xdr.h"
-%#include "glusterfs-fops.h"
 
 #define GF_REQUEST_MAXGROUPS    16
 struct gf_statfs {

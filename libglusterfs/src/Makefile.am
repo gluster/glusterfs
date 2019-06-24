@@ -69,7 +69,7 @@ libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
 	glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
 	glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
 	glusterfs/events.h glusterfs/atomic.h glusterfs/monitoring.h \
-	glusterfs/async.h
+	glusterfs/async.h glusterfs/glusterfs-fops.h
 
 libglusterfs_ladir = $(includedir)/glusterfs
 
