@@ -245,6 +245,10 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
     if (ret == -1 || !mdata) {
         mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
         if (!mdata) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_NOMEM,
+                   "Could not allocate mdata. file: %s: gfid: %s",
+                   real_path ? real_path : "null",
+                   inode ? uuid_utoa(inode->gfid) : "null");
             ret = -1;
             goto out;
         }
@@ -262,18 +266,8 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
             }
         } else {
             /* Failed to get mdata from disk, xattr missing.
-             * This happens on two cases.
-             * 1. File is created before ctime is enabled.
-             * 2. On new file creation.
-             *
-             * Do nothing, just return success. It is as
-             * good as ctime feature is not enabled for this
-             * file. For files created before ctime is enabled,
-             * time attributes gets updated into ctime structure
-             * once the metadata modification fop happens and
-             * time attributes become consistent eventually.
-             * For new files, it would obviously get updated
-             * before the fop completion.
+             * This happens when the file is created before
+             * ctime is enabled.
              */
             if (stbuf && op_errno != ENOENT) {
                 ret = 0;
@@ -345,6 +339,54 @@ posix_compare_timespec(struct timespec *first, struct timespec *second)
         return first->tv_sec - second->tv_sec;
 }
 
+int
+posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
+                                   struct mdata_iatt *mdata_iatt, int *op_errno)
+{
+    posix_mdata_t *mdata = NULL;
+    int ret = 0;
+
+    GF_VALIDATE_OR_GOTO("posix", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, inode, out);
+
+    LOCK(&inode->lock);
+    {
+        mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
+        if (!mdata) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_NOMEM,
+                   "Could not allocate mdata. gfid: %s",
+                   uuid_utoa(inode->gfid));
+            ret = -1;
+            *op_errno = ENOMEM;
+            goto unlock;
+        }
+
+        mdata->version = 1;
+        mdata->flags = 0;
+        mdata->ctime.tv_sec = mdata_iatt->ia_ctime;
+        mdata->ctime.tv_nsec = mdata_iatt->ia_ctime_nsec;
+        mdata->atime.tv_sec = mdata_iatt->ia_atime;
+        mdata->atime.tv_nsec = mdata_iatt->ia_atime_nsec;
+        mdata->mtime.tv_sec = mdata_iatt->ia_mtime;
+        mdata->mtime.tv_nsec = mdata_iatt->ia_mtime_nsec;
+
+        __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+
+        ret = posix_store_mdata_xattr(this, NULL, -1, inode, mdata);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STOREMDATA_FAILED,
+                   "gfid: %s key:%s ", uuid_utoa(inode->gfid),
+                   GF_XATTR_MDATA_KEY);
+            *op_errno = errno;
+            goto unlock;
+        }
+    }
+unlock:
+    UNLOCK(&inode->lock);
+out:
+    return ret;
+}
+
 /* posix_set_mdata_xattr updates the posix_mdata_t based on the flag
  * in inode context and stores it on disk
  */
@@ -372,6 +414,9 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
              */
             mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
             if (!mdata) {
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_NOMEM,
+                       "Could not allocate mdata. file: %s: gfid: %s",
+                       real_path ? real_path : "null", uuid_utoa(inode->gfid));
                 ret = -1;
                 goto unlock;
             }
@@ -386,35 +431,11 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                 __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
             } else {
                 /*
-                 * This is the first time creating the time
-                 * attr. This happens when you activate this
-                 * feature, and the legacy file will not have
-                 * any xattr set.
-                 *
-                 * New files will create extended attributes.
-                 */
-
-                /*
-                 * TODO: This is wrong approach, because before
-                 * creating fresh xattr, we should consult
-                 * to all replica and/or distribution set.
-                 *
-                 * We should contact the time management
-                 * xlators, and ask them to create an xattr.
-                 */
-                /* We should not be relying on backend file's
-                 * time attributes to load the initial ctime
-                 * time attribute structure. This is incorrect
-                 * as each replica set would have witnessed the
-                 * file creation at different times.
-                 *
-                 * For new file creation, ctime, atime and mtime
-                 * should be same, hence initiate the ctime
-                 * structure with the time from the frame. But
-                 * for the files which were created before ctime
-                 * feature is enabled, this is not accurate but
-                 * still fine as the times would get eventually
-                 * accurate.
+                 * This is the first time creating the time attr. This happens
+                 * when you activate this feature. On this code path, only new
+                 * files will create mdata xattr. The legacy files (files
+                 * created before ctime enabled) will not have any xattr set.
+                 * The xattr on legacy file will be set via lookup.
                  */
 
                 /* Don't create xattr with utimes/utimensat, only update if

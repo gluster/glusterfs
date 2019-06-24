@@ -9,8 +9,10 @@
 */
 
 #include "utime.h"
+#include "utime-helpers.h"
 #include "utime-messages.h"
 #include "utime-mem-types.h"
+#include <glusterfs/call-stub.h>
 
 int32_t
 gf_utime_invalidate(xlator_t *this, inode_t *inode)
@@ -133,6 +135,124 @@ mem_acct_init(xlator_t *this)
 }
 
 int32_t
+gf_utime_set_mdata_setxattr_cbk(call_frame_t *frame, void *cookie,
+                                xlator_t *this, int op_ret, int op_errno,
+                                dict_t *xdata)
+{
+    /* Don't fail lookup if mdata setxattr fails */
+    if (op_ret) {
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, UTIME_MSG_SET_MDATA_FAILED,
+               "dict set of key for set-ctime-mdata failed");
+    }
+    call_resume(frame->local);
+    return 0;
+}
+
+int32_t
+gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                              int32_t op_ret, int32_t op_errno, inode_t *inode,
+                              struct iatt *stbuf, dict_t *xdata,
+                              struct iatt *postparent)
+{
+    dict_t *dict = NULL;
+    struct mdata_iatt *mdata = NULL;
+    int ret = 0;
+    loc_t loc = {
+        0,
+    };
+
+    if (!op_ret && dict_get(xdata, GF_XATTR_MDATA_KEY) == NULL) {
+        dict = dict_new();
+        if (!dict) {
+            op_errno = ENOMEM;
+            goto err;
+        }
+        mdata = GF_MALLOC(sizeof(struct mdata_iatt), gf_common_mt_char);
+        if (mdata == NULL) {
+            op_errno = ENOMEM;
+            goto err;
+        }
+        iatt_to_mdata(mdata, stbuf);
+        ret = dict_set_mdata(dict, CTIME_MDATA_XDATA_KEY, mdata, _gf_false);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_WARNING, ENOMEM, UTIME_MSG_NO_MEMORY,
+                   "dict set of key for set-ctime-mdata failed");
+            goto err;
+        }
+        frame->local = fop_lookup_cbk_stub(frame, default_lookup_cbk, op_ret,
+                                           op_errno, inode, stbuf, xdata,
+                                           postparent);
+        if (!frame->local) {
+            gf_msg(this->name, GF_LOG_WARNING, ENOMEM, UTIME_MSG_NO_MEMORY,
+                   "lookup_cbk stub allocation failed");
+            goto stub_err;
+        }
+
+        loc.inode = inode_ref(inode);
+        gf_uuid_copy(loc.gfid, stbuf->ia_gfid);
+        STACK_WIND(frame, gf_utime_set_mdata_setxattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->setxattr, &loc, dict, 0, NULL);
+
+        dict_unref(dict);
+        inode_unref(loc.inode);
+        return 0;
+    }
+
+    STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno, inode, stbuf, xdata,
+                        postparent);
+    return 0;
+
+err:
+    if (mdata) {
+        GF_FREE(mdata);
+    }
+stub_err:
+    if (dict) {
+        dict_unref(dict);
+    }
+    STACK_UNWIND_STRICT(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    return 0;
+}
+
+int
+gf_utime_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+    int op_errno = -1;
+    int ret = -1;
+
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(this, err);
+    VALIDATE_OR_GOTO(loc, err);
+    VALIDATE_OR_GOTO(loc->inode, err);
+
+    xdata = xdata ? dict_ref(xdata) : dict_new();
+    if (!xdata) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    ret = dict_set_int8(xdata, GF_XATTR_MDATA_KEY, 1);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, -ret, UTIME_MSG_DICT_SET_FAILED,
+               "%s: Unable to set dict value for %s", loc->path,
+               GF_XATTR_MDATA_KEY);
+        op_errno = -ret;
+        goto free_dict;
+    }
+
+    STACK_WIND(frame, gf_utime_set_mdata_lookup_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->lookup, loc, xdata);
+    dict_unref(xdata);
+    return 0;
+
+free_dict:
+    dict_unref(xdata);
+err:
+    STACK_UNWIND_STRICT(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    return 0;
+}
+
+int32_t
 init(xlator_t *this)
 {
     utime_priv_t *utime = NULL;
@@ -182,19 +302,27 @@ notify(xlator_t *this, int event, void *data, ...)
 }
 
 struct xlator_fops fops = {
-    /* TODO: Need to go through other fops and
-     *       check if they modify time attributes
-     */
-    .rename = gf_utime_rename,       .mknod = gf_utime_mknod,
-    .readv = gf_utime_readv,         .fremovexattr = gf_utime_fremovexattr,
-    .open = gf_utime_open,           .create = gf_utime_create,
-    .mkdir = gf_utime_mkdir,         .writev = gf_utime_writev,
-    .rmdir = gf_utime_rmdir,         .fallocate = gf_utime_fallocate,
-    .truncate = gf_utime_truncate,   .symlink = gf_utime_symlink,
-    .zerofill = gf_utime_zerofill,   .link = gf_utime_link,
-    .ftruncate = gf_utime_ftruncate, .unlink = gf_utime_unlink,
-    .setattr = gf_utime_setattr,     .fsetattr = gf_utime_fsetattr,
-    .opendir = gf_utime_opendir,     .removexattr = gf_utime_removexattr,
+    .rename = gf_utime_rename,
+    .mknod = gf_utime_mknod,
+    .readv = gf_utime_readv,
+    .fremovexattr = gf_utime_fremovexattr,
+    .open = gf_utime_open,
+    .create = gf_utime_create,
+    .mkdir = gf_utime_mkdir,
+    .writev = gf_utime_writev,
+    .rmdir = gf_utime_rmdir,
+    .fallocate = gf_utime_fallocate,
+    .truncate = gf_utime_truncate,
+    .symlink = gf_utime_symlink,
+    .zerofill = gf_utime_zerofill,
+    .link = gf_utime_link,
+    .ftruncate = gf_utime_ftruncate,
+    .unlink = gf_utime_unlink,
+    .setattr = gf_utime_setattr,
+    .fsetattr = gf_utime_fsetattr,
+    .opendir = gf_utime_opendir,
+    .removexattr = gf_utime_removexattr,
+    .lookup = gf_utime_lookup,
 };
 struct xlator_cbks cbks = {
     .invalidate = gf_utime_invalidate,

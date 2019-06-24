@@ -375,6 +375,7 @@ dict_get_bin
 dict_get_double
 dict_get_gfuuid
 dict_get_iatt
+dict_get_mdata
 dict_get_int16
 dict_get_int32
 dict_get_int32n
@@ -412,6 +413,7 @@ dict_set_dynstrn
 dict_set_dynstr_with_alloc
 dict_set_gfuuid
 dict_set_iatt
+dict_set_mdata
 dict_set_int16
 dict_set_int32
 dict_set_int32n
@@ -504,6 +506,7 @@ fop_lease_stub
 fop_link_stub
 fop_lk_stub
 fop_log_level
+fop_lookup_cbk_stub
 fop_lookup_stub
 fop_mkdir_stub
 fop_mknod_stub
