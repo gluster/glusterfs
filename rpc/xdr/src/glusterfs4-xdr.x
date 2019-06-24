@@ -11,10 +11,8 @@
 #ifdef RPC_XDR
 %#include "rpc-pragmas.h"
 #endif
-%#include <glusterfs/compat.h>
-%#include "glusterfs-fops.h"
+%#include <glusterfs/glusterfs-fops.h>
 %#include "glusterfs3-xdr.h"
-
 
 /* Need to consume iattx and new dict in all the fops */
 struct gfx_iattx {
@@ -46,7 +44,7 @@ struct gfx_iattx {
         unsigned int     mode;          /* type of file and rwx mode */
 };
 
-union gfx_value switch (gf_dict_data_type_t type) {
+union gfx_value switch (int type) {
         case GF_DATA_TYPE_INT:
                 hyper value_int;
         case GF_DATA_TYPE_UINT:

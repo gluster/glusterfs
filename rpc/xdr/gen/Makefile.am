@@ -1,6 +1,6 @@
 XDRGENFILES = glusterfs3-xdr.x glusterfs4-xdr.x cli1-xdr.x nlm4-xdr.x nsm-xdr.x \
 	rpc-common-xdr.x glusterd1-xdr.x acl3-xdr.x portmap-xdr.x \
-	mount3udp.x changelog-xdr.x glusterfs-fops.x
+	mount3udp.x changelog-xdr.x
 XDRHEADERS = $(XDRGENFILES:.x=.h)
 XDRSOURCES = $(XDRGENFILES:.x=.c)
 
