@@ -5840,6 +5840,8 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     brick_req.name = path;
     brick_req.input.input_val = NULL;
     brick_req.input.input_len = 0;
+    brick_req.dict.dict_val = NULL;
+    brick_req.dict.dict_len = 0;
 
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
     iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
@@ -5903,7 +5905,7 @@ err:
 
 extern size_t
 build_volfile_path(char *volume_id, char *path, size_t path_len,
-                   char *trusted_str);
+                   char *trusted_str, dict_t *dict);
 
 static int
 attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
@@ -5948,7 +5950,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
         goto out;
     }
 
-    (void)build_volfile_path(full_id, path, sizeof(path), NULL);
+    (void)build_volfile_path(full_id, path, sizeof(path), NULL, NULL);
 
     for (tries = 15; tries > 0; --tries) {
         rpc = rpc_clnt_ref(other_brick->rpc);

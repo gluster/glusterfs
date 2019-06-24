@@ -143,6 +143,8 @@ gd_brick_op_req_free(gd1_mgmt_brick_op_req *req)
     if (!req)
         return;
 
+    if (req->dict.dict_val)
+        GF_FREE(req->dict.dict_val);
     GF_FREE(req->input.input_val);
     GF_FREE(req);
 }

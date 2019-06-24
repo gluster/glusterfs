@@ -63,6 +63,8 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     brick_req.name = path;
     brick_req.input.input_val = NULL;
     brick_req.input.input_len = 0;
+    brick_req.dict.dict_val = NULL;
+    brick_req.dict.dict_len = 0;
 
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
     iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);

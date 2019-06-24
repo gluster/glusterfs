@@ -132,6 +132,7 @@ struct gd1_mgmt_brick_op_req {
         string  name<>;
         int     op;
         opaque  input<>;
+        opaque  dict<>;
 } ;
 
 struct gd1_mgmt_brick_op_rsp {

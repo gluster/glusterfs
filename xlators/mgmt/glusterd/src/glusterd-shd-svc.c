@@ -258,13 +258,19 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     gf_boolean_t shd_restart = _gf_false;
 
     conf = THIS->private;
-    volinfo = data;
     GF_VALIDATE_OR_GOTO("glusterd", conf, out);
     GF_VALIDATE_OR_GOTO("glusterd", svc, out);
+    volinfo = data;
     GF_VALIDATE_OR_GOTO("glusterd", volinfo, out);
 
     if (volinfo)
         glusterd_volinfo_ref(volinfo);
+
+    if (volinfo->is_snap_volume) {
+        /* healing of a snap volume is not supported yet*/
+        ret = 0;
+        goto out;
+    }
 
     while (conf->restart_shd) {
         synclock_unlock(&conf->big_lock);

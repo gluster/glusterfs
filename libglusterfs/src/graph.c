@@ -1474,6 +1474,21 @@ out:
 }
 
 int
+glusterfs_svc_mux_pidfile_cleanup(gf_volfile_t *volfile_obj)
+{
+    if (!volfile_obj || !volfile_obj->pidfp)
+        return 0;
+
+    gf_msg_trace("glusterfsd", 0, "pidfile %s cleanup", volfile_obj->vol_id);
+
+    lockf(fileno(volfile_obj->pidfp), F_ULOCK, 0);
+    fclose(volfile_obj->pidfp);
+    volfile_obj->pidfp = NULL;
+
+    return 0;
+}
+
+int
 glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
 {
     xlator_t *last_xl = NULL;
@@ -1509,6 +1524,7 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
 
         list_del_init(&volfile_obj->volfile_list);
         glusterfs_mux_xlator_unlink(parent_graph->top, xl);
+        glusterfs_svc_mux_pidfile_cleanup(volfile_obj);
         parent_graph->last_xl = glusterfs_get_last_xlator(parent_graph);
         parent_graph->xl_count -= graph->xl_count;
         parent_graph->leaf_count -= graph->leaf_count;
@@ -1538,8 +1554,126 @@ out:
 }
 
 int
+glusterfs_svc_mux_pidfile_setup(gf_volfile_t *volfile_obj, const char *pid_file)
+{
+    int ret = -1;
+    FILE *pidfp = NULL;
+
+    if (!pid_file || !volfile_obj)
+        goto out;
+
+    if (volfile_obj->pidfp) {
+        ret = 0;
+        goto out;
+    }
+    pidfp = fopen(pid_file, "a+");
+    if (!pidfp) {
+        goto out;
+    }
+    volfile_obj->pidfp = pidfp;
+
+    ret = lockf(fileno(pidfp), F_TLOCK, 0);
+    if (ret) {
+        ret = 0;
+        goto out;
+    }
+out:
+    return ret;
+}
+
+int
+glusterfs_svc_mux_pidfile_update(gf_volfile_t *volfile_obj,
+                                 const char *pid_file, pid_t pid)
+{
+    int ret = 0;
+    FILE *pidfp = NULL;
+    int old_pid;
+
+    if (!volfile_obj->pidfp) {
+        ret = glusterfs_svc_mux_pidfile_setup(volfile_obj, pid_file);
+        if (ret == -1)
+            goto out;
+    }
+    pidfp = volfile_obj->pidfp;
+    ret = fscanf(pidfp, "%d", &old_pid);
+    if (ret <= 0) {
+        goto update;
+    }
+    if (old_pid == pid) {
+        ret = 0;
+        goto out;
+    } else {
+        gf_msg("mgmt", GF_LOG_INFO, 0, LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED,
+               "Old pid=%d found in pidfile %s. Cleaning the old pid and "
+               "Updating new pid=%d",
+               old_pid, pid_file, pid);
+    }
+update:
+    ret = sys_ftruncate(fileno(pidfp), 0);
+    if (ret) {
+        gf_msg("glusterfsd", GF_LOG_ERROR, errno,
+               LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED,
+               "pidfile %s truncation failed", pid_file);
+        goto out;
+    }
+
+    ret = fprintf(pidfp, "%d\n", pid);
+    if (ret <= 0) {
+        gf_msg("glusterfsd", GF_LOG_ERROR, errno,
+               LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED, "pidfile %s write failed",
+               pid_file);
+        goto out;
+    }
+
+    ret = fflush(pidfp);
+    if (ret) {
+        gf_msg("glusterfsd", GF_LOG_ERROR, errno,
+               LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED, "pidfile %s write failed",
+               pid_file);
+        goto out;
+    }
+out:
+    return ret;
+}
+
+int
+glusterfs_update_mux_pid(dict_t *dict, gf_volfile_t *volfile_obj)
+{
+    char *file = NULL;
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO("graph", dict, out);
+    GF_VALIDATE_OR_GOTO("graph", volfile_obj, out);
+
+    ret = dict_get_str(dict, "pidfile", &file);
+    if (ret < 0) {
+        gf_msg("mgmt", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
+               "Failed to get pidfile from dict for  volfile_id=%s",
+               volfile_obj->vol_id);
+    }
+
+    ret = glusterfs_svc_mux_pidfile_update(volfile_obj, file, getpid());
+    if (ret < 0) {
+        ret = -1;
+        gf_msg("mgmt", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
+               "Failed to update "
+               "the pidfile for volfile_id=%s",
+               volfile_obj->vol_id);
+
+        goto out;
+    }
+
+    if (ret == 1)
+        gf_msg("mgmt", GF_LOG_INFO, 0, LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED,
+               "PID %d updated in pidfile=%s", getpid(), file);
+    ret = 0;
+out:
+    return ret;
+}
+int
 glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum)
+                                   char *volfile_id, char *checksum,
+                                   dict_t *dict)
 {
     glusterfs_graph_t *graph = NULL;
     glusterfs_graph_t *parent_graph = NULL;
@@ -1622,18 +1756,25 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
         ret = -1;
         goto out;
     }
+    volfile_obj->pidfp = NULL;
+    snprintf(volfile_obj->vol_id, sizeof(volfile_obj->vol_id), "%s",
+             volfile_id);
+
+    if (strcmp(ctx->cmd_args.process_name, "glustershd") == 0) {
+        ret = glusterfs_update_mux_pid(dict, volfile_obj);
+        if (ret == -1) {
+            goto out;
+        }
+    }
 
     graph->used = 1;
     parent_graph->id++;
     list_add(&graph->list, &ctx->graphs);
     INIT_LIST_HEAD(&volfile_obj->volfile_list);
     volfile_obj->graph = graph;
-    snprintf(volfile_obj->vol_id, sizeof(volfile_obj->vol_id), "%s",
-             volfile_id);
     memcpy(volfile_obj->volfile_checksum, checksum,
            sizeof(volfile_obj->volfile_checksum));
     list_add_tail(&volfile_obj->volfile_list, &ctx->volfile_list);
-
     gf_log_dump_graph(fp, graph);
     graph = NULL;
 
@@ -1661,7 +1802,8 @@ out:
 
 int
 glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
-                                  gf_volfile_t *volfile_obj, char *checksum)
+                                  gf_volfile_t *volfile_obj, char *checksum,
+                                  dict_t *dict)
 {
     glusterfs_graph_t *oldvolfile_graph = NULL;
     glusterfs_graph_t *newvolfile_graph = NULL;
@@ -1710,7 +1852,7 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
         }
         volfile_obj = NULL;
         ret = glusterfs_process_svc_attach_volfp(ctx, newvolfile_fp, vol_id,
-                                                 checksum);
+                                                 checksum, dict);
         goto out;
     }
 

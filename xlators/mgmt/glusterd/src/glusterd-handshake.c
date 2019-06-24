@@ -202,7 +202,7 @@ out:
 
 size_t
 build_volfile_path(char *volume_id, char *path, size_t path_len,
-                   char *trusted_str)
+                   char *trusted_str, dict_t *dict)
 {
     struct stat stbuf = {
         0,
@@ -319,11 +319,19 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
 
         ret = glusterd_volinfo_find(volid_ptr, &volinfo);
         if (ret == -1) {
-            gf_log(this->name, GF_LOG_ERROR, "Couldn't find volinfo");
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
+                   "Couldn't find volinfo for volid=%s", volid_ptr);
             goto out;
         }
 
         glusterd_svc_build_shd_volfile_path(volinfo, path, path_len);
+
+        ret = glusterd_svc_set_shd_pidfile(volinfo, dict);
+        if (ret == -1) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Couldn't set pidfile in dict for volid=%s", volid_ptr);
+            goto out;
+        }
         ret = 0;
         goto out;
     }
@@ -898,6 +906,7 @@ __server_getspec(rpcsvc_request_t *req)
     char addrstr[RPCSVC_PEER_STRLEN] = {0};
     peer_info_t *peerinfo = NULL;
     xlator_t *this = NULL;
+    dict_t *dict = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -955,6 +964,12 @@ __server_getspec(rpcsvc_request_t *req)
         goto fail;
     }
 
+    dict = dict_new();
+    if (!dict) {
+        ret = -ENOMEM;
+        goto fail;
+    }
+
     trans = req->trans;
     /* addrstr will be empty for cli socket connections */
     ret = rpcsvc_transport_peername(trans, (char *)&addrstr, sizeof(addrstr));
@@ -977,12 +992,26 @@ __server_getspec(rpcsvc_request_t *req)
      */
     if (strlen(addrstr) == 0 || gf_is_local_addr(addrstr)) {
         ret = build_volfile_path(volume, filename, sizeof(filename),
-                                 TRUSTED_PREFIX);
+                                 TRUSTED_PREFIX, dict);
     } else {
-        ret = build_volfile_path(volume, filename, sizeof(filename), NULL);
+        ret = build_volfile_path(volume, filename, sizeof(filename), NULL,
+                                 dict);
     }
 
     if (ret == 0) {
+        if (dict->count > 0) {
+            ret = dict_allocate_and_serialize(dict, &rsp.xdata.xdata_val,
+                                              &rsp.xdata.xdata_len);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
+                       "Failed to serialize dict "
+                       "to request buffer");
+                goto fail;
+            }
+            dict->extra_free = rsp.xdata.xdata_val;
+        }
+
         /* to allocate the proper buffer to hold the file data */
         ret = sys_stat(filename, &stbuf);
         if (ret < 0) {
@@ -1024,7 +1053,6 @@ __server_getspec(rpcsvc_request_t *req)
             goto fail;
         }
     }
-
     /* convert to XDR */
 fail:
     if (spec_fd >= 0)
@@ -1047,6 +1075,10 @@ fail:
                           (xdrproc_t)xdr_gf_getspec_rsp);
     free(args.key);  // malloced by xdr
     free(rsp.spec);
+
+    if (dict)
+        dict_unref(dict);
+
     if (args.xdata.xdata_val)
         free(args.xdata.xdata_val);
 
