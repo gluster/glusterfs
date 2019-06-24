@@ -659,6 +659,7 @@ xlator_fini_rec(xlator_t *xl)
         trav = trav->next;
     }
 
+    xl->cleanup_starting = 1;
     if (xl->init_succeeded) {
         if (xl->fini) {
             old_THIS = THIS;
@@ -666,8 +667,14 @@ xlator_fini_rec(xlator_t *xl)
 
             xl->fini(xl);
 
-            if (xl->local_pool)
+            if (xl->local_pool) {
                 mem_pool_destroy(xl->local_pool);
+                xl->local_pool = NULL;
+            }
+            if (xl->itable) {
+                inode_table_destroy(xl->itable);
+                xl->itable = NULL;
+            }
 
             THIS = old_THIS;
         } else {
