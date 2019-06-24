@@ -251,6 +251,7 @@ xdr_to_write3args
 xdr_vector_round_up
 xdr_gfx_read_rsp
 xdr_gfx_iattx
+xdr_gfx_mdata_iatt
 xdr_gfx_value
 xdr_gfx_dict_pair
 xdr_gfx_dict

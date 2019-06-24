@@ -389,6 +389,11 @@ GF_MUST_CHECK int
 dict_set_iatt(dict_t *this, char *key, struct iatt *iatt, bool is_static);
 GF_MUST_CHECK int
 dict_get_iatt(dict_t *this, char *key, struct iatt *iatt);
+GF_MUST_CHECK int
+dict_set_mdata(dict_t *this, char *key, struct mdata_iatt *mdata,
+               bool is_static);
+GF_MUST_CHECK int
+dict_get_mdata(dict_t *this, char *key, struct mdata_iatt *mdata);
 
 void
 dict_dump_to_statedump(dict_t *dict, char *dict_name, char *domain);
