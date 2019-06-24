@@ -34,28 +34,21 @@
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 
-#define GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(path, volinfo, priv)                 \
-    do {                                                                       \
-        char defrag_path[PATH_MAX];                                            \
-        int32_t _sockfile_old_len;                                             \
-        GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);                   \
-        _sockfile_old_len = snprintf(path, PATH_MAX, "%s/%s.sock",             \
-                                     defrag_path, uuid_utoa(MY_UUID));         \
-        if ((_sockfile_old_len < 0) || (_sockfile_old_len >= PATH_MAX)) {      \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
 #define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo)                           \
     do {                                                                       \
         int32_t _defrag_sockfile_len;                                          \
+        char tmppath[PATH_MAX] = {                                             \
+            0,                                                                 \
+        };                                                                     \
         _defrag_sockfile_len = snprintf(                                       \
-            path, UNIX_PATH_MAX,                                               \
-            DEFAULT_VAR_RUN_DIRECTORY "/gluster-%s-%s.sock", "rebalance",      \
-            uuid_utoa(volinfo->volume_id));                                    \
+            tmppath, PATH_MAX,                                                 \
+            DEFAULT_VAR_RUN_DIRECTORY "/gluster-%s-%s-%s.sock", "rebalance",   \
+            volinfo->volname, uuid_utoa(MY_UUID));                             \
         if ((_defrag_sockfile_len < 0) ||                                      \
             (_defrag_sockfile_len >= PATH_MAX)) {                              \
             path[0] = 0;                                                       \
+        } else {                                                               \
+            glusterd_set_socket_filepath(tmppath, path, sizeof(path));         \
         }                                                                      \
     } while (0)
 
@@ -290,17 +283,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
 
     if (dict_get_strn(this->options, "transport.socket.bind-address",
                       SLEN("transport.socket.bind-address"),
-                      &volfileserver) == 0) {
-        /*In the case of running multiple glusterds on a single machine,
-         *we should ensure that log file and unix socket file should be
-         *unique in given cluster */
-
-        GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(sockfile, volinfo, priv);
-        snprintf(logfile, PATH_MAX, "%s/%s-%s-%s.log",
-                 DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname, "rebalance",
-                 uuid_utoa(MY_UUID));
-
-    } else {
+                      &volfileserver) != 0) {
         volfileserver = "localhost";
     }
 
@@ -396,9 +379,6 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     glusterd_defrag_info_t *defrag = volinfo->rebal.defrag;
     glusterd_conf_t *priv = NULL;
     xlator_t *this = NULL;
-    struct stat buf = {
-        0,
-    };
 
     this = THIS;
     GF_ASSERT(this);
@@ -414,28 +394,6 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
         goto out;
 
     GLUSTERD_GET_DEFRAG_SOCK_FILE(sockfile, volinfo);
-    /* Check if defrag sockfile exists in the new location
-     * in /var/run/ , if it does not try the old location
-     */
-    ret = sys_stat(sockfile, &buf);
-    /* TODO: Remove this once we don't need backward compatibility
-     * with the older path
-     */
-    if (ret && (errno == ENOENT)) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_FILE_OP_FAILED,
-               "Rebalance sockfile "
-               "%s does not exist. Trying old path.",
-               sockfile);
-        GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(sockfile, volinfo, priv);
-        ret = sys_stat(sockfile, &buf);
-        if (ret && (ENOENT == errno)) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REBAL_NO_SOCK_FILE,
-                   "Rebalance "
-                   "sockfile %s does not exist",
-                   sockfile);
-            goto out;
-        }
-    }
 
     /* Setting frame-timeout to 10mins (600seconds).
      * Unix domain sockets ensures that the connection is reliable. The
