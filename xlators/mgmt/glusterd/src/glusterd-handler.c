@@ -5179,6 +5179,8 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
 
     brick_req->op = GLUSTERD_BRICK_STATUS;
     brick_req->name = "";
+    brick_req->dict.dict_val = NULL;
+    brick_req->dict.dict_len = 0;
 
     ret = dict_set_strn(dict, "brick-name", SLEN("brick-name"),
                         brickinfo->path);

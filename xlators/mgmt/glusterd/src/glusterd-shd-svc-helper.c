@@ -126,3 +126,28 @@ glusterd_shd_svcproc_cleanup(glusterd_shdsvc_t *shd)
 out:
     return;
 }
+
+int
+glusterd_svc_set_shd_pidfile(glusterd_volinfo_t *volinfo, dict_t *dict)
+{
+    int ret = -1;
+    glusterd_svc_t *svc = NULL;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(this->name, dict, out);
+
+    svc = &(volinfo->shd.svc);
+
+    ret = dict_set_dynstr_with_alloc(dict, "pidfile", svc->proc.pidfile);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Failed to set pidfile %s in dict", svc->proc.pidfile);
+        goto out;
+    }
+    ret = 0;
+out:
+    return ret;
+}

@@ -646,6 +646,8 @@ glusterd_brick_op_build_payload(glusterd_op_t op,
             break;
     }
 
+    brick_req->dict.dict_len = 0;
+    brick_req->dict.dict_val = NULL;
     ret = dict_allocate_and_serialize(dict, &brick_req->input.input_val,
                                       &brick_req->input.input_len);
     if (ret)
@@ -714,6 +716,8 @@ glusterd_node_op_build_payload(glusterd_op_t op, gd1_mgmt_brick_op_req **req,
             goto out;
     }
 
+    brick_req->dict.dict_len = 0;
+    brick_req->dict.dict_val = NULL;
     ret = dict_allocate_and_serialize(dict, &brick_req->input.input_val,
                                       &brick_req->input.input_len);
 

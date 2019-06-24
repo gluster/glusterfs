@@ -746,7 +746,7 @@ typedef struct {
     char vol_id[NAME_MAX + 1];
     struct list_head volfile_list;
     glusterfs_graph_t *graph;
-
+    FILE *pidfp;
 } gf_volfile_t;
 
 glusterfs_ctx_t *
