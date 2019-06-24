@@ -585,6 +585,34 @@ out:
 }
 
 static inline void
+gfx_mdata_iatt_to_mdata_iatt(struct gfx_mdata_iatt *gf_mdata_iatt,
+                             struct mdata_iatt *mdata_iatt)
+{
+    if (!mdata_iatt || !gf_mdata_iatt)
+        return;
+    mdata_iatt->ia_atime = gf_mdata_iatt->ia_atime;
+    mdata_iatt->ia_atime_nsec = gf_mdata_iatt->ia_atime_nsec;
+    mdata_iatt->ia_mtime = gf_mdata_iatt->ia_mtime;
+    mdata_iatt->ia_mtime_nsec = gf_mdata_iatt->ia_mtime_nsec;
+    mdata_iatt->ia_ctime = gf_mdata_iatt->ia_ctime;
+    mdata_iatt->ia_ctime_nsec = gf_mdata_iatt->ia_ctime_nsec;
+}
+
+static inline void
+gfx_mdata_iatt_from_mdata_iatt(struct gfx_mdata_iatt *gf_mdata_iatt,
+                               struct mdata_iatt *mdata_iatt)
+{
+    if (!mdata_iatt || !gf_mdata_iatt)
+        return;
+    gf_mdata_iatt->ia_atime = mdata_iatt->ia_atime;
+    gf_mdata_iatt->ia_atime_nsec = mdata_iatt->ia_atime_nsec;
+    gf_mdata_iatt->ia_mtime = mdata_iatt->ia_mtime;
+    gf_mdata_iatt->ia_mtime_nsec = mdata_iatt->ia_mtime_nsec;
+    gf_mdata_iatt->ia_ctime = mdata_iatt->ia_ctime;
+    gf_mdata_iatt->ia_ctime_nsec = mdata_iatt->ia_ctime_nsec;
+}
+
+static inline void
 gfx_stat_to_iattx(struct gfx_iattx *gf_stat, struct iatt *iatt)
 {
     if (!iatt || !gf_stat)
@@ -721,6 +749,12 @@ dict_to_xdr(dict_t *this, gfx_dict *dict)
                 gfx_stat_from_iattx(&xpair->value.gfx_value_u.iatt,
                                     (struct iatt *)dpair->value->data);
                 break;
+            case GF_DATA_TYPE_MDATA:
+                index++;
+                gfx_mdata_iatt_from_mdata_iatt(
+                    &xpair->value.gfx_value_u.mdata_iatt,
+                    (struct mdata_iatt *)dpair->value->data);
+                break;
             case GF_DATA_TYPE_GFUUID:
                 index++;
                 memcpy(&xpair->value.gfx_value_u.uuid, dpair->value->data,
@@ -787,6 +821,7 @@ xdr_to_dict(gfx_dict *dict, dict_t **to)
     dict_t *this = NULL;
     unsigned char *uuid = NULL;
     struct iatt *iatt = NULL;
+    struct mdata_iatt *mdata_iatt = NULL;
 
     if (!to || !dict)
         goto out;
@@ -853,6 +888,30 @@ xdr_to_dict(gfx_dict *dict, dict_t **to)
                 }
                 gfx_stat_to_iattx(&xpair->value.gfx_value_u.iatt, iatt);
                 ret = dict_set_iatt(this, key, iatt, false);
+                break;
+            case GF_DATA_TYPE_MDATA:
+                mdata_iatt = GF_CALLOC(1, sizeof(struct mdata_iatt),
+                                       gf_common_mt_char);
+                if (!mdata_iatt) {
+                    errno = ENOMEM;
+                    gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
+                           "failed to allocate memory. key: %s", key);
+                    ret = -1;
+                    goto out;
+                }
+                gfx_mdata_iatt_to_mdata_iatt(
+                    &xpair->value.gfx_value_u.mdata_iatt, mdata_iatt);
+                ret = dict_set_mdata(this, key, mdata_iatt, false);
+                if (ret != 0) {
+                    GF_FREE(mdata_iatt);
+                    gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM,
+                           LG_MSG_DICT_SET_FAILED,
+                           "failed to set the key (%s)"
+                           " into dict",
+                           key);
+                    ret = -1;
+                    goto out;
+                }
                 break;
             case GF_DATA_TYPE_PTR:
             case GF_DATA_TYPE_STR_OLD:

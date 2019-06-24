@@ -53,5 +53,9 @@ posix_set_ctime_cfr(call_frame_t *frame, xlator_t *this,
                     const char *real_path_in, int fd_in, inode_t *inode_in,
                     struct iatt *stbuf_in, const char *read_path_put,
                     int fd_out, inode_t *inode_out, struct iatt *stbuf_out);
+int
+posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
+                                   struct mdata_iatt *mdata_iatt,
+                                   int *op_errno);
 
 #endif /* _POSIX_METADATA_H */

@@ -44,6 +44,16 @@ struct gfx_iattx {
         unsigned int     mode;          /* type of file and rwx mode */
 };
 
+struct gfx_mdata_iatt {
+        hyper      ia_atime;      /* last access time */
+        hyper      ia_mtime;      /* last modification time */
+        hyper      ia_ctime;      /* last status change time */
+
+        unsigned int     ia_atime_nsec;
+        unsigned int     ia_mtime_nsec;
+        unsigned int     ia_ctime_nsec;
+};
+
 union gfx_value switch (int type) {
         case GF_DATA_TYPE_INT:
                 hyper value_int;
@@ -60,6 +70,8 @@ union gfx_value switch (int type) {
         case GF_DATA_TYPE_PTR:
         case GF_DATA_TYPE_STR_OLD:
                 opaque other<>;
+        case GF_DATA_TYPE_MDATA:
+                gfx_mdata_iatt mdata_iatt;
 };
 
 /* AUTH */

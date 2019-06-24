@@ -92,6 +92,15 @@ struct old_iatt {
     uint32_t ia_ctime_nsec;
 };
 
+struct mdata_iatt {
+    int64_t ia_atime; /* last access time */
+    int64_t ia_mtime; /* last modification time */
+    int64_t ia_ctime; /* last status change time */
+    uint32_t ia_atime_nsec;
+    uint32_t ia_mtime_nsec;
+    uint32_t ia_ctime_nsec;
+};
+
 /* 64-bit mask for valid members in struct iatt. */
 #define IATT_TYPE 0x0000000000000001U
 #define IATT_MODE 0x0000000000000002U
@@ -311,6 +320,17 @@ st_mode_from_ia(ia_prot_t prot, ia_type_t type)
     st_mode = (type_bit | prot_bit);
 
     return st_mode;
+}
+
+static inline void
+iatt_to_mdata(struct mdata_iatt *mdata, struct iatt *iatt)
+{
+    mdata->ia_atime = iatt->ia_atime;
+    mdata->ia_atime_nsec = iatt->ia_atime_nsec;
+    mdata->ia_mtime = iatt->ia_mtime;
+    mdata->ia_mtime_nsec = iatt->ia_mtime_nsec;
+    mdata->ia_ctime = iatt->ia_ctime;
+    mdata->ia_ctime_nsec = iatt->ia_ctime_nsec;
 }
 
 static inline int

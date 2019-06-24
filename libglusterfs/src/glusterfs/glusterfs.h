@@ -215,6 +215,9 @@ enum gf_internal_fop_indicator {
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 #define QUOTA_READ_ONLY_KEY "trusted.glusterfs.quota.read-only"
 
+/* ctime related */
+#define CTIME_MDATA_XDATA_KEY "set-ctime-mdata"
+
 /* afr related */
 #define AFR_XATTR_PREFIX "trusted.afr"
 
