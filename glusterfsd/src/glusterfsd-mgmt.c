@@ -50,13 +50,16 @@ int
 emancipate(glusterfs_ctx_t *ctx, int ret);
 int
 glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum);
+                                   char *volfile_id, char *checksum,
+                                   dict_t *dict);
 int
 glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
-                                  gf_volfile_t *volfile_obj, char *checksum);
+                                  gf_volfile_t *volfile_obj, char *checksum,
+                                  dict_t *dict);
 int
 glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum);
+                                   char *volfile_id, char *checksum,
+                                   dict_t *dict);
 int
 glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
 
@@ -75,7 +78,8 @@ mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
 }
 
 int
-mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id)
+mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
+                     dict_t *dict)
 {
     glusterfs_ctx_t *ctx = NULL;
     int ret = 0;
@@ -145,11 +149,11 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id)
              * the volfile
              */
             ret = glusterfs_process_svc_attach_volfp(ctx, tmpfp, volfile_id,
-                                                     sha256_hash);
+                                                     sha256_hash, dict);
             goto unlock;
         }
         ret = glusterfs_mux_volfile_reconfigure(tmpfp, ctx, volfile_obj,
-                                                sha256_hash);
+                                                sha256_hash, dict);
         if (ret < 0) {
             gf_msg_debug("glusterfsd-mgmt", EINVAL, "Reconfigure failed !!");
         }
@@ -387,6 +391,8 @@ err:
         UNLOCK(&ctx->volfile_lock);
     if (xlator_req.input.input_val)
         free(xlator_req.input.input_val);
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
     free(xlator_req.name);
     xlator_req.name = NULL;
     return 0;
@@ -561,6 +567,8 @@ out:
 
     free(xlator_req.name);
     free(xlator_req.input.input_val);
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
     if (output)
         dict_unref(output);
     if (dict)
@@ -982,6 +990,8 @@ out:
     if (input)
         dict_unref(input);
     free(xlator_req.input.input_val); /*malloced by xdr*/
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
     if (output)
         dict_unref(output);
     free(xlator_req.name);
@@ -1062,6 +1072,8 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
     out:
         UNLOCK(&ctx->volfile_lock);
     }
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
     free(xlator_req.input.input_val);
     free(xlator_req.name);
 
@@ -1077,6 +1089,7 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
     };
     xlator_t *this = NULL;
     glusterfs_ctx_t *ctx = NULL;
+    dict_t *dict = NULL;
 
     GF_ASSERT(req);
     this = THIS;
@@ -1091,20 +1104,41 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
         req->rpc_err = GARBAGE_ARGS;
         goto out;
     }
+
     gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_41,
            "received attach "
            "request for volfile-id=%s",
            xlator_req.name);
+
+    dict = dict_new();
+    if (!dict) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    ret = dict_unserialize(xlator_req.dict.dict_val, xlator_req.dict.dict_len,
+                           &dict);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_WARNING, EINVAL, glusterfsd_msg_42,
+               "failed to unserialize xdata to dictionary");
+        goto out;
+    }
+    dict->extra_stdfree = xlator_req.dict.dict_val;
+
     ret = 0;
 
     if (ctx->active) {
         ret = mgmt_process_volfile(xlator_req.input.input_val,
-                                   xlator_req.input.input_len, xlator_req.name);
+                                   xlator_req.input.input_len, xlator_req.name,
+                                   dict);
     } else {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, glusterfsd_msg_42,
                "got attach for %s but no active graph", xlator_req.name);
     }
 out:
+    if (dict)
+        dict_unref(dict);
     if (xlator_req.input.input_val)
         free(xlator_req.input.input_val);
     if (xlator_req.name)
@@ -1241,6 +1275,8 @@ out:
     GF_FREE(filepath);
     if (xlator_req.input.input_val)
         free(xlator_req.input.input_val);
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
 
     return ret;
 }
@@ -1313,6 +1349,8 @@ out:
     if (dict)
         dict_unref(dict);
     free(xlator_req.input.input_val);  // malloced by xdr
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
     if (output)
         dict_unref(output);
     free(xlator_req.name);  // malloced by xdr
@@ -1460,6 +1498,8 @@ out:
     if (output)
         dict_unref(output);
     free(brick_req.input.input_val);
+    if (brick_req.dict.dict_val)
+        free(brick_req.dict.dict_val);
     free(brick_req.name);
     GF_FREE(msg);
     GF_FREE(rsp.output.output_val);
@@ -1652,6 +1692,8 @@ out:
     if (dict)
         dict_unref(dict);
     free(node_req.input.input_val);
+    if (node_req.dict.dict_val)
+        free(node_req.dict.dict_val);
     GF_FREE(msg);
     GF_FREE(rsp.output.output_val);
     GF_FREE(node_name);
@@ -1755,6 +1797,8 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
 
 out:
     free(nfs_req.input.input_val);
+    if (nfs_req.dict.dict_val)
+        free(nfs_req.dict.dict_val);
     if (dict)
         dict_unref(dict);
     if (output)
@@ -1833,6 +1877,8 @@ out:
     if (dict)
         dict_unref(dict);
     free(xlator_req.input.input_val);  // malloced by xdr
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
     if (output)
         dict_unref(output);
     free(xlator_req.name);  // malloced by xdr
@@ -1961,7 +2007,8 @@ out:
     if (dict)
         dict_unref(dict);
     free(brick_req.input.input_val);
-
+    if (brick_req.dict.dict_val)
+        free(brick_req.dict.dict_val);
     gf_log(THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
     return ret;
 }
@@ -2211,7 +2258,8 @@ volfile:
     size = rsp.op_ret;
     volfile_id = frame->local;
     if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name)) {
-        ret = mgmt_process_volfile((const char *)rsp.spec, size, volfile_id);
+        ret = mgmt_process_volfile((const char *)rsp.spec, size, volfile_id,
+                                   dict);
         goto post_graph_mgmt;
     }
 

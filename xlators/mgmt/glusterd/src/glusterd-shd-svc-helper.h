@@ -36,4 +36,7 @@ glusterd_recover_shd_attach_failure(glusterd_volinfo_t *volinfo,
 int
 glusterd_shdsvc_create_volfile(glusterd_volinfo_t *volinfo);
 
+int
+glusterd_svc_set_shd_pidfile(glusterd_volinfo_t *volinfo, dict_t *dict);
+
 #endif

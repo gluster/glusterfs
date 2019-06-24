@@ -517,7 +517,7 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
                 /* Take first entry from the process */
                 parent_svc = cds_list_entry(mux_proc->svcs.next, glusterd_svc_t,
                                             mux_svc);
-                sys_link(parent_svc->proc.pidfile, svc->proc.pidfile);
+                glusterd_copy_file(parent_svc->proc.pidfile, svc->proc.pidfile);
                 mux_conn = &parent_svc->conn;
                 if (volinfo)
                     volinfo->shd.attached = _gf_true;
@@ -621,12 +621,9 @@ glusterd_svc_attach_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_shdsvc_t *shd = NULL;
     glusterd_svc_t *svc = frame->cookie;
-    glusterd_svc_t *parent_svc = NULL;
-    glusterd_svc_proc_t *mux_proc = NULL;
     glusterd_conf_t *conf = NULL;
     int *flag = (int *)frame->local;
     xlator_t *this = THIS;
-    int pid = -1;
     int ret = -1;
     gf_getspec_rsp rsp = {
         0,
@@ -677,27 +674,7 @@ glusterd_svc_attach_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (rsp.op_ret == 0) {
-        pthread_mutex_lock(&conf->attach_lock);
-        {
-            if (!strcmp(svc->name, "glustershd")) {
-                mux_proc = svc->svc_proc;
-                if (mux_proc &&
-                    !gf_is_service_running(svc->proc.pidfile, &pid)) {
-                    /*
-                     * When svc's are restarting, there is a chance that the
-                     * attached svc might not have updated it's pid. Because
-                     * it was at connection stage. So in that case, we need
-                     * to retry the pid file copy.
-                     */
-                    parent_svc = cds_list_entry(mux_proc->svcs.next,
-                                                glusterd_svc_t, mux_svc);
-                    if (parent_svc)
-                        sys_link(parent_svc->proc.pidfile, svc->proc.pidfile);
-                }
-            }
-            svc->online = _gf_true;
-        }
-        pthread_mutex_unlock(&conf->attach_lock);
+        svc->online = _gf_true;
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_SVC_ATTACH_FAIL,
                "svc %s of volume %s attached successfully to pid %d", svc->name,
                volinfo->volname, glusterd_proc_get_pid(&svc->proc));
@@ -724,7 +701,7 @@ out:
 
 extern size_t
 build_volfile_path(char *volume_id, char *path, size_t path_len,
-                   char *trusted_str);
+                   char *trusted_str, dict_t *dict);
 
 int
 __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
@@ -749,6 +726,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     ssize_t req_size = 0;
     call_frame_t *frame = NULL;
     gd1_mgmt_brick_op_req brick_req;
+    dict_t *dict = NULL;
     void *req = &brick_req;
     void *errlbl = &&err;
     struct rpc_clnt_connection *conn;
@@ -774,6 +752,8 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     brick_req.name = volfile_id;
     brick_req.input.input_val = NULL;
     brick_req.input.input_len = 0;
+    brick_req.dict.dict_val = NULL;
+    brick_req.dict.dict_len = 0;
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
@@ -781,7 +761,13 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     }
 
     if (op == GLUSTERD_SVC_ATTACH) {
-        (void)build_volfile_path(volfile_id, path, sizeof(path), NULL);
+        dict = dict_new();
+        if (!dict) {
+            ret = -ENOMEM;
+            goto *errlbl;
+        }
+
+        (void)build_volfile_path(volfile_id, path, sizeof(path), NULL, dict);
 
         ret = sys_stat(path, &stbuf);
         if (ret < 0) {
@@ -815,6 +801,18 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
                    path, file_len, ret);
             ret = -EIO;
             goto *errlbl;
+        }
+        if (dict->count > 0) {
+            ret = dict_allocate_and_serialize(dict, &brick_req.dict.dict_val,
+                                              &brick_req.dict.dict_len);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
+                       "Failed to serialize dict "
+                       "to request buffer");
+                goto *errlbl;
+            }
+            dict->extra_free = brick_req.dict.dict_val;
         }
 
         frame->cookie = svc;
@@ -860,6 +858,8 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     GF_ATOMIC_INC(conf->blockers);
     ret = rpc_clnt_submit(rpc, &gd_brick_prog, op, cbkfn, &iov, 1, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
+    if (dict)
+        dict_unref(dict);
     GF_FREE(volfile_content);
     if (spec_fd >= 0)
         sys_close(spec_fd);
@@ -872,6 +872,9 @@ maybe_free_iobuf:
         iobuf_unref(iobuf);
     }
 err:
+    if (dict)
+        dict_unref(dict);
+
     GF_FREE(volfile_content);
     if (spec_fd >= 0)
         sys_close(spec_fd);
