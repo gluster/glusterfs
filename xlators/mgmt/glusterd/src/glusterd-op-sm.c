@@ -5469,9 +5469,14 @@ glusterd_op_ac_stage_op(glusterd_op_sm_event_t *event, void *ctx)
     glusterd_op_info_t txn_op_info = {
         {0},
     };
+    glusterd_conf_t *priv = NULL;
 
     this = THIS;
     GF_ASSERT(this);
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
     GF_ASSERT(ctx);
 
     req_ctx = ctx;
@@ -5523,9 +5528,12 @@ out:
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
 
     /* for no volname transactions, the txn_opinfo needs to be cleaned up
-     * as there's no unlock event triggered
+     * as there's no unlock event triggered. However if the originator node of
+     * this transaction is still running with a version lower than 60000,
+     * txn_opinfo can't be cleared as that'll lead to a race of referring op_ctx
+     * after it's being freed.
      */
-    if (txn_op_info.skip_locking)
+    if (txn_op_info.skip_locking && priv->op_version >= GD_OP_VERSION_6_0)
         ret = glusterd_clear_txn_opinfo(txn_id);
 
     if (rsp_dict)
