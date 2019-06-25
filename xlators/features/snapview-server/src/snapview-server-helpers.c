@@ -476,6 +476,7 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
     char logfile[PATH_MAX] = {
         0,
     };
+    char *volfile_server = NULL;
 
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
@@ -512,14 +513,50 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
         goto out;
     }
 
-    ret = glfs_set_volfile_server(fs, "tcp", "localhost", 24007);
+    /*
+     * Before, localhost was used as the volfile server. But, with that
+     * method, accessing snapshots started giving ENOENT error if a
+     * specific bind address is mentioned in the glusterd volume file.
+     * Check the bug https://bugzilla.redhat.com/show_bug.cgi?id=1725211.
+     * So, the new method is tried below, where, snapview-server first
+     * uses the volfile server used by the snapd (obtained from the
+     * command line arguments saved in the global context of the process).
+     * If the volfile server in global context is NULL, then localhost
+     * is tried (like before).
+     */
+    if (this->ctx->cmd_args.volfile_server) {
+        volfile_server = gf_strdup(this->ctx->cmd_args.volfile_server);
+        if (!volfile_server) {
+            gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
+                   SVS_MSG_VOLFILE_SERVER_GET_FAIL,
+                   "failed to copy volfile server %s. ",
+                   this->ctx->cmd_args.volfile_server);
+            ret = -1;
+            goto out;
+        }
+    } else {
+        gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
+               SVS_MSG_VOLFILE_SERVER_GET_FAIL,
+               "volfile server is NULL in cmd args. "
+               "Trying with localhost");
+        volfile_server = gf_strdup("localhost");
+        if (!volfile_server) {
+            gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
+                   SVS_MSG_VOLFILE_SERVER_GET_FAIL,
+                   "failed to copy volfile server localhost.");
+            ret = -1;
+            goto out;
+        }
+    }
+
+    ret = glfs_set_volfile_server(fs, "tcp", volfile_server, 24007);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, local_errno,
                SVS_MSG_SET_VOLFILE_SERVR_FAILED,
                "setting the "
-               "volfile server for snap volume %s "
+               "volfile server %s for snap volume %s "
                "failed",
-               dirent->name);
+               volfile_server, dirent->name);
         goto out;
     }
 
@@ -561,6 +598,7 @@ out:
         dirent->fs = fs;
     }
 
+    GF_FREE(volfile_server);
     return fs;
 }
 
