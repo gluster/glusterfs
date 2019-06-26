@@ -801,6 +801,48 @@ afr_bricks_available_for_heal(afr_private_t *priv)
     return _gf_true;
 }
 
+static gf_boolean_t
+afr_shd_ta_needs_heal(xlator_t *this, struct subvol_healer *healer)
+{
+    dict_t *xdata = NULL;
+    afr_private_t *priv = NULL;
+    loc_t loc = {
+        0,
+    };
+    int ret = -1;
+    int i = 0;
+    gf_boolean_t need_heal = _gf_false;
+
+    priv = this->private;
+
+    ret = afr_shd_fill_ta_loc(this, &loc);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+               "Failed to populate thin-arbiter loc for: %s.", loc.name);
+        healer->rerun = 1;
+        goto out;
+    }
+
+    if (_afr_shd_ta_get_xattrs(this, &loc, &xdata)) {
+        healer->rerun = 1;
+        goto out;
+    }
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (afr_ta_dict_contains_pending_xattr(xdata, priv, i)) {
+            need_heal = _gf_true;
+            break;
+        }
+    }
+
+out:
+    if (xdata)
+        dict_unref(xdata);
+    loc_wipe(&loc);
+
+    return need_heal;
+}
+
 void *
 afr_shd_index_healer(void *data)
 {
@@ -827,7 +869,8 @@ afr_shd_index_healer(void *data)
         priv->local[healer->subvol] = healer->local;
 
         if (priv->thin_arbiter_count) {
-            afr_shd_ta_get_xattrs(this, &loc, healer, &pre_crawl_xdata);
+            if (afr_shd_ta_needs_heal(this, healer))
+                afr_shd_ta_get_xattrs(this, &loc, healer, &pre_crawl_xdata);
         }
 
         do {
