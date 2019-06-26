@@ -394,7 +394,7 @@ function run_tests()
                     cmd_timeout=$(grep "SCRIPT_TIMEOUT=" ${t} | cut -f2 -d'=');
                     echo "Timeout set is ${cmd_timeout}, default ${run_timeout}"
                 fi
-                timeout -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                timeout --foreground -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
             else
                 prove -vmfe '/bin/bash' ${t}
             fi
@@ -418,7 +418,7 @@ function run_tests()
                 echo ""
 
                 if [ ${timeout_cmd_exists} == "yes" ]; then
-                    timeout -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                    timeout --foreground -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
                 else
                     prove -vmfe '/bin/bash' ${t}
                 fi
