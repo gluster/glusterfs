@@ -120,6 +120,50 @@ rebase_changes()
 }
 
 
+# Regex elaborated:
+#   grep options:
+#     -w -> --word-regexp (from the man page)
+#        Select only those lines containing matches that form whole words.
+#        The test is that the matching substring must either be at the
+#        beginning of the line, or preceded by a  non-word  constituent
+#        character.  Similarly, it must be either at the end of the line or
+#        followed by a non-word constituent character.  Word-constituent
+#        characters are letters, digits, and the underscore.
+#
+#        IOW, the above helps us find the pattern with leading or training
+#        spaces or non word consituents like , or ;
+#
+#     -i -> --ignore-case (case insensitive search)
+#
+#     -o -> --only-matching (only print matching portion of the line)
+#
+#     -E -> --extended-regexp (use extended regular expression)
+#
+#   ^
+#      The search begins at the start of each line
+#
+#   [[:space:]]*
+#      Any number of spaces is accepted
+#
+#   (Fixes|Updates)
+#      Finds 'Fixes' OR 'Updates' in any case combination
+#
+#   (:)?
+#      Followed by an optional : (colon)
+#
+#   [[:space:]]+
+#      Followed by 1 or more spaces
+#
+#   (gluster\/glusterfs|bz)?
+#      Followed by nothing, 'gluster/glusterfs' or 'bz'
+#
+#   #
+#      Followed by #
+#
+#   [[:digit:]]+
+#      Followed by 1 or more digits
+REFRE="^[[:space:]]*(Fixes|Updates)(:)?[[:space:]]+(gluster\/glusterfs|bz)?#[[:digit:]]+"
+
 editor_mode()
 {
     if [ $(basename "$1") = "git-rebase-todo" ]; then
@@ -130,12 +174,7 @@ editor_mode()
     if [ $(basename "$1") = "COMMIT_EDITMSG" ]; then
         # see note above function warn_reference_missing for regex elaboration
         # Lets first check for github issues
-        ref=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+" | awk -F '#' '{print $2}');
-        if [ "x${ref}" = "x" ]; then
-            # if not found, check for bugs
-            ref=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+bz#[[:digit:]]+" | awk -F '#' '{print $2}');
-        fi
-
+        ref=$(git log -n1 --format='%b' | grep -iow -E "${REFRE}" | awk -F '#' '{print $2}');
         if [ "x${ref}" != "x" ]; then
             return;
         fi
@@ -160,9 +199,9 @@ editor_mode()
             echo "Select yes '(y)' if this patch fixes the bug/feature completely,"
             echo -n "or is the last of the patchset which brings feature (Y/n): "
             read fixes
-            fixes_string="fixes"
+            fixes_string="Fixes"
             if [ "${fixes}" = 'N' ] || [ "${fixes}" = 'n' ]; then
-                fixes_string="updates"
+                fixes_string="Updates"
             fi
 
             sed "/^Change-Id:/{p; s/^.*$/${fixes_string}: ${bz_string}#${bug}/;}" $1 > $1.new && \
@@ -185,35 +224,6 @@ assert_diverge()
 }
 
 
-
-# Regex elaborated:
-#   grep -w -> --word-regexp (from the man page)
-#      Select only those lines containing matches that form whole words.
-#      The test is that the matching substring must either be at the
-#      beginning of the line, or preceded by a  non-word  constituent
-#      character.  Similarly, it must be either at the end of the line or
-#      followed by a non-word constituent character.  Word-constituent
-#      characters are letters, digits, and the underscore.
-#   IOW, the above helps us find the pattern with leading or training spaces
-#   or non word consituents like , or ;
-#
-#   [fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])
-#      Finds 'fixes' OR 'updates' in any case combination
-#
-#   (:)?
-#      Followed by an optional : (colon)
-#
-#   [[:space:]]+
-#      followed by 1 or more spaces
-#
-#   (gluster\/glusterfs)?
-#      Followed by 0 or more gluster/glusterfs
-#
-#   #
-#      Followed by #
-#
-#   [[:digit:]]+
-#      Followed by 1 or more digits
 warn_reference_missing()
 {
     echo ""
@@ -274,8 +284,8 @@ main()
 
     assert_diverge;
 
-    # see note above function warn_reference_missing for regex elaboration
-    reference=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?(bz)?#[[:digit:]]+" | awk -F '#' '{print $2}');
+    # see note above variable REFRE for regex elaboration
+    reference=$(git log -n1 --format='%b' | grep -iow -E "${REFRE}" | awk -F '#' '{print $2}');
 
     # If this is a commit against master and does not have a bug ID or a github
     # issue reference. Warn the contributor that one of the 2 is required
