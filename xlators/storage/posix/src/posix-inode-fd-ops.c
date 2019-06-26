@@ -4944,6 +4944,8 @@ posix_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
 
+    posix_set_ctime(frame, this, NULL, pfd->fd, fd->inode, &postop);
+
     op_ret = 0;
 
 out:
