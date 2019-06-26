@@ -7121,3 +7121,24 @@ afr_handle_replies_quorum(call_frame_t *frame, xlator_t *this)
         local->op_ret = -1;
     }
 }
+
+gf_boolean_t
+afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv, int child)
+{
+    int *pending = NULL;
+    int ret = 0;
+    int i = 0;
+
+    ret = dict_get_ptr(dict, priv->pending_key[child], (void *)&pending);
+    if (ret == 0) {
+        for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
+            /* Not doing a ntoh32(pending) as we just want to check
+             * if it is non-zero or not. */
+            if (pending[i]) {
+                return _gf_true;
+            }
+        }
+    }
+
+    return _gf_false;
+}
