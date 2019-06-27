@@ -294,7 +294,7 @@ glusterd_volume_svc_check_volfile_identical(
 
     this = THIS;
 
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, identical, out);
 
     /* This builds volfile for volume level dameons */

@@ -226,8 +226,9 @@ cont:
         if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
 
-        if (brick && (strcmp(tmpbrkinfo->hostname, brickinfo->hostname) ||
-                      strcmp(tmpbrkinfo->path, brickinfo->path)))
+        if (tmpbrkinfo && brick &&
+            (strcmp(tmpbrkinfo->hostname, brickinfo->hostname) ||
+             strcmp(tmpbrkinfo->path, brickinfo->path)))
             continue;
 
         valid_brick = 1;
