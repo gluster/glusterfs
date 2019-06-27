@@ -1200,6 +1200,14 @@ glusterfs_graph_fini(glusterfs_graph_t *graph)
         if (trav->init_succeeded) {
             trav->cleanup_starting = 1;
             trav->fini(trav);
+            if (trav->local_pool) {
+                mem_pool_destroy(trav->local_pool);
+                trav->local_pool = NULL;
+            }
+            if (trav->itable) {
+                inode_table_destroy(trav->itable);
+                trav->itable = NULL;
+            }
             trav->init_succeeded = 0;
         }
         trav = trav->next;
@@ -1401,7 +1409,7 @@ glusterfs_graph_cleanup(void *arg)
 
     pthread_mutex_lock(&ctx->cleanup_lock);
     {
-        glusterfs_graph_deactivate(graph);
+        glusterfs_graph_fini(graph);
         glusterfs_graph_destroy(graph);
     }
     pthread_mutex_unlock(&ctx->cleanup_lock);

@@ -2523,6 +2523,7 @@ out:
             GF_FREE(priv);
         }
         mem_pool_destroy(this->local_pool);
+        this->local_pool = NULL;
     }
     return ret;
 }
