@@ -576,6 +576,7 @@ fini(xlator_t *this)
     mem_put(priv);
     this->private = NULL;
     mem_pool_destroy(this->local_pool);
+    this->local_pool = NULL;
 out:
     return;
 }

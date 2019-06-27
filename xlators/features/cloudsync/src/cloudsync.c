@@ -200,8 +200,10 @@ cs_init(xlator_t *this)
 
 out:
     if (ret == -1) {
-        if (this->local_pool)
+        if (this->local_pool) {
             mem_pool_destroy(this->local_pool);
+            this->local_pool = NULL;
+        }
 
         cs_cleanup_private(priv);
 

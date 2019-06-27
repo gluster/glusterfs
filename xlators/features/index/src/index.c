@@ -2478,6 +2478,7 @@ out:
             GF_FREE(priv);
         this->private = NULL;
         mem_pool_destroy(this->local_pool);
+        this->local_pool = NULL;
     }
 
     if (attr_inited)

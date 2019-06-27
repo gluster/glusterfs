@@ -2536,6 +2536,7 @@ fini(xlator_t *this)
     this->private = NULL;
 
     mem_pool_destroy(priv->local_pool);
+    priv->local_pool = NULL;
     LOCK_DESTROY(&priv->lock);
     GF_FREE(priv);
 out:

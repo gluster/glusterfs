@@ -1436,6 +1436,7 @@ void
 fini(xlator_t *this)
 {
     mem_pool_destroy(this->local_pool);
+    this->local_pool = NULL;
     return;
 }
 
