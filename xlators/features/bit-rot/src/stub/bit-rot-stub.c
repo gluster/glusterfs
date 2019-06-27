@@ -196,6 +196,7 @@ cleanup_lock:
     pthread_mutex_destroy(&priv->lock);
 free_mempool:
     mem_pool_destroy(priv->local_pool);
+    priv->local_pool = NULL;
 free_priv:
     GF_FREE(priv);
     this->private = NULL;

@@ -252,6 +252,7 @@ out:
     if (ret) {
         GF_FREE(priv);
         mem_pool_destroy(this->local_pool);
+        this->local_pool = NULL;
     }
     return ret;
 }
@@ -280,6 +281,7 @@ fini(xlator_t *this)
     GF_FREE(priv);
 
     mem_pool_destroy(this->local_pool);
+    this->local_pool = NULL;
 
     return;
 }

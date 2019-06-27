@@ -2790,6 +2790,7 @@ cleanup_options:
     changelog_freeup_options(this, priv);
 cleanup_mempool:
     mem_pool_destroy(this->local_pool);
+    this->local_pool = NULL;
 cleanup_priv:
     GF_FREE(priv);
 error_return:
