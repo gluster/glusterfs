@@ -3077,8 +3077,8 @@ struct cli_cmd volume_cmds[] = {
      cli_cmd_volume_profile_cbk, "volume profile operations"},
 
     {"volume top <VOLNAME> {open|read|write|opendir|readdir|clear} [nfs|brick "
-     "<brick>] [list-cnt <value>] |\n"
-     "volume top <VOLNAME> {read-perf|write-perf} [bs <size> count <count>] "
+     "<brick>] [list-cnt <value>] | "
+     "{read-perf|write-perf} [bs <size> count <count>] "
      "[brick <brick>] [list-cnt <value>]",
      cli_cmd_volume_top_cbk, "volume top operations"},
 
