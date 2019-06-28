@@ -48,7 +48,6 @@
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-gfid-path.h"
 #include <glusterfs/events.h>
-#include "glusterfsd.h"
 #include "glusterfs/syncop.h"
 #include "timer-wheel.h"
 #include <sys/types.h>

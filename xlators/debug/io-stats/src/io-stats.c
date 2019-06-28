@@ -34,7 +34,6 @@
 #include <stdarg.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
-#include "cli1-xdr.h"
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
 #include <pwd.h>
@@ -66,6 +65,17 @@ typedef enum {
     IOS_STATS_THRU_WRITE,
     IOS_STATS_THRU_MAX,
 } ios_stats_thru_t;
+
+/* This is same as gf1_cli_info_op */
+/* had to be defined here again, so we have modularity between
+ xdr, xlator, and library functions */
+typedef enum ios_info_op {
+    GF_IOS_INFO_NONE = 0,
+    GF_IOS_INFO_ALL = 1,
+    GF_IOS_INFO_INCREMENTAL = 2,
+    GF_IOS_INFO_CUMULATIVE = 3,
+    GF_IOS_INFO_CLEAR = 4,
+} ios_info_op_t;
 
 struct ios_stat_lat {
     struct timeval time;
@@ -1590,7 +1600,7 @@ ios_global_stats_clear(struct ios_global_stats *stats, struct timeval *now)
 }
 
 int
-io_stats_dump(xlator_t *this, struct ios_dump_args *args, gf1_cli_info_op op,
+io_stats_dump(xlator_t *this, struct ios_dump_args *args, ios_info_op_t op,
               gf_boolean_t is_peek)
 {
     struct ios_conf *conf = NULL;
@@ -1609,10 +1619,10 @@ io_stats_dump(xlator_t *this, struct ios_dump_args *args, gf1_cli_info_op op,
     gettimeofday(&now, NULL);
     LOCK(&conf->lock);
     {
-        if (op == GF_CLI_INFO_ALL || op == GF_CLI_INFO_CUMULATIVE)
+        if (op == GF_IOS_INFO_ALL || op == GF_IOS_INFO_CUMULATIVE)
             cumulative = conf->cumulative;
 
-        if (op == GF_CLI_INFO_ALL || op == GF_CLI_INFO_INCREMENTAL) {
+        if (op == GF_IOS_INFO_ALL || op == GF_IOS_INFO_INCREMENTAL) {
             incremental = conf->incremental;
             increment = conf->increment;
 
@@ -1625,10 +1635,10 @@ io_stats_dump(xlator_t *this, struct ios_dump_args *args, gf1_cli_info_op op,
     }
     UNLOCK(&conf->lock);
 
-    if (op == GF_CLI_INFO_ALL || op == GF_CLI_INFO_CUMULATIVE)
+    if (op == GF_IOS_INFO_ALL || op == GF_IOS_INFO_CUMULATIVE)
         io_stats_dump_global(this, &cumulative, &now, -1, args);
 
-    if (op == GF_CLI_INFO_ALL || op == GF_CLI_INFO_INCREMENTAL)
+    if (op == GF_IOS_INFO_ALL || op == GF_IOS_INFO_INCREMENTAL)
         io_stats_dump_global(this, &incremental, &now, increment, args);
 
     return 0;
@@ -3031,7 +3041,7 @@ conditional_dump(dict_t *dict, char *key, data_t *value, void *data)
     } else {
         (void)ios_dump_args_init(&args, IOS_DUMP_TYPE_FILE, logfp);
     }
-    io_stats_dump(this, &args, GF_CLI_INFO_ALL, _gf_false);
+    io_stats_dump(this, &args, GF_IOS_INFO_ALL, _gf_false);
     fclose(logfp);
     return 0;
 }
@@ -3134,7 +3144,7 @@ _ios_dump_thread(xlator_t *this)
         stats_logfp = fopen(stats_filename, "w+");
         if (stats_logfp) {
             (void)ios_dump_args_init(&args, conf->dump_format, stats_logfp);
-            io_stats_dump(this, &args, GF_CLI_INFO_ALL, _gf_false);
+            io_stats_dump(this, &args, GF_IOS_INFO_ALL, _gf_false);
             fclose(stats_logfp);
             log_stats_fopen_failure = _gf_true;
         } else if (log_stats_fopen_failure) {
@@ -4105,8 +4115,8 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                 }
             } else {
                 ret = dict_get_int32(dict, "info-op", &op);
-                if (ret || op < GF_CLI_INFO_ALL || GF_CLI_INFO_CLEAR < op)
-                    op = GF_CLI_INFO_ALL;
+                if (ret || op < GF_IOS_INFO_ALL || GF_IOS_INFO_CLEAR < op)
+                    op = GF_IOS_INFO_ALL;
 
                 ret = dict_set_int32(output, "info-op", op);
                 if (ret) {
@@ -4115,7 +4125,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                     goto out;
                 }
 
-                if (GF_CLI_INFO_CLEAR == op) {
+                if (GF_IOS_INFO_CLEAR == op) {
                     ret = io_stats_clear(this->private);
                     if (ret)
                         gf_log(this->name, GF_LOG_ERROR,

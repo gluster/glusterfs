@@ -13,7 +13,6 @@
 #include "glusterfs/statedump.h"
 #include "glusterfs/client_t.h"
 #include "glusterfs/list.h"
-#include "rpcsvc.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 static int
@@ -153,7 +152,7 @@ gf_client_clienttable_destroy(clienttable_t *clienttable)
  * as long as ref.bind is > 0 client should be alive.
  */
 client_t *
-gf_client_get(xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
+gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
               char *subdir_mount)
 {
     client_t *client = NULL;
@@ -181,11 +180,10 @@ gf_client_get(xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
              * if auth was used, matching auth flavour and data
              */
             if (strcmp(client_uid, client->client_uid) == 0 &&
-                (cred->flavour != AUTH_NONE &&
-                 (cred->flavour == client->auth.flavour &&
-                  (size_t)cred->datalen == client->auth.len &&
-                  memcmp(cred->authdata, client->auth.data, client->auth.len) ==
-                      0))) {
+                (cred->flavour && (cred->flavour == client->auth.flavour &&
+                                   (size_t)cred->datalen == client->auth.len &&
+                                   memcmp(cred->authdata, client->auth.data,
+                                          client->auth.len) == 0))) {
                 GF_ATOMIC_INC(client->bind);
                 goto unlock;
             }
@@ -227,7 +225,7 @@ gf_client_get(xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
         GF_ATOMIC_INIT(client->fd_cnt, 0);
 
         client->auth.flavour = cred->flavour;
-        if (cred->flavour != AUTH_NONE) {
+        if (cred->flavour) {
             client->auth.data = GF_MALLOC(cred->datalen, gf_common_mt_client_t);
             if (client->auth.data == NULL) {
                 GF_FREE(client->scratch_ctx.ctx);

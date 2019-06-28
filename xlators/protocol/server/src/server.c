@@ -22,7 +22,6 @@
 #include <glusterfs/events.h>
 #include "server-messages.h"
 #include "rpc-clnt.h"
-#include "glusterfsd.h"
 
 rpcsvc_cbk_program_t server_cbk_prog = {
     .progname = "Gluster Callback",

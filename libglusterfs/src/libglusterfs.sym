@@ -547,8 +547,6 @@ get_file_mtime
 get_host_name
 get_mem_size
 get_path_name
-get_struct_variable
-get_vol_type
 get_xlator_by_name
 get_xlator_by_type
 gf_array_insertionsort

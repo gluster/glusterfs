@@ -26,6 +26,8 @@ AC_CONFIG_HEADERS([config.h site.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
+                libglusterd/Makefile
+                libglusterd/src/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_mountbroker
                 geo-replication/src/peer_mountbroker.py
@@ -44,7 +46,6 @@ AC_CONFIG_FILES([Makefile
                 rpc/rpc-transport/socket/src/Makefile
                 rpc/xdr/Makefile
                 rpc/xdr/src/Makefile
-                rpc/xdr/gen/Makefile
                 xlators/Makefile
                 xlators/meta/Makefile
                 xlators/meta/src/Makefile

@@ -17,6 +17,7 @@
 #include <glusterfs/quota-common-utils.h>
 
 #include "cli1-xdr.h"
+#include "gd-common-utils.h"
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
