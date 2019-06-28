@@ -15,6 +15,17 @@
 #include "glusterfs/locking.h" /* for gf_lock_t, not included by glusterfs.h */
 #include "glusterfs/atomic.h"  /* for gf_atomic_t */
 
+/* auth_data structure is required by RPC layer. But as it is also used in
+ * client_t structure validation, comparision, it is critical that it is defined
+ * in the larger scope of libglusterfs, instead of libgfrpc. With this change,
+ * even RPC will use this structure */
+#define GF_CLIENTT_AUTH_BYTES 400
+typedef struct client_auth_data {
+    int flavour;
+    int datalen;
+    char authdata[GF_CLIENTT_AUTH_BYTES];
+} client_auth_data_t;
+
 struct client_ctx {
     void *ctx_key;
     void *ctx_value;
@@ -78,12 +89,6 @@ typedef struct clienttable clienttable_t;
  */
 #define GF_CLIENTENTRY_ALLOCATED -2
 
-struct rpcsvc_auth_data;
-
-client_t *
-gf_client_get(xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
-              char *subdir_mount);
-
 void
 gf_client_put(client_t *client, gf_boolean_t *detached);
 
@@ -137,5 +142,9 @@ gf_client_dump_inodes(xlator_t *this);
 
 int
 gf_client_disconnect(client_t *client);
+
+client_t *
+gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
+              char *subdir_mount);
 
 #endif /* _CLIENT_T_H */

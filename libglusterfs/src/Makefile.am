@@ -7,8 +7,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-DXLATORPARENTDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)\" \
 	-DXXH_NAMESPACE=GF_ -D__USE_LARGEFILE64 \
-	-I$(top_srcdir)/rpc/xdr/src/ -I$(top_builddir)/rpc/xdr/src/ \
-	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
+	-I$(CONTRIBDIR)/rbtree \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
 	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel \
 	-I$(CONTRIBDIR)/xxhash
@@ -40,12 +39,9 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	throttle-tbf.c monitoring.c async.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
-nodist_libglusterfs_la_HEADERS = y.tab.h protocol-common.h
+nodist_libglusterfs_la_HEADERS = y.tab.h
 
-BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h protocol-common.h
-
-protocol-common.h: $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h
-	cp $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h .
+BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h
 
 libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
 	glusterfs/default-args.h glusterfs/dict.h glusterfs/glusterfs.h \

@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <rpc/rpc_msg.h>
 #include <glusterfs/compat.h>
+#include <glusterfs/client_t.h>
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
@@ -142,12 +143,6 @@ struct rpcsvc_config {
     int max_block_size;
 };
 
-typedef struct rpcsvc_auth_data {
-    int flavour;
-    int datalen;
-    char authdata[GF_MAX_AUTH_BYTES];
-} rpcsvc_auth_data_t;
-
 #define rpcsvc_auth_flavour(au) ((au).flavour)
 
 typedef struct drc_client drc_client_t;
@@ -228,14 +223,14 @@ struct rpcsvc_request {
     size_t payloadsize;
 
     /* The credentials extracted from the rpc request */
-    rpcsvc_auth_data_t cred;
+    client_auth_data_t cred;
 
     /* The verified extracted from the rpc request. In request side
      * processing this contains the verifier sent by the client, on reply
      * side processing, it is filled with the verified that will be
      * sent to the client.
      */
-    rpcsvc_auth_data_t verf;
+    client_auth_data_t verf;
     /* Container for a RPC program wanting to store a temp
      * request-specific item.
      */

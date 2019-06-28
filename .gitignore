@@ -95,7 +95,6 @@ libglusterfs/src/cli1-xdr.h
 libglusterfs/src/protocol-common.h
 libtool
 # copied XDR for cyclic libglusterfs <-> rpc-header dependency
-rpc/xdr/gen/*.x
 run-tests.sh
 !tests/basic/fuse/Makefile
 !tests/basic/gfapi/Makefile
