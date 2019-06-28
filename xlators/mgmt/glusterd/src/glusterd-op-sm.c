@@ -6474,6 +6474,10 @@ _select_hxlators_for_full_self_heal(xlator_t *this, glusterd_volinfo_t *volinfo,
     glusterd_brickinfo_t *brickinfo = NULL;
     int hxl_children = 0;
     uuid_t candidate = {0};
+    int brick_index = 0;
+    glusterd_peerinfo_t *peerinfo = NULL;
+    int delta = 0;
+    uuid_t candidate_max = {0};
 
     if ((*index) == 0)
         (*index)++;
@@ -6485,13 +6489,40 @@ _select_hxlators_for_full_self_heal(xlator_t *this, glusterd_volinfo_t *volinfo,
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
+        if (gf_uuid_compare(brickinfo->uuid, candidate_max) > 0) {
+            if (!gf_uuid_compare(MY_UUID, brickinfo->uuid)) {
+                gf_uuid_copy(candidate_max, brickinfo->uuid);
+            } else {
+                peerinfo = glusterd_peerinfo_find(brickinfo->uuid, NULL);
+                if (peerinfo && peerinfo->connected) {
+                    gf_uuid_copy(candidate_max, brickinfo->uuid);
+                }
+            }
+        }
+    }
+
+    cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+    {
         if (gf_uuid_is_null(brickinfo->uuid))
             (void)glusterd_resolve_brick(brickinfo);
 
-        if (gf_uuid_compare(brickinfo->uuid, candidate) > 0)
-            gf_uuid_copy(candidate, brickinfo->uuid);
+        delta %= hxl_children;
+        if ((*index + delta) == (brick_index + hxl_children)) {
+            if (!gf_uuid_compare(MY_UUID, brickinfo->uuid)) {
+                gf_uuid_copy(candidate, brickinfo->uuid);
+            } else {
+                peerinfo = glusterd_peerinfo_find(brickinfo->uuid, NULL);
+                if (peerinfo && peerinfo->connected) {
+                    gf_uuid_copy(candidate, brickinfo->uuid);
+                } else if (peerinfo &&
+                           (!gf_uuid_compare(candidate_max, MY_UUID))) {
+                    _add_hxlator_to_dict(dict, volinfo,
+                                         ((*index) - 1) / hxl_children,
+                                         (*hxlator_count));
+                    (*hxlator_count)++;
+                }
+            }
 
-        if ((*index) % hxl_children == 0) {
             if (!gf_uuid_compare(MY_UUID, candidate)) {
                 _add_hxlator_to_dict(dict, volinfo,
                                      ((*index) - 1) / hxl_children,
@@ -6499,6 +6530,8 @@ _select_hxlators_for_full_self_heal(xlator_t *this, glusterd_volinfo_t *volinfo,
                 (*hxlator_count)++;
             }
             gf_uuid_clear(candidate);
+            brick_index += hxl_children;
+            delta++;
         }
 
         (*index)++;
