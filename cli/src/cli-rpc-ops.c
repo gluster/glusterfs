@@ -2876,8 +2876,10 @@ print_quota_list_output(cli_local_t *local, char *path, char *default_sl,
             sl_final = default_sl;
         } else {
             sl_num = (limits->sl * limits->hl) / 100;
-            snprintf(percent_str, sizeof(percent_str), "%" PRIu64 "%%",
-                     limits->sl);
+            ret = snprintf(percent_str, sizeof(percent_str), "%" PRIu64 "%%",
+                           limits->sl);
+            if (ret < 0)
+                goto out;
             sl_final = percent_str;
         }
         if (type == GF_QUOTA_OPTION_TYPE_LIST)
