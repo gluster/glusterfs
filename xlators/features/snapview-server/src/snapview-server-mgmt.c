@@ -256,7 +256,6 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     this = frame->this;
     ctx = frame->this->ctx;
     priv = this->private;
-    old_dirents = priv->dirents;
 
     if (!ctx) {
         errno = EINVAL;
@@ -388,6 +387,7 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     LOCK(&priv->snaplist_lock);
     {
         oldcount = priv->num_snaps;
+        old_dirents = priv->dirents;
         for (i = 0; i < priv->num_snaps; i++) {
             for (j = 0; j < snapcount; j++) {
                 if ((!strcmp(old_dirents[i].name, dirents[j].name)) &&
