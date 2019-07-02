@@ -215,6 +215,19 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rename_with_existing_destination ${slave
 #Verify arequal for whole volume
 EXPECT_WITHIN $GEO_REP_TIMEOUT "x0" arequal_checksum ${master_mnt} ${slave_mnt}
 
+#Test config upgrade BUG: 1707731
+config_file=$GLUSTERD_WORKDIR/geo-replication/${GMV0}_${SH0}_${GSV0}/gsyncd.conf
+cat >> $config_file<<EOL
+[peers ${GMV0} ${GSV0}]
+use_tarssh = true
+timeout = 1
+EOL
+TEST $GEOREP_CLI $master $slave stop
+TEST $GEOREP_CLI $master $slave start
+#verify that the config file is updated
+EXPECT "1" echo $(grep -Fc "vars" $config_file)
+EXPECT "1" echo $(grep -Fc "sync-method = tarssh" $config_file)
+EXPECT "1" echo $(grep -Fc "slave-timeout = 1" $config_file)
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
