@@ -356,15 +356,14 @@ def config_upgrade(config_file, ret):
                 new_value = "tarssh"
             else:
                 new_value = "rsync"
-                config.set('vars', new_key, new_value)
-
-        if key == "timeout":
+            config.set('vars', new_key, new_value)
+        elif key == "timeout":
             new_key = "slave-timeout"
             config.set('vars', new_key, value)
-
         #for changes like: ignore_deletes to ignore-deletes
-        new_key = key.replace("_", "-")
-        config.set('vars', new_key, value)
+        else:
+            new_key = key.replace("_", "-")
+            config.set('vars', new_key, value)
 
     with open(config_file, 'w') as configfile:
         config.write(configfile)
