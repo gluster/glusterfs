@@ -3293,8 +3293,11 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
 
                 case 0:
                     /*Ignore GLUSTERD_STORE_KEY_VOL_BRICK since
-                     glusterd_store_retrieve_bricks gets it later*/
-                    if (!strstr(key, GLUSTERD_STORE_KEY_VOL_BRICK))
+                     glusterd_store_retrieve_bricks gets it later.
+                     also, ignore tier-enabled key as we deprecated
+                     tier xlator*/
+                    if (!strstr(key, GLUSTERD_STORE_KEY_VOL_BRICK) ||
+                        !strstr(key, GF_TIER_ENABLED))
                         gf_msg(this->name, GF_LOG_WARNING, 0,
                                GD_MSG_UNKNOWN_KEY, "Unknown key: %s", key);
                     break;
