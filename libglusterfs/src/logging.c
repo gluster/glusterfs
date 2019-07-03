@@ -2337,7 +2337,7 @@ out:
 }
 
 static int
-_do_slog_format(const char *event, va_list inp, char **msg)
+_do_slog_format(int errnum, const char *event, va_list inp, char **msg)
 {
     va_list valist_tmp;
     int i = 0;
@@ -2350,10 +2350,13 @@ _do_slog_format(const char *event, va_list inp, char **msg)
     char format_char = '%';
     char *tmp1 = NULL;
     char *tmp2 = NULL;
+    char temp_sep[3] = "";
 
-    ret = gf_asprintf(&tmp2, "%s", event);
-    if (ret == -1)
+    tmp2 = gf_strdup("");
+    if (!tmp2) {
+        ret = -1;
         goto out;
+    }
 
     /* Hardcoded value for max key value pairs, exits early */
     /* from loop if found NULL */
@@ -2401,21 +2404,44 @@ _do_slog_format(const char *event, va_list inp, char **msg)
                 (void)va_arg(inp, void *);
             }
 
-            ret = gf_asprintf(&tmp2, "%s\t%s", tmp1, buffer);
+            ret = gf_asprintf(&tmp2, "%s%s{%s}", tmp1, temp_sep, buffer);
             if (ret < 0)
                 goto out;
 
             GF_FREE(buffer);
             buffer = NULL;
         } else {
-            ret = gf_asprintf(&tmp2, "%s\t%s", tmp1, fmt);
+            ret = gf_asprintf(&tmp2, "%s%s{%s}", tmp1, temp_sep, fmt);
             if (ret < 0)
                 goto out;
         }
 
+        /* Set seperator for next iteration */
+        temp_sep[0] = ',';
+        temp_sep[1] = ' ';
+        temp_sep[2] = 0;
+
         GF_FREE(tmp1);
         tmp1 = NULL;
     }
+
+    tmp1 = gf_strdup(tmp2);
+    if (!tmp1) {
+        ret = -1;
+        goto out;
+    }
+    GF_FREE(tmp2);
+    tmp2 = NULL;
+
+    if (errnum) {
+        ret = gf_asprintf(&tmp2, "%s [%s%s{errno=%d}, {error=%s}]", event, tmp1,
+                          temp_sep, errnum, strerror(errnum));
+    } else {
+        ret = gf_asprintf(&tmp2, "%s [%s]", event, tmp1);
+    }
+
+    if (ret == -1)
+        goto out;
 
     *msg = gf_strdup(tmp2);
     if (!*msg)
@@ -2448,38 +2474,13 @@ _gf_smsg(const char *domain, const char *file, const char *function,
         return ret;
 
     va_start(valist, event);
-    ret = _do_slog_format(event, valist, &msg);
+    ret = _do_slog_format(errnum, event, valist, &msg);
     if (ret == -1)
         goto out;
 
-    ret = _gf_msg(domain, file, function, line, level, errnum, trace, msgid,
-                  "%s", msg);
-
-out:
-    va_end(valist);
-    if (msg)
-        GF_FREE(msg);
-    return ret;
-}
-
-int
-_gf_slog(const char *domain, const char *file, const char *function, int line,
-         gf_loglevel_t level, const char *event, ...)
-{
-    va_list valist;
-    char *msg = NULL;
-    int ret = 0;
-    xlator_t *this = THIS;
-
-    if (skip_logging(this, level))
-        return ret;
-
-    va_start(valist, event);
-    ret = _do_slog_format(event, valist, &msg);
-    if (ret == -1)
-        goto out;
-
-    ret = _gf_log(domain, file, function, line, level, "%s", msg);
+    /* Pass errnum as zero since it is already formated as required */
+    ret = _gf_msg(domain, file, function, line, level, 0, trace, msgid, "%s",
+                  msg);
 
 out:
     va_end(valist);

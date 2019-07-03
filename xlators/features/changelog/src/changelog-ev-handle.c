@@ -225,8 +225,8 @@ changelog_ev_connector(void *data)
                                                   changelog_rpc_notify);
             if (!crpc->rpc) {
                 gf_smsg(this->name, GF_LOG_ERROR, 0,
-                        CHANGELOG_MSG_RPC_CONNECT_ERROR,
-                        "failed to connect back", "path=%s", crpc->sock, NULL);
+                        CHANGELOG_MSG_RPC_CONNECT_ERROR, "path=%s", crpc->sock,
+                        NULL);
                 crpc->cleanup(crpc);
                 goto mutex_unlock;
             }

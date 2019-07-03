@@ -56,8 +56,8 @@ gf_changelog_done(char *file)
     ret = sys_rename(buffer, to_path);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno,
-                CHANGELOG_LIB_MSG_RENAME_FAILED, "cannot move changelog file",
-                "from=%s", file, "to=%s", to_path, NULL);
+                CHANGELOG_LIB_MSG_RENAME_FAILED, "from=%s", file, "to=%s",
+                to_path, NULL);
         goto out;
     }
 

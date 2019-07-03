@@ -55,9 +55,8 @@ gf_changelog_connection_janitor(void *arg)
         ev = &entry->event;
 
         gf_smsg(this->name, GF_LOG_INFO, 0,
-                CHANGELOG_LIB_MSG_CLEANING_BRICK_ENTRY_INFO,
-                "Cleaning brick entry for brick", "brick=%s", entry->brick,
-                NULL);
+                CHANGELOG_LIB_MSG_CLEANING_BRICK_ENTRY_INFO, "brick=%s",
+                entry->brick, NULL);
 
         /* 0x0: disable rpc-clnt */
         rpc_clnt_disable(RPC_PROBER(entry));
@@ -71,21 +70,19 @@ gf_changelog_connection_janitor(void *arg)
         while (!list_empty(&ev->events)) {
             event = list_first_entry(&ev->events, struct gf_event, list);
             gf_smsg(this->name, GF_LOG_INFO, 0,
-                    CHANGELOG_LIB_MSG_DRAINING_EVENT_INFO, "Draining event",
-                    "seq=%lu", event->seq, "payload=%d", event->count, NULL);
+                    CHANGELOG_LIB_MSG_DRAINING_EVENT_INFO, "seq=%lu",
+                    event->seq, "payload=%d", event->count, NULL);
 
             GF_FREE(event);
             drained++;
         }
 
         gf_smsg(this->name, GF_LOG_INFO, 0,
-                CHANGELOG_LIB_MSG_DRAINING_EVENT_INFO, "Drained events",
-                "num=%lu", drained, NULL);
+                CHANGELOG_LIB_MSG_DRAINED_EVENT_INFO, "num=%lu", drained, NULL);
 
         /* 0x3: freeup brick entry */
         gf_smsg(this->name, GF_LOG_INFO, 0,
-                CHANGELOG_LIB_MSG_FREEING_ENTRY_INFO, "freeing entry",
-                "entry=%p", entry, NULL);
+                CHANGELOG_LIB_MSG_FREEING_ENTRY_INFO, "entry=%p", entry, NULL);
         LOCK_DESTROY(&entry->statelock);
         GF_FREE(entry);
     }
@@ -112,9 +109,7 @@ gf_changelog_reborp_rpcsvc_notify(rpcsvc_t *rpc, void *mydata,
             ret = sys_unlink(RPC_SOCK(entry));
             if (ret != 0)
                 gf_smsg(this->name, GF_LOG_WARNING, errno,
-                        CHANGELOG_LIB_MSG_UNLINK_FAILED,
-                        "failed to unlink "
-                        "reverse socket",
+                        CHANGELOG_LIB_MSG_UNLINK_FAILED, "name=reverse socket",
                         "path=%s", RPC_SOCK(entry), NULL);
             if (entry->connected)
                 GF_CHANGELOG_INVOKE_CBK(this, entry->connected, entry->brick,

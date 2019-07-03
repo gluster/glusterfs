@@ -256,8 +256,8 @@ htime_update(xlator_t *this, changelog_priv_t *priv, unsigned long ts,
     int ret = 0;
 
     if (priv->htime_fd == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_HTIME_ERROR,
-               "Htime fd not available for updation");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_HTIME_ERROR,
+                "reason=fd not available", NULL);
         ret = -1;
         goto out;
     }
@@ -267,8 +267,8 @@ htime_update(xlator_t *this, changelog_priv_t *priv, unsigned long ts,
         goto out;
     }
     if (changelog_write(priv->htime_fd, (void *)changelog_path, len + 1) < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_HTIME_ERROR,
-               "Htime file content write failed");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_HTIME_ERROR,
+                "reason=write failed", NULL);
         ret = -1;
         goto out;
     }
@@ -282,12 +282,12 @@ htime_update(xlator_t *this, changelog_priv_t *priv, unsigned long ts,
 
     if (sys_fsetxattr(priv->htime_fd, HTIME_KEY, x_value, len, XATTR_REPLACE)) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_HTIME_ERROR,
-                "Htime xattr updation failed with XATTR_REPLACE",
+                "reason=xattr updation failed", "XATTR_REPLACE=true",
                 "changelog=%s", changelog_path, NULL);
 
         if (sys_fsetxattr(priv->htime_fd, HTIME_KEY, x_value, len, 0)) {
             gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_HTIME_ERROR,
-                    "Htime xattr updation failed", "changelog=%s",
+                    "reason=xattr updation failed", "changelog=%s",
                     changelog_path, NULL);
             ret = -1;
             goto out;
@@ -426,8 +426,7 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
         ret = sys_unlink(ofile);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, errno,
-                    CHANGELOG_MSG_UNLINK_OP_FAILED,
-                    "error unlinking empty changelog", "path=%s", ofile, NULL);
+                    CHANGELOG_MSG_UNLINK_OP_FAILED, "path=%s", ofile, NULL);
             ret = 0; /* Error in unlinking empty changelog should
                         not break further changelog operation, so
                         reset return value to 0*/
@@ -441,7 +440,7 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
         }
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_RENAME_ERROR,
-                    "error renaming", "from=%s", ofile, "to=%s", nfile, NULL);
+                    "from=%s", ofile, "to=%s", nfile, NULL);
         }
     }
 
@@ -455,8 +454,8 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
         }
         ret = htime_update(this, priv, ts, nfile);
         if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_HTIME_ERROR,
-                   "could not update htime file");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_HTIME_ERROR,
+                    NULL);
             goto out;
         }
     }
@@ -486,9 +485,6 @@ out:
                        "previous errors");
             } else {
                 gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_BNOTIFY_INFO,
-                        "Explicit "
-                        "rollover changelog signaling "
-                        "bnotify",
                         "changelog=%s", nfile, NULL);
             }
             priv->bn.bnotify = _gf_false;
@@ -611,7 +607,7 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     ht_dir_fd = open(ht_dir_path, O_RDONLY);
     if (ht_dir_fd == -1) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_OPEN_FAILED,
-                "open failed", "path=%s", ht_dir_path, NULL);
+                "path=%s", ht_dir_path, NULL);
         ret = -1;
         goto out;
     }
@@ -619,9 +615,8 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     size = sys_fgetxattr(ht_dir_fd, HTIME_CURRENT, ht_file_bname,
                          sizeof(ht_file_bname));
     if (size < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_FGETXATTR_FAILED,
-               "Error extracting"
-               " HTIME_CURRENT.");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_FGETXATTR_FAILED,
+                "name=HTIME_CURRENT", NULL);
 
         /* If upgrade scenario, find the latest HTIME.TSTAMP file
          * and use the same. If error, create a new HTIME.TSTAMP
@@ -629,20 +624,18 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
          */
         cnt = find_current_htime(ht_dir_fd, ht_dir_path, ht_file_bname);
         if (cnt <= 0) {
-            gf_msg(this->name, GF_LOG_INFO, errno, CHANGELOG_MSG_HTIME_INFO,
-                   "HTIME_CURRENT not found. Changelog enabled"
-                   " before init");
+            gf_smsg(this->name, GF_LOG_INFO, errno,
+                    CHANGELOG_MSG_NO_HTIME_CURRENT, NULL);
             sys_close(ht_dir_fd);
             return htime_create(this, priv, ts);
         }
 
-        gf_msg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_HTIME_ERROR,
-               "Error extracting"
-               " HTIME_CURRENT.");
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                CHANGELOG_MSG_HTIME_CURRENT_ERROR, NULL);
     }
 
-    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_HTIME_INFO,
-            "HTIME_CURRENT", "path=%s", ht_file_bname, NULL);
+    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_HTIME_CURRENT, "path=%s",
+            ht_file_bname, NULL);
     len = snprintf(ht_file_path, PATH_MAX, "%s/%s", ht_dir_path, ht_file_bname);
     if ((len < 0) || (len >= PATH_MAX)) {
         ret = -1;
@@ -655,7 +648,7 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
                       S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (ht_file_fd < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_OPEN_FAILED,
-                "unable to open htime file", "path=%s", ht_file_path, NULL);
+                "path=%s", ht_file_path, NULL);
         ret = -1;
         goto out;
     }
@@ -665,8 +658,8 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
 
     ret = sys_fstat(ht_file_fd, &stat_buf);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_HTIME_ERROR,
-                "unable to stat htime file", "path=%s", ht_file_path, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_HTIME_STAT_ERROR,
+                "path=%s", ht_file_path, NULL);
         ret = -1;
         goto out;
     }
@@ -675,9 +668,7 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     size = sys_fgetxattr(ht_file_fd, HTIME_KEY, x_value, sizeof(x_value));
     if (size < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_FGETXATTR_FAILED,
-                "error extracting max"
-                " timstamp from htime file",
-                "path=%s", ht_file_path, NULL);
+                "name=%s", HTIME_KEY, "path=%s", ht_file_path, NULL);
         ret = -1;
         goto out;
     }
@@ -689,14 +680,11 @@ htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     total1 = stat_buf.st_size / record_len;
     if (total != total1) {
         gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_TOTAL_LOG_INFO,
-                "Mismatch of changelog count. "
-                "INIT CASE",
                 "xattr_total=%lu", total, "size_total=%lu", total1, NULL);
     }
 
-    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_TOTAL_LOG_INFO,
-            "INIT CASE", "min=%lu", min_ts, "max=%lu", max_ts,
-            "total_changelogs=%lu", total, NULL);
+    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_TOTAL_LOG_INFO, "min=%lu",
+            min_ts, "max=%lu", max_ts, "total_changelogs=%lu", total, NULL);
 
     if (total < total1)
         priv->rollover_count = total1 + 1;
@@ -730,9 +718,7 @@ htime_create(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     int flags = 0;
     int32_t len = 0;
 
-    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_HTIME_INFO,
-            "Changelog enable: Creating new "
-            "HTIME file",
+    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_NEW_HTIME_FILE,
             "name=%lu", ts, NULL);
 
     CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
@@ -750,7 +736,7 @@ htime_create(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
                       S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (ht_file_fd < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_OPEN_FAILED,
-                "unable to create htime file", "path=%s", ht_file_path, NULL);
+                "path=%s", ht_file_path, NULL);
         ret = -1;
         goto out;
     }
@@ -779,7 +765,7 @@ htime_create(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     ht_dir_fd = open(ht_dir_path, O_RDONLY);
     if (ht_dir_fd == -1) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_OPEN_FAILED,
-                "open failed", "path=%s", ht_dir_path, NULL);
+                "path=%s", ht_dir_path, NULL);
         ret = -1;
         goto out;
     }
@@ -852,7 +838,7 @@ changelog_snap_open(xlator_t *this, changelog_priv_t *priv)
     fd = open(c_snap_path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fd < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_OPEN_FAILED,
-                "unable to open file", "path=%s", c_snap_path, NULL);
+                "path=%s", c_snap_path, NULL);
         ret = -1;
         goto out;
     }
@@ -934,9 +920,6 @@ changelog_open_journal(xlator_t *this, changelog_priv_t *priv)
     fd = open(changelog_path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (fd < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_OPEN_FAILED,
-                "unable to open/create changelog file."
-                " change-logging will be"
-                " inactive",
                 "path=%s", changelog_path, NULL);
         goto out;
     }
@@ -1190,7 +1173,7 @@ changelog_drain_black_fops(xlator_t *this, changelog_priv_t *priv)
     ret = pthread_mutex_lock(&priv->dm.drain_black_mutex);
     if (ret)
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_PTHREAD_ERROR,
-                "pthread error", "error=%d", ret, NULL);
+                "error=%d", ret, NULL);
     while (priv->dm.black_fop_cnt > 0) {
         gf_msg_debug(this->name, 0, "Conditional wait on black fops: %ld",
                      priv->dm.black_fop_cnt);
@@ -1199,14 +1182,14 @@ changelog_drain_black_fops(xlator_t *this, changelog_priv_t *priv)
                                 &priv->dm.drain_black_mutex);
         if (ret)
             gf_smsg(this->name, GF_LOG_ERROR, errno,
-                    CHANGELOG_MSG_PTHREAD_COND_WAIT_FAILED,
-                    "pthread cond wait failed", "error=%d", ret, NULL);
+                    CHANGELOG_MSG_PTHREAD_COND_WAIT_FAILED, "error=%d", ret,
+                    NULL);
     }
     priv->dm.drain_wait_black = _gf_false;
     ret = pthread_mutex_unlock(&priv->dm.drain_black_mutex);
     if (ret)
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_PTHREAD_ERROR,
-                "pthread error", "error=%d", ret, NULL);
+                "error=%d", ret, NULL);
     pthread_cleanup_pop(0);
     gf_msg_debug(this->name, 0, "Woke up: Conditional wait on black fops");
 }
@@ -1226,7 +1209,7 @@ changelog_drain_white_fops(xlator_t *this, changelog_priv_t *priv)
     ret = pthread_mutex_lock(&priv->dm.drain_white_mutex);
     if (ret)
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_PTHREAD_ERROR,
-                "pthread error", "error=%d", ret, NULL);
+                "error=%d", ret, NULL);
     while (priv->dm.white_fop_cnt > 0) {
         gf_msg_debug(this->name, 0, "Conditional wait on white fops : %ld",
                      priv->dm.white_fop_cnt);
@@ -1235,14 +1218,14 @@ changelog_drain_white_fops(xlator_t *this, changelog_priv_t *priv)
                                 &priv->dm.drain_white_mutex);
         if (ret)
             gf_smsg(this->name, GF_LOG_ERROR, errno,
-                    CHANGELOG_MSG_PTHREAD_COND_WAIT_FAILED,
-                    "pthread cond wait failed", "error=%d", ret, NULL);
+                    CHANGELOG_MSG_PTHREAD_COND_WAIT_FAILED, "error=%d", ret,
+                    NULL);
     }
     priv->dm.drain_wait_white = _gf_false;
     ret = pthread_mutex_unlock(&priv->dm.drain_white_mutex);
     if (ret)
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_PTHREAD_ERROR,
-                "pthread error", "error=%d", ret, NULL);
+                "error=%d", ret, NULL);
     pthread_cleanup_pop(0);
     gf_msg_debug(this->name, 0, "Woke up: Conditional wait on white fops");
 }
@@ -1830,8 +1813,7 @@ changelog_fill_entry_buf(call_frame_t *frame, xlator_t *this, loc_t *loc,
     parent = inode_parent(loc->inode, 0, 0);
     if (!parent) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_INODE_NOT_FOUND,
-                "Parent inode not found", "gfid=%s",
-                uuid_utoa(loc->inode->gfid), NULL);
+                "type=parent", "gfid=%s", uuid_utoa(loc->inode->gfid), NULL);
         goto err;
     }
 
