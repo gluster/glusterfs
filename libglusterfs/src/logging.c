@@ -2442,6 +2442,10 @@ _gf_smsg(const char *domain, const char *file, const char *function,
     va_list valist;
     char *msg = NULL;
     int ret = 0;
+    xlator_t *this = THIS;
+
+    if (skip_logging(this, level))
+        return ret;
 
     va_start(valist, event);
     ret = _do_slog_format(event, valist, &msg);
@@ -2465,6 +2469,10 @@ _gf_slog(const char *domain, const char *file, const char *function, int line,
     va_list valist;
     char *msg = NULL;
     int ret = 0;
+    xlator_t *this = THIS;
+
+    if (skip_logging(this, level))
+        return ret;
 
     va_start(valist, event);
     ret = _do_slog_format(event, valist, &msg);
