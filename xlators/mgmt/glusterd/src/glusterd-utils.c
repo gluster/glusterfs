@@ -13461,6 +13461,34 @@ out:
     return ret;
 }
 
+void
+glusterd_brick_get_status_str(glusterd_brickinfo_t *brickinfo, char *status_str)
+{
+    GF_VALIDATE_OR_GOTO(THIS->name, brickinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, status_str, out);
+
+    switch (brickinfo->status) {
+        case GF_BRICK_STOPPED:
+            sprintf(status_str, "%s", "Stopped");
+            break;
+        case GF_BRICK_STARTED:
+            sprintf(status_str, "%s", "Started");
+            break;
+        case GF_BRICK_STARTING:
+            sprintf(status_str, "%s", "Starting");
+            break;
+        case GF_BRICK_STOPPING:
+            sprintf(status_str, "%s", "Stopping");
+            break;
+        default:
+            sprintf(status_str, "%s", "None");
+            break;
+    }
+
+out:
+    return;
+}
+
 int
 glusterd_volume_get_transport_type_str(glusterd_volinfo_t *volinfo,
                                        char *transport_type_str)
