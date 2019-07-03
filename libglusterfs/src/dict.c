@@ -3193,7 +3193,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
         value->is_static = _gf_false;
         buf += vallen;
 
-        ret = dict_add(*fill, key, value);
+        ret = dict_addn(*fill, key, keylen, value);
         if (ret < 0)
             goto out;
     }
