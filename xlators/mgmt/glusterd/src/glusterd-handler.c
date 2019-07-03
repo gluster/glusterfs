@@ -5335,7 +5335,9 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     char vol_status_str[STATUS_STRLEN] = {
         0,
     };
-
+    char brick_status_str[STATUS_STRLEN] = {
+        0,
+    };
     this = THIS;
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
@@ -5585,8 +5587,9 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
                     brickinfo->rdma_port);
             fprintf(fp, "Volume%d.Brick%d.port_registered: %d\n", count_bkp,
                     count, brickinfo->port_registered);
+            glusterd_brick_get_status_str(brickinfo, brick_status_str);
             fprintf(fp, "Volume%d.Brick%d.status: %s\n", count_bkp, count,
-                    brickinfo->status ? "Started" : "Stopped");
+                    brick_status_str);
 
             ret = sys_statvfs(brickinfo->path, &brickstat);
             if (ret) {

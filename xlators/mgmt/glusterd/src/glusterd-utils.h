@@ -761,6 +761,10 @@ glusterd_volume_get_type_str(glusterd_volinfo_t *volinfo, char **vol_type_str);
 int
 glusterd_volume_get_status_str(glusterd_volinfo_t *volinfo, char *status_str);
 
+void
+glusterd_brick_get_status_str(glusterd_brickinfo_t *brickinfo,
+                              char *status_str);
+
 int
 glusterd_volume_get_transport_type_str(glusterd_volinfo_t *volinfo,
                                        char *transport_type_str);
