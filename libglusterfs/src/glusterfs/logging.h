@@ -369,10 +369,6 @@ gf_log_disable_suppression_before_exit(struct _glusterfs_ctx *ctx);
     gf_log((xl)->name, GF_LOG_ERROR, format, ##args)
 
 int
-_gf_slog(const char *domain, const char *file, const char *function, int line,
-         gf_loglevel_t level, const char *event, ...);
-
-int
 _gf_smsg(const char *domain, const char *file, const char *function,
          int32_t line, gf_loglevel_t level, int errnum, int trace,
          uint64_t msgid, const char *event, ...);
@@ -381,12 +377,7 @@ _gf_smsg(const char *domain, const char *file, const char *function,
 #define gf_smsg(dom, level, errnum, msgid, event...)                           \
     do {                                                                       \
         _gf_smsg(dom, __FILE__, __FUNCTION__, __LINE__, level, errnum, 0,      \
-                 msgid, ##event);                                              \
-    } while (0)
-
-#define gf_slog(dom, level, event...)                                          \
-    do {                                                                       \
-        _gf_slog(dom, __FILE__, __FUNCTION__, __LINE__, level, ##event);       \
+                 msgid, msgid##_STR, ##event);                                 \
     } while (0)
 
 #endif /* __LOGGING_H__ */

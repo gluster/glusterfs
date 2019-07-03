@@ -684,7 +684,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t gfid, char **path,
     do {                                                                       \
         if (ret) {                                                             \
             gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_PTHREAD_ERROR,  \
-                    "pthread error", "error=%d", ret, NULL);                   \
+                    "error=%d", ret, NULL);                                    \
             ret = -1;                                                          \
             goto label;                                                        \
         }                                                                      \
@@ -695,7 +695,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t gfid, char **path,
     do {                                                                       \
         if (ret) {                                                             \
             gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_PTHREAD_ERROR,  \
-                    "pthread error", "error=%d", ret, NULL);                   \
+                    "error=%d", ret, NULL);                                    \
             ret = -1;                                                          \
             flag = _gf_true;                                                   \
             goto label;                                                        \
@@ -707,7 +707,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t gfid, char **path,
     do {                                                                       \
         if (ret) {                                                             \
             gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_PTHREAD_ERROR,  \
-                    "pthread error", "error=%d", ret, NULL);                   \
+                    "error=%d", ret, NULL);                                    \
             ret = -1;                                                          \
             pthread_mutex_unlock(&mutex);                                      \
             goto label;                                                        \

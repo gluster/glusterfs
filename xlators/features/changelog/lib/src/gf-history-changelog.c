@@ -79,8 +79,8 @@ gf_history_changelog_done(char *file)
     ret = sys_rename(buffer, to_path);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno,
-                CHANGELOG_LIB_MSG_RENAME_FAILED, "cannot move changelog file",
-                "from=%s", file, "to=%s", to_path, NULL);
+                CHANGELOG_LIB_MSG_RENAME_FAILED, "from=%s", file, "to=%s",
+                to_path, NULL);
         goto out;
     }
 
@@ -522,8 +522,7 @@ gf_changelog_consume_wrap(void *data)
                                    _gf_true);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_LIB_MSG_PARSE_ERROR,
-                    "could not parse changelog", "name=%s", ccd->changelog,
-                    NULL);
+                    "name=%s", ccd->changelog, NULL);
             goto out;
         }
     }
@@ -642,9 +641,8 @@ gf_history_consume(void *data)
             curr = &ccd[iter];
             if (ccd->retval) {
                 publish = _gf_false;
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       CHANGELOG_LIB_MSG_PARSE_ERROR,
-                       "parsing error, ceased publishing...");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_LIB_MSG_PARSE_ERROR_CEASED, NULL);
                 continue;
             }
 
@@ -723,7 +721,7 @@ gf_changelog_extract_min_max(const char *dname, const char *htime_dir, int *fd,
     if (ret) {
         ret = -1;
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_LIB_MSG_HTIME_ERROR,
-                "stat() failed on htime file", "path=%s", htime_file, NULL);
+                "op=stat", "path=%s", htime_file, NULL);
         goto out;
     }
 
@@ -737,7 +735,7 @@ gf_changelog_extract_min_max(const char *dname, const char *htime_dir, int *fd,
     if (*fd < 0) {
         ret = -1;
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_LIB_MSG_HTIME_ERROR,
-                "open() failed for htime file", "path=%s", htime_file, NULL);
+                "op=open", "path=%s", htime_file, NULL);
         goto out;
     }
 
@@ -746,17 +744,15 @@ gf_changelog_extract_min_max(const char *dname, const char *htime_dir, int *fd,
     if (ret < 0) {
         ret = -1;
         gf_smsg(this->name, GF_LOG_ERROR, errno,
-                CHANGELOG_LIB_MSG_GET_XATTR_FAILED,
-                "error extracting max timstamp from htime file"
-                "path=%s",
-                htime_file, NULL);
+                CHANGELOG_LIB_MSG_GET_XATTR_FAILED, "path=%s", htime_file,
+                NULL);
         goto out;
     }
 
     sscanf(x_value, "%lu:%lu", max_ts, total);
-    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_LIB_MSG_TOTAL_LOG_INFO,
-            "changelogs min max", "min=%lu", *min_ts, "max=%lu", *max_ts,
-            "total_changelogs=%lu", *total, NULL);
+    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_LIB_MSG_MIN_MAX_INFO,
+            "min=%lu", *min_ts, "max=%lu", *max_ts, "total_changelogs=%lu",
+            *total, NULL);
 
     ret = 0;
 
@@ -837,15 +833,14 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
         goto out;
     }
 
-    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_LIB_MSG_TOTAL_LOG_INFO,
-            "Requesting historical changelogs", "start=%lu", start, "end=%lu",
-            end, NULL);
+    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_LIB_MSG_REQUESTING_INFO,
+            "start=%lu", start, "end=%lu", end, NULL);
 
     /* basic sanity check */
     if (start > end || n_parallel <= 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_LIB_MSG_HIST_FAILED,
-                "Sanity check failed", "start=%lu", start, "end=%lu", end,
-                "thread_count=%d", n_parallel, NULL);
+                "start=%lu", start, "end=%lu", end, "thread_count=%d",
+                n_parallel, NULL);
         ret = -1;
         goto out;
     }
@@ -859,7 +854,7 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
     dirp = sys_opendir(htime_dir);
     if (dirp == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_LIB_MSG_HTIME_ERROR,
-                "open dir on htime failed", "path=%s", htime_dir, NULL);
+                "op=opendir", "path=%s", htime_dir, NULL);
         ret = -1;
         goto out;
     }
@@ -871,9 +866,8 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
 
         if (!entry || errno != 0) {
             gf_smsg(this->name, GF_LOG_ERROR, errno,
-                    CHANGELOG_LIB_MSG_HIST_FAILED,
-                    "Requested changelog range is not available", "start=%lu",
-                    start, "end=%lu", end, NULL);
+                    CHANGELOG_LIB_MSG_HIST_FAILED, "start=%lu", start,
+                    "end=%lu", end, NULL);
             ret = -2;
             break;
         }
@@ -911,9 +905,8 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
             if (gf_history_check(fd, from, start, len) != 0) {
                 ret = -1;
                 gf_smsg(this->name, GF_LOG_ERROR, 0,
-                        CHANGELOG_LIB_MSG_GET_TIME_ERROR,
-                        "wrong result for start", "start=%lu", start, "idx=%lu",
-                        from, NULL);
+                        CHANGELOG_LIB_MSG_GET_TIME_ERROR, "for=start",
+                        "start=%lu", start, "idx=%lu", from, NULL);
                 goto out;
             }
 
@@ -944,9 +937,8 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
             if (gf_history_check(fd, to, end2, len) != 0) {
                 ret = -1;
                 gf_smsg(this->name, GF_LOG_ERROR, 0,
-                        CHANGELOG_LIB_MSG_GET_TIME_ERROR,
-                        "wrong result for end", "start=%lu", end2, "idx=%lu",
-                        to, NULL);
+                        CHANGELOG_LIB_MSG_GET_TIME_ERROR, "for=end",
+                        "start=%lu", end2, "idx=%lu", to, NULL);
                 goto out;
             }
 
@@ -958,9 +950,9 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
             if (ret == -1)
                 goto out;
 
-            gf_smsg(this->name, GF_LOG_INFO, 0,
-                    CHANGELOG_LIB_MSG_TOTAL_LOG_INFO, "FINAL", "from=%lu", ts1,
-                    "to=%lu", ts2, "changes=%lu", (to - from + 1), NULL);
+            gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_LIB_MSG_FINAL_INFO,
+                    "from=%lu", ts1, "to=%lu", ts2, "changes=%lu",
+                    (to - from + 1), NULL);
 
             hist_data = GF_CALLOC(1, sizeof(gf_changelog_history_data_t),
                                   gf_changelog_mt_history_data_t);
@@ -998,11 +990,9 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
 
         } else { /* end of range check */
             gf_smsg(this->name, GF_LOG_ERROR, errno,
-                    CHANGELOG_LIB_MSG_HIST_FAILED,
-                    "Requested changelog range is not "
-                    "available. Retrying next HTIME",
-                    "start=%lu", start, "end=%lu", end, "chlog_min=%lu", min_ts,
-                    "chlog_max=%lu", max_ts, NULL);
+                    CHANGELOG_LIB_MSG_HIST_FAILED, "start=%lu", start,
+                    "end=%lu", end, "chlog_min=%lu", min_ts, "chlog_max=%lu",
+                    max_ts, NULL);
         }
     } /* end of readdir() */
 
