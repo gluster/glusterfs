@@ -532,7 +532,7 @@ fd_unref(fd_t *fd)
     return;
 }
 
-fd_t *
+static fd_t *
 __fd_bind(fd_t *fd)
 {
     list_del_init(&fd->inode_list);
@@ -562,9 +562,9 @@ fd_bind(fd_t *fd)
 }
 
 static fd_t *
-__fd_create(inode_t *inode, uint64_t pid)
+fd_allocate(inode_t *inode, uint64_t pid)
 {
-    fd_t *fd = NULL;
+    fd_t *fd;
 
     if (inode == NULL) {
         gf_msg_callingfn("fd", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
@@ -573,64 +573,67 @@ __fd_create(inode_t *inode, uint64_t pid)
     }
 
     fd = mem_get0(inode->table->fd_mem_pool);
-    if (!fd)
-        goto out;
+    if (fd == NULL) {
+        return NULL;
+    }
 
     fd->xl_count = inode->table->xl->graph->xl_count + 1;
 
     fd->_ctx = GF_CALLOC(1, (sizeof(struct _fd_ctx) * fd->xl_count),
                          gf_common_mt_fd_ctx);
-    if (!fd->_ctx)
-        goto free_fd;
+    if (fd->_ctx == NULL) {
+        goto failed;
+    }
 
     fd->lk_ctx = fd_lk_ctx_create();
-    if (!fd->lk_ctx)
-        goto free_fd_ctx;
+    if (fd->lk_ctx != NULL) {
+        /* We need to take a reference from the inode, but we cannot do it
+         * here because this function can be called with the inode lock taken
+         * and inode_ref() takes the inode's table lock. This is the reverse
+         * of the logical lock acquisition order and can cause a deadlock. So
+         * we simply assign the inode here and we delefate the inode reference
+         * responsibility to the caller (when this function succeeds and the
+         * inode lock is released). This is safe because the caller must hold
+         * a reference of the inode to use it, so it's guaranteed that the
+         * number of references won't reach 0 before the caller finishes.
+         *
+         * TODO: minimize use of locks in favor of atomic operations to avoid
+         *       these dependencies. */
+        fd->inode = inode;
+        fd->pid = pid;
+        INIT_LIST_HEAD(&fd->inode_list);
+        LOCK_INIT(&fd->lock);
+        GF_ATOMIC_INIT(fd->refcount, 1);
+        return fd;
+    }
 
-    fd->inode = inode_ref(inode);
-    fd->pid = pid;
-    INIT_LIST_HEAD(&fd->inode_list);
-
-    LOCK_INIT(&fd->lock);
-out:
-    return fd;
-
-free_fd_ctx:
     GF_FREE(fd->_ctx);
-free_fd:
+
+failed:
     mem_put(fd);
 
     return NULL;
 }
 
 fd_t *
-fd_create(inode_t *inode, pid_t pid)
+fd_create_uint64(inode_t *inode, uint64_t pid)
 {
-    fd_t *fd = NULL;
+    fd_t *fd;
 
-    fd = __fd_create(inode, (uint64_t)pid);
-    if (!fd)
-        goto out;
+    fd = fd_allocate(inode, pid);
+    if (fd != NULL) {
+        /* fd_allocate() doesn't get a reference from the inode. We need to
+         * take it here in case of success. */
+        inode_ref(inode);
+    }
 
-    fd = fd_ref(fd);
-
-out:
     return fd;
 }
 
 fd_t *
-fd_create_uint64(inode_t *inode, uint64_t pid)
+fd_create(inode_t *inode, pid_t pid)
 {
-    fd_t *fd = NULL;
-
-    fd = __fd_create(inode, pid);
-    if (!fd)
-        goto out;
-
-    fd = fd_ref(fd);
-
-out:
-    return fd;
+    return fd_create_uint64(inode, (uint64_t)pid);
 }
 
 static fd_t *
@@ -719,10 +722,13 @@ __fd_lookup_anonymous(inode_t *inode, int32_t flags)
     return fd;
 }
 
-static fd_t *
-__fd_anonymous(inode_t *inode, int32_t flags)
+fd_t *
+fd_anonymous_with_flags(inode_t *inode, int32_t flags)
 {
     fd_t *fd = NULL;
+    bool ref = false;
+
+    LOCK(&inode->lock);
 
     fd = __fd_lookup_anonymous(inode, flags);
 
@@ -730,18 +736,24 @@ __fd_anonymous(inode_t *inode, int32_t flags)
        __fd_lookup_anonymous(), so no need of one more fd_ref().
        if (!fd); then both create and bind won't bump up the ref
        count, so we have to call fd_ref() after bind. */
-    if (!fd) {
-        fd = __fd_create(inode, 0);
+    if (fd == NULL) {
+        fd = fd_allocate(inode, 0);
+        if (fd != NULL) {
+            fd->anonymous = _gf_true;
+            fd->flags = GF_ANON_FD_FLAGS | (flags & O_DIRECT);
 
-        if (!fd)
-            return NULL;
+            __fd_bind(fd);
 
-        fd->anonymous = _gf_true;
-        fd->flags = GF_ANON_FD_FLAGS | flags;
+            ref = true;
+        }
+    }
 
-        __fd_bind(fd);
+    UNLOCK(&inode->lock);
 
-        __fd_ref(fd);
+    if (ref) {
+        /* fd_allocate() doesn't get a reference from the inode. We need to
+         * take it here in case of success. */
+        inode_ref(inode);
     }
 
     return fd;
@@ -750,34 +762,7 @@ __fd_anonymous(inode_t *inode, int32_t flags)
 fd_t *
 fd_anonymous(inode_t *inode)
 {
-    fd_t *fd = NULL;
-
-    LOCK(&inode->lock);
-    {
-        fd = __fd_anonymous(inode, GF_ANON_FD_FLAGS);
-    }
-    UNLOCK(&inode->lock);
-
-    return fd;
-}
-
-fd_t *
-fd_anonymous_with_flags(inode_t *inode, int32_t flags)
-{
-    fd_t *fd = NULL;
-
-    if (flags & O_DIRECT)
-        flags = GF_ANON_FD_FLAGS | O_DIRECT;
-    else
-        flags = GF_ANON_FD_FLAGS;
-
-    LOCK(&inode->lock);
-    {
-        fd = __fd_anonymous(inode, flags);
-    }
-    UNLOCK(&inode->lock);
-
-    return fd;
+    return fd_anonymous_with_flags(inode, 0);
 }
 
 fd_t *
