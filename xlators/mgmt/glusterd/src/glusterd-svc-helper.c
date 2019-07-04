@@ -396,15 +396,38 @@ out:
     return ret;
 }
 
+gf_boolean_t
+glusterd_is_svcproc_attachable(glusterd_svc_proc_t *svc_proc)
+{
+    int pid = -1;
+    glusterd_svc_t *parent_svc = NULL;
+
+    if (!svc_proc)
+        return _gf_false;
+
+    if (svc_proc->status == GF_SVC_STARTING)
+        return _gf_true;
+
+    if (svc_proc->status == GF_SVC_STARTED ||
+        svc_proc->status == GF_SVC_DISCONNECTED) {
+        parent_svc = cds_list_entry(svc_proc->svcs.next, glusterd_svc_t,
+                                    mux_svc);
+        if (parent_svc && gf_is_service_running(parent_svc->proc.pidfile, &pid))
+            return _gf_true;
+    }
+
+    if (svc_proc->status == GF_SVC_DIED || svc_proc->status == GF_SVC_STOPPING)
+        return _gf_false;
+
+    return _gf_false;
+}
+
 void *
 __gf_find_compatible_svc(gd_node_type daemon)
 {
     glusterd_svc_proc_t *svc_proc = NULL;
-    glusterd_svc_proc_t *return_proc = NULL;
-    glusterd_svc_t *parent_svc = NULL;
     struct cds_list_head *svc_procs = NULL;
     glusterd_conf_t *conf = NULL;
-    int pid = -1;
 
     conf = THIS->private;
     GF_VALIDATE_OR_GOTO("glusterd", conf, out);
@@ -422,15 +445,7 @@ __gf_find_compatible_svc(gd_node_type daemon)
 
     cds_list_for_each_entry(svc_proc, svc_procs, svc_proc_list)
     {
-        parent_svc = cds_list_entry(svc_proc->svcs.next, glusterd_svc_t,
-                                    mux_svc);
-        if (!return_proc)
-            return_proc = svc_proc;
-
-        /* If there is an  already running shd daemons, select it. Otehrwise
-         * select the first one.
-         */
-        if (parent_svc && gf_is_service_running(parent_svc->proc.pidfile, &pid))
+        if (glusterd_is_svcproc_attachable(svc_proc))
             return (void *)svc_proc;
         /*
          * Logic to select one process goes here. Currently there is only one
@@ -438,7 +453,7 @@ __gf_find_compatible_svc(gd_node_type daemon)
          */
     }
 out:
-    return return_proc;
+    return NULL;
 }
 
 glusterd_svc_proc_t *
@@ -455,6 +470,7 @@ glusterd_svcprocess_new()
     CDS_INIT_LIST_HEAD(&new_svcprocess->svc_proc_list);
     CDS_INIT_LIST_HEAD(&new_svcprocess->svcs);
     new_svcprocess->notify = glusterd_muxsvc_common_rpc_notify;
+    new_svcprocess->status = GF_SVC_STARTING;
     return new_svcprocess;
 }
 
@@ -467,6 +483,7 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *parent_svc = NULL;
     int pid = -1;
+    gf_boolean_t stop_daemon = _gf_false;
     char pidfile[PATH_MAX] = {
         0,
     };
@@ -507,9 +524,10 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
 
             if (!mux_proc) {
                 if (pid != -1 && sys_access(pidfile, R_OK) == 0) {
-                    /* stale pid file, stop and unlink it */
-                    glusterd_proc_stop(&svc->proc, SIGTERM, PROC_STOP_FORCE);
-                    glusterd_unlink_file(pidfile);
+                    /* stale pid file, stop and unlink it. This has to be
+                     * done outside the attach_lock.
+                     */
+                    stop_daemon = _gf_true;
                 }
                 mux_proc = __gf_find_compatible_svc(GD_NODE_SHD);
             }
@@ -517,7 +535,6 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
                 /* Take first entry from the process */
                 parent_svc = cds_list_entry(mux_proc->svcs.next, glusterd_svc_t,
                                             mux_svc);
-                glusterd_copy_file(parent_svc->proc.pidfile, svc->proc.pidfile);
                 mux_conn = &parent_svc->conn;
                 if (volinfo)
                     volinfo->shd.attached = _gf_true;
@@ -548,6 +565,10 @@ glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc)
 unlock:
     pthread_mutex_unlock(&conf->attach_lock);
 out:
+    if (stop_daemon) {
+        glusterd_proc_stop(&svc->proc, SIGTERM, PROC_STOP_FORCE);
+        glusterd_unlink_file(pidfile);
+    }
     return ret;
 }
 
@@ -580,7 +601,8 @@ __gf_find_compatible_svc_from_pid(gd_node_type daemon, pid_t pid)
         cds_list_for_each_entry(svc, &svc_proc->svcs, mux_svc)
         {
             if (gf_is_service_running(svc->proc.pidfile, &mux_pid)) {
-                if (mux_pid == pid) {
+                if (mux_pid == pid &&
+                    glusterd_is_svcproc_attachable(svc_proc)) {
                     /*TODO
                      * inefficient loop, but at the moment, there is only
                      * one shd.
