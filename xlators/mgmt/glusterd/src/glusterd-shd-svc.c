@@ -491,6 +491,8 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
         shd->attached = _gf_true;
     }
 out:
+    if (ret && volinfo)
+        glusterd_shd_svcproc_cleanup(&volinfo->shd);
     if (volinfo)
         glusterd_volinfo_unref(volinfo);
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
@@ -703,6 +705,7 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
         cds_list_del_init(&svc->mux_svc);
         empty = cds_list_empty(&svc_proc->svcs);
         if (empty) {
+            svc_proc->status = GF_SVC_STOPPING;
             cds_list_del_init(&svc_proc->svc_proc_list);
         }
     }

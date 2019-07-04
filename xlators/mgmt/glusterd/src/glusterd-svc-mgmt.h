@@ -31,12 +31,21 @@ typedef int (*glusterd_svc_reconfigure_t)(void *data);
 typedef int (*glusterd_muxsvc_conn_notify_t)(glusterd_svc_proc_t *mux_proc,
                                              rpc_clnt_event_t event);
 
+typedef enum gf_svc_status {
+    GF_SVC_STARTING,
+    GF_SVC_STARTED,
+    GF_SVC_STOPPING,
+    GF_SVC_DISCONNECTED,
+    GF_SVC_DIED,
+} gf_svc_status_t;
+
 struct glusterd_svc_proc_ {
     struct cds_list_head svc_proc_list;
     struct cds_list_head svcs;
     glusterd_muxsvc_conn_notify_t notify;
     rpc_clnt_t *rpc;
     void *data;
+    gf_svc_status_t status;
 };
 
 struct glusterd_svc_ {

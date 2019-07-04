@@ -425,6 +425,9 @@ glusterd_muxsvc_common_rpc_notify(glusterd_svc_proc_t *mux_proc,
                     continue;
                 svc->online = _gf_true;
             }
+            if (mux_proc->status != GF_SVC_STARTED)
+                mux_proc->status = GF_SVC_STARTED;
+
             break;
 
         case RPC_CLNT_DISCONNECT:
@@ -436,6 +439,16 @@ glusterd_muxsvc_common_rpc_notify(glusterd_svc_proc_t *mux_proc,
                     svc->online = _gf_false;
                 }
             }
+            if (mux_proc->status != GF_SVC_DIED) {
+                svc = cds_list_entry(mux_proc->svcs.next, glusterd_svc_t,
+                                     mux_svc);
+                if (svc && !glusterd_proc_is_running(&svc->proc)) {
+                    mux_proc->status = GF_SVC_DIED;
+                } else {
+                    mux_proc->status = GF_SVC_DISCONNECTED;
+                }
+            }
+
             if (need_logging) {
                 gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_NODE_DISCONNECTED,
                        "glustershd has disconnected from glusterd.");
