@@ -1088,14 +1088,12 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
         0,
     };
     xlator_t *this = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     dict_t *dict = NULL;
 
     GF_ASSERT(req);
     this = THIS;
     GF_ASSERT(this);
 
-    ctx = this->ctx;
     ret = xdr_to_generic(req->msg[0], &xlator_req,
                          (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
 
@@ -1128,14 +1126,9 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
 
     ret = 0;
 
-    if (ctx->active) {
-        ret = mgmt_process_volfile(xlator_req.input.input_val,
-                                   xlator_req.input.input_len, xlator_req.name,
-                                   dict);
-    } else {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, glusterfsd_msg_42,
-               "got attach for %s but no active graph", xlator_req.name);
-    }
+    ret = mgmt_process_volfile(xlator_req.input.input_val,
+                               xlator_req.input.input_len, xlator_req.name,
+                               dict);
 out:
     if (dict)
         dict_unref(dict);
@@ -1154,8 +1147,8 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
         0,
     };
     ssize_t ret;
-    glusterfs_ctx_t *ctx = NULL;
     gf_volfile_t *volfile_obj = NULL;
+    glusterfs_ctx_t *ctx = NULL;
     gf_volfile_t *volfile_tmp = NULL;
 
     ret = xdr_to_generic(req->msg[0], &xlator_req,
