@@ -31,9 +31,9 @@ EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^1$" shd_count
 TEST glusterd
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" shd_count
 #Check the thread count become to number of volumes*number of ec subvolume (3*6=18)
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^18$" number_healer_threads_shd $V0 "__ec_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^18$" number_healer_threads_shd $V0 "ec_shd_index_healer"
 #Check the thread count become to number of volumes*number of afr subvolume (4*6=24)
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^24$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^24$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 shd_pid=$(get_shd_mux_pid $V0)
 for i in $(seq 1 3); do
@@ -52,9 +52,9 @@ TEST glusterd
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" shd_count
 
 #Check the thread count become to number of volumes*number of ec subvolume (3*6=18)
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^18$" number_healer_threads_shd $V0 "__ec_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^18$" number_healer_threads_shd $V0 "ec_shd_index_healer"
 #Check the thread count become to number of volumes*number of afr subvolume (4*6=24)
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^24$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^24$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 shd_pid=$(get_shd_mux_pid $V0)
 for i in $(seq 1 3); do
@@ -69,7 +69,7 @@ for i in $(seq 1 3); do
    TEST $CLI volume stop ${V0}_ec$i
 done
 
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 

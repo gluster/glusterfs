@@ -13,7 +13,7 @@ TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2,3,4,5}
 TEST $CLI volume start $V0
 
 shd_pid=$(get_shd_mux_pid $V0)
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^6$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 for i in $(seq 1 3); do
    TEST $CLI volume create ${V0}_afr$i replica 3 $H0:$B0/${V0}_afr${i}{0,1,2,3,4,5}
@@ -23,9 +23,9 @@ for i in $(seq 1 3); do
 done
 
 #Check the thread count become to number of volumes*number of ec subvolume (3*6=18)
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^18$" number_healer_threads_shd $V0 "__ec_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^18$" number_healer_threads_shd $V0 "ec_shd_index_healer"
 #Check the thread count become to number of volumes*number of afr subvolume (4*6=24)
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^24$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^24$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 #Delete the volumes
 for i in $(seq 1 3); do
    TEST $CLI volume stop ${V0}_afr$i
@@ -37,7 +37,7 @@ done
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^${shd_pid}$" get_shd_mux_pid $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" shd_count
 
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 TEST $CLI volume stop ${V0}
 TEST $CLI volume delete ${V0}

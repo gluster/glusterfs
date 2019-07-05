@@ -15,7 +15,7 @@ TEST $CLI volume start $V0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 
 shd_pid=$(get_shd_mux_pid $V0)
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^6$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 #Create a one more volume
 TEST $CLI volume create ${V0}_1 replica 3 $H0:$B0/${V0}_1{0,1,2,3,4,5}
@@ -62,7 +62,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" shd_count
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^${shd_pid}$" get_shd_mux_pid $V0
 
 #Check the thread count become to earlier number after stopping
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 TEST $CLI volume stop ${V0}
 TEST $CLI volume delete ${V0}
