@@ -594,6 +594,7 @@ struct _glusterfs_graph {
                       in client multiplexed code path */
     pthread_mutex_t mutex;
     pthread_cond_t child_down_cond; /* for broadcasting CHILD_DOWN */
+    int parent_down;
     char graph_uuid[128];
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;

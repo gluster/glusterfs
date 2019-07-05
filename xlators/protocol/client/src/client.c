@@ -61,9 +61,54 @@ out:
 }
 
 int
+client_is_last_child_down(xlator_t *this, int32_t event, struct rpc_clnt *rpc)
+{
+    rpc_clnt_connection_t *conn = NULL;
+    int ret = 0;
+
+    clnt_conf_t *conf = this->private;
+    if (!this || !rpc || !conf)
+        goto out;
+
+    if (!conf->parent_down)
+        goto out;
+    conn = &rpc->conn;
+    pthread_mutex_lock(&conn->lock);
+    {
+        if (event == GF_EVENT_CHILD_DOWN && !conn->reconnect && rpc->disabled) {
+            ret = 1;
+        }
+    }
+    pthread_mutex_unlock(&conn->lock);
+out:
+    return ret;
+}
+
+int
 client_notify_dispatch_uniq(xlator_t *this, int32_t event, void *data, ...)
 {
     clnt_conf_t *conf = this->private;
+    glusterfs_ctx_t *ctx = this->ctx;
+    glusterfs_graph_t *graph = this->graph;
+
+    pthread_mutex_lock(&ctx->notify_lock);
+    {
+        while (ctx->notifying)
+            pthread_cond_wait(&ctx->notify_cond, &ctx->notify_lock);
+
+        if (client_is_last_child_down(this, event, data) && graph) {
+            pthread_mutex_lock(&graph->mutex);
+            {
+                graph->parent_down++;
+                if (graph->parent_down == graph_total_client_xlator(graph)) {
+                    graph->used = 0;
+                    pthread_cond_broadcast(&graph->child_down_cond);
+                }
+            }
+            pthread_mutex_unlock(&graph->mutex);
+        }
+    }
+    pthread_mutex_unlock(&ctx->notify_lock);
 
     if (conf->last_sent_event == event)
         return 0;
@@ -81,6 +126,7 @@ client_notify_dispatch(xlator_t *this, int32_t event, void *data, ...)
 {
     int ret = -1;
     glusterfs_ctx_t *ctx = this->ctx;
+
     clnt_conf_t *conf = this->private;
 
     pthread_mutex_lock(&ctx->notify_lock);
@@ -94,6 +140,7 @@ client_notify_dispatch(xlator_t *this, int32_t event, void *data, ...)
     /* We assume that all translators in the graph handle notification
      * events in sequence.
      * */
+
     ret = default_notify(this, event, data);
 
     /* NB (Even) with MT-epoll and EPOLLET|EPOLLONESHOT we are guaranteed
@@ -2376,7 +2423,7 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                    replicate), hence make sure events which are passed
                    to parent are genuine */
                 ret = client_notify_dispatch_uniq(this, GF_EVENT_CHILD_DOWN,
-                                                  NULL);
+                                                  rpc);
                 if (is_parent_down) {
                     /* If parent is down, then there should not be any
                      * operation after a child down.
@@ -2424,6 +2471,8 @@ int
 notify(xlator_t *this, int32_t event, void *data, ...)
 {
     clnt_conf_t *conf = NULL;
+    glusterfs_graph_t *graph = this->graph;
+    int ret = -1;
 
     conf = this->private;
     if (!conf)
@@ -2450,7 +2499,19 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             }
             pthread_mutex_unlock(&conf->lock);
 
-            rpc_clnt_disable(conf->rpc);
+            ret = rpc_clnt_disable(conf->rpc);
+            if (ret == -1 && graph) {
+                pthread_mutex_lock(&graph->mutex);
+                {
+                    graph->parent_down++;
+                    if (graph->parent_down ==
+                        graph_total_client_xlator(graph)) {
+                        graph->used = 0;
+                        pthread_cond_broadcast(&graph->child_down_cond);
+                    }
+                }
+                pthread_mutex_unlock(&graph->mutex);
+            }
             break;
 
         default:

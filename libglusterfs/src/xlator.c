@@ -1542,3 +1542,26 @@ xlator_is_cleanup_starting(xlator_t *this)
 out:
     return cleanup;
 }
+
+int
+graph_total_client_xlator(glusterfs_graph_t *graph)
+{
+    xlator_t *xl = NULL;
+    int count = 0;
+
+    if (!graph) {
+        gf_msg("xlator", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+               "graph object is null");
+        goto out;
+    }
+
+    xl = graph->first;
+    while (xl) {
+        if (strcmp(xl->type, "protocol/client") == 0) {
+            count++;
+        }
+        xl = xl->next;
+    }
+out:
+    return count;
+}

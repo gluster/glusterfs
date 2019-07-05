@@ -1695,6 +1695,7 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
                "failed to construct the graph");
         goto out;
     }
+    graph->parent_down = 0;
     graph->last_xl = glusterfs_get_last_xlator(graph);
 
     for (xl = graph->first; xl; xl = xl->next) {

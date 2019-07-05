@@ -1858,7 +1858,7 @@ rpc_clnt_unref(struct rpc_clnt *rpc)
     return rpc;
 }
 
-void
+int
 rpc_clnt_disable(struct rpc_clnt *rpc)
 {
     rpc_clnt_connection_t *conn = NULL;
@@ -1902,8 +1902,9 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
     }
     pthread_mutex_unlock(&conn->lock);
 
+    ret = -1;
     if (trans) {
-        rpc_transport_disconnect(trans, _gf_true);
+        ret = rpc_transport_disconnect(trans, _gf_true);
         /* The auth_value was being reset to AUTH_GLUSTERFS_v2.
          *    if (clnt->auth_value)
          *           clnt->auth_value = AUTH_GLUSTERFS_v2;
@@ -1919,7 +1920,6 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
          * on a connected transport and hence its strictly serialized.
          */
     }
-
     if (unref)
         rpc_clnt_unref(rpc);
 
@@ -1930,7 +1930,7 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
         rpc_clnt_unref(rpc);
 
 out:
-    return;
+    return ret;
 }
 
 void

@@ -250,7 +250,7 @@ int
 rpcclnt_cbk_program_register(struct rpc_clnt *svc,
                              rpcclnt_cb_program_t *program, void *mydata);
 
-void
+int
 rpc_clnt_disable(struct rpc_clnt *rpc);
 
 int

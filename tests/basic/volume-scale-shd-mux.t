@@ -23,8 +23,6 @@ for i in $(seq 1 2); do
 done
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" shd_count
-
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" shd_count
 #Check the thread count become to number of volumes*number of ec subvolume (2*6=12)
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^12$" number_healer_threads_shd $V0 "__ec_shd_healer_wait"
 #Check the thread count become to number of volumes*number of afr subvolume (3*6=18)
@@ -38,9 +36,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^21$" number_healer_threads_shd $V0 "__afr_sh
 
 #Remove the brick and check the detach is successful
 $CLI volume remove-brick $V0 $H0:$B0/${V0}{6,7,8} force
-
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^18$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
 
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^0$" number_healer_threads_shd $V0 "glusterfs_graph_cleanup"
 TEST $CLI volume add-brick ${V0}_ec1 $H0:$B0/${V0}_ec1_add{0,1,2,3,4,5};
 #Check the thread count become to number of volumes*number of ec subvolume plus 2 additional threads from newly added bricks (2*6+6=18)
 
@@ -91,6 +89,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^9$" number_healer_threads_shd $V0 "__afr_shd
 #scale down the volume
 TEST $CLI volume remove-brick ${V0}_distribute1 replica 1 $H0:$B0/add/{2..3} force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^6$" number_healer_threads_shd $V0 "__afr_shd_healer_wait"
+
+#Before stopping the process, make sure there is no pending clenup threads hanging
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^0$" number_healer_threads_shd $V0 "glusterfs_graph_cleanup"
 
 TEST $CLI volume stop ${V0}
 TEST $CLI volume delete ${V0}
