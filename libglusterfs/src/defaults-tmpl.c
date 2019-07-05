@@ -171,8 +171,11 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
                 /* Make sure this is not a daemon with master xlator */
                 pthread_mutex_lock(&graph->mutex);
                 {
-                    graph->used = 0;
-                    pthread_cond_broadcast(&graph->child_down_cond);
+                    if (graph->parent_down ==
+                        graph_total_client_xlator(graph)) {
+                        graph->used = 0;
+                        pthread_cond_broadcast(&graph->child_down_cond);
+                    }
                 }
                 pthread_mutex_unlock(&graph->mutex);
             }

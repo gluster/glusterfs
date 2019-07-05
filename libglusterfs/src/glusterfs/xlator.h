@@ -1095,4 +1095,6 @@ mgmt_is_multiplexed_daemon(char *name);
 
 gf_boolean_t
 xlator_is_cleanup_starting(xlator_t *this);
+int
+graph_total_client_xlator(glusterfs_graph_t *graph);
 #endif /* _XLATOR_H */
