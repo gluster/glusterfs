@@ -2337,7 +2337,7 @@ __build_mountlist(struct mount3_state *ms, int *count)
             goto free_list;
         }
 
-        strcat(mlist->ml_hostname, me->hostname);
+        strcpy(mlist->ml_hostname, me->hostname);
 
         gf_msg_debug(GF_MNT, 0, "mount entry: dir: %s, host: %s",
                      mlist->ml_directory, mlist->ml_hostname);
