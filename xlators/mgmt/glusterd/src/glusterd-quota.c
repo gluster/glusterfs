@@ -813,6 +813,7 @@ glusterd_set_quota_limit(char *volname, char *path, char *hard_limit,
         0,
     };
     double soft_limit_double = 0;
+    int64_t local_hl = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -862,11 +863,11 @@ glusterd_set_quota_limit(char *volname, char *path, char *hard_limit,
 
     new_limit.sl = hton64(new_limit.sl);
 
-    ret = gf_string2bytesize_int64(hard_limit, &new_limit.hl);
+    ret = gf_string2bytesize_int64(hard_limit, &local_hl);
     if (ret)
         goto out;
 
-    new_limit.hl = hton64(new_limit.hl);
+    new_limit.hl = hton64(local_hl);
 
     ret = sys_lsetxattr(abspath, key, (char *)(void *)&new_limit,
                         sizeof(new_limit), 0);
