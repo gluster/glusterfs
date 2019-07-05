@@ -873,6 +873,13 @@ posix_acl_ctx_update(inode_t *inode, xlator_t *this, struct iatt *buf,
     int ret = 0;
     int i = 0;
 
+    if (!buf || !buf->ia_ctime) {
+        /* No need to update ctx if buf is empty */
+        gf_log_callingfn(this->name, GF_LOG_DEBUG, "iatt struct is empty (%d)",
+                         fop);
+        goto out;
+    }
+
     LOCK(&inode->lock);
     {
         ctx = __posix_acl_ctx_get(inode, this, _gf_true);
@@ -926,6 +933,7 @@ posix_acl_ctx_update(inode_t *inode, xlator_t *this, struct iatt *buf,
     }
 unlock:
     UNLOCK(&inode->lock);
+out:
     return ret;
 }
 
