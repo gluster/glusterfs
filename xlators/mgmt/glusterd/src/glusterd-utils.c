@@ -1342,7 +1342,7 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
     char glusterfs_dir_path[PATH_MAX] = "";
     int32_t len = 0;
 
-    ret = sys_mkdir(brickinfo->path, 0777);
+    ret = sys_mkdir(brickinfo->path, 0755);
     if (ret) {
         if (errno != EEXIST) {
             len = snprintf(msg, sizeof(msg),
@@ -1892,7 +1892,7 @@ _mk_rundir_p(glusterd_volinfo_t *volinfo)
     this = THIS;
     priv = this->private;
     GLUSTERD_GET_VOLUME_PID_DIR(rundir, volinfo, priv);
-    ret = mkdir_p(rundir, 0777, _gf_true);
+    ret = mkdir_p(rundir, 0755, _gf_true);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
                "Failed to create rundir");

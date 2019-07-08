@@ -6380,7 +6380,7 @@ glusterd_create_essential_dir_files(glusterd_volinfo_t *volinfo, dict_t *dict,
         ret = -1;
         goto out;
     }
-    ret = mkdir_p(buf, 0777, _gf_true);
+    ret = mkdir_p(buf, 0755, _gf_true);
     if (ret) {
         len = snprintf(errmsg, sizeof(errmsg),
                        "Unable to create %s"
@@ -6401,7 +6401,7 @@ glusterd_create_essential_dir_files(glusterd_volinfo_t *volinfo, dict_t *dict,
         ret = -1;
         goto out;
     }
-    ret = mkdir_p(buf, 0777, _gf_true);
+    ret = mkdir_p(buf, 0755, _gf_true);
     if (ret) {
         len = snprintf(errmsg, sizeof(errmsg),
                        "Unable to create %s"

@@ -309,7 +309,7 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
     GF_VALIDATE_OR_GOTO("glusterd", THIS, out);
 
     GLUSTERD_GET_TMP_PATH(mountdir, "/");
-    ret = sys_mkdir(mountdir, 0777);
+    ret = sys_mkdir(mountdir, 0755);
     if (ret && errno != EEXIST) {
         gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_MOUNT_REQ_FAIL,
                "failed to create temporary "
@@ -513,7 +513,7 @@ glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
         goto out;
     }
 
-    ret = mkdir_p(DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY, 0777, _gf_true);
+    ret = mkdir_p(DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY, 0755, _gf_true);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GLUSTERD_OP_FAILED,
                "failed to create dir %s: %s", DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY,
@@ -522,7 +522,7 @@ glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
     }
 
     GLUSTERD_GET_QUOTA_CRAWL_PIDDIR(pid_dir, volinfo, type);
-    ret = mkdir_p(pid_dir, 0777, _gf_true);
+    ret = mkdir_p(pid_dir, 0755, _gf_true);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GLUSTERD_OP_FAILED,
                "failed to create dir %s: %s", pid_dir, strerror(errno));
@@ -2038,7 +2038,7 @@ glusterd_create_quota_auxiliary_mount(xlator_t *this, char *volname, int type)
         fclose(file);
     }
 
-    ret = sys_mkdir(mountdir, 0777);
+    ret = sys_mkdir(mountdir, 0755);
     if (ret && errno != EEXIST) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_MOUNT_REQ_FAIL,
                "Failed to create auxiliary "

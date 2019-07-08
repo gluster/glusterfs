@@ -22,7 +22,7 @@ gf_store_mkdir(char *path)
 {
     int32_t ret = -1;
 
-    ret = mkdir_p(path, 0777, _gf_true);
+    ret = mkdir_p(path, 0755, _gf_true);
 
     if ((-1 == ret) && (EEXIST != errno)) {
         gf_msg("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED,
