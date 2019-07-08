@@ -573,7 +573,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         ret = -1;
         goto out;
     }
-    ret = mkdir_p(georepdir, 0777, _gf_true);
+    ret = mkdir_p(georepdir, 0755, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create " GEOREP " directory %s", georepdir);
@@ -587,7 +587,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
                " is longer than PATH_MAX");
         goto out;
     }
-    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP, 0777, _gf_true);
+    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP, 0755, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create " GEOREP " log directory");
@@ -603,7 +603,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
                " is longer than PATH_MAX");
         goto out;
     }
-    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves", 0777,
+    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves", 0755,
                   _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -620,7 +620,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
                " is longer than PATH_MAX");
         goto out;
     }
-    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves/mbr", 0777,
+    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves/mbr", 0755,
                   _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1286,7 +1286,7 @@ glusterd_init_var_run_dirs(xlator_t *this, char *var_run_dir,
 
     if ((-1 == ret) && (ENOENT == errno)) {
         /* Create missing dirs */
-        ret = mkdir_p(abs_path, 0777, _gf_true);
+        ret = mkdir_p(abs_path, 0755, _gf_true);
 
         if (-1 == ret) {
             gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1448,7 +1448,7 @@ init(xlator_t *this)
     }
 
     if ((-1 == ret) && (ENOENT == errno)) {
-        ret = mkdir_p(workdir, 0777, _gf_true);
+        ret = mkdir_p(workdir, 0755, _gf_true);
 
         if (-1 == ret) {
             gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1495,7 +1495,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = mkdir_p(GLUSTER_SHARED_STORAGE_BRICK_DIR, 0777, _gf_true);
+    ret = mkdir_p(GLUSTER_SHARED_STORAGE_BRICK_DIR, 0755, _gf_true);
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_DIR_OP_FAILED,
                "Unable to create "
@@ -1550,7 +1550,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
 
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1566,7 +1566,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
 
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1581,7 +1581,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
 
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1596,7 +1596,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
 
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
@@ -1612,7 +1612,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create logs directory %s"
@@ -1625,7 +1625,7 @@ init(xlator_t *this)
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create nfs directory %s"
@@ -1638,7 +1638,7 @@ init(xlator_t *this)
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create bitrot directory %s", storedir);
@@ -1649,7 +1649,7 @@ init(xlator_t *this)
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create scrub directory %s", storedir);
@@ -1660,7 +1660,7 @@ init(xlator_t *this)
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create glustershd directory %s"
@@ -1673,7 +1673,7 @@ init(xlator_t *this)
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create quotad directory %s"
@@ -1686,7 +1686,7 @@ init(xlator_t *this)
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
-    ret = sys_mkdir(storedir, 0777);
+    ret = sys_mkdir(storedir, 0755);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create glustershd directory %s"

@@ -90,7 +90,7 @@ glusterd_hooks_create_hooks_directory(char *basedir)
     priv = THIS->private;
 
     snprintf(path, sizeof(path), "%s/hooks", basedir);
-    ret = mkdir_p(path, 0777, _gf_true);
+    ret = mkdir_p(path, 0755, _gf_true);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create %s", path);
@@ -98,7 +98,7 @@ glusterd_hooks_create_hooks_directory(char *basedir)
     }
 
     GLUSTERD_GET_HOOKS_DIR(version_dir, GLUSTERD_HOOK_VER, priv);
-    ret = mkdir_p(version_dir, 0777, _gf_true);
+    ret = mkdir_p(version_dir, 0755, _gf_true);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create %s", version_dir);
@@ -115,7 +115,7 @@ glusterd_hooks_create_hooks_directory(char *basedir)
             ret = -1;
             goto out;
         }
-        ret = mkdir_p(path, 0777, _gf_true);
+        ret = mkdir_p(path, 0755, _gf_true);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                    "Unable to create %s", path);
@@ -129,7 +129,7 @@ glusterd_hooks_create_hooks_directory(char *basedir)
                 ret = -1;
                 goto out;
             }
-            ret = mkdir_p(path, 0777, _gf_true);
+            ret = mkdir_p(path, 0755, _gf_true);
             if (ret) {
                 gf_msg(THIS->name, GF_LOG_CRITICAL, errno,
                        GD_MSG_CREATE_DIR_FAILED, "Unable to create %s", path);

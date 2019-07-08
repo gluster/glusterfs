@@ -1760,7 +1760,7 @@ glusterd_store_delete_volume(glusterd_volinfo_t *volinfo)
         goto out;
     }
 
-    ret = sys_mkdir(trashdir, 0777);
+    ret = sys_mkdir(trashdir, 0755);
     if (ret && errno != EEXIST) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
                "Failed to create trash "
@@ -1847,7 +1847,7 @@ glusterd_store_delete_snap(glusterd_snap_t *snap)
         goto out;
     }
 
-    ret = sys_mkdir(trashdir, 0777);
+    ret = sys_mkdir(trashdir, 0755);
     if (ret && errno != EEXIST) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
                "Failed to create trash "
@@ -3849,7 +3849,7 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
         ret = sys_lstat(brickinfo->path, &st_buf);
         if (ret) {
             if (errno == ENOENT) {
-                ret = mkdir_p(brick_mount_path, 0777, _gf_true);
+                ret = mkdir_p(brick_mount_path, 0755, _gf_true);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, errno,
                            GD_MSG_CREATE_DIR_FAILED, "Failed to create %s. ",

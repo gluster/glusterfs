@@ -2679,7 +2679,7 @@ glusterd_set_shared_storage(dict_t *dict, char *key, char *value,
         goto out;
     }
 
-    ret = mkdir_p(GLUSTER_SHARED_STORAGE_BRICK_DIR, 0777, _gf_true);
+    ret = mkdir_p(GLUSTER_SHARED_STORAGE_BRICK_DIR, 0755, _gf_true);
     if (-1 == ret) {
         snprintf(errstr, PATH_MAX,
                  "Failed to create shared "

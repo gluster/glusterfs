@@ -524,7 +524,7 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
         goto out;
     }
 
-    ret = mkdir_p(snap_session_dir, 0777, _gf_true);
+    ret = mkdir_p(snap_session_dir, 0755, _gf_true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                "Creating directory %s failed", snap_session_dir);
@@ -642,7 +642,7 @@ glusterd_snapshot_backup_vol(glusterd_volinfo_t *volinfo)
     }
 
     /* Create trash folder if it is not there */
-    ret = sys_mkdir(trashdir, 0777);
+    ret = sys_mkdir(trashdir, 0755);
     if (ret && errno != EEXIST) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                "Failed to create trash directory, reason : %s",
@@ -663,7 +663,7 @@ glusterd_snapshot_backup_vol(glusterd_volinfo_t *volinfo)
 
     /* Re-create an empty origin volume folder so that restore can
      * happen. */
-    ret = sys_mkdir(pathname, 0777);
+    ret = sys_mkdir(pathname, 0755);
     if (ret && errno != EEXIST) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                "Failed to create origin "
@@ -736,7 +736,7 @@ glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
 
     GLUSTERD_GET_SNAP_GEO_REP_DIR(snapgeo_dir, snap_vol->snapshot, priv);
 
-    ret = sys_mkdir(snapgeo_dir, 0777);
+    ret = sys_mkdir(snapgeo_dir, 0755);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                "Creating directory %s failed", snapgeo_dir);
@@ -4614,7 +4614,7 @@ glusterd_snap_brick_create(glusterd_volinfo_t *snap_volinfo,
         goto out;
     }
 
-    ret = mkdir_p(snap_brick_mount_path, 0777, _gf_true);
+    ret = mkdir_p(snap_brick_mount_path, 0755, _gf_true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                "creating the brick directory"

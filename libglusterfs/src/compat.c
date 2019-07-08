@@ -176,7 +176,7 @@ solaris_xattr_resolve_path(const char *real_path, char **path)
     if (!ret && export_path) {
         strcat(export_path, "/" GF_SOLARIS_XATTR_DIR);
         if (lstat(export_path, &statbuf)) {
-            ret = mkdir(export_path, 0777);
+            ret = mkdir(export_path, 0755);
             if (ret && (errno != EEXIST)) {
                 gf_msg_debug(THIS->name, 0,
                              "mkdir failed,"
