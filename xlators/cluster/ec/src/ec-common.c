@@ -1412,11 +1412,12 @@ ec_get_size_version(ec_lock_link_t *link)
     set_dirty = ec_set_dirty_flag(link, ctx, dirty);
 
     /* If ec metadata has already been retrieved, do not try again. */
-    if (ctx->have_info && (!set_dirty)) {
+    if (ctx->have_info) {
         if (ec_is_data_fop(fop->id)) {
             fop->healing |= lock->healing;
         }
-        goto unlock;
+        if (!set_dirty)
+            goto unlock;
     }
 
     /* Determine if there's something we need to retrieve for the current
