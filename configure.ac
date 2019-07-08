@@ -620,17 +620,17 @@ dnl if the user has not specified a python, pick one
 if test -z "${PYTHON}"; then
   case $host_os in
     freebsd*)
-      if test -x /usr/local/bin/python3; then
-        PYTHON=/usr/local/bin/python3
-      else
+      if test -x /usr/local/bin/python2; then
         PYTHON=/usr/local/bin/python2
+      else
+        PYTHON=/usr/local/bin/python3
       fi
       ;;
     *)
-      if test -x /usr/bin/python3; then
-        PYTHON=/usr/bin/python3
-      else
+      if test -x /usr/bin/python2; then
         PYTHON=/usr/bin/python2
+      else
+        PYTHON=/usr/bin/python3
       fi
       ;;
   esac
