@@ -1861,8 +1861,8 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
     if (!fd_is_anonymous(fd)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_READ_FAILED,
                "Failed to get fd context for a non-anonymous fd, "
-               "file: %s, gfid: %s",
-               real_path, uuid_utoa(fd->inode->gfid));
+               "gfid: %s",
+               uuid_utoa(fd->inode->gfid));
         op_errno = EINVAL;
         goto out;
     }
