@@ -78,7 +78,6 @@ trap(void);
 #define GF_UNIT_PERCENT_STRING "%"
 
 #define GEOREP "geo-replication"
-#define GHADOOP "glusterfs-hadoop"
 #define GLUSTERD_NAME "glusterd"
 
 #define GF_SELINUX_XATTR_KEY "security.selinux"

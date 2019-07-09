@@ -1018,26 +1018,19 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
     glusterd_conf_t *priv = THIS->private;
     char *label = NULL;
     gf_boolean_t georep = _gf_false;
-    gf_boolean_t ghadoop = _gf_false;
     char *pdesc = value->data;
     char *volname = NULL;
     int rv = 0;
     gf_mount_spec_t *mspec = NULL;
     char *user = NULL;
-    char *volfile_server = NULL;
 
     label = strtail(key, "mountbroker.");
 
-    /* check for presence of geo-rep/hadoop label */
+    /* check for presence of geo-rep label */
     if (!label) {
         label = strtail(key, "mountbroker-" GEOREP ".");
         if (label)
             georep = _gf_true;
-        else {
-            label = strtail(key, "mountbroker-" GHADOOP ".");
-            if (label)
-                ghadoop = _gf_true;
-        }
     }
 
     if (!label)
@@ -1048,7 +1041,7 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
         goto err;
     mspec->label = label;
 
-    if (georep || ghadoop) {
+    if (georep) {
         volname = gf_strdup(pdesc);
         if (!volname)
             goto err;
@@ -1059,18 +1052,7 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
         } else
             user = label;
 
-        if (georep)
-            rv = make_georep_mountspec(mspec, volname, user);
-
-        if (ghadoop) {
-            volfile_server = strchr(user, ':');
-            if (volfile_server)
-                *volfile_server++ = '\0';
-            else
-                volfile_server = "localhost";
-
-            rv = make_ghadoop_mountspec(mspec, volname, user, volfile_server);
-        }
+        rv = make_georep_mountspec(mspec, volname, user);
 
         GF_FREE(volname);
         if (rv != 0)
@@ -2154,10 +2136,6 @@ struct volume_options options[] = {
     },
     {
         .key = {"mountbroker-" GEOREP ".*"},
-        .type = GF_OPTION_TYPE_ANY,
-    },
-    {
-        .key = {"mountbroker-" GHADOOP ".*"},
         .type = GF_OPTION_TYPE_ANY,
     },
     {

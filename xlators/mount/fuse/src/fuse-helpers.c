@@ -581,30 +581,17 @@ fuse_flip_xattr_ns(fuse_private_t *priv, char *okey, char **nkey)
     int ret = 0;
     gf_boolean_t need_flip = _gf_false;
 
-    switch (priv->client_pid) {
-        case GF_CLIENT_PID_GSYNCD:
-            /* valid xattr(s): *xtime, volume-mark* */
-            gf_log("glusterfs-fuse", GF_LOG_DEBUG,
-                   "PID: %d, checking xattr(s): "
-                   "volume-mark*, *xtime",
-                   priv->client_pid);
-            if ((strcmp(okey, UNPRIV_XA_NS ".glusterfs.volume-mark") == 0) ||
-                (fnmatch(UNPRIV_XA_NS ".glusterfs.volume-mark.*", okey,
-                         FNM_PERIOD) == 0) ||
-                (fnmatch(UNPRIV_XA_NS ".glusterfs.*.xtime", okey, FNM_PERIOD) ==
-                 0))
-                need_flip = _gf_true;
-            break;
-
-        case GF_CLIENT_PID_HADOOP:
-            /* valid xattr(s): pathinfo */
-            gf_log("glusterfs-fuse", GF_LOG_DEBUG,
-                   "PID: %d, checking xattr(s): "
-                   "pathinfo",
-                   priv->client_pid);
-            if (strcmp(okey, UNPRIV_XA_NS ".glusterfs.pathinfo") == 0)
-                need_flip = _gf_true;
-            break;
+    if (GF_CLIENT_PID_GSYNCD == priv->client_pid) {
+        /* valid xattr(s): *xtime, volume-mark* */
+        gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+               "PID: %d, checking xattr(s): "
+               "volume-mark*, *xtime",
+               priv->client_pid);
+        if ((strcmp(okey, UNPRIV_XA_NS ".glusterfs.volume-mark") == 0) ||
+            (fnmatch(UNPRIV_XA_NS ".glusterfs.volume-mark.*", okey,
+                     FNM_PERIOD) == 0) ||
+            (fnmatch(UNPRIV_XA_NS ".glusterfs.*.xtime", okey, FNM_PERIOD) == 0))
+            need_flip = _gf_true;
     }
 
     if (need_flip) {

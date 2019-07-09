@@ -31,9 +31,6 @@ parse_mount_pattern_desc(gf_mount_spec_t *mspec, char *pdesc);
 
 int
 make_georep_mountspec(gf_mount_spec_t *mspec, const char *volname, char *user);
-int
-make_ghadoop_mountspec(gf_mount_spec_t *mspec, const char *volname, char *user,
-                       char *server);
 
 int
 glusterd_do_mount(char *label, dict_t *argdict, char **path, int *op_errno);

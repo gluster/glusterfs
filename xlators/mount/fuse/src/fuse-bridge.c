@@ -6665,7 +6665,7 @@ init(xlator_t *this_xl)
 
     GF_OPTION_INIT("no-root-squash", priv->no_root_squash, bool, cleanup_exit);
     /* change the client_pid to no-root-squash pid only if the
-       client is none of defrag process, hadoop access and gsyncd process.
+       client is neither defrag process or gsyncd process.
     */
     if (!priv->client_pid_set) {
         if (priv->no_root_squash == _gf_true) {
