@@ -661,7 +661,7 @@ fuse_interrupt(xlator_t *this, fuse_in_header_t *finh, void *msg,
                    " failed to allocate timed message",
                    finh->unique, fii->unique);
 
-            return;
+            goto out;
         }
 
         dmsg->fuse_out_header.unique = finh->unique;
@@ -673,6 +673,9 @@ fuse_interrupt(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
         send_fuse_timed(this, dmsg);
     }
+
+out:
+    GF_FREE(finh);
 }
 
 /*
