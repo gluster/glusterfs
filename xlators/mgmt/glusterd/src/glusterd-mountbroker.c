@@ -242,19 +242,6 @@ const char *georep_mnt_desc_template =
     "%s"
     ")";
 
-const char *hadoop_mnt_desc_template =
-    "SUP("
-    "volfile-server=%s "
-    "client-pid=%d "
-    "volfile-id=%s "
-    "user-map-root=%s "
-    ")"
-    "SUB+("
-    "log-file=" DEFAULT_LOG_FILE_DIRECTORY "/" GHADOOP
-    "*/* "
-    "log-level=* "
-    ")";
-
 int
 make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user)
 {
@@ -318,24 +305,6 @@ out:
         else
             GF_FREE(fa[i]);
     }
-
-    return ret;
-}
-
-int
-make_ghadoop_mountspec(gf_mount_spec_t *mspec, const char *volname, char *user,
-                       char *server)
-{
-    char *hadoop_mnt_desc = NULL;
-    int ret = 0;
-
-    ret = gf_asprintf(&hadoop_mnt_desc, hadoop_mnt_desc_template, server,
-                      GF_CLIENT_PID_HADOOP, volname, user);
-    if (ret == -1)
-        return ret;
-
-    ret = parse_mount_pattern_desc(mspec, hadoop_mnt_desc);
-    GF_FREE(hadoop_mnt_desc);
 
     return ret;
 }
