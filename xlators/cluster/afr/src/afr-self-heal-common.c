@@ -1833,7 +1833,7 @@ afr_selfheal_unlocked_lookup_on(call_frame_t *frame, inode_t *parent,
 int
 afr_selfheal_unlocked_discover_on(call_frame_t *frame, inode_t *inode,
                                   uuid_t gfid, struct afr_reply *replies,
-                                  unsigned char *discover_on)
+                                  unsigned char *discover_on, dict_t *dict)
 {
     loc_t loc = {
         0,
@@ -1848,6 +1848,8 @@ afr_selfheal_unlocked_discover_on(call_frame_t *frame, inode_t *inode,
     xattr_req = dict_new();
     if (!xattr_req)
         return -ENOMEM;
+    if (dict)
+        dict_copy(dict, xattr_req);
 
     if (afr_xattr_req_prepare(frame->this, xattr_req) != 0) {
         dict_unref(xattr_req);
@@ -1873,11 +1875,16 @@ afr_selfheal_unlocked_discover(call_frame_t *frame, inode_t *inode, uuid_t gfid,
                                struct afr_reply *replies)
 {
     afr_private_t *priv = NULL;
+    afr_local_t *local = NULL;
+    dict_t *dict = NULL;
 
     priv = frame->this->private;
+    local = frame->local;
+    if (local && local->xattr_req)
+        dict = local->xattr_req;
 
     return afr_selfheal_unlocked_discover_on(frame, inode, gfid, replies,
-                                             priv->child_up);
+                                             priv->child_up, dict);
 }
 
 unsigned int
