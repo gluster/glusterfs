@@ -1634,7 +1634,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
             break;
 
         case GF_CLI_STATUS_CLIENTS:
-            // clients not availbale for SHD
+            // clients not available for SHD
             if ((cmd & GF_CLI_STATUS_SHD) != 0)
                 break;
 

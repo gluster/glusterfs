@@ -945,7 +945,7 @@ __server_getspec(rpcsvc_request_t *req)
                        volume);
     if (ret < 0 || ret >= sizeof(peerinfo->volname)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
-               "peerinfo->volname %s truncated or error occured: "
+               "peerinfo->volname %s truncated or error occurred: "
                "(ret: %d)",
                peerinfo->volname, ret);
         ret = -1;

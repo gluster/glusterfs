@@ -1638,7 +1638,7 @@ dht_get_layout_count(xlator_t *this, dht_layout_t *layout, int new_layout)
 
     /* if layout->spread_cnt is set, check if it is <= available
      * subvolumes (down brick and decommissioned bricks are considered
-     * un-availbale). Else return count (available up bricks) */
+     * un-available). Else return count (available up bricks) */
     count = ((layout->spread_cnt && (layout->spread_cnt <= count))
                  ? layout->spread_cnt
                  : ((count) ? count : 1));

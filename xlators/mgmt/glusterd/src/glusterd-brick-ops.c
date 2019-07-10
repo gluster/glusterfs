@@ -597,7 +597,7 @@ glusterd_remove_brick_validate_arbiters(glusterd_volinfo_t *volinfo,
                 snprintf(err_str, err_len,
                          "Removed bricks "
                          "must contain arbiter when converting"
-                         " to plain distrubute.");
+                         " to plain distribute.");
                 ret = -1;
                 break;
             }
