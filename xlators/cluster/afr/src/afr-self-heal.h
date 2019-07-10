@@ -187,7 +187,7 @@ afr_selfheal_unlocked_discover(call_frame_t *frame, inode_t *inode, uuid_t gfid,
 int
 afr_selfheal_unlocked_discover_on(call_frame_t *frame, inode_t *inode,
                                   uuid_t gfid, struct afr_reply *replies,
-                                  unsigned char *discover_on);
+                                  unsigned char *discover_on, dict_t *dict);
 inode_t *
 afr_selfheal_unlocked_lookup_on(call_frame_t *frame, inode_t *parent,
                                 const char *name, struct afr_reply *replies,
