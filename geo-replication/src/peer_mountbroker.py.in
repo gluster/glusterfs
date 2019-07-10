@@ -222,8 +222,10 @@ class CliSetup(Cmd):
     name = "setup"
 
     def args(self, parser):
-        parser.add_argument("mount_root")
-        parser.add_argument("group")
+        parser.add_argument("mount_root",
+                            help="Path to the mountbroker-root directory.")
+        parser.add_argument("group",
+                            help="Group to be used for setup.")
 
     def run(self, args):
         out = execute_in_peers("node-setup", [args.mount_root,
@@ -333,8 +335,10 @@ class CliAdd(Cmd):
     name = "add"
 
     def args(self, parser):
-        parser.add_argument("volume")
-        parser.add_argument("user")
+        parser.add_argument("volume",
+                            help="Volume to be added.")
+        parser.add_argument("user",
+                            help="User for which volume is to be added.")
 
     def run(self, args):
         out = execute_in_peers("node-add", [args.volume,
@@ -374,8 +378,9 @@ class CliRemove(Cmd):
     name = "remove"
 
     def args(self, parser):
-        parser.add_argument("--volume", default=".")
-        parser.add_argument("--user", default=".")
+        parser.add_argument("--volume", default=".", help="Volume to be removed.")
+        parser.add_argument("--user", default=".",
+                            help="User for which volume has to be removed.")
 
     def run(self, args):
         out = execute_in_peers("node-remove", [args.volume,
