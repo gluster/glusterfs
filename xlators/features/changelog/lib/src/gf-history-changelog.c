@@ -872,7 +872,7 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
         if (!entry || errno != 0) {
             gf_smsg(this->name, GF_LOG_ERROR, errno,
                     CHANGELOG_LIB_MSG_HIST_FAILED,
-                    "Requested changelog range is not availbale", "start=%lu",
+                    "Requested changelog range is not available", "start=%lu",
                     start, "end=%lu", end, NULL);
             ret = -2;
             break;
