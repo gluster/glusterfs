@@ -774,13 +774,15 @@ ec_manager_open(ec_fop_data_t *fop, int32_t state)
 
                 return EC_STATE_REPORT;
             }
-            err = ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0]);
-            if (err != 0) {
-                UNLOCK(&fop->fd->lock);
+            if (!ctx->loc.inode) {
+                err = ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0]);
+                if (err != 0) {
+                    UNLOCK(&fop->fd->lock);
 
-                fop->error = -err;
+                    fop->error = -err;
 
-                return EC_STATE_REPORT;
+                    return EC_STATE_REPORT;
+                }
             }
 
             ctx->flags = fop->int32;
