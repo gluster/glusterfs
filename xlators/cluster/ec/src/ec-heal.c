@@ -1959,7 +1959,7 @@ ec_manager_heal_block(ec_fop_data_t *fop, int32_t state)
 
         case EC_STATE_REPORT:
             if (fop->cbks.heal) {
-                fop->cbks.heal(fop->req_frame, fop, fop->xl, 0, 0,
+                fop->cbks.heal(fop->req_frame, fop->data, fop->xl, 0, 0,
                                (heal->good | heal->bad), heal->good, heal->bad,
                                NULL);
             }
@@ -1967,8 +1967,8 @@ ec_manager_heal_block(ec_fop_data_t *fop, int32_t state)
             return EC_STATE_END;
         case -EC_STATE_REPORT:
             if (fop->cbks.heal) {
-                fop->cbks.heal(fop->req_frame, fop, fop->xl, -1, fop->error, 0,
-                               0, 0, NULL);
+                fop->cbks.heal(fop->req_frame, fop->data, fop->xl, -1,
+                               fop->error, 0, 0, 0, NULL);
             }
 
             return EC_STATE_END;
@@ -2005,7 +2005,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, 0, 0, 0, NULL);
+        func(frame, heal, this, -1, error, 0, 0, 0, NULL);
     }
 }
 
@@ -2014,10 +2014,11 @@ ec_heal_block_done(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, uintptr_t mask,
                    uintptr_t good, uintptr_t bad, dict_t *xdata)
 {
-    ec_fop_data_t *fop = cookie;
-    ec_heal_t *heal = fop->data;
+    ec_heal_t *heal = cookie;
 
-    fop->heal = NULL;
+    if (heal->fop) {
+        heal->fop->heal = NULL;
+    }
     heal->fop = NULL;
     heal->error = op_ret < 0 ? op_errno : 0;
     syncbarrier_wake(heal->data);
@@ -2594,7 +2595,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
 out:
     ec_reset_entry_healing(fop);
     if (fop->cbks.heal) {
-        fop->cbks.heal(fop->req_frame, fop, fop->xl, op_ret, op_errno,
+        fop->cbks.heal(fop->req_frame, fop->data, fop->xl, op_ret, op_errno,
                        ec_char_array_to_mask(participants, ec->nodes),
                        mgood & good, mbad & bad, NULL);
     }
@@ -2646,8 +2647,8 @@ void
 ec_heal_fail(ec_t *ec, ec_fop_data_t *fop)
 {
     if (fop->cbks.heal) {
-        fop->cbks.heal(fop->req_frame, NULL, ec->xl, -1, fop->error, 0, 0, 0,
-                       NULL);
+        fop->cbks.heal(fop->req_frame, fop->data, ec->xl, -1, fop->error, 0, 0,
+                       0, NULL);
     }
     ec_fop_data_release(fop);
 }
@@ -2834,7 +2835,7 @@ fail:
     if (fop)
         ec_fop_data_release(fop);
     if (func)
-        func(frame, NULL, this, -1, err, 0, 0, 0, NULL);
+        func(frame, data, this, -1, err, 0, 0, 0, NULL);
 }
 
 int
