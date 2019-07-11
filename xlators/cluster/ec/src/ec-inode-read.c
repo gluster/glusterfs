@@ -392,8 +392,7 @@ ec_getxattr_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
                      int32_t op_ret, int32_t op_errno, uintptr_t mask,
                      uintptr_t good, uintptr_t bad, dict_t *xdata)
 {
-    ec_fop_data_t *fop = cookie;
-    fop_getxattr_cbk_t func = fop->data;
+    fop_getxattr_cbk_t func = cookie;
     ec_t *ec = xl->private;
     dict_t *dict = NULL;
     char *str;
