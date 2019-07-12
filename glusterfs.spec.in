@@ -283,10 +283,10 @@ BuildRequires:    firewalld
 
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
-Obsoletes:        %{name}-ufo
-Obsoletes:        %{name}-rdma
+Obsoletes:        %{name}-ganesha
+Obsoletes:        %{name}-rdma < %{version}-%{release}
 %if ( 0%{!?_with_gnfs:1} )
-Obsoletes:        %{name}-gnfs
+Obsoletes:        %{name}-gnfs < %{version}-%{release}
 %endif
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
@@ -1460,6 +1460,10 @@ exit 0
 %endif
 
 %changelog
+* Fri Aug 23 2019 Shwetha K Acharya <sacharya@redhat.com>
+- removed {name}-ufs from Obsoletes
+- added  "< version" for obsoletes {name}-gnfs and {name}-rdma
+
 * Mon Jul 15 2019 Jiffin Tony Thottan <jthottan@redhat.com>
 - Adding ganesha ha bits back in gluster repository
 
