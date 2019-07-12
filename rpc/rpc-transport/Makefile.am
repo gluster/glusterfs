@@ -1,1 +1,1 @@
-SUBDIRS = socket $(RDMA_SUBDIR)
+SUBDIRS = socket

@@ -362,13 +362,6 @@ P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: xlators/protocol/
 
-RDMA subsystem
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-M: Amar Tumballi <amarts@redhat.com>
-P: Mohammed Rafi KC <rkavunga@redhat.com>
-S: Maintained
-F: rpc/rpc-transport/rdma/
-
 Remote Procedure Call subsystem
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Milind Changire <mchangir@redhat.com>

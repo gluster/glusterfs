@@ -46,8 +46,6 @@ AC_CONFIG_FILES([Makefile
                 rpc/rpc-transport/Makefile
                 rpc/rpc-transport/socket/Makefile
                 rpc/rpc-transport/socket/src/Makefile
-                rpc/rpc-transport/rdma/Makefile
-                rpc/rpc-transport/rdma/src/Makefile
                 rpc/xdr/Makefile
                 rpc/xdr/src/Makefile
                 rpc/xdr/gen/Makefile
@@ -711,53 +709,6 @@ if test "x$enable_epoll" != "xno"; then
                     [BUILD_EPOLL=no])
 fi
 # end EPOLL section
-
-
-# IBVERBS section
-AC_ARG_ENABLE([ibverbs],
-              AC_HELP_STRING([--disable-ibverbs],
-                             [Do not build the ibverbs transport]))
-
-if test "x$enable_ibverbs" != "xno"; then
-  AC_CHECK_LIB([ibverbs],
-               [ibv_get_device_list],
-               [HAVE_LIBIBVERBS="yes"],
-               [HAVE_LIBIBVERBS="no"])
-  AC_CHECK_LIB([rdmacm], [rdma_create_id], [HAVE_RDMACM="yes"], [HAVE_RDMACM="no"])
-  if test "x$HAVE_RDMACM" = "xyes" ; then
-    AC_CHECK_DECLS(
-                  [RDMA_OPTION_ID_REUSEADDR],
-                  [],
-                  [AC_ERROR([Need at least version 1.0.15 of librdmacm])],
-                  [[#include <rdma/rdma_cma.h>]])
-  fi
-fi
-
-if test "x$enable_ibverbs" = "xyes"; then
-   if test "x$HAVE_LIBIBVERBS" = "xno"; then
-      echo "ibverbs-transport requested, but libibverbs is not present."
-      exit 1
-   fi
-
-   if test "x$HAVE_RDMACM" = "xno"; then
-      echo "ibverbs-transport requested, but librdmacm is not present."
-      exit 1
-   fi
-fi
-
-BUILD_RDMA=no
-BUILD_IBVERBS=no
-if test "x$enable_ibverbs" != "xno" -a "x$HAVE_LIBIBVERBS" = "xyes" -a "x$HAVE_RDMACM" = "xyes"; then
-  IBVERBS_SUBDIR=ib-verbs
-  BUILD_IBVERBS=yes
-  RDMA_SUBDIR=rdma
-  BUILD_RDMA=yes
-fi
-
-AC_SUBST(IBVERBS_SUBDIR)
-AC_SUBST(RDMA_SUBDIR)
-# end IBVERBS section
-
 
 # SYNCDAEMON section
 AC_ARG_ENABLE([georeplication],
@@ -1606,7 +1557,6 @@ echo
 echo "GlusterFS configure summary"
 echo "==========================="
 echo "FUSE client          : $BUILD_FUSE_CLIENT"
-echo "Infiniband verbs     : $BUILD_IBVERBS"
 echo "epoll IO multiplex   : $BUILD_EPOLL"
 echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
