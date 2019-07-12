@@ -901,7 +901,11 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
 
     /* In cases where there is no volname, the receivers won't have a
      * transaction opinfo created, as for those operations, the locking
-     * phase where the transaction opinfos are created, won't be called. */
+     * phase where the transaction opinfos are created, won't be called.
+     * skip_locking will be true for all such transaction and we clear
+     * the txn_opinfo after the staging phase, except for geo-replication
+     * operations where we need to access txn_opinfo in the later phases also.
+     */
     ret = glusterd_get_txn_opinfo(txn_id, &txn_op_info);
     if (ret) {
         gf_msg_debug(this->name, 0, "No transaction's opinfo set");
@@ -910,7 +914,8 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
         glusterd_txn_opinfo_init(&txn_op_info, &state, &op_req.op,
                                  req_ctx->dict, req);
 
-        txn_op_info.skip_locking = _gf_true;
+        if (req_ctx->op != GD_OP_GSYNC_SET)
+            txn_op_info.skip_locking = _gf_true;
         ret = glusterd_set_txn_opinfo(txn_id, &txn_op_info);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
