@@ -107,6 +107,9 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_keys_distributed
 #Start_georep
 TEST $GEOREP_CLI $master $slave start
 
+#check geo-rep status without specifying master and slave volumes
+TEST $GEOREP_CLI status
+
 #Start_georep force
 TEST $GEOREP_CLI $master $slave1 start force
 
