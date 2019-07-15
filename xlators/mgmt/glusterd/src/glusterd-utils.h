@@ -166,6 +166,9 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
 int32_t
 glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo);
 
+gf_boolean_t
+glusterd_volume_exists(const char *volname);
+
 int
 glusterd_volinfo_find_by_volume_id(uuid_t volume_id,
                                    glusterd_volinfo_t **volinfo);

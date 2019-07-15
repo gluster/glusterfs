@@ -263,9 +263,6 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     volinfo = data;
     GF_VALIDATE_OR_GOTO("glusterd", volinfo, out);
 
-    if (volinfo)
-        glusterd_volinfo_ref(volinfo);
-
     if (volinfo->is_snap_volume) {
         /* healing of a snap volume is not supported yet*/
         ret = 0;
@@ -280,9 +277,8 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     conf->restart_shd = _gf_true;
     shd_restart = _gf_true;
 
-    ret = glusterd_shdsvc_create_volfile(volinfo);
-    if (ret)
-        goto out;
+    if (volinfo)
+        glusterd_volinfo_ref(volinfo);
 
     if (!glusterd_is_shd_compatible_volume(volinfo)) {
         ret = 0;
@@ -294,6 +290,9 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
         }
         goto out;
     }
+    ret = glusterd_shdsvc_create_volfile(volinfo);
+    if (ret)
+        goto out;
 
     ret = glusterd_shd_svc_mux_init(volinfo, svc);
     if (ret) {
