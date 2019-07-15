@@ -1654,6 +1654,33 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
     return ret;
 }
 
+gf_boolean_t
+glusterd_volume_exists(const char *volname)
+{
+    glusterd_volinfo_t *tmp_volinfo = NULL;
+    gf_boolean_t volume_found = _gf_false;
+    xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
+
+    GF_ASSERT(volname);
+    this = THIS;
+    GF_ASSERT(this);
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list)
+    {
+        if (!strcmp(tmp_volinfo->volname, volname)) {
+            gf_msg_debug(this->name, 0, "Volume %s found", volname);
+            volume_found = _gf_true;
+            break;
+        }
+    }
+
+    return volume_found;
+}
+
 int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
                       gf_boolean_t force_kill)
@@ -4714,10 +4741,11 @@ glusterd_volinfo_stop_stale_bricks(glusterd_volinfo_t *new_volinfo,
             old_brickinfo->uuid, old_brickinfo->hostname, old_brickinfo->path,
             new_volinfo, &new_brickinfo);
         /* If the brick is stale, i.e it's not a part of the new volume
-         * or if it's part of the new volume and is pending a snap,
-         * then stop the brick process
+         * or if it's part of the new volume and is pending a snap or if it's
+         * brick multiplexing enabled, then stop the brick process
          */
-        if (ret || (new_brickinfo->snap_status == -1)) {
+        if (ret || (new_brickinfo->snap_status == -1) ||
+            is_brick_mx_enabled()) {
             /*TODO: may need to switch to 'atomic' flavour of
              * brick_stop, once we make peer rpc program also
              * synctask enabled*/

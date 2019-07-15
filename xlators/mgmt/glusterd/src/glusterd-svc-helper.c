@@ -924,6 +924,22 @@ glusterd_attach_svc(glusterd_svc_t *svc, glusterd_volinfo_t *volinfo, int flags)
 
     rpc = rpc_clnt_ref(svc->conn.rpc);
     for (tries = 15; tries > 0; --tries) {
+        /* There might be a case that the volume for which we're attempting to
+         * attach a shd svc might become stale and in the process of deletion.
+         * Given that the volinfo object is being already passed here before
+         * that sequence of operation has happened we might be operating on a
+         * stale volume. At every sync task switch we should check for existance
+         * of the volume now
+         */
+        if (!glusterd_volume_exists(volinfo->volname)) {
+            gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_SVC_ATTACH_FAIL,
+                   "Volume %s "
+                   " is marked as stale, not attempting further shd svc attach "
+                   "attempts",
+                   volinfo->volname);
+            ret = 0;
+            goto out;
+        }
         if (rpc) {
             pthread_mutex_lock(&conf->attach_lock);
             {
