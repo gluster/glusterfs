@@ -76,6 +76,10 @@ EXPECT_WITHIN $HEAL_TIMEOUT "^1$" get_pending_heal_count $V0
 
 # Launch heal
 TEST $CLI volume heal $V0 enable
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^Y$" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "^1$" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "^1$" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "^1$" afr_child_up_status_in_shd $V0 2
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
@@ -117,6 +121,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^Y$" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "^1$" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "^1$" afr_child_up_status_in_shd $V0 1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "^1$" afr_child_up_status_in_shd $V0 2
+TEST $CLI volume heal $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 B0_XATTR=$(getfattr -n 'user.metadata' --absolute-names --only-values $B0/${V0}0/dir/file)
 B1_XATTR=$(getfattr -n 'user.metadata' --absolute-names --only-values $B0/${V0}1/dir/file)
