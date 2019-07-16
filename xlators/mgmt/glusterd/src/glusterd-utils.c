@@ -4015,8 +4015,9 @@ out:
     if (msg[0]) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_BRICK_IMPORT_FAIL, "%s",
                msg);
-        gf_event(EVENT_IMPORT_BRICK_FAILED, "peer=%s;brick=%s",
-                 new_brickinfo->hostname, new_brickinfo->path);
+        if (new_brickinfo)
+            gf_event(EVENT_IMPORT_BRICK_FAILED, "peer=%s;brick=%s",
+                     new_brickinfo->hostname, new_brickinfo->path);
     }
     gf_msg_debug("glusterd", 0, "Returning with %d", ret);
     return ret;

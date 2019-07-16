@@ -1427,12 +1427,24 @@ posix_janitor_task_done(int ret, call_frame_t *frame, void *data)
     this = data;
     priv = this->private;
 
+    pthread_mutex_lock(&priv->janitor_mutex);
+    {
+        if (priv->janitor_task_stop) {
+            priv->janitor_task_stop = _gf_false;
+            pthread_cond_signal(&priv->janitor_cond);
+            pthread_mutex_unlock(&priv->janitor_mutex);
+            goto out;
+        }
+    }
+    pthread_mutex_unlock(&priv->janitor_mutex);
+
     LOCK(&priv->lock);
     {
         __posix_janitor_timer_start(this);
     }
     UNLOCK(&priv->lock);
 
+out:
     return 0;
 }
 
@@ -1450,6 +1462,9 @@ posix_janitor_task(void *data)
     /* We need THIS to be set for janitor_walker */
     old_this = THIS;
     THIS = this;
+
+    if (!priv)
+        goto out;
 
     time(&now);
     if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
@@ -1470,6 +1485,7 @@ posix_janitor_task(void *data)
 
     THIS = old_this;
 
+out:
     return 0;
 }
 
