@@ -858,6 +858,9 @@ struct _xlator {
 
     /* Flag to notify got CHILD_DOWN event for detach brick */
     uint32_t notify_down;
+
+    /* Flag to avoid throw duplicate PARENT_DOWN event */
+    uint32_t parent_down;
 };
 
 /* This would be the only structure which needs to be exported by

@@ -582,6 +582,7 @@ server_graph_janitor_threads(void *data)
     gf_boolean_t victim_found = _gf_false;
     xlator_list_t **trav_p = NULL;
     xlator_t *top = NULL;
+    uint32_t parent_down = 0;
 
     GF_ASSERT(data);
 
@@ -600,7 +601,10 @@ server_graph_janitor_threads(void *data)
         victim = (*trav_p)->xlator;
         if (victim->cleanup_starting &&
             strcmp(victim->name, victim_name) == 0) {
-            victim_found = _gf_true;
+            parent_down = victim->parent_down;
+            victim->parent_down = 1;
+            if (!parent_down)
+                victim_found = _gf_true;
             break;
         }
     }

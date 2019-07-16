@@ -136,10 +136,15 @@ int32_t
 posix_notify(xlator_t *this, int32_t event, void *data, ...)
 {
     xlator_t *victim = data;
+    struct posix_private *priv = this->private;
+    int ret = 0;
+    struct timespec sleep_till = {
+        0,
+    };
 
     switch (event) {
         case GF_EVENT_PARENT_UP: {
-            /* Tell the parent that posix xlator is up */
+            /* the parent that posix xlator is up */
             default_notify(this, GF_EVENT_CHILD_UP, data);
         } break;
 
@@ -148,6 +153,31 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                 break;
             gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
                    victim->name);
+
+            if (priv->janitor) {
+                pthread_mutex_lock(&priv->janitor_mutex);
+                {
+                    priv->janitor_task_stop = _gf_true;
+                    ret = gf_tw_del_timer(this->ctx->tw->timer_wheel,
+                                          priv->janitor);
+                    if (!ret) {
+                        clock_gettime(CLOCK_REALTIME, &sleep_till);
+                        sleep_till.tv_sec += 1;
+                        /* Wait to set janitor_task flag to _gf_false by
+                         * janitor_task_done */
+                        while (priv->janitor_task_stop) {
+                            (void)pthread_cond_timedwait(&priv->janitor_cond,
+                                                         &priv->janitor_mutex,
+                                                         &sleep_till);
+                            clock_gettime(CLOCK_REALTIME, &sleep_till);
+                            sleep_till.tv_sec += 1;
+                        }
+                    }
+                }
+                pthread_mutex_unlock(&priv->janitor_mutex);
+                GF_FREE(priv->janitor);
+            }
+            priv->janitor = NULL;
             default_notify(this->parents->xlator, GF_EVENT_CHILD_DOWN, data);
         } break;
         default:
@@ -997,6 +1027,8 @@ posix_init(xlator_t *this)
 
     pthread_mutex_init(&_private->fsync_mutex, NULL);
     pthread_cond_init(&_private->fsync_cond, NULL);
+    pthread_mutex_init(&_private->janitor_mutex, NULL);
+    pthread_cond_init(&_private->janitor_cond, NULL);
     INIT_LIST_HEAD(&_private->fsyncs);
     ret = posix_spawn_ctx_janitor_thread(this);
     if (ret)
@@ -1117,6 +1149,7 @@ posix_fini(xlator_t *this)
         (void)gf_thread_cleanup_xint(priv->disk_space_check);
         priv->disk_space_check = 0;
     }
+
     if (priv->janitor) {
         /*TODO: Make sure the synctask is also complete */
         ret = gf_tw_del_timer(this->ctx->tw->timer_wheel, priv->janitor);
@@ -1124,8 +1157,10 @@ posix_fini(xlator_t *this)
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_TIMER_DELETE_FAILED,
                    "Failed to delete janitor timer");
         }
+        GF_FREE(priv->janitor);
         priv->janitor = NULL;
     }
+
     if (priv->fsyncer) {
         (void)gf_thread_cleanup_xint(priv->fsyncer);
         priv->fsyncer = 0;
@@ -1137,6 +1172,9 @@ posix_fini(xlator_t *this)
     GF_FREE(priv->base_path);
     LOCK_DESTROY(&priv->lock);
     pthread_mutex_destroy(&priv->fsync_mutex);
+    pthread_cond_destroy(&priv->fsync_cond);
+    pthread_mutex_destroy(&priv->janitor_mutex);
+    pthread_cond_destroy(&priv->janitor_cond);
     GF_FREE(priv->hostname);
     GF_FREE(priv->trash_path);
     GF_FREE(priv);

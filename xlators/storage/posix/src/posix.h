@@ -200,6 +200,8 @@ struct posix_private {
     struct list_head fsyncs;
     pthread_mutex_t fsync_mutex;
     pthread_cond_t fsync_cond;
+    pthread_mutex_t janitor_mutex;
+    pthread_cond_t janitor_cond;
     int fsync_queue_count;
 
     enum {
@@ -254,6 +256,7 @@ struct posix_private {
 
     gf_boolean_t fips_mode_rchecksum;
     gf_boolean_t ctime;
+    gf_boolean_t janitor_task_stop;
 };
 
 typedef struct {
