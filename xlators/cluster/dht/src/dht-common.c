@@ -4239,8 +4239,11 @@ dht_find_local_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             local->op_ret = -1;
             local->op_errno = op_errno;
             UNLOCK(&frame->lock);
-            gf_msg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_GET_XATTR_FAILED,
-                   "getxattr err for dir");
+            if (op_errno == ENODATA)
+                gf_msg_debug(this->name, 0, "failed to get node-uuid");
+            else
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                       DHT_MSG_GET_XATTR_FAILED, "failed to get node-uuid");
             goto post_unlock;
         }
 
