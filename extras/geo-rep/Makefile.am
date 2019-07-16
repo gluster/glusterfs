@@ -1,4 +1,4 @@
-scriptsdir = $(datadir)/glusterfs/scripts
+scriptsdir = $(libexecdir)/glusterfs/scripts
 scripts_SCRIPTS =  gsync-upgrade.sh generate-gfid-file.sh get-gfid.sh \
 	slave-upgrade.sh schedule_georep.py
 
