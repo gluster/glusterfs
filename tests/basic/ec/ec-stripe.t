@@ -202,7 +202,7 @@ TEST truncate -s 0 $B0/test_file
 TEST truncate -s 0 $M0/test_file
 TEST dd if=$B0/misc_file of=$B0/test_file  bs=1022 count=5  oflag=seek_bytes,sync seek=400 conv=notrunc
 TEST dd if=$B0/misc_file of=$M0/test_file  bs=1022 count=5  oflag=seek_bytes,sync seek=400 conv=notrunc
-check_statedump_md5sum 4 5
+check_statedump_md5sum 4 4
 clean_file_unmount
 
 ### 14 - Truncate to invalidate  all but one the stripe in cache  ####
