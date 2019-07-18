@@ -21,7 +21,7 @@ do
 			continue
 		fi
 
-		mount -t glusterfs "${arr[0]}" "${arr[1]}"
+		mount -t glusterfs -o "${arr[3]}" "${arr[0]}" "${arr[1]}"
 		#wait for few seconds
 		sleep 10
 
