@@ -654,6 +654,9 @@ ec_child_select(ec_fop_data_t *fop)
      * unlock should go on all subvols where lock is performed*/
     if (fop->parent && !ec_internal_op(fop)) {
         fop->mask &= (fop->parent->mask & ~fop->parent->healing);
+        if (ec_is_data_fop(fop->id)) {
+            fop->healing |= fop->parent->healing;
+        }
     }
 
     if ((fop->mask & ~ec->xl_up) != 0) {
