@@ -2459,6 +2459,7 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     uint32_t lk_flags = 0;
     posix_locks_private_t *priv = this->private;
     pl_local_t *local = NULL;
+    short lock_type = 0;
 
     int ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
     if (ret == 0) {
@@ -2603,6 +2604,7 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         case F_SETLK:
             reqlock->frame = frame;
             reqlock->this = this;
+            lock_type = flock->l_type;
 
             pthread_mutex_lock(&pl_inode->mutex);
             {
@@ -2640,8 +2642,7 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
             ret = pl_setlk(this, pl_inode, reqlock, can_block);
             if (ret == -1) {
-                if ((can_block) && (F_UNLCK != flock->l_type)) {
-                    pl_trace_block(this, frame, fd, NULL, cmd, flock, NULL);
+                if ((can_block) && (F_UNLCK != lock_type)) {
                     goto out;
                 }
                 gf_log(this->name, GF_LOG_DEBUG, "returning EAGAIN");

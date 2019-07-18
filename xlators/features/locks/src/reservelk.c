@@ -312,8 +312,6 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
         ret = pl_setlk(this, pl_inode, lock, can_block);
         if (ret == -1) {
             if (can_block) {
-                pl_trace_block(this, lock->frame, fd, NULL, cmd,
-                               &lock->user_flock, NULL);
                 continue;
             } else {
                 gf_log(this->name, GF_LOG_DEBUG, "returning EAGAIN");
