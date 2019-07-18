@@ -1087,6 +1087,10 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                    lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                    lock->client_pid, lkowner_utoa(&lock->owner),
                    lock->user_flock.l_start, lock->user_flock.l_len);
+
+            pl_trace_block(this, lock->frame, NULL, NULL, F_SETLKW,
+                           &lock->user_flock, NULL);
+
             lock->blocked = 1;
             __insert_lock(pl_inode, lock);
             ret = -1;

@@ -559,6 +559,8 @@ __lock_blocked_add(xlator_t *this, pl_inode_t *pinode, pl_dom_list_t *dom,
     gf_msg_trace(this->name, 0, "Blocking lock: {pinode=%p, basename=%s}",
                  pinode, lock->basename);
 
+    entrylk_trace_block(this, lock->frame, NULL, NULL, NULL, lock->basename,
+                        ENTRYLK_LOCK, lock->type);
 out:
     return -EAGAIN;
 }
@@ -938,8 +940,6 @@ out:
                           op_ret, op_errno);
     unwind:
         STACK_UNWIND_STRICT(entrylk, frame, op_ret, op_errno, NULL);
-    } else {
-        entrylk_trace_block(this, frame, volume, fd, loc, basename, cmd, type);
     }
 
     if (pcontend != NULL) {

@@ -418,6 +418,8 @@ __lock_blocked_add(xlator_t *this, pl_dom_list_t *dom, pl_inode_lock_t *lock,
                  lkowner_utoa(&lock->owner), lock->user_flock.l_start,
                  lock->user_flock.l_len);
 
+    pl_trace_block(this, lock->frame, NULL, NULL, F_SETLKW, &lock->user_flock,
+                   lock->volume);
 out:
     return -EAGAIN;
 }
@@ -960,6 +962,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
     int ret = -1;
     GF_UNUSED int dict_ret = -1;
     int can_block = 0;
+    short lock_type = 0;
     pl_inode_t *pinode = NULL;
     pl_inode_lock_t *reqlock = NULL;
     pl_dom_list_t *dom = NULL;
@@ -1024,13 +1027,13 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
             /* fall through */
 
         case F_SETLK:
+            lock_type = flock->l_type;
             memcpy(&reqlock->user_flock, flock, sizeof(struct gf_flock));
             ret = pl_inode_setlk(this, ctx, pinode, reqlock, can_block, dom,
                                  inode);
 
             if (ret < 0) {
-                if ((can_block) && (F_UNLCK != flock->l_type)) {
-                    pl_trace_block(this, frame, fd, loc, cmd, flock, volume);
+                if ((can_block) && (F_UNLCK != lock_type)) {
                     goto out;
                 }
                 gf_log(this->name, GF_LOG_TRACE, "returning EAGAIN");
