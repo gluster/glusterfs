@@ -1977,6 +1977,20 @@ ec_get_and_merge_stripe(ec_t *ec, ec_fop_data_t *fop, ec_stripe_part_t which)
     return found;
 }
 
+static uintptr_t
+ec_get_lock_good_mask(inode_t *inode, xlator_t *xl)
+{
+    ec_lock_t *lock = NULL;
+    ec_inode_t *ictx = NULL;
+    LOCK(&inode->lock);
+    {
+        ictx = __ec_inode_get(inode, xl);
+        lock = ictx->inode_lock;
+    }
+    UNLOCK(&inode->lock);
+    return lock->good_mask;
+}
+
 void
 ec_writev_start(ec_fop_data_t *fop)
 {
@@ -2022,9 +2036,10 @@ ec_writev_start(ec_fop_data_t *fop)
                     err = -ENOMEM;
                     goto failed_xdata;
                 }
-                ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN,
-                         ec_writev_merge_head, NULL, fd, ec->stripe_size,
-                         fop->offset, 0, xdata);
+                ec_readv(fop->frame, fop->xl,
+                         ec_get_lock_good_mask(fop->fd->inode, fop->xl),
+                         EC_MINIMUM_MIN, ec_writev_merge_head, NULL, fd,
+                         ec->stripe_size, fop->offset, 0, xdata);
             }
         } else {
             memset(fop->vector[0].iov_base, 0, fop->head);
@@ -2047,8 +2062,10 @@ ec_writev_start(ec_fop_data_t *fop)
                     err = -ENOMEM;
                     goto failed_xdata;
                 }
-                ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN,
-                         ec_writev_merge_tail, NULL, fd, ec->stripe_size,
+                ec_readv(fop->frame, fop->xl,
+                         ec_get_lock_good_mask(fop->fd->inode, fop->xl),
+                         EC_MINIMUM_MIN, ec_writev_merge_tail, NULL, fd,
+                         ec->stripe_size,
                          fop->offset + fop->size - ec->stripe_size, 0, xdata);
             }
         } else {
