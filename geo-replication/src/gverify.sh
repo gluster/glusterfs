@@ -207,13 +207,13 @@ function main()
     fi;
 
     if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
-        err=$((ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "gluster --version") 2>&1)
+        ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "type -p gluster"
     else
-        err=$((ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "gluster --version") 2>&1)
+        ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "type -p gluster"
     fi
 
     if [ $? -ne 0 ]; then
-        echo "FORCE_BLOCKER|gluster command on $2@$3 failed. Error: $err" > $log_file
+        echo "FORCE_BLOCKER|gluster command not found on $3 for user $2." > $log_file
         exit 1;
     fi;
 
