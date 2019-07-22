@@ -139,12 +139,14 @@ gf_utime_set_mdata_setxattr_cbk(call_frame_t *frame, void *cookie,
                                 xlator_t *this, int op_ret, int op_errno,
                                 dict_t *xdata)
 {
+    call_stub_t *stub = frame->local;
     /* Don't fail lookup if mdata setxattr fails */
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, op_errno, UTIME_MSG_SET_MDATA_FAILED,
                "dict set of key for set-ctime-mdata failed");
     }
-    call_resume(frame->local);
+    frame->local = NULL;
+    call_resume(stub);
     return 0;
 }
 
