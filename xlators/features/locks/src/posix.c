@@ -246,20 +246,19 @@ pl_track_io_fop_count(pl_local_t *local, xlator_t *this, pl_count_op_t op)
     if (!pl_inode)
         return -1;
 
-    if (pl_inode->mlock_enforced) {
+    if (pl_inode->mlock_enforced && pl_inode->track_fop_wind_count) {
         pthread_mutex_lock(&pl_inode->mutex);
         {
             if (op == DECREMENT) {
                 pl_inode->fop_wind_count--;
-                if (pl_inode->fop_wind_count == 0) {
+                /* fop_wind_count can go negative when lock enforcement is
+                 * enabled on unwind path of an IO. Hence the "<" comparision.
+                 */
+                if (pl_inode->fop_wind_count <= 0) {
                     pthread_cond_broadcast(&pl_inode->check_fop_wind_count);
-                }
-                /*
-                Possible race where lock was enforced in the unwind path
-                if (pl_inode->fop_wind_count == -1) {
+                    pl_inode->track_fop_wind_count = _gf_false;
                     pl_inode->fop_wind_count = 0;
                 }
-                */
             } else {
                 pl_inode->fop_wind_count++;
             }
@@ -597,7 +596,8 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_DISCARD,
                                         &can_block);
             if (allowed == 1) {
-                if (pl_inode->mlock_enforced) {
+                if (pl_inode->mlock_enforced &&
+                    pl_inode->track_fop_wind_count) {
                     pl_inode->fop_wind_count++;
                 }
                 goto unlock;
@@ -722,7 +722,8 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_ZEROFILL,
                                         &can_block);
             if (allowed == 1) {
-                if (pl_inode->mlock_enforced) {
+                if (pl_inode->mlock_enforced &&
+                    pl_inode->track_fop_wind_count) {
                     pl_inode->fop_wind_count++;
                 }
                 goto unlock;
@@ -870,7 +871,8 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                         &can_block);
 
             if (allowed == 1) {
-                if (pl_inode->mlock_enforced) {
+                if (pl_inode->mlock_enforced &&
+                    pl_inode->track_fop_wind_count) {
                     pl_inode->fop_wind_count++;
                 }
                 goto unlock;
@@ -1946,8 +1948,10 @@ do_blocked_rw(pl_inode_t *pl_inode)
             if (__rw_allowable(pl_inode, &rw->region, rw->stub->fop)) {
                 list_del_init(&rw->list);
                 list_add_tail(&rw->list, &wind_list);
-                if (pl_inode->mlock_enforced)
+                if (pl_inode->mlock_enforced &&
+                    pl_inode->track_fop_wind_count) {
                     pl_inode->fop_wind_count++;
+                }
             }
         }
     }
@@ -2111,7 +2115,8 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_READ,
                                         &can_block);
             if (allowed == 1) {
-                if (pl_inode->mlock_enforced) {
+                if (pl_inode->mlock_enforced &&
+                    pl_inode->track_fop_wind_count) {
                     pl_inode->fop_wind_count++;
                 }
                 goto unlock;
@@ -2228,7 +2233,8 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
             allowed = pl_is_fop_allowed(pl_inode, &region, fd, GF_FOP_WRITE,
                                         &can_block);
             if (allowed == 1) {
-                if (pl_inode->mlock_enforced) {
+                if (pl_inode->mlock_enforced &&
+                    pl_inode->track_fop_wind_count) {
                     pl_inode->fop_wind_count++;
                 }
                 goto unlock;
@@ -3357,6 +3363,14 @@ pl_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
+            while (pl_inode->fop_wind_count > 0) {
+                gf_msg(this->name, GF_LOG_INFO, 0, 0,
+                       "waiting for existing fops (count %d) to drain for "
+                       "gfid %s",
+                       pl_inode->fop_wind_count, uuid_utoa(pl_inode->gfid));
+                pthread_cond_wait(&pl_inode->check_fop_wind_count,
+                                  &pl_inode->mutex);
+            }
             pl_inode->mlock_enforced = _gf_true;
             pl_inode->check_mlock_info = _gf_false;
         }
@@ -4411,6 +4425,7 @@ pl_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         {
             pl_inode->mlock_enforced = _gf_false;
             pl_inode->check_mlock_info = _gf_false;
+            pl_inode->track_fop_wind_count = _gf_true;
         }
         pthread_mutex_unlock(&pl_inode->mutex);
     }
