@@ -3787,8 +3787,10 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
         if ((!strcmp(tmp->volfile_server, server->volfile_server) &&
              !strcmp(tmp->transport, server->transport) &&
              (tmp->port == server->port))) {
-            errno = EEXIST;
-            ret = -1;
+            /* Duplicate option given, log and ignore */
+            gf_msg("gluster", GF_LOG_INFO, EEXIST, LG_MSG_INVALID_ENTRY,
+                   "duplicate entry for volfile-server");
+            ret = 0;
             goto out;
         }
     }
