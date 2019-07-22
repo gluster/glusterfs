@@ -197,6 +197,7 @@ struct __pl_inode {
     */
     int fop_wind_count;
     pthread_cond_t check_fop_wind_count;
+    gf_boolean_t track_fop_wind_count;
 };
 typedef struct __pl_inode pl_inode_t;
 

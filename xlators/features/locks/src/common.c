@@ -1182,13 +1182,6 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
             list_del_init(&rw->list);
             list_add(&rw->list, &unwind_rw_list);
         }
-
-        while (pl_inode->fop_wind_count != 0) {
-            gf_msg(THIS->name, GF_LOG_TRACE, 0, 0,
-                   "waiting for fops to be drained");
-            pthread_cond_wait(&pl_inode->check_fop_wind_count,
-                              &pl_inode->mutex);
-        }
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
