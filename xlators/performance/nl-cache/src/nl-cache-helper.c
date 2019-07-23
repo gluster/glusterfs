@@ -145,12 +145,10 @@ nlc_disable_cache(xlator_t *this)
 }
 
 static int
-__nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
-                    nlc_pe_t **nlc_pe_p)
+__nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 {
     int ret = 0;
     nlc_ctx_t *nlc_ctx = NULL;
-    nlc_pe_t *nlc_pe = NULL;
     uint64_t nlc_ctx_int = 0;
     uint64_t nlc_pe_int = 0;
 
@@ -158,10 +156,6 @@ __nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
     if (ret == 0 && nlc_ctx_p) {
         nlc_ctx = (void *)(long)(nlc_ctx_int);
         *nlc_ctx_p = nlc_ctx;
-    }
-    if (ret == 0 && nlc_pe_p) {
-        nlc_pe = (void *)(long)(nlc_pe_int);
-        *nlc_pe_p = nlc_pe;
     }
     return ret;
 }
@@ -186,14 +180,13 @@ nlc_inode_ctx_set(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx,
 }
 
 static void
-nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
-                  nlc_pe_t **nlc_pe_p)
+nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 {
     int ret = 0;
 
     LOCK(&inode->lock);
     {
-        ret = __nlc_inode_ctx_get(this, inode, nlc_ctx_p, nlc_pe_p);
+        ret = __nlc_inode_ctx_get(this, inode, nlc_ctx_p);
         if (ret < 0)
             gf_msg_debug(this->name, 0,
                          "inode ctx get failed for "
@@ -290,8 +283,7 @@ out:
 }
 
 static nlc_ctx_t *
-nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
-                      nlc_pe_t **nlc_pe_p)
+nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 {
     int ret = 0;
     nlc_ctx_t *nlc_ctx = NULL;
@@ -301,7 +293,7 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
 
     LOCK(&inode->lock);
     {
-        ret = __nlc_inode_ctx_get(this, inode, &nlc_ctx, nlc_pe_p);
+        ret = __nlc_inode_ctx_get(this, inode, &nlc_ctx);
         if (nlc_ctx)
             goto unlock;
 
@@ -410,7 +402,7 @@ nlc_set_dir_state(xlator_t *this, inode_t *inode, uint64_t state)
         goto out;
     }
 
-    nlc_inode_ctx_get_set(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get_set(this, inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -430,7 +422,7 @@ nlc_cache_timeout_handler(struct gf_tw_timer_list *timer, void *data,
     nlc_timer_data_t *tmp = data;
     nlc_ctx_t *nlc_ctx = NULL;
 
-    nlc_inode_ctx_get(tmp->this, tmp->inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get(tmp->this, tmp->inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -696,7 +688,7 @@ nlc_inode_clear_cache(xlator_t *this, inode_t *inode, int reason)
 {
     nlc_ctx_t *nlc_ctx = NULL;
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get(this, inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -883,7 +875,7 @@ nlc_dir_add_ne(xlator_t *this, inode_t *inode, const char *name)
         goto out;
     }
 
-    nlc_inode_ctx_get_set(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get_set(this, inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -914,7 +906,7 @@ nlc_dir_remove_pe(xlator_t *this, inode_t *parent, inode_t *entry_ino,
         goto out;
     }
 
-    nlc_inode_ctx_get(this, parent, &nlc_ctx, NULL);
+    nlc_inode_ctx_get(this, parent, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -945,7 +937,7 @@ nlc_dir_add_pe(xlator_t *this, inode_t *inode, inode_t *entry_ino,
         goto out;
     }
 
-    nlc_inode_ctx_get_set(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get_set(this, inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -1051,7 +1043,7 @@ nlc_is_negative_lookup(xlator_t *this, loc_t *loc)
         goto out;
     }
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get(this, inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -1102,7 +1094,7 @@ nlc_get_real_file_name(xlator_t *this, loc_t *loc, const char *fname,
         goto out;
     }
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get(this, inode, &nlc_ctx);
     if (!nlc_ctx)
         goto out;
 
@@ -1152,7 +1144,7 @@ nlc_dump_inodectx(xlator_t *this, inode_t *inode)
     nlc_ne_t *ne = NULL;
     nlc_ne_t *tmp1 = NULL;
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx, NULL);
+    nlc_inode_ctx_get(this, inode, &nlc_ctx);
 
     if (!nlc_ctx)
         goto out;
