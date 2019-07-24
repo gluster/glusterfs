@@ -196,4 +196,4 @@ _pub_glfs_copy_file_range _glfs_copy_file_range$GFAPI_6.0
 _pub_glfs_fsetattr _glfs_fsetattr$GFAPI_6.0
 _pub_glfs_setattr _glfs_setattr$GFAPI_6.0
 
-_pub_glfs_set_statedump_path _glfs_set_statedump_path@GFAPI_future
+_pub_glfs_set_statedump_path _glfs_set_statedump_path@GFAPI_7.0
