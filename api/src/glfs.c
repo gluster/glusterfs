@@ -1802,4 +1802,4 @@ invalid_fs:
     return -1;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_statedump_path, future);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_statedump_path, 7.0);

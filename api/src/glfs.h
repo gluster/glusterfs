@@ -1479,7 +1479,7 @@ glfs_setattr(struct glfs *fs, const char *path, struct glfs_stat *stat,
 
 int
 glfs_set_statedump_path(struct glfs *fs, const char *path) __THROW
-    GFAPI_PUBLIC(glfs_set_statedump_path, future);
+    GFAPI_PUBLIC(glfs_set_statedump_path, 7.0);
 
 __END_DECLS
 #endif /* !_GLFS_H */
