@@ -1791,29 +1791,40 @@ main(int argc, char *argv[])
     struct statvfs sfs;
     char readbuf[32];
     char writebuf[32];
+    char volumeid[64];
 
     char *filename = "/filename2";
 
-    if (argc != 3) {
-        printf("Expect following args\n\t%s <volname> <hostname>\n", argv[0]);
+    if ((argc < 2) || (argc > 3)) {
+        printf("Usage:\n\t%s <volname> <hostname>\n\t%s <volfile-path>",
+               argv[0], argv[0]);
         return -1;
     }
 
-    fs = glfs_new(argv[1]);
-    if (!fs) {
-        fprintf(stderr, "glfs_new: returned NULL\n");
-        return 1;
+    if (argc == 2) {
+        /* Generally glfs_new() requires volume name as an argument */
+        fs = glfs_new("test-only");
+        if (!fs) {
+            fprintf(stderr, "glfs_new: returned NULL\n");
+            return 1;
+        }
+        ret = glfs_set_volfile(fs, argv[1]);
+        if (ret)
+            fprintf(stderr, "glfs_set_volfile failed\n");
+    } else {
+        fs = glfs_new(argv[1]);
+        if (!fs) {
+            fprintf(stderr, "glfs_new: returned NULL\n");
+            return 1;
+        }
+        // ret = glfs_set_volfile_server (fs, "unix", "/tmp/gluster.sock", 0);
+        ret = glfs_set_volfile_server(fs, "tcp", argv[2], 24007);
+        if (ret)
+            fprintf(stderr, "glfs_set_volfile_server failed\n");
     }
 
-    //      ret = glfs_set_volfile (fs, "/tmp/posix.vol");
-
-    ret = glfs_set_volfile_server(fs, "tcp", argv[2], 24007);
-    if (ret)
-        fprintf(stderr, "glfs_set_volfile_server failed\n");
-
-    //      ret = glfs_set_volfile_server (fs, "unix", "/tmp/gluster.sock", 0);
-
-    ret = glfs_set_logging(fs, "/dev/stderr", 7);
+    /* Change this to relevant file when running locally */
+    ret = glfs_set_logging(fs, "/dev/stderr", 5);
     if (ret)
         fprintf(stderr, "glfs_set_logging failed\n");
 
@@ -1824,6 +1835,12 @@ main(int argc, char *argv[])
     if (ret)
         goto out;
 
+    /* no major use for getting the volume id in this test, done for coverage */
+    ret = glfs_get_volumeid(fs, volumeid, 64);
+    if (ret) {
+        fprintf(stderr, "glfs_get_volumeid: returned %d\n", ret);
+    }
+
     sleep(2);
 
     fs2 = glfs_new(argv[1]);
@@ -1831,16 +1848,16 @@ main(int argc, char *argv[])
         fprintf(stderr, "glfs_new: returned NULL\n");
         return 1;
     }
-
-    //      ret = glfs_set_volfile (fs2, "/tmp/posix.vol");
-
-    ret = glfs_set_volfile_server(fs2, "tcp", argv[2], 24007);
-    if (ret)
-        fprintf(stderr, "glfs_set_volfile_server failed\n");
-
-    ret = glfs_set_logging(fs2, "/dev/stderr", 7);
-    if (ret)
-        fprintf(stderr, "glfs_set_logging failed\n");
+    if (argc == 2) {
+        ret = glfs_set_volfile(fs2, argv[1]);
+        if (ret)
+            fprintf(stderr, "glfs_set_volfile failed\n");
+    } else {
+        // ret = glfs_set_volfile_server (fs2, "unix", "/tmp/gluster.sock", 0);
+        ret = glfs_set_volfile_server(fs2, "tcp", argv[2], 24007);
+        if (ret)
+            fprintf(stderr, "glfs_set_volfile_server failed\n");
+    }
 
     ret = glfs_set_statedump_path(fs2, "/tmp");
     if (ret) {
@@ -1866,6 +1883,8 @@ main(int argc, char *argv[])
     test_write_apis(fs);
 
     glfs_statvfs(fs, "/", &sfs);
+
+    glfs_unset_volfile_server(fs, "tcp", argv[2], 24007);
 
     glfs_fini(fs);
     glfs_fini(fs2);

@@ -369,6 +369,8 @@ pub_glfs_unset_volfile_server(struct glfs *fs, const char *transport,
 
     list_for_each_entry_safe(server, tmp, &cmd_args->curr_server->list, list)
     {
+        if (!server->volfile_server || !server->transport)
+            continue;
         if ((!strcmp(server->volfile_server, host) &&
              !strcmp(server->transport, transport_val) &&
              (server->port == port_val))) {

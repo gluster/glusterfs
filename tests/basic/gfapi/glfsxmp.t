@@ -13,9 +13,14 @@ EXPECT 'Created' volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status'
 
+$CLI system getspec $V0 > fubar.vol
+
 TEST cp $(dirname $0)/glfsxmp-coverage.c ./glfsxmp.c
 TEST build_tester ./glfsxmp.c -lgfapi
 TEST ./glfsxmp $V0 $H0
+
+TEST ./glfsxmp fubar.vol
+
 TEST cleanup_tester ./glfsxmp
 TEST rm ./glfsxmp.c
 
