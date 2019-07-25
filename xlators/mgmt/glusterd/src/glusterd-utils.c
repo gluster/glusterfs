@@ -2003,9 +2003,9 @@ retry:
             len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s-%s.log",
                            volinfo->logdir, volinfo->volname, exp_path);
         } else {
-            len = snprintf(
-                valgrind_logfile, PATH_MAX, "%s/bricks/valgrind-%s-%s.log",
-                DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname, exp_path);
+            len = snprintf(valgrind_logfile, PATH_MAX,
+                           "%s/bricks/valgrind-%s-%s.log", priv->logdir,
+                           volinfo->volname, exp_path);
         }
         if ((len < 0) || (len >= PATH_MAX)) {
             ret = -1;
@@ -2035,8 +2035,8 @@ retry:
         len = snprintf(logfile, PATH_MAX, "%s/%s.log", volinfo->logdir,
                        exp_path);
     } else {
-        len = snprintf(logfile, PATH_MAX, "%s/bricks/%s.log",
-                       DEFAULT_LOG_FILE_DIRECTORY, exp_path);
+        len = snprintf(logfile, PATH_MAX, "%s/bricks/%s.log", priv->logdir,
+                       exp_path);
     }
     if ((len < 0) || (len >= PATH_MAX)) {
         ret = -1;
@@ -13712,9 +13712,8 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
                               &volfileserver) != 0)
                 volfileserver = "localhost";
 
-            snprintf(logfile, sizeof(logfile),
-                     DEFAULT_LOG_FILE_DIRECTORY "/%s-replace-brick-mount.log",
-                     volinfo->volname);
+            snprintf(logfile, sizeof(logfile), "%s/%s-replace-brick-mount.log",
+                     priv->logdir, volinfo->volname);
             if (!*logfile) {
                 ret = -1;
                 goto out;
@@ -13726,9 +13725,8 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
             break;
 
         case GD_OP_ADD_BRICK:
-            snprintf(logfile, sizeof(logfile),
-                     DEFAULT_LOG_FILE_DIRECTORY "/%s-add-brick-mount.log",
-                     volinfo->volname);
+            snprintf(logfile, sizeof(logfile), "%s/%s-add-brick-mount.log",
+                     priv->logdir, volinfo->volname);
             if (!*logfile) {
                 ret = -1;
                 goto out;

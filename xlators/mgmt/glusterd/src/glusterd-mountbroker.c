@@ -233,7 +233,7 @@ const char *georep_mnt_desc_template =
     "user-map-root=%s "
     ")"
     "SUB+("
-    "log-file=" DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
+    "log-file=%s/" GEOREP
     "*/* "
     "log-level=* "
     "volfile-id=* "
@@ -243,7 +243,8 @@ const char *georep_mnt_desc_template =
     ")";
 
 int
-make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user)
+make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user,
+                      char *logdir)
 {
     char *georep_mnt_desc = NULL;
     char *meetspec = NULL;
@@ -286,7 +287,7 @@ make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user)
     }
 
     ret = gf_asprintf(&georep_mnt_desc, georep_mnt_desc_template,
-                      GF_CLIENT_PID_GSYNCD, user, meetspec);
+                      GF_CLIENT_PID_GSYNCD, user, logdir, meetspec);
     if (ret == -1) {
         georep_mnt_desc = NULL;
         goto out;

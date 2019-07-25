@@ -27,7 +27,8 @@ char *snapd_svc_name = "snapd";
 static void
 glusterd_svc_build_snapd_logdir(char *logdir, char *volname, size_t len)
 {
-    snprintf(logdir, len, "%s/snaps/%s", DEFAULT_LOG_FILE_DIRECTORY, volname);
+    glusterd_conf_t *priv = THIS->private;
+    snprintf(logdir, len, "%s/snaps/%s", priv->logdir, volname);
 }
 
 static void

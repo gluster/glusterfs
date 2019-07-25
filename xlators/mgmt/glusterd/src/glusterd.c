@@ -555,7 +555,9 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
     char *greplg_s = NULL;
     struct group *gr = NULL;
     int ret = 0;
+    int gr_ret = 0;
     int32_t len = 0;
+    char logdir[PATH_MAX] = {0};
 
     GF_ASSERT(georepdir);
     GF_ASSERT(conf);
@@ -580,54 +582,6 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         goto out;
     }
 
-    if (SLEN(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP) >= PATH_MAX) {
-        ret = -1;
-        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
-               "directory path " DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
-               " is longer than PATH_MAX");
-        goto out;
-    }
-    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP, 0755, _gf_true);
-    if (-1 == ret) {
-        gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create " GEOREP " log directory");
-        goto out;
-    }
-
-    /* Slave log file directory */
-    if (SLEN(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves") >= PATH_MAX) {
-        ret = -1;
-        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
-               "directory path " DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
-               "-slaves"
-               " is longer than PATH_MAX");
-        goto out;
-    }
-    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves", 0755,
-                  _gf_true);
-    if (-1 == ret) {
-        gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create " GEOREP " slave log directory");
-        goto out;
-    }
-
-    /* MountBroker log file directory */
-    if (SLEN(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves/mbr") >= PATH_MAX) {
-        ret = -1;
-        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
-               "directory path " DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
-               "-slaves/mbr"
-               " is longer than PATH_MAX");
-        goto out;
-    }
-    ret = mkdir_p(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves/mbr", 0755,
-                  _gf_true);
-    if (-1 == ret) {
-        gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create " GEOREP " mountbroker slave log directory");
-        goto out;
-    }
-
     ret = dict_get_str(THIS->options, GEOREP "-log-group", &greplg_s);
     if (ret)
         ret = 0;
@@ -636,21 +590,83 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         if (!gr) {
             gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_LOGGROUP_INVALID,
                    "group " GEOREP "-log-group %s does not exist", greplg_s);
-            ret = -1;
-            goto out;
+            gr_ret = -1;
         }
-
-        ret = group_write_allow(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP,
-                                gr->gr_gid);
-        if (ret == 0)
-            ret = group_write_allow(
-                DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "-slaves", gr->gr_gid);
-        if (ret == 0)
-            ret = group_write_allow(DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
-                                                               "-slaves/mbr",
-                                    gr->gr_gid);
+    }
+    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP)) >= PATH_MAX) {
+        ret = -1;
+        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
+               "directory path %s/" GEOREP " is longer than PATH_MAX",
+               conf->logdir);
+        goto out;
+    }
+    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP, conf->logdir);
+    if ((len < 0) || (len >= PATH_MAX)) {
+        ret = -1;
+        goto out;
+    }
+    ret = mkdir_p(logdir, 0755, _gf_true);
+    if (-1 == ret) {
+        gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
+               "Unable to create " GEOREP " log directory");
+        goto out;
+    }
+    if (gr) {
+        gr_ret = group_write_allow(logdir, gr->gr_gid);
     }
 
+    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP "-slaves")) >= PATH_MAX) {
+        ret = -1;
+        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
+               "directory path  %s/" GEOREP
+               "-slaves"
+               " is longer than PATH_MAX",
+               conf->logdir);
+        goto out;
+    }
+    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-slaves", conf->logdir);
+    if ((len < 0) || (len >= PATH_MAX)) {
+        ret = -1;
+        goto out;
+    }
+    ret = mkdir_p(logdir, 0755, _gf_true);
+    if (-1 == ret) {
+        gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
+               "Unable to create " GEOREP " slave log directory");
+        goto out;
+    }
+    if (gr && !gr_ret) {
+        gr_ret = group_write_allow(logdir, gr->gr_gid);
+    }
+
+    /* MountBroker log file directory */
+    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP "-slaves/mbr")) >= PATH_MAX) {
+        ret = -1;
+        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
+               "directory path  %s/" GEOREP
+               "-slaves/mbr"
+               " is longer than PATH_MAX",
+               conf->logdir);
+        goto out;
+    }
+
+    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-slaves/mbr", conf->logdir);
+    if ((len < 0) || (len >= PATH_MAX)) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = mkdir_p(logdir, 0755, _gf_true);
+    if (-1 == ret) {
+        gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
+               "Unable to create " GEOREP " mountbroker slave log directory");
+        goto out;
+    }
+    if (gr && !gr_ret) {
+        gr_ret = group_write_allow(logdir, gr->gr_gid);
+    }
+    if (gr_ret)
+        ret = gr_ret;
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
@@ -814,18 +830,19 @@ configure_syncdaemon(glusterd_conf_t *conf)
 
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf);
-    runner_add_args(&runner, "log-file",
-                    DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
-                                               "/${mastervol}/${eSlave}.log",
-                    ".", ".", NULL);
+    runner_add_arg(&runner, "log-file");
+    runner_argprintf(&runner, "%s/" GEOREP "/${mastervol}/${eSlave}.log",
+                     conf->logdir);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf);
-    runner_add_args(&runner, "gluster-log-file",
-                    DEFAULT_LOG_FILE_DIRECTORY
-                    "/" GEOREP "/${mastervol}/${eSlave}${local_id}.gluster.log",
-                    ".", ".", NULL);
+    runner_add_arg(&runner, "gluster-log-file");
+    runner_argprintf(
+        &runner, "%s/" GEOREP "/${mastervol}/${eSlave}${local_id}.gluster.log",
+        conf->logdir);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* ignore-deletes */
@@ -867,33 +884,36 @@ configure_syncdaemon(glusterd_conf_t *conf)
 
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf);
-    runner_add_args(
-        &runner, "log-file",
-        DEFAULT_LOG_FILE_DIRECTORY
-        "/" GEOREP
+    runner_add_arg(&runner, "log-file");
+    runner_argprintf(
+        &runner,
+        "%s/" GEOREP
         "-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.log",
-        ".", NULL);
+        conf->logdir);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* MountBroker log-file */
     runinit_gsyncd_setrx(&runner, conf);
-    runner_add_args(
-        &runner, "log-file-mbr",
-        DEFAULT_LOG_FILE_DIRECTORY
-        "/" GEOREP
+    runner_add_arg(&runner, "log-file-mbr");
+    runner_argprintf(
+        &runner,
+        "%s/" GEOREP
         "-slaves/mbr/${session_owner}:${local_node}${local_id}.${slavevol}.log",
-        ".", NULL);
+        conf->logdir);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf);
-    runner_add_args(
-        &runner, "gluster-log-file",
-        DEFAULT_LOG_FILE_DIRECTORY
-        "/" GEOREP
+    runner_add_arg(&runner, "gluster-log-file");
+    runner_argprintf(
+        &runner,
+        "%s/" GEOREP
         "-slaves/"
         "${session_owner}:${local_node}${local_id}.${slavevol}.gluster.log",
-        ".", NULL);
+        conf->logdir);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
 out:
@@ -1052,7 +1072,7 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
         } else
             user = label;
 
-        rv = make_georep_mountspec(mspec, volname, user);
+        rv = make_georep_mountspec(mspec, volname, user, priv->logdir);
 
         GF_FREE(volname);
         if (rv != 0)
@@ -1373,6 +1393,9 @@ init(xlator_t *this)
     char rundir[PATH_MAX] = {
         0,
     };
+    char logdir[VALID_GLUSTERD_PATHMAX] = {
+        0,
+    };
     char cmd_log_filename[PATH_MAX] = {
         0,
     };
@@ -1420,6 +1443,25 @@ init(xlator_t *this)
     }
     if (len < 0 || len >= PATH_MAX)
         exit(2);
+
+    dir_data = dict_get(this->options, "cluster-test-mode");
+    if (!dir_data) {
+        /* Use default working dir */
+        len = snprintf(logdir, PATH_MAX, "%s", DEFAULT_LOG_FILE_DIRECTORY);
+    } else {
+        len = snprintf(logdir, PATH_MAX, "%s", dir_data->data);
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLUSTER_RC_ENABLE,
+               "cluster-test-mode is enabled logdir is %s", dir_data->data);
+    }
+    if (len < 0 || len >= PATH_MAX)
+        exit(2);
+
+    ret = mkdir_p(logdir, 0777, _gf_true);
+    if ((ret == -1) && (EEXIST != errno)) {
+        gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
+               "Unable to create log dir %s", logdir);
+        exit(1);
+    }
 
     dir_data = dict_get(this->options, "working-directory");
 
@@ -1535,8 +1577,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    snprintf(cmd_log_filename, PATH_MAX, "%s/cmd_history.log",
-             DEFAULT_LOG_FILE_DIRECTORY);
+    snprintf(cmd_log_filename, PATH_MAX, "%s/cmd_history.log", logdir);
     ret = gf_cmd_log_init(cmd_log_filename);
 
     if (ret == -1) {
@@ -1606,8 +1647,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    len = snprintf(storedir, sizeof(storedir), "%s/bricks",
-                   DEFAULT_LOG_FILE_DIRECTORY);
+    len = snprintf(storedir, sizeof(storedir), "%s/bricks", logdir);
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
     }
@@ -1821,6 +1861,9 @@ init(xlator_t *this)
     }
     /* coverity[BUFFER_SIZE_WARNING] */
     (void)strncpy(conf->rundir, rundir, sizeof(conf->rundir));
+
+    /* coverity[BUFFER_SIZE_WARNING] */
+    (void)strncpy(conf->logdir, logdir, sizeof(conf->logdir));
 
     synclock_init(&conf->big_lock, SYNC_LOCK_RECURSIVE);
     pthread_mutex_init(&conf->xprt_lock, NULL);

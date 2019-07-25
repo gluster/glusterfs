@@ -227,6 +227,7 @@ typedef struct {
                               */
     char workdir[VALID_GLUSTERD_PATHMAX];
     char rundir[VALID_GLUSTERD_PATHMAX];
+    char logdir[VALID_GLUSTERD_PATHMAX];
 } glusterd_conf_t;
 
 typedef struct glusterd_add_dict_args {

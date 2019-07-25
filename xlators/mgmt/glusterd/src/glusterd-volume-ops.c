@@ -2892,8 +2892,7 @@ glusterd_clearlocks_mount(glusterd_volinfo_t *volinfo, char **xl_opts,
     runner_add_args(&runner, SBIN_DIR "/glusterfs", "-f", NULL);
     runner_argprintf(&runner, "%s", client_volfpath);
     runner_add_arg(&runner, "-l");
-    runner_argprintf(&runner,
-                     DEFAULT_LOG_FILE_DIRECTORY "/%s-clearlocks-mnt.log",
+    runner_argprintf(&runner, "%s/%s-clearlocks-mnt.log", priv->logdir,
                      volinfo->volname);
     if (volinfo->memory_accounting)
         runner_add_arg(&runner, "--mem-accounting");

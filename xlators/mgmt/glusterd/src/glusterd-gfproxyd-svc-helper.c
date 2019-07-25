@@ -81,7 +81,8 @@ glusterd_svc_build_gfproxyd_volfile_path(glusterd_volinfo_t *volinfo,
 void
 glusterd_svc_build_gfproxyd_logdir(char *logdir, char *volname, size_t len)
 {
-    snprintf(logdir, len, "%s/gfproxy/%s", DEFAULT_LOG_FILE_DIRECTORY, volname);
+    glusterd_conf_t *conf = THIS->private;
+    snprintf(logdir, len, "%s/gfproxy/%s", conf->logdir, volname);
 }
 
 void

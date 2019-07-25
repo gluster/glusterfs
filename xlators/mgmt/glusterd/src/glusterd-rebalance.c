@@ -266,13 +266,13 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
 
     GLUSTERD_GET_DEFRAG_SOCK_FILE(sockfile, volinfo);
     GLUSTERD_GET_DEFRAG_PID_FILE(pidfile, volinfo, priv);
-    snprintf(logfile, PATH_MAX, "%s/%s-%s.log", DEFAULT_LOG_FILE_DIRECTORY,
-             volinfo->volname, "rebalance");
+    snprintf(logfile, PATH_MAX, "%s/%s-%s.log", priv->logdir, volinfo->volname,
+             "rebalance");
     runinit(&runner);
 
     if (this->ctx->cmd_args.valgrind) {
         snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s-rebalance.log",
-                 DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname);
+                 priv->logdir, volinfo->volname);
 
         runner_add_args(&runner, "valgrind", "--leak-check=full",
                         "--trace-children=yes", "--track-origins=yes", NULL);

@@ -144,7 +144,7 @@ glusterd_svc_init(glusterd_svc_t *svc, char *svc_name)
 
     glusterd_svc_build_rundir(svc_name, priv->rundir, rundir, sizeof(rundir));
     ret = glusterd_svc_init_common(svc, svc_name, priv->workdir, rundir,
-                                   DEFAULT_LOG_FILE_DIRECTORY, NULL);
+                                   priv->logdir, NULL);
 
     return ret;
 }
