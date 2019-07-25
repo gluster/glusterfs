@@ -1192,6 +1192,33 @@ quiesce_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 }
 
 int32_t
+quiesce_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     const char *name, dict_t *xdata)
+{
+    quiesce_priv_t *priv = NULL;
+    call_stub_t *stub = NULL;
+
+    priv = this->private;
+
+    if (priv->pass_through) {
+        STACK_WIND(frame, default_fremovexattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fremovexattr, fd, name, xdata);
+        return 0;
+    }
+
+    stub = fop_fremovexattr_stub(frame, default_fremovexattr_resume, fd, name,
+                                 xdata);
+    if (!stub) {
+        STACK_UNWIND_STRICT(fremovexattr, frame, -1, ENOMEM, NULL);
+        return 0;
+    }
+
+    gf_quiesce_enqueue(this, stub);
+
+    return 0;
+}
+
+int32_t
 quiesce_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                  dict_t *xdata)
 {
@@ -2584,7 +2611,9 @@ struct xlator_fops fops = {
     .truncate = quiesce_truncate,
     .ftruncate = quiesce_ftruncate,
     .setxattr = quiesce_setxattr,
+    .fsetxattr = quiesce_fsetxattr,
     .removexattr = quiesce_removexattr,
+    .fremovexattr = quiesce_fremovexattr,
     .symlink = quiesce_symlink,
     .unlink = quiesce_unlink,
     .link = quiesce_link,
@@ -2617,6 +2646,7 @@ struct xlator_fops fops = {
     .access = quiesce_access,
     .readlink = quiesce_readlink,
     .getxattr = quiesce_getxattr,
+    .fgetxattr = quiesce_fgetxattr,
     .open = quiesce_open,
     .readv = quiesce_readv,
     .flush = quiesce_flush,
