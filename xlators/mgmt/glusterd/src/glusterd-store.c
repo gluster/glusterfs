@@ -571,10 +571,6 @@ glusterd_store_brickinfo(glusterd_volinfo_t *volinfo,
     if (ret)
         goto out;
 
-    ret = glusterd_store_create_brick_dir(volinfo);
-    if (ret)
-        goto out;
-
     ret = glusterd_store_create_brick_shandle_on_absence(volinfo, brickinfo);
     if (ret)
         goto out;
@@ -1046,36 +1042,26 @@ glusterd_store_piddirpath_set(glusterd_volinfo_t *volinfo, char *piddirpath)
 }
 
 static int32_t
-glusterd_store_create_volume_dir(glusterd_volinfo_t *volinfo)
+glusterd_store_create_volume_dirs(glusterd_volinfo_t *volinfo)
 {
     int32_t ret = -1;
-    char voldirpath[PATH_MAX] = {
+    char dirpath[PATH_MAX] = {
         0,
     };
 
     GF_ASSERT(volinfo);
 
-    glusterd_store_voldirpath_set(volinfo, voldirpath);
-    ret = gf_store_mkdir(voldirpath);
+    glusterd_store_voldirpath_set(volinfo, dirpath);
+    ret = gf_store_mkdir(dirpath);
+    if (ret)
+        goto out;
 
-    gf_msg_debug(THIS->name, 0, "Returning with %d", ret);
-    return ret;
-}
+    glusterd_store_piddirpath_set(volinfo, dirpath);
+    ret = gf_store_mkdir(dirpath);
+    if (ret)
+        goto out;
 
-static int32_t
-glusterd_store_create_volume_run_dir(glusterd_volinfo_t *volinfo)
-{
-    int32_t ret = -1;
-    char piddirpath[PATH_MAX] = {
-        0,
-    };
-
-    GF_ASSERT(volinfo);
-
-    glusterd_store_piddirpath_set(volinfo, piddirpath);
-
-    ret = gf_store_mkdir(piddirpath);
-
+out:
     gf_msg_debug(THIS->name, 0, "Returning with %d", ret);
     return ret;
 }
@@ -1476,6 +1462,10 @@ glusterd_store_perform_volume_store(glusterd_volinfo_t *volinfo)
     if (ret)
         goto out;
 
+    ret = glusterd_store_create_brick_dir(volinfo);
+    if (ret)
+        goto out;
+
     ret = glusterd_store_brickinfos(volinfo, fd);
     if (ret)
         goto out;
@@ -1671,11 +1661,8 @@ glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
     pthread_mutex_lock(&volinfo->store_volinfo_lock);
     {
         glusterd_perform_volinfo_version_action(volinfo, ac);
-        ret = glusterd_store_create_volume_dir(volinfo);
-        if (ret)
-            goto unlock;
 
-        ret = glusterd_store_create_volume_run_dir(volinfo);
+        ret = glusterd_store_create_volume_dirs(volinfo);
         if (ret)
             goto unlock;
 
