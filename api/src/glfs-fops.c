@@ -33,7 +33,7 @@
 
 struct upcall_syncop_args {
     struct glfs *fs;
-    struct glfs_upcall *up_arg;
+    struct gf_upcall upcall_data;
 };
 
 #define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
@@ -4871,8 +4871,28 @@ out:
 static int
 upcall_syncop_args_free(struct upcall_syncop_args *args)
 {
-    if (args && args->up_arg)
-        GLFS_FREE(args->up_arg);
+    dict_t *dict = NULL;
+    struct gf_upcall *upcall_data = NULL;
+
+    if (args) {
+        upcall_data = &args->upcall_data;
+        switch (upcall_data->event_type) {
+            case GF_UPCALL_CACHE_INVALIDATION:
+                dict = ((struct gf_upcall_cache_invalidation *)(upcall_data
+                                                                    ->data))
+                           ->dict;
+                break;
+            case GF_UPCALL_RECALL_LEASE:
+                dict = ((struct gf_upcall_recall_lease *)(upcall_data->data))
+                           ->dict;
+                break;
+        }
+        if (dict)
+            dict_unref(dict);
+
+        GF_FREE(upcall_data->client_uid);
+        GF_FREE(upcall_data->data);
+    }
     GF_FREE(args);
     return 0;
 }
@@ -4882,14 +4902,7 @@ glfs_upcall_syncop_cbk(int ret, call_frame_t *frame, void *opaque)
 {
     struct upcall_syncop_args *args = opaque;
 
-    /* Here we not using upcall_syncop_args_free as application
-     * will be cleaning up the args->up_arg using glfs_free
-     * post processing upcall.
-     */
-    if (ret) {
-        upcall_syncop_args_free(args);
-    } else
-        GF_FREE(args);
+    (void)upcall_syncop_args_free(args);
 
     return 0;
 }
@@ -4898,29 +4911,17 @@ static int
 glfs_cbk_upcall_syncop(void *opaque)
 {
     struct upcall_syncop_args *args = opaque;
+    struct gf_upcall *upcall_data = NULL;
     struct glfs_upcall *up_arg = NULL;
     struct glfs *fs;
+    int ret = -1;
 
     fs = args->fs;
-    up_arg = args->up_arg;
+    upcall_data = &args->upcall_data;
 
-    if (fs->up_cbk && up_arg) {
-        (fs->up_cbk)(up_arg, fs->up_data);
-        return 0;
-    }
-
-    return -1;
-}
-
-static struct upcall_syncop_args *
-upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
-{
-    struct upcall_syncop_args *args = NULL;
-    int ret = -1;
-    struct glfs_upcall *up_arg = NULL;
-
-    if (!fs || !upcall_data)
+    if (!upcall_data) {
         goto out;
+    }
 
     up_arg = GLFS_CALLOC(1, sizeof(struct gf_upcall), glfs_release_upcall,
                          glfs_mt_upcall_entry_t);
@@ -4950,12 +4951,93 @@ upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
     if (up_arg->reason == GLFS_UPCALL_EVENT_NULL) {
         gf_msg(THIS->name, GF_LOG_DEBUG, errno, API_MSG_INVALID_ENTRY,
                "Upcall_EVENT_NULL received. Skipping it.");
+        ret = 0;
+        GLFS_FREE(up_arg);
         goto out;
     } else if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY,
                "Upcall entry validation failed.");
         goto out;
     }
+
+    if (fs->up_cbk && up_arg)
+        (fs->up_cbk)(up_arg, fs->up_data);
+
+    /* application takes care of calling glfs_free on up_arg post
+     * their processing */
+
+out:
+    return ret;
+}
+
+static struct gf_upcall_cache_invalidation *
+gf_copy_cache_invalidation(struct gf_upcall_cache_invalidation *src)
+{
+    struct gf_upcall_cache_invalidation *dst = NULL;
+
+    if (!src)
+        goto out;
+
+    dst = GF_CALLOC(1, sizeof(struct gf_upcall_cache_invalidation),
+                    glfs_mt_upcall_entry_t);
+
+    if (!dst) {
+        gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+               "Upcall entry allocation failed.");
+        goto out;
+    }
+
+    dst->flags = src->flags;
+    dst->expire_time_attr = src->expire_time_attr;
+    dst->stat = src->stat;
+    dst->p_stat = src->p_stat;
+    dst->oldp_stat = src->oldp_stat;
+
+    if (src->dict)
+        dst->dict = dict_copy_with_ref(src->dict, NULL);
+
+    return dst;
+out:
+    return NULL;
+}
+
+static struct gf_upcall_recall_lease *
+gf_copy_recall_lease(struct gf_upcall_recall_lease *src)
+{
+    struct gf_upcall_recall_lease *dst = NULL;
+
+    if (!src)
+        goto out;
+
+    dst = GF_CALLOC(1, sizeof(struct gf_upcall_recall_lease),
+                    glfs_mt_upcall_entry_t);
+
+    if (!dst) {
+        gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+               "Upcall entry allocation failed.");
+        goto out;
+    }
+
+    dst->lease_type = src->lease_type;
+    memcpy(dst->tid, src->tid, 16);
+
+    if (src->dict)
+        dst->dict = dict_copy_with_ref(src->dict, NULL);
+
+    return dst;
+out:
+    return NULL;
+}
+
+static struct upcall_syncop_args *
+upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
+{
+    struct upcall_syncop_args *args = NULL;
+    int ret = -1;
+    struct gf_upcall *t_data = NULL;
+
+    if (!fs || !upcall_data)
+        goto out;
 
     args = GF_CALLOC(1, sizeof(struct upcall_syncop_args),
                      glfs_mt_upcall_entry_t);
@@ -4974,15 +5056,31 @@ upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
      * notification without taking any lock/ref.
      */
     args->fs = fs;
-    args->up_arg = up_arg;
+    t_data = &(args->upcall_data);
+    t_data->client_uid = gf_strdup(upcall_data->client_uid);
 
-    /* application takes care of calling glfs_free on up_arg post
-     * their processing */
+    gf_uuid_copy(t_data->gfid, upcall_data->gfid);
+    t_data->event_type = upcall_data->event_type;
+
+    switch (t_data->event_type) {
+        case GF_UPCALL_CACHE_INVALIDATION:
+            t_data->data = gf_copy_cache_invalidation(
+                (struct gf_upcall_cache_invalidation *)upcall_data->data);
+            break;
+        case GF_UPCALL_RECALL_LEASE:
+            t_data->data = gf_copy_recall_lease(
+                (struct gf_upcall_recall_lease *)upcall_data->data);
+            break;
+    }
+
+    if (!t_data->data)
+        goto out;
 
     return args;
 out:
-    if (up_arg) {
-        GLFS_FREE(up_arg);
+    if (ret) {
+        GF_FREE(args->upcall_data.client_uid);
+        GF_FREE(args);
     }
 
     return NULL;
