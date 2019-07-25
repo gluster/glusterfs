@@ -6650,12 +6650,18 @@ init(xlator_t *this_xl)
     ret = dict_get_str(options, "dump-fuse", &value_string);
     if (ret == 0) {
         ret = sys_unlink(value_string);
-        if (ret != -1 || errno == ENOENT)
-            ret = open(value_string, O_RDWR | O_CREAT | O_EXCL,
-                       S_IRUSR | S_IWUSR);
+        if (ret == -1 && errno != ENOENT) {
+            gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                   "failed to remove old fuse dump file %s: %s", value_string,
+                   strerror(errno));
+
+            goto cleanup_exit;
+        }
+        ret = open(value_string, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
         if (ret == -1) {
             gf_log("glusterfs-fuse", GF_LOG_ERROR,
-                   "cannot open fuse dump file %s", value_string);
+                   "failed to open fuse dump file %s: %s", value_string,
+                   strerror(errno));
 
             goto cleanup_exit;
         }
