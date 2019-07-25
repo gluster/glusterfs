@@ -15,7 +15,7 @@ TEST $CLI volume info;
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{1,2,3,4,5,6};
 
 TEST $CLI volume set $V0 error-gen posix;
-TEST $CLI volume set $V0 debug.error-failure 45%;
+TEST $CLI volume set $V0 debug.error-failure 3%;
 
 ## Start volume and verify
 TEST $CLI volume start $V0;
