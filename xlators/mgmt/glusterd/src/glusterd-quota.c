@@ -2046,8 +2046,8 @@ glusterd_create_quota_auxiliary_mount(xlator_t *this, char *volname, int type)
                mountdir);
         goto out;
     }
-    snprintf(logfile, PATH_MAX - 1, "%s/quota-mount-%s.log",
-             DEFAULT_LOG_FILE_DIRECTORY, volname);
+    snprintf(logfile, PATH_MAX - 1, "%s/quota-mount-%s.log", priv->logdir,
+             volname);
     snprintf(qpid, 15, "%d", GF_CLIENT_PID_QUOTA_MOUNT);
 
     if (dict_get_strn(this->options, "transport.socket.bind-address",

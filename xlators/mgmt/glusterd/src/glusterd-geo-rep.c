@@ -2857,8 +2857,8 @@ glusterd_verify_slave(char *volname, char *slave_url, char *slave_vol,
         goto out;
     }
 
-    snprintf(log_file_path, sizeof(log_file_path),
-             DEFAULT_LOG_FILE_DIRECTORY "/create_verify_log");
+    snprintf(log_file_path, sizeof(log_file_path), "%s/create_verify_log",
+             priv->logdir);
 
     runinit(&runner);
     runner_add_args(&runner, GSYNCD_PREFIX "/gverify.sh", NULL);
@@ -6242,26 +6242,28 @@ create_conf_file(glusterd_conf_t *conf, char *conf_path)
 
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf_path);
-    runner_add_args(&runner, "log-file",
-                    DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP
-                                               "/${mastervol}/${eSlave}.log",
-                    ".", ".", NULL);
+    runner_add_arg(&runner, "log-file");
+    runner_argprintf(&runner, "%s/%s/${mastervol}/${eSlave}.log", conf->logdir,
+                     GEOREP);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* changelog-log-file */
     runinit_gsyncd_setrx(&runner, conf_path);
-    runner_add_args(&runner, "changelog-log-file",
-                    DEFAULT_LOG_FILE_DIRECTORY
-                    "/" GEOREP "/${mastervol}/${eSlave}${local_id}-changes.log",
-                    ".", ".", NULL);
+    runner_add_arg(&runner, "changelog-log-file");
+    runner_argprintf(&runner,
+                     "%s/%s/${mastervol}/${eSlave}${local_id}-changes.log",
+                     conf->logdir, GEOREP);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf_path);
-    runner_add_args(&runner, "gluster-log-file",
-                    DEFAULT_LOG_FILE_DIRECTORY
-                    "/" GEOREP "/${mastervol}/${eSlave}${local_id}.gluster.log",
-                    ".", ".", NULL);
+    runner_add_arg(&runner, "gluster-log-file");
+    runner_argprintf(&runner,
+                     "%s/%s/${mastervol}/${eSlave}${local_id}.gluster.log",
+                     conf->logdir, GEOREP);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* ignore-deletes */
@@ -6303,33 +6305,35 @@ create_conf_file(glusterd_conf_t *conf, char *conf_path)
 
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf_path);
-    runner_add_args(
-        &runner, "log-file",
-        DEFAULT_LOG_FILE_DIRECTORY
-        "/" GEOREP
-        "-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.log",
-        ".", NULL);
+    runner_add_arg(&runner, "log-file");
+    runner_argprintf(&runner,
+                     "%s/%s-slaves/"
+                     "${session_owner}:${local_node}${local_id}.${slavevol}."
+                     "log",
+                     conf->logdir, GEOREP);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* MountBroker log-file */
     runinit_gsyncd_setrx(&runner, conf_path);
-    runner_add_args(
-        &runner, "log-file-mbr",
-        DEFAULT_LOG_FILE_DIRECTORY
-        "/" GEOREP
-        "-slaves/mbr/${session_owner}:${local_node}${local_id}.${slavevol}.log",
-        ".", NULL);
+    runner_add_arg(&runner, "log-file-mbr");
+    runner_argprintf(&runner,
+                     "%s/%s-slaves/mbr/"
+                     "${session_owner}:${local_node}${local_id}.${slavevol}."
+                     "log",
+                     conf->logdir, GEOREP);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf_path);
-    runner_add_args(
-        &runner, "gluster-log-file",
-        DEFAULT_LOG_FILE_DIRECTORY
-        "/" GEOREP
-        "-slaves/"
-        "${session_owner}:${local_node}${local_id}.${slavevol}.gluster.log",
-        ".", NULL);
+    runner_add_arg(&runner, "gluster-log-file");
+    runner_argprintf(&runner,
+                     "%s/%s-slaves/"
+                     "${session_owner}:${local_node}${local_id}.${slavevol}."
+                     "gluster.log",
+                     conf->logdir, GEOREP);
+    runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
 out:
@@ -6395,7 +6399,7 @@ glusterd_create_essential_dir_files(glusterd_volinfo_t *volinfo, dict_t *dict,
         goto out;
     }
 
-    ret = snprintf(buf, PATH_MAX, DEFAULT_LOG_FILE_DIRECTORY "/" GEOREP "/%s",
+    ret = snprintf(buf, PATH_MAX, "%s/" GEOREP "/%s", conf->logdir,
                    volinfo->volname);
     if ((ret < 0) || (ret >= PATH_MAX)) {
         ret = -1;

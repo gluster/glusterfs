@@ -50,15 +50,16 @@ function define_glusterds() {
         sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
         #Get the logdir
         logdir=`gluster --print-logdir`
+        clopt="management.cluster-test-mode=${logdir}/$i";
         #Fetch the testcases name and prefix the glusterd log with it
         logfile=`echo ${0##*/}`_glusterd$i.log
-        lopt="--log-file=$logdir/$logfile"
+        lopt="--log-file=$logdir/$i/$logfile"
         if [ "$2" == "-LDEBUG" ]; then
-            eval "glusterd_$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
-            eval "glusterd$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd_$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt --xlator-option $clopt $lopt $popt'";
+            eval "glusterd$i='glusterd -LDEBUG --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt --xlator-option $clopt $lopt $popt'";
         else
-            eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
-            eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt $lopt $popt'";
+            eval "glusterd_$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt --xlator-option $clopt $lopt $popt'";
+            eval "glusterd$i='glusterd --xlator-option $wopt --xlator-option $bopt --xlator-option $ropt --xlator-option $sopt --xlator-option $clopt $lopt $popt'";
         fi
     done
 }

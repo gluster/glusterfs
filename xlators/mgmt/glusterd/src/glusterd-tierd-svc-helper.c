@@ -81,7 +81,8 @@ glusterd_svc_build_tierd_volfile_path(glusterd_volinfo_t *volinfo, char *path,
 void
 glusterd_svc_build_tierd_logdir(char *logdir, char *volname, size_t len)
 {
-    snprintf(logdir, len, "%s/tier/%s", DEFAULT_LOG_FILE_DIRECTORY, volname);
+    glusterd_conf_t *conf = THIS->private;
+    snprintf(logdir, len, "%s/tier/%s", priv->logdir, volname);
 }
 
 void
