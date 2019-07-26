@@ -18,5 +18,5 @@ rpcsvc_autoscale_threads(glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr)
     int thread_count = pool->eventthreadcount;
 
     pool->auto_thread_count += incr;
-    (void)event_reconfigure_threads(pool, thread_count + incr);
+    (void)gf_event_reconfigure_threads(pool, thread_count + incr);
 }

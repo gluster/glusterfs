@@ -1115,7 +1115,7 @@ nfs_init_state(xlator_t *this)
 
     GF_OPTION_INIT("nfs.event-threads", nfs->event_threads, uint32,
                    free_foppool);
-    event_reconfigure_threads(this->ctx->event_pool, nfs->event_threads);
+    gf_event_reconfigure_threads(this->ctx->event_pool, nfs->event_threads);
 
     this->private = (void *)nfs;
     INIT_LIST_HEAD(&nfs->versions);
@@ -1338,7 +1338,7 @@ nfs_reconfigure_state(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("nfs.event-threads", nfs->event_threads, options, uint32,
                      out);
-    event_reconfigure_threads(this->ctx->event_pool, nfs->event_threads);
+    gf_event_reconfigure_threads(this->ctx->event_pool, nfs->event_threads);
 
     ret = 0;
 out:

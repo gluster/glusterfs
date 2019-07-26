@@ -112,7 +112,7 @@ cli_rl_stdin(int fd, int idx, int gen, void *data, int poll_out, int poll_in,
 
     rl_callback_read_char();
 
-    event_handled(state->ctx->event_pool, fd, idx, gen);
+    gf_event_handled(state->ctx->event_pool, fd, idx, gen);
 
     return;
 }
@@ -379,8 +379,8 @@ cli_rl_enable(struct cli_state *state)
         goto out;
     }
 
-    ret = event_register(state->ctx->event_pool, 0, cli_rl_stdin, state, 1, 0,
-                         0);
+    ret = gf_event_register(state->ctx->event_pool, 0, cli_rl_stdin, state, 1,
+                            0, 0);
     if (ret == -1)
         goto out;
 

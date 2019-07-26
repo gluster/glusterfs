@@ -110,26 +110,27 @@ struct event_ops {
 };
 
 struct event_pool *
-event_pool_new(int count, int eventthreadcount);
+gf_event_pool_new(int count, int eventthreadcount);
 int
-event_select_on(struct event_pool *event_pool, int fd, int idx, int poll_in,
-                int poll_out);
+gf_event_select_on(struct event_pool *event_pool, int fd, int idx, int poll_in,
+                   int poll_out);
 int
-event_register(struct event_pool *event_pool, int fd, event_handler_t handler,
-               void *data, int poll_in, int poll_out, char notify_poller_death);
+gf_event_register(struct event_pool *event_pool, int fd,
+                  event_handler_t handler, void *data, int poll_in,
+                  int poll_out, char notify_poller_death);
 int
-event_unregister(struct event_pool *event_pool, int fd, int idx);
+gf_event_unregister(struct event_pool *event_pool, int fd, int idx);
 int
-event_unregister_close(struct event_pool *event_pool, int fd, int idx);
+gf_event_unregister_close(struct event_pool *event_pool, int fd, int idx);
 int
-event_dispatch(struct event_pool *event_pool);
+gf_event_dispatch(struct event_pool *event_pool);
 int
-event_reconfigure_threads(struct event_pool *event_pool, int value);
+gf_event_reconfigure_threads(struct event_pool *event_pool, int value);
 int
-event_pool_destroy(struct event_pool *event_pool);
+gf_event_pool_destroy(struct event_pool *event_pool);
 int
-event_dispatch_destroy(struct event_pool *event_pool);
+gf_event_dispatch_destroy(struct event_pool *event_pool);
 int
-event_handled(struct event_pool *event_pool, int fd, int idx, int gen);
+gf_event_handled(struct event_pool *event_pool, int fd, int idx, int gen);
 
 #endif /* _GF_EVENT_H_ */

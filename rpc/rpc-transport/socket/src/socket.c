@@ -1149,7 +1149,7 @@ __socket_reset(rpc_transport_t *this)
 
     memset(&priv->incoming, 0, sizeof(priv->incoming));
 
-    event_unregister_close(this->ctx->event_pool, priv->sock, priv->idx);
+    gf_event_unregister_close(this->ctx->event_pool, priv->sock, priv->idx);
 
     priv->sock = -1;
     priv->idx = -1;
@@ -1338,8 +1338,8 @@ __socket_ioq_churn(rpc_transport_t *this)
 
     if (list_empty(&priv->ioq)) {
         /* all pending writes done, not interested in POLLOUT */
-        priv->idx = event_select_on(this->ctx->event_pool, priv->sock,
-                                    priv->idx, -1, 0);
+        priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
+                                       priv->idx, -1, 0);
     }
 
 out:
@@ -2596,7 +2596,7 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
     }
 
     if (notify_handled && (ret != -1))
-        event_handled(ctx->event_pool, priv->sock, priv->idx, priv->gen);
+        gf_event_handled(ctx->event_pool, priv->sock, priv->idx, priv->gen);
 
     if (pollin) {
         rpc_transport_ref(this);
@@ -2710,10 +2710,10 @@ ssl_rearm_event_fd(rpc_transport_t *this)
     fd = priv->sock;
 
     if (priv->ssl_error_required == SSL_ERROR_WANT_READ)
-        event_select_on(ctx->event_pool, fd, idx, 1, -1);
+        gf_event_select_on(ctx->event_pool, fd, idx, 1, -1);
     if (priv->ssl_error_required == SSL_ERROR_WANT_WRITE)
-        event_select_on(ctx->event_pool, fd, idx, -1, 1);
-    event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_select_on(ctx->event_pool, fd, idx, -1, 1);
+    gf_event_handled(ctx->event_pool, fd, idx, gen);
 }
 
 static int
@@ -2747,8 +2747,8 @@ ssl_handle_server_connection_attempt(rpc_transport_t *this)
     ret = ssl_complete_connection(this);
     if (ret == 0) {
         /* nothing to do */
-        event_select_on(ctx->event_pool, fd, idx, 1, 0);
-        event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_select_on(ctx->event_pool, fd, idx, 1, 0);
+        gf_event_handled(ctx->event_pool, fd, idx, gen);
         ret = 1;
     } else {
         if (errno == EAGAIN) {
@@ -2802,7 +2802,7 @@ ssl_handle_client_connection_attempt(rpc_transport_t *this)
         ret = ssl_complete_connection(this);
         if (ret == 0) {
             ret = socket_connect_finish(this);
-            event_select_on(ctx->event_pool, fd, idx, 1, 0);
+            gf_event_select_on(ctx->event_pool, fd, idx, 1, 0);
             gf_log(this->name, GF_LOG_TRACE, ">>> completed client connect");
         } else {
             if (errno == EAGAIN) {
@@ -2871,7 +2871,7 @@ socket_handle_client_connection_attempt(rpc_transport_t *this)
              * return 1
              */
             ret = 1;
-            event_handled(ctx->event_pool, fd, idx, gen);
+            gf_event_handled(ctx->event_pool, fd, idx, gen);
         }
     }
     return ret;
@@ -2907,7 +2907,7 @@ socket_complete_connection(rpc_transport_t *this)
              * socket_server_event_handler()
              */
             priv->accepted = _gf_true;
-            event_handled(ctx->event_pool, fd, idx, gen);
+            gf_event_handled(ctx->event_pool, fd, idx, gen);
             ret = 1;
         } else {
             ret = socket_handle_client_connection_attempt(this);
@@ -3021,7 +3021,7 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
             rpc_transport_unref(this);
 
     } else if (!notify_handled) {
-        event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_handled(ctx->event_pool, fd, idx, gen);
     }
 
 out:
@@ -3082,7 +3082,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
         new_sock = sys_accept(priv->sock, SA(&new_sockaddr), &addrlen, aflags);
 
-        event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_handled(ctx->event_pool, fd, idx, gen);
 
         if (new_sock == -1) {
             gf_log(this->name, GF_LOG_WARNING, "accept on %d failed (%s)",
@@ -3248,7 +3248,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
             ret = rpc_transport_notify(this, RPC_TRANSPORT_ACCEPT, new_trans);
 
             if (ret != -1) {
-                new_priv->idx = event_register(
+                new_priv->idx = gf_event_register(
                     ctx->event_pool, new_sock, socket_event_handler, new_trans,
                     1, 0, new_trans->notify_poller_death);
                 if (new_priv->idx == -1) {
@@ -3625,9 +3625,9 @@ socket_connect(rpc_transport_t *this, int port)
         refd = _gf_true;
 
         this->listener = this;
-        priv->idx = event_register(ctx->event_pool, priv->sock,
-                                   socket_event_handler, this, 1, 1,
-                                   this->notify_poller_death);
+        priv->idx = gf_event_register(ctx->event_pool, priv->sock,
+                                      socket_event_handler, this, 1, 1,
+                                      this->notify_poller_death);
         if (priv->idx == -1) {
             gf_log("", GF_LOG_WARNING,
                    "failed to register the event; "
@@ -3801,9 +3801,9 @@ socket_listen(rpc_transport_t *this)
 
         rpc_transport_ref(this);
 
-        priv->idx = event_register(ctx->event_pool, priv->sock,
-                                   socket_server_event_handler, this, 1, 0,
-                                   this->notify_poller_death);
+        priv->idx = gf_event_register(ctx->event_pool, priv->sock,
+                                      socket_server_event_handler, this, 1, 0,
+                                      this->notify_poller_death);
 
         if (priv->idx == -1) {
             gf_log(this->name, GF_LOG_WARNING,
@@ -3872,8 +3872,8 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
         }
         if (need_poll_out) {
             /* first entry to wait. continue writing on POLLOUT */
-            priv->idx = event_select_on(ctx->event_pool, priv->sock, priv->idx,
-                                        -1, 1);
+            priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
+                                           priv->idx, -1, 1);
         }
     }
 unlock:
@@ -3990,8 +3990,8 @@ socket_throttle(rpc_transport_t *this, gf_boolean_t onoff)
          * registered fd mapping. */
 
         if (priv->connected == 1)
-            priv->idx = event_select_on(this->ctx->event_pool, priv->sock,
-                                        priv->idx, (int)!onoff, -1);
+            priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
+                                           priv->idx, (int)!onoff, -1);
     }
     pthread_mutex_unlock(&priv->out_lock);
     return 0;
