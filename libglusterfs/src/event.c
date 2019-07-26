@@ -22,7 +22,7 @@
 #include "glusterfs/syscall.h"
 
 struct event_pool *
-event_pool_new(int count, int eventthreadcount)
+gf_event_pool_new(int count, int eventthreadcount)
 {
     struct event_pool *event_pool = NULL;
     extern struct event_ops event_ops_poll;
@@ -51,8 +51,9 @@ event_pool_new(int count, int eventthreadcount)
 }
 
 int
-event_register(struct event_pool *event_pool, int fd, event_handler_t handler,
-               void *data, int poll_in, int poll_out, char notify_poller_death)
+gf_event_register(struct event_pool *event_pool, int fd,
+                  event_handler_t handler, void *data, int poll_in,
+                  int poll_out, char notify_poller_death)
 {
     int ret = -1;
 
@@ -65,7 +66,7 @@ out:
 }
 
 int
-event_unregister(struct event_pool *event_pool, int fd, int idx)
+gf_event_unregister(struct event_pool *event_pool, int fd, int idx)
 {
     int ret = -1;
 
@@ -78,7 +79,7 @@ out:
 }
 
 int
-event_unregister_close(struct event_pool *event_pool, int fd, int idx)
+gf_event_unregister_close(struct event_pool *event_pool, int fd, int idx)
 {
     int ret = -1;
 
@@ -91,8 +92,8 @@ out:
 }
 
 int
-event_select_on(struct event_pool *event_pool, int fd, int idx_hint,
-                int poll_in, int poll_out)
+gf_event_select_on(struct event_pool *event_pool, int fd, int idx_hint,
+                   int poll_in, int poll_out)
 {
     int ret = -1;
 
@@ -105,7 +106,7 @@ out:
 }
 
 int
-event_dispatch(struct event_pool *event_pool)
+gf_event_dispatch(struct event_pool *event_pool)
 {
     int ret = -1;
 
@@ -120,7 +121,7 @@ out:
 }
 
 int
-event_reconfigure_threads(struct event_pool *event_pool, int value)
+gf_event_reconfigure_threads(struct event_pool *event_pool, int value)
 {
     int ret = -1;
 
@@ -134,7 +135,7 @@ out:
 }
 
 int
-event_pool_destroy(struct event_pool *event_pool)
+gf_event_pool_destroy(struct event_pool *event_pool)
 {
     int ret = -1;
     int destroy = 0, activethreadcount = 0;
@@ -175,13 +176,13 @@ poller_destroy_handler(int fd, int idx, int gen, void *data, int poll_out,
     }
 
 out:
-    event_handled(destroy->pool, fd, idx, gen);
+    gf_event_handled(destroy->pool, fd, idx, gen);
 
     return;
 }
 
 /* This function destroys all the poller threads.
- * Note: to be called before event_pool_destroy is called.
+ * Note: to be called before gf_event_pool_destroy is called.
  * The order in which cleaning is performed:
  * - Register a pipe fd(this is for waking threads in poll()/epoll_wait())
  * - Set the destroy mode, which this no new event registration will succeed
@@ -192,7 +193,7 @@ out:
  *   threads are destroyed)
  */
 int
-event_dispatch_destroy(struct event_pool *event_pool)
+gf_event_dispatch_destroy(struct event_pool *event_pool)
 {
     int ret = -1, threadcount = 0;
     int fd[2] = {-1};
@@ -230,8 +231,8 @@ event_dispatch_destroy(struct event_pool *event_pool)
 
     /* From the main thread register an event on the pipe fd[0],
      */
-    idx = event_register(event_pool, fd[0], poller_destroy_handler, &data, 1, 0,
-                         0);
+    idx = gf_event_register(event_pool, fd[0], poller_destroy_handler, &data, 1,
+                            0, 0);
     if (idx < 0)
         goto out;
 
@@ -245,7 +246,7 @@ event_dispatch_destroy(struct event_pool *event_pool)
     }
     pthread_mutex_unlock(&event_pool->mutex);
 
-    ret = event_reconfigure_threads(event_pool, 0);
+    ret = gf_event_reconfigure_threads(event_pool, 0);
     if (ret < 0)
         goto out;
 
@@ -280,7 +281,7 @@ event_dispatch_destroy(struct event_pool *event_pool)
     }
     pthread_mutex_unlock(&event_pool->mutex);
 
-    ret = event_unregister(event_pool, fd[0], idx);
+    ret = gf_event_unregister(event_pool, fd[0], idx);
 
 out:
     if (fd[0] != -1)
@@ -292,7 +293,7 @@ out:
 }
 
 int
-event_handled(struct event_pool *event_pool, int fd, int idx, int gen)
+gf_event_handled(struct event_pool *event_pool, int fd, int idx, int gen)
 {
     int ret = 0;
 

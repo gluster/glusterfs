@@ -28,7 +28,7 @@ changelog_rpc_poller(void *arg)
 {
     xlator_t *this = arg;
 
-    (void)event_dispatch(this->ctx->event_pool);
+    (void)gf_event_dispatch(this->ctx->event_pool);
     return NULL;
 }
 

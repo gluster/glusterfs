@@ -102,8 +102,8 @@ gf_changelog_ctx_defaults_init(glusterfs_ctx_t *ctx)
     if (!ctx->iobuf_pool)
         goto free_pool;
 
-    ctx->event_pool = event_pool_new(GF_CHANGELOG_EVENT_POOL_SIZE,
-                                     GF_CHANGELOG_EVENT_THREAD_COUNT);
+    ctx->event_pool = gf_event_pool_new(GF_CHANGELOG_EVENT_POOL_SIZE,
+                                        GF_CHANGELOG_EVENT_THREAD_COUNT);
     if (!ctx->event_pool)
         goto free_pool;
 

@@ -92,8 +92,8 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ctx->event_pool = event_pool_new(DEFAULT_EVENT_POOL_SIZE,
-                                     STARTING_EVENT_THREADS);
+    ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
+                                        STARTING_EVENT_THREADS);
     if (!ctx->event_pool) {
         goto err;
     }
@@ -725,7 +725,7 @@ glfs_poller(void *data)
 
     fs = data;
 
-    event_dispatch(fs->ctx->event_pool);
+    gf_event_dispatch(fs->ctx->event_pool);
 
     return NULL;
 }
@@ -1189,7 +1189,7 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     /* Free the event pool */
-    ret = event_pool_destroy(ctx->event_pool);
+    ret = gf_event_pool_destroy(ctx->event_pool);
 
     /* Free the iobuf pool */
     iobuf_pool_destroy(ctx->iobuf_pool);
@@ -1359,7 +1359,7 @@ pub_glfs_fini(struct glfs *fs)
         syncenv_destroy(ctx->env);
 
         /* Join the poller thread */
-        if (event_dispatch_destroy(ctx->event_pool) < 0)
+        if (gf_event_dispatch_destroy(ctx->event_pool) < 0)
             ret = -1;
     }
 
