@@ -2600,8 +2600,8 @@ client_check_event_threads(xlator_t *this, clnt_conf_t *conf, int32_t old,
         return 0;
 
     conf->event_threads = new;
-    return event_reconfigure_threads(this->ctx->event_pool,
-                                     conf->event_threads);
+    return gf_event_reconfigure_threads(this->ctx->event_pool,
+                                        conf->event_threads);
 }
 
 int

@@ -697,7 +697,7 @@ server_check_event_threads(xlator_t *this, server_conf_t *conf, int32_t new)
         return 0;
     }
 
-    return event_reconfigure_threads(pool, target);
+    return gf_event_reconfigure_threads(pool, target);
 }
 
 int
@@ -1002,7 +1002,7 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
 
     if (this->ctx->event_pool) {
         /* Free the event pool */
-        (void)event_pool_destroy(this->ctx->event_pool);
+        (void)gf_event_pool_destroy(this->ctx->event_pool);
     }
 
     if (dict_get(this->options, "config-directory")) {

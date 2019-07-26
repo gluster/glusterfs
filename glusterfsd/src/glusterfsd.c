@@ -1732,8 +1732,8 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->event_pool = event_pool_new(DEFAULT_EVENT_POOL_SIZE,
-                                     STARTING_EVENT_THREADS);
+    ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
+                                        STARTING_EVENT_THREADS);
     if (!ctx->event_pool) {
         gf_msg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14,
                "ERROR: glusterfs event pool creation failed");
@@ -2889,7 +2889,7 @@ main(int argc, char *argv[])
     if (ret)
         goto out;
 
-    ret = event_dispatch(ctx->event_pool);
+    ret = gf_event_dispatch(ctx->event_pool);
 
 out:
     //        glusterfs_ctx_destroy (ctx);

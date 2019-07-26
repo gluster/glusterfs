@@ -2016,7 +2016,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("event-threads", workers, int32, out);
     if (workers > 0 && workers != conf->workers) {
         conf->workers = workers;
-        ret = event_reconfigure_threads(this->ctx->event_pool, workers);
+        ret = gf_event_reconfigure_threads(this->ctx->event_pool, workers);
         if (ret)
             goto out;
     }
