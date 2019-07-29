@@ -513,7 +513,8 @@ afr_selfheal_restore_time(call_frame_t *frame, xlator_t *this, inode_t *inode,
 
     AFR_ONLIST(healed_sinks, frame, afr_sh_generic_fop_cbk, setattr, &loc,
                &replies[source].poststat,
-               (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME), NULL);
+               (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME | GF_SET_ATTR_CTIME),
+               NULL);
 
     loc_wipe(&loc);
 

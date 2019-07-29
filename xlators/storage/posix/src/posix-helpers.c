@@ -1182,11 +1182,15 @@ posix_dump_buffer(xlator_t *this, const char *real_path, const char *key,
 #endif
 
 int
-posix_handle_pair(xlator_t *this, const char *real_path, char *key,
+posix_handle_pair(xlator_t *this, loc_t *loc, const char *real_path, char *key,
                   data_t *value, int flags, struct iatt *stbuf)
 {
     int sys_ret = -1;
     int ret = 0;
+    int op_errno = 0;
+    struct mdata_iatt mdata_iatt = {
+        0,
+    };
 #ifdef GF_DARWIN_HOST_OS
     const int error_code = EINVAL;
 #else
@@ -1210,6 +1214,23 @@ posix_handle_pair(xlator_t *this, const char *real_path, char *key,
     } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY))) {
         /* ignore this key value pair */
         ret = 0;
+        goto out;
+    } else if (!strncmp(key, GF_XATTR_MDATA_KEY, strlen(key))) {
+        /* This is either by rebalance or self heal. Create the xattr if it's
+         * not present. Compare and update the larger value if the xattr is
+         * already present.
+         */
+        if (loc == NULL) {
+            ret = -EINVAL;
+            goto out;
+        }
+        posix_mdata_iatt_from_disk(&mdata_iatt,
+                                   (posix_mdata_disk_t *)value->data);
+        ret = posix_set_mdata_xattr_legacy_files(this, loc->inode, real_path,
+                                                 &mdata_iatt, &op_errno);
+        if (ret != 0) {
+            ret = -op_errno;
+        }
         goto out;
     } else {
         sys_ret = sys_lsetxattr(real_path, key, value->data, value->len, flags);
@@ -1822,8 +1843,8 @@ _handle_entry_create_keyvalue_pair(dict_t *d, char *k, data_t *v, void *tmp)
         return 0;
     }
 
-    ret = posix_handle_pair(filler->this, filler->real_path, k, v, XATTR_CREATE,
-                            filler->stbuf);
+    ret = posix_handle_pair(filler->this, filler->loc, filler->real_path, k, v,
+                            XATTR_CREATE, filler->stbuf);
     if (ret < 0) {
         errno = -ret;
         return -1;
@@ -1832,7 +1853,8 @@ _handle_entry_create_keyvalue_pair(dict_t *d, char *k, data_t *v, void *tmp)
 }
 
 int
-posix_entry_create_xattr_set(xlator_t *this, const char *path, dict_t *dict)
+posix_entry_create_xattr_set(xlator_t *this, loc_t *loc, const char *path,
+                             dict_t *dict)
 {
     int ret = -1;
 
@@ -1846,6 +1868,7 @@ posix_entry_create_xattr_set(xlator_t *this, const char *path, dict_t *dict)
     filler.this = this;
     filler.real_path = path;
     filler.stbuf = NULL;
+    filler.loc = loc;
 
     ret = dict_foreach(dict, _handle_entry_create_keyvalue_pair, &filler);
 

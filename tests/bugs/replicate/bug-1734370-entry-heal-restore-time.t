@@ -71,6 +71,12 @@ TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 EXPECT "Y" time_stamps_match DIR
+ctime_source1=$(get_ctime $B0/${V0}0/$path)
+ctime_source2=$(get_ctime $B0/${V0}2/$path)
+ctime_sink=$(get_ctime $B0/${V0}1/$path)
+TEST [ $ctime_source1 -eq $ctime_sink ]
+TEST [ $ctime_source2 -eq $ctime_sink ]
+
 
 ###############################################################################
 # Repeat the test with ctime feature disabled.

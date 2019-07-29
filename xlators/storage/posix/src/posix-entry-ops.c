@@ -494,7 +494,7 @@ post_op:
         posix_set_gfid2path_xattr(this, real_path, loc->pargfid, loc->name);
     }
 
-    op_ret = posix_entry_create_xattr_set(this, real_path, xdata);
+    op_ret = posix_entry_create_xattr_set(this, loc, real_path, xdata);
     if (op_ret) {
         if (errno != EEXIST)
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
@@ -822,7 +822,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                "setting ACLs on %s failed ", real_path);
     }
 
-    op_ret = posix_entry_create_xattr_set(this, real_path, xdata);
+    op_ret = posix_entry_create_xattr_set(this, loc, real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                "setting xattrs on %s failed", real_path);
@@ -1523,7 +1523,7 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
     }
 
 ignore:
-    op_ret = posix_entry_create_xattr_set(this, real_path, xdata);
+    op_ret = posix_entry_create_xattr_set(this, loc, real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                "setting xattrs on %s failed ", real_path);
@@ -2161,7 +2161,7 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         posix_set_gfid2path_xattr(this, real_path, loc->pargfid, loc->name);
     }
 ignore:
-    op_ret = posix_entry_create_xattr_set(this, real_path, xdata);
+    op_ret = posix_entry_create_xattr_set(this, loc, real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                "setting xattrs on %s failed ", real_path);

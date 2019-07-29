@@ -336,7 +336,7 @@ dict_t *
 posix_xattr_fill(xlator_t *this, const char *path, loc_t *loc, fd_t *fd,
                  int fdnum, dict_t *xattr, struct iatt *buf);
 int
-posix_handle_pair(xlator_t *this, const char *real_path, char *key,
+posix_handle_pair(xlator_t *this, loc_t *loc, const char *real_path, char *key,
                   data_t *value, int flags, struct iatt *stbuf);
 int
 posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
@@ -349,7 +349,8 @@ int
 posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc,
                 dict_t *xattr_req);
 int
-posix_entry_create_xattr_set(xlator_t *this, const char *path, dict_t *dict);
+posix_entry_create_xattr_set(xlator_t *this, loc_t *loc, const char *path,
+                             dict_t *dict);
 
 int
 posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd,

@@ -387,6 +387,19 @@ function get_gfid2path {
         getfattr -h --only-values -n glusterfs.gfidtopath $path 2>/dev/null
 }
 
+function get_mdata {
+        local path=$1
+        getfattr -h -e hex -n trusted.glusterfs.mdata $path 2>/dev/null | grep "trusted.glusterfs.mdata" | cut -f2 -d'='
+}
+
+function get_mdata_count {
+    getfattr -d -m . -e hex $@ 2>/dev/null | grep mdata | wc -l
+}
+
+function get_mdata_uniq_count {
+    getfattr -d -m . -e hex $@ 2>/dev/null | grep mdata | uniq | wc -l
+}
+
 function get_xattr_key {
         local key=$1
         local path=$2
@@ -959,7 +972,7 @@ function get_ctime {
     local time=$(get-mdata-xattr -c $1)
     if [ $time == "-1" ];
     then
-        echo $(stat -c %Z $2)
+        echo $(stat -c %Z $1)
     else
         echo $time
     fi
