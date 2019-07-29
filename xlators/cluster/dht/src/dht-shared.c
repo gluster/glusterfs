@@ -72,9 +72,9 @@ dht_layout_dump(dht_layout_t *layout, const char *prefix)
         gf_proc_dump_build_key(key, prefix, "list[%d].err", i);
         gf_proc_dump_write(key, "%d", layout->list[i].err);
         gf_proc_dump_build_key(key, prefix, "list[%d].start", i);
-        gf_proc_dump_write(key, "%u", layout->list[i].start);
+        gf_proc_dump_write(key, "0x%x", layout->list[i].start);
         gf_proc_dump_build_key(key, prefix, "list[%d].stop", i);
-        gf_proc_dump_write(key, "%u", layout->list[i].stop);
+        gf_proc_dump_write(key, "0x%x", layout->list[i].stop);
         if (layout->list[i].xlator) {
             gf_proc_dump_build_key(key, prefix, "list[%d].xlator.type", i);
             gf_proc_dump_write(key, "%s", layout->list[i].xlator->type);
