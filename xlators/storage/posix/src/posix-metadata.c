@@ -344,33 +344,73 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
                                    struct mdata_iatt *mdata_iatt, int *op_errno)
 {
     posix_mdata_t *mdata = NULL;
+    posix_mdata_t imdata = {
+        0,
+    };
     int ret = 0;
+    gf_boolean_t mdata_already_set = _gf_false;
 
     GF_VALIDATE_OR_GOTO("posix", this, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
 
     LOCK(&inode->lock);
     {
-        mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
-        if (!mdata) {
-            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_NOMEM,
-                   "Could not allocate mdata. gfid: %s",
-                   uuid_utoa(inode->gfid));
-            ret = -1;
-            *op_errno = ENOMEM;
-            goto unlock;
+        ret = __inode_ctx_get1(inode, this, (uint64_t *)&mdata);
+        if (ret == 0 && mdata) {
+            mdata_already_set = _gf_true;
+        } else if (ret == -1 || !mdata) {
+            mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
+            if (!mdata) {
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_NOMEM,
+                       "Could not allocate mdata. gfid: %s",
+                       uuid_utoa(inode->gfid));
+                ret = -1;
+                *op_errno = ENOMEM;
+                goto unlock;
+            }
+
+            ret = posix_fetch_mdata_xattr(this, NULL, -1, inode, (void *)mdata,
+                                          op_errno);
+            if (ret == 0) {
+                /* Got mdata from disk. This is a race, another client
+                 * has healed the xattr during lookup. So set it in inode
+                 * ctx */
+                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+                mdata_already_set = _gf_true;
+            } else {
+                *op_errno = 0;
+                mdata->version = 1;
+                mdata->flags = 0;
+                mdata->ctime.tv_sec = mdata_iatt->ia_ctime;
+                mdata->ctime.tv_nsec = mdata_iatt->ia_ctime_nsec;
+                mdata->atime.tv_sec = mdata_iatt->ia_atime;
+                mdata->atime.tv_nsec = mdata_iatt->ia_atime_nsec;
+                mdata->mtime.tv_sec = mdata_iatt->ia_mtime;
+                mdata->mtime.tv_nsec = mdata_iatt->ia_mtime_nsec;
+
+                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+            }
         }
 
-        mdata->version = 1;
-        mdata->flags = 0;
-        mdata->ctime.tv_sec = mdata_iatt->ia_ctime;
-        mdata->ctime.tv_nsec = mdata_iatt->ia_ctime_nsec;
-        mdata->atime.tv_sec = mdata_iatt->ia_atime;
-        mdata->atime.tv_nsec = mdata_iatt->ia_atime_nsec;
-        mdata->mtime.tv_sec = mdata_iatt->ia_mtime;
-        mdata->mtime.tv_nsec = mdata_iatt->ia_mtime_nsec;
+        if (mdata_already_set) {
+            /* Compare and update the larger time */
+            imdata.ctime.tv_sec = mdata_iatt->ia_ctime;
+            imdata.ctime.tv_nsec = mdata_iatt->ia_ctime_nsec;
+            imdata.atime.tv_sec = mdata_iatt->ia_atime;
+            imdata.atime.tv_nsec = mdata_iatt->ia_atime_nsec;
+            imdata.mtime.tv_sec = mdata_iatt->ia_mtime;
+            imdata.mtime.tv_nsec = mdata_iatt->ia_mtime_nsec;
 
-        __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+            if (posix_compare_timespec(&imdata.ctime, &mdata->ctime) > 0) {
+                mdata->ctime = imdata.ctime;
+            }
+            if (posix_compare_timespec(&imdata.mtime, &mdata->mtime) > 0) {
+                mdata->mtime = imdata.mtime;
+            }
+            if (posix_compare_timespec(&imdata.atime, &mdata->atime) > 0) {
+                mdata->atime = imdata.atime;
+            }
+        }
 
         ret = posix_store_mdata_xattr(this, NULL, -1, inode, mdata);
         if (ret) {
