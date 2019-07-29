@@ -43,6 +43,10 @@ posix_update_utime_in_mdata(xlator_t *this, const char *real_path, int fd,
                             inode_t *inode, struct timespec *ctime,
                             struct iatt *stbuf, int valid);
 void
+posix_update_ctime_in_mdata(xlator_t *this, const char *real_path, int fd,
+                            inode_t *inode, struct timespec *ctime,
+                            struct iatt *stbuf, int valid);
+void
 posix_set_ctime(call_frame_t *frame, xlator_t *this, const char *real_path,
                 int fd, inode_t *inode, struct iatt *stbuf);
 void
@@ -56,7 +60,10 @@ posix_set_ctime_cfr(call_frame_t *frame, xlator_t *this,
                     int fd_out, inode_t *inode_out, struct iatt *stbuf_out);
 int
 posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
+                                   const char *realpath,
                                    struct mdata_iatt *mdata_iatt,
                                    int *op_errno);
+void
+posix_mdata_iatt_from_disk(struct mdata_iatt *out, posix_mdata_disk_t *in);
 
 #endif /* _POSIX_METADATA_H */

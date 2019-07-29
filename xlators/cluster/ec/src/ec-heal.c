@@ -2309,9 +2309,10 @@ ec_restore_time_and_adjust_versions(call_frame_t *frame, ec_t *ec, fd_t *fd,
 
         loc.inode = inode_ref(fd->inode);
         gf_uuid_copy(loc.gfid, fd->inode->gfid);
-        ret = cluster_setattr(ec->xl_list, healed_sinks, ec->nodes, replies,
-                              output, frame, ec->xl, &loc, &source_buf,
-                              GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME, NULL);
+        ret = cluster_setattr(
+            ec->xl_list, healed_sinks, ec->nodes, replies, output, frame,
+            ec->xl, &loc, &source_buf,
+            GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME | GF_SET_ATTR_CTIME, NULL);
         EC_INTERSECT(healed_sinks, healed_sinks, output, ec->nodes);
         if (EC_COUNT(healed_sinks, ec->nodes) == 0) {
             ret = -ENOTCONN;
