@@ -56,6 +56,19 @@ posix_mdata_from_disk(posix_mdata_t *out, posix_mdata_disk_t *in)
     out->atime.tv_nsec = be64toh(in->atime.tv_nsec);
 }
 
+void
+posix_mdata_iatt_from_disk(struct mdata_iatt *out, posix_mdata_disk_t *in)
+{
+    out->ia_ctime = be64toh(in->ctime.tv_sec);
+    out->ia_ctime_nsec = be64toh(in->ctime.tv_nsec);
+
+    out->ia_mtime = be64toh(in->mtime.tv_sec);
+    out->ia_mtime_nsec = be64toh(in->mtime.tv_nsec);
+
+    out->ia_atime = be64toh(in->atime.tv_sec);
+    out->ia_atime_nsec = be64toh(in->atime.tv_nsec);
+}
+
 /* posix_fetch_mdata_xattr fetches the posix_mdata_t from disk */
 static int
 posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
@@ -341,6 +354,7 @@ posix_compare_timespec(struct timespec *first, struct timespec *second)
 
 int
 posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
+                                   const char *realpath,
                                    struct mdata_iatt *mdata_iatt, int *op_errno)
 {
     posix_mdata_t *mdata = NULL;
@@ -369,8 +383,8 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
                 goto unlock;
             }
 
-            ret = posix_fetch_mdata_xattr(this, NULL, -1, inode, (void *)mdata,
-                                          op_errno);
+            ret = posix_fetch_mdata_xattr(this, realpath, -1, inode,
+                                          (void *)mdata, op_errno);
             if (ret == 0) {
                 /* Got mdata from disk. This is a race, another client
                  * has healed the xattr during lookup. So set it in inode
@@ -412,7 +426,7 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
             }
         }
 
-        ret = posix_store_mdata_xattr(this, NULL, -1, inode, mdata);
+        ret = posix_store_mdata_xattr(this, realpath, -1, inode, mdata);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STOREMDATA_FAILED,
                    "gfid: %s key:%s ", uuid_utoa(inode->gfid),
@@ -445,7 +459,8 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
     GF_VALIDATE_OR_GOTO(this->name, time, out);
 
-    if (update_utime && (!u_atime || !u_mtime)) {
+    if (update_utime && (flag->ctime && !time) && (flag->atime && !u_atime) &&
+        (flag->mtime && !u_mtime)) {
         goto out;
     }
 
@@ -647,6 +662,48 @@ posix_update_utime_in_mdata(xlator_t *this, const char *real_path, int fd,
                        " %s gfid:%s",
                        real_path, uuid_utoa(inode->gfid));
             }
+        }
+    }
+    return;
+}
+
+/* posix_update_ctime_in_mdata updates the posix_mdata_t when ctime needs
+ * to be modified
+ */
+void
+posix_update_ctime_in_mdata(xlator_t *this, const char *real_path, int fd,
+                            inode_t *inode, struct timespec *ctime,
+                            struct iatt *stbuf, int valid)
+{
+    int32_t ret = 0;
+#if defined(HAVE_UTIMENSAT)
+    struct timespec tv_ctime = {
+        0,
+    };
+#else
+    struct timeval tv_ctime = {
+        0,
+    };
+#endif
+    posix_mdata_flag_t flag = {
+        0,
+    };
+
+    struct posix_private *priv = NULL;
+    priv = this->private;
+
+    if (inode && priv->ctime) {
+        tv_ctime.tv_sec = stbuf->ia_ctime;
+        SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv_ctime, stbuf->ia_ctime_nsec);
+        flag.ctime = 1;
+
+        ret = posix_set_mdata_xattr(this, real_path, -1, inode, &tv_ctime, NULL,
+                                    NULL, NULL, &flag, _gf_true);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_SETMDATA_FAILED,
+                   "posix set mdata atime failed on file:"
+                   " %s gfid:%s",
+                   real_path, uuid_utoa(inode->gfid));
         }
     }
     return;

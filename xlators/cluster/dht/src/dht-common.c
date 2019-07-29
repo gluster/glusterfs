@@ -113,6 +113,7 @@ char *xattrs_to_heal[] = {"user.",
                           QUOTA_LIMIT_KEY,
                           QUOTA_LIMIT_OBJECTS_KEY,
                           GF_SELINUX_XATTR_KEY,
+                          GF_XATTR_MDATA_KEY,
                           NULL};
 
 char *dht_dbg_vxattrs[] = {DHT_DBG_HASHED_SUBVOL_PATTERN, NULL};

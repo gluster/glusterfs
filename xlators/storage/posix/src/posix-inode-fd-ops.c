@@ -425,22 +425,9 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                                     &frame->root->ctime, stbuf, valid);
     }
 
-    if (valid & GF_SET_ATTR_CTIME && !priv->ctime) {
-        /*
-         * If ctime is not enabled, we have no means to associate an
-         * arbitrary ctime with the file, so as a fallback, we ignore
-         * the ctime payload and update the file ctime to current time
-         * (which is possible directly with the POSIX API).
-         */
-        op_ret = PATH_SET_TIMESPEC_OR_TIMEVAL(real_path, NULL);
-        if (op_ret == -1) {
-            op_errno = errno;
-            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_UTIMES_FAILED,
-                   "setattr (utimes) on gfid-handle %s (path: %s) "
-                   "failed",
-                   real_path, loc->path);
-            goto out;
-        }
+    if ((valid & GF_SET_ATTR_CTIME) && priv->ctime) {
+        posix_update_ctime_in_mdata(this, real_path, -1, loc->inode,
+                                    &frame->root->ctime, stbuf, valid);
     }
 
     if (!valid) {
@@ -466,14 +453,6 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         goto out;
     }
 
-    if (valid & GF_SET_ATTR_CTIME && priv->ctime) {
-        /*
-         * If we got ctime payload, we override
-         * the ctime of statpost with that.
-         */
-        statpost.ia_ctime = stbuf->ia_ctime;
-        statpost.ia_ctime_nsec = stbuf->ia_ctime_nsec;
-    }
     posix_set_ctime(frame, this, real_path, -1, loc->inode, &statpost);
 
     if (xdata)
@@ -589,6 +568,7 @@ posix_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     struct iatt statpost = {
         0,
     };
+    struct posix_private *priv = NULL;
     struct posix_fd *pfd = NULL;
     dict_t *xattr_rsp = NULL;
     int32_t ret = -1;
@@ -600,6 +580,9 @@ posix_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
+
+    priv = this->private;
+    VALIDATE_OR_GOTO(priv, out);
 
     ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
     if (ret < 0) {
@@ -650,6 +633,11 @@ posix_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
             goto out;
         }
         posix_update_utime_in_mdata(this, NULL, pfd->fd, fd->inode,
+                                    &frame->root->ctime, stbuf, valid);
+    }
+
+    if ((valid & GF_SET_ATTR_CTIME) && priv->ctime) {
+        posix_update_ctime_in_mdata(this, NULL, pfd->fd, fd->inode,
                                     &frame->root->ctime, stbuf, valid);
     }
 
@@ -2584,7 +2572,7 @@ _handle_setxattr_keyvalue_pair(dict_t *d, char *k, data_t *v, void *tmp)
 
     filler = tmp;
 
-    return posix_handle_pair(filler->this, filler->real_path, k, v,
+    return posix_handle_pair(filler->this, filler->loc, filler->real_path, k, v,
                              filler->flags, filler->stbuf);
 }
 
@@ -2647,24 +2635,24 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     priv = this->private;
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
+    MAKE_INODE_HANDLE(real_path, this, loc, NULL);
+    if (!real_path) {
+        op_ret = -1;
+        op_errno = ESTALE;
+        goto out;
+    }
+
     ret = dict_get_mdata(dict, CTIME_MDATA_XDATA_KEY, &mdata_iatt);
     if (ret == 0) {
         /* This is initiated by lookup when ctime feature is enabled to create
          * "trusted.glusterfs.mdata" xattr if not present. These are the files
          * which were created when ctime feature is disabled.
          */
-        ret = posix_set_mdata_xattr_legacy_files(this, loc->inode, &mdata_iatt,
-                                                 &op_errno);
+        ret = posix_set_mdata_xattr_legacy_files(this, loc->inode, real_path,
+                                                 &mdata_iatt, &op_errno);
         if (ret != 0) {
             op_ret = -1;
         }
-        goto out;
-    }
-
-    MAKE_INODE_HANDLE(real_path, this, loc, NULL);
-    if (!real_path) {
-        op_ret = -1;
-        op_errno = ESTALE;
         goto out;
     }
 
@@ -2802,6 +2790,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     filler.real_path = real_path;
     filler.this = this;
     filler.stbuf = &preop;
+    filler.loc = loc;
 
 #ifdef GF_DARWIN_HOST_OS
     filler.flags = map_xattr_flags(flags);
