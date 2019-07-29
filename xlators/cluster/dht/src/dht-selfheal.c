@@ -19,7 +19,7 @@
         layout->list[i].commit_hash = layout->commit_hash;                     \
                                                                                \
         gf_msg_trace(this->name, 0,                                            \
-                     "gave fix: %u - %u, with commit-hash %u"                  \
+                     "gave fix: 0x%x - 0x%x, with commit-hash 0x%x"            \
                      " on %s for %s",                                          \
                      layout->list[i].start, layout->list[i].stop,              \
                      layout->list[i].commit_hash,                              \
@@ -778,7 +778,7 @@ dht_selfheal_dir_xattr_persubvol(call_frame_t *frame, loc_t *loc,
     disk_layout = NULL;
 
     gf_msg_trace(this->name, 0,
-                 "setting hash range %u - %u (type %d) on subvolume %s"
+                 "setting hash range 0x%x - 0x%x (type %d) on subvolume %s"
                  " for %s",
                  layout->list[i].start, layout->list[i].stop, layout->type,
                  subvol->name, loc->path);

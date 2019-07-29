@@ -10940,8 +10940,7 @@ dht_log_new_layout_for_dir_selfheal(xlator_t *this, loc_t *loc,
     for (i = 0; i < layout->cnt; i++) {
         ret = snprintf(string, sizeof(string),
                        "[Subvol_name: %s, Err: %d , Start: "
-                       "%" PRIu32 " , Stop: %" PRIu32 " , Hash: %" PRIu32
-                       " ], ",
+                       "0x%x, Stop: 0x%x, Hash: 0x%x], ",
                        layout->list[i].xlator->name, layout->list[i].err,
                        layout->list[i].start, layout->list[i].stop,
                        layout->list[i].commit_hash);
@@ -10970,8 +10969,7 @@ dht_log_new_layout_for_dir_selfheal(xlator_t *this, loc_t *loc,
     for (i = 0; i < layout->cnt; i++) {
         ret = snprintf(output_string + off, len - off,
                        "[Subvol_name: %s, Err: %d , Start: "
-                       "%" PRIu32 " , Stop: %" PRIu32 " , Hash: %" PRIu32
-                       " ], ",
+                       "0x%x, Stop: 0x%x, Hash: 0x%x], ",
                        layout->list[i].xlator->name, layout->list[i].err,
                        layout->list[i].start, layout->list[i].stop,
                        layout->list[i].commit_hash);

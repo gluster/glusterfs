@@ -146,7 +146,7 @@ dht_layout_search(xlator_t *this, dht_layout_t *layout, const char *name)
 
     if (!subvol) {
         gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_HASHED_SUBVOL_GET_FAILED,
-               "no subvolume for hash (value) = %u", hash);
+               "no subvolume for hash (value) = 0x%x", hash);
     }
 
 out:
@@ -299,9 +299,10 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
     layout->list[pos].start = start_off;
     layout->list[pos].stop = stop_off;
 
-    gf_msg_trace(
-        this->name, 0, "merged to layout: %u - %u (type %d, hash %d) from %s",
-        start_off, stop_off, commit_hash, type, layout->list[pos].xlator->name);
+    gf_msg_trace(this->name, 0,
+                 "merged to layout: 0x%x - 0x%x (hash 0x%x, type %d) from %s",
+                 start_off, stop_off, commit_hash, type,
+                 layout->list[pos].xlator->name);
 
     return 0;
 }
@@ -751,9 +752,8 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         (layout->list[pos].stop != stop_off) ||
         (layout->list[pos].commit_hash != commit_hash)) {
         gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_LAYOUT_INFO,
-               "subvol: %s; inode layout - %" PRIu32 " - %" PRIu32 " - %" PRIu32
-               "; "
-               "disk layout - %" PRIu32 " - %" PRIu32 " - %" PRIu32,
+               "subvol: %s; inode layout: 0x%x - 0x%x, 0x%x; "
+               "disk layout: 0x%x - 0x%x, 0x%x",
                layout->list[pos].xlator->name, layout->list[pos].start,
                layout->list[pos].stop, layout->list[pos].commit_hash, start_off,
                stop_off, commit_hash);
