@@ -1985,10 +1985,13 @@ ec_get_lock_good_mask(inode_t *inode, xlator_t *xl)
     LOCK(&inode->lock);
     {
         ictx = __ec_inode_get(inode, xl);
-        lock = ictx->inode_lock;
+        if (ictx)
+            lock = ictx->inode_lock;
     }
     UNLOCK(&inode->lock);
-    return lock->good_mask;
+    if (lock)
+        return lock->good_mask;
+    return 0;
 }
 
 void
