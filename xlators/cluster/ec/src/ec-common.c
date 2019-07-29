@@ -101,6 +101,7 @@ ec_fix_open(ec_fop_data_t *fop, uintptr_t mask)
 {
     uintptr_t need_open = 0;
     int ret = 0;
+    int32_t flags = 0;
     loc_t loc = {
         0,
     };
@@ -121,6 +122,7 @@ ec_fix_open(ec_fop_data_t *fop, uintptr_t mask)
         goto out;
     }
 
+    flags = fop->fd->flags & (~(O_TRUNC | O_APPEND | O_CREAT | O_EXCL));
     if (IA_IFDIR == fop->fd->inode->ia_type) {
         ec_opendir(fop->frame, fop->xl, need_open,
                    EC_MINIMUM_ONE | EC_FOP_NO_PROPAGATE_ERROR, NULL, NULL,
@@ -128,7 +130,7 @@ ec_fix_open(ec_fop_data_t *fop, uintptr_t mask)
     } else {
         ec_open(fop->frame, fop->xl, need_open,
                 EC_MINIMUM_ONE | EC_FOP_NO_PROPAGATE_ERROR, NULL, NULL, &loc,
-                fop->fd->flags & (~O_TRUNC), fop->fd, NULL);
+                flags, fop->fd, NULL);
     }
 
 out:
