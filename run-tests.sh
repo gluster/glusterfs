@@ -265,6 +265,7 @@ function match()
 # G_TESTDEF_TEST_STATUS_NETBSD7
 # Some examples:
 # G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=123456
+# G_TESTDEF_TEST_STATUS_CENTOS6=BRICK_MUX_BAD_TEST,BUG=123456
 # G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=4444444
 # G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=123456;555555
 # G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TESTS,BUG=1385758
@@ -356,7 +357,8 @@ function run_tests()
             selected_tests=$((selected_tests+1))
             echo
             echo $section_separator$section_separator
-            if [[ $(get_test_status $t) == "BAD_TEST" ]] && \
+            if [[ $(get_test_status $t) == "BAD_TEST" ]] || \
+               [[ $(get_test_status $t) == "BRICK_MUX_BAD_TEST" ]] && \
                [[ $skip_bad_tests == "yes" ]]
             then
                 skipped_bad_tests=$((skipped_bad_tests+1))
