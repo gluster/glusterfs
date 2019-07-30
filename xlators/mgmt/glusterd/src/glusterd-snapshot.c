@@ -217,13 +217,13 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
                 ret = glusterd_add_missed_snaps_to_dict(
                     rsp_dict, vol, brickinfo, brick_count + 1, op);
                 if (ret) {
+                    RCU_READ_UNLOCK;
                     gf_msg(this->name, GF_LOG_ERROR, 0,
                            GD_MSG_MISSED_SNAP_CREATE_FAIL,
                            "Failed to add missed snapshot "
                            "info for %s:%s in the "
                            "rsp_dict",
                            brickinfo->hostname, brickinfo->path);
-                    RCU_READ_UNLOCK;
                     goto out;
                 }
             }

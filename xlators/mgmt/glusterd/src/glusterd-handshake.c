@@ -1816,12 +1816,13 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
+        RCU_READ_UNLOCK;
         ret = -1;
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer %s(%s)", peerctx->peername,
                uuid_utoa(peerctx->peerid));
         GF_FREE(ctx);
-        goto unlock;
+        goto out;
     }
     ctx->hostname = gf_strdup(peerinfo->hostname);
     ctx->port = peerinfo->port;
@@ -1834,13 +1835,13 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
 
     ret = glusterd_friend_sm_inject_event(event);
 
+    RCU_READ_UNLOCK;
+
     if (ret)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
                "Unable to inject "
                "EVENT_CONNECTED ret = %d",
                ret);
-unlock:
-    RCU_READ_UNLOCK;
 
 out:
     gf_msg_debug("glusterd", 0, "returning %d", ret);
@@ -2162,18 +2163,21 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
+        RCU_READ_UNLOCK;
         gf_msg_debug(THIS->name, 0, "Could not find peer %s(%s)",
                      peerctx->peername, uuid_utoa(peerctx->peerid));
-        goto unlock;
+        goto out;
     }
 
     ret = glusterd_submit_request(
         peerinfo->rpc, &req, frame, &gd_clnt_mgmt_hndsk_prog,
         GD_MGMT_HNDSK_VERSIONS, NULL, this, glusterd_mgmt_hndsk_version_cbk,
         (xdrproc_t)xdr_gf_mgmt_hndsk_req);
-    ret = 0;
-unlock:
+
     RCU_READ_UNLOCK;
+
+    ret = 0;
+
 out:
     if (req_dict)
         dict_unref(req_dict);
@@ -2420,9 +2424,10 @@ glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
+        RCU_READ_UNLOCK;
         gf_msg_debug(this->name, 0, "Couldn't find peer %s(%s)",
                      peerctx->peername, uuid_utoa(peerctx->peerid));
-        goto unlock;
+        goto out;
     }
 
     req.gfs_id = 0xcafe;
@@ -2430,7 +2435,7 @@ glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
     ret = glusterd_submit_request(
         peerinfo->rpc, &req, frame, &glusterd_dump_prog, GF_DUMP_DUMP, NULL,
         this, glusterd_peer_dump_version_cbk, (xdrproc_t)xdr_gf_dump_req);
-unlock:
+
     RCU_READ_UNLOCK;
 out:
     if (ret && frame)
