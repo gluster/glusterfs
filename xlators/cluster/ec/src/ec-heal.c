@@ -2655,13 +2655,31 @@ void
 ec_launch_heal(ec_t *ec, ec_fop_data_t *fop)
 {
     int ret = 0;
+    call_frame_t *frame = NULL;
+
+    frame = create_frame(ec->xl, ec->xl->ctx->pool);
+    if (!frame) {
+        goto out;
+        ret = -1;
+    }
+
+    ec_owner_set(frame, frame->root);
+    /*Do heal as root*/
+    frame->root->uid = 0;
+    frame->root->gid = 0;
+    /*Mark the fops as internal*/
+    frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
 
     ret = synctask_new(ec->xl->ctx->env, ec_synctask_heal_wrap, ec_heal_done,
-                       NULL, fop);
+                       frame, fop);
+out:
     if (ret < 0) {
         ec_fop_set_error(fop, ENOMEM);
         ec_heal_fail(ec, fop);
     }
+
+    if (frame)
+        STACK_DESTROY(frame->root);
 }
 
 void
