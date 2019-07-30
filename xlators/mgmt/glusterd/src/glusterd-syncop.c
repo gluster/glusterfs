@@ -571,14 +571,15 @@ _gd_syncop_mgmt_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
         /* Set peer as locked, so we unlock only the locked peers */
         if (rsp.op_ret == 0)
             peerinfo->locked = _gf_true;
+        RCU_READ_UNLOCK;
     } else {
+        RCU_READ_UNLOCK;
         rsp.op_ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer with "
                "ID %s",
                uuid_utoa(*peerid));
     }
-    RCU_READ_UNLOCK;
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;
@@ -670,14 +671,15 @@ _gd_syncop_mgmt_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     peerinfo = glusterd_peerinfo_find(*peerid, NULL);
     if (peerinfo) {
         peerinfo->locked = _gf_false;
+        RCU_READ_UNLOCK;
     } else {
+        RCU_READ_UNLOCK;
         rsp.op_ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer with "
                "ID %s",
                uuid_utoa(*peerid));
     }
-    RCU_READ_UNLOCK;
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;

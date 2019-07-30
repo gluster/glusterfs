@@ -91,14 +91,15 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_friend_req_ctx_t *ctx = NULL;
     char rhost[UNIX_PATH_MAX + 1] = {0};
-    uuid_t friend_uuid = {0};
     dict_t *dict = NULL;
 
-    gf_uuid_parse(uuid_utoa(uuid), friend_uuid);
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
 
     ret = glusterd_remote_hostname_get(req, rhost, sizeof(rhost));
+
+    ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
+    dict = dict_new();
 
     RCU_READ_LOCK;
 
@@ -126,8 +127,6 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     event->peername = gf_strdup(peerinfo->hostname);
     gf_uuid_copy(event->peerid, peerinfo->uuid);
 
-    ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
-
     if (!ctx) {
         gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Unable to allocate memory");
@@ -140,7 +139,6 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         ctx->hostname = gf_strdup(hostname);
     ctx->req = req;
 
-    dict = dict_new();
     if (!dict) {
         ret = -1;
         goto out;
@@ -204,11 +202,14 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
 
+    ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
+
     RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(uuid, hostname);
 
     if (peerinfo == NULL) {
+        RCU_READ_UNLOCK;
         gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_REQ_FROM_UNKNOWN_PEER,
                "Received remove-friend from unknown peer %s", hostname);
         ret = glusterd_xfer_friend_remove_resp(req, hostname, port);
@@ -219,6 +220,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
                                        &event);
 
     if (ret) {
+        RCU_READ_UNLOCK;
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
                "event generation failed: %d", ret);
         goto out;
@@ -229,12 +231,11 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     gf_uuid_copy(event->peerid, uuid);
 
-    ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
-
     if (!ctx) {
+        RCU_READ_UNLOCK;
+        ret = -1;
         gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Unable to allocate memory");
-        ret = -1;
         goto out;
     }
 
@@ -248,6 +249,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     ret = glusterd_friend_sm_inject_event(event);
 
     if (ret) {
+        RCU_READ_UNLOCK;
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
                "Unable to inject event %d, "
                "ret = %d",
@@ -255,10 +257,11 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         goto out;
     }
 
-    ret = 0;
+    RCU_READ_UNLOCK;
+
+    return 0;
 
 out:
-    RCU_READ_UNLOCK;
 
     if (0 != ret) {
         if (ctx && ctx->hostname)
@@ -2138,13 +2141,13 @@ __glusterd_handle_fsm_log(rpcsvc_request_t *req)
 
         peerinfo = glusterd_peerinfo_find_by_hostname(cli_req.name);
         if (!peerinfo) {
+            RCU_READ_UNLOCK;
             ret = -1;
             snprintf(msg, sizeof(msg), "%s is not a peer", cli_req.name);
         } else {
             ret = glusterd_sm_tr_log_add_to_dict(dict, &peerinfo->sm_log);
+            RCU_READ_UNLOCK;
         }
-
-        RCU_READ_UNLOCK;
     }
 
 out:
@@ -3203,10 +3206,10 @@ glusterd_friend_remove(uuid_t uuid, char *hostname)
     }
 
     ret = glusterd_friend_remove_cleanup_vols(peerinfo->uuid);
+    RCU_READ_UNLOCK;
     if (ret)
         gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOL_CLEANUP_FAIL,
                "Volumes cleanup failed");
-    RCU_READ_UNLOCK;
     /* Giving up the critical section here as glusterd_peerinfo_cleanup must
      * be called from outside a critical section
      */
@@ -5478,8 +5481,8 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     if (priv->opts)
         dict_foreach(priv->opts, glusterd_print_global_options, fp);
 
-    RCU_READ_LOCK;
     fprintf(fp, "\n[Peers]\n");
+    RCU_READ_LOCK;
 
     cds_list_for_each_entry_rcu(peerinfo, &priv->peers, uuid_list)
     {

@@ -1683,17 +1683,21 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
 
         peerinfo = glusterd_peerinfo_find(NULL, hostname);
         if (peerinfo == NULL) {
+            RCU_READ_UNLOCK;
             ret = -1;
             snprintf(msg, sizeof(msg), "%s, is not a friend", hostname);
             *op_errstr = gf_strdup(msg);
+            goto out;
 
         } else if (!peerinfo->connected) {
+            RCU_READ_UNLOCK;
+            ret = -1;
             snprintf(msg, sizeof(msg),
                      "%s, is not connected at "
                      "the moment",
                      hostname);
             *op_errstr = gf_strdup(msg);
-            ret = -1;
+            goto out;
         }
 
         RCU_READ_UNLOCK;

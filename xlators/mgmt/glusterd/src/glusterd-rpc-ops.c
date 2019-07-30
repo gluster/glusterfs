@@ -275,11 +275,12 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(rsp.uuid, rsp.hostname);
     if (peerinfo == NULL) {
+        RCU_READ_UNLOCK
         ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
                "Could not find peerd %s(%s)", rsp.hostname,
                uuid_utoa(rsp.uuid));
-        goto unlock;
+        goto out;
     }
 
     /*
@@ -393,9 +394,10 @@ cont:
     ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_INIT_FRIEND_REQ, &event);
 
     if (ret) {
+        RCU_READ_UNLOCK;
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_NEW_FRIEND_SM_EVENT_GET_FAIL,
                "Unable to get event");
-        goto unlock;
+        goto out;
     }
 
     event->peername = gf_strdup(peerinfo->hostname);
@@ -477,12 +479,13 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     peerinfo = glusterd_peerinfo_find(rsp.uuid, rsp.hostname);
     if (peerinfo == NULL) {
+        RCU_READ_UNLOCK
         ret = -1;
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RESP_FROM_UNKNOWN_PEER,
                "received friend add response from"
                " unknown peer uuid: %s",
                uuid_utoa(rsp.uuid));
-        goto unlock;
+        goto out;
     }
 
     if (op_ret)
@@ -1528,11 +1531,12 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, MY_UUID);
     req.hostname = gf_strdup(peerinfo->hostname);
     req.port = peerinfo->port;
 
     RCU_READ_UNLOCK;
+
+    gf_uuid_copy(req.uuid, MY_UUID);
 
     peer_data = dict_new();
     if (!peer_data) {

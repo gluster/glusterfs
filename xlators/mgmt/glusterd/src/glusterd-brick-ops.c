@@ -1662,23 +1662,23 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
         RCU_READ_LOCK;
         peerinfo = glusterd_peerinfo_find_by_uuid(brickinfo->uuid);
         if (!peerinfo) {
+            RCU_READ_UNLOCK;
             snprintf(msg, sizeof(msg),
                      "Host node of the "
                      "brick %s is not in cluster",
                      brick);
             *errstr = gf_strdup(msg);
             ret = -1;
-            RCU_READ_UNLOCK;
             goto out;
         }
         if (!peerinfo->connected) {
+            RCU_READ_UNLOCK;
             snprintf(msg, sizeof(msg),
                      "Host node of the "
                      "brick %s is down",
                      brick);
             *errstr = gf_strdup(msg);
             ret = -1;
-            RCU_READ_UNLOCK;
             goto out;
         }
         RCU_READ_UNLOCK;

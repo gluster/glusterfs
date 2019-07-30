@@ -87,6 +87,107 @@ glusterd_peerinfo_cleanup(glusterd_peerinfo_t *peerinfo)
     return 0;
 }
 
+/* gd_peerinfo_find_from_hostname iterates over all the addresses saved for each
+ * peer and matches it to @hoststr.
+ * Returns the matched peer if found else returns NULL
+ */
+static glusterd_peerinfo_t *
+gd_peerinfo_find_from_hostname(const char *hoststr)
+{
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+    glusterd_peerinfo_t *peer = NULL;
+    glusterd_peerinfo_t *found = NULL;
+    glusterd_peer_hostname_t *tmphost = NULL;
+
+    GF_ASSERT(this != NULL);
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, (priv != NULL), out);
+
+    GF_VALIDATE_OR_GOTO(this->name, (hoststr != NULL), out);
+
+    RCU_READ_LOCK;
+    cds_list_for_each_entry_rcu(peer, &priv->peers, uuid_list)
+    {
+        cds_list_for_each_entry_rcu(tmphost, &peer->hostnames, hostname_list)
+        {
+            if (!strncasecmp(tmphost->hostname, hoststr, 1024)) {
+                gf_msg_debug(this->name, 0, "Friend %s found.. state: %d",
+                             tmphost->hostname, peer->state.state);
+                found = peer; /* Probably needs to be
+                                 dereferenced*/
+                goto unlock;
+            }
+        }
+    }
+unlock:
+    RCU_READ_UNLOCK;
+out:
+    return found;
+}
+
+/* gd_peerinfo_find_from_addrinfo iterates over all the addresses saved for each
+ * peer, resolves them and compares them to @addr.
+ *
+ *
+ * NOTE: As getaddrinfo is a blocking call and is being performed multiple times
+ * in this function, it could lead to the calling thread to be blocked for
+ * significant amounts of time.
+ *
+ * Returns the matched peer if found else returns NULL
+ */
+static glusterd_peerinfo_t *
+gd_peerinfo_find_from_addrinfo(const struct addrinfo *addr)
+{
+    xlator_t *this = THIS;
+    glusterd_conf_t *conf = NULL;
+    glusterd_peerinfo_t *peer = NULL;
+    glusterd_peerinfo_t *found = NULL;
+    glusterd_peer_hostname_t *address = NULL;
+    int ret = 0;
+    struct addrinfo *paddr = NULL;
+    struct addrinfo *tmp = NULL;
+
+    GF_ASSERT(this != NULL);
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
+
+    RCU_READ_LOCK;
+    cds_list_for_each_entry_rcu(peer, &conf->peers, uuid_list)
+    {
+        cds_list_for_each_entry_rcu(address, &peer->hostnames, hostname_list)
+        {
+            /* TODO: Cache the resolved addrinfos to improve
+             * performance
+             */
+            ret = getaddrinfo(address->hostname, NULL, NULL, &paddr);
+            if (ret) {
+                /* Don't fail if getaddrinfo fails, continue
+                 * onto the next address
+                 */
+                gf_msg_trace(this->name, 0, "getaddrinfo for %s failed (%s)",
+                             address->hostname, gai_strerror(ret));
+                continue;
+            }
+
+            for (tmp = paddr; tmp != NULL; tmp = tmp->ai_next) {
+                if (gf_compare_sockaddr(addr->ai_addr, tmp->ai_addr)) {
+                    found = peer; /* (de)referenced? */
+                    break;
+                }
+            }
+
+            freeaddrinfo(paddr);
+            if (found)
+                goto unlock;
+        }
+    }
+unlock:
+    RCU_READ_UNLOCK;
+out:
+    return found;
+}
+
 /* glusterd_peerinfo_find_by_hostname searches for a peer which matches the
  * hostname @hoststr and if found returns the pointer to peerinfo object.
  * Returns NULL otherwise.
@@ -101,13 +202,10 @@ glusterd_peerinfo_find_by_hostname(const char *hoststr)
     int ret = -1;
     struct addrinfo *addr = NULL;
     struct addrinfo *p = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_peerinfo_t *peerinfo = NULL;
 
-    this = THIS;
     GF_ASSERT(hoststr);
-
-    peerinfo = NULL;
 
     peerinfo = gd_peerinfo_find_from_hostname(hoststr);
     if (peerinfo)
@@ -178,31 +276,33 @@ glusterd_peerinfo_find_by_uuid(uuid_t uuid)
     glusterd_conf_t *priv = NULL;
     glusterd_peerinfo_t *entry = NULL;
     glusterd_peerinfo_t *found = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
+    glusterd_friend_sm_state_t state;
 
-    this = THIS;
     GF_ASSERT(this);
+
+    if (gf_uuid_is_null(uuid))
+        return NULL;
 
     priv = this->private;
 
     GF_ASSERT(priv);
 
-    if (gf_uuid_is_null(uuid))
-        return NULL;
-
     RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(entry, &priv->peers, uuid_list)
     {
         if (!gf_uuid_compare(entry->uuid, uuid)) {
-            gf_msg_debug(this->name, 0, "Friend found... state: %s",
-                         glusterd_friend_sm_state_name_get(entry->state.state));
             found = entry; /* Probably should be rcu_dereferenced */
+            state = found->state.state;
             break;
         }
     }
     RCU_READ_UNLOCK;
 
-    if (!found)
+    if (found)
+        gf_msg_debug(this->name, 0, "Friend found... state: %s",
+                     glusterd_friend_sm_state_name_get(state));
+    else
         gf_msg_debug(this->name, 0, "Friend with uuid: %s, not found",
                      uuid_utoa(uuid));
     return found;
@@ -216,9 +316,8 @@ glusterd_peerinfo_t *
 glusterd_peerinfo_find(uuid_t uuid, const char *hostname)
 {
     glusterd_peerinfo_t *peerinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_ASSERT(this);
 
     if (uuid) {
@@ -442,9 +541,8 @@ glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
             if (!(peerinfo->connected) ||
                 (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
                 *down_peerstr = gf_strdup(peerinfo->hostname);
-                gf_msg_debug(THIS->name, 0, "Peer %s is down. ",
-                             peerinfo->hostname);
                 RCU_READ_UNLOCK;
+                gf_msg_debug(THIS->name, 0, "Peer %s is down. ", *down_peerstr);
                 goto out;
             }
         }
@@ -503,7 +601,6 @@ glusterd_peer_hostname_free(glusterd_peer_hostname_t *name)
 gf_boolean_t
 gd_peer_has_address(glusterd_peerinfo_t *peerinfo, const char *address)
 {
-    gf_boolean_t ret = _gf_false;
     glusterd_peer_hostname_t *hostname = NULL;
 
     GF_VALIDATE_OR_GOTO("glusterd", (peerinfo != NULL), out);
@@ -512,13 +609,12 @@ gd_peer_has_address(glusterd_peerinfo_t *peerinfo, const char *address)
     cds_list_for_each_entry(hostname, &peerinfo->hostnames, hostname_list)
     {
         if (strcmp(hostname->hostname, address) == 0) {
-            ret = _gf_true;
-            break;
+            return _gf_true;
         }
     }
 
 out:
-    return ret;
+    return _gf_false;
 }
 
 int
@@ -625,112 +721,6 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
 out:
     gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
     return ret;
-}
-
-/* gd_peerinfo_find_from_hostname iterates over all the addresses saved for each
- * peer and matches it to @hoststr.
- * Returns the matched peer if found else returns NULL
- */
-glusterd_peerinfo_t *
-gd_peerinfo_find_from_hostname(const char *hoststr)
-{
-    xlator_t *this = NULL;
-    glusterd_conf_t *priv = NULL;
-    glusterd_peerinfo_t *peer = NULL;
-    glusterd_peerinfo_t *found = NULL;
-    glusterd_peer_hostname_t *tmphost = NULL;
-
-    this = THIS;
-    GF_ASSERT(this != NULL);
-    priv = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (priv != NULL), out);
-
-    GF_VALIDATE_OR_GOTO(this->name, (hoststr != NULL), out);
-
-    RCU_READ_LOCK;
-    cds_list_for_each_entry_rcu(peer, &priv->peers, uuid_list)
-    {
-        cds_list_for_each_entry_rcu(tmphost, &peer->hostnames, hostname_list)
-        {
-            if (!strncasecmp(tmphost->hostname, hoststr, 1024)) {
-                gf_msg_debug(this->name, 0, "Friend %s found.. state: %d",
-                             tmphost->hostname, peer->state.state);
-                found = peer; /* Probably needs to be
-                                 dereferenced*/
-                goto unlock;
-            }
-        }
-    }
-unlock:
-    RCU_READ_UNLOCK;
-out:
-    return found;
-}
-
-/* gd_peerinfo_find_from_addrinfo iterates over all the addresses saved for each
- * peer, resolves them and compares them to @addr.
- *
- *
- * NOTE: As getaddrinfo is a blocking call and is being performed multiple times
- * in this function, it could lead to the calling thread to be blocked for
- * significant amounts of time.
- *
- * Returns the matched peer if found else returns NULL
- */
-glusterd_peerinfo_t *
-gd_peerinfo_find_from_addrinfo(const struct addrinfo *addr)
-{
-    xlator_t *this = NULL;
-    glusterd_conf_t *conf = NULL;
-    glusterd_peerinfo_t *peer = NULL;
-    glusterd_peerinfo_t *found = NULL;
-    glusterd_peer_hostname_t *address = NULL;
-    int ret = 0;
-    struct addrinfo *paddr = NULL;
-    struct addrinfo *tmp = NULL;
-
-    this = THIS;
-    GF_ASSERT(this != NULL);
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
-
-    GF_VALIDATE_OR_GOTO(this->name, (addr != NULL), out);
-
-    RCU_READ_LOCK;
-    cds_list_for_each_entry_rcu(peer, &conf->peers, uuid_list)
-    {
-        cds_list_for_each_entry_rcu(address, &peer->hostnames, hostname_list)
-        {
-            /* TODO: Cache the resolved addrinfos to improve
-             * performance
-             */
-            ret = getaddrinfo(address->hostname, NULL, NULL, &paddr);
-            if (ret) {
-                /* Don't fail if getaddrinfo fails, continue
-                 * onto the next address
-                 */
-                gf_msg_trace(this->name, 0, "getaddrinfo for %s failed (%s)",
-                             address->hostname, gai_strerror(ret));
-                ret = 0;
-                continue;
-            }
-
-            for (tmp = paddr; tmp != NULL; tmp = tmp->ai_next) {
-                if (gf_compare_sockaddr(addr->ai_addr, tmp->ai_addr)) {
-                    found = peer; /* (de)referenced? */
-                    break;
-                }
-            }
-
-            freeaddrinfo(paddr);
-            if (found)
-                goto unlock;
-        }
-    }
-unlock:
-    RCU_READ_UNLOCK;
-out:
-    return found;
 }
 
 /* gd_update_peerinfo_from_dict will update the hostnames for @peerinfo from
@@ -986,9 +976,9 @@ glusterd_peerinfo_find_by_generation(uint32_t generation)
     glusterd_conf_t *priv = NULL;
     glusterd_peerinfo_t *entry = NULL;
     glusterd_peerinfo_t *found = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
+    glusterd_friend_sm_state_t state;
 
-    this = THIS;
     GF_ASSERT(this);
 
     priv = this->private;
@@ -999,15 +989,17 @@ glusterd_peerinfo_find_by_generation(uint32_t generation)
     cds_list_for_each_entry_rcu(entry, &priv->peers, uuid_list)
     {
         if (entry->generation == generation) {
-            gf_msg_debug(this->name, 0, "Friend found... state: %s",
-                         glusterd_friend_sm_state_name_get(entry->state.state));
             found = entry; /* Probably should be rcu_dereferenced */
+            state = found->state.state;
             break;
         }
     }
     RCU_READ_UNLOCK;
 
-    if (!found)
+    if (found)
+        gf_msg_debug(this->name, 0, "Friend found... state: %s",
+                     glusterd_friend_sm_state_name_get(state));
+    else
         gf_msg_debug(this->name, 0,
                      "Friend with generation: %" PRIu32 ", not found",
                      generation);
