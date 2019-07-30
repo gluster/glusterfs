@@ -1032,6 +1032,8 @@ unlock:
             goto postop_unlock;
         }
 
+        afr_selfheal_restore_time(frame, this, fd->inode, source, healed_sinks,
+                                  locked_replies);
         ret = afr_selfheal_undo_pending(
             frame, this, fd->inode, sources, sinks, healed_sinks, undid_pending,
             AFR_ENTRY_TRANSACTION, locked_replies, postop_lock);
