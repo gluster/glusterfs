@@ -180,6 +180,8 @@ function main()
     > $log_file
 
     inet6=$7
+    local cmd_line
+    local ver
 
     # Use FORCE_BLOCKER flag in the error message to differentiate
     # between the errors which the force command should bypass
@@ -206,14 +208,15 @@ function main()
         exit 1;
     fi;
 
+    cmd_line=$(cmd_slave);
     if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
-        err=$((ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "gluster --version") 2>&1)
+        ver=$(ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 bash -c "'$cmd_line'")
     else
-        err=$((ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "gluster --version") 2>&1)
+        ver=$(ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 bash -c "'$cmd_line'")
     fi
 
-    if [ $? -ne 0 ]; then
-        echo "FORCE_BLOCKER|gluster command on $2@$3 failed. Error: $err" > $log_file
+    if [ -z "$ver" ]; then
+        echo "FORCE_BLOCKER|gluster command not found on $3 for user $2." > $log_file
         exit 1;
     fi;
 
