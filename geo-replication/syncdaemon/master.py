@@ -1546,6 +1546,12 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         data_stime = self.get_data_stime()
 
         end_time = int(time.time())
+
+        #as start of historical crawl marks Geo-rep worker restart
+        if gconf.get("ignore-deletes"):
+            logging.info(lf('ignore-deletes config option is set',
+                         stime=data_stime))
+
         logging.info(lf('starting history crawl',
                         turns=self.history_turns,
                         stime=data_stime,

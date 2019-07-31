@@ -2174,7 +2174,7 @@ cli_cmd_volume_gsync_set_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GSYNC_SET];
 
-    ret = cli_cmd_gsync_set_parse(words, wordcount, &options, &errstr);
+    ret = cli_cmd_gsync_set_parse(state, words, wordcount, &options, &errstr);
     if (ret) {
         if (errstr) {
             cli_err("%s", errstr);

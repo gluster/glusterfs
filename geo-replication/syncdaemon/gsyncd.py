@@ -300,7 +300,7 @@ def main():
 
     # Log message for loaded config file
     if config_file is not None:
-        logging.info(lf("Using session config file", path=config_file))
+        logging.debug(lf("Using session config file", path=config_file))
 
     set_term_handler()
     excont = FreeObject(exval=0)

@@ -2861,8 +2861,8 @@ out:
 }
 
 int32_t
-cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options,
-                        char **errstr)
+cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
+                        int wordcount, dict_t **options, char **errstr)
 {
     int32_t ret = -1;
     dict_t *dict = NULL;
@@ -2880,6 +2880,8 @@ cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options,
     char *save_ptr = NULL;
     char *slave_temp = NULL;
     char *token = NULL;
+    gf_answer_t answer = GF_ANSWER_NO;
+    const char *question = NULL;
 
     GF_ASSERT(words);
     GF_ASSERT(options);
@@ -3066,16 +3068,36 @@ cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options,
     }
     if (!ret)
         ret = dict_set_int32(dict, "type", type);
-    if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG)
+    if (!ret && type == GF_GSYNC_OPTION_TYPE_CONFIG) {
+        if (!strcmp((char *)words[wordcount - 2], "ignore-deletes") &&
+            !strcmp((char *)words[wordcount - 1], "true")) {
+            question =
+                "There exists ~15 seconds delay for the option to take"
+                " effect from stime of the corresponding brick. Please"
+                " check the log for the time, the option is effective."
+                " Proceed";
+
+            answer = cli_cmd_get_confirmation(state, question);
+
+            if (GF_ANSWER_NO == answer) {
+                gf_log("cli", GF_LOG_INFO,
+                       "Operation "
+                       "cancelled, exiting");
+                *errstr = gf_strdup("Aborted by user.");
+                ret = -1;
+                goto out;
+            }
+        }
+
         ret = config_parse(words, wordcount, dict, cmdi, glob);
+    }
 
 out:
     if (slave_temp)
         GF_FREE(slave_temp);
-    if (ret) {
-        if (dict)
-            dict_unref(dict);
-    } else
+    if (ret && dict)
+        dict_unref(dict);
+    else
         *options = dict;
 
     return ret;
