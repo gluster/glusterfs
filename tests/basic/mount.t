@@ -69,6 +69,9 @@ TEST rm -f $N0/newfile;
 TEST ! stat $M0/newfile;
 TEST ! stat $M1/newfile;
 
+# No need to check for status here right now
+$(dirname $0)/rpc-coverage.sh $N0 >/dev/null
+
 ## Before killing daemon to avoid deadlocks
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
