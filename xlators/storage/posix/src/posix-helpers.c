@@ -1507,7 +1507,7 @@ __posix_janitor_timer_start(xlator_t *this)
     timer->expires = priv->janitor_sleep_duration;
     timer->function = posix_janitor_task_initator;
     timer->data = this;
-    gf_tw_add_timer(this->ctx->tw->timer_wheel, timer);
+    gf_tw_add_timer(glusterfs_ctx_tw_get(this->ctx), timer);
 
     return;
 }
