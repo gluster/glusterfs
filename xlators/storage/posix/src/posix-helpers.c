@@ -1012,6 +1012,7 @@ posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
 
     if (sys_lstat(path, &stat) != 0) {
         ret = -1;
+        *op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
                "lstat on %s failed", path);
         goto out;
