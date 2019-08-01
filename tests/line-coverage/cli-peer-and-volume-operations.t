@@ -84,4 +84,12 @@ TEST $CLI_1 system getspec $V0
 TEST $CLI_1 system getwd
 TEST $CLI_1 system fsm log
 
+# Both these may fail, but it covers xdr functions and some
+# more code in cli/glusterd
+$CLI_1 system:: mount test local:/$V0
+$CLI_1 system:: umount $M0 lazy
+$CLI_1 system:: copy file options
+$CLI_1 system:: portmap brick2port $H0:$B0/brick
+$CLI_1 system:: uuid reset
+
 cleanup
