@@ -305,6 +305,19 @@ else
         BUILD_TSAN=no
 fi
 
+# Initialize CFLAGS before usage
+BUILD_TCMALLOC=no
+AC_ARG_ENABLE([tcmalloc],
+              AC_HELP_STRING([--enable-tcmalloc],
+                             [Enable linking with tcmalloc library.]))
+if test "x$enable_tcmalloc" = "xyes"; then
+    BUILD_TCMALLOC=yes
+    GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
+    AC_CHECK_LIB([tcmalloc], [malloc], [],
+                 [AC_MSG_ERROR([when --enable-tcmalloc is used, tcmalloc library needs to be present])])
+    GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+fi
+
 
 dnl When possible, prefer libtirpc over glibc rpc.
 dnl
@@ -1585,6 +1598,7 @@ echo "IPV6 default         : $with_ipv6_default"
 echo "Use TIRPC            : $with_libtirpc"
 echo "With Python          : ${PYTHON_VERSION}"
 echo "Cloudsync            : $BUILD_CLOUDSYNC"
+echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo
 
 if test "x$BUILD_ASAN" = "xyes"; then
