@@ -205,4 +205,6 @@ char *
 ec_msg_str(ec_fop_data_t *fop);
 gf_boolean_t
 __ec_is_last_fop(ec_t *ec);
+void
+ec_lock_update_good(ec_lock_t *lock, ec_fop_data_t *fop);
 #endif /* __EC_COMMON_H__ */
