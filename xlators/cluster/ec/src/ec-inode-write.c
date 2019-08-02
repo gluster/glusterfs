@@ -89,6 +89,8 @@ ec_update_write(ec_fop_data_t *fop, uintptr_t mask, off_t offset, size_t size)
         goto out;
     }
 
+    if (fop->locks[0].lock)
+        ec_lock_update_good(fop->locks[0].lock, fop);
     vector.iov_base = iobuf->ptr;
     vector.iov_len = size;
     memset(vector.iov_base, 0, vector.iov_len);
