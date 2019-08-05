@@ -370,6 +370,8 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
     listen_port_data = dict_get(options, "transport.socket.listen-port");
     if (listen_port_data) {
         listen_port = data_to_uint16(listen_port_data);
+    } else {
+        listen_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
     }
 
     listen_host_data = dict_get(options, "transport.socket.bind-address");
