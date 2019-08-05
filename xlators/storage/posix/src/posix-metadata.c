@@ -631,7 +631,7 @@ posix_update_utime_in_mdata(xlator_t *this, const char *real_path, int fd,
             tv.tv_sec = stbuf->ia_mtime;
             SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, stbuf->ia_mtime_nsec);
 
-            flag.ctime = 1;
+            flag.ctime = 0;
             flag.mtime = 1;
             flag.atime = 0;
 
