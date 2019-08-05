@@ -17,6 +17,7 @@ import os
 import shutil
 from string import Template
 from datetime import datetime
+from threading import Lock
 
 
 # Global object which can be used in other modules
@@ -35,6 +36,7 @@ class GconfInvalidValue(Exception):
 class Gconf(object):
     def __init__(self, default_conf_file, custom_conf_file=None,
                  args={}, extra_tmpl_args={}, override_from_args=False):
+        self.lock = Lock()
         self.default_conf_file = default_conf_file
         self.custom_conf_file = custom_conf_file
         self.tmp_conf_file = None
@@ -163,6 +165,11 @@ class Gconf(object):
         if value is not None and not self._is_valid_value(name, value):
             raise GconfInvalidValue()
 
+
+    def _load_with_lock(self):
+        with self.lock:
+            self._load()
+
     def _load(self):
         self.gconf = {}
         self.template_conf = []
@@ -230,12 +237,19 @@ class Gconf(object):
         self._tmpl_substitute()
         self._do_typecast()
 
-    def reload(self):
+    def reload(self, with_lock=True):
         if self._is_config_changed():
-            self._load()
+            if with_lock:
+                self._load_with_lock()
+            else:
+                self._load()
 
-    def get(self, name, default_value=None):
-        return self.gconf.get(name, default_value)
+    def get(self, name, default_value=None, with_lock=True):
+        if with_lock:
+            with self.lock:
+                return self.gconf.get(name, default_value)
+        else:
+            return self.gconf.get(name, default_value)
 
     def getall(self, show_defaults=False, show_non_configurable=False):
         cnf = {}
@@ -276,8 +290,9 @@ class Gconf(object):
         return cnf
 
     def getr(self, name, default_value=None):
-        self.reload()
-        return self.get(name, default_value)
+        with self.lock:
+            self.reload(with_lock=False)
+            return self.get(name, default_value, with_lock=False)
 
     def get_help(self, name=None):
         pass
