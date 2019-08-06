@@ -310,8 +310,6 @@ void
 client_save_number_fds(clnt_conf_t *conf, int count);
 int
 dump_client_locks(inode_t *inode);
-int
-client_notify_parents_child_up(xlator_t *this);
 int32_t
 is_client_dump_locks_cmd(char *name);
 int32_t

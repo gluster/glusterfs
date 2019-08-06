@@ -41,7 +41,7 @@ client3_getspec(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 }
 
-int
+static int
 client_notify_parents_child_up(xlator_t *this)
 {
     clnt_conf_t *conf = NULL;
@@ -68,205 +68,6 @@ out:
     return 0;
 }
 
-int
-clnt_fd_lk_reacquire_failed(xlator_t *this, clnt_fd_ctx_t *fdctx,
-                            clnt_conf_t *conf)
-{
-    int ret = -1;
-
-    GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
-    GF_VALIDATE_OR_GOTO(this->name, fdctx, out);
-
-    pthread_spin_lock(&conf->fd_lock);
-    {
-        fdctx->remote_fd = -1;
-    }
-    pthread_spin_unlock(&conf->fd_lock);
-
-    ret = 0;
-out:
-    return ret;
-}
-
-int
-client_fd_lk_count(fd_lk_ctx_t *lk_ctx)
-{
-    int count = 0;
-    fd_lk_ctx_node_t *fd_lk = NULL;
-
-    GF_VALIDATE_OR_GOTO("client", lk_ctx, err);
-
-    LOCK(&lk_ctx->lock);
-    {
-        list_for_each_entry(fd_lk, &lk_ctx->lk_list, next) count++;
-    }
-    UNLOCK(&lk_ctx->lock);
-
-    return count;
-err:
-    return -1;
-}
-
-clnt_fd_lk_local_t *
-clnt_fd_lk_local_ref(xlator_t *this, clnt_fd_lk_local_t *local)
-{
-    GF_VALIDATE_OR_GOTO(this->name, local, out);
-
-    GF_ATOMIC_INC(local->ref);
-out:
-    return local;
-}
-
-int
-clnt_fd_lk_local_unref(xlator_t *this, clnt_fd_lk_local_t *local)
-{
-    int ref = -1;
-
-    GF_VALIDATE_OR_GOTO(this->name, local, out);
-
-    ref = GF_ATOMIC_DEC(local->ref);
-
-    if (ref == 0) {
-        LOCK_DESTROY(&local->lock);
-        GF_FREE(local);
-    }
-out:
-    return ref;
-}
-
-clnt_fd_lk_local_t *
-clnt_fd_lk_local_create(clnt_fd_ctx_t *fdctx)
-{
-    clnt_fd_lk_local_t *local = NULL;
-
-    local = GF_CALLOC(1, sizeof(clnt_fd_lk_local_t),
-                      gf_client_mt_clnt_fd_lk_local_t);
-    if (!local)
-        goto out;
-
-    GF_ATOMIC_INIT(local->ref, 1);
-    local->error = _gf_false;
-    local->fdctx = fdctx;
-
-    LOCK_INIT(&local->lock);
-out:
-    return local;
-}
-
-int
-clnt_release_reopen_fd_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                           void *myframe)
-{
-    xlator_t *this = NULL;
-    call_frame_t *frame = NULL;
-    clnt_conf_t *conf = NULL;
-    clnt_fd_ctx_t *fdctx = NULL;
-
-    frame = myframe;
-    this = frame->this;
-    fdctx = (clnt_fd_ctx_t *)frame->local;
-    conf = (clnt_conf_t *)this->private;
-
-    clnt_fd_lk_reacquire_failed(this, fdctx, conf);
-
-    fdctx->reopen_done(fdctx, fdctx->remote_fd, this);
-
-    frame->local = NULL;
-    STACK_DESTROY(frame->root);
-
-    return 0;
-}
-
-int
-clnt_release_reopen_fd(xlator_t *this, clnt_fd_ctx_t *fdctx)
-{
-    int ret = -1;
-    clnt_conf_t *conf = NULL;
-    call_frame_t *frame = NULL;
-    gfs3_release_req req = {
-        {
-            0,
-        },
-    };
-
-    conf = (clnt_conf_t *)this->private;
-
-    frame = create_frame(this, this->ctx->pool);
-    if (!frame)
-        goto out;
-
-    frame->local = (void *)fdctx;
-    req.fd = fdctx->remote_fd;
-
-    ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_RELEASE,
-                                clnt_release_reopen_fd_cbk, NULL,
-                                (xdrproc_t)xdr_gfs3_releasedir_req);
-out:
-    if (ret) {
-        clnt_fd_lk_reacquire_failed(this, fdctx, conf);
-        fdctx->reopen_done(fdctx, fdctx->remote_fd, this);
-    }
-    return 0;
-}
-
-int
-clnt_reacquire_lock_error(xlator_t *this, clnt_fd_ctx_t *fdctx,
-                          clnt_conf_t *conf)
-{
-    int32_t ret = -1;
-
-    GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, fdctx, out);
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
-
-    clnt_release_reopen_fd(this, fdctx);
-
-    ret = 0;
-out:
-    return ret;
-}
-
-gf_boolean_t
-clnt_fd_lk_local_error_status(xlator_t *this, clnt_fd_lk_local_t *local)
-{
-    gf_boolean_t error = _gf_false;
-
-    LOCK(&local->lock);
-    {
-        error = local->error;
-    }
-    UNLOCK(&local->lock);
-
-    return error;
-}
-
-int
-clnt_fd_lk_local_mark_error(xlator_t *this, clnt_fd_lk_local_t *local)
-{
-    int32_t ret = -1;
-    clnt_conf_t *conf = NULL;
-    gf_boolean_t error = _gf_false;
-
-    GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, local, out);
-
-    conf = (clnt_conf_t *)this->private;
-
-    LOCK(&local->lock);
-    {
-        error = local->error;
-        local->error = _gf_true;
-    }
-    UNLOCK(&local->lock);
-
-    if (!error)
-        clnt_reacquire_lock_error(this, local->fdctx, conf);
-    ret = 0;
-out:
-    return ret;
-}
-
 void
 client_default_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 {
@@ -274,13 +75,11 @@ client_default_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
                      "This function should never be called");
 }
 
-void
+static void
 client_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 {
-    clnt_conf_t *conf = NULL;
+    clnt_conf_t *conf = this->private;
     gf_boolean_t destroy = _gf_false;
-
-    conf = this->private;
 
     pthread_spin_lock(&conf->fd_lock);
     {
@@ -298,13 +97,11 @@ client_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
         client_fdctx_destroy(this, fdctx);
 }
 
-void
+static void
 client_child_up_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 {
-    clnt_conf_t *conf = NULL;
+    clnt_conf_t *conf = this->private;
     uint64_t fd_count = 0;
-
-    conf = this->private;
 
     LOCK(&conf->rec_lock);
     {
@@ -328,15 +125,10 @@ client3_3_reopen_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfs3_open_rsp rsp = {
         0,
     };
-    clnt_local_t *local = NULL;
-    clnt_fd_ctx_t *fdctx = NULL;
-    call_frame_t *frame = NULL;
-    xlator_t *this = NULL;
-
-    frame = myframe;
-    this = frame->this;
-    local = frame->local;
-    fdctx = local->fdctx;
+    call_frame_t *frame = myframe;
+    xlator_t *this = frame->this;
+    clnt_local_t *local = frame->local;
+    clnt_fd_ctx_t *fdctx = local->fdctx;
 
     if (-1 == req->rpc_status) {
         gf_msg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
@@ -392,13 +184,9 @@ client3_3_reopendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfs3_open_rsp rsp = {
         0,
     };
-    clnt_local_t *local = NULL;
-    clnt_fd_ctx_t *fdctx = NULL;
-    call_frame_t *frame = NULL;
-
-    frame = myframe;
-    local = frame->local;
-    fdctx = local->fdctx;
+    call_frame_t *frame = myframe;
+    clnt_local_t *local = frame->local;
+    clnt_fd_ctx_t *fdctx = local->fdctx;
 
     if (-1 == req->rpc_status) {
         gf_msg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
@@ -587,15 +375,10 @@ client4_0_reopen_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfx_open_rsp rsp = {
         0,
     };
-    clnt_local_t *local = NULL;
-    clnt_fd_ctx_t *fdctx = NULL;
-    call_frame_t *frame = NULL;
-    xlator_t *this = NULL;
-
-    frame = myframe;
-    this = frame->this;
-    local = frame->local;
-    fdctx = local->fdctx;
+    call_frame_t *frame = myframe;
+    xlator_t *this = frame->this;
+    clnt_local_t *local = frame->local;
+    clnt_fd_ctx_t *fdctx = local->fdctx;
 
     if (-1 == req->rpc_status) {
         gf_msg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
@@ -651,13 +434,9 @@ client4_0_reopendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfx_open_rsp rsp = {
         0,
     };
-    clnt_local_t *local = NULL;
-    clnt_fd_ctx_t *fdctx = NULL;
-    call_frame_t *frame = NULL;
-
-    frame = myframe;
-    local = frame->local;
-    fdctx = local->fdctx;
+    call_frame_t *frame = myframe;
+    clnt_local_t *local = frame->local;
+    clnt_fd_ctx_t *fdctx = local->fdctx;
 
     if (-1 == req->rpc_status) {
         gf_msg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
@@ -712,13 +491,10 @@ protocol_client_reopendir_v2(clnt_fd_ctx_t *fdctx, xlator_t *this)
             0,
         },
     };
-    clnt_local_t *local = NULL;
     call_frame_t *frame = NULL;
-    clnt_conf_t *conf = NULL;
+    clnt_conf_t *conf = this->private;
+    clnt_local_t *local = mem_get0(this->local_pool);
 
-    conf = this->private;
-
-    local = mem_get0(this->local_pool);
     if (!local) {
         ret = -1;
         goto out;
@@ -772,12 +548,9 @@ protocol_client_reopenfile_v2(clnt_fd_ctx_t *fdctx, xlator_t *this)
         },
     };
     clnt_local_t *local = NULL;
-    call_frame_t *frame = NULL;
-    clnt_conf_t *conf = NULL;
+    clnt_conf_t *conf = this->private;
+    call_frame_t *frame = create_frame(this, this->ctx->pool);
 
-    conf = this->private;
-
-    frame = create_frame(this, this->ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -848,14 +621,12 @@ __is_fd_reopen_in_progress(clnt_fd_ctx_t *fdctx)
 void
 client_attempt_reopen(fd_t *fd, xlator_t *this)
 {
-    clnt_conf_t *conf = NULL;
+    clnt_conf_t *conf = this->private;
     clnt_fd_ctx_t *fdctx = NULL;
     gf_boolean_t reopen = _gf_false;
 
     if (!fd || !this)
         goto out;
-
-    conf = this->private;
 
     pthread_spin_lock(&conf->fd_lock);
     {
@@ -890,7 +661,7 @@ out:
     return;
 }
 
-int
+static int
 client_post_handshake(call_frame_t *frame, xlator_t *this)
 {
     clnt_conf_t *conf = NULL;
@@ -953,9 +724,9 @@ int
 client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
-    call_frame_t *frame = NULL;
-    clnt_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    call_frame_t *frame = myframe;
+    xlator_t *this = frame->this;
+    clnt_conf_t *conf = this->private;
     dict_t *reply = NULL;
     char *process_uuid = NULL;
     char *remote_error = NULL;
@@ -969,9 +740,6 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gf_boolean_t auth_fail = _gf_false;
     glusterfs_ctx_t *ctx = NULL;
 
-    frame = myframe;
-    this = frame->this;
-    conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
     ctx = this->ctx;
     GF_VALIDATE_OR_GOTO(this->name, ctx, out);
@@ -1012,14 +780,14 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    ret = dict_get_str(reply, "ERROR", &remote_error);
+    ret = dict_get_str_sizen(reply, "ERROR", &remote_error);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_DICT_GET_FAILED,
                "failed to get ERROR "
                "string from reply dict");
     }
 
-    ret = dict_get_str(reply, "process-uuid", &process_uuid);
+    ret = dict_get_str_sizen(reply, "process-uuid", &process_uuid);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_DICT_GET_FAILED,
                "failed to get "
@@ -1055,7 +823,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = dict_get_str(this->options, "remote-subvolume", &remote_subvol);
+    ret = dict_get_str_sizen(this->options, "remote-subvolume", &remote_subvol);
     if (ret || !remote_subvol) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
                "failed to find key 'remote-subvolume' in the options");
@@ -1163,18 +931,16 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     };
     call_frame_t *fr = NULL;
     char *process_uuid_xl = NULL;
-    clnt_conf_t *conf = NULL;
-    dict_t *options = NULL;
+    clnt_conf_t *conf = this->private;
+    dict_t *options = this->options;
     char counter_str[32] = {0};
     char hostname[256] = {
         0,
     };
 
-    options = this->options;
-    conf = this->private;
-
     if (conf->fops) {
-        ret = dict_set_int32(options, "fops-version", conf->fops->prognum);
+        ret = dict_set_int32_sizen(options, "fops-version",
+                                   conf->fops->prognum);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
                    "failed to set "
@@ -1185,7 +951,8 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     }
 
     if (conf->mgmt) {
-        ret = dict_set_int32(options, "mgmt-version", conf->mgmt->prognum);
+        ret = dict_set_int32_sizen(options, "mgmt-version",
+                                   conf->mgmt->prognum);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
                    "failed to set "
@@ -1222,7 +989,7 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
         goto fail;
     }
 
-    ret = dict_set_dynstr(options, "process-uuid", process_uuid_xl);
+    ret = dict_set_dynstr_sizen(options, "process-uuid", process_uuid_xl);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
                "failed to set process-uuid(%s) in handshake msg",
@@ -1230,14 +997,16 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
         goto fail;
     }
 
-    ret = dict_set_str(options, "process-name",
-                       this->ctx->cmd_args.process_name);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_DICT_SET_FAILED,
-               "failed to set process-name in handshake msg");
+    if (this->ctx->cmd_args.process_name) {
+        ret = dict_set_str_sizen(options, "process-name",
+                                 this->ctx->cmd_args.process_name);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_DICT_SET_FAILED,
+                   "failed to set process-name in handshake msg");
+        }
     }
 
-    ret = dict_set_str(options, "client-version", PACKAGE_VERSION);
+    ret = dict_set_str_sizen(options, "client-version", PACKAGE_VERSION);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
                "failed to set client-version(%s) in handshake msg",
@@ -1246,8 +1015,8 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
 
     if (this->ctx->cmd_args.volfile_server) {
         if (this->ctx->cmd_args.volfile_id) {
-            ret = dict_set_str(options, "volfile-key",
-                               this->ctx->cmd_args.volfile_id);
+            ret = dict_set_str_sizen(options, "volfile-key",
+                                     this->ctx->cmd_args.volfile_id);
             if (ret)
                 gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
                        "failed to "
@@ -1262,8 +1031,8 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     }
 
     if (this->ctx->cmd_args.subdir_mount) {
-        ret = dict_set_str(options, "subdir-mount",
-                           this->ctx->cmd_args.subdir_mount);
+        ret = dict_set_str_sizen(options, "subdir-mount",
+                                 this->ctx->cmd_args.subdir_mount);
         if (ret) {
             gf_log(THIS->name, GF_LOG_ERROR, "Failed to set subdir_mount");
             /* It makes sense to fail, as per the CLI, we
@@ -1281,7 +1050,7 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
                "failed to set clnt-lk-version(1) in handshake msg");
     }
 
-    ret = dict_set_int32(options, "opversion", GD_OP_VERSION_MAX);
+    ret = dict_set_int32_sizen(options, "opversion", GD_OP_VERSION_MAX);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
                "Failed to set client opversion in handshake message");
@@ -1311,7 +1080,7 @@ fail:
     return ret;
 }
 
-int
+static int
 select_server_supported_programs(xlator_t *this, gf_prog_detail *prog)
 {
     gf_prog_detail *trav = NULL;
@@ -1495,7 +1264,7 @@ client_query_portmap(xlator_t *this, struct rpc_clnt *rpc)
 
     options = this->options;
 
-    ret = dict_get_str(options, "remote-subvolume", &remote_subvol);
+    ret = dict_get_str_sizen(options, "remote-subvolume", &remote_subvol);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_VOL_SET_FAIL,
                "remote-subvolume not set in volfile");
@@ -1525,7 +1294,7 @@ fail:
     return ret;
 }
 
-int
+static int
 client_dump_version_cbk(struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
