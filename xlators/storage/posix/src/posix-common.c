@@ -144,7 +144,13 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
 
     switch (event) {
         case GF_EVENT_PARENT_UP: {
-            /* the parent that posix xlator is up */
+            /* Notify the parent that posix xlator is up */
+            char *volume_id;
+            int ret = dict_get_str(this->options, "volume-id", &volume_id);
+            if (!ret) {
+                strncpy(this->graph->volume_id, volume_id,
+                        min(strlen(volume_id), GF_UUID_BUF_SIZE));
+            }
             default_notify(this, GF_EVENT_CHILD_UP, data);
         } break;
 

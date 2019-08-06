@@ -730,6 +730,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     clnt_conf_t *conf = this->private;
     dict_t *reply = NULL;
     char *process_uuid = NULL;
+    char *volume_id = NULL;
     char *remote_error = NULL;
     char *remote_subvol = NULL;
     gf_setvolume_rsp rsp = {
@@ -829,6 +830,34 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
                "failed to find key 'remote-subvolume' in the options");
         goto out;
+    }
+
+    ret = dict_get_str_sizen(reply, "volume-id", &volume_id);
+    if (ret < 0) {
+        /* this can happen if the server is of old version, so treat it as
+           just debug message */
+        gf_msg_debug(this->name, EINVAL,
+                     "failed to get 'volume-id' from reply dict");
+    } else if (ctx->master && strncmp("snapd", remote_subvol, 5)) {
+        /* TODO: if it is a fuse mount or a snapshot enabled client, don't
+           bother */
+        /* If any value is set, the first element will be non-0.
+           It would be '0', but not '\0' :-) */
+        if (ctx->volume_id[0]) {
+            if (strcmp(ctx->volume_id, volume_id)) {
+                /* Ideally it shouldn't even come here, as server itself
+                   should fail the handshake in that case */
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_DICT_GET_FAILED,
+                       "'volume-id' changed, can't connect to server. "
+                       "Needs remount (%s - %s)",
+                       volume_id, ctx->volume_id);
+                op_ret = -1;
+                goto out;
+            }
+        } else {
+            strncpy(ctx->volume_id, volume_id,
+                    min(strlen(volume_id), GF_UUID_BUF_SIZE));
+        }
     }
 
     uint32_t child_up_int;
@@ -932,6 +961,7 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     };
     call_frame_t *fr = NULL;
     char *process_uuid_xl = NULL;
+    char *remote_subvol = NULL;
     clnt_conf_t *conf = this->private;
     dict_t *options = this->options;
     char counter_str[32] = {0};
@@ -1012,6 +1042,26 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
         gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
                "failed to set client-version(%s) in handshake msg",
                PACKAGE_VERSION);
+    }
+
+    ret = dict_get_str_sizen(this->options, "remote-subvolume", &remote_subvol);
+    if (ret || !remote_subvol) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
+               "failed to find key 'remote-subvolume' in the options");
+        goto fail;
+    }
+
+    /* volume-id to be sent only for regular volume, not snap volume */
+    if (strncmp("snapd", remote_subvol, 5)) {
+        /* If any value is set, the first element will be non-0.
+           It would be '0', but not '\0' :-) */
+        if (this->ctx->volume_id[0]) {
+            ret = dict_set_str(options, "volume-id", this->ctx->volume_id);
+            if (ret < 0) {
+                gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_DICT_SET_FAILED,
+                       "failed to set volume-id in handshake msg");
+            }
+        }
     }
 
     if (this->ctx->cmd_args.volfile_server) {
