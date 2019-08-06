@@ -50,6 +50,7 @@ struct _volfile_ctx {
 struct _child_status {
     struct list_head status_list;
     char *name;
+    char volume_id[GF_UUID_BUF_SIZE];
     gf_boolean_t child_up;
 };
 struct server_conf {

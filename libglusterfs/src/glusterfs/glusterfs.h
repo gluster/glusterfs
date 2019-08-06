@@ -596,6 +596,7 @@ struct _glusterfs_graph {
     pthread_cond_t child_down_cond; /* for broadcasting CHILD_DOWN */
     int parent_down;
     char graph_uuid[128];
+    char volume_id[GF_UUID_BUF_SIZE];
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
 
@@ -731,6 +732,8 @@ struct _glusterfs_ctx {
     pthread_cond_t janitor_cond;
     pthread_mutex_t janitor_lock;
     pthread_t janitor;
+
+    char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

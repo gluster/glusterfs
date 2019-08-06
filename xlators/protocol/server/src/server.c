@@ -1494,6 +1494,8 @@ server_process_child_event(xlator_t *this, int32_t event, void *data,
                 INIT_LIST_HEAD(&tmp->status_list);
                 tmp->name = gf_strdup(victim->name);
                 tmp->child_up = _gf_true;
+                strncpy(tmp->volume_id, victim->graph->volume_id,
+                        GF_UUID_BUF_SIZE);
                 list_add_tail(&tmp->status_list,
                               &conf->child_status->status_list);
             }

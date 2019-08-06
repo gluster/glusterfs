@@ -231,6 +231,7 @@ server_setvolume(rpcsvc_request_t *req)
     dict_t *config_params = NULL;
     dict_t *params = NULL;
     char *name = NULL;
+    char *volume_id = NULL;
     char *client_uid = NULL;
     char *clnt_version = NULL;
     xlator_t *xl = NULL;
@@ -407,6 +408,22 @@ server_setvolume(rpcsvc_request_t *req)
     if (ret < 0) {
         client_name = "unknown";
     }
+
+    ret = dict_get_str_sizen(params, "volume-id", &volume_id);
+    if (!ret && strcmp(xl->graph->volume_id, volume_id)) {
+        ret = dict_set_str(reply, "ERROR",
+                           "Volume-ID different, possible case "
+                           "of same brick re-used in another volume");
+        if (ret < 0)
+            gf_msg_debug(this->name, 0, "failed to set error msg");
+
+        op_ret = -1;
+        op_errno = EINVAL;
+        goto fail;
+    }
+    ret = dict_set_str(reply, "volume-id", tmp->volume_id);
+    if (ret)
+        gf_msg_debug(this->name, 0, "failed to set 'volume-id'");
 
     client = gf_client_get(this, &req->cred, client_uid, subdir_mount);
     if (client == NULL) {
