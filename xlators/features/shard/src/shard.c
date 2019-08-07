@@ -4758,6 +4758,8 @@ out:
             if (xdata)
                 local->xattr_rsp = dict_ref(xdata);
             vec.iov_base = local->iobuf->ptr;
+            if (local->offset + local->req_size > local->prebuf.ia_size)
+                local->total_size = local->prebuf.ia_size - local->offset;
             vec.iov_len = local->total_size;
             local->op_ret = local->total_size;
             SHARD_STACK_UNWIND(readv, frame, local->op_ret, local->op_errno,
