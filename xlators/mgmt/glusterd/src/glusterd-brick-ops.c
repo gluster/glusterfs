@@ -1883,6 +1883,17 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                 goto out;
             }
 
+            if (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_COMPLETE) {
+                if (volinfo->rebal.rebalance_failures > 0 ||
+                    volinfo->rebal.skipped_files > 0) {
+                    errstr = gf_strdup(
+                        "use 'force' option as migration "
+                        "of some files might have been skipped or "
+                        "has failed");
+                    goto out;
+                }
+            }
+
             ret = glusterd_remove_brick_validate_bricks(
                 cmd, brick_count, dict, volinfo, &errstr, GF_DEFRAG_CMD_NONE);
             if (ret)
