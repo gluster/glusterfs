@@ -423,8 +423,8 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                    real_path, loc->path);
             goto out;
         }
-        posix_update_utime_in_mdata(this, real_path, -1, loc->inode, stbuf,
-                                    valid);
+        posix_update_utime_in_mdata(this, real_path, -1, loc->inode,
+                                    &frame->root->ctime, stbuf, valid);
     }
 
     if (valid & GF_SET_ATTR_CTIME && !priv->ctime) {
@@ -651,8 +651,8 @@ posix_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                    fd);
             goto out;
         }
-        posix_update_utime_in_mdata(this, NULL, pfd->fd, fd->inode, stbuf,
-                                    valid);
+        posix_update_utime_in_mdata(this, NULL, pfd->fd, fd->inode,
+                                    &frame->root->ctime, stbuf, valid);
     }
 
     if (!valid) {
