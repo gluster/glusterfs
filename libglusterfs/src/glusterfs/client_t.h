@@ -95,9 +95,6 @@ gf_client_put(client_t *client, gf_boolean_t *detached);
 clienttable_t *
 gf_clienttable_alloc(void);
 
-void
-gf_client_clienttable_destroy(clienttable_t *clienttable);
-
 client_t *
 gf_client_ref(client_t *client);
 

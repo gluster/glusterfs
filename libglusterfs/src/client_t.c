@@ -109,43 +109,6 @@ gf_clienttable_alloc(void)
     return clienttable;
 }
 
-void
-gf_client_clienttable_destroy(clienttable_t *clienttable)
-{
-    client_t *client = NULL;
-    cliententry_t *cliententries = NULL;
-    uint32_t client_count = 0;
-    int32_t i = 0;
-
-    if (!clienttable) {
-        gf_msg_callingfn("client_t", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "!clienttable");
-        return;
-    }
-
-    LOCK(&clienttable->lock);
-    {
-        client_count = clienttable->max_clients;
-        clienttable->max_clients = 0;
-        cliententries = clienttable->cliententries;
-        clienttable->cliententries = NULL;
-    }
-    UNLOCK(&clienttable->lock);
-
-    if (cliententries != NULL) {
-        for (i = 0; i < client_count; i++) {
-            client = cliententries[i].client;
-            if (client != NULL) {
-                gf_client_unref(client);
-            }
-        }
-
-        GF_FREE(cliententries);
-        LOCK_DESTROY(&clienttable->lock);
-        GF_FREE(clienttable);
-    }
-}
-
 /*
  * Increments ref.bind if the client is already present or creates a new
  * client with ref.bind = 1,ref.count = 1 it signifies that
@@ -576,62 +539,6 @@ client_ctx_del(client_t *client, void *key, void **value)
     UNLOCK(&client->scratch_ctx.lock);
 
     return ret;
-}
-
-void
-client_dump(client_t *client, char *prefix)
-{
-    if (!client)
-        return;
-
-    gf_proc_dump_write("refcount", "%" GF_PRI_ATOMIC,
-                       GF_ATOMIC_GET(client->count));
-}
-
-void
-cliententry_dump(cliententry_t *cliententry, char *prefix)
-{
-    if (!cliententry)
-        return;
-
-    if (GF_CLIENTENTRY_ALLOCATED != cliententry->next_free)
-        return;
-
-    if (cliententry->client)
-        client_dump(cliententry->client, prefix);
-}
-
-void
-clienttable_dump(clienttable_t *clienttable, char *prefix)
-{
-    int i = 0;
-    int ret = -1;
-    char key[GF_DUMP_MAX_BUF_LEN] = {0};
-
-    if (!clienttable)
-        return;
-
-    ret = TRY_LOCK(&clienttable->lock);
-    {
-        if (ret) {
-            gf_msg("client_t", GF_LOG_WARNING, 0, LG_MSG_LOCK_FAILED,
-                   "Unable to acquire lock");
-            return;
-        }
-        gf_proc_dump_build_key(key, prefix, "maxclients");
-        gf_proc_dump_write(key, "%d", clienttable->max_clients);
-        gf_proc_dump_build_key(key, prefix, "first_free");
-        gf_proc_dump_write(key, "%d", clienttable->first_free);
-        for (i = 0; i < clienttable->max_clients; i++) {
-            if (GF_CLIENTENTRY_ALLOCATED ==
-                clienttable->cliententries[i].next_free) {
-                gf_proc_dump_build_key(key, prefix, "cliententry[%d]", i);
-                gf_proc_dump_add_section("%s", key);
-                cliententry_dump(&clienttable->cliententries[i], key);
-            }
-        }
-    }
-    UNLOCK(&clienttable->lock);
 }
 
 void
