@@ -292,6 +292,12 @@ worm_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                     goto out;
                 }
             }
+            reten_state.ret_period = reten_state.ret_period + stbuf->ia_atime -
+                                     stpre.ia_atime;
+            ret = gf_worm_set_xattr(this, &reten_state, _gf_false, loc);
+            if (ret) {
+                goto out;
+            }
             stbuf->ia_mtime = stpre.ia_mtime;
         }
     }
@@ -372,6 +378,13 @@ worm_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
                     goto out;
                 }
             }
+            reten_state.ret_period = reten_state.ret_period + stbuf->ia_atime -
+                                     stpre.ia_atime;
+            ret = gf_worm_set_xattr(this, &reten_state, _gf_true, fd);
+            if (ret) {
+                goto out;
+            }
+
             stbuf->ia_mtime = stpre.ia_mtime;
         }
     }
