@@ -2659,8 +2659,8 @@ ec_launch_heal(ec_t *ec, ec_fop_data_t *fop)
 
     frame = create_frame(ec->xl, ec->xl->ctx->pool);
     if (!frame) {
-        goto out;
         ret = -1;
+        goto out;
     }
 
     ec_owner_set(frame, frame->root);
