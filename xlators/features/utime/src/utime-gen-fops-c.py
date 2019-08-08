@@ -82,7 +82,18 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
              @LONG_ARGS@)
 {
         gl_timespec_get(&frame->root->ctime);
-        frame->root->flags |= MDATA_CTIME;
+
+        if (!valid) {
+                frame->root->flags |= MDATA_CTIME;
+        }
+
+        if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
+                frame->root->flags |= MDATA_CTIME;
+        }
+
+        if (valid & GF_SET_ATTR_MODE) {
+                frame->root->flags |= MDATA_CTIME;
+        }
 
         STACK_WIND (frame, gf_utime_@NAME@_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->@NAME@, @SHORT_ARGS@);

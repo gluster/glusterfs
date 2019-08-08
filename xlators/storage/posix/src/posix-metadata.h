@@ -40,7 +40,8 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
                         inode_t *inode, struct iatt *stbuf);
 void
 posix_update_utime_in_mdata(xlator_t *this, const char *real_path, int fd,
-                            inode_t *inode, struct iatt *stbuf, int valid);
+                            inode_t *inode, struct timespec *ctime,
+                            struct iatt *stbuf, int valid);
 void
 posix_set_ctime(call_frame_t *frame, xlator_t *this, const char *real_path,
                 int fd, inode_t *inode, struct iatt *stbuf);
