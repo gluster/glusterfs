@@ -527,6 +527,7 @@ struct _cmd_args {
     int client_pid_set;
     unsigned uid_map_root;
     int32_t lru_limit;
+    int32_t invalidate_limit;
     int background_qlen;
     int congestion_threshold;
     char *fuse_mountopts;

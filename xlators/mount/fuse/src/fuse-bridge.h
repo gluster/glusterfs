@@ -139,7 +139,7 @@ struct fuse_private {
     pthread_cond_t invalidate_cond;
     pthread_mutex_t invalidate_mutex;
     gf_boolean_t reverse_fuse_thread_started;
-
+    uint64_t invalidate_count;
     /* For communicating with separate mount thread. */
     int status_pipe[2];
 
@@ -191,7 +191,7 @@ struct fuse_private {
 
     /* LRU Limit, if not set, default is 128k for now */
     uint32_t lru_limit;
-
+    uint32_t invalidate_limit;
     uint32_t fuse_dev_eperm_ratelimit_ns;
 };
 typedef struct fuse_private fuse_private_t;

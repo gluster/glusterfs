@@ -111,6 +111,7 @@ struct _inode {
     struct list_head list;        /* active/lru/purge */
 
     struct _inode_ctx *_ctx; /* replacement for dict_t *(inode->ctx) */
+    bool in_invalidate_list; /* Set if inode is in table invalidate list */
     bool invalidate_sent;    /* Set it if invalidator_fn is called for inode */
 };
 

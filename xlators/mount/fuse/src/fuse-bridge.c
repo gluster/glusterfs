@@ -33,7 +33,7 @@ static int gf_fuse_xattr_enotsup_log;
 void
 fini(xlator_t *this_xl);
 
-static void
+static int32_t
 fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino);
 
 /*
@@ -319,7 +319,7 @@ send_fuse_data(xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
 #define send_fuse_obj(this, finh, obj)                                         \
     send_fuse_data(this, finh, obj, sizeof(*(obj)))
 
-static void
+static int32_t
 fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
 {
 #if FUSE_KERNEL_MINOR_VERSION >= 11
@@ -335,17 +335,22 @@ fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
 
     priv = this->private;
     if (!priv->reverse_fuse_thread_started)
-        return;
+        return -1;
+
+    if (priv->invalidate_limit &&
+        (priv->invalidate_count >= priv->invalidate_limit)) {
+        return -1;
+    }
 
     inode = (inode_t *)(unsigned long)fuse_ino;
     if (inode == NULL)
-        return;
+        return -1;
 
     list_for_each_entry_safe(dentry, tmp, &inode->dentry_list, inode_list)
     {
         node = GF_CALLOC(1, sizeof(*node), gf_fuse_mt_invalidate_node_t);
         if (node == NULL)
-            break;
+            return -1;
 
         INIT_LIST_HEAD(&node->next);
 
@@ -382,20 +387,21 @@ fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
         pthread_mutex_lock(&priv->invalidate_mutex);
         {
             list_add_tail(&node->next, &priv->invalidate_list);
+            priv->invalidate_count++;
             pthread_cond_signal(&priv->invalidate_cond);
         }
         pthread_mutex_unlock(&priv->invalidate_mutex);
     }
 
 #endif
-    return;
+    return 0;
 }
 
 /*
  * Send an inval inode notification to fuse. This causes an invalidation of the
  * entire page cache mapping on the inode.
  */
-static void
+static int32_t
 fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
 {
 #if FUSE_KERNEL_MINOR_VERSION >= 11
@@ -408,15 +414,20 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
     priv = this->private;
 
     if (!priv->reverse_fuse_thread_started)
-        return;
+        return -1;
+
+    if (priv->invalidate_limit &&
+        (priv->invalidate_count >= priv->invalidate_limit)) {
+        return -1;
+    }
 
     inode = (inode_t *)(unsigned long)fuse_ino;
     if (inode == NULL)
-        return;
+        return -1;
 
     node = GF_CALLOC(1, sizeof(*node), gf_fuse_mt_invalidate_node_t);
     if (node == NULL)
-        return;
+        return -1;
 
     INIT_LIST_HEAD(&node->next);
 
@@ -442,6 +453,7 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
     pthread_mutex_lock(&priv->invalidate_mutex);
     {
         list_add_tail(&node->next, &priv->invalidate_list);
+        priv->invalidate_count++;
         pthread_cond_signal(&priv->invalidate_cond);
     }
     pthread_mutex_unlock(&priv->invalidate_mutex);
@@ -450,7 +462,7 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
     gf_log("glusterfs-fuse", GF_LOG_WARNING,
            "fuse_invalidate_inode not implemented on this system");
 #endif
-    return;
+    return 0;
 }
 
 #if FUSE_KERNEL_MINOR_VERSION >= 11
@@ -458,8 +470,9 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
 static int32_t
 fuse_inode_invalidate_fn(xlator_t *this, inode_t *inode)
 {
-    fuse_invalidate_entry(this, (uint64_t)(uintptr_t)inode);
-    return 0;
+    int32_t ret = 0;
+    ret = fuse_invalidate_entry(this, (uint64_t)(uintptr_t)inode);
+    return ret;
 }
 #endif
 
@@ -4010,7 +4023,9 @@ fuse_setxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
         gf_log("fuse", GF_LOG_TRACE, "got request to invalidate %" PRIu64,
                finh->nodeid);
 #if FUSE_KERNEL_MINOR_VERSION >= 11
-        fuse_invalidate_entry(this, finh->nodeid);
+        ret = fuse_invalidate_entry(this, finh->nodeid);
+        if (ret)
+            op_errno = EBUSY;
 #endif
         goto done;
     }
@@ -4832,6 +4847,7 @@ notify_kernel_loop(void *data)
                               fuse_invalidate_node_t, next);
 
             list_del_init(&node->next);
+            priv->invalidate_count--;
         }
         pthread_mutex_unlock(&priv->invalidate_mutex);
 
@@ -4875,6 +4891,7 @@ notify_kernel_loop(void *data)
             list_del_init(&node->next);
             GF_FREE(node);
         }
+        priv->invalidate_count = 0;
     }
     pthread_mutex_unlock(&priv->invalidate_mutex);
 
@@ -6150,6 +6167,9 @@ fuse_priv_dump(xlator_t *this)
                        (int)private->timed_response_fuse_thread_started);
     gf_proc_dump_write("reverse_thread_started", "%d",
                        (int)private->reverse_fuse_thread_started);
+    gf_proc_dump_write("invalidate_limit", "%u", private->invalidate_limit);
+    gf_proc_dump_write("invalidate_queue_length", "%" PRIu64,
+                       private->invalidate_count);
     gf_proc_dump_write("use_readdirp", "%d", private->use_readdirp);
 
     return 0;
@@ -6689,6 +6709,9 @@ init(xlator_t *this_xl)
 
     GF_OPTION_INIT("lru-limit", priv->lru_limit, uint32, cleanup_exit);
 
+    GF_OPTION_INIT("invalidate-limit", priv->invalidate_limit, uint32,
+                   cleanup_exit);
+
     GF_OPTION_INIT("event-history", priv->event_history, bool, cleanup_exit);
 
     GF_OPTION_INIT("thin-client", priv->thin_client, bool, cleanup_exit);
@@ -7026,6 +7049,15 @@ struct volume_options options[] = {
         .min = 0,
         .description = "makes glusterfs invalidate kernel inodes after "
                        "reaching this limit (0 means 'unlimited')",
+    },
+    {
+        .key = {"invalidate-limit"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = "0",
+        .min = 0,
+        .description = "suspend invalidations as of 'lru-limit' if the number "
+                       "of outstanding invalidations reaches this limit "
+                       "(0 means 'unlimited')",
     },
     {
         .key = {"auto-invalidation"},

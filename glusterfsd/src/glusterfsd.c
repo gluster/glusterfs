@@ -223,6 +223,9 @@ static struct argp_option gf_options[] = {
     {"lru-limit", ARGP_FUSE_LRU_LIMIT_KEY, "N", 0,
      "Set fuse module's limit for number of inodes kept in LRU list to N "
      "[default: 131072]"},
+    {"invalidate-limit", ARGP_FUSE_INVALIDATE_LIMIT_KEY, "N", 0,
+     "Suspend inode invalidations implied by 'lru-limit' if the number of "
+     "outstanding invalidations reaches N"},
     {"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
      "Set fuse module's background queue length to N "
      "[default: 64]"},
@@ -514,6 +517,16 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
         if (ret < 0) {
             gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
                    "lru-limit");
+            goto err;
+        }
+    }
+
+    if (cmd_args->invalidate_limit >= 0) {
+        ret = dict_set_int32(options, "invalidate-limit",
+                             cmd_args->invalidate_limit);
+        if (ret < 0) {
+            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                   "invalidate-limit");
             goto err;
         }
     }
@@ -1315,6 +1328,14 @@ parse_opts(int key, char *arg, struct argp_state *state)
                 break;
 
             argp_failure(state, -1, 0, "unknown LRU limit option %s", arg);
+            break;
+
+        case ARGP_FUSE_INVALIDATE_LIMIT_KEY:
+            if (!gf_string2int32(arg, &cmd_args->invalidate_limit))
+                break;
+
+            argp_failure(state, -1, 0, "unknown invalidate limit option %s",
+                         arg);
             break;
 
         case ARGP_FUSE_BACKGROUND_QLEN_KEY:

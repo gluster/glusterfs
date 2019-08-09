@@ -126,6 +126,11 @@ Provide list of backup volfile servers in the following format [default: None]
 Set fuse module's limit for number of inodes kept in LRU list to N [default: 131072]
 .TP
 .TP
+\fBinvalidate-limit=\fRN
+Suspend fuse invalidations implied by 'lru-limit' if  number of outstanding
+invalidations reaches N
+.TP
+.TP
 \fBbackground-qlen=\fRN
 Set fuse module's background queue length to N [default: 64]
 .TP
