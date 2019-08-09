@@ -510,8 +510,8 @@ __inode_unref(inode_t *inode, bool clear)
 
     this = THIS;
 
-    if (clear && inode->invalidate_sent) {
-        inode->invalidate_sent = false;
+    if (clear && inode->in_invalidate_list) {
+        inode->in_invalidate_list = false;
         inode->table->invalidate_size--;
         __inode_activate(inode);
     }
@@ -525,7 +525,7 @@ __inode_unref(inode_t *inode, bool clear)
         inode->_ctx[index].ref--;
     }
 
-    if (!inode->ref && !inode->invalidate_sent) {
+    if (!inode->ref && !inode->in_invalidate_list) {
         inode->table->active_size--;
 
         nlookup = GF_ATOMIC_GET(inode->nlookup);
@@ -561,14 +561,14 @@ __inode_ref(inode_t *inode, bool is_invalidate)
         return inode;
 
     if (!inode->ref) {
-        if (inode->invalidate_sent) {
-            inode->invalidate_sent = false;
+        if (inode->in_invalidate_list) {
+            inode->in_invalidate_list = false;
             inode->table->invalidate_size--;
         } else {
             inode->table->lru_size--;
         }
         if (is_invalidate) {
-            inode->invalidate_sent = true;
+            inode->in_invalidate_list = true;
             inode->table->invalidate_size++;
             list_move_tail(&inode->list, &inode->table->invalidate);
         } else {
@@ -1544,6 +1544,7 @@ static int
 inode_table_prune(inode_table_t *table)
 {
     int ret = 0;
+    int ret1 = 0;
     struct list_head purge = {
         0,
     };
@@ -1582,6 +1583,10 @@ inode_table_prune(inode_table_t *table)
                 /* check for valid inode with 'nlookup' */
                 nlookup = GF_ATOMIC_GET(entry->nlookup);
                 if (nlookup) {
+                    if (entry->invalidate_sent) {
+                        list_move_tail(&entry->list, &table->lru);
+                        continue;
+                    }
                     __inode_ref(entry, true);
                     tmp = entry;
                     break;
@@ -1603,9 +1608,19 @@ inode_table_prune(inode_table_t *table)
     if (tmp) {
         xlator_t *old_THIS = THIS;
         THIS = table->invalidator_xl;
-        table->invalidator_fn(table->invalidator_xl, tmp);
+        ret1 = table->invalidator_fn(table->invalidator_xl, tmp);
         THIS = old_THIS;
-        inode_unref(tmp);
+        pthread_mutex_lock(&table->lock);
+        {
+            if (!ret1) {
+                tmp->invalidate_sent = true;
+                __inode_unref(tmp, false);
+            } else {
+                /* Move this back to the lru list*/
+                __inode_unref(tmp, true);
+            }
+        }
+        pthread_mutex_unlock(&table->lock);
     }
 
     /* Just so that if purge list is handled too, then clear it off */

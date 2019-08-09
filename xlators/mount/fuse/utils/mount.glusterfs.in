@@ -261,6 +261,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --lru-limit=$lru_limit");
     fi
 
+    if [ -n "$invalidate_limit" ]; then
+        cmd_line=$(echo "$cmd_line --invalidate-limit=$invalidate_limit");
+    fi
+
     if [ -n "$bg_qlen" ]; then
         cmd_line=$(echo "$cmd_line --background-qlen=$bg_qlen");
     fi
@@ -512,6 +516,9 @@ with_options()
             ;;
         "lru-limit")
             lru_limit=$value
+            ;;
+        "invalidate-limit")
+            invalidate_limit=$value
             ;;
         "background-qlen")
             bg_qlen=$value
