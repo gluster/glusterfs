@@ -828,7 +828,8 @@ out:
  * back into the dict. But to get the values for those xattrs it has to do the
  * getxattr operation on each xattr which might turn out to be a costly
  * operation. So for each of the xattrs present in the list, a 0 byte value
- * ("") is set into the dict before unwinding. This can be treated as an
+ * ("") is set into the dict before unwinding. Since ("") is also a valid xattr
+ * value(in a file system) we use an extra key in the same dictionary as an
  * indicator to other xlators which want to cache the xattrs (as of now,
  * md-cache which caches acl and selinux related xattrs) to not to cache the
  * values of the xattrs present in the dict.
@@ -870,6 +871,15 @@ svs_add_xattrs_to_dict(xlator_t *this, dict_t *dict, char *list, ssize_t size)
         remaining_size -= strlen(keybuffer) + 1;
         list_offset += strlen(keybuffer) + 1;
     } /* while (remaining_size > 0) */
+
+    /* Add an additional key to indicate that we don't need to cache these
+     * xattrs(with value "") */
+    ret = dict_set_str(dict, "glusterfs.skip-cache", "");
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_DICT_SET_FAILED,
+               "dict set operation for the key glusterfs.skip-cache failed.");
+        goto out;
+    }
 
     ret = 0;
 
