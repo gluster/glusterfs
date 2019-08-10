@@ -714,25 +714,6 @@ updatefn(dict_t *dict, char *key, data_t *value, void *data)
             }
         }
 
-        /* posix xlator as part of listxattr will send both names
-         * and values of the xattrs in the dict. But as per man page
-         * listxattr is mainly supposed to send names of the all the
-         * xattrs. gfapi, as of now will put all the keys it obtained
-         * in the dict (sent by posix) into a buffer provided by the
-         * caller (thus the values of those xattrs are lost). If some
-         * xlator makes gfapi based calls (ex: snapview-server), then
-         * it has to unwind the calls by putting those names it got
-         * in the buffer again into the dict. But now it would not be
-         * having the values for those xattrs. So it might just put
-         * a 0 byte value ("") into the dict for each xattr and unwind
-         * the call. So the xlators which cache the xattrs (as of now
-         * md-cache caches the acl and selinux related xattrs), should
-         * not update their cache if the value of a xattr is a 0 byte
-         * data (i.e. "").
-         */
-        if (value->len == 1 && value->data[0] == '\0')
-            return 0;
-
         if (dict_set(u->dict, key, value) < 0) {
             u->ret = -1;
             return -1;
@@ -2421,6 +2402,12 @@ mdc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
+    if (dict_get(xattr, "glusterfs.skip-cache")) {
+        gf_msg(this->name, GF_LOG_DEBUG, 0, 0,
+               "Skipping xattr update due to empty value");
+        goto out;
+    }
+
     mdc_inode_xatt_set(this, local->loc.inode, xdata);
 
 out:
@@ -2500,6 +2487,12 @@ mdc_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret < 0) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
+        goto out;
+    }
+
+    if (dict_get(xattr, "glusterfs.skip-cache")) {
+        gf_msg(this->name, GF_LOG_DEBUG, 0, 0,
+               "Skipping xattr update due to empty value");
         goto out;
     }
 
