@@ -925,6 +925,8 @@ __socket_server_bind(rpc_transport_t *this)
     int ret = -1;
     int opt = 1;
     int reuse_check_sock = -1;
+    uint16_t sin_port = 0;
+    int retries = 0;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
@@ -957,14 +959,42 @@ __socket_server_bind(rpc_transport_t *this)
         }
     }
 
-    ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
-               this->myinfo.sockaddr_len);
+    if (AF_UNIX != SA(&this->myinfo.sockaddr)->sa_family) {
+        sin_port = (int)ntohs(
+            ((struct sockaddr_in *)&this->myinfo.sockaddr)->sin_port);
+        if (!sin_port) {
+            sin_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
+            ((struct sockaddr_in *)&this->myinfo.sockaddr)->sin_port = htons(
+                sin_port);
+        }
+        retries = 10;
+        while (retries) {
+            ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
+                       this->myinfo.sockaddr_len);
+            if (ret == -1) {
+                gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
+                       this->myinfo.identifier, strerror(errno));
+                if (errno == EADDRINUSE) {
+                    gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+                    sleep(1);
+                    retries--;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    } else {
+        ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
+                   this->myinfo.sockaddr_len);
 
-    if (ret == -1) {
-        gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
-               this->myinfo.identifier, strerror(errno));
-        if (errno == EADDRINUSE) {
-            gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+        if (ret == -1) {
+            gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
+                   this->myinfo.identifier, strerror(errno));
+            if (errno == EADDRINUSE) {
+                gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+            }
         }
     }
     if (AF_UNIX != SA(&this->myinfo.sockaddr)->sa_family) {
