@@ -102,12 +102,12 @@ posix_priv(xlator_t *this)
     struct posix_private *priv = NULL;
     char key_prefix[GF_DUMP_MAX_BUF_LEN];
 
+    if (!this)
+        return 0;
+
     (void)snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type,
                    this->name);
     gf_proc_dump_add_section("%s", key_prefix);
-
-    if (!this)
-        return 0;
 
     priv = this->private;
 
