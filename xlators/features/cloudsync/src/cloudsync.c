@@ -1325,7 +1325,7 @@ int32_t
 cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
          off_t offset, uint32_t flags, dict_t *xdata)
 {
-    int op_errno = -1;
+    int op_errno = ENOMEM;
     cs_local_t *local = NULL;
     int ret = 0;
     cs_inode_ctx_t *ctx = NULL;
@@ -1341,7 +1341,6 @@ cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     local = cs_local_init(this, frame, NULL, fd, GF_FOP_READ);
     if (!local) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "local init failed");
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1372,7 +1371,6 @@ cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
     if (!local->stub) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -1384,7 +1382,6 @@ cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->call_cnt++;
         ret = locate_and_execute(frame);
         if (ret) {
-            op_errno = ENOMEM;
             goto err;
         }
     }
