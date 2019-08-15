@@ -4395,10 +4395,19 @@ posix_common_removexattr(call_frame_t *frame, loc_t *loc, fd_t *fd,
         goto out;
     }
 
-    if (loc)
+    if (loc) {
         ret = posix_pstat(this, inode, loc->gfid, real_path, &preop, _gf_false);
-    else
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PSTAT_FAILED,
+                   "pstat operaton failed on %s", real_path);
+        }
+    } else {
         ret = posix_fdstat(this, inode, _fd, &preop);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_FDSTAT_FAILED,
+                   "fdstat operaton failed on %s", real_path);
+        }
+    }
 
     if (gf_get_index_by_elem(disallow_removexattrs, (char *)name) >= 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
@@ -4454,9 +4463,17 @@ posix_common_removexattr(call_frame_t *frame, loc_t *loc, fd_t *fd,
         posix_set_ctime(frame, this, real_path, -1, inode, NULL);
         ret = posix_pstat(this, inode, loc->gfid, real_path, &postop,
                           _gf_false);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PSTAT_FAILED,
+                   "pstat operaton failed on %s", real_path);
+        }
     } else {
         posix_set_ctime(frame, this, NULL, _fd, inode, NULL);
         ret = posix_fdstat(this, inode, _fd, &postop);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_FDSTAT_FAILED,
+                   "fdstat operaton failed on %s", real_path);
+        }
     }
     if (ret)
         goto out;
