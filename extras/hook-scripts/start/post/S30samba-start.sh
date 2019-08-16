@@ -89,6 +89,7 @@ function add_samba_share () {
         STRING+="path = /\n"
         STRING+="read only = no\n"
         STRING+="guest ok = yes\n"
+        STRING+="kernel share modes = no\n"
         printf "$STRING"  >> "${CONFIGFILE}"
 }
 
