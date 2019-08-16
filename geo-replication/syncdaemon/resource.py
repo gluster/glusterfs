@@ -1483,7 +1483,7 @@ class SSH(object):
 
         if log_rsync_performance:
             # use stdout=PIPE only when log_rsync_performance enabled
-            # Else rsync will write to stdout and nobody is their
+            # Else rsync will write to stdout and nobody is there
             # to consume. If PIPE is full rsync hangs.
             po = Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE, universal_newlines=True)

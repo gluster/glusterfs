@@ -517,7 +517,7 @@ class GMasterCommon(object):
         # If crawlwrap is called when partial history available,
         # then it sets register_time which is the time when geo-rep
         # worker registered to changelog consumption. Since nsec is
-        # not considered in register time, their are chances of skipping
+        # not considered in register time, there are chances of skipping
         # changes detection in xsync crawl. This limit will be reset when
         # crawlwrap is called again.
         self.live_changelog_start_time = None

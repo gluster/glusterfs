@@ -50,7 +50,7 @@ def pgfid_to_path(brick, changelog_data):
     """
     # pgfid1 to path1 in case of CREATE/MKNOD/MKDIR/LINK/SYMLINK
     for row in changelog_data.gfidpath_get_distinct("pgfid1", {"path1": ""}):
-        # In case of Data/Metadata only, pgfid1 will not be their
+        # In case of Data/Metadata only, pgfid1 will not be there
         if row[0] == "":
             continue
 
