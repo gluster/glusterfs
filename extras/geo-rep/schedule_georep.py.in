@@ -352,7 +352,7 @@ def get_summary(mastervol, slave_url):
 def touch_mount_root(mastervol):
     # Create a Mount and Touch the Mount point root,
     # Hack to make sure some event available after
-    # setting Checkpoint. Without this their is a chance of
+    # setting Checkpoint. Without this there is a chance of
     # Checkpoint never completes.
     with glustermount("localhost", mastervol) as mnt:
         execute(["touch", mnt])
