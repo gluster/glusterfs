@@ -109,7 +109,7 @@ type=int
 help=Minimum time interval in seconds for passive worker to become Active
 
 [changelog-archive-format]
-value=%%Y%%m
+value=%Y%m
 help=Processed changelogs will be archived in working directory. Pattern for archive file
 
 [use-meta-volume]
