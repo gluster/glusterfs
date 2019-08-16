@@ -10,9 +10,9 @@
 #
 
 try:
-    from ConfigParser import ConfigParser, NoSectionError
+    from ConfigParser import RawConfigParser, NoSectionError
 except ImportError:
-    from configparser import ConfigParser, NoSectionError
+    from configparser import RawConfigParser, NoSectionError
 import os
 import shutil
 from string import Template
@@ -94,7 +94,7 @@ class Gconf(object):
         if name != "all" and not self._is_configurable(name):
             raise GconfNotConfigurable()
 
-        cnf = ConfigParser()
+        cnf = RawConfigParser()
         with open(self.custom_conf_file) as f:
             cnf.readfp(f)
 
@@ -138,7 +138,7 @@ class Gconf(object):
         if curr_val == value:
             return True
 
-        cnf = ConfigParser()
+        cnf = RawConfigParser()
         with open(self.custom_conf_file) as f:
             cnf.readfp(f)
 
@@ -178,7 +178,7 @@ class Gconf(object):
         self.session_conf_items = []
         self.default_values = {}
 
-        conf = ConfigParser()
+        conf = RawConfigParser()
         # Default Template config file
         with open(self.default_conf_file) as f:
             conf.readfp(f)
@@ -345,7 +345,7 @@ class Gconf(object):
         return False
 
 def is_config_file_old(config_file, mastervol, slavevol):
-    cnf = ConfigParser()
+    cnf = RawConfigParser()
     cnf.read(config_file)
     session_section = "peers %s %s" % (mastervol, slavevol)
     try:
@@ -360,7 +360,7 @@ def config_upgrade(config_file, ret):
     shutil.copyfile(config_file, config_file_backup)
 
     #write a new config file
-    config = ConfigParser()
+    config = RawConfigParser()
     config.add_section('vars')
 
     for key, value in ret.items():
