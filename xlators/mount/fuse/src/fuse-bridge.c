@@ -4066,6 +4066,7 @@ fuse_setxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
                    "%" PRIu64 ": SETXATTR value allocation failed",
                    finh->unique);
             op_errno = ENOMEM;
+            GF_FREE(newkey);
             goto done;
         }
         memcpy(dict_value, value, fsi->size);
