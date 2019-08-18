@@ -20,6 +20,10 @@ TEST $CLI volume create $V0 disperse 3 redundancy 1 $H0:$B0/b7 $H0:$B0/b8 $H0:$B
 EXPECT "1 x \(2 \+ 1\) = 3" volinfo_field $V0 "Number of Bricks"
 
 TEST $CLI volume delete $V0
+TEST $CLI volume create $V0 disperse-data 2 $H0:$B0/b10 $H0:$B0/b11 $H0:$B0/b12
+EXPECT "1 x \(2 \+ 1\) = 3" volinfo_field $V0 "Number of Bricks"
+
+TEST $CLI volume delete $V0
 TEST $CLI volume create $V0 redundancy 1 $H0:$B0/b10 $H0:$B0/b11 $H0:$B0/b12
 EXPECT "1 x \(2 \+ 1\) = 3" volinfo_field $V0 "Number of Bricks"
 
