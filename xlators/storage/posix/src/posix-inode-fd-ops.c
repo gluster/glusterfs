@@ -1552,6 +1552,7 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (op_ret == -1) {
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
                    "pre-operation fstat failed on fd=%p", fd);
+            GF_FREE(pfd);
             goto out;
         }
 
