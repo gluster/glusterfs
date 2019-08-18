@@ -219,7 +219,7 @@ stub_err:
 int
 gf_utime_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    int op_errno = -1;
+    int op_errno = EINVAL;
     int ret = -1;
 
     VALIDATE_OR_GOTO(frame, err);
@@ -250,7 +250,7 @@ gf_utime_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 free_dict:
     dict_unref(xdata);
 err:
-    STACK_UNWIND_STRICT(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(lookup, frame, ret, op_errno, NULL, NULL, NULL, NULL);
     return 0;
 }
 
