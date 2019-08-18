@@ -621,12 +621,12 @@ __is_fd_reopen_in_progress(clnt_fd_ctx_t *fdctx)
 void
 client_attempt_reopen(fd_t *fd, xlator_t *this)
 {
+    if (!fd || !this)
+        goto out;
+
     clnt_conf_t *conf = this->private;
     clnt_fd_ctx_t *fdctx = NULL;
     gf_boolean_t reopen = _gf_false;
-
-    if (!fd || !this)
-        goto out;
 
     pthread_spin_lock(&conf->fd_lock);
     {
