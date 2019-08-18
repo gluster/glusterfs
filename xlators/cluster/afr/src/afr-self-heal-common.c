@@ -1772,11 +1772,9 @@ afr_selfheal_discover_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (xdata) {
         local->replies[i].xdata = dict_ref(xdata);
         ret = dict_get_int8(xdata, "link-count", &need_heal);
-        local->replies[i].need_heal = need_heal;
-    } else {
-        local->replies[i].need_heal = need_heal;
     }
 
+    local->replies[i].need_heal = need_heal;
     syncbarrier_wake(&local->barrier);
 
     return 0;

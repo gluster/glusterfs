@@ -1318,17 +1318,22 @@ afr_inode_refresh_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata)
             local->replies[call_child].xdata = dict_ref(xdata);
     }
+
     if (xdata) {
         ret = dict_get_int8(xdata, "link-count", &need_heal);
-        local->replies[call_child].need_heal = need_heal;
-    } else {
-        local->replies[call_child].need_heal = need_heal;
+        if (ret) {
+            gf_msg_debug(this->name, -ret, "Unable to get link count");
+        }
     }
 
+    local->replies[call_child].need_heal = need_heal;
     call_count = afr_frame_return(frame);
     if (call_count == 0) {
         afr_set_need_heal(this, local);
         ret = afr_inode_refresh_err(frame, this);
+        if (ret) {
+            gf_msg_debug(this->name, ret, "afr_inode_refresh_err failed");
+        }
         afr_inode_refresh_done(frame, this, ret);
     }
 }
