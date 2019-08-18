@@ -5924,8 +5924,10 @@ upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
     return args;
 out:
     if (ret) {
-        GF_FREE(args->upcall_data.client_uid);
-        GF_FREE(args);
+        if (args) {
+            GF_FREE(args->upcall_data.client_uid);
+            GF_FREE(args);
+        }
     }
 
     return NULL;
