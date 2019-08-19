@@ -1843,20 +1843,25 @@ main(int argc, char *argv[])
 
     sleep(2);
 
-    fs2 = glfs_new(argv[1]);
-    if (!fs2) {
-        fprintf(stderr, "glfs_new: returned NULL\n");
-        return 1;
-    }
     if (argc == 2) {
+        /* Generally glfs_new() requires volume name as an argument */
+        fs2 = glfs_new("test_only_volume");
+        if (!fs2) {
+            fprintf(stderr, "glfs_new(fs2): returned NULL\n");
+            return 1;
+        }
         ret = glfs_set_volfile(fs2, argv[1]);
         if (ret)
-            fprintf(stderr, "glfs_set_volfile failed\n");
+            fprintf(stderr, "glfs_set_volfile failed(fs2)\n");
     } else {
-        // ret = glfs_set_volfile_server (fs2, "unix", "/tmp/gluster.sock", 0);
+        fs2 = glfs_new(argv[1]);
+        if (!fs2) {
+            fprintf(stderr, "glfs_new(fs2): returned NULL\n");
+            return 1;
+        }
         ret = glfs_set_volfile_server(fs2, "tcp", argv[2], 24007);
         if (ret)
-            fprintf(stderr, "glfs_set_volfile_server failed\n");
+            fprintf(stderr, "glfs_set_volfile_server failed(fs2)\n");
     }
 
     ret = glfs_set_statedump_path(fs2, "/tmp");

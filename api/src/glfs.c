@@ -817,17 +817,30 @@ struct glfs *
 pub_glfs_new(const char *volname)
 {
     struct glfs *fs = NULL;
+    int i = 0;
     int ret = -1;
     glusterfs_ctx_t *ctx = NULL;
     xlator_t *old_THIS = NULL;
     char pname[16] = "";
     char msg[32] = "";
 
-    if (!volname) {
+    if (!volname || volname[0] == '/' || volname[0] == '-') {
+        if (strncmp(volname, "/snaps/", 7) == 0) {
+            goto label;
+        }
         errno = EINVAL;
         return NULL;
     }
 
+    for (i = 0; i < strlen(volname); i++) {
+        if (!isalnum(volname[i]) && (volname[i] != '_') &&
+            (volname[i] != '-')) {
+            errno = EINVAL;
+            return NULL;
+        }
+    }
+
+label:
     /*
      * Do this as soon as possible in case something else depends on
      * pool allocations.

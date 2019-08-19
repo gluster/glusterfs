@@ -568,14 +568,13 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     } else {
         ret = glusterfs_graph_settop(graph, volume_name, _gf_false);
     }
-    if (!ret) {
-        goto ok;
-    }
 
-    gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
-           "glusterfs graph settop failed");
-    return -1;
-ok:
+    if (ret) {
+        gf_msg("graph", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_ERROR,
+               "glusterfs graph settop failed");
+        errno = EINVAL;
+        return -1;
+    }
 
     /* XXX: WORM VOLUME */
     ret = glusterfs_graph_worm(graph, ctx);
