@@ -48,7 +48,7 @@ b2_pid_file=$(ls $GLUSTERD_PIDFILEDIR/vols/$V0/*d-backends-2*.pid)
 b3_pid_file=$(ls $GLUSTERD_PIDFILEDIR/vols/$V0/*d-backends-3*.pid)
 
 kill -9 $brick_pid
-EXPECT 0 count_brick_processes
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 count_brick_processes
 
 # Unmount 3rd brick root from node
 brick_root=$L3
