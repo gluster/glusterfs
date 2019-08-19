@@ -1763,6 +1763,7 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
     if (strcmp(ctx->cmd_args.process_name, "glustershd") == 0) {
         ret = glusterfs_update_mux_pid(dict, volfile_obj);
         if (ret == -1) {
+            GF_FREE(volfile_obj);
             goto out;
         }
     }
