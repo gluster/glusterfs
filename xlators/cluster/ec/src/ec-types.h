@@ -267,6 +267,7 @@ struct _ec_lock {
     uint32_t refs_pending;  /* Refs assigned to fops being prepared */
     uint32_t waiting_flags; /*Track xattrop/dirty marking*/
     gf_boolean_t acquired;
+    gf_boolean_t contention;
     gf_boolean_t unlock_now;
     gf_boolean_t release;
     gf_boolean_t query;

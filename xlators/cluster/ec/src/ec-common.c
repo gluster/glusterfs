@@ -1867,6 +1867,10 @@ ec_lock_acquired(ec_lock_link_t *link)
     LOCK(&lock->loc.inode->lock);
 
     lock->acquired = _gf_true;
+    if (lock->contention) {
+        lock->release = _gf_true;
+        lock->contention = _gf_false;
+    }
 
     ec_lock_update_fd(lock, fop);
     ec_lock_wake_shared(lock, &list);
@@ -1892,15 +1896,20 @@ ec_locked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     ec_lock_link_t *link = NULL;
     ec_lock_t *lock = NULL;
 
+    link = fop->data;
+    lock = link->lock;
     if (op_ret >= 0) {
-        link = fop->data;
-        lock = link->lock;
         lock->mask = lock->good_mask = fop->good;
         lock->healing = 0;
 
         ec_lock_acquired(link);
         ec_lock(fop->parent);
     } else {
+        LOCK(&lock->loc.inode->lock);
+        {
+            lock->contention = _gf_false;
+        }
+        UNLOCK(&lock->loc.inode->lock);
         gf_msg(this->name, GF_LOG_WARNING, op_errno, EC_MSG_PREOP_LOCK_FAILED,
                "Failed to complete preop lock");
     }
@@ -2546,6 +2555,13 @@ ec_lock_release(ec_t *ec, inode_t *inode)
 
     gf_msg_debug(ec->xl->name, 0, "Releasing inode %p due to lock contention",
                  inode);
+
+    if (!lock->acquired) {
+        /* This happens if some bricks already got the lock while inodelk is in
+         * progress.  Set release to true after lock is acquired*/
+        lock->contention = _gf_true;
+        goto done;
+    }
 
     /* The lock is not marked to be released, so the frozen list should be
      * empty. */
