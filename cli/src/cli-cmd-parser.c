@@ -1622,6 +1622,11 @@ cli_add_key_group(dict_t *dict, char *key, char *value, char **op_errstr)
             }
             goto out;
         }
+
+        /* Treat line that start with "#" as comments */
+        if ('#' == line[0])
+            continue;
+
         opt_count++;
         tok_key = strtok_r(line, "=", &saveptr);
         tok_val = strtok_r(NULL, "\r\n", &saveptr);
