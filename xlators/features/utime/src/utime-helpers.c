@@ -17,7 +17,7 @@ gl_timespec_get(struct timespec *ts)
 #ifdef TIME_UTC
     timespec_get(ts, TIME_UTC);
 #else
-    timespec_now(ts);
+    timespec_now_realtime(ts);
 #endif
 }
 
