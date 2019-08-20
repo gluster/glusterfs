@@ -1072,6 +1072,7 @@ sys_accept
 tbf_init
 tbf_throttle
 timespec_now
+timespec_now_realtime
 timespec_sub
 timespec_adjust_delta
 timespec_cmp
