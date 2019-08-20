@@ -70,6 +70,28 @@ timespec_now(struct timespec *ts)
 }
 
 void
+timespec_now_realtime(struct timespec *ts)
+{
+#if defined GF_LINUX_HOST_OS || defined GF_SOLARIS_HOST_OS ||                  \
+    defined GF_BSD_HOST_OS
+    if (0 == clock_gettime(CLOCK_REALTIME, ts)) {
+        return;
+    }
+#endif
+
+    /* Fall back to gettimeofday()*/
+    struct timeval tv = {
+        0,
+    };
+    if (0 == gettimeofday(&tv, NULL)) {
+        TIMEVAL_TO_TIMESPEC(&tv, ts);
+        return;
+    }
+
+    return;
+}
+
+void
 timespec_adjust_delta(struct timespec *ts, struct timespec delta)
 {
     ts->tv_nsec = ((ts->tv_nsec + delta.tv_nsec) % 1000000000);
