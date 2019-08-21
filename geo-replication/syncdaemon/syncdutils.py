@@ -701,12 +701,12 @@ def lf(event, **kwargs):
     Log Format helper function, log messages can be
     easily modified to structured log format.
     lf("Config Change", sync_jobs=4, brick=/bricks/b1) will be
-    converted as "Config Change<TAB>brick=/bricks/b1<TAB>sync_jobs=4"
+    converted as "Config Change [{brick=/bricks/b1}, {sync_jobs=4}]"
     """
-    msg = event
+    msgparts = []
     for k, v in kwargs.items():
-        msg += "\t{0}={1}".format(k, v)
-    return msg
+        msgparts.append("{%s=%s}" % (k, v))
+    return "%s [%s]" % (event, ", ".join(msgparts))
 
 
 class Popen(subprocess.Popen):
