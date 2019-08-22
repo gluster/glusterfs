@@ -1351,4 +1351,7 @@ afr_handle_replies_quorum(call_frame_t *frame, xlator_t *this);
 gf_boolean_t
 afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv,
                                    int child);
+
+void
+afr_selfheal_childup(xlator_t *this, afr_private_t *priv);
 #endif /* __AFR_H__ */
