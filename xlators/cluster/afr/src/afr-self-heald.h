@@ -60,9 +60,6 @@ typedef struct {
 } afr_self_heald_t;
 
 int
-afr_selfheal_childup(xlator_t *this, int subvol);
-
-int
 afr_selfheal_daemon_init(xlator_t *this);
 
 int

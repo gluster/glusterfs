@@ -1308,12 +1308,18 @@ out:
     return ret;
 }
 
-int
-afr_selfheal_childup(xlator_t *this, int subvol)
+void
+afr_selfheal_childup(xlator_t *this, afr_private_t *priv)
 {
-    afr_shd_index_healer_spawn(this, subvol);
+    int subvol = 0;
 
-    return 0;
+    if (!priv->shd.iamshd)
+        return;
+    for (subvol = 0; subvol < priv->child_count; subvol++)
+        if (priv->child_up[subvol])
+            afr_shd_index_healer_spawn(this, subvol);
+
+    return;
 }
 
 int
