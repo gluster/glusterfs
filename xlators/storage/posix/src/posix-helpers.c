@@ -2036,7 +2036,6 @@ posix_fs_health_check(xlator_t *this)
     if (ret != 0) {
         op_errno = errno;
         op = "aio_write_error";
-        ret = -1;
         goto out;
     }
 
@@ -2075,7 +2074,6 @@ posix_fs_health_check(xlator_t *this)
     if (ret != 0) {
         op_errno = errno;
         op = "aio_read_error";
-        ret = -1;
         goto out;
     }
 
@@ -2100,7 +2098,8 @@ out:
     }
     if (ret && file_path[0]) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HEALTHCHECK_FAILED,
-               "%s() on %s returned", op, file_path);
+               "%s() on %s returned ret is %d error is %s", op, file_path, ret,
+               ret != -1 ? strerror(ret) : strerror(op_errno));
         gf_event(EVENT_POSIX_HEALTH_CHECK_FAILED,
                  "op=%s;path=%s;error=%s;brick=%s:%s timeout is %d", op,
                  file_path, strerror(op_errno), priv->hostname, priv->base_path,
