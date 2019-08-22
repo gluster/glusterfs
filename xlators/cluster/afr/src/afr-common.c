@@ -5670,10 +5670,8 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
          * b) Already heard from everyone, but we now got a child-up
          *    event.
          */
-        if (have_heard_from_all && priv->shd.iamshd) {
-            for (i = 0; i < priv->child_count; i++)
-                if (priv->child_up[i])
-                    afr_selfheal_childup(this, i);
+        if (have_heard_from_all) {
+            afr_selfheal_childup(this, priv);
         }
     }
 out:

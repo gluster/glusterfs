@@ -141,6 +141,7 @@ reconfigure(xlator_t *this, dict_t *options)
     afr_private_t *priv = NULL;
     xlator_t *read_subvol = NULL;
     int read_subvol_index = -1;
+    int timeout_old = 0;
     int ret = -1;
     int index = -1;
     char *qtype = NULL;
@@ -150,6 +151,7 @@ reconfigure(xlator_t *this, dict_t *options)
     char *locking_scheme = NULL;
     gf_boolean_t consistent_io = _gf_false;
     gf_boolean_t choose_local_old = _gf_false;
+    gf_boolean_t enabled_old = _gf_false;
 
     priv = this->private;
 
@@ -255,11 +257,13 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("ensure-durability", priv->ensure_durability, options,
                      bool, out);
 
+    enabled_old = priv->shd.enabled;
     GF_OPTION_RECONF("self-heal-daemon", priv->shd.enabled, options, bool, out);
 
     GF_OPTION_RECONF("iam-self-heal-daemon", priv->shd.iamshd, options, bool,
                      out);
 
+    timeout_old = priv->shd.timeout;
     GF_OPTION_RECONF("heal-timeout", priv->shd.timeout, options, int32, out);
 
     GF_OPTION_RECONF("consistent-metadata", priv->consistent_metadata, options,
@@ -282,6 +286,12 @@ reconfigure(xlator_t *this, dict_t *options)
     if (priv->quorum_count != 0)
         consistent_io = _gf_false;
     priv->consistent_io = consistent_io;
+
+    if (priv->shd.enabled) {
+        if ((priv->shd.enabled != enabled_old) ||
+            (timeout_old != priv->shd.timeout))
+            afr_selfheal_childup(this, priv);
+    }
 
     ret = 0;
 out:
