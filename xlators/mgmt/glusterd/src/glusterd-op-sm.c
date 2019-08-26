@@ -2848,6 +2848,11 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
 
         if (strcmp(key, "config.memory-accounting") == 0) {
             ret = gf_string2boolean(value, &volinfo->memory_accounting);
+            if (ret == -1) {
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
+                       "Invalid value in key-value pair.");
+                goto out;
+            }
         }
 
         if (strcmp(key, "config.transport") == 0) {
