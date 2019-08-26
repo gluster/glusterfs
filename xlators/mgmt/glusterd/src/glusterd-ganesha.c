@@ -659,10 +659,18 @@ tear_down_cluster(gf_boolean_t run_teardown)
                          "Failed to close dir %s. Reason :"
                          " %s",
                          CONFDIR, strerror(errno));
+            goto exit;
         }
     }
 
 out:
+    if (dir && sys_closedir(dir)) {
+        gf_msg_debug(THIS->name, 0,
+                     "Failed to close dir %s. Reason :"
+                     " %s",
+                     CONFDIR, strerror(errno));
+    }
+exit:
     return ret;
 }
 
