@@ -1447,9 +1447,10 @@ init(xlator_t *this)
     dir_data = dict_get(this->options, "cluster-test-mode");
     if (!dir_data) {
         /* Use default working dir */
-        len = snprintf(logdir, PATH_MAX, "%s", DEFAULT_LOG_FILE_DIRECTORY);
+        len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                       DEFAULT_LOG_FILE_DIRECTORY);
     } else {
-        len = snprintf(logdir, PATH_MAX, "%s", dir_data->data);
+        len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s", dir_data->data);
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLUSTER_RC_ENABLE,
                "cluster-test-mode is enabled logdir is %s", dir_data->data);
     }
