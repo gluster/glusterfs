@@ -1114,7 +1114,13 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
         ret = syncop_readv(from, src, read_size, offset, 0, &vector, &count,
                            &iobref, NULL, NULL, NULL);
         if (!ret || (ret < 0)) {
-            *fop_errno = -ret;
+            if (!ret) {
+                /* File was probably truncated*/
+                ret = -1;
+                *fop_errno = ENOSPC;
+            } else {
+                *fop_errno = -ret;
+            }
             break;
         }
 
@@ -1123,35 +1129,37 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
                                        iobref, fop_errno);
         } else {
             if (!conf->force_migration && !dht_is_tier_xlator(this)) {
-                xdata = dict_new();
                 if (!xdata) {
-                    gf_msg("dht", GF_LOG_ERROR, 0, DHT_MSG_MIGRATE_FILE_FAILED,
-                           "insufficient memory");
-                    ret = -1;
-                    *fop_errno = ENOMEM;
-                    break;
-                }
+                    xdata = dict_new();
+                    if (!xdata) {
+                        gf_msg("dht", GF_LOG_ERROR, 0,
+                               DHT_MSG_MIGRATE_FILE_FAILED,
+                               "insufficient memory");
+                        ret = -1;
+                        *fop_errno = ENOMEM;
+                        break;
+                    }
 
-                /* Fail this write and abort rebalance if we
-                 * detect a write from client since migration of
-                 * this file started. This is done to avoid
-                 * potential data corruption due to out of order
-                 * writes from rebalance and client to the same
-                 * region (as compared between src and dst
-                 * files). See
-                 * https://github.com/gluster/glusterfs/issues/308
-                 * for more details.
-                 */
-                ret = dict_set_int32(xdata, GF_AVOID_OVERWRITE, 1);
-                if (ret) {
-                    gf_msg("dht", GF_LOG_ERROR, 0, ENOMEM,
-                           "failed to set dict");
-                    ret = -1;
-                    *fop_errno = ENOMEM;
-                    break;
+                    /* Fail this write and abort rebalance if we
+                     * detect a write from client since migration of
+                     * this file started. This is done to avoid
+                     * potential data corruption due to out of order
+                     * writes from rebalance and client to the same
+                     * region (as compared between src and dst
+                     * files). See
+                     * https://github.com/gluster/glusterfs/issues/308
+                     * for more details.
+                     */
+                    ret = dict_set_int32(xdata, GF_AVOID_OVERWRITE, 1);
+                    if (ret) {
+                        gf_msg("dht", GF_LOG_ERROR, 0, ENOMEM,
+                               "failed to set dict");
+                        ret = -1;
+                        *fop_errno = ENOMEM;
+                        break;
+                    }
                 }
             }
-
             ret = syncop_writev(to, dst, vector, count, offset, iobref, 0, NULL,
                                 NULL, xdata, NULL);
             if (ret < 0) {
