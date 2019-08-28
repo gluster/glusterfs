@@ -13,6 +13,7 @@ Environment="LOG_LEVEL=INFO"
 EnvironmentFile=-@sysconfdir@/sysconfig/glusterd
 ExecStart=@prefix@/sbin/glusterd -p @localstatedir@/run/glusterd.pid  --log-level $LOG_LEVEL $GLUSTERD_OPTIONS
 KillMode=process
+TimeoutSec=300
 SuccessExitStatus=15
 
 [Install]
