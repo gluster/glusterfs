@@ -761,6 +761,7 @@ error_gen_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
          */
         shortvec = iov_dup(vector, 1);
         shortvec->iov_len /= 2;
+        count = 1;
         goto wind;
     } else if (op_errno) {
         GF_ERROR(this, "unwind(-1, %s)", strerror(op_errno));
