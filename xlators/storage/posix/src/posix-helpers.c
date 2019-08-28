@@ -358,11 +358,10 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
     list_offset = 0;
 
     while (remaining_size > 0) {
-        snprintf(key, sizeof(key), "%s", list + list_offset);
+        len = snprintf(key, sizeof(key), "%s", list + list_offset);
         if (fnmatch(marker_contri_key, key, 0) == 0) {
             ret = _posix_xattr_get_set_from_backend(filler, key);
         }
-        len = strlen(key);
         remaining_size -= (len + 1);
         list_offset += (len + 1);
     }
@@ -566,7 +565,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
 
         /* ACL_TYPE_DEFAULT is not supported for non-directory, skip */
         if (!IA_ISDIR(stbuf.ia_type) &&
-            !strncmp(key, GF_POSIX_ACL_DEFAULT, strlen(GF_POSIX_ACL_DEFAULT)))
+            !strncmp(key, GF_POSIX_ACL_DEFAULT, SLEN(GF_POSIX_ACL_DEFAULT)))
             goto out;
 
         ret = posix_pacl_get(filler->real_path, filler->fdnum, key, &value);
@@ -1204,10 +1203,11 @@ posix_handle_pair(xlator_t *this, const char *real_path, char *key,
         if (stbuf && IS_DHT_LINKFILE_MODE(stbuf))
             goto out;
         ret = posix_pacl_set(real_path, -1, key, value->data);
-    } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key)) && stbuf &&
-               IS_DHT_LINKFILE_MODE(stbuf)) {
+    } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR,
+                        SLEN(POSIX_ACL_ACCESS_XATTR)) &&
+               stbuf && IS_DHT_LINKFILE_MODE(stbuf)) {
         goto out;
-    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, strlen(key))) {
+    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY))) {
         /* ignore this key value pair */
         ret = 0;
         goto out;
@@ -1257,8 +1257,9 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
     } else if (posix_is_gfid2path_xattr(key)) {
         ret = -ENOTSUP;
         goto out;
-    } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key)) && stbuf &&
-               IS_DHT_LINKFILE_MODE(stbuf)) {
+    } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR,
+                        SLEN(POSIX_ACL_ACCESS_XATTR)) &&
+               stbuf && IS_DHT_LINKFILE_MODE(stbuf)) {
         goto out;
     }
 
@@ -2760,10 +2761,10 @@ posix_resolve_dirgfid_to_path(const uuid_t dirgfid, const char *brick_path,
 
         linkname[len] = '\0';
 
-        pgfidstr = strtok_r(linkname + strlen("../../00/00/"), "/", &saveptr);
+        pgfidstr = strtok_r(linkname + SLEN("../../00/00/"), "/", &saveptr);
         dir_name = strtok_r(NULL, "/", &saveptr);
 
-        if (strlen(pre_dir_name) != 0) { /* Remove '/' at the end */
+        if (pre_dir_name[0] != '\0') { /* Remove '/' at the end */
             len = snprintf(result, PATH_MAX, "%s/%s", dir_name, pre_dir_name);
         } else {
             len = snprintf(result, PATH_MAX, "%s", dir_name);
@@ -2891,7 +2892,7 @@ posix_inode_ctx_get_all(inode_t *inode, xlator_t *this, posix_inode_ctx_t **ctx)
 gf_boolean_t
 posix_is_bulk_removexattr(char *name, dict_t *xdata)
 {
-    if (name && (strlen(name) == 0) && xdata)
+    if (name && (name[0] == '\0') && xdata)
         return _gf_true;
     return _gf_false;
 }
@@ -3509,8 +3510,7 @@ posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
     if (!xattr_req)
         return;
 
-    if (!(dict_getn(xattr_req, GF_CS_OBJECT_STATUS,
-                    strlen(GF_CS_OBJECT_STATUS))))
+    if (!dict_get_sizen(xattr_req, GF_CS_OBJECT_STATUS))
         return;
 
     if (fd != -1) {

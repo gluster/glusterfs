@@ -30,26 +30,25 @@ posix_set_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
     };
     char *key = NULL;
     char *val = NULL;
-    size_t key_size = 0;
-    size_t val_size = 0;
+    const size_t key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH +
+                            GF_XXH64_DIGEST_LENGTH * 2 + 1;
+    const size_t val_size = UUID_CANONICAL_FORM_LEN + NAME_MAX + 2;
     int ret = 0;
+    int len;
 
     GF_VALIDATE_OR_GOTO("posix", this, err);
 
-    snprintf(pgfid_bname, sizeof(pgfid_bname), "%s/%s", uuid_utoa(pgfid),
-             bname);
-    gf_xxh64_wrapper((unsigned char *)pgfid_bname, strlen(pgfid_bname),
+    len = snprintf(pgfid_bname, sizeof(pgfid_bname), "%s/%s", uuid_utoa(pgfid),
+                   bname);
+    gf_xxh64_wrapper((unsigned char *)pgfid_bname, len,
                      GF_XXHSUM64_DEFAULT_SEED, xxh64);
-    key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH + GF_XXH64_DIGEST_LENGTH * 2 +
-               1;
     key = alloca(key_size);
     snprintf(key, key_size, GFID2PATH_XATTR_KEY_PREFIX "%s", xxh64);
 
-    val_size = UUID_CANONICAL_FORM_LEN + NAME_MAX + 2;
     val = alloca(val_size);
-    snprintf(val, val_size, "%s/%s", uuid_utoa(pgfid), bname);
+    len = snprintf(val, val_size, "%s/%s", uuid_utoa(pgfid), bname);
 
-    ret = sys_lsetxattr(path, key, val, strlen(val), XATTR_CREATE);
+    ret = sys_lsetxattr(path, key, val, len, XATTR_CREATE);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP,
                "setting gfid2path xattr failed on %s: key = %s ", path, key);
@@ -72,16 +71,16 @@ posix_remove_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
     };
     int ret = 0;
     char *key = NULL;
-    size_t key_size = 0;
+    const size_t key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH +
+                            GF_XXH64_DIGEST_LENGTH * 2 + 1;
+    int len;
 
     GF_VALIDATE_OR_GOTO("posix", this, err);
 
-    snprintf(pgfid_bname, sizeof(pgfid_bname), "%s/%s", uuid_utoa(pgfid),
-             bname);
-    gf_xxh64_wrapper((unsigned char *)pgfid_bname, strlen(pgfid_bname),
+    len = snprintf(pgfid_bname, sizeof(pgfid_bname), "%s/%s", uuid_utoa(pgfid),
+                   bname);
+    gf_xxh64_wrapper((unsigned char *)pgfid_bname, len,
                      GF_XXHSUM64_DEFAULT_SEED, xxh64);
-    key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH + GF_XXH64_DIGEST_LENGTH * 2 +
-               1;
     key = alloca(key_size);
     snprintf(key, key_size, GFID2PATH_XATTR_KEY_PREFIX "%s", xxh64);
 
@@ -214,7 +213,8 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-            snprintf(keybuffer, sizeof(keybuffer), "%s", list + list_offset);
+            len = snprintf(keybuffer, sizeof(keybuffer), "%s",
+                           list + list_offset);
 
             if (!posix_is_gfid2path_xattr(keybuffer)) {
                 goto ignore;
@@ -244,7 +244,6 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
             i++;
 
         ignore:
-            len = strlen(keybuffer);
             remaining_size -= (len + 1);
             list_offset += (len + 1);
         } /* while (remaining_size > 0) */

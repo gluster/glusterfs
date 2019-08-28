@@ -418,7 +418,7 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
     if (!xdata || !local)
         return;
 
-    if (local->parent_entrylk_req && parent && name && strlen(name))
+    if (local->parent_entrylk_req && parent && name && name[0] != '\0')
         pl_parent_entrylk_xattr_fill(this, parent, name, xdata, max_lock);
 
     if (!inode)

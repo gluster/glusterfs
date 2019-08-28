@@ -18,7 +18,7 @@
 
 #define MAKE_PGFID_XATTR_KEY(var, prefix, pgfid)                               \
     do {                                                                       \
-        var = alloca(strlen(prefix) + UUID_CANONICAL_FORM_LEN + 1);            \
+        var = alloca(SLEN(prefix) + UUID_CANONICAL_FORM_LEN + 1);              \
         strcpy(var, prefix);                                                   \
         strcat(var, uuid_utoa(pgfid));                                         \
     } while (0)
