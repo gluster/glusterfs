@@ -620,7 +620,7 @@ posix_init(xlator_t *this)
     }
 
     _private->base_path = gf_strdup(dir_data->data);
-    _private->base_path_length = strlen(_private->base_path);
+    _private->base_path_length = dir_data->len - 1;
 
     ret = dict_get_str(this->options, "hostname", &_private->hostname);
     if (ret) {

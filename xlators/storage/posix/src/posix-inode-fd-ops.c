@@ -109,7 +109,7 @@ posix_cs_build_xattr_rsp(xlator_t *this, dict_t **rsp, dict_t *req, int fd,
     int ret = 0;
     uuid_t uuid;
 
-    if (!(dict_getn(req, GF_CS_OBJECT_STATUS, strlen(GF_CS_OBJECT_STATUS))))
+    if (!dict_get_sizen(req, GF_CS_OBJECT_STATUS))
         return;
 
     if (!(*rsp)) {
@@ -120,8 +120,7 @@ posix_cs_build_xattr_rsp(xlator_t *this, dict_t **rsp, dict_t *req, int fd,
     }
 
     if (fd != -1) {
-        if (dict_getn(req, GF_CS_XATTR_ARCHIVE_UUID,
-                      strlen(GF_CS_XATTR_ARCHIVE_UUID))) {
+        if (dict_get_sizen(req, GF_CS_XATTR_ARCHIVE_UUID)) {
             ret = sys_fgetxattr(fd, GF_CS_XATTR_ARCHIVE_UUID, uuid, 16);
             if (ret > 0) {
                 ret = dict_set_gfuuid(*rsp, GF_CS_XATTR_ARCHIVE_UUID, uuid,
@@ -138,8 +137,7 @@ posix_cs_build_xattr_rsp(xlator_t *this, dict_t **rsp, dict_t *req, int fd,
             }
         }
     } else {
-        if (dict_getn(req, GF_CS_XATTR_ARCHIVE_UUID,
-                      strlen(GF_CS_XATTR_ARCHIVE_UUID))) {
+        if (dict_get_sizen(req, GF_CS_XATTR_ARCHIVE_UUID)) {
             ret = sys_lgetxattr(loc, GF_CS_XATTR_ARCHIVE_UUID, uuid, 16);
             if (ret > 0) {
                 ret = dict_set_gfuuid(*rsp, GF_CS_XATTR_ARCHIVE_UUID, uuid,
@@ -3255,7 +3253,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     }
 
     while (remaining_size > 0) {
-        snprintf(key, sizeof(key), "%s", list + list_offset);
+        len = snprintf(key, sizeof(key), "%s", list + list_offset);
         if (strncmp(key, PGFID_XATTR_KEY_PREFIX,
                     SLEN(PGFID_XATTR_KEY_PREFIX)) != 0)
             goto next;
@@ -3303,7 +3301,6 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
         }
 
     next:
-        len = strlen(key);
         remaining_size -= (len + 1);
         list_offset += (len + 1);
     } /* while (remaining_size > 0) */
