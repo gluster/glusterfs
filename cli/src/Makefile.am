@@ -29,7 +29,7 @@ CLEANFILES =
 $(top_builddir)/libglusterfs/src/libglusterfs.la:
 	$(MAKE) -C $(top_builddir)/libglusterfs/src/ all
 
-$(top_builddir)/libglusterfs/src/libglusterd.la:
+$(top_builddir)/libglusterd/src/libglusterd.la:
 	$(MAKE) -C $(top_builddir)/libglusterd/src/ all
 
 install-data-hook:
