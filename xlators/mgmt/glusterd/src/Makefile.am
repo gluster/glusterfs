@@ -27,7 +27,6 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-reset-brick.c glusterd-shd-svc.c glusterd-shd-svc-helper.c \
         glusterd-gfproxyd-svc.c glusterd-gfproxyd-svc-helper.c glusterd-ganesha.c
 
-
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/libglusterd/src/libglusterd.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
@@ -76,6 +75,3 @@ if GF_INSTALL_GLUSTERD_WORKDIR
 	(ln -sf $(DESTDIR)$(GLUSTERD_WORKDIR) $(sysconfdir)/glusterd) || true;
 endif
 endif
-
-$(top_builddir)/libglusterfs/src/libglusterd.la:
-	$(MAKE) -C $(top_builddir)/libglusterd/src/ all
