@@ -1339,4 +1339,6 @@ afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
 void
 afr_mark_new_entry_changelog(call_frame_t *frame, xlator_t *this);
 
+void
+afr_selfheal_childup(xlator_t *this, afr_private_t *priv);
 #endif /* __AFR_H__ */
