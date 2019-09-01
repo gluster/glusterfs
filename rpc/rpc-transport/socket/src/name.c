@@ -214,6 +214,7 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
     uint16_t remote_port = 0;
     struct addrinfo *addr_info = NULL;
     int32_t ret = 0;
+    struct in6_addr serveraddr;
 
     remote_host_data = dict_get(options, "remote-host");
     if (remote_host_data == NULL) {
@@ -247,6 +248,13 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
                "option remote-port has invalid port in volume %s", this->name);
         ret = -1;
         goto err;
+    }
+
+    /* Need to update transport-address family if address-family is not provide
+       to command-line arguments
+    */
+    if (inet_pton(AF_INET6, remote_host, &serveraddr)) {
+        sockaddr->sa_family = AF_INET6;
     }
 
     /* TODO: gf_resolve is a blocking call. kick in some
@@ -527,7 +535,10 @@ socket_client_get_remote_sockaddr(rpc_transport_t *this,
             ret = -1;
     }
 
-    if (*sa_family == AF_UNSPEC) {
+    /* Address-family is updated based on remote_host in
+       af_inet_client_get_remote_sockaddr
+    */
+    if (*sa_family != sockaddr->sa_family) {
         *sa_family = sockaddr->sa_family;
     }
 
