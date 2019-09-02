@@ -91,6 +91,10 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
     int32_t type = GF_CLUSTER_TYPE_NONE;
     int32_t sub_count = 0;
     struct addrinfo *ai_info = NULL;
+    char brick_addr[128] = {
+        0,
+    };
+    int addrlen = 0;
 
     const char failed_string[2048] =
         "Failed to perform brick order "
@@ -178,15 +182,17 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
         brick_list_dup = tmpptr;
         if (brick == NULL)
             goto check_failed;
-        brick = strtok_r(brick, ":", &tmpptr);
-        if (brick == NULL)
+        tmpptr = strrchr(brick, ':');
+        if (tmpptr == NULL)
             goto check_failed;
-        ret = getaddrinfo(brick, NULL, NULL, &ai_info);
+        addrlen = strlen(brick) - strlen(tmpptr);
+        strncpy(brick_addr, brick, addrlen);
+        brick_addr[addrlen] = '\0';
+        ret = getaddrinfo(brick_addr, NULL, NULL, &ai_info);
         if (ret != 0) {
             ret = 0;
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_RESOLVE_FAIL,
-                   "unable to resolve "
-                   "host name");
+                   "unable to resolve host name for addr %s", brick_addr);
             goto out;
         }
         ai_list_tmp1 = MALLOC(sizeof(addrinfo_list_t));
