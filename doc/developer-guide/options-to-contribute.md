@@ -60,7 +60,7 @@ Reference: https://review.gluster.org/20925/
 
 
 5. Now, pick a `.h` file, and see if a structure is very large, and see
-if re-aligning them as per [coding-standard](./conding-standard.md) gives any size benefit,
+if re-aligning them as per [coding-standard](./coding-standard.md) gives any size benefit,
 if yes, go ahead and change it. Make sure you check all the structures
 in the file for similar pattern.
 

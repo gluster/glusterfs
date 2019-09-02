@@ -328,7 +328,7 @@ cur-stdalloc=214
 max-stdalloc=220
 
 ```
-Here, with cold count being 0 by default, `cur-stdalloc` indicated the number of `dict_t` objects that were allocated in heap using `mem_get()`, and yet to be freed using `mem_put()` (refer to this [page](https://github.com/gluster/glusterfs/blob/master/doc/data-structures/mem-pool.md) for more details on how mempool works). After the test case (name selfheal of 100 files), there was a rise in the cur-stdalloc value (from 14 to 214) for `dict_t`.
+Here, with cold count being 0 by default, `cur-stdalloc` indicated the number of `dict_t` objects that were allocated in heap using `mem_get()`, and yet to be freed using `mem_put()` (refer to this [page](../developer-guide/datastructure-mem-pool.md) for more details on how mempool works). After the test case (name selfheal of 100 files), there was a rise in the cur-stdalloc value (from 14 to 214) for `dict_t`.
 
 After these leaks were fixed, glusterfs was again compiled with -DDEBUG flags, and the same steps were performed again and statedump was taken before and after executing the test case, of the mount. This was done to ascertain the validity of the fix. And the following are the results:
 

@@ -18,7 +18,7 @@ The Gluster features which are 'in progress' or implemented can be found at [git
 
 ## Upgrade Guide ##
 
-The gluster upgrade guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable upgrade guide can be found [here](http://docs.gluster.org/en/latest/Upgrade-Guide/README/)
+The gluster upgrade guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable upgrade guide can be found [here](http://docs.gluster.org/en/latest/Upgrade-Guide)
 
 The doc patch has to be sent against the above mentioned repository.
 

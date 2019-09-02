@@ -680,4 +680,4 @@ Original author's site:
 
 Gluster community site:
 
- * [Translators](http://www.gluster.org/community/documentation/index.php/Translators)
+ * [Translators](https://docs.gluster.org/en/latest/Quick-Start-Guide/Architecture/#translators)

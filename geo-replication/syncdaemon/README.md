@@ -19,7 +19,6 @@ INSTALLATION
 
 As of now, the supported way of operation is running from the source directory or using the RPMs given.
 
-If you use Python 2.4.x, you need to install the [Ctypes module](http://python.net/crew/theller/ctypes/).
 
 CONFIGURATION
 -------------

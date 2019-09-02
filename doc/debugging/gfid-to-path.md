@@ -64,9 +64,5 @@ trusted.glusterfs.pathinfo="(<DISTRIBUTE:test-dht> <POSIX(/mnt/brick-test/b):vm1
 ```
 
 ---
-### Get file path from GFID (Method 3):
-https://gist.github.com/semiosis/4392640
-
----
 #### References and links:
 [posix: placeholders for GFID to path conversion](http://review.gluster.org/5951)
