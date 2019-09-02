@@ -118,7 +118,7 @@ The 'bug' line can reference a bug in a few ways. Gerrit creates a link to the b
 **Updates: bz#1193929** -- use 'Updates: bz#NNNN' if the commit is only a partial fix and more work is needed.
 **Updates: #175** -- use 'Updates: #NNNN' if the commit is only a partial fix and more work is needed for the feature completion.
 
-We encourage the use of Co-Authored-By: name <name@example.com> in commit messages to indicate people who worked on a particular patch. It's a convention for recognizing multiple authors, and our projects would encourage the stats tools to observe it when collecting statistics.
+We encourage the use of `Co-Authored-By: name <name@example.com>` in commit messages to indicate people who worked on a particular patch. It's a convention for recognizing multiple authors, and our projects would encourage the stats tools to observe it when collecting statistics.
 
 ### Summary of Git commit message structure
 

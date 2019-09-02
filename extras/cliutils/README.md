@@ -221,7 +221,7 @@ required.(Under `%files` section)
 - gluster-mountbroker   http://review.gluster.org/14544
 - gluster-eventsapi     http://review.gluster.org/14248
 - gluster-georep-sshkey http://review.gluster.org/14732
-- gluster-restapi       https://github.com/aravindavk/glusterfs-restapi
+- gluster-restapi       https://github.com/gluster/restapi
 
 ## Limitations/TODOs
 - Not yet possible to create CLI without any subcommand, For example

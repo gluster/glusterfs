@@ -23,7 +23,7 @@ This document is intended for the following community participants,
 - Existing xlator maintainers
 - Packaging and gluster management stack maintainers
 
-For a more user facing understanding it is recommended to read section [tbd](TBD)
+For a more user facing understanding it is recommended to read section (TBD)
 in the gluster documentation.
 
 ## Categories
