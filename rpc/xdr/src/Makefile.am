@@ -36,7 +36,7 @@ nodist_libgfxdr_la_HEADERS = $(XDRHEADERS)
 
 libgfxdr_ladir = $(includedir)/glusterfs/rpc
 
-CLEANFILES = $(XDRSOURCES) $(XDRHEADERS) $(XDRGENFILES)
+CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
 
 # trick automake into doing BUILT_SOURCES magic
 BUILT_SOURCES = $(XDRHEADERS) $(XDRSOURCES)
@@ -78,3 +78,8 @@ $(XDRHEADERS): $(XDRGENFILES)
 .PHONY : $(XDRGENFILES)
 $(XDRGENFILES):
 	@if [ ! -e $@ ]; then ln -s $(xdrsrc)/$@ . ; fi;
+
+clean-local:
+	@if [ $(top_builddir) != $(top_srcdir) ]; then \
+		rm -f $(xdrdst)/*.x; \
+	fi
