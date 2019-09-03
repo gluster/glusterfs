@@ -244,6 +244,12 @@ struct syncopctx {
         else                                                                   \
             frame = syncop_create_frame(THIS);                                 \
                                                                                \
+        if (!frame) {                                                          \
+            stb->op_ret = -1;                                                  \
+            stb->op_errno = errno;                                             \
+            break;                                                             \
+        }                                                                      \
+                                                                               \
         if (task) {                                                            \
             frame->root->uid = task->uid;                                      \
             frame->root->gid = task->gid;                                      \
