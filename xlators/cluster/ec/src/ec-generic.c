@@ -147,6 +147,37 @@ ec_manager_flush(ec_fop_data_t *fop, int32_t state)
     }
 }
 
+static int32_t
+ec_validate_fd(fd_t *fd, xlator_t *xl)
+{
+    uint64_t iversion = 0;
+    uint64_t fversion = 0;
+    ec_inode_t *inode_ctx = NULL;
+    ec_fd_t *fd_ctx = NULL;
+
+    LOCK(&fd->lock);
+    {
+        fd_ctx = __ec_fd_get(fd, xl);
+        if (fd_ctx) {
+            fversion = fd_ctx->bad_version;
+        }
+    }
+    UNLOCK(&fd->lock);
+
+    LOCK(&fd->inode->lock);
+    {
+        inode_ctx = __ec_inode_get(fd->inode, xl);
+        if (inode_ctx) {
+            iversion = inode_ctx->bad_version;
+        }
+    }
+    UNLOCK(&fd->inode->lock);
+    if (fversion < iversion) {
+        return EBADF;
+    }
+    return 0;
+}
+
 void
 ec_flush(call_frame_t *frame, xlator_t *this, uintptr_t target,
          uint32_t fop_flags, fop_flush_cbk_t func, void *data, fd_t *fd,
@@ -161,6 +192,14 @@ ec_flush(call_frame_t *frame, xlator_t *this, uintptr_t target,
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    error = ec_validate_fd(fd, this);
+    if (error) {
+        gf_msg(this->name, GF_LOG_ERROR, EBADF, EC_MSG_FD_BAD,
+               "Failing %s on %s", gf_fop_list[GF_FOP_FLUSH],
+               fd->inode ? uuid_utoa(fd->inode->gfid) : "");
+        goto out;
+    }
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_FLUSH, 0, target, fop_flags,
                                ec_wind_flush, ec_manager_flush, callback, data);
@@ -377,6 +416,14 @@ ec_fsync(call_frame_t *frame, xlator_t *this, uintptr_t target,
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    error = ec_validate_fd(fd, this);
+    if (error) {
+        gf_msg(this->name, GF_LOG_ERROR, EBADF, EC_MSG_FD_BAD,
+               "Failing %s on %s", gf_fop_list[GF_FOP_FSYNC],
+               fd->inode ? uuid_utoa(fd->inode->gfid) : "");
+        goto out;
+    }
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_FSYNC, 0, target, fop_flags,
                                ec_wind_fsync, ec_manager_fsync, callback, data);
