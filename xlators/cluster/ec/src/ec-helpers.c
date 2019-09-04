@@ -753,6 +753,7 @@ __ec_fd_get(fd_t *fd, xlator_t *xl)
 {
     int i = 0;
     ec_fd_t *ctx = NULL;
+    ec_inode_t *ictx = NULL;
     uint64_t value = 0;
     ec_t *ec = xl->private;
 
@@ -774,6 +775,12 @@ __ec_fd_get(fd_t *fd, xlator_t *xl)
             if (__fd_ctx_set(fd, xl, value) != 0) {
                 GF_FREE(ctx);
                 return NULL;
+            }
+            /* Only refering bad-version so no need for lock
+             * */
+            ictx = __ec_inode_get(fd->inode, xl);
+            if (ictx) {
+                ctx->bad_version = ictx->bad_version;
             }
         }
     } else {

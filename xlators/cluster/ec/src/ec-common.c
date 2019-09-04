@@ -2255,6 +2255,23 @@ ec_unlock_lock(ec_lock_link_t *link)
     }
 }
 
+void
+ec_inode_bad_inc(inode_t *inode, xlator_t *xl)
+{
+    ec_inode_t *ctx = NULL;
+
+    LOCK(&inode->lock);
+    {
+        ctx = __ec_inode_get(inode, xl);
+        if (ctx == NULL) {
+            goto unlock;
+        }
+        ctx->bad_version++;
+    }
+unlock:
+    UNLOCK(&inode->lock);
+}
+
 int32_t
 ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, dict_t *xattr,
@@ -2270,6 +2287,12 @@ ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
     ctx = lock->ctx;
 
     if (op_ret < 0) {
+        if (link->lock->fd == NULL) {
+            ec_inode_bad_inc(link->lock->loc.inode, this);
+        } else {
+            ec_inode_bad_inc(link->lock->fd->inode, this);
+        }
+
         gf_msg(fop->xl->name, fop_log_level(fop->id, op_errno), op_errno,
                EC_MSG_SIZE_VERS_UPDATE_FAIL,
                "Failed to update version and size. %s", ec_msg_str(fop));

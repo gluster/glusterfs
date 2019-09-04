@@ -150,6 +150,7 @@ struct _ec_fd {
     loc_t loc;
     uintptr_t open;
     int32_t flags;
+    uint64_t bad_version;
     ec_fd_status_t fd_status[0];
 };
 
@@ -180,6 +181,7 @@ struct _ec_inode {
     uint64_t dirty[2];
     struct list_head heal;
     ec_stripe_list_t stripe_cache;
+    uint64_t bad_version;
 };
 
 typedef int32_t (*fop_heal_cbk_t)(call_frame_t *, void *, xlator_t *, int32_t,
