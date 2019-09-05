@@ -707,6 +707,19 @@ ec_child_select(ec_fop_data_t *fop)
         return 0;
     }
 
+    if (!fop->parent && fop->lock_count &&
+        (fop->locks[0].update[EC_DATA_TXN] ||
+         fop->locks[0].update[EC_METADATA_TXN])) {
+        if (ec->quorum_count && (num < ec->quorum_count)) {
+            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_CHILDS_INSUFFICIENT,
+                   "Insufficient available children "
+                   "for this request (have %d, need "
+                   "%d). %s",
+                   num, ec->quorum_count, ec_msg_str(fop));
+            return 0;
+        }
+    }
+
     return 1;
 }
 

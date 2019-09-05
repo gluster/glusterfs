@@ -7,3 +7,12 @@ function ec_up_status()
         local ec_id=$3
         grep -E "^up =" $m/.meta/graphs/active/${v}-disperse-${ec_id}/private | cut -f2 -d'='
 }
+
+function ec_option_value()
+{
+    local v=$1
+    local m=$2
+    local ec_id=$3
+    local opt=$4
+    grep -E "^$opt =" $m/.meta/graphs/active/${v}-disperse-${ec_id}/private | cut -f2 -d'='| awk '{print $1}'
+}

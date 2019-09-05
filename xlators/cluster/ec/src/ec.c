@@ -285,6 +285,7 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("parallel-writes", ec->parallel_writes, options, bool,
                      failed);
     GF_OPTION_RECONF("stripe-cache", ec->stripe_cache, options, uint32, failed);
+    GF_OPTION_RECONF("quorum-count", ec->quorum_count, options, uint32, failed);
     ret = 0;
     if (ec_assign_read_policy(ec, read_policy)) {
         ret = -1;
@@ -783,6 +784,7 @@ init(xlator_t *this)
                    failed);
     GF_OPTION_INIT("parallel-writes", ec->parallel_writes, bool, failed);
     GF_OPTION_INIT("stripe-cache", ec->stripe_cache, uint32, failed);
+    GF_OPTION_INIT("quorum-count", ec->quorum_count, uint32, failed);
 
     this->itable = inode_table_new(EC_SHD_INODE_LRU_LIMIT, this);
     if (!this->itable)
@@ -1466,6 +1468,7 @@ ec_dump_private(xlator_t *this)
     gf_proc_dump_write("heal-waiters", "%d", ec->heal_waiters);
     gf_proc_dump_write("read-policy", "%s", ec_read_policies[ec->read_policy]);
     gf_proc_dump_write("parallel-writes", "%d", ec->parallel_writes);
+    gf_proc_dump_write("quorum-count", "%u", ec->quorum_count);
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s.stats.stripe_cache",
              this->type, this->name);
@@ -1735,6 +1738,16 @@ struct volume_options options[] = {
                     "specially for sequential writes. However, this will also"
                     "lead to extra memory consumption, maximum "
                     "(cache size * stripe size) Bytes per open file."},
+    {
+        .key = {"quorum-count"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = "0",
+        .description =
+            "This option can be used to define how many successes on"
+            "the bricks constitute a success to the application. This"
+            " count should be in the range"
+            "[disperse-data-count,  disperse-count] (inclusive)",
+    },
     {
         .key = {NULL},
     },

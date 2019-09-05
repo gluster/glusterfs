@@ -655,6 +655,7 @@ struct _ec {
     gf_boolean_t optimistic_changelog;
     gf_boolean_t parallel_writes;
     uint32_t stripe_cache;
+    uint32_t quorum_count;
     uint32_t background_heals;
     uint32_t heal_wait_qlen;
     uint32_t self_heal_window_size; /* max size of read/writes */
