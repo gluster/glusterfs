@@ -479,6 +479,7 @@ __afr_selfheal_entry_finalize_source(xlator_t *this, unsigned char *sources,
     afr_private_t *priv = NULL;
     int source = -1;
     int sources_count = 0;
+    int i = 0;
 
     priv = this->private;
 
@@ -492,6 +493,20 @@ __afr_selfheal_entry_finalize_source(xlator_t *this, unsigned char *sources,
     }
 
     source = afr_choose_source_by_policy(priv, sources, AFR_ENTRY_TRANSACTION);
+
+    /*If the selected source does not blame any other brick, then mark
+     * everything as sink to trigger conservative merge.
+     */
+    if (source != -1 && !AFR_COUNT(healed_sinks, priv->child_count)) {
+        for (i = 0; i < priv->child_count; i++) {
+            if (locked_on[i]) {
+                sources[i] = 0;
+                healed_sinks[i] = 1;
+            }
+        }
+        return -1;
+    }
+
     return source;
 }
 
