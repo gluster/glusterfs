@@ -2605,6 +2605,11 @@ afr_lookup_sh_metadata_wrap(void *opaque)
     dict = dict_new();
     if (!dict)
         goto out;
+
+    if (local->xattr_req) {
+        dict_copy(local->xattr_req, dict);
+    }
+
     ret = dict_set_str(dict, "link-count", GF_XATTROP_INDEX_COUNT);
     if (ret) {
         gf_msg_debug(this->name, -ret, "Unable to set link-count in dict ");
@@ -2613,7 +2618,7 @@ afr_lookup_sh_metadata_wrap(void *opaque)
     if (loc_is_nameless(&local->loc)) {
         ret = afr_selfheal_unlocked_discover_on(frame, local->inode,
                                                 local->loc.gfid, local->replies,
-                                                local->child_up);
+                                                local->child_up, dict);
     } else {
         inode = afr_selfheal_unlocked_lookup_on(frame, local->loc.parent,
                                                 local->loc.name, local->replies,
@@ -2787,7 +2792,7 @@ afr_lookup_selfheal_wrap(void *opaque)
 
     inode = afr_selfheal_unlocked_lookup_on(frame, local->loc.parent,
                                             local->loc.name, local->replies,
-                                            local->child_up, NULL);
+                                            local->child_up, local->xattr_req);
     if (inode)
         inode_unref(inode);
 
