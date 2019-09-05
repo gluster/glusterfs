@@ -647,6 +647,42 @@ out:
 }
 
 static int
+validate_disperse_quorum_count(glusterd_volinfo_t *volinfo, dict_t *dict,
+                               char *key, char *value, char **op_errstr)
+{
+    int ret = -1;
+    int quorum_count = 0;
+    int data_count = 0;
+
+    ret = gf_string2int(value, &quorum_count);
+    if (ret) {
+        gf_asprintf(op_errstr,
+                    "%s is not an integer. %s expects a "
+                    "valid integer value.",
+                    value, key);
+        goto out;
+    }
+
+    if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
+        gf_asprintf(op_errstr, "Cannot set %s for a non-disperse volume.", key);
+        ret = -1;
+        goto out;
+    }
+
+    data_count = volinfo->disperse_count - volinfo->redundancy_count;
+    if (quorum_count < data_count || quorum_count > volinfo->disperse_count) {
+        gf_asprintf(op_errstr, "%d for %s is out of range [%d - %d]",
+                    quorum_count, key, data_count, volinfo->disperse_count);
+        ret = -1;
+        goto out;
+    }
+
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
 validate_parallel_readdir(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                           char *value, char **op_errstr)
 {
@@ -2916,6 +2952,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "cluster/disperse",
      .type = NO_DOC,
      .op_version = GD_OP_VERSION_3_13_0,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = "disperse.quorum-count",
+     .voltype = "cluster/disperse",
+     .type = NO_DOC,
+     .op_version = GD_OP_VERSION_8_0,
+     .validate_fn = validate_disperse_quorum_count,
+     .description = "This option can be used to define how many successes on"
+                    "the bricks constitute a success to the application. This"
+                    " count should be in the range"
+                    "[disperse-data-count,  disperse-count] (inclusive)",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {
         .key = "features.sdfs",

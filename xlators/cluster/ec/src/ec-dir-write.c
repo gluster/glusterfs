@@ -215,10 +215,10 @@ ec_manager_create(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.create != NULL) {
-                fop->cbks.create(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                 cbk->op_errno, fop->fd, fop->loc[0].inode,
-                                 &cbk->iatt[0], &cbk->iatt[1], &cbk->iatt[2],
-                                 cbk->xdata);
+                QUORUM_CBK(fop->cbks.create, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, fop->fd,
+                           fop->loc[0].inode, &cbk->iatt[0], &cbk->iatt[1],
+                           &cbk->iatt[2], cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -387,9 +387,10 @@ ec_manager_link(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.link != NULL) {
-                fop->cbks.link(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                               cbk->op_errno, fop->loc[0].inode, &cbk->iatt[0],
-                               &cbk->iatt[1], &cbk->iatt[2], cbk->xdata);
+                QUORUM_CBK(fop->cbks.link, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, fop->loc[0].inode,
+                           &cbk->iatt[0], &cbk->iatt[1], &cbk->iatt[2],
+                           cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -566,9 +567,10 @@ ec_manager_mkdir(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.mkdir != NULL) {
-                fop->cbks.mkdir(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                cbk->op_errno, fop->loc[0].inode, &cbk->iatt[0],
-                                &cbk->iatt[1], &cbk->iatt[2], cbk->xdata);
+                QUORUM_CBK(fop->cbks.mkdir, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, fop->loc[0].inode,
+                           &cbk->iatt[0], &cbk->iatt[1], &cbk->iatt[2],
+                           cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -770,9 +772,10 @@ ec_manager_mknod(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.mknod != NULL) {
-                fop->cbks.mknod(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                cbk->op_errno, fop->loc[0].inode, &cbk->iatt[0],
-                                &cbk->iatt[1], &cbk->iatt[2], cbk->xdata);
+                QUORUM_CBK(fop->cbks.mknod, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, fop->loc[0].inode,
+                           &cbk->iatt[0], &cbk->iatt[1], &cbk->iatt[2],
+                           cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -928,10 +931,10 @@ ec_manager_rename(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.rename != NULL) {
-                fop->cbks.rename(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                 cbk->op_errno, &cbk->iatt[0], &cbk->iatt[1],
-                                 &cbk->iatt[2], &cbk->iatt[3], &cbk->iatt[4],
-                                 cbk->xdata);
+                QUORUM_CBK(fop->cbks.rename, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, &cbk->iatt[0],
+                           &cbk->iatt[1], &cbk->iatt[2], &cbk->iatt[3],
+                           &cbk->iatt[4], cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -1080,9 +1083,9 @@ ec_manager_rmdir(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.rmdir != NULL) {
-                fop->cbks.rmdir(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                cbk->op_errno, &cbk->iatt[0], &cbk->iatt[1],
-                                cbk->xdata);
+                QUORUM_CBK(fop->cbks.rmdir, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, &cbk->iatt[0],
+                           &cbk->iatt[1], cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -1234,10 +1237,10 @@ ec_manager_symlink(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.symlink != NULL) {
-                fop->cbks.symlink(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                  cbk->op_errno, fop->loc[0].inode,
-                                  &cbk->iatt[0], &cbk->iatt[1], &cbk->iatt[2],
-                                  cbk->xdata);
+                QUORUM_CBK(fop->cbks.symlink, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, fop->loc[0].inode,
+                           &cbk->iatt[0], &cbk->iatt[1], &cbk->iatt[2],
+                           cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -1389,9 +1392,9 @@ ec_manager_unlink(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(cbk != NULL);
 
             if (fop->cbks.unlink != NULL) {
-                fop->cbks.unlink(fop->req_frame, fop, fop->xl, cbk->op_ret,
-                                 cbk->op_errno, &cbk->iatt[0], &cbk->iatt[1],
-                                 cbk->xdata);
+                QUORUM_CBK(fop->cbks.unlink, fop, fop->req_frame, fop, fop->xl,
+                           cbk->op_ret, cbk->op_errno, &cbk->iatt[0],
+                           &cbk->iatt[1], cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
