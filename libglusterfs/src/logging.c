@@ -1940,19 +1940,10 @@ _gf_msg(const char *domain, const char *file, const char *function,
     int ret = 0;
     char *msgstr = NULL;
     va_list ap;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterfs_ctx_t *ctx = NULL;
     char *callstr = NULL;
     int log_inited = 0;
-
-    /* in args check */
-    if (!domain || !file || !function || !fmt) {
-        fprintf(stderr, "logging: %s:%s():%d: invalid argument\n", __FILE__,
-                __PRETTY_FUNCTION__, __LINE__);
-        return -1;
-    }
-
-    this = THIS;
 
     if (this == NULL)
         return -1;
@@ -1966,6 +1957,13 @@ _gf_msg(const char *domain, const char *file, const char *function,
     /* check if we should be logging */
     if (skip_logging(this, level))
         goto out;
+
+    /* in args check */
+    if (!domain || !file || !function || !fmt) {
+        fprintf(stderr, "logging: %s:%s():%d: invalid argument\n", __FILE__,
+                __PRETTY_FUNCTION__, __LINE__);
+        return -1;
+    }
 
     /* form the message */
     va_start(ap, fmt);
