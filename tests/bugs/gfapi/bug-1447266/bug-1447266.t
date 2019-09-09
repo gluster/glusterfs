@@ -56,5 +56,5 @@ TEST ! $(dirname $0)/bug-1447266 $V0 $H0 "/.snaps/.././snap3"
 TEST $(dirname $0)/bug-1447266 $V0 $H0 "/.snaps/../."
 TEST $(dirname $0)/bug-1447266 $V0 $H0 "/.snaps/./snap1/./../snap1/dir/."
 
-cleanup_tester $(dirname $0)/bug-1319374
+cleanup_tester $(dirname $0)/bug-1447266
 cleanup;
