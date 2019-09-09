@@ -482,6 +482,7 @@ glusterd_shdsvc_start(glusterd_svc_t *svc, int flags)
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
             glusterd_shd_svcproc_cleanup(&volinfo->shd);
             glusterd_volinfo_unref(volinfo);
+            goto out1;
         }
         goto out;
     }
@@ -494,6 +495,7 @@ out:
         glusterd_shd_svcproc_cleanup(&volinfo->shd);
     if (volinfo)
         glusterd_volinfo_unref(volinfo);
+out1:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
 
     return ret;

@@ -1181,6 +1181,7 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
             ret = 0;
             goto out;
         }
+        /* coverity[ORDER_REVERSAL] */
         ret = glusterfs_process_svc_detach(ctx, volfile_tmp);
         if (ret) {
             UNLOCK(&ctx->volfile_lock);

@@ -2492,6 +2492,7 @@ glusterd_start_volume(glusterd_volinfo_t *volinfo, int flags, gf_boolean_t wait)
        attach_brick_callback can also call store_volinfo for same
        volume to update volinfo on disk
     */
+    /* coverity[ORDER_REVERSAL] */
     LOCK(&volinfo->lock);
     ret = glusterd_store_volinfo(volinfo, verincrement);
     UNLOCK(&volinfo->lock);

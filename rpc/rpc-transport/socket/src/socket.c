@@ -3801,6 +3801,7 @@ socket_listen(rpc_transport_t *this)
             }
         }
 
+        /* coverity[SLEEP] */
         ret = __socket_server_bind(this);
 
         if ((ret == -EADDRINUSE) || (ret == -1)) {
