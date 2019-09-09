@@ -64,10 +64,14 @@ int
 client_is_last_child_down(xlator_t *this, int32_t event, struct rpc_clnt *rpc)
 {
     rpc_clnt_connection_t *conn = NULL;
+    clnt_conf_t *conf = NULL;
     int ret = 0;
 
-    clnt_conf_t *conf = this->private;
-    if (!this || !rpc || !conf)
+    if (!this || !rpc)
+        goto out;
+
+    conf = this->private;
+    if (!conf)
         goto out;
 
     if (!conf->parent_down)

@@ -3293,7 +3293,7 @@ glusterd_friend_remove(uuid_t uuid, char *hostname)
     ret = glusterd_peerinfo_cleanup(peerinfo);
 out:
     gf_msg_debug(THIS->name, 0, "returning %d", ret);
-
+    /* coverity[LOCK] */
     return ret;
 }
 
