@@ -646,6 +646,7 @@ struct _ec {
     uintptr_t xl_notify;      /* Bit flag representing
                                  notification for bricks. */
     uintptr_t node_mask;
+    uintptr_t read_mask;         /*Stores user defined read-mask*/
     gf_atomic_t async_fop_count; /* Number of on going asynchronous fops. */
     xlator_t **xl_list;
     gf_lock_t lock;

@@ -1330,6 +1330,7 @@ int32_t
 ec_manager_readv(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk;
+    ec_t *ec = fop->xl->private;
 
     switch (state) {
         case EC_STATE_INIT:
@@ -1349,6 +1350,9 @@ ec_manager_readv(ec_fop_data_t *fop, int32_t state)
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
+            if (ec->read_mask) {
+                fop->mask &= ec->read_mask;
+            }
             ec_dispatch_min(fop);
 
             return EC_STATE_PREPARE_ANSWER;

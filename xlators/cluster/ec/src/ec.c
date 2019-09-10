@@ -702,6 +702,67 @@ ec_statistics_init(ec_t *ec)
     GF_ATOMIC_INIT(ec->stats.stripe_cache.errors, 0);
 }
 
+static int
+ec_assign_read_mask(ec_t *ec, char *read_mask_str)
+{
+    char *mask = NULL;
+    char *maskptr = NULL;
+    char *saveptr = NULL;
+    char *id_str = NULL;
+    int id = 0;
+    int ret = 0;
+    uintptr_t read_mask = 0;
+
+    if (!read_mask_str) {
+        ec->read_mask = 0;
+        ret = 0;
+        goto out;
+    }
+
+    mask = gf_strdup(read_mask_str);
+    if (!mask) {
+        ret = -1;
+        goto out;
+    }
+    maskptr = mask;
+
+    for (;;) {
+        id_str = strtok_r(maskptr, ":", &saveptr);
+        if (id_str == NULL)
+            break;
+        if (gf_string2int(id_str, &id)) {
+            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_XLATOR_INIT_FAIL,
+                   "In read-mask \"%s\" id %s is not a valid integer",
+                   read_mask_str, id_str);
+            ret = -1;
+            goto out;
+        }
+
+        if ((id < 0) || (id >= ec->nodes)) {
+            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_XLATOR_INIT_FAIL,
+                   "In read-mask \"%s\" id %d is not in range [0 - %d]",
+                   read_mask_str, id, ec->nodes - 1);
+            ret = -1;
+            goto out;
+        }
+        read_mask |= (1UL << id);
+        maskptr = NULL;
+    }
+
+    if (gf_bits_count(read_mask) < ec->fragments) {
+        gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_XLATOR_INIT_FAIL,
+               "read-mask \"%s\" should contain at least %d ids", read_mask_str,
+               ec->fragments);
+        ret = -1;
+        goto out;
+    }
+    ec->read_mask = read_mask;
+    ret = 0;
+out:
+    GF_FREE(mask);
+    return ret;
+}
+
 int32_t
 init(xlator_t *this)
 {
@@ -709,6 +770,7 @@ init(xlator_t *this)
     char *read_policy = NULL;
     char *extensions = NULL;
     int32_t err;
+    char *read_mask_str = NULL;
 
     if (this->parents == NULL) {
         gf_msg(this->name, GF_LOG_WARNING, 0, EC_MSG_NO_PARENTS,
@@ -796,6 +858,10 @@ init(xlator_t *this)
     GF_OPTION_INIT("parallel-writes", ec->parallel_writes, bool, failed);
     GF_OPTION_INIT("stripe-cache", ec->stripe_cache, uint32, failed);
     GF_OPTION_INIT("quorum-count", ec->quorum_count, uint32, failed);
+    GF_OPTION_INIT("ec-read-mask", read_mask_str, str, failed);
+
+    if (ec_assign_read_mask(ec, read_mask_str))
+        goto failed;
 
     this->itable = inode_table_new(EC_SHD_INODE_LRU_LIMIT, this);
     if (!this->itable)
@@ -1471,6 +1537,10 @@ ec_dump_private(xlator_t *this)
     gf_proc_dump_write("childs_up", "%u", ec->xl_up_count);
     gf_proc_dump_write("childs_up_mask", "%s",
                        ec_bin(tmp, sizeof(tmp), ec->xl_up, ec->nodes));
+    if (ec->read_mask) {
+        gf_proc_dump_write("read-mask", "%s",
+                           ec_bin(tmp, sizeof(tmp), ec->read_mask, ec->nodes));
+    }
     gf_proc_dump_write("background-heals", "%d", ec->background_heals);
     gf_proc_dump_write("heal-wait-qlength", "%d", ec->heal_wait_qlen);
     gf_proc_dump_write("self-heal-window-size", "%" PRIu32,
@@ -1758,6 +1828,13 @@ struct volume_options options[] = {
             "the bricks constitute a success to the application. This"
             " count should be in the range"
             "[disperse-data-count,  disperse-count] (inclusive)",
+    },
+    {
+        .key = {"ec-read-mask"},
+        .type = GF_OPTION_TYPE_STR,
+        .default_value = NULL,
+        .description = "This option can be used to choose which bricks can be"
+                       " used for reading data/metadata of a file/directory",
     },
     {
         .key = {NULL},
