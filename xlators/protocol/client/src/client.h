@@ -39,22 +39,18 @@ typedef enum {
 #define CLIENT_POST_FOP(fop, this_rsp_u, this_args_cbk, params...)             \
     do {                                                                       \
         gf_common_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp_u, fop);            \
-        int _op_ret = 0;                                                       \
-        int _op_errno = 0;                                                     \
                                                                                \
-        _op_ret = _this_rsp->op_ret;                                           \
-        _op_errno = gf_error_to_errno(_this_rsp->op_errno);                    \
+        int _op_ret = _this_rsp->op_ret;                                       \
+        int _op_errno = gf_error_to_errno(_this_rsp->op_errno);                \
         args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
     } while (0)
 
 #define CLIENT_POST_FOP_TYPE(fop, this_rsp_u, this_args_cbk, params...)        \
     do {                                                                       \
         gfs3_##fop##_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp_u, fop);         \
-        int _op_ret = 0;                                                       \
-        int _op_errno = 0;                                                     \
                                                                                \
-        _op_ret = _this_rsp->op_ret;                                           \
-        _op_errno = gf_error_to_errno(_this_rsp->op_errno);                    \
+        int _op_ret = _this_rsp->op_ret;                                       \
+        int _op_errno = gf_error_to_errno(_this_rsp->op_errno);                \
         args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
     } while (0)
 
@@ -324,12 +320,6 @@ int32_t
 client_dump_locks(char *name, inode_t *inode, dict_t *dict);
 int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx);
-
-int32_t
-client_type_to_gf_type(short l_type);
-
-int
-client_mark_fd_bad(xlator_t *this);
 
 int
 client_fd_lk_list_empty(fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
