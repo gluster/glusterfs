@@ -21,7 +21,23 @@ function time_stamps_match {
         then
             echo "Y"
         else
-            echo "N"
+            echo "Mtimes: $mtime_source_b0:$mtime_sink_b1:$mtime_source_b2 Atimes: $atime_source_b0:$atime_sink_b1:$atime_source_b2"
+        fi
+
+}
+
+function mtimes_match {
+        path=$1
+        mtime_source_b0=$(get_mtime $B0/${V0}0/$path)
+        mtime_source_b2=$(get_mtime $B0/${V0}2/$path)
+        mtime_sink_b1=$(get_mtime $B0/${V0}1/$path)
+
+        if [[ ( $mtime_source_b0 -eq $mtime_sink_b1) || \
+              ( $mtime_source_b2 -eq $mtime_sink_b1) ]]
+        then
+            echo "Y"
+        else
+            echo "Mtimes: $mtime_source_b0:$mtime_sink_b1:$mtime_source_b2"
         fi
 
 }
@@ -70,9 +86,11 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 TEST $CLI volume heal $V0
+#Executing parallel heal may lead to changing atime after heal. So better
+#to test just the mtime
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
-EXPECT "Y" time_stamps_match DIR2
+EXPECT "Y" mtimes_match DIR2
 
 TEST rm $GET_MDATA_PATH/get-mdata-xattr
 cleanup;
