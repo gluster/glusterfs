@@ -13,7 +13,7 @@
 #include <glusterfs/defaults.h>
 #include "client-messages.h"
 
-int
+static int
 client_cbk_null(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
@@ -21,7 +21,7 @@ client_cbk_null(struct rpc_clnt *rpc, void *mydata, void *data)
     return 0;
 }
 
-int
+static int
 client_cbk_fetchspec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
@@ -29,7 +29,7 @@ client_cbk_fetchspec(struct rpc_clnt *rpc, void *mydata, void *data)
     return 0;
 }
 
-int
+static int
 client_cbk_ino_flush(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
@@ -37,7 +37,7 @@ client_cbk_ino_flush(struct rpc_clnt *rpc, void *mydata, void *data)
     return 0;
 }
 
-int
+static int
 client_cbk_recall_lease(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     int ret = -1;
@@ -54,8 +54,6 @@ client_cbk_recall_lease(struct rpc_clnt *rpc, void *mydata, void *data)
         },
     };
 
-    GF_VALIDATE_OR_GOTO("client-callback", rpc, out);
-    GF_VALIDATE_OR_GOTO("client-callback", mydata, out);
     GF_VALIDATE_OR_GOTO("client-callback", data, out);
 
     iov = (struct iovec *)data;
@@ -90,7 +88,7 @@ out:
     return ret;
 }
 
-int
+static int
 client_cbk_cache_invalidation(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     int ret = -1;
@@ -107,7 +105,7 @@ client_cbk_cache_invalidation(struct rpc_clnt *rpc, void *mydata, void *data)
 
     gf_msg_trace(THIS->name, 0, "Upcall callback is called");
 
-    if (!rpc || !mydata || !data)
+    if (!data)
         goto out;
 
     iov = (struct iovec *)data;
@@ -145,15 +143,13 @@ out:
     return 0;
 }
 
-int
+static int
 client_cbk_child_up(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     clnt_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, rpc, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -165,15 +161,13 @@ out:
     return 0;
 }
 
-int
+static int
 client_cbk_child_down(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     clnt_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, rpc, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -185,7 +179,7 @@ out:
     return 0;
 }
 
-int
+static int
 client_cbk_inodelk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     int ret = -1;
@@ -204,8 +198,6 @@ client_cbk_inodelk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
         },
     };
 
-    GF_VALIDATE_OR_GOTO("client-callback", rpc, out);
-    GF_VALIDATE_OR_GOTO("client-callback", mydata, out);
     GF_VALIDATE_OR_GOTO("client-callback", data, out);
 
     iov = (struct iovec *)data;
@@ -240,7 +232,7 @@ out:
     return ret;
 }
 
-int
+static int
 client_cbk_entrylk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     int ret = -1;
@@ -257,8 +249,6 @@ client_cbk_entrylk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
         },
     };
 
-    GF_VALIDATE_OR_GOTO("client-callback", rpc, out);
-    GF_VALIDATE_OR_GOTO("client-callback", mydata, out);
     GF_VALIDATE_OR_GOTO("client-callback", data, out);
 
     iov = (struct iovec *)data;

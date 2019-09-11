@@ -2900,8 +2900,6 @@ client3_3_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     this = THIS;
 
-    memset(vector, 0, sizeof(vector));
-
     frame = myframe;
     local = frame->local;
 
@@ -2919,6 +2917,8 @@ client3_3_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
         rsp.op_errno = EINVAL;
         goto out;
     }
+
+    memset(vector, 0, sizeof(vector));
 
     ret = client_post_readv(this, &rsp, &iobref, req->rsp_iobref, &stat, vector,
                             &req->rsp[1], &rspcount, &xdata);
@@ -3185,9 +3185,6 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(vector, 0, sizeof(vector));
-    memset(&cp, 0, sizeof(client_payload_t));
-
     conf = this->private;
     args = data;
     local = mem_get0(this->local_pool);
@@ -3204,7 +3201,7 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
     loc_path(&local->loc, NULL);
 
     if (args->xdata) {
-        content = dict_get(args->xdata, GF_CONTENT_KEY);
+        content = dict_get_sizen(args->xdata, GF_CONTENT_KEY);
         if (content != NULL) {
             rsp_iobref = iobref_new();
             if (rsp_iobref == NULL) {
@@ -3220,6 +3217,7 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
             }
 
             iobref_add(rsp_iobref, rsp_iobuf);
+            memset(vector, 0, sizeof(vector));
             rsphdr = &vector[0];
             rsphdr->iov_base = iobuf_ptr(rsp_iobuf);
             rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
@@ -3237,6 +3235,7 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = local->iobref;
@@ -3460,7 +3459,6 @@ client3_3_readlink(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
 
     conf = this->private;
@@ -3499,6 +3497,7 @@ client3_3_readlink(call_frame_t *frame, xlator_t *this, void *data)
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = local->iobref;
@@ -3849,7 +3848,7 @@ client3_3_mkdir(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    if (!args->xdata || !dict_get(args->xdata, "gfid-req")) {
+    if (!args->xdata || !dict_get_sizen(args->xdata, "gfid-req")) {
         op_errno = EPERM;
         gf_msg_callingfn(this->name, GF_LOG_WARNING, op_errno, PC_MSG_GFID_NULL,
                          "mkdir: %s is received "
@@ -4038,7 +4037,6 @@ client3_3_readv(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4086,6 +4084,7 @@ client3_3_readv(call_frame_t *frame, xlator_t *this, void *data)
     local->iobref = rsp_iobref;
     rsp_iobref = NULL;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsp_payload = &rsp_vec;
     cp.rsp_payload_cnt = 1;
     cp.rsp_iobref = local->iobref;
@@ -4131,7 +4130,6 @@ client3_3_writev(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4149,6 +4147,7 @@ client3_3_writev(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.iobref = args->iobref;
     cp.payload = args->vector;
     cp.payload_cnt = args->count;
@@ -4587,7 +4586,6 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4628,6 +4626,7 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = local->iobref;
@@ -4682,7 +4681,6 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
 
     local = mem_get0(this->local_pool);
@@ -4755,6 +4753,7 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = local->iobref;
@@ -4809,7 +4808,6 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
 
     if (!(args->loc && args->loc->inode))
@@ -4856,6 +4854,7 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = local->iobref;
@@ -4910,7 +4909,6 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -4951,6 +4949,7 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = local->iobref;
@@ -5434,7 +5433,6 @@ client3_3_readdir(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -5484,6 +5482,7 @@ client3_3_readdir(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = rsp_iobref;
@@ -5539,7 +5538,6 @@ client3_3_readdirp(call_frame_t *frame, xlator_t *this, void *data)
     if (!frame || !this || !data)
         goto unwind;
 
-    memset(&cp, 0, sizeof(client_payload_t));
     args = data;
     conf = this->private;
 
@@ -5589,6 +5587,7 @@ client3_3_readdirp(call_frame_t *frame, xlator_t *this, void *data)
 
     local->fd = fd_ref(args->fd);
 
+    memset(&cp, 0, sizeof(client_payload_t));
     cp.rsphdr = rsphdr;
     cp.rsphdr_cnt = count;
     cp.rsp_iobref = rsp_iobref;

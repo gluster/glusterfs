@@ -27,13 +27,6 @@ extern rpc_clnt_prog_t clnt3_3_fop_prog;
 extern rpc_clnt_prog_t clnt4_0_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 
-typedef struct client_fd_lk_local {
-    gf_atomic_t ref;
-    gf_boolean_t error;
-    gf_lock_t lock;
-    clnt_fd_ctx_t *fdctx;
-} clnt_fd_lk_local_t;
-
 int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -159,11 +152,8 @@ client3_3_reopen_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (rsp.op_ret == -1) {
-        ret = -1;
         goto out;
     }
-
-    ret = 0;
 
 out:
     fdctx->reopen_done(fdctx, (rsp.op_ret) ? -1 : rsp.fd, this);
@@ -218,7 +208,6 @@ client3_3_reopendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (-1 == rsp.op_ret) {
-        ret = -1;
         goto out;
     }
 
@@ -249,7 +238,6 @@ protocol_client_reopendir(clnt_fd_ctx_t *fdctx, xlator_t *this)
 
     local = mem_get0(this->local_pool);
     if (!local) {
-        ret = -1;
         goto out;
     }
     local->fdctx = fdctx;
@@ -261,7 +249,6 @@ protocol_client_reopendir(clnt_fd_ctx_t *fdctx, xlator_t *this)
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        ret = -1;
         goto out;
     }
 
@@ -308,13 +295,11 @@ protocol_client_reopenfile(clnt_fd_ctx_t *fdctx, xlator_t *this)
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        ret = -1;
         goto out;
     }
 
     local = mem_get0(this->local_pool);
     if (!local) {
-        ret = -1;
         goto out;
     }
 
@@ -409,11 +394,8 @@ client4_0_reopen_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (rsp.op_ret == -1) {
-        ret = -1;
         goto out;
     }
-
-    ret = 0;
 
 out:
     fdctx->reopen_done(fdctx, (rsp.op_ret) ? -1 : rsp.fd, this);
@@ -468,7 +450,6 @@ client4_0_reopendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (-1 == rsp.op_ret) {
-        ret = -1;
         goto out;
     }
 
@@ -1324,7 +1305,7 @@ client_query_portmap(xlator_t *this, struct rpc_clnt *rpc)
 
     req.brick = remote_subvol;
 
-    if (!dict_get_str(options, "transport-type", &xprt)) {
+    if (!dict_get_str_sizen(options, "transport-type", &xprt)) {
         if (!strcmp(xprt, "rdma")) {
             snprintf(brick_name, sizeof(brick_name), "%s.rdma", remote_subvol);
             req.brick = brick_name;
