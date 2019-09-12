@@ -20,9 +20,8 @@
         afr_local_t *__local = frame->local;                                   \
         afr_private_t *__priv = frame->this->private;                          \
         int __i = 0, __count = 0;                                              \
-        unsigned char *__child_up = NULL;                                      \
+        unsigned char *__child_up = alloca(__priv->child_count);               \
                                                                                \
-        __child_up = alloca0(__priv->child_count);                             \
         memcpy(__child_up, __priv->child_up,                                   \
                sizeof(*__child_up) * __priv->child_count);                     \
         __count = AFR_COUNT(__child_up, __priv->child_count);                  \
@@ -83,9 +82,9 @@
 
 #define ALLOC_MATRIX(n, type)                                                  \
     ({                                                                         \
-        type **__ptr = NULL;                                                   \
         int __i;                                                               \
-        __ptr = alloca0(n * sizeof(type *));                                   \
+        type **__ptr = alloca(n * sizeof(type *));                             \
+                                                                               \
         for (__i = 0; __i < n; __i++)                                          \
             __ptr[__i] = alloca0(n * sizeof(type));                            \
         __ptr;                                                                 \
