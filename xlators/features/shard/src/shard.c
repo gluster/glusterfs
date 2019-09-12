@@ -2059,8 +2059,8 @@ shard_truncate_last_shard(call_frame_t *frame, xlator_t *this, inode_t *inode)
      */
     if (!inode) {
         gf_msg_debug(this->name, 0,
-                     "Last shard to be truncated absent in backend: %d of "
-                     "gfid %s. Directly proceeding to update file size",
+                     "Last shard to be truncated absent in backend: %" PRIu64
+                     " of gfid %s. Directly proceeding to update file size",
                      local->first_block, uuid_utoa(local->loc.inode->gfid));
         shard_update_file_size(frame, this, NULL, &local->loc,
                                shard_post_update_size_truncate_handler);
@@ -2618,6 +2618,7 @@ shard_truncate_begin(call_frame_t *frame, xlator_t *this)
                                           local->block_size);
 
     local->num_blocks = local->last_block - local->first_block + 1;
+    GF_ASSERT(local->num_blocks > 0);
     local->resolver_base_inode = (local->fop == GF_FOP_TRUNCATE)
                                      ? local->loc.inode
                                      : local->fd->inode;
@@ -5194,6 +5195,7 @@ shard_post_lookup_readv_handler(call_frame_t *frame, xlator_t *this)
                                           local->block_size);
 
     local->num_blocks = local->last_block - local->first_block + 1;
+    GF_ASSERT(local->num_blocks > 0);
     local->resolver_base_inode = local->loc.inode;
 
     local->inode_list = GF_CALLOC(local->num_blocks, sizeof(inode_t *),
@@ -5684,6 +5686,7 @@ shard_common_inode_write_post_lookup_handler(call_frame_t *frame,
     local->last_block = get_highest_block(local->offset, local->total_size,
                                           local->block_size);
     local->num_blocks = local->last_block - local->first_block + 1;
+    GF_ASSERT(local->num_blocks > 0);
     local->inode_list = GF_CALLOC(local->num_blocks, sizeof(inode_t *),
                                   gf_shard_mt_inode_list);
     if (!local->inode_list) {
@@ -5692,9 +5695,9 @@ shard_common_inode_write_post_lookup_handler(call_frame_t *frame,
     }
 
     gf_msg_trace(this->name, 0,
-                 "%s: gfid=%s first_block=%" PRIu32
+                 "%s: gfid=%s first_block=%" PRIu64
                  " "
-                 "last_block=%" PRIu32 " num_blocks=%" PRIu32 " offset=%" PRId64
+                 "last_block=%" PRIu64 " num_blocks=%" PRIu64 " offset=%" PRId64
                  " total_size=%zu flags=%" PRId32 "",
                  gf_fop_list[local->fop],
                  uuid_utoa(local->resolver_base_inode->gfid),
