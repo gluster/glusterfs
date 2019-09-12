@@ -4083,7 +4083,6 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                 size = sys_fgetxattr(_fd, key, NULL, 0);
             }
             if (size == -1) {
-                op_ret = -1;
                 op_errno = errno;
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                        "fgetxattr failed "
@@ -4104,7 +4103,6 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
             bzero(value, size + 1);
             size = sys_fgetxattr(_fd, key, value, size);
             if (size == -1) {
-                op_ret = -1;
                 op_errno = errno;
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                        "fgetxattr failed o"
