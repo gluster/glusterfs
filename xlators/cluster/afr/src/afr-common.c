@@ -5696,7 +5696,7 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         goto out;
     }
 
-    local->child_up = GF_CALLOC(priv->child_count, sizeof(*local->child_up),
+    local->child_up = GF_MALLOC(priv->child_count * sizeof(*local->child_up),
                                 gf_afr_mt_char);
     if (!local->child_up) {
         if (op_errno)
