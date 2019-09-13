@@ -14,12 +14,11 @@
 #include <pthread.h>
 
 typedef struct {
-    int child;
     char *path;
+    int child;
 } shd_event_t;
 
 typedef struct {
-    int child;
     uint64_t healed_count;
     uint64_t split_brain_count;
     uint64_t heal_failed_count;
@@ -31,32 +30,33 @@ typedef struct {
        cralwer is in progress */
     time_t end_time;
     char *crawl_type;
+    int child;
 } crawl_event_t;
 
 struct subvol_healer {
     xlator_t *this;
-    int subvol;
-    gf_boolean_t local;
-    gf_boolean_t running;
-    gf_boolean_t rerun;
     crawl_event_t crawl_event;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     pthread_t thread;
+    int subvol;
+    gf_boolean_t local;
+    gf_boolean_t running;
+    gf_boolean_t rerun;
 };
 
 typedef struct {
-    gf_boolean_t iamshd;
-    gf_boolean_t enabled;
-    int timeout;
     struct subvol_healer *index_healers;
     struct subvol_healer *full_healers;
 
     eh_t *split_brain;
     eh_t **statistics;
+    int timeout;
     uint32_t max_threads;
     uint32_t wait_qlength;
     uint32_t halo_max_latency_msec;
+    gf_boolean_t iamshd;
+    gf_boolean_t enabled;
 } afr_self_heald_t;
 
 int
