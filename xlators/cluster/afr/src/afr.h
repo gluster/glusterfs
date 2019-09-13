@@ -139,8 +139,8 @@ typedef enum {
 } afr_ta_fop_state_t;
 
 struct afr_nfsd {
-    gf_boolean_t iamnfsd;
     uint32_t halo_max_latency_msec;
+    gf_boolean_t iamnfsd;
 };
 
 typedef struct _afr_private {
@@ -153,14 +153,13 @@ typedef struct _afr_private {
 
     inode_t *root_inode;
 
+    int favorite_child; /* subvolume to be preferred in resolving
+                                    split-brain cases */
     /* For thin-arbiter. */
-    unsigned int thin_arbiter_count; /* 0 or 1 at the moment.*/
     uuid_t ta_gfid;
-    unsigned char ta_child_up;
+    unsigned int thin_arbiter_count; /* 0 or 1 at the moment.*/
     int ta_bad_child_index;
     int ta_event_gen;
-    off_t ta_notify_dom_lock_offset;
-    gf_boolean_t release_ta_notify_dom_lock;
     unsigned int ta_in_mem_txn_count;
     unsigned int ta_on_wire_txn_count;
     struct list_head ta_waitq;
@@ -187,30 +186,31 @@ typedef struct _afr_private {
     int32_t healers; /* No. of elements currently undergoing background
                       heal*/
 
+    gf_boolean_t release_ta_notify_dom_lock;
+
     gf_boolean_t metadata_self_heal; /* on/off */
     gf_boolean_t entry_self_heal;    /* on/off */
 
     gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
     int read_child;                               /* read-subvolume */
-    afr_read_hash_mode_t hash_mode; /* for when read_child is not set */
-    gf_atomic_t *pending_reads;     /*No. of pending read cbks per child.*/
-    int favorite_child;             /* subvolume to be preferred in resolving
-                                                split-brain cases */
-
-    afr_favorite_child_policy fav_child_policy; /*Policy to use for automatic
-                                              resolution of split-brains.*/
-
-    unsigned int wait_count; /* # of servers to wait for success */
+    gf_atomic_t *pending_reads; /*No. of pending read cbks per child.*/
 
     gf_timer_t *timer; /* launched when parent up is received */
 
+    unsigned int wait_count; /* # of servers to wait for success */
+
+    unsigned char ta_child_up;
     gf_boolean_t optimistic_change_log;
     gf_boolean_t eager_lock;
     gf_boolean_t pre_op_compat; /* on/off */
     uint32_t post_op_delay_secs;
     unsigned int quorum_count;
 
-    char vol_uuid[UUID_SIZE + 1];
+    off_t ta_notify_dom_lock_offset;
+    afr_favorite_child_policy fav_child_policy; /*Policy to use for automatic
+                                              resolution of split-brains.*/
+    afr_read_hash_mode_t hash_mode; /* for when read_child is not set */
+
     int32_t *last_event;
 
     /* @event_generation: Keeps count of number of events received which can
@@ -223,27 +223,28 @@ typedef struct _afr_private {
        important as we might have had a network split brain.
     */
     uint32_t event_generation;
+    char vol_uuid[UUID_SIZE + 1];
 
     gf_boolean_t choose_local;
     gf_boolean_t did_discovery;
-    uint64_t sh_readdir_size;
     gf_boolean_t ensure_durability;
+    gf_boolean_t halo_enabled;
+    gf_boolean_t consistent_metadata;
+    gf_boolean_t need_heal;
+    gf_boolean_t granular_locks;
+    uint64_t sh_readdir_size;
     char *sh_domain;
     char *afr_dirty;
-    gf_boolean_t halo_enabled;
+
+    uint64_t spb_choice_timeout;
+
+    afr_self_heald_t shd;
+    struct afr_nfsd nfsd;
 
     uint32_t halo_max_latency_msec;
     uint32_t halo_max_replicas;
     uint32_t halo_min_replicas;
 
-    afr_self_heald_t shd;
-    struct afr_nfsd nfsd;
-
-    gf_boolean_t consistent_metadata;
-    uint64_t spb_choice_timeout;
-    gf_boolean_t need_heal;
-
-    gf_boolean_t granular_locks;
     gf_boolean_t full_lock;
     gf_boolean_t esh_granular;
     gf_boolean_t consistent_io;
@@ -311,18 +312,17 @@ afr_entry_lockee_cmp(const void *l1, const void *l2);
 typedef struct {
     loc_t *lk_loc;
 
-    int lockee_count;
     afr_lockee_t lockee[AFR_LOCKEE_COUNT_MAX];
 
     const char *lk_basename;
     const char *lower_basename;
     const char *higher_basename;
-    char lower_locked;
-    char higher_locked;
 
     unsigned char *lower_locked_nodes;
 
-    int32_t lock_count;
+    afr_lock_cbk_t lock_cbk;
+
+    int lockee_count;
 
     int32_t lk_call_count;
     int32_t lk_expected_count;
@@ -330,14 +330,15 @@ typedef struct {
 
     int32_t lock_op_ret;
     int32_t lock_op_errno;
-    afr_lock_cbk_t lock_cbk;
     char *domain; /* Domain on which inode/entry lock/unlock in progress.*/
+    int32_t lock_count;
+    char lower_locked;
+    char higher_locked;
 } afr_internal_lock_t;
 
 struct afr_reply {
     int valid;
     int32_t op_ret;
-    int32_t op_errno;
     dict_t *xattr; /*For xattrop*/
     dict_t *xdata;
     struct iatt poststat;
@@ -346,6 +347,7 @@ struct afr_reply {
     struct iatt preparent;
     struct iatt preparent2;
     struct iatt postparent2;
+    int32_t op_errno;
     /* For rchecksum */
     uint8_t checksum[SHA256_DIGEST_LENGTH];
     gf_boolean_t buf_has_zeroes;
@@ -385,8 +387,6 @@ typedef struct _afr_inode_lock_t {
     */
     int32_t num_inodelks;
     unsigned int event_generation;
-    gf_boolean_t release;
-    gf_boolean_t acquired;
     gf_timer_t *delay_timer;
     struct list_head owners;  /*Transactions that are performing fop*/
     struct list_head post_op; /*Transactions that are done with the fop
@@ -395,6 +395,8 @@ typedef struct _afr_inode_lock_t {
                                *conflicting transactions to complete*/
     struct list_head frozen;  /*Transactions that need to go as part of
                                * next batch of eager-lock*/
+    gf_boolean_t release;
+    gf_boolean_t acquired;
 } afr_lock_t;
 
 typedef struct _afr_inode_ctx {
@@ -403,15 +405,11 @@ typedef struct _afr_inode_ctx {
     int lock_count;
     int spb_choice;
     gf_timer_t *timer;
-    gf_boolean_t need_refresh;
     unsigned int *pre_op_done[AFR_NUM_CHANGE_LOGS];
     int inherited[AFR_NUM_CHANGE_LOGS];
     int on_disk[AFR_NUM_CHANGE_LOGS];
-
-    /* set if any write on this fd was a non stable write
-       (i.e, without O_SYNC or O_DSYNC)
-    */
-    gf_boolean_t witnessed_unstable_write;
+    /*Only 2 types of transactions support eager-locks now. DATA/METADATA*/
+    afr_lock_t lock[2];
 
     /* @open_fd_count:
        Number of open FDs queried from the server, as queried through
@@ -419,8 +417,12 @@ typedef struct _afr_inode_ctx {
        temporarily disabled.
     */
     uint32_t open_fd_count;
-    /*Only 2 types of transactions support eager-locks now. DATA/METADATA*/
-    afr_lock_t lock[2];
+    gf_boolean_t need_refresh;
+
+    /* set if any write on this fd was a non stable write
+       (i.e, without O_SYNC or O_DSYNC)
+    */
+    gf_boolean_t witnessed_unstable_write;
 } afr_inode_ctx_t;
 
 typedef struct _afr_local {
@@ -434,18 +436,14 @@ typedef struct _afr_local {
     unsigned int event_generation;
 
     uint32_t open_fd_count;
-    gf_boolean_t update_open_fd_count;
     int32_t num_inodelks;
-    gf_boolean_t update_num_inodelks;
-
-    gf_lkowner_t saved_lk_owner;
 
     int32_t op_ret;
     int32_t op_errno;
 
-    int32_t **pending;
-
     int dirty[AFR_NUM_CHANGE_LOGS];
+
+    int32_t **pending;
 
     loc_t loc;
     loc_t newloc;
@@ -477,14 +475,6 @@ typedef struct _afr_local {
 
     afr_read_txn_wind_t readfn;
 
-    /* @refreshed:
-
-       the inode was "refreshed" (i.e, pending xattrs from all subvols
-       freshly inspected and inode ctx updated accordingly) as part of
-       this transaction already.
-    */
-    gf_boolean_t refreshed;
-
     /* @inode:
 
        the inode on which the read txn is performed on. ref'ed and copied
@@ -509,8 +499,6 @@ typedef struct _afr_local {
     unsigned char *readable;
     unsigned char *readable2; /*For rename transaction*/
 
-    int read_subvol; /* Current read subvolume */
-
     afr_inode_refresh_cbk_t refreshfn;
 
     /* @refreshinode:
@@ -519,8 +507,29 @@ typedef struct _afr_local {
     */
     inode_t *refreshinode;
 
+    dict_t *xattr_req;
+
+    dict_t *dict;
+
+    int read_subvol; /* Current read subvolume */
+
+    int optimistic_change_log;
+
+    afr_internal_lock_t internal_lock;
+
     /*To handle setattr/setxattr on yet to be linked inode from dht*/
     uuid_t refreshgfid;
+
+    /* @refreshed:
+
+       the inode was "refreshed" (i.e, pending xattrs from all subvols
+       freshly inspected and inode ctx updated accordingly) as part of
+       this transaction already.
+    */
+    gf_boolean_t refreshed;
+
+    gf_boolean_t update_num_inodelks;
+    gf_boolean_t update_open_fd_count;
 
     /*
       @pre_op_compat:
@@ -530,14 +539,6 @@ typedef struct _afr_local {
     */
 
     gf_boolean_t pre_op_compat;
-
-    dict_t *xattr_req;
-
-    afr_internal_lock_t internal_lock;
-
-    dict_t *dict;
-
-    int optimistic_change_log;
 
     /* Is the current writev() going to perform a stable write?
        i.e, is fd->flags or @flags writev param have O_SYNC or
@@ -557,25 +558,20 @@ typedef struct _afr_local {
 
     struct {
         struct {
-            gf_boolean_t needs_fresh_lookup;
-            uuid_t gfid_req;
-        } lookup;
-
-        struct {
-            unsigned char buf_set;
             struct statvfs buf;
+            unsigned char buf_set;
         } statfs;
 
         struct {
-            int32_t flags;
             fd_t *fd;
+            int32_t flags;
         } open;
 
         struct {
-            int32_t cmd;
             struct gf_flock user_flock;
             struct gf_flock ret_flock;
             unsigned char *locked_nodes;
+            int32_t cmd;
         } lk;
 
         /* inode read */
@@ -600,8 +596,8 @@ typedef struct _afr_local {
 
         struct {
             char *name;
-            int last_index;
             long xattr_len;
+            int last_index;
         } getxattr;
 
         struct {
@@ -614,11 +610,10 @@ typedef struct _afr_local {
         /* dir read */
 
         struct {
+            uint32_t *checksum;
             int success_count;
             int32_t op_ret;
             int32_t op_errno;
-
-            uint32_t *checksum;
         } opendir;
 
         struct {
@@ -627,8 +622,8 @@ typedef struct _afr_local {
             size_t size;
             off_t offset;
             dict_t *dict;
-            gf_boolean_t failed;
             int last_index;
+            gf_boolean_t failed;
         } readdir;
         /* inode write */
 
@@ -638,12 +633,11 @@ typedef struct _afr_local {
         } inode_wfop;  // common structure for all inode-write-fops
 
         struct {
-            int32_t op_ret;
-
             struct iovec *vector;
             struct iobref *iobref;
-            int32_t count;
             off_t offset;
+            int32_t op_ret;
+            int32_t count;
             uint32_t flags;
         } writev;
 
@@ -703,19 +697,15 @@ typedef struct _afr_local {
         } create;
 
         struct {
+            dict_t *params;
             dev_t dev;
             mode_t mode;
-            dict_t *params;
         } mknod;
 
         struct {
-            int32_t mode;
             dict_t *params;
+            int32_t mode;
         } mkdir;
-
-        struct {
-            int flags;
-        } rmdir;
 
         struct {
             dict_t *params;
@@ -723,9 +713,9 @@ typedef struct _afr_local {
         } symlink;
 
         struct {
-            int32_t mode;
             off_t offset;
             size_t len;
+            int32_t mode;
         } fallocate;
 
         struct {
@@ -752,10 +742,10 @@ typedef struct _afr_local {
         struct {
             char *volume;
             char *basename;
+            void *xdata;
             entrylk_cmd in_cmd;
             entrylk_cmd cmd;
             entrylk_type type;
-            void *xdata;
         } entrylk;
 
         struct {
@@ -764,30 +754,32 @@ typedef struct _afr_local {
         } seek;
 
         struct {
-            int32_t datasync;
-        } fsync;
-
-        struct {
             struct gf_lease user_lease;
             struct gf_lease ret_lease;
             unsigned char *locked_nodes;
         } lease;
 
+        struct {
+            int flags;
+        } rmdir;
+
+        struct {
+            int32_t datasync;
+        } fsync;
+
+        struct {
+            uuid_t gfid_req;
+            gf_boolean_t needs_fresh_lookup;
+        } lookup;
+
     } cont;
 
     struct {
-        off_t start, len;
-
-        gf_boolean_t eager_lock_on;
-        gf_boolean_t do_eager_unlock;
-
         char *basename;
         char *new_basename;
 
         loc_t parent_loc;
         loc_t new_parent_loc;
-
-        afr_transaction_type type;
 
         /* stub to resume on destruction
            of the transaction frame */
@@ -805,6 +797,30 @@ typedef struct _afr_local {
         /* @failed_subvols: subvolumes on which a pre-op or a
             FOP failed. */
         unsigned char *failed_subvols;
+
+        call_frame_t *main_frame; /*Fop frame*/
+        call_frame_t *frame;      /*Transaction frame*/
+
+        int (*wind)(call_frame_t *frame, xlator_t *this, int subvol);
+
+        int (*unwind)(call_frame_t *frame, xlator_t *this);
+
+        off_t start, len;
+
+        afr_transaction_type type;
+
+        int32_t in_flight_sb_errno; /* This is where the cause of the
+                                       failure on the last good copy of
+                                       the file is stored.
+                                       */
+
+        /* @changelog_resume: function to be called after changlogging
+           (either pre-op or post-op) is done
+        */
+        afr_changelog_resume_t changelog_resume;
+
+        gf_boolean_t eager_lock_on;
+        gf_boolean_t do_eager_unlock;
 
         /* @dirtied: flag which indicates whether we set dirty flag
            in the OP. Typically true when we are performing operation
@@ -830,6 +846,10 @@ typedef struct _afr_local {
         */
         gf_boolean_t no_uninherit;
 
+        gf_boolean_t in_flight_sb; /* Indicator for occurrence of
+                                      split-brain while in the middle of
+                                      a txn. */
+
         /* @uninherit_done:
            @uninherit_value:
 
@@ -841,26 +861,6 @@ typedef struct _afr_local {
         */
         gf_boolean_t uninherit_done;
         gf_boolean_t uninherit_value;
-
-        gf_boolean_t in_flight_sb;  /* Indicator for occurrence of
-                                       split-brain while in the middle of
-                                       a txn. */
-        int32_t in_flight_sb_errno; /* This is where the cause of the
-                                       failure on the last good copy of
-                                       the file is stored.
-                                       */
-
-        /* @changelog_resume: function to be called after changlogging
-           (either pre-op or post-op) is done
-        */
-        afr_changelog_resume_t changelog_resume;
-
-        call_frame_t *main_frame; /*Fop frame*/
-        call_frame_t *frame;      /*Transaction frame*/
-
-        int (*wind)(call_frame_t *frame, xlator_t *this, int subvol);
-
-        int (*unwind)(call_frame_t *frame, xlator_t *this);
 
         /* post-op hook */
     } transaction;
@@ -875,36 +875,36 @@ typedef struct _afr_local {
 
     mode_t umask;
     int xflag;
-    gf_boolean_t do_discovery;
     struct afr_reply *replies;
 
     /* For  client side background heals. */
     struct list_head healer;
     call_frame_t *heal_frame;
 
-    gf_boolean_t need_full_crawl;
-    afr_fop_lock_state_t fop_lock_state;
-
-    gf_boolean_t is_read_txn;
     afr_inode_ctx_t *inode_ctx;
 
     /*For thin-arbiter transactions.*/
-    unsigned char read_txn_query_child;
-    unsigned char ta_child_up;
+    int ta_failed_subvol;
+    int ta_event_gen;
     struct list_head ta_waitq;
     struct list_head ta_onwireq;
     afr_ta_fop_state_t fop_state;
-    int ta_failed_subvol;
-    int ta_event_gen;
+    afr_fop_lock_state_t fop_lock_state;
+    gf_lkowner_t saved_lk_owner;
+    unsigned char read_txn_query_child;
+    unsigned char ta_child_up;
+    gf_boolean_t do_discovery;
+    gf_boolean_t need_full_crawl;
+    gf_boolean_t is_read_txn;
     gf_boolean_t is_new_entry;
 } afr_local_t;
 
 typedef struct afr_spbc_timeout {
     call_frame_t *frame;
-    gf_boolean_t d_spb;
-    gf_boolean_t m_spb;
     loc_t *loc;
     int spb_child_index;
+    gf_boolean_t d_spb;
+    gf_boolean_t m_spb;
 } afr_spbc_timeout_t;
 
 typedef struct afr_spb_status {
@@ -914,9 +914,9 @@ typedef struct afr_spb_status {
 
 typedef struct afr_empty_brick_args {
     call_frame_t *frame;
+    char *op_type;
     loc_t loc;
     int empty_index;
-    char *op_type;
 } afr_empty_brick_args_t;
 
 typedef struct afr_read_subvol_args {
