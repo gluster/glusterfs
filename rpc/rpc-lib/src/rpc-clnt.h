@@ -85,8 +85,8 @@ typedef int (*rpcclnt_cb_fn)(struct rpc_clnt *rpc, void *mydata, void *data);
  */
 typedef struct rpcclnt_actor_desc {
     char procname[32];
-    int procnum;
     rpcclnt_cb_fn actor;
+    int procnum;
 } rpcclnt_cb_actor_t;
 
 /* Describes a program and its version along with the function pointers
@@ -98,8 +98,6 @@ typedef struct rpcclnt_cb_program {
     int prognum;
     int progver;
     rpcclnt_cb_actor_t *actors; /* All procedure handlers */
-    int numactors;              /* Num actors in actor array */
-
     /* Program specific state handed to actors */
     void *private;
 
@@ -108,6 +106,8 @@ typedef struct rpcclnt_cb_program {
 
     /* Needed for passing back in cb_actor */
     void *mydata;
+    int numactors; /* Num actors in actor array */
+
 } rpcclnt_cb_program_t;
 
 typedef struct rpc_auth_data {
@@ -151,17 +151,17 @@ typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 struct rpc_req {
     rpc_clnt_connection_t *conn;
     struct iovec req[2];
-    int reqcnt;
     struct iobref *req_iobref;
     struct iovec rsp[2];
     int rspcnt;
+    int reqcnt;
     struct iobref *rsp_iobref;
-    int rpc_status;
-    rpc_auth_data_t verf;
     rpc_clnt_prog_t *prog;
-    int procnum;
+    rpc_auth_data_t verf;
     fop_cbk_fn_t cbkfn;
     void *conn_private;
+    int procnum;
+    int rpc_status;
     uint32_t xid;
 };
 
@@ -182,8 +182,8 @@ typedef struct rpc_clnt {
 
     glusterfs_ctx_t *ctx;
     gf_atomic_t refcount;
-    int auth_value;
     xlator_t *owner;
+    int auth_value;
     char disabled;
 } rpc_clnt_t;
 

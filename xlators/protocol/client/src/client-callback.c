@@ -286,24 +286,24 @@ out:
     return ret;
 }
 
-rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
-    [GF_CBK_NULL] = {"NULL", GF_CBK_NULL, client_cbk_null},
-    [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, client_cbk_fetchspec},
-    [GF_CBK_INO_FLUSH] = {"INO_FLUSH", GF_CBK_INO_FLUSH, client_cbk_ino_flush},
+static rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
+    [GF_CBK_NULL] = {"NULL", client_cbk_null, GF_CBK_NULL},
+    [GF_CBK_FETCHSPEC] = {"FETCHSPEC", client_cbk_fetchspec, GF_CBK_FETCHSPEC},
+    [GF_CBK_INO_FLUSH] = {"INO_FLUSH", client_cbk_ino_flush, GF_CBK_INO_FLUSH},
     [GF_CBK_CACHE_INVALIDATION] = {"CACHE_INVALIDATION",
-                                   GF_CBK_CACHE_INVALIDATION,
-                                   client_cbk_cache_invalidation},
-    [GF_CBK_CHILD_UP] = {"CHILD_UP", GF_CBK_CHILD_UP, client_cbk_child_up},
-    [GF_CBK_CHILD_DOWN] = {"CHILD_DOWN", GF_CBK_CHILD_DOWN,
-                           client_cbk_child_down},
-    [GF_CBK_RECALL_LEASE] = {"RECALL_LEASE", GF_CBK_RECALL_LEASE,
-                             client_cbk_recall_lease},
+                                   client_cbk_cache_invalidation,
+                                   GF_CBK_CACHE_INVALIDATION},
+    [GF_CBK_CHILD_UP] = {"CHILD_UP", client_cbk_child_up, GF_CBK_CHILD_UP},
+    [GF_CBK_CHILD_DOWN] = {"CHILD_DOWN", client_cbk_child_down,
+                           GF_CBK_CHILD_DOWN},
+    [GF_CBK_RECALL_LEASE] = {"RECALL_LEASE", client_cbk_recall_lease,
+                             GF_CBK_RECALL_LEASE},
     [GF_CBK_INODELK_CONTENTION] = {"INODELK_CONTENTION",
-                                   GF_CBK_INODELK_CONTENTION,
-                                   client_cbk_inodelk_contention},
+                                   client_cbk_inodelk_contention,
+                                   GF_CBK_INODELK_CONTENTION},
     [GF_CBK_ENTRYLK_CONTENTION] = {"ENTRYLK_CONTENTION",
-                                   GF_CBK_ENTRYLK_CONTENTION,
-                                   client_cbk_entrylk_contention},
+                                   client_cbk_entrylk_contention,
+                                   GF_CBK_ENTRYLK_CONTENTION},
 };
 
 struct rpcclnt_cb_program gluster_cbk_prog = {

@@ -20,7 +20,7 @@ static char *qd_ext_xattrs[] = {
     NULL,
 };
 
-struct rpcsvc_program quotad_aggregator_prog;
+static struct rpcsvc_program quotad_aggregator_prog;
 
 struct iobuf *
 quotad_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
@@ -478,15 +478,15 @@ out:
     return ret;
 }
 
-rpcsvc_actor_t quotad_aggregator_actors[GF_AGGREGATOR_MAXVALUE] = {
-    [GF_AGGREGATOR_NULL] = {"NULL", GF_AGGREGATOR_NULL, NULL, NULL, 0, DRC_NA},
-    [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", GF_AGGREGATOR_NULL,
-                              quotad_aggregator_lookup, NULL, 0, DRC_NA},
-    [GF_AGGREGATOR_GETLIMIT] = {"GETLIMIT", GF_AGGREGATOR_GETLIMIT,
-                                quotad_aggregator_getlimit, NULL, 0, DRC_NA},
+static rpcsvc_actor_t quotad_aggregator_actors[GF_AGGREGATOR_MAXVALUE] = {
+    [GF_AGGREGATOR_NULL] = {"NULL", NULL, NULL, GF_AGGREGATOR_NULL, DRC_NA, 0},
+    [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", quotad_aggregator_lookup, NULL,
+                              GF_AGGREGATOR_NULL, DRC_NA, 0},
+    [GF_AGGREGATOR_GETLIMIT] = {"GETLIMIT", quotad_aggregator_getlimit, NULL,
+                                GF_AGGREGATOR_GETLIMIT, DRC_NA, 0},
 };
 
-struct rpcsvc_program quotad_aggregator_prog = {
+static struct rpcsvc_program quotad_aggregator_prog = {
     .progname = "GlusterFS 3.3",
     .prognum = GLUSTER_AGGREGATOR_PROGRAM,
     .progver = GLUSTER_AGGREGATOR_VERSION,

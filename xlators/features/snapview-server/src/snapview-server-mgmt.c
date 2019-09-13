@@ -26,11 +26,11 @@ mgmt_cbk_snap(struct rpc_clnt *rpc, void *mydata, void *data)
     return 0;
 }
 
-rpcclnt_cb_actor_t svs_cbk_actors[GF_CBK_MAXVALUE] = {
-    [GF_CBK_GET_SNAPS] = {"GETSNAPS", GF_CBK_GET_SNAPS, mgmt_cbk_snap},
+static rpcclnt_cb_actor_t svs_cbk_actors[GF_CBK_MAXVALUE] = {
+    [GF_CBK_GET_SNAPS] = {"GETSNAPS", mgmt_cbk_snap, GF_CBK_GET_SNAPS},
 };
 
-struct rpcclnt_cb_program svs_cbk_prog = {
+static struct rpcclnt_cb_program svs_cbk_prog = {
     .progname = "GlusterFS Callback",
     .prognum = GLUSTER_CBK_PROGRAM,
     .progver = GLUSTER_CBK_VERSION,
@@ -38,12 +38,12 @@ struct rpcclnt_cb_program svs_cbk_prog = {
     .numactors = GF_CBK_MAXVALUE,
 };
 
-char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
+static char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
     [GF_HNDSK_NULL] = "NULL",
     [GF_HNDSK_EVENT_NOTIFY] = "EVENTNOTIFY",
 };
 
-rpc_clnt_prog_t svs_clnt_handshake_prog = {
+static rpc_clnt_prog_t svs_clnt_handshake_prog = {
     .progname = "GlusterFS Handshake",
     .prognum = GLUSTER_HNDSK_PROGRAM,
     .progver = GLUSTER_HNDSK_VERSION,

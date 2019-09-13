@@ -103,19 +103,19 @@ typedef enum {
 
 struct rpc_transport_msg {
     struct iovec *rpchdr;
-    int rpchdrcount;
     struct iovec *proghdr;
+    int rpchdrcount;
     int proghdrcount;
     struct iovec *progpayload;
-    int progpayloadcount;
     struct iobref *iobref;
+    int progpayloadcount;
 };
 typedef struct rpc_transport_msg rpc_transport_msg_t;
 
 struct rpc_transport_rsp {
     struct iovec *rsphdr;
-    int rsphdr_count;
     struct iovec *rsp_payload;
+    int rsphdr_count;
     int rsp_payload_count;
     struct iobref *rsp_iobref;
 };
@@ -149,9 +149,9 @@ typedef struct rpc_transport_data rpc_transport_data_t;
 struct rpc_request_info {
     int prognum;
     int progver;
-    int procnum;
     void *rpc_req; /* struct rpc_req */
     rpc_transport_rsp_t rsp;
+    int procnum;
     uint32_t xid;
 };
 typedef struct rpc_request_info rpc_request_info_t;
@@ -193,11 +193,12 @@ struct rpc_transport {
     int32_t outstanding_rpc_count;
 
     struct list_head list;
-    int bind_insecure;
     void *dl_handle; /* handle of dlopen() */
     char *ssl_name;
     dict_t *clnt_options; /* store options received from
                            * client */
+    gf_atomic_t disconnect_progress;
+    int bind_insecure;
     /* connect_failed: saves the connect() syscall status as socket_t
      * member holding connect() status can't be accessed by higher gfapi
      * layer or in client management notification handler functions
@@ -205,18 +206,17 @@ struct rpc_transport {
     gf_boolean_t connect_failed;
     char notify_poller_death;
     char poller_death_accept;
-    gf_atomic_t disconnect_progress;
 };
 
 struct rpc_transport_pollin {
     struct rpc_transport *trans;
-    int count;
     void *private;
     struct iobref *iobref;
     struct iovec vector[MAX_IOVEC];
+    gf_async_t async;
+    int count;
     char is_reply;
     char vectored;
-    gf_async_t async;
 };
 typedef struct rpc_transport_pollin rpc_transport_pollin_t;
 

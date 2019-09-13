@@ -5192,32 +5192,32 @@ rpcerr:
     return ret;
 }
 
-rpcsvc_actor_t nfs3svc_actors[NFS3_PROC_COUNT] = {
-    {"NULL", NFS3_NULL, nfs3svc_null, NULL, 0, DRC_IDEMPOTENT},
-    {"GETATTR", NFS3_GETATTR, nfs3svc_getattr, NULL, 0, DRC_IDEMPOTENT},
-    {"SETATTR", NFS3_SETATTR, nfs3svc_setattr, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"LOOKUP", NFS3_LOOKUP, nfs3svc_lookup, NULL, 0, DRC_IDEMPOTENT},
-    {"ACCESS", NFS3_ACCESS, nfs3svc_access, NULL, 0, DRC_IDEMPOTENT},
-    {"READLINK", NFS3_READLINK, nfs3svc_readlink, NULL, 0, DRC_IDEMPOTENT},
-    {"READ", NFS3_READ, nfs3svc_read, NULL, 0, DRC_IDEMPOTENT},
-    {"WRITE", NFS3_WRITE, nfs3svc_write, nfs3svc_write_vecsizer, 0,
-     DRC_NON_IDEMPOTENT},
-    {"CREATE", NFS3_CREATE, nfs3svc_create, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"MKDIR", NFS3_MKDIR, nfs3svc_mkdir, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"SYMLINK", NFS3_SYMLINK, nfs3svc_symlink, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"MKNOD", NFS3_MKNOD, nfs3svc_mknod, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"REMOVE", NFS3_REMOVE, nfs3svc_remove, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"RMDIR", NFS3_RMDIR, nfs3svc_rmdir, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"RENAME", NFS3_RENAME, nfs3svc_rename, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"LINK", NFS3_LINK, nfs3svc_link, NULL, 0, DRC_NON_IDEMPOTENT},
-    {"READDIR", NFS3_READDIR, nfs3svc_readdir, NULL, 0, DRC_IDEMPOTENT},
-    {"READDIRPLUS", NFS3_READDIRP, nfs3svc_readdirp, NULL, 0, DRC_IDEMPOTENT},
-    {"FSSTAT", NFS3_FSSTAT, nfs3svc_fsstat, NULL, 0, DRC_IDEMPOTENT},
-    {"FSINFO", NFS3_FSINFO, nfs3svc_fsinfo, NULL, 0, DRC_IDEMPOTENT},
-    {"PATHCONF", NFS3_PATHCONF, nfs3svc_pathconf, NULL, 0, DRC_IDEMPOTENT},
-    {"COMMIT", NFS3_COMMIT, nfs3svc_commit, NULL, 0, DRC_IDEMPOTENT}};
+static rpcsvc_actor_t nfs3svc_actors[NFS3_PROC_COUNT] = {
+    {"NULL", nfs3svc_null, NULL, NFS3_NULL, DRC_IDEMPOTENT, 0},
+    {"GETATTR", nfs3svc_getattr, NULL, NFS3_GETATTR, DRC_IDEMPOTENT, 0},
+    {"SETATTR", nfs3svc_setattr, NULL, NFS3_SETATTR, DRC_NON_IDEMPOTENT, 0},
+    {"LOOKUP", nfs3svc_lookup, NULL, NFS3_LOOKUP, DRC_IDEMPOTENT, 0},
+    {"ACCESS", nfs3svc_access, NULL, NFS3_ACCESS, DRC_IDEMPOTENT, 0},
+    {"READLINK", nfs3svc_readlink, NULL, NFS3_READLINK, DRC_IDEMPOTENT, 0},
+    {"READ", nfs3svc_read, NULL, NFS3_READ, DRC_IDEMPOTENT, 0},
+    {"WRITE", nfs3svc_write, nfs3svc_write_vecsizer, NFS3_WRITE, DRC_IDEMPOTENT,
+     0},
+    {"CREATE", nfs3svc_create, NULL, NFS3_CREATE, DRC_NON_IDEMPOTENT, 0},
+    {"MKDIR", nfs3svc_mkdir, NULL, NFS3_MKDIR, DRC_NON_IDEMPOTENT, 0},
+    {"SYMLINK", nfs3svc_symlink, NULL, NFS3_SYMLINK, DRC_NON_IDEMPOTENT, 0},
+    {"MKNOD", nfs3svc_mknod, NULL, NFS3_MKNOD, DRC_NON_IDEMPOTENT, 0},
+    {"REMOVE", nfs3svc_remove, NULL, NFS3_REMOVE, DRC_NON_IDEMPOTENT, 0},
+    {"RMDIR", nfs3svc_rmdir, NULL, NFS3_RMDIR, DRC_NON_IDEMPOTENT, 0},
+    {"RENAME", nfs3svc_rename, NULL, NFS3_RENAME, DRC_NON_IDEMPOTENT, 0},
+    {"LINK", nfs3svc_link, NULL, NFS3_LINK, DRC_NON_IDEMPOTENT, 0},
+    {"READDIR", nfs3svc_readdir, NULL, NFS3_READDIR, DRC_IDEMPOTENT, 0},
+    {"READDIRPLUS", nfs3svc_readdirp, NULL, NFS3_READDIRP, DRC_IDEMPOTENT, 0},
+    {"FSSTAT", nfs3svc_fsstat, NULL, NFS3_FSSTAT, DRC_IDEMPOTENT, 0},
+    {"FSINFO", nfs3svc_fsinfo, NULL, NFS3_FSINFO, DRC_IDEMPOTENT, 0},
+    {"PATHCONF", nfs3svc_pathconf, NULL, NFS3_PATHCONF, DRC_IDEMPOTENT, 0},
+    {"COMMIT", nfs3svc_commit, NULL, NFS3_COMMIT, DRC_IDEMPOTENT, 0}};
 
-rpcsvc_program_t nfs3prog = {
+static rpcsvc_program_t nfs3prog = {
     .progname = "NFS3",
     .prognum = NFS_PROGRAM,
     .progver = NFS_V3,

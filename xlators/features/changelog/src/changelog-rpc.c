@@ -13,7 +13,7 @@
 #include "changelog-mem-types.h"
 #include "changelog-ev-handle.h"
 
-struct rpcsvc_program *changelog_programs[];
+static struct rpcsvc_program *changelog_programs[];
 
 static void
 changelog_cleanup_dispatchers(xlator_t *this, changelog_priv_t *priv, int count)
@@ -420,13 +420,13 @@ submit_rpc:
  * RPC declarations
  */
 
-rpcsvc_actor_t changelog_svc_actors[CHANGELOG_RPC_PROC_MAX] = {
+static rpcsvc_actor_t changelog_svc_actors[CHANGELOG_RPC_PROC_MAX] = {
     [CHANGELOG_RPC_PROBE_FILTER] = {"CHANGELOG PROBE FILTER",
-                                    CHANGELOG_RPC_PROBE_FILTER,
-                                    changelog_handle_probe, NULL, 0, DRC_NA},
+                                    changelog_handle_probe, NULL,
+                                    CHANGELOG_RPC_PROBE_FILTER, DRC_NA, 0},
 };
 
-struct rpcsvc_program changelog_svc_prog = {
+static struct rpcsvc_program changelog_svc_prog = {
     .progname = CHANGELOG_RPC_PROGNAME,
     .prognum = CHANGELOG_RPC_PROGNUM,
     .progver = CHANGELOG_RPC_PROGVER,
@@ -435,7 +435,7 @@ struct rpcsvc_program changelog_svc_prog = {
     .synctask = _gf_true,
 };
 
-struct rpcsvc_program *changelog_programs[] = {
+static struct rpcsvc_program *changelog_programs[] = {
     &changelog_svc_prog,
     NULL,
 };

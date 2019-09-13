@@ -41,7 +41,7 @@
 #include "xdr-rpcclnt.h"
 #include <glusterfs/glusterfs-acl.h>
 
-struct rpcsvc_program gluster_dump_prog;
+static struct rpcsvc_program gluster_dump_prog;
 
 #define rpcsvc_alloc_request(svc, request)                                     \
     do {                                                                       \
@@ -3227,13 +3227,13 @@ out:
     return ret;
 }
 
-rpcsvc_actor_t gluster_dump_actors[GF_DUMP_MAXVALUE] = {
-    [GF_DUMP_NULL] = {"NULL", GF_DUMP_NULL, NULL, NULL, 0, DRC_NA},
-    [GF_DUMP_DUMP] = {"DUMP", GF_DUMP_DUMP, rpcsvc_dump, NULL, 0, DRC_NA},
-    [GF_DUMP_PING] = {"PING", GF_DUMP_PING, rpcsvc_ping, NULL, 0, DRC_NA},
+static rpcsvc_actor_t gluster_dump_actors[GF_DUMP_MAXVALUE] = {
+    [GF_DUMP_NULL] = {"NULL", NULL, NULL, GF_DUMP_NULL, DRC_NA, 0},
+    [GF_DUMP_DUMP] = {"DUMP", rpcsvc_dump, NULL, GF_DUMP_DUMP, DRC_NA, 0},
+    [GF_DUMP_PING] = {"PING", rpcsvc_ping, NULL, GF_DUMP_PING, DRC_NA, 0},
 };
 
-struct rpcsvc_program gluster_dump_prog = {
+static struct rpcsvc_program gluster_dump_prog = {
     .progname = "GF-DUMP",
     .prognum = GLUSTER_DUMP_PROGRAM,
     .progver = GLUSTER_DUMP_VERSION,
