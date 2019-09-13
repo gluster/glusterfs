@@ -39,8 +39,6 @@ typedef struct rpcsvc_state {
 
     pthread_rwlock_t rpclock;
 
-    unsigned int memfactor;
-
     /* List of the authentication schemes available. */
     struct list_head authschemes;
 
@@ -60,6 +58,8 @@ typedef struct rpcsvc_state {
     /* list of notification callbacks */
     struct list_head notify;
     int notify_count;
+
+    unsigned int memfactor;
 
     xlator_t *xl; /* xlator */
     void *mydata;

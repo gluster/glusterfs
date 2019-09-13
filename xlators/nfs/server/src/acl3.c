@@ -701,13 +701,13 @@ rpcerr:
     return ret;
 }
 
-rpcsvc_actor_t acl3svc_actors[ACL3_PROC_COUNT] = {
-    {"NULL", ACL3_NULL, acl3svc_null, NULL, 0, DRC_NA},
-    {"GETACL", ACL3_GETACL, acl3svc_getacl, NULL, 0, DRC_NA},
-    {"SETACL", ACL3_SETACL, acl3svc_setacl, NULL, 0, DRC_NA},
+static rpcsvc_actor_t acl3svc_actors[ACL3_PROC_COUNT] = {
+    {"NULL", acl3svc_null, NULL, ACL3_NULL, DRC_NA, 0},
+    {"GETACL", acl3svc_getacl, NULL, ACL3_GETACL, DRC_NA, 0},
+    {"SETACL", acl3svc_setacl, NULL, ACL3_SETACL, DRC_NA, 0},
 };
 
-rpcsvc_program_t acl3prog = {
+static rpcsvc_program_t acl3prog = {
     .progname = "ACL3",
     .prognum = ACL_PROGRAM,
     .progver = ACLV3_VERSION,

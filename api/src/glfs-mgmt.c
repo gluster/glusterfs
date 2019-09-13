@@ -164,14 +164,14 @@ out:
     return ret;
 }
 
-rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
-    [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec},
-    [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
-                             mgmt_cbk_event},
-    [GF_CBK_STATEDUMP] = {"STATEDUMP", GF_CBK_STATEDUMP, mgmt_cbk_statedump},
+static rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
+    [GF_CBK_FETCHSPEC] = {"FETCHSPEC", mgmt_cbk_spec, GF_CBK_FETCHSPEC},
+    [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", mgmt_cbk_event,
+                             GF_CBK_EVENT_NOTIFY},
+    [GF_CBK_STATEDUMP] = {"STATEDUMP", mgmt_cbk_statedump, GF_CBK_STATEDUMP},
 };
 
-struct rpcclnt_cb_program mgmt_cbk_prog = {
+static struct rpcclnt_cb_program mgmt_cbk_prog = {
     .progname = "GlusterFS Callback",
     .prognum = GLUSTER_CBK_PROGRAM,
     .progver = GLUSTER_CBK_VERSION,
@@ -179,7 +179,7 @@ struct rpcclnt_cb_program mgmt_cbk_prog = {
     .numactors = GF_CBK_MAXVALUE,
 };
 
-char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
+static char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
     [GF_HNDSK_NULL] = "NULL",
     [GF_HNDSK_SETVOLUME] = "SETVOLUME",
     [GF_HNDSK_GETSPEC] = "GETSPEC",
@@ -188,7 +188,7 @@ char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
     [GF_HNDSK_GET_VOLUME_INFO] = "GETVOLUMEINFO",
 };
 
-rpc_clnt_prog_t clnt_handshake_prog = {
+static rpc_clnt_prog_t clnt_handshake_prog = {
     .progname = "GlusterFS Handshake",
     .prognum = GLUSTER_HNDSK_PROGRAM,
     .progver = GLUSTER_HNDSK_VERSION,

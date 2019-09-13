@@ -22,7 +22,7 @@
  * initiator is PROBER, data transfer is REBORP.
  */
 
-struct rpcsvc_program *gf_changelog_reborp_programs[];
+static struct rpcsvc_program *gf_changelog_reborp_programs[];
 
 void *
 gf_changelog_connection_janitor(void *arg)
@@ -386,11 +386,10 @@ gf_changelog_reborp_handle_event(rpcsvc_request_t *req)
     return gf_changelog_event_handler(req, this, entry);
 }
 
-rpcsvc_actor_t gf_changelog_reborp_actors[CHANGELOG_REV_PROC_MAX] = {
+static rpcsvc_actor_t gf_changelog_reborp_actors[CHANGELOG_REV_PROC_MAX] = {
     [CHANGELOG_REV_PROC_EVENT] = {"CHANGELOG EVENT HANDLER",
-                                  CHANGELOG_REV_PROC_EVENT,
-                                  gf_changelog_reborp_handle_event, NULL, 0,
-                                  DRC_NA},
+                                  gf_changelog_reborp_handle_event, NULL,
+                                  CHANGELOG_REV_PROC_EVENT, DRC_NA, 0},
 };
 
 /**
@@ -399,7 +398,7 @@ rpcsvc_actor_t gf_changelog_reborp_actors[CHANGELOG_REV_PROC_MAX] = {
  * and that's required to invoke the callback with the appropriate
  * brick path and it's private data.
  */
-struct rpcsvc_program gf_changelog_reborp_prog = {
+static struct rpcsvc_program gf_changelog_reborp_prog = {
     .progname = "LIBGFCHANGELOG REBORP",
     .prognum = CHANGELOG_REV_RPC_PROCNUM,
     .progver = CHANGELOG_REV_RPC_PROCVER,
@@ -408,7 +407,7 @@ struct rpcsvc_program gf_changelog_reborp_prog = {
     .synctask = _gf_false,
 };
 
-struct rpcsvc_program *gf_changelog_reborp_programs[] = {
+static struct rpcsvc_program *gf_changelog_reborp_programs[] = {
     &gf_changelog_reborp_prog,
     NULL,
 };

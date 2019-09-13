@@ -635,16 +635,16 @@ gluster_pmap_signout(rpcsvc_request_t *req)
     return glusterd_big_locked_handler(req, __gluster_pmap_signout);
 }
 
-rpcsvc_actor_t gluster_pmap_actors[GF_PMAP_MAXVALUE] = {
-    [GF_PMAP_NULL] = {"NULL", GF_PMAP_NULL, NULL, NULL, 0, DRC_NA},
-    [GF_PMAP_PORTBYBRICK] = {"PORTBYBRICK", GF_PMAP_PORTBYBRICK,
-                             gluster_pmap_portbybrick, NULL, 0, DRC_NA},
-    [GF_PMAP_BRICKBYPORT] = {"BRICKBYPORT", GF_PMAP_BRICKBYPORT,
-                             gluster_pmap_brickbyport, NULL, 0, DRC_NA},
-    [GF_PMAP_SIGNIN] = {"SIGNIN", GF_PMAP_SIGNIN, gluster_pmap_signin, NULL, 0,
-                        DRC_NA},
-    [GF_PMAP_SIGNOUT] = {"SIGNOUT", GF_PMAP_SIGNOUT, gluster_pmap_signout, NULL,
-                         0, DRC_NA},
+static rpcsvc_actor_t gluster_pmap_actors[GF_PMAP_MAXVALUE] = {
+    [GF_PMAP_NULL] = {"NULL", NULL, NULL, GF_PMAP_NULL, DRC_NA, 0},
+    [GF_PMAP_PORTBYBRICK] = {"PORTBYBRICK", gluster_pmap_portbybrick, NULL,
+                             GF_PMAP_PORTBYBRICK, DRC_NA, 0},
+    [GF_PMAP_BRICKBYPORT] = {"BRICKBYPORT", gluster_pmap_brickbyport, NULL,
+                             GF_PMAP_BRICKBYPORT, DRC_NA, 0},
+    [GF_PMAP_SIGNIN] = {"SIGNIN", gluster_pmap_signin, NULL, GF_PMAP_SIGNIN,
+                        DRC_NA, 0},
+    [GF_PMAP_SIGNOUT] = {"SIGNOUT", gluster_pmap_signout, NULL, GF_PMAP_SIGNOUT,
+                         DRC_NA, 0},
 };
 
 struct rpcsvc_program gluster_pmap_prog = {

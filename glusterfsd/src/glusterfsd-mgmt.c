@@ -2015,14 +2015,14 @@ glusterfs_handle_rpc_msg(rpcsvc_request_t *req)
     return ret;
 }
 
-rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
-    [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec},
-    [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
-                             mgmt_cbk_event},
-    [GF_CBK_STATEDUMP] = {"STATEDUMP", GF_CBK_STATEDUMP, mgmt_cbk_event},
+static rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
+    [GF_CBK_FETCHSPEC] = {"FETCHSPEC", mgmt_cbk_spec, GF_CBK_FETCHSPEC},
+    [GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", mgmt_cbk_event,
+                             GF_CBK_EVENT_NOTIFY},
+    [GF_CBK_STATEDUMP] = {"STATEDUMP", mgmt_cbk_event, GF_CBK_STATEDUMP},
 };
 
-struct rpcclnt_cb_program mgmt_cbk_prog = {
+static struct rpcclnt_cb_program mgmt_cbk_prog = {
     .progname = "GlusterFS Callback",
     .prognum = GLUSTER_CBK_PROGRAM,
     .progver = GLUSTER_CBK_VERSION,
@@ -2030,7 +2030,7 @@ struct rpcclnt_cb_program mgmt_cbk_prog = {
     .numactors = GF_CBK_MAXVALUE,
 };
 
-char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
+static char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
     [GF_PMAP_NULL] = "NULL",
     [GF_PMAP_PORTBYBRICK] = "PORTBYBRICK",
     [GF_PMAP_BRICKBYPORT] = "BRICKBYPORT",
@@ -2039,14 +2039,14 @@ char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
     [GF_PMAP_SIGNUP] = "SIGNUP", /* DEPRECATED - DON'T USE! */
 };
 
-rpc_clnt_prog_t clnt_pmap_prog = {
+static rpc_clnt_prog_t clnt_pmap_prog = {
     .progname = "Gluster Portmap",
     .prognum = GLUSTER_PMAP_PROGRAM,
     .progver = GLUSTER_PMAP_VERSION,
     .procnames = clnt_pmap_procs,
 };
 
-char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
+static char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
     [GF_HNDSK_NULL] = "NULL",
     [GF_HNDSK_SETVOLUME] = "SETVOLUME",
     [GF_HNDSK_GETSPEC] = "GETSPEC",
@@ -2054,57 +2054,55 @@ char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
     [GF_HNDSK_EVENT_NOTIFY] = "EVENTNOTIFY",
 };
 
-rpc_clnt_prog_t clnt_handshake_prog = {
+static rpc_clnt_prog_t clnt_handshake_prog = {
     .progname = "GlusterFS Handshake",
     .prognum = GLUSTER_HNDSK_PROGRAM,
     .progver = GLUSTER_HNDSK_VERSION,
     .procnames = clnt_handshake_procs,
 };
 
-rpcsvc_actor_t glusterfs_actors[GLUSTERD_BRICK_MAXVALUE] = {
-    [GLUSTERD_BRICK_NULL] = {"NULL", GLUSTERD_BRICK_NULL,
-                             glusterfs_handle_rpc_msg, NULL, 0, DRC_NA},
-    [GLUSTERD_BRICK_TERMINATE] = {"TERMINATE", GLUSTERD_BRICK_TERMINATE,
-                                  glusterfs_handle_terminate, NULL, 0, DRC_NA},
+static rpcsvc_actor_t glusterfs_actors[GLUSTERD_BRICK_MAXVALUE] = {
+    [GLUSTERD_BRICK_NULL] = {"NULL", glusterfs_handle_rpc_msg, NULL,
+                             GLUSTERD_BRICK_NULL, DRC_NA, 0},
+    [GLUSTERD_BRICK_TERMINATE] = {"TERMINATE", glusterfs_handle_terminate, NULL,
+                                  GLUSTERD_BRICK_TERMINATE, DRC_NA, 0},
     [GLUSTERD_BRICK_XLATOR_INFO] = {"TRANSLATOR INFO",
-                                    GLUSTERD_BRICK_XLATOR_INFO,
                                     glusterfs_handle_translator_info_get, NULL,
-                                    0, DRC_NA},
-    [GLUSTERD_BRICK_XLATOR_OP] = {"TRANSLATOR OP", GLUSTERD_BRICK_XLATOR_OP,
-                                  glusterfs_handle_translator_op, NULL, 0,
-                                  DRC_NA},
-    [GLUSTERD_BRICK_STATUS] = {"STATUS", GLUSTERD_BRICK_STATUS,
-                               glusterfs_handle_brick_status, NULL, 0, DRC_NA},
+                                    GLUSTERD_BRICK_XLATOR_INFO, DRC_NA, 0},
+    [GLUSTERD_BRICK_XLATOR_OP] = {"TRANSLATOR OP",
+                                  glusterfs_handle_translator_op, NULL,
+                                  GLUSTERD_BRICK_XLATOR_OP, DRC_NA, 0},
+    [GLUSTERD_BRICK_STATUS] = {"STATUS", glusterfs_handle_brick_status, NULL,
+                               GLUSTERD_BRICK_STATUS, DRC_NA, 0},
     [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG",
-                                      GLUSTERD_BRICK_XLATOR_DEFRAG,
-                                      glusterfs_handle_defrag, NULL, 0, DRC_NA},
-    [GLUSTERD_NODE_PROFILE] = {"NFS PROFILE", GLUSTERD_NODE_PROFILE,
-                               glusterfs_handle_nfs_profile, NULL, 0, DRC_NA},
-    [GLUSTERD_NODE_STATUS] = {"NFS STATUS", GLUSTERD_NODE_STATUS,
-                              glusterfs_handle_node_status, NULL, 0, DRC_NA},
+                                      glusterfs_handle_defrag, NULL,
+                                      GLUSTERD_BRICK_XLATOR_DEFRAG, DRC_NA, 0},
+    [GLUSTERD_NODE_PROFILE] = {"NFS PROFILE", glusterfs_handle_nfs_profile,
+                               NULL, GLUSTERD_NODE_PROFILE, DRC_NA, 0},
+    [GLUSTERD_NODE_STATUS] = {"NFS STATUS", glusterfs_handle_node_status, NULL,
+                              GLUSTERD_NODE_STATUS, DRC_NA, 0},
     [GLUSTERD_VOLUME_BARRIER_OP] = {"VOLUME BARRIER OP",
-                                    GLUSTERD_VOLUME_BARRIER_OP,
-                                    glusterfs_handle_volume_barrier_op, NULL, 0,
-                                    DRC_NA},
-    [GLUSTERD_BRICK_BARRIER] = {"BARRIER", GLUSTERD_BRICK_BARRIER,
-                                glusterfs_handle_barrier, NULL, 0, DRC_NA},
-    [GLUSTERD_NODE_BITROT] = {"BITROT", GLUSTERD_NODE_BITROT,
-                              glusterfs_handle_bitrot, NULL, 0, DRC_NA},
-    [GLUSTERD_BRICK_ATTACH] = {"ATTACH", GLUSTERD_BRICK_ATTACH,
-                               glusterfs_handle_attach, NULL, 0, DRC_NA},
+                                    glusterfs_handle_volume_barrier_op, NULL,
+                                    GLUSTERD_VOLUME_BARRIER_OP, DRC_NA, 0},
+    [GLUSTERD_BRICK_BARRIER] = {"BARRIER", glusterfs_handle_barrier, NULL,
+                                GLUSTERD_BRICK_BARRIER, DRC_NA, 0},
+    [GLUSTERD_NODE_BITROT] = {"BITROT", glusterfs_handle_bitrot, NULL,
+                              GLUSTERD_NODE_BITROT, DRC_NA, 0},
+    [GLUSTERD_BRICK_ATTACH] = {"ATTACH", glusterfs_handle_attach, NULL,
+                               GLUSTERD_BRICK_ATTACH, DRC_NA, 0},
 
-    [GLUSTERD_DUMP_METRICS] = {"DUMP METRICS", GLUSTERD_DUMP_METRICS,
-                               glusterfs_handle_dump_metrics, NULL, 0, DRC_NA},
+    [GLUSTERD_DUMP_METRICS] = {"DUMP METRICS", glusterfs_handle_dump_metrics,
+                               NULL, GLUSTERD_DUMP_METRICS, DRC_NA, 0},
 
-    [GLUSTERD_SVC_ATTACH] = {"ATTACH CLIENT", GLUSTERD_SVC_ATTACH,
-                             glusterfs_handle_svc_attach, NULL, 0, DRC_NA},
+    [GLUSTERD_SVC_ATTACH] = {"ATTACH CLIENT", glusterfs_handle_svc_attach, NULL,
+                             GLUSTERD_SVC_ATTACH, DRC_NA, 0},
 
-    [GLUSTERD_SVC_DETACH] = {"DETACH CLIENT", GLUSTERD_SVC_DETACH,
-                             glusterfs_handle_svc_detach, NULL, 0, DRC_NA},
+    [GLUSTERD_SVC_DETACH] = {"DETACH CLIENT", glusterfs_handle_svc_detach, NULL,
+                             GLUSTERD_SVC_DETACH, DRC_NA, 0},
 
 };
 
-struct rpcsvc_program glusterfs_mop_prog = {
+static struct rpcsvc_program glusterfs_mop_prog = {
     .progname = "Gluster Brick operations",
     .prognum = GD_BRICK_PROGRAM,
     .progver = GD_BRICK_VERSION,

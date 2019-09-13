@@ -966,25 +966,25 @@ glusterd_handle_mgmt_v3_unlock(rpcsvc_request_t *req)
     return glusterd_big_locked_handler(req, glusterd_handle_mgmt_v3_unlock_fn);
 }
 
-rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
-    [GLUSTERD_MGMT_V3_NULL] = {"NULL", GLUSTERD_MGMT_V3_NULL,
-                               glusterd_mgmt_v3_null, NULL, 0, DRC_NA},
-    [GLUSTERD_MGMT_V3_LOCK] = {"MGMT_V3_LOCK", GLUSTERD_MGMT_V3_LOCK,
-                               glusterd_handle_mgmt_v3_lock, NULL, 0, DRC_NA},
-    [GLUSTERD_MGMT_V3_PRE_VALIDATE] = {"PRE_VAL", GLUSTERD_MGMT_V3_PRE_VALIDATE,
-                                       glusterd_handle_pre_validate, NULL, 0,
-                                       DRC_NA},
-    [GLUSTERD_MGMT_V3_BRICK_OP] = {"BRCK_OP", GLUSTERD_MGMT_V3_BRICK_OP,
-                                   glusterd_handle_brick_op, NULL, 0, DRC_NA},
-    [GLUSTERD_MGMT_V3_COMMIT] = {"COMMIT", GLUSTERD_MGMT_V3_COMMIT,
-                                 glusterd_handle_commit, NULL, 0, DRC_NA},
+static rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
+    [GLUSTERD_MGMT_V3_NULL] = {"NULL", glusterd_mgmt_v3_null, NULL,
+                               GLUSTERD_MGMT_V3_NULL, DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_LOCK] = {"MGMT_V3_LOCK", glusterd_handle_mgmt_v3_lock,
+                               NULL, GLUSTERD_MGMT_V3_LOCK, DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_PRE_VALIDATE] = {"PRE_VAL", glusterd_handle_pre_validate,
+                                       NULL, GLUSTERD_MGMT_V3_PRE_VALIDATE,
+                                       DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_BRICK_OP] = {"BRCK_OP", glusterd_handle_brick_op, NULL,
+                                   GLUSTERD_MGMT_V3_BRICK_OP, DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_COMMIT] = {"COMMIT", glusterd_handle_commit, NULL,
+                                 GLUSTERD_MGMT_V3_COMMIT, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_POST_VALIDATE] = {"POST_VAL",
-                                        GLUSTERD_MGMT_V3_POST_VALIDATE,
-                                        glusterd_handle_post_validate, NULL, 0,
-                                        DRC_NA},
-    [GLUSTERD_MGMT_V3_UNLOCK] = {"MGMT_V3_UNLOCK", GLUSTERD_MGMT_V3_UNLOCK,
-                                 glusterd_handle_mgmt_v3_unlock, NULL, 0,
-                                 DRC_NA},
+                                        glusterd_handle_post_validate, NULL,
+                                        GLUSTERD_MGMT_V3_POST_VALIDATE, DRC_NA,
+                                        0},
+    [GLUSTERD_MGMT_V3_UNLOCK] = {"MGMT_V3_UNLOCK",
+                                 glusterd_handle_mgmt_v3_unlock, NULL,
+                                 GLUSTERD_MGMT_V3_UNLOCK, DRC_NA, 0},
 };
 
 struct rpcsvc_program gd_svc_mgmt_v3_prog = {

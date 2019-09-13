@@ -190,23 +190,10 @@ struct rpcsvc_request {
      * by the program actors. This is the buffer that will need to
      * be de-xdred by the actor.
      */
-    struct iovec msg[MAX_IOVEC];
     int count;
+    struct iovec msg[MAX_IOVEC];
 
     struct iobref *iobref;
-
-    /* Status of the RPC call, whether it was accepted or denied. */
-    int rpc_status;
-
-    /* In case, the call was denied, the RPC error is stored here
-     * till the reply is sent.
-     */
-    int rpc_err;
-
-    /* In case the failure happened because of an authentication problem
-     * , this value needs to be assigned the correct auth error number.
-     */
-    int auth_err;
 
     /* There can be cases of RPC requests where the reply needs to
      * be built from multiple sources. E.g. where even the NFS reply
@@ -244,6 +231,19 @@ struct rpcsvc_request {
 
     /* request queue in rpcsvc */
     struct list_head request_list;
+
+    /* Status of the RPC call, whether it was accepted or denied. */
+    int rpc_status;
+
+    /* In case, the call was denied, the RPC error is stored here
+     * till the reply is sent.
+     */
+    int rpc_err;
+
+    /* In case the failure happened because of an authentication problem
+     * , this value needs to be assigned the correct auth error number.
+     */
+    int auth_err;
 
     /* Things passed to rpc layer from client */
 
@@ -357,7 +357,6 @@ typedef void (*rpcsvc_deallocate_reply)(void *msg);
  */
 typedef struct rpcsvc_actor_desc {
     char procname[RPCSVC_NAME_MAX];
-    int procnum;
     rpcsvc_actor actor;
 
     /* Handler for cases where the RPC requests fragments are large enough
@@ -370,18 +369,20 @@ typedef struct rpcsvc_actor_desc {
      */
     rpcsvc_vector_sizer vector_sizer;
 
+    int procnum;
+
     /* Can actor be ran on behalf an unprivileged requestor? */
-    gf_boolean_t unprivileged;
     drc_op_type_t op_type;
+    gf_boolean_t unprivileged;
 } rpcsvc_actor_t;
 
 typedef struct rpcsvc_request_queue {
-    int gen;
     struct list_head request_queue;
     pthread_mutex_t queue_lock;
     pthread_cond_t queue_cond;
     pthread_t thread;
     struct rpcsvc_program *program;
+    int gen;
     gf_boolean_t waiting;
 } rpcsvc_request_queue_t;
 
@@ -416,8 +417,6 @@ struct rpcsvc_program {
     int numactors;          /* Num actors in actor array */
     int proghighvers;       /* Highest ver for program
                                supported by the system. */
-    int proglowvers;        /* Lowest ver */
-
     /* Program specific state handed to actors */
     void *private;
 
@@ -429,6 +428,8 @@ struct rpcsvc_program {
      */
     rpcsvc_notify_t notify;
 
+    int proglowvers; /* Lowest ver */
+
     /* An integer that identifies the min auth strength that is required
      * by this protocol, for eg. MOUNT3 needs AUTH_UNIX at least.
      * See RFC 1813, Section 5.2.1.
@@ -438,7 +439,6 @@ struct rpcsvc_program {
     /* list member to link to list of registered services with rpcsvc */
     struct list_head program;
     rpcsvc_request_queue_t request_queue[EVENT_MAX_THREADS];
-    char request_queue_status[EVENT_MAX_THREADS / 8 + 1];
     pthread_mutex_t thr_lock;
     pthread_cond_t thr_cond;
     int threadcount;
@@ -457,6 +457,7 @@ struct rpcsvc_program {
     gf_boolean_t alive;
 
     gf_boolean_t synctask;
+    char request_queue_status[EVENT_MAX_THREADS / 8 + 1];
 };
 
 typedef struct rpcsvc_cbk_program {
@@ -588,9 +589,9 @@ typedef struct rpcsvc_auth_ops {
 
 typedef struct rpcsvc_auth_flavour_desc {
     char authname[RPCSVC_NAME_MAX];
-    int authnum;
     rpcsvc_auth_ops_t *authops;
     void *authprivate;
+    int authnum;
 } rpcsvc_auth_t;
 
 typedef void *(*rpcsvc_auth_initer_t)(rpcsvc_t *svc, dict_t *options);
