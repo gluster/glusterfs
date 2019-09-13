@@ -3133,9 +3133,6 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
     int ret = -1;
     int emancipate_ret = -1;
     cmd_args_t *cmd_args = NULL;
-    char brick_name[PATH_MAX] = {
-        0,
-    };
 
     cmd_args = &ctx->cmd_args;
 
@@ -3145,14 +3142,6 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
         emancipate_ret = 0;
         goto out;
     }
-
-    if (cmd_args->volfile_server_transport &&
-        !strcmp(cmd_args->volfile_server_transport, "rdma")) {
-        snprintf(brick_name, sizeof(brick_name), "%s.rdma",
-                 cmd_args->brick_name);
-        req.brick = brick_name;
-    } else
-        req.brick = cmd_args->brick_name;
 
     req.port = cmd_args->brick_port;
     req.pid = (int)getpid(); /* only glusterd2 consumes this */
