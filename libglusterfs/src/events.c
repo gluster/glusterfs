@@ -42,6 +42,7 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     struct addrinfo hints;
     struct addrinfo *result = NULL;
     xlator_t *this = THIS;
+    int sin_family = AF_INET;
 
     /* Global context */
     ctx = THIS->ctx;
@@ -75,13 +76,15 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
             ret = EVENT_ERROR_RESOLVE;
             goto out;
         }
+
+        sin_family = result->ai_family;
     } else {
         /* Localhost, Use the defined IP for localhost */
         host = gf_strdup(EVENT_HOST);
     }
 
     /* Socket Configurations */
-    server.sin_family = AF_INET;
+    server.sin_family = sin_family;
     server.sin_port = htons(EVENT_PORT);
     ret = inet_pton(server.sin_family, host, &server.sin_addr);
     if (ret <= 0) {
