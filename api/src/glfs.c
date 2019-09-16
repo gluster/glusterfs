@@ -816,6 +816,11 @@ unlock:
 struct glfs *
 pub_glfs_new(const char *volname)
 {
+    if (!volname) {
+        errno = EINVAL;
+        return NULL;
+    }
+
     struct glfs *fs = NULL;
     int i = 0;
     int ret = -1;
@@ -824,7 +829,7 @@ pub_glfs_new(const char *volname)
     char pname[16] = "";
     char msg[32] = "";
 
-    if (!volname || volname[0] == '/' || volname[0] == '-') {
+    if (volname[0] == '/' || volname[0] == '-') {
         if (strncmp(volname, "/snaps/", 7) == 0) {
             goto label;
         }
