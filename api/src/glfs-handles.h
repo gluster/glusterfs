@@ -250,6 +250,11 @@ int
 glfs_h_access(glfs_t *fs, glfs_object_t *object, int mask) __THROW
     GFAPI_PUBLIC(glfs_h_access, 3.6.0);
 
+struct glfs_object *
+glfs_h_creat_open(struct glfs *fs, struct glfs_object *parent, const char *path,
+                  int flags, mode_t mode, struct stat *stat,
+                  struct glfs_fd **out_fd) __THROW
+    GFAPI_PUBLIC(glfs_h_creat_open, FUTURE);
 /*
   SYNOPSIS
 

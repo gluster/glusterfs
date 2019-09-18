@@ -843,6 +843,141 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat, 3.4.2);
 
 struct glfs_object *
+pub_glfs_h_creat_open(struct glfs *fs, struct glfs_object *parent,
+                      const char *path, int flags, mode_t mode,
+                      struct stat *stat, struct glfs_fd **out_fd)
+{
+    int ret = -1;
+    struct glfs_fd *glfd = NULL;
+    xlator_t *subvol = NULL;
+    inode_t *inode = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    uuid_t gfid;
+    dict_t *xattr_req = NULL;
+    struct glfs_object *object = NULL;
+    dict_t *fop_attr = NULL;
+
+    /* validate in args */
+    if ((fs == NULL) || (parent == NULL) || (path == NULL) ||
+        (out_fd == NULL)) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
+
+    /* get the active volume */
+    subvol = glfs_active_subvol(fs);
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    /* get/refresh the in arg objects inode in correlation to the xlator */
+    inode = glfs_resolve_inode(fs, subvol, parent);
+    if (!inode) {
+        ret = -1;
+        goto out;
+    }
+
+    xattr_req = dict_new();
+    if (!xattr_req) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_generate(gfid);
+    ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
+    if (ret) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    GLFS_LOC_FILL_PINODE(inode, loc, ret, errno, out, path);
+
+    glfd = glfs_fd_new(fs);
+    if (!glfd) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    glfd->fd = fd_create(loc.inode, getpid());
+    if (!glfd->fd) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+    glfd->fd->flags = flags;
+
+    ret = get_fop_attr_thrd_key(&fop_attr);
+    if (ret)
+        gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
+
+    /* fop/op */
+    ret = syncop_create(subvol, &loc, flags, mode, glfd->fd, &iatt, xattr_req,
+                        NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    /* populate out args */
+    if (ret == 0) {
+        glfd->fd->flags = flags;
+
+        ret = glfs_loc_link(&loc, &iatt);
+        if (ret != 0) {
+            goto out;
+        }
+
+        if (stat)
+            glfs_iatt_to_stat(fs, &iatt, stat);
+
+        ret = glfs_create_object(&loc, &object);
+    }
+
+out:
+    if (ret && object != NULL) {
+        /* Release the held reference */
+        glfs_h_close(object);
+        object = NULL;
+    }
+
+    loc_wipe(&loc);
+
+    if (inode)
+        inode_unref(inode);
+
+    if (fop_attr)
+        dict_unref(fop_attr);
+
+    if (xattr_req)
+        dict_unref(xattr_req);
+
+    if (ret && glfd) {
+        GF_REF_PUT(glfd);
+    } else if (glfd) {
+        glfd_set_state_bind(glfd);
+        *out_fd = glfd;
+    }
+
+    glfs_subvol_done(fs, subvol);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return object;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat_open, FUTURE);
+
+struct glfs_object *
 pub_glfs_h_mkdir(struct glfs *fs, struct glfs_object *parent, const char *path,
                  mode_t mode, struct stat *stat)
 {
