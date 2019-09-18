@@ -271,3 +271,8 @@ GFAPI_PRIVATE_6.1 {
 	global:
 		glfs_setfspid;
 } GFAPI_6.0;
+
+GFAPI_6.6 {
+	global:
+		glfs_h_creat_open;
+} GFAPI_PRIVATE_6.1;
