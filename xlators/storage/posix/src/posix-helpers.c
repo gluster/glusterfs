@@ -2004,12 +2004,11 @@ posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd, int *op_errno)
     return ret;
 }
 
-int
-posix_fs_health_check(xlator_t *this)
+static int
+posix_fs_health_check(xlator_t *this, char *file_path)
 {
     struct posix_private *priv = NULL;
     int ret = -1;
-    char *subvol_path = NULL;
     char timestamp[256] = {
         0,
     };
@@ -2019,25 +2018,17 @@ posix_fs_health_check(xlator_t *this)
         0,
     };
     char buff[256] = {0};
-    char file_path[PATH_MAX] = {0};
     char *op = NULL;
     int op_errno = 0;
-    int cnt = 0;
-    int timeout = 0;
+    int cnt;
+    int timeout;
     struct aiocb aiocb;
 
     GF_VALIDATE_OR_GOTO(this->name, this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO("posix-helpers", priv, out);
 
-    subvol_path = priv->base_path;
     timeout = priv->health_check_timeout;
-    snprintf(file_path, sizeof(file_path) - 1, "%s/%s/health_check",
-             subvol_path, GF_HIDDEN_PATH);
-
-    time_sec = time(NULL);
-    gf_time_fmt(timestamp, sizeof timestamp, time_sec, gf_timefmt_FT);
-    timelen = strlen(timestamp);
 
     fd = open(file_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (fd == -1) {
@@ -2045,6 +2036,11 @@ posix_fs_health_check(xlator_t *this)
         op = "open_for_write";
         goto out;
     }
+
+    time_sec = time(NULL);
+    gf_time_fmt(timestamp, sizeof timestamp, time_sec, gf_timefmt_FT);
+    timelen = strlen(timestamp);
+
     memset(&aiocb, 0, sizeof(struct aiocb));
     aiocb.aio_fildes = fd;
     aiocb.aio_buf = timestamp;
@@ -2056,6 +2052,7 @@ posix_fs_health_check(xlator_t *this)
         goto out;
     }
 
+    cnt = 0;
     /* Wait until write completion */
     while ((aio_error(&aiocb) == EINPROGRESS) && (++cnt <= timeout))
         sleep(1);
@@ -2145,30 +2142,30 @@ out:
 static void *
 posix_health_check_thread_proc(void *data)
 {
-    xlator_t *this = NULL;
-    struct posix_private *priv = NULL;
-    uint32_t interval = 0;
+    xlator_t *this = data;
+    struct posix_private *priv = this->private;
+    uint32_t interval = priv->health_check_interval;
     int ret = -1;
     xlator_t *top = NULL;
     xlator_t *victim = NULL;
     xlator_list_t **trav_p = NULL;
     int count = 0;
     gf_boolean_t victim_found = _gf_false;
-    glusterfs_ctx_t *ctx = NULL;
-
-    this = data;
-    priv = this->private;
-    ctx = THIS->ctx;
+    glusterfs_ctx_t *ctx = THIS->ctx;
+    char file_path[PATH_MAX];
 
     /* prevent races when the interval is updated */
-    interval = priv->health_check_interval;
     if (interval == 0)
         goto out;
 
+    snprintf(file_path, sizeof(file_path) - 1, "%s/%s/health_check",
+             priv->base_path, GF_HIDDEN_PATH);
+
     gf_msg_debug(this->name, 0,
                  "health-check thread started, "
+                 "on path %s, "
                  "interval = %d seconds",
-                 interval);
+                 file_path, interval);
     while (1) {
         /* aborting sleep() is a request to exit this thread, sleep()
          * will normally not return when cancelled */
@@ -2179,7 +2176,7 @@ posix_health_check_thread_proc(void *data)
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
         /* Do the health-check.*/
-        ret = posix_fs_health_check(this);
+        ret = posix_fs_health_check(this, file_path);
         if (ret < 0 && priv->health_check_active)
             goto abort;
         if (!priv->health_check_active)
