@@ -975,7 +975,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat_open, FUTURE);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat_open, 6.6);
 
 struct glfs_object *
 pub_glfs_h_mkdir(struct glfs *fs, struct glfs_object *parent, const char *path,
