@@ -272,12 +272,12 @@ GFAPI_PRIVATE_6.1 {
 		glfs_setfspid;
 } GFAPI_6.0;
 
+GFAPI_6.6 {
+	global:
+		glfs_h_creat_open;
+} GFAPI_PRIVATE_6.1;
+
 GFAPI_7.0 {
 	global:
 		glfs_set_statedump_path;
-} GFAPI_PRIVATE_6.1;
-
-GFAPI_FUTURE {
-	global:
-		glfs_h_creat_open;
-} GFAPI_7.0;
+} GFAPI_6.6;

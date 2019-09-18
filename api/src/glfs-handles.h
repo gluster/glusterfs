@@ -254,7 +254,7 @@ struct glfs_object *
 glfs_h_creat_open(struct glfs *fs, struct glfs_object *parent, const char *path,
                   int flags, mode_t mode, struct stat *stat,
                   struct glfs_fd **out_fd) __THROW
-    GFAPI_PUBLIC(glfs_h_creat_open, FUTURE);
+    GFAPI_PUBLIC(glfs_h_creat_open, 6.6);
 /*
   SYNOPSIS
 
