@@ -513,9 +513,9 @@ ra_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     read_ahead(frame, file);
 
-    ra_frame_return(frame);
-
     file->offset = offset + size;
+
+    ra_frame_return(frame);
 
     return 0;
 
