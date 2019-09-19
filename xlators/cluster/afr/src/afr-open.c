@@ -78,10 +78,9 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             if (!local->xdata_rsp && xdata)
                 local->xdata_rsp = dict_ref(xdata);
         }
+        call_count = --local->call_count;
     }
     UNLOCK(&frame->lock);
-
-    call_count = afr_frame_return(frame);
 
     if (call_count == 0) {
         afr_handle_replies_quorum(frame, this);
