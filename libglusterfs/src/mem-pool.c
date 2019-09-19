@@ -866,6 +866,14 @@ mem_put(void *ptr)
         /* Not one of ours; don't touch it. */
         return;
     }
+
+    if (!hdr->pool_list) {
+        gf_msg_callingfn("mem-pool", GF_LOG_CRITICAL, EINVAL,
+                         LG_MSG_INVALID_ARG,
+                         "invalid argument hdr->pool_list NULL");
+        return;
+    }
+
     pool_list = hdr->pool_list;
     pt_pool = &pool_list->pools[hdr->power_of_two - POOL_SMALLEST];
 
