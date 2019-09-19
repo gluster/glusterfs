@@ -229,9 +229,9 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         __afr_dir_write_fill(frame, this, child_index, op_ret, op_errno, buf,
                              preparent, postparent, preparent2, postparent2,
                              xdata);
+        call_count = --local->call_count;
     }
     UNLOCK(&frame->lock);
-    call_count = afr_frame_return(frame);
 
     if (call_count == 0) {
         __afr_dir_write_finalize(frame, this);

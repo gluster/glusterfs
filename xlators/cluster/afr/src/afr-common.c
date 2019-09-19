@@ -3589,10 +3589,9 @@ afr_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         } else {
             local->op_errno = op_errno;
         }
+        call_count = --local->call_count;
     }
     UNLOCK(&frame->lock);
-
-    call_count = afr_frame_return(frame);
 
     if (call_count == 0)
         AFR_STACK_UNWIND(flush, frame, local->op_ret, local->op_errno,
@@ -3729,10 +3728,9 @@ afr_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
             local->op_errno = op_errno;
         }
+        call_count = --local->call_count;
     }
     UNLOCK(&frame->lock);
-
-    call_count = afr_frame_return(frame);
 
     if (call_count == 0)
         AFR_STACK_UNWIND(fsyncdir, frame, local->op_ret, local->op_errno,
@@ -4350,10 +4348,10 @@ afr_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     int call_count = 0;
     struct statvfs *buf = NULL;
 
+    local = frame->local;
+
     LOCK(&frame->lock);
     {
-        local = frame->local;
-
         if (op_ret != 0) {
             local->op_errno = op_errno;
             goto unlock;
@@ -4379,9 +4377,8 @@ afr_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
     }
 unlock:
+    call_count = --local->call_count;
     UNLOCK(&frame->lock);
-
-    call_count = afr_frame_return(frame);
 
     if (call_count == 0)
         AFR_STACK_UNWIND(statfs, frame, local->op_ret, local->op_errno,
