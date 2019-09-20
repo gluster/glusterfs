@@ -134,6 +134,8 @@ def main():
                    help="Directory where Gluster binaries exist on slave")
     p.add_argument("--slave-access-mount", action="store_true",
                    help="Do not lazy umount the slave volume")
+    p.add_argument("--master-dist-count", type=int,
+                   help="Master Distribution count")
 
     # Status
     p = sp.add_parser("status")

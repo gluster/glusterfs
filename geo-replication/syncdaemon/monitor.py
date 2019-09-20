@@ -37,6 +37,8 @@ def get_subvol_num(brick_idx, vol, hot):
     tier = vol.is_tier()
     disperse_count = vol.disperse_count(tier, hot)
     replica_count = vol.replica_count(tier, hot)
+    distribute_count = vol.distribution_count(tier, hot)
+    gconf.setconfig("master-distribution-count", distribute_count)
 
     if (tier and not hot):
         brick_idx = brick_idx - vol.get_hot_bricks_count(tier)

@@ -926,6 +926,14 @@ class Volinfo(object):
         else:
             return int(self.get('disperseCount')[0].text)
 
+    def distribution_count(self, tier, hot):
+        if (tier and hot):
+            return int(self.get('hotBricks/hotdistCount')[0].text)
+        elif (tier and not hot):
+            return int(self.get('coldBricks/colddistCount')[0].text)
+        else:
+            return int(self.get('distCount')[0].text)
+
     @property
     @memoize
     def hot_bricks(self):
@@ -993,6 +1001,9 @@ class VolinfoFromGconf(object):
 
     def disperse_count(self, tier, hot):
         return gconf.get("master-disperse-count")
+
+    def distribution_count(self, tier, hot):
+        return gconf.get("master-distribution-count")
 
     @property
     @memoize
