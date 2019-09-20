@@ -73,8 +73,11 @@ def subcmd_worker(args):
     Popen.init_errhandler()
     fcntl.fcntl(args.feedback_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
     local = GLUSTER("localhost", args.master)
-    slavevol = args.slave.split("::")[-1]
-    slavehost = args.resource_remote
+    slave_url, slavevol = args.slave.split("::")
+    if "@" not in slave_url:
+        slavehost = args.resource_remote
+    else:
+        slavehost = "%s@%s" % (slave_url.split("@")[0], args.resource_remote)
     remote = SSH(slavehost, slavevol)
     remote.connect_remote()
     local.connect()
