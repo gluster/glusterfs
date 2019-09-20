@@ -3538,7 +3538,7 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
         }
 
         gf_log(this->name, GF_LOG_INFO,
-               "Finished dictionary popluation in all threads");
+               "Finished dictionary population in all threads");
     }
 
     ret = dict_set_int32n(peer_data, "count", SLEN("count"), volcnt);
@@ -3559,11 +3559,11 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
 
     if (totthread) {
         gf_log(this->name, GF_LOG_INFO,
-               "Finished merger of all dictionraies into single one");
+               "Merged multiple dictionaries into a single one");
         dict_arr[totthread++] = dict_ref(peer_data);
         ret = glusterd_dict_arr_serialize(dict_arr, totthread, buf, length);
-        gf_log(this->name, GF_LOG_INFO,
-               "Serialize dictionary data return is %d", ret);
+        gf_log(this->name, GF_LOG_INFO, "Serialize dictionary data returned %d",
+               ret);
     }
 
 out:
