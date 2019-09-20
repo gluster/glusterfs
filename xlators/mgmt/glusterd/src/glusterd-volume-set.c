@@ -610,8 +610,8 @@ validate_volume_per_thread_limit(glusterd_volinfo_t *volinfo, dict_t *dict,
     if ((val < 5) || (val > 200)) {
         gf_asprintf(
             op_errstr,
-            "Please set this option to a greater than 5 or less than 200 "
-            "to optimize dict generated while no. of volumes are more");
+            "Please set this option to a value between 5 and 200 to"
+            "optimize processing large numbers of volumes in parallel.");
         ret = -1;
         goto out;
     }
@@ -2866,8 +2866,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .type = GLOBAL_NO_DOC,
      .description =
          "This option can be used to limit the number of volumes "
-         "handled by per thread to populate peer data.The option accepts "
-         " the value in the range of 5 to 200"},
+         "handled per thread to populate peer data.The option accepts "
+         "values in the range of 5 to 200"},
     {.key = GLUSTERD_BRICKMUX_LIMIT_KEY,
      .voltype = "mgmt/glusterd",
      .value = GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE,
