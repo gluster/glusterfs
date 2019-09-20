@@ -377,6 +377,7 @@ class Server(object):
     def entry_ops(cls, entries):
         pfx = gauxpfx()
         logging.debug('entries: %s' % repr(entries))
+        dist_count = rconf.args.master_dist_count
 
         def entry_purge(op, entry, gfid, e, uid, gid):
             # This is an extremely racy code and needs to be fixed ASAP.
@@ -686,9 +687,15 @@ class Server(object):
                                             raise
                                 else:
                                     raise
-                        elif not matching_disk_gfid(gfid, en):
+                        elif not matching_disk_gfid(gfid, en) and dist_count > 1:
                             collect_failure(e, EEXIST, uid, gid, True)
                         else:
+                            # We are here which means matching_disk_gfid for
+                            # both source and destination has returned false
+                            # and distribution count for master vol is greater
+                            # then one. Which basically says both the source and
+                            # destination exist and not hardlinks.
+                            # So we are safe to go ahead with rename here.
                             rename_with_disk_gfid_confirmation(gfid, entry, en,
                                                                uid, gid)
             if blob:
@@ -1409,7 +1416,9 @@ class SSH(object):
                 '--slave-gluster-log-level',
                 gconf.get("slave-gluster-log-level"),
                 '--slave-gluster-command-dir',
-                gconf.get("slave-gluster-command-dir")]
+                gconf.get("slave-gluster-command-dir"),
+                '--master-dist-count',
+                str(gconf.get("master-distribution-count"))]
 
         if gconf.get("slave-access-mount"):
             args_to_slave.append('--slave-access-mount')
