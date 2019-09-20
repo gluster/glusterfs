@@ -7046,7 +7046,7 @@ struct volume_options options[] = {
     {
         .key = {"lru-limit"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = "131072",
+        .default_value = "65536",
         .min = 0,
         .description = "makes glusterfs invalidate kernel inodes after "
                        "reaching this limit (0 means 'unlimited')",

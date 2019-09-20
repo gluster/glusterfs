@@ -189,7 +189,7 @@ struct fuse_private {
     gf_boolean_t flush_handle_interrupt;
     gf_boolean_t fuse_auto_inval;
 
-    /* LRU Limit, if not set, default is 128k for now */
+    /* LRU Limit, if not set, default is 64k for now */
     uint32_t lru_limit;
     uint32_t invalidate_limit;
     uint32_t fuse_dev_eperm_ratelimit_ns;
