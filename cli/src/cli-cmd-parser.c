@@ -675,7 +675,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                     index += 2;
                 } else if (!strcmp(words[index], "thin-arbiter")) {
                     ret = gf_string2int(words[index + 1], &thin_arbiter_count);
-                    if ((ret == -1) || (thin_arbiter_count != 1)) {
+                    if ((ret == -1) || (thin_arbiter_count != 1) ||
+                        (replica_count != 2)) {
                         cli_err(
                             "For thin-arbiter "
                             "configuration, "
