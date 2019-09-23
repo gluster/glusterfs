@@ -21,16 +21,16 @@
 #include "rpcsvc.h"
 
 struct pmap_port_status {
-    gf_pmap_port_type_t type;
     char *brickname;
     void *xprt;
+    gf_pmap_port_type_t type;
 };
 
 struct pmap_registry {
+    struct pmap_port_status ports[GF_PORT_MAX + 1];
     int base_port;
     int max_port;
     int last_alloc;
-    struct pmap_port_status ports[GF_PORT_MAX + 1];
 };
 
 int
