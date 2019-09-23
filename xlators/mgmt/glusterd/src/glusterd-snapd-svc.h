@@ -17,8 +17,8 @@ typedef struct glusterd_snapdsvc_ glusterd_snapdsvc_t;
 
 struct glusterd_snapdsvc_ {
     glusterd_svc_t svc;
-    int port;
     gf_store_handle_t *handle;
+    int port;
 };
 
 void

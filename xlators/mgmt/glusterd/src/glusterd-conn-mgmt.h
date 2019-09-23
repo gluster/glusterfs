@@ -20,11 +20,11 @@ typedef int (*glusterd_conn_notify_t)(glusterd_conn_t *conn,
 
 struct glusterd_conn_ {
     struct rpc_clnt *rpc;
-    char sockpath[PATH_MAX];
-    int frame_timeout;
     /* Existing daemons tend to specialize their respective
      * notify implementations, so ... */
     glusterd_conn_notify_t notify;
+    int frame_timeout;
+    char sockpath[PATH_MAX];
 };
 
 int

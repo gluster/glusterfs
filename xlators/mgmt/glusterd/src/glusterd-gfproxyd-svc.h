@@ -17,8 +17,8 @@
 
 struct glusterd_gfproxydsvc_ {
     glusterd_svc_t svc;
-    int port;
     gf_store_handle_t *handle;
+    int port;
 };
 
 typedef struct glusterd_gfproxydsvc_ glusterd_gfproxydsvc_t;

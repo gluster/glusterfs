@@ -30,8 +30,8 @@ typedef struct glusterd_gsync_status_temp {
 } glusterd_gsync_status_temp_t;
 
 typedef struct gsync_status_param {
-    int is_active;
     glusterd_volinfo_t *volinfo;
+    int is_active;
 } gsync_status_param_t;
 
 int

@@ -34,17 +34,17 @@ typedef enum glusterd_commit_hook_type {
 
 typedef struct hooks_private {
     struct cds_list_head list;
-    int waitcount;  // debug purposes
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     pthread_t worker;
+    int waitcount;  // debug purposes
 } glusterd_hooks_private_t;
 
 typedef struct hooks_stub {
     struct cds_list_head all_hooks;
     char *scriptdir;
-    glusterd_op_t op;
     dict_t *op_ctx;
+    glusterd_op_t op;
 
 } glusterd_hooks_stub_t;
 
