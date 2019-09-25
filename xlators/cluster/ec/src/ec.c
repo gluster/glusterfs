@@ -516,6 +516,7 @@ ec_upcall(ec_t *ec, struct gf_upcall *upcall)
     struct gf_upcall_cache_invalidation *ci = NULL;
     struct gf_upcall_inodelk_contention *lc = NULL;
     inode_t *inode;
+    inode_table_t *table;
 
     switch (upcall->event_type) {
         case GF_UPCALL_CACHE_INVALIDATION:
@@ -529,8 +530,18 @@ ec_upcall(ec_t *ec, struct gf_upcall *upcall)
                 /* The lock is not owned by EC, ignore it. */
                 return _gf_true;
             }
-            inode = inode_find(((xlator_t *)ec->xl->graph->top)->itable,
-                               upcall->gfid);
+            table = ((xlator_t *)ec->xl->graph->top)->itable;
+            if (table == NULL) {
+                /* Self-heal daemon doesn't have an inode table on the top
+                 * xlator because it doesn't need it. In this case we should
+                 * use the inode table managed by EC itself where all inodes
+                 * being healed should be present. However self-heal doesn't
+                 * use eager-locking and inodelk's are already released as
+                 * soon as possible. In this case we can safely ignore these
+                 * notifications. */
+                return _gf_false;
+            }
+            inode = inode_find(table, upcall->gfid);
             /* If inode is not found, it means that it's already released,
              * so we can ignore it. Probably it has been released and
              * destroyed while the contention notification was being sent.
