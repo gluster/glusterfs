@@ -1522,6 +1522,10 @@ __wb_handle_failed_conflict(wb_request_t *req, wb_request_t *conflict,
              */
             req->op_ret = -1;
             req->op_errno = conflict->op_errno;
+            if ((req->stub->fop == GF_FOP_TRUNCATE) ||
+                (req->stub->fop == GF_FOP_FTRUNCATE)) {
+                req->stub->frame->local = NULL;
+            }
 
             list_del_init(&req->todo);
             list_add_tail(&req->winds, tasks);
