@@ -3538,9 +3538,9 @@ glusterd_copy_file(const char *source, const char *destination)
         ret = sys_write(dest_fd, buffer, read_len);
         if (ret != read_len) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_OP_FAILED,
-                   "Error writing in "
-                   "file %s",
-                   destination);
+                   "Writing in "
+                   "file %s failed with error %s",
+                   destination, strerror(errno));
             goto out;
         }
     } while (ret > 0);
