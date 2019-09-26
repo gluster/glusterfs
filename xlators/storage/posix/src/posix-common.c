@@ -1246,7 +1246,7 @@ struct volume_options posix_options[] = {
     {.key = {"health-check-timeout"},
      .type = GF_OPTION_TYPE_INT,
      .min = 0,
-     .default_value = "10",
+     .default_value = "20",
      .validate = GF_OPT_VALIDATE_MIN,
      .description =
          "Interval in seconds to wait aio_write finish for health check, "
