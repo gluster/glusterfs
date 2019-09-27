@@ -135,14 +135,6 @@ glusterfs_volfile_fetch(glusterfs_ctx_t *ctx);
 void
 cleanup_and_exit(int signum);
 
-int
-glusterfs_volume_top_write_perf(uint32_t blk_size, uint32_t blk_count,
-                                char *brick_path, double *throughput,
-                                double *time);
-int
-glusterfs_volume_top_read_perf(uint32_t blk_size, uint32_t blk_count,
-                               char *brick_path, double *throughput,
-                               double *time);
 void
 xlator_mem_cleanup(xlator_t *this);
 
