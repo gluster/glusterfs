@@ -65,6 +65,11 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
 
 gf_boolean_t
 mgmt_is_multiplexed_daemon(char *name);
+
+static int
+glusterfs_volume_top_perf(const char *brick_path, dict_t *dict,
+                          gf_boolean_t write_test);
+
 int
 mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
@@ -475,10 +480,6 @@ glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
     dict_t *dict = NULL;
     xlator_t *this = NULL;
     gf1_cli_top_op top_op = 0;
-    uint32_t blk_size = 0;
-    uint32_t blk_count = 0;
-    double time = 0;
-    double throughput = 0;
     xlator_t *any = NULL;
     xlator_t *xlator = NULL;
     glusterfs_graph_t *active = NULL;
@@ -511,31 +512,14 @@ glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
     }
 
     ret = dict_get_int32(dict, "top-op", (int32_t *)&top_op);
-    if ((!ret) &&
-        (GF_CLI_TOP_READ_PERF == top_op || GF_CLI_TOP_WRITE_PERF == top_op)) {
-        ret = dict_get_uint32(dict, "blk-size", &blk_size);
-        if (ret)
-            goto cont;
-        ret = dict_get_uint32(dict, "blk-cnt", &blk_count);
-        if (ret)
-            goto cont;
-
-        if (GF_CLI_TOP_READ_PERF == top_op) {
-            ret = glusterfs_volume_top_read_perf(
-                blk_size, blk_count, xlator_req.name, &throughput, &time);
-        } else if (GF_CLI_TOP_WRITE_PERF == top_op) {
-            ret = glusterfs_volume_top_write_perf(
-                blk_size, blk_count, xlator_req.name, &throughput, &time);
-        }
-        if (ret)
-            goto cont;
-        ret = dict_set_double(dict, "time", time);
-        if (ret)
-            goto cont;
-        ret = dict_set_double(dict, "throughput", throughput);
-        if (ret)
-            goto cont;
+    if (ret)
+        goto cont;
+    if (GF_CLI_TOP_READ_PERF == top_op) {
+        ret = glusterfs_volume_top_perf(xlator_req.name, dict, _gf_false);
+    } else if (GF_CLI_TOP_WRITE_PERF == top_op) {
+        ret = glusterfs_volume_top_perf(xlator_req.name, dict, _gf_true);
     }
+
 cont:
     ctx = glusterfsd_ctx;
     GF_ASSERT(ctx);
@@ -576,100 +560,11 @@ out:
     return ret;
 }
 
-int
-glusterfs_volume_top_write_perf(uint32_t blk_size, uint32_t blk_count,
-                                char *brick_path, double *throughput,
-                                double *time)
+static int
+glusterfs_volume_top_perf(const char *brick_path, dict_t *dict,
+                          gf_boolean_t write_test)
 {
     int32_t fd = -1;
-    int32_t input_fd = -1;
-    char export_path[PATH_MAX] = {
-        0,
-    };
-    char *buf = NULL;
-    int32_t iter = 0;
-    int32_t ret = -1;
-    uint64_t total_blks = 0;
-    struct timeval begin, end = {
-                              0,
-                          };
-
-    GF_ASSERT(brick_path);
-    GF_ASSERT(throughput);
-    GF_ASSERT(time);
-    if (!(blk_size > 0) || !(blk_count > 0))
-        goto out;
-
-    snprintf(export_path, sizeof(export_path), "%s/%s", brick_path,
-             ".gf-tmp-stats-perf");
-
-    fd = open(export_path, O_CREAT | O_RDWR, S_IRWXU);
-    if (-1 == fd) {
-        ret = -1;
-        gf_log("glusterd", GF_LOG_ERROR, "Could not open tmp file");
-        goto out;
-    }
-
-    buf = GF_MALLOC(blk_size * sizeof(*buf), gf_common_mt_char);
-    if (!buf) {
-        ret = -1;
-        goto out;
-    }
-
-    input_fd = open("/dev/zero", O_RDONLY);
-    if (-1 == input_fd) {
-        ret = -1;
-        gf_log("glusterd", GF_LOG_ERROR, "Unable to open input file");
-        goto out;
-    }
-
-    gettimeofday(&begin, NULL);
-    for (iter = 0; iter < blk_count; iter++) {
-        ret = sys_read(input_fd, buf, blk_size);
-        if (ret != blk_size) {
-            ret = -1;
-            goto out;
-        }
-        ret = sys_write(fd, buf, blk_size);
-        if (ret != blk_size) {
-            ret = -1;
-            goto out;
-        }
-        total_blks += ret;
-    }
-    ret = 0;
-    if (total_blks != ((uint64_t)blk_size * blk_count)) {
-        gf_log("glusterd", GF_LOG_WARNING, "Error in write");
-        ret = -1;
-        goto out;
-    }
-
-    gettimeofday(&end, NULL);
-    *time = (end.tv_sec - begin.tv_sec) * 1e6 + (end.tv_usec - begin.tv_usec);
-    *throughput = total_blks / *time;
-    gf_log("glusterd", GF_LOG_INFO,
-           "Throughput %.2f Mbps time %.2f secs "
-           "bytes written %" PRId64,
-           *throughput, *time, total_blks);
-
-out:
-    if (fd >= 0)
-        sys_close(fd);
-    if (input_fd >= 0)
-        sys_close(input_fd);
-    GF_FREE(buf);
-    sys_unlink(export_path);
-
-    return ret;
-}
-
-int
-glusterfs_volume_top_read_perf(uint32_t blk_size, uint32_t blk_count,
-                               char *brick_path, double *throughput,
-                               double *time)
-{
-    int32_t fd = -1;
-    int32_t input_fd = -1;
     int32_t output_fd = -1;
     char export_path[PATH_MAX] = {
         0,
@@ -678,15 +573,32 @@ glusterfs_volume_top_read_perf(uint32_t blk_size, uint32_t blk_count,
     int32_t iter = 0;
     int32_t ret = -1;
     uint64_t total_blks = 0;
+    uint32_t blk_size;
+    uint32_t blk_count;
+    double throughput = 0;
+    double time = 0;
     struct timeval begin, end = {
                               0,
                           };
 
     GF_ASSERT(brick_path);
-    GF_ASSERT(throughput);
-    GF_ASSERT(time);
+
+    ret = dict_get_uint32(dict, "blk-size", &blk_size);
+    if (ret)
+        goto out;
+    ret = dict_get_uint32(dict, "blk-cnt", &blk_count);
+    if (ret)
+        goto out;
+
     if (!(blk_size > 0) || !(blk_count > 0))
         goto out;
+
+    buf = GF_CALLOC(1, blk_size * sizeof(*buf), gf_common_mt_char);
+    if (!buf) {
+        ret = -1;
+        gf_log("glusterd", GF_LOG_ERROR, "Could not allocate memory");
+        goto out;
+    }
 
     snprintf(export_path, sizeof(export_path), "%s/%s", brick_path,
              ".gf-tmp-stats-perf");
@@ -697,38 +609,34 @@ glusterfs_volume_top_read_perf(uint32_t blk_size, uint32_t blk_count,
         goto out;
     }
 
-    buf = GF_MALLOC(blk_size * sizeof(*buf), gf_common_mt_char);
-    if (!buf) {
-        ret = -1;
-        gf_log("glusterd", GF_LOG_ERROR, "Could not allocate memory");
-        goto out;
-    }
-
-    input_fd = open("/dev/zero", O_RDONLY);
-    if (-1 == input_fd) {
-        ret = -1;
-        gf_log("glusterd", GF_LOG_ERROR, "Could not open input file");
-        goto out;
-    }
-
-    output_fd = open("/dev/null", O_RDWR);
-    if (-1 == output_fd) {
-        ret = -1;
-        gf_log("glusterd", GF_LOG_ERROR, "Could not open output file");
-        goto out;
-    }
-
+    gettimeofday(&begin, NULL);
     for (iter = 0; iter < blk_count; iter++) {
-        ret = sys_read(input_fd, buf, blk_size);
-        if (ret != blk_size) {
-            ret = -1;
-            goto out;
-        }
         ret = sys_write(fd, buf, blk_size);
         if (ret != blk_size) {
             ret = -1;
             goto out;
         }
+        total_blks += ret;
+    }
+    gettimeofday(&end, NULL);
+    if (total_blks != ((uint64_t)blk_size * blk_count)) {
+        gf_log("glusterd", GF_LOG_WARNING, "Error in write");
+        ret = -1;
+        goto out;
+    }
+
+    time = (end.tv_sec - begin.tv_sec) * 1e6 + (end.tv_usec - begin.tv_usec);
+    throughput = total_blks / time;
+    gf_log("glusterd", GF_LOG_INFO,
+           "Throughput %.2f Mbps time %.2f secs "
+           "bytes written %" PRId64,
+           throughput, time, total_blks);
+
+    /* if it's a write test, we are done. Otherwise, we continue to the read
+     * part */
+    if (write_test == _gf_true) {
+        ret = 0;
+        goto out;
     }
 
     ret = sys_fsync(fd);
@@ -742,6 +650,16 @@ glusterfs_volume_top_read_perf(uint32_t blk_size, uint32_t blk_count,
         ret = -1;
         goto out;
     }
+
+    output_fd = open("/dev/null", O_RDWR);
+    if (-1 == output_fd) {
+        ret = -1;
+        gf_log("glusterd", GF_LOG_ERROR, "Could not open output file");
+        goto out;
+    }
+
+    total_blks = 0;
+
     gettimeofday(&begin, NULL);
     for (iter = 0; iter < blk_count; iter++) {
         ret = sys_read(fd, buf, blk_size);
@@ -756,31 +674,36 @@ glusterfs_volume_top_read_perf(uint32_t blk_size, uint32_t blk_count,
         }
         total_blks += ret;
     }
-    ret = 0;
+    gettimeofday(&end, NULL);
     if (total_blks != ((uint64_t)blk_size * blk_count)) {
         ret = -1;
         gf_log("glusterd", GF_LOG_WARNING, "Error in read");
         goto out;
     }
 
-    gettimeofday(&end, NULL);
-    *time = (end.tv_sec - begin.tv_sec) * 1e6 + (end.tv_usec - begin.tv_usec);
-    *throughput = total_blks / *time;
+    time = (end.tv_sec - begin.tv_sec) * 1e6 + (end.tv_usec - begin.tv_usec);
+    throughput = total_blks / time;
     gf_log("glusterd", GF_LOG_INFO,
            "Throughput %.2f Mbps time %.2f secs "
            "bytes read %" PRId64,
-           *throughput, *time, total_blks);
-
+           throughput, time, total_blks);
+    ret = 0;
 out:
     if (fd >= 0)
         sys_close(fd);
-    if (input_fd >= 0)
-        sys_close(input_fd);
     if (output_fd >= 0)
         sys_close(output_fd);
     GF_FREE(buf);
     sys_unlink(export_path);
-
+    if (ret == 0) {
+        ret = dict_set_double(dict, "time", time);
+        if (ret)
+            goto end;
+        ret = dict_set_double(dict, "throughput", throughput);
+        if (ret)
+            goto end;
+    }
+end:
     return ret;
 }
 

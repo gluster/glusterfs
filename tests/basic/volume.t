@@ -25,6 +25,9 @@ EXPECT '9' brick_count $V0
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}{1,2,3} force;
 EXPECT '6' brick_count $V0
 
+TEST $CLI volume top $V0 read-perf bs 4096 count 1000
+TEST $CLI volume top $V0 write-perf bs 1048576 count 2
+
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 
