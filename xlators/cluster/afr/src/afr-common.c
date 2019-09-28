@@ -2293,7 +2293,8 @@ afr_attempt_readsubvol_set(call_frame_t *frame, xlator_t *this,
     if ((spb_choice >= 0) &&
         (AFR_COUNT(success_replies, child_count) == child_count)) {
         *read_subvol = spb_choice;
-    } else if (!priv->quorum_count) {
+    } else if (!priv->quorum_count ||
+               frame->root->pid == GF_CLIENT_PID_GLFS_HEAL) {
         *read_subvol = afr_first_up_child(frame, this);
     } else if (priv->quorum_count &&
                afr_has_quorum(data_readable, this, NULL)) {
