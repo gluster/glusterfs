@@ -1607,7 +1607,8 @@ shard_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     shard_local_t *local = NULL;
 
     this->itable = loc->inode->table;
-    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+    if ((frame->root->pid != GF_CLIENT_PID_GSYNCD) &&
+        (frame->root->pid != GF_CLIENT_PID_GLFS_HEAL)) {
         SHARD_ENTRY_FOP_CHECK(loc, op_errno, err);
     }
 
