@@ -4464,14 +4464,26 @@ static int
 nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
                    void *param)
 {
+    static struct nfs_opt nfs_opts[] = {
+        /* {pattern, printf_pattern} */
+        {"!rpc-auth.addr.*.allow", "rpc-auth.addr.%s.allow"},
+        {"!rpc-auth.addr.*.reject", "rpc-auth.addr.%s.reject"},
+        {"!rpc-auth.auth-unix.*", "rpc-auth.auth-unix.%s"},
+        {"!rpc-auth.auth-null.*", "rpc-auth.auth-null.%s"},
+        {"!nfs3.*.trusted-sync", "nfs3.%s.trusted-sync"},
+        {"!nfs3.*.trusted-write", "nfs3.%s.trusted-write"},
+        {"!nfs3.*.volume-access", "nfs3.%s.volume-access"},
+        {"!rpc-auth.ports.*.insecure", "rpc-auth.ports.%s.insecure"},
+        {"!nfs-disable", "nfs.%s.disable"},
+        {NULL, NULL}};
     xlator_t *xl = NULL;
     char *aa = NULL;
     int ret = 0;
     glusterd_volinfo_t *volinfo = NULL;
+    int keylen;
+    struct nfs_opt *opt = NULL;
 
     volinfo = param;
-
-    xl = first_of(graph);
 
     if (!volinfo || (volinfo->volname[0] == '\0'))
         return 0;
@@ -4479,137 +4491,52 @@ nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     if (!vme || !(vme->option))
         return 0;
 
-    if (!strcmp(vme->option, "!rpc-auth.addr.*.allow")) {
-        ret = gf_asprintf(&aa, "rpc-auth.addr.%s.allow", volinfo->volname);
+    xl = first_of(graph);
 
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
+    for (opt = nfs_opts; opt->pattern; opt++) {
+        if (!strcmp(vme->option, opt->pattern)) {
+            keylen = gf_asprintf(&aa, opt->printf_pattern, volinfo->volname);
+
+            if (keylen == -1) {
+                return -1;
+            }
+
+            ret = xlator_set_option(xl, aa, keylen, vme->value);
             GF_FREE(aa);
+
+            if (ret)
+                return -1;
+
+            goto out;
         }
-
-        if (ret)
-            return -1;
-    }
-
-    if (!strcmp(vme->option, "!rpc-auth.addr.*.reject")) {
-        ret = gf_asprintf(&aa, "rpc-auth.addr.%s.reject", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-
-    if (!strcmp(vme->option, "!rpc-auth.auth-unix.*")) {
-        ret = gf_asprintf(&aa, "rpc-auth.auth-unix.%s", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-    if (!strcmp(vme->option, "!rpc-auth.auth-null.*")) {
-        ret = gf_asprintf(&aa, "rpc-auth.auth-null.%s", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-
-    if (!strcmp(vme->option, "!nfs3.*.trusted-sync")) {
-        ret = gf_asprintf(&aa, "nfs3.%s.trusted-sync", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-
-    if (!strcmp(vme->option, "!nfs3.*.trusted-write")) {
-        ret = gf_asprintf(&aa, "nfs3.%s.trusted-write", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-
-    if (!strcmp(vme->option, "!nfs3.*.volume-access")) {
-        ret = gf_asprintf(&aa, "nfs3.%s.volume-access", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
     }
 
     if (!strcmp(vme->option, "!nfs3.*.export-dir")) {
-        ret = gf_asprintf(&aa, "nfs3.%s.export-dir", volinfo->volname);
+        keylen = gf_asprintf(&aa, "nfs3.%s.export-dir", volinfo->volname);
 
-        if (ret != -1) {
-            ret = gf_canonicalize_path(vme->value);
-            if (ret) {
-                GF_FREE(aa);
-                return -1;
-            }
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
+        if (keylen == -1) {
+            return -1;
         }
+
+        ret = gf_canonicalize_path(vme->value);
+        if (ret) {
+            GF_FREE(aa);
+            return -1;
+        }
+        ret = xlator_set_option(xl, aa, keylen, vme->value);
+        GF_FREE(aa);
 
         if (ret)
             return -1;
-    }
-
-    if (!strcmp(vme->option, "!rpc-auth.ports.*.insecure")) {
-        ret = gf_asprintf(&aa, "rpc-auth.ports.%s.insecure", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-
-    if (!strcmp(vme->option, "!nfs-disable")) {
-        ret = gf_asprintf(&aa, "nfs.%s.disable", volinfo->volname);
-
-        if (ret != -1) {
-            ret = xlator_set_option(xl, aa, ret, vme->value);
-            GF_FREE(aa);
-        }
-
-        if (ret)
-            return -1;
-    }
-
-    if ((strcmp(vme->voltype, "nfs/server") == 0) && (vme->option[0] != '!')) {
+    } else if ((strcmp(vme->voltype, "nfs/server") == 0) &&
+               (vme->option[0] != '!')) {
         ret = xlator_set_option(xl, vme->option, strlen(vme->option),
                                 vme->value);
         if (ret)
             return -1;
     }
 
+out:
     return 0;
 }
 

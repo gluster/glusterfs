@@ -174,6 +174,12 @@ struct volgen_brick_xlator {
      * delay-gen before this xlator */
     char *dbg_key;
 };
+
+struct nfs_opt {
+    const char *pattern;
+    const char *printf_pattern;
+};
+
 typedef struct volgen_brick_xlator volgen_brick_xlator_t;
 
 int
