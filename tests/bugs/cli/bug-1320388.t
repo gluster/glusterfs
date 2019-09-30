@@ -21,7 +21,7 @@ cleanup;
 rm -f $SSL_BASE/glusterfs.*
 touch "$GLUSTERD_WORKDIR"/secure-access
 
-TEST openssl genrsa -out $SSL_KEY 1024
+TEST openssl genrsa -out $SSL_KEY 3072
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
 ln $SSL_CERT $SSL_CA
 
