@@ -38,6 +38,7 @@ TEST $CLI volume start $V0;
 sleep 4
 
 TEST ! ls $M0
+TEST ! touch $M0/file1
 
 # Case of Same brick, but different volume (ie, recreated).
 TEST $CLI volume create $V1 $H0:$B0/${V0}{1,2};
@@ -46,6 +47,21 @@ TEST $CLI volume start $V1;
 # Give time for 'reconnect' to happen
 sleep 4
 TEST ! ls $M0
-TEST ! stat $M0/file
+TEST ! touch $M0/file2
+
+TEST $CLI volume stop $V0
+TEST $CLI volume delete $V0
+TEST $CLI volume stop $V1
+TEST $CLI volume delete $V1
+
+# Case of Same brick, but different volume (but same volume name)
+TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2}
+TEST $CLI volume start $V0;
+
+# Give time for 'reconnect' to happen
+sleep 4
+TEST ! ls $M0
+TEST ! touch $M0/file3
+
 
 cleanup
