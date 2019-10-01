@@ -1290,6 +1290,7 @@ dht_migration_complete_check_task(void *data)
     fd_t *tmp = NULL;
     uint64_t tmp_miginfo = 0;
     dht_migrate_info_t *miginfo = NULL;
+    gf_boolean_t skip_open = _gf_false;
     int open_failed = 0;
 
     this = THIS;
@@ -1428,23 +1429,33 @@ dht_migration_complete_check_task(void *data)
      * the loop will cause the destruction of the fd. So we need to
      * iterate the list safely because iter_fd cannot be trusted.
      */
-    list_for_each_entry_safe(iter_fd, tmp, &inode->fd_list, inode_list)
-    {
-        if (fd_is_anonymous(iter_fd))
-            continue;
-
-        if (dht_fd_open_on_dst(this, iter_fd, dst_node))
-            continue;
-
+    iter_fd = list_entry((&inode->fd_list)->next, typeof(*iter_fd), inode_list);
+    while (&iter_fd->inode_list != (&inode->fd_list)) {
+        if (fd_is_anonymous(iter_fd) ||
+            (dht_fd_open_on_dst(this, iter_fd, dst_node))) {
+            if (!tmp) {
+                iter_fd = list_entry(iter_fd->inode_list.next, typeof(*iter_fd),
+                                     inode_list);
+                continue;
+            }
+            skip_open = _gf_true;
+        }
         /* We need to release the inode->lock before calling
          * syncop_open() to avoid possible deadlocks. However this
          * can cause the iter_fd to be released by other threads.
          * To avoid this, we take a reference before releasing the
          * lock.
          */
-        __fd_ref(iter_fd);
+        fd_ref(iter_fd);
 
         UNLOCK(&inode->lock);
+
+        if (tmp) {
+            fd_unref(tmp);
+            tmp = NULL;
+        }
+        if (skip_open)
+            goto next;
 
         /* flags for open are stripped down to allow following the
          * new location of the file, otherwise we can get EEXIST or
@@ -1467,9 +1478,11 @@ dht_migration_complete_check_task(void *data)
             dht_fd_ctx_set(this, iter_fd, dst_node);
         }
 
-        fd_unref(iter_fd);
-
+    next:
         LOCK(&inode->lock);
+        skip_open = _gf_false;
+        tmp = iter_fd;
+        iter_fd = list_entry(tmp->inode_list.next, typeof(*tmp), inode_list);
     }
 
     SYNCTASK_SETID(frame->root->uid, frame->root->gid);
@@ -1482,6 +1495,10 @@ dht_migration_complete_check_task(void *data)
 
 unlock:
     UNLOCK(&inode->lock);
+    if (tmp) {
+        fd_unref(tmp);
+        tmp = NULL;
+    }
 
 out:
     if (dict) {
@@ -1563,6 +1580,7 @@ dht_rebalance_inprogress_task(void *data)
     int open_failed = 0;
     uint64_t tmp_miginfo = 0;
     dht_migrate_info_t *miginfo = NULL;
+    gf_boolean_t skip_open = _gf_false;
 
     this = THIS;
     frame = data;
@@ -1683,23 +1701,39 @@ dht_rebalance_inprogress_task(void *data)
      * the loop will cause the destruction of the fd. So we need to
      * iterate the list safely because iter_fd cannot be trusted.
      */
-    list_for_each_entry_safe(iter_fd, tmp, &inode->fd_list, inode_list)
-    {
-        if (fd_is_anonymous(iter_fd))
-            continue;
-
-        if (dht_fd_open_on_dst(this, iter_fd, dst_node))
-            continue;
-
+    iter_fd = list_entry((&inode->fd_list)->next, typeof(*iter_fd), inode_list);
+    while (&iter_fd->inode_list != (&inode->fd_list)) {
         /* We need to release the inode->lock before calling
          * syncop_open() to avoid possible deadlocks. However this
          * can cause the iter_fd to be released by other threads.
          * To avoid this, we take a reference before releasing the
          * lock.
          */
-        __fd_ref(iter_fd);
 
+        if (fd_is_anonymous(iter_fd) ||
+            (dht_fd_open_on_dst(this, iter_fd, dst_node))) {
+            if (!tmp) {
+                iter_fd = list_entry(iter_fd->inode_list.next, typeof(*iter_fd),
+                                     inode_list);
+                continue;
+            }
+            skip_open = _gf_true;
+        }
+
+        /* Yes, this is ugly but there isn't a cleaner way to do this
+         * the fd_ref is an atomic increment so not too bad. We want to
+         * reduce the number of inode locks and unlocks.
+         */
+
+        fd_ref(iter_fd);
         UNLOCK(&inode->lock);
+
+        if (tmp) {
+            fd_unref(tmp);
+            tmp = NULL;
+        }
+        if (skip_open)
+            goto next;
 
         /* flags for open are stripped down to allow following the
          * new location of the file, otherwise we can get EEXIST or
@@ -1721,9 +1755,11 @@ dht_rebalance_inprogress_task(void *data)
             dht_fd_ctx_set(this, iter_fd, dst_node);
         }
 
-        fd_unref(iter_fd);
-
+    next:
         LOCK(&inode->lock);
+        skip_open = _gf_false;
+        tmp = iter_fd;
+        iter_fd = list_entry(tmp->inode_list.next, typeof(*tmp), inode_list);
     }
 
     SYNCTASK_SETID(frame->root->uid, frame->root->gid);
@@ -1731,6 +1767,10 @@ dht_rebalance_inprogress_task(void *data)
 unlock:
     UNLOCK(&inode->lock);
 
+    if (tmp) {
+        fd_unref(tmp);
+        tmp = NULL;
+    }
     if (open_failed) {
         ret = -1;
         goto out;
