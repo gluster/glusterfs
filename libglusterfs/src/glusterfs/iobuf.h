@@ -95,14 +95,14 @@ struct iobuf_arena {
     void *mem_base;
     struct iobuf *iobufs; /* allocated iobufs list */
 
-    int active_cnt;
-    struct iobuf active; /* head node iobuf
-                            (unused by itself) */
-    int passive_cnt;
+    struct iobuf active;  /* head node iobuf
+                             (unused by itself) */
     struct iobuf passive; /* head node iobuf
                              (unused by itself) */
     uint64_t alloc_cnt;   /* total allocs in this pool */
-    int max_active;       /* max active buffers at a given time */
+    int active_cnt;
+    int passive_cnt;
+    int max_active; /* max active buffers at a given time */
 };
 
 struct iobuf_pool {
@@ -111,7 +111,6 @@ struct iobuf_pool {
                                  arena */
     size_t default_page_size; /* default size of iobuf */
 
-    int arena_cnt;
     struct list_head all_arenas;
     struct list_head arenas[GF_VARIABLE_IOBUF_COUNT];
     /* array of arenas. Each element of the array is a list of arenas
@@ -125,6 +124,7 @@ struct iobuf_pool {
 
     uint64_t request_misses; /* mostly the requests for higher
                                value of iobufs */
+    int arena_cnt;
     int rdma_device_count;
     struct list_head *mr_list[GF_RDMA_DEVICE_COUNT];
     void *device[GF_RDMA_DEVICE_COUNT];
