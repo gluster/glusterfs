@@ -63,15 +63,27 @@ __event_newtable(struct event_pool *event_pool, int table_idx)
 }
 
 static int
+event_slot_ref(struct event_slot_epoll *slot)
+{
+    if (!slot)
+        return -1;
+
+    return GF_ATOMIC_INC(slot->ref);
+}
+
+static int
 __event_slot_alloc(struct event_pool *event_pool, int fd,
-                   char notify_poller_death)
+                   char notify_poller_death, struct event_slot_epoll **slot)
 {
     int i = 0;
+    int j = 0;
     int table_idx = -1;
     int gen = -1;
     struct event_slot_epoll *table = NULL;
 
-    for (i = 0; i < EVENT_EPOLL_TABLES; i++) {
+retry:
+
+    while (i < EVENT_EPOLL_TABLES) {
         switch (event_pool->slots_used[i]) {
             case EVENT_EPOLL_SLOTS:
                 continue;
@@ -92,6 +104,7 @@ __event_slot_alloc(struct event_pool *event_pool, int fd,
         if (table)
             /* break out of the loop */
             break;
+        i++;
     }
 
     if (!table)
@@ -99,20 +112,20 @@ __event_slot_alloc(struct event_pool *event_pool, int fd,
 
     table_idx = i;
 
-    for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
-        if (table[i].fd == -1) {
+    for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
+        if (table[j].fd == -1) {
             /* wipe everything except bump the generation */
-            gen = table[i].gen;
-            memset(&table[i], 0, sizeof(table[i]));
-            table[i].gen = gen + 1;
+            gen = table[j].gen;
+            memset(&table[j], 0, sizeof(table[j]));
+            table[j].gen = gen + 1;
 
-            LOCK_INIT(&table[i].lock);
-            INIT_LIST_HEAD(&table[i].poller_death);
+            LOCK_INIT(&table[j].lock);
+            INIT_LIST_HEAD(&table[j].poller_death);
 
-            table[i].fd = fd;
+            table[j].fd = fd;
             if (notify_poller_death) {
-                table[i].idx = table_idx * EVENT_EPOLL_SLOTS + i;
-                list_add_tail(&table[i].poller_death,
+                table[j].idx = table_idx * EVENT_EPOLL_SLOTS + j;
+                list_add_tail(&table[j].poller_death,
                               &event_pool->poller_death);
             }
 
@@ -122,18 +135,26 @@ __event_slot_alloc(struct event_pool *event_pool, int fd,
         }
     }
 
-    return table_idx * EVENT_EPOLL_SLOTS + i;
+    if (j == EVENT_EPOLL_SLOTS) {
+        table = NULL;
+        i++;
+        goto retry;
+    } else {
+        (*slot) = &table[j];
+        event_slot_ref(*slot);
+        return table_idx * EVENT_EPOLL_SLOTS + j;
+    }
 }
 
 static int
 event_slot_alloc(struct event_pool *event_pool, int fd,
-                 char notify_poller_death)
+                 char notify_poller_death, struct event_slot_epoll **slot)
 {
     int idx = -1;
 
     pthread_mutex_lock(&event_pool->mutex);
     {
-        idx = __event_slot_alloc(event_pool, fd, notify_poller_death);
+        idx = __event_slot_alloc(event_pool, fd, notify_poller_death, slot);
     }
     pthread_mutex_unlock(&event_pool->mutex);
 
@@ -147,6 +168,7 @@ __event_slot_dealloc(struct event_pool *event_pool, int idx)
     int offset = 0;
     struct event_slot_epoll *table = NULL;
     struct event_slot_epoll *slot = NULL;
+    int fd = -1;
 
     table_idx = idx / EVENT_EPOLL_SLOTS;
     offset = idx % EVENT_EPOLL_SLOTS;
@@ -158,11 +180,13 @@ __event_slot_dealloc(struct event_pool *event_pool, int idx)
     slot = &table[offset];
     slot->gen++;
 
+    fd = slot->fd;
     slot->fd = -1;
     slot->handled_error = 0;
     slot->in_handler = 0;
     list_del_init(&slot->poller_death);
-    event_pool->slots_used[table_idx]--;
+    if (fd != -1)
+        event_pool->slots_used[table_idx]--;
 
     return;
 }
@@ -177,15 +201,6 @@ event_slot_dealloc(struct event_pool *event_pool, int idx)
     pthread_mutex_unlock(&event_pool->mutex);
 
     return;
-}
-
-static int
-event_slot_ref(struct event_slot_epoll *slot)
-{
-    if (!slot)
-        return -1;
-
-    return GF_ATOMIC_INC(slot->ref);
 }
 
 static struct event_slot_epoll *
@@ -373,17 +388,10 @@ event_register_epoll(struct event_pool *event_pool, int fd,
     if (destroy == 1)
         goto out;
 
-    idx = event_slot_alloc(event_pool, fd, notify_poller_death);
+    idx = event_slot_alloc(event_pool, fd, notify_poller_death, &slot);
     if (idx == -1) {
         gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
                "could not find slot for fd=%d", fd);
-        return -1;
-    }
-
-    slot = event_slot_get(event_pool, idx);
-    if (!slot) {
-        gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
-               "could not find slot for fd=%d idx=%d", fd, idx);
         return -1;
     }
 
