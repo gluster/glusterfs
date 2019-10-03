@@ -5942,8 +5942,6 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
              glusterd_volinfo_t *other_vol)
 {
     glusterd_conf_t *conf = this->private;
-    char pidfile1[PATH_MAX] = "";
-    char pidfile2[PATH_MAX] = "";
     char unslashed[PATH_MAX] = {
         '\0',
     };
@@ -5962,9 +5960,6 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
            brickinfo->path, other_brick->path);
 
     GLUSTERD_REMOVE_SLASH_FROM_PATH(brickinfo->path, unslashed);
-
-    GLUSTERD_GET_BRICK_PIDFILE(pidfile1, other_vol, other_brick, conf);
-    GLUSTERD_GET_BRICK_PIDFILE(pidfile2, volinfo, brickinfo, conf);
 
     if (volinfo->is_snap_volume) {
         len = snprintf(full_id, sizeof(full_id), "/%s/%s/%s/%s.%s.%s",
