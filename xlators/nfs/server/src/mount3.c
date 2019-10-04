@@ -920,14 +920,11 @@ mnt3svc_volume_mount(rpcsvc_request_t *req, struct mount3_state *ms,
 {
     inode_t *exportinode = NULL;
     int ret = -EFAULT;
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     if ((!req) || (!exp) || (!ms))
         return ret;
 
-    rootgfid[15] = 1;
     exportinode = inode_find(exp->vol->itable, rootgfid);
     if (!exportinode) {
         gf_msg(GF_MNT, GF_LOG_ERROR, ENOENT, NFS_MSG_GET_ROOT_INODE_FAIL,
@@ -1372,9 +1369,7 @@ __mnt3_resolve_subdir(mnt3_resolve_t *mres)
     nfs_user_t nfu = {
         0,
     };
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     if (!mres)
         return ret;
@@ -1385,7 +1380,6 @@ __mnt3_resolve_subdir(mnt3_resolve_t *mres)
     if (!firstcomp)
         goto err;
 
-    rootgfid[15] = 1;
     ret = nfs_entry_loc_fill(mres->mstate->nfsx, mres->exp->vol->itable,
                              rootgfid, firstcomp, &mres->resolveloc,
                              NFS_RESOLVE_CREATE, NULL);

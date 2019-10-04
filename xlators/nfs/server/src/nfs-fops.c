@@ -327,7 +327,7 @@ nfs_gfid_dict(inode_t *inode)
     unsigned char *dyngfid = NULL;
     dict_t *dictgfid = NULL;
     int ret = -1;
-    uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     dyngfid = GF_MALLOC(sizeof(uuid_t), gf_common_mt_char);
     if (dyngfid == NULL)

@@ -272,11 +272,8 @@ err:
 int
 nfs_root_loc_fill(inode_table_t *itable, loc_t *loc)
 {
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-    rootgfid[15] = 1;
     return nfs_gfid_loc_fill(itable, rootgfid, loc, NFS_RESOLVE_EXIST);
 }
 

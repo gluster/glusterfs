@@ -1917,18 +1917,13 @@ dht_heal_path(xlator_t *this, char *path, inode_table_t *itable)
     };
     char *bname = NULL;
     char *save_ptr = NULL;
-    uuid_t gfid = {
-        0,
-    };
+    static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     char *tmp_path = NULL;
 
     tmp_path = gf_strdup(path);
     if (!tmp_path) {
         goto out;
     }
-
-    memset(gfid, 0, 16);
-    gfid[15] = 1;
 
     gf_uuid_copy(loc.pargfid, gfid);
     loc.parent = inode_ref(itable->root);

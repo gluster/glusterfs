@@ -504,7 +504,7 @@ posix_handle_init(xlator_t *this)
     struct stat rootbuf;
     struct stat exportbuf;
     char *rootstr = NULL;
-    uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     priv = this->private;
 

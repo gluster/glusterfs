@@ -6395,9 +6395,7 @@ dht_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     int i = -1;
     inode_t *inode = NULL;
     inode_table_t *itable = NULL;
-    uuid_t root_gfid = {
-        0,
-    };
+    static uuid_t root_gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     loc_t newloc = {
         0,
     };
@@ -6423,7 +6421,6 @@ dht_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         }
 
         loc = &local->loc2;
-        root_gfid[15] = 1;
 
         inode = inode_find(itable, root_gfid);
         if (!inode) {

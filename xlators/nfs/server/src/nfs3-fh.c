@@ -64,7 +64,7 @@ nfs3_fh_build_indexed_root_fh(xlator_list_t *cl, xlator_t *xl)
     struct iatt buf = {
         0,
     };
-    uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     if ((!cl) || (!xl))
         return fh;
@@ -85,7 +85,7 @@ nfs3_fh_build_uuid_root_fh(uuid_t volumeid, uuid_t mountid)
     struct iatt buf = {
         0,
     };
-    uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     gf_uuid_copy(buf.ia_gfid, root);
     nfs3_fh_init(&fh, &buf);
@@ -98,7 +98,7 @@ nfs3_fh_build_uuid_root_fh(uuid_t volumeid, uuid_t mountid)
 int
 nfs3_fh_is_root_fh(struct nfs3_fh *fh)
 {
-    uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     if (!fh)
         return 0;
