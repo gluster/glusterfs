@@ -364,7 +364,7 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
     while (remaining_size > 0) {
         len = snprintf(key, sizeof(key), "%s", list + list_offset);
         if (fnmatch(marker_contri_key, key, 0) == 0) {
-            ret = _posix_xattr_get_set_from_backend(filler, key);
+            (void)_posix_xattr_get_set_from_backend(filler, key);
         }
         remaining_size -= (len + 1);
         list_offset += (len + 1);
@@ -1784,7 +1784,7 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         }
     }
 
-    posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX, &ret);
+    (void)posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX, &ret);
     return 0;
 }
 
