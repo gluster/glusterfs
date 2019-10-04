@@ -213,13 +213,10 @@ static int
 _posix_xattr_get_set_from_backend(posix_xattr_filler_t *filler, char *key)
 {
     ssize_t xattr_size = -1;
-    int ret = 0;
+    int ret = -1;
     char *value = NULL;
-    char val_buf[256] = {0};
-    gf_boolean_t have_val = _gf_false;
 
     if (!gf_is_valid_xattr_namespace(key)) {
-        ret = -1;
         goto out;
     }
 
@@ -228,46 +225,52 @@ _posix_xattr_get_set_from_backend(posix_xattr_filler_t *filler, char *key)
      * of getxattr with NULL buf to find the length and then getxattr with
      * allocated buf to fill the data. This way we reduce lot of getxattrs.
      */
-    if (filler->real_path)
-        xattr_size = sys_lgetxattr(filler->real_path, key, val_buf,
-                                   sizeof(val_buf) - 1);
-    else
-        xattr_size = sys_fgetxattr(filler->fdnum, key, val_buf,
-                                   sizeof(val_buf) - 1);
 
-    if (xattr_size >= 0) {
-        have_val = _gf_true;
-    } else if (xattr_size == -1 && errno != ERANGE) {
-        ret = -1;
+    value = GF_MALLOC(256 + 1, gf_posix_mt_char);
+    if (!value) {
         goto out;
     }
 
-    if (have_val) {
-        /*No need to do getxattr*/
-    } else if (filler->real_path) {
-        xattr_size = sys_lgetxattr(filler->real_path, key, NULL, 0);
-    } else {
-        xattr_size = sys_fgetxattr(filler->fdnum, key, NULL, 0);
-    }
+    if (filler->real_path)
+        xattr_size = sys_lgetxattr(filler->real_path, key, value, 256);
+    else
+        xattr_size = sys_fgetxattr(filler->fdnum, key, value, 256);
 
-    if (xattr_size != -1) {
-        value = GF_MALLOC(xattr_size + 1, gf_posix_mt_char);
-        if (!value)
+    if (xattr_size == -1) {
+        if (value)
+            GF_FREE(value);
+
+        /* xattr_size == -1 - failed to fetch the xattr with
+         * current settings.
+         * If it was not because value was too small, abort
+         */
+        if (errno != ERANGE) {
             goto out;
+        }
 
-        if (have_val) {
-            memcpy(value, val_buf, xattr_size);
+        /* Get the real length needed */
+        if (filler->real_path) {
+            xattr_size = sys_lgetxattr(filler->real_path, key, NULL, 0);
         } else {
-            bzero(value, xattr_size + 1);
-            if (filler->real_path) {
-                xattr_size = sys_lgetxattr(filler->real_path, key, value,
-                                           xattr_size);
-            } else {
-                xattr_size = sys_fgetxattr(filler->fdnum, key, value,
-                                           xattr_size);
-            }
+            xattr_size = sys_fgetxattr(filler->fdnum, key, NULL, 0);
         }
         if (xattr_size == -1) {
+            goto out;
+        }
+
+        value = GF_MALLOC(xattr_size + 1, gf_posix_mt_char);
+        if (!value) {
+            goto out;
+        }
+
+        if (filler->real_path) {
+            xattr_size = sys_lgetxattr(filler->real_path, key, value,
+                                       xattr_size);
+        } else {
+            xattr_size = sys_fgetxattr(filler->fdnum, key, value, xattr_size);
+        }
+        if (xattr_size == -1) {
+            GF_FREE(value);
             if (filler->real_path)
                 gf_msg(filler->this->name, GF_LOG_WARNING, 0,
                        P_MSG_XATTR_FAILED, "getxattr failed. path: %s, key: %s",
@@ -276,24 +279,25 @@ _posix_xattr_get_set_from_backend(posix_xattr_filler_t *filler, char *key)
                 gf_msg(filler->this->name, GF_LOG_WARNING, 0,
                        P_MSG_XATTR_FAILED, "getxattr failed. gfid: %s, key: %s",
                        uuid_utoa(filler->fd->inode->gfid), key);
-            GF_FREE(value);
             goto out;
         }
+    }
 
-        value[xattr_size] = '\0';
-        ret = dict_set_bin(filler->xattr, key, value, xattr_size);
-        if (ret < 0) {
-            if (filler->real_path)
-                gf_msg_debug(filler->this->name, 0,
-                             "dict set failed. path: %s, key: %s",
-                             filler->real_path, key);
-            else
-                gf_msg_debug(filler->this->name, 0,
-                             "dict set failed. gfid: %s, key: %s",
-                             uuid_utoa(filler->fd->inode->gfid), key);
+    value[xattr_size] = '\0';
+    ret = dict_set_bin(filler->xattr, key, value, xattr_size);
+
+    if (ret < 0) {
+        if (value)
             GF_FREE(value);
-            goto out;
-        }
+        if (filler->real_path)
+            gf_msg_debug(filler->this->name, 0,
+                         "dict set failed. path: %s, key: %s",
+                         filler->real_path, key);
+        else
+            gf_msg_debug(filler->this->name, 0,
+                         "dict set failed. gfid: %s, key: %s",
+                         uuid_utoa(filler->fd->inode->gfid), key);
+        goto out;
     }
     ret = 0;
 out:
