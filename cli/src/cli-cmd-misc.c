@@ -57,7 +57,7 @@ int
 cli_cmd_display_help(struct cli_state *state, struct cli_cmd_word *in_word,
                      const char **words, int wordcount)
 {
-    struct cli_cmd *cmd[] = {
+    static struct cli_cmd *cmd[] = {
         cli_misc_cmds, cli_probe_cmds, volume_cmds, bitrot_cmds,
         quota_cmds,    snapshot_cmds,  global_cmds, NULL};
     struct cli_cmd *cmd_ind = NULL;

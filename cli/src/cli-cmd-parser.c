@@ -26,7 +26,7 @@
 
 #define MAX_SNAP_DESCRIPTION_LEN 1024
 
-struct snap_config_opt_vals_ snap_confopt_vals[] = {
+static struct snap_config_opt_vals_ snap_confopt_vals[] = {
     {.op_name = "snap-max-hard-limit",
      .question = "Changing snapshot-max-hard-limit "
                  "will limit the creation of new snapshots "
@@ -567,9 +567,9 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
     char *bricks = NULL;
     char *ta_brick = NULL;
     int32_t brick_count = 0;
-    char *opwords[] = {"replica",  "stripe",       "transport",
-                       "disperse", "redundancy",   "disperse-data",
-                       "arbiter",  "thin-arbiter", NULL};
+    static char *opwords[] = {"replica",  "stripe",       "transport",
+                              "disperse", "redundancy",   "disperse-data",
+                              "arbiter",  "thin-arbiter", NULL};
 
     char *w = NULL;
     int op_count = 0;
@@ -1195,19 +1195,19 @@ cli_cmd_quota_parse(const char **words, int wordcount, dict_t **options)
     };
     int64_t value = 0;
     gf_quota_type type = GF_QUOTA_OPTION_TYPE_NONE;
-    char *opwords[] = {"enable",
-                       "disable",
-                       "limit-usage",
-                       "remove",
-                       "list",
-                       "alert-time",
-                       "soft-timeout",
-                       "hard-timeout",
-                       "default-soft-limit",
-                       "limit-objects",
-                       "list-objects",
-                       "remove-objects",
-                       NULL};
+    static char *opwords[] = {"enable",
+                              "disable",
+                              "limit-usage",
+                              "remove",
+                              "list",
+                              "alert-time",
+                              "soft-timeout",
+                              "hard-timeout",
+                              "default-soft-limit",
+                              "limit-objects",
+                              "list-objects",
+                              "remove-objects",
+                              NULL};
     char *w = NULL;
     uint32_t time = 0;
     double percent = 0;
@@ -1853,7 +1853,7 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
     int ret = -1;
     int brick_count = 0, brick_index = 0;
     char *bricks = NULL;
-    char *opwords_cl[] = {"replica", "stripe", NULL};
+    static char *opwords_cl[] = {"replica", "stripe", NULL};
     gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
     int count = 1;
     int arbiter_count = 0;
@@ -2013,8 +2013,9 @@ cli_cmd_volume_remove_brick_parse(struct cli_state *state, const char **words,
     int32_t j = 0;
     char *tmp_brick = NULL;
     char *tmp_brick1 = NULL;
-    char *type_opword[] = {"replica", NULL};
-    char *opwords[] = {"start", "commit", "stop", "status", "force", NULL};
+    static char *type_opword[] = {"replica", NULL};
+    static char *opwords[] = {"start",  "commit", "stop",
+                              "status", "force",  NULL};
     char *w = NULL;
     int32_t command = GF_OP_CMD_NONE;
     long count = 0;
@@ -2873,9 +2874,10 @@ cli_cmd_gsync_set_parse(const char **words, int wordcount, dict_t **options,
     unsigned slavei = 0;
     unsigned glob = 0;
     unsigned cmdi = 0;
-    char *opwords[] = {"create", "status", "start",    "stop",      "config",
-                       "force",  "delete", "ssh-port", "no-verify", "push-pem",
-                       "detail", "pause",  "resume",   NULL};
+    static char *opwords[] = {"create",    "status",   "start",  "stop",
+                              "config",    "force",    "delete", "ssh-port",
+                              "no-verify", "push-pem", "detail", "pause",
+                              "resume",    NULL};
     char *w = NULL;
     char *save_ptr = NULL;
     char *slave_temp = NULL;
@@ -3092,7 +3094,7 @@ cli_cmd_volume_profile_parse(const char **words, int wordcount,
     gf1_cli_info_op info_op = GF_CLI_INFO_NONE;
     gf_boolean_t is_peek = _gf_false;
 
-    char *opwords[] = {"start", "stop", "info", NULL};
+    static char *opwords[] = {"start", "stop", "info", NULL};
     char *w = NULL;
 
     GF_ASSERT(words);
@@ -3193,8 +3195,9 @@ cli_cmd_volume_top_parse(const char **words, int wordcount, dict_t **options)
     int count = 0;
     gf_boolean_t nfs = _gf_false;
     char *delimiter = NULL;
-    char *opwords[] = {"open",      "read",       "write", "opendir", "readdir",
-                       "read-perf", "write-perf", "clear", NULL};
+    static char *opwords[] = {"open",       "read",    "write",
+                              "opendir",    "readdir", "read-perf",
+                              "write-perf", "clear",   NULL};
     char *w = NULL;
 
     GF_ASSERT(words);
@@ -3373,9 +3376,9 @@ cli_cmd_get_statusop(const char *arg)
     int i = 0;
     uint32_t ret = GF_CLI_STATUS_NONE;
     char *w = NULL;
-    char *opwords[] = {"detail",   "mem",   "clients",     "fd", "inode",
-                       "callpool", "tasks", "client-list", NULL};
-    struct {
+    static char *opwords[] = {"detail",   "mem",   "clients",     "fd", "inode",
+                              "callpool", "tasks", "client-list", NULL};
+    static struct {
         char *opname;
         uint32_t opcode;
     } optable[] = {{"detail", GF_CLI_STATUS_DETAIL},
@@ -3573,9 +3576,9 @@ out:
 gf_boolean_t
 cli_cmd_validate_dumpoption(const char *arg, char **option)
 {
-    char *opwords[] = {"all",   "nfs",    "mem",   "iobuf",   "callpool",
-                       "priv",  "fd",     "inode", "history", "inodectx",
-                       "fdctx", "quotad", NULL};
+    static char *opwords[] = {"all",   "nfs",    "mem",   "iobuf",   "callpool",
+                              "priv",  "fd",     "inode", "history", "inodectx",
+                              "fdctx", "quotad", NULL};
     char *w = NULL;
 
     w = str_getunamb(arg, opwords);
@@ -5226,24 +5229,25 @@ cli_cmd_snapshot_parse(const char **words, int wordcount, dict_t **options,
     dict_t *dict = NULL;
     gf1_cli_snapshot type = GF_SNAP_OPTION_TYPE_NONE;
     char *w = NULL;
-    char *opwords[] = {"create",     "delete", "restore", "activate",
-                       "deactivate", "list",   "status",  "config",
-                       "info",       "clone",  NULL};
-    char *invalid_snapnames[] = {"description", "force", "volume", "all", NULL};
-    char *invalid_volnames[] = {"volume",
-                                "type",
-                                "subvolumes",
-                                "option",
-                                "end-volume",
-                                "all",
-                                "volume_not_in_ring",
-                                "description",
-                                "force",
-                                "snap-max-hard-limit",
-                                "snap-max-soft-limit",
-                                "auto-delete",
-                                "activate-on-create",
-                                NULL};
+    static char *opwords[] = {"create",     "delete", "restore", "activate",
+                              "deactivate", "list",   "status",  "config",
+                              "info",       "clone",  NULL};
+    static char *invalid_snapnames[] = {"description", "force", "volume", "all",
+                                        NULL};
+    static char *invalid_volnames[] = {"volume",
+                                       "type",
+                                       "subvolumes",
+                                       "option",
+                                       "end-volume",
+                                       "all",
+                                       "volume_not_in_ring",
+                                       "description",
+                                       "force",
+                                       "snap-max-hard-limit",
+                                       "snap-max-soft-limit",
+                                       "auto-delete",
+                                       "activate-on-create",
+                                       NULL};
 
     GF_ASSERT(words);
     GF_ASSERT(options);
@@ -5563,13 +5567,14 @@ cli_cmd_bitrot_parse(const char **words, int wordcount, dict_t **options)
     int32_t ret = -1;
     char *w = NULL;
     char *volname = NULL;
-    char *opwords[] = {
+    static char *opwords[] = {
         "enable",       "disable", "scrub-throttle", "scrub-frequency", "scrub",
         "signing-time", NULL};
-    char *scrub_throt_values[] = {"lazy", "normal", "aggressive", NULL};
-    char *scrub_freq_values[] = {"hourly",  "daily",  "weekly", "biweekly",
-                                 "monthly", "minute", NULL};
-    char *scrub_values[] = {"pause", "resume", "status", "ondemand", NULL};
+    static char *scrub_throt_values[] = {"lazy", "normal", "aggressive", NULL};
+    static char *scrub_freq_values[] = {
+        "hourly", "daily", "weekly", "biweekly", "monthly", "minute", NULL};
+    static char *scrub_values[] = {"pause", "resume", "status", "ondemand",
+                                   NULL};
     dict_t *dict = NULL;
     gf_bitrot_type type = GF_BITROT_OPTION_TYPE_NONE;
     int32_t expiry_time = 0;
@@ -5791,7 +5796,7 @@ cli_cmd_ganesha_parse(struct cli_state *state, const char **words,
     char *key = NULL;
     char *value = NULL;
     char *w = NULL;
-    char *opwords[] = {"enable", "disable", NULL};
+    static char *opwords[] = {"enable", "disable", NULL};
     const char *question = NULL;
     gf_answer_t answer = GF_ANSWER_NO;
 

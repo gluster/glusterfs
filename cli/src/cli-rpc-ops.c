@@ -5079,22 +5079,22 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
     char errmsg[1024] = "";
     char *master = NULL;
     char *slave = NULL;
-    char *title_values[] = {"MASTER NODE",
-                            "MASTER VOL",
-                            "MASTER BRICK",
-                            "SLAVE USER",
-                            "SLAVE",
-                            "SLAVE NODE",
-                            "STATUS",
-                            "CRAWL STATUS",
-                            "LAST_SYNCED",
-                            "ENTRY",
-                            "DATA",
-                            "META",
-                            "FAILURES",
-                            "CHECKPOINT TIME",
-                            "CHECKPOINT COMPLETED",
-                            "CHECKPOINT COMPLETION TIME"};
+    static char *title_values[] = {"MASTER NODE",
+                                   "MASTER VOL",
+                                   "MASTER BRICK",
+                                   "SLAVE USER",
+                                   "SLAVE",
+                                   "SLAVE NODE",
+                                   "STATUS",
+                                   "CRAWL STATUS",
+                                   "LAST_SYNCED",
+                                   "ENTRY",
+                                   "DATA",
+                                   "META",
+                                   "FAILURES",
+                                   "CHECKPOINT TIME",
+                                   "CHECKPOINT COMPLETED",
+                                   "CHECKPOINT COMPLETION TIME"};
     gf_gsync_status_t **sts_vals = NULL;
 
     /* Checks if any session is active or not */
