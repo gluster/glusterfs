@@ -1817,9 +1817,7 @@ br_stub_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name, dict_t *xdata)
 {
     void *cookie = NULL;
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     fop_getxattr_cbk_t cbk = br_stub_getxattr_cbk;
     int32_t op_ret = -1;
     int32_t op_errno = EINVAL;
@@ -1830,8 +1828,6 @@ br_stub_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     GF_VALIDATE_OR_GOTO(this->name, loc, unwind);
     GF_VALIDATE_OR_GOTO(this->name, this->private, unwind);
     GF_VALIDATE_OR_GOTO(this->name, loc->inode, unwind);
-
-    rootgfid[15] = 1;
 
     if (!name) {
         cbk = br_stub_listxattr_cbk;
@@ -1902,16 +1898,13 @@ br_stub_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                   const char *name, dict_t *xdata)
 {
     void *cookie = NULL;
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     fop_fgetxattr_cbk_t cbk = br_stub_getxattr_cbk;
     int32_t op_ret = -1;
     int32_t op_errno = EINVAL;
     br_stub_local_t *local = NULL;
     br_stub_private_t *priv = NULL;
 
-    rootgfid[15] = 1;
     priv = this->private;
 
     if (!name) {

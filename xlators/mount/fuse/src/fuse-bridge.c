@@ -5220,7 +5220,7 @@ fuse_first_lookup(xlator_t *this)
     };
     xlator_t *xl = NULL;
     dict_t *dict = NULL;
-    uuid_t gfid;
+    static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     int ret = -1;
     struct iatt iatt = {
         0,
@@ -5238,8 +5238,6 @@ fuse_first_lookup(xlator_t *this)
 
     xl = priv->active_subvol;
 
-    memset(gfid, 0, 16);
-    gfid[15] = 1;
     ret = dict_set_gfuuid(dict, "gfid-req", gfid, true);
     if (ret) {
         gf_log(xl->name, GF_LOG_ERROR, "failed to set 'gfid-req'");

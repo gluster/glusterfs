@@ -21,11 +21,8 @@ server_post_stat(server_state_t *state, gfs3_stat_rsp *rsp, struct iatt *stbuf)
            we use inode table which is shared by everyone, but
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
-        uuid_t gfid = {
-            0,
-        };
+        static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-        gfid[15] = 1;
         stbuf->ia_ino = 1;
         gf_uuid_copy(stbuf->ia_gfid, gfid);
     }
@@ -182,11 +179,8 @@ server_post_fstat(server_state_t *state, gfs3_fstat_rsp *rsp,
            we use inode table which is shared by everyone, but
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
-        uuid_t gfid = {
-            0,
-        };
+        static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-        gfid[15] = 1;
         stbuf->ia_ino = 1;
         gf_uuid_copy(stbuf->ia_gfid, gfid);
     }
@@ -454,9 +448,7 @@ server_post_lookup(gfs3_lookup_rsp *rsp, call_frame_t *frame,
 {
     inode_t *root_inode = NULL;
     inode_t *link_inode = NULL;
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     root_inode = frame->root->client->bound_xl->itable->root;
 
@@ -480,7 +472,6 @@ server_post_lookup(gfs3_lookup_rsp *rsp, call_frame_t *frame,
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
         stbuf->ia_ino = 1;
-        rootgfid[15] = 1;
         gf_uuid_copy(stbuf->ia_gfid, rootgfid);
         if (inode->ia_type == 0)
             inode->ia_type = stbuf->ia_type;
@@ -521,11 +512,8 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
            we use inode table which is shared by everyone, but
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
-        uuid_t gfid = {
-            0,
-        };
+        static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-        gfid[15] = 1;
         preparent->ia_ino = 1;
         postparent->ia_ino = 1;
         gf_uuid_copy(preparent->ia_gfid, gfid);
@@ -591,11 +579,8 @@ server4_post_common_iatt(server_state_t *state, gfx_common_iatt_rsp *rsp,
            we use inode table which is shared by everyone, but
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
-        uuid_t gfid = {
-            0,
-        };
+        static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-        gfid[15] = 1;
         stbuf->ia_ino = 1;
         gf_uuid_copy(stbuf->ia_gfid, gfid);
     }
@@ -802,9 +787,7 @@ server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
 {
     inode_t *root_inode = NULL;
     inode_t *link_inode = NULL;
-    uuid_t rootgfid = {
-        0,
-    };
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     root_inode = frame->root->client->bound_xl->itable->root;
 
@@ -828,7 +811,6 @@ server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
         stbuf->ia_ino = 1;
-        rootgfid[15] = 1;
         gf_uuid_copy(stbuf->ia_gfid, rootgfid);
         if (inode->ia_type == 0)
             inode->ia_type = stbuf->ia_type;

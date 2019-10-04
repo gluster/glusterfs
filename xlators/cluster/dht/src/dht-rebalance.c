@@ -2447,15 +2447,12 @@ void
 dht_build_root_inode(xlator_t *this, inode_t **inode)
 {
     inode_table_t *itable = NULL;
-    uuid_t root_gfid = {
-        0,
-    };
+    static uuid_t root_gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     itable = inode_table_new(0, this);
     if (!itable)
         return;
 
-    root_gfid[15] = 1;
     *inode = inode_find(itable, root_gfid);
 }
 

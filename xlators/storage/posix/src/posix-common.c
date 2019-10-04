@@ -576,7 +576,7 @@ posix_init(xlator_t *this)
     uuid_t gfid = {
         0,
     };
-    uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     char *guuid = NULL;
     int32_t uid = -1;
     int32_t gid = -1;

@@ -327,10 +327,8 @@ out:
 static gf_boolean_t
 __is_gfid_access_dir(uuid_t gfid)
 {
-    uuid_t aux_gfid;
-
-    memset(aux_gfid, 0, 16);
-    aux_gfid[15] = GF_AUX_GFID;
+    static uuid_t aux_gfid = {0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, GF_AUX_GFID};
 
     if (gf_uuid_compare(gfid, aux_gfid) == 0)
         return _gf_true;
