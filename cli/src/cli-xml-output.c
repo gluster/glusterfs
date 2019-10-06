@@ -2507,8 +2507,9 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
         ret = dict_get_int32(dict, key, &dist_count);
         if (ret)
             goto out;
-        ret = xmlTextWriterWriteFormatElement(
-            local->writer, (xmlChar *)"distCount", "%d", dist_count);
+        ret = xmlTextWriterWriteFormatElement(local->writer,
+                                              (xmlChar *)"distCount", "%d",
+                                              (brick_count / dist_count));
         XML_RET_CHECK_AND_GOTO(ret, out);
 
         snprintf(key, sizeof(key), "volume%d.stripe_count", i);
