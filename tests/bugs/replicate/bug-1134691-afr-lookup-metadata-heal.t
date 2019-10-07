@@ -25,9 +25,11 @@ iatt=$(stat -c "%g:%u:%A" file)
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
+EXPECT 2 get_pending_heal_count $V0
 
 #Trigger metadataheal
 TEST stat file
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 #iattrs must be matching
 iatt1=$(stat -c "%g:%u:%A" $B0/brick0/file)
