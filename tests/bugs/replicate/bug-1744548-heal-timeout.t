@@ -4,6 +4,11 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../afr.rc
 
+function get_cumulative_opendir_count {
+#sed 'n:d' prints odd-numbered lines
+    $CLI volume profile $V0 info |grep OPENDIR|sed 'n;d' | awk '{print $8}'|tr -d '\n'
+}
+
 cleanup;
 
 TEST glusterd;
@@ -20,23 +25,23 @@ TEST ! $CLI volume heal $V0
 TEST $CLI volume profile $V0 start
 TEST $CLI volume profile $V0 info clear
 TEST $CLI volume heal $V0 enable
-TEST $CLI volume heal $V0
 # Each brick does 3 opendirs, corresponding to dirty, xattrop and entry-changes
-COUNT=`$CLI volume profile $V0 info incremental |grep OPENDIR|awk '{print $8}'|tr -d '\n'`
-TEST [ "$COUNT" == "333" ]
+EXPECT_WITHIN $HEAL_TIMEOUT "^333$" get_cumulative_opendir_count
 
 # Check that a change in heal-timeout is honoured immediately.
 TEST $CLI volume set $V0 cluster.heal-timeout 5
 sleep 10
-COUNT=`$CLI volume profile $V0 info incremental |grep OPENDIR|awk '{print $8}'|tr -d '\n'`
 # Two crawls must have happened.
-TEST [ "$COUNT" == "666" ]
+EXPECT_WITHIN $HEAL_TIMEOUT "^999$" get_cumulative_opendir_count
 
 # shd must not heal if it is disabled and heal-timeout is changed.
 TEST $CLI volume heal $V0 disable
+#Wait for configuration update and any opendir fops to complete
+sleep 10
 TEST $CLI volume profile $V0 info clear
 TEST $CLI volume set $V0 cluster.heal-timeout 6
-sleep 6
+#Better to wait for more than 6 seconds to account for configuration updates
+sleep 10
 COUNT=`$CLI volume profile $V0 info incremental |grep OPENDIR|awk '{print $8}'|tr -d '\n'`
 TEST [ -z $COUNT ]
 cleanup;
