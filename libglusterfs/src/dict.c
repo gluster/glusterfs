@@ -57,7 +57,6 @@ get_new_data()
 
     GF_ATOMIC_INIT(data->refcount, 0);
     data->is_static = _gf_false;
-    LOCK_INIT(&data->lock);
 
     return data;
 }
@@ -293,8 +292,6 @@ void
 data_destroy(data_t *data)
 {
     if (data) {
-        LOCK_DESTROY(&data->lock);
-
         if (!data->is_static)
             GF_FREE(data->data);
 
@@ -325,7 +322,6 @@ data_copy(data_t *old)
     }
     newdata->data_type = old->data_type;
 
-    LOCK_INIT(&newdata->lock);
     return newdata;
 
 err_out:

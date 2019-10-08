@@ -97,7 +97,6 @@ typedef struct _data_pair data_pair_t;
 struct _data {
     char *data;
     gf_atomic_t refcount;
-    gf_lock_t lock;
     gf_dict_data_type_t data_type;
     int32_t len;
     gf_boolean_t is_static;
