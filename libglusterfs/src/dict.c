@@ -545,9 +545,9 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
 data_t *
 dict_get(dict_t *this, char *key)
 {
-    if (!this || !key) {
+    if (!key) {
         gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
-                         "!this || key=%s", (key) ? key : "()");
+                         "!key");
         return NULL;
     }
 
@@ -603,9 +603,9 @@ dict_key_count(dict_t *this)
 void
 dict_del(dict_t *this, char *key)
 {
-    if (!this || !key) {
+    if (!key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "!this || key=%s", key);
+                         "!key");
         return;
     }
 
@@ -620,7 +620,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "!this || key=%s", key);
+                         "!this || key=%s", (key) ? key : "()");
         return;
     }
 
@@ -1256,12 +1256,6 @@ dict_null_foreach_fn(dict_t *d, char *k, data_t *v, void *tmp)
 int
 dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *_tmp)
 {
-    if (!d || !k) {
-        gf_msg("glusterfs", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ENTRY,
-               "%s is NULL", d ? "key" : "dictionary");
-        return -1;
-    }
-
     dict_del(d, k);
     return 0;
 }
@@ -1453,9 +1447,9 @@ fail:
 int
 dict_get_with_ref(dict_t *this, char *key, data_t **data)
 {
-    if (!this || !key || !data) {
+    if (!key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict OR key (%s) is NULL", key);
+                         "!key");
         return -EINVAL;
     }
 
@@ -1493,36 +1487,15 @@ err:
 }
 
 static int
-data_to_ptr_common(data_t *data, void **val)
-{
-    int ret = 0;
-
-    if (!data) {
-        ret = -EINVAL;
-        goto err;
-    }
-
-    *val = data->data;
-err:
-    return ret;
-}
-
-static int
 data_to_int8_ptr(data_t *data, int8_t *val)
 {
     int ret = 0;
-
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
 
     errno = 0;
     *val = strtol(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1531,17 +1504,11 @@ data_to_int16_ptr(data_t *data, int16_t *val)
 {
     int ret = 0;
 
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
-
     errno = 0;
     *val = strtol(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1550,17 +1517,11 @@ data_to_int32_ptr(data_t *data, int32_t *val)
 {
     int ret = 0;
 
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
-
     errno = 0;
     *val = strtol(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1569,17 +1530,11 @@ data_to_int64_ptr(data_t *data, int64_t *val)
 {
     int ret = 0;
 
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
-
     errno = 0;
     *val = strtoll(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1588,17 +1543,11 @@ data_to_uint16_ptr(data_t *data, uint16_t *val)
 {
     int ret = 0;
 
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
-
     errno = 0;
     *val = strtoul(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1607,17 +1556,11 @@ data_to_uint32_ptr(data_t *data, uint32_t *val)
 {
     int ret = 0;
 
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
-
     errno = 0;
     *val = strtoul(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1626,17 +1569,11 @@ data_to_uint64_ptr(data_t *data, uint64_t *val)
 {
     int ret = 0;
 
-    if (!data || !val) {
-        ret = -EINVAL;
-        goto err;
-    }
-
     errno = 0;
     *val = strtoull(data->data, NULL, 0);
     if (errno != 0)
         ret = -errno;
 
-err:
     return ret;
 }
 
@@ -1665,7 +1602,7 @@ dict_get_int8(dict_t *this, char *key, int8_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1711,7 +1648,7 @@ dict_get_int16(dict_t *this, char *key, int16_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1757,7 +1694,7 @@ dict_get_int32n(dict_t *this, char *key, const int keylen, int32_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1783,7 +1720,7 @@ dict_get_int32(dict_t *this, char *key, int32_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1848,7 +1785,7 @@ dict_get_int64(dict_t *this, char *key, int64_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1893,7 +1830,7 @@ dict_get_uint16(dict_t *this, char *key, uint16_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1938,7 +1875,7 @@ dict_get_uint32(dict_t *this, char *key, uint32_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1983,7 +1920,7 @@ dict_get_uint64(dict_t *this, char *key, uint64_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -2208,7 +2145,7 @@ dict_get_double(dict_t *this, char *key, double *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -2291,7 +2228,7 @@ dict_get_ptr(dict_t *this, char *key, void **ptr)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !ptr) {
+    if (!ptr) {
         ret = -EINVAL;
         goto err;
     }
@@ -2303,10 +2240,7 @@ dict_get_ptr(dict_t *this, char *key, void **ptr)
 
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, key, -EINVAL);
 
-    ret = data_to_ptr_common(data, ptr);
-    if (ret != 0) {
-        goto err;
-    }
+    *ptr = data->data;
 
 err:
     if (data)
@@ -2321,7 +2255,7 @@ dict_get_ptr_and_len(dict_t *this, char *key, void **ptr, int *len)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !ptr) {
+    if (!ptr) {
         ret = -EINVAL;
         goto err;
     }
@@ -2334,11 +2268,7 @@ dict_get_ptr_and_len(dict_t *this, char *key, void **ptr, int *len)
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, key, -EINVAL);
 
     *len = data->len;
-
-    ret = data_to_ptr_common(data, ptr);
-    if (ret != 0) {
-        goto err;
-    }
+    *ptr = data->data;
 
 err:
     if (data)
@@ -2354,7 +2284,7 @@ dict_get_strn(dict_t *this, char *key, const int keylen, char **str)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !str) {
+    if (!str) {
         goto err;
     }
     ret = dict_get_with_refn(this, key, keylen, &data);
@@ -2379,7 +2309,7 @@ dict_get_str(dict_t *this, char *key, char **str)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !str) {
+    if (!str) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2553,7 +2483,7 @@ dict_get_bin(dict_t *this, char *key, void **bin)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !bin) {
+    if (!bin) {
         goto err;
     }
 
@@ -2589,7 +2519,7 @@ dict_set_bin_common(dict_t *this, char *key, void *ptr, size_t size,
     data_t *data = NULL;
     int ret = 0;
 
-    if (!ptr || (size > DICT_KEY_VALUE_MAX_SIZE)) {
+    if (size > DICT_KEY_VALUE_MAX_SIZE) {
         ret = -EINVAL;
         goto err;
     }
@@ -2656,7 +2586,7 @@ dict_get_gfuuid(dict_t *this, char *key, uuid_t *gfid)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !gfid) {
+    if (!gfid) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2689,7 +2619,7 @@ dict_get_mdata(dict_t *this, char *key, struct mdata_iatt *mdata)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !mdata) {
+    if (!mdata) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2727,7 +2657,7 @@ dict_get_iatt(dict_t *this, char *key, struct iatt *iatt)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !iatt) {
+    if (!iatt) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2935,12 +2865,6 @@ dict_serialize_lk(dict_t *this, char *buf)
     int32_t count = this->count;
     int32_t keylen = 0;
     int32_t netword = 0;
-
-    if (!buf) {
-        gf_msg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-               "buf is null!");
-        goto out;
-    }
 
     if (count < 0) {
         gf_msg("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
