@@ -947,7 +947,8 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
         goto out;
     }
 
-    if (op == GD_OP_PROFILE_VOLUME || op == GD_OP_STOP_VOLUME) {
+    if (op == GD_OP_PROFILE_VOLUME || op == GD_OP_STOP_VOLUME ||
+        op == GD_OP_REBALANCE) {
         ret = glusterd_validate_quorum(this, op, req_dict, op_errstr);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SERVER_QUORUM_NOT_MET,
