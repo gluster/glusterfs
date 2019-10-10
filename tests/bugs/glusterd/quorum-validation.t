@@ -34,6 +34,8 @@ TEST ! $CLI_1 volume add-brick $V0 $H1:$B1/${V0}2
 TEST ! $CLI_1 volume remove-brick $V0 $H1:$B1/${V0}0 start
 TEST ! $CLI_1 volume set $V0 barrier enable
 
+#quorum is not met, rebalance/profile start should fail
+TEST ! $CLI_1 volume rebalance $V0 start
 TEST ! $CLI_1 volume profile $V0 start
 
 #bug-1690753 - Volume stop when quorum not met is successful
