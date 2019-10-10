@@ -35,7 +35,7 @@ cs_@NAME@ (call_frame_t *frame, xlator_t *this,
         __cs_inode_ctx_get (this, fd->inode, &ctx);
 
         if (ctx)
-                state = __cs_get_file_state (this, fd->inode, ctx);
+                state = __cs_get_file_state (fd->inode, ctx);
         else
                 state = GF_CS_LOCAL;
 
