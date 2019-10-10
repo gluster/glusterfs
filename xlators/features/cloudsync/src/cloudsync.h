@@ -87,7 +87,7 @@ void
 __cs_inode_ctx_get(xlator_t *this, inode_t *inode, cs_inode_ctx_t **ctx);
 
 gf_cs_obj_state
-__cs_get_file_state(xlator_t *this, inode_t *inode, cs_inode_ctx_t *ctx);
+__cs_get_file_state(inode_t *inode, cs_inode_ctx_t *ctx);
 
 int
 cs_inodelk_unlock(call_frame_t *main_frame);
