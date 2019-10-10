@@ -987,3 +987,8 @@ function get_atime {
         echo $time
     fi
 }
+
+function get-xml()
+{
+        $CLI $1 --xml | xmllint --format - | grep $2 | sed 's/\(<"$2">\|<\/"$2">\)//g'
+}

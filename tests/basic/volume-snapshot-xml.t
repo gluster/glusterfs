@@ -1,12 +1,8 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 . $(dirname $0)/../snapshot.rc
-
-function get-xml()
-{
-        $CLI $1 --xml | xmllint --format - | grep $2 | sed 's/\(<"$2">\|<\/"$2">\)//g'
-}
 
 cleanup;
 TEST verify_lvm_version;
