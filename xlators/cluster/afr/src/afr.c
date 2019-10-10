@@ -728,6 +728,7 @@ struct xlator_fops fops = {
     .getxattr = afr_getxattr,
     .fgetxattr = afr_fgetxattr,
     .readv = afr_readv,
+    .seek = afr_seek,
 
     /* inode write */
     .writev = afr_writev,
