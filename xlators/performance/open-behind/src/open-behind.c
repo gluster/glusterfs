@@ -709,6 +709,32 @@ err:
 }
 
 int
+ob_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+        gf_seek_what_t what, dict_t *xdata)
+{
+    call_stub_t *stub = NULL;
+    fd_t *wind_fd = NULL;
+
+    wind_fd = ob_get_wind_fd(this, fd, NULL);
+
+    stub = fop_seek_stub(frame, default_seek_resume, wind_fd, offset, what,
+                         xdata);
+
+    fd_unref(wind_fd);
+
+    if (!stub)
+        goto err;
+
+    open_and_resume(this, wind_fd, stub);
+
+    return 0;
+err:
+    STACK_UNWIND_STRICT(fstat, frame, -1, ENOMEM, 0, 0);
+
+    return 0;
+}
+
+int
 ob_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
@@ -1256,6 +1282,7 @@ struct xlator_fops fops = {
     .flush = ob_flush,
     .fsync = ob_fsync,
     .fstat = ob_fstat,
+    .seek = ob_seek,
     .ftruncate = ob_ftruncate,
     .fsetxattr = ob_fsetxattr,
     .setxattr = ob_setxattr,
