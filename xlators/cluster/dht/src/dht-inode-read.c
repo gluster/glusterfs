@@ -162,8 +162,8 @@ dht_file_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     local = frame->local;
     prev = cookie;
 
-    if ((local->fop == GF_FOP_FSTAT) && (op_ret == -1) && (op_errno == EBADF) &&
-        !(local->fd_checked)) {
+    if ((local->fop == GF_FOP_FSTAT) &&
+        dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
         ret = dht_check_and_open_fd_on_subvol(this, frame);
         if (ret)
             goto out;
@@ -431,7 +431,7 @@ dht_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (local->call_cnt != 1)
         goto out;
 
-    if (op_ret == -1 && (op_errno == EBADF) && !(local->fd_checked)) {
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
         ret = dht_check_and_open_fd_on_subvol(this, frame);
         if (ret)
             goto out;
@@ -703,7 +703,7 @@ dht_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (local->call_cnt != 1)
         goto out;
 
-    if (op_ret == -1 && (op_errno == EBADF) && !(local->fd_checked)) {
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
         ret = dht_check_and_open_fd_on_subvol(this, frame);
         if (ret)
             goto out;
@@ -820,7 +820,7 @@ dht_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     local->op_errno = op_errno;
 
-    if (op_ret == -1 && (op_errno == EBADF) && !(local->fd_checked)) {
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
         ret = dht_check_and_open_fd_on_subvol(this, frame);
         if (ret)
             goto out;
@@ -1223,6 +1223,13 @@ dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (local->call_cnt != 1)
         goto out;
 
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
+        ret = dht_check_and_open_fd_on_subvol(this, frame);
+        if (ret)
+            goto out;
+        return 0;
+    }
+
     ret = dht_read_iatt_from_xdata(this, xdata, &stbuf);
 
     if ((!op_ret) && (ret)) {
@@ -1535,8 +1542,26 @@ dht_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
 
 {
+    dht_local_t *local = NULL;
+    int ret = 0;
+
+    GF_VALIDATE_OR_GOTO("dht", frame, out);
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO("dht", frame->local, out);
+
+    local = frame->local;
+
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
+        ret = dht_check_and_open_fd_on_subvol(this, frame);
+        if (ret)
+            goto out;
+        return 0;
+    }
+
+out:
     dht_lk_inode_unref(frame, op_ret);
     DHT_STACK_UNWIND(finodelk, frame, op_ret, op_errno, xdata);
+
     return 0;
 }
 
@@ -1574,6 +1599,13 @@ dht_finodelk(call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
             if (ret)
                     goto err;
     */
+    local->rebalance.flock = *lock;
+    local->rebalance.lock_cmd = cmd;
+    local->key = gf_strdup(volume);
+
+    if (xdata)
+        local->xattr_req = dict_ref(xdata);
+
     STACK_WIND(frame, dht_finodelk_cbk, lock_subvol,
                lock_subvol->fops->finodelk, volume, fd, cmd, lock, xdata);
 
