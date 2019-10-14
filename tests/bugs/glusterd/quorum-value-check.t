@@ -3,6 +3,8 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
+
 function check_quorum_nfs() {
     local qnfs="$(less /var/lib/glusterd/nfs/nfs-server.vol | grep "quorum-count"| awk '{print $3}')"
     local qinfo="$($CLI volume info $V0| grep "cluster.quorum-count"| awk '{print $2}')"
