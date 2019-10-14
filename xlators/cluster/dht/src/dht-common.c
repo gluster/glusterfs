@@ -51,6 +51,17 @@ dht_set_dir_xattr_req(xlator_t *this, loc_t *loc, dict_t *xattr_req);
 int
 dht_do_fresh_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc);
 
+/* Check the xdata to make sure EBADF has been set by client xlator */
+int32_t
+dht_check_remote_fd_failed_error(dht_local_t *local, int op_ret, int op_errno)
+{
+    if (op_ret == -1 && (op_errno == EBADF || op_errno == EBADFD) &&
+        !(local->fd_checked)) {
+        return 1;
+    }
+    return 0;
+}
+
 /* Sets the blocks and size values to fixed values. This is to be called
  * only for dirs. The caller is responsible for checking the type
  */
@@ -4530,6 +4541,7 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     int this_call_cnt = 0;
     dht_local_t *local = NULL;
     dht_conf_t *conf = NULL;
+    int ret = 0;
 
     VALIDATE_OR_GOTO(frame, err);
     VALIDATE_OR_GOTO(frame->local, err);
@@ -4537,6 +4549,13 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     conf = this->private;
     local = frame->local;
+
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
+        ret = dht_check_and_open_fd_on_subvol(this, frame);
+        if (ret)
+            goto err;
+        return 0;
+    }
 
     LOCK(&frame->lock);
     {
@@ -5205,8 +5224,8 @@ dht_file_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local->op_errno = op_errno;
 
-    if ((local->fop == GF_FOP_FSETXATTR) && op_ret == -1 &&
-        (op_errno == EBADF) && !(local->fd_checked)) {
+    if ((local->fop == GF_FOP_FSETXATTR) &&
+        dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
         ret = dht_check_and_open_fd_on_subvol(this, frame);
         if (ret)
             goto out;
@@ -5930,8 +5949,8 @@ dht_file_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local->op_errno = op_errno;
 
-    if ((local->fop == GF_FOP_FREMOVEXATTR) && (op_ret == -1) &&
-        (op_errno == EBADF) && !(local->fd_checked)) {
+    if ((local->fop == GF_FOP_FREMOVEXATTR) &&
+        dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
         ret = dht_check_and_open_fd_on_subvol(this, frame);
         if (ret)
             goto out;

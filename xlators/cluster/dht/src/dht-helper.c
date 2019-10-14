@@ -365,6 +365,23 @@ dht_check_and_open_fd_on_subvol_complete(int ret, call_frame_t *frame,
 
             break;
 
+        case GF_FOP_FXATTROP:
+            STACK_WIND(frame, dht_common_xattrop_cbk, subvol,
+                       subvol->fops->fxattrop, local->fd,
+                       local->rebalance.flags, local->rebalance.xattr,
+                       local->xattr_req);
+            break;
+
+        case GF_FOP_FGETXATTR:
+            STACK_WIND(frame, dht_getxattr_cbk, subvol, subvol->fops->fgetxattr,
+                       local->fd, local->key, NULL);
+            break;
+
+        case GF_FOP_FINODELK:
+            STACK_WIND(frame, dht_finodelk_cbk, subvol, subvol->fops->finodelk,
+                       local->key, local->fd, local->rebalance.lock_cmd,
+                       &local->rebalance.flock, local->xattr_req);
+            break;
         default:
             gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UNKNOWN_FOP,
                    "Unknown FOP on fd (%p) on file %s @ %s", fd,
@@ -426,6 +443,18 @@ handle_err:
 
         case GF_FOP_FREMOVEXATTR:
             DHT_STACK_UNWIND(fremovexattr, frame, -1, op_errno, NULL);
+            break;
+
+        case GF_FOP_FXATTROP:
+            DHT_STACK_UNWIND(fxattrop, frame, -1, op_errno, NULL, NULL);
+            break;
+
+        case GF_FOP_FGETXATTR:
+            DHT_STACK_UNWIND(fgetxattr, frame, -1, op_errno, NULL, NULL);
+            break;
+
+        case GF_FOP_FINODELK:
+            DHT_STACK_UNWIND(finodelk, frame, -1, op_errno, NULL);
             break;
 
         default:

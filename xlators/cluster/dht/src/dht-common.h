@@ -1236,6 +1236,22 @@ dht_newfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 struct iatt *preparent, struct iatt *postparent, dict_t *xdata);
 
 int
+dht_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+int
+dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+                 int op_errno, dict_t *xattr, dict_t *xdata);
+
+int
+dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict,
+                       dict_t *xdata);
+int
+dht_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata);
+
+int
 gf_defrag_status_get(dht_conf_t *conf, dict_t *dict);
 
 void
@@ -1530,5 +1546,8 @@ dht_pt_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 int
 dht_pt_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
               dict_t *xdata);
+
+int32_t
+dht_check_remote_fd_failed_error(dht_local_t *local, int op_ret, int op_errno);
 
 #endif /* _DHT_H */
