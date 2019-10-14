@@ -5,8 +5,8 @@
 . $(dirname $0)/../../afr.rc
 
 function get_cumulative_opendir_count {
-#sed 'n:d' prints odd-numbered lines
-    $CLI volume profile $V0 info |grep OPENDIR|sed 'n;d' | awk '{print $8}'|tr -d '\n'
+#sed command prints content between Cumulative and Interval, this keeps content from Cumulative stats
+    $CLI volume profile $V0 info |sed -n '/^Cumulative/,/^Interval/p'|grep OPENDIR| awk '{print $8}'|tr -d '\n'
 }
 
 cleanup;
