@@ -20,15 +20,18 @@ TEST mkdir -p $B0/${V0}1 $B0/${V0}2
 TEST MOUNT_LOOP $LO1 $B0/${V0}1
 TEST MOUNT_LOOP $LO2 $B0/${V0}2
 
+total_brick_blocks=$(df -P $B0/${V0}1 $B0/${V0}2 | tail -2 | awk '{sum = sum+$2}END{print sum}')
+#Account for rounding error
+brick_blocks_two_percent_less=$((total_brick_blocks*98/100))
 # Create a subdir in mountpoint and use that for volume.
 TEST $CLI volume create $V0 $H0:$B0/${V0}1/1 $H0:$B0/${V0}2/1;
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" online_brick_count
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
-total_space=$(df -P $M0 | tail -1 | awk '{ print $2}')
+total_mount_blocks=$(df -P $M0 | tail -1 | awk '{ print $2}')
 # Keeping the size less than 200M mainly because XFS will use
 # some storage in brick to keep its own metadata.
-TEST [ $total_space -gt 194000 -a $total_space -lt 200000 ]
+TEST [ $total_mount_blocks -gt $brick_blocks_two_percent_less -a $total_mount_blocks -lt 200000 ]
 
 
 TEST force_umount $M0
@@ -41,8 +44,8 @@ TEST $CLI volume add-brick $V0 $H0:$B0/${V0}1/2 $H0:$B0/${V0}2/2 $H0:$B0/${V0}1/
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "6" online_brick_count
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
-total_space=$(df -P $M0 | tail -1 | awk '{ print $2}')
-TEST [ $total_space -gt 194000 -a $total_space -lt 200000 ]
+total_mount_blocks=$(df -P $M0 | tail -1 | awk '{ print $2}')
+TEST [ $total_mount_blocks -gt $brick_blocks_two_percent_less -a $total_mount_blocks -lt 200000 ]
 
 TEST force_umount $M0
 TEST $CLI volume stop $V0
