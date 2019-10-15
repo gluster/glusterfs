@@ -25,7 +25,7 @@ EXPECT "$md5sum1_reader" echo `md5sum $M1/file | awk '{print $1}'`
 # Append some more data into the file.
 TEST dd if=/dev/urandom of=$M1/file bs=256k count=1 conv=notrunc oflag=direct
 
-md5sum2_reader=$(dd if=$M0/file iflag=direct | md5sum | awk '{print $1}')
+md5sum2_reader=$(dd if=$M0/file iflag=direct bs=256k| md5sum | awk '{print $1}')
 
 # Test to see if the reader refreshes its cache correctly as part of the reads
 # triggered through md5sum. If it does, then the md5sum on the reader and writer
