@@ -1,0 +1,47 @@
+[__meta__]
+version = 2.0
+
+[peersrx . .]
+remote_gsyncd = /usr/local/libexec/glusterfs/gsyncd
+georep_session_working_dir = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/
+ssh_command_tar = ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/geo-replication/tar_ssh.pem
+changelog_log_file = /var/log/glusterfs/geo-replication/${mastervol}/${eSlave}${local_id}-changes.log
+working_dir = /var/lib/misc/glusterfsd/${mastervol}/${eSlave}
+ignore_deletes = false
+pid_file = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/monitor.pid
+state_file = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/monitor.status
+gluster_command_dir = /usr/local/sbin/
+gluster_params = aux-gfid-mount acl
+ssh_command = ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/geo-replication/secret.pem
+state_detail_file = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/${eSlave}-detail.status
+state_socket_unencoded = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/${eSlave}.socket
+socketdir = /var/run/gluster
+log_file = /var/log/glusterfs/geo-replication/${mastervol}/${eSlave}.log
+gluster_log_file = /var/log/glusterfs/geo-replication/${mastervol}/${eSlave}${local_id}.gluster.log
+special_sync_mode = partial
+change_detector = changelog
+pid-file = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/monitor.pid
+state-file = /var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_${slavevol}/monitor.status
+
+[__section_order__]
+peersrx . . = 0
+peersrx . %5essh%3a = 2
+peersrx . = 3
+peers master slave = 4
+
+[peersrx . %5Essh%3A]
+remote_gsyncd = /nonexistent/gsyncd
+
+[peersrx .]
+gluster_command_dir = /usr/local/sbin/
+gluster_params = aux-gfid-mount acl
+log_file = /var/log/glusterfs/geo-replication-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.log
+log_file_mbr = /var/log/glusterfs/geo-replication-slaves/mbr/${session_owner}:${local_node}${local_id}.${slavevol}.log
+gluster_log_file = /var/log/glusterfs/geo-replication-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.gluster.log
+
+[peers master slave]
+session_owner = 0732cbd1-3ec5-4920-ab0d-aa5a896d5214
+master.stime_xattr_name = trusted.glusterfs.0732cbd1-3ec5-4920-ab0d-aa5a896d5214.07a9005c-ace4-4f67-b3c0-73938fb236c4.stime
+volume_id = 0732cbd1-3ec5-4920-ab0d-aa5a896d5214
+use_tarssh = true
+
