@@ -39,6 +39,8 @@
 #define AFR_TA_DOM_NOTIFY "afr.ta.dom-notify"
 #define AFR_TA_DOM_MODIFY "afr.ta.dom-modify"
 
+#define AFR_LK_HEAL_DOM "afr.lock-heal.domain"
+
 #define AFR_HALO_MAX_LATENCY 99999
 
 #define PFLAG_PENDING (1 << 0)
@@ -95,6 +97,16 @@ typedef int (*afr_changelog_resume_t)(call_frame_t *frame, xlator_t *this);
                    gf_fop_list[local->op], uuid_utoa(local->inode->gfid));     \
     } while (0)
 
+#define AFR_ERROR_OUT_IF_FDCTX_INVALID(__fd, __this, __error, __label)         \
+    do {                                                                       \
+        afr_fd_ctx_t *__fd_ctx = NULL;                                         \
+        __fd_ctx = afr_fd_ctx_get(__fd, __this);                               \
+        if (__fd_ctx && __fd_ctx->is_fd_bad) {                                 \
+            __error = EBADF;                                                   \
+            goto __label;                                                      \
+        }                                                                      \
+    } while (0)
+
 typedef enum {
     AFR_READ_POLICY_FIRST_UP,
     AFR_READ_POLICY_GFID_HASH,
@@ -142,6 +154,19 @@ struct afr_nfsd {
     uint32_t halo_max_latency_msec;
     gf_boolean_t iamnfsd;
 };
+
+typedef struct _afr_lk_heal_info {
+    fd_t *fd;
+    int32_t cmd;
+    struct gf_flock flock;
+    dict_t *xdata_req;
+    unsigned char *locked_nodes;
+    struct list_head pos;
+    gf_lkowner_t lk_owner;
+    pid_t pid;
+    int32_t *child_up_event_gen;
+    int32_t *child_down_event_gen;
+} afr_lk_heal_info_t;
 
 typedef struct _afr_private {
     gf_lock_t lock;             /* to guard access to child_count, etc */
@@ -249,6 +274,10 @@ typedef struct _afr_private {
     gf_boolean_t esh_granular;
     gf_boolean_t consistent_io;
     gf_boolean_t data_self_heal; /* on/off */
+
+    /*For lock healing.*/
+    struct list_head saved_locks;
+    struct list_head lk_healq;
 } afr_private_t;
 
 typedef enum {
@@ -371,6 +400,10 @@ typedef struct {
        arrives, we continue to read off this subvol.
     */
     int readdir_subvol;
+    /* lock-healing related members. */
+    gf_boolean_t is_fd_bad;
+    afr_lk_heal_info_t *lk_heal_info;
+
 } afr_fd_ctx_t;
 
 typedef enum {
@@ -572,6 +605,11 @@ typedef struct _afr_local {
             struct gf_flock ret_flock;
             unsigned char *locked_nodes;
             int32_t cmd;
+            /*For lock healing only.*/
+            unsigned char *dom_locked_nodes;
+            int32_t *dom_lock_op_ret;
+            int32_t *dom_lock_op_errno;
+            struct gf_flock *getlk_rsp;
         } lk;
 
         /* inode read */
@@ -1074,6 +1112,8 @@ afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
             if (__local && __local->is_read_txn)                               \
                 afr_pending_read_decrement(__this->private,                    \
                                            __local->read_subvol);              \
+            if (__local && afr_is_lock_mode_mandatory(__local->xdata_req))     \
+                afr_dom_lock_release(frame);                                   \
             frame->local = NULL;                                               \
         }                                                                      \
                                                                                \
@@ -1354,4 +1394,10 @@ afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv,
 
 void
 afr_selfheal_childup(xlator_t *this, afr_private_t *priv);
+
+gf_boolean_t
+afr_is_lock_mode_mandatory(dict_t *xdata);
+
+void
+afr_dom_lock_release(call_frame_t *frame);
 #endif /* __AFR_H__ */

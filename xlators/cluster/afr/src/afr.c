@@ -417,6 +417,8 @@ init(xlator_t *this)
         goto out;
 
     priv = this->private;
+    INIT_LIST_HEAD(&priv->saved_locks);
+    INIT_LIST_HEAD(&priv->lk_healq);
     LOCK_INIT(&priv->lock);
 
     child_count = xlator_subvolume_count(this);
@@ -684,6 +686,7 @@ fini(xlator_t *this)
     priv = this->private;
 
     afr_selfheal_daemon_fini(this);
+    GF_ASSERT(list_empty(&priv->saved_locks));
 
     LOCK(&priv->lock);
     if (priv->timer != NULL) {

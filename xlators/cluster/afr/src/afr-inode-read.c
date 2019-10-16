@@ -302,6 +302,7 @@ afr_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     afr_local_t *local = NULL;
     int op_errno = 0;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     local = AFR_FRAME_INIT(frame, op_errno);
     if (!local)
         goto out;
@@ -1698,6 +1699,7 @@ afr_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     int32_t op_errno = 0;
     fop_fgetxattr_cbk_t cbk = NULL;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     local = AFR_FRAME_INIT(frame, op_errno);
     if (!local)
         goto out;
@@ -1791,6 +1793,7 @@ afr_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     afr_local_t *local = NULL;
     int32_t op_errno = 0;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     local = AFR_FRAME_INIT(frame, op_errno);
     if (!local)
         goto out;
@@ -1866,6 +1869,7 @@ afr_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     afr_local_t *local = NULL;
     int32_t op_errno = 0;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     local = AFR_FRAME_INIT(frame, op_errno);
     if (!local)
         goto out;
