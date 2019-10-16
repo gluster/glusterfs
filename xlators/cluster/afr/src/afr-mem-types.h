@@ -31,6 +31,8 @@ enum gf_afr_mem_types_ {
     gf_afr_mt_empty_brick_t,
     gf_afr_mt_child_latency_t,
     gf_afr_mt_atomic_t,
+    gf_afr_mt_lk_heal_info_t,
+    gf_afr_mt_gf_lock,
     gf_afr_mt_end
 };
 #endif

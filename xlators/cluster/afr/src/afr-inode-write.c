@@ -491,6 +491,7 @@ afr_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     int op_errno = ENOMEM;
     int ret = -1;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     local = AFR_FRAME_INIT(frame, op_errno);
     if (!local)
         goto out;
@@ -730,6 +731,7 @@ afr_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = -1;
     int op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -940,6 +942,7 @@ afr_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *buf,
     int ret = -1;
     int op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -1690,6 +1693,7 @@ afr_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
     GF_IF_INTERNAL_XATTR_GOTO("trusted.glusterfs.afr.*", dict, op_errno, out);
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -1898,6 +1902,7 @@ afr_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     GF_IF_NATIVE_XATTR_GOTO("trusted.glusterfs.afr.*", name, op_errno, out);
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -1998,6 +2003,7 @@ afr_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
     int ret = -1;
     int op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -2107,6 +2113,7 @@ afr_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = -1;
     int op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -2213,6 +2220,7 @@ afr_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = -1;
     int op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -2412,6 +2420,7 @@ afr_fxattrop(call_frame_t *frame, xlator_t *this, fd_t *fd,
     int ret = -1;
     int op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
@@ -2507,6 +2516,7 @@ afr_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
     int ret = -1;
     int32_t op_errno = ENOMEM;
 
+    AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
     if (!transaction_frame)
         goto out;
