@@ -2894,19 +2894,19 @@ glusterd_store_retrieve_node_state(glusterd_volinfo_t *volinfo)
             volinfo->rebal.op = atoi(value);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES))) {
-            volinfo->rebal.rebalance_files = atoi(value);
+            sscanf(value, "%" PRIu64, &volinfo->rebal.rebalance_files);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE))) {
-            volinfo->rebal.rebalance_data = atoi(value);
+            sscanf(value, "%" PRIu64, &volinfo->rebal.rebalance_data);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED))) {
-            volinfo->rebal.lookedup_files = atoi(value);
+            sscanf(value, "%" PRIu64, &volinfo->rebal.lookedup_files);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES))) {
-            volinfo->rebal.rebalance_failures = atoi(value);
+            sscanf(value, "%" PRIu64, &volinfo->rebal.rebalance_failures);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED))) {
-            volinfo->rebal.skipped_files = atoi(value);
+            sscanf(value, "%" PRIu64, &volinfo->rebal.skipped_files);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME,
                             SLEN(GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME))) {
             volinfo->rebal.rebalance_time = atoi(value);
