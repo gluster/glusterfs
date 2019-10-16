@@ -255,7 +255,8 @@ def main():
     if args.subcmd == "slave":
         override_from_args = True
 
-    if args.subcmd == "monitor":
+    if config_file is not None and \
+       args.subcmd in ["monitor", "config-get", "config-set", "config-reset"]:
         ret = gconf.is_config_file_old(config_file, args.master, extra_tmpl_args["slavevol"])
         if ret is not None:
            gconf.config_upgrade(config_file, ret)
