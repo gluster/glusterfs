@@ -86,7 +86,6 @@ glusterfsd/src/glusterfsd
 glusterfsd/src/gf_attach
 heal/src/glfsheal
 libgfchangelog.pc
-libgfdb.pc
 libglusterfs/src/graph.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
