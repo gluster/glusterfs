@@ -101,11 +101,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_dnscache_entry,     /* used only in one location */
     gf_common_mt_parser_t,           /* used only in one location */
     gf_common_quota_meta_t,
-    /*related to gfdb library*/
-    gf_mt_gfdb_link_info_t, /* used only in one location */
-    gf_mt_sql_connection_t, /* used only in one location */
-    gf_mt_db_conn_node_t,   /* used only in one location */
-    /*related to gfdb library*/
     gf_common_mt_rbuf_t,  /* used only in one location */
     gf_common_mt_rlist_t, /* used only in one location */
     gf_common_mt_rvec_t,  /* used only in one location */

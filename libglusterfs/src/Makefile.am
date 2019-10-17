@@ -78,8 +78,7 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/userspace-rcu/wfcqueue.h \
 	$(CONTRIBDIR)/userspace-rcu/wfstack.h \
 	$(CONTRIBDIR)/userspace-rcu/static-wfcqueue.h \
-	$(CONTRIBDIR)/userspace-rcu/static-wfstack.h \
-	tier-ctr-interface.h
+	$(CONTRIBDIR)/userspace-rcu/static-wfstack.h
 
 eventtypes.h: $(top_srcdir)/events/eventskeygen.py
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py C_HEADER
