@@ -65,11 +65,12 @@
 
 typedef struct {
     gf_timer_t *timer;
-    gf_boolean_t barrier_enabled;
     gf_lock_t lock;
     struct list_head queue;
     struct timespec timeout;
     uint32_t queue_size;
+    gf_boolean_t barrier_enabled;
+    char _pad[3]; /* manual padding */
 } barrier_priv_t;
 
 int
