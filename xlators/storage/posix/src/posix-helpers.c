@@ -2021,7 +2021,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
     char *op = NULL;
     int op_errno = 0;
     int cnt;
-    int timeout;
+    int timeout = 0;
     struct aiocb aiocb;
 
     GF_VALIDATE_OR_GOTO(this->name, this, out);
