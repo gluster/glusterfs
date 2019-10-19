@@ -57,6 +57,7 @@ from hashlib import sha256 as sha256
 
 # auxiliary gfid based access prefix
 _CL_AUX_GFID_PFX = ".gfid/"
+ROOT_GFID = "00000000-0000-0000-0000-000000000001"
 GF_OP_RETRIES = 10
 
 GX_GFID_CANONICAL_LEN = 37  # canonical gfid len + '\0'
@@ -670,6 +671,7 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
     global slv_bricks
 
     dir_path = ENOENT
+    pfx = gauxpfx()
 
     if not slv_bricks:
         slv_info = Volinfo(slv_volume, slv_host, master=False)
@@ -683,15 +685,30 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
                                gfid[2:4],
                                gfid], [ENOENT], [ESTALE])
         if dir_path != ENOENT:
-            realpath = errno_wrap(os.readlink, [dir_path],
-                                  [ENOENT], [ESTALE])
-            if not isinstance(realpath, int):
-                realpath_parts = realpath.split('/')
-                pargfid = realpath_parts[-2]
-                basename = realpath_parts[-1]
-                pfx = gauxpfx()
-                dir_entry = os.path.join(pfx, pargfid, basename)
-                return dir_entry
+            try:
+                realpath = errno_wrap(os.readlink, [dir_path],
+                                      [ENOENT], [ESTALE])
+                if not isinstance(realpath, int):
+                    realpath_parts = realpath.split('/')
+                    pargfid = realpath_parts[-2]
+                    basename = realpath_parts[-1]
+                    dir_entry = os.path.join(pfx, pargfid, basename)
+                    return dir_entry
+            except OSError:
+                # .gfid/GFID
+                gfidpath = unescape_space_newline(os.path.join(pfx, gfid))
+                realpath = errno_wrap(Xattr.lgetxattr_buf,
+                      [gfidpath, 'glusterfs.gfid2path'], [ENOENT], [ESTALE])
+                if not isinstance(realpath, int):
+                    basename = os.path.basename(realpath).rstrip('\x00')
+                    dirpath = os.path.dirname(realpath)
+                    if dirpath is "/":
+                        pargfid = ROOT_GFID
+                    else:
+                        dirpath = dirpath.strip("/")
+                        pargfid = get_gfid_from_mnt(dirpath)
+                    dir_entry = os.path.join(pfx, pargfid, basename)
+                    return dir_entry
 
     return None
 
