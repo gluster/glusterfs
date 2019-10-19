@@ -231,7 +231,8 @@ def main():
     # Set default path for config file in that case
     # If an subcmd accepts config file then it also accepts
     # master and Slave arguments.
-    if config_file is None and hasattr(args, "config_file"):
+    if config_file is None and hasattr(args, "config_file") \
+        and args.subcmd != "slave":
         config_file = "%s/geo-replication/%s_%s_%s/gsyncd.conf" % (
             GLUSTERD_WORKDIR,
             args.master,
