@@ -118,8 +118,8 @@ clean_lock_files
 TEST /usr/sbin/groupadd $grp
 
 clean_lock_files
-##Create non-root user and assign it to newly created group
-
+##Del if exists and create non-root user and assign it to newly created group
+userdel -r -f $usr
 TEST /usr/sbin/useradd -G $grp $usr
 
 ##Modify password for non-root user to have control over distributing ssh-key
@@ -139,8 +139,6 @@ sed '/^PasswordAuthentication /{s/no/yes/}' -i /etc/ssh/sshd_config && grep '^Pa
 TEST killall_gluster;
 TEST glusterd;
 TEST pidof glusterd;
-
-
 
 ##Create, start and mount meta_volume
 TEST $CLI volume create $META_VOL replica 3 $H0:$B0/${META_VOL}{1,2,3};
@@ -225,6 +223,26 @@ TEST $GEOREP_CLI  $master $slave_url resume
 #Validate failure of volume stop when geo-rep is running
 TEST ! $CLI volume stop $GMV0
 
+#Hybrid directory rename test BZ#1763439
+TEST $GEOREP_CLI $master $slave_url config change_detector xsync
+mkdir ${master_mnt}/dir1
+mkdir ${master_mnt}/dir1/dir2
+mkdir ${master_mnt}/dir1/dir3
+mkdir ${master_mnt}/hybrid_d1
+
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/hybrid_d1
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1/dir2
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1/dir3
+
+mv ${master_mnt}/hybrid_d1 ${master_mnt}/hybrid_rn_d1
+mv ${master_mnt}/dir1/dir2 ${master_mnt}/rn_dir2
+mv ${master_mnt}/dir1/dir3 ${master_mnt}/dir1/rn_dir3
+
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/hybrid_rn_d1
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/rn_dir2
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1/rn_dir3
+
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave_url stop
 
@@ -232,8 +250,8 @@ TEST $GEOREP_CLI $master $slave_url stop
 TEST $GEOREP_CLI $master $slave_url delete
 
 #Cleanup authorized_keys
-sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' ~/.ssh/authorized_keys
-sed -i '/^command=.*gsyncd.*/d' ~/.ssh/authorized_keys
+sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' /home/$usr/.ssh/authorized_keys
+sed -i '/^command=.*gsyncd.*/d' /home/$usr/.ssh/authorized_keys
 
 #clear mountbroker
 gluster-mountbroker remove --user $usr
