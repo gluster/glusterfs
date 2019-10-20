@@ -424,9 +424,6 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_FILE_CONTENT_REQUESTED(_xattr_req, _content_limit)                  \
-    (dict_get_uint64(_xattr_req, "glusterfs.content", _content_limit) == 0)
-
 #ifdef DEBUG
 #define GF_ASSERT(x) assert(x);
 #else

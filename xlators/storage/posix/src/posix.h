@@ -386,9 +386,6 @@ void
 posix_gfid_unset(xlator_t *this, dict_t *xdata);
 
 int
-posix_pacl_set(const char *path, int fdnum, const char *key, const char *acl_s);
-
-int
 posix_pacl_get(const char *path, int fdnum, const char *key, char **acl_s);
 
 int32_t
