@@ -1632,7 +1632,6 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
-    DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
     SET_FS_ID(frame->root->uid, frame->root->gid);
     MAKE_ENTRY_HANDLE(real_oldpath, par_oldpath, this, oldloc, NULL);

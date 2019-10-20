@@ -33,6 +33,7 @@ sleep 5
 # setup_lvm create lvm partition of 150M and 40M are reserve so after
 # consuming more than 110M next dd should fail
 TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1
+TEST dd if=/dev/urandom of=$M0/a  bs=1022 count=1  oflag=seek_bytes,sync seek=102 conv=notrunc
 
 rm -rf $M0/*
 
