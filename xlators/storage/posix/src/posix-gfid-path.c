@@ -99,11 +99,10 @@ gf_boolean_t
 posix_is_gfid2path_xattr(const char *name)
 {
     if (name && strncmp(GFID2PATH_XATTR_KEY_PREFIX, name,
-                        GFID2PATH_XATTR_KEY_PREFIX_LENGTH) == 0) {
+                        GFID2PATH_XATTR_KEY_PREFIX_LENGTH) == 0)
         return _gf_true;
-    } else {
-        return _gf_false;
-    }
+
+    return _gf_false;
 }
 
 static int gf_posix_xattr_enotsup_log;
