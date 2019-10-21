@@ -61,7 +61,7 @@
 #define DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out)   \
     do {                                                                       \
         if (frame->root->pid >= 0 && priv->disk_space_full &&                  \
-            !dict_get(xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {                    \
+            !dict_get_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {              \
             op_ret = -1;                                                       \
             op_errno = ENOSPC;                                                 \
             gf_msg_debug("posix", ENOSPC,                                      \
@@ -89,9 +89,8 @@
 #endif
 
 #define GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xattr_req, op_ret,          \
-                                 op_errno, out)                                \
+                                 op_errno, _uuid_req, out)                     \
     do {                                                                       \
-        uuid_t _uuid_req;                                                      \
         int _ret = 0;                                                          \
         /* TODO: Remove pid check once trash implements client side            \
          * logic to assign gfid for entry creations inside .trashcan           \
@@ -101,9 +100,7 @@
         _ret = dict_get_gfuuid(xattr_req, "gfid-req", &_uuid_req);             \
         if (_ret) {                                                            \
             gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_NULL_GFID,          \
-                   "failed to get the gfid from"                               \
-                   " dict for %s",                                             \
-                   loc->path);                                                 \
+                   "failed to get the gfid from dict for %s", loc->path);      \
             op_ret = -1;                                                       \
             op_errno = EINVAL;                                                 \
             goto out;                                                          \
