@@ -401,7 +401,8 @@ posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
-    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno, out);
+    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno,
+                             uuid_req, out);
     MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, NULL);
 
     mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
@@ -435,14 +436,20 @@ posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
        linkfile may be for a hardlinked file */
     if (dict_get_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
         dict_del_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY);
-        op_ret = dict_get_gfuuid(xdata, "gfid-req", &uuid_req);
-        if (op_ret) {
-            gf_msg_debug(this->name, 0,
-                         "failed to get the gfid from "
-                         "dict for %s",
-                         loc->path);
-            goto real_op;
+        /* trash xlator did not bring the uuid_via the call
+         * to GFID_NULL_CHECK_AND_GOTO() above.
+         * Fetch it explicitly here.
+         */
+        if (frame->root->pid == GF_SERVER_PID_TRASH) {
+            op_ret = dict_get_gfuuid(xdata, "gfid-req", &uuid_req);
+            if (op_ret) {
+                gf_msg_debug(this->name, 0,
+                             "failed to get the gfid from dict for %s",
+                             loc->path);
+                goto real_op;
+            }
         }
+
         op_ret = posix_create_link_if_gfid_exists(this, uuid_req, real_path,
                                                   loc->inode->table);
         if (!op_ret) {
@@ -644,7 +651,8 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
-    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno, out);
+    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno,
+                             uuid_req, out);
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
     MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, NULL);
@@ -665,8 +673,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     mode = posix_override_umask(mode, mode_bit);
 
     if (xdata) {
-        op_ret = dict_get_gfuuid(xdata, "gfid-req", &uuid_req);
-        if (!op_ret && !gf_uuid_compare(stbuf.ia_gfid, uuid_req)) {
+        if (!gf_uuid_compare(stbuf.ia_gfid, uuid_req)) {
             op_ret = -1;
             op_errno = EEXIST;
             goto out;
@@ -1512,6 +1519,9 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
     char *pgfid_xattr_key = NULL;
     int32_t nlink_samepgfid = 0;
     gf_boolean_t entry_created = _gf_false, gfid_set = _gf_false;
+    uuid_t uuid_req = {
+        0,
+    };
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1522,7 +1532,8 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
-    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno, out);
+    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno,
+                             uuid_req, out);
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
     MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &stbuf);
@@ -2130,6 +2141,9 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     char *pgfid_xattr_key = NULL;
     gf_boolean_t entry_created = _gf_false, gfid_set = _gf_false;
     mode_t mode_bit = 0;
+    uuid_t uuid_req = {
+        0,
+    };
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -2141,7 +2155,8 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
-    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno, out);
+    GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xdata, op_ret, op_errno,
+                             uuid_req, out);
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
     MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &stbuf);
