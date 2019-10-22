@@ -41,7 +41,7 @@ function valid_ciphers {
 		-e '/:$/s///'
 }
 
-TEST openssl genrsa -out $SSL_KEY 1024
+TEST openssl genrsa -out $SSL_KEY 2048
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
 ln $SSL_CERT $SSL_CA
 

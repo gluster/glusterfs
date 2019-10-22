@@ -20,7 +20,7 @@ SSL_CA=$SSL_BASE/glusterfs.ca
 
 # Create self-signed certificates
 function create_self_signed_certs (){
-        openssl genrsa -out $SSL_KEY 1024
+        openssl genrsa -out $SSL_KEY 2048
         openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
         ln $SSL_CERT $SSL_CA
         return $?

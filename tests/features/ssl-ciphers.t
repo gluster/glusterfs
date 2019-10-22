@@ -65,7 +65,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
-TEST openssl genrsa -out $SSL_KEY 1024 2>/dev/null
+TEST openssl genrsa -out $SSL_KEY 2048 2>/dev/null
 TEST openssl req -config $SSL_CFG -new -key $SSL_KEY -x509 \
                   -subj /CN=CA -out $SSL_CA
 TEST openssl req -config $SSL_CFG -new -key $SSL_KEY \
