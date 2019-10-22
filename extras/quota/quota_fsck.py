@@ -52,17 +52,17 @@ epilog_msg='''
 
 def print_msg(log_type, path, xattr_dict = {}, stbuf = "", dir_size = None):
     if log_type == QUOTA_VERBOSE:
-        print('%-24s %-60s\nxattr_values: %s\n%s\n' % {"Verbose", path,  xattr_dict, stbuf})
+        print('%-24s %-60s\nxattr_values: %s\n%s\n' % ("Verbose", path, xattr_dict, stbuf))
     elif log_type == QUOTA_META_ABSENT:
-        print('%-24s %-60s\n%s\n' % {"Quota-Meta Absent", path, xattr_dict})
+        print('%-24s %-60s\n%s\n' % ("Quota-Meta Absent", path, xattr_dict))
     elif log_type == QUOTA_SIZE_MISMATCH:
         print("mismatch")
         if dir_size is not None:
-            print('%24s %60s %12s %12s' % {"Size Mismatch", path, xattr_dict['contri_size'],
-                   dir_size})
+            print('%24s %60s %12s %12s' % ("Size Mismatch", path, 
+                xattr_dict, dir_size))
         else:
-            print('%-24s %-60s %-12i %-12i' % {"Size Mismatch", path, xattr_dict['contri_size'],
-                   stbuf.st_size})
+            print('%-24s %-60s %-12i %-12i' % ("Size Mismatch", path, xattr_dict,
+                   stbuf.st_size))
 
 def size_differs_lot(s1, s2):
     '''
