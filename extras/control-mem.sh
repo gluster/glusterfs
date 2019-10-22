@@ -116,7 +116,7 @@ else
 fi
 
 if ps -T -p ${daemon_pid} | grep gluster > /dev/null; then
-  for thid in `ps -T -p ${daemon_pid} | grep gluster | awk -F " " '{print $2}'`;
+  for thid in `ps -T -p ${daemon_pid} | grep -v SPID | awk -F " " '{print $2}'`;
     do
       echo ${thid} > ${LOC}/${cgroup_name}/tasks ;
     done
