@@ -104,7 +104,7 @@ echo "Setting $quota_value to cpu.cfs_quota_us for gluster_cgroup."
 echo ${quota_value} > ${LOC}/${cgroup_name}/cpu.cfs_quota_us
 
 if ps -T -p ${daemon_pid} | grep gluster > /dev/null; then
-  for thid in `ps -T -p ${daemon_pid} | grep gluster | awk -F " " '{print $2}'`;
+  for thid in `ps -T -p ${daemon_pid} | grep -v SPID | awk -F " " '{print $2}'`;
     do
       echo ${thid} > ${LOC}/${cgroup_name}/tasks ;
     done
