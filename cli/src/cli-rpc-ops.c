@@ -1467,13 +1467,20 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
         goto out;
     }
 
-    snprintf(key, sizeof(key), "status-1");
-
-    ret = dict_get_int32(dict, key, (int32_t *)&status_rcd);
-    if (ret) {
-        gf_log("cli", GF_LOG_TRACE, "count %d %d", count, 1);
-        gf_log("cli", GF_LOG_TRACE, "failed to get status");
-        goto out;
+    for (i = 1; i <= count; i++) {
+        snprintf(key, sizeof(key), "status-%d", i);
+        ret = dict_get_int32(dict, key, (int32_t *)&status_rcd);
+        /* If information from a node is missing we should skip
+         * the node and try to fetch information of other nodes.
+         * If information is not found for all nodes, we should
+         * error out.
+         */
+        if (!ret)
+            break;
+        if (ret && i == count) {
+            gf_log("cli", GF_LOG_TRACE, "failed to get status");
+            goto out;
+        }
     }
 
     /* Fix layout will be sent to all nodes for the volume
