@@ -1872,12 +1872,16 @@ dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *stat,
 
     time = &ctx->time;
 
-    DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, stat->ia_mtime,
-                    stat->ia_mtime_nsec, inode, post);
-    DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, stat->ia_ctime,
-                    stat->ia_ctime_nsec, inode, post);
-    DHT_UPDATE_TIME(time->atime, time->atime_nsec, stat->ia_atime,
-                    stat->ia_atime_nsec, inode, post);
+    LOCK(&inode->lock);
+    {
+        DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, stat->ia_mtime,
+                        stat->ia_mtime_nsec, post);
+        DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, stat->ia_ctime,
+                        stat->ia_ctime_nsec, post);
+        DHT_UPDATE_TIME(time->atime, time->atime_nsec, stat->ia_atime,
+                        stat->ia_atime_nsec, post);
+    }
+    UNLOCK(&inode->lock);
 
     ret = dht_inode_ctx_set(inode, this, ctx);
 out:

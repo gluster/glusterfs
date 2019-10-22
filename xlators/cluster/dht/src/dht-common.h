@@ -823,22 +823,18 @@ typedef struct dht_fd_ctx {
         dht_local_wipe(__xl, __local);                                         \
     } while (0)
 
-#define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, inode, post)     \
+#define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, post)            \
     do {                                                                       \
-        LOCK(&inode->lock);                                                    \
-        {                                                                      \
-            if (ctx_sec == new_sec)                                            \
-                new_nsec = max(new_nsec, ctx_nsec);                            \
-            else if (ctx_sec > new_sec) {                                      \
-                new_sec = ctx_sec;                                             \
-                new_nsec = ctx_nsec;                                           \
-            }                                                                  \
-            if (post) {                                                        \
-                ctx_sec = new_sec;                                             \
-                ctx_nsec = new_nsec;                                           \
-            }                                                                  \
+        if (ctx_sec == new_sec)                                                \
+            new_nsec = max(new_nsec, ctx_nsec);                                \
+        else if (ctx_sec > new_sec) {                                          \
+            new_sec = ctx_sec;                                                 \
+            new_nsec = ctx_nsec;                                               \
         }                                                                      \
-        UNLOCK(&inode->lock);                                                  \
+        if (post) {                                                            \
+            ctx_sec = new_sec;                                                 \
+            ctx_nsec = new_nsec;                                               \
+        }                                                                      \
     } while (0)
 
 #define is_greater_time(a, an, b, bn)                                          \
