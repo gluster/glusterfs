@@ -13,7 +13,7 @@ rm -f $SSL_BASE/glusterfs.*
 mkdir -p $B0/1
 mkdir -p $M0
 
-TEST openssl genrsa -out $SSL_KEY 1024
+TEST openssl genrsa -out $SSL_KEY 2048
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
 ln $SSL_CERT $SSL_CA
 
