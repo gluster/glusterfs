@@ -625,7 +625,7 @@ cvlt_download(call_frame_t *frame, void *config)
     }
 
     /*
-     * We need t perform in-place restore of the file from data managment
+     * We need to perform in-place restore of the file from data management
      * store to gusterfs volume.
      */
     op_ret = cvlt_init_gluster_store_info(locxattr, &dest_storeinfo);
@@ -653,7 +653,7 @@ cvlt_download(call_frame_t *frame, void *config)
                                  cvlt_download_complete, req);
     if (op_ret < 0) {
         gf_msg(plugin, GF_LOG_ERROR, 0, CVLT_RESTORE_FAILED,
-               " failed to restore file gfid=%s from data managment store",
+               " failed to restore file gfid=%s from data management store",
                uuid_utoa(locxattr->gfid));
         goto err;
     }
