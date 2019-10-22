@@ -4036,6 +4036,7 @@ shard_unlink_base_file_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_ret = op_ret;
         local->op_errno = op_errno;
     } else {
+        shard_inode_ctx_set_refresh_flag(local->int_inodelk.loc.inode, this);
         local->preoldparent = *preparent;
         local->postoldparent = *postparent;
         if (xdata)
