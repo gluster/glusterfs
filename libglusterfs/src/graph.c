@@ -1378,7 +1378,7 @@ glusterfs_graph_cleanup(void *arg)
     ret = pthread_mutex_lock(&graph->mutex);
     if (ret != 0) {
         gf_msg("glusterfs", GF_LOG_ERROR, EAGAIN, LG_MSG_GRAPH_CLEANUP_FAILED,
-               "Failed to aquire a lock");
+               "Failed to acquire a lock");
         goto out;
     }
     /* check and wait for CHILD_DOWN for top xlator*/
