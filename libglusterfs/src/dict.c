@@ -97,6 +97,7 @@ get_new_dict_full(int size_hint)
         }
     }
 
+    dict->free_pair.key = NULL;
     LOCK_INIT(&dict->lock);
 
     return dict;
@@ -335,7 +336,7 @@ err_out:
  * checked by callers.
  */
 static data_pair_t *
-dict_lookup_common(dict_t *this, char *key, uint32_t hash)
+dict_lookup_common(const dict_t *this, const char *key, const uint32_t hash)
 {
     int hashval = 0;
     data_pair_t *pair;
@@ -417,16 +418,15 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
         }
     }
 
-    if (this->free_pair_in_use) {
+    if (this->free_pair.key) { /* the free_pair is used */
         pair = mem_get(THIS->ctx->dict_pair_pool);
         if (!pair) {
             if (key_free)
                 GF_FREE(key);
             return -1;
         }
-    } else {
+    } else { /* assign the pair to the free pair */
         pair = &this->free_pair;
-        this->free_pair_in_use = _gf_true;
     }
 
     if (key_free) {
@@ -436,9 +436,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     } else {
         pair->key = (char *)GF_MALLOC(keylen + 1, gf_common_mt_char);
         if (!pair->key) {
-            if (pair == &this->free_pair) {
-                this->free_pair_in_use = _gf_false;
-            } else {
+            if (pair != &this->free_pair) {
                 mem_put(pair);
             }
             return -1;
@@ -656,7 +654,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
 
             GF_FREE(pair->key);
             if (pair == &this->free_pair) {
-                this->free_pair_in_use = _gf_false;
+                this->free_pair.key = NULL;
             } else {
                 mem_put(pair);
             }
@@ -696,6 +694,8 @@ dict_destroy(dict_t *this)
         GF_FREE(prev->key);
         if (prev != &this->free_pair) {
             mem_put(prev);
+        } else {
+            this->free_pair.key = NULL;
         }
         total_pairs++;
         prev = pair;
@@ -2125,7 +2125,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             else
                 BIT_CLEAR((unsigned char *)(data->data), flag);
 
-            if (this->free_pair_in_use) {
+            if (this->free_pair.key) { /* the free pair is in use */
                 pair = mem_get0(THIS->ctx->dict_pair_pool);
                 if (!pair) {
                     gf_msg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
@@ -2133,9 +2133,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
                     ret = -ENOMEM;
                     goto err;
                 }
-            } else {
+            } else { /* use the free pair */
                 pair = &this->free_pair;
-                this->free_pair_in_use = _gf_true;
             }
 
             pair->key = (char *)GF_MALLOC(strlen(key) + 1, gf_common_mt_char);
@@ -2173,12 +2172,11 @@ err:
         UNLOCK(&this->lock);
 
     if (pair) {
-        if (pair->key)
-            free(pair->key);
-
-        if (pair == &this->free_pair) {
-            this->free_pair_in_use = _gf_false;
-        } else {
+        if (pair->key) {
+            GF_FREE(pair->key);
+            pair->key = NULL;
+        }
+        if (pair != &this->free_pair) {
             mem_put(pair);
         }
     }
