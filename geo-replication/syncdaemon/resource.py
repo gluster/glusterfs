@@ -25,6 +25,7 @@ import errno
 
 from rconf import rconf
 import gsyncdconfig as gconf
+import libgfchangelog
 
 import repce
 from repce import RepceServer, RepceClient
@@ -35,7 +36,6 @@ from syncdutils import entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 from syncdutils import get_changelog_log_level, get_rsync_version
-from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from syncdutils import GX_GFID_CANONICAL_LEN
 from gsyncdstatus import GeorepStatus
 from syncdutils import lf, Popen, sup
@@ -1245,9 +1245,6 @@ class GLUSTER(object):
         # register the crawlers and start crawling
         # g1 ==> Xsync, g2 ==> config.change_detector(changelog by default)
         # g3 ==> changelog History
-        (inf, ouf, ra, wa) = rconf.args.rpc_fd.split(',')
-        changelog_agent = RepceClient(int(inf), int(ouf))
-
         status = GeorepStatus(gconf.get("state-file"),
                               rconf.args.local_node,
                               rconf.args.local_path,
@@ -1255,12 +1252,6 @@ class GLUSTER(object):
                               rconf.args.master,
                               rconf.args.slave)
         status.reset_on_worker_start()
-        rv = changelog_agent.version()
-        if int(rv) != CHANGELOG_AGENT_CLIENT_VERSION:
-            raise GsyncdError(
-                "RePCe major version mismatch(changelog agent): "
-                "local %s, remote %s" %
-                (CHANGELOG_AGENT_CLIENT_VERSION, rv))
 
         try:
             workdir = g2.setup_working_dir()
@@ -1271,17 +1262,16 @@ class GLUSTER(object):
                 # register with the changelog library
                 # 9 == log level (DEBUG)
                 # 5 == connection retries
-                changelog_agent.init()
-                changelog_agent.register(rconf.args.local_path,
-                                         workdir,
-                                         gconf.get("changelog-log-file"),
-                                         get_changelog_log_level(
-                                             gconf.get("changelog-log-level")),
-                                         g2.CHANGELOG_CONN_RETRIES)
+                libgfchangelog.register(rconf.args.local_path,
+                                        workdir,
+                                        gconf.get("changelog-log-file"),
+                                        get_changelog_log_level(
+                                            gconf.get("changelog-log-level")),
+                                        g2.CHANGELOG_CONN_RETRIES)
 
             register_time = int(time.time())
-            g2.register(register_time, changelog_agent, status)
-            g3.register(register_time, changelog_agent, status)
+            g2.register(register_time, status)
+            g3.register(register_time, status)
         except ChangelogException as e:
             logging.error(lf("Changelog register failed", error=e))
             sys.exit(1)

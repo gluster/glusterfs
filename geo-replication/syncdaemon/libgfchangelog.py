@@ -16,126 +16,127 @@ from py2py3 import gr_cl_history_changelog, gr_cl_done, gr_create_string_buffer
 from py2py3 import gr_cl_register, gr_cl_history_done, bytearray_to_str
 
 
-class Changes(object):
-    libgfc = CDLL(find_library("gfchangelog"), mode=RTLD_GLOBAL,
-                  use_errno=True)
+libgfc = CDLL(
+    find_library("gfchangelog"),
+    mode=RTLD_GLOBAL,
+    use_errno=True
+)
 
-    @classmethod
-    def geterrno(cls):
-        return get_errno()
 
-    @classmethod
-    def raise_changelog_err(cls):
-        errn = cls.geterrno()
-        raise ChangelogException(errn, os.strerror(errn))
+def _raise_changelog_err():
+    errn = get_errno()
+    raise ChangelogException(errn, os.strerror(errn))
 
-    @classmethod
-    def _get_api(cls, call):
-        return getattr(cls.libgfc, call)
 
-    @classmethod
-    def cl_init(cls):
-        ret = cls._get_api('gf_changelog_init')(None)
-        if ret == -1:
-            cls.raise_changelog_err()
+def _init():
+    if libgfc.gf_changelog_init(None) == -1:
+        _raise_changelog_err()
 
-    @classmethod
-    def cl_register(cls, brick, path, log_file, log_level, retries=0):
-        ret = gr_cl_register(cls, brick, path, log_file, log_level, retries)
-        if ret == -1:
-            cls.raise_changelog_err()
 
-    @classmethod
-    def cl_scan(cls):
-        ret = cls._get_api('gf_changelog_scan')()
-        if ret == -1:
-            cls.raise_changelog_err()
+def register(brick, path, log_file, log_level, retries=0):
+    _init()
 
-    @classmethod
-    def cl_startfresh(cls):
-        ret = cls._get_api('gf_changelog_start_fresh')()
-        if ret == -1:
-            cls.raise_changelog_err()
+    ret = gr_cl_register(libgfc, brick, path, log_file, log_level, retries)
 
-    @classmethod
-    def cl_getchanges(cls):
-        """ remove hardcoding for path name length """
-        def clsort(f):
-            return f.split('.')[-1]
-        changes = []
-        buf = gr_create_string_buffer(4096)
-        call = cls._get_api('gf_changelog_next_change')
+    if ret == -1:
+        _raise_changelog_err()
 
-        while True:
-            ret = call(buf, 4096)
-            if ret in (0, -1):
-                break
-            # py2 and py3 compatibility
-            result = bytearray_to_str(buf.raw[:ret - 1])
-            changes.append(result)
-        if ret == -1:
-            cls.raise_changelog_err()
-        # cleanup tracker
-        cls.cl_startfresh()
-        return sorted(changes, key=clsort)
 
-    @classmethod
-    def cl_done(cls, clfile):
-        ret = gr_cl_done(cls, clfile)
-        if ret == -1:
-            cls.raise_changelog_err()
+def scan():
+    ret = libgfc.gf_changelog_scan()
+    if ret == -1:
+        _raise_changelog_err()
 
-    @classmethod
-    def cl_history_scan(cls):
-        ret = cls._get_api('gf_history_changelog_scan')()
-        if ret == -1:
-            cls.raise_changelog_err()
 
-        return ret
+def startfresh():
+    ret = libgfc.gf_changelog_start_fresh()
+    if ret == -1:
+        _raise_changelog_err()
 
-    @classmethod
-    def cl_history_changelog(cls, changelog_path, start, end, num_parallel):
-        actual_end = c_ulong()
-        ret = gr_cl_history_changelog(cls, changelog_path, start, end,
-                                      num_parallel, byref(actual_end))
-        if ret == -1:
-            cls.raise_changelog_err()
 
-        if ret == -2:
-            raise ChangelogHistoryNotAvailable()
+def getchanges():
+    def clsort(cfile):
+        return cfile.split('.')[-1]
 
-        return (ret, actual_end.value)
+    changes = []
+    buf = gr_create_string_buffer(4096)
+    call = libgfc.gf_changelog_next_change
 
-    @classmethod
-    def cl_history_startfresh(cls):
-        ret = cls._get_api('gf_history_changelog_start_fresh')()
-        if ret == -1:
-            cls.raise_changelog_err()
+    while True:
+        ret = call(buf, 4096)
+        if ret in (0, -1):
+            break
 
-    @classmethod
-    def cl_history_getchanges(cls):
-        """ remove hardcoding for path name length """
-        def clsort(f):
-            return f.split('.')[-1]
+        # py2 and py3 compatibility
+        result = bytearray_to_str(buf.raw[:ret - 1])
+        changes.append(result)
 
-        changes = []
-        buf = gr_create_string_buffer(4096)
-        call = cls._get_api('gf_history_changelog_next_change')
+    if ret == -1:
+        _raise_changelog_err()
 
-        while True:
-            ret = call(buf, 4096)
-            if ret in (0, -1):
-                break
-            # py2 and py3 compatibility
-            result = bytearray_to_str(buf.raw[:ret - 1])
-            changes.append(result)
-        if ret == -1:
-            cls.raise_changelog_err()
+    # cleanup tracker
+    startfresh()
 
-        return sorted(changes, key=clsort)
+    return sorted(changes, key=clsort)
 
-    @classmethod
-    def cl_history_done(cls, clfile):
-        ret = gr_cl_history_done(cls, clfile)
-        if ret == -1:
-            cls.raise_changelog_err()
+
+def done(clfile):
+    ret = gr_cl_done(libgfc, clfile)
+    if ret == -1:
+        _raise_changelog_err()
+
+
+def history_scan():
+    ret = libgfc.gf_history_changelog_scan()
+    if ret == -1:
+        _raise_changelog_err()
+
+    return ret
+
+
+def history_changelog(changelog_path, start, end, num_parallel):
+    actual_end = c_ulong()
+    ret = gr_cl_history_changelog(libgfc, changelog_path, start, end,
+                                  num_parallel, byref(actual_end))
+    if ret == -1:
+        _raise_changelog_err()
+
+    if ret == -2:
+        raise ChangelogHistoryNotAvailable()
+
+    return (ret, actual_end.value)
+
+
+def history_startfresh():
+    ret = libgfc.gf_history_changelog_start_fresh()
+    if ret == -1:
+        _raise_changelog_err()
+
+
+def history_getchanges():
+    def clsort(cfile):
+        return cfile.split('.')[-1]
+
+    changes = []
+    buf = gr_create_string_buffer(4096)
+    call = libgfc.gf_history_changelog_next_change
+
+    while True:
+        ret = call(buf, 4096)
+        if ret in (0, -1):
+            break
+
+        # py2 and py3 compatibility
+        result = bytearray_to_str(buf.raw[:ret - 1])
+        changes.append(result)
+
+    if ret == -1:
+        _raise_changelog_err()
+
+    return sorted(changes, key=clsort)
+
+
+def history_done(clfile):
+    ret = gr_cl_history_done(libgfc, clfile)
+    if ret == -1:
+        _raise_changelog_err()
