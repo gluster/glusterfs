@@ -55,23 +55,23 @@ if sys.version_info >= (3,):
     def gr_lremovexattr(cls, path, attr):
         return cls.libc.lremovexattr(path.encode(), attr.encode())
 
-    def gr_cl_register(cls, brick, path, log_file, log_level, retries):
-        return cls._get_api('gf_changelog_register')(brick.encode(),
-                                                     path.encode(),
-                                                     log_file.encode(),
-                                                     log_level, retries)
+    def gr_cl_register(libgfapi, brick, path, log_file, log_level, retries):
+        return libgfapi.gf_changelog_register(brick.encode(),
+                                              path.encode(),
+                                              log_file.encode(),
+                                              log_level, retries)
 
-    def gr_cl_done(cls, clfile):
-        return cls._get_api('gf_changelog_done')(clfile.encode())
+    def gr_cl_done(libgfapi, clfile):
+        return libgfapi.gf_changelog_done(clfile.encode())
 
-    def gr_cl_history_changelog(cls, changelog_path, start, end, num_parallel,
+    def gr_cl_history_changelog(libgfapi, changelog_path, start, end, num_parallel,
                                 actual_end):
-        return cls._get_api('gf_history_changelog')(changelog_path.encode(),
-                                                    start, end, num_parallel,
-                                                    actual_end)
+        return libgfapi.gf_history_changelog(changelog_path.encode(),
+                                             start, end, num_parallel,
+                                             actual_end)
 
-    def gr_cl_history_done(cls, clfile):
-        return cls._get_api('gf_history_changelog_done')(clfile.encode())
+    def gr_cl_history_done(libgfapi, clfile):
+        return libgfapi.gf_history_changelog_done(clfile.encode())
 
     # regular file
 
@@ -137,20 +137,20 @@ else:
     def gr_lremovexattr(cls, path, attr):
         return cls.libc.lremovexattr(path, attr)
 
-    def gr_cl_register(cls, brick, path, log_file, log_level, retries):
-        return cls._get_api('gf_changelog_register')(brick, path, log_file,
-                                                     log_level, retries)
+    def gr_cl_register(libgfapi, brick, path, log_file, log_level, retries):
+        return libgfapi.gf_changelog_register(brick, path, log_file,
+                                              log_level, retries)
 
-    def gr_cl_done(cls, clfile):
-        return cls._get_api('gf_changelog_done')(clfile)
+    def gr_cl_done(libgfapi, clfile):
+        return libgfapi.gf_changelog_done(clfile)
 
-    def gr_cl_history_changelog(cls, changelog_path, start, end, num_parallel,
+    def gr_cl_history_changelog(libgfapi, changelog_path, start, end, num_parallel,
                                 actual_end):
-        return cls._get_api('gf_history_changelog')(changelog_path, start, end,
-                                                    num_parallel, actual_end)
+        return libgfapi.gf_history_changelog(changelog_path, start, end,
+                                             num_parallel, actual_end)
 
-    def gr_cl_history_done(cls, clfile):
-        return cls._get_api('gf_history_changelog_done')(clfile)
+    def gr_cl_history_done(libgfapi, clfile):
+        return libgfapi.gf_history_changelog_done(clfile)
 
     # regular file
 

@@ -97,17 +97,6 @@ def subcmd_slave(args):
     local.service_loop()
 
 
-def subcmd_agent(args):
-    import os
-    from changelogagent import agent, Changelog
-    from syncdutils import lf
-
-    os.setsid()
-    logging.debug(lf("RPC FD",
-                     rpc_fd=repr(args.rpc_fd)))
-    return agent(Changelog(), args.rpc_fd)
-
-
 def subcmd_voluuidget(args):
     from subprocess import Popen, PIPE
     import xml.etree.ElementTree as XET

@@ -62,8 +62,6 @@ GF_OP_RETRIES = 10
 
 GX_GFID_CANONICAL_LEN = 37  # canonical gfid len + '\0'
 
-CHANGELOG_AGENT_SERVER_VERSION = 1.0
-CHANGELOG_AGENT_CLIENT_VERSION = 1.0
 NodeID = None
 rsync_version = None
 unshare_mnt_propagation = None
