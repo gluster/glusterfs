@@ -3274,10 +3274,15 @@ afr_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
     local->inode = inode_ref(loc->inode);
 
-    if (xattr_req)
+    if (xattr_req) {
         /* If xattr_req was null, afr_lookup_xattr_req_prepare() will
            allocate one for us */
-        local->xattr_req = dict_ref(xattr_req);
+        local->xattr_req = dict_copy_with_ref(xattr_req, NULL);
+        if (!local->xattr_req) {
+            op_errno = ENOMEM;
+            goto out;
+        }
+    }
 
     if (gf_uuid_is_null(loc->inode->gfid)) {
         afr_discover_do(frame, this, 0);
