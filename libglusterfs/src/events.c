@@ -42,6 +42,7 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     struct addrinfo hints;
     struct addrinfo *result = NULL;
     xlator_t *this = THIS;
+    char *volfile_server_transport = NULL;
 
     /* Global context */
     ctx = THIS->ctx;
@@ -61,8 +62,16 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
 
+    if (ctx) {
+        volfile_server_transport = ctx->cmd_args.volfile_server_transport;
+    }
+
+    if (!volfile_server_transport) {
+        volfile_server_transport = "tcp";
+    }
     /* Get Host name to send message */
-    if (ctx && ctx->cmd_args.volfile_server) {
+    if (ctx && ctx->cmd_args.volfile_server &&
+        (strcmp(volfile_server_transport, "unix"))) {
         /* If it is client code then volfile_server is set
            use that information to push the events. */
         if ((getaddrinfo(ctx->cmd_args.volfile_server, NULL, &hints,
