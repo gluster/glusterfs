@@ -173,7 +173,7 @@ EOL
 chmod u+x ${SSH_ASKPASS_SCRIPT}
 
 ##set no display, necessary for ssh to use with setsid and SSH_ASKPASS
-#export DISPLAY=:0
+export DISPLAY
 
 export SSH_ASKPASS=${SSH_ASKPASS_SCRIPT}
 
