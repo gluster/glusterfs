@@ -152,17 +152,19 @@
     } while (0)
 
 struct _leases_private {
-    gf_boolean_t leases_enabled;
-    int32_t recall_lease_timeout;
     struct list_head client_list;
     struct list_head recall_list;
     struct tvec_base *timer_wheel; /* timer wheel where the recall request
                                       is qued and waits for unlock/expiry */
-    gf_boolean_t fini;
     pthread_t recall_thr;
-    gf_boolean_t inited_recall_thr;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+    int32_t recall_lease_timeout;
+    gf_boolean_t inited_recall_thr;
+    gf_boolean_t fini;
+    gf_boolean_t leases_enabled;
+
+    char _pad[1]; /* manual padding */
 };
 typedef struct _leases_private leases_private_t;
 
@@ -189,18 +191,20 @@ typedef struct _lease_fd_ctx lease_fd_ctx_t;
 struct _lease_inode_ctx {
     struct list_head lease_id_list; /* clients that have taken leases */
     int lease_type_cnt[GF_LEASE_MAX_TYPE + 1];
-    int lease_type;                  /* Types of leases acquired */
-    uint64_t lease_cnt;              /* Total number of leases on this inode */
-    uint64_t openfd_cnt;             /* number of fds open */
-    gf_boolean_t recall_in_progress; /* if lease recall is sent on this inode */
-    gf_boolean_t blocked_fops_resuming; /* if blocked fops are being resumed */
-    struct list_head blocked_list;      /* List of fops blocked until the
-                                           lease recall is complete */
-    inode_t *inode; /* this represents the inode on which the
-                       lock was taken, required mainly during
-                       disconnect cleanup */
+    uint64_t lease_cnt;            /* Total number of leases on this inode */
+    uint64_t openfd_cnt;           /* number of fds open */
+    struct list_head blocked_list; /* List of fops blocked until the
+                                      lease recall is complete */
+    inode_t *inode;                /* this represents the inode on which the
+                                      lock was taken, required mainly during
+                                      disconnect cleanup */
     struct gf_tw_timer_list *timer;
     pthread_mutex_t lock;
+    int lease_type;                  /* Types of leases acquired */
+    gf_boolean_t recall_in_progress; /* if lease recall is sent on this inode */
+    gf_boolean_t blocked_fops_resuming; /* if blocked fops are being resumed */
+
+    char _pad[2]; /* manual padding */
 };
 typedef struct _lease_inode_ctx lease_inode_ctx_t;
 
@@ -210,11 +214,12 @@ struct _lease_id_entry {
     char *client_uid;                          /* uid of the client that has
                                                   taken the lease */
     int lease_type_cnt[GF_LEASE_MAX_TYPE + 1]; /* count of each lease type */
-    int lease_type;                            /* Union of all the leases taken
-                                                  under the given lease id */
     uint64_t lease_cnt; /* Number of leases taken under the
                            given lease id */
     time_t recall_time; /* time @ which recall was sent */
+    int lease_type;     /* Union of all the leases taken
+                           under the given lease id */
+    char _pad[4];       /* manual padding */
 };
 typedef struct _lease_id_entry lease_id_entry_t;
 
