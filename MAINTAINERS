@@ -303,6 +303,7 @@ F: doc/
 Geo Replication
 M: Aravinda V K <avishwan@redhat.com>
 M: Kotresh HR <khiremat@redhat.com>
+M: Sunny Kumar <sunkumar@redhat.com>
 P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: geo-replication/
