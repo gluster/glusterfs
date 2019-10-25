@@ -1095,6 +1095,9 @@ out:
     return 0;
 }
 
+/* This is a gfid based nameless lookup. Without a name, the hashed subvol
+ * cannot be calculated so a lookup is sent to all subvols.
+ */
 int
 dht_do_discover(call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
@@ -1109,6 +1112,9 @@ dht_do_discover(call_frame_t *frame, xlator_t *this, loc_t *loc)
     conf = this->private;
     local = frame->local;
 
+    /* As we do not know if this is a file or directory, request
+     * both file and directory xattrs
+     */
     ret = dht_set_file_xattr_req(this, loc, local->xattr_req);
     if (ret) {
         goto err;
@@ -1120,6 +1126,9 @@ dht_do_discover(call_frame_t *frame, xlator_t *this, loc_t *loc)
     }
 
     if (loc_is_root(loc)) {
+        /* Request the DHT commit hash xattr (trusted.glusterfs.dht.commithash)
+         * set on the brick root.
+         */
         ret = dict_set_uint32(local->xattr_req, conf->commithash_xattr_name,
                               sizeof(uint32_t));
     }
@@ -1362,7 +1371,9 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (local->stbuf.ia_type != IA_INVAL) {
-            /* This is not the first subvol to respond */
+            /* This is not the first subvol to respond
+             * Compare values to see if attrs need to be healed
+             */
             if (!__is_root_gfid(stbuf->ia_gfid) &&
                 ((local->stbuf.ia_gid != stbuf->ia_gid) ||
                  (local->stbuf.ia_uid != stbuf->ia_uid) ||
@@ -1387,6 +1398,9 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto unlock;
         }
 
+        /* Save the mds subvol info and stbuf. This is the value that will
+         * be used for healing
+         */
         local->mds_subvol = prev;
         local->mds_stbuf = *stbuf;
 
@@ -1400,6 +1414,7 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         check_mds = dht_dict_get_array(xattr, conf->mds_xattr_key,
                                        mds_xattr_val, 1, &errst);
         if ((check_mds < 0) && !errst) {
+            /* Check if xattrs need to be healed on the directories */
             local->mds_xattr = dict_ref(xattr);
             gf_msg_debug(this->name, 0,
                          "%s: %s is not zero on %s. Xattrs need to be healed."
@@ -1536,6 +1551,8 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     conf = this->private;
 
     if (!conf->vch_forced) {
+        /* Update the commithash value if available
+         */
         ret = dict_get_uint32(xattr, conf->commithash_xattr_name,
                               &vol_commit_hash);
         if (ret == 0) {
@@ -1591,7 +1608,9 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 }
             }
 
-            /* The GFID is missing on this subvol*/
+            /* The GFID is missing on this subvol. Lookup everywhere to force a
+             * gfid heal
+             */
             if ((op_errno == ENODATA) &&
                 (IA_ISDIR(local->loc.inode->ia_type))) {
                 local->need_lookup_everywhere = 1;
@@ -1673,6 +1692,8 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            local->loc.path, prev->name);
                 }
                 if ((check_mds < 0) && !errst) {
+                    /* Check if xattrs need to be healed on the directory
+                     */
                     local->mds_xattr = dict_ref(xattr);
                     gf_msg_debug(this->name, 0,
                                  "Value of %s is not zero on "
@@ -1688,6 +1709,8 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             ret = dht_layout_dir_mismatch(this, layout, prev, &local->loc,
                                           xattr);
             if (ret != 0) {
+                /* In memory layout does not match on-disk layout.
+                 */
                 gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_LAYOUT_MISMATCH,
                        "Mismatching layouts for %s, gfid = %s", local->loc.path,
                        gfid);
@@ -1714,6 +1737,8 @@ unlock:
     UNLOCK(&frame->lock);
 
     if (follow_link) {
+        /* Found a linkto file. Follow it to see if the target file exists
+         */
         gf_uuid_copy(local->gfid, stbuf->ia_gfid);
 
         subvol = dht_linkfile_subvol(this, inode, stbuf, xattr);
@@ -1743,6 +1768,7 @@ unlock:
             local->need_xattr_heal = 0;
 
         if (IA_ISDIR(local->stbuf.ia_type)) {
+            /* No mds xattr found. Trigger a heal to set it */
             if (!__is_root_gfid(local->loc.inode->gfid) &&
                 (!dict_get(local->xattr, conf->mds_xattr_key)))
                 local->need_selfheal = 1;
@@ -1833,11 +1859,10 @@ err:
 }
 
 int
-dht_lookup_linkfile_create_cbk(call_frame_t *frame, void *cookie,
-                               xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               inode_t *inode, struct iatt *stbuf,
-                               struct iatt *preparent, struct iatt *postparent,
-                               dict_t *xdata)
+dht_lookup_linkfile_create_cbk(call_frame_t *frame, void *cooie, xlator_t *this,
+                               int32_t op_ret, int32_t op_errno, inode_t *inode,
+                               struct iatt *stbuf, struct iatt *preparent,
+                               struct iatt *postparent, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     xlator_t *cached_subvol = NULL;
@@ -2883,6 +2908,7 @@ dht_lookup_directory(call_frame_t *frame, xlator_t *this, loc_t *loc)
     }
 
     if (!gf_uuid_is_null(local->gfid)) {
+        /* use this gfid in order to heal any missing ones */
         ret = dict_set_gfuuid(local->xattr_req, "gfid-req", local->gfid, true);
         if (ret)
             gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
@@ -3073,10 +3099,12 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
      * or any more call which happens from this 'loc'.
      */
     if (gf_uuid_is_null(local->gfid)) {
+        /*This is set from the first successful response*/
         memcpy(local->gfid, stbuf->ia_gfid, 16);
     }
 
     if (!conf->vch_forced) {
+        /* Update the commit hash in conf if it is found */
         ret = dict_get_uint32(xattr, conf->commithash_xattr_name,
                               &vol_commit_hash);
         if (ret == 0) {
@@ -3086,6 +3114,8 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     is_dir = check_is_dir(inode, stbuf, xattr);
     if (is_dir) {
+        /* A directory is present on all subvols, send the lookup to
+         * all subvols now */
         local->inode = inode_ref(inode);
         local->xattr = dict_ref(xattr);
         dht_lookup_directory(frame, this, &local->loc);
@@ -3095,7 +3125,9 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     is_linkfile = check_is_linkfile(inode, stbuf, xattr, conf->link_xattr_name);
 
     if (!is_linkfile) {
-        /* non-directory and not a linkfile */
+        /* non-directory and not a linkto file. This is a data file
+         * Update the layout to point to the cached subvol
+         */
 
         ret = dht_layout_preset(this, prev, inode);
         if (ret < 0) {
@@ -3109,6 +3141,9 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         goto out;
     }
 
+    /* This is a linkto file. Get the value of the target subvol from the
+     * linkto xattr and lookup there to see if the file exists
+     */
     subvol = dht_linkfile_subvol(this, inode, stbuf, xattr);
     if (!subvol) {
         gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_INFO,
@@ -3339,6 +3374,11 @@ dht_do_revalidate(call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
         local->mds_subvol = mds_subvol;
         local->call_cnt = conf->subvolume_cnt;
+
+        /* local->call_cnt will change as responses are processed. Always use a
+         * local copy to loop through the STACK_WIND calls
+         */
+
         call_cnt = local->call_cnt;
 
         for (i = 0; i < call_cnt; i++) {
@@ -3372,6 +3412,10 @@ err:
     return 0;
 }
 
+/* If the hashed subvol is present, send the lookup to only that subvol first.
+ * If no hashed subvol, send a lookup to all subvols and proceed based on the
+ * responses.
+ */
 int
 dht_do_fresh_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
@@ -3411,7 +3455,8 @@ dht_do_fresh_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc)
 
     /* Fuse sets a random value in gfid-req. If the gfid is missing
      * on one or more subvols, posix will set the gfid to this value,
-     * causing GFID mismatches for directories.
+     * causing GFID mismatches for directories. Remove the value fuse
+     * has sent before sending the lookup.
      */
     ret = dict_get_gfuuid(local->xattr_req, "gfid-req", &local->gfid_req);
     if (ret) {
@@ -3432,6 +3477,9 @@ dht_do_fresh_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc)
         call_cnt = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
 
+        /* Allocate a layout. This will be populated and saved in
+         * the dht inode_ctx on successful lookup
+         */
         local->layout = dht_layout_new(this, conf->subvolume_cnt);
         if (!local->layout) {
             op_errno = ENOMEM;
@@ -3452,7 +3500,7 @@ dht_do_fresh_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
     }
 
-    /* if we have the hashed_subvol, send the lookup there first so
+    /* if the hashed_subvol is non-null, send the lookup there first so
      * as to see whether we have a file or a directory */
     gf_msg_debug(this->name, 0, "%s: Calling fresh lookup on %s", loc->path,
                  hashed_subvol->name);
@@ -3465,6 +3513,12 @@ err:
     DHT_STACK_UNWIND(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
     return 0;
 }
+
+/* Depending on the input, decide if this is a:
+ * fresh-lookup: loc->name is provided but no dht inode ctx
+ * revalidation: loc->name is provided, dht inode ctx is present
+ * discover: gfid based nameless lookup.
+ */
 
 int
 dht_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
@@ -3518,6 +3572,10 @@ dht_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
     /* Nameless lookup */
 
+    /* This is usually sent by NFS. Lookups are done based on the gfid and
+     * no name information is available. Without the name, dht cannot calculate
+     * the hash and has to send a lookup to all subvols.
+     */
     if (gf_uuid_is_null(loc->pargfid) && !gf_uuid_is_null(loc->gfid) &&
         !__is_root_gfid(loc->inode->gfid)) {
         local->cached_subvol = NULL;
@@ -3526,6 +3584,9 @@ dht_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     }
 
     if (loc_is_root(loc)) {
+        /* Request the DHT commit hash xattr (trusted.glusterfs.dht.commithash)
+         * set on the brick root.
+         */
         ret = dict_set_uint32(local->xattr_req, conf->commithash_xattr_name,
                               sizeof(uint32_t));
     }
@@ -3534,12 +3595,14 @@ dht_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         hashed_subvol = dht_subvol_get_hashed(this, loc);
     local->hashed_subvol = hashed_subvol;
 
-    /* The entry has been looked up before and has an inode_ctx set
-     */
     if (is_revalidate(loc)) {
+        /* The entry has been looked up before and has a dht inode_ctx
+         */
         dht_do_revalidate(frame, this, loc);
         return 0;
     } else {
+        /* Entry has not been looked up before
+         */
         dht_do_fresh_lookup(frame, this, loc);
         return 0;
     }
