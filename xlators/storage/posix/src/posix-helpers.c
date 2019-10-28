@@ -1351,7 +1351,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
         0,
     };
 
-    MAKE_HANDLE_GFID_PATH(hpath, this, gfid, NULL);
+    MAKE_HANDLE_GFID_PATH(hpath, this, gfid);
 
     /* check that it is valid directory handle */
     size = sys_lstat(hpath, &stbuf);
