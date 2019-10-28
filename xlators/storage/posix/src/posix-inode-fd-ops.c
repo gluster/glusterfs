@@ -5297,20 +5297,13 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
     }
 
     if (skip_dirs) {
-        len = posix_handle_path(this, fd->inode->gfid, NULL, NULL, 0);
+        hpath = alloca(PATH_MAX);
+        len = posix_handle_path(this, fd->inode->gfid, NULL, hpath, PATH_MAX);
         if (len <= 0) {
             errno = ESTALE;
             count = -1;
             goto out;
         }
-        hpath = alloca(len + 256); /* NAME_MAX */
-
-        if (posix_handle_path(this, fd->inode->gfid, NULL, hpath, len) <= 0) {
-            errno = ESTALE;
-            count = -1;
-            goto out;
-        }
-
         len = strlen(hpath);
         hpath[len] = '/';
     }
@@ -5478,22 +5471,14 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
 
     itable = fd->inode->table;
 
-    len = posix_handle_path(this, fd->inode->gfid, NULL, NULL, 0);
+    hpath = alloca(PATH_MAX);
+    len = posix_handle_path(this, fd->inode->gfid, NULL, hpath, PATH_MAX);
     if (len <= 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLEPATH_FAILED,
                "Failed to create handle path, fd=%p, gfid=%s", fd,
                uuid_utoa(fd->inode->gfid));
         return -1;
     }
-
-    hpath = alloca(len + 256); /* NAME_MAX */
-    if (posix_handle_path(this, fd->inode->gfid, NULL, hpath, len) <= 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLEPATH_FAILED,
-               "Failed to create handle path, fd=%p, gfid=%s", fd,
-               uuid_utoa(fd->inode->gfid));
-        return -1;
-    }
-
     len = strlen(hpath);
     hpath[len] = '/';
 

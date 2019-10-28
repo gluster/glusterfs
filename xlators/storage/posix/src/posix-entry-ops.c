@@ -645,12 +645,13 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     if (!gf_uuid_is_null(uuid_req)) {
         op_ret = posix_istat(this, loc->inode, uuid_req, NULL, &stbuf);
         if ((op_ret == 0) && IA_ISDIR(stbuf.ia_type)) {
-            size = posix_handle_path(this, uuid_req, NULL, NULL, 0);
-            if (size > 0)
-                gfid_path = alloca(size);
-
-            if (gfid_path)
-                posix_handle_path(this, uuid_req, NULL, gfid_path, size);
+            gfid_path = alloca(PATH_MAX);
+            size = posix_handle_path(this, uuid_req, NULL, gfid_path, PATH_MAX);
+            if (size <= 0) {
+                op_errno = ESTALE;
+                op_ret = -1;
+                goto out;
+            }
 
             if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
                 gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DIR_OF_SAME_ID,
