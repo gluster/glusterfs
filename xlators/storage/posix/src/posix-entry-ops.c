@@ -108,7 +108,7 @@ posix_symlinks_match(xlator_t *this, loc_t *loc, uuid_t gfid)
              loc->pargfid[0], loc->pargfid[1], uuid_utoa(loc->pargfid),
              loc->name);
 
-    MAKE_HANDLE_GFID_PATH(dir_handle, this, gfid, NULL);
+    MAKE_HANDLE_GFID_PATH(dir_handle, this, gfid);
     len = sys_readlink(dir_handle, linkname_actual, PATH_MAX);
     if (len < 0 || len == PATH_MAX) {
         if (len == PATH_MAX) {
@@ -930,12 +930,12 @@ posix_move_gfid_to_unlink(xlator_t *this, uuid_t gfid, loc_t *loc)
 {
     char *unlink_path = NULL;
     char *gfid_path = NULL;
-    int ret = 0;
+    int ret = -1;
     struct posix_private *priv_posix = NULL;
 
     priv_posix = (struct posix_private *)this->private;
 
-    MAKE_HANDLE_GFID_PATH(gfid_path, this, gfid, NULL);
+    MAKE_HANDLE_GFID_PATH(gfid_path, this, gfid);
 
     POSIX_GET_FILE_UNLINK_PATH(priv_posix->base_path, loc->inode->gfid,
                                unlink_path);

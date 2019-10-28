@@ -59,6 +59,10 @@
 #define POSIX_GFID_HANDLE_SIZE(base_path_len)                                  \
     (base_path_len + SLEN("/") + SLEN(GF_HIDDEN_PATH) + SLEN("/") +            \
      SLEN("00/") + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;
+
+#define POSIX_GFID_HANDLE_RELSIZE                                              \
+    SLEN("../") + SLEN("../") + SLEN("00/") + SLEN("00/") + SLEN(UUID0_STR) + 1;
+
 #define GF_UNLINK_TRUE 0x0000000000000001
 #define GF_UNLINK_FALSE 0x0000000000000000
 

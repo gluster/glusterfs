@@ -263,9 +263,7 @@ posix_handle_relpath(xlator_t *this, uuid_t gfid, const char *basename,
     char *uuid_str = NULL;
     int len = 0;
 
-    len = SLEN("../") + SLEN("../") + SLEN("00/") + SLEN("00/") +
-          SLEN(UUID0_STR) + 1 /* '\0' */
-        ;
+    len = POSIX_GFID_HANDLE_RELSIZE;
 
     if (basename) {
         len += (strlen(basename) + 1);
@@ -449,8 +447,7 @@ out:
 }
 
 int
-posix_handle_gfid_path(xlator_t *this, uuid_t gfid, const char *basename,
-                       char *buf, size_t buflen)
+posix_handle_gfid_path(xlator_t *this, uuid_t gfid, char *buf, size_t buflen)
 {
     struct posix_private *priv = NULL;
     char *uuid_str = NULL;
@@ -458,16 +455,9 @@ posix_handle_gfid_path(xlator_t *this, uuid_t gfid, const char *basename,
 
     priv = this->private;
 
-    len = priv->base_path_length /* option directory "/export" */
-          + SLEN("/") + SLEN(GF_HIDDEN_PATH) + SLEN("/") + SLEN("00/") +
-          SLEN("00/") + SLEN(UUID0_STR) + 1 /* '\0' */
-        ;
+    len = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 
-    if (basename) {
-        len += (strlen(basename) + 1);
-    } else {
-        len += 256; /* worst-case for directory's symlink-handle expansion */
-    }
+    len += 256; /* worst-case for directory's symlink-handle expansion */
 
     if ((buflen < len) || !buf)
         return len;
@@ -475,22 +465,12 @@ posix_handle_gfid_path(xlator_t *this, uuid_t gfid, const char *basename,
     uuid_str = uuid_utoa(gfid);
 
     if (__is_root_gfid(gfid)) {
-        if (basename) {
-            len = snprintf(buf, buflen, "%s/%s", priv->base_path, basename);
-        } else {
-            len = snprintf(buf, buflen, "%s", priv->base_path);
-        }
-        goto out;
-    }
-
-    if (basename) {
-        len = snprintf(buf, buflen, "%s/%s/%02x/%02x/%s/%s", priv->base_path,
-                       GF_HIDDEN_PATH, gfid[0], gfid[1], uuid_str, basename);
+        len = snprintf(buf, buflen, "%s", priv->base_path);
     } else {
         len = snprintf(buf, buflen, "%s/%s/%02x/%02x/%s", priv->base_path,
                        GF_HIDDEN_PATH, gfid[0], gfid[1], uuid_str);
     }
-out:
+
     return len;
 }
 
@@ -869,10 +849,10 @@ int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
     char *path = NULL;
-    int ret = 0;
+    int ret = -1;
     struct stat stat;
 
-    MAKE_HANDLE_GFID_PATH(path, this, gfid, NULL);
+    MAKE_HANDLE_GFID_PATH(path, this, gfid);
 
     ret = sys_lstat(path, &stat);
 
