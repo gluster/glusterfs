@@ -659,8 +659,8 @@ tear_down_cluster(gf_boolean_t run_teardown)
                          "Failed to close dir %s. Reason :"
                          " %s",
                          CONFDIR, strerror(errno));
-            goto exit;
         }
+        goto exit;
     }
 
 out:
