@@ -44,14 +44,13 @@
 
 #define MAKE_HANDLE_PATH(var, this, gfid, base)                                \
     do {                                                                       \
-        int __len;                                                             \
-        __len = posix_handle_path(this, gfid, base, NULL, 0);                  \
-        if (__len <= 0)                                                        \
-            break;                                                             \
-        var = alloca(__len);                                                   \
-        __len = posix_handle_path(this, gfid, base, var, __len);               \
-        if (__len <= 0)                                                        \
+        int __len = 0;                                                         \
+        int tot = PATH_MAX;                                                    \
+        var = alloca(tot);                                                     \
+        __len = posix_handle_path(this, gfid, base, var, tot);                 \
+        if (__len <= 0) {                                                      \
             var = NULL;                                                        \
+        }                                                                      \
     } while (0)
 
 /* TODO: it is not a good idea to change a variable which
