@@ -488,9 +488,6 @@ cli_xml_output_snapshot(int cmd_type, dict_t *dict, int op_ret, int op_errno,
 int
 cli_xml_snapshot_status_single_snap(cli_local_t *local, dict_t *dict,
                                     char *key);
-char *
-is_server_debug_xlator(void *myframe);
-
 int32_t
 cli_cmd_snapshot_parse(const char **words, int wordcount, dict_t **options,
                        struct cli_state *state);
