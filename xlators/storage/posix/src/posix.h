@@ -119,12 +119,14 @@
  */
 
 struct posix_fd {
-    int fd;        /* fd returned by the kernel */
-    int32_t flags; /* flags for open/creat      */
-    DIR *dir;      /* handle returned by the kernel */
-    off_t dir_eof; /* offset at dir EOF */
-    int odirect;
+    int fd;                /* fd returned by the kernel */
+    int32_t flags;         /* flags for open/creat      */
+    DIR *dir;              /* handle returned by the kernel */
+    off_t dir_eof;         /* offset at dir EOF */
     struct list_head list; /* to add to the janitor list */
+    int odirect;
+
+    char _pad[4]; /* manual padding */
 };
 
 struct posix_private {
@@ -141,10 +143,92 @@ struct posix_private {
     struct timeval init_time;
 
     time_t last_landfill_check;
-    int32_t janitor_sleep_duration;
 
     gf_atomic_t read_value;  /* Total read, from init */
     gf_atomic_t write_value; /* Total write, from init */
+
+    /* janitor task which cleans up /.trash (created by replicate) */
+    struct gf_tw_timer_list *janitor;
+
+    char *trash_path;
+    /* lock for brick dir */
+    DIR *mount_lock;
+
+    struct stat handledir;
+
+    /* uuid of glusterd that swapned the brick process */
+    uuid_t glusterd_uuid;
+
+#ifdef HAVE_LIBAIO
+    io_context_t ctxp;
+    pthread_t aiothread;
+#endif
+
+    pthread_t fsyncer;
+    struct list_head fsyncs;
+    pthread_mutex_t fsync_mutex;
+    pthread_cond_t fsync_cond;
+    pthread_mutex_t janitor_mutex;
+    pthread_cond_t janitor_cond;
+    int fsync_queue_count;
+    int32_t janitor_sleep_duration;
+
+    enum {
+        BATCH_NONE = 0,
+        BATCH_SYNCFS,
+        BATCH_SYNCFS_SINGLE_FSYNC,
+        BATCH_REVERSE_FSYNC,
+        BATCH_SYNCFS_REVERSE_FSYNC
+    } batch_fsync_mode;
+
+    uint32_t batch_fsync_delay_usec;
+    char gfid2path_sep[8];
+
+    /* seconds to sleep between health checks */
+    uint32_t health_check_interval;
+    /* seconds to sleep to wait for aio write finish for health checks */
+    uint32_t health_check_timeout;
+    pthread_t health_check;
+
+    double disk_reserve;
+    pthread_t disk_space_check;
+    uint32_t disk_space_full;
+
+#ifdef GF_DARWIN_HOST_OS
+    enum {
+        XATTR_NONE = 0,
+        XATTR_STRIP,
+        XATTR_APPEND,
+        XATTR_BOTH,
+    } xattr_user_namespace;
+#endif
+
+    /* Option to handle the cases of multiple bricks exported from
+       same backend. Very much usable in brick-splitting feature. */
+    int32_t shared_brick_count;
+
+    /*Option to set mode bit permission that will always be set on
+      file/directory. */
+    mode_t force_create_mode;
+    mode_t force_directory_mode;
+    mode_t create_mask;
+    mode_t create_directory_mask;
+    uint32_t max_hardlinks;
+
+    /* This option is used for either to call a landfill_purge or not */
+    gf_boolean_t disable_landfill_purge;
+
+    gf_boolean_t fips_mode_rchecksum;
+    gf_boolean_t ctime;
+    gf_boolean_t janitor_task_stop;
+
+    gf_boolean_t disk_space_check_active;
+    char disk_unit;
+    gf_boolean_t health_check_active;
+    gf_boolean_t update_pgfid_nlinks;
+    gf_boolean_t gfid2path;
+    /* node-uuid in pathinfo xattr */
+    gf_boolean_t node_uuid_pathinfo;
     /*
        In some cases, two exported volumes may reside on the same
        partition on the server. Sending statvfs info for both
@@ -165,91 +249,11 @@ struct posix_private {
        for the entire duration of freeing of data blocks.
     */
     gf_boolean_t background_unlink;
-
-    /* janitor task which cleans up /.trash (created by replicate) */
-    struct gf_tw_timer_list *janitor;
-
-    char *trash_path;
-    /* lock for brick dir */
-    DIR *mount_lock;
-
-    struct stat handledir;
-
-    /* uuid of glusterd that swapned the brick process */
-    uuid_t glusterd_uuid;
-
     gf_boolean_t aio_configured;
     gf_boolean_t aio_init_done;
     gf_boolean_t aio_capable;
-#ifdef HAVE_LIBAIO
-    io_context_t ctxp;
-    pthread_t aiothread;
-#endif
 
-    /* node-uuid in pathinfo xattr */
-    gf_boolean_t node_uuid_pathinfo;
-
-    pthread_t fsyncer;
-    struct list_head fsyncs;
-    pthread_mutex_t fsync_mutex;
-    pthread_cond_t fsync_cond;
-    pthread_mutex_t janitor_mutex;
-    pthread_cond_t janitor_cond;
-    int fsync_queue_count;
-
-    enum {
-        BATCH_NONE = 0,
-        BATCH_SYNCFS,
-        BATCH_SYNCFS_SINGLE_FSYNC,
-        BATCH_REVERSE_FSYNC,
-        BATCH_SYNCFS_REVERSE_FSYNC
-    } batch_fsync_mode;
-
-    uint32_t batch_fsync_delay_usec;
-    gf_boolean_t update_pgfid_nlinks;
-    gf_boolean_t gfid2path;
-    char gfid2path_sep[8];
-
-    /* seconds to sleep between health checks */
-    uint32_t health_check_interval;
-    /* seconds to sleep to wait for aio write finish for health checks */
-    uint32_t health_check_timeout;
-    pthread_t health_check;
-    gf_boolean_t health_check_active;
-
-    double disk_reserve;
-    char disk_unit;
-    uint32_t disk_space_full;
-    pthread_t disk_space_check;
-    gf_boolean_t disk_space_check_active;
-
-#ifdef GF_DARWIN_HOST_OS
-    enum {
-        XATTR_NONE = 0,
-        XATTR_STRIP,
-        XATTR_APPEND,
-        XATTR_BOTH,
-    } xattr_user_namespace;
-#endif
-
-    /* Option to handle the cases of multiple bricks exported from
-       same backend. Very much usable in brick-splitting feature. */
-    int32_t shared_brick_count;
-
-    /* This option is used for either to call a landfill_purge or not */
-    gf_boolean_t disable_landfill_purge;
-
-    /*Option to set mode bit permission that will always be set on
-      file/directory. */
-    mode_t force_create_mode;
-    mode_t force_directory_mode;
-    mode_t create_mask;
-    mode_t create_directory_mask;
-    uint32_t max_hardlinks;
-
-    gf_boolean_t fips_mode_rchecksum;
-    gf_boolean_t ctime;
-    gf_boolean_t janitor_task_stop;
+    char _pad[4]; /* manual padding */
 };
 
 typedef struct {
@@ -263,9 +267,11 @@ typedef struct {
     fd_t *fd;
     int fdnum;
     int flags;
-    int32_t op_errno;
     char *list;
     size_t list_size;
+    int32_t op_errno;
+
+    char _pad[4]; /* manual padding */
 } posix_xattr_filler_t;
 
 typedef struct {

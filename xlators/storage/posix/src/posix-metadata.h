@@ -15,13 +15,15 @@
 
 /* In memory representation posix metadata xattr */
 typedef struct {
-    /* version of structure, bumped up if any new member is added */
-    uint8_t version;
     /* flags indicates valid fields in the structure */
     uint64_t flags;
     struct timespec ctime;
     struct timespec mtime;
     struct timespec atime;
+    /* version of structure, bumped up if any new member is added */
+    uint8_t version;
+
+    char _pad[7]; /* manual padding */
 } posix_mdata_t;
 
 typedef struct {
