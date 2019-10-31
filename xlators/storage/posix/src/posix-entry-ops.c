@@ -1047,8 +1047,8 @@ err:
 
 static gf_boolean_t
 posix_skip_non_linkto_unlink(dict_t *xdata, loc_t *loc, char *key,
-                             const char *linkto_xattr, struct iatt *stbuf,
-                             const char *real_path)
+                             const int keylen, const char *linkto_xattr,
+                             struct iatt *stbuf, const char *real_path)
 {
     gf_boolean_t skip_unlink = _gf_false;
     gf_boolean_t is_dht_linkto_file = _gf_false;
@@ -1056,7 +1056,7 @@ posix_skip_non_linkto_unlink(dict_t *xdata, loc_t *loc, char *key,
     ssize_t xattr_size = -1;
     int op_ret = -1;
 
-    op_ret = dict_get_int32_sizen(xdata, key, &unlink_if_linkto);
+    op_ret = dict_get_int32n(xdata, key, keylen, &unlink_if_linkto);
 
     if (!op_ret && unlink_if_linkto) {
         is_dht_linkto_file = IS_DHT_LINKFILE_MODE(stbuf);
@@ -1183,9 +1183,11 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
      * we don't need to call second function, skip unlink.
      */
     skip_unlink = posix_skip_non_linkto_unlink(
-        xdata, loc, DHT_SKIP_NON_LINKTO_UNLINK, DHT_LINKTO, &stbuf, real_path);
+        xdata, loc, DHT_SKIP_NON_LINKTO_UNLINK,
+        SLEN(DHT_SKIP_NON_LINKTO_UNLINK), DHT_LINKTO, &stbuf, real_path);
     skip_unlink = skip_unlink || posix_skip_non_linkto_unlink(
                                      xdata, loc, TIER_SKIP_NON_LINKTO_UNLINK,
+                                     SLEN(TIER_SKIP_NON_LINKTO_UNLINK),
                                      TIER_LINKTO, &stbuf, real_path);
     if (skip_unlink) {
         op_ret = -1;
