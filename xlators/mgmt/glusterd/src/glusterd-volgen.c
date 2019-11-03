@@ -6360,12 +6360,15 @@ out:
     return ret;
 }
 
-static struct volopt_map_entry *
-_gd_get_vmep(char *key)
+struct volopt_map_entry *
+gd_get_vmep(const char *key)
 {
     char *completion = NULL;
     struct volopt_map_entry *vmep = NULL;
     int ret = 0;
+
+    if (!key)
+        return NULL;
 
     COMPLETE_OPTION((char *)key, completion, ret);
     for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
@@ -6377,13 +6380,8 @@ _gd_get_vmep(char *key)
 }
 
 uint32_t
-glusterd_get_op_version_for_key(char *key)
+glusterd_get_op_version_from_vmep(struct volopt_map_entry *vmep)
 {
-    struct volopt_map_entry *vmep = NULL;
-
-    GF_ASSERT(key);
-
-    vmep = _gd_get_vmep(key);
     if (vmep)
         return vmep->op_version;
 
@@ -6391,13 +6389,8 @@ glusterd_get_op_version_for_key(char *key)
 }
 
 gf_boolean_t
-gd_is_client_option(char *key)
+gd_is_client_option(struct volopt_map_entry *vmep)
 {
-    struct volopt_map_entry *vmep = NULL;
-
-    GF_ASSERT(key);
-
-    vmep = _gd_get_vmep(key);
     if (vmep && (vmep->flags & VOLOPT_FLAG_CLIENT_OPT))
         return _gf_true;
 
@@ -6405,23 +6398,17 @@ gd_is_client_option(char *key)
 }
 
 gf_boolean_t
-gd_is_xlator_option(char *key)
+gd_is_xlator_option(struct volopt_map_entry *vmep)
 {
-    struct volopt_map_entry *vmep = NULL;
-
-    GF_ASSERT(key);
-
-    vmep = _gd_get_vmep(key);
     if (vmep && (vmep->flags & VOLOPT_FLAG_XLATOR_OPT))
         return _gf_true;
 
     return _gf_false;
 }
 
-volume_option_type_t
-_gd_get_option_type(char *key)
+static volume_option_type_t
+_gd_get_option_type(struct volopt_map_entry *vmep)
 {
-    struct volopt_map_entry *vmep = NULL;
     void *dl_handle = NULL;
     volume_opt_list_t vol_opt_list = {
         {0},
@@ -6430,10 +6417,6 @@ _gd_get_option_type(char *key)
     volume_option_t *opt = NULL;
     char *xlopt_key = NULL;
     volume_option_type_t opt_type = GF_OPTION_TYPE_MAX;
-
-    GF_ASSERT(key);
-
-    vmep = _gd_get_vmep(key);
 
     if (vmep) {
         CDS_INIT_LIST_HEAD(&vol_opt_list.list);
@@ -6461,11 +6444,9 @@ out:
 }
 
 gf_boolean_t
-gd_is_boolean_option(char *key)
+gd_is_boolean_option(struct volopt_map_entry *vmep)
 {
-    GF_ASSERT(key);
-
-    if (GF_OPTION_TYPE_BOOL == _gd_get_option_type(key))
+    if (GF_OPTION_TYPE_BOOL == _gd_get_option_type(vmep))
         return _gf_true;
 
     return _gf_false;

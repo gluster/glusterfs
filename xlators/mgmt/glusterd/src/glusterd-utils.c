@@ -12141,20 +12141,22 @@ glusterd_copy_uuid_to_dict(uuid_t uuid, dict_t *dict, char *key,
     return 0;
 }
 
-int
+static int
 _update_volume_op_versions(dict_t *this, char *key, data_t *value, void *data)
 {
     int op_version = 0;
     glusterd_volinfo_t *ctx = NULL;
     gf_boolean_t enabled = _gf_true;
     int ret = -1;
+    struct volopt_map_entry *vmep = NULL;
 
     GF_ASSERT(data);
     ctx = data;
 
-    op_version = glusterd_get_op_version_for_key(key);
+    vmep = gd_get_vmep(key);
+    op_version = glusterd_get_op_version_from_vmep(vmep);
 
-    if (gd_is_xlator_option(key) || gd_is_boolean_option(key)) {
+    if (gd_is_xlator_option(vmep) || gd_is_boolean_option(vmep)) {
         ret = gf_string2boolean(value->data, &enabled);
         if (ret)
             return 0;
@@ -12166,7 +12168,7 @@ _update_volume_op_versions(dict_t *this, char *key, data_t *value, void *data)
     if (op_version > ctx->op_version)
         ctx->op_version = op_version;
 
-    if (gd_is_client_option(key) && (op_version > ctx->client_op_version))
+    if (gd_is_client_option(vmep) && (op_version > ctx->client_op_version))
         ctx->client_op_version = op_version;
 
     return 0;
