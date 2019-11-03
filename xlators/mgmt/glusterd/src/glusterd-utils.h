@@ -42,35 +42,33 @@
 #define ALL_VOLUME_OPTION_CHECK(volname, get_opt, key, ret, op_errstr, label)  \
     do {                                                                       \
         gf_boolean_t _all = !strcmp("all", volname);                           \
+        gf_boolean_t _key_all = !strcmp(key, "all");                           \
         gf_boolean_t _is_valid_opt = _gf_false;                                \
         int32_t i = 0;                                                         \
                                                                                \
-        if (!get_opt && (!strcmp(key, "all") ||                                \
-                         !strcmp(key, GLUSTERD_MAX_OP_VERSION_KEY))) {         \
+        if (!get_opt &&                                                        \
+            (_key_all || !strcmp(key, GLUSTERD_MAX_OP_VERSION_KEY))) {         \
             ret = -1;                                                          \
             *op_errstr = gf_strdup("Not a valid option to set");               \
             goto out;                                                          \
         }                                                                      \
-                                                                               \
-        for (i = 0; valid_all_vol_opts[i].option; i++) {                       \
-            if (!strcmp(key, "all") ||                                         \
-                !strcmp(key, valid_all_vol_opts[i].option)) {                  \
-                _is_valid_opt = _gf_true;                                      \
-                break;                                                         \
+        if (_key_all) {                                                        \
+            _is_valid_opt = _gf_true;                                          \
+        } else {                                                               \
+            for (i = 0; valid_all_vol_opts[i].option; i++) {                   \
+                if (!strcmp(key, valid_all_vol_opts[i].option)) {              \
+                    _is_valid_opt = _gf_true;                                  \
+                    break;                                                     \
+                }                                                              \
             }                                                                  \
         }                                                                      \
-                                                                               \
         if (_all && !_is_valid_opt) {                                          \
             ret = -1;                                                          \
-            *op_errstr = gf_strdup(                                            \
-                "Not a valid option for all "                                  \
-                "volumes");                                                    \
+            *op_errstr = gf_strdup("Not a valid option for all volumes");      \
             goto label;                                                        \
         } else if (!_all && _is_valid_opt) {                                   \
             ret = -1;                                                          \
-            *op_errstr = gf_strdup(                                            \
-                "Not a valid option for "                                      \
-                "single volume");                                              \
+            *op_errstr = gf_strdup("Not a valid option for single volume");    \
             goto label;                                                        \
         }                                                                      \
     } while (0)

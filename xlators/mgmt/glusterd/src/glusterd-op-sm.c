@@ -21,26 +21,18 @@
 #include "protocol-common.h"
 #include "glusterd.h"
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/list.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
-#include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
-#include "glusterd-hooks.h"
-#include "glusterd-volgen.h"
 #include "glusterd-locks.h"
-#include "glusterd-messages.h"
-#include "glusterd-utils.h"
 #include "glusterd-quota.h"
 #include <glusterfs/syscall.h>
 #include "cli1-xdr.h"
-#include <glusterfs/common-utils.h>
-#include <glusterfs/run.h>
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"
@@ -49,11 +41,13 @@
 #include "glusterd-nfs-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-server-quorum.h"
-#include "glusterd-volgen.h"
 #include <sys/types.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include "glusterd-gfproxyd-svc-helper.h"
+
+#define len_strcmp(key, len, str)                                              \
+    ((len == SLEN(str)) && (strcmp(key, str) == 0))
 
 extern char local_node_hostname[PATH_MAX];
 static int
@@ -68,7 +62,7 @@ glusterd_set_shared_storage(dict_t *dict, char *key, char *value,
  * It's important that every value have a default, or have a special handler
  * in glusterd_get_global_options_for_all_vols, or else we might crash there.
  */
-glusterd_all_vol_opts valid_all_vol_opts[] = {
+const glusterd_all_vol_opts valid_all_vol_opts[] = {
     {GLUSTERD_QUORUM_RATIO_KEY, "51"},
     {GLUSTERD_SHARED_STORAGE_KEY, "disable"},
     /* This one actually gets filled in dynamically. */
@@ -98,10 +92,6 @@ synclock_t gd_op_sm_lock;
 glusterd_op_info_t opinfo = {
     {0},
 };
-
-int
-glusterd_bricks_select_rebalance_volume(dict_t *dict, char **op_errstr,
-                                        struct cds_list_head *selected);
 
 int32_t
 glusterd_txn_opinfo_dict_init()
@@ -401,7 +391,7 @@ glusterd_op_sm_event_name_get(int event)
     return glusterd_op_sm_event_names[event];
 }
 
-void
+static void
 glusterd_destroy_lock_ctx(glusterd_op_lock_ctx_t *ctx)
 {
     if (!ctx)
@@ -420,56 +410,49 @@ glusterd_set_volume_status(glusterd_volinfo_t *volinfo,
 static int
 glusterd_op_sm_inject_all_acc(uuid_t *txn_id)
 {
-    int32_t ret = -1;
+    int ret = -1;
     ret = glusterd_op_sm_inject_event(GD_OP_EVENT_ALL_ACC, txn_id, NULL);
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
 }
 
 static int
-glusterd_check_bitrot_cmd(char *key, char *value, char *errstr, size_t size)
+glusterd_check_bitrot_cmd(char *key, const int keylen, char *errstr,
+                          const size_t size)
 {
     int ret = -1;
 
-    if ((!strncmp(key, "bitrot", SLEN("bitrot"))) ||
-        (!strncmp(key, "features.bitrot", SLEN("features.bitrot")))) {
+    if (len_strcmp(key, keylen, "bitrot") ||
+        len_strcmp(key, keylen, "features.bitrot")) {
         snprintf(errstr, size,
-                 " 'gluster volume set <VOLNAME> %s' "
-                 "is invalid command. Use 'gluster volume bitrot "
-                 "<VOLNAME> {enable|disable}' instead.",
+                 " 'gluster volume set <VOLNAME> %s' is invalid command."
+                 " Use 'gluster volume bitrot <VOLNAME> {enable|disable}'"
+                 " instead.",
                  key);
-        ret = -1;
         goto out;
-    } else if ((!strncmp(key, "scrub-freq", SLEN("scrub-freq"))) ||
-               (!strncmp(key, "features.scrub-freq",
-                         SLEN("features.scrub-freq")))) {
+    } else if (len_strcmp(key, keylen, "scrub-freq") ||
+               len_strcmp(key, keylen, "features.scrub-freq")) {
         snprintf(errstr, size,
-                 " 'gluster volume "
-                 "set <VOLNAME> %s' is invalid command. Use 'gluster "
-                 "volume bitrot <VOLNAME> scrub-frequency"
+                 " 'gluster volume set <VOLNAME> %s' is invalid command."
+                 " Use 'gluster volume bitrot <VOLNAME> scrub-frequency"
                  " {hourly|daily|weekly|biweekly|monthly}' instead.",
                  key);
-        ret = -1;
         goto out;
-    } else if ((!strncmp(key, "scrub", SLEN("scrub"))) ||
-               (!strncmp(key, "features.scrub", SLEN("features.scrub")))) {
+    } else if (len_strcmp(key, keylen, "scrub") ||
+               len_strcmp(key, keylen, "features.scrub")) {
         snprintf(errstr, size,
-                 " 'gluster volume set <VOLNAME> %s' is "
-                 "invalid command. Use 'gluster volume bitrot "
-                 "<VOLNAME> scrub {pause|resume}' instead.",
+                 " 'gluster volume set <VOLNAME> %s' is invalid command."
+                 " Use 'gluster volume bitrot <VOLNAME> scrub {pause|resume}'"
+                 " instead.",
                  key);
-        ret = -1;
         goto out;
-    } else if ((!strncmp(key, "scrub-throttle", SLEN("scrub-throttle"))) ||
-               (!strncmp(key, "features.scrub-throttle",
-                         SLEN("features.scrub-throttle")))) {
+    } else if (len_strcmp(key, keylen, "scrub-throttle") ||
+               len_strcmp(key, keylen, "features.scrub-throttle")) {
         snprintf(errstr, size,
-                 " 'gluster volume set <VOLNAME> %s' is "
-                 "invalid command. Use 'gluster volume bitrot "
-                 "<VOLNAME> scrub-throttle {lazy|normal|aggressive}' "
-                 "instead.",
+                 " 'gluster volume set <VOLNAME> %s' is invalid command."
+                 " Use 'gluster volume bitrot <VOLNAME> scrub-throttle "
+                 " {lazy|normal|aggressive}' instead.",
                  key);
-        ret = -1;
         goto out;
     }
 
@@ -479,61 +462,52 @@ out:
 }
 
 static int
-glusterd_check_quota_cmd(char *key, char *value, char *errstr, size_t size)
+glusterd_check_quota_cmd(char *key, const int keylen, char *value, char *errstr,
+                         size_t size)
 {
     int ret = -1;
     gf_boolean_t b = _gf_false;
 
-    if ((strcmp(key, "quota") == 0) || (strcmp(key, "features.quota") == 0)) {
+    if (len_strcmp(key, keylen, "quota") ||
+        len_strcmp(key, keylen, "features.quota")) {
         ret = gf_string2boolean(value, &b);
         if (ret)
             goto out;
+        ret = -1;
         if (b) {
             snprintf(errstr, size,
-                     " 'gluster "
-                     "volume set <VOLNAME> %s %s' is "
-                     "deprecated. Use 'gluster volume "
-                     "quota <VOLNAME> enable' instead.",
+                     " 'gluster volume set <VOLNAME> %s %s' is deprecated."
+                     " Use 'gluster volume quota <VOLNAME> enable' instead.",
                      key, value);
-            ret = -1;
-            goto out;
         } else {
             snprintf(errstr, size,
-                     " 'gluster "
-                     "volume set <VOLNAME> %s %s' is "
-                     "deprecated. Use 'gluster volume "
-                     "quota <VOLNAME> disable' instead.",
+                     " 'gluster volume set <VOLNAME> %s %s' is deprecated."
+                     " Use 'gluster volume quota <VOLNAME> disable' instead.",
                      key, value);
-            ret = -1;
-            goto out;
         }
-    } else if ((strcmp(key, "inode-quota") == 0) ||
-               (strcmp(key, "features.inode-quota") == 0)) {
+        goto out;
+    } else if (len_strcmp(key, keylen, "inode-quota") ||
+               len_strcmp(key, keylen, "features.inode-quota")) {
         ret = gf_string2boolean(value, &b);
         if (ret)
             goto out;
+        ret = -1;
         if (b) {
-            snprintf(errstr, size,
-                     " 'gluster "
-                     "volume set <VOLNAME> %s %s' is "
-                     "deprecated. Use 'gluster volume "
-                     "inode-quota <VOLNAME> enable' instead.",
-                     key, value);
-            ret = -1;
-            goto out;
+            snprintf(
+                errstr, size,
+                " 'gluster volume set <VOLNAME> %s %s' is deprecated."
+                " Use 'gluster volume inode-quota <VOLNAME> enable' instead.",
+                key, value);
         } else {
             /* inode-quota disable not supported,
              * use quota disable
              */
             snprintf(errstr, size,
-                     " 'gluster "
-                     "volume set <VOLNAME> %s %s' is "
-                     "deprecated. Use 'gluster volume "
-                     "quota <VOLNAME> disable' instead.",
+                     " 'gluster volume set <VOLNAME> %s %s' is deprecated."
+                     " Use 'gluster volume quota <VOLNAME> disable' instead.",
                      key, value);
-            ret = -1;
-            goto out;
         }
+        goto out;
     }
 
     ret = 0;
@@ -772,7 +746,7 @@ glusterd_validate_brick_mx_options(xlator_t *this, char *fullkey, char *value,
 }
 
 static int
-glusterd_validate_shared_storage(char *key, char *value, char *errstr)
+glusterd_validate_shared_storage(char *value, char *errstr)
 {
     int32_t ret = -1;
     int32_t count = -1;
@@ -789,15 +763,8 @@ glusterd_validate_shared_storage(char *key, char *value, char *errstr)
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    GF_VALIDATE_OR_GOTO(this->name, key, out);
     GF_VALIDATE_OR_GOTO(this->name, value, out);
     GF_VALIDATE_OR_GOTO(this->name, errstr, out);
-
-    ret = 0;
-
-    if (strcmp(key, GLUSTERD_SHARED_STORAGE_KEY)) {
-        goto out;
-    }
 
     if ((strcmp(value, "enable")) && (strcmp(value, "disable"))) {
         snprintf(errstr, PATH_MAX,
@@ -884,7 +851,7 @@ out:
 }
 
 static int
-glusterd_validate_localtime_logging(char *key, char *value, char *errstr)
+glusterd_validate_localtime_logging(char *value, char *errstr)
 {
     int32_t ret = -1;
     xlator_t *this = NULL;
@@ -896,29 +863,11 @@ glusterd_validate_localtime_logging(char *key, char *value, char *errstr)
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
-
-    GF_VALIDATE_OR_GOTO(this->name, key, out);
     GF_VALIDATE_OR_GOTO(this->name, value, out);
-    GF_VALIDATE_OR_GOTO(this->name, errstr, out);
-
-    ret = 0;
-
-    if (strcmp(key, GLUSTERD_LOCALTIME_LOGGING_KEY)) {
-        goto out;
-    }
-
-    if ((strcmp(value, "enable")) && (strcmp(value, "disable"))) {
-        snprintf(errstr, PATH_MAX,
-                 "Invalid option(%s). Valid options "
-                 "are 'enable' and 'disable'",
-                 value);
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY, "%s",
-               errstr);
-        ret = -1;
-    }
 
     already_enabled = gf_log_get_localtime();
 
+    ret = 0;
     if (strcmp(value, "enable") == 0) {
         gf_log_set_localtime(1);
         if (!already_enabled)
@@ -929,6 +878,15 @@ glusterd_validate_localtime_logging(char *key, char *value, char *errstr)
         if (already_enabled)
             gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_LOCALTIME_LOGGING_DISABLE,
                    "localtime logging disable");
+    } else {
+        ret = -1;
+        GF_VALIDATE_OR_GOTO(this->name, errstr, out);
+        snprintf(errstr, PATH_MAX,
+                 "Invalid option(%s). Valid options "
+                 "are 'enable' and 'disable'",
+                 value);
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY, "%s",
+               errstr);
     }
 
 out:
@@ -936,7 +894,7 @@ out:
 }
 
 static int
-glusterd_validate_daemon_log_level(char *key, char *value, char *errstr)
+glusterd_validate_daemon_log_level(char *value, char *errstr)
 {
     int32_t ret = -1;
     xlator_t *this = NULL;
@@ -948,19 +906,15 @@ glusterd_validate_daemon_log_level(char *key, char *value, char *errstr)
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    GF_VALIDATE_OR_GOTO(this->name, key, out);
     GF_VALIDATE_OR_GOTO(this->name, value, out);
-    GF_VALIDATE_OR_GOTO(this->name, errstr, out);
 
     ret = 0;
-
-    if (strcmp(key, GLUSTERD_DAEMON_LOG_LEVEL_KEY)) {
-        goto out;
-    }
 
     if ((strcmp(value, "INFO")) && (strcmp(value, "WARNING")) &&
         (strcmp(value, "DEBUG")) && (strcmp(value, "TRACE")) &&
         (strcmp(value, "ERROR"))) {
+        ret = -1;
+        GF_VALIDATE_OR_GOTO(this->name, errstr, out);
         snprintf(errstr, PATH_MAX,
                  "Invalid option(%s). Valid options "
                  "are 'INFO' or 'WARNING' or 'ERROR' or 'DEBUG' or "
@@ -968,7 +922,6 @@ glusterd_validate_daemon_log_level(char *key, char *value, char *errstr)
                  value);
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY, "%s",
                errstr);
-        ret = -1;
     }
 
 out:
@@ -988,6 +941,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
     char keystr[100] = {
         0,
     };
+    int keystr_len;
     int keylen;
     char *trash_path = NULL;
     int trash_path_len = 0;
@@ -1000,6 +954,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
     glusterd_brickinfo_t *brickinfo = NULL;
     dict_t *val_dict = NULL;
     gf_boolean_t global_opt = _gf_false;
+    gf_boolean_t key_matched = _gf_false; /* if a key was processed or not*/
     glusterd_volinfo_t *voliter = NULL;
     glusterd_conf_t *priv = NULL;
     xlator_t *this = NULL;
@@ -1012,16 +967,13 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
     gf_boolean_t check_op_version = _gf_true;
     gf_boolean_t trash_enabled = _gf_false;
     gf_boolean_t all_vol = _gf_false;
+    struct volopt_map_entry *vmep = NULL;
 
     GF_ASSERT(dict);
     this = THIS;
     GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-
-    val_dict = dict_new();
-    if (!val_dict)
-        goto out;
 
     /* Check if we can support the required op-version
      * This check is not done on the originator glusterd. The originator
@@ -1046,9 +998,8 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                 (new_op_version < GD_OP_VERSION_MIN)) {
                 ret = -1;
                 snprintf(errstr, sizeof(errstr),
-                         "Required op_version (%d) is not "
-                         "supported. Max supported op version "
-                         "is %d",
+                         "Required op_version (%d) is not supported."
+                         " Max supported op version is %d",
                          new_op_version, priv->op_version);
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNSUPPORTED_VERSION,
                        "%s", errstr);
@@ -1057,7 +1008,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
         }
     }
 
-    ret = dict_get_int32n(dict, "count", SLEN("count"), &dict_count);
+    ret = dict_get_int32_sizen(dict, "count", &dict_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Count(dict),not set in Volume-Set");
@@ -1066,12 +1017,12 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
 
     if (dict_count == 0) {
         /*No options would be specified of volume set help */
-        if (dict_getn(dict, "help", SLEN("help"))) {
+        if (dict_get_sizen(dict, "help")) {
             ret = 0;
             goto out;
         }
 
-        if (dict_getn(dict, "help-xml", SLEN("help-xml"))) {
+        if (dict_get_sizen(dict, "help-xml")) {
 #if (HAVE_LIB_XML)
             ret = 0;
             goto out;
@@ -1080,8 +1031,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MODULE_NOT_INSTALLED,
                    "libxml not present in the system");
             *op_errstr = gf_strdup(
-                "Error: xml libraries not "
-                "present to produce xml-output");
+                "Error: xml libraries not present to produce xml-output");
             goto out;
 #endif
         }
@@ -1092,7 +1042,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str_sizen(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
@@ -1119,15 +1069,18 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
         all_vol = _gf_true;
     }
 
+    val_dict = dict_new();
+    if (!val_dict)
+        goto out;
+
     for (count = 1; ret != 1; count++) {
-        global_opt = _gf_false;
-        keylen = sprintf(keystr, "key%d", count);
-        ret = dict_get_strn(dict, keystr, keylen, &key);
+        keystr_len = sprintf(keystr, "key%d", count);
+        ret = dict_get_strn(dict, keystr, keystr_len, &key);
         if (ret)
             break;
 
-        keylen = sprintf(keystr, "value%d", count);
-        ret = dict_get_strn(dict, keystr, keylen, &value);
+        keystr_len = sprintf(keystr, "value%d", count);
+        ret = dict_get_strn(dict, keystr, keystr_len, &value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "invalid key,value pair in 'volume set'");
@@ -1135,13 +1088,15 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             goto out;
         }
 
-        if (strcmp(key, "config.memory-accounting") == 0) {
+        key_matched = _gf_false;
+        keylen = strlen(key);
+        if (len_strcmp(key, keylen, "config.memory-accounting")) {
+            key_matched = _gf_true;
             gf_msg_debug(this->name, 0,
                          "enabling memory accounting for volume %s", volname);
             ret = 0;
-        }
-
-        if (strcmp(key, "config.transport") == 0) {
+        } else if (len_strcmp(key, keylen, "config.transport")) {
+            key_matched = _gf_true;
             gf_msg_debug(this->name, 0, "changing transport-type for volume %s",
                          volname);
             ret = 0;
@@ -1151,30 +1106,31 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                   (strcasecmp(value, "tcp,rdma") == 0) ||
                   (strcasecmp(value, "rdma,tcp") == 0))) {
                 ret = snprintf(errstr, sizeof(errstr),
-                               "transport-type %s does "
-                               "not exist",
-                               value);
+                               "transport-type %s does not exist", value);
                 /* lets not bother about above return value,
                    its a failure anyways */
                 ret = -1;
                 goto out;
             }
+        } else if (len_strcmp(key, keylen, "ganesha.enable")) {
+            key_matched = _gf_true;
+            if (!strcmp(value, "off") == 0) {
+                ret = ganesha_manage_export(dict, "off", _gf_true, op_errstr);
+                if (ret)
+                    goto out;
+            }
         }
 
-        ret = glusterd_check_bitrot_cmd(key, value, errstr, sizeof(errstr));
-        if (ret)
-            goto out;
-
-        if ((strcmp(key, "ganesha.enable") == 0) &&
-            (strcmp(value, "off") == 0)) {
-            ret = ganesha_manage_export(dict, "off", _gf_true, op_errstr);
+        if (!key_matched) {
+            ret = glusterd_check_bitrot_cmd(key, keylen, errstr,
+                                            sizeof(errstr));
+            if (ret)
+                goto out;
+            ret = glusterd_check_quota_cmd(key, keylen, value, errstr,
+                                           sizeof(errstr));
             if (ret)
                 goto out;
         }
-
-        ret = glusterd_check_quota_cmd(key, value, errstr, sizeof(errstr));
-        if (ret)
-            goto out;
 
         if (is_key_glusterd_hooks_friendly(key))
             continue;
@@ -1201,42 +1157,36 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             goto out;
         }
 
-        if (key_fixed)
+        if (key_fixed) {
             key = key_fixed;
+            keylen = strlen(key_fixed);
+        }
 
-        if (strcmp(key, "cluster.granular-entry-heal") == 0) {
+        if (len_strcmp(key, keylen, "cluster.granular-entry-heal")) {
             /* For granular entry-heal, if the set command was
              * invoked through volume-set CLI, then allow the
              * command only if the volume is still in 'Created'
              * state
              */
-            if ((dict_getn(dict, "is-special-key", SLEN("is-special-key")) ==
-                 NULL) &&
-                volinfo && (volinfo->status != GLUSTERD_STATUS_NONE)) {
+            if (volinfo && volinfo->status != GLUSTERD_STATUS_NONE &&
+                (dict_get_sizen(dict, "is-special-key") == NULL)) {
                 snprintf(errstr, sizeof(errstr),
-                         " 'gluster "
-                         "volume set <VOLNAME> %s {enable, "
-                         "disable}' is not supported. Use "
-                         "'gluster volume heal <VOLNAME> "
-                         "granular-entry-heal {enable, "
-                         "disable}' instead.",
+                         " 'gluster volume set <VOLNAME> %s {enable, disable}'"
+                         " is not supported."
+                         " Use 'gluster volume heal <VOLNAME> "
+                         "granular-entry-heal {enable, disable}' instead.",
                          key);
                 ret = -1;
                 goto out;
             }
-        }
-
-        /* Check if the key is cluster.op-version and set
-         * local_new_op_version to the value given if possible.
-         */
-        if (strcmp(key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0) {
+        } else if (len_strcmp(key, keylen, GLUSTERD_GLOBAL_OP_VERSION_KEY)) {
+            /* Check if the key is cluster.op-version and set
+             * local_new_op_version to the value given if possible.
+             */
             if (!all_vol) {
                 ret = -1;
                 snprintf(errstr, sizeof(errstr),
-                         "Option \""
-                         "%s\" is not valid for a single "
-                         "volume",
-                         key);
+                         "Option \"%s\" is not valid for a single volume", key);
                 goto out;
             }
             /* Check if cluster.op-version is the only option being
@@ -1245,9 +1195,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             if (count != 1) {
                 ret = -1;
                 snprintf(errstr, sizeof(errstr),
-                         "Option \""
-                         "%s\" cannot be set along with other "
-                         "options",
+                         "Option \"%s\" cannot be set along with other options",
                          key);
                 goto out;
             }
@@ -1257,10 +1205,8 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             ret = gf_string2uint(value, &local_key_op_version);
             if (ret) {
                 snprintf(errstr, sizeof(errstr),
-                         "invalid "
-                         "number format \"%s\" in option "
-                         "\"%s\"",
-                         value, key);
+                         "invalid number format \"%s\" in option \"%s\"", value,
+                         key);
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                        errstr);
                 goto out;
@@ -1270,9 +1216,8 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                 local_key_op_version < GD_OP_VERSION_MIN) {
                 ret = -1;
                 snprintf(errstr, sizeof(errstr),
-                         "Required op_version (%d) is not "
-                         "supported. Max supported op version "
-                         "is %d",
+                         "Required op_version (%d) is not supported."
+                         " Max supported op version is %d",
                          local_key_op_version, priv->op_version);
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VERSION_UNSUPPORTED,
                        "%s", errstr);
@@ -1304,10 +1249,11 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
         if (ret)
             goto out;
 
-        local_key_op_version = glusterd_get_op_version_for_key(key);
+        vmep = gd_get_vmep(key);
+        local_key_op_version = glusterd_get_op_version_from_vmep(vmep);
         if (local_key_op_version > local_new_op_version)
             local_new_op_version = local_key_op_version;
-        if (gd_is_client_option(key) &&
+        if (gd_is_client_option(vmep) &&
             (local_key_op_version > local_new_client_op_version))
             local_new_client_op_version = local_key_op_version;
 
@@ -1323,8 +1269,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             ret = dict_get_uint32(dict, keystr, &key_op_version);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                       "Failed to get key-op-version from"
-                       " dict");
+                       "Failed to get key-op-version from dict");
                 goto out;
             }
             if (local_key_op_version != key_op_version) {
@@ -1333,60 +1278,63 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                          "option: %s op-version mismatch", key);
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERSION_MISMATCH,
                        "%s, required op-version = %" PRIu32
-                       ", "
-                       "available op-version = %" PRIu32,
+                       ", available op-version = %" PRIu32,
                        errstr, key_op_version, local_key_op_version);
                 goto out;
             }
         }
 
-        if (glusterd_check_globaloption(key))
-            global_opt = _gf_true;
+        global_opt = glusterd_check_globaloption(key);
 
-        ret = glusterd_validate_shared_storage(key, value, errstr);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_SHARED_STRG_VOL_OPT_VALIDATE_FAIL,
-                   "Failed to validate shared "
-                   "storage volume options");
-            goto out;
-        }
-
-        ret = glusterd_validate_localtime_logging(key, value, errstr);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_LOCALTIME_LOGGING_VOL_OPT_VALIDATE_FAIL,
-                   "Failed to validate localtime "
-                   "logging volume options");
-            goto out;
-        }
-
-        ret = glusterd_validate_daemon_log_level(key, value, errstr);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_DAEMON_LOG_LEVEL_VOL_OPT_VALIDATE_FAIL,
-                   "Failed to validate daemon-log-level volume "
-                   "options");
-            goto out;
-        }
-
-        if (volinfo) {
-            ret = glusterd_volinfo_get(volinfo, VKEY_FEATURES_TRASH, &val_dup);
-            if (val_dup) {
-                ret = gf_string2boolean(val_dup, &trash_enabled);
-                if (ret)
-                    goto out;
+        if (len_strcmp(key, keylen, GLUSTERD_SHARED_STORAGE_KEY)) {
+            ret = glusterd_validate_shared_storage(value, errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_SHARED_STRG_VOL_OPT_VALIDATE_FAIL,
+                       "Failed to validate shared storage volume options");
+                goto out;
             }
-        }
-
-        if (!strcmp(key, "features.trash-dir") && trash_enabled) {
+        } else if (len_strcmp(key, keylen, GLUSTERD_LOCALTIME_LOGGING_KEY)) {
+            ret = glusterd_validate_localtime_logging(value, errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_LOCALTIME_LOGGING_VOL_OPT_VALIDATE_FAIL,
+                       "Failed to validate localtime logging volume options");
+                goto out;
+            }
+        } else if (len_strcmp(key, keylen, GLUSTERD_DAEMON_LOG_LEVEL_KEY)) {
+            ret = glusterd_validate_daemon_log_level(value, errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_DAEMON_LOG_LEVEL_VOL_OPT_VALIDATE_FAIL,
+                       "Failed to validate daemon-log-level volume options");
+                goto out;
+            }
+        } else if (len_strcmp(key, keylen, "features.trash-dir")) {
+            if (volinfo) {
+                ret = glusterd_volinfo_get(volinfo, VKEY_FEATURES_TRASH,
+                                           &val_dup);
+                if (!ret && val_dup) {
+                    ret = gf_string2boolean(val_dup, &trash_enabled);
+                    if (ret)
+                        goto out;
+                }
+            }
+            if (!trash_enabled) {
+                snprintf(errstr, sizeof(errstr),
+                         "Trash translator is not enabled. "
+                         "Use volume set %s trash on",
+                         volname);
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_SET_FAIL,
+                       "Unable to set the options in 'volume set': %s", errstr);
+                ret = -1;
+                goto out;
+            }
             if (strchr(value, '/')) {
                 snprintf(errstr, sizeof(errstr),
                          "Path is not allowed as option");
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_SET_FAIL,
-                       "Unable to set the options in 'volume "
-                       "set': %s",
-                       errstr);
+                       "Unable to set the options in 'volume set': %s", errstr);
                 ret = -1;
                 goto out;
             }
@@ -1407,16 +1355,13 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                         snprintf(errstr, sizeof(errstr), "Path %s exists",
                                  value);
                         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_SET_FAIL,
-                               "Unable to set the "
-                               "options in "
-                               "'volume set': %s",
+                               "Unable to set the options in 'volume set': %s",
                                errstr);
                         ret = -1;
                         goto out;
                     } else {
                         gf_msg_debug(this->name, 0,
-                                     "Directory with given "
-                                     "name does not exists,"
+                                     "Directory with given name does not exist,"
                                      " continuing");
                     }
 
@@ -1427,9 +1372,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                         snprintf(errstr, sizeof(errstr),
                                  "One or more bricks are down");
                         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_SET_FAIL,
-                               "Unable to set the "
-                               "options in "
-                               "'volume set': %s",
+                               "Unable to set the options in 'volume set': %s",
                                errstr);
                         ret = -1;
                         goto out;
@@ -1438,22 +1381,11 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
                 if (trash_path) {
                     GF_FREE(trash_path);
                     trash_path = NULL;
-                    trash_path_len = 0;
                 }
             }
-        } else if (!strcmp(key, "features.trash-dir") && !trash_enabled) {
-            snprintf(errstr, sizeof(errstr),
-                     "Trash translator is not enabled. Use "
-                     "volume set %s trash on",
-                     volname);
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_SET_FAIL,
-                   "Unable to set the options in 'volume "
-                   "set': %s",
-                   errstr);
-            ret = -1;
-            goto out;
         }
-        ret = dict_set_str(val_dict, key, value);
+
+        ret = dict_set_strn(val_dict, key, keylen, value);
 
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -1478,12 +1410,11 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
 
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
-                   "Could not create "
-                   "temp volfile, some option failed: %s",
+                   "Could not create temp volfile, some option failed: %s",
                    *op_errstr);
             goto out;
         }
-        dict_del(val_dict, key);
+        dict_deln(val_dict, key, keylen);
 
         if (key_fixed) {
             GF_FREE(key_fixed);
@@ -1497,7 +1428,6 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
         volname, local_new_client_op_version, op_errstr);
     if (ret)
         goto out;
-
 cont:
     if (origin_glusterd) {
         ret = dict_set_uint32(dict, "new-op-version", local_new_op_version);
@@ -1512,8 +1442,7 @@ cont:
          * TODO: Remove this and the other places this is referred once
          * 3.3.x compatibility is not required
          */
-        ret = dict_set_int32n(dict, "check-op-version",
-                              SLEN("check-op-version"), 1);
+        ret = dict_set_int32_sizen(dict, "check-op-version", 1);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set check-op-version in dict");
@@ -6859,7 +6788,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_bricks_select_rebalance_volume(dict_t *dict, char **op_errstr,
                                         struct cds_list_head *selected)
 {

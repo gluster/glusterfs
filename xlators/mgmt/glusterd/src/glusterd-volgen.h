@@ -297,17 +297,20 @@ end_sethelp_xml_doc(xmlTextWriterPtr writer);
 char *
 glusterd_get_trans_type_rb(gf_transport_type ttype);
 
+struct volopt_map_entry *
+gd_get_vmep(const char *key);
+
 uint32_t
-glusterd_get_op_version_for_key(char *key);
+glusterd_get_op_version_from_vmep(struct volopt_map_entry *vmep);
 
 gf_boolean_t
-gd_is_client_option(char *key);
+gd_is_client_option(struct volopt_map_entry *vmep);
 
 gf_boolean_t
-gd_is_xlator_option(char *key);
+gd_is_xlator_option(struct volopt_map_entry *vmep);
 
 gf_boolean_t
-gd_is_boolean_option(char *key);
+gd_is_boolean_option(struct volopt_map_entry *vmep);
 
 char *
 volgen_get_shd_key(int type);
