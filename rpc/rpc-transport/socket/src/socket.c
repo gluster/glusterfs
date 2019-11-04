@@ -439,6 +439,7 @@ ssl_setup_connection_postfix(rpc_transport_t *this)
     gf_log(this->name, GF_LOG_DEBUG,
            "SSL verification succeeded (client: %s) (server: %s)",
            this->peerinfo.identifier, this->myinfo.identifier);
+    X509_free(peer);
     return gf_strdup(peer_CN);
 
     /* Error paths. */
@@ -1180,7 +1181,15 @@ __socket_reset(rpc_transport_t *this)
     memset(&priv->incoming, 0, sizeof(priv->incoming));
 
     gf_event_unregister_close(this->ctx->event_pool, priv->sock, priv->idx);
-
+    if (priv->use_ssl && priv->ssl_ssl) {
+        SSL_clear(priv->ssl_ssl);
+        SSL_free(priv->ssl_ssl);
+        priv->ssl_ssl = NULL;
+    }
+    if (priv->use_ssl && priv->ssl_ctx) {
+        SSL_CTX_free(priv->ssl_ctx);
+        priv->ssl_ctx = NULL;
+    }
     priv->sock = -1;
     priv->idx = -1;
     priv->connected = -1;
@@ -3250,7 +3259,6 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_priv->sock = new_sock;
 
         new_priv->ssl_enabled = priv->ssl_enabled;
-        new_priv->ssl_ctx = priv->ssl_ctx;
         new_priv->connected = 1;
         new_priv->is_server = _gf_true;
 
@@ -4699,6 +4707,16 @@ fini(rpc_transport_t *this)
         pthread_mutex_destroy(&priv->out_lock);
         pthread_mutex_destroy(&priv->cond_lock);
         pthread_cond_destroy(&priv->cond);
+        if (priv->use_ssl && priv->ssl_ssl) {
+            SSL_clear(priv->ssl_ssl);
+            SSL_free(priv->ssl_ssl);
+            priv->ssl_ssl = NULL;
+        }
+        if (priv->use_ssl && priv->ssl_ctx) {
+            SSL_CTX_free(priv->ssl_ctx);
+            priv->ssl_ctx = NULL;
+        }
+
         if (priv->ssl_private_key) {
             GF_FREE(priv->ssl_private_key);
         }

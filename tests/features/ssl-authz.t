@@ -25,6 +25,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
+TEST $CLI v set all cluster.brick-multiplex on
 # Construct a cipher list that excludes CBC because of POODLE.
 # http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-3566
 #
@@ -45,12 +46,12 @@ TEST openssl genrsa -out $SSL_KEY 2048
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
 ln $SSL_CERT $SSL_CA
 
-TEST $CLI volume create $V0 $H0:$B0/1
+TEST $CLI volume create $V0 replica 3 $H0:$B0/{1,2,3} force
 TEST $CLI volume set $V0 server.ssl on
 TEST $CLI volume set $V0 client.ssl on
 TEST $CLI volume set $V0 ssl.cipher-list $(valid_ciphers)
 TEST $CLI volume start $V0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" online_brick_count
 
 # This mount should SUCCEED because ssl-allow=* by default.  This effectively
 # disables SSL authorization, though authentication and encryption might still
@@ -59,11 +60,27 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 TEST ping_file $M0/before
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
+glusterfsd_pid=`pgrep glusterfsd`
+TEST [ $glusterfsd_pid != 0 ]
+start=`pmap -x $glusterfsd_pid | grep total | awk -F " " '{print $4}'`
+echo "Memory consumption for glusterfsd process"
+for i in $(seq 1 100); do
+        gluster v heal $V0 info >/dev/null
+done
+
+end=`pmap -x $glusterfsd_pid | grep total | awk -F " " '{print $4}'`
+diff=$((end-start))
+
+# If memory consumption is more than 5M some leak in SSL code path
+
+TEST [ $diff -lt 5000 ]
+
+
 # Set ssl-allow to a wildcard that includes our identity.
 TEST $CLI volume stop $V0
 TEST $CLI volume set $V0 auth.ssl-allow Any*
 TEST $CLI volume start $V0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" online_brick_count
 
 # This mount should SUCCEED because we match the wildcard.
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
