@@ -23,7 +23,6 @@
 #endif
 
 #include "rpc-transport.h"
-#include <glusterfs/refcount.h>
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
@@ -105,11 +104,12 @@ struct ioq {
     };
 
     struct iovec vector[MAX_IOVEC];
-    int count;
     struct iovec *pending_vector;
+    int count;
     int pending_count;
     struct iobref *iobref;
     uint32_t fraghdr;
+    char _pad[4];
 };
 
 typedef struct {
@@ -168,13 +168,13 @@ struct gf_sock_incoming {
     char *proghdr_base_addr;
     struct iobuf *iobuf;
     size_t iobuf_size;
-    int count;
     struct gf_sock_incoming_frag frag;
     struct iovec vector[2];
     struct iovec payload_vector;
     struct iobref *iobref;
     rpc_request_info_t *request_info;
     struct iovec *pending_vector;
+    int count;
     int pending_count;
     size_t total_bytes_read;
 
@@ -183,18 +183,11 @@ struct gf_sock_incoming {
     size_t ra_served;
     char *ra_buf;
     uint32_t fraghdr;
-    char complete_record;
     msg_type_t msg_type;
     sp_rpcrecord_state_t record_state;
+    char complete_record;
+    char _pad[3];
 };
-
-typedef enum {
-    OT_IDLE,       /* Uninitialized or termination complete. */
-    OT_SPAWNING,   /* Past pthread_create but not in thread yet. */
-    OT_RUNNING,    /* Poller thread running normally. */
-    OT_CALLBACK,   /* Poller thread in the middle of a callback. */
-    OT_PLEASE_DIE, /* Poller termination requested. */
-} ot_state_t;
 
 typedef struct {
     union {
@@ -222,6 +215,7 @@ typedef struct {
      * arm the epoll event set for the required event for the specific fd.
      */
     int ssl_error_required;
+    int ssl_session_id;
 
     GF_REF_DECL; /* refcount to keep track of socket_poller
                     threads */
@@ -236,7 +230,6 @@ typedef struct {
     uint32_t backlog;
     SSL_METHOD *ssl_meth;
     SSL_CTX *ssl_ctx;
-    int ssl_session_id;
     BIO *ssl_sbio;
     SSL *ssl_ssl;
     char *ssl_own_cert;
@@ -245,6 +238,7 @@ typedef struct {
     char *crl_path;
     int pipe[2];
     struct gf_sock_incoming incoming;
+    mgmt_ssl_t srvr_ssl;
     /* -1 = not connected. 0 = in progress. 1 = connected */
     char connected;
     /* 1 = connect failed for reasons other than EINPROGRESS/ENOENT
@@ -255,7 +249,6 @@ typedef struct {
     char submit_log;
     char lowlat;
     char nodelay;
-    mgmt_ssl_t srvr_ssl;
     gf_boolean_t read_fail_log;
     gf_boolean_t ssl_enabled; /* outbound I/O */
     gf_boolean_t mgmt_ssl;    /* outbound mgmt */
@@ -281,7 +274,7 @@ typedef struct {
                             * socket_event_handler() for
                             * newly accepted socket
                             */
-
+    char _pad[4];
 } socket_private_t;
 
 #endif
