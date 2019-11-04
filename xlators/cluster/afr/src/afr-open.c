@@ -215,11 +215,9 @@ afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      "successfully on subvolume %s",
                      local->loc.path, priv->children[child_index]->name);
     } else {
-        gf_msg(this->name, fop_log_level(GF_FOP_OPEN, op_errno), op_errno,
-               AFR_MSG_OPEN_FAIL,
-               "Failed to open %s on "
-               "subvolume %s",
-               local->loc.path, priv->children[child_index]->name);
+        gf_smsg(this->name, fop_log_level(GF_FOP_OPEN, op_errno), op_errno,
+                AFR_MSG_OPEN_FAIL, "path=%s", local->loc.path, "subvolume=%s",
+                priv->children[child_index]->name, NULL);
     }
 
     fd_ctx = local->fd_ctx;
