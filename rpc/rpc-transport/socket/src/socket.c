@@ -193,7 +193,7 @@ socket_dump_info(struct sockaddr *sa, int is_server, int is_ssl, int sock,
         0,
     };
     char *addr = NULL;
-    char *peer_type = NULL;
+    const char *peer_type = NULL;
     int af = sa->sa_family;
     int so_error = -1;
     socklen_t slen = sizeof(so_error);
@@ -4055,31 +4055,23 @@ reconfigure(rpc_transport_t *this, dict_t *options)
     socket_private_t *priv = NULL;
     gf_boolean_t tmp_bool = _gf_false;
     char *optstr = NULL;
-    int ret = 0;
+    int ret = -1;
     uint32_t backlog = 0;
     uint64_t windowsize = 0;
-    uint32_t timeout = GF_NETWORK_TIMEOUT;
-    int keepaliveidle = GF_KEEPALIVE_TIME;
-    int keepaliveintvl = GF_KEEPALIVE_INTERVAL;
-    int keepalivecnt = GF_KEEPALIVE_COUNT;
+    data_t *data;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
 
-    if (!this || !this->private) {
-        ret = -1;
-        goto out;
-    }
-
     priv = this->private;
 
-    if (dict_get_str(options, "transport.socket.keepalive", &optstr) == 0) {
+    if (dict_get_str_sizen(options, "transport.socket.keepalive", &optstr) ==
+        0) {
         if (gf_string2boolean(optstr, &tmp_bool) == -1) {
             gf_log(this->name, GF_LOG_ERROR,
                    "'transport.socket.keepalive' takes only "
                    "boolean options, not taking any action");
             priv->keepalive = 1;
-            ret = -1;
             goto out;
         }
         gf_log(this->name, GF_LOG_DEBUG,
@@ -4089,48 +4081,41 @@ reconfigure(rpc_transport_t *this, dict_t *options)
     } else
         priv->keepalive = 1;
 
-    if (dict_get_int32(options, "transport.tcp-user-timeout",
-                       &(priv->timeout)) != 0)
-        priv->timeout = timeout;
+    if (dict_get_int32_sizen(options, "transport.tcp-user-timeout",
+                             &(priv->timeout)) != 0)
+        priv->timeout = GF_NETWORK_TIMEOUT;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued "
-           "transport.tcp-user-timeout=%d",
-           priv->timeout);
+           "Reconfigued transport.tcp-user-timeout=%d", priv->timeout);
 
     if (dict_get_uint32(options, "transport.listen-backlog", &backlog) == 0) {
         priv->backlog = backlog;
         gf_log(this->name, GF_LOG_DEBUG,
-               "Reconfigued "
-               "transport.listen-backlog=%d",
-               priv->backlog);
+               "Reconfigued transport.listen-backlog=%d", priv->backlog);
     }
 
-    if (dict_get_int32(options, "transport.socket.keepalive-time",
-                       &(priv->keepaliveidle)) != 0)
-        priv->keepaliveidle = keepaliveidle;
+    if (dict_get_int32_sizen(options, "transport.socket.keepalive-time",
+                             &(priv->keepaliveidle)) != 0)
+        priv->keepaliveidle = GF_KEEPALIVE_TIME;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued "
-           "transport.socket.keepalive-time=%d",
+           "Reconfigued transport.socket.keepalive-time=%d",
            priv->keepaliveidle);
 
-    if (dict_get_int32(options, "transport.socket.keepalive-interval",
-                       &(priv->keepaliveintvl)) != 0)
-        priv->keepaliveintvl = keepaliveintvl;
+    if (dict_get_int32_sizen(options, "transport.socket.keepalive-interval",
+                             &(priv->keepaliveintvl)) != 0)
+        priv->keepaliveintvl = GF_KEEPALIVE_INTERVAL;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued "
-           "transport.socket.keepalive-interval=%d",
+           "Reconfigued transport.socket.keepalive-interval=%d",
            priv->keepaliveintvl);
 
-    if (dict_get_int32(options, "transport.socket.keepalive-count",
-                       &(priv->keepalivecnt)) != 0)
-        priv->keepalivecnt = keepalivecnt;
+    if (dict_get_int32_sizen(options, "transport.socket.keepalive-count",
+                             &(priv->keepalivecnt)) != 0)
+        priv->keepalivecnt = GF_KEEPALIVE_COUNT;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued "
-           "transport.socket.keepalive-count=%d",
+           "Reconfigued transport.socket.keepalive-count=%d",
            priv->keepalivecnt);
 
     optstr = NULL;
-    if (dict_get_str(options, "tcp-window-size", &optstr) == 0) {
+    if (dict_get_str_sizen(options, "tcp-window-size", &optstr) == 0) {
         if (gf_string2uint64(optstr, &windowsize) != 0) {
             gf_log(this->name, GF_LOG_ERROR, "invalid number format: %s",
                    optstr);
@@ -4140,8 +4125,9 @@ reconfigure(rpc_transport_t *this, dict_t *options)
 
     priv->windowsize = (int)windowsize;
 
-    if (dict_get(options, "non-blocking-io")) {
-        optstr = data_to_str(dict_get(options, "non-blocking-io"));
+    data = dict_get_sizen(options, "non-blocking-io");
+    if (data) {
+        optstr = data_to_str(data);
 
         if (gf_string2boolean(optstr, &tmp_bool) == -1) {
             gf_log(this->name, GF_LOG_ERROR,
@@ -4291,7 +4277,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
     }
 
     priv->ssl_own_cert = DEFAULT_CERT_PATH;
-    if (dict_get_str(this->options, SSL_OWN_CERT_OPT, &optstr) == 0) {
+    if (dict_get_str_sizen(this->options, SSL_OWN_CERT_OPT, &optstr) == 0) {
         if (!priv->ssl_enabled) {
             gf_log(this->name, GF_LOG_WARNING,
                    "%s specified without %s (ignored)", SSL_OWN_CERT_OPT,
@@ -4302,7 +4288,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
     priv->ssl_own_cert = gf_strdup(priv->ssl_own_cert);
 
     priv->ssl_private_key = DEFAULT_KEY_PATH;
-    if (dict_get_str(this->options, SSL_PRIVATE_KEY_OPT, &optstr) == 0) {
+    if (dict_get_str_sizen(this->options, SSL_PRIVATE_KEY_OPT, &optstr) == 0) {
         if (!priv->ssl_enabled) {
             gf_log(this->name, GF_LOG_WARNING,
                    "%s specified without %s (ignored)", SSL_PRIVATE_KEY_OPT,
@@ -4313,7 +4299,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
     priv->ssl_private_key = gf_strdup(priv->ssl_private_key);
 
     priv->ssl_ca_list = DEFAULT_CA_PATH;
-    if (dict_get_str(this->options, SSL_CA_LIST_OPT, &optstr) == 0) {
+    if (dict_get_str_sizen(this->options, SSL_CA_LIST_OPT, &optstr) == 0) {
         if (!priv->ssl_enabled) {
             gf_log(this->name, GF_LOG_WARNING,
                    "%s specified without %s (ignored)", SSL_CA_LIST_OPT,
@@ -4324,7 +4310,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
     priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
     optstr = NULL;
-    if (dict_get_str(this->options, SSL_CRL_PATH_OPT, &optstr) == 0) {
+    if (dict_get_str_sizen(this->options, SSL_CRL_PATH_OPT, &optstr) == 0) {
         if (!priv->ssl_enabled) {
             gf_log(this->name, GF_LOG_WARNING,
                    "%s specified without %s (ignored)", SSL_CRL_PATH_OPT,
@@ -4344,7 +4330,8 @@ ssl_setup_connection_params(rpc_transport_t *this)
            priv->mgmt_ssl ? "ENABLED" : "NOT enabled");
 
     if (!priv->mgmt_ssl) {
-        if (!dict_get_int32(this->options, SSL_CERT_DEPTH_OPT, &cert_depth)) {
+        if (!dict_get_int32_sizen(this->options, SSL_CERT_DEPTH_OPT,
+                                  &cert_depth)) {
             gf_log(this->name, GF_LOG_INFO, "using certificate depth %d",
                    cert_depth);
         }
@@ -4353,13 +4340,13 @@ ssl_setup_connection_params(rpc_transport_t *this)
         gf_log(this->name, GF_LOG_INFO, "using certificate depth %d",
                cert_depth);
     }
-    if (!dict_get_str(this->options, SSL_CIPHER_LIST_OPT, &cipher_list)) {
+    if (!dict_get_str_sizen(this->options, SSL_CIPHER_LIST_OPT, &cipher_list)) {
         gf_log(this->name, GF_LOG_INFO, "using cipher list %s", cipher_list);
     }
-    if (!dict_get_str(this->options, SSL_DH_PARAM_OPT, &dh_param)) {
+    if (!dict_get_str_sizen(this->options, SSL_DH_PARAM_OPT, &dh_param)) {
         gf_log(this->name, GF_LOG_INFO, "using DH parameters %s", dh_param);
     }
-    if (!dict_get_str(this->options, SSL_EC_CURVE_OPT, &ec_curve)) {
+    if (!dict_get_str_sizen(this->options, SSL_EC_CURVE_OPT, &ec_curve)) {
         gf_log(this->name, GF_LOG_INFO, "using EC curve %s", ec_curve);
     }
 
@@ -4513,22 +4500,17 @@ socket_init(rpc_transport_t *this)
     gf_boolean_t tmp_bool = 0;
     uint64_t windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
     char *optstr = NULL;
-    uint32_t timeout = GF_NETWORK_TIMEOUT;
-    int keepaliveidle = GF_KEEPALIVE_TIME;
-    int keepaliveintvl = GF_KEEPALIVE_INTERVAL;
-    int keepalivecnt = GF_KEEPALIVE_COUNT;
-    uint32_t backlog = 0;
+    data_t *data;
 
     if (this->private) {
         gf_log_callingfn(this->name, GF_LOG_ERROR, "double init attempted");
         return -1;
     }
 
-    priv = GF_MALLOC(sizeof(*priv), gf_common_mt_socket_private_t);
+    priv = GF_CALLOC(1, sizeof(*priv), gf_common_mt_socket_private_t);
     if (!priv) {
         return -1;
     }
-    memset(priv, 0, sizeof(*priv));
 
     this->private = priv;
     pthread_mutex_init(&priv->out_lock, NULL);
@@ -4553,8 +4535,9 @@ socket_init(rpc_transport_t *this)
     if (!this->options)
         goto out;
 
-    if (dict_get(this->options, "non-blocking-io")) {
-        optstr = data_to_str(dict_get(this->options, "non-blocking-io"));
+    data = dict_get_sizen(this->options, "non-blocking-io");
+    if (data) {
+        optstr = data_to_str(data);
 
         if (gf_string2boolean(optstr, &tmp_bool) == -1) {
             gf_log(this->name, GF_LOG_ERROR,
@@ -4572,9 +4555,9 @@ socket_init(rpc_transport_t *this)
     optstr = NULL;
 
     /* By default, we enable NODELAY */
-    if (dict_get(this->options, "transport.socket.nodelay")) {
-        optstr = data_to_str(
-            dict_get(this->options, "transport.socket.nodelay"));
+    data = dict_get_sizen(this->options, "transport.socket.nodelay");
+    if (data) {
+        optstr = data_to_str(data);
 
         if (gf_string2boolean(optstr, &tmp_bool) == -1) {
             gf_log(this->name, GF_LOG_ERROR,
@@ -4589,7 +4572,7 @@ socket_init(rpc_transport_t *this)
     }
 
     optstr = NULL;
-    if (dict_get_str(this->options, "tcp-window-size", &optstr) == 0) {
+    if (dict_get_str_sizen(this->options, "tcp-window-size", &optstr) == 0) {
         if (gf_string2uint64(optstr, &windowsize) != 0) {
             gf_log(this->name, GF_LOG_ERROR, "invalid number format: %s",
                    optstr);
@@ -4605,8 +4588,8 @@ socket_init(rpc_transport_t *this)
     priv->keepaliveintvl = GF_KEEPALIVE_INTERVAL;
     priv->keepaliveidle = GF_KEEPALIVE_TIME;
     priv->keepalivecnt = GF_KEEPALIVE_COUNT;
-    if (dict_get_str(this->options, "transport.socket.keepalive", &optstr) ==
-        0) {
+    if (dict_get_str_sizen(this->options, "transport.socket.keepalive",
+                           &optstr) == 0) {
         if (gf_string2boolean(optstr, &tmp_bool) == -1) {
             gf_log(this->name, GF_LOG_ERROR,
                    "'transport.socket.keepalive' takes only "
@@ -4618,45 +4601,41 @@ socket_init(rpc_transport_t *this)
             priv->keepalive = 0;
     }
 
-    if (dict_get_int32(this->options, "transport.tcp-user-timeout",
-                       &(priv->timeout)) != 0)
-        priv->timeout = timeout;
-    gf_log(this->name, GF_LOG_DEBUG,
-           "Configued "
-           "transport.tcp-user-timeout=%d",
+    if (dict_get_int32_sizen(this->options, "transport.tcp-user-timeout",
+                             &(priv->timeout)) != 0)
+        priv->timeout = GF_NETWORK_TIMEOUT;
+    gf_log(this->name, GF_LOG_DEBUG, "Configued transport.tcp-user-timeout=%d",
            priv->timeout);
 
-    if (dict_get_int32(this->options, "transport.socket.keepalive-time",
-                       &(priv->keepaliveidle)) != 0) {
-        priv->keepaliveidle = keepaliveidle;
+    if (dict_get_int32_sizen(this->options, "transport.socket.keepalive-time",
+                             &(priv->keepaliveidle)) != 0) {
+        priv->keepaliveidle = GF_KEEPALIVE_TIME;
     }
 
-    if (dict_get_int32(this->options, "transport.socket.keepalive-interval",
-                       &(priv->keepaliveintvl)) != 0) {
-        priv->keepaliveintvl = keepaliveintvl;
+    if (dict_get_int32_sizen(this->options,
+                             "transport.socket.keepalive-interval",
+                             &(priv->keepaliveintvl)) != 0) {
+        priv->keepaliveintvl = GF_KEEPALIVE_INTERVAL;
     }
 
-    if (dict_get_int32(this->options, "transport.socket.keepalive-count",
-                       &(priv->keepalivecnt)) != 0)
-        priv->keepalivecnt = keepalivecnt;
-    gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued "
-           "transport.keepalivecnt=%d",
-           keepalivecnt);
+    if (dict_get_int32_sizen(this->options, "transport.socket.keepalive-count",
+                             &(priv->keepalivecnt)) != 0)
+        priv->keepalivecnt = GF_KEEPALIVE_COUNT;
+    gf_log(this->name, GF_LOG_DEBUG, "Reconfigued transport.keepalivecnt=%d",
+           priv->keepalivecnt);
 
-    if (dict_get_uint32(this->options, "transport.listen-backlog", &backlog) !=
-        0) {
-        backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
+    if (dict_get_uint32(this->options, "transport.listen-backlog",
+                        &(priv->backlog)) != 0) {
+        priv->backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
     }
-    priv->backlog = backlog;
 
     optstr = NULL;
 
     /* Check if socket read failures are to be logged */
     priv->read_fail_log = 1;
-    if (dict_get(this->options, "transport.socket.read-fail-log")) {
-        optstr = data_to_str(
-            dict_get(this->options, "transport.socket.read-fail-log"));
+    data = dict_get_sizen(this->options, "transport.socket.read-fail-log");
+    if (data) {
+        optstr = data_to_str(data);
         if (gf_string2boolean(optstr, &tmp_bool) == -1) {
             gf_log(this->name, GF_LOG_WARNING,
                    "'transport.socket.read-fail-log' takes only "
@@ -4669,7 +4648,7 @@ socket_init(rpc_transport_t *this)
     priv->windowsize = (int)windowsize;
 
     priv->ssl_enabled = _gf_false;
-    if (dict_get_str(this->options, SSL_ENABLED_OPT, &optstr) == 0) {
+    if (dict_get_str_sizen(this->options, SSL_ENABLED_OPT, &optstr) == 0) {
         if (gf_string2boolean(optstr, &priv->ssl_enabled) != 0) {
             gf_log(this->name, GF_LOG_ERROR,
                    "invalid value given for ssl-enabled boolean");
