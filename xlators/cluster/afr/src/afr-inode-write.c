@@ -1059,11 +1059,10 @@ afr_emptyb_set_pending_changelog_cbk(call_frame_t *frame, void *cookie,
     if (ret)
         goto out;
 
-    gf_msg(this->name, op_ret ? GF_LOG_ERROR : GF_LOG_INFO,
-           op_ret ? op_errno : 0, afr_get_msg_id(op_type),
-           "Set of pending xattr %s on"
-           " %s.",
-           op_ret ? "failed" : "succeeded", priv->children[i]->name);
+    gf_smsg(this->name, op_ret ? GF_LOG_ERROR : GF_LOG_INFO,
+            op_ret ? op_errno : 0, AFR_MSG_SET_PEND_XATTR, "name=%s",
+            priv->children[i]->name, "op_ret=%s",
+            op_ret ? "failed" : "succeeded", NULL);
 
 out:
     syncbarrier_wake(&local->barrier);
@@ -1157,9 +1156,8 @@ _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
     }
 
     if (!count) {
-        gf_msg(this->name, GF_LOG_ERROR, EAGAIN, AFR_MSG_REPLACE_BRICK_STATUS,
-               "Couldn't acquire lock on"
-               " any child.");
+        gf_smsg(this->name, GF_LOG_ERROR, EAGAIN, AFR_MSG_REPLACE_BRICK_STATUS,
+                NULL);
         ret = -EAGAIN;
         goto unlock;
     }
@@ -1237,8 +1235,8 @@ _afr_handle_empty_brick(void *opaque)
 
     loc_copy(&local->loc, &data->loc);
 
-    gf_msg(this->name, GF_LOG_INFO, 0, 0, "New brick is : %s",
-           priv->children[empty_index]->name);
+    gf_smsg(this->name, GF_LOG_INFO, 0, AFR_MSG_NEW_BRICK, "name=%s",
+            priv->children[empty_index]->name, NULL);
 
     ret = _afr_handle_empty_brick_type(this, op_frame, &local->loc, empty_index,
                                        AFR_METADATA_TRANSACTION, op_type,
@@ -1313,9 +1311,8 @@ afr_split_brain_resolve_do(call_frame_t *frame, xlator_t *this, loc_t *loc,
      */
     ret = afr_inode_split_brain_choice_set(loc->inode, this, -1);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
-               "Failed to set"
-               "split-brain choice to -1");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN_SET_FAILED,
+                NULL);
     afr_heal_splitbrain_file(frame, this, loc);
     ret = 0;
 out:
@@ -1338,8 +1335,8 @@ afr_get_split_brain_child_index(xlator_t *this, void *value, size_t len)
 
     spb_child_index = afr_get_child_index_from_name(this, spb_child_str);
     if (spb_child_index < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_SUBVOL,
-               "Invalid subvol: %s", spb_child_str);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_SUBVOL,
+                "subvol=%s", spb_child_str, NULL);
     }
     return spb_child_index;
 }
@@ -1361,11 +1358,9 @@ afr_can_set_split_brain_choice(void *opaque)
                              &data->m_spb);
 
     if (ret)
-        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
-               "Failed to determine if %s"
-               " is in split-brain. "
-               "Aborting split-brain-choice set.",
-               uuid_utoa(loc->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                AFR_MSG_SPLIT_BRAIN_DETERMINE_FAILED, "gfid=%s",
+                uuid_utoa(loc->gfid), NULL);
     return ret;
 }
 
@@ -1427,12 +1422,8 @@ afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
         ret = synctask_new(this->ctx->env, afr_can_set_split_brain_choice,
                            afr_set_split_brain_choice, NULL, data);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
-                   "Failed to create"
-                   " synctask. Aborting split-brain choice set"
-                   " for %s",
-                   loc->name);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN_STATUS,
+                    "name=%s", loc->name, NULL);
             ret = 1;
             op_errno = ENOMEM;
             goto out;
@@ -1507,8 +1498,8 @@ afr_handle_empty_brick(xlator_t *this, call_frame_t *frame, loc_t *loc,
         goto out;
 
     if (frame->root->pid != GF_CLIENT_PID_ADD_REPLICA_MOUNT) {
-        gf_msg(this->name, GF_LOG_ERROR, EPERM, afr_get_msg_id(op_type),
-               "'%s' is an internal extended attribute.", op_type);
+        gf_smsg(this->name, GF_LOG_ERROR, EPERM, AFR_MSG_INTERNAL_ATTR,
+                "op_type=%s", op_type, NULL);
         ret = 1;
         goto out;
     }
@@ -1534,8 +1525,8 @@ afr_handle_empty_brick(xlator_t *this, call_frame_t *frame, loc_t *loc,
         ret = synctask_new(this->ctx->env, _afr_handle_empty_brick,
                            _afr_handle_empty_brick_cbk, NULL, data);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, afr_get_msg_id(op_type),
-                   "Failed to create synctask.");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN_STATUS,
+                    NULL);
             ret = 1;
             op_errno = ENOMEM;
             afr_brick_args_cleanup(data);
