@@ -151,4 +151,13 @@ GLFS_MSGID(
 #define LG_MSG_DIR_IS_SYMLINK_STR "dir is symlink"
 #define LG_MSG_RESOLVE_HOSTNAME_FAILED_STR "couldnot resolve hostname"
 #define LG_MSG_PATH_OPEN_FAILED_STR "Unable to open path"
+#define LG_MSG_NO_MEMORY_STR "Error allocating memory"
+#define LG_MSG_EVENT_NOTIFY_FAILED_STR "notification failed"
+#define LG_MSG_PER_DENTRY_FAILED_STR "per dentry fn returned"
+#define LG_MSG_PARENT_DENTRY_NOT_FOUND_STR "parent not found"
+#define LG_MSG_DENTRY_CYCLIC_LOOP_STR                                          \
+    "detected cyclic loop formation during inode linkage"
+#define LG_MSG_CTX_NULL_STR "_ctx not found"
+#define LG_MSG_DENTRY_NOT_FOUND_STR "dentry not found"
+
 #endif /* !_LG_MESSAGES_H_ */

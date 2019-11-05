@@ -105,8 +105,8 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
                 if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
                             sizeof(volfile_obj->volfile_checksum))) {
                     UNLOCK(&ctx->volfile_lock);
-                    gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_40,
-                           "No change in volfile, continuing");
+                    gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_40,
+                            NULL);
                     goto out;
                 }
                 volfile_tmp = volfile_obj;
@@ -118,8 +118,8 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
         tmp_fd = mkstemp(template);
         if (-1 == tmp_fd) {
             UNLOCK(&ctx->volfile_lock);
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
-                   "Unable to create temporary file: %s", template);
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
+                    "create template=%s", template, NULL);
             ret = -1;
             goto out;
         }
@@ -129,8 +129,8 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
          */
         ret = sys_unlink(template);
         if (ret < 0) {
-            gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
-                   "Unable to delete temporary file: %s", template);
+            gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
+                    "delete template=%s", template, NULL);
             ret = 0;
         }
 
@@ -747,10 +747,8 @@ glusterfs_handle_translator_op(rpcsvc_request_t *req)
     active = ctx->active;
     if (!active) {
         ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, EAGAIN, glusterfsd_msg_38,
-               "Not processing brick-op no. %d since volume graph is "
-               "not yet active.",
-               xlator_req.op);
+        gf_smsg(this->name, GF_LOG_ERROR, EAGAIN, glusterfsd_msg_38,
+                "brick-op_no.=%d", xlator_req.op, NULL);
         goto out;
     }
     any = active->first;
@@ -869,8 +867,7 @@ glusterfs_handle_bitrot(rpcsvc_request_t *req)
                            xlator_req.input.input_len, &input);
 
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_35,
-               "rpc req buffer unserialization failed.");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_35, NULL);
         goto out;
     }
 
@@ -879,8 +876,7 @@ glusterfs_handle_bitrot(rpcsvc_request_t *req)
     xlator = xlator_search_by_name(any, xname);
     if (!xlator) {
         snprintf(msg, sizeof(msg), "xlator %s is not loaded", xname);
-        gf_msg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_36,
-               "problem in xlator loading.");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_36, NULL);
         goto out;
     }
 
@@ -893,8 +889,7 @@ glusterfs_handle_bitrot(rpcsvc_request_t *req)
     ret = dict_get_str(input, "scrub-value", &scrub_opt);
     if (ret) {
         snprintf(msg, sizeof(msg), "Failed to get scrub value");
-        gf_msg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_37,
-               "failed to get dict value");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_37, NULL);
         ret = -1;
         goto out;
     }
@@ -977,10 +972,8 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
             nextchild = newgraph->first;
             ret = xlator_notify(nextchild, GF_EVENT_PARENT_UP, nextchild);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
-                       "Parent up notification "
-                       "failed for %s ",
-                       nextchild->name);
+                gf_smsg(this->name, GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
+                        "event=ParentUp", "name=%s", nextchild->name, NULL);
                 goto unlock;
             }
             /* we need a protocol/server xlator as
@@ -1037,10 +1030,8 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_41,
-           "received attach "
-           "request for volfile-id=%s",
-           xlator_req.name);
+    gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_41, "volfile-id=%s",
+            xlator_req.name, NULL);
 
     dict = dict_new();
     if (!dict) {
@@ -1052,8 +1043,7 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
     ret = dict_unserialize(xlator_req.dict.dict_val, xlator_req.dict.dict_len,
                            &dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, glusterfsd_msg_42,
-               "failed to unserialize xdata to dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, glusterfsd_msg_42, NULL);
         goto out;
     }
     dict->extra_stdfree = xlator_req.dict.dict_val;
@@ -1105,8 +1095,8 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
 
         if (!volfile_tmp) {
             UNLOCK(&ctx->volfile_lock);
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_41,
-                   "can't detach %s - not found", xlator_req.name);
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_041, "name=%s",
+                    xlator_req.name, NULL);
             /*
              * Used to be -ENOENT.  However, the caller asked us to
              * make sure it's down and if it's already down that's
@@ -1119,9 +1109,8 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
         ret = glusterfs_process_svc_detach(ctx, volfile_tmp);
         if (ret) {
             UNLOCK(&ctx->volfile_lock);
-            gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL, glusterfsd_msg_41,
-                   "Could not detach "
-                   "old graph. Aborting the reconfiguration operation");
+            gf_smsg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL, glusterfsd_msg_042,
+                    NULL);
             goto out;
         }
     }
@@ -1178,10 +1167,8 @@ glusterfs_handle_dump_metrics(rpcsvc_request_t *req)
         goto out;
 
     if (statbuf.st_size > GF_UNIT_MB) {
-        gf_msg(this->name, GF_LOG_WARNING, ENOMEM, LG_MSG_NO_MEMORY,
-               "Allocated size exceeds expectation: "
-               "reconsider logic (%" PRId64 ")",
-               statbuf.st_size);
+        gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, LG_MSG_NO_MEMORY,
+                "reconsider logic (%" PRId64 ")", statbuf.st_size, NULL);
     }
     msg = GF_CALLOC(1, (statbuf.st_size + 1), gf_common_mt_char);
     if (!msg)
@@ -2226,8 +2213,8 @@ volfile:
         tmp_fd = mkstemp(template);
         if (-1 == tmp_fd) {
             UNLOCK(&ctx->volfile_lock);
-            gf_msg(frame->this->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
-                   "Unable to create temporary file: %s", template);
+            gf_smsg(frame->this->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
+                    "create template=%s", template, NULL);
             ret = -1;
             goto post_unlock;
         }
@@ -2237,8 +2224,8 @@ volfile:
          */
         ret = sys_unlink(template);
         if (ret < 0) {
-            gf_msg(frame->this->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
-                   "Unable to delete temporary file: %s", template);
+            gf_smsg(frame->this->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
+                    "delete template=%s", template, NULL);
             ret = 0;
         }
 
