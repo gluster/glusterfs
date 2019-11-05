@@ -836,6 +836,7 @@ __iot_workers_scale(iot_conf_t *conf)
         ret = gf_thread_create(&thread, &conf->w_attr, iot_worker, conf,
                                thread_name);
         if (ret == 0) {
+            pthread_detach(thread);
             conf->curr_count++;
             gf_msg_debug(conf->this->name, 0,
                          "scaled threads to %d (queue_size=%d/%d)",
