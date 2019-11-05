@@ -459,7 +459,7 @@ struct opthandler_data {
     void *param;
 };
 
-static int
+static void
 process_option(char *key, data_t *value, void *param)
 {
     struct opthandler_data *odt = param;
@@ -468,7 +468,7 @@ process_option(char *key, data_t *value, void *param)
     };
 
     if (odt->rv)
-        return 0;
+        return;
     odt->found = _gf_true;
 
     vme.key = key;
@@ -489,7 +489,7 @@ process_option(char *key, data_t *value, void *param)
         vme.value = value->data;
 
     odt->rv = odt->handler(odt->graph, &vme, odt->param);
-    return 0;
+    return;
 }
 
 static int
@@ -501,7 +501,7 @@ volgen_graph_set_options_generic(volgen_graph_t *graph, dict_t *dict,
         0,
     };
     data_t *data = NULL;
-    const int skip_cliot = dict_get_str_boolean(dict, "skip-CLIOT", _gf_false);
+    int keylen;
 
     odt.graph = graph;
     odt.handler = handler;
@@ -509,16 +509,17 @@ volgen_graph_set_options_generic(volgen_graph_t *graph, dict_t *dict,
     (void)data;
 
     for (vme = glusterd_volopt_map; vme->key; vme++) {
-        odt.vme = vme;
-        odt.found = _gf_false;
-        odt.data_t_fake = _gf_false;
-
-        data = dict_get(dict, vme->key);
-        if (skip_cliot == _gf_true &&
-            !strcmp(vme->key, "performance.client-io-threads")) {
+        keylen = strlen(vme->key);
+        if (keylen == SLEN("performance.client-io-threads") &&
+            !strcmp(vme->key, "performance.client-io-threads") &&
+            dict_get_str_boolean(dict, "skip-CLIOT", _gf_false) == _gf_true) {
             continue;
         }
 
+        odt.vme = vme;
+        odt.found = _gf_false;
+        odt.data_t_fake = _gf_false;
+        data = dict_getn(dict, vme->key, keylen);
         if (data)
             process_option(vme->key, data, &odt);
         if (odt.rv)
