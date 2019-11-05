@@ -298,8 +298,13 @@ int
 glusterfs_mgmt_init(glusterfs_ctx_t *ctx);
 int
 glusterfs_listener_init(glusterfs_ctx_t *ctx);
-int
-glusterfs_listener_stop(glusterfs_ctx_t *ctx);
+
+#define DICT_SET_VAL(method, dict, key, val, msgid)                            \
+    if (method(dict, key, val)) {                                              \
+        gf_smsg("glusterfsd", GF_LOG_ERROR, 0, msgid,                          \
+                "Failed to set dict value for key %s", key);                   \
+        goto err;                                                              \
+    }
 
 static int
 set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
@@ -321,172 +326,95 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
             ret = gf_asprintf(&mount_point, "%s/%s", cwd,
                               cmd_args->mount_point);
             if (ret == -1) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_1,
-                       "Could not create absolute mountpoint "
-                       "path");
+                gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_1,
+                        "gf_asprintf failed");
                 goto err;
             }
         } else {
-            gf_msg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_2,
-                   "Could not get current working directory");
+            gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_2,
+                    "getcwd failed");
             goto err;
         }
-    } else
+    } else {
         mount_point = gf_strdup(cmd_args->mount_point);
-
-    ret = dict_set_dynstr(options, ZR_MOUNTPOINT_OPT, mount_point);
-    if (ret < 0) {
-        gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_3,
-               "failed to set mount-point to options dictionary");
-        goto err;
     }
+    DICT_SET_VAL(dict_set_dynstr_sizen, options, ZR_MOUNTPOINT_OPT, mount_point,
+                 glusterfsd_msg_3);
 
     if (cmd_args->fuse_attribute_timeout >= 0) {
-        ret = dict_set_double(options, ZR_ATTR_TIMEOUT_OPT,
-                              cmd_args->fuse_attribute_timeout);
-
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_4,
-                   "failed to set dict value "
-                   "for key " ZR_ATTR_TIMEOUT_OPT);
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_double, options, ZR_ATTR_TIMEOUT_OPT,
+                     cmd_args->fuse_attribute_timeout, glusterfsd_msg_3);
     }
 
     if (cmd_args->fuse_entry_timeout >= 0) {
-        ret = dict_set_double(options, ZR_ENTRY_TIMEOUT_OPT,
-                              cmd_args->fuse_entry_timeout);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key " ZR_ENTRY_TIMEOUT_OPT);
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_double, options, ZR_ENTRY_TIMEOUT_OPT,
+                     cmd_args->fuse_entry_timeout, glusterfsd_msg_3);
     }
 
     if (cmd_args->fuse_negative_timeout >= 0) {
-        ret = dict_set_double(options, ZR_NEGATIVE_TIMEOUT_OPT,
-                              cmd_args->fuse_negative_timeout);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key " ZR_NEGATIVE_TIMEOUT_OPT);
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_double, options, ZR_NEGATIVE_TIMEOUT_OPT,
+                     cmd_args->fuse_negative_timeout, glusterfsd_msg_3);
     }
 
     if (cmd_args->client_pid_set) {
-        ret = dict_set_int32(options, "client-pid", cmd_args->client_pid);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key client-pid");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "client-pid",
+                     cmd_args->client_pid, glusterfsd_msg_3);
     }
 
     if (cmd_args->uid_map_root) {
-        ret = dict_set_int32(options, "uid-map-root", cmd_args->uid_map_root);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "uid-map-root");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "uid-map-root",
+                     cmd_args->uid_map_root, glusterfsd_msg_3);
     }
 
     if (cmd_args->volfile_check) {
-        ret = dict_set_int32(options, ZR_STRICT_VOLFILE_CHECK,
-                             cmd_args->volfile_check);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key " ZR_STRICT_VOLFILE_CHECK);
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, ZR_STRICT_VOLFILE_CHECK,
+                     cmd_args->volfile_check, glusterfsd_msg_3);
     }
 
     if (cmd_args->dump_fuse) {
-        ret = dict_set_static_ptr(options, ZR_DUMP_FUSE, cmd_args->dump_fuse);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key " ZR_DUMP_FUSE);
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, ZR_DUMP_FUSE,
+                     cmd_args->dump_fuse, glusterfsd_msg_3);
     }
 
     if (cmd_args->acl) {
-        ret = dict_set_static_ptr(options, "acl", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key acl");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "acl", "on",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->selinux) {
-        ret = dict_set_static_ptr(options, "selinux", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key selinux");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "selinux", "on",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->capability) {
-        ret = dict_set_static_ptr(options, "capability", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key capability");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "capability", "on",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->aux_gfid_mount) {
-        ret = dict_set_static_ptr(options, "virtual-gfid-access", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "aux-gfid-mount");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "virtual-gfid-access", "on",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->enable_ino32) {
-        ret = dict_set_static_ptr(options, "enable-ino32", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "enable-ino32");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "enable-ino32", "on",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->read_only) {
-        ret = dict_set_static_ptr(options, "read-only", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key read-only");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "read-only", "on",
+                     glusterfsd_msg_3);
     }
 
     switch (cmd_args->fopen_keep_cache) {
         case GF_OPTION_ENABLE:
-            ret = dict_set_static_ptr(options, "fopen-keep-cache", "on");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                       "failed to set dict value for key "
-                       "fopen-keep-cache");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "fopen-keep-cache", "on",
+                         glusterfsd_msg_3);
             break;
         case GF_OPTION_DISABLE:
-            ret = dict_set_static_ptr(options, "fopen-keep-cache", "off");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                       "failed to set dict value for key "
-                       "fopen-keep-cache");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "fopen-keep-cache",
+                         "off", glusterfsd_msg_3);
             break;
-        case GF_OPTION_DEFERRED: /* default */
         default:
             gf_msg_debug("glusterfsd", 0, "fopen-keep-cache mode %d",
                          cmd_args->fopen_keep_cache);
@@ -494,82 +422,43 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
     }
 
     if (cmd_args->gid_timeout_set) {
-        ret = dict_set_int32(options, "gid-timeout", cmd_args->gid_timeout);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key gid-timeout");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "gid-timeout",
+                     cmd_args->gid_timeout, glusterfsd_msg_3);
     }
 
     if (cmd_args->resolve_gids) {
-        ret = dict_set_static_ptr(options, "resolve-gids", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "resolve-gids");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "resolve-gids", "on",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->lru_limit >= 0) {
-        ret = dict_set_int32(options, "lru-limit", cmd_args->lru_limit);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "lru-limit");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "lru-limit",
+                     cmd_args->lru_limit, glusterfsd_msg_3);
     }
 
     if (cmd_args->invalidate_limit >= 0) {
-        ret = dict_set_int32(options, "invalidate-limit",
-                             cmd_args->invalidate_limit);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "invalidate-limit");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "invalidate-limit",
+                     cmd_args->invalidate_limit, glusterfsd_msg_3);
     }
 
     if (cmd_args->background_qlen) {
-        ret = dict_set_int32(options, "background-qlen",
-                             cmd_args->background_qlen);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "background-qlen");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "background-qlen",
+                     cmd_args->background_qlen, glusterfsd_msg_3);
     }
     if (cmd_args->congestion_threshold) {
-        ret = dict_set_int32(options, "congestion-threshold",
-                             cmd_args->congestion_threshold);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "congestion-threshold");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_int32_sizen, options, "congestion-threshold",
+                     cmd_args->congestion_threshold, glusterfsd_msg_3);
     }
 
     switch (cmd_args->fuse_direct_io_mode) {
         case GF_OPTION_DISABLE: /* disable */
-            ret = dict_set_static_ptr(options, ZR_DIRECT_IO_OPT, "disable");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_5,
-                       "failed to set 'disable' for key " ZR_DIRECT_IO_OPT);
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, ZR_DIRECT_IO_OPT,
+                         "disable", glusterfsd_msg_3);
             break;
         case GF_OPTION_ENABLE: /* enable */
-            ret = dict_set_static_ptr(options, ZR_DIRECT_IO_OPT, "enable");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_6,
-                       "failed to set 'enable' for key " ZR_DIRECT_IO_OPT);
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, ZR_DIRECT_IO_OPT,
+                         "enable", glusterfsd_msg_3);
             break;
-        case GF_OPTION_DEFERRED: /* auto */
         default:
             gf_msg_debug("glusterfsd", 0, "fuse direct io type %d",
                          cmd_args->fuse_direct_io_mode);
@@ -578,160 +467,82 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
 
     switch (cmd_args->no_root_squash) {
         case GF_OPTION_ENABLE: /* enable */
-            ret = dict_set_static_ptr(options, "no-root-squash", "enable");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_6,
-                       "failed to set 'enable' for key "
-                       "no-root-squash");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "no-root-squash",
+                         "enable", glusterfsd_msg_3);
             break;
-        case GF_OPTION_DISABLE: /* disable/default */
         default:
-            ret = dict_set_static_ptr(options, "no-root-squash", "disable");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_5,
-                       "failed to set 'disable' for key "
-                       "no-root-squash");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "no-root-squash",
+                         "disable", glusterfsd_msg_3);
             gf_msg_debug("glusterfsd", 0, "fuse no-root-squash mode %d",
                          cmd_args->no_root_squash);
             break;
     }
 
     if (!cmd_args->no_daemon_mode) {
-        ret = dict_set_static_ptr(options, "sync-to-mount", "enable");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key sync-mtab");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "sync-to-mount", "enable",
+                     glusterfsd_msg_3);
     }
 
     if (cmd_args->use_readdirp) {
-        ret = dict_set_str(options, "use-readdirp", cmd_args->use_readdirp);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "use-readdirp");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "use-readdirp",
+                     cmd_args->use_readdirp, glusterfsd_msg_3);
     }
     if (cmd_args->event_history) {
         ret = dict_set_str(options, "event-history", cmd_args->event_history);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "event-history");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "event-history",
+                     cmd_args->event_history, glusterfsd_msg_3);
     }
     if (cmd_args->thin_client) {
-        ret = dict_set_static_ptr(options, "thin-client", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "thin-client");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "thin-client", "on",
+                     glusterfsd_msg_3);
     }
     if (cmd_args->reader_thread_count) {
-        ret = dict_set_uint32(options, "reader-thread-count",
-                              cmd_args->reader_thread_count);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "reader-thread-count");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_uint32, options, "reader-thread-count",
+                     cmd_args->reader_thread_count, glusterfsd_msg_3);
     }
 
-    ret = dict_set_uint32(options, "auto-invalidation",
-                          cmd_args->fuse_auto_inval);
-    if (ret < 0) {
-        gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-               "failed to set dict value for key auto-invalidation");
-        goto err;
-    }
+    DICT_SET_VAL(dict_set_uint32, options, "auto-invalidation",
+                 cmd_args->fuse_auto_inval, glusterfsd_msg_3);
 
     switch (cmd_args->kernel_writeback_cache) {
         case GF_OPTION_ENABLE:
-            ret = dict_set_static_ptr(options, "kernel-writeback-cache", "on");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                       "failed to set dict value for key "
-                       "kernel-writeback-cache");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "kernel-writeback-cache",
+                         "on", glusterfsd_msg_3);
             break;
         case GF_OPTION_DISABLE:
-            ret = dict_set_static_ptr(options, "kernel-writeback-cache", "off");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                       "failed to set dict value for key "
-                       "kernel-writeback-cache");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "kernel-writeback-cache",
+                         "off", glusterfsd_msg_3);
             break;
-        case GF_OPTION_DEFERRED: /* default */
         default:
             gf_msg_debug("glusterfsd", 0, "kernel-writeback-cache mode %d",
                          cmd_args->kernel_writeback_cache);
             break;
     }
     if (cmd_args->attr_times_granularity) {
-        ret = dict_set_uint32(options, "attr-times-granularity",
-                              cmd_args->attr_times_granularity);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "attr-times-granularity");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_uint32, options, "attr-times-granularity",
+                     cmd_args->attr_times_granularity, glusterfsd_msg_3);
     }
     switch (cmd_args->fuse_flush_handle_interrupt) {
         case GF_OPTION_ENABLE:
-            ret = dict_set_static_ptr(options, "flush-handle-interrupt", "on");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                       "failed to set dict value for key "
-                       "flush-handle-interrupt");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "flush-handle-interrupt",
+                         "on", glusterfsd_msg_3);
             break;
         case GF_OPTION_DISABLE:
-            ret = dict_set_static_ptr(options, "flush-handle-interrupt", "off");
-            if (ret < 0) {
-                gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                       "failed to set dict value for key "
-                       "flush-handle-interrupt");
-                goto err;
-            }
+            DICT_SET_VAL(dict_set_static_ptr, options, "flush-handle-interrupt",
+                         "off", glusterfsd_msg_3);
             break;
-        case GF_OPTION_DEFERRED: /* default */
         default:
             gf_msg_debug("glusterfsd", 0, "fuse-flush-handle-interrupt mode %d",
                          cmd_args->fuse_flush_handle_interrupt);
             break;
     }
     if (cmd_args->global_threading) {
-        ret = dict_set_static_ptr(options, "global-threading", "on");
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key global-threading");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_static_ptr, options, "global-threading", "on",
+                     glusterfsd_msg_3);
     }
     if (cmd_args->fuse_dev_eperm_ratelimit_ns) {
-        ret = dict_set_uint32(options, "fuse-dev-eperm-ratelimit-ns",
-                              cmd_args->fuse_dev_eperm_ratelimit_ns);
-        if (ret < 0) {
-            gf_msg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
-                   "failed to set dict value for key "
-                   "fuse-dev-eperm-ratelimit-ns");
-            goto err;
-        }
+        DICT_SET_VAL(dict_set_uint32, options, "fuse-dev-eperm-ratelimit-ns",
+                     cmd_args->fuse_dev_eperm_ratelimit_ns, glusterfsd_msg_3);
     }
 
     ret = 0;

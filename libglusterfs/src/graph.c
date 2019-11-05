@@ -469,7 +469,7 @@ _xlator_check_unknown_options(xlator_t *xl, void *data)
     dict_foreach(xl->options, _log_if_unknown_option, xl);
 }
 
-int
+static int
 glusterfs_graph_unknown_options(glusterfs_graph_t *graph)
 {
     xlator_foreach(graph->first, _xlator_check_unknown_options, NULL);

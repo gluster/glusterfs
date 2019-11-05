@@ -36,4 +36,8 @@ GLFS_MSGID(
     glusterfsd_msg_36, glusterfsd_msg_37, glusterfsd_msg_38, glusterfsd_msg_39,
     glusterfsd_msg_40, glusterfsd_msg_41, glusterfsd_msg_42, glusterfsd_msg_43);
 
+#define glusterfsd_msg_1_STR "Could not create absolute mountpoint path"
+#define glusterfsd_msg_2_STR "Could not get current working directory"
+#define glusterfsd_msg_3_STR "Failed to set dict value for key"
+
 #endif /* !_GLUSTERFSD_MESSAGES_H_ */
