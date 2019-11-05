@@ -45,8 +45,6 @@ glusterfs_volfile_fetch(glusterfs_ctx_t *ctx);
 int
 glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp);
 int
-glusterfs_graph_unknown_options(glusterfs_graph_t *graph);
-int
 emancipate(glusterfs_ctx_t *ctx, int ret);
 int
 glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
@@ -2788,50 +2786,6 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx)
 out:
     if (options)
         dict_unref(options);
-    return ret;
-}
-
-int
-glusterfs_listener_stop(glusterfs_ctx_t *ctx)
-{
-    cmd_args_t *cmd_args = NULL;
-    rpcsvc_t *rpc = NULL;
-    rpcsvc_listener_t *listener = NULL;
-    rpcsvc_listener_t *next = NULL;
-    int ret = 0;
-    xlator_t *this = NULL;
-
-    GF_ASSERT(ctx);
-
-    rpc = ctx->listener;
-    ctx->listener = NULL;
-
-    (void)rpcsvc_program_unregister(rpc, &glusterfs_mop_prog);
-
-    list_for_each_entry_safe(listener, next, &rpc->listeners, list)
-    {
-        rpcsvc_listener_destroy(listener);
-    }
-
-    (void)rpcsvc_unregister_notify(rpc, glusterfs_rpcsvc_notify, THIS);
-
-    GF_FREE(rpc);
-
-    cmd_args = &ctx->cmd_args;
-    if (cmd_args->sock_file) {
-        ret = sys_unlink(cmd_args->sock_file);
-        if (ret && (ENOENT == errno)) {
-            ret = 0;
-        }
-    }
-
-    if (ret) {
-        this = THIS;
-        gf_log(this->name, GF_LOG_ERROR,
-               "Failed to unlink listener "
-               "socket %s, error: %s",
-               cmd_args->sock_file, strerror(errno));
-    }
     return ret;
 }
 

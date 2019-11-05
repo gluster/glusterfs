@@ -30,10 +30,6 @@ static pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 int cli_op_ret = 0;
 int connected = 0;
 
-int
-cli_cmd_log_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
-                     const char **words, int wordcount);
-
 static unsigned
 cli_cmd_needs_connection(struct cli_cmd_word *word)
 {
