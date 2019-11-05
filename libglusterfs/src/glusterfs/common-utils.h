@@ -904,6 +904,8 @@ gf_string2percent_or_bytesize(const char *str, double *n,
 int
 gf_string2boolean(const char *str, gf_boolean_t *b);
 int
+gf_strn2boolean(const char *str, const int len, gf_boolean_t *b);
+int
 gf_string2percent(const char *str, double *n);
 int
 gf_string2time(const char *str, uint32_t *n);
