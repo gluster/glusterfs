@@ -232,15 +232,15 @@ __foreach_ancestor_dentry(dentry_t *dentry,
 
     ret = per_dentry_fn(dentry, data);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PER_DENTRY_FAILED,
-               "per dentry fn returned %d", ret);
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PER_DENTRY_FAILED,
+                "ret=%d", ret, NULL);
         goto out;
     }
 
     parent = dentry->parent;
     if (!parent) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PARENT_DENTRY_NOT_FOUND,
-               "parent not found");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PARENT_DENTRY_NOT_FOUND,
+                NULL);
         goto out;
     }
 
@@ -274,11 +274,9 @@ __is_dentry_cyclic(dentry_t *dentry)
 
     ret = __foreach_ancestor_dentry(dentry, __check_cycle, dentry->inode);
     if (ret) {
-        gf_msg(dentry->inode->table->name, GF_LOG_CRITICAL, 0,
-               LG_MSG_DENTRY_CYCLIC_LOOP,
-               "detected cyclic loop formation during inode linkage. "
-               "inode (%s) linking under itself as %s",
-               uuid_utoa(dentry->inode->gfid), dentry->name);
+        gf_smsg(dentry->inode->table->name, GF_LOG_CRITICAL, 0,
+                LG_MSG_DENTRY_CYCLIC_LOOP, "gfid=%s name=-%s",
+                uuid_utoa(dentry->inode->gfid), dentry->name, NULL);
     }
 
     return ret;
@@ -337,8 +335,7 @@ __inode_ctx_free(inode_t *inode)
     xlator_t *old_THIS = NULL;
 
     if (!inode->_ctx) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL,
-               "_ctx not found");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL, NULL);
         goto noctx;
     }
 
@@ -1243,10 +1240,10 @@ __inode_unlink(inode_t *inode, inode_t *parent, const char *name)
     if (dentry) {
         dentry = __dentry_unset(dentry);
     } else {
-        gf_msg("inode", GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
-               "%s/%s: dentry not found in %s",
-               uuid_utoa_r(parent->gfid, pgfid), name,
-               uuid_utoa_r(inode->gfid, gfid));
+        gf_smsg("inode", GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
+                "parent-gfid=%s name=%s gfid%s",
+                uuid_utoa_r(parent->gfid, pgfid), name,
+                uuid_utoa_r(inode->gfid, gfid), NULL);
     }
 
     return dentry;
@@ -1430,10 +1427,8 @@ __inode_path(inode_t *inode, const char *name, char **bufp)
         i++; /* "/" */
         i += strlen(trav->name);
         if (i > PATH_MAX) {
-            gf_msg(table->name, GF_LOG_CRITICAL, 0, LG_MSG_DENTRY_CYCLIC_LOOP,
-                   "possible infinite "
-                   "loop detected, forcing break. name=(%s)",
-                   name);
+            gf_smsg(table->name, GF_LOG_CRITICAL, 0, LG_MSG_DENTRY_CYCLIC_LOOP,
+                    "name=%s", name, NULL);
             ret = -ENOENT;
             goto out;
         }
