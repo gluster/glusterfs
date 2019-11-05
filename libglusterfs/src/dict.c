@@ -2798,7 +2798,7 @@ dict_get_str_boolean(dict_t *this, char *key, int default_val)
 
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
 
-    ret = gf_string2boolean(data->data, &boo);
+    ret = gf_strn2boolean(data->data, data->len - 1, &boo);
     if (ret == -1)
         goto err;
 

@@ -1941,6 +1941,74 @@ gf_string2boolean(const char *str, gf_boolean_t *b)
 }
 
 int
+gf_strn2boolean(const char *str, const int len, gf_boolean_t *b)
+{
+    if (str == NULL) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "argument invalid");
+        return -1;
+    }
+
+    switch (len) {
+        case 1:
+            if (strcasecmp(str, "1") == 0) {
+                *b = _gf_true;
+                return 0;
+            } else if (strcasecmp(str, "0") == 0) {
+                *b = _gf_false;
+                return 0;
+            }
+            break;
+        case 2:
+            if (strcasecmp(str, "on") == 0) {
+                *b = _gf_true;
+                return 0;
+            } else if (strcasecmp(str, "no") == 0) {
+                *b = _gf_false;
+                return 0;
+            }
+            break;
+        case 3:
+            if (strcasecmp(str, "yes") == 0) {
+                *b = _gf_true;
+                return 0;
+            } else if (strcasecmp(str, "off") == 0) {
+                *b = _gf_false;
+                return 0;
+            }
+            break;
+        case 4:
+            if (strcasecmp(str, "true") == 0) {
+                *b = _gf_true;
+                return 0;
+            }
+            break;
+        case 5:
+            if (strcasecmp(str, "false") == 0) {
+                *b = _gf_false;
+                return 0;
+            }
+            break;
+        case 6:
+            if (strcasecmp(str, "enable") == 0) {
+                *b = _gf_true;
+                return 0;
+            }
+            break;
+        case 7:
+            if (strcasecmp(str, "disable") == 0) {
+                *b = _gf_false;
+                return 0;
+            }
+            break;
+        default:
+            return -1;
+            break;
+    }
+    return -1;
+}
+
+int
 gf_lockfd(int fd)
 {
     struct gf_flock fl;
