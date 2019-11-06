@@ -2153,10 +2153,12 @@ mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     dict->extra_stdfree = rsp.xdata.xdata_val;
 
-    /* glusterd2 only */
     ret = dict_get_str(dict, "servers-list", &servers_list);
     if (ret) {
-        goto volfile;
+        /* Server list is set by glusterd at the time of getspec */
+        ret = dict_get_str(dict, GLUSTERD_BRICK_SERVERS, &servers_list);
+        if (ret)
+            goto volfile;
     }
 
     gf_log(frame->this->name, GF_LOG_INFO,
