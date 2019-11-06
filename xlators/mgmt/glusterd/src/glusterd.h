@@ -284,7 +284,6 @@ struct glusterd_brickinfo {
      * a replica 3 volume with arbiter enabled.
      */
     uint16_t group;
-    uuid_t jbr_uuid;
     gf_boolean_t port_registered;
     gf_boolean_t start_triggered;
 
