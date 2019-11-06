@@ -907,10 +907,20 @@ __server_getspec(rpcsvc_request_t *req)
     peer_info_t *peerinfo = NULL;
     xlator_t *this = NULL;
     dict_t *dict = NULL;
+    glusterd_peerinfo_t *peer = NULL;
+    glusterd_conf_t *conf = NULL;
+    int peer_cnt = 0;
+    char *peer_hosts = NULL;
+    char *tmp_str = NULL;
+    char portstr[10] = {
+        0,
+    };
+    int len = 0;
 
     this = THIS;
     GF_ASSERT(this);
 
+    conf = this->private;
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
     if (ret < 0) {
         // failed to decode msg;
@@ -998,6 +1008,43 @@ __server_getspec(rpcsvc_request_t *req)
                                  dict);
     }
 
+    RCU_READ_LOCK;
+    cds_list_for_each_entry_rcu(peer, &conf->peers, uuid_list)
+    {
+        if (!peer->connected)
+            continue;
+        if (!peer_hosts) {
+            if (peer->port) {
+                snprintf(portstr, sizeof(portstr), "%d", peer->port);
+            } else {
+                snprintf(portstr, sizeof(portstr), "%d", GLUSTERD_DEFAULT_PORT);
+            }
+            len = strlen(peer->hostname) + strlen(portstr) + 3;
+            tmp_str = GF_CALLOC(1, len, gf_gld_mt_char);
+            snprintf(tmp_str, len, "%s%s%s%s", peer->hostname, ":", portstr,
+                     " ");
+            peer_hosts = tmp_str;
+        } else {
+            len = strlen(peer_hosts) + strlen(peer->hostname) +
+                  strlen(portstr) + 3;
+            tmp_str = GF_CALLOC(1, len, gf_gld_mt_char);
+            snprintf(tmp_str, len, "%s%s%s%s%s", peer_hosts, peer->hostname,
+                     ":", portstr, " ");
+            GF_FREE(peer_hosts);
+            peer_hosts = tmp_str;
+        }
+        peer_cnt++;
+    }
+    RCU_READ_UNLOCK;
+    if (peer_cnt) {
+        ret = dict_set_str(dict, GLUSTERD_BRICK_SERVERS, peer_hosts);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "failed to set peer_host in dict");
+            goto fail;
+        }
+    }
+
     if (ret == 0) {
         if (dict->count > 0) {
             ret = dict_allocate_and_serialize(dict, &rsp.xdata.xdata_val,
@@ -1076,6 +1123,8 @@ fail:
     free(args.key);  // malloced by xdr
     free(rsp.spec);
 
+    if (peer_hosts)
+        GF_FREE(peer_hosts);
     if (dict)
         dict_unref(dict);
 

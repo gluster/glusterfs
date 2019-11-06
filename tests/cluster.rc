@@ -192,3 +192,8 @@ function cluster_brick_up_status {
         eval \$CLI_$1 volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'
 }
 
+function cluster_remove_brick_status_completed_field {
+        local vol=$1
+        local brick_list=$2
+        $CLI_1 volume remove-brick $vol $brick_list status | awk '{print $7}' | sed -n 3p
+}
