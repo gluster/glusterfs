@@ -151,13 +151,20 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 gf_boolean_t
 pl_has_xdata_requests(dict_t *xdata)
 {
-    static char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT,     GLUSTERFS_INODELK_COUNT,
-                           GLUSTERFS_INODELK_DOM_COUNT, GLUSTERFS_POSIXLK_COUNT,
-                           GLUSTERFS_PARENT_ENTRYLK,    NULL};
-    static int reqs_size[] = {
-        SLEN(GLUSTERFS_ENTRYLK_COUNT),     SLEN(GLUSTERFS_INODELK_COUNT),
-        SLEN(GLUSTERFS_INODELK_DOM_COUNT), SLEN(GLUSTERFS_POSIXLK_COUNT),
-        SLEN(GLUSTERFS_PARENT_ENTRYLK),    0};
+    static char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT,
+                           GLUSTERFS_INODELK_COUNT,
+                           GLUSTERFS_INODELK_DOM_COUNT,
+                           GLUSTERFS_POSIXLK_COUNT,
+                           GLUSTERFS_PARENT_ENTRYLK,
+                           GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS,
+                           NULL};
+    static int reqs_size[] = {SLEN(GLUSTERFS_ENTRYLK_COUNT),
+                              SLEN(GLUSTERFS_INODELK_COUNT),
+                              SLEN(GLUSTERFS_INODELK_DOM_COUNT),
+                              SLEN(GLUSTERFS_POSIXLK_COUNT),
+                              SLEN(GLUSTERFS_PARENT_ENTRYLK),
+                              SLEN(GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS),
+                              0};
     int i = 0;
 
     if (!xdata)
@@ -176,6 +183,9 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
     if (!local || !xdata)
         return;
 
+    GF_ASSERT(local->xdata == NULL);
+    local->xdata = dict_ref(xdata);
+
     if (dict_get_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT)) {
         local->entrylk_count_req = 1;
         dict_del_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT);
@@ -183,6 +193,10 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
     if (dict_get_sizen(xdata, GLUSTERFS_INODELK_COUNT)) {
         local->inodelk_count_req = 1;
         dict_del_sizen(xdata, GLUSTERFS_INODELK_COUNT);
+    }
+    if (dict_get_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS)) {
+        local->multiple_dom_lk_requests = 1;
+        dict_del_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS);
     }
 
     local->inodelk_dom_count_req = dict_get_sizen(xdata,
@@ -211,7 +225,7 @@ pl_needs_xdata_response(pl_local_t *local)
 
     if (local->parent_entrylk_req || local->entrylk_count_req ||
         local->inodelk_dom_count_req || local->inodelk_count_req ||
-        local->posixlk_count_req)
+        local->posixlk_count_req || local->multiple_dom_lk_requests)
         return _gf_true;
 
     return _gf_false;
@@ -411,6 +425,71 @@ pl_posixlk_xattr_fill(xlator_t *this, inode_t *inode, dict_t *dict,
 }
 
 void
+pl_inodelk_xattr_fill_each(xlator_t *this, inode_t *inode, dict_t *dict,
+                           char *domname, gf_boolean_t keep_max, char *key)
+{
+    int32_t count = 0;
+    int32_t maxcount = -1;
+    int ret = -1;
+
+    if (keep_max) {
+        ret = dict_get_int32(dict, key, &maxcount);
+        if (ret < 0)
+            gf_msg_debug(this->name, 0, " Failed to fetch the value for key %s",
+                         GLUSTERFS_INODELK_COUNT);
+    }
+    count = get_inodelk_count(this, inode, domname);
+    if (maxcount >= count)
+        return;
+
+    ret = dict_set_int32(dict, key, count);
+    if (ret < 0) {
+        gf_msg_debug(this->name, 0,
+                     "Failed to set count for "
+                     "key %s",
+                     key);
+    }
+
+    return;
+}
+
+static int
+pl_inodelk_xattr_fill_multiple(dict_t *this, char *key, data_t *value,
+                               void *data)
+{
+    multi_dom_lk_data *d = data;
+    char *tmp_key = NULL;
+    char *save_ptr = NULL;
+
+    tmp_key = gf_strdup(key);
+    strtok_r(tmp_key, ":", &save_ptr);
+    GF_ASSERT(*save_ptr);  // Should contain the domain string.
+
+    pl_inodelk_xattr_fill_each(d->this, d->inode, d->xdata_rsp, save_ptr,
+                               d->keep_max, key);
+    if (tmp_key)
+        GF_FREE(tmp_key);
+
+    return 0;
+}
+
+void
+pl_fill_multiple_dom_lk_requests(xlator_t *this, pl_local_t *local,
+                                 inode_t *inode, dict_t *dict,
+                                 gf_boolean_t keep_max)
+{
+    multi_dom_lk_data data;
+
+    data.this = this;
+    data.inode = inode;
+    data.xdata_rsp = dict;
+    data.keep_max = keep_max;
+
+    dict_foreach_fnmatch(local->xdata, GLUSTERFS_INODELK_DOM_PREFIX "*",
+                         pl_inodelk_xattr_fill_multiple, &data);
+}
+
+void
 pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
                       inode_t *inode, char *name, dict_t *xdata,
                       gf_boolean_t max_lock)
@@ -437,6 +516,9 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
 
     if (local->posixlk_count_req)
         pl_posixlk_xattr_fill(this, inode, xdata, max_lock);
+
+    if (local->multiple_dom_lk_requests)
+        pl_fill_multiple_dom_lk_requests(this, local, inode, xdata, max_lock);
 }
 
 /* Checks whether the region where fop is acting upon conflicts
@@ -775,9 +857,6 @@ pl_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     pl_local_t *local = frame->local;
 
-    if (local->xdata)
-        dict_unref(local->xdata);
-
     pl_track_io_fop_count(local, this, DECREMENT);
 
     if (local->op == GF_FOP_TRUNCATE)
@@ -934,9 +1013,6 @@ unwind:
                "truncate failed with "
                "ret: %d, error: %s",
                op_ret, strerror(op_errno));
-
-        if (local->xdata)
-            dict_unref(local->xdata);
 
         switch (local->op) {
             case GF_FOP_TRUNCATE:

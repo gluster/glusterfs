@@ -6882,68 +6882,6 @@ out:
     return ret;
 }
 
-int
-afr_selfheal_locked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
-                            inode_t **inode, gf_boolean_t *entry_selfheal,
-                            gf_boolean_t *data_selfheal,
-                            gf_boolean_t *metadata_selfheal,
-                            unsigned char *pending)
-
-{
-    int ret = -1;
-    fd_t *fd = NULL;
-    gf_boolean_t dsh = _gf_false;
-    gf_boolean_t msh = _gf_false;
-    gf_boolean_t esh = _gf_false;
-
-    ret = afr_selfheal_unlocked_inspect(frame, this, gfid, inode, &dsh, &msh,
-                                        &esh);
-    if (ret)
-        goto out;
-
-    /* For every heal type hold locks and check if it indeed needs heal */
-
-    /* Heal-info does an open() on the file being examined so that the
-     * current eager-lock holding client, if present, at some point sees
-     * open-fd count being > 1 and releases the eager-lock so that heal-info
-     * doesn't remain blocked forever until IO completes.
-     */
-    if ((*inode)->ia_type == IA_IFREG) {
-        ret = afr_selfheal_data_open(this, *inode, &fd);
-        if (ret < 0) {
-            gf_msg_debug(this->name, -ret, "%s: Failed to open",
-                         uuid_utoa((*inode)->gfid));
-            goto out;
-        }
-    }
-
-    if (msh) {
-        ret = afr_selfheal_locked_metadata_inspect(frame, this, *inode, &msh,
-                                                   pending);
-        if (ret == -EIO)
-            goto out;
-    }
-
-    if (dsh) {
-        ret = afr_selfheal_locked_data_inspect(frame, this, fd, &dsh, pending);
-        if (ret == -EIO || (ret == -EAGAIN))
-            goto out;
-    }
-
-    if (esh) {
-        ret = afr_selfheal_locked_entry_inspect(frame, this, *inode, &esh,
-                                                pending);
-    }
-
-out:
-    *data_selfheal = dsh;
-    *entry_selfheal = esh;
-    *metadata_selfheal = msh;
-    if (fd)
-        fd_unref(fd);
-    return ret;
-}
-
 static dict_t *
 afr_set_heal_info(char *status)
 {
@@ -6975,6 +6913,132 @@ out:
     return dict;
 }
 
+static int
+afr_update_heal_status(xlator_t *this, struct afr_reply *replies,
+                       char *index_vgfid, gf_boolean_t *esh, gf_boolean_t *dsh,
+                       gf_boolean_t *msh)
+{
+    int ret = -1;
+    int i = 0;
+    int io_domain_lk_count = 0;
+    int shd_domain_lk_count = 0;
+    afr_private_t *priv = NULL;
+    char *key1 = NULL;
+    char *key2 = NULL;
+
+    priv = this->private;
+    key1 = alloca0(strlen(GLUSTERFS_INODELK_DOM_PREFIX) + 2 +
+                   strlen(priv->sh_domain));
+    key2 = alloca0(strlen(GLUSTERFS_INODELK_DOM_PREFIX) + 2 +
+                   strlen(priv->sh_domain));
+    sprintf(key1, "%s:%s", GLUSTERFS_INODELK_DOM_PREFIX, this->name);
+    sprintf(key2, "%s:%s", GLUSTERFS_INODELK_DOM_PREFIX, priv->sh_domain);
+
+    for (i = 0; i < priv->child_count; i++) {
+        if ((replies[i].valid != 1) || (replies[i].op_ret != 0))
+            continue;
+        if (!io_domain_lk_count) {
+            ret = dict_get_int32(replies[i].xdata, key1, &io_domain_lk_count);
+        }
+        if (!shd_domain_lk_count) {
+            ret = dict_get_int32(replies[i].xdata, key2, &shd_domain_lk_count);
+        }
+    }
+
+    if (!strcmp(index_vgfid, GF_XATTROP_INDEX_GFID)) {
+        if (shd_domain_lk_count) {
+            ret = -EAGAIN; /*For 'possibly-healing'. */
+        } else {
+            ret = 0; /*needs heal. Just set a non -ve value so that it is
+                       assumed as the source index.*/
+        }
+    } else if (!strcmp(index_vgfid, GF_XATTROP_DIRTY_GFID)) {
+        if ((!shd_domain_lk_count && !io_domain_lk_count) ||
+            (!io_domain_lk_count && shd_domain_lk_count)) {
+            /* Needs heal. */
+            ret = 0;
+        } else {
+            GF_ASSERT(io_domain_lk_count && !shd_domain_lk_count);
+            /* No heal needed. */
+            *dsh = *esh = *msh = 0;
+        }
+    }
+    return ret;
+}
+
+/*return EIO, EAGAIN or pending*/
+int
+afr_lockless_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
+                     inode_t **inode, char *index_vgfid,
+                     gf_boolean_t *entry_selfheal, gf_boolean_t *data_selfheal,
+                     gf_boolean_t *metadata_selfheal, unsigned char *pending)
+{
+    int ret = -1;
+    int i = 0;
+    afr_private_t *priv = NULL;
+    struct afr_reply *replies = NULL;
+    gf_boolean_t dsh = _gf_false;
+    gf_boolean_t msh = _gf_false;
+    gf_boolean_t esh = _gf_false;
+    unsigned char *sources = NULL;
+    unsigned char *sinks = NULL;
+    unsigned char *valid_on = NULL;
+    uint64_t *witness = NULL;
+
+    priv = this->private;
+    replies = alloca0(sizeof(*replies) * priv->child_count);
+    sources = alloca0(sizeof(*sources) * priv->child_count);
+    sinks = alloca0(sizeof(*sinks) * priv->child_count);
+    witness = alloca0(sizeof(*witness) * priv->child_count);
+    valid_on = alloca0(sizeof(*valid_on) * priv->child_count);
+
+    ret = afr_selfheal_unlocked_inspect(frame, this, gfid, inode, &dsh, &msh,
+                                        &esh, replies);
+    if (ret)
+        goto out;
+    for (i = 0; i < priv->child_count; i++) {
+        if (replies[i].valid && replies[i].op_ret == 0) {
+            valid_on[i] = 1;
+        }
+    }
+    if (msh) {
+        ret = afr_selfheal_find_direction(frame, this, replies,
+                                          AFR_METADATA_TRANSACTION, valid_on,
+                                          sources, sinks, witness, pending);
+        if (*pending & PFLAG_SBRAIN)
+            ret = -EIO;
+        if (ret)
+            goto out;
+    }
+    if (dsh) {
+        ret = afr_selfheal_find_direction(frame, this, replies,
+                                          AFR_DATA_TRANSACTION, valid_on,
+                                          sources, sinks, witness, pending);
+        if (*pending & PFLAG_SBRAIN)
+            ret = -EIO;
+        if (ret)
+            goto out;
+    }
+    if (esh) {
+        ret = afr_selfheal_find_direction(frame, this, replies,
+                                          AFR_ENTRY_TRANSACTION, valid_on,
+                                          sources, sinks, witness, pending);
+        if (*pending & PFLAG_SBRAIN)
+            ret = -EIO;
+        if (ret)
+            goto out;
+    }
+
+    ret = afr_update_heal_status(this, replies, index_vgfid, &esh, &dsh, &msh);
+out:
+    *data_selfheal = dsh;
+    *entry_selfheal = esh;
+    *metadata_selfheal = msh;
+    if (replies)
+        afr_replies_wipe(replies, priv->child_count);
+    return ret;
+}
+
 int
 afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
@@ -6990,6 +7054,14 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     char *status = NULL;
     call_frame_t *heal_frame = NULL;
     afr_local_t *heal_local = NULL;
+    afr_local_t *local = NULL;
+    char *index_vgfid = NULL;
+
+    local = frame->local;
+    if (dict_get_str(local->xdata_req, "index-vgfid", &index_vgfid)) {
+        ret = -1;
+        goto out;
+    }
 
     /*Use frame with lk-owner set*/
     heal_frame = afr_frame_create(frame->this, &op_errno);
@@ -6999,9 +7071,10 @@ afr_get_heal_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     }
     heal_local = heal_frame->local;
     heal_frame->local = frame->local;
-    ret = afr_selfheal_locked_inspect(heal_frame, this, loc->gfid, &inode,
-                                      &entry_selfheal, &data_selfheal,
-                                      &metadata_selfheal, &pending);
+
+    ret = afr_lockless_inspect(heal_frame, this, loc->gfid, &inode, index_vgfid,
+                               &entry_selfheal, &data_selfheal,
+                               &metadata_selfheal, &pending);
 
     if (ret == -ENOMEM) {
         ret = -1;
