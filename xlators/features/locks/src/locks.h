@@ -240,6 +240,7 @@ typedef struct {
     gf_boolean_t inodelk_count_req;
     gf_boolean_t posixlk_count_req;
     gf_boolean_t parent_entrylk_req;
+    gf_boolean_t multiple_dom_lk_requests;
     int update_mlock_enforced_flag;
 } pl_local_t;
 
@@ -260,6 +261,13 @@ typedef struct _locks_ctx {
     struct list_head entrylk_lockers;
     struct list_head metalk_list;
 } pl_ctx_t;
+
+typedef struct _multi_dom_lk_data {
+    xlator_t *this;
+    inode_t *inode;
+    dict_t *xdata_rsp;
+    gf_boolean_t keep_max;
+} multi_dom_lk_data;
 
 typedef enum { DECREMENT, INCREMENT } pl_count_op_t;
 
