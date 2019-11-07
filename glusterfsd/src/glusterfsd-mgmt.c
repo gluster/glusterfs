@@ -524,6 +524,11 @@ cont:
     ctx = glusterfsd_ctx;
     GF_ASSERT(ctx);
     active = ctx->active;
+    if (active == NULL) {
+        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        ret = -1;
+        goto out;
+    }
     any = active->first;
 
     xlator = get_xlator_by_name(any, xlator_req.name);
@@ -1834,6 +1839,11 @@ glusterfs_handle_barrier(rpcsvc_request_t *req)
     ctx = glusterfsd_ctx;
     GF_ASSERT(ctx);
     active = ctx->active;
+    if (active == NULL) {
+        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        ret = -1;
+        goto out;
+    }
     top = active->first;
 
     for (trav = top->children; trav; trav = trav->next) {
