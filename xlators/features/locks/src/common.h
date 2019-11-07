@@ -44,6 +44,10 @@
                 fd_unref(__local->fd);                                         \
             if (__local->inode)                                                \
                 inode_unref(__local->inode);                                   \
+            if (__local->xdata) {                                              \
+                dict_unref(__local->xdata);                                    \
+                __local->xdata = NULL;                                         \
+            }                                                                  \
             mem_put(__local);                                                  \
         }                                                                      \
     } while (0)
