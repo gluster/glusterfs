@@ -6681,13 +6681,12 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                      orig_entry->d_name, orig_entry->d_type);
 
         if (IA_ISINVAL(orig_entry->d_stat.ia_type)) {
-            /*stat failed somewhere- ignore this entry*/
-            gf_msg_debug(this->name, EINVAL,
-                         "Invalid stat, ignoring entry "
-                         "%s gfid %s",
+            /*stat failed somewhere- display this entry but the data may
+             * be inaccurate.
+             */
+            gf_msg_debug(this->name, EINVAL, "Invalid stat for %s (gfid %s)",
                          orig_entry->d_name,
                          uuid_utoa(orig_entry->d_stat.ia_gfid));
-            continue;
         }
 
         if (check_is_linkfile(NULL, (&orig_entry->d_stat), orig_entry->dict,
