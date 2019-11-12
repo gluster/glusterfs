@@ -804,6 +804,7 @@ int_to_data(int64_t value)
     data->len = gf_asprintf(&data->data, "%" PRId64, value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
     data->len++; /* account for terminating NULL */
@@ -823,6 +824,7 @@ data_from_int64(int64_t value)
     data->len = gf_asprintf(&data->data, "%" PRId64, value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
     data->len++; /* account for terminating NULL */
@@ -842,6 +844,7 @@ data_from_int32(int32_t value)
     data->len = gf_asprintf(&data->data, "%" PRId32, value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
 
@@ -862,6 +865,7 @@ data_from_int16(int16_t value)
     data->len = gf_asprintf(&data->data, "%" PRId16, value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
 
@@ -882,6 +886,7 @@ data_from_int8(int8_t value)
     data->len = gf_asprintf(&data->data, "%d", value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
 
@@ -902,6 +907,7 @@ data_from_uint64(uint64_t value)
     data->len = gf_asprintf(&data->data, "%" PRIu64, value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
 
@@ -922,6 +928,8 @@ data_from_double(double value)
 
     data->len = gf_asprintf(&data->data, "%f", value);
     if (data->len == -1) {
+        gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
     data->len++; /* account for terminating NULL */
@@ -941,6 +949,7 @@ data_from_uint32(uint32_t value)
     data->len = gf_asprintf(&data->data, "%" PRIu32, value);
     if (-1 == data->len) {
         gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
 
@@ -960,6 +969,8 @@ data_from_uint16(uint16_t value)
     }
     data->len = gf_asprintf(&data->data, "%" PRIu16, value);
     if (-1 == data->len) {
+        gf_msg_debug("dict", 0, "asprintf failed");
+        data_destroy(data);
         return NULL;
     }
 
