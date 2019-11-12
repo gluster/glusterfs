@@ -8,7 +8,6 @@
 # cases as published by the Free Software Foundation.
 #
 
-import _io
 import os
 import sys
 import time
@@ -58,9 +57,9 @@ def recv(inf):
     """load an object from input stream
     python2 and python3 compatibility, inf is sys.stdin
     and is opened as text stream by default. Hence using the
-    buffer attribute
+    buffer attribute in python3
     """
-    if isinstance(inf, _io.TextIOWrapper):
+    if hasattr(inf, "buffer"):
         return pickle.load(inf.buffer)
     else:
         return pickle.load(inf)
