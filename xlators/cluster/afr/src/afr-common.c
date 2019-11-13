@@ -1652,6 +1652,8 @@ afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
             ia_type = inode->ia_type;
         }
 
+        if (!xdata)
+            continue; /* mkdir_cbk sends NULL xdata_rsp. */
         afr_accused_fill(this, xdata, data_accused,
                          (ia_type == IA_IFDIR) ? AFR_ENTRY_TRANSACTION
                                                : AFR_DATA_TRANSACTION);

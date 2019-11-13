@@ -1112,7 +1112,8 @@ afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
             if (__local && __local->is_read_txn)                               \
                 afr_pending_read_decrement(__this->private,                    \
                                            __local->read_subvol);              \
-            if (__local && afr_is_lock_mode_mandatory(__local->xdata_req))     \
+            if (__local && __local->xdata_req &&                               \
+                afr_is_lock_mode_mandatory(__local->xdata_req))                \
                 afr_dom_lock_release(frame);                                   \
             frame->local = NULL;                                               \
         }                                                                      \
