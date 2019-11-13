@@ -33,11 +33,10 @@ volume ta-index
     subvolumes ta-io-threads
 end-volume
 
-volume ta-io-stats
+volume /mnt/thin-arbiter
     type debug/io-stats
     option count-fop-hits off
     option latency-measurement off
-    option log-level WARNING
     option unique-id /mnt/thin-arbiter
     subvolumes ta-index
 end-volume
@@ -54,5 +53,5 @@ volume ta-server
     option auth-path /mnt/thin-arbiter
     option transport.address-family inet
     option transport-type tcp
-    subvolumes ta-io-stats
+    subvolumes /mnt/thin-arbiter
 end-volume

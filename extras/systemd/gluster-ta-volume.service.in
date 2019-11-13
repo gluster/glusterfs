@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Environment="LOG_LEVEL=WARNING"
-ExecStart=@prefix@/sbin/glusterfsd -N --volfile-id ta -f @GLUSTERD_WORKDIR@/thin-arbiter/thin-arbiter.vol --brick-port 24007 --xlator-option ta-server.transport.socket.listen-port=24007
+ExecStart=@prefix@/sbin/glusterfsd -N --volfile-id ta -f @GLUSTERD_WORKDIR@/thin-arbiter/thin-arbiter.vol --brick-port 24007 --xlator-option ta-server.transport.socket.listen-port=24007 -LWARNING
 Restart=always
 KillMode=process
 SuccessExitStatus=15
