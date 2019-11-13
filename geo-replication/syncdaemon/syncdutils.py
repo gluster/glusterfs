@@ -335,7 +335,7 @@ def log_raise_exception(excont):
             logtag = "FULL EXCEPTION TRACE"
         if logtag:
             logging.exception(logtag + ": ")
-            sys.stderr.write("failed with %s.\n" % type(exc).__name__)
+            sys.stderr.write("failed with %s: %s.\n" % (type(exc).__name__, exc))
         excont.exval = 1
         sys.exit(excont.exval)
 
