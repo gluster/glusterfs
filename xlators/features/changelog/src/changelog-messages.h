@@ -57,7 +57,7 @@ GLFS_MSGID(
     CHANGELOG_MSG_NO_MEMORY, CHANGELOG_MSG_HTIME_STAT_ERROR,
     CHANGELOG_MSG_HTIME_CURRENT_ERROR, CHANGELOG_MSG_BNOTIFY_COND_INFO,
     CHANGELOG_MSG_NO_HTIME_CURRENT, CHANGELOG_MSG_HTIME_CURRENT,
-    CHANGELOG_MSG_NEW_HTIME_FILE);
+    CHANGELOG_MSG_NEW_HTIME_FILE, CHANGELOG_MSG_MKDIR_ERROR);
 
 #define CHANGELOG_MSG_BARRIER_FOP_FAILED_STR                                   \
     "failed to barrier FOPs, disabling changelog barrier"
@@ -73,6 +73,7 @@ GLFS_MSGID(
 #define CHANGELOG_MSG_HTIME_CURRENT_ERROR_STR "Error extracting HTIME_CURRENT."
 #define CHANGELOG_MSG_UNLINK_OP_FAILED_STR "error unlinking empty changelog"
 #define CHANGELOG_MSG_RENAME_ERROR_STR "error renaming"
+#define CHANGELOG_MSG_MKDIR_ERROR_STR "unable to create directory"
 #define CHANGELOG_MSG_BNOTIFY_INFO_STR                                         \
     "Explicit rollover changelog signaling bnotify"
 #define CHANGELOG_MSG_BNOTIFY_COND_INFO_STR "Woke up: bnotify conditional wait"
