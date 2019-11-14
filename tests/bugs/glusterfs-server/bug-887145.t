@@ -29,7 +29,15 @@ chmod 600 $M0/file;
 
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
-chown -R nfsnobody:nfsnobody $M0/dir;
+grep nfsnobody /etc/passwd > /dev/null
+if [ $? -eq 1 ]; then
+usr=nobody
+grp=nobody
+else
+usr=nfsnobody
+grp=nfsnobody
+fi
+chown -R $usr:$grp $M0/dir;
 chown -R tmp_user:tmp_user $M0/other;
 
 TEST $CLI volume set $V0 server.root-squash on;
@@ -38,7 +46,7 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 # create files and directories in the root of the glusterfs and nfs mount
 # which is owned by root and hence the right behavior is getting EACCESS
-# as the fops are executed as nfsnobody.
+# as the fops are executed as nfsnobody/nobody.
 touch $M0/foo 2>/dev/null;
 TEST [ $? -ne 0 ]
 touch $N0/foo 2>/dev/null;
@@ -61,7 +69,7 @@ cat $N0/passwd 1>/dev/null;
 TEST [ $? -eq 0 ]
 
 # create files and directories should succeed as the fops are being executed
-# inside the directory owned by nfsnobody
+# inside the directory owned by nfsnobody/nobody
 TEST touch $M0/dir/file;
 TEST touch $N0/dir/foo;
 TEST mkdir $M0/dir/new;
