@@ -25,7 +25,15 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 
 TEST mkdir $M0/dir
 TEST mkdir $M0/nobody
-TEST chown nfsnobody:nfsnobody $M0/nobody
+grep nfsnobody /etc/passwd > /dev/null
+if [ $? -eq 1 ]; then
+usr=nobody
+grp=nobody
+else
+usr=nfsnobody
+grp=nfsnobody
+fi
+TEST chown $usr:$grp $M0/nobody
 TEST `echo "file" >> $M0/file`
 TEST cp $M0/file $M0/new
 TEST chmod 700 $M0/new
