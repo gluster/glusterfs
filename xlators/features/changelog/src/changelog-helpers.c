@@ -22,6 +22,7 @@
 #include "changelog-encoders.h"
 #include "changelog-rpc-common.h"
 #include <pthread.h>
+#include <time.h>
 
 static void
 changelog_cleanup_free_mutex(void *arg_mutex)
@@ -388,10 +389,15 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
     int ret = -1;
     int notify = 0;
     int cl_empty_flag = 0;
+    struct tm *gmt;
+    char yyyymmdd[40];
     char ofile[PATH_MAX] = {
         0,
     };
     char nfile[PATH_MAX] = {
+        0,
+    };
+    char nfile_dir[PATH_MAX] = {
         0,
     };
     changelog_event_t ev = {
@@ -417,10 +423,18 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
         priv->changelog_fd = -1;
     }
 
+    time_t time = (time_t)ts;
+
+    /* Get GMT time */
+    gmt = gmtime(&time);
+
+    strftime(yyyymmdd, sizeof(yyyymmdd), "%Y/%m/%d", gmt);
+
     (void)snprintf(ofile, PATH_MAX, "%s/" CHANGELOG_FILE_NAME,
                    priv->changelog_dir);
-    (void)snprintf(nfile, PATH_MAX, "%s/" CHANGELOG_FILE_NAME ".%lu",
-                   priv->changelog_dir, ts);
+    (void)snprintf(nfile, PATH_MAX, "%s/%s/" CHANGELOG_FILE_NAME ".%lu",
+                   priv->changelog_dir, yyyymmdd, ts);
+    (void)snprintf(nfile_dir, PATH_MAX, "%s/%s", priv->changelog_dir, yyyymmdd);
 
     if (cl_empty_flag == 1) {
         ret = sys_unlink(ofile);
@@ -433,6 +447,19 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
         }
     } else {
         ret = sys_rename(ofile, nfile);
+
+        /* Changelog file rename gets ENOENT when parent dir doesn't exist */
+        if (errno == ENOENT) {
+            ret = mkdir_p(nfile_dir, 0600, _gf_true);
+
+            if ((ret == -1) && (EEXIST != errno)) {
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_MKDIR_ERROR, "%s", nfile_dir, NULL);
+                goto out;
+            }
+
+            ret = sys_rename(ofile, nfile);
+        }
 
         if (ret && (errno == ENOENT)) {
             ret = 0;
