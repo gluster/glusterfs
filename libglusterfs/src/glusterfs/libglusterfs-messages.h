@@ -112,6 +112,43 @@ GLFS_MSGID(
     LG_MSG_XXH64_TO_GFID_FAILED, LG_MSG_ASYNC_WARNING, LG_MSG_ASYNC_FAILURE,
     LG_MSG_GRAPH_CLEANUP_FAILED, LG_MSG_GRAPH_SETUP_FAILED,
     LG_MSG_GRAPH_DETACH_STARTED, LG_MSG_GRAPH_ATTACH_FAILED,
-    LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED);
+    LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED, LG_MSG_DUPLICATE_ENTRY,
+    LG_MSG_THREAD_NAME_TOO_LONG, LG_MSG_SET_THREAD_FAILED,
+    LG_MSG_THREAD_CREATE_FAILED, LG_MSG_FILE_DELETE_FAILED, LG_MSG_WRONG_VALUE,
+    LG_MSG_PATH_OPEN_FAILED);
 
+#define LG_MSG_FILE_STAT_FAILED_STR "failed to stat"
+#define LG_MSG_INET_PTON_FAILED_STR "inet_pton() failed"
+#define LG_MSG_INVALID_ENTRY_STR "Invalid arguments"
+#define LG_MSG_NEGATIVE_NUM_PASSED_STR "negative number passed"
+#define LG_MSG_PATH_ERROR_STR "Path manipulation failed"
+#define LG_MSG_FILE_OP_FAILED_STR "could not open/read file, getting ports info"
+#define LG_MSG_RESERVED_PORTS_ERROR_STR                                        \
+    "Not able to get reserved ports, hence there is a possibility that "       \
+    "glusterfs may consume reserved port"
+#define LG_MSG_INVALID_PORT_STR "invalid port"
+#define LG_MSG_GETNAMEINFO_FAILED_STR "Could not lookup hostname"
+#define LG_MSG_GETIFADDRS_FAILED_STR "getifaddrs() failed"
+#define LG_MSG_INVALID_FAMILY_STR "Invalid family"
+#define LG_MSG_CONVERSION_FAILED_STR "String conversion failed"
+#define LG_MSG_GETADDRINFO_FAILED_STR "error in getaddrinfo"
+#define LG_MSG_DUPLICATE_ENTRY_STR "duplicate entry for volfile-server"
+#define LG_MSG_PTHREAD_NAMING_FAILED_STR "Failed to compose thread name"
+#define LG_MSG_THREAD_NAME_TOO_LONG_STR                                        \
+    "Thread name is too long. It has been truncated"
+#define LG_MSG_SET_THREAD_FAILED_STR "Could not set thread name"
+#define LG_MSG_THREAD_CREATE_FAILED_STR "Thread creation failed"
+#define LG_MSG_PTHREAD_ATTR_INIT_FAILED_STR                                    \
+    "Thread attribute initialization failed"
+#define LG_MSG_SKIP_HEADER_FAILED_STR "Failed to skip header section"
+#define LG_MSG_INVALID_LOG_STR "Invalid log-format"
+#define LG_MSG_UTIMENSAT_FAILED_STR "utimenstat failed"
+#define LG_MSG_UTIMES_FAILED_STR "utimes failed"
+#define LG_MSG_FILE_DELETE_FAILED_STR "Unable to delete file"
+#define LG_MSG_BACKTRACE_SAVE_FAILED_STR "Failed to save the backtrace"
+#define LG_MSG_WRONG_VALUE_STR "wrong value"
+#define LG_MSG_DIR_OP_FAILED_STR "Failed to create directory"
+#define LG_MSG_DIR_IS_SYMLINK_STR "dir is symlink"
+#define LG_MSG_RESOLVE_HOSTNAME_FAILED_STR "couldnot resolve hostname"
+#define LG_MSG_PATH_OPEN_FAILED_STR "Unable to open path"
 #endif /* !_LG_MESSAGES_H_ */
