@@ -409,22 +409,25 @@ server_setvolume(rpcsvc_request_t *req)
         client_name = "unknown";
     }
 
-    ret = dict_get_str_sizen(params, "volume-id", &volume_id);
-    if (!ret && strcmp(xl->graph->volume_id, volume_id)) {
-        ret = dict_set_str(reply, "ERROR",
-                           "Volume-ID different, possible case "
-                           "of same brick re-used in another volume");
-        if (ret < 0)
-            gf_msg_debug(this->name, 0, "failed to set error msg");
+    /* If any value is set, the first element will be non-0.
+       It would be '0', but not '\0' :-) */
+    if (xl->graph->volume_id[0]) {
+        ret = dict_get_str_sizen(params, "volume-id", &volume_id);
+        if (!ret && strcmp(xl->graph->volume_id, volume_id)) {
+            ret = dict_set_str(reply, "ERROR",
+                               "Volume-ID different, possible case "
+                               "of same brick re-used in another volume");
+            if (ret < 0)
+                gf_msg_debug(this->name, 0, "failed to set error msg");
 
-        op_ret = -1;
-        op_errno = EINVAL;
-        goto fail;
+            op_ret = -1;
+            op_errno = EINVAL;
+            goto fail;
+        }
+        ret = dict_set_str(reply, "volume-id", tmp->volume_id);
+        if (ret)
+            gf_msg_debug(this->name, 0, "failed to set 'volume-id'");
     }
-    ret = dict_set_str(reply, "volume-id", tmp->volume_id);
-    if (ret)
-        gf_msg_debug(this->name, 0, "failed to set 'volume-id'");
-
     client = gf_client_get(this, &req->cred, client_uid, subdir_mount);
     if (client == NULL) {
         op_ret = -1;

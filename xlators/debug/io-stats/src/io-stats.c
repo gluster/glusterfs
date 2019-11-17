@@ -3895,6 +3895,7 @@ int
 init(xlator_t *this)
 {
     struct ios_conf *conf = NULL;
+    char *volume_id = NULL;
     char *sys_log_str = NULL;
     char *logger_str = NULL;
     char *log_format_str = NULL;
@@ -3935,6 +3936,11 @@ init(xlator_t *this)
         conf->unique_id = this->name;
     }
 
+    ret = dict_get_strn(this->options, "volume-id", SLEN("volume-id"),
+                        &volume_id);
+    if (!ret) {
+        strncpy(this->graph->volume_id, volume_id, GF_UUID_BUF_SIZE);
+    }
     /*
      * Init it just after calloc, so that we are sure the lock is inited
      * in case of error paths.
@@ -4484,6 +4490,13 @@ struct volume_options options[] = {
      .tags = {"io-stats", "threading"},
      .description = "When global threading is used, this value determines the "
                     "maximum amount of threads that can be created on clients"},
+    {.key = {"volume-id"},
+     .type = GF_OPTION_TYPE_STR,
+     .op_version = {GD_OP_VERSION_7_1},
+     .tags = {"global", "volume-id"},
+     .description =
+         "This option points to the 'unique' UUID particular to this "
+         "volume, which would be set in 'graph->volume_id'"},
     {.key = {NULL}},
 };
 
