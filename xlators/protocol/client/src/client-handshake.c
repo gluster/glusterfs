@@ -836,8 +836,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
             }
         } else {
-            strncpy(ctx->volume_id, volume_id,
-                    min(strlen(volume_id), GF_UUID_BUF_SIZE));
+            strncpy(ctx->volume_id, volume_id, GF_UUID_BUF_SIZE);
         }
     }
 
@@ -1036,6 +1035,10 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     if (strncmp("snapd", remote_subvol, 5)) {
         /* If any value is set, the first element will be non-0.
            It would be '0', but not '\0' :-) */
+        if (!this->ctx->volume_id[0]) {
+            strncpy(this->ctx->volume_id, this->graph->volume_id,
+                    GF_UUID_BUF_SIZE);
+        }
         if (this->ctx->volume_id[0]) {
             ret = dict_set_str(options, "volume-id", this->ctx->volume_id);
             if (ret < 0) {

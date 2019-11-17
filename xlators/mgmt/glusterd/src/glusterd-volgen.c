@@ -2216,6 +2216,8 @@ brick_graph_add_io_stats(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     xlator_t *xl = NULL;
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = this->private;
 
     if (!graph || !set_dict || !brickinfo)
         goto out;
@@ -2227,6 +2229,13 @@ brick_graph_add_io_stats(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     ret = xlator_set_fixed_option(xl, "unique-id", brickinfo->path);
     if (ret)
         goto out;
+
+    if (priv->op_version >= GD_OP_VERSION_7_1) {
+        ret = xlator_set_fixed_option(xl, "volume-id",
+                                      uuid_utoa(volinfo->volume_id));
+        if (ret)
+            goto out;
+    }
 
     ret = 0;
 out:
