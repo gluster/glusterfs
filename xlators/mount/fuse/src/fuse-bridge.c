@@ -1647,6 +1647,14 @@ fattr_to_gf_set_attr(int32_t valid)
         gf_valid |= GF_SET_ATTR_CTIME;
 #endif
 
+#if FUSE_KERNEL_MINOR_VERSION >= 9
+    if (valid & FATTR_ATIME_NOW)
+        gf_valid |= GF_ATTR_ATIME_NOW;
+
+    if (valid & FATTR_MTIME_NOW)
+        gf_valid |= GF_ATTR_MTIME_NOW;
+#endif
+
     if (valid & FATTR_SIZE)
         gf_valid |= GF_SET_ATTR_SIZE;
 
