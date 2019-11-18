@@ -962,44 +962,43 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
     }
     ret = 0;
 
+    if (!this->ctx->active) {
+        gf_log(this->name, GF_LOG_WARNING,
+               "got attach for %s but no active graph", xlator_req.name);
+        goto post_unlock;
+    }
+
+    gf_log(this->name, GF_LOG_INFO, "got attach for %s", xlator_req.name);
+
     LOCK(&ctx->volfile_lock);
     {
-        if (this->ctx->active) {
-            gf_log(this->name, GF_LOG_INFO, "got attach for %s",
-                   xlator_req.name);
-            ret = glusterfs_graph_attach(this->ctx->active, xlator_req.name,
-                                         &newgraph);
-            if (!ret && (newgraph && newgraph->first)) {
-                nextchild = newgraph->first;
-                ret = xlator_notify(nextchild, GF_EVENT_PARENT_UP, nextchild);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           LG_MSG_EVENT_NOTIFY_FAILED,
-                           "Parent up notification "
-                           "failed for %s ",
-                           nextchild->name);
-                    goto out;
-                }
-                /* we need a protocol/server xlator as
-                 * nextchild
-                 */
-                srv_xl = this->ctx->active->first;
-                srv_conf = (server_conf_t *)srv_xl->private;
-                rpcsvc_autoscale_threads(this->ctx, srv_conf->rpc, 1);
+        ret = glusterfs_graph_attach(this->ctx->active, xlator_req.name,
+                                     &newgraph);
+        if (!ret && (newgraph && newgraph->first)) {
+            nextchild = newgraph->first;
+            ret = xlator_notify(nextchild, GF_EVENT_PARENT_UP, nextchild);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
+                       "Parent up notification "
+                       "failed for %s ",
+                       nextchild->name);
+                goto unlock;
             }
-        } else {
-            gf_log(this->name, GF_LOG_WARNING,
-                   "got attach for %s but no active graph", xlator_req.name);
+            /* we need a protocol/server xlator as
+             * nextchild
+             */
+            srv_xl = this->ctx->active->first;
+            srv_conf = (server_conf_t *)srv_xl->private;
+            rpcsvc_autoscale_threads(this->ctx, srv_conf->rpc, 1);
         }
         if (ret) {
             ret = -1;
         }
-
         glusterfs_translator_info_response_send(req, ret, NULL, NULL);
-
-    out:
+    unlock:
         UNLOCK(&ctx->volfile_lock);
     }
+post_unlock:
     if (xlator_req.dict.dict_val)
         free(xlator_req.dict.dict_val);
     free(xlator_req.input.input_val);
