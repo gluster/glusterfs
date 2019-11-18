@@ -95,6 +95,16 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
                 frame->root->flags |= MDATA_CTIME;
         }
 
+        if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
+            if (valid & GF_ATTR_ATIME_NOW) {
+                frame->root->ctime.tv_sec = stbuf->ia_atime;
+                frame->root->ctime.tv_nsec = stbuf->ia_atime_nsec;
+            } else if (valid & GF_ATTR_MTIME_NOW) {
+                frame->root->ctime.tv_sec = stbuf->ia_mtime;
+                frame->root->ctime.tv_nsec = stbuf->ia_mtime_nsec;
+            }
+        }
+
         STACK_WIND (frame, gf_utime_@NAME@_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->@NAME@, @SHORT_ARGS@);
         return 0;
