@@ -4690,6 +4690,22 @@ glusterd_import_friend_volume(dict_t *peer_data, int count)
         glusterd_volinfo_unref(old_volinfo);
     }
 
+    ret = glusterd_store_volinfo(new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_STORE_FAIL,
+               "Failed to store "
+               "volinfo for volume %s",
+               new_volinfo->volname);
+        goto out;
+    }
+
+    ret = glusterd_create_volfiles(new_volinfo);
+    if (ret)
+        goto out;
+
+    glusterd_list_add_order(&new_volinfo->vol_list, &priv->volumes,
+                            glusterd_compare_volume_name);
+
     if (glusterd_is_volume_started(new_volinfo)) {
         (void)glusterd_start_bricks(new_volinfo);
         if (glusterd_is_snapd_enabled(new_volinfo)) {
@@ -4700,28 +4716,14 @@ glusterd_import_friend_volume(dict_t *peer_data, int count)
         }
     }
 
-    ret = glusterd_store_volinfo(new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_STORE_FAIL,
-               "Failed to store "
-               "volinfo for volume %s",
-               new_volinfo->volname);
-        goto out;
-    }
-
-    ret = glusterd_create_volfiles_and_notify_services(new_volinfo);
-    if (ret)
-        goto out;
-
     ret = glusterd_import_quota_conf(peer_data, count, new_volinfo, "volume");
     if (ret) {
         gf_event(EVENT_IMPORT_QUOTA_CONF_FAILED, "volume=%s",
                  new_volinfo->volname);
         goto out;
     }
-    glusterd_list_add_order(&new_volinfo->vol_list, &priv->volumes,
-                            glusterd_compare_volume_name);
 
+    ret = glusterd_fetchspec_notify(this);
 out:
     gf_msg_debug("glusterd", 0, "Returning with ret: %d", ret);
     return ret;
