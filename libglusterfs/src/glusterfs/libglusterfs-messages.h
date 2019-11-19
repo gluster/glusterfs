@@ -118,7 +118,9 @@ GLFS_MSGID(
     LG_MSG_PATH_OPEN_FAILED, LG_MSG_DISPATCH_HANDLER_FAILED,
     LG_MSG_READ_FILE_FAILED, LG_MSG_ENTRIES_NOT_PROVIDED,
     LG_MSG_ENTRIES_PROVIDED, LG_MSG_UNKNOWN_OPTION_TYPE,
-    LG_MSG_OPTION_DEPRECATED);
+    LG_MSG_OPTION_DEPRECATED, LG_MSG_INVALID_INIT, LG_MSG_OBJECT_NULL,
+    LG_MSG_GRAPH_NOT_SET, LG_MSG_FILENAME_NOT_SPECIFIED, LG_MSG_STRUCT_MISS,
+    LG_MSG_METHOD_MISS, LG_MSG_INPUT_DATA_NULL, LG_MSG_OPEN_LOGFILE_FAILED);
 
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
@@ -208,5 +210,36 @@ GLFS_MSGID(
     "page_size of iobufs in arena being added is greater than max available"
 #define LG_MSG_POOL_NOT_FOUND_STR "pool not found"
 #define LG_MSG_IOBUF_NOT_FOUND_STR "iobuf not found"
+#define LG_MSG_DLOPEN_FAILED_STR "DL open failed"
+#define LG_MSG_DLSYM_ERROR_STR "dlsym missing"
+#define LG_MSG_LOAD_FAILED_STR "Failed to load xlator options table"
+#define LG_MSG_INPUT_DATA_NULL_STR                                             \
+    "input data is null. cannot update the lru limit of the inode table. "     \
+    "continuing with older value."
+#define LG_MSG_INIT_FAILED_STR "No init() found"
+#define LG_MSG_VOLUME_ERROR_STR                                                \
+    "Initialization of volume failed. review your volfile again."
+#define LG_MSG_TREE_NOT_FOUND_STR "Translator tree not found"
+#define LG_MSG_SET_LOG_LEVEL_STR "setting log level"
+#define LG_MSG_INVALID_INIT_STR                                                \
+    "Invalid log-level. possible values are DEBUG|WARNING|ERROR|NONE|TRACE"
+#define LG_MSG_OBJECT_NULL_STR "object is null, returning false."
+#define LG_MSG_GRAPH_NOT_SET_STR "Graph is not set for xlator"
+#define LG_MSG_OPEN_LOGFILE_FAILED_STR "failed to open logfile"
+#define LG_MSG_STRDUP_ERROR_STR "failed to create metrics dir"
+#define LG_MSG_FILENAME_NOT_SPECIFIED_STR "no filename specified"
+#define LG_MSG_UNDERSIZED_BUF_STR "data value is smaller than expected"
+#define LG_MSG_DICT_SET_FAILED_STR "unable to set dict"
+#define LG_MSG_COUNT_LESS_THAN_ZERO_STR "count < 0!"
+#define LG_MSG_PAIRS_LESS_THAN_COUNT_STR "less than count data pairs found"
+#define LG_MSG_NULL_PTR_STR "pair->key is null!"
+#define LG_MSG_VALUE_LENGTH_LESS_THAN_ZERO_STR "value->len < 0"
+#define LG_MSG_INVALID_ARG_STR "buf is null"
+#define LG_MSG_KEY_OR_VALUE_NULL_STR "key or value is null"
+#define LG_MSG_NULL_VALUE_IN_DICT_STR "null value found in dict"
+#define LG_MSG_FAILED_TO_LOG_DICT_STR "Failed to log dictionary"
+#define LG_MSG_DICT_ERROR_STR "dict error"
+#define LG_MSG_STRUCT_MISS_STR "struct missing"
+#define LG_MSG_METHOD_MISS_STR "method missing(init)"
 
 #endif /* !_LG_MESSAGES_H_ */
