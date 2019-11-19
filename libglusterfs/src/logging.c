@@ -312,18 +312,16 @@ gf_log_rotate(glusterfs_ctx_t *ctx)
         fd = sys_open(ctx->log.filename, O_CREAT | O_WRONLY | O_APPEND,
                       S_IRUSR | S_IWUSR);
         if (fd < 0) {
-            gf_msg("logrotate", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
-                   "failed to open "
-                   "logfile");
+            gf_smsg("logrotate", GF_LOG_ERROR, errno,
+                    LG_MSG_OPEN_LOGFILE_FAILED, NULL);
             return;
         }
 
         new_logfile = fdopen(fd, "a");
         if (!new_logfile) {
-            gf_msg("logrotate", GF_LOG_CRITICAL, errno, LG_MSG_FILE_OP_FAILED,
-                   "failed to open logfile"
-                   " %s",
-                   ctx->log.filename);
+            gf_smsg("logrotate", GF_LOG_CRITICAL, errno,
+                    LG_MSG_OPEN_LOGFILE_FAILED, "filename=%s",
+                    ctx->log.filename, NULL);
             sys_close(fd);
             return;
         }
@@ -685,9 +683,8 @@ gf_log_init(void *data, const char *file, const char *ident)
         }
         if (mkdir_p(logdir, 0755, true)) {
             /* EEXIST is handled in mkdir_p() itself */
-            gf_msg("logging", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
-                   "failed to create metrics dir %s (%s)", logdir,
-                   strerror(errno));
+            gf_smsg("logging", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
+                    "logdir=%s", logdir, "errno=%s", strerror(errno), NULL);
             GF_FREE(logdir);
             return -1;
         }
@@ -2074,16 +2071,17 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
 
         fd = sys_open(ctx->log.filename, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
         if (fd < 0) {
-            gf_msg("logrotate", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
-                   "failed to open logfile");
+            gf_smsg("logrotate", GF_LOG_ERROR, errno,
+                    LG_MSG_OPEN_LOGFILE_FAILED, NULL);
             return -1;
         }
         sys_close(fd);
 
         new_logfile = fopen(ctx->log.filename, "a");
         if (!new_logfile) {
-            gf_msg("logrotate", GF_LOG_CRITICAL, errno, LG_MSG_FILE_OP_FAILED,
-                   "failed to open logfile %s", ctx->log.filename);
+            gf_smsg("logrotate", GF_LOG_CRITICAL, errno,
+                    LG_MSG_OPEN_LOGFILE_FAILED, "filename=%s",
+                    ctx->log.filename, NULL);
             goto log;
         }
 
@@ -2190,8 +2188,8 @@ gf_cmd_log_init(const char *filename)
         return -1;
 
     if (!filename) {
-        gf_msg(this->name, GF_LOG_CRITICAL, 0, LG_MSG_INVALID_ENTRY,
-               "gf_cmd_log_init: no filename specified\n");
+        gf_smsg(this->name, GF_LOG_CRITICAL, 0, LG_MSG_FILENAME_NOT_SPECIFIED,
+                "gf_cmd_log_init", NULL);
         return -1;
     }
 
@@ -2208,17 +2206,15 @@ gf_cmd_log_init(const char *filename)
     fd = sys_open(ctx->log.cmd_log_filename, O_CREAT | O_WRONLY | O_APPEND,
                   S_IRUSR | S_IWUSR);
     if (fd < 0) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, LG_MSG_FILE_OP_FAILED,
-               "failed to open cmd_log_file");
+        gf_smsg(this->name, GF_LOG_CRITICAL, errno, LG_MSG_OPEN_LOGFILE_FAILED,
+                "cmd_log_file", NULL);
         return -1;
     }
 
     ctx->log.cmdlogfile = fdopen(fd, "a");
     if (!ctx->log.cmdlogfile) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, LG_MSG_FILE_OP_FAILED,
-               "gf_cmd_log_init: failed to open logfile \"%s\" "
-               "\n",
-               ctx->log.cmd_log_filename);
+        gf_smsg(this->name, GF_LOG_CRITICAL, errno, LG_MSG_OPEN_LOGFILE_FAILED,
+                "gf_cmd_log_init: %s", ctx->log.cmd_log_filename, NULL);
         sys_close(fd);
         return -1;
     }
@@ -2282,20 +2278,18 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
         fd = sys_open(ctx->log.cmd_log_filename, O_CREAT | O_WRONLY | O_APPEND,
                       S_IRUSR | S_IWUSR);
         if (fd < 0) {
-            gf_msg(THIS->name, GF_LOG_CRITICAL, errno, LG_MSG_FILE_OP_FAILED,
-                   "failed to open "
-                   "logfile \"%s\" \n",
-                   ctx->log.cmd_log_filename);
+            gf_smsg(THIS->name, GF_LOG_CRITICAL, errno,
+                    LG_MSG_OPEN_LOGFILE_FAILED, "name=%s",
+                    ctx->log.cmd_log_filename, NULL);
             ret = -1;
             goto out;
         }
 
         ctx->log.cmdlogfile = fdopen(fd, "a");
         if (!ctx->log.cmdlogfile) {
-            gf_msg(THIS->name, GF_LOG_CRITICAL, errno, LG_MSG_FILE_OP_FAILED,
-                   "failed to open logfile \"%s\""
-                   " \n",
-                   ctx->log.cmd_log_filename);
+            gf_smsg(THIS->name, GF_LOG_CRITICAL, errno,
+                    LG_MSG_OPEN_LOGFILE_FAILED, "name=%s",
+                    ctx->log.cmd_log_filename, NULL);
             ret = -1;
             sys_close(fd);
             goto out;
