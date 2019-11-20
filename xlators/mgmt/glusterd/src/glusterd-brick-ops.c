@@ -21,7 +21,6 @@
 #include "glusterd-messages.h"
 #include "glusterd-server-quorum.h"
 #include <glusterfs/run.h>
-#include "glusterd-volgen.h"
 #include <glusterfs/syscall.h>
 #include <sys/signal.h>
 
@@ -1411,6 +1410,25 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     }
 
     is_force = dict_get_str_boolean(dict, "force", _gf_false);
+
+    /* Check brick order if the volume type is replicate or disperse. If
+     * force at the end of command not given then check brick order.
+     */
+
+    if (!is_force) {
+        if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ||
+            (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)) {
+            ret = glusterd_check_brick_order(dict, msg, volinfo->type);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
+                       "Not adding brick because of "
+                       "bad brick order. %s",
+                       msg);
+                *op_errstr = gf_strdup(msg);
+                goto out;
+            }
+        }
+    }
 
     if (volinfo->replica_count < replica_count && !is_force) {
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
