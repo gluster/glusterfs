@@ -113,6 +113,9 @@ Rotate the log file for corresponding volume/brick.
 \fB\ volume profile <VOLNAME> {start|info [peek|incremental [peek]|cumulative|clear]|stop} [nfs] \fR
 Profile operations on the volume. Once started, volume profile <volname> info provides cumulative statistics of the FOPs performed.
 .TP
+\fB\ volume top <VOLNAME> {open|read|write|opendir|readdir|clear} [nfs|brick <brick>] [list-cnt <value>] | {read-perf|write-perf} [bs <size> count <count>] [brick <brick>] [list-cnt <value>] \fR
+Generates a profile of a volume representing the performance and bottlenecks/hotspots of each brick.
+.TP
 \fB\ volume statedump <VOLNAME> [[nfs|quotad] [all|mem|iobuf|callpool|priv|fd|inode|history]... | [client <hostname:process-id>]] \fR
 Dumps the in memory state of the specified process or the bricks of the volume.
 .TP
