@@ -48,10 +48,8 @@ __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
     do {
         ret = sys_read(fd, buf, 64);
         if (ret == -1 && errno != EAGAIN) {
-            gf_msg("poll", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
-                   "read on %d returned "
-                   "error",
-                   fd);
+            gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_READ_FILE_FAILED,
+                    "fd=%d", fd, NULL);
         }
     } while (ret == 64);
 
@@ -111,8 +109,7 @@ event_pool_new_poll(int count, int eventthreadcount)
     ret = pipe(event_pool->breaker);
 
     if (ret == -1) {
-        gf_msg("poll", GF_LOG_ERROR, errno, LG_MSG_PIPE_CREATE_FAILED,
-               "pipe creation failed");
+        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_PIPE_CREATE_FAILED, NULL);
         GF_FREE(event_pool->reg);
         GF_FREE(event_pool);
         return NULL;
@@ -120,8 +117,7 @@ event_pool_new_poll(int count, int eventthreadcount)
 
     ret = fcntl(event_pool->breaker[0], F_SETFL, O_NONBLOCK);
     if (ret == -1) {
-        gf_msg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
-               "could not set pipe to non blocking mode");
+        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED, NULL);
         sys_close(event_pool->breaker[0]);
         sys_close(event_pool->breaker[1]);
         event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -133,8 +129,7 @@ event_pool_new_poll(int count, int eventthreadcount)
 
     ret = fcntl(event_pool->breaker[1], F_SETFL, O_NONBLOCK);
     if (ret == -1) {
-        gf_msg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
-               "could not set pipe to non blocking mode");
+        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED, NULL);
 
         sys_close(event_pool->breaker[0]);
         sys_close(event_pool->breaker[1]);
@@ -148,8 +143,7 @@ event_pool_new_poll(int count, int eventthreadcount)
     ret = event_register_poll(event_pool, event_pool->breaker[0], __flush_fd,
                               NULL, 1, 0, 0);
     if (ret == -1) {
-        gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED,
-               "could not register pipe fd with poll event loop");
+        gf_smsg("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED, NULL);
         sys_close(event_pool->breaker[0]);
         sys_close(event_pool->breaker[1]);
         event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -160,11 +154,8 @@ event_pool_new_poll(int count, int eventthreadcount)
     }
 
     if (eventthreadcount > 1) {
-        gf_msg("poll", GF_LOG_INFO, 0, LG_MSG_POLL_IGNORE_MULTIPLE_THREADS,
-               "Currently poll "
-               "does not use multiple event processing threads, "
-               "thread count (%d) ignored",
-               eventthreadcount);
+        gf_smsg("poll", GF_LOG_INFO, 0, LG_MSG_POLL_IGNORE_MULTIPLE_THREADS,
+                "count=%d", eventthreadcount, NULL);
     }
 
     /* although, eventhreadcount for poll implementation is always
@@ -215,8 +206,8 @@ event_register_poll(struct event_pool *event_pool, int fd,
                 /* do nothing */
                 break;
             default:
-                gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_IN,
-                       "invalid poll_in value %d", poll_in);
+                gf_smsg("poll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_IN,
+                        "value=%d", poll_in, NULL);
                 break;
         }
 
@@ -231,8 +222,8 @@ event_register_poll(struct event_pool *event_pool, int fd,
                 /* do nothing */
                 break;
             default:
-                gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_OUT,
-                       "invalid poll_out value %d", poll_out);
+                gf_smsg("poll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_OUT,
+                        "value=%d", poll_out, NULL);
                 break;
         }
 
@@ -257,8 +248,8 @@ event_unregister_poll(struct event_pool *event_pool, int fd, int idx_hint)
         idx = __event_getindex(event_pool, fd, idx_hint);
 
         if (idx == -1) {
-            gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
-                   "index not found for fd=%d (idx_hint=%d)", fd, idx_hint);
+            gf_smsg("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND, "fd=%d",
+                    fd, "idx_hint=%d", idx_hint, NULL);
             errno = ENOENT;
             goto unlock;
         }
@@ -298,8 +289,8 @@ event_select_on_poll(struct event_pool *event_pool, int fd, int idx_hint,
         idx = __event_getindex(event_pool, fd, idx_hint);
 
         if (idx == -1) {
-            gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
-                   "index not found for fd=%d (idx_hint=%d)", fd, idx_hint);
+            gf_smsg("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND, "fd=%d",
+                    fd, "idx_hint=%d", idx_hint, NULL);
             errno = ENOENT;
             goto unlock;
         }
@@ -361,10 +352,8 @@ event_dispatch_poll_handler(struct event_pool *event_pool, struct pollfd *ufds,
         idx = __event_getindex(event_pool, ufds[i].fd, i);
 
         if (idx == -1) {
-            gf_msg("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
-                   "index not found for "
-                   "fd=%d (idx_hint=%d)",
-                   ufds[i].fd, i);
+            gf_smsg("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND, "fd=%d",
+                    ufds[i].fd, "idx_hint=%d", i, NULL);
             goto unlock;
         }
 
