@@ -115,8 +115,43 @@ GLFS_MSGID(
     LG_MSG_GRAPH_ATTACH_PID_FILE_UPDATED, LG_MSG_DUPLICATE_ENTRY,
     LG_MSG_THREAD_NAME_TOO_LONG, LG_MSG_SET_THREAD_FAILED,
     LG_MSG_THREAD_CREATE_FAILED, LG_MSG_FILE_DELETE_FAILED, LG_MSG_WRONG_VALUE,
-    LG_MSG_PATH_OPEN_FAILED);
+    LG_MSG_PATH_OPEN_FAILED, LG_MSG_DISPATCH_HANDLER_FAILED,
+    LG_MSG_READ_FILE_FAILED, LG_MSG_ENTRIES_NOT_PROVIDED,
+    LG_MSG_ENTRIES_PROVIDED);
 
+#define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
+#define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
+#define LG_MSG_INVALID_POLL_OUT_STR "invalid poll_out value"
+#define LG_MSG_SLOT_NOT_FOUND_STR "could not find slot"
+#define LG_MSG_EPOLL_FD_ADD_FAILED_STR "failed to add fd to epoll"
+#define LG_MSG_EPOLL_FD_DEL_FAILED_STR "fail to delete fd to epoll"
+#define LG_MSG_EPOLL_FD_MODIFY_FAILED_STR "failed to modify fd events"
+#define LG_MSG_STALE_FD_FOUND_STR "stale fd found"
+#define LG_MSG_GENERATION_MISMATCH_STR "generation mismatch"
+#define LG_MSG_STARTED_EPOLL_THREAD_STR "Started thread with index"
+#define LG_MSG_EXITED_EPOLL_THREAD_STR "Exited thread"
+#define LG_MSG_DISPATCH_HANDLER_FAILED_STR "Failed to dispatch handler"
+#define LG_MSG_START_EPOLL_THREAD_FAILED_STR "Failed to start thread"
+#define LG_MSG_PIPE_CREATE_FAILED_STR "pipe creation failed"
+#define LG_MSG_SET_PIPE_FAILED_STR "could not set pipe to non blocking mode"
+#define LG_MSG_REGISTER_PIPE_FAILED_STR                                        \
+    "could not register pipe fd with poll event loop"
+#define LG_MSG_POLL_IGNORE_MULTIPLE_THREADS_STR                                \
+    "Currently poll does not use multiple event processing threads, count "    \
+    "ignored"
+#define LG_MSG_INDEX_NOT_FOUND_STR "index not found"
+#define LG_MSG_READ_FILE_FAILED_STR "read on file returned error"
+#define LG_MSG_RB_TABLE_CREATE_FAILED_STR "Failed to create rb table bucket"
+#define LG_MSG_HASH_FUNC_ERROR_STR "Hash function not given"
+#define LG_MSG_ENTRIES_NOT_PROVIDED_STR                                        \
+    "Both mem-pool and expected entries not provided"
+#define LG_MSG_ENTRIES_PROVIDED_STR                                            \
+    "Both mem-pool and expected entries are provided"
+#define LG_MSG_RBTHASH_INIT_BUCKET_FAILED_STR "failed to init buckets"
+#define LG_MSG_RBTHASH_GET_ENTRY_FAILED_STR "Failed to get entry from mem-pool"
+#define LG_MSG_RBTHASH_GET_BUCKET_FAILED_STR "Failed to get bucket"
+#define LG_MSG_RBTHASH_INSERT_FAILED_STR "Failed to insert entry"
+#define LG_MSG_RBTHASH_INIT_ENTRY_FAILED_STR "Failed to init entry"
 #define LG_MSG_FILE_STAT_FAILED_STR "failed to stat"
 #define LG_MSG_INET_PTON_FAILED_STR "inet_pton() failed"
 #define LG_MSG_INVALID_ENTRY_STR "Invalid arguments"

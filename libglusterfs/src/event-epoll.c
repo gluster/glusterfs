@@ -296,9 +296,8 @@ event_pool_new_epoll(int count, int eventthreadcount)
     epfd = epoll_create(count);
 
     if (epfd == -1) {
-        gf_msg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_CREATE_FAILED,
-               "epoll fd creation "
-               "failed");
+        gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_CREATE_FAILED,
+                NULL);
         GF_FREE(event_pool->reg);
         GF_FREE(event_pool);
         event_pool = NULL;
@@ -332,8 +331,8 @@ __slot_update_events(struct event_slot_epoll *slot, int poll_in, int poll_out)
             /* do nothing */
             break;
         default:
-            gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_IN,
-                   "invalid poll_in value %d", poll_in);
+            gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_IN,
+                    "value=%d", poll_in, NULL);
             break;
     }
 
@@ -348,8 +347,8 @@ __slot_update_events(struct event_slot_epoll *slot, int poll_in, int poll_out)
             /* do nothing */
             break;
         default:
-            gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_OUT,
-                   "invalid poll_out value %d", poll_out);
+            gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_INVALID_POLL_OUT,
+                    "value=%d", poll_out, NULL);
             break;
     }
 }
@@ -390,8 +389,8 @@ event_register_epoll(struct event_pool *event_pool, int fd,
 
     idx = event_slot_alloc(event_pool, fd, notify_poller_death, &slot);
     if (idx == -1) {
-        gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
-               "could not find slot for fd=%d", fd);
+        gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "fd=%d", fd,
+                NULL);
         return -1;
     }
 
@@ -426,10 +425,8 @@ event_register_epoll(struct event_pool *event_pool, int fd,
     UNLOCK(&slot->lock);
 
     if (ret == -1) {
-        gf_msg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_ADD_FAILED,
-               "failed to add fd(=%d) to "
-               "epoll fd(=%d)",
-               fd, event_pool->fd);
+        gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_ADD_FAILED,
+                "fd=%d", fd, "epoll_fd=%d", event_pool->fd, NULL);
         event_slot_unref(event_pool, slot, idx);
         idx = -1;
     }
@@ -458,8 +455,8 @@ event_unregister_epoll_common(struct event_pool *event_pool, int fd, int idx,
 
     slot = event_slot_get(event_pool, idx);
     if (!slot) {
-        gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
-               "could not find slot for fd=%d idx=%d", fd, idx);
+        gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "fd=%d", fd,
+                "idx=%d", idx, NULL);
         return -1;
     }
 
@@ -470,10 +467,8 @@ event_unregister_epoll_common(struct event_pool *event_pool, int fd, int idx,
         ret = epoll_ctl(event_pool->fd, EPOLL_CTL_DEL, fd, NULL);
 
         if (ret == -1) {
-            gf_msg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_DEL_FAILED,
-                   "fail to del "
-                   "fd(=%d) from epoll fd(=%d)",
-                   fd, event_pool->fd);
+            gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_DEL_FAILED,
+                    "fd=%d", fd, "epoll_fd=%d", event_pool->fd, NULL);
             goto unlock;
         }
 
@@ -525,8 +520,8 @@ event_select_on_epoll(struct event_pool *event_pool, int fd, int idx,
 
     slot = event_slot_get(event_pool, idx);
     if (!slot) {
-        gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
-               "could not find slot for fd=%d idx=%d", fd, idx);
+        gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "fd=%d", fd,
+                "idx=%d", idx, NULL);
         return -1;
     }
 
@@ -557,10 +552,8 @@ event_select_on_epoll(struct event_pool *event_pool, int fd, int idx,
 
         ret = epoll_ctl(event_pool->fd, EPOLL_CTL_MOD, fd, &epoll_event);
         if (ret == -1) {
-            gf_msg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_MODIFY_FAILED,
-                   "failed to "
-                   "modify fd(=%d) events to %d",
-                   fd, epoll_event.events);
+            gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_MODIFY_FAILED,
+                    "fd=%d", fd, "events=%d", epoll_event.events, NULL);
         }
     }
 unlock:
@@ -595,8 +588,8 @@ event_dispatch_epoll_handler(struct event_pool *event_pool,
 
     slot = event_slot_get(event_pool, idx);
     if (!slot) {
-        gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
-               "could not find slot for idx=%d", idx);
+        gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "idx=%d", idx,
+                NULL);
         return -1;
     }
 
@@ -604,20 +597,17 @@ event_dispatch_epoll_handler(struct event_pool *event_pool,
     {
         fd = slot->fd;
         if (fd == -1) {
-            gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_STALE_FD_FOUND,
-                   "stale fd found on "
-                   "idx=%d, gen=%d, events=%d, slot->gen=%d",
-                   idx, gen, event->events, slot->gen);
+            gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_STALE_FD_FOUND, "idx=%d",
+                    idx, "gen=%d", gen, "events=%d", event->events,
+                    "slot->gen=%d", slot->gen, NULL);
             /* fd got unregistered in another thread */
             goto pre_unlock;
         }
 
         if (gen != slot->gen) {
-            gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_GENERATION_MISMATCH,
-                   "generation "
-                   "mismatch on idx=%d, gen=%d, slot->gen=%d, "
-                   "slot->fd=%d",
-                   idx, gen, slot->gen, slot->fd);
+            gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_GENERATION_MISMATCH,
+                    "idx=%d", idx, "gen=%d", gen, "slot->gen=%d", slot->gen,
+                    "slot->fd=%d", slot->fd, NULL);
             /* slot was re-used and therefore is another fd! */
             goto pre_unlock;
         }
@@ -676,10 +666,8 @@ event_dispatch_epoll_worker(void *data)
 
     GF_VALIDATE_OR_GOTO("event", event_pool, out);
 
-    gf_msg("epoll", GF_LOG_INFO, 0, LG_MSG_STARTED_EPOLL_THREAD,
-           "Started"
-           " thread with index %d",
-           myindex - 1);
+    gf_smsg("epoll", GF_LOG_INFO, 0, LG_MSG_STARTED_EPOLL_THREAD, "index=%d",
+            myindex - 1, NULL);
 
     pthread_mutex_lock(&event_pool->mutex);
     {
@@ -743,8 +731,8 @@ event_dispatch_epoll_worker(void *data)
                 }
                 pthread_mutex_unlock(&event_pool->mutex);
 
-                gf_msg("epoll", GF_LOG_INFO, 0, LG_MSG_EXITED_EPOLL_THREAD,
-                       "Exited thread with index %d", myindex);
+                gf_smsg("epoll", GF_LOG_INFO, 0, LG_MSG_EXITED_EPOLL_THREAD,
+                        "index=%d", myindex, NULL);
 
                 goto out;
             }
@@ -762,8 +750,8 @@ event_dispatch_epoll_worker(void *data)
 
         ret = event_dispatch_epoll_handler(event_pool, &event);
         if (ret) {
-            gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_EXITED_EPOLL_THREAD,
-                   "Failed to dispatch handler");
+            gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_DISPATCH_HANDLER_FAILED,
+                    NULL);
         }
     }
 out:
@@ -827,9 +815,8 @@ event_dispatch_epoll(struct event_pool *event_pool)
                 if (i != 0)
                     pthread_detach(event_pool->pollers[i]);
             } else {
-                gf_msg("epoll", GF_LOG_WARNING, 0,
-                       LG_MSG_START_EPOLL_THREAD_FAILED,
-                       "Failed to start thread for index %d", i);
+                gf_smsg("epoll", GF_LOG_WARNING, 0,
+                        LG_MSG_START_EPOLL_THREAD_FAILED, "index=%d", i, NULL);
                 if (i == 0) {
                     GF_FREE(ev_data);
                     break;
@@ -922,11 +909,9 @@ event_reconfigure_threads_epoll(struct event_pool *event_pool, int value)
                                            event_dispatch_epoll_worker, ev_data,
                                            "epoll%03hx", i & 0x3ff);
                     if (ret) {
-                        gf_msg("epoll", GF_LOG_WARNING, 0,
-                               LG_MSG_START_EPOLL_THREAD_FAILED,
-                               "Failed to start thread"
-                               " for index %d",
-                               i);
+                        gf_smsg("epoll", GF_LOG_WARNING, 0,
+                                LG_MSG_START_EPOLL_THREAD_FAILED, "index=%d", i,
+                                NULL);
                         GF_FREE(ev_data);
                     } else {
                         pthread_detach(t_id);
@@ -989,8 +974,8 @@ event_handled_epoll(struct event_pool *event_pool, int fd, int idx, int gen)
 
     slot = event_slot_get(event_pool, idx);
     if (!slot) {
-        gf_msg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
-               "could not find slot for fd=%d idx=%d", fd, idx);
+        gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "fd=%d", fd,
+                "idx=%d", idx, NULL);
         return -1;
     }
 
