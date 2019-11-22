@@ -89,7 +89,6 @@ function add_samba_share () {
         STRING+="glusterfs:loglevel = 7\n"
         STRING+="path = /\n"
         STRING+="read only = no\n"
-        STRING+="guest ok = yes\n"
         STRING+="kernel share modes = no\n"
         printf "$STRING"  >> ${CONFIGFILE}
 }
