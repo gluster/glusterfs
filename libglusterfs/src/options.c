@@ -25,7 +25,8 @@ xlator_option_validate_path(xlator_t *xl, const char *key, const char *value,
 
     if (strstr(value, "../")) {
         snprintf(errstr, 256, "invalid path given '%s'", value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -35,7 +36,8 @@ xlator_option_validate_path(xlator_t *xl, const char *key, const char *value,
                  "option %s %s: '%s' is not an "
                  "absolute path name",
                  key, value, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -59,7 +61,8 @@ xlator_option_validate_int(xlator_t *xl, const char *key, const char *value,
     if (gf_string2longlong(value, &inputll) != 0) {
         snprintf(errstr, 256, "invalid number format \"%s\" in option \"%s\"",
                  value, key);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -67,7 +70,8 @@ xlator_option_validate_int(xlator_t *xl, const char *key, const char *value,
     if ((inputll == 0) && (gf_string2ulonglong(value, &uinputll) != 0)) {
         snprintf(errstr, 256, "invalid number format \"%s\" in option \"%s\"",
                  value, key);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -87,8 +91,8 @@ xlator_option_validate_int(xlator_t *xl, const char *key, const char *value,
                      "'%lld' in 'option %s %s' is smaller than "
                      "minimum value '%.0f'",
                      inputll, key, value, opt->min);
-            gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
-                   errstr);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                    errstr, NULL);
             goto out;
         }
     } else if (opt->validate == GF_OPT_VALIDATE_MAX) {
@@ -97,8 +101,8 @@ xlator_option_validate_int(xlator_t *xl, const char *key, const char *value,
                      "'%lld' in 'option %s %s' is greater than "
                      "maximum value '%.0f'",
                      inputll, key, value, opt->max);
-            gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
-                   errstr);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                    errstr, NULL);
             goto out;
         }
     } else if ((inputll < opt->min) || (inputll > opt->max)) {
@@ -106,7 +110,8 @@ xlator_option_validate_int(xlator_t *xl, const char *key, const char *value,
                  "'%lld' in 'option %s %s' is out of range "
                  "[%.0f - %.0f]",
                  inputll, key, value, opt->min, opt->max);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -129,7 +134,8 @@ xlator_option_validate_sizet(xlator_t *xl, const char *key, const char *value,
     if (gf_string2bytesize_uint64(value, &size) != 0) {
         snprintf(errstr, 256, "invalid number format \"%s\" in option \"%s\"",
                  value, key);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         ret = -1;
         goto out;
     }
@@ -147,7 +153,8 @@ xlator_option_validate_sizet(xlator_t *xl, const char *key, const char *value,
                  "'%" PRIu64
                  "' in 'option %s %s' is out of range [%.0f - %.0f]",
                  size, key, value, opt->min, opt->max);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                errstr, NULL);
         ret = -1;
     }
 
@@ -171,7 +178,8 @@ xlator_option_validate_bool(xlator_t *xl, const char *key, const char *value,
     if (gf_string2boolean(value, &is_valid) != 0) {
         snprintf(errstr, 256, "option %s %s: '%s' is not a valid boolean value",
                  key, value, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -206,7 +214,8 @@ xlator_option_validate_xlator(xlator_t *xl, const char *key, const char *value,
     if (!xlopt) {
         snprintf(errstr, 256, "option %s %s: '%s' is not a valid volume name",
                  key, value, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -305,7 +314,8 @@ out:
         char errstr[4096];
         set_error_str(errstr, sizeof(errstr), opt, key, value);
 
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         if (op_errstr)
             *op_errstr = gf_strdup(errstr);
     }
@@ -324,7 +334,8 @@ xlator_option_validate_percent(xlator_t *xl, const char *key, const char *value,
     if (gf_string2percent(value, &percent) != 0) {
         snprintf(errstr, 256, "invalid percent format \"%s\" in \"option %s\"",
                  value, key);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -332,7 +343,8 @@ xlator_option_validate_percent(xlator_t *xl, const char *key, const char *value,
         snprintf(errstr, 256,
                  "'%lf' in 'option %s %s' is out of range [0 - 100]", percent,
                  key, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -378,8 +390,8 @@ xlator_option_validate_percent_or_sizet(xlator_t *xl, const char *key,
                          "'%lf' in 'option %s %s' is out"
                          " of range [0 - 100]",
                          size, key, value);
-                gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s",
-                       errstr);
+                gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE,
+                        "error=%s", errstr, NULL);
                 goto out;
             }
             ret = 0;
@@ -394,8 +406,8 @@ xlator_option_validate_percent_or_sizet(xlator_t *xl, const char *key,
                      " %s' should not be fractional value. Use "
                      "valid unsigned integer value.",
                      size, key, value);
-            gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
-                   errstr);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                    errstr, NULL);
             goto out;
         }
 
@@ -413,8 +425,8 @@ xlator_option_validate_percent_or_sizet(xlator_t *xl, const char *key,
                      "'%lf' in 'option %s %s'"
                      " is out of range [%.0f - %.0f]",
                      size, key, value, opt->min, opt->max);
-            gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s",
-                   errstr);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                    errstr, NULL);
             goto out;
         }
         ret = 0;
@@ -425,7 +437,8 @@ xlator_option_validate_percent_or_sizet(xlator_t *xl, const char *key,
 
     snprintf(errstr, 256, "invalid number format \"%s\" in \"option %s\"",
              value, key);
-    gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+    gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s", errstr,
+            NULL);
 
 out:
     if (ret && op_errstr)
@@ -447,7 +460,8 @@ xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
                  "invalid time format \"%s\" in "
                  "\"option %s\"",
                  value, key);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -466,7 +480,8 @@ xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
                  "' in 'option %s %s' is "
                  "out of range [%.0f - %.0f]",
                  input_time, key, value, opt->min, opt->max);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -489,7 +504,8 @@ xlator_option_validate_double(xlator_t *xl, const char *key, const char *value,
     if (gf_string2double(value, &input) != 0) {
         snprintf(errstr, 256, "invalid number format \"%s\" in option \"%s\"",
                  value, key);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -509,8 +525,8 @@ xlator_option_validate_double(xlator_t *xl, const char *key, const char *value,
                      "'%f' in 'option %s %s' is smaller than "
                      "minimum value '%f'",
                      input, key, value, opt->min);
-            gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
-                   errstr);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                    errstr, NULL);
             goto out;
         }
     } else if (opt->validate == GF_OPT_VALIDATE_MAX) {
@@ -519,8 +535,8 @@ xlator_option_validate_double(xlator_t *xl, const char *key, const char *value,
                      "'%f' in 'option %s %s' is greater than "
                      "maximum value '%f'",
                      input, key, value, opt->max);
-            gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
-                   errstr);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                    errstr, NULL);
             goto out;
         }
     } else if ((input < opt->min) || (input > opt->max)) {
@@ -528,7 +544,8 @@ xlator_option_validate_double(xlator_t *xl, const char *key, const char *value,
                  "'%f' in 'option %s %s' is out of range "
                  "[%f - %f]",
                  input, key, value, opt->min, opt->max);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                errstr, NULL);
         goto out;
     }
 
@@ -549,7 +566,8 @@ xlator_option_validate_addr(xlator_t *xl, const char *key, const char *value,
     if (!valid_internet_address((char *)value, _gf_false, _gf_false)) {
         snprintf(errstr, 256, "option %s %s: Can not parse %s address", key,
                  value, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         if (op_errstr)
             *op_errstr = gf_strdup(errstr);
     }
@@ -640,7 +658,8 @@ out:
                  "option %s %s: '%s' is not "
                  "a valid internet-address-list",
                  key, value, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         if (op_errstr)
             *op_errstr = gf_strdup(errstr);
     }
@@ -681,7 +700,8 @@ out:
                  "option %s %s: '%s' is not "
                  "a valid mount-auth-address",
                  key, value, value);
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s", errstr);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "error=%s",
+                errstr, NULL);
         if (op_errstr)
             *op_errstr = gf_strdup(errstr);
     }
@@ -747,20 +767,16 @@ validate_list_elements(const char *string, volume_option_t *opt,
         key = strtok_r(str_ptr, ":", &substr_sav);
         if (!key || (key_validator && key_validator(key))) {
             ret = -1;
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
-                   "invalid list '%s', key "
-                   "'%s' not valid.",
-                   string, key ? key : "");
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
+                    "list=%s", string, "key=%s", key ? key : "", NULL);
             goto out;
         }
 
         value = strtok_r(NULL, ":", &substr_sav);
         if (!value || (value_validator && value_validator(value, opt))) {
             ret = -1;
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
-                   "invalid list '%s', "
-                   "value '%s' not valid.",
-                   string, key);
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
+                    "list=%s", string, "value=%s", key, NULL);
             goto out;
         }
 
@@ -865,8 +881,8 @@ xlator_option_validate(xlator_t *xl, char *key, char *value,
     };
 
     if (opt->type > GF_OPTION_TYPE_MAX) {
-        gf_msg(xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
-               "unknown option type '%d'", opt->type);
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_UNKNOWN_OPTION_TYPE,
+                "type=%d", opt->type, NULL);
         goto out;
     }
 
@@ -947,18 +963,16 @@ xl_opt_validate(dict_t *dict, char *key, data_t *value, void *data)
 
     ret = xlator_option_validate(xl, key, value->data, opt, &errstr);
     if (ret)
-        gf_msg(xl->name, GF_LOG_WARNING, 0, LG_MSG_VALIDATE_RETURNS,
-               "validate of %s returned %d", key, ret);
+        gf_smsg(xl->name, GF_LOG_WARNING, 0, LG_MSG_VALIDATE_RETURNS, "key=%s",
+                key, "ret=%d", ret, NULL);
 
     if (errstr)
         /* possible small leak of previously set stub->errstr */
         stub->errstr = errstr;
 
     if (fnmatch(opt->key[0], key, FNM_NOESCAPE) != 0) {
-        gf_msg(xl->name, GF_LOG_DEBUG, 0, LG_MSG_INVALID_ENTRY,
-               "option '%s' is deprecated, preferred is '%s', "
-               "continuing with correction",
-               key, opt->key[0]);
+        gf_smsg(xl->name, GF_LOG_DEBUG, 0, LG_MSG_OPTION_DEPRECATED, "key=%s",
+                key, "preferred=%s", opt->key[0], NULL);
         dict_set(dict, opt->key[0], value);
         dict_del(dict, key);
     }
@@ -1026,9 +1040,8 @@ xlator_validate_rec(xlator_t *xlator, char **op_errstr)
 
     while (trav) {
         if (xlator_validate_rec(trav->xlator, op_errstr)) {
-            gf_msg("xlator", GF_LOG_WARNING, 0, LG_MSG_VALIDATE_REC_FAILED,
-                   "validate_rec "
-                   "failed");
+            gf_smsg("xlator", GF_LOG_WARNING, 0, LG_MSG_VALIDATE_REC_FAILED,
+                    NULL);
             goto out;
         }
 
@@ -1052,8 +1065,8 @@ xlator_validate_rec(xlator_t *xlator, char **op_errstr)
     THIS = old_THIS;
 
     if (ret) {
-        gf_msg(xlator->name, GF_LOG_INFO, 0, LG_MSG_INVALID_ENTRY, "%s",
-               *op_errstr);
+        gf_smsg(xlator->name, GF_LOG_INFO, 0, LG_MSG_INVALID_ENTRY, "%s",
+                *op_errstr, NULL);
         goto out;
     }
 

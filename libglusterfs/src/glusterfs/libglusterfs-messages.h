@@ -117,7 +117,8 @@ GLFS_MSGID(
     LG_MSG_THREAD_CREATE_FAILED, LG_MSG_FILE_DELETE_FAILED, LG_MSG_WRONG_VALUE,
     LG_MSG_PATH_OPEN_FAILED, LG_MSG_DISPATCH_HANDLER_FAILED,
     LG_MSG_READ_FILE_FAILED, LG_MSG_ENTRIES_NOT_PROVIDED,
-    LG_MSG_ENTRIES_PROVIDED);
+    LG_MSG_ENTRIES_PROVIDED, LG_MSG_UNKNOWN_OPTION_TYPE,
+    LG_MSG_OPTION_DEPRECATED);
 
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
@@ -194,5 +195,18 @@ GLFS_MSGID(
     "detected cyclic loop formation during inode linkage"
 #define LG_MSG_CTX_NULL_STR "_ctx not found"
 #define LG_MSG_DENTRY_NOT_FOUND_STR "dentry not found"
+#define LG_MSG_OUT_OF_RANGE_STR "out of range"
+#define LG_MSG_UNKNOWN_OPTION_TYPE_STR "unknown option type"
+#define LG_MSG_VALIDATE_RETURNS_STR "validate of returned"
+#define LG_MSG_OPTION_DEPRECATED_STR                                           \
+    "option is deprecated, continuing with correction"
+#define LG_MSG_VALIDATE_REC_FAILED_STR "validate_rec failed"
+#define LG_MSG_MAPPING_FAILED_STR "mapping failed"
+#define LG_MSG_INIT_IOBUF_FAILED_STR "init failed"
+#define LG_MSG_ARENA_NOT_FOUND_STR "arena not found"
+#define LG_MSG_PAGE_SIZE_EXCEEDED_STR                                          \
+    "page_size of iobufs in arena being added is greater than max available"
+#define LG_MSG_POOL_NOT_FOUND_STR "pool not found"
+#define LG_MSG_IOBUF_NOT_FOUND_STR "iobuf not found"
 
 #endif /* !_LG_MESSAGES_H_ */

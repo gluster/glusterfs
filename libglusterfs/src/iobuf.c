@@ -168,8 +168,7 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
                                  PROT_READ | PROT_WRITE,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (iobuf_arena->mem_base == MAP_FAILED) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED,
-               "mapping failed");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
         goto err;
     }
 
@@ -181,8 +180,7 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     __iobuf_arena_init_iobufs(iobuf_arena);
     if (!iobuf_arena->iobufs) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_IOBUF_FAILED,
-               "init failed");
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_IOBUF_FAILED, NULL);
         goto err;
     }
 
@@ -227,8 +225,8 @@ __iobuf_pool_add_arena(struct iobuf_pool *iobuf_pool, const size_t page_size,
     if (!iobuf_arena) {
         iobuf_arena = __iobuf_arena_alloc(iobuf_pool, page_size, num_pages);
         if (!iobuf_arena) {
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
-                   "arena not found");
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
+                    NULL);
             return NULL;
         }
     }
@@ -552,10 +550,8 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
         iobuf_pool->request_misses++;
         return iobuf;
     } else if (index == -1) {
-        gf_msg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
-               "page_size (%zu) of iobufs in arena being added is "
-               "greater than max available",
-               page_size);
+        gf_smsg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
+                "page_size=%zu", page_size, NULL);
         return NULL;
     }
 
@@ -564,8 +560,8 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
         iobuf = __iobuf_get(iobuf_pool, rounded_size, index);
         if (!iobuf) {
             pthread_mutex_unlock(&iobuf_pool->mutex);
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
-                   "iobuf not found");
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
+                    NULL);
             goto post_unlock;
         }
 
@@ -618,10 +614,8 @@ iobuf_get(struct iobuf_pool *iobuf_pool)
 
     index = gf_iobuf_get_arena_index(iobuf_pool->default_page_size);
     if (index == -1) {
-        gf_msg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
-               "page_size (%zu) of iobufs in arena being added is "
-               "greater than max available",
-               iobuf_pool->default_page_size);
+        gf_smsg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
+                "page_size=%zu", iobuf_pool->default_page_size, NULL);
         return NULL;
     }
 
@@ -630,8 +624,8 @@ iobuf_get(struct iobuf_pool *iobuf_pool)
         iobuf = __iobuf_get(iobuf_pool, iobuf_pool->default_page_size, index);
         if (!iobuf) {
             pthread_mutex_unlock(&iobuf_pool->mutex);
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
-                   "iobuf not found");
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
+                    NULL);
             goto out;
         }
 
@@ -701,15 +695,14 @@ iobuf_put(struct iobuf *iobuf)
 
     iobuf_arena = iobuf->iobuf_arena;
     if (!iobuf_arena) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
-               "arena not found");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND, NULL);
         return;
     }
 
     iobuf_pool = iobuf_arena->iobuf_pool;
     if (!iobuf_pool) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_POOL_NOT_FOUND,
-               "iobuf pool not found");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_POOL_NOT_FOUND, "iobuf",
+                NULL);
         return;
     }
 
@@ -948,14 +941,12 @@ iobuf_size(struct iobuf *iobuf)
     GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
 
     if (!iobuf->iobuf_arena) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
-               "arena not found");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND, NULL);
         goto out;
     }
 
     if (!iobuf->iobuf_arena->iobuf_pool) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_POOL_NOT_FOUND,
-               "pool not found");
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_POOL_NOT_FOUND, NULL);
         goto out;
     }
 
