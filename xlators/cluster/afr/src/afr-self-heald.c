@@ -1483,6 +1483,11 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
                     if (ret == 0) {
                         ret = dict_set_uint64(output, key, cnt);
                     }
+                    if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, -ret,
+                               AFR_MSG_DICT_SET_FAILED,
+                               "Could not add cnt to output");
+                    }
                     op_ret = 0;
                 }
             }
