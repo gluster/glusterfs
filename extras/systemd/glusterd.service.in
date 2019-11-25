@@ -15,6 +15,11 @@ ExecStart=@prefix@/sbin/glusterd -p @localstatedir@/run/glusterd.pid  --log-leve
 KillMode=process
 TimeoutSec=300
 SuccessExitStatus=15
+Restart=on-abnormal
+RestartSec=60
+StartLimitBurst=3
+StartLimitIntervalSec=3600
+StartLimitInterval=3600
 
 [Install]
 WantedBy=multi-user.target
