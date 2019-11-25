@@ -522,18 +522,19 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
     struct stat stat = {
         0,
     };
-
-    ret = sys_fstat(fd, &stat);
-    if (ret != 0) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_FILE_OP_FAILED, "%d",
-               fd);
-        goto out;
-    }
+    gf_boolean_t fstat_executed = _gf_false;
 
     if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
         tv[0].tv_sec = stbuf->ia_atime;
         tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
     } else {
+        ret = sys_fstat(fd, &stat);
+        if (ret != 0) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_FILE_OP_FAILED,
+                   "%d", fd);
+            goto out;
+        }
+        fstat_executed = _gf_true;
         /* atime is not given, use current values */
         tv[0].tv_sec = ST_ATIM_SEC(&stat);
         tv[0].tv_usec = ST_ATIM_NSEC(&stat) / 1000;
@@ -543,6 +544,14 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
         tv[1].tv_sec = stbuf->ia_mtime;
         tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
     } else {
+        if (!fstat_executed) {
+            ret = sys_fstat(fd, &stat);
+            if (ret != 0) {
+                gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_FILE_OP_FAILED,
+                       "%d", fd);
+                goto out;
+            }
+        }
         /* mtime is not given, use current values */
         tv[1].tv_sec = ST_MTIM_SEC(&stat);
         tv[1].tv_usec = ST_MTIM_NSEC(&stat) / 1000;
