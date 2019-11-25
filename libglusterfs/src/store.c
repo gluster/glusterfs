@@ -183,8 +183,8 @@ out:
 }
 
 int
-gf_store_read_and_tokenize(FILE *file, char *str, int size, char **iter_key,
-                           char **iter_val, gf_store_op_errno_t *store_errno)
+gf_store_read_and_tokenize(FILE *file, char **iter_key, char **iter_val,
+                           gf_store_op_errno_t *store_errno)
 {
     int32_t ret = -1;
     char *savetok = NULL;
@@ -192,15 +192,15 @@ gf_store_read_and_tokenize(FILE *file, char *str, int size, char **iter_key,
     char *value = NULL;
     char *temp = NULL;
     size_t str_len = 0;
+    char str[8192];
 
     GF_ASSERT(file);
-    GF_ASSERT(str);
     GF_ASSERT(iter_key);
     GF_ASSERT(iter_val);
     GF_ASSERT(store_errno);
 
 retry:
-    temp = fgets(str, size, file);
+    temp = fgets(str, 8192, file);
     if (temp == NULL || feof(file)) {
         ret = -1;
         *store_errno = GD_STORE_EOF;
@@ -240,13 +240,8 @@ int32_t
 gf_store_retrieve_value(gf_store_handle_t *handle, char *key, char **value)
 {
     int32_t ret = -1;
-    char *scan_str = NULL;
     char *iter_key = NULL;
     char *iter_val = NULL;
-    char *free_str = NULL;
-    struct stat st = {
-        0,
-    };
     gf_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
     GF_ASSERT(handle);
@@ -278,32 +273,9 @@ gf_store_retrieve_value(gf_store_handle_t *handle, char *key, char **value)
     } else {
         fseek(handle->read, 0, SEEK_SET);
     }
-    ret = sys_fstat(handle->fd, &st);
-    if (ret < 0) {
-        gf_msg("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
-               "stat on file %s failed", handle->path);
-        ret = -1;
-        store_errno = GD_STORE_STAT_FAILED;
-        goto out;
-    }
-
-    /* "st.st_size + 1" is used as we are fetching each
-     * line of a file using fgets, fgets will append "\0"
-     * to the end of the string
-     */
-    scan_str = GF_CALLOC(1, st.st_size + 1, gf_common_mt_char);
-
-    if (scan_str == NULL) {
-        ret = -1;
-        store_errno = GD_STORE_ENOMEM;
-        goto out;
-    }
-
-    free_str = scan_str;
-
     do {
-        ret = gf_store_read_and_tokenize(handle->read, scan_str, st.st_size + 1,
-                                         &iter_key, &iter_val, &store_errno);
+        ret = gf_store_read_and_tokenize(handle->read, &iter_key, &iter_val,
+                                         &store_errno);
         if (ret < 0) {
             gf_msg_trace("", 0,
                          "error while reading key '%s': "
@@ -332,8 +304,6 @@ out:
         /* only invalidate handle->fd if not locked */
         sys_close(handle->fd);
     }
-
-    GF_FREE(free_str);
 
     return ret;
 }
@@ -607,40 +577,16 @@ gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
                        gf_store_op_errno_t *op_errno)
 {
     int32_t ret = -1;
-    char *scan_str = NULL;
     char *iter_key = NULL;
     char *iter_val = NULL;
-    struct stat st = {
-        0,
-    };
     gf_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
     GF_ASSERT(iter);
     GF_ASSERT(key);
     GF_ASSERT(value);
 
-    ret = sys_stat(iter->filepath, &st);
-    if (ret < 0) {
-        gf_msg("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
-               "stat on file failed");
-        ret = -1;
-        store_errno = GD_STORE_STAT_FAILED;
-        goto out;
-    }
-
-    /* "st.st_size + 1" is used as we are fetching each
-     * line of a file using fgets, fgets will append "\0"
-     * to the end of the string
-     */
-    scan_str = GF_CALLOC(1, st.st_size + 1, gf_common_mt_char);
-    if (!scan_str) {
-        ret = -1;
-        store_errno = GD_STORE_ENOMEM;
-        goto out;
-    }
-
-    ret = gf_store_read_and_tokenize(iter->file, scan_str, st.st_size + 1,
-                                     &iter_key, &iter_val, &store_errno);
+    ret = gf_store_read_and_tokenize(iter->file, &iter_key, &iter_val,
+                                     &store_errno);
     if (ret < 0) {
         goto out;
     }
@@ -665,7 +611,6 @@ gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
     ret = 0;
 
 out:
-    GF_FREE(scan_str);
     if (ret) {
         GF_FREE(*key);
         GF_FREE(*value);

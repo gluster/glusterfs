@@ -3943,7 +3943,6 @@ out:
 int32_t
 glusterd_store_retrieve_missed_snaps_list(xlator_t *this)
 {
-    char buf[PATH_MAX] = "";
     char path[PATH_MAX] = "";
     char *snap_vol_id = NULL;
     char *missed_node_info = NULL;
@@ -3980,8 +3979,8 @@ glusterd_store_retrieve_missed_snaps_list(xlator_t *this)
     }
 
     do {
-        ret = gf_store_read_and_tokenize(
-            fp, buf, sizeof(buf), &missed_node_info, &value, &store_errno);
+        ret = gf_store_read_and_tokenize(fp, &missed_node_info, &value,
+                                         &store_errno);
         if (ret) {
             if (store_errno == GD_STORE_EOF) {
                 gf_msg_debug(this->name, 0, "EOF for missed_snap_list");
