@@ -813,19 +813,10 @@ err:
 static FILE *
 get_volfp(glusterfs_ctx_t *ctx)
 {
-    int ret = 0;
     cmd_args_t *cmd_args = NULL;
     FILE *specfp = NULL;
-    struct stat statbuf;
 
     cmd_args = &ctx->cmd_args;
-
-    ret = sys_lstat(cmd_args->volfile, &statbuf);
-    if (ret == -1) {
-        gf_msg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
-               "loading volume file %s failed", cmd_args->volfile);
-        return NULL;
-    }
 
     if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
         gf_msg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
