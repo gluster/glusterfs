@@ -75,9 +75,10 @@ notify(xlator_t *this, int event, void *data, ...)
 
     switch (event) {
         case GF_EVENT_GRAPH_NEW:
-            gf_msg(this->name, GF_LOG_INFO, 0, API_MSG_NEW_GRAPH,
-                   "New graph %s (%d) coming up",
-                   uuid_utoa((unsigned char *)graph->graph_uuid), graph->id);
+            gf_smsg(this->name, GF_LOG_INFO, 0, API_MSG_NEW_GRAPH,
+                    "graph-uuid=%s",
+                    uuid_utoa((unsigned char *)graph->graph_uuid), "id=%d",
+                    graph->id, NULL);
             break;
         case GF_EVENT_CHILD_UP:
             pthread_mutex_lock(&fs->mutex);
@@ -120,9 +121,8 @@ mem_acct_init(xlator_t *this)
 
     ret = xlator_mem_acct_init(this, glfs_mt_end + 1);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_MEM_ACCT_INIT_FAILED,
-               "Failed to initialise "
-               "memory accounting");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_MEM_ACCT_INIT_FAILED,
+                NULL);
         return ret;
     }
 
