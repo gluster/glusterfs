@@ -116,9 +116,9 @@ glfs_refresh_inode_safe(xlator_t *subvol, inode_t *oldinode,
     DECODE_SYNCOP_ERR(ret);
 
     if (ret) {
-        gf_msg(subvol->name, GF_LOG_WARNING, errno,
-               API_MSG_INODE_REFRESH_FAILED, "inode refresh of %s failed: %s",
-               uuid_utoa(oldinode->gfid), strerror(errno));
+        gf_smsg(subvol->name, GF_LOG_WARNING, errno,
+                API_MSG_INODE_REFRESH_FAILED, "gfid=%s",
+                uuid_utoa(oldinode->gfid), "err=%s", strerror(errno), NULL);
         loc_wipe(&loc);
         return NULL;
     }
@@ -129,9 +129,8 @@ glfs_refresh_inode_safe(xlator_t *subvol, inode_t *oldinode,
             inode_ctx_set(newinode, THIS, &ctx_value);
         inode_lookup(newinode);
     } else {
-        gf_msg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
-               "inode linking of %s failed",
-               uuid_utoa((unsigned char *)&iatt.ia_gfid));
+        gf_smsg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
+                "gfid=%s", uuid_utoa((unsigned char *)&iatt.ia_gfid), NULL);
     }
 
     loc_wipe(&loc);
@@ -442,9 +441,8 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
     inode = inode_link(loc.inode, loc.parent, component, &ciatt);
 
     if (!inode) {
-        gf_msg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
-               "inode linking of %s failed",
-               uuid_utoa((unsigned char *)&ciatt.ia_gfid));
+        gf_smsg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
+                "gfid=%s", uuid_utoa((unsigned char *)&ciatt.ia_gfid), NULL);
         goto out;
     } else if (inode == loc.inode)
         inode_ctx_set(inode, THIS, &ctx_value);
@@ -628,8 +626,8 @@ glfs_resolve_path(struct glfs *fs, xlator_t *subvol, const char *origpath,
 
     cwd = glfs_cwd_get(fs);
     if (NULL == cwd) {
-        gf_msg(subvol->name, GF_LOG_WARNING, EIO, API_MSG_GET_CWD_FAILED,
-               "Failed to get cwd");
+        gf_smsg(subvol->name, GF_LOG_WARNING, EIO, API_MSG_GET_CWD_FAILED,
+                NULL);
         errno = EIO;
         goto out;
     }
@@ -683,28 +681,27 @@ glfs_migrate_fd_locks_safe(struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
                            NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
     if (ret < 0) {
-        gf_msg(fs->volname, GF_LOG_WARNING, errno, API_MSG_FGETXATTR_FAILED,
-               "fgetxattr (%s) failed (%s) on graph %s (%d)",
-               uuid_utoa_r(oldfd->inode->gfid, uuid1), strerror(errno),
-               graphid_str(oldsubvol), oldsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, errno, API_MSG_FGETXATTR_FAILED,
+                "gfid=%s", uuid_utoa_r(oldfd->inode->gfid, uuid1), "err=%s",
+                strerror(errno), "subvol=%s", graphid_str(oldsubvol), "id=%d",
+                oldsubvol->graph->id, NULL);
         goto out;
     }
 
     if (!dict_get(lockinfo, GF_XATTR_LOCKINFO_KEY)) {
-        gf_msg(fs->volname, GF_LOG_WARNING, 0, API_MSG_LOCKINFO_KEY_MISSING,
-               "missing lockinfo key (%s) on graph %s (%d)",
-               uuid_utoa_r(oldfd->inode->gfid, uuid1), graphid_str(oldsubvol),
-               oldsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, 0, API_MSG_LOCKINFO_KEY_MISSING,
+                "gfid=%s", uuid_utoa_r(oldfd->inode->gfid, uuid1), "subvol=%s",
+                graphid_str(oldsubvol), "id=%d", oldsubvol->graph->id, NULL);
         goto out;
     }
 
     ret = syncop_fsetxattr(newsubvol, newfd, lockinfo, 0, NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
     if (ret < 0) {
-        gf_msg(fs->volname, GF_LOG_WARNING, 0, API_MSG_FSETXATTR_FAILED,
-               "fsetxattr (%s) failed (%s) on graph %s (%d)",
-               uuid_utoa_r(newfd->inode->gfid, uuid1), strerror(errno),
-               graphid_str(newsubvol), newsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, 0, API_MSG_FSETXATTR_FAILED,
+                "gfid=%s", uuid_utoa_r(newfd->inode->gfid, uuid1), "err=%s",
+                strerror(errno), "subvol=%s", graphid_str(newsubvol), "id=%d",
+                newsubvol->graph->id, NULL);
         goto out;
     }
 out:
@@ -736,29 +733,31 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
         ret = syncop_fsync(oldsubvol, oldfd, 0, NULL, NULL, NULL, NULL);
         DECODE_SYNCOP_ERR(ret);
         if (ret) {
-            gf_msg(fs->volname, GF_LOG_WARNING, errno, API_MSG_FSYNC_FAILED,
-                   "fsync() failed "
-                   "(%s) on %s graph %s (%d)",
-                   strerror(errno), uuid_utoa_r(oldfd->inode->gfid, uuid1),
-                   graphid_str(oldsubvol), oldsubvol->graph->id);
+            gf_smsg(fs->volname, GF_LOG_WARNING, errno, API_MSG_FSYNC_FAILED,
+                    "err=%s", strerror(errno), "gfid=%s",
+                    uuid_utoa_r(oldfd->inode->gfid, uuid1), "subvol=%s",
+                    graphid_str(oldsubvol), "id=%d", oldsubvol->graph->id,
+                    NULL);
         }
     }
 
     newinode = glfs_refresh_inode_safe(newsubvol, oldinode, _gf_false);
     if (!newinode) {
-        gf_msg(fs->volname, GF_LOG_WARNING, errno, API_MSG_INODE_REFRESH_FAILED,
-               "inode (%s) refresh failed (%s) on graph %s (%d)",
-               uuid_utoa_r(oldinode->gfid, uuid1), strerror(errno),
-               graphid_str(newsubvol), newsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, errno,
+                API_MSG_INODE_REFRESH_FAILED, "gfid=%s",
+                uuid_utoa_r(oldinode->gfid, uuid1), "err=%s", strerror(errno),
+                "subvol=%s", graphid_str(newsubvol), "id=%d",
+                newsubvol->graph->id, NULL);
         goto out;
     }
 
     newfd = fd_create(newinode, getpid());
     if (!newfd) {
-        gf_msg(fs->volname, GF_LOG_WARNING, errno, API_MSG_FDCREATE_FAILED,
-               "fd_create (%s) failed (%s) on graph %s (%d)",
-               uuid_utoa_r(newinode->gfid, uuid1), strerror(errno),
-               graphid_str(newsubvol), newsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, errno,
+                API_MSG_FDCREATE_FAILED_ON_GRAPH, "gfid=%s",
+                uuid_utoa_r(newinode->gfid, uuid1), "err=%s", strerror(errno),
+                "subvol=%s", graphid_str(newsubvol), "id=%d",
+                newsubvol->graph->id, NULL);
         goto out;
     }
 
@@ -766,8 +765,7 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 
     ret = inode_path(oldfd->inode, NULL, (char **)&loc.path);
     if (ret < 0) {
-        gf_msg(fs->volname, GF_LOG_INFO, 0, API_MSG_INODE_PATH_FAILED,
-               "inode_path failed");
+        gf_smsg(fs->volname, GF_LOG_INFO, 0, API_MSG_INODE_PATH_FAILED, NULL);
         goto out;
     }
 
@@ -783,21 +781,21 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
     loc_wipe(&loc);
 
     if (ret) {
-        gf_msg(fs->volname, GF_LOG_WARNING, errno, API_MSG_SYNCOP_OPEN_FAILED,
-               "syncop_open%s (%s) failed (%s) on graph %s (%d)",
-               IA_ISDIR(oldinode->ia_type) ? "dir" : "",
-               uuid_utoa_r(newinode->gfid, uuid1), strerror(errno),
-               graphid_str(newsubvol), newsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, errno, API_MSG_SYNCOP_OPEN_FAILED,
+                "type=%s", IA_ISDIR(oldinode->ia_type) ? "dir" : "", "gfid=%s",
+                uuid_utoa_r(newinode->gfid, uuid1), "err=%s", strerror(errno),
+                "subvol=%s", graphid_str(newsubvol), "id=%d",
+                newsubvol->graph->id, NULL);
         goto out;
     }
 
     ret = glfs_migrate_fd_locks_safe(fs, oldsubvol, oldfd, newsubvol, newfd);
 
     if (ret) {
-        gf_msg(fs->volname, GF_LOG_WARNING, errno, API_MSG_LOCK_MIGRATE_FAILED,
-               "lock migration (%s) failed (%s) on graph %s (%d)",
-               uuid_utoa_r(newinode->gfid, uuid1), strerror(errno),
-               graphid_str(newsubvol), newsubvol->graph->id);
+        gf_smsg(fs->volname, GF_LOG_WARNING, errno, API_MSG_LOCK_MIGRATE_FAILED,
+                "gfid=%s", uuid_utoa_r(newinode->gfid, uuid1), "err=%s",
+                strerror(errno), "subvol=%s", graphid_str(newsubvol), "id=%d",
+                newsubvol->graph->id, NULL);
         goto out;
     }
 
@@ -878,9 +876,9 @@ __glfs_migrate_openfds(struct glfs *fs, xlator_t *subvol)
     list_for_each_entry(glfd, &fs->openfds, openfds)
     {
         if (gf_uuid_is_null(glfd->fd->inode->gfid)) {
-            gf_msg(fs->volname, GF_LOG_INFO, 0, API_MSG_OPENFD_SKIPPED,
-                   "skipping openfd %p/%p in graph %s (%d)", glfd, glfd->fd,
-                   graphid_str(subvol), subvol->graph->id);
+            gf_smsg(fs->volname, GF_LOG_INFO, 0, API_MSG_OPENFD_SKIPPED,
+                    "glfd=%p", glfd, "glfd->fd=%p", glfd->fd, "subvol=%s",
+                    graphid_str(subvol), "id=%d", subvol->graph->id, NULL);
             /* create in progress, defer */
             continue;
         }
@@ -915,10 +913,10 @@ __glfs_active_subvol(struct glfs *fs)
 
     ret = __glfs_first_lookup(fs, new_subvol);
     if (ret) {
-        gf_msg(fs->volname, GF_LOG_INFO, errno,
-               API_MSG_FIRST_LOOKUP_GRAPH_FAILED,
-               "first lookup on graph %s (%d) failed (%s)",
-               graphid_str(new_subvol), new_subvol->graph->id, strerror(errno));
+        gf_smsg(fs->volname, GF_LOG_INFO, errno,
+                API_MSG_FIRST_LOOKUP_GRAPH_FAILED, "subvol=%s",
+                graphid_str(new_subvol), "id=%d", new_subvol->graph->id,
+                "err=%s", strerror(errno), NULL);
         return NULL;
     }
 
@@ -927,11 +925,11 @@ __glfs_active_subvol(struct glfs *fs)
 
         if (!new_cwd) {
             char buf1[64];
-            gf_msg(fs->volname, GF_LOG_INFO, errno,
-                   API_MSG_CWD_GRAPH_REF_FAILED,
-                   "cwd refresh of %s graph %s (%d) failed (%s)",
-                   uuid_utoa_r(fs->cwd->gfid, buf1), graphid_str(new_subvol),
-                   new_subvol->graph->id, strerror(errno));
+            gf_smsg(fs->volname, GF_LOG_INFO, errno,
+                    API_MSG_CWD_GRAPH_REF_FAILED, "buf=%s",
+                    uuid_utoa_r(fs->cwd->gfid, buf1), "subvol=%s",
+                    graphid_str(new_subvol), "id=%d", new_subvol->graph->id,
+                    "err=%s", strerror(errno), NULL);
             return NULL;
         }
     }
@@ -952,9 +950,8 @@ __glfs_active_subvol(struct glfs *fs)
         inode_unref(new_cwd);
     }
 
-    gf_msg(fs->volname, GF_LOG_INFO, 0, API_MSG_SWITCHED_GRAPH,
-           "switched to graph %s (%d)", graphid_str(new_subvol),
-           new_subvol->graph->id);
+    gf_smsg(fs->volname, GF_LOG_INFO, 0, API_MSG_SWITCHED_GRAPH, "subvol=%s",
+            graphid_str(new_subvol), "id=%d", new_subvol->graph->id, NULL);
 
     return new_subvol;
 }

@@ -69,8 +69,8 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 
     ret = xlator_mem_acct_init(THIS, glfs_mt_end + 1);
     if (ret != 0) {
-        gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_MEM_ACCT_INIT_FAILED,
-               "Memory accounting init failed");
+        gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_MEM_ACCT_INIT_FAILED,
+                NULL);
         return ret;
     }
 
@@ -189,10 +189,8 @@ create_master(struct glfs *fs)
         goto err;
 
     if (xlator_set_type(master, "mount/api") == -1) {
-        gf_msg("glfs", GF_LOG_ERROR, 0, API_MSG_MASTER_XLATOR_INIT_FAILED,
-               "master xlator "
-               "for %s initialization failed",
-               fs->volname);
+        gf_smsg("glfs", GF_LOG_ERROR, 0, API_MSG_MASTER_XLATOR_INIT_FAILED,
+                "name=%s", fs->volname, NULL);
         goto err;
     }
 
@@ -204,8 +202,8 @@ create_master(struct glfs *fs)
 
     ret = xlator_init(master);
     if (ret) {
-        gf_msg("glfs", GF_LOG_ERROR, 0, API_MSG_GFAPI_XLATOR_INIT_FAILED,
-               "failed to initialize gfapi translator");
+        gf_smsg("glfs", GF_LOG_ERROR, 0, API_MSG_GFAPI_XLATOR_INIT_FAILED,
+                NULL);
         goto err;
     }
 
@@ -231,9 +229,8 @@ get_volfp(struct glfs *fs)
     cmd_args = &fs->ctx->cmd_args;
 
     if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
-        gf_msg("glfs", GF_LOG_ERROR, errno, API_MSG_VOLFILE_OPEN_FAILED,
-               "volume file %s open failed: %s", cmd_args->volfile,
-               strerror(errno));
+        gf_smsg("glfs", GF_LOG_ERROR, errno, API_MSG_VOLFILE_OPEN_FAILED,
+                "file=%s", cmd_args->volfile, "err=%s", strerror(errno), NULL);
         return NULL;
     }
 
@@ -262,8 +259,8 @@ glfs_volumes_init(struct glfs *fs)
     fp = get_volfp(fs);
 
     if (!fp) {
-        gf_msg("glfs", GF_LOG_ERROR, ENOENT, API_MSG_VOL_SPEC_FILE_ERROR,
-               "Cannot reach volume specification file");
+        gf_smsg("glfs", GF_LOG_ERROR, ENOENT, API_MSG_VOL_SPEC_FILE_ERROR,
+                NULL);
         ret = -1;
         goto out;
     }
@@ -422,14 +419,11 @@ pub_glfs_set_volfile_server(struct glfs *fs, const char *transport,
             server_transport = gf_strdup(transport);
         } else if (!strcmp(transport, "rdma")) {
             server_transport = gf_strdup(GF_DEFAULT_VOLFILE_TRANSPORT);
-            gf_msg("glfs", GF_LOG_WARNING, EINVAL, API_MSG_INVALID_ENTRY,
-                   "transport RDMA is deprecated, "
-                   "falling back to tcp");
+            gf_smsg("glfs", GF_LOG_WARNING, EINVAL, API_MSG_TRANS_RDMA_DEP,
+                    NULL);
         } else {
-            gf_msg("glfs", GF_LOG_TRACE, EINVAL, API_MSG_INVALID_ENTRY,
-                   "transport %s is not supported, "
-                   "possible values tcp|unix",
-                   transport);
+            gf_smsg("glfs", GF_LOG_TRACE, EINVAL, API_MSG_TRANS_NOT_SUPPORTED,
+                    "transport=%s", transport, NULL);
             goto out;
         }
     } else {
@@ -1059,8 +1053,7 @@ priv_glfs_init_done(struct glfs *fs, int ret)
     glfs_init_cbk init_cbk;
 
     if (!fs) {
-        gf_msg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_GLFS_FSOBJ_NULL,
-               "fs is NULL");
+        gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_GLFS_FSOBJ_NULL, NULL);
         goto out;
     }
 
@@ -1113,8 +1106,7 @@ glfs_init_async(struct glfs *fs, glfs_init_cbk cbk)
     int ret = -1;
 
     if (!fs || !fs->ctx) {
-        gf_msg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_INVALID_ENTRY,
-               "fs is not properly initialized.");
+        gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_FS_NOT_INIT, NULL);
         errno = EINVAL;
         return ret;
     }
@@ -1134,8 +1126,7 @@ pub_glfs_init(struct glfs *fs)
     DECLARE_OLD_THIS;
 
     if (!fs || !fs->ctx) {
-        gf_msg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_INVALID_ENTRY,
-               "fs is not properly initialized.");
+        gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_FS_NOT_INIT, NULL);
         errno = EINVAL;
         return ret;
     }
@@ -1321,10 +1312,8 @@ pub_glfs_fini(struct glfs *fs)
             graph = subvol->graph;
             err = pthread_mutex_lock(&fs->mutex);
             if (err != 0) {
-                gf_msg("glfs", GF_LOG_ERROR, err, API_MSG_FSMUTEX_LOCK_FAILED,
-                       "pthread lock on glfs mutex, "
-                       "returned error: (%s)",
-                       strerror(err));
+                gf_smsg("glfs", GF_LOG_ERROR, err, API_MSG_FSMUTEX_LOCK_FAILED,
+                        "error=%s", strerror(err), NULL);
                 goto fail;
             }
             /* check and wait for CHILD_DOWN for active subvol*/
@@ -1332,19 +1321,17 @@ pub_glfs_fini(struct glfs *fs)
                 while (graph->used) {
                     err = pthread_cond_wait(&fs->child_down_cond, &fs->mutex);
                     if (err != 0)
-                        gf_msg("glfs", GF_LOG_INFO, err,
-                               API_MSG_COND_WAIT_FAILED,
-                               "%s cond wait failed %s", subvol->name,
-                               strerror(err));
+                        gf_smsg("glfs", GF_LOG_INFO, err,
+                                API_MSG_COND_WAIT_FAILED, "name=%s",
+                                subvol->name, "err=%s", strerror(err), NULL);
                 }
             }
 
             err = pthread_mutex_unlock(&fs->mutex);
             if (err != 0) {
-                gf_msg("glfs", GF_LOG_ERROR, err, API_MSG_FSMUTEX_UNLOCK_FAILED,
-                       "pthread unlock on glfs mutex, "
-                       "returned error: (%s)",
-                       strerror(err));
+                gf_smsg("glfs", GF_LOG_ERROR, err,
+                        API_MSG_FSMUTEX_UNLOCK_FAILED, "error=%s",
+                        strerror(err), NULL);
                 goto fail;
             }
         }
@@ -1644,8 +1631,8 @@ pub_glfs_sysrq(struct glfs *fs, char sysrq)
             gf_proc_dump_info(SIGUSR1, ctx);
             break;
         default:
-            gf_msg("glfs", GF_LOG_ERROR, ENOTSUP, API_MSG_INVALID_ENTRY,
-                   "'%c' is not a valid sysrq", sysrq);
+            gf_smsg("glfs", GF_LOG_ERROR, ENOTSUP, API_MSG_INVALID_SYSRQ,
+                    "sysrq=%c", sysrq, NULL);
             errno = ENOTSUP;
             ret = -1;
     }
@@ -1676,8 +1663,8 @@ pub_glfs_upcall_register(struct glfs *fs, uint32_t event_list,
     if ((event_list != GLFS_EVENT_ANY) && (event_list & ~up_events)) {
         errno = EINVAL;
         ret = -1;
-        gf_msg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,
-               "invalid event_list (0x%08x)", event_list);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
+                "event_list=(0x%08x)", event_list, NULL);
         goto out;
     }
 
@@ -1729,8 +1716,8 @@ pub_glfs_upcall_unregister(struct glfs *fs, uint32_t event_list)
     if ((event_list != GLFS_EVENT_ANY) && (event_list & ~up_events)) {
         errno = EINVAL;
         ret = -1;
-        gf_msg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,
-               "invalid event_list (0x%08x)", event_list);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
+                "event_list=(0x%08x)", event_list, NULL);
         goto out;
     }
 

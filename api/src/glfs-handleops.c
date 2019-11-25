@@ -1495,9 +1495,9 @@ pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
     ret = syncop_lookup(subvol, &loc, &iatt, 0, 0, 0);
     DECODE_SYNCOP_ERR(ret);
     if (ret) {
-        gf_msg(subvol->name, GF_LOG_WARNING, errno,
-               API_MSG_INODE_REFRESH_FAILED, "inode refresh of %s failed: %s",
-               uuid_utoa(loc.gfid), strerror(errno));
+        gf_smsg(subvol->name, GF_LOG_WARNING, errno,
+                API_MSG_INODE_REFRESH_FAILED, "gfid=%s", uuid_utoa(loc.gfid),
+                "error=%s", strerror(errno), NULL);
         goto out;
     }
 
@@ -1508,8 +1508,8 @@ pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
         }
         inode_lookup(newinode);
     } else {
-        gf_msg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
-               "inode linking of %s failed", uuid_utoa(loc.gfid));
+        gf_smsg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
+                "gfid=%s", uuid_utoa(loc.gfid), NULL);
         goto out;
     }
 
@@ -2097,8 +2097,8 @@ glfs_h_poll_cache_invalidation(struct glfs *fs, struct glfs_upcall *up_arg,
          * the handle and hence will no more be interested in
          * the upcall for this particular gfid.
          */
-        gf_msg(THIS->name, GF_LOG_DEBUG, errno, API_MSG_CREATE_HANDLE_FAILED,
-               "handle creation of %s failed", uuid_utoa(upcall_data->gfid));
+        gf_smsg(THIS->name, GF_LOG_DEBUG, errno, API_MSG_CREATE_HANDLE_FAILED,
+                "gfid=%s", uuid_utoa(upcall_data->gfid), NULL);
         errno = ESTALE;
         goto out;
     }
@@ -2121,9 +2121,9 @@ glfs_h_poll_cache_invalidation(struct glfs *fs, struct glfs_upcall *up_arg,
         p_object = glfs_h_find_handle(fs, ca_data->p_stat.ia_gfid,
                                       GFAPI_HANDLE_LENGTH);
         if (!p_object) {
-            gf_msg(THIS->name, GF_LOG_DEBUG, errno,
-                   API_MSG_CREATE_HANDLE_FAILED, "handle creation of %s failed",
-                   uuid_utoa(ca_data->p_stat.ia_gfid));
+            gf_smsg(THIS->name, GF_LOG_DEBUG, errno,
+                    API_MSG_CREATE_HANDLE_FAILED, "gfid=%s",
+                    uuid_utoa(ca_data->p_stat.ia_gfid), NULL);
             errno = ESTALE;
             goto out;
         }
@@ -2137,9 +2137,9 @@ glfs_h_poll_cache_invalidation(struct glfs *fs, struct glfs_upcall *up_arg,
         oldp_object = glfs_h_find_handle(fs, ca_data->oldp_stat.ia_gfid,
                                          GFAPI_HANDLE_LENGTH);
         if (!oldp_object) {
-            gf_msg(THIS->name, GF_LOG_DEBUG, errno,
-                   API_MSG_CREATE_HANDLE_FAILED, "handle creation of %s failed",
-                   uuid_utoa(ca_data->oldp_stat.ia_gfid));
+            gf_smsg(THIS->name, GF_LOG_DEBUG, errno,
+                    API_MSG_CREATE_HANDLE_FAILED, "gfid=%s",
+                    uuid_utoa(ca_data->oldp_stat.ia_gfid), NULL);
             errno = ESTALE;
             /* By the time we receive upcall old parent_dir may
              * have got removed. We still need to send upcall
@@ -2588,9 +2588,8 @@ pub_glfs_object_copy(struct glfs_object *src)
     object = GF_CALLOC(1, sizeof(struct glfs_object), glfs_mt_glfs_object_t);
     if (object == NULL) {
         errno = ENOMEM;
-        gf_msg(THIS->name, GF_LOG_WARNING, errno, API_MSG_CREATE_HANDLE_FAILED,
-               "glfs_dup_object for gfid-%s failed",
-               uuid_utoa(src->inode->gfid));
+        gf_smsg(THIS->name, GF_LOG_WARNING, errno, API_MSG_CREATE_HANDLE_FAILED,
+                "glfs_dup_object gfid=%s", uuid_utoa(src->inode->gfid), NULL);
         return NULL;
     }
 
@@ -2608,10 +2607,9 @@ pub_glfs_xreaddirplus_get_object(struct glfs_xreaddirp_stat *xstat)
     GF_VALIDATE_OR_GOTO("glfs_xreaddirplus_get_object", xstat, out);
 
     if (!(xstat->flags_handled & GFAPI_XREADDIRP_HANDLE))
-        gf_msg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,
-               "GFAPI_XREADDIRP_HANDLE is not set. Flags"
-               "handled for xstat(%p) are (%x)",
-               xstat, xstat->flags_handled);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_HANDLE_NOT_SET,
+                "GFAPI_XREADDIRP_HANDLE xstat=%p", xstat, "handle=%x",
+                xstat->flags_handled, NULL);
 
     return xstat->object;
 
