@@ -97,7 +97,6 @@ F: xlators/features/changelog/
 
 Distributed Hashing Table (DHT)
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-M: Nithya Balachandran <nbalacha@redhat.com>
 P: Susant Palai <spalai@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/
@@ -130,7 +129,6 @@ F: xlators/features/index/
 IO Cache
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Mohammed Rafi KC <rkavunga@redhat.com>
-P: Nithya Balachandran <nbalacha@redhat.com>
 S: Maintained
 F: xlators/performance/io-cache/
 
@@ -220,7 +218,6 @@ F: xlators/performance/read-ahead/
 
 Readdir-ahead
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-P: Nithya Balachandran <nbalacha@redhat.com>
 S: Maintained
 F: xlators/performance/readdir-ahead/
 
