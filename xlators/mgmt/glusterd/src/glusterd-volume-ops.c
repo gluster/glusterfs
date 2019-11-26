@@ -1185,6 +1185,36 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         }
     }
 
+    /*Check brick order if the volume type is replicate or disperse. If
+     * force at the end of command not given then check brick order.
+     */
+    if (is_origin_glusterd(dict)) {
+        ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
+        if (ret) {
+            snprintf(msg, sizeof(msg),
+                     "Unable to get type of "
+                     "volume %s",
+                     volname);
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED, "%s",
+                   msg);
+            goto out;
+        }
+
+        if (!is_force) {
+            if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
+                (type == GF_CLUSTER_TYPE_DISPERSE)) {
+                ret = glusterd_check_brick_order(dict, msg);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
+                           "Not "
+                           "creating volume because of "
+                           "bad brick order");
+                    goto out;
+                }
+            }
+        }
+    }
+
     while (i < brick_count) {
         i++;
         brick = strtok_r(brick_list, " \n", &tmpptr);
@@ -1262,36 +1292,6 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         }
         glusterd_brickinfo_delete(brick_info);
         brick_info = NULL;
-    }
-
-    /*Check brick order if the volume type is replicate or disperse. If
-     * force at the end of command not given then check brick order.
-     */
-    if (is_origin_glusterd(dict)) {
-        ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
-        if (ret) {
-            snprintf(msg, sizeof(msg),
-                     "Unable to get type of "
-                     "volume %s",
-                     volname);
-            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED, "%s",
-                   msg);
-            goto out;
-        }
-
-        if (!is_force) {
-            if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
-                (type == GF_CLUSTER_TYPE_DISPERSE)) {
-                ret = glusterd_check_brick_order(dict, msg);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
-                           "Not "
-                           "creating volume because of "
-                           "bad brick order");
-                    goto out;
-                }
-            }
-        }
     }
 
     ret = dict_set_int32n(rsp_dict, "brick_count", SLEN("brick_count"),
