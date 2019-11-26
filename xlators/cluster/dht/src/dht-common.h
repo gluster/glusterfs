@@ -935,18 +935,10 @@ dht_linkfile_create(call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                     xlator_t *this, xlator_t *tovol, xlator_t *fromvol,
                     loc_t *loc);
 int
-dht_lookup_directory(call_frame_t *frame, xlator_t *this, loc_t *loc);
-int
 dht_lookup_everywhere(call_frame_t *frame, xlator_t *this, loc_t *loc);
 int
 dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
                        loc_t *loc, dht_layout_t *layout);
-
-int
-dht_selfheal_directory_for_nameless_lookup(call_frame_t *frame,
-                                           dht_selfheal_dir_cbk_t cbk,
-                                           loc_t *loc, dht_layout_t *layout);
-
 int
 dht_selfheal_new_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t cbk,
                            dht_layout_t *layout);
@@ -1333,11 +1325,6 @@ dht_subvol_status(dht_conf_t *conf, xlator_t *subvol);
 void
 dht_log_new_layout_for_dir_selfheal(xlator_t *this, loc_t *loc,
                                     dht_layout_t *layout);
-int
-dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this);
-
-int
-dht_fill_dict_to_avoid_unlink_of_migrating_file(dict_t *dict);
 
 int
 dht_layout_sort(dht_layout_t *layout);
@@ -1386,22 +1373,6 @@ dht_get_lock_subvolume(xlator_t *this, struct gf_flock *lock,
 
 int
 dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret);
-
-void
-dht_normalize_stats(struct statvfs *buf, unsigned long bsize,
-                    unsigned long frsize);
-
-int
-add_opt(char **optsp, const char *opt);
-
-int
-dht_aggregate_split_brain_xattr(dict_t *dst, char *key, data_t *value);
-
-int
-dht_remove_stale_linkto(void *data);
-
-int
-dht_remove_stale_linkto_cbk(int ret, call_frame_t *sync_frame, void *data);
 
 int
 dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *subvol);
@@ -1474,9 +1445,6 @@ dht_dir_heal_xattrs(void *data);
 int
 dht_dir_heal_xattrs_done(int ret, call_frame_t *sync_frame, void *data);
 
-void
-dht_aggregate_xattr(dict_t *dst, dict_t *src);
-
 int32_t
 dht_dict_set_array(dict_t *dict, char *key, int32_t value[], int32_t size);
 
@@ -1490,22 +1458,9 @@ dht_dir_set_heal_xattr(xlator_t *this, dht_local_t *local, dict_t *dst,
 int
 dht_dir_xattr_heal(xlator_t *this, dht_local_t *local);
 
-int32_t
-dht_dict_get_array(dict_t *dict, char *key, int32_t value[], int32_t size,
-                   int *errst);
-
-xlator_t *
-dht_inode_get_hashed_subvol(inode_t *inode, xlator_t *this, loc_t *loc);
-
 int
 dht_common_mark_mdsxattr(call_frame_t *frame, int *errst, int flag);
 
-int
-dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                             int op_ret, int op_errno, dict_t *xdata);
-
-int
-dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol);
 int
 dht_inode_ctx_mdsvol_get(inode_t *inode, xlator_t *this, xlator_t **mdsvol);
 
@@ -1515,14 +1470,6 @@ dht_selfheal_dir_setattr(call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
 
 /* Abstract out the DHT-IATT-IN-DICT */
 
-int
-dht_request_iatt_in_xdata(xlator_t *this, dict_t *xattr_req);
-
-int
-dht_read_iatt_from_xdata(xlator_t *this, dict_t *xdata, struct iatt *stbuf);
-
-int
-is_permission_different(ia_prot_t *prot1, ia_prot_t *prot2);
 void
 dht_selfheal_layout_new_directory(call_frame_t *frame, loc_t *loc,
                                   dht_layout_t *new_layout);
@@ -1545,5 +1492,10 @@ dht_pt_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
 int32_t
 dht_check_remote_fd_failed_error(dht_local_t *local, int op_ret, int op_errno);
+
+int
+dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict,
+                       dict_t *xdata);
 
 #endif /* _DHT_H */
