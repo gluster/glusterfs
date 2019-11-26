@@ -3196,10 +3196,6 @@ rpcsvc_match_subnet_v4(const char *addrtok, const char *ipaddr)
     if (inet_pton(AF_INET, ipaddr, &sin1.sin_addr) == 0)
         goto out;
 
-    /* Find the network socket addr of subnet pattern */
-    if (inet_pton(AF_INET, netaddr, &sin2.sin_addr) == 0)
-        goto out;
-
     slash = strchr(netaddr, '/');
     if (slash) {
         *slash = '\0';
@@ -3212,8 +3208,15 @@ rpcsvc_match_subnet_v4(const char *addrtok, const char *ipaddr)
         if (prefixlen > 31)
             goto out;
     } else {
+        /* if there is no '/', then this function wouldn't be called */
         goto out;
     }
+
+    /* Need to do this after removing '/', as inet_pton() take IP address as
+     * second argument. Once we get sin2, then comparison is oranges to orange
+     */
+    if (inet_pton(AF_INET, netaddr, &sin2.sin_addr) == 0)
+        goto out;
 
     shift = IPv4_ADDR_SIZE - prefixlen;
     mask.sin_addr.s_addr = htonl((uint32_t)~0 << shift);
