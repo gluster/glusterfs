@@ -325,8 +325,7 @@ int
 afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                               inode_t **link_inode, gf_boolean_t *data_selfheal,
                               gf_boolean_t *metadata_selfheal,
-                              gf_boolean_t *entry_selfheal,
-                              struct afr_reply *replies);
+                              gf_boolean_t *entry_selfheal);
 
 int
 afr_selfheal_do(call_frame_t *frame, xlator_t *this, uuid_t gfid);

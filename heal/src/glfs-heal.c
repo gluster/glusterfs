@@ -773,8 +773,7 @@ static int
 glfsh_process_entries(xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                       uint64_t *offset, num_entries_t *num_entries,
                       print_status glfsh_print_status,
-                      gf_boolean_t ignore_dirty, glfsh_fail_mode_t mode,
-                      dict_t *xattr_req)
+                      gf_boolean_t ignore_dirty, glfsh_fail_mode_t mode)
 {
     gf_dirent_t *entry = NULL;
     gf_dirent_t *tmp = NULL;
@@ -806,7 +805,7 @@ glfsh_process_entries(xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
 
         gf_uuid_parse(entry->d_name, gfid);
         gf_uuid_copy(loc.gfid, gfid);
-        ret = syncop_getxattr(this, &loc, &dict, GF_HEAL_INFO, xattr_req, NULL);
+        ret = syncop_getxattr(this, &loc, &dict, GF_HEAL_INFO, NULL, NULL);
         if (ret) {
             if ((mode != GLFSH_MODE_CONTINUE_ON_ERROR) && (ret == -ENOTCONN))
                 goto out;
@@ -875,19 +874,19 @@ glfsh_crawl_directory(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         if (heal_op == GF_SHD_OP_INDEX_SUMMARY) {
             ret = glfsh_process_entries(readdir_xl, fd, &entries, &offset,
                                         num_entries, glfsh_print_heal_status,
-                                        ignore, mode, xattr_req);
+                                        ignore, mode);
             if (ret < 0)
                 goto out;
         } else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES) {
             ret = glfsh_process_entries(readdir_xl, fd, &entries, &offset,
                                         num_entries, glfsh_print_spb_status,
-                                        ignore, mode, xattr_req);
+                                        ignore, mode);
             if (ret < 0)
                 goto out;
         } else if (heal_op == GF_SHD_OP_HEAL_SUMMARY) {
             ret = glfsh_process_entries(readdir_xl, fd, &entries, &offset,
                                         num_entries, glfsh_print_summary_status,
-                                        ignore, mode, xattr_req);
+                                        ignore, mode);
             if (ret < 0)
                 goto out;
         } else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) {
@@ -896,7 +895,7 @@ glfsh_crawl_directory(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         } else if (heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE) {
             ret = glfsh_process_entries(readdir_xl, fd, &entries, &offset,
                                         num_entries, glfsh_heal_status_boolean,
-                                        ignore, mode, xattr_req);
+                                        ignore, mode);
             if (ret < 0)
                 goto out;
         }
@@ -949,10 +948,6 @@ glfsh_print_pending_heals_type(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
     fd_t *fd = NULL;
     int32_t op_errno = 0;
     gf_boolean_t ignore = _gf_false;
-
-    ret = dict_set_str(xattr_req, "index-vgfid", vgfid);
-    if (ret)
-        return ret;
 
     if (!strcmp(vgfid, GF_XATTROP_DIRTY_GFID))
         ignore = _gf_true;

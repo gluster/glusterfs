@@ -1831,34 +1831,6 @@ afr_selfheal_unlocked_lookup_on(call_frame_t *frame, inode_t *parent,
     return inode;
 }
 
-static int
-afr_set_multi_dom_lock_count_request(xlator_t *this, dict_t *dict)
-{
-    int ret = 0;
-    afr_private_t *priv = NULL;
-    char *key = NULL;
-
-    priv = this->private;
-    key = alloca0(strlen(GLUSTERFS_INODELK_DOM_PREFIX) + 2 +
-                  strlen(priv->sh_domain));
-
-    ret = dict_set_uint32(dict, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS, 1);
-    if (ret)
-        return ret;
-
-    sprintf(key, "%s:%s", GLUSTERFS_INODELK_DOM_PREFIX, this->name);
-    ret = dict_set_uint32(dict, key, 1);
-    if (ret)
-        return ret;
-
-    sprintf(key, "%s:%s", GLUSTERFS_INODELK_DOM_PREFIX, priv->sh_domain);
-    ret = dict_set_uint32(dict, key, 1);
-    if (ret)
-        return ret;
-
-    return 0;
-}
-
 int
 afr_selfheal_unlocked_discover_on(call_frame_t *frame, inode_t *inode,
                                   uuid_t gfid, struct afr_reply *replies,
@@ -1883,11 +1855,6 @@ afr_selfheal_unlocked_discover_on(call_frame_t *frame, inode_t *inode,
     if (afr_xattr_req_prepare(frame->this, xattr_req) != 0) {
         dict_unref(xattr_req);
         return -ENOMEM;
-    }
-
-    if (afr_set_multi_dom_lock_count_request(frame->this, xattr_req)) {
-        dict_unref(xattr_req);
-        return -1;
     }
 
     loc.inode = inode_ref(inode);
@@ -2285,8 +2252,7 @@ int
 afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                               inode_t **link_inode, gf_boolean_t *data_selfheal,
                               gf_boolean_t *metadata_selfheal,
-                              gf_boolean_t *entry_selfheal,
-                              struct afr_reply *replies_dst)
+                              gf_boolean_t *entry_selfheal)
 {
     afr_private_t *priv = NULL;
     inode_t *inode = NULL;
@@ -2422,8 +2388,6 @@ afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
 
     ret = 0;
 out:
-    if (replies && replies_dst)
-        afr_replies_copy(replies_dst, replies, priv->child_count);
     if (inode)
         inode_unref(inode);
     if (replies)
@@ -2543,7 +2507,7 @@ afr_selfheal_do(call_frame_t *frame, xlator_t *this, uuid_t gfid)
 
     ret = afr_selfheal_unlocked_inspect(frame, this, gfid, &inode,
                                         &data_selfheal, &metadata_selfheal,
-                                        &entry_selfheal, NULL);
+                                        &entry_selfheal);
     if (ret)
         goto out;
 
