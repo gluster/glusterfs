@@ -203,8 +203,6 @@ enum gf_internal_fop_indicator {
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define GLUSTERFS_PARENT_ENTRYLK "glusterfs.parent-entrylk"
 #define GLUSTERFS_INODELK_DOM_COUNT "glusterfs.inodelk-dom-count"
-#define GLUSTERFS_INODELK_DOM_PREFIX "glusterfs.inodelk-dom-prefix"
-#define GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS "glusterfs.multi-dom-lk-cnt-req"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 #define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
 #define GF_XATTR_XTIME_PATTERN "trusted.glusterfs.*.xtime"
