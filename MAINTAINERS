@@ -180,10 +180,11 @@ P: Pranith Karampuri <pkarampu@redhat.com>
 S: Maintained
 F: xlators/performance/nl-cache/
 
-NFS
+gNFS
 M: Jiffin Tony Thottan <jthottan@redhat.com>
-M: Soumya Koduri <skoduri@redhat.com>
-S: Deprecated / Orphan
+P: Xie Changlong <xiechanglong@cmss.chinamobile.com>
+P: Amar Tumballi <amarts@gmail.com>
+S: Odd Fixes
 F: xlators/nfs/server/
 
 Open-behind
