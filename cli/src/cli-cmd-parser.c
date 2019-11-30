@@ -2586,8 +2586,6 @@ cli_cmd_log_rotate_parse(const char **words, int wordcount, dict_t **options)
 
     if (strcmp("rotate", words[3]) == 0)
         volname = (char *)words[2];
-    else if (strcmp("rotate", words[2]) == 0)
-        volname = (char *)words[3];
     GF_ASSERT(volname);
 
     ret = dict_set_str(dict, "volname", volname);

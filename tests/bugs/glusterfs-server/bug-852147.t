@@ -66,7 +66,7 @@ ren_file=$log_file".*"
 rm -rf $ren_file
 
 #Initiating log rotate
-TEST $CLI volume log rotate $V0
+TEST $CLI volume log $V0 rotate
 
 #Capturing new log file's size
 new_file_size=`file-size $log_file`
