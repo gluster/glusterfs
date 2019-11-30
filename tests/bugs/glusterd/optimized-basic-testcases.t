@@ -124,7 +124,8 @@ TEST ! $CLI volume set all $V0 cluster.op-version $OP_VERS_NEW
 
 #bug-1022055 - validate log rotate command
 
-TEST $CLI volume log rotate $V0;
+TEST ! $CLI volume log rotate $V0;
+TEST $CLI volume log $V0 rotate;
 
 #bug-1092841 - validating barrier enable/disable
 
