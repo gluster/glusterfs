@@ -74,17 +74,14 @@ static int
 posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
                         inode_t *inode, posix_mdata_t *metadata, int *op_errno)
 {
-    size_t size = -1;
+    size_t size = 256;
     int op_ret = -1;
     char *value = NULL;
     gf_boolean_t fd_based_fop = _gf_false;
     char gfid_str[64] = {0};
     char *real_path = NULL;
 
-    char *key = GF_XATTR_MDATA_KEY;
-
     if (!metadata) {
-        op_ret = -1;
         goto out;
     }
 
@@ -95,82 +92,98 @@ posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
         GF_VALIDATE_OR_GOTO(this->name, inode, out);
         MAKE_HANDLE_PATH(real_path, this, inode->gfid, NULL);
         if (!real_path) {
-            uuid_utoa_r(inode->gfid, gfid_str);
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
-                   "lstat on gfid %s failed", gfid_str);
-            op_ret = -1;
             *op_errno = errno;
+            uuid_utoa_r(inode->gfid, gfid_str);
+            gf_msg(this->name, GF_LOG_WARNING, *op_errno, P_MSG_LSTAT_FAILED,
+                   "lstat on gfid %s failed", gfid_str);
             goto out;
         }
     }
 
-    if (fd_based_fop) {
-        size = sys_fgetxattr(_fd, key, NULL, 0);
-    } else if (real_path_arg) {
-        size = sys_lgetxattr(real_path_arg, key, NULL, 0);
-    } else if (real_path) {
-        size = sys_lgetxattr(real_path, key, NULL, 0);
-    }
-
-    if (size == -1) {
-        *op_errno = errno;
-        if ((*op_errno == ENOTSUP) || (*op_errno == ENOSYS)) {
-            GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log, this->name,
-                                GF_LOG_WARNING,
-                                "Extended attributes not "
-                                "supported (try remounting"
-                                " brick with 'user_xattr' "
-                                "flag)");
-        } else if (*op_errno == ENOATTR || *op_errno == ENODATA) {
-            gf_msg_debug(this->name, 0,
-                         "No such attribute:%s for file %s "
-                         "gfid: %s",
-                         key,
-                         real_path ? real_path
-                                   : (real_path_arg ? real_path_arg : "null"),
-                         inode ? uuid_utoa(inode->gfid) : "null");
-        } else {
-            gf_msg(this->name, GF_LOG_DEBUG, *op_errno, P_MSG_XATTR_FAILED,
-                   "getxattr failed"
-                   " on %s gfid: %s key: %s ",
-                   real_path ? real_path
-                             : (real_path_arg ? real_path_arg : "null"),
-                   inode ? uuid_utoa(inode->gfid) : "null", key);
-        }
-        op_ret = -1;
-        goto out;
-    }
-
-    value = GF_CALLOC(size + 1, sizeof(char), gf_posix_mt_char);
+    value = GF_MALLOC(size * sizeof(char), gf_posix_mt_char);
     if (!value) {
-        op_ret = -1;
         *op_errno = ENOMEM;
         goto out;
     }
 
     if (fd_based_fop) {
-        size = sys_fgetxattr(_fd, key, value, size);
+        size = sys_fgetxattr(_fd, GF_XATTR_MDATA_KEY, value, size);
     } else if (real_path_arg) {
-        size = sys_lgetxattr(real_path_arg, key, value, size);
+        size = sys_lgetxattr(real_path_arg, GF_XATTR_MDATA_KEY, value, size);
     } else if (real_path) {
-        size = sys_lgetxattr(real_path, key, value, size);
-    }
-    if (size == -1) {
-        op_ret = -1;
-        *op_errno = errno;
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
-               "getxattr failed on "
-               " on %s gfid: %s key: %s ",
-               real_path ? real_path : (real_path_arg ? real_path_arg : "null"),
-               inode ? uuid_utoa(inode->gfid) : "null", key);
-        goto out;
+        size = sys_lgetxattr(real_path, GF_XATTR_MDATA_KEY, value, size);
     }
 
+    if (size == -1) {
+        *op_errno = errno;
+        if (value) {
+            GF_FREE(value);
+            value = NULL;
+        }
+        if ((*op_errno == ENOTSUP) || (*op_errno == ENOSYS)) {
+            GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log, this->name,
+                                GF_LOG_WARNING,
+                                "Extended attributes not supported"
+                                " (try remounting brick with 'user xattr' "
+                                "flag)");
+        } else if (*op_errno == ENOATTR || *op_errno == ENODATA) {
+            gf_msg_debug(this->name, 0,
+                         "No such attribute:%s for file %s gfid: %s",
+                         GF_XATTR_MDATA_KEY,
+                         real_path ? real_path
+                                   : (real_path_arg ? real_path_arg : "null"),
+                         inode ? uuid_utoa(inode->gfid) : "null");
+            goto out;
+        }
+
+        if (fd_based_fop) {
+            size = sys_fgetxattr(_fd, GF_XATTR_MDATA_KEY, NULL, 0);
+        } else if (real_path_arg) {
+            size = sys_lgetxattr(real_path_arg, GF_XATTR_MDATA_KEY, NULL, 0);
+        } else if (real_path) {
+            size = sys_lgetxattr(real_path, GF_XATTR_MDATA_KEY, NULL, 0);
+        }
+
+        if (size == -1) { /* give up now and exist with an error */
+            *op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, *op_errno, P_MSG_XATTR_FAILED,
+                   "getxattr failed on %s gfid: %s key: %s ",
+                   real_path ? real_path
+                             : (real_path_arg ? real_path_arg : "null"),
+                   inode ? uuid_utoa(inode->gfid) : "null", GF_XATTR_MDATA_KEY);
+            goto out;
+        }
+
+        value = GF_MALLOC(size * sizeof(char), gf_posix_mt_char);
+        if (!value) {
+            *op_errno = ENOMEM;
+            goto out;
+        }
+
+        if (fd_based_fop) {
+            size = sys_fgetxattr(_fd, GF_XATTR_MDATA_KEY, value, size);
+        } else if (real_path_arg) {
+            size = sys_lgetxattr(real_path_arg, GF_XATTR_MDATA_KEY, value,
+                                 size);
+        } else if (real_path) {
+            size = sys_lgetxattr(real_path, GF_XATTR_MDATA_KEY, value, size);
+        }
+        if (size == -1) {
+            *op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, *op_errno, P_MSG_XATTR_FAILED,
+                   "getxattr failed on %s gfid: %s key: %s ",
+                   real_path ? real_path
+                             : (real_path_arg ? real_path_arg : "null"),
+                   inode ? uuid_utoa(inode->gfid) : "null", GF_XATTR_MDATA_KEY);
+            goto out;
+        }
+    }
     posix_mdata_from_disk(metadata, (posix_mdata_disk_t *)value);
 
     op_ret = 0;
 out:
-    GF_FREE(value);
+    if (value)
+        GF_FREE(value);
     return op_ret;
 }
 
