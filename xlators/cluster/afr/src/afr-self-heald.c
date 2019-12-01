@@ -1374,19 +1374,40 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
     int op_ret = 0;
     uint64_t cnt = 0;
 
+#define AFR_SET_DICT_AND_LOG(name, output, key, keylen, dict_str,              \
+                             dict_str_len)                                     \
+    {                                                                          \
+        int ret;                                                               \
+                                                                               \
+        ret = dict_set_nstrn(output, key, keylen, dict_str, dict_str_len);     \
+        if (ret) {                                                             \
+            gf_smsg(name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,         \
+                    "key=%s", key, "value=%s", dict_str, NULL);                \
+        }                                                                      \
+    }
+
     priv = this->private;
     shd = &priv->shd;
 
     ret = dict_get_int32_sizen(input, "xl-op", (int32_t *)&op);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
+                "key=xl-op", NULL);
         goto out;
+    }
     this_name_len = strlen(this->name);
     ret = dict_get_int32n(input, this->name, this_name_len, &xl_id);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
+                "key=%s", this->name, NULL);
         goto out;
+    }
     ret = dict_set_int32n(output, this->name, this_name_len, xl_id);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
+                "key=%s", this->name, NULL);
         goto out;
+    }
     switch (op) {
         case GF_SHD_OP_HEAL_INDEX:
             op_ret = 0;
@@ -1396,23 +1417,30 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
                 keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
 
                 if (!priv->child_up[i]) {
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SBRICK_NOT_CONNECTED,
                                          SLEN(SBRICK_NOT_CONNECTED));
                     op_ret = -1;
                 } else if (AFR_COUNT(priv->child_up, priv->child_count) < 2) {
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SLESS_THAN2_BRICKS_in_REP,
                                          SLEN(SLESS_THAN2_BRICKS_in_REP));
                     op_ret = -1;
                 } else if (!afr_shd_is_subvol_local(this, healer->subvol)) {
-                    ret = dict_set_nstrn(output, key, keylen, SBRICK_IS_REMOTE,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
+                                         SBRICK_IS_REMOTE,
                                          SLEN(SBRICK_IS_REMOTE));
                 } else {
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SSTARTED_SELF_HEAL,
                                          SLEN(SSTARTED_SELF_HEAL));
-                    afr_shd_index_healer_spawn(this, i);
+
+                    ret = afr_shd_index_healer_spawn(this, i);
+
+                    if (ret) {
+                        gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                                AFR_MSG_HEALER_SPAWN_FAILED, NULL);
+                    }
                 }
             }
             break;
@@ -1424,21 +1452,28 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
                 keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
 
                 if (!priv->child_up[i]) {
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SBRICK_NOT_CONNECTED,
                                          SLEN(SBRICK_NOT_CONNECTED));
                 } else if (AFR_COUNT(priv->child_up, priv->child_count) < 2) {
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SLESS_THAN2_BRICKS_in_REP,
                                          SLEN(SLESS_THAN2_BRICKS_in_REP));
                 } else if (!afr_shd_is_subvol_local(this, healer->subvol)) {
-                    ret = dict_set_nstrn(output, key, keylen, SBRICK_IS_REMOTE,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
+                                         SBRICK_IS_REMOTE,
                                          SLEN(SBRICK_IS_REMOTE));
                 } else {
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SSTARTED_SELF_HEAL,
                                          SLEN(SSTARTED_SELF_HEAL));
-                    afr_shd_full_healer_spawn(this, i);
+
+                    ret = afr_shd_full_healer_spawn(this, i);
+
+                    if (ret) {
+                        gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                                AFR_MSG_HEALER_SPAWN_FAILED, NULL);
+                    }
                     op_ret = 0;
                 }
             }
@@ -1450,7 +1485,8 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
         case GF_SHD_OP_HEAL_FAILED_FILES:
             for (i = 0; i < priv->child_count; i++) {
                 keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
-                ret = dict_set_nstrn(output, key, keylen, SOP_NOT_SUPPORTED,
+                AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
+                                     SOP_NOT_SUPPORTED,
                                      SLEN(SOP_NOT_SUPPORTED));
             }
             break;
@@ -1460,10 +1496,19 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
         case GF_SHD_OP_STATISTICS:
             for (i = 0; i < priv->child_count; i++) {
                 eh_dump(shd->statistics[i], output, afr_add_crawl_event);
-                afr_shd_dict_add_crawl_event(
+                ret = afr_shd_dict_add_crawl_event(
                     this, output, &shd->index_healers[i].crawl_event);
-                afr_shd_dict_add_crawl_event(this, output,
-                                             &shd->full_healers[i].crawl_event);
+                if (ret) {
+                    gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                            AFR_MSG_ADD_CRAWL_EVENT_FAILED, NULL);
+                }
+
+                ret = afr_shd_dict_add_crawl_event(
+                    this, output, &shd->full_healers[i].crawl_event);
+                if (ret) {
+                    gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                            AFR_MSG_ADD_CRAWL_EVENT_FAILED, NULL);
+                }
             }
             break;
         case GF_SHD_OP_STATISTICS_HEAL_COUNT:
@@ -1474,7 +1519,7 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
                 if (!priv->child_up[i]) {
                     keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id,
                                       i);
-                    ret = dict_set_nstrn(output, key, keylen,
+                    AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
                                          SBRICK_NOT_CONNECTED,
                                          SLEN(SBRICK_NOT_CONNECTED));
                 } else {
@@ -1484,9 +1529,8 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
                         ret = dict_set_uint64(output, key, cnt);
                     }
                     if (ret) {
-                        gf_msg(this->name, GF_LOG_ERROR, -ret,
-                               AFR_MSG_DICT_SET_FAILED,
-                               "Could not add cnt to output");
+                        gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                                AFR_MSG_DICT_SET_FAILED, NULL);
                     }
                     op_ret = 0;
                 }
@@ -1495,11 +1539,13 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
             break;
 
         default:
-            gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_ARG,
-                   "Unknown set op %d", op);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_ARG, "op=%d",
+                    op, NULL);
             break;
     }
 out:
     dict_deln(output, this->name, this_name_len);
     return op_ret;
+
+#undef AFR_SET_DICT_AND_LOG
 }
