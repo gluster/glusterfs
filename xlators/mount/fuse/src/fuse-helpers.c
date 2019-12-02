@@ -309,8 +309,10 @@ get_groups(fuse_private_t *priv, call_frame_t *frame)
     gl = gid_cache_lookup(&priv->gid_cache, frame->root->pid, frame->root->uid,
                           frame->root->gid);
     if (gl) {
-        if (call_stack_alloc_groups(frame->root, gl->gl_count) != 0)
+        if (call_stack_alloc_groups(frame->root, gl->gl_count) != 0) {
+            gid_cache_release(&priv->gid_cache, gl);
             return;
+        }
         frame->root->ngrps = gl->gl_count;
         for (i = 0; i < gl->gl_count; i++)
             frame->root->groups[i] = gl->gl_list[i];
