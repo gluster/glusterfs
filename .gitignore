@@ -29,6 +29,7 @@ test-driver
 *.patch
 .libs
 .deps
+.dirstamp
 
 # Softlinks to test and log
 log
