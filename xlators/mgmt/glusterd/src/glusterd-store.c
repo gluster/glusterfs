@@ -2659,6 +2659,8 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
             ret = gf_store_iter_get_matching(tmpiter, tmpkey, &tmpvalue);
 
             len = snprintf(path, sizeof(path), "%s/%s", brickdir, tmpvalue);
+            GF_FREE(tmpvalue);
+            tmpvalue = NULL;
             if ((len < 0) || (len >= sizeof(path))) {
                 ret = -1;
                 goto out;
