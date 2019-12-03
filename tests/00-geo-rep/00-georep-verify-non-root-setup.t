@@ -126,8 +126,9 @@ clean_lock_files
 userdel -r -f $usr
 TEST /usr/sbin/useradd -G $grp $usr
 
+export PASS=$( (echo $RANDOM ; date +%s) | sha256sum | base64 | head -c 32)
 ##Modify password for non-root user to have control over distributing ssh-key
-echo "$usr:pass" | chpasswd
+echo "$usr:$PASS" | chpasswd
 
 ##Set up mountbroker root
 TEST gluster-mountbroker setup /var/mountbroker-root $grp
@@ -167,7 +168,6 @@ TEST gluster-mountbroker status
 #sshpass -p "pass" ssh-copy-id -i ~/.ssh/id_rsa.pub $ssh_url
 ##Run ssh agent
 eval "$(ssh-agent -s)"
-PASS="pass"
 
 
 ##Create a temp script to echo the SSH password, used by SSH_ASKPASS
