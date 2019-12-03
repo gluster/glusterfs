@@ -388,7 +388,6 @@ int32_t
 cs_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
             dict_t *xdata)
 {
-    int op_errno = -1;
     cs_local_t *local = NULL;
     int ret = 0;
     cs_inode_ctx_t *ctx = NULL;
@@ -401,7 +400,6 @@ cs_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     local = cs_local_init(this, frame, loc, NULL, GF_FOP_TRUNCATE);
     if (!local) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "local init failed");
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -427,7 +425,6 @@ cs_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                                     xdata);
     if (!local->stub) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
-        op_errno = ENOMEM;
         goto err;
     }
 
@@ -439,14 +436,13 @@ cs_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         local->call_cnt++;
         ret = locate_and_execute(frame);
         if (ret) {
-            op_errno = ENOMEM;
             goto err;
         }
     }
 
     return 0;
 err:
-    CS_STACK_UNWIND(truncate, frame, -1, op_errno, NULL, NULL, NULL);
+    CS_STACK_UNWIND(truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
     return 0;
 }
 
