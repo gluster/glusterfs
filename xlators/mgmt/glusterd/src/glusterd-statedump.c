@@ -12,7 +12,6 @@
 #include "glusterd.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-quotad-svc.h"
-#include "glusterd-nfs-svc.h"
 #include "glusterd-locks.h"
 #include "glusterd-messages.h"
 

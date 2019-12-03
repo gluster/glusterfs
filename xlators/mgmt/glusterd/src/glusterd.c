@@ -37,7 +37,9 @@
 #include "glusterd-locks.h"
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-shd-svc.h"
+#ifdef BUILD_GNFS
 #include "glusterd-nfs-svc.h"
+#endif
 #include "glusterd-bitd-svc.h"
 #include "glusterd-scrub-svc.h"
 #include "glusterd-quotad-svc.h"
@@ -1562,6 +1564,7 @@ init(xlator_t *this)
         exit(1);
     }
 
+#ifdef BUILD_GNFS
     ret = glusterd_init_var_run_dirs(this, rundir, GLUSTERD_NFS_RUN_DIR);
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CREATE_DIR_FAILED,
@@ -1569,6 +1572,7 @@ init(xlator_t *this)
                "nfs running directory");
         exit(1);
     }
+#endif
 
     ret = glusterd_init_var_run_dirs(this, rundir, GLUSTERD_QUOTAD_RUN_DIR);
     if (ret) {
@@ -1662,6 +1666,7 @@ init(xlator_t *this)
         exit(1);
     }
 
+#ifdef BUILD_GNFS
     len = snprintf(storedir, sizeof(storedir), "%s/nfs", workdir);
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
@@ -1674,7 +1679,7 @@ init(xlator_t *this)
                storedir, errno);
         exit(1);
     }
-
+#endif
     len = snprintf(storedir, sizeof(storedir), "%s/bitd", workdir);
     if ((len < 0) || (len >= sizeof(storedir))) {
         exit(1);
@@ -1921,7 +1926,9 @@ init(xlator_t *this)
     glusterd_mgmt_v3_lock_timer_init();
     glusterd_txn_opinfo_dict_init();
 
+#ifdef BUILD_GNFS
     glusterd_nfssvc_build(&conf->nfs_svc);
+#endif
     glusterd_quotadsvc_build(&conf->quotad_svc);
     glusterd_bitdsvc_build(&conf->bitd_svc);
     glusterd_scrubsvc_build(&conf->scrub_svc);

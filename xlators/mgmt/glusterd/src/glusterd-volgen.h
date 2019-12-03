@@ -216,9 +216,10 @@ int
 build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
                 dict_t *mod_dict);
 
+#ifdef BUILD_GNFS
 int
 build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict);
-
+#endif
 int
 build_quotad_graph(volgen_graph_t *graph, dict_t *mod_dict);
 

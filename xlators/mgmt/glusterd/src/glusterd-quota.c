@@ -14,7 +14,6 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
-#include "glusterd-nfs-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"

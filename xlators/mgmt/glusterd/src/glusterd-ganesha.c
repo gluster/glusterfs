@@ -13,7 +13,6 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
-#include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
 #include <glusterfs/syscall.h>
@@ -793,12 +792,13 @@ start_ganesha(char **op_errstr)
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
     {
         vol_opts = volinfo->dict;
+#ifdef BUILD_GNFS
         /* Gluster-nfs has to be disabled across the trusted pool */
         /* before attempting to start nfs-ganesha */
         ret = dict_set_str(vol_opts, NFS_DISABLE_MAP_KEY, "on");
         if (ret)
             goto out;
-
+#endif
         ret = glusterd_store_volinfo(volinfo,
                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
