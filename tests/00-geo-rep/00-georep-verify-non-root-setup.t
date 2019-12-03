@@ -172,7 +172,8 @@ eval "$(ssh-agent -s)"
 
 ##Create a temp script to echo the SSH password, used by SSH_ASKPASS
 
-SSH_ASKPASS_SCRIPT=/tmp/ssh-askpass-script
+SSH_ASKPASS_DIR=$(mktemp -d /tmp/ssh-askpass_XXXXXXXXXXXX)
+SSH_ASKPASS_SCRIPT=$SSH_ASKPASS_DIR/ssh-askpass.sh
 cat > ${SSH_ASKPASS_SCRIPT} <<EOL
 #!/bin/bash
 echo "${PASS}"
@@ -291,7 +292,7 @@ TEST userdel -r -f $usr
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 check_and_clean_group
 
 ##password script cleanup
-rm -rf /tmp/ssh-askpass-script
+rm -rf $SSH_ASKPASS_DIR
 
 
 cleanup;
