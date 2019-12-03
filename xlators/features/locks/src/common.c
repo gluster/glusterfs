@@ -962,7 +962,7 @@ grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode)
     struct list_head granted_list;
     posix_lock_t *tmp = NULL;
     posix_lock_t *lock = NULL;
-
+    pl_local_t *local = NULL;
     INIT_LIST_HEAD(&granted_list);
 
     pthread_mutex_lock(&pl_inode->mutex);
@@ -977,9 +977,9 @@ grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode)
 
         pl_trace_out(this, lock->frame, NULL, NULL, F_SETLKW, &lock->user_flock,
                      0, 0, NULL);
-
-        STACK_UNWIND_STRICT(lk, lock->frame, 0, 0, &lock->user_flock, NULL);
-
+        local = lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, 0, 0,
+                                 &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
 
@@ -999,6 +999,7 @@ pl_send_prelock_unlock(xlator_t *this, pl_inode_t *pl_inode,
     struct list_head granted_list;
     posix_lock_t *tmp = NULL;
     posix_lock_t *lock = NULL;
+    pl_local_t *local = NULL;
 
     int ret = -1;
 
@@ -1026,9 +1027,9 @@ pl_send_prelock_unlock(xlator_t *this, pl_inode_t *pl_inode,
 
         pl_trace_out(this, lock->frame, NULL, NULL, F_SETLKW, &lock->user_flock,
                      0, 0, NULL);
-
-        STACK_UNWIND_STRICT(lk, lock->frame, 0, 0, &lock->user_flock, NULL);
-
+        local = lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, 0, 0,
+                                 &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
 
