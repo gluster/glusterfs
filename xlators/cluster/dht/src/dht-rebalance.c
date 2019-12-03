@@ -1579,7 +1579,8 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
     }
 
     /* If defrag is NULL, it should be assumed that migration is triggered
-     * from client */
+     * from client using the trusted.distribute.migrate-data virtual xattr
+     */
     defrag = conf->defrag;
 
     /* migration of files from clients is restricted to non-tiered clients
@@ -1633,6 +1634,10 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                " for file: %s",
                loc->path);
     }
+
+    /* The file is locked to prevent a rename during a migration. Renames
+     * and migrations on the file at the same time can lead to data loss.
+     */
 
     ret = dht_build_parent_loc(this, &parent_loc, loc, fop_errno);
     if (ret < 0) {
@@ -3919,6 +3924,13 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         free_entries = _gf_false;
         INIT_LIST_HEAD(&entries.list);
     }
+
+    /* A directory layout is fixed only after its subdirs are healed to
+     * any newly added bricks. If the layout is fixed before subdirs are
+     * healed, the newly added brick will get a non-null layout.
+     * Any subdirs which hash to that layout will no longer show up
+     * in a directory listing until they are healed.
+     */
 
     ret = syncop_setxattr(this, loc, fix_layout, 0, NULL, NULL);
     if (ret) {
