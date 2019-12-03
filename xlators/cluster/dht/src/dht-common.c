@@ -1029,7 +1029,7 @@ dht_discover_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (local->xattr == NULL) {
             local->xattr = dict_ref(xattr);
         } else {
-            /* Don't aggregate for files. See BZ#1484113 */
+            /* Don't aggregate for files. See BZ#1484709 */
             if (is_dir)
                 dht_aggregate_xattr(local->xattr, xattr);
         }
