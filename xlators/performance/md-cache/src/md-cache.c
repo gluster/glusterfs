@@ -3815,7 +3815,7 @@ struct volume_options mdc_options[] = {
     {
         .key = {"cache-swift-metadata"},
         .type = GF_OPTION_TYPE_BOOL,
-        .default_value = "true",
+        .default_value = "false",
         .op_version = {GD_OP_VERSION_3_7_10},
         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
         .description = "Cache swift metadata (user.swift.metadata xattr)",
