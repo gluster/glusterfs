@@ -17,7 +17,9 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-quotad-svc.h"
+#ifdef BUILD_GNFS
 #include "glusterd-nfs-svc.h"
+#endif
 #include "glusterd-bitd-svc.h"
 #include "glusterd-shd-svc-helper.h"
 #include "glusterd-scrub-svc.h"
@@ -38,11 +40,12 @@ glusterd_svcs_reconfigure(glusterd_volinfo_t *volinfo)
     conf = this->private;
     GF_ASSERT(conf);
 
+#ifdef BUILD_GNFS
     svc_name = "nfs";
     ret = glusterd_nfssvc_reconfigure();
     if (ret)
         goto out;
-
+#endif
     svc_name = "self-heald";
     if (volinfo) {
         ret = glusterd_shdsvc_reconfigure(volinfo);
@@ -122,10 +125,11 @@ glusterd_svcs_manager(glusterd_volinfo_t *volinfo)
     if (volinfo && volinfo->is_snap_volume)
         return 0;
 
+#if BUILD_GNFS
     ret = conf->nfs_svc.manager(&(conf->nfs_svc), NULL, PROC_START_NO_WAIT);
     if (ret)
         goto out;
-
+#endif
     if (conf->op_version == GD_OP_VERSION_MIN)
         goto out;
 

@@ -403,8 +403,10 @@ glusterd_brick_terminate(glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo, char *options,
                          int option_cnt, char **op_errstr);
 
+#ifdef BUILD_GNFS
 int
 glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr);
+#endif
 
 int
 glusterd_client_statedump(char *volname, char *options, int option_cnt,

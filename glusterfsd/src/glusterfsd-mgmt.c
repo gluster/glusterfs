@@ -1492,10 +1492,12 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     }
     any = active->first;
 
-    if ((cmd & GF_CLI_STATUS_NFS) != 0)
-        ret = gf_asprintf(&node_name, "%s", "nfs-server");
-    else if ((cmd & GF_CLI_STATUS_SHD) != 0)
+    if ((cmd & GF_CLI_STATUS_SHD) != 0)
         ret = gf_asprintf(&node_name, "%s", "glustershd");
+#ifdef BUILD_GNFS
+    else if ((cmd & GF_CLI_STATUS_NFS) != 0)
+        ret = gf_asprintf(&node_name, "%s", "nfs-server");
+#endif
     else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0)
         ret = gf_asprintf(&node_name, "%s", "quotad");
     else if ((cmd & GF_CLI_STATUS_BITD) != 0)

@@ -18,7 +18,6 @@
 #include "glusterd-utils.h"
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"
-#include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
 #include "glusterd-mgmt.h"

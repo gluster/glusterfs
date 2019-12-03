@@ -53,7 +53,6 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"
 #include "glusterd-shd-svc.h"
-#include "glusterd-nfs-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-bitd-svc.h"
@@ -91,6 +90,7 @@
 #define NLMV4_VERSION 4
 #define NLMV1_VERSION 1
 
+#ifdef BUILD_GNFS
 #define GLUSTERD_GET_NFS_PIDFILE(pidfile, priv)                                \
     do {                                                                       \
         int32_t _nfs_pid_len;                                                  \
@@ -100,6 +100,7 @@
             pidfile[0] = 0;                                                    \
         }                                                                      \
     } while (0)
+#endif
 
 #define GLUSTERD_GET_QUOTAD_PIDFILE(pidfile, priv)                             \
     do {                                                                       \
@@ -5498,12 +5499,14 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
      */
 
     keylen = snprintf(key, sizeof(key), "brick%d.hostname", count);
-    if (!strcmp(server, priv->nfs_svc.name))
-        ret = dict_set_nstrn(dict, key, keylen, "NFS Server",
-                             SLEN("NFS Server"));
-    else if (!strcmp(server, priv->quotad_svc.name))
+    if (!strcmp(server, priv->quotad_svc.name))
         ret = dict_set_nstrn(dict, key, keylen, "Quota Daemon",
                              SLEN("Quota Daemon"));
+#ifdef BUILD_GNFS
+    else if (!strcmp(server, priv->nfs_svc.name))
+        ret = dict_set_nstrn(dict, key, keylen, "NFS Server",
+                             SLEN("NFS Server"));
+#endif
     else if (!strcmp(server, priv->bitd_svc.name))
         ret = dict_set_nstrn(dict, key, keylen, "Bitrot Daemon",
                              SLEN("Bitrot Daemon"));
@@ -5518,6 +5521,7 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     if (ret)
         goto out;
 
+#ifdef BUILD_GNFS
     /* Port is available only for the NFS server.
      * Self-heal daemon doesn't provide any port for access
      * by entities other than gluster.
@@ -5531,6 +5535,7 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
         } else
             port = GF_NFS3_PORT;
     }
+#endif
     keylen = snprintf(key, sizeof(key), "brick%d.port", count);
     ret = dict_set_int32n(dict, key, keylen, port);
     if (ret)
@@ -8734,6 +8739,7 @@ glusterd_brick_terminate(glusterd_volinfo_t *volinfo,
                                  op_errstr, SIGTERM);
 }
 
+#ifdef BUILD_GNFS
 int
 glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
 {
@@ -8815,6 +8821,7 @@ out:
     GF_FREE(dup_options);
     return ret;
 }
+#endif
 
 int
 glusterd_client_statedump(char *volname, char *options, int option_cnt,

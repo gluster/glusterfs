@@ -1317,6 +1317,7 @@ AC_ARG_ENABLE([gnfs],
                              [Enable legacy gnfs server xlator.]))
 if test "x${with_server}" = "xyes" -a "x$enable_gnfs" = "xyes"; then
     BUILD_GNFS="yes"
+    GF_CFLAGS="$GF_CFLAGS -DBUILD_GNFS"
     RPCBIND_SERVICE="rpcbind.service"
 fi
 AM_CONDITIONAL([BUILD_GNFS], [test x$BUILD_GNFS = xyes])

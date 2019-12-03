@@ -2786,16 +2786,16 @@ glusterd_op_statedump_volume(dict_t *dict, char **op_errstr)
     if (ret)
         goto out;
     gf_msg_debug("glusterd", 0, "Performing statedump on volume %s", volname);
-    if (strstr(options, "nfs") != NULL) {
-        ret = glusterd_nfs_statedump(options, option_cnt, op_errstr);
-        if (ret)
-            goto out;
-
-    } else if (strstr(options, "quotad")) {
+    if (strstr(options, "quotad")) {
         ret = glusterd_quotad_statedump(options, option_cnt, op_errstr);
         if (ret)
             goto out;
-
+#ifdef BUILD_GNFS
+    } else if (strstr(options, "nfs") != NULL) {
+        ret = glusterd_nfs_statedump(options, option_cnt, op_errstr);
+        if (ret)
+            goto out;
+#endif
     } else if (strstr(options, "client")) {
         ret = glusterd_client_statedump(volname, options, option_cnt,
                                         op_errstr);

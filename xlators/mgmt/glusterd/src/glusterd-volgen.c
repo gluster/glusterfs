@@ -1154,9 +1154,11 @@ get_transport_type(glusterd_volinfo_t *volinfo, dict_t *set_dict, char *transt,
         if (ret)
             get_vol_transport_type(volinfo, transt);
     } else {
+#ifdef BUILD_GNFS
         ret = dict_get_str_sizen(set_dict, "nfs.transport-type", &tt);
         if (ret)
             get_vol_nfs_transport_type(volinfo, transt);
+#endif
     }
 
     if (!ret)
@@ -2933,8 +2935,10 @@ _get_xlator_opt_key_from_vme(struct volopt_map_entry *vme, char **key)
         *key = gf_strdup(AUTH_ALLOW_OPT_KEY);
     else if (!strcmp(vme->key, AUTH_REJECT_MAP_KEY))
         *key = gf_strdup(AUTH_REJECT_OPT_KEY);
+#ifdef BUILD_GNFS
     else if (!strcmp(vme->key, NFS_DISABLE_MAP_KEY))
         *key = gf_strdup(NFS_DISABLE_OPT_KEY);
+#endif
     else {
         if (vme->option) {
             if (vme->option[0] == '!') {
@@ -3906,11 +3910,13 @@ client_graph_set_perf_options(volgen_graph_t *graph,
 
     volname = volinfo->volname;
 
+#ifdef BUILD_GNFS
     tmp_data = dict_get_sizen(set_dict, "nfs-volume-file");
     if (!tmp_data)
         return volgen_graph_set_options_generic(graph, set_dict, volinfo,
                                                 &perfxl_option_handler);
     else
+#endif
         return volgen_graph_set_options_generic(graph, set_dict, volname,
                                                 &nfsperfxl_option_handler);
 }
@@ -4354,6 +4360,7 @@ out:
     return ret;
 }
 
+#ifdef BUILD_GNFS
 static int
 nfs_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
                    void *param)
@@ -4434,6 +4441,7 @@ out:
     return 0;
 }
 
+#endif
 char *
 volgen_get_shd_key(int type)
 {
@@ -4722,6 +4730,8 @@ out:
     return ret;
 }
 
+#ifdef BUILD_GNFS
+
 static int
 volgen_graph_set_iam_nfsd(const volgen_graph_t *graph)
 {
@@ -4914,7 +4924,7 @@ out:
 
     return ret;
 }
-
+#endif
 /****************************
  *
  * Volume generation interface
@@ -6105,7 +6115,8 @@ out:
     return ret;
 }
 
-int
+#ifdef BUILD_GNFS
+static int
 validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
                  char **op_errstr)
 {
@@ -6170,6 +6181,7 @@ out:
     gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
+#endif
 
 int
 validate_clientopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
@@ -6287,13 +6299,13 @@ glusterd_validate_globalopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
         gf_msg_debug("glusterd", 0, "Could not Validate client");
         goto out;
     }
-
+#ifdef BUILD_GNFS
     ret = validate_nfsopts(volinfo, val_dict, op_errstr);
     if (ret) {
         gf_msg_debug("glusterd", 0, "Could not Validate nfs");
         goto out;
     }
-
+#endif
     ret = validate_shdopts(volinfo, val_dict, op_errstr);
     if (ret) {
         gf_msg_debug("glusterd", 0, "Could not Validate self-heald");
@@ -6343,12 +6355,13 @@ glusterd_validate_reconfopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
         goto out;
     }
 
+#ifdef BUILD_GNFS
     ret = validate_nfsopts(volinfo, val_dict, op_errstr);
     if (ret) {
         gf_msg_debug("glusterd", 0, "Could not Validate nfs");
         goto out;
     }
-
+#endif
     ret = validate_shdopts(volinfo, val_dict, op_errstr);
     if (ret) {
         gf_msg_debug("glusterd", 0, "Could not Validate self-heald");

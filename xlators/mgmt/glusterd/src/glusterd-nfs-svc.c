@@ -8,6 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 
+#ifdef BUILD_GNFS
+
 #include <glusterfs/globals.h>
 #include <glusterfs/run.h>
 #include <glusterfs/syscall.h>
@@ -223,3 +225,4 @@ out:
     gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
     return ret;
 }
+#endif
