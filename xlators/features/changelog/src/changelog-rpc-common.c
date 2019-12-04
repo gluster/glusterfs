@@ -49,8 +49,8 @@ changelog_rpc_client_init(xlator_t *this, void *cbkdata, char *sockfile,
 
     ret = rpc_transport_unix_options_build(options, sockfile, 0);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_BUILD_ERROR,
-               "failed to build rpc options");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_BUILD_ERROR,
+                NULL);
         goto dealloc_dict;
     }
 
@@ -60,16 +60,15 @@ changelog_rpc_client_init(xlator_t *this, void *cbkdata, char *sockfile,
 
     ret = rpc_clnt_register_notify(rpc, fn, cbkdata);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0,
-               CHANGELOG_MSG_NOTIFY_REGISTER_FAILED,
-               "failed to register notify");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                CHANGELOG_MSG_NOTIFY_REGISTER_FAILED, NULL);
         goto dealloc_rpc_clnt;
     }
 
     ret = rpc_clnt_start(rpc);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_START_ERROR,
-               "failed to start rpc");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_START_ERROR,
+                NULL);
         goto dealloc_rpc_clnt;
     }
 
@@ -165,8 +164,8 @@ changelog_invoke_rpc(xlator_t *this, struct rpc_clnt *rpc,
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_CREATE_FRAME_FAILED,
-               "failed to create frame");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_CREATE_FRAME_FAILED,
+                NULL);
         goto error_return;
     }
 
@@ -239,8 +238,8 @@ changelog_rpc_sumbit_reply(rpcsvc_request_t *req, void *arg,
 
     iob = __changelog_rpc_serialize_reply(req, arg, &iov, xdrproc);
     if (!iob)
-        gf_msg("", GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_SUBMIT_REPLY_FAILED,
-               "failed to serialize reply");
+        gf_smsg("", GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_SUBMIT_REPLY_FAILED,
+                NULL);
     else
         iobref_add(iobref, iob);
 
@@ -314,16 +313,15 @@ changelog_rpc_server_init(xlator_t *this, char *sockfile, void *cbkdata,
 
     rpc = rpcsvc_init(this, this->ctx, options, 8);
     if (rpc == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_START_ERROR,
-               "failed to init rpc");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_START_ERROR,
+                NULL);
         goto dealloc_dict;
     }
 
     ret = rpcsvc_register_notify(rpc, fn, cbkdata);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0,
-               CHANGELOG_MSG_NOTIFY_REGISTER_FAILED,
-               "failed to register notify function");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                CHANGELOG_MSG_NOTIFY_REGISTER_FAILED, NULL);
         goto dealloc_rpc;
     }
 
@@ -337,11 +335,10 @@ changelog_rpc_server_init(xlator_t *this, char *sockfile, void *cbkdata,
         prog = *progs;
         ret = rpcsvc_program_register(rpc, prog, _gf_false);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   CHANGELOG_MSG_PROGRAM_NAME_REG_FAILED,
-                   "cannot register program "
-                   "(name: %s, prognum: %d, pogver: %d)",
-                   prog->progname, prog->prognum, prog->progver);
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    CHANGELOG_MSG_PROGRAM_NAME_REG_FAILED, "name%s",
+                    prog->progname, "prognum=%d", prog->prognum, "pogver=%d",
+                    prog->progver, NULL);
             goto dealloc_rpc;
         }
 

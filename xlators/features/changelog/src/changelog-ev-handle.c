@@ -378,9 +378,8 @@ changelog_ev_dispatch(void *data)
         ret = rbuf_wait_for_completion(c_clnt->rbuf, opaque, _dispatcher,
                                        c_clnt);
         if (ret)
-            gf_msg(this->name, GF_LOG_WARNING, 0,
-                   CHANGELOG_MSG_PUT_BUFFER_FAILED,
-                   "failed to put buffer after consumption");
+            gf_smsg(this->name, GF_LOG_WARNING, 0,
+                    CHANGELOG_MSG_PUT_BUFFER_FAILED, NULL);
     }
 
     return NULL;
