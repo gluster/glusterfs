@@ -179,13 +179,14 @@ ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
                    "links: %u-%u, uid: %u-%u, gid: %u-%u, "
                    "rdev: %" PRIu64 "-%" PRIu64 ", size: %" PRIu64 "-%" PRIu64
                    ", "
-                   "mode: %o-%o)",
+                   "mode: %o-%o), %s",
                    dst[i].ia_ino, src[i].ia_ino, dst[i].ia_nlink,
                    src[i].ia_nlink, dst[i].ia_uid, src[i].ia_uid, dst[i].ia_gid,
                    src[i].ia_gid, dst[i].ia_rdev, src[i].ia_rdev,
                    dst[i].ia_size, src[i].ia_size,
                    st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type),
-                   st_mode_from_ia(src[i].ia_prot, dst[i].ia_type));
+                   st_mode_from_ia(src[i].ia_prot, dst[i].ia_type),
+                   ec_msg_str(fop));
 
             return 0;
         }
