@@ -965,8 +965,8 @@ changelog_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               CHANGELOG_OP_TYPE_RELEASE)) {
         ret = fd_ctx_set(fd, this, (uint64_t)(long)0x1);
         if (ret)
-            gf_msg(this->name, GF_LOG_WARNING, 0, CHANGELOG_MSG_SET_FD_CONTEXT,
-                   "could not set fd context (for release cbk)");
+            gf_smsg(this->name, GF_LOG_WARNING, 0, CHANGELOG_MSG_SET_FD_CONTEXT,
+                    NULL);
     }
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
@@ -1795,8 +1795,8 @@ changelog_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               CHANGELOG_OP_TYPE_RELEASE)) {
         ret = fd_ctx_set(fd, this, (uint64_t)(long)0x1);
         if (ret)
-            gf_msg(this->name, GF_LOG_WARNING, 0, CHANGELOG_MSG_SET_FD_CONTEXT,
-                   "could not set fd context (for release cbk)");
+            gf_smsg(this->name, GF_LOG_WARNING, 0, CHANGELOG_MSG_SET_FD_CONTEXT,
+                    NULL);
     }
 
 unwind:
@@ -2038,15 +2038,15 @@ notify(xlator_t *this, int event, void *data, ...)
 
         switch (barrier) {
             case DICT_ERROR:
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       CHANGELOG_MSG_DICT_GET_FAILED,
-                       "Barrier dict_get_str_boolean failed");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_DICT_GET_FAILED, "dict_get_str_boolean",
+                        NULL);
                 ret = -1;
                 goto out;
 
             case BARRIER_OFF:
-                gf_msg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_BARRIER_INFO,
-                       "Barrier off notification");
+                gf_smsg(this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_MSG_BARRIER_STATE_NOTIFY, "off", NULL);
 
                 CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
                 LOCK(&priv->c_snap_lock);
@@ -2063,10 +2063,8 @@ notify(xlator_t *this, int event, void *data, ...)
                 UNLOCK(&priv->bflags.lock);
 
                 if (ret == -1) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           CHANGELOG_MSG_BARRIER_ERROR,
-                           "Received another barrier off"
-                           " notification while already off");
+                    gf_smsg(this->name, GF_LOG_ERROR, 0,
+                            CHANGELOG_MSG_BARRIER_ERROR, NULL);
                     goto out;
                 }
 
@@ -2084,13 +2082,11 @@ notify(xlator_t *this, int event, void *data, ...)
                  */
                 if (ret == 0) {
                     chlog_barrier_dequeue_all(this, &queue);
-                    gf_msg(this->name, GF_LOG_INFO, 0,
-                           CHANGELOG_MSG_BARRIER_INFO,
-                           "Disabled changelog barrier");
+                    gf_smsg(this->name, GF_LOG_INFO, 0,
+                            CHANGELOG_MSG_BARRIER_DISABLED, NULL);
                 } else {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           CHANGELOG_MSG_BARRIER_ERROR,
-                           "Changelog barrier already disabled");
+                    gf_smsg(this->name, GF_LOG_ERROR, 0,
+                            CHANGELOG_MSG_BARRIER_ALREADY_DISABLED, NULL);
                 }
 
                 LOCK(&priv->bflags.lock);
@@ -2102,8 +2098,8 @@ notify(xlator_t *this, int event, void *data, ...)
                 goto out;
 
             case BARRIER_ON:
-                gf_msg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_BARRIER_INFO,
-                       "Barrier on notification");
+                gf_smsg(this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_MSG_BARRIER_STATE_NOTIFY, "on", NULL);
 
                 CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
                 LOCK(&priv->c_snap_lock);
@@ -2122,11 +2118,8 @@ notify(xlator_t *this, int event, void *data, ...)
                 UNLOCK(&priv->bflags.lock);
 
                 if (ret == -1) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           CHANGELOG_MSG_BARRIER_ERROR,
-                           "Received another barrier on"
-                           "notification when last one is"
-                           "not served yet");
+                    gf_smsg(this->name, GF_LOG_ERROR, 0,
+                            CHANGELOG_MSG_BARRIER_ON_ERROR, NULL);
                     goto out;
                 }
 
@@ -2149,14 +2142,14 @@ notify(xlator_t *this, int event, void *data, ...)
                     goto out;
                 }
 
-                gf_msg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_BARRIER_INFO,
-                       "Enabled changelog barrier");
+                gf_smsg(this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_MSG_BARRIER_ENABLE, NULL);
 
                 ret = changelog_barrier_notify(priv, buf);
                 if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           CHANGELOG_MSG_WRITE_FAILED,
-                           "Explicit roll over: write failed");
+                    gf_smsg(this->name, GF_LOG_ERROR, 0,
+                            CHANGELOG_MSG_WRITE_FAILED, "Explicit roll over",
+                            NULL);
                     changelog_barrier_cleanup(this, priv, &queue);
                     ret = -1;
                     goto out;
@@ -2186,15 +2179,14 @@ notify(xlator_t *this, int event, void *data, ...)
                 goto out;
 
             case DICT_DEFAULT:
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       CHANGELOG_MSG_DICT_GET_FAILED, "barrier key not found");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_BARRIER_KEY_NOT_FOUND, NULL);
                 ret = -1;
                 goto out;
 
             default:
-                gf_msg(this->name, GF_LOG_ERROR, EINVAL,
-                       CHANGELOG_MSG_DICT_GET_FAILED,
-                       "Something went bad in dict_get_str_boolean");
+                gf_smsg(this->name, GF_LOG_ERROR, EINVAL,
+                        CHANGELOG_MSG_ERROR_IN_DICT_GET, NULL);
                 ret = -1;
                 goto out;
         }
@@ -2242,8 +2234,8 @@ changelog_init(xlator_t *this, changelog_priv_t *priv)
 
     ret = gettimeofday(&tv, NULL);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno,
-               CHANGELOG_MSG_GET_TIME_OP_FAILED, "gettimeofday() failure");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_GET_TIME_FAILURE,
+                NULL);
         goto out;
     }
 
@@ -2448,8 +2440,8 @@ reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("changelog-dir", tmp, options, str, out);
     if (!tmp) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_DIR_OPTIONS_NOT_SET,
-               "\"changelog-dir\" option is not set");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_DIR_OPTIONS_NOT_SET,
+                NULL);
         goto out;
     }
 
@@ -2523,8 +2515,8 @@ reconfigure(xlator_t *this, dict_t *options)
                 gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_RECONFIGURE,
                         NULL);
                 if (gettimeofday(&tv, NULL)) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           CHANGELOG_MSG_HTIME_ERROR, "unable to fetch htime");
+                    gf_smsg(this->name, GF_LOG_ERROR, 0,
+                            CHANGELOG_MSG_HTIME_FETCH_FAILED, NULL);
                     ret = -1;
                     goto out;
                 }
@@ -2553,8 +2545,7 @@ changelog_freeup_options(xlator_t *this, changelog_priv_t *priv)
 
     ret = priv->cb->dtor(this, &priv->cd);
     if (ret)
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_FREEUP_FAILED,
-               "could not cleanup bootstrapper");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_FREEUP_FAILED, NULL);
     GF_FREE(priv->changelog_brick);
     GF_FREE(priv->changelog_dir);
 }
@@ -2700,14 +2691,14 @@ init(xlator_t *this)
     GF_VALIDATE_OR_GOTO("changelog", this, error_return);
 
     if (!this->children || this->children->next) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_CHILD_MISCONFIGURED,
-               "translator needs a single subvolume");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_CHILD_MISCONFIGURED,
+                NULL);
         goto error_return;
     }
 
     if (!this->parents) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_VOL_MISCONFIGURED,
-               "dangling volume. please check volfile");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_VOL_MISCONFIGURED,
+                NULL);
         goto error_return;
     }
 

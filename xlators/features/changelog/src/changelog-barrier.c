@@ -53,14 +53,14 @@ chlog_barrier_dequeue_all(xlator_t *this, struct list_head *queue)
 {
     call_stub_t *stub = NULL;
 
-    gf_msg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_BARRIER_INFO,
-           "Dequeuing all the changelog barriered fops");
+    gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_DEQUEUING_BARRIER_FOPS,
+            NULL);
 
     while ((stub = __chlog_barrier_dequeue(this, queue)))
         call_resume(stub);
 
-    gf_msg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_BARRIER_INFO,
-           "Dequeuing changelog barriered fops is finished");
+    gf_smsg(this->name, GF_LOG_INFO, 0,
+            CHANGELOG_MSG_DEQUEUING_BARRIER_FOPS_FINISHED, NULL);
     return;
 }
 
@@ -80,8 +80,7 @@ chlog_barrier_timeout(void *data)
 
     INIT_LIST_HEAD(&queue);
 
-    gf_msg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_BARRIER_ERROR,
-           "Disabling changelog barrier because of the timeout.");
+    gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_BARRIER_TIMEOUT, NULL);
 
     LOCK(&priv->lock);
     {
@@ -120,8 +119,8 @@ __chlog_barrier_enable(xlator_t *this, changelog_priv_t *priv)
     priv->timer = gf_timer_call_after(this->ctx, priv->timeout,
                                       chlog_barrier_timeout, (void *)this);
     if (!priv->timer) {
-        gf_msg(this->name, GF_LOG_CRITICAL, 0, CHANGELOG_MSG_BARRIER_ERROR,
-               "Couldn't add changelog barrier timeout event.");
+        gf_smsg(this->name, GF_LOG_CRITICAL, 0,
+                CHANGELOG_MSG_TIMEOUT_ADD_FAILED, NULL);
         goto out;
     }
 
