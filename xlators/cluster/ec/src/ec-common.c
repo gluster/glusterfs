@@ -2240,7 +2240,7 @@ ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     if (op_ret < 0) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno, EC_MSG_UNLOCK_FAILED,
-               "entry/inode unlocking failed (%s)", ec_fop_name(link->fop->id));
+               "entry/inode unlocking failed :(%s)", ec_msg_str(link->fop));
     } else {
         ec_trace("UNLOCKED", link->fop, "lock=%p", link->lock);
     }

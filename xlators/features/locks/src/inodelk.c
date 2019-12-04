@@ -502,22 +502,26 @@ static pl_inode_lock_t *
 __inode_unlock_lock(xlator_t *this, pl_inode_lock_t *lock, pl_dom_list_t *dom)
 {
     pl_inode_lock_t *conf = NULL;
+    inode_t *inode = NULL;
+
+    inode = lock->pl_inode->inode;
 
     conf = find_matching_inodelk(lock, dom);
     if (!conf) {
         gf_log(this->name, GF_LOG_ERROR,
                " Matching lock not found for unlock %llu-%llu, by %s "
-               "on %p",
+               "on %p for gfid:%s",
                (unsigned long long)lock->fl_start,
                (unsigned long long)lock->fl_end, lkowner_utoa(&lock->owner),
-               lock->client);
+               lock->client, inode ? uuid_utoa(inode->gfid) : "UNKNOWN");
         goto out;
     }
     __delete_inode_lock(conf);
     gf_log(this->name, GF_LOG_DEBUG,
-           " Matching lock found for unlock %llu-%llu, by %s on %p",
+           " Matching lock found for unlock %llu-%llu, by %s on %p for gfid:%s",
            (unsigned long long)lock->fl_start, (unsigned long long)lock->fl_end,
-           lkowner_utoa(&lock->owner), lock->client);
+           lkowner_utoa(&lock->owner), lock->client,
+           inode ? uuid_utoa(inode->gfid) : "UNKNOWN");
 
 out:
     return conf;
