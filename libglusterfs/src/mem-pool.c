@@ -123,6 +123,15 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
     return gf_mem_header_prepare(header, size);
 }
 
+static bool
+gf_mem_acct_enabled(void)
+{
+    xlator_t *x = THIS;
+    /* Low-level __gf_xxx() may be called
+       before ctx is initialized. */
+    return x->ctx && x->ctx->mem_acct_enable;
+}
+
 void *
 __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
 {
@@ -131,7 +140,7 @@ __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
     void *ptr = NULL;
     xlator_t *xl = NULL;
 
-    if (!THIS->ctx->mem_acct_enable)
+    if (!gf_mem_acct_enabled())
         return CALLOC(nmemb, size);
 
     xl = THIS;
@@ -156,7 +165,7 @@ __gf_malloc(size_t size, uint32_t type, const char *typestr)
     void *ptr = NULL;
     xlator_t *xl = NULL;
 
-    if (!THIS->ctx->mem_acct_enable)
+    if (!gf_mem_acct_enabled())
         return MALLOC(size);
 
     xl = THIS;
@@ -178,7 +187,7 @@ __gf_realloc(void *ptr, size_t size)
     size_t tot_size = 0;
     struct mem_header *header = NULL;
 
-    if (!THIS->ctx->mem_acct_enable)
+    if (!gf_mem_acct_enabled())
         return REALLOC(ptr, size);
 
     REQUIRE(NULL != ptr);
@@ -301,7 +310,7 @@ __gf_free(void *free_ptr)
     struct mem_header *header = NULL;
     bool last_ref = false;
 
-    if (!THIS->ctx->mem_acct_enable) {
+    if (!gf_mem_acct_enabled()) {
         FREE(free_ptr);
         return;
     }
