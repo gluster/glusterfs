@@ -4148,24 +4148,13 @@ gf_cli_add_brick(call_frame_t *frame, xlator_t *this, void *data)
     }};
     int ret = 0;
     dict_t *dict = NULL;
-    char *volname = NULL;
-    int32_t count = 0;
 
     dict = data;
-
-    ret = dict_get_str_sizen(dict, "volname", &volname);
-    if (ret)
-        goto out;
-
-    ret = dict_get_int32_sizen(dict, "count", &count);
-    if (ret)
-        goto out;
 
     ret = cli_to_glusterd(&req, frame, gf_cli_add_brick_cbk,
                           (xdrproc_t)xdr_gf_cli_req, dict,
                           GLUSTER_CLI_ADD_BRICK, this, cli_rpc_prog, NULL);
 
-out:
     gf_log("cli", GF_LOG_DEBUG, RETURNING, ret);
 
     GF_FREE(req.dict.dict_val);
@@ -4187,7 +4176,6 @@ gf_cli_remove_brick(call_frame_t *frame, xlator_t *this, void *data)
     int ret = 0;
     dict_t *dict = NULL;
     int32_t command = 0;
-    char *volname = NULL;
     int32_t cmd = 0;
 
     if (!frame || !this) {
@@ -4196,9 +4184,6 @@ gf_cli_remove_brick(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     dict = data;
-    ret = dict_get_str_sizen(dict, "volname", &volname);
-    if (ret)
-        goto out;
 
     ret = dict_get_int32_sizen(dict, "command", &command);
     if (ret)
@@ -4246,8 +4231,6 @@ gf_cli_reset_brick(call_frame_t *frame, xlator_t *this, void *data)
     int ret = 0;
     dict_t *dict = NULL;
     char *dst_brick = NULL;
-    char *src_brick = NULL;
-    char *volname = NULL;
     char *op = NULL;
 
     if (!frame || !this || !data) {
@@ -4263,18 +4246,6 @@ gf_cli_reset_brick(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    ret = dict_get_str_sizen(dict, "volname", &volname);
-    if (ret) {
-        gf_log(this->name, GF_LOG_DEBUG, "dict_get on volname failed");
-        goto out;
-    }
-
-    ret = dict_get_str_sizen(dict, "src-brick", &src_brick);
-    if (ret) {
-        gf_log(this->name, GF_LOG_DEBUG, "dict_get on src-brick failed");
-        goto out;
-    }
-
     if (!strcmp(op, "GF_RESET_OP_COMMIT") ||
         !strcmp(op, "GF_RESET_OP_COMMIT_FORCE")) {
         ret = dict_get_str_sizen(dict, "dst-brick", &dst_brick);
@@ -4283,9 +4254,6 @@ gf_cli_reset_brick(call_frame_t *frame, xlator_t *this, void *data)
             goto out;
         }
     }
-
-    gf_log(this->name, GF_LOG_DEBUG, "Received command reset-brick %s on %s.",
-           op, src_brick);
 
     ret = cli_to_glusterd(&req, frame, gf_cli_reset_brick_cbk,
                           (xdrproc_t)xdr_gf_cli_req, dict,
@@ -4307,9 +4275,6 @@ gf_cli_replace_brick(call_frame_t *frame, xlator_t *this, void *data)
     }};
     int ret = 0;
     dict_t *dict = NULL;
-    char *src_brick = NULL;
-    char *dst_brick = NULL;
-    char *volname = NULL;
     int32_t op = 0;
 
     if (!frame || !this || !data) {
@@ -4319,33 +4284,11 @@ gf_cli_replace_brick(call_frame_t *frame, xlator_t *this, void *data)
 
     dict = data;
 
-    ret = dict_get_str_sizen(dict, "volname", &volname);
-    if (ret) {
-        gf_log(this->name, GF_LOG_DEBUG, "dict_get on volname failed");
-        goto out;
-    }
-
     ret = dict_get_int32_sizen(dict, "operation", &op);
     if (ret) {
         gf_log(this->name, GF_LOG_DEBUG, "dict_get on operation failed");
         goto out;
     }
-
-    ret = dict_get_str_sizen(dict, "src-brick", &src_brick);
-    if (ret) {
-        gf_log(this->name, GF_LOG_DEBUG, "dict_get on src-brick failed");
-        goto out;
-    }
-
-    ret = dict_get_str_sizen(dict, "dst-brick", &dst_brick);
-    if (ret) {
-        gf_log(this->name, GF_LOG_DEBUG, "dict_get on dst-brick failed");
-        goto out;
-    }
-
-    gf_log(this->name, GF_LOG_DEBUG,
-           "Received command replace-brick %s with %s with operation=%d",
-           src_brick, dst_brick, op);
 
     ret = cli_to_glusterd(&req, frame, gf_cli_replace_brick_cbk,
                           (xdrproc_t)xdr_gf_cli_req, dict,
@@ -8380,7 +8323,6 @@ gf_cli_clearlocks_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = -1;
     char *lk_summary = NULL;
-    char *volname = NULL;
     dict_t *dict = NULL;
 
     GF_ASSERT(myframe);
@@ -8421,14 +8363,7 @@ gf_cli_clearlocks_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
             goto out;
         }
 
-        ret = dict_get_str_sizen(dict, "volname", &volname);
-        if (ret) {
-            gf_log("cli", GF_LOG_ERROR,
-                   "Unable to get volname from dictionary");
-            goto out;
-        }
-
-        ret = dict_get_str_sizen(dict, "lk-summary", &lk_summary);
+        ret = dict_get_str(dict, "lk-summary", &lk_summary);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
                    "Unable to get lock summary from dictionary");
