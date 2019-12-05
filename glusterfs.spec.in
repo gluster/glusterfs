@@ -1305,7 +1305,7 @@ exit 0
 
 # binaries
 %{_sbindir}/glusterd
-%{_sbindir}/glfsheal
+%{_libexecdir}/glusterfs/glfsheal
 %{_sbindir}/gf_attach
 %{_sbindir}/gluster-setgfid2path
 # {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a

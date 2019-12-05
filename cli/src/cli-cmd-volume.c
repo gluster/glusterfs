@@ -2563,7 +2563,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
 
     runinit(&runner);
     ret = dict_get_str(options, "volname", &volname);
-    runner_add_args(&runner, SBIN_DIR "/glfsheal", volname, NULL);
+    runner_add_args(&runner, GLFSHEAL_PREFIX "/glfsheal", volname, NULL);
     runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
 
     switch (heal_op) {
