@@ -254,6 +254,7 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
             }
         }
         UNLOCK(&parent->lock);
+        inode_unref(parent);
     }
 
     return;
