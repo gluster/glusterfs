@@ -1730,9 +1730,10 @@ glusterd_store_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
     char *value = NULL;
     char *slavekey = NULL;
     char *slaveentry = NULL;
-    char key[512] = {
+    char key[32] = {
         0,
     };
+    int keylen;
     char *t = NULL;
     xlator_t *this = NULL;
     struct slave_vol_config slave1 = {
@@ -1810,15 +1811,15 @@ glusterd_store_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
 
     if (ret == 0) { /* New slave */
         dict_foreach(volinfo->gsync_slaves, _get_max_gsync_slave_num, &maxslv);
-        snprintf(key, sizeof(key), "slave%d", maxslv + 1);
+        keylen = snprintf(key, sizeof(key), "slave%d", maxslv + 1);
 
-        ret = dict_set_dynstr(volinfo->gsync_slaves, key, value);
+        ret = dict_set_dynstrn(volinfo->gsync_slaves, key, keylen, value);
         if (ret) {
             GF_FREE(value);
             goto out;
         }
     } else if (ret == -1) { /* Existing slave */
-        snprintf(key, sizeof(key), "slave%d", slave1.old_slvidx);
+        keylen = snprintf(key, sizeof(key), "slave%d", slave1.old_slvidx);
 
         gf_msg_debug(this->name, 0,
                      "Replacing key:%s with new value"
@@ -1826,7 +1827,7 @@ glusterd_store_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
                      key, value);
 
         /* Add new slave's value, with the same slave index */
-        ret = dict_set_dynstr(volinfo->gsync_slaves, key, value);
+        ret = dict_set_dynstrn(volinfo->gsync_slaves, key, keylen, value);
         if (ret) {
             GF_FREE(value);
             goto out;

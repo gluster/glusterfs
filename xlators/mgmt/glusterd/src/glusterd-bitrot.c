@@ -319,7 +319,7 @@ glusterd_bitrot_expiry_time(glusterd_volinfo_t *volinfo, dict_t *dict,
     int32_t ret = -1;
     uint32_t expiry_time = 0;
     xlator_t *this = NULL;
-    char dkey[1024] = {
+    char dkey[32] = {
         0,
     };
 

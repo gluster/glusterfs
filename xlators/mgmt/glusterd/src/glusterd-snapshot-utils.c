@@ -200,7 +200,7 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
                               int32_t volcount)
 {
     char *value = NULL;
-    char key[PATH_MAX] = "";
+    char key[64] = "";
     int32_t brick_count = -1;
     int32_t ret = -1;
     xlator_t *this = NULL;
@@ -2854,19 +2854,21 @@ out:
     return quorum_met;
 }
 
-int32_t
+static int32_t
 glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
-                             dict_t *dict, char *key_prefix, int8_t snap_force,
-                             int quorum_count, char *quorum_type,
-                             char **op_errstr, uint32_t *op_errno)
+                             dict_t *dict, const char *key_prefix,
+                             int8_t snap_force, int quorum_count,
+                             char *quorum_type, char **op_errstr,
+                             uint32_t *op_errno)
 {
     int ret = 0;
     xlator_t *this = NULL;
     int64_t i = 0;
     int64_t j = 0;
-    char key[1024] = {
+    char key[128] = {
         0,
-    };
+    }; /* key_prefix is passed from above, but is really quite small */
+    int keylen;
     int down_count = 0;
     gf_boolean_t first_brick_on = _gf_true;
     glusterd_conf_t *priv = NULL;
@@ -2895,9 +2897,10 @@ glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
                with replica count 2, quorum is not met if even
                one of its subvolumes is down
             */
-            snprintf(key, sizeof(key), "%s%" PRId64 ".brick%" PRId64 ".status",
-                     key_prefix, index, i);
-            ret = dict_get_int32(dict, key, &brick_online);
+            keylen = snprintf(key, sizeof(key),
+                              "%s%" PRId64 ".brick%" PRId64 ".status",
+                              key_prefix, index, i);
+            ret = dict_get_int32n(dict, key, keylen, &brick_online);
             if (ret || !brick_online) {
                 ret = 1;
                 gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -2920,10 +2923,10 @@ glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
             ret = 1;
             quorum_met = _gf_false;
             for (i = 0; i < volinfo->dist_leaf_count; i++) {
-                snprintf(key, sizeof(key),
-                         "%s%" PRId64 ".brick%" PRId64 ".status", key_prefix,
-                         index, (j * volinfo->dist_leaf_count) + i);
-                ret = dict_get_int32(dict, key, &brick_online);
+                keylen = snprintf(
+                    key, sizeof(key), "%s%" PRId64 ".brick%" PRId64 ".status",
+                    key_prefix, index, (j * volinfo->dist_leaf_count) + i);
+                ret = dict_get_int32n(dict, key, keylen, &brick_online);
                 if (ret || !brick_online) {
                     if (i == 0)
                         first_brick_on = _gf_false;
@@ -2954,9 +2957,9 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_snap_common_quorum_calculate(glusterd_volinfo_t *volinfo, dict_t *dict,
-                                      int64_t index, char *key_prefix,
+                                      int64_t index, const char *key_prefix,
                                       int8_t snap_force,
                                       gf_boolean_t snap_volume,
                                       char **op_errstr, uint32_t *op_errno)
@@ -3005,9 +3008,10 @@ glusterd_snap_common_quorum_calculate(glusterd_volinfo_t *volinfo, dict_t *dict,
         quorum_count = volinfo->brick_count;
     }
 
-    ret = dict_get_str(volinfo->dict, "cluster.quorum-type", &quorum_type);
+    ret = dict_get_str_sizen(volinfo->dict, "cluster.quorum-type",
+                             &quorum_type);
     if (!ret && !strcmp(quorum_type, "fixed")) {
-        ret = dict_get_int32(volinfo->dict, "cluster.quorum-count", &tmp);
+        ret = dict_get_int32_sizen(volinfo->dict, "cluster.quorum-count", &tmp);
         /* if quorum-type option is not found in the
            dict assume auto quorum type. i.e n/2 + 1.
            The same assumption is made when quorum-count
@@ -3049,12 +3053,12 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
                                      char **op_errstr, uint32_t *op_errno)
 {
     const char err_str[] = "glusterds are not in quorum";
-    char key_prefix[PATH_MAX] = {
+    char key_prefix[16] = {
         0,
     };
     char *snapname = NULL;
@@ -3063,9 +3067,6 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
     glusterd_volinfo_t *tmp_volinfo = NULL;
     char *volname = NULL;
     int64_t volcount = 0;
-    char key[PATH_MAX] = {
-        0,
-    };
     int64_t i = 0;
     int32_t ret = -1;
     xlator_t *this = NULL;
@@ -3080,7 +3081,7 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
     }
 
     if (snap_volume) {
-        ret = dict_get_str(dict, "snapname", &snapname);
+        ret = dict_get_str_sizen(dict, "snapname", &snapname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "failed to "
@@ -3122,9 +3123,7 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
     }
 
     for (i = 1; i <= volcount; i++) {
-        snprintf(key, sizeof(key), "%s%" PRId64,
-                 snap_volume ? "snap-volname" : "volname", i);
-        ret = dict_get_str(dict, "clonename", &volname);
+        ret = dict_get_str_sizen(dict, "clonename", &volname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "failed to "
@@ -3171,14 +3170,14 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_snap_quorum_check_for_create(dict_t *dict, gf_boolean_t snap_volume,
                                       char **op_errstr, uint32_t *op_errno)
 {
     int8_t snap_force = 0;
     int32_t force = 0;
     const char err_str[] = "glusterds are not in quorum";
-    char key_prefix[PATH_MAX] = {
+    char key_prefix[16] = {
         0,
     };
     char *snapname = NULL;
@@ -3186,7 +3185,7 @@ glusterd_snap_quorum_check_for_create(dict_t *dict, gf_boolean_t snap_volume,
     glusterd_volinfo_t *volinfo = NULL;
     char *volname = NULL;
     int64_t volcount = 0;
-    char key[PATH_MAX] = {
+    char key[32] = {
         0,
     };
     int64_t i = 0;
@@ -3313,7 +3312,7 @@ glusterd_snap_quorum_check(dict_t *dict, gf_boolean_t snap_volume,
         goto out;
     }
 
-    ret = dict_get_int32(dict, "type", &snap_command);
+    ret = dict_get_int32_sizen(dict, "type", &snap_command);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "unable to get the type of "
@@ -3963,7 +3962,7 @@ glusterd_restore_geo_rep_files(glusterd_volinfo_t *snap_vol)
     char *origin_volname = NULL;
     glusterd_volinfo_t *origin_vol = NULL;
     int i = 0;
-    char key[PATH_MAX] = "";
+    char key[32] = "";
     char session[PATH_MAX] = "";
     char slave[PATH_MAX] = "";
     char snapgeo_dir[PATH_MAX] = "";

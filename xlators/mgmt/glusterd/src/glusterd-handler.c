@@ -2649,7 +2649,7 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         {0},
     };
     dict_t *dict = NULL;
-    char key[100] = {
+    char key[32] = {
         0,
     };
     int keylen;

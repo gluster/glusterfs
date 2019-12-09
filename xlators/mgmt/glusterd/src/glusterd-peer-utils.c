@@ -823,7 +823,7 @@ gd_peerinfo_from_dict(dict_t *dict, const char *prefix)
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     glusterd_peerinfo_t *new_peer = NULL;
-    char key[100] = {
+    char key[64] = {
         0,
     };
     char *uuid_str = NULL;
@@ -868,14 +868,14 @@ out:
     return new_peer;
 }
 
-int
+static int
 gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                               const char *prefix)
 {
     int ret = -1;
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
-    char key[256] = {
+    char key[64] = {
         0,
     };
     glusterd_peer_hostname_t *addr = NULL;
@@ -917,7 +917,7 @@ gd_add_peer_detail_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *friends,
                            int count)
 {
     int ret = -1;
-    char key[64] = {
+    char key[32] = {
         0,
     };
     int keylen;

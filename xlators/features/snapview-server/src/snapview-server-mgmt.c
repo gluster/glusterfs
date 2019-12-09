@@ -237,7 +237,8 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     dict_t *dict = NULL;
-    char key[1024] = {0};
+    char key[32] = {0};
+    int len;
     int snapcount = 0;
     svs_private_t *priv = NULL;
     xlator_t *this = NULL;
@@ -330,8 +331,8 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     for (i = 0; i < snapcount; i++) {
-        snprintf(key, sizeof(key), "snap-volname.%d", i + 1);
-        ret = dict_get_str(dict, key, &value);
+        len = snprintf(key, sizeof(key), "snap-volname.%d", i + 1);
+        ret = dict_get_strn(dict, key, len, &value);
         if (ret) {
             errno = EINVAL;
             ret = -1;
@@ -343,8 +344,8 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         strncpy(dirents[i].snap_volname, value,
                 sizeof(dirents[i].snap_volname));
 
-        snprintf(key, sizeof(key), "snap-id.%d", i + 1);
-        ret = dict_get_str(dict, key, &value);
+        len = snprintf(key, sizeof(key), "snap-id.%d", i + 1);
+        ret = dict_get_strn(dict, key, len, &value);
         if (ret) {
             errno = EINVAL;
             ret = -1;
@@ -354,8 +355,8 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
         strncpy(dirents[i].uuid, value, sizeof(dirents[i].uuid));
 
-        snprintf(key, sizeof(key), "snapname.%d", i + 1);
-        ret = dict_get_str(dict, key, &value);
+        len = snprintf(key, sizeof(key), "snapname.%d", i + 1);
+        ret = dict_get_strn(dict, key, len, &value);
         if (ret) {
             errno = EINVAL;
             ret = -1;

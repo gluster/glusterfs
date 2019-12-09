@@ -72,9 +72,6 @@ glusterd_peerinfo_t *
 gd_peerinfo_from_dict(dict_t *dict, const char *prefix);
 
 int
-gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
-                              const char *prefix);
-int
 gd_add_peer_detail_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *friends,
                            int count);
 glusterd_peerinfo_t *

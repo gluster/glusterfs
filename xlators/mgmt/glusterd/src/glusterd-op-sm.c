@@ -3182,10 +3182,11 @@ _add_remove_bricks_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo,
     int ret = -1;
     int count = 0;
     int i = 0;
-    char brick_key[1024] = {
+    char brick_key[16] = {
         0,
     };
-    char dict_key[1024] = {
+    char dict_key[64] = {
+        /* dict_key is small as prefix is up to 32 chars */
         0,
     };
     int keylen;
@@ -3250,7 +3251,7 @@ static int
 _add_task_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
 {
     int ret = -1;
-    char key[64] = {
+    char key[32] = {
         0,
     };
     int keylen;
@@ -4468,7 +4469,7 @@ glusterd_op_volume_dict_uuid_to_hostname(dict_t *dict, const char *key_fmt,
 {
     int ret = -1;
     int i = 0;
-    char key[1024];
+    char key[128];
     int keylen;
     char *uuid_str = NULL;
     uuid_t uuid = {
@@ -6557,12 +6558,12 @@ fill_shd_status_for_local_bricks(dict_t *dict, glusterd_volinfo_t *volinfo,
                                  dict_t *req_dict)
 {
     glusterd_brickinfo_t *brickinfo = NULL;
-    char *msg = "self-heal-daemon is not running on";
-    char key[1024] = {
+    static char *msg = "self-heal-daemon is not running on";
+    char key[32] = {
         0,
     };
     int keylen;
-    char value[1024] = {
+    char value[128] = {
         0,
     };
     int ret = 0;

@@ -704,14 +704,14 @@ out:
     return op_ret;
 }
 
-int32_t
+static int32_t
 glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
                             glusterd_volinfo_t *snap_vol, dict_t *rsp_dict)
 {
     int32_t ret = -1;
     int i = 0;
     xlator_t *this = NULL;
-    char key[PATH_MAX] = "";
+    char key[32] = "";
     char session[PATH_MAX] = "";
     char slave[PATH_MAX] = "";
     char snapgeo_dir[PATH_MAX] = "";
@@ -1927,7 +1927,7 @@ glusterd_snap_create_clone_common_prevalidate(
 {
     char *device = NULL;
     char *orig_device = NULL;
-    char key[PATH_MAX] = "";
+    char key[128] = "";
     int ret = -1;
     int64_t i = 1;
     int64_t brick_order = 0;
@@ -2126,7 +2126,6 @@ glusterd_snapshot_clone_prevalidate(dict_t *dict, char **op_errstr,
     char *clonename = NULL;
     char *snapname = NULL;
     char device_name[64] = "";
-    char key[PATH_MAX] = "";
     glusterd_snap_t *snap = NULL;
     char err_str[PATH_MAX] = "";
     int ret = -1;
@@ -2189,8 +2188,7 @@ glusterd_snapshot_clone_prevalidate(dict_t *dict, char **op_errstr,
         goto out;
     }
 
-    snprintf(key, sizeof(key) - 1, "vol1_volid");
-    ret = dict_get_bin(dict, key, (void **)&snap_volid);
+    ret = dict_get_bin(dict, "vol1_volid", (void **)&snap_volid);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to fetch snap_volid");
@@ -3039,11 +3037,11 @@ out:
 
 static int
 glusterd_snapshot_get_snapvol_detail(dict_t *dict, glusterd_volinfo_t *snap_vol,
-                                     char *keyprefix, int detail)
+                                     const char *keyprefix, const int detail)
 {
     int ret = -1;
     int snap_limit = 0;
-    char key[PATH_MAX] = "";
+    char key[64] = ""; /* keyprefix is quite small, up to 32 byts */
     int keylen;
     char *value = NULL;
     glusterd_volinfo_t *origin_vol = NULL;
@@ -3206,11 +3204,12 @@ out:
 
 static int
 glusterd_snapshot_get_snap_detail(dict_t *dict, glusterd_snap_t *snap,
-                                  char *keyprefix, glusterd_volinfo_t *volinfo)
+                                  const char *keyprefix,
+                                  glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     int volcount = 0;
-    char key[PATH_MAX] = "";
+    char key[32] = ""; /* keyprefix is quite small, up to 16 bytes */
     int keylen;
     char timestr[64] = "";
     char *value = NULL;
@@ -3374,7 +3373,7 @@ glusterd_snapshot_get_all_snap_info(dict_t *dict)
 {
     int ret = -1;
     int snapcount = 0;
-    char key[64] = "";
+    char key[16] = "";
     glusterd_snap_t *snap = NULL;
     glusterd_snap_t *tmp_snap = NULL;
     glusterd_conf_t *priv = NULL;
@@ -3421,7 +3420,7 @@ glusterd_snapshot_get_info_by_volume(dict_t *dict, char *volname, char *err_str,
     int snapcount = 0;
     int snap_limit = 0;
     char *value = NULL;
-    char key[64] = "";
+    char key[16] = "";
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *snap_vol = NULL;
     glusterd_volinfo_t *tmp_vol = NULL;
@@ -3719,7 +3718,7 @@ glusterd_snapshot_get_vol_snapnames(dict_t *dict, glusterd_volinfo_t *volinfo)
     int ret = -1;
     int snapcount = 0;
     char *snapname = NULL;
-    char key[PATH_MAX] = "";
+    char key[32] = "";
     glusterd_volinfo_t *snap_vol = NULL;
     glusterd_volinfo_t *tmp_vol = NULL;
     xlator_t *this = NULL;
@@ -5512,12 +5511,12 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_handle_snapshot_delete_all(dict_t *dict)
 {
     int32_t ret = -1;
     int32_t i = 0;
-    char key[PATH_MAX] = "";
+    char key[32] = "";
     glusterd_conf_t *priv = NULL;
     glusterd_snap_t *snap = NULL;
     glusterd_snap_t *tmp_snap = NULL;
@@ -7115,10 +7114,10 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_get_brick_lvm_details(dict_t *rsp_dict,
                                glusterd_brickinfo_t *brickinfo, char *volname,
-                               char *device, char *key_prefix)
+                               char *device, const char *key_prefix)
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;
@@ -7130,7 +7129,7 @@ glusterd_get_brick_lvm_details(dict_t *rsp_dict,
     char buf[PATH_MAX] = "";
     char *ptr = NULL;
     char *token = NULL;
-    char key[PATH_MAX] = "";
+    char key[160] = ""; /* key_prefix is 128 bytes at most */
     char *value = NULL;
 
     GF_ASSERT(rsp_dict);
@@ -7258,16 +7257,16 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_get_single_brick_status(char **op_errstr, dict_t *rsp_dict,
-                                 char *keyprefix, int index,
+                                 const char *keyprefix, int index,
                                  glusterd_volinfo_t *snap_volinfo,
                                  glusterd_brickinfo_t *brickinfo)
 {
     int ret = -1;
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
-    char key[PATH_MAX] = "";
+    char key[128] = ""; /* keyprefix is not longer than 64 bytes */
     int keylen;
     char *device = NULL;
     char *value = NULL;
@@ -7432,13 +7431,13 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_get_single_snap_status(char **op_errstr, dict_t *rsp_dict,
-                                char *keyprefix, glusterd_snap_t *snap)
+                                const char *keyprefix, glusterd_snap_t *snap)
 {
     int ret = -1;
     xlator_t *this = NULL;
-    char key[PATH_MAX] = "";
+    char key[64] = ""; /* keyprefix is "status.snap0" */
     int keylen;
     char brickkey[PATH_MAX] = "";
     glusterd_volinfo_t *snap_volinfo = NULL;
@@ -7513,12 +7512,13 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_get_each_snap_object_status(char **op_errstr, dict_t *rsp_dict,
-                                     glusterd_snap_t *snap, char *keyprefix)
+                                     glusterd_snap_t *snap,
+                                     const char *keyprefix)
 {
     int ret = -1;
-    char key[PATH_MAX] = "";
+    char key[32] = ""; /* keyprefix is "status.snap0" */
     int keylen;
     char *temp = NULL;
     xlator_t *this = NULL;
@@ -9860,7 +9860,7 @@ glusterd_snapshot_get_volnames_uuids(dict_t *dict, char *volname,
 {
     int ret = -1;
     int snapcount = 0;
-    char key[PATH_MAX] = "";
+    char key[32] = "";
     glusterd_volinfo_t *snap_vol = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *tmp_vol = NULL;
