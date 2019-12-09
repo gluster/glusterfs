@@ -2336,7 +2336,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     glusterd_conf_t *priv = NULL;
     int32_t brick_count = 0;
     int32_t ta_brick_count = 0;
-    char tmpkey[4096] = {
+    char tmpkey[32] = {
         0,
     };
     gf_store_iter_t *tmpiter = NULL;
@@ -2648,13 +2648,12 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
         goto out;
 
     if (volinfo->thin_arbiter_count == 1) {
+        snprintf(tmpkey, sizeof(tmpkey), "%s-%d",
+                 GLUSTERD_STORE_KEY_VOL_TA_BRICK, 0);
         while (ta_brick_count < volinfo->subvol_count) {
             ret = glusterd_brickinfo_new(&ta_brickinfo);
             if (ret)
                 goto out;
-
-            snprintf(tmpkey, sizeof(tmpkey), "%s-%d",
-                     GLUSTERD_STORE_KEY_VOL_TA_BRICK, 0);
 
             ret = gf_store_iter_get_matching(tmpiter, tmpkey, &tmpvalue);
 

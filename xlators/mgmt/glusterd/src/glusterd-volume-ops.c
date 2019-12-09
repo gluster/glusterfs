@@ -2085,7 +2085,7 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
         0,
     };
     char *brick_mount_dir = NULL;
-    char key[PATH_MAX] = "";
+    char key[64] = "";
     char *address_family_str = NULL;
     struct statvfs brickstat = {
         0,

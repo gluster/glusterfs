@@ -722,7 +722,8 @@ glusterfs_handle_translator_op(rpcsvc_request_t *req)
     xlator_t *xlator = NULL;
     xlator_t *any = NULL;
     dict_t *output = NULL;
-    char key[2048] = {0};
+    char key[32] = {0};
+    int len;
     char *xname = NULL;
     glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
@@ -774,8 +775,8 @@ glusterfs_handle_translator_op(rpcsvc_request_t *req)
     }
 
     for (i = 0; i < count; i++) {
-        snprintf(key, sizeof(key), "xl-%d", i);
-        ret = dict_get_str(input, key, &xname);
+        len = snprintf(key, sizeof(key), "xl-%d", i);
+        ret = dict_get_strn(input, key, len, &xname);
         if (ret) {
             gf_log(this->name, GF_LOG_ERROR,
                    "Couldn't get "
@@ -793,8 +794,8 @@ glusterfs_handle_translator_op(rpcsvc_request_t *req)
         }
     }
     for (i = 0; i < count; i++) {
-        snprintf(key, sizeof(key), "xl-%d", i);
-        ret = dict_get_str(input, key, &xname);
+        len = snprintf(key, sizeof(key), "xl-%d", i);
+        ret = dict_get_strn(input, key, len, &xname);
         xlator = xlator_search_by_name(any, xname);
         XLATOR_NOTIFY(ret, xlator, GF_EVENT_TRANSLATOR_OP, input, output);
         /* If notify fails for an xlator we need to capture it but

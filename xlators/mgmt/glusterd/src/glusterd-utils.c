@@ -10123,7 +10123,7 @@ glusterd_volume_status_add_peer_rsp(dict_t *this, char *key, data_t *value,
     if (len < 0 || len >= sizeof(new_key))
         goto out;
 
-    ret = dict_set(rsp_ctx->dict, new_key, new_value);
+    ret = dict_setn(rsp_ctx->dict, new_key, len, new_value);
 out:
     if (ret) {
         data_unref(new_value);

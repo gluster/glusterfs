@@ -1384,7 +1384,7 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
                              struct timeval *now, int interval, dict_t *dict)
 {
     int ret = 0;
-    char key[256] = {0};
+    char key[64] = {0};
     uint64_t sec = 0;
     int i = 0;
     uint64_t count = 0;
@@ -1802,7 +1802,8 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
 {
     struct ios_conf *conf = NULL;
     int cnt = 0;
-    char key[256];
+    char key[32];
+    int keylen;
     struct ios_stat_head *list_head = NULL;
     struct ios_stat_list *entry = NULL;
     int ret = -1;
@@ -1873,7 +1874,7 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
         default:
             goto out;
     }
-    ret = dict_set_int32(resp, "top-op", flags);
+    ret = dict_set_int32_sizen(resp, "top-op", flags);
     if (!list_cnt)
         goto out;
     LOCK(&list_head->lock);
@@ -1881,24 +1882,24 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
         list_for_each_entry(entry, &list_head->iosstats->list, list)
         {
             cnt++;
-            snprintf(key, 256, "%s-%d", "filename", cnt);
-            ret = dict_set_str(resp, key, entry->iosstat->filename);
+            keylen = snprintf(key, sizeof(key), "filename-%d", cnt);
+            ret = dict_set_strn(resp, key, keylen, entry->iosstat->filename);
             if (ret)
                 goto unlock_list_head;
-            snprintf(key, 256, "%s-%d", "value", cnt);
+            snprintf(key, sizeof(key), "value-%d", cnt);
             ret = dict_set_uint64(resp, key, entry->value);
             if (ret)
                 goto unlock_list_head;
             if (index != IOS_STATS_THRU_MAX) {
-                snprintf(key, 256, "%s-%d", "time-sec", cnt);
-                ret = dict_set_int32(
-                    resp, key,
+                keylen = snprintf(key, sizeof(key), "time-sec-%d", cnt);
+                ret = dict_set_int32n(
+                    resp, key, keylen,
                     entry->iosstat->thru_counters[index].time.tv_sec);
                 if (ret)
                     goto unlock_list_head;
-                snprintf(key, 256, "%s-%d", "time-usec", cnt);
-                ret = dict_set_int32(
-                    resp, key,
+                keylen = snprintf(key, sizeof(key), "time-usec-%d", cnt);
+                ret = dict_set_int32n(
+                    resp, key, keylen,
                     entry->iosstat->thru_counters[index].time.tv_usec);
                 if (ret)
                     goto unlock_list_head;
@@ -1913,7 +1914,7 @@ unlock_list_head:
      * failed. */
     if (ret)
         goto out;
-    ret = dict_set_int32(resp, "members", cnt);
+    ret = dict_set_int32_sizen(resp, "members", cnt);
 out:
     return ret;
 }

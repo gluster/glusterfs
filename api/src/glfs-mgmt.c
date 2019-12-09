@@ -255,7 +255,6 @@ mgmt_get_volinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
     char *volume_id_str = NULL;
     dict_t *dict = NULL;
-    char key[1024] = {0};
     gf_get_volume_info_rsp rsp = {
         0,
     };
@@ -328,8 +327,7 @@ mgmt_get_volinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    snprintf(key, sizeof(key), "volume_id");
-    ret = dict_get_str(dict, key, &volume_id_str);
+    ret = dict_get_str_sizen(dict, "volume_id", &volume_id_str);
     if (ret) {
         errno = EINVAL;
         goto out;

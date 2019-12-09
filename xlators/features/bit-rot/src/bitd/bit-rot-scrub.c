@@ -1657,7 +1657,7 @@ br_read_bad_object_dir(xlator_t *this, br_child_t *child, fd_t *fd,
     int32_t ret = -1;
     off_t offset = 0;
     int32_t count = 0;
-    char key[PATH_MAX] = {
+    char key[32] = {
         0,
     };
     dict_t *out_dict = NULL;
@@ -1695,7 +1695,7 @@ br_read_bad_object_dir(xlator_t *this, br_child_t *child, fd_t *fd,
     }
 
     ret = count;
-    ret = dict_set_int32(dict, "count", count);
+    ret = dict_set_int32_sizen(dict, "count", count);
 
 out:
     return ret;
@@ -1777,10 +1777,10 @@ br_collect_bad_objects_of_child(xlator_t *this, br_child_t *child, dict_t *dict,
 {
     int32_t ret = -1;
     int32_t count = 0;
-    char key[PATH_MAX] = {
+    char key[32] = {
         0,
     };
-    char main_key[PATH_MAX] = {
+    char main_key[32] = {
         0,
     };
     int32_t j = 0;
@@ -1792,15 +1792,15 @@ br_collect_bad_objects_of_child(xlator_t *this, br_child_t *child, dict_t *dict,
     char *path = NULL;
     int32_t len = 0;
 
-    ret = dict_get_int32(child_dict, "count", &count);
+    ret = dict_get_int32_sizen(child_dict, "count", &count);
     if (ret)
         goto out;
 
     tmp_count = total_count;
 
     for (j = 0; j < count; j++) {
-        snprintf(key, PATH_MAX, "quarantine-%d", j);
-        ret = dict_get_str(child_dict, key, &entry);
+        len = snprintf(key, PATH_MAX, "quarantine-%d", j);
+        ret = dict_get_strn(child_dict, key, len, &entry);
         if (ret)
             continue;
 

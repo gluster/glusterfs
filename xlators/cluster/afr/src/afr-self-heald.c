@@ -1024,7 +1024,7 @@ afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
 {
     int ret = 0;
     uint64_t count = 0;
-    char key[256] = {0};
+    char key[128] = {0};
     int keylen = 0;
     char suffix[64] = {0};
     int xl_id = 0;
@@ -1149,9 +1149,9 @@ afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
 {
     int ret = -1;
     uint64_t count = 0;
-    char key[256] = {0};
+    char key[64] = {0};
     int keylen = 0;
-    char xl_id_child_str[64] = {0};
+    char xl_id_child_str[32] = {0};
     int xl_id = 0;
 
     ret = dict_get_int32(output, this->name, &xl_id);
