@@ -331,6 +331,38 @@ out:
     return 0;
 }
 
+static int32_t
+posix_set_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
+                          const char *bname)
+{
+    char xxh64[GF_XXH64_DIGEST_LENGTH * 2 + 1] = {
+        0,
+    };
+    char pgfid_bname[1024] = {
+        0,
+    };
+    char *key = NULL;
+    const size_t key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH +
+                            GF_XXH64_DIGEST_LENGTH * 2 + 1;
+    int ret = 0;
+    int len;
+
+    len = snprintf(pgfid_bname, sizeof(pgfid_bname), "%s/%s", uuid_utoa(pgfid),
+                   bname);
+    gf_xxh64_wrapper((unsigned char *)pgfid_bname, len,
+                     GF_XXHSUM64_DEFAULT_SEED, xxh64);
+    key = alloca(key_size);
+    snprintf(key, key_size, GFID2PATH_XATTR_KEY_PREFIX "%s", xxh64);
+
+    ret = sys_lsetxattr(path, key, pgfid_bname, len, XATTR_CREATE);
+    if (ret == -1) {
+        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP,
+               "setting gfid2path xattr failed on %s: key = %s ", path, key);
+    }
+
+    return ret;
+}
+
 int
 posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
             dev_t dev, mode_t umask, dict_t *xdata)
@@ -1078,6 +1110,38 @@ posix_skip_non_linkto_unlink(dict_t *xdata, loc_t *loc, char *key,
                real_path);
     }
     return skip_unlink;
+}
+
+static int32_t
+posix_remove_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
+                             const char *bname)
+{
+    char xxh64[GF_XXH64_DIGEST_LENGTH * 2 + 1] = {
+        0,
+    };
+    char pgfid_bname[1024] = {
+        0,
+    };
+    int ret = 0;
+    char *key = NULL;
+    const size_t key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH +
+                            GF_XXH64_DIGEST_LENGTH * 2 + 1;
+    int len;
+
+    len = snprintf(pgfid_bname, sizeof(pgfid_bname), "%s/%s", uuid_utoa(pgfid),
+                   bname);
+    gf_xxh64_wrapper((unsigned char *)pgfid_bname, len,
+                     GF_XXHSUM64_DEFAULT_SEED, xxh64);
+    key = alloca(key_size);
+    snprintf(key, key_size, GFID2PATH_XATTR_KEY_PREFIX "%s", xxh64);
+
+    ret = sys_lremovexattr(path, key);
+    if (ret == -1) {
+        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP,
+               "removing gfid2path xattr failed on %s: key = %s", path, key);
+    }
+
+    return ret;
 }
 
 int32_t
