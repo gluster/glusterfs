@@ -105,7 +105,7 @@ client_child_up_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
     client_reopen_done(fdctx, rfd, this);
     if (fd_count == 0) {
         gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_CHILD_UP_NOTIFY,
-               "last fd open'd/lock-self-heal'd - notifying CHILD-UP");
+               "last fd open'd - notifying CHILD-UP");
         client_notify_parents_child_up(this);
     }
 }
