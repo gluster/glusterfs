@@ -86,7 +86,7 @@ retry:
     while (i < EVENT_EPOLL_TABLES) {
         switch (event_pool->slots_used[i]) {
             case EVENT_EPOLL_SLOTS:
-                continue;
+                break;
             case 0:
                 if (!event_pool->ereg[i]) {
                     table = __event_newtable(event_pool, i);
