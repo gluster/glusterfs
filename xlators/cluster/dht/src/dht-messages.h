@@ -120,7 +120,12 @@ GLFS_MSGID(
     DHT_MSG_ACQUIRE_LOCK_FAILED, DHT_MSG_CREATE_STUB_FAILED,
     DHT_MSG_WIND_LOCK_REQ_FAILED, DHT_MSG_REFRESH_FAILED,
     DHT_MSG_CACHED_SUBVOL_ERROR, DHT_MSG_NO_LINK_SUBVOL, DHT_MSG_SET_KEY_FAILED,
-    DHT_MSG_REMOVE_LINKTO_FAILED, DHT_MSG_LAYOUT_DICT_SET_FAILED);
+    DHT_MSG_REMOVE_LINKTO_FAILED, DHT_MSG_LAYOUT_DICT_SET_FAILED,
+    DHT_MSG_XATTR_DICT_NULL, DHT_MSG_DUMMY_ALLOC_FAILED, DHT_MSG_DICT_IS_NULL,
+    DHT_MSG_LINK_INODE_FAILED, DHT_MSG_SELFHEAL_FAILED, DHT_MSG_NO_MDS_SUBVOL,
+    DHT_MSG_LIST_XATTRS_FAILED, DHT_MSG_RESET_INTER_XATTR_FAILED,
+    DHT_MSG_MDS_DOWN_UNABLE_TO_SET, DHT_MSG_WIND_UNLOCK_FAILED,
+    DHT_MSG_COMMIT_HASH_FAILED);
 
 #define DHT_MSG_FD_CTX_SET_FAILED_STR "Failed to set fd ctx"
 #define DHT_MSG_INVALID_VALUE_STR "Different dst found in the fd ctx"
@@ -137,7 +142,7 @@ GLFS_MSGID(
 #define DHT_MSG_GFID_MISMATCH_STR "gfid different on the target file"
 #define DHT_MSG_GET_XATTR_FAILED_STR "failed to get 'linkto' xattr"
 #define DHT_MSG_SET_INODE_CTX_FAILED_STR "failed to set inode-ctx target file"
-#define DHT_MSG_DIR_SELFHEAL_FAILED_STR "Healing of path failed on subvolume"
+#define DHT_MSG_DIR_SELFHEAL_FAILED_STR "Healing of path failed"
 #define DHT_MSG_DIR_HEAL_ABORT_STR                                             \
     "Failed to get path from subvol. Aborting directory healing"
 #define DHT_MSG_DIR_XATTR_HEAL_FAILED_STR "xattr heal failed for directory"
@@ -331,4 +336,33 @@ GLFS_MSGID(
 #define DHT_MSG_REMOVE_LINKTO_FAILED_STR "Removal of linkto failed at subvol"
 #define DHT_MSG_LAYOUT_DICT_SET_FAILED_STR "dht layout dict set failed"
 #define DHT_MSG_SUBVOL_INFO_STR "creating subvolume"
+#define DHT_MSG_COMPUTE_HASH_FAILED_STR "hash computation failed"
+#define DHT_MSG_INVALID_DISK_LAYOUT_STR                                        \
+    "Invalid disk layout: Catastrophic error layout with unknown type found"
+#define DHT_MSG_LAYOUT_SORT_FAILED_STR "layout sort failed"
+#define DHT_MSG_ANOMALIES_INFO_STR "Found anomalies"
+#define DHT_MSG_XATTR_DICT_NULL_STR "xattr dictionary is NULL"
+#define DHT_MSG_DISK_LAYOUT_MISSING_STR "Disk layout missing"
+#define DHT_MSG_LAYOUT_INFO_STR "layout info"
+#define DHT_MSG_SUBVOL_NO_LAYOUT_INFO_STR "no pre-set layout for subvol"
+#define DHT_MSG_SELFHEAL_XATTR_FAILED_STR "layout setxattr failed"
+#define DHT_MSG_DIR_SELFHEAL_XATTR_FAILED_STR "Directory self heal xattr failed"
+#define DHT_MSG_DUMMY_ALLOC_FAILED_STR "failed to allocate dummy layout"
+#define DHT_MSG_DICT_IS_NULL_STR                                               \
+    "dict is NULL, need to make sure gfids are same"
+#define DHT_MSG_ENTRYLK_ERROR_STR "acquiring entrylk after inodelk failed"
+#define DHT_MSG_NO_DISK_USAGE_STATUS_STR "no du stats"
+#define DHT_MSG_LINK_INODE_FAILED_STR "linking inode failed"
+#define DHT_MSG_SELFHEAL_FAILED_STR "Directory selfheal failed"
+#define DHT_MSG_NO_MDS_SUBVOL_STR "No mds subvol"
+#define DHT_MSG_LIST_XATTRS_FAILED_STR "failed to list xattrs"
+#define DHT_MSG_RESET_INTER_XATTR_FAILED_STR "Failed to reset internal xattr"
+#define DHT_MSG_MDS_DOWN_UNABLE_TO_SET_STR                                     \
+    "mds subvol is down, unable to set xattr"
+#define DHT_MSG_DIR_ATTR_HEAL_FAILED_STR                                       \
+    "Directory attr heal failed. Failed to set uid/gid"
+#define DHT_MSG_WIND_UNLOCK_FAILED_STR                                         \
+    "Winding unlock failed: stale locks left on brick"
+#define DHT_MSG_COMMIT_HASH_FAILED_STR "Directory commit hash updaten failed"
+
 #endif /* _DHT_MESSAGES_H_ */

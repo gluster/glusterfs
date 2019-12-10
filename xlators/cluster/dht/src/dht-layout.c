@@ -131,9 +131,8 @@ dht_layout_search(xlator_t *this, dht_layout_t *layout, const char *name)
 
     ret = dht_hash_compute(this, layout->type, name, &hash);
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_COMPUTE_HASH_FAILED,
-               "hash computation failed for type=%d name=%s", layout->type,
-               name);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_COMPUTE_HASH_FAILED,
+                "type=%d", layout->type, "name=%s", name, NULL);
         goto out;
     }
 
@@ -145,8 +144,8 @@ dht_layout_search(xlator_t *this, dht_layout_t *layout, const char *name)
     }
 
     if (!subvol) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_HASHED_SUBVOL_GET_FAILED,
-               "no subvolume for hash (value) = 0x%x", hash);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                "hash-value=0x%x", hash, NULL);
     }
 
 out:
@@ -266,8 +265,8 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
     int disk_layout[4];
 
     if (!disk_layout_raw) {
-        gf_msg(this->name, GF_LOG_CRITICAL, 0, DHT_MSG_LAYOUT_MERGE_FAILED,
-               "error no layout on disk for merge");
+        gf_smsg(this->name, GF_LOG_CRITICAL, 0, DHT_MSG_LAYOUT_MERGE_FAILED,
+                NULL);
         return -1;
     }
 
@@ -284,10 +283,8 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
         case DHT_HASH_TYPE_DM:
             break;
         default:
-            gf_msg(this->name, GF_LOG_CRITICAL, 0, DHT_MSG_INVALID_DISK_LAYOUT,
-                   "Invalid disk layout: "
-                   "Catastrophic error layout with unknown type found %d",
-                   disk_layout[1]);
+            gf_smsg(this->name, GF_LOG_CRITICAL, 0, DHT_MSG_INVALID_DISK_LAYOUT,
+                    "layout=%d", disk_layout[1], NULL);
             return -1;
     }
 
@@ -355,8 +352,8 @@ dht_layout_merge(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
     ret = dht_disk_layout_merge(this, layout, i, disk_layout_raw,
                                 disk_layout_len);
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_MERGE_FAILED,
-               "layout merge from subvolume %s failed", subvol->name);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_MERGE_FAILED,
+                "subvolume=%s", subvol->name, NULL);
         goto out;
     }
 
@@ -625,8 +622,8 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
     ret = dht_layout_sort(layout);
     if (ret == -1) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_SORT_FAILED,
-               "sort failed?! how the ....");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_SORT_FAILED,
+                NULL);
         goto out;
     }
 
@@ -642,10 +639,9 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
                          " gfid = %s",
                          loc->path, gfid);
         } else {
-            gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_ANOMALIES_INFO,
-                   "Found anomalies in %s (gfid = %s). "
-                   "Holes=%d overlaps=%d",
-                   loc->path, gfid, holes, overlaps);
+            gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_ANOMALIES_INFO,
+                    "path=%s", loc->path, "gfid=%s", gfid, "holes=%d", holes,
+                    "overlaps=%d", overlaps, NULL);
         }
         ret = -1;
     }
@@ -712,12 +708,11 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
     if (!xattr) {
         if (err == 0) {
             if (loc) {
-                gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_DICT_GET_FAILED,
-                       "%s: xattr dictionary is NULL", loc->path);
+                gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_XATTR_DICT_NULL,
+                        "path=%s", loc->path, NULL);
             } else {
-                gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_DICT_GET_FAILED,
-                       "path not found: "
-                       "xattr dictionary is NULL");
+                gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_XATTR_DICT_NULL,
+                        "path not found", NULL);
             }
             ret = -1;
         }
@@ -729,13 +724,13 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
     if (dict_ret < 0) {
         if (err == 0 && layout->list[pos].stop) {
             if (loc) {
-                gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_DISK_LAYOUT_MISSING,
-                       "%s: Disk layout missing, gfid = %s", loc->path, gfid);
+                gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_DISK_LAYOUT_MISSING,
+                        "path=%s", loc->path, "gfid=%s", gfid, NULL);
             } else {
-                gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_DISK_LAYOUT_MISSING,
-                       "path not found: "
-                       "Disk layout missing, gfid = %s",
-                       gfid);
+                gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_DISK_LAYOUT_MISSING,
+                        "path not found"
+                        "gfid=%s",
+                        gfid, NULL);
             }
             ret = -1;
         }
@@ -751,12 +746,13 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
     if ((layout->list[pos].start != start_off) ||
         (layout->list[pos].stop != stop_off) ||
         (layout->list[pos].commit_hash != commit_hash)) {
-        gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_LAYOUT_INFO,
-               "subvol: %s; inode layout: 0x%x - 0x%x, 0x%x; "
-               "disk layout: 0x%x - 0x%x, 0x%x",
-               layout->list[pos].xlator->name, layout->list[pos].start,
-               layout->list[pos].stop, layout->list[pos].commit_hash, start_off,
-               stop_off, commit_hash);
+        gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_LAYOUT_INFO, "subvol=%s",
+                layout->list[pos].xlator->name, "inode-layout:start=0x%x",
+                layout->list[pos].start, "inode-layout:stop=0x%x",
+                layout->list[pos].stop, "layout-commit-hash=0x%x; ",
+                layout->list[pos].commit_hash, "disk-layout:start-off=0x%x",
+                start_off, "disk-layout:top-off=0x%x", stop_off,
+                "commit-hash=0x%x", commit_hash, NULL);
         ret = 1;
     } else {
         ret = 0;
@@ -778,9 +774,8 @@ dht_layout_preset(xlator_t *this, xlator_t *subvol, inode_t *inode)
 
     layout = dht_layout_for_subvol(this, subvol);
     if (!layout) {
-        gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_NO_LAYOUT_INFO,
-               "no pre-set layout for subvolume %s",
-               subvol ? subvol->name : "<nil>");
+        gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_NO_LAYOUT_INFO,
+                "subvolume=%s", subvol ? subvol->name : "<nil>", NULL);
         ret = -1;
         goto out;
     }
