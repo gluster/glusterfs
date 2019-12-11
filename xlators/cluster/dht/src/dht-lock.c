@@ -44,7 +44,8 @@ dht_log_lk_array(char *name, gf_loglevel_t log_level, dht_lock_t **lk_array,
         if (!lk_buf)
             goto out;
 
-        gf_msg(name, log_level, 0, DHT_MSG_LK_ARRAY_INFO, "%d. %s", i, lk_buf);
+        gf_smsg(name, log_level, 0, DHT_MSG_LK_ARRAY_INFO, "index=%d", i,
+                "lk_buf=%s", lk_buf, NULL);
         GF_FREE(lk_buf);
     }
 
@@ -313,11 +314,9 @@ dht_unlock_entrylk_done(call_frame_t *frame, void *cookie, xlator_t *this,
                     gfid);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno,
-               DHT_MSG_PARENT_LAYOUT_CHANGED,
-               "unlock failed on gfid: %s, stale lock might be left "
-               "in DHT_LAYOUT_HEAL_DOMAIN",
-               gfid);
+        gf_smsg(this->name, GF_LOG_WARNING, op_errno,
+                DHT_MSG_UNLOCK_GFID_FAILED, "gfid=%s", gfid,
+                "DHT_LAYOUT_HEAL_DOMAIN", NULL);
     }
 
     DHT_STACK_DESTROY(frame);
@@ -339,9 +338,10 @@ dht_unlock_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     uuid_utoa_r(local->lock[0].ns.directory_ns.locks[lk_index]->loc.gfid, gfid);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCKING_FAILED,
-               "unlocking failed on %s:%s",
-               local->lock[0].ns.directory_ns.locks[lk_index]->xl->name, gfid);
+        gf_smsg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCKING_FAILED,
+                "name=%s",
+                local->lock[0].ns.directory_ns.locks[lk_index]->xl->name,
+                "gfid=%s", gfid, NULL);
     } else {
         local->lock[0].ns.directory_ns.locks[lk_index]->locked = 0;
     }
@@ -375,9 +375,9 @@ dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
     lock_frame = dht_lock_frame(frame);
     if (lock_frame == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0, DHT_MSG_UNLOCKING_FAILED,
-               "cannot allocate a frame, not unlocking following "
-               "entrylks:");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS,
+                NULL);
 
         dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
         goto done;
@@ -385,9 +385,9 @@ dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
     ret = dht_local_entrylk_init(lock_frame, lk_array, lk_count, entrylk_cbk);
     if (ret < 0) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0, DHT_MSG_UNLOCKING_FAILED,
-               "storing locks in local failed, not unlocking "
-               "following entrylks:");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK,
+                NULL);
 
         dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
 
@@ -446,21 +446,17 @@ dht_unlock_entrylk_wrapper(call_frame_t *frame, dht_elock_wrap_t *entrylk)
 
     lock_frame = copy_frame(frame);
     if (lock_frame == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-               DHT_MSG_PARENT_LAYOUT_CHANGED,
-               "mkdir (%s/%s) (path: %s): "
-               "copy frame failed",
-               pgfid, local->loc.name, local->loc.path);
+        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
+                DHT_MSG_COPY_FRAME_FAILED, "pgfid=%s", pgfid, "name=%s",
+                local->loc.name, "path=%s", local->loc.path, NULL);
         goto done;
     }
 
     lock_local = dht_local_init(lock_frame, NULL, NULL, 0);
     if (lock_local == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-               DHT_MSG_PARENT_LAYOUT_CHANGED,
-               "mkdir (%s/%s) (path: %s): "
-               "local creation failed",
-               pgfid, local->loc.name, local->loc.path);
+        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
+                DHT_MSG_CREATE_FAILED, "local", "pgfid=%s", pgfid, "name=%s",
+                local->loc.name, "path=%s", local->loc.path, NULL);
         goto done;
     }
 
@@ -700,9 +696,10 @@ dht_unlock_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         uuid_utoa_r(local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid,
                     gfid);
 
-        gf_msg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCKING_FAILED,
-               "unlocking failed on %s:%s",
-               local->lock[0].layout.my_layout.locks[lk_index]->xl->name, gfid);
+        gf_smsg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCKING_FAILED,
+                "name=%s",
+                local->lock[0].layout.my_layout.locks[lk_index]->xl->name,
+                "gfid=%s", gfid, NULL);
     } else {
         local->lock[0].layout.my_layout.locks[lk_index]->locked = 0;
     }
@@ -727,11 +724,9 @@ dht_unlock_inodelk_done(call_frame_t *frame, void *cookie, xlator_t *this,
                     gfid);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno,
-               DHT_MSG_PARENT_LAYOUT_CHANGED,
-               "unlock failed on gfid: %s, stale lock might be left "
-               "in DHT_LAYOUT_HEAL_DOMAIN",
-               gfid);
+        gf_smsg(this->name, GF_LOG_WARNING, op_errno,
+                DHT_MSG_UNLOCK_GFID_FAILED, "DHT_LAYOUT_HEAL_DOMAIN gfid=%s",
+                gfid, NULL);
     }
 
     DHT_STACK_DESTROY(frame);
@@ -762,9 +757,9 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
     lock_frame = dht_lock_frame(frame);
     if (lock_frame == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0, DHT_MSG_UNLOCKING_FAILED,
-               "cannot allocate a frame, not unlocking following "
-               "locks:");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS,
+                NULL);
 
         dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
         goto done;
@@ -772,9 +767,9 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
     ret = dht_local_inodelk_init(lock_frame, lk_array, lk_count, inodelk_cbk);
     if (ret < 0) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0, DHT_MSG_UNLOCKING_FAILED,
-               "storing locks in local failed, not unlocking "
-               "following locks:");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK,
+                NULL);
 
         dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
 
@@ -834,21 +829,17 @@ dht_unlock_inodelk_wrapper(call_frame_t *frame, dht_ilock_wrap_t *inodelk)
 
     lock_frame = copy_frame(frame);
     if (lock_frame == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-               DHT_MSG_PARENT_LAYOUT_CHANGED,
-               "mkdir (%s/%s) (path: %s): "
-               "copy frame failed",
-               pgfid, local->loc.name, local->loc.path);
+        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
+                DHT_MSG_COPY_FRAME_FAILED, "pgfid=%s", pgfid, "name=%s",
+                local->loc.name, "path=%s", local->loc.path, NULL);
         goto done;
     }
 
     lock_local = dht_local_init(lock_frame, NULL, NULL, 0);
     if (lock_local == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-               DHT_MSG_PARENT_LAYOUT_CHANGED,
-               "mkdir (%s/%s) (path: %s): "
-               "local creation failed",
-               pgfid, local->loc.name, local->loc.path);
+        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
+                DHT_MSG_CREATE_FAILED, "local", "gfid=%s", pgfid, "name=%s",
+                local->loc.name, "path=%s", local->loc.path, NULL);
         goto done;
     }
 
@@ -1039,13 +1030,12 @@ dht_blocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                     gfid);
                     local->lock[0].layout.my_layout.op_ret = -1;
                     local->lock[0].layout.my_layout.op_errno = op_errno;
-                    gf_msg(this->name, GF_LOG_ERROR, op_errno,
-                           DHT_MSG_INODELK_FAILED,
-                           "inodelk failed on subvol %s. gfid:%s",
-                           local->lock[0]
-                               .layout.my_layout.locks[lk_index]
-                               ->xl->name,
-                           gfid);
+                    gf_smsg(this->name, GF_LOG_ERROR, op_errno,
+                            DHT_MSG_INODELK_FAILED, "subvol=%s",
+                            local->lock[0]
+                                .layout.my_layout.locks[lk_index]
+                                ->xl->name,
+                            "gfid=%s", gfid, NULL);
                     goto cleanup;
                 }
                 break;
@@ -1060,13 +1050,12 @@ dht_blocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                     gfid);
                     local->lock[0].layout.my_layout.op_ret = -1;
                     local->lock[0].layout.my_layout.op_errno = op_errno;
-                    gf_msg(this->name, GF_LOG_ERROR, op_errno,
-                           DHT_MSG_INODELK_FAILED,
-                           "inodelk failed on subvol %s. gfid:%s",
-                           local->lock[0]
-                               .layout.my_layout.locks[lk_index]
-                               ->xl->name,
-                           gfid);
+                    gf_smsg(this->name, GF_LOG_ERROR, op_errno,
+                            DHT_MSG_INODELK_FAILED, "subvol=%s",
+                            local->lock[0]
+                                .layout.my_layout.locks[lk_index]
+                                ->xl->name,
+                            "gfid=%s", gfid, NULL);
                     goto cleanup;
                 }
                 break;
@@ -1077,11 +1066,11 @@ dht_blocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     gfid);
                 local->lock[0].layout.my_layout.op_ret = -1;
                 local->lock[0].layout.my_layout.op_errno = op_errno;
-                gf_msg(
+                gf_smsg(
                     this->name, GF_LOG_ERROR, op_errno, DHT_MSG_INODELK_FAILED,
-                    "inodelk failed on subvol %s, gfid:%s",
+                    "subvol=%s",
                     local->lock[0].layout.my_layout.locks[lk_index]->xl->name,
-                    gfid);
+                    "gfid=%s", gfid, NULL);
                 goto cleanup;
         }
     }
@@ -1153,19 +1142,16 @@ dht_blocking_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
     lock_frame = dht_lock_frame(frame);
     if (lock_frame == NULL) {
         gf_uuid_unparse(tmp_local->loc.gfid, gfid);
-        gf_msg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_LOCK_FRAME_FAILED,
-               "memory allocation failed for lock_frame. gfid:%s"
-               " path:%s",
-               gfid, tmp_local->loc.path);
+        gf_smsg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_LOCK_FRAME_FAILED,
+                "gfid=%s", gfid, "path=%s", tmp_local->loc.path, NULL);
         goto out;
     }
 
     ret = dht_local_inodelk_init(lock_frame, lk_array, lk_count, inodelk_cbk);
     if (ret < 0) {
         gf_uuid_unparse(tmp_local->loc.gfid, gfid);
-        gf_msg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_LOCAL_LOCK_INIT_FAILED,
-               "dht_local_lock_init failed, gfid: %s path:%s", gfid,
-               tmp_local->loc.path);
+        gf_smsg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_LOCAL_LOCK_INIT_FAILED,
+                "gfid=%s", gfid, "path=%s", tmp_local->loc.path, NULL);
         goto out;
     }
 
@@ -1246,11 +1232,10 @@ dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
     if (ret < 0) {
         local->op_ret = -1;
         local->op_errno = EIO;
-        gf_msg(this->name, GF_LOG_WARNING, local->op_errno,
-               DHT_MSG_ENTRYLK_ERROR,
-               "%s (%s/%s): "
-               "dht_blocking_entrylk failed after taking inodelk",
-               gf_fop_list[local->fop], pgfid, entrylk->locks[0]->basename);
+        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                DHT_MSG_ENTRYLK_FAILED_AFT_INODELK, "fop=%s",
+                gf_fop_list[local->fop], "pgfid=%s", pgfid, "basename=%s",
+                entrylk->locks[0]->basename, NULL);
         goto err;
     }
 
@@ -1310,10 +1295,9 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
 
     ret = dht_build_parent_loc(this, &parent, loc, &op_errno);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_LOC_FAILED,
-               "gfid:%s (name:%s) (path: %s): "
-               "parent loc build failed",
-               loc->gfid, loc->name, loc->path);
+        gf_smsg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_LOC_FAILED,
+                "gfid=%s", loc->gfid, "name=%s", loc->name, "path=%s",
+                loc->path, NULL);
         goto out;
     }
     gf_uuid_unparse(parent.gfid, pgfid);
@@ -1322,10 +1306,10 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
     inodelk->locks = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_pointer);
     if (inodelk->locks == NULL) {
         local->op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_WARNING, local->op_errno, DHT_MSG_NO_MEMORY,
-               "%s (%s/%s) (path: %s): "
-               "calloc failure",
-               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                DHT_MSG_CALLOC_FAILED, "fop=%s", gf_fop_list[local->fop],
+                "pgfid=%s", pgfid, "name=%s", loc->name, "path=%s", loc->path,
+                NULL);
         goto out;
     }
 
@@ -1334,10 +1318,10 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
                                      FAIL_ON_ANY_ERROR);
     if (inodelk->locks[0] == NULL) {
         local->op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_WARNING, local->op_errno, DHT_MSG_NO_MEMORY,
-               "%s (%s/%s) (path: %s): "
-               "inodelk: lock allocation failed",
-               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                DHT_MSG_LOCK_ALLOC_FAILED, "inodelk-fop=%s",
+                gf_fop_list[local->fop], "pgfid=%s", pgfid, "name=%s",
+                loc->name, "path=%s", loc->path, NULL);
         goto err;
     }
     inodelk->lk_count = count;
@@ -1346,10 +1330,10 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
     entrylk->locks = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_pointer);
     if (entrylk->locks == NULL) {
         local->op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_WARNING, local->op_errno, DHT_MSG_NO_MEMORY,
-               "%s (%s/%s) (path: %s): "
-               "entrylk: calloc failure",
-               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                DHT_MSG_CALLOC_FAILED, "entrylk-fop=%s",
+                gf_fop_list[local->fop], "pgfid=%s", pgfid, "name=%s",
+                loc->name, "path=%s", loc->path, NULL);
 
         goto err;
     }
@@ -1359,10 +1343,10 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
                                      FAIL_ON_ANY_ERROR);
     if (entrylk->locks[0] == NULL) {
         local->op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_WARNING, local->op_errno, DHT_MSG_NO_MEMORY,
-               "%s (%s/%s) (path: %s): "
-               "entrylk: lock allocation failed",
-               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                DHT_MSG_LOCK_ALLOC_FAILED, "entrylk-fop=%s",
+                gf_fop_list[local->fop], "pgfid=%s", pgfid, "name=%s",
+                loc->name, "path=%s", loc->path, NULL);
 
         goto err;
     }
@@ -1376,11 +1360,11 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
                                dht_blocking_entrylk_after_inodelk);
     if (ret < 0) {
         local->op_errno = EIO;
-        gf_msg(this->name, GF_LOG_WARNING, local->op_errno,
-               DHT_MSG_INODELK_ERROR,
-               "%s (%s/%s) (path: %s): "
-               "dht_blocking_inodelk failed",
-               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                DHT_MSG_BLOCK_INODELK_FAILED, "fop=%s", gf_fop_list[local->fop],
+                "pgfid=%s", pgfid, "name=%s", loc->name, "path=%s", loc->path,
+                NULL);
+
         goto err;
     }
 
