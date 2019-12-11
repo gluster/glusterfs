@@ -125,7 +125,13 @@ GLFS_MSGID(
     DHT_MSG_LINK_INODE_FAILED, DHT_MSG_SELFHEAL_FAILED, DHT_MSG_NO_MDS_SUBVOL,
     DHT_MSG_LIST_XATTRS_FAILED, DHT_MSG_RESET_INTER_XATTR_FAILED,
     DHT_MSG_MDS_DOWN_UNABLE_TO_SET, DHT_MSG_WIND_UNLOCK_FAILED,
-    DHT_MSG_COMMIT_HASH_FAILED);
+    DHT_MSG_COMMIT_HASH_FAILED, DHT_MSG_UNLOCK_GFID_FAILED,
+    DHT_MSG_UNLOCK_FOLLOW_ENTRYLK, DHT_MSG_COPY_FRAME_FAILED,
+    DHT_MSG_UNLOCK_FOLLOW_LOCKS, DHT_MSG_ENTRYLK_FAILED_AFT_INODELK,
+    DHT_MSG_CALLOC_FAILED, DHT_MSG_LOCK_ALLOC_FAILED,
+    DHT_MSG_BLOCK_INODELK_FAILED,
+    DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK,
+    DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS);
 
 #define DHT_MSG_FD_CTX_SET_FAILED_STR "Failed to set fd ctx"
 #define DHT_MSG_INVALID_VALUE_STR "Different dst found in the fd ctx"
@@ -364,5 +370,23 @@ GLFS_MSGID(
 #define DHT_MSG_WIND_UNLOCK_FAILED_STR                                         \
     "Winding unlock failed: stale locks left on brick"
 #define DHT_MSG_COMMIT_HASH_FAILED_STR "Directory commit hash updaten failed"
-
+#define DHT_MSG_LK_ARRAY_INFO_STR "lk info"
+#define DHT_MSG_UNLOCK_GFID_FAILED_STR                                         \
+    "unlock failed on gfid: stale lock might be left"
+#define DHT_MSG_UNLOCKING_FAILED_STR "unlocking failed"
+#define DHT_MSG_UNLOCK_FOLLOW_ENTRYLK_STR "not unlocking following entrylks"
+#define DHT_MSG_COPY_FRAME_FAILED_STR "copy frame failed"
+#define DHT_MSG_UNLOCK_FOLLOW_LOCKS_STR "not unlocking following locks"
+#define DHT_MSG_INODELK_FAILED_STR "inodelk failed on subvol"
+#define DHT_MSG_LOCK_FRAME_FAILED_STR "memory allocation failed for lock_frame"
+#define DHT_MSG_LOCAL_LOCK_INIT_FAILED_STR "dht_local_lock_init failed"
+#define DHT_MSG_ENTRYLK_FAILED_AFT_INODELK_STR                                 \
+    "dht_blocking_entrylk failed after taking inodelk"
+#define DHT_MSG_BLOCK_INODELK_FAILED_STR "dht_blocking_inodelk failed"
+#define DHT_MSG_CALLOC_FAILED_STR "calloc failed"
+#define DHT_MSG_LOCK_ALLOC_FAILED_STR "lock allocation failed"
+#define DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS_STR        \
+    "cannot allocate a frame, not unlocking following entrylks"
+#define DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK_STR       \
+    "storing locks in local failed, not unlocking following entrylks"
 #endif /* _DHT_MESSAGES_H_ */
