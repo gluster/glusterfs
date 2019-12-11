@@ -64,8 +64,8 @@ __dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
 
     ret = __fd_ctx_set(fd, this, value);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_FD_CTX_SET_FAILED,
-               "Failed to set fd ctx in fd=0x%p", fd);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_FD_CTX_SET_FAILED,
+                "fd=0x%p", fd, NULL);
         GF_REF_PUT(fd_ctx);
     }
 out:
@@ -96,8 +96,8 @@ dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
                 /* Overwrite and hope for the best*/
                 fd_ctx->opened_on_dst = (uint64_t)(uintptr_t)dst;
                 UNLOCK(&fd->lock);
-                gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_INVALID_VALUE,
-                       "Different dst found in the fd ctx");
+                gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_INVALID_VALUE,
+                        NULL);
 
                 goto out;
             }
@@ -383,9 +383,9 @@ dht_check_and_open_fd_on_subvol_complete(int ret, call_frame_t *frame,
                        &local->rebalance.flock, local->xattr_req);
             break;
         default:
-            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UNKNOWN_FOP,
-                   "Unknown FOP on fd (%p) on file %s @ %s", fd,
-                   uuid_utoa(fd->inode->gfid), subvol->name);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UNKNOWN_FOP, "fd=%p",
+                    fd, "gfid=%s", uuid_utoa(fd->inode->gfid), "name=%s",
+                    subvol->name, NULL);
             break;
     }
 
@@ -458,9 +458,9 @@ handle_err:
             break;
 
         default:
-            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UNKNOWN_FOP,
-                   "Unknown FOP on fd (%p) on file %s @ %s", fd,
-                   uuid_utoa(fd->inode->gfid), subvol->name);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UNKNOWN_FOP, "fd=%p",
+                    fd, "gfid=%s", uuid_utoa(fd->inode->gfid), "name=%s",
+                    subvol->name, NULL);
             break;
     }
 
@@ -513,10 +513,9 @@ dht_check_and_open_fd_on_subvol_task(void *data)
                       fd, NULL, NULL);
 
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_OPEN_FD_ON_DST_FAILED,
-               "Failed to open the fd"
-               " (%p, flags=0%o) on file %s @ %s",
-               fd, fd->flags, uuid_utoa(fd->inode->gfid), subvol->name);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_OPEN_FD_ON_DST_FAILED,
+                "fd=%p", fd, "flags=0%o", fd->flags, "gfid=%s",
+                uuid_utoa(fd->inode->gfid), "name=%s", subvol->name, NULL);
         /* This can happen if the cached subvol was updated in the
          * inode_ctx and the fd was opened on the new cached suvol
          * after this fop was wound on the old cached subvol.
@@ -562,10 +561,8 @@ dht_check_and_open_fd_on_subvol(xlator_t *this, call_frame_t *frame)
                        dht_check_and_open_fd_on_subvol_complete, frame, frame);
 
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-               "Failed to create synctask"
-               " to check and open fd=%p",
-               local->fd);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SYNCTASK_CREATE_FAILED,
+                "to-check-and-open fd=%p", local->fd, NULL);
     }
 
     return ret;
@@ -674,9 +671,7 @@ dht_get_subvol_from_id(xlator_t *this, int client_id)
 
     ret = gf_asprintf(&sid, "%d", client_id);
     if (ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_ASPRINTF_FAILED,
-               "asprintf failed while "
-               "fetching subvol from the id");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_ASPRINTF_FAILED, NULL);
         goto out;
     }
 
@@ -1336,9 +1331,9 @@ dht_migration_complete_check_task(void *data)
              * migrated by two different layers. Raise
              * a warning here.
              */
-            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_HAS_MIGINFO,
-                   "%s: Found miginfo in the inode ctx",
-                   tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid));
+            gf_smsg(
+                this->name, GF_LOG_WARNING, 0, DHT_MSG_HAS_MIGINFO, "tmp=%s",
+                tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid), NULL);
 
             miginfo = (void *)(uintptr_t)tmp_miginfo;
             GF_REF_PUT(miginfo);
@@ -1359,10 +1354,9 @@ dht_migration_complete_check_task(void *data)
 
     ret = syncop_lookup(this, &tmp_loc, &stbuf, 0, 0, 0);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_FILE_LOOKUP_FAILED,
-               "%s: failed to lookup the file on %s",
-               tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
-               this->name);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_FILE_LOOKUP_FAILED,
+                "tmp=%s", tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
+                "name=%s", this->name, NULL);
         local->op_errno = -ret;
         ret = -1;
         goto out;
@@ -1370,18 +1364,15 @@ dht_migration_complete_check_task(void *data)
 
     dst_node = dht_subvol_get_cached(this, tmp_loc.inode);
     if (linkto_target && dst_node != linkto_target) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_INVALID_LINKFILE,
-               "linkto target (%s) is "
-               "different from cached-subvol (%s). Treating %s as "
-               "destination subvol",
-               linkto_target->name, dst_node->name, dst_node->name);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_INVALID_LINKFILE,
+                "linkto_target_name=%s", linkto_target->name, "dst_name=%s",
+                dst_node->name, NULL);
     }
 
     if (gf_uuid_compare(stbuf.ia_gfid, tmp_loc.inode->gfid)) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH,
-               "%s: gfid different on the target file on %s",
-               tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
-               dst_node->name);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH, "tmp=%s",
+                tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
+                "dst_name=%s", dst_node->name, NULL);
         ret = -1;
         local->op_errno = EIO;
         goto out;
@@ -1463,12 +1454,10 @@ dht_migration_complete_check_task(void *data)
                           (iter_fd->flags & ~(O_CREAT | O_EXCL | O_TRUNC)),
                           iter_fd, NULL, NULL);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret,
-                   DHT_MSG_OPEN_FD_ON_DST_FAILED,
-                   "failed"
-                   " to open the fd"
-                   " (%p, flags=0%o) on file %s @ %s",
-                   iter_fd, iter_fd->flags, path, dst_node->name);
+            gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                    DHT_MSG_OPEN_FD_ON_DST_FAILED, "id=%p", iter_fd,
+                    "flags=0%o", iter_fd->flags, "path=%s", path, "name=%s",
+                    dst_node->name, NULL);
 
             open_failed = 1;
             local->op_errno = -ret;
@@ -1622,9 +1611,9 @@ dht_rebalance_inprogress_task(void *data)
              * migrated by two different layers. Raise
              * a warning here.
              */
-            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_HAS_MIGINFO,
-                   "%s: Found miginfo in the inode ctx",
-                   tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid));
+            gf_smsg(
+                this->name, GF_LOG_WARNING, 0, DHT_MSG_HAS_MIGINFO, "tmp=%s",
+                tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid), NULL);
             miginfo = (void *)(uintptr_t)tmp_miginfo;
             GF_REF_PUT(miginfo);
         }
@@ -1633,17 +1622,16 @@ dht_rebalance_inprogress_task(void *data)
     }
 
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_GET_XATTR_FAILED,
-               "%s: failed to get the 'linkto' xattr", local->loc.path);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_GET_XATTR_FAILED,
+                "path=%s", local->loc.path, NULL);
         ret = -1;
         goto out;
     }
 
     dst_node = dht_linkfile_subvol(this, NULL, NULL, dict);
     if (!dst_node) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SUBVOL_NOT_FOUND,
-               "%s: failed to get the 'linkto' xattr from dict",
-               local->loc.path);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GET_XATTR_FAILED,
+                "path=%s", local->loc.path, NULL);
         ret = -1;
         goto out;
     }
@@ -1660,20 +1648,17 @@ dht_rebalance_inprogress_task(void *data)
     /* lookup on dst */
     ret = syncop_lookup(dst_node, &tmp_loc, &stbuf, NULL, NULL, NULL);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret,
-               DHT_MSG_FILE_LOOKUP_ON_DST_FAILED,
-               "%s: failed to lookup the file on %s",
-               tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
-               dst_node->name);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_FILE_LOOKUP_FAILED,
+                "tmp=%s", tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
+                "name=%s", dst_node->name, NULL);
         ret = -1;
         goto out;
     }
 
     if (gf_uuid_compare(stbuf.ia_gfid, tmp_loc.inode->gfid)) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH,
-               "%s: gfid different on the target file on %s",
-               tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
-               dst_node->name);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH, "tmp=%s",
+                tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
+                "name=%s", dst_node->name, NULL);
         ret = -1;
         goto out;
     }
@@ -1741,11 +1726,10 @@ dht_rebalance_inprogress_task(void *data)
                           (iter_fd->flags & ~(O_CREAT | O_EXCL | O_TRUNC)),
                           iter_fd, NULL, NULL);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret,
-                   DHT_MSG_OPEN_FD_ON_DST_FAILED,
-                   "failed to send open "
-                   "the fd (%p, flags=0%o) on file %s @ %s",
-                   iter_fd, iter_fd->flags, path, dst_node->name);
+            gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                    DHT_MSG_OPEN_FD_ON_DST_FAILED, "fd=%p", iter_fd,
+                    "flags=0%o", iter_fd->flags, "path=%s", path, "name=%s",
+                    dst_node->name, NULL);
             ret = -1;
             open_failed = 1;
         } else {
@@ -1777,9 +1761,8 @@ unlock:
 
     ret = dht_inode_ctx_set_mig_info(this, inode, src_node, dst_node);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SET_INODE_CTX_FAILED,
-               "%s: failed to set inode-ctx target file at %s", local->loc.path,
-               dst_node->name);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SET_INODE_CTX_FAILED,
+                "path=%s", local->loc.path, "name=%s", dst_node->name, NULL);
         goto out;
     }
 
@@ -2001,10 +1984,9 @@ dht_heal_path(xlator_t *this, char *path, inode_table_t *itable)
 
         ret = syncop_lookup(this, &loc, &iatt, NULL, NULL, NULL);
         if (ret) {
-            gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_SELFHEAL_FAILED,
-                   "Healing of path %s failed on subvolume %s for "
-                   "directory %s",
-                   path, this->name, bname);
+            gf_smsg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_SELFHEAL_FAILED,
+                    "path=%s", path, "subvolume=%s", this->name, "bname=%s",
+                    bname, NULL);
             goto out;
         }
 
@@ -2062,10 +2044,8 @@ dht_heal_full_path(void *data)
     ret = syncop_getxattr(source, &loc, &dict, GET_ANCESTRY_PATH_KEY, NULL,
                           NULL);
     if (ret) {
-        gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_SELFHEAL_FAILED,
-               "Failed to get path from subvol %s. Aborting "
-               "directory healing.",
-               source->name);
+        gf_smsg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_HEAL_ABORT,
+                "subvol=%s", source->name, NULL);
         goto out;
     }
 
@@ -2114,8 +2094,9 @@ dht_heal_full_path_done(int op_ret, call_frame_t *heal_frame, void *data)
         local->need_xattr_heal = 0;
         ret = dht_dir_xattr_heal(this, local);
         if (ret)
-            gf_msg(this->name, GF_LOG_ERROR, ret, DHT_MSG_DIR_XATTR_HEAL_FAILED,
-                   "xattr heal failed for directory  %s ", local->loc.path);
+            gf_smsg(this->name, GF_LOG_ERROR, ret,
+                    DHT_MSG_DIR_XATTR_HEAL_FAILED, "path=%s", local->loc.path,
+                    NULL);
     }
 
     DHT_STACK_UNWIND(lookup, main_frame, 0, 0, local->inode, &local->stbuf,
@@ -2203,8 +2184,8 @@ dht_get_lock_subvolume(xlator_t *this, struct gf_flock *lock,
         if (ret) {
             gf_uuid_unparse(inode->gfid, gfid);
             UNLOCK(&inode->lock);
-            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_SET_INODE_CTX_FAILED,
-                   "Failed to set lock_subvol in inode ctx for gfid %s", gfid);
+            gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_SET_INODE_CTX_FAILED,
+                    "lock_subvol gfid=%s", gfid, NULL);
             goto post_unlock;
         }
         subvol = cached_subvol;
@@ -2234,8 +2215,8 @@ dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
         inode = local->loc.inode ? local->loc.inode : local->fd->inode;
     }
     if (!inode) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LOCK_INODE_UNREF_FAILED,
-               "Found a NULL inode. Failed to unref the inode");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LOCK_INODE_UNREF_FAILED,
+                NULL);
         goto out;
     }
 
@@ -2261,11 +2242,8 @@ dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
                 inode_unref(inode);
             } else {
                 gf_uuid_unparse(inode->gfid, gfid);
-                gf_msg(this->name, GF_LOG_WARNING, 0,
-                       DHT_MSG_LOCK_INODE_UNREF_FAILED,
-                       "Unlock request failed for gfid %s."
-                       "Failed to unref the inode",
-                       gfid);
+                gf_smsg(this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_LOCK_INODE_UNREF_FAILED, "gfid=%s", gfid, NULL);
                 goto out;
             }
         default:
@@ -2289,10 +2267,8 @@ dht_dir_set_heal_xattr(xlator_t *this, dht_local_t *local, dict_t *dst,
     int i = 0;
 
     if (!src || !dst) {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, DHT_MSG_DICT_SET_FAILED,
-               "src or dst is NULL. Failed to set "
-               " dictionary value for path %s",
-               local->loc.path);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, DHT_MSG_DST_NULL_SET_FAILED,
+                "path=%s", local->loc.path, NULL);
         return;
     }
     /* Check if any user xattr present in src dict and set
@@ -2309,11 +2285,9 @@ dht_dir_set_heal_xattr(xlator_t *this, dht_local_t *local, dict_t *dst,
             luflag = 1;
             ret = dict_set(dst, xattrs_to_heal[i], keyval);
             if (ret)
-                gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
-                       DHT_MSG_DICT_SET_FAILED,
-                       "Failed to set dictionary value:key = %s for "
-                       "path %s",
-                       xattrs_to_heal[i], local->loc.path);
+                gf_smsg(this->name, GF_LOG_WARNING, ENOMEM,
+                        DHT_MSG_DICT_SET_FAILED, "key=%s", xattrs_to_heal[i],
+                        "path=%s", local->loc.path, NULL);
             keyval = NULL;
         }
     }

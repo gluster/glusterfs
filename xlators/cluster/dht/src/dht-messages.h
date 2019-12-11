@@ -131,7 +131,8 @@ GLFS_MSGID(
     DHT_MSG_CALLOC_FAILED, DHT_MSG_LOCK_ALLOC_FAILED,
     DHT_MSG_BLOCK_INODELK_FAILED,
     DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK,
-    DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS);
+    DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS,
+    DHT_MSG_DST_NULL_SET_FAILED);
 
 #define DHT_MSG_FD_CTX_SET_FAILED_STR "Failed to set fd ctx"
 #define DHT_MSG_INVALID_VALUE_STR "Different dst found in the fd ctx"
@@ -389,4 +390,7 @@ GLFS_MSGID(
     "cannot allocate a frame, not unlocking following entrylks"
 #define DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK_STR       \
     "storing locks in local failed, not unlocking following entrylks"
+#define DHT_MSG_DST_NULL_SET_FAILED_STR                                        \
+    "src or dst is NULL, Failed to set dictionary value"
+
 #endif /* _DHT_MESSAGES_H_ */
