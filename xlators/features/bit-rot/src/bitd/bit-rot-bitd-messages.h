@@ -47,6 +47,55 @@ GLFS_MSGID(BITROT_BITD, BRB_MSG_FD_CREATE_FAILED, BRB_MSG_READV_FAILED,
            BRB_MSG_SCRUB_THREAD_CLEANUP, BRB_MSG_SCRUBBER_CLEANED,
            BRB_MSG_GENERIC_SSM_INFO, BRB_MSG_ZERO_TIMEOUT_BUG,
            BRB_MSG_BAD_OBJ_READDIR_FAIL, BRB_MSG_SSM_FAILED,
-           BRB_MSG_SCRUB_WAIT_FAILED);
+           BRB_MSG_SCRUB_WAIT_FAILED, BRB_MSG_TRIGGER_SIGN_FAILED,
+           BRB_MSG_EVENT_UNHANDLED, BRB_MSG_COULD_NOT_SCHEDULE_SCRUB,
+           BRB_MSG_THREAD_CREATION_FAILED, BRB_MSG_MEM_POOL_ALLOC,
+           BRB_MSG_SAVING_HASH_FAILED);
 
+#define BRB_MSG_FD_CREATE_FAILED_STR "failed to create fd for the inode"
+#define BRB_MSG_READV_FAILED_STR "readv failed"
+#define BRB_MSG_BLOCK_READ_FAILED_STR "reading block failed"
+#define BRB_MSG_NO_MEMORY_STR "failed to allocate memory"
+#define BRB_MSG_CALC_CHECKSUM_FAILED_STR "calculating checksum failed"
+#define BRB_MSG_GET_SIGN_FAILED_STR "failed to get the signature"
+#define BRB_MSG_SET_SIGN_FAILED_STR "signing failed"
+#define BRB_MSG_OP_FAILED_STR "failed on object"
+#define BRB_MSG_TRIGGER_SIGN_FAILED_STR "Could not trigger signing"
+#define BRB_MSG_READ_AND_SIGN_FAILED_STR "reading and signing of object failed"
+#define BRB_MSG_SET_TIMER_FAILED_STR "Failed to allocate object expiry timer"
+#define BRB_MSG_GET_SUBVOL_FAILED_STR                                          \
+    "failed to get the subvolume for the brick"
+#define BRB_MSG_PATH_FAILED_STR "path failed"
+#define BRB_MSG_SKIP_OBJECT_STR "Entry is marked corrupted. skipping"
+#define BRB_MSG_PARTIAL_VERSION_PRESENCE_STR                                   \
+    "PArtial version xattr presence detected, ignoring"
+#define BRB_MSG_TRIGGER_SIGN_STR "Triggering signing"
+#define BRB_MSG_CRAWLING_START_STR                                             \
+    "Crawling brick, scanning for unsigned objects"
+#define BRB_MSG_CRAWLING_FINISH_STR "Completed crawling brick"
+#define BRB_MSG_REGISTER_FAILED_STR "Register to changelog failed"
+#define BRB_MSG_SPAWN_FAILED_STR "failed to spawn"
+#define BRB_MSG_CONNECTED_TO_BRICK_STR "Connected to brick"
+#define BRB_MSG_LOOKUP_FAILED_STR "lookup on root failed"
+#define BRB_MSG_GET_INFO_FAILED_STR "failed to get stub info"
+#define BRB_MSG_SCRUB_THREAD_CLEANUP_STR "Error cleaning up scanner thread"
+#define BRB_MSG_SCRUBBER_CLEANED_STR "clened up scrubber for brick"
+#define BRB_MSG_SUBVOL_CONNECT_FAILED_STR                                      \
+    "callback handler for subvolume failed"
+#define BRB_MSG_MEM_ACNT_FAILED_STR "Memory accounting init failed"
+#define BRB_MSG_EVENT_UNHANDLED_STR "Event unhandled for child"
+#define BRB_MSG_INVALID_SUBVOL_STR "Got event from invalid subvolume"
+#define BRB_MSG_RESCHEDULE_SCRUBBER_FAILED_STR                                 \
+    "on demand scrub schedule failed. Scrubber is not in pending state."
+#define BRB_MSG_COULD_NOT_SCHEDULE_SCRUB_STR                                   \
+    "Could not schedule ondemand scrubbing. Scrubbing will continue "          \
+    "according to old frequency."
+#define BRB_MSG_THREAD_CREATION_FAILED_STR "thread creation failed"
+#define BRB_MSG_RATE_LIMIT_INFO_STR "Rate Limit Info"
+#define BRB_MSG_MEM_POOL_ALLOC_STR "failed to allocate mem-pool for timer"
+#define BRB_MSG_NO_CHILD_STR "FATAL: no children"
+#define BRB_MSG_TIMER_WHEEL_UNAVAILABLE_STR "global timer wheel unavailable"
+#define BRB_MSG_BITROT_LOADED_STR "bit-rot xlator loaded"
+#define BRB_MSG_SAVING_HASH_FAILED_STR                                         \
+    "failed to allocate memory for saving hash of the object"
 #endif /* !_BITROT_BITD_MESSAGES_H_ */

@@ -241,8 +241,8 @@ br_object_open(xlator_t *this, br_object_t *object, inode_t *inode,
     ret = -EINVAL;
     fd = fd_create(inode, 0);
     if (!fd) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_FD_CREATE_FAILED,
-               "failed to create fd for the inode %s", uuid_utoa(inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_FD_CREATE_FAILED,
+                "gfid=%s", uuid_utoa(inode->gfid), NULL);
         goto out;
     }
 
@@ -296,8 +296,8 @@ br_object_read_block_and_sign(xlator_t *this, fd_t *fd, br_child_t *child,
                        NULL, NULL, NULL);
 
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, BRB_MSG_READV_FAILED,
-               "readv on %s failed", uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, errno, BRB_MSG_READV_FAILED,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         ret = -1;
         goto out;
     }
@@ -347,9 +347,9 @@ br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
         ret = br_object_read_block_and_sign(this, fd, child, offset, block,
                                             &sha256);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_BLOCK_READ_FAILED,
-                   "reading block with offset %" PRIu64 " of object %s failed",
-                   offset, uuid_utoa(fd->inode->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_BLOCK_READ_FAILED,
+                    "offset=%" PRIu64, offset, "object-gfid=%s",
+                    uuid_utoa(fd->inode->gfid), NULL);
             break;
         }
 
@@ -391,28 +391,23 @@ br_object_read_sign(inode_t *linked_inode, fd_t *fd, br_object_t *object,
 
     md = GF_MALLOC(SHA256_DIGEST_LENGTH, gf_common_mt_char);
     if (!md) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
-               "failed to allocate memory for saving hash of the "
-               "object %s",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_SAVING_HASH_FAILED,
+                "object-gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto out;
     }
 
     ret = br_object_checksum(md, object, fd, iatt);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_CALC_CHECKSUM_FAILED,
-               "calculating checksum "
-               "for the object %s failed",
-               uuid_utoa(linked_inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_CALC_CHECKSUM_FAILED,
+                "object-gfid=%s", uuid_utoa(linked_inode->gfid), NULL);
         goto free_signature;
     }
 
     sign = br_prepare_signature(md, SHA256_DIGEST_LENGTH,
                                 BR_SIGNATURE_TYPE_SHA256, object);
     if (!sign) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SIGN_FAILED,
-               "failed to get the signature for the object %s",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SIGN_FAILED,
+                "object-gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto free_signature;
     }
 
@@ -420,17 +415,16 @@ br_object_read_sign(inode_t *linked_inode, fd_t *fd, br_object_t *object,
                                signature_size(SHA256_DIGEST_LENGTH), _gf_true);
 
     if (!xattr) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_SIGN_FAILED,
-               "dict allocation for signing failed for the object %s",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_SIGN_FAILED,
+                "dict-allocation object-gfid=%s", uuid_utoa(fd->inode->gfid),
+                NULL);
         goto free_isign;
     }
 
     ret = syncop_fsetxattr(object->child->xl, fd, xattr, 0, NULL, NULL);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_SIGN_FAILED,
-               "fsetxattr of signature to the object %s failed",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_SIGN_FAILED,
+                "fsetxattr object-gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto unref_dict;
     }
 
@@ -463,8 +457,8 @@ br_log_object(xlator_t *this, char *op, uuid_t gfid, int32_t op_errno)
                      "[reason: %s]",
                      op, uuid_utoa(gfid), strerror(op_errno));
     } else {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED,
-               "%s() failed on object %s", op, uuid_utoa(gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED, "op=%s",
+                op, "gfid=%s", uuid_utoa(gfid), NULL);
     }
 }
 
@@ -478,8 +472,8 @@ br_log_object_path(xlator_t *this, char *op, const char *path, int32_t op_errno)
                      "[reason: %s]",
                      op, path, strerror(op_errno));
     } else {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED,
-               "%s() failed on object %s", op, path);
+        gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED, "op=%s",
+                op, "path=%s", path, NULL);
     }
 }
 
@@ -508,8 +502,8 @@ br_trigger_sign(xlator_t *this, br_child_t *child, inode_t *linked_inode,
     ret = -1;
     fd = fd_create(linked_inode, 0);
     if (!fd) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_FD_CREATE_FAILED,
-               "Failed to create fd [GFID %s]", uuid_utoa(linked_inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_FD_CREATE_FAILED,
+                "gfid=%s", uuid_utoa(linked_inode->gfid), NULL);
         goto cleanup_dict;
     }
 
@@ -533,9 +527,9 @@ cleanup_dict:
     dict_unref(dict);
 out:
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRB_MSG_TRIGGER_SIGN,
-               "Could not trigger signingd for %s (reopen hint: %d)",
-               uuid_utoa(linked_inode->gfid), val);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRB_MSG_TRIGGER_SIGN_FAILED,
+                "gfid=%s", uuid_utoa(linked_inode->gfid), "reopen-hint-val=%d",
+                val, NULL);
     }
 }
 
@@ -615,10 +609,8 @@ br_sign_object(br_object_t *object)
 
     ret = br_object_read_sign(linked_inode, fd, object, &iatt);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_READ_AND_SIGN_FAILED,
-               "reading and signing of "
-               "the object %s failed",
-               uuid_utoa(linked_inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_READ_AND_SIGN_FAILED,
+                "gfid=%s", uuid_utoa(linked_inode->gfid), NULL);
         goto unref_fd;
     }
 
@@ -672,8 +664,8 @@ br_process_object(void *arg)
 
         ret = br_sign_object(object);
         if (ret && !br_object_sign_softerror(-ret))
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SIGN_FAILED,
-                   "SIGNING FAILURE [%s]", uuid_utoa(object->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_SIGN_FAILED,
+                    "gfid=%s", uuid_utoa(object->gfid), NULL);
         GF_FREE(object);
     }
 
@@ -775,9 +767,8 @@ br_schedule_object_reopen(xlator_t *this, br_object_t *object,
 
     timer = br_initialize_timer(this, object, child, ev);
     if (!timer)
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_TIMER_FAILED,
-               "Failed to allocate object expiry timer [GFID: %s]",
-               uuid_utoa(object->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_TIMER_FAILED,
+                "gfid=%s", uuid_utoa(object->gfid), NULL);
     return timer ? 0 : -1;
 }
 
@@ -824,15 +815,15 @@ br_brick_callback(void *xl, char *brick, void *data, changelog_event_t *ev)
 
     child = br_get_child_from_brick_path(this, brick);
     if (!child) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SUBVOL_FAILED,
-               "failed to get the subvolume for the brick %s", brick);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SUBVOL_FAILED,
+                "brick=%s", brick, NULL);
         goto out;
     }
 
     object = br_initialize_object(this, child, ev);
     if (!object) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
-               "failed to allocate object memory [GFID: %s]", uuid_utoa(gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
+                "object-gfid=%s", uuid_utoa(gfid), NULL);
         goto out;
     }
 
@@ -884,8 +875,8 @@ br_check_object_need_sign(xlator_t *this, dict_t *xattr, br_child_t *child)
 
     ret = dict_get_ptr(xattr, GLUSTERFS_GET_OBJECT_SIGNATURE, (void **)&sign);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SIGN_FAILED,
-               "failed to get object signature info");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SIGN_FAILED,
+                "object-info", NULL);
         goto out;
     }
 
@@ -924,9 +915,9 @@ br_prepare_loc(xlator_t *this, br_child_t *child, loc_t *parent,
 
     ret = inode_path(parent->inode, entry->d_name, (char **)&loc->path);
     if (ret < 0 || !loc->path) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_PATH_FAILED,
-               "inode_path on %s (parent: %s) failed", entry->d_name,
-               uuid_utoa(parent->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_PATH_FAILED,
+                "inode_path=%s", entry->d_name, "parent-gfid=%s",
+                uuid_utoa(parent->inode->gfid), NULL);
         goto out;
     }
 
@@ -1018,8 +1009,8 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
      */
 
     if (bitd_is_bad_file(this, child, &loc, NULL)) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRB_MSG_SKIP_OBJECT,
-               "Entry [%s] is marked corrupted.. skipping.", loc.path);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRB_MSG_SKIP_OBJECT, "path=%s",
+                loc.path, NULL);
         goto unref_inode;
     }
 
@@ -1036,12 +1027,9 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (op_errno == ENODATA && (iatt.ia_size != 0))
             need_signing = _gf_true;
         if (op_errno == EINVAL)
-            gf_msg(this->name, GF_LOG_WARNING, 0,
-                   BRB_MSG_PARTIAL_VERSION_PRESENCE,
-                   "Partial "
-                   "version xattr presence detected, ignoring "
-                   "[GFID: %s]",
-                   uuid_utoa(linked_inode->gfid));
+            gf_smsg(this->name, GF_LOG_WARNING, 0,
+                    BRB_MSG_PARTIAL_VERSION_PRESENCE, "gfid=%s",
+                    uuid_utoa(linked_inode->gfid), NULL);
     } else {
         need_signing = br_check_object_need_sign(this, xattr, child);
 
@@ -1061,9 +1049,9 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     if (!need_signing)
         goto unref_dict;
 
-    gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_TRIGGER_SIGN,
-           "Triggering signing for %s [GFID: %s | Brick: %s]", loc.path,
-           uuid_utoa(linked_inode->gfid), child->brick_path);
+    gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_TRIGGER_SIGN, "path=%s",
+            loc.path, "gfid=%s", uuid_utoa(linked_inode->gfid), "Brick-path=%s",
+            child->brick_path, NULL);
     br_trigger_sign(this, child, linked_inode, &loc, need_reopen);
 
     ret = 0;
@@ -1096,17 +1084,16 @@ br_oneshot_signer(void *arg)
 
     THIS = this;
 
-    gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_CRAWLING_START,
-           "Crawling brick [%s], scanning for unsigned objects",
-           child->brick_path);
+    gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_CRAWLING_START, "brick-path=%s",
+            child->brick_path, NULL);
 
     loc.inode = child->table->root;
     (void)syncop_ftw_throttle(child->xl, &loc, GF_CLIENT_PID_BITD, child,
                               bitd_oneshot_crawl, BR_CRAWL_THROTTLE_COUNT,
                               BR_CRAWL_THROTTLE_ZZZ);
 
-    gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_CRAWLING_FINISH,
-           "Completed crawling brick [%s]", child->brick_path);
+    gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_CRAWLING_FINISH,
+            "brick-path=%s", child->brick_path, NULL);
 
     return NULL;
 }
@@ -1150,9 +1137,7 @@ br_enact_signer(xlator_t *this, br_child_t *child, br_stub_init_t *stub)
     ret = gf_changelog_register_generic(brick, 1, 1,
                                         this->ctx->cmd_args.log_file, -1, this);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, BRB_MSG_REGISTER_FAILED,
-               "Register to changelog "
-               "failed");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, BRB_MSG_REGISTER_FAILED, NULL);
         goto dealloc;
     }
 
@@ -1160,8 +1145,8 @@ br_enact_signer(xlator_t *this, br_child_t *child, br_stub_init_t *stub)
     ret = gf_thread_create(&child->thread, NULL, br_oneshot_signer, child,
                            "brosign");
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRB_MSG_SPAWN_FAILED,
-               "failed to spawn FS crawler thread");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRB_MSG_SPAWN_FAILED,
+                "FS-crawler-thread", NULL);
     else
         child->threadrunning = 1;
 
@@ -1189,9 +1174,9 @@ br_launch_scrubber(xlator_t *this, br_child_t *child, struct br_scanfs *fsscan,
     ret = gf_thread_create(&child->thread, NULL, br_fsscanner, child,
                            "brfsscan");
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ALERT, 0, BRB_MSG_SPAWN_FAILED,
-               "failed to spawn bitrot scrubber daemon [Brick: %s]",
-               child->brick_path);
+        gf_smsg(this->name, GF_LOG_ALERT, 0, BRB_MSG_SPAWN_FAILED,
+                "bitrot-scrubber-daemon Brick-path=%s", child->brick_path,
+                NULL);
         goto error_return;
     }
 
@@ -1279,8 +1264,8 @@ br_child_enaction(xlator_t *this, br_child_t *child, br_stub_init_t *stub)
         if (!ret) {
             child->witnessed = 1;
             _br_set_child_state(child, BR_CHILD_STATE_CONNECTED);
-            gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_CONNECTED_TO_BRICK,
-                   "Connected to brick %s..", child->brick_path);
+            gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_CONNECTED_TO_BRICK,
+                    "brick-path=%s", child->brick_path, NULL);
         }
     }
     pthread_mutex_unlock(&child->lock);
@@ -1327,8 +1312,8 @@ br_brick_connect(xlator_t *this, br_child_t *child)
     if (ret) {
         op_errno = -ret;
         ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_LOOKUP_FAILED,
-               "lookup on root failed");
+        gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_LOOKUP_FAILED,
+                NULL);
         goto wipeloc;
     }
 
@@ -1337,15 +1322,14 @@ br_brick_connect(xlator_t *this, br_child_t *child)
     if (ret) {
         op_errno = -ret;
         ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_GET_INFO_FAILED,
-               "failed to get stub info");
+        gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_GET_INFO_FAILED,
+                NULL);
         goto wipeloc;
     }
 
     ret = dict_get_ptr(xattr, GLUSTERFS_GET_BR_STUB_INIT_TIME, (void **)&stub);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_INFO_FAILED,
-               "failed to extract stub information");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_INFO_FAILED, NULL);
         goto free_dict;
     }
 
@@ -1415,11 +1399,10 @@ br_cleanup_scrubber(xlator_t *this, br_child_t *child)
      */
     ret = gf_thread_cleanup_xint(child->thread);
     if (ret)
-        gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_THREAD_CLEANUP,
-               "Error cleaning up scanner thread");
+        gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_THREAD_CLEANUP, NULL);
 
-    gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUBBER_CLEANED,
-           "Cleaned up scrubber for brick [%s]", child->brick_path);
+    gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUBBER_CLEANED,
+            "brick-path=%s", child->brick_path, NULL);
 
     return 0;
 }
@@ -1504,9 +1487,8 @@ br_handle_events(void *arg)
         child = childev->child;
         ret = childev->call(this, child);
         if (ret)
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SUBVOL_CONNECT_FAILED,
-                   "callback handler for subvolume [%s] failed",
-                   child->xl->name);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_SUBVOL_CONNECT_FAILED,
+                    "name=%s", child->xl->name, NULL);
         GF_FREE(childev);
     }
 
@@ -1524,8 +1506,7 @@ mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_br_stub_mt_end + 1);
 
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRB_MSG_MEM_ACNT_FAILED,
-               "Memory accounting init failed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRB_MSG_MEM_ACNT_FAILED, NULL);
         return ret;
     }
 
@@ -1542,8 +1523,8 @@ _br_qchild_event(xlator_t *this, br_child_t *child, br_child_handler *call)
 
     childev = GF_CALLOC(1, sizeof(*childev), gf_br_mt_br_child_event_t);
     if (!childev) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
-               "Event unhandled for child.. [Brick: %s]", child->xl->name);
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_EVENT_UNHANDLED,
+                "Brick-name=%s", child->xl->name, NULL);
         return;
     }
 
@@ -1638,10 +1619,8 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     switch (event) {
         case GF_EVENT_CHILD_UP:
             if (idx < 0) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_INVALID_SUBVOL,
-                       "Got event %d from "
-                       "invalid subvolume",
-                       event);
+                gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_INVALID_SUBVOL,
+                        "event=%d", event, NULL);
                 goto out;
             }
 
@@ -1669,9 +1648,8 @@ notify(xlator_t *this, int32_t event, void *data, ...)
 
         case GF_EVENT_CHILD_DOWN:
             if (idx < 0) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       BRB_MSG_INVALID_SUBVOL_CHILD,
-                       "Got event %d from invalid subvolume", event);
+                gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_INVALID_SUBVOL,
+                        "event=%d", event, NULL);
                 goto out;
             }
 
@@ -1712,11 +1690,9 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                    "called");
 
             if (scrub_monitor->state != BR_SCRUB_STATE_PENDING) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
-                       "on demand scrub schedule failed. Scrubber is "
-                       "not in pending state. Current state is %d",
-                       scrub_monitor->state);
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        BRB_MSG_RESCHEDULE_SCRUBBER_FAILED, "Current-state=%d",
+                        scrub_monitor->state, NULL);
                 return -2;
             }
 
@@ -1728,11 +1704,8 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             pthread_mutex_unlock(&priv->lock);
 
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
-                       "Could not schedule ondemand scrubbing. "
-                       "Scrubbing will continue according to "
-                       "old frequency.");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        BRB_MSG_COULD_NOT_SCHEDULE_SCRUB, NULL);
             }
             gf_msg_debug(this->name, 0, "returning %d", ret);
             break;
@@ -1783,9 +1756,8 @@ br_init_signer(xlator_t *this, br_private_t *priv)
         ret = gf_thread_create(&priv->obj_queue->workers[i], NULL,
                                br_process_object, this, "brpobj");
         if (ret != 0) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, BRB_MSG_SPAWN_FAILED,
-                   "thread creation"
-                   " failed");
+            gf_smsg(this->name, GF_LOG_ERROR, -ret,
+                    BRB_MSG_THREAD_CREATION_FAILED, NULL);
             ret = -1;
             goto cleanup_threads;
         }
@@ -1855,13 +1827,12 @@ br_rate_limit_signer(xlator_t *this, int child_count, int numbricks)
 #endif
 
     if (!spec.rate)
-        gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_RATE_LIMIT_INFO,
-               "[Rate Limit Info] \"FULL THROTTLE\"");
+        gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_RATE_LIMIT_INFO,
+                "FULL THROTTLE", NULL);
     else
-        gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_RATE_LIMIT_INFO,
-               "[Rate Limit Info] \"tokens/sec (rate): %lu, "
-               "maxlimit: %lu\"",
-               spec.rate, spec.maxlimit);
+        gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_RATE_LIMIT_INFO,
+                "tokens/sec-rate=%lu", spec.rate, "maxlimit=%lu", spec.maxlimit,
+                NULL);
 
     priv->tbf = tbf_init(&spec, 1);
     return priv->tbf ? 0 : -1;
@@ -1976,8 +1947,8 @@ br_init_children(xlator_t *this, br_private_t *priv)
 
         child->timer_pool = mem_pool_new(struct gf_tw_timer_list, 4096);
         if (!child->timer_pool) {
-            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
-                   "failed to allocate mem-pool for timer");
+            gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_MEM_POOL_ALLOC,
+                    NULL);
             errno = ENOMEM;
             goto freechild;
         }
@@ -2003,15 +1974,13 @@ init(xlator_t *this)
     br_private_t *priv = NULL;
 
     if (!this->children) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_NO_CHILD,
-               "FATAL: no children");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_NO_CHILD, NULL);
         goto out;
     }
 
     priv = GF_CALLOC(1, sizeof(*priv), gf_br_mt_br_private_t);
     if (!priv) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
-               "failed to allocate memory (->priv)");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
@@ -2029,8 +1998,8 @@ init(xlator_t *this)
 
     priv->timer_wheel = glusterfs_ctx_tw_get(this->ctx);
     if (!priv->timer_wheel) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_TIMER_WHEEL_UNAVAILABLE,
-               "global timer wheel unavailable");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_TIMER_WHEEL_UNAVAILABLE,
+                NULL);
         goto cleanup;
     }
 
@@ -2052,15 +2021,14 @@ init(xlator_t *this)
     ret = gf_thread_create(&priv->thread, NULL, br_handle_events, this,
                            "brhevent");
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, BRB_MSG_SPAWN_FAILED,
-               "thread creation failed");
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, BRB_MSG_THREAD_CREATION_FAILED,
+                NULL);
         ret = -1;
     }
 
     if (!ret) {
-        gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_BITROT_LOADED,
-               "bit-rot xlator loaded in \"%s\" mode",
-               (priv->iamscrubber) ? "SCRUBBER" : "SIGNER");
+        gf_smsg(this->name, GF_LOG_INFO, 0, BRB_MSG_BITROT_LOADED, "mode=%s",
+                (priv->iamscrubber) ? "SCRUBBER" : "SIGNER", NULL);
         return 0;
     }
 
@@ -2107,9 +2075,8 @@ br_reconfigure_monitor(xlator_t *this)
 
     ret = br_scrub_state_machine(this, _gf_false);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
-               "Could not reschedule scrubber for the volume. Scrubbing "
-               "will continue according to old frequency.");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_COULD_NOT_SCHEDULE_SCRUB,
+                NULL);
     }
 }
 
