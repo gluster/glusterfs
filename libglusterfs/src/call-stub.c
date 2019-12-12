@@ -41,7 +41,6 @@ fop_lookup_stub(call_frame_t *frame, fop_lookup_t fn, loc_t *loc, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_LOOKUP);
@@ -60,8 +59,6 @@ fop_lookup_cbk_stub(call_frame_t *frame, fop_lookup_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_LOOKUP);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -77,7 +74,6 @@ fop_stat_stub(call_frame_t *frame, fop_stat_t fn, loc_t *loc, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_STAT);
@@ -95,8 +91,6 @@ fop_stat_cbk_stub(call_frame_t *frame, fop_stat_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_STAT);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -110,8 +104,6 @@ call_stub_t *
 fop_fstat_stub(call_frame_t *frame, fop_fstat_t fn, fd_t *fd, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_FSTAT);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -128,8 +120,6 @@ fop_fstat_cbk_stub(call_frame_t *frame, fop_fstat_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FSTAT);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -145,7 +135,6 @@ fop_truncate_stub(call_frame_t *frame, fop_truncate_t fn, loc_t *loc, off_t off,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_TRUNCATE);
@@ -164,8 +153,6 @@ fop_truncate_cbk_stub(call_frame_t *frame, fop_truncate_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_TRUNCATE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -181,8 +168,6 @@ fop_ftruncate_stub(call_frame_t *frame, fop_ftruncate_t fn, fd_t *fd, off_t off,
                    dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_FTRUNCATE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -201,8 +186,6 @@ fop_ftruncate_cbk_stub(call_frame_t *frame, fop_ftruncate_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FTRUNCATE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -220,7 +203,6 @@ fop_access_stub(call_frame_t *frame, fop_access_t fn, loc_t *loc, int32_t mask,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_ACCESS);
@@ -238,8 +220,6 @@ fop_access_cbk_stub(call_frame_t *frame, fop_access_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_ACCESS);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -255,7 +235,6 @@ fop_readlink_stub(call_frame_t *frame, fop_readlink_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_READLINK);
@@ -274,8 +253,6 @@ fop_readlink_cbk_stub(call_frame_t *frame, fop_readlink_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_READLINK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -292,7 +269,6 @@ fop_mknod_stub(call_frame_t *frame, fop_mknod_t fn, loc_t *loc, mode_t mode,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_MKNOD);
@@ -312,8 +288,6 @@ fop_mknod_cbk_stub(call_frame_t *frame, fop_mknod_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_MKNOD);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -330,7 +304,6 @@ fop_mkdir_stub(call_frame_t *frame, fop_mkdir_t fn, loc_t *loc, mode_t mode,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_MKDIR);
@@ -350,8 +323,6 @@ fop_mkdir_cbk_stub(call_frame_t *frame, fop_mkdir_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_MKDIR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -368,7 +339,6 @@ fop_unlink_stub(call_frame_t *frame, fop_unlink_t fn, loc_t *loc, int xflag,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_UNLINK);
@@ -388,8 +358,6 @@ fop_unlink_cbk_stub(call_frame_t *frame, fop_unlink_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_UNLINK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -406,7 +374,6 @@ fop_rmdir_stub(call_frame_t *frame, fop_rmdir_t fn, loc_t *loc, int flags,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_RMDIR);
@@ -426,8 +393,6 @@ fop_rmdir_cbk_stub(call_frame_t *frame, fop_rmdir_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_RMDIR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -444,7 +409,6 @@ fop_symlink_stub(call_frame_t *frame, fop_symlink_t fn, const char *linkname,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
     GF_VALIDATE_OR_GOTO("call-stub", linkname, out);
 
@@ -465,8 +429,6 @@ fop_symlink_cbk_stub(call_frame_t *frame, fop_symlink_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_SYMLINK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -483,7 +445,6 @@ fop_rename_stub(call_frame_t *frame, fop_rename_t fn, loc_t *oldloc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", oldloc, out);
     GF_VALIDATE_OR_GOTO("call-stub", newloc, out);
 
@@ -505,8 +466,6 @@ fop_rename_cbk_stub(call_frame_t *frame, fop_rename_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_RENAME);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -523,7 +482,6 @@ fop_link_stub(call_frame_t *frame, fop_link_t fn, loc_t *oldloc, loc_t *newloc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", oldloc, out);
     GF_VALIDATE_OR_GOTO("call-stub", newloc, out);
 
@@ -544,8 +502,6 @@ fop_link_cbk_stub(call_frame_t *frame, fop_link_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_LINK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -562,7 +518,6 @@ fop_create_stub(call_frame_t *frame, fop_create_t fn, loc_t *loc, int32_t flags,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_CREATE);
@@ -582,8 +537,6 @@ fop_create_cbk_stub(call_frame_t *frame, fop_create_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_CREATE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -600,7 +553,6 @@ fop_open_stub(call_frame_t *frame, fop_open_t fn, loc_t *loc, int32_t flags,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_OPEN);
@@ -618,8 +570,6 @@ fop_open_cbk_stub(call_frame_t *frame, fop_open_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_OPEN);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -634,8 +584,6 @@ fop_readv_stub(call_frame_t *frame, fop_readv_t fn, fd_t *fd, size_t size,
                off_t off, uint32_t flags, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_READ);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -652,8 +600,6 @@ fop_readv_cbk_stub(call_frame_t *frame, fop_readv_cbk_t fn, int32_t op_ret,
                    struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 0, GF_FOP_READ);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -672,7 +618,6 @@ fop_writev_stub(call_frame_t *frame, fop_writev_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", vector, out);
 
     stub = stub_new(frame, 1, GF_FOP_WRITE);
@@ -692,8 +637,6 @@ fop_writev_cbk_stub(call_frame_t *frame, fop_writev_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_WRITE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -708,8 +651,6 @@ call_stub_t *
 fop_flush_stub(call_frame_t *frame, fop_flush_t fn, fd_t *fd, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_FLUSH);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -726,8 +667,6 @@ fop_flush_cbk_stub(call_frame_t *frame, fop_flush_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FLUSH);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -742,8 +681,6 @@ fop_fsync_stub(call_frame_t *frame, fop_fsync_t fn, fd_t *fd, int32_t datasync,
                dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_FSYNC);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -761,8 +698,6 @@ fop_fsync_cbk_stub(call_frame_t *frame, fop_fsync_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FSYNC);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -779,7 +714,6 @@ fop_opendir_stub(call_frame_t *frame, fop_opendir_t fn, loc_t *loc, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_OPENDIR);
@@ -797,8 +731,6 @@ fop_opendir_cbk_stub(call_frame_t *frame, fop_opendir_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_OPENDIR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -813,8 +745,6 @@ fop_fsyncdir_stub(call_frame_t *frame, fop_fsyncdir_t fn, fd_t *fd,
                   int32_t datasync, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_FSYNCDIR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -831,8 +761,6 @@ fop_fsyncdir_cbk_stub(call_frame_t *frame, fop_fsyncdir_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FSYNCDIR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -847,7 +775,6 @@ fop_statfs_stub(call_frame_t *frame, fop_statfs_t fn, loc_t *loc, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_STATFS);
@@ -865,8 +792,6 @@ fop_statfs_cbk_stub(call_frame_t *frame, fop_statfs_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_STATFS);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -882,7 +807,6 @@ fop_setxattr_stub(call_frame_t *frame, fop_setxattr_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_SETXATTR);
@@ -900,8 +824,6 @@ fop_setxattr_cbk_stub(call_frame_t *frame, fop_setxattr_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_SETXATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -917,7 +839,6 @@ fop_getxattr_stub(call_frame_t *frame, fop_getxattr_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
 
     stub = stub_new(frame, 1, GF_FOP_GETXATTR);
@@ -936,8 +857,6 @@ fop_getxattr_cbk_stub(call_frame_t *frame, fop_getxattr_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_GETXATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -953,7 +872,6 @@ fop_fsetxattr_stub(call_frame_t *frame, fop_fsetxattr_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fd, out);
 
     stub = stub_new(frame, 1, GF_FOP_FSETXATTR);
@@ -971,8 +889,6 @@ fop_fsetxattr_cbk_stub(call_frame_t *frame, fop_fsetxattr_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FSETXATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -988,7 +904,6 @@ fop_fgetxattr_stub(call_frame_t *frame, fop_fgetxattr_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fd, out);
 
     stub = stub_new(frame, 1, GF_FOP_FGETXATTR);
@@ -1007,8 +922,6 @@ fop_fgetxattr_cbk_stub(call_frame_t *frame, fop_fgetxattr_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_GETXATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1024,7 +937,6 @@ fop_removexattr_stub(call_frame_t *frame, fop_removexattr_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", loc, out);
     GF_VALIDATE_OR_GOTO("call-stub", name, out);
 
@@ -1043,8 +955,6 @@ fop_removexattr_cbk_stub(call_frame_t *frame, fop_removexattr_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_REMOVEXATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1060,7 +970,6 @@ fop_fremovexattr_stub(call_frame_t *frame, fop_fremovexattr_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fd, out);
     GF_VALIDATE_OR_GOTO("call-stub", name, out);
 
@@ -1079,8 +988,6 @@ fop_fremovexattr_cbk_stub(call_frame_t *frame, fop_fremovexattr_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FREMOVEXATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1096,7 +1003,6 @@ fop_lk_stub(call_frame_t *frame, fop_lk_t fn, fd_t *fd, int32_t cmd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", lock, out);
 
     stub = stub_new(frame, 1, GF_FOP_LK);
@@ -1114,8 +1020,6 @@ fop_lk_cbk_stub(call_frame_t *frame, fop_lk_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_LK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1131,7 +1035,6 @@ fop_inodelk_stub(call_frame_t *frame, fop_inodelk_t fn, const char *volume,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", lock, out);
 
     stub = stub_new(frame, 1, GF_FOP_INODELK);
@@ -1149,8 +1052,6 @@ fop_inodelk_cbk_stub(call_frame_t *frame, fop_inodelk_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_INODELK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1166,7 +1067,6 @@ fop_finodelk_stub(call_frame_t *frame, fop_finodelk_t fn, const char *volume,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", lock, out);
 
     stub = stub_new(frame, 1, GF_FOP_FINODELK);
@@ -1185,8 +1085,6 @@ fop_finodelk_cbk_stub(call_frame_t *frame, fop_inodelk_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FINODELK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1202,8 +1100,6 @@ fop_entrylk_stub(call_frame_t *frame, fop_entrylk_t fn, const char *volume,
                  entrylk_type type, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 1, GF_FOP_ENTRYLK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -1221,8 +1117,6 @@ fop_entrylk_cbk_stub(call_frame_t *frame, fop_entrylk_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_ENTRYLK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1239,8 +1133,6 @@ fop_fentrylk_stub(call_frame_t *frame, fop_fentrylk_t fn, const char *volume,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 1, GF_FOP_FENTRYLK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1255,8 +1147,6 @@ fop_fentrylk_cbk_stub(call_frame_t *frame, fop_fentrylk_cbk_t fn,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 0, GF_FOP_FENTRYLK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -1274,8 +1164,6 @@ fop_readdirp_cbk_stub(call_frame_t *frame, fop_readdirp_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_READDIRP);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1290,8 +1178,6 @@ fop_readdir_cbk_stub(call_frame_t *frame, fop_readdir_cbk_t fn, int32_t op_ret,
                      int32_t op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 0, GF_FOP_READDIR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -1338,7 +1224,6 @@ fop_rchecksum_stub(call_frame_t *frame, fop_rchecksum_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fd, out);
 
     stub = stub_new(frame, 1, GF_FOP_RCHECKSUM);
@@ -1357,8 +1242,6 @@ fop_rchecksum_cbk_stub(call_frame_t *frame, fop_rchecksum_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_RCHECKSUM);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1375,8 +1258,6 @@ fop_xattrop_cbk_stub(call_frame_t *frame, fop_xattrop_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_XATTROP);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1392,7 +1273,6 @@ fop_fxattrop_cbk_stub(call_frame_t *frame, fop_fxattrop_cbk_t fn,
                       dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 0, GF_FOP_FXATTROP);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
@@ -1409,7 +1289,6 @@ fop_xattrop_stub(call_frame_t *frame, fop_xattrop_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", xattr, out);
 
     stub = stub_new(frame, 1, GF_FOP_XATTROP);
@@ -1427,7 +1306,6 @@ fop_fxattrop_stub(call_frame_t *frame, fop_fxattrop_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", xattr, out);
 
     stub = stub_new(frame, 1, GF_FOP_FXATTROP);
@@ -1446,8 +1324,6 @@ fop_setattr_cbk_stub(call_frame_t *frame, fop_setattr_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_SETATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1465,8 +1341,6 @@ fop_fsetattr_cbk_stub(call_frame_t *frame, fop_setattr_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FSETATTR);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1483,7 +1357,6 @@ fop_setattr_stub(call_frame_t *frame, fop_setattr_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_SETATTR);
@@ -1501,7 +1374,6 @@ fop_fsetattr_stub(call_frame_t *frame, fop_fsetattr_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_FSETATTR);
@@ -1520,8 +1392,6 @@ fop_fallocate_cbk_stub(call_frame_t *frame, fop_fallocate_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_FALLOCATE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1539,7 +1409,6 @@ fop_fallocate_stub(call_frame_t *frame, fop_fallocate_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_FALLOCATE);
@@ -1558,8 +1427,6 @@ fop_discard_cbk_stub(call_frame_t *frame, fop_discard_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_DISCARD);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1577,7 +1444,6 @@ fop_discard_stub(call_frame_t *frame, fop_discard_t fn, fd_t *fd, off_t offset,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_DISCARD);
@@ -1596,8 +1462,6 @@ fop_zerofill_cbk_stub(call_frame_t *frame, fop_zerofill_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_ZEROFILL);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1615,7 +1479,6 @@ fop_zerofill_stub(call_frame_t *frame, fop_zerofill_t fn, fd_t *fd,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_ZEROFILL);
@@ -1633,8 +1496,6 @@ fop_ipc_cbk_stub(call_frame_t *frame, fop_ipc_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_IPC);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1650,7 +1511,6 @@ fop_ipc_stub(call_frame_t *frame, fop_ipc_t fn, int32_t op, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_IPC);
@@ -1668,8 +1528,6 @@ fop_lease_cbk_stub(call_frame_t *frame, fop_lease_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_LEASE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1685,7 +1543,6 @@ fop_lease_stub(call_frame_t *frame, fop_lease_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
     GF_VALIDATE_OR_GOTO("call-stub", lease, out);
 
@@ -1704,8 +1561,6 @@ fop_seek_cbk_stub(call_frame_t *frame, fop_seek_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_SEEK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1722,7 +1577,6 @@ fop_seek_stub(call_frame_t *frame, fop_seek_t fn, fd_t *fd, off_t offset,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_SEEK);
@@ -1741,8 +1595,6 @@ fop_getactivelk_cbk_stub(call_frame_t *frame, fop_getactivelk_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_GETACTIVELK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1759,7 +1611,6 @@ fop_getactivelk_stub(call_frame_t *frame, fop_getactivelk_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_GETACTIVELK);
@@ -1781,8 +1632,6 @@ fop_setactivelk_cbk_stub(call_frame_t *frame, fop_setactivelk_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_SETACTIVELK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1803,7 +1652,6 @@ fop_setactivelk_stub(call_frame_t *frame, fop_setactivelk_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_SETACTIVELK);
@@ -1825,7 +1673,6 @@ fop_copy_file_range_stub(call_frame_t *frame, fop_copy_file_range_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_COPY_FILE_RANGE);
@@ -1848,7 +1695,6 @@ fop_copy_file_range_cbk_stub(call_frame_t *frame, fop_copy_file_range_cbk_t fn,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 0, GF_FOP_COPY_FILE_RANGE);
@@ -1869,7 +1715,6 @@ fop_put_stub(call_frame_t *frame, fop_put_t fn, loc_t *loc, mode_t mode,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", vector, out);
 
     stub = stub_new(frame, 1, GF_FOP_PUT);
@@ -1889,8 +1734,6 @@ fop_put_cbk_stub(call_frame_t *frame, fop_put_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_PUT);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1907,7 +1750,6 @@ fop_icreate_stub(call_frame_t *frame, fop_icreate_t fn, loc_t *loc, mode_t mode,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_ICREATE);
@@ -1947,8 +1789,6 @@ fop_icreate_cbk_stub(call_frame_t *frame, fop_icreate_cbk_t fn, int32_t op_ret,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
     stub = stub_new(frame, 0, GF_FOP_ICREATE);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
@@ -1966,7 +1806,6 @@ fop_namelink_stub(call_frame_t *frame, fop_namelink_t fn, loc_t *loc,
 {
     call_stub_t *stub = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
     GF_VALIDATE_OR_GOTO("call-stub", fn, out);
 
     stub = stub_new(frame, 1, GF_FOP_NAMELINK);
@@ -2005,8 +1844,6 @@ fop_namelink_cbk_stub(call_frame_t *frame, fop_namelink_cbk_t fn,
                       struct iatt *postbuf, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
-
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
 
     stub = stub_new(frame, 0, GF_FOP_NAMELINK);
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
