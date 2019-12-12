@@ -56,8 +56,7 @@ mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_br_stub_mt_end + 1);
 
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_MEM_ACNT_FAILED,
-               "Memory accounting init failed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_MEM_ACNT_FAILED, NULL);
         return ret;
     }
 
@@ -72,29 +71,29 @@ br_stub_bad_object_container_init(xlator_t *this, br_stub_private_t *priv)
 
     ret = pthread_cond_init(&priv->container.bad_cond, NULL);
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
-               "pthread_cond_init failed (%d)", ret);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                "cond_init ret=%d", ret, NULL);
         goto out;
     }
 
     ret = pthread_mutex_init(&priv->container.bad_lock, NULL);
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
-               "pthread_mutex_init failed (%d)", ret);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                "mutex_init ret=%d", ret, NULL);
         goto cleanup_cond;
     }
 
     ret = pthread_attr_init(&w_attr);
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
-               "pthread_attr_init failed (%d)", ret);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
+                "attr_init ret=%d", ret, NULL);
         goto cleanup_lock;
     }
 
     ret = pthread_attr_setstacksize(&w_attr, BAD_OBJECT_THREAD_STACK_SIZE);
     if (ret == EINVAL) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_BAD_OBJ_THREAD_FAIL,
-               "Using default thread stack size");
+        gf_smsg(this->name, GF_LOG_WARNING, 0,
+                BRS_MSG_USING_DEFAULT_THREAD_SIZE, NULL);
     }
 
     INIT_LIST_HEAD(&priv->container.bad_queue);
@@ -130,8 +129,7 @@ init(xlator_t *this)
     br_stub_private_t *priv = NULL;
 
     if (!this->children) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_NO_CHILD,
-               "FATAL: no children");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_NO_CHILD, NULL);
         goto error_return;
     }
 
@@ -175,15 +173,14 @@ init(xlator_t *this)
     ret = gf_thread_create(&priv->signth, NULL, br_stub_signth, this,
                            "brssign");
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SPAWN_SIGN_THRD_FAILED,
-               "failed to create the new thread for signer");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SPAWN_SIGN_THRD_FAILED,
+                NULL);
         goto cleanup_lock;
     }
 
     ret = br_stub_bad_object_container_init(this, priv);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_CONTAINER_FAIL,
-               "failed to launch the thread for storing bad gfids");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_CONTAINER_FAIL, NULL);
         goto cleanup_lock;
     }
 
@@ -230,36 +227,33 @@ reconfigure(xlator_t *this, dict_t *options)
         ret = gf_thread_create(&priv->signth, NULL, br_stub_signth, this,
                                "brssign");
         if (ret != 0) {
-            gf_msg(this->name, GF_LOG_WARNING, 0,
-                   BRS_MSG_SPAWN_SIGN_THRD_FAILED,
-                   "failed to create the new thread for signer");
+            gf_smsg(this->name, GF_LOG_WARNING, 0,
+                    BRS_MSG_SPAWN_SIGN_THRD_FAILED, NULL);
             goto err;
         }
 
         ret = br_stub_bad_object_container_init(this, priv);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_CONTAINER_FAIL,
-                   "failed to launch the thread for storing bad gfids");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_CONTAINER_FAIL,
+                    NULL);
             goto err;
         }
     } else {
         if (priv->signth) {
             if (gf_thread_cleanup_xint(priv->signth)) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
-                       "Could not cancel sign serializer thread");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_CANCEL_SIGN_THREAD_FAILED, NULL);
             } else {
-                gf_msg(this->name, GF_LOG_INFO, 0, BRS_MSG_KILL_SIGN_THREAD,
-                       "killed the signer thread");
+                gf_smsg(this->name, GF_LOG_INFO, 0, BRS_MSG_KILL_SIGN_THREAD,
+                        NULL);
                 priv->signth = 0;
             }
         }
 
         if (priv->container.thread) {
             if (gf_thread_cleanup_xint(priv->container.thread)) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
-                       "Could not cancel sign serializer thread");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_CANCEL_SIGN_THREAD_FAILED, NULL);
             }
             priv->container.thread = 0;
         }
@@ -270,18 +264,16 @@ reconfigure(xlator_t *this, dict_t *options)
 err:
     if (priv->signth) {
         if (gf_thread_cleanup_xint(priv->signth)) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
-                   "Could not cancel sign serializer thread");
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_CANCEL_SIGN_THREAD_FAILED, NULL);
         }
         priv->signth = 0;
     }
 
     if (priv->container.thread) {
         if (gf_thread_cleanup_xint(priv->container.thread)) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
-                   "Could not cancel sign serializer thread");
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_CANCEL_SIGN_THREAD_FAILED, NULL);
         }
         priv->container.thread = 0;
     }
@@ -321,8 +313,8 @@ fini(xlator_t *this)
 
     ret = gf_thread_cleanup_xint(priv->signth);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
-               "Could not cancel sign serializer thread");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                NULL);
         goto out;
     }
     priv->signth = 0;
@@ -338,8 +330,8 @@ fini(xlator_t *this)
 
     ret = gf_thread_cleanup_xint(priv->container.thread);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
-               "Could not cancel sign serializer thread");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
+                NULL);
         goto out;
     }
 
@@ -585,11 +577,9 @@ br_stub_need_versioning(xlator_t *this, fd_t *fd, gf_boolean_t *versioning,
         ret = br_stub_init_inode_versions(this, fd, fd->inode, version,
                                           _gf_true, _gf_false, &ctx_addr);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   BRS_MSG_GET_INODE_CONTEXT_FAILED,
-                   "failed to "
-                   " init the inode context for the inode %s",
-                   uuid_utoa(fd->inode->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_GET_INODE_CONTEXT_FAILED, "gfid=%s",
+                    uuid_utoa(fd->inode->gfid), NULL);
             goto error_return;
         }
     }
@@ -623,10 +613,8 @@ br_stub_anon_fd_ctx(xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
     if (!br_stub_fd) {
         ret = br_stub_add_fd_to_inode(this, fd, ctx);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ADD_FD_TO_INODE,
-                   "failed to add fd to "
-                   "the inode (gfid: %s)",
-                   uuid_utoa(fd->inode->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ADD_FD_TO_INODE,
+                    "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
             goto out;
         }
     }
@@ -646,9 +634,8 @@ br_stub_versioning_prep(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     local = br_stub_alloc_local(this);
     if (!local) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRS_MSG_NO_MEMORY,
-               "local allocation failed (gfid: %s)",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRS_MSG_NO_MEMORY, "gfid=%s",
+                uuid_utoa(fd->inode->gfid), NULL);
         goto error_return;
     }
 
@@ -718,8 +705,8 @@ br_stub_check_bad_object(xlator_t *this, inode_t *inode, int32_t *op_ret,
 
     ret = br_stub_is_bad_object(this, inode);
     if (ret == -2) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJECT_ACCESS,
-               "%s is a bad object. Returning", uuid_utoa(inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJECT_ACCESS,
+                "gfid=%s", uuid_utoa(inode->gfid), NULL);
         *op_ret = -1;
         *op_errno = EIO;
     }
@@ -728,9 +715,9 @@ br_stub_check_bad_object(xlator_t *this, inode_t *inode, int32_t *op_ret,
         ret = br_stub_init_inode_versions(this, NULL, inode, version, _gf_true,
                                           _gf_false, NULL);
         if (ret) {
-            gf_msg(
-                this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
-                "failed to init inode context for %s", uuid_utoa(inode->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_GET_INODE_CONTEXT_FAILED, "gfid=%s",
+                    uuid_utoa(inode->gfid), NULL);
             *op_ret = -1;
             *op_errno = EINVAL;
         }
@@ -1025,10 +1012,9 @@ br_stub_compare_sign_version(xlator_t *this, inode_t *inode,
 
     if (invalid) {
         ret = -1;
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SIGN_VERSION_ERROR,
-               "Signing version exceeds "
-               "current version [%lu > %lu]",
-               sbuf->signedversion, ctx->currentversion);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SIGN_VERSION_ERROR,
+                "Signing-ver=%lu", sbuf->signedversion, "current-ver=%lu",
+                ctx->currentversion, NULL);
     }
 
 out:
@@ -1081,19 +1067,15 @@ br_stub_handle_object_signature(call_frame_t *frame, xlator_t *this, fd_t *fd,
     priv = this->private;
 
     if (frame->root->pid != GF_CLIENT_PID_BITD) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno, BRS_MSG_NON_BITD_PID,
-               "PID %d from where signature request"
-               "came, does not belong to bit-rot daemon."
-               "Unwinding the fop",
-               frame->root->pid);
+        gf_smsg(this->name, GF_LOG_WARNING, op_errno, BRS_MSG_NON_BITD_PID,
+                "PID=%d", frame->root->pid, NULL);
         goto dofop;
     }
 
     ret = br_stub_prepare_signature(this, dict, fd->inode, sign, &fakesuccess);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SIGN_PREPARE_FAIL,
-               "failed to prepare the signature for %s. Unwinding the fop",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SIGN_PREPARE_FAIL,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto dofop;
     }
     if (fakesuccess) {
@@ -1245,10 +1227,8 @@ br_stub_handle_object_reopen(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     stub = fop_fsetxattr_cbk_stub(frame, br_stub_fsetxattr_resume, 0, 0, NULL);
     if (!stub) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
-               "failed to allocate stub for fsetxattr fop (gfid: %s),"
-               " unwinding",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "fsetxattr gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto cleanup_local;
     }
 
@@ -1302,9 +1282,8 @@ br_stub_fsetxattr_bad_object_cbk(call_frame_t *frame, void *cookie,
      */
     ret = br_stub_mark_object_bad(this, local->u.context.inode);
     if (ret)
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_MARK_FAIL,
-               "failed to mark object %s as bad",
-               uuid_utoa(local->u.context.inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_MARK_FAIL,
+                "gfid=%s", uuid_utoa(local->u.context.inode->gfid), NULL);
 
     ret = br_stub_add(this, local->u.context.inode->gfid);
 
@@ -1324,18 +1303,15 @@ br_stub_handle_bad_object_key(call_frame_t *frame, xlator_t *this, fd_t *fd,
     int32_t op_errno = EINVAL;
 
     if (frame->root->pid != GF_CLIENT_PID_SCRUB) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_NON_SCRUB_BAD_OBJ_MARK,
-               "bad object marking "
-               "on %s is not from the scrubber",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_NON_SCRUB_BAD_OBJ_MARK,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto unwind;
     }
 
     local = br_stub_alloc_local(this);
     if (!local) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_NO_MEMORY,
-               "failed to allocate memory for fsetxattr on %s",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ALLOC_MEM_FAILED,
+                "fsetxattr gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         op_ret = -1;
         op_errno = ENOMEM;
         goto unwind;
@@ -1374,10 +1350,9 @@ br_stub_handle_internal_xattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     int32_t op_ret = -1;
     int32_t op_errno = EINVAL;
 
-    gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_INTERNAL_XATTR,
-           "setxattr called"
-           " on the internal xattr %s for inode %s",
-           key, uuid_utoa(fd->inode->gfid));
+    gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_INTERNAL_XATTR,
+            "setxattr key=%s", key, "inode-gfid=%s", uuid_utoa(fd->inode->gfid),
+            NULL);
 
     STACK_UNWIND_STRICT(fsetxattr, frame, op_ret, op_errno, NULL);
     return 0;
@@ -1395,10 +1370,8 @@ br_stub_dump_xattr(xlator_t *this, dict_t *dict, int *op_errno)
         goto out;
     }
     dict_dump_to_str(dict, dump, BR_STUB_DUMP_STR_SIZE, format);
-    gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_INTERNAL_XATTR,
-           "fsetxattr called on "
-           "internal xattr %s",
-           dump);
+    gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_INTERNAL_XATTR,
+            "fsetxattr dump=%s", dump, NULL);
 out:
     if (dump) {
         GF_FREE(dump);
@@ -1529,10 +1502,8 @@ br_stub_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (!strcmp(BITROT_OBJECT_BAD_KEY, name) ||
         !strcmp(BITROT_SIGNING_VERSION_KEY, name) ||
         !strcmp(BITROT_CURRENT_VERSION_KEY, name)) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_REMOVE_INTERNAL_XATTR,
-               "removexattr called"
-               " on internal xattr %s for file %s",
-               name, loc->path);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_REMOVE_INTERNAL_XATTR,
+                "name=%s", name, "file-path=%s", loc->path, NULL);
         goto unwind;
     }
 
@@ -1554,10 +1525,9 @@ br_stub_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     if (!strcmp(BITROT_OBJECT_BAD_KEY, name) ||
         !strcmp(BITROT_SIGNING_VERSION_KEY, name) ||
         !strcmp(BITROT_CURRENT_VERSION_KEY, name)) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_REMOVE_INTERNAL_XATTR,
-               "removexattr called"
-               " on internal xattr %s for inode %s",
-               name, uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_REMOVE_INTERNAL_XATTR,
+                "name=%s", name, "inode-gfid=%s", uuid_utoa(fd->inode->gfid),
+                NULL);
         goto unwind;
     }
 
@@ -1643,10 +1613,8 @@ br_stub_is_object_stale(xlator_t *this, call_frame_t *frame, inode_t *inode,
 
     ret = br_stub_get_inode_ctx(this, inode, &ctx_addr);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
-               "failed to get the "
-               "inode context for %s",
-               uuid_utoa(inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                "gfid=%s", uuid_utoa(inode->gfid), NULL);
         goto out;
     }
 
@@ -2124,10 +2092,8 @@ br_stub_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
                            offset, flags, iobref, xdata);
 
     if (!stub) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
-               "failed to allocate stub for write fop (gfid: %s), "
-               "unwinding",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "write  gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto cleanup_local;
     }
 
@@ -2240,10 +2206,8 @@ br_stub_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     stub = fop_ftruncate_stub(frame, br_stub_ftruncate_resume, fd, offset,
                               xdata);
     if (!stub) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
-               "failed to allocate stub for ftruncate fop (gfid: %s),"
-               " unwinding",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "ftruncate gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto cleanup_local;
     }
 
@@ -2347,10 +2311,8 @@ br_stub_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     fd = fd_anonymous(loc->inode);
     if (!fd) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CREATE_ANONYMOUS_FD_FAILED,
-               "failed to create "
-               "anonymous fd for the inode %s",
-               uuid_utoa(loc->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_CREATE_ANONYMOUS_FD_FAILED,
+                "inode-gfid=%s", uuid_utoa(loc->inode->gfid), NULL);
         goto unwind;
     }
 
@@ -2380,10 +2342,8 @@ br_stub_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     stub = fop_truncate_stub(frame, br_stub_truncate_resume, loc, offset,
                              xdata);
     if (!stub) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
-               "failed to allocate stub for truncate fop (gfid: %s), "
-               "unwinding",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "truncate gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto cleanup_local;
     }
 
@@ -2456,11 +2416,9 @@ br_stub_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         ret = br_stub_init_inode_versions(this, fd, fd->inode, version,
                                           _gf_true, _gf_false, &ctx_addr);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   BRS_MSG_GET_INODE_CONTEXT_FAILED,
-                   "failed to init the inode context for "
-                   "the file %s (gfid: %s)",
-                   loc->path, uuid_utoa(fd->inode->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_GET_INODE_CONTEXT_FAILED, "path=%s", loc->path,
+                    "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
             goto unwind;
         }
     }
@@ -2479,9 +2437,8 @@ br_stub_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     ret = br_stub_add_fd_to_inode(this, fd, ctx);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ADD_FD_TO_LIST_FAILED,
-               "failed add fd to the list (gfid: %s)",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ADD_FD_TO_LIST_FAILED,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto unwind;
     }
 
@@ -2512,10 +2469,8 @@ br_stub_add_fd_to_inode(xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
 
     ret = br_stub_require_release_call(this, fd, &br_stub_fd);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_FD_CONTEXT_FAILED,
-               "failed to set the fd "
-               "context for the file (gfid: %s)",
-               uuid_utoa(fd->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_FD_CONTEXT_FAILED,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
         goto out;
     }
 
@@ -3224,8 +3179,7 @@ br_stub_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
 
     if (!local) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_NULL_LOCAL,
-               "local is NULL");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_NULL_LOCAL, NULL);
         goto unwind;
     }
     inode = local->u.context.inode;
@@ -3243,9 +3197,8 @@ br_stub_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          * has to be removed manually. Its not a good idea to fail
          * the fop, as the object has already been deleted.
          */
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
-               "failed to get the context for the inode %s",
-               uuid_utoa(inode->gfid));
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                "inode-gfid=%s", uuid_utoa(inode->gfid), NULL);
         goto unwind;
     }
 
@@ -3288,9 +3241,9 @@ br_stub_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
     if (!local) {
         op_ret = -1;
         op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, BRS_MSG_NO_MEMORY,
-               "failed to allocate memory for local (path: %s, gfid: %s)",
-               loc->path, uuid_utoa(loc->inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, BRS_MSG_ALLOC_MEM_FAILED,
+                "local path=%s", loc->path, "gfid=%s",
+                uuid_utoa(loc->inode->gfid), NULL);
         goto unwind;
     }
 
@@ -3365,23 +3318,21 @@ br_stub_send_ipc_fop(xlator_t *this, fd_t *fd, unsigned long releaseversion,
 
     xdata = dict_new();
     if (!xdata) {
-        gf_msg(this->name, GF_LOG_WARNING, ENOMEM, BRS_MSG_NO_MEMORY,
-               "dict allocation failed: cannot send IPC FOP "
-               "to changelog");
+        gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, BRS_MSG_DICT_ALLOC_FAILED,
+                NULL);
         goto out;
     }
 
     ret = dict_set_static_bin(xdata, "RELEASE-EVENT", &ev, CHANGELOG_EV_SIZE);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SET_EVENT_FAILED,
-               "cannot set release event in dict");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SET_EVENT_FAILED, NULL);
         goto dealloc_dict;
     }
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_CREATE_FRAME_FAILED,
-               "create_frame() failure");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_CREATE_FRAME_FAILED,
+                NULL);
         goto dealloc_dict;
     }
 
@@ -3516,8 +3467,8 @@ br_stub_releasedir(xlator_t *this, fd_t *fd)
     if (fctx->bad_object.dir) {
         ret = sys_closedir(fctx->bad_object.dir);
         if (ret)
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL,
-                   "closedir error: %s", strerror(errno));
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL,
+                    "error=%s", strerror(errno), NULL);
     }
 
     GF_FREE(fctx);
