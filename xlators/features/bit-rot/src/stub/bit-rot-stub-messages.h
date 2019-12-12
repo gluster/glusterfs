@@ -43,7 +43,8 @@ GLFS_MSGID(BITROT_STUB, BRS_MSG_NO_MEMORY, BRS_MSG_SET_EVENT_FAILED,
            BRS_MSG_SPAWN_SIGN_THRD_FAILED, BRS_MSG_KILL_SIGN_THREAD,
            BRS_MSG_NON_BITD_PID, BRS_MSG_SIGN_PREPARE_FAIL,
            BRS_MSG_USING_DEFAULT_THREAD_SIZE, BRS_MSG_ALLOC_MEM_FAILED,
-           BRS_MSG_DICT_ALLOC_FAILED);
+           BRS_MSG_DICT_ALLOC_FAILED, BRS_MSG_CREATE_GF_DIRENT_FAILED,
+           BRS_MSG_ALLOC_FAILED, BRS_MSG_PATH_XATTR_GET_FAILED);
 
 #define BRS_MSG_MEM_ACNT_FAILED_STR "Memory accounting init failed"
 #define BRS_MSG_BAD_OBJ_THREAD_FAIL_STR "pthread_init failed"
@@ -85,4 +86,29 @@ GLFS_MSGID(BITROT_STUB, BRS_MSG_NO_MEMORY, BRS_MSG_SET_EVENT_FAILED,
 #define BRS_MSG_SET_EVENT_FAILED_STR "cannot set release event in dict"
 #define BRS_MSG_CREATE_FRAME_FAILED_STR "create_frame() failure"
 #define BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL_STR "closedir error"
+#define BRS_MSG_LINK_FAIL_STR "failed to record gfid"
+#define BRS_MSG_BAD_OBJ_UNLINK_FAIL_STR                                        \
+    "failed to delete bad object link from quaratine directory"
+#define BRS_MSG_BAD_OBJECT_DIR_FAIL_STR "failed stub directory"
+#define BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL_STR                                   \
+    "seekdir failed. Invalid argument (offset reused from another DIR * "      \
+    "structure)"
+#define BRS_MSG_BAD_OBJECT_DIR_TELL_FAIL_STR "telldir failed on dir"
+#define BRS_MSG_BAD_OBJECT_DIR_READ_FAIL_STR "readdir failed on dir"
+#define BRS_MSG_CREATE_GF_DIRENT_FAILED_STR "could not create gf_dirent"
+#define BRS_MSG_GET_FD_CONTEXT_FAILED_STR "pfd is NULL"
+#define BRS_MSG_BAD_HANDLE_DIR_NULL_STR "dir if NULL"
+#define BRS_MSG_ALLOC_FAILED_STR                                               \
+    "failed to allocate new dict for saving the paths of the corrupted "       \
+    "objects. Scrub status will only display the gfid"
+#define BRS_MSG_PATH_GET_FAILED_STR "failed to get the path"
+#define BRS_MSG_PATH_XATTR_GET_FAILED_STR                                      \
+    "failed to get the path xattr from disk for the gfid. Trying to get path " \
+    "from the memory"
+#define BRS_MSG_DICT_SET_FAILED_STR                                            \
+    "failed to set the actual path as the value in the dict for the "          \
+    "corrupted object"
+#define BRS_MSG_SET_CONTEXT_FAILED_STR                                         \
+    "could not set fd context for release callback"
+#define BRS_MSG_CHANGE_VERSION_FAILED_STR "change version failed"
 #endif /* !_BITROT_STUB_MESSAGES_H_ */

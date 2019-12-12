@@ -222,8 +222,8 @@ br_stub_require_release_call(xlator_t *this, fd_t *fd, br_stub_fd_t **fd_ctx)
 
     ret = br_stub_fd_ctx_set(this, fd, br_stub_fd);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SET_CONTEXT_FAILED,
-               "could not set fd context (for release callback");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_SET_CONTEXT_FAILED,
+                NULL);
     else
         *fd_ctx = br_stub_fd;
 
@@ -273,10 +273,9 @@ __br_stub_set_ongoing_version(br_stub_inode_ctx_t *ctx, unsigned long version)
     if (ctx->currentversion < version)
         ctx->currentversion = version;
     else
-        gf_msg("bit-rot-stub", GF_LOG_WARNING, 0, BRS_MSG_CHANGE_VERSION_FAILED,
-               "current version: %lu"
-               "new version: %lu",
-               ctx->currentversion, version);
+        gf_smsg("bit-rot-stub", GF_LOG_WARNING, 0,
+                BRS_MSG_CHANGE_VERSION_FAILED, "current version=%lu",
+                ctx->currentversion, "new version=%lu", version, NULL);
 }
 
 static inline int
@@ -398,9 +397,8 @@ br_stub_is_bad_object(xlator_t *this, inode_t *inode)
 
     ret = br_stub_get_inode_ctx(this, inode, &ctx_addr);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
-               "failed to get the inode context for the inode %s",
-               uuid_utoa(inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                "inode-gfid=%s", uuid_utoa(inode->gfid), NULL);
         bad_object = -1;
         goto out;
     }
@@ -428,10 +426,8 @@ br_stub_mark_object_bad(xlator_t *this, inode_t *inode)
 
     ret = br_stub_get_inode_ctx(this, inode, &ctx_addr);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
-               "failed to get the "
-               "inode context for the inode %s",
-               uuid_utoa(inode->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_GET_INODE_CONTEXT_FAILED,
+                "inode-gfid=%s", uuid_utoa(inode->gfid), NULL);
         goto out;
     }
 

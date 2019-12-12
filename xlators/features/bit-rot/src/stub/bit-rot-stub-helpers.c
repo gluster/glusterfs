@@ -133,8 +133,8 @@ br_stub_add(xlator_t *this, uuid_t gfid)
          * show up less number of objects. That's fine as we'll have
          * the log files that will have the missing information.
          */
-        gf_msg(this->name, GF_LOG_WARNING, errno, BRS_MSG_LINK_FAIL,
-               "failed to record  gfid [%s]", uuid_utoa(gfid));
+        gf_smsg(this->name, GF_LOG_WARNING, errno, BRS_MSG_LINK_FAIL, "gfid=%s",
+                uuid_utoa(gfid), NULL);
     }
 
     return 0;
@@ -157,10 +157,8 @@ br_stub_del(xlator_t *this, uuid_t gfid)
              uuid_utoa(gfid));
     ret = sys_unlink(gfid_path);
     if (ret && (errno != ENOENT)) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJ_UNLINK_FAIL,
-               "%s: failed to delete bad object link from quarantine "
-               "directory",
-               gfid_path);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJ_UNLINK_FAIL,
+                "path=%s", gfid_path, NULL);
         ret = -errno;
         goto out;
     }
@@ -200,13 +198,13 @@ br_stub_check_stub_directory(xlator_t *this, char *fullpath)
     }
 
     if (ret)
-        gf_msg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
-               "failed to create stub directory [%s]", fullpath);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
+                "create-path=%s", fullpath, NULL);
     return ret;
 
 error_return:
-    gf_msg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
-           "Failed to verify stub directory [%s]", fullpath);
+    gf_smsg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
+            "verify-path=%s", fullpath, NULL);
     return -1;
 }
 
@@ -231,8 +229,8 @@ br_stub_check_stub_file(xlator_t *this, char *path)
             goto error_return;
         fd = sys_creat(path, 0);
         if (fd < 0)
-            gf_msg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
-                   "Failed to create stub file [%s]", path);
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    BRS_MSG_BAD_OBJECT_DIR_FAIL, "create-path=%s", path, NULL);
     }
 
     if (fd >= 0) {
@@ -243,8 +241,8 @@ br_stub_check_stub_file(xlator_t *this, char *path)
     return ret;
 
 error_return:
-    gf_msg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
-           "Failed to verify stub file [%s]", path);
+    gf_smsg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJECT_DIR_FAIL,
+            "verify-path=%s", path, NULL);
     return -1;
 }
 
@@ -463,12 +461,9 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
         seekdir(dir, off);
 #ifndef GF_LINUX_HOST_OS
         if ((u_long)telldir(dir) != off && off != fctx->bad_object.dir_eof) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0,
-                   BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL,
-                   "seekdir(0x%llx) failed on dir=%p: "
-                   "Invalid argument (offset reused from "
-                   "another DIR * structure?)",
-                   off, dir);
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL, "off=(0x%llx)", off,
+                    "dir=%p", dir, NULL);
             errno = EINVAL;
             count = -1;
             goto out;
@@ -480,9 +475,9 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
         in_case = (u_long)telldir(dir);
 
         if (in_case == -1) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0,
-                   BRS_MSG_BAD_OBJECT_DIR_TELL_FAIL,
-                   "telldir failed on dir=%p: %s", dir, strerror(errno));
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_BAD_OBJECT_DIR_TELL_FAIL, "dir=%p", dir, "err=%s",
+                    strerror(errno), NULL);
             goto out;
         }
 
@@ -490,9 +485,9 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
         entry = sys_readdir(dir, scratch);
         if (!entry || errno != 0) {
             if (errno == EBADF) {
-                gf_msg(THIS->name, GF_LOG_WARNING, 0,
-                       BRS_MSG_BAD_OBJECT_DIR_READ_FAIL,
-                       "readdir failed on dir=%p: %s", dir, strerror(errno));
+                gf_smsg(THIS->name, GF_LOG_WARNING, 0,
+                        BRS_MSG_BAD_OBJECT_DIR_READ_FAIL, "dir=%p", dir,
+                        "err=%s", strerror(errno), NULL);
                 goto out;
             }
             break;
@@ -514,12 +509,9 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
 #ifndef GF_LINUX_HOST_OS
             if ((u_long)telldir(dir) != in_case &&
                 in_case != fctx->bad_object.dir_eof) {
-                gf_msg(THIS->name, GF_LOG_ERROR, 0,
-                       BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL,
-                       "seekdir(0x%llx) failed on dir=%p: "
-                       "Invalid argument (offset reused from "
-                       "another DIR * structure?)",
-                       in_case, dir);
+                gf_smsg(THIS->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL, "in_case=(0x%llx)",
+                        in_case, "dir=%p", dir, NULL);
                 errno = EINVAL;
                 count = -1;
                 goto out;
@@ -531,9 +523,9 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
         this_entry = gf_dirent_for_name(entry->d_name);
 
         if (!this_entry) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, BRS_MSG_NO_MEMORY,
-                   "could not create gf_dirent for entry %s: (%s)",
-                   entry->d_name, strerror(errno));
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0,
+                    BRS_MSG_CREATE_GF_DIRENT_FAILED, "entry-name=%s",
+                    entry->d_name, "err=%s", strerror(errno), NULL);
             goto out;
         }
         /*
@@ -580,8 +572,8 @@ br_stub_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     fctx = br_stub_fd_ctx_get(this, fd);
     if (!fctx) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_GET_FD_CONTEXT_FAILED,
-               "pfd is NULL, fd=%p", fd);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_GET_FD_CONTEXT_FAILED,
+                "fd=%p", fd, NULL);
         op_errno = -ret;
         goto done;
     }
@@ -589,8 +581,8 @@ br_stub_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
     dir = fctx->bad_object.dir;
 
     if (!dir) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_BAD_HANDLE_DIR_NULL,
-               "dir is NULL for fd=%p", fd);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_BAD_HANDLE_DIR_NULL,
+                "fd=%p", fd, NULL);
         op_errno = EINVAL;
         goto done;
     }
@@ -680,10 +672,7 @@ br_stub_bad_objects_path(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
          * be shown.
          */
         if (!tmp_dict) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, BRS_MSG_NO_MEMORY,
-                   "failed to allocate new dict for saving the paths "
-                   "of the corrupted objects. Scrub status will only "
-                   "display the gfid");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ALLOC_FAILED, NULL);
             goto out;
         }
     }
@@ -707,9 +696,8 @@ br_stub_bad_objects_path(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
                          uuid_utoa(gfid), hpath);
             br_stub_entry_xattr_fill(this, hpath, entry, tmp_dict);
         } else
-            gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
-                   "failed to get the path for the inode %s",
-                   uuid_utoa_r(gfid, str_gfid));
+            gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
+                    "gfid=%s", uuid_utoa_r(gfid, str_gfid), NULL);
 
         inode = NULL;
         hpath = NULL;
@@ -744,10 +732,8 @@ br_stub_get_path_of_gfid(xlator_t *this, inode_t *parent, inode_t *inode,
     ret = syncop_gfid_to_path_hard(parent->table, FIRST_CHILD(this), gfid,
                                    inode, path, _gf_true);
     if (ret < 0)
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
-               "failed to get the path xattr from disk for the "
-               " gfid %s. Trying to get path from the memory",
-               uuid_utoa_r(gfid, gfid_str));
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
+                "gfid=%s", uuid_utoa_r(gfid, gfid_str), NULL);
 
     /*
      * Try with soft resolution of path if hard resolve fails. Because
@@ -768,9 +754,8 @@ br_stub_get_path_of_gfid(xlator_t *this, inode_t *parent, inode_t *inode,
         ret = syncop_gfid_to_path_hard(parent->table, FIRST_CHILD(this), gfid,
                                        inode, path, _gf_false);
         if (ret < 0)
-            gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
-                   "failed to get the path from the memory for gfid %s",
-                   uuid_utoa_r(gfid, gfid_str));
+            gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
+                    "from-memory  gfid=%s", uuid_utoa_r(gfid, gfid_str), NULL);
     }
 
 out:
@@ -804,10 +789,8 @@ br_stub_entry_xattr_fill(xlator_t *this, char *hpath, gf_dirent_t *entry,
 
     ret = dict_set_dynstr(dict, entry->d_name, hpath);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, BRS_MSG_DICT_SET_FAILED,
-               "failed to set the actual path %s as the value in the "
-               "dict for the corrupted object %s",
-               hpath, entry->d_name);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_DICT_SET_FAILED,
+                "path=%s", hpath, "object-name=%s", entry->d_name, NULL);
 out:
     return;
 }
