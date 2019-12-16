@@ -177,7 +177,7 @@ export DISPLAY
 
 export SSH_ASKPASS=${SSH_ASKPASS_SCRIPT}
 
-DISPLAY=: setsid ssh-copy-id -i ~/.ssh/id_rsa.pub $ssh_url
+DISPLAY=: setsid ssh-copy-id -o 'PreferredAuthentications=password' -o 'StrictHostKeyChecking=no' -i ~/.ssh/id_rsa.pub $ssh_url
 
 ##Setting up PATH for gluster binaries in case of source installation
 ##ssh -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $ssh_url "echo "export PATH=$PATH:/usr/local/sbin" >> ~/.bashrc"
