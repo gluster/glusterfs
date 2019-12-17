@@ -24,6 +24,18 @@
 
 GLFS_MSGID(IO_THREADS, IO_THREADS_MSG_INIT_FAILED,
            IO_THREADS_MSG_XLATOR_CHILD_MISCONFIGURED, IO_THREADS_MSG_NO_MEMORY,
-           IO_THREADS_MSG_VOL_MISCONFIGURED, IO_THREADS_MSG_SIZE_NOT_SET);
+           IO_THREADS_MSG_VOL_MISCONFIGURED, IO_THREADS_MSG_SIZE_NOT_SET,
+           IO_THREADS_MSG_OUT_OF_MEMORY, IO_THREADS_MSG_PTHREAD_INIT_FAILED,
+           IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED);
 
+#define IO_THREADS_MSG_INIT_FAILED_STR "Thread attribute initialization failed"
+#define IO_THREADS_MSG_SIZE_NOT_SET_STR "Using default thread stack size"
+#define IO_THREADS_MSG_NO_MEMORY_STR "Memory accounting init failed"
+#define IO_THREADS_MSG_XLATOR_CHILD_MISCONFIGURED_STR                          \
+    "FATAL: iot not configured with exactly one child"
+#define IO_THREADS_MSG_VOL_MISCONFIGURED_STR "dangling volume. check volfile"
+#define IO_THREADS_MSG_OUT_OF_MEMORY_STR "out of memory"
+#define IO_THREADS_MSG_PTHREAD_INIT_FAILED_STR "init failed"
+#define IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED_STR                           \
+    "cannot initialize worker threads, exiting init"
 #endif /* _IO_THREADS_MESSAGES_H_ */
