@@ -879,8 +879,8 @@ set_stack_size(iot_conf_t *conf)
 
     err = pthread_attr_init(&conf->w_attr);
     if (err != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, err, IO_THREADS_MSG_INIT_FAILED,
-               "Thread attribute initialization failed");
+        gf_smsg(this->name, GF_LOG_ERROR, err, IO_THREADS_MSG_INIT_FAILED,
+                NULL);
         return err;
     }
 
@@ -888,11 +888,11 @@ set_stack_size(iot_conf_t *conf)
     if (err == EINVAL) {
         err = pthread_attr_getstacksize(&conf->w_attr, &stacksize);
         if (!err) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, IO_THREADS_MSG_SIZE_NOT_SET,
-                   "Using default thread stack size %zd", stacksize);
+            gf_smsg(this->name, GF_LOG_WARNING, 0, IO_THREADS_MSG_SIZE_NOT_SET,
+                    "size=%zd", stacksize, NULL);
         } else {
-            gf_msg(this->name, GF_LOG_WARNING, 0, IO_THREADS_MSG_SIZE_NOT_SET,
-                   "Using default thread stack size");
+            gf_smsg(this->name, GF_LOG_WARNING, 0, IO_THREADS_MSG_SIZE_NOT_SET,
+                    NULL);
             err = 0;
         }
     }
@@ -912,8 +912,8 @@ mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_iot_mt_end + 1);
 
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_THREADS_MSG_NO_MEMORY,
-               "Memory accounting init failed");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_THREADS_MSG_NO_MEMORY,
+                NULL);
         return ret;
     }
 
@@ -1186,35 +1186,33 @@ init(xlator_t *this)
     int i = 0;
 
     if (!this->children || this->children->next) {
-        gf_msg("io-threads", GF_LOG_ERROR, 0,
-               IO_THREADS_MSG_XLATOR_CHILD_MISCONFIGURED,
-               "FATAL: iot not configured "
-               "with exactly one child");
+        gf_smsg("io-threads", GF_LOG_ERROR, 0,
+                IO_THREADS_MSG_XLATOR_CHILD_MISCONFIGURED, NULL);
         goto out;
     }
 
     if (!this->parents) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, IO_THREADS_MSG_VOL_MISCONFIGURED,
-               "dangling volume. check volfile ");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, IO_THREADS_MSG_VOL_MISCONFIGURED,
+                NULL);
     }
 
     conf = (void *)GF_CALLOC(1, sizeof(*conf), gf_iot_mt_iot_conf_t);
     if (conf == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_THREADS_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_THREADS_MSG_OUT_OF_MEMORY,
+                NULL);
         goto out;
     }
 
     if ((ret = pthread_cond_init(&conf->cond, NULL)) != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_INIT_FAILED,
-               "pthread_cond_init failed (%d)", ret);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_PTHREAD_INIT_FAILED,
+                "pthread_cond_init ret=%d", ret, NULL);
         goto out;
     }
     conf->cond_inited = _gf_true;
 
     if ((ret = pthread_mutex_init(&conf->mutex, NULL)) != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_INIT_FAILED,
-               "pthread_mutex_init failed (%d)", ret);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_PTHREAD_INIT_FAILED,
+                "pthread_mutex_init ret=%d", ret, NULL);
         goto out;
     }
     conf->mutex_inited = _gf_true;
@@ -1262,8 +1260,8 @@ init(xlator_t *this)
         ret = iot_workers_scale(conf);
 
         if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_INIT_FAILED,
-                   "cannot initialize worker threads, exiting init");
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED, NULL);
             goto out;
         }
     }
