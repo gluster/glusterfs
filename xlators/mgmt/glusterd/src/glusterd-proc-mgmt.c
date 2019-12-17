@@ -107,6 +107,8 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
                        "service, reason:%s",
                        proc->name, strerror(errno));
         }
+    } else {
+        (void)glusterd_unlink_file(proc->pidfile);
     }
     if (flags != PROC_STOP_FORCE)
         goto out;
