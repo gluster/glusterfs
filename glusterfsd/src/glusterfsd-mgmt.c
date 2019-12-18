@@ -992,7 +992,15 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
         if (ret) {
             ret = -1;
         }
-        glusterfs_translator_info_response_send(req, ret, NULL, NULL);
+        ret = glusterfs_translator_info_response_send(req, ret, NULL, NULL);
+        if (ret) {
+            /* Response sent back to glusterd, req is already destroyed. So
+             * resetting the ret to 0. Otherwise another response will be
+             * send from rpcsvc_check_and_reply_error. Which will lead to
+             * double resource leak.
+             */
+            ret = 0;
+        }
     unlock:
         UNLOCK(&ctx->volfile_lock);
     }
