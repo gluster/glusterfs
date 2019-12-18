@@ -328,16 +328,14 @@ ioc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     local = mem_get0(this->local_pool);
     if (local == NULL) {
         op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY, NULL);
         goto unwind;
     }
 
     ret = loc_copy(&local->file_loc, loc);
     if (ret != 0) {
         op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY, NULL);
         goto unwind;
     }
 
@@ -495,8 +493,8 @@ ioc_wait_on_inode(ioc_inode_t *ioc_inode, ioc_page_t *page)
     if (!page_found) {
         waiter = GF_CALLOC(1, sizeof(ioc_waitq_t), gf_ioc_mt_ioc_waitq_t);
         if (waiter == NULL) {
-            gf_msg(ioc_inode->table->xl->name, GF_LOG_ERROR, ENOMEM,
-                   IO_CACHE_MSG_NO_MEMORY, "out of memory");
+            gf_smsg(ioc_inode->table->xl->name, GF_LOG_ERROR, ENOMEM,
+                    IO_CACHE_MSG_NO_MEMORY, NULL);
             ret = -ENOMEM;
             goto out;
         }
@@ -533,8 +531,8 @@ ioc_cache_validate(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
         ret = -1;
         local->op_ret = -1;
         local->op_errno = ENOMEM;
-        gf_msg(ioc_inode->table->xl->name, GF_LOG_ERROR, 0,
-               IO_CACHE_MSG_NO_MEMORY, "out of memory");
+        gf_smsg(ioc_inode->table->xl->name, GF_LOG_ERROR, 0,
+                IO_CACHE_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
@@ -544,8 +542,8 @@ ioc_cache_validate(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
         local->op_ret = -1;
         local->op_errno = ENOMEM;
         mem_put(validate_local);
-        gf_msg(ioc_inode->table->xl->name, GF_LOG_ERROR, 0,
-               IO_CACHE_MSG_NO_MEMORY, "out of memory");
+        gf_smsg(ioc_inode->table->xl->name, GF_LOG_ERROR, 0,
+                IO_CACHE_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
@@ -627,9 +625,9 @@ ioc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         // TODO: see why inode context is NULL and handle it.
         if (!ioc_inode) {
-            gf_msg(this->name, GF_LOG_ERROR, EINVAL,
-                   IO_CACHE_MSG_ENFORCEMENT_FAILED,
-                   "inode context is NULL (%s)", uuid_utoa(fd->inode->gfid));
+            gf_smsg(this->name, GF_LOG_ERROR, EINVAL,
+                    IO_CACHE_MSG_ENFORCEMENT_FAILED, "inode-gfid=%s",
+                    uuid_utoa(fd->inode->gfid), NULL);
             goto out;
         }
 
@@ -721,9 +719,9 @@ ioc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  (table->max_file_size < ioc_inode->ia_size))) {
                 ret = fd_ctx_set(fd, this, 1);
                 if (ret)
-                    gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
-                           IO_CACHE_MSG_NO_MEMORY, "%s: failed to set fd ctx",
-                           local->file_loc.path);
+                    gf_smsg(this->name, GF_LOG_WARNING, ENOMEM,
+                            IO_CACHE_MSG_SET_FD_FAILED, "path=%s",
+                            local->file_loc.path, NULL);
             }
         }
         ioc_inode_unlock(ioc_inode);
@@ -737,9 +735,9 @@ ioc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
              * as a whole */
             ret = fd_ctx_set(fd, this, 1);
             if (ret)
-                gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
-                       IO_CACHE_MSG_NO_MEMORY, "%s: failed to set fd ctx",
-                       local->file_loc.path);
+                gf_smsg(this->name, GF_LOG_WARNING, ENOMEM,
+                        IO_CACHE_MSG_SET_FD_FAILED, "path=%s",
+                        local->file_loc.path, NULL);
         }
 
         /* if weight == 0, we disable caching on it */
@@ -747,9 +745,9 @@ ioc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /* we allow a pattern-matched cache disable this way */
             ret = fd_ctx_set(fd, this, 1);
             if (ret)
-                gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
-                       IO_CACHE_MSG_NO_MEMORY, "%s: failed to set fd ctx",
-                       local->file_loc.path);
+                gf_smsg(this->name, GF_LOG_WARNING, ENOMEM,
+                        IO_CACHE_MSG_SET_FD_FAILED, "path=%s",
+                        local->file_loc.path, NULL);
         }
     }
 
@@ -822,16 +820,14 @@ ioc_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     local = mem_get0(this->local_pool);
     if (local == NULL) {
         op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY, NULL);
         goto unwind;
     }
 
     ret = loc_copy(&local->file_loc, loc);
     if (ret != 0) {
         op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_NO_MEMORY, NULL);
         goto unwind;
     }
 
@@ -869,8 +865,7 @@ ioc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     local = mem_get0(this->local_pool);
     if (local == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
         STACK_UNWIND_STRICT(open, frame, -1, ENOMEM, NULL, NULL);
         return 0;
     }
@@ -905,8 +900,7 @@ ioc_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     local = mem_get0(this->local_pool);
     if (local == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
         STACK_UNWIND_STRICT(create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
                             NULL, NULL);
         return 0;
@@ -1017,8 +1011,8 @@ ioc_dispatch_requests(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                 trav = __ioc_page_create(ioc_inode, trav_offset);
                 fault = 1;
                 if (!trav) {
-                    gf_msg(frame->this->name, GF_LOG_CRITICAL, ENOMEM,
-                           IO_CACHE_MSG_NO_MEMORY, "out of memory");
+                    gf_smsg(frame->this->name, GF_LOG_CRITICAL, ENOMEM,
+                            IO_CACHE_MSG_NO_MEMORY, NULL);
                     local->op_ret = -1;
                     local->op_errno = ENOMEM;
                     ioc_inode_unlock(ioc_inode);
@@ -1154,8 +1148,8 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     table = this->private;
 
     if (!table) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
-               IO_CACHE_MSG_ENFORCEMENT_FAILED, "table is null");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, IO_CACHE_MSG_TABLE_NULL,
+                NULL);
         op_errno = EINVAL;
         goto out;
     }
@@ -1186,8 +1180,7 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     local = mem_get0(this->local_pool);
     if (local == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
         op_errno = ENOMEM;
         goto out;
     }
@@ -1283,8 +1276,7 @@ ioc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
     local = mem_get0(this->local_pool);
     if (local == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
 
         STACK_UNWIND_STRICT(writev, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
@@ -1636,8 +1628,8 @@ mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_ioc_mt_end + 1);
 
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "Memory accounting init failed");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM,
+                IO_CACHE_MSG_MEMORY_INIT_FAILED, NULL);
         return ret;
     }
 
@@ -1656,9 +1648,8 @@ check_cache_size_ok(xlator_t *this, uint64_t cache_size)
     opt = xlator_volume_option_get(this, "cache-size");
     if (!opt) {
         ret = _gf_false;
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL,
-               IO_CACHE_MSG_ENFORCEMENT_FAILED,
-               "could not get cache-size option");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL,
+                IO_CACHE_MSG_NO_CACHE_SIZE_OPT, NULL);
         goto out;
     }
 
@@ -1672,10 +1663,9 @@ check_cache_size_ok(xlator_t *this, uint64_t cache_size)
 
     if (cache_size > max_cache_size) {
         ret = _gf_false;
-        gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_INVALID_ARGUMENT,
-               "Cache size %" PRIu64
-               " is greater than the max size of %" PRIu64,
-               cache_size, max_cache_size);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_INVALID_ARGUMENT,
+                "Cache-size=%" PRIu64, cache_size, "max-size=%" PRIu64,
+                max_cache_size, NULL);
         goto out;
     }
 out:
@@ -1725,13 +1715,9 @@ reconfigure(xlator_t *this, dict_t *options)
 
         if ((table->max_file_size <= UINT64_MAX) &&
             (table->min_file_size > table->max_file_size)) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_INVALID_ARGUMENT,
-                   "minimum size (%" PRIu64
-                   ") of a file that can be cached is "
-                   "greater than maximum size (%" PRIu64
-                   "). "
-                   "Hence Defaulting to old value",
-                   table->min_file_size, table->max_file_size);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_DEFAULTING_TO_OLD,
+                    "minimum-size=%" PRIu64, table->min_file_size,
+                    "maximum-size=%" PRIu64, table->max_file_size, NULL);
             goto unlock;
         }
 
@@ -1739,8 +1725,8 @@ reconfigure(xlator_t *this, dict_t *options)
                          unlock);
         if (!check_cache_size_ok(this, cache_size_new)) {
             ret = -1;
-            gf_msg(this->name, GF_LOG_ERROR, 0, IO_CACHE_MSG_INVALID_ARGUMENT,
-                   "Not reconfiguring cache-size");
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    IO_CACHE_MSG_NOT_RECONFIG_CACHE_SIZE, NULL);
             goto unlock;
         }
         table->cache_size = cache_size_new;
@@ -1772,22 +1758,19 @@ init(xlator_t *this)
     xl_options = this->options;
 
     if (!this->children || this->children->next) {
-        gf_msg(this->name, GF_LOG_ERROR, 0,
-               IO_CACHE_MSG_XLATOR_CHILD_MISCONFIGURED,
-               "FATAL: io-cache not configured with exactly "
-               "one child");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                IO_CACHE_MSG_XLATOR_CHILD_MISCONFIGURED, NULL);
         goto out;
     }
 
     if (!this->parents) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, IO_CACHE_MSG_VOL_MISCONFIGURED,
-               "dangling volume. check volfile ");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, IO_CACHE_MSG_VOL_MISCONFIGURED,
+                NULL);
     }
 
     table = (void *)GF_CALLOC(1, sizeof(*table), gf_ioc_mt_ioc_table_t);
     if (table == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "out of memory");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
@@ -1829,11 +1812,9 @@ init(xlator_t *this)
 
     if ((table->max_file_size <= UINT64_MAX) &&
         (table->min_file_size > table->max_file_size)) {
-        gf_msg("io-cache", GF_LOG_ERROR, 0, IO_CACHE_MSG_INVALID_ARGUMENT,
-               "minimum size (%" PRIu64
-               ") of a file that can be cached is "
-               "greater than maximum size (%" PRIu64 ")",
-               table->min_file_size, table->max_file_size);
+        gf_smsg("io-cache", GF_LOG_ERROR, 0, IO_CACHE_MSG_INVALID_ARGUMENT,
+                "minimum-size=%" PRIu64, table->min_file_size,
+                "maximum-size=%" PRIu64, table->max_file_size, NULL);
         goto out;
     }
 
@@ -1849,8 +1830,8 @@ init(xlator_t *this)
     this->local_pool = mem_pool_new(ioc_local_t, 64);
     if (!this->local_pool) {
         ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "failed to create local_t's memory pool");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM,
+                IO_CACHE_MSG_CREATE_MEM_POOL_FAILED, NULL);
         goto out;
     }
 
@@ -1862,8 +1843,8 @@ init(xlator_t *this)
 
     table->mem_pool = mem_pool_new(rbthash_entry_t, num_pages);
     if (!table->mem_pool) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY,
-               "Unable to allocate mem_pool");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM,
+                IO_CACHE_MSG_ALLOC_MEM_POOL_FAILED, NULL);
         goto out;
     }
 
