@@ -307,8 +307,8 @@ __ioc_wait_on_page(ioc_page_t *page, call_frame_t *frame, off_t offset,
     if (page == NULL) {
         local->op_ret = -1;
         local->op_errno = ENOMEM;
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0, IO_CACHE_MSG_NO_MEMORY,
-               "asked to wait on a NULL page");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                IO_CACHE_MSG_NULL_PAGE_WAIT, NULL);
         goto out;
     }
 
@@ -461,12 +461,10 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             if (!page) {
                 /* page was flushed */
                 /* some serious bug ? */
-                gf_msg(frame->this->name, GF_LOG_WARNING, 0,
-                       IO_CACHE_MSG_WASTED_COPY,
-                       "wasted copy: %" PRId64 "[+%" PRId64
-                       "] "
-                       "ioc_inode=%p",
-                       offset, table->page_size, ioc_inode);
+                gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                        IO_CACHE_MSG_WASTED_COPY, "offset=%" PRId64, offset,
+                        "page-size=%" PRId64, table->page_size, "ioc_inode=%p",
+                        ioc_inode, NULL);
             } else {
                 if (page->vector) {
                     iobref_unref(page->iobref);
@@ -490,9 +488,8 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 } else {
                     /* TODO: we have got a response to
                      * our request and no data */
-                    gf_msg(frame->this->name, GF_LOG_CRITICAL, ENOMEM,
-                           IO_CACHE_MSG_NO_MEMORY,
-                           "frame>root>rsp_refs is null");
+                    gf_smsg(frame->this->name, GF_LOG_CRITICAL, ENOMEM,
+                            IO_CACHE_MSG_FRAME_NULL, NULL);
                 } /* if(frame->root->rsp_refs) */
 
                 /* page->size should indicate exactly how
@@ -578,8 +575,8 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
     if (frame == NULL) {
         op_ret = -1;
         op_errno = EINVAL;
-        gf_msg("io-cache", GF_LOG_WARNING, EINVAL,
-               IO_CACHE_MSG_ENFORCEMENT_FAILED, "page fault on a NULL frame");
+        gf_smsg("io-cache", GF_LOG_WARNING, EINVAL, IO_CACHE_MSG_PAGE_FAULT,
+                NULL);
         goto err;
     }
 
@@ -662,9 +659,8 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
     GF_VALIDATE_OR_GOTO(frame->this->name, local, out);
 
     if (page == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, 0,
-               IO_CACHE_MSG_ENFORCEMENT_FAILED,
-               "NULL page has been provided to serve read request");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
+                IO_CACHE_MSG_SERVE_READ_REQUEST, NULL);
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto out;
@@ -799,8 +795,8 @@ ioc_frame_unwind(call_frame_t *frame)
 
     local = frame->local;
     if (local == NULL) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-               IO_CACHE_MSG_NO_MEMORY, "local is NULL");
+        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
+                IO_CACHE_MSG_LOCAL_NULL, NULL);
         op_ret = -1;
         op_errno = ENOMEM;
         goto unwind;
