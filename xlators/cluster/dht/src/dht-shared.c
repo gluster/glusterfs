@@ -17,23 +17,6 @@
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#define GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf)                  \
-    {                                                                          \
-        throttle_count = MAX((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);          \
-        pthread_mutex_lock(&conf->defrag->dfq_mutex);                          \
-                                                                               \
-        if (!strcasecmp(conf->dthrottle, "lazy"))                              \
-            conf->defrag->recon_thread_count = 1;                              \
-                                                                               \
-        else if (!strcasecmp(conf->dthrottle, "normal"))                       \
-            conf->defrag->recon_thread_count = (throttle_count / 2);           \
-                                                                               \
-        else if (!strcasecmp(conf->dthrottle, "aggressive"))                   \
-            conf->defrag->recon_thread_count = throttle_count;                 \
-                                                                               \
-        pthread_mutex_unlock(&conf->defrag->dfq_mutex);                        \
-    }
-
 /* TODO:
    - use volumename in xattr instead of "dht"
    - use NS locks
@@ -41,17 +24,13 @@
    - complete linkfile selfheal
 */
 
-extern dht_methods_t dht_methods;
-
-void
+static void
 dht_layout_dump(dht_layout_t *layout, const char *prefix)
 {
     char key[GF_DUMP_MAX_BUF_LEN];
     int i = 0;
 
     if (!layout)
-        goto out;
-    if (!prefix)
         goto out;
 
     gf_proc_dump_build_key(key, prefix, "cnt");
@@ -263,7 +242,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_parse_decommissioned_bricks(xlator_t *this, dht_conf_t *conf,
                                 const char *bricks)
 {
@@ -309,14 +288,10 @@ out:
     return ret;
 }
 
-int
+static void
 dht_decommissioned_remove(xlator_t *this, dht_conf_t *conf)
 {
     int i = 0;
-    int ret = -1;
-
-    if (!conf)
-        goto out;
 
     for (i = 0; i < conf->subvolume_cnt; i++) {
         if (conf->decommissioned_bricks[i]) {
@@ -324,13 +299,9 @@ dht_decommissioned_remove(xlator_t *this, dht_conf_t *conf)
             conf->decommission_subvols_cnt--;
         }
     }
-
-    ret = 0;
-out:
-
-    return ret;
 }
-void
+
+static void
 dht_init_regex(xlator_t *this, dict_t *odict, char *name, regex_t *re,
                gf_boolean_t *re_valid, dht_conf_t *conf)
 {
@@ -387,7 +358,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_configure_throttle(xlator_t *this, dht_conf_t *conf, char *temp_str)
 {
     int rebal_thread_count = 0;
@@ -526,9 +497,7 @@ dht_reconfigure(xlator_t *this, dict_t *options)
         if (ret == -1)
             goto out;
     } else {
-        ret = dht_decommissioned_remove(this, conf);
-        if (ret == -1)
-            goto out;
+        dht_decommissioned_remove(this, conf);
     }
 
     dht_init_regex(this, options, "rsync-hash-regex", &conf->rsync_regex,
@@ -614,7 +583,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_init_methods(xlator_t *this)
 {
     int ret = -1;

@@ -11,7 +11,7 @@
 #include <glusterfs/compat.h>
 #include "dht-common.h"
 
-int
+static int
 dht_linkfile_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, inode_t *inode,
                         struct iatt *stbuf, dict_t *xattr,
@@ -43,8 +43,7 @@ out:
     return 0;
 }
 
-#define is_equal(a, b) ((a) == (b))
-int
+static int
 dht_linkfile_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, inode_t *inode,
                         struct iatt *stbuf, struct iatt *preparent,
@@ -251,7 +250,7 @@ out:
     return subvol;
 }
 
-int
+static int
 dht_linkfile_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, struct iatt *statpre,
                          struct iatt *statpost, dict_t *xdata)

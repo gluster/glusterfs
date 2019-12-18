@@ -10,17 +10,17 @@
 
 #include "dht-common.h"
 
-int
+static int
 dht_writev2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
-int
+static int
 dht_truncate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
-int
+static int
 dht_setattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
-int
+static int
 dht_fallocate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
-int
+static int
 dht_discard2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
-int
+static int
 dht_zerofill2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
 
 int
@@ -142,7 +142,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_writev2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -336,7 +336,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_truncate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -555,7 +555,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_fallocate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -731,7 +731,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_discard2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -902,7 +902,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_zerofill2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -1049,7 +1049,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_setattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;

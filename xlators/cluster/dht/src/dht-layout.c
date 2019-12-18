@@ -254,7 +254,7 @@ dht_disk_layout_extract_for_subvol(xlator_t *this, dht_layout_t *layout,
     return dht_disk_layout_extract(this, layout, i, disk_layout_p);
 }
 
-int
+static int
 dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
                       void *disk_layout_raw, int disk_layout_len)
 {
@@ -412,8 +412,7 @@ dht_layout_range_swap(dht_layout_t *layout, int i, int j)
     layout->list[j].start = start_swap;
     layout->list[j].stop = stop_swap;
 }
-
-int64_t
+static int64_t
 dht_layout_entry_cmp_volname(dht_layout_t *layout, int i, int j)
 {
     return (strcmp(layout->list[i].xlator->name, layout->list[j].xlator->name));
@@ -436,7 +435,7 @@ dht_is_subvol_in_layout(dht_layout_t *layout, xlator_t *xlator)
     return _gf_false;
 }
 
-int64_t
+static int64_t
 dht_layout_entry_cmp(dht_layout_t *layout, int i, int j)
 {
     int64_t diff = 0;
@@ -472,7 +471,7 @@ dht_layout_sort(dht_layout_t *layout)
     return 0;
 }
 
-int
+void
 dht_layout_sort_volname(dht_layout_t *layout)
 {
     int i = 0;
@@ -488,8 +487,6 @@ dht_layout_sort_volname(dht_layout_t *layout)
                 dht_layout_entry_swap(layout, i, j);
         }
     }
-
-    return 0;
 }
 
 void
