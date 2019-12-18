@@ -10,25 +10,25 @@
 
 #include "dht-common.h"
 
-int
+static int
 dht_access2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_readv2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_attr2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_open2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_flush2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_lk2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_fsync2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
-int
+static int
 dht_common_xattrop2(xlator_t *this, xlator_t *subvol, call_frame_t *frame,
                     int ret);
 
-int
+static int
 dht_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
              int op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -67,7 +67,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_open2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -216,7 +216,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_attr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -258,7 +258,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
              int op_errno, struct iatt *stbuf, dict_t *xdata)
 {
@@ -473,7 +473,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_readv2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -558,7 +558,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                int op_errno, dict_t *xdata)
 {
@@ -606,7 +606,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_access2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -735,7 +735,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_flush2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -881,7 +881,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_fsync2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -959,7 +959,7 @@ err:
 /* TODO: for 'lk()' call, we need some other special error, may be ESTALE to
    indicate that lock migration happened on the fd, so we can consider it as
    phase 2 of migration */
-int
+static int
 dht_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
            int op_errno, struct gf_flock *flock, dict_t *xdata)
 {
@@ -1006,7 +1006,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_lk2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
@@ -1087,7 +1087,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
               int op_errno, struct gf_lease *lease, dict_t *xdata)
 {
@@ -1129,7 +1129,7 @@ err:
 }
 
 /* Symlinks are currently not migrated, so no need for any check here */
-int
+static int
 dht_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, const char *path, struct iatt *stbuf,
                  dict_t *xdata)
@@ -1305,7 +1305,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_common_xattrop2(xlator_t *this, xlator_t *subvol, call_frame_t *frame,
                     int ret)
 {
@@ -1364,7 +1364,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
@@ -1452,7 +1452,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
@@ -1525,7 +1525,7 @@ err:
  * below fops, hence not implementing 'migration' related checks
  */
 
-int
+static int
 dht_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
 
