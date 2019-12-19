@@ -152,7 +152,7 @@ struct posix_private {
 
     char *trash_path;
     /* lock for brick dir */
-    DIR *mount_lock;
+    int mount_lock;
 
     struct stat handledir;
 
@@ -214,6 +214,8 @@ struct posix_private {
     mode_t create_mask;
     mode_t create_directory_mask;
     uint32_t max_hardlinks;
+    int32_t arrdfd[256];
+    int dirfd;
 
     /* This option is used for either to call a landfill_purge or not */
     gf_boolean_t disable_landfill_purge;
@@ -331,6 +333,7 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
 int
 posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *real_path,
             struct iatt *iatt, gf_boolean_t inode_locked);
+
 dict_t *
 posix_xattr_fill(xlator_t *this, const char *path, loc_t *loc, fd_t *fd,
                  int fdnum, dict_t *xattr, struct iatt *buf);

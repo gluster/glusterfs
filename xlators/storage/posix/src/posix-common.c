@@ -543,6 +543,30 @@ posix_create_unlink_dir(xlator_t *this)
     return 0;
 }
 
+int
+posix_create_open_directory_based_fd(xlator_t *this, int pdirfd, char *dir_name)
+{
+    int ret = -1;
+
+    ret = sys_openat(pdirfd, dir_name, (O_DIRECTORY | O_RDONLY), 0);
+    if (ret < 0 && errno == ENOENT) {
+        ret = sys_mkdirat(pdirfd, dir_name, 0700);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
+                   "Creating directory %s failed", dir_name);
+            goto out;
+        }
+        ret = sys_openat(pdirfd, dir_name, (O_DIRECTORY | O_RDONLY), 0);
+        if (ret < 0 && errno != EEXIST) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
+                   "error mkdir hash-1 %s ", dir_name);
+            goto out;
+        }
+    }
+out:
+    return ret;
+}
+
 /**
  * init -
  */
@@ -579,6 +603,14 @@ posix_init(xlator_t *this)
     int force_directory = -1;
     int create_mask = -1;
     int create_directory_mask = -1;
+    char dir_handle[PATH_MAX] = {
+        0,
+    };
+    int i;
+    char fhash[4] = {
+        0,
+    };
+    int hdirfd = -1;
 
     dir_data = dict_get(this->options, "directory");
 
@@ -620,6 +652,11 @@ posix_init(xlator_t *this)
 
     _private->base_path = gf_strdup(dir_data->data);
     _private->base_path_length = dir_data->len - 1;
+
+    _private->dirfd = -1;
+    _private->mount_lock = -1;
+    for (i = 0; i < 256; i++)
+        _private->arrdfd[i] = -1;
 
     ret = dict_get_str(this->options, "hostname", &_private->hostname);
     if (ret) {
@@ -893,8 +930,9 @@ posix_init(xlator_t *this)
     /* performing open dir on brick dir locks the brick dir
      * and prevents it from being unmounted
      */
-    _private->mount_lock = sys_opendir(dir_data->data);
-    if (!_private->mount_lock) {
+    _private->mount_lock = sys_open(dir_data->data, (O_DIRECTORY | O_RDONLY),
+                                    0);
+    if (_private->mount_lock < 0) {
         ret = -1;
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_DIR_OPERATION_FAILED,
@@ -938,6 +976,28 @@ posix_init(xlator_t *this)
     }
 
     this->private = (void *)_private;
+    snprintf(dir_handle, sizeof(dir_handle), "%s/%s", _private->base_path,
+             GF_HIDDEN_PATH);
+    hdirfd = posix_create_open_directory_based_fd(this, _private->mount_lock,
+                                                  dir_handle);
+    if (hdirfd < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
+               "error open directory failed for dir %s", dir_handle);
+        ret = -1;
+        goto out;
+    }
+    _private->dirfd = hdirfd;
+    for (i = 0; i < 256; i++) {
+        snprintf(fhash, sizeof(fhash), "%02x", i);
+        _private->arrdfd[i] = posix_create_open_directory_based_fd(this, hdirfd,
+                                                                   fhash);
+        if (_private->arrdfd[i] < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
+                   "error openat failed for file %s", fhash);
+            ret = -1;
+            goto out;
+        }
+    }
 
     op_ret = posix_handle_init(this);
     if (op_ret == -1) {
@@ -1101,9 +1161,27 @@ posix_init(xlator_t *this)
                    out);
 
     GF_OPTION_INIT("ctime", _private->ctime, bool, out);
+
 out:
     if (ret) {
         if (_private) {
+            if (_private->dirfd >= 0) {
+                sys_close(_private->dirfd);
+                _private->dirfd = -1;
+            }
+
+            for (i = 0; i < 256; i++) {
+                if (_private->arrdfd[i] >= 0) {
+                    sys_close(_private->arrdfd[i]);
+                    _private->arrdfd[i] = -1;
+                }
+            }
+            /*unlock brick dir*/
+            if (_private->mount_lock >= 0) {
+                (void)sys_close(_private->mount_lock);
+                _private->mount_lock = -1;
+            }
+
             GF_FREE(_private->base_path);
 
             GF_FREE(_private->hostname);
@@ -1124,6 +1202,7 @@ posix_fini(xlator_t *this)
     struct posix_private *priv = this->private;
     gf_boolean_t health_check = _gf_false;
     int ret = 0;
+    int i = 0;
 
     if (!priv)
         return;
@@ -1133,6 +1212,18 @@ posix_fini(xlator_t *this)
         priv->health_check_active = _gf_false;
     }
     UNLOCK(&priv->lock);
+
+    if (priv->dirfd >= 0) {
+        sys_close(priv->dirfd);
+        priv->dirfd = -1;
+    }
+
+    for (i = 0; i < 256; i++) {
+        if (priv->arrdfd[i] >= 0) {
+            sys_close(priv->arrdfd[i]);
+            priv->arrdfd[i] = -1;
+        }
+    }
 
     if (health_check) {
         (void)gf_thread_cleanup_xint(priv->health_check);
@@ -1161,8 +1252,10 @@ posix_fini(xlator_t *this)
         priv->fsyncer = 0;
     }
     /*unlock brick dir*/
-    if (priv->mount_lock)
-        (void)sys_closedir(priv->mount_lock);
+    if (priv->mount_lock >= 0) {
+        (void)sys_close(priv->mount_lock);
+        priv->mount_lock = -1;
+    }
 
     GF_FREE(priv->base_path);
     LOCK_DESTROY(&priv->lock);

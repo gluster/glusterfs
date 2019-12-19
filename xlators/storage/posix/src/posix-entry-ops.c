@@ -176,6 +176,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     struct posix_private *priv = NULL;
     posix_inode_ctx_t *ctx = NULL;
     int ret = 0;
+    int dfd = -1;
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -232,12 +233,12 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
             if (!op_errno)
                 op_errno = ESTALE;
             loc_gfid(loc, gfid);
-            MAKE_HANDLE_ABSPATH(gfid_path, this, gfid);
-            ret = sys_stat(gfid_path, &statbuf);
+            MAKE_HANDLE_ABSPATH_FD(gfid_path, this, gfid, dfd);
+            ret = sys_fstatat(dfd, gfid_path, &statbuf, 0);
             if (ret == 0 && ((statbuf.st_mode & S_IFMT) == S_IFDIR))
                 /*Don't unset if it was a symlink to a dir.*/
                 goto parent;
-            ret = sys_lstat(gfid_path, &statbuf);
+            ret = sys_fstatat(dfd, gfid_path, &statbuf, AT_SYMLINK_NOFOLLOW);
             if (ret == 0 && statbuf.st_nlink == 1) {
                 gf_msg(this->name, GF_LOG_WARNING, op_errno,
                        P_MSG_HANDLE_DELETE,

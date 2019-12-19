@@ -1039,6 +1039,7 @@ sys_futimes
 sys_lchown
 sys_lgetxattr
 sys_link
+sys_linkat
 sys_llistxattr
 sys_lremovexattr
 sys_lseek
@@ -1062,8 +1063,10 @@ sys_rmdir
 sys_stat
 sys_statvfs
 sys_symlink
+sys_symlinkat
 sys_truncate
 sys_unlink
+sys_unlinkat
 sys_utimensat
 sys_write
 sys_writev

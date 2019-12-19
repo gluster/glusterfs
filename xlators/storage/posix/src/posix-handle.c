@@ -25,7 +25,7 @@
 #include <glusterfs/compat-errno.h>
 
 int
-posix_handle_mkdir_hashes(xlator_t *this, const char *newpath);
+posix_handle_mkdir_hashes(xlator_t *this, int dfd, uuid_t gfid);
 
 inode_t *
 posix_resolve(xlator_t *this, inode_table_t *itable, inode_t *parent,
@@ -331,9 +331,23 @@ posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
     int ret = 0;
     int blen = 0;
     int link_len = 0;
+    char tmpstr[POSIX_GFID_HASH2_LEN] = {
+        0,
+    };
+    char d2[3] = {
+        0,
+    };
+    int index = 0;
+    int dirfd = 0;
+    struct posix_private *priv = this->private;
+
+    strncpy(tmpstr, (base_str + pfx_len + 3), 40);
+    strncpy(d2, (base_str + pfx_len), 2);
+    index = strtoul(d2, NULL, 16);
+    dirfd = priv->arrdfd[index];
 
     /* is a directory's symlink-handle */
-    ret = sys_readlink(base_str, linkname, 512);
+    ret = readlinkat(dirfd, tmpstr, linkname, 512);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_READLINK_FAILED,
                "internal readlink failed on %s ", base_str);
@@ -398,6 +412,11 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
     int pfx_len;
     int maxlen;
     char *buf;
+    int index = 0;
+    int dfd = 0;
+    char newstr[POSIX_GFID_HASH2_LEN] = {
+        0,
+    };
 
     priv = this->private;
 
@@ -411,12 +430,14 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
         buf = alloca(maxlen);
     }
 
+    index = gfid[0];
+    dfd = priv->arrdfd[index];
+
     base_len = (priv->base_path_length + SLEN(GF_HIDDEN_PATH) + 45);
     base_str = alloca(base_len + 1);
     base_len = snprintf(base_str, base_len + 1, "%s/%s/%02x/%02x/%s",
                         priv->base_path, GF_HIDDEN_PATH, gfid[0], gfid[1],
                         uuid_str);
-
     pfx_len = priv->base_path_length + 1 + SLEN(GF_HIDDEN_PATH) + 1;
 
     if (basename) {
@@ -425,7 +446,8 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
         len = snprintf(buf, maxlen, "%s", base_str);
     }
 
-    ret = sys_lstat(base_str, &stat);
+    snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_str);
+    ret = sys_fstatat(dfd, newstr, &stat, AT_SYMLINK_NOFOLLOW);
 
     if (!(ret == 0 && S_ISLNK(stat.st_mode) && stat.st_nlink == 1))
         goto out;
@@ -438,7 +460,6 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
 
         if (ret == -1)
             break;
-
         ret = sys_lstat(buf, &stat);
     } while ((ret == -1) && errno == ELOOP);
 
@@ -485,6 +506,7 @@ posix_handle_init(xlator_t *this)
     struct stat exportbuf;
     char *rootstr = NULL;
     static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    int dfd = 0;
 
     priv = this->private;
 
@@ -534,9 +556,8 @@ posix_handle_init(xlator_t *this)
         return -1;
     }
 
-    MAKE_HANDLE_ABSPATH(rootstr, this, gfid);
-
-    ret = sys_stat(rootstr, &rootbuf);
+    MAKE_HANDLE_ABSPATH_FD(rootstr, this, gfid, dfd);
+    ret = sys_fstatat(dfd, rootstr, &rootbuf, 0);
     switch (ret) {
         case -1:
             if (errno != ENOENT) {
@@ -544,15 +565,14 @@ posix_handle_init(xlator_t *this)
                        "%s", priv->base_path);
                 return -1;
             }
-
-            ret = posix_handle_mkdir_hashes(this, rootstr);
+            ret = posix_handle_mkdir_hashes(this, dfd, gfid);
             if (ret) {
                 gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
                        "mkdir %s failed", rootstr);
                 return -1;
             }
 
-            ret = sys_symlink("../../..", rootstr);
+            ret = sys_symlinkat("../../..", dfd, rootstr);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
                        "symlink %s creation failed", rootstr);
@@ -681,30 +701,18 @@ out:
 }
 
 int
-posix_handle_mkdir_hashes(xlator_t *this, const char *newpath)
+posix_handle_mkdir_hashes(xlator_t *this, int dirfd, uuid_t gfid)
 {
-    char *duppath = NULL;
-    char *parpath = NULL;
-    int ret = 0;
+    int ret = -1;
+    char d2[3] = {
+        0,
+    };
 
-    duppath = strdupa(newpath);
-    parpath = dirname(duppath);
-    parpath = dirname(duppath);
-
-    ret = sys_mkdir(parpath, 0700);
+    snprintf(d2, sizeof(d2), "%02x", gfid[1]);
+    ret = sys_mkdirat(dirfd, d2, 0700);
     if (ret == -1 && errno != EEXIST) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
-               "error mkdir hash-1 %s ", parpath);
-        return -1;
-    }
-
-    strcpy(duppath, newpath);
-    parpath = dirname(duppath);
-
-    ret = sys_mkdir(parpath, 0700);
-    if (ret == -1 && errno != EEXIST) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
-               "error mkdir hash-2 %s ", parpath);
+               "error mkdir hash-2 %s ", uuid_utoa(gfid));
         return -1;
     }
 
@@ -715,51 +723,59 @@ int
 posix_handle_hard(xlator_t *this, const char *oldpath, uuid_t gfid,
                   struct stat *oldbuf)
 {
-    char *newpath = NULL;
     struct stat newbuf;
+    struct stat hashbuf;
     int ret = -1;
     gf_boolean_t link_exists = _gf_false;
+    char d2[3] = {
+        0,
+    };
+    int dfd = -1;
+    char *newstr = NULL;
 
-    MAKE_HANDLE_ABSPATH(newpath, this, gfid);
+    MAKE_HANDLE_ABSPATH_FD(newstr, this, gfid, dfd);
+    ret = sys_fstatat(dfd, newstr, &newbuf, AT_SYMLINK_NOFOLLOW);
 
-    ret = sys_lstat(newpath, &newbuf);
     if (ret == -1 && errno != ENOENT) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE, "%s",
-               newpath);
+               uuid_utoa(gfid));
         return -1;
     }
 
     if (ret == -1 && errno == ENOENT) {
-        ret = posix_handle_mkdir_hashes(this, newpath);
+        snprintf(d2, sizeof(d2), "%02x", gfid[1]);
+        ret = sys_fstatat(dfd, d2, &hashbuf, 0);
         if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "mkdir %s failed ", newpath);
-            return -1;
+            ret = posix_handle_mkdir_hashes(this, dfd, gfid);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
+                       "mkdir %s failed ", uuid_utoa(gfid));
+                return -1;
+            }
         }
-
-        ret = sys_link(oldpath, newpath);
+        ret = sys_linkat(AT_FDCWD, oldpath, dfd, newstr);
 
         if (ret) {
             if (errno != EEXIST) {
                 gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
                        "link %s -> %s"
                        "failed ",
-                       oldpath, newpath);
+                       oldpath, newstr);
                 return -1;
             } else {
                 link_exists = _gf_true;
             }
         }
+        ret = sys_fstatat(dfd, newstr, &newbuf, AT_SYMLINK_NOFOLLOW);
 
-        ret = sys_lstat(newpath, &newbuf);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "lstat on %s failed", newpath);
+                   "lstat on %s failed", uuid_utoa(gfid));
             return -1;
         }
         if ((link_exists) && (!S_ISREG(newbuf.st_mode))) {
             gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_HANDLE_CREATE,
-                   "%s - Expected regular file", newpath);
+                   "%s - Expected regular file", uuid_utoa(gfid));
             return -1;
         }
     }
@@ -769,7 +785,8 @@ posix_handle_hard(xlator_t *this, const char *oldpath, uuid_t gfid,
                "mismatching ino/dev between file %s (%lld/%lld) "
                "and handle %s (%lld/%lld)",
                oldpath, (long long)oldbuf->st_ino, (long long)oldbuf->st_dev,
-               newpath, (long long)newbuf.st_ino, (long long)newbuf.st_dev);
+               uuid_utoa(gfid), (long long)newbuf.st_ino,
+               (long long)newbuf.st_dev);
         ret = -1;
     }
 
@@ -783,15 +800,23 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
     char *oldpath = NULL;
     char *newpath = NULL;
     struct stat newbuf;
+    struct stat hashbuf;
     int ret = -1;
+    char d2[3] = {
+        0,
+    };
+    int dfd = -1;
+    char *newstr = NULL;
 
     MAKE_HANDLE_ABSPATH(newpath, this, gfid);
+    MAKE_HANDLE_ABSPATH_FD(newstr, this, gfid, dfd);
     MAKE_HANDLE_RELPATH(oldpath, this, loc->pargfid, loc->name);
 
-    ret = sys_lstat(newpath, &newbuf);
+    ret = sys_fstatat(dfd, newstr, &newbuf, AT_SYMLINK_NOFOLLOW);
+
     if (ret == -1 && errno != ENOENT) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE, "%s",
-               newpath);
+               newstr);
         return -1;
     }
 
@@ -801,24 +826,30 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
             errno = EINVAL;
             return -1;
         }
-        ret = posix_handle_mkdir_hashes(this, newpath);
+
+        snprintf(d2, sizeof(d2), "%02x", gfid[1]);
+        ret = sys_fstatat(dfd, d2, &hashbuf, 0);
+
+        if (ret) {
+            ret = posix_handle_mkdir_hashes(this, dfd, gfid);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
+                       "mkdir %s failed ", newstr);
+                return -1;
+            }
+        }
+        ret = sys_symlinkat(oldpath, dfd, newstr);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "mkdir %s failed ", newpath);
+                   "symlink %s -> %s failed", oldpath, newstr);
             return -1;
         }
 
-        ret = sys_symlink(oldpath, newpath);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "symlink %s -> %s failed", oldpath, newpath);
-            return -1;
-        }
+        ret = sys_fstatat(dfd, newstr, &newbuf, AT_SYMLINK_NOFOLLOW);
 
-        ret = sys_lstat(newpath, &newbuf);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "stat on %s failed ", newpath);
+                   "stat on %s failed ", newstr);
             return -1;
         }
     }
@@ -826,7 +857,7 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
     ret = sys_stat(real_path, &newbuf);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-               "stat on %s failed ", newpath);
+               "stat on %s failed ", real_path);
         return -1;
     }
 
@@ -848,26 +879,33 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
 int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
-    char *path = NULL;
-    int ret = -1;
+    int ret = 0;
     struct stat stat;
+    int index = 0;
+    int dfd = 0;
+    char newstr[POSIX_GFID_HASH2_LEN] = {
+        0,
+    };
+    struct posix_private *priv = this->private;
 
-    MAKE_HANDLE_GFID_PATH(path, this, gfid);
+    index = gfid[0];
+    dfd = priv->arrdfd[index];
 
-    ret = sys_lstat(path, &stat);
+    snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_utoa(gfid));
+    ret = sys_fstatat(dfd, newstr, &stat, AT_SYMLINK_NOFOLLOW);
 
     if (ret == -1) {
         if (errno != ENOENT) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
-                   path);
+                   newstr);
         }
         goto out;
     }
 
-    ret = sys_unlink(path);
-    if (ret == -1) {
+    ret = sys_unlinkat(dfd, newstr);
+    if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE,
-               "unlink %s failed ", path);
+               "unlink %s is failed", newstr);
     }
 
 out:
