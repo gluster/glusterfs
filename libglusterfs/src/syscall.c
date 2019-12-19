@@ -214,6 +214,15 @@ sys_unlink(const char *pathname)
 }
 
 int
+sys_unlinkat(int dfd, const char *pathname)
+{
+#ifdef GF_SOLARIS_HOST_OS
+    return FS_RET_CHECK0(solaris_unlinkat(dfd, pathname, 0), errno);
+#endif
+    return FS_RET_CHECK0(unlinkat(dfd, pathname, 0), errno);
+}
+
+int
 sys_rmdir(const char *pathname)
 {
     return FS_RET_CHECK0(rmdir(pathname), errno);
@@ -223,6 +232,12 @@ int
 sys_symlink(const char *oldpath, const char *newpath)
 {
     return FS_RET_CHECK0(symlink(oldpath, newpath), errno);
+}
+
+int
+sys_symlinkat(const char *oldpath, int dirfd, const char *newpath)
+{
+    return FS_RET_CHECK0(symlinkat(oldpath, dirfd, newpath), errno);
 }
 
 int
@@ -250,6 +265,12 @@ sys_link(const char *oldpath, const char *newpath)
 #else
     return FS_RET_CHECK0(link(oldpath, newpath), errno);
 #endif
+}
+
+int
+sys_linkat(int oldfd, const char *oldpath, int newfd, const char *newpath)
+{
+    return FS_RET_CHECK0(linkat(oldfd, oldpath, newfd, newpath, 0), errno);
 }
 
 int

@@ -96,16 +96,25 @@ int
 sys_unlink(const char *pathname);
 
 int
+sys_unlinkat(int dfd, const char *pathname);
+
+int
 sys_rmdir(const char *pathname);
 
 int
 sys_symlink(const char *oldpath, const char *newpath);
 
 int
+sys_symlinkat(const char *oldpath, int dirfd, const char *newpath);
+
+int
 sys_rename(const char *oldpath, const char *newpath);
 
 int
 sys_link(const char *oldpath, const char *newpath);
+
+int
+sys_linkat(int oldfd, const char *oldpath, int newfd, const char *newpath);
 
 int
 sys_chmod(const char *path, mode_t mode);

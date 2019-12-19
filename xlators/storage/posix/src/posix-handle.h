@@ -141,6 +141,16 @@
                  __priv->base_path, gfid[0], gfid[1], uuid_utoa(gfid));        \
     } while (0)
 
+#define MAKE_HANDLE_ABSPATH_FD(var, this, gfid, dfd)                           \
+    do {                                                                       \
+        struct posix_private *__priv = this->private;                          \
+        int findex = gfid[0];                                                  \
+        int __len = POSIX_GFID_HASH2_LEN;                                      \
+        var = alloca(__len);                                                   \
+        snprintf(var, __len, "%02x/%s", gfid[1], uuid_utoa(gfid));             \
+        dfd = __priv->arrdfd[findex];                                          \
+    } while (0)
+
 #define MAKE_ENTRY_HANDLE(entp, parp, this, loc, ent_p)                        \
     do {                                                                       \
         char *__parp;                                                          \
@@ -184,6 +194,7 @@
         /* expand ELOOP */                                                     \
     } while (0)
 
+#define POSIX_GFID_HASH2_LEN 45
 int
 posix_handle_gfid_path(xlator_t *this, uuid_t gfid, char *buf, size_t len);
 
