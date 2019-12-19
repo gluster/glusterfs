@@ -137,7 +137,8 @@ gf_timer_proc(void *data)
             timespec_now(&now);
             event = list_first_entry(&reg->active, gf_timer_t, list);
             if (TS(now) < TS(event->at)) {
-                pthread_cond_timedwait(&reg->cond, &reg->lock, &event->at);
+                now = event->at;
+                pthread_cond_timedwait(&reg->cond, &reg->lock, &now);
             } else {
                 event->fired = _gf_true;
                 list_del_init(&event->list);
