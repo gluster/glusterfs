@@ -80,7 +80,8 @@ __shard_inode_ctx_get(inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
     INIT_LIST_HEAD(&ctx_p->ilist);
     INIT_LIST_HEAD(&ctx_p->to_fsync_list);
 
-    ret = __inode_ctx_set(inode, this, (uint64_t *)&ctx_p);
+    ctx_uint = (uint64_t)(uintptr_t)ctx_p;
+    ret = __inode_ctx_set(inode, this, &ctx_uint);
     if (ret < 0) {
         GF_FREE(ctx_p);
         return ret;
