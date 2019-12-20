@@ -381,14 +381,12 @@ ioc_forget(xlator_t *this, inode_t *inode)
 static int32_t
 ioc_invalidate(xlator_t *this, inode_t *inode)
 {
-    uint64_t ioc_addr = 0;
-    ioc_inode_t *ioc_inode = NULL;
+    uint64_t ioc_inode = 0;
 
-    inode_ctx_get(inode, this, (uint64_t *)&ioc_addr);
-    ioc_inode = (void *)(uintptr_t)ioc_addr;
+    inode_ctx_get(inode, this, &ioc_inode);
 
     if (ioc_inode)
-        ioc_inode_flush(ioc_inode);
+        ioc_inode_flush((ioc_inode_t *)(uintptr_t)ioc_inode);
 
     return 0;
 }

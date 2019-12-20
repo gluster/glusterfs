@@ -164,7 +164,11 @@ static int
 nlc_inode_ctx_set(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx,
                   nlc_pe_t *nlc_pe_p)
 {
+    uint64_t ctx1, ctx2;
     int ret = -1;
+
+    ctx1 = (uint64_t)(uintptr_t)nlc_ctx;
+    ctx2 = (uint64_t)(uintptr_t)nlc_pe_p;
 
     /* The caller may choose to set one of the ctxs, hence check
      * if the ctx1/2 is non zero and then send the address. If we
@@ -172,8 +176,7 @@ nlc_inode_ctx_set(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx,
      * ctx the caller had sent NULL(intended as leave untouched) for.*/
     LOCK(&inode->lock);
     {
-        ret = __inode_ctx_set2(inode, this, nlc_ctx ? (uint64_t *)&nlc_ctx : 0,
-                               nlc_pe_p ? (uint64_t *)&nlc_pe_p : 0);
+        ret = __inode_ctx_set2(inode, this, ctx1 ? &ctx1 : 0, ctx2 ? &ctx2 : 0);
     }
     UNLOCK(&inode->lock);
     return ret;
@@ -285,6 +288,7 @@ out:
 static nlc_ctx_t *
 nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 {
+    uint64_t ctx;
     int ret = 0;
     nlc_ctx_t *nlc_ctx = NULL;
     nlc_conf_t *conf = NULL;
@@ -315,7 +319,8 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
             goto unlock;
         }
 
-        ret = __inode_ctx_set2(inode, this, (uint64_t *)&nlc_ctx, NULL);
+        ctx = (uint64_t)(uintptr_t)nlc_ctx;
+        ret = __inode_ctx_set2(inode, this, &ctx, NULL);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, NLC_MSG_NO_MEMORY,
                    "inode ctx set failed");
