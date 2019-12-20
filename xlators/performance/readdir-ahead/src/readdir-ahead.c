@@ -98,7 +98,8 @@ __rda_inode_ctx_get(inode_t *inode, xlator_t *this)
 
     GF_ATOMIC_INIT(ctx_p->generation, 0);
 
-    ret = __inode_ctx_set1(inode, this, (uint64_t *)&ctx_p);
+    ctx_uint = (uint64_t)(uintptr_t)ctx_p;
+    ret = __inode_ctx_set1(inode, this, &ctx_uint);
     if (ret < 0) {
         GF_FREE(ctx_p);
         return NULL;

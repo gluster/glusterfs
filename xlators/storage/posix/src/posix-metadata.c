@@ -256,6 +256,7 @@ int
 __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
                         inode_t *inode, struct iatt *stbuf)
 {
+    uint64_t ctx;
     posix_mdata_t *mdata = NULL;
     int ret = -1;
     int op_errno = 0;
@@ -263,7 +264,10 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
     /* Handle readdirp: inode might be null, time attributes should be served
      * from xattr not from backend's file attributes */
     if (inode) {
-        ret = __inode_ctx_get1(inode, this, (uint64_t *)&mdata);
+        ret = __inode_ctx_get1(inode, this, &ctx);
+        if (ret == 0) {
+            mdata = (posix_mdata_t *)(uintptr_t)ctx;
+        }
     } else {
         ret = -1;
     }
@@ -288,7 +292,8 @@ __posix_get_mdata_xattr(xlator_t *this, const char *real_path, int _fd,
              * down scenario
              */
             if (inode) {
-                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+                ctx = (uint64_t)(uintptr_t)mdata;
+                __inode_ctx_set1(inode, this, &ctx);
             }
         } else {
             /* Failed to get mdata from disk, xattr missing.
@@ -370,6 +375,7 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
                                    const char *realpath,
                                    struct mdata_iatt *mdata_iatt, int *op_errno)
 {
+    uint64_t ctx;
     posix_mdata_t *mdata = NULL;
     posix_mdata_t imdata = {
         0,
@@ -382,10 +388,11 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
 
     LOCK(&inode->lock);
     {
-        ret = __inode_ctx_get1(inode, this, (uint64_t *)&mdata);
-        if (ret == 0 && mdata) {
+        ret = __inode_ctx_get1(inode, this, &ctx);
+        if (ret == 0 && ctx) {
+            mdata = (posix_mdata_t *)(uintptr_t)ctx;
             mdata_already_set = _gf_true;
-        } else if (ret == -1 || !mdata) {
+        } else {
             mdata = GF_CALLOC(1, sizeof(posix_mdata_t), gf_posix_mt_mdata_attr);
             if (!mdata) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_NOMEM,
@@ -402,7 +409,8 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
                 /* Got mdata from disk. This is a race, another client
                  * has healed the xattr during lookup. So set it in inode
                  * ctx */
-                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+                ctx = (uint64_t)(uintptr_t)mdata;
+                __inode_ctx_set1(inode, this, &ctx);
                 mdata_already_set = _gf_true;
             } else {
                 *op_errno = 0;
@@ -415,7 +423,8 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
                 mdata->mtime.tv_sec = mdata_iatt->ia_mtime;
                 mdata->mtime.tv_nsec = mdata_iatt->ia_mtime_nsec;
 
-                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+                ctx = (uint64_t)(uintptr_t)mdata;
+                __inode_ctx_set1(inode, this, &ctx);
             }
         }
 
@@ -464,6 +473,7 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                       struct iatt *stbuf, posix_mdata_flag_t *flag,
                       gf_boolean_t update_utime)
 {
+    uint64_t ctx;
     posix_mdata_t *mdata = NULL;
     int ret = -1;
     int op_errno = 0;
@@ -479,7 +489,10 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
 
     LOCK(&inode->lock);
     {
-        ret = __inode_ctx_get1(inode, this, (uint64_t *)&mdata);
+        ret = __inode_ctx_get1(inode, this, &ctx);
+        if (ret == 0) {
+            mdata = (posix_mdata_t *)(uintptr_t)ctx;
+        }
         if (ret == -1 || !mdata) {
             /*
              * Do we need to fetch the data from xattr
@@ -502,7 +515,8 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                  * is hit when in-memory status is lost due to brick
                  * down scenario
                  */
-                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+                ctx = (uint64_t)(uintptr_t)mdata;
+                __inode_ctx_set1(inode, this, &ctx);
             } else {
                 /*
                  * This is the first time creating the time attr. This happens
@@ -536,7 +550,8 @@ posix_set_mdata_xattr(xlator_t *this, const char *real_path, int fd,
                 mdata->mtime.tv_sec = time->tv_sec;
                 mdata->mtime.tv_nsec = time->tv_nsec;
 
-                __inode_ctx_set1(inode, this, (uint64_t *)&mdata);
+                ctx = (uint64_t)(uintptr_t)mdata;
+                __inode_ctx_set1(inode, this, &ctx);
             }
         }
 
