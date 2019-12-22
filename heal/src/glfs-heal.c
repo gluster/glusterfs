@@ -1730,14 +1730,19 @@ main(int argc, char **argv)
         goto out;
     }
 
+    char *var_str = (heal_op == GF_SHD_OP_INDEX_SUMMARY ||
+                     heal_op == GF_SHD_OP_HEAL_SUMMARY)
+                        ? "replicate/disperse"
+                        : "replicate";
+
     ret = glfsh_validate_volume(top_subvol, heal_op);
     if (ret < 0) {
         ret = -EINVAL;
-        gf_asprintf(&op_errstr, "Volume %s is not of type %s", volname,
-                    (heal_op == GF_SHD_OP_INDEX_SUMMARY ||
-                     heal_op == GF_SHD_OP_HEAL_SUMMARY)
-                        ? "replicate/disperse"
-                        : "replicate");
+        gf_asprintf(&op_errstr,
+                    "This command is supported "
+                    "for only volumes of %s type. Volume %s "
+                    "is not of type %s",
+                    var_str, volname, var_str);
         goto out;
     }
     rootloc.inode = inode_ref(top_subvol->itable->root);
