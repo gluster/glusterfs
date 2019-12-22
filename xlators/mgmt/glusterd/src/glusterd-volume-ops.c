@@ -1803,7 +1803,9 @@ glusterd_handle_heal_cmd(xlator_t *this, glusterd_volinfo_t *volinfo,
             if (!glusterd_is_volume_replicate(volinfo)) {
                 ret = -1;
                 snprintf(msg, sizeof(msg),
-                         "Volume %s is not of type "
+                         "This command is supported "
+                         "for only volume of replicated "
+                         "type. Volume %s is not of type "
                          "replicate",
                          volinfo->volname);
                 *op_errstr = gf_strdup(msg);
