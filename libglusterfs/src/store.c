@@ -453,9 +453,18 @@ int
 gf_store_handle_retrieve(char *path, gf_store_handle_t **handle)
 {
     int32_t ret = -1;
+    struct stat statbuf = {0};
 
+    ret = sys_stat(path, &statbuf);
+    if (ret) {
+        gf_msg("", GF_LOG_ERROR, errno, LG_MSG_PATH_NOT_FOUND,
+               "Path "
+               "corresponding to %s.",
+               path);
+        goto out;
+    }
     ret = gf_store_handle_new(path, handle);
-
+out:
     gf_msg_debug("", 0, "Returning %d", ret);
     return ret;
 }
