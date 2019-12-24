@@ -459,8 +459,8 @@ if __name__ == "__main__":
                             description=__doc__)
     parser.add_argument("mastervol", help="Master Volume Name")
     parser.add_argument("slave",
-                        help="SLAVEHOST or root@SLAVEHOST "
-                        "or user@SLAVEHOST",
+                        help="Slave hostname "
+                        "(<username>@SLAVEHOST or SLAVEHOST)",
                         metavar="SLAVE")
     parser.add_argument("slavevol", help="Slave Volume Name")
     parser.add_argument("--interval", help="Interval in Seconds. "
