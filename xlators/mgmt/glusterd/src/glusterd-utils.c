@@ -12669,6 +12669,11 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
     int ret = 0;
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
+#ifdef IPV6_DEFAULT
+    char *addr_family = "inet6";
+#else
+    char *addr_family = "inet";
+#endif
 
     this = THIS;
     GF_ASSERT(this);
@@ -12730,6 +12735,24 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
             }
         }
     }
+
+    if (conf->op_version >= GD_OP_VERSION_3_9_0) {
+        if (!option || !strcmp("transport.address-family", option)) {
+            if (volinfo->transport_type == GF_TRANSPORT_TCP) {
+                ret = dict_set_dynstr_with_alloc(
+                    volinfo->dict, "transport.address-family", addr_family);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, errno,
+                           GD_MSG_DICT_SET_FAILED,
+                           "failed to set transport."
+                           "address-family on %s",
+                           volinfo->volname);
+                    goto out;
+                }
+            }
+        }
+    }
+
     if (conf->op_version >= GD_OP_VERSION_7_0) {
         ret = dict_set_dynstr_with_alloc(volinfo->dict,
                                          "storage.fips-mode-rchecksum", "on");

@@ -69,6 +69,11 @@ TEST pidof glusterd;
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 EXPECT 'Created' volinfo_field $V0 'Status';
 
+#bug-1786478 - default volume option after volume reset
+addr_family=`volinfo_field $V0 'transport.address-family'`
+TEST $CLI volume reset $V0
+EXPECT $addr_family  volinfo_field $V0 'transport.address-family'
+
 #bug-955588 - uuid validation
 
 uuid=`grep UUID $GLUSTERD_WORKDIR/glusterd.info | cut -f2 -d=`
