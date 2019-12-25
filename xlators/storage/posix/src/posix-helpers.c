@@ -1939,9 +1939,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
     int timeout = 0;
     struct aiocb aiocb;
 
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
     priv = this->private;
-    GF_VALIDATE_OR_GOTO("posix-helpers", priv, out);
 
     timeout = priv->health_check_timeout;
 
@@ -2224,7 +2222,7 @@ posix_disk_space_check(xlator_t *this)
     double totsz = 0;
     double freesz = 0;
 
-    GF_VALIDATE_OR_GOTO(this->name, this, out);
+    GF_VALIDATE_OR_GOTO("posix-helpers", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
