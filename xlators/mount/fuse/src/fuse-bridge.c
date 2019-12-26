@@ -2354,21 +2354,26 @@ fuse_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
+    char loc_uuid_str[64] = {0}, loc2_uuid_str[64] = {0};
 
     state = frame->root->state;
     finh = state->finh;
 
-    fuse_log_eh(this,
-                "op_ret: %d, op_errno: %d, %" PRIu64
-                ": %s() "
-                "path: %s parent: %s ==> path: %s parent: %s"
-                "gfid: %s",
-                op_ret, op_errno, frame->root->unique,
-                gf_fop_list[frame->root->op], state->loc.path,
-                state->loc.parent ? uuid_utoa(state->loc.parent->gfid) : "",
-                state->loc2.path,
-                state->loc2.parent ? uuid_utoa(state->loc2.parent->gfid) : "",
-                state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : "");
+    fuse_log_eh(
+        this,
+        "op_ret: %d, op_errno: %d, %" PRIu64
+        ": %s() "
+        "path: %s parent: %s ==> path: %s parent: %s"
+        "gfid: %s",
+        op_ret, op_errno, frame->root->unique, gf_fop_list[frame->root->op],
+        state->loc.path,
+        (state->loc.parent ? uuid_utoa_r(state->loc.parent->gfid, loc_uuid_str)
+                           : ""),
+        state->loc2.path,
+        (state->loc2.parent
+             ? uuid_utoa_r(state->loc2.parent->gfid, loc2_uuid_str)
+             : ""),
+        state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : "");
 
     /* need to check for loc->parent to keep clang-scan happy.
        It gets dereferenced below, and is checked for NULL above. */
@@ -3101,15 +3106,18 @@ fuse_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 void
 fuse_copy_file_range_resume(fuse_state_t *state)
 {
+    char fd_uuid_str[64] = {0}, fd_dst_uuid_str[64] = {0};
+
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
            "%" PRIu64
            ": COPY_FILE_RANGE "
            "(input fd: %p (gfid: %s), "
            "output fd: %p (gfid: %s) size=%zu, "
            "offset_in=%" PRIu64 ", offset_out=%" PRIu64 ")",
-           state->finh->unique, state->fd, uuid_utoa(state->fd->inode->gfid),
-           state->fd_dst, uuid_utoa(state->fd_dst->inode->gfid), state->size,
-           state->off_in, state->off_out);
+           state->finh->unique, state->fd,
+           uuid_utoa_r(state->fd->inode->gfid, fd_uuid_str), state->fd_dst,
+           uuid_utoa_r(state->fd_dst->inode->gfid, fd_dst_uuid_str),
+           state->size, state->off_in, state->off_out);
 
     FUSE_FOP(state, fuse_copy_file_range_cbk, GF_FOP_COPY_FILE_RANGE,
              copy_file_range, state->fd, state->off_in, state->fd_dst,
