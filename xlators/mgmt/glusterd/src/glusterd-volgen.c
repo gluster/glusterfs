@@ -1120,6 +1120,7 @@ get_vol_transport_type(glusterd_volinfo_t *volinfo, char *tt)
     transport_type_to_str(volinfo->transport_type, tt);
 }
 
+#ifdef BUILD_GNFS
 /* If no value has specified for tcp,rdma volume from cli
  * use tcp as default value.Otherwise, use transport type
  * mentioned in volinfo
@@ -1135,6 +1136,7 @@ get_vol_nfs_transport_type(glusterd_volinfo_t *volinfo, char *tt)
     } else
         transport_type_to_str(volinfo->transport_type, tt);
 }
+#endif
 
 /*  gets the volinfo, dict, a character array for filling in
  *  the transport type and a boolean option which says whether
@@ -3878,7 +3880,6 @@ static int
 client_graph_set_perf_options(volgen_graph_t *graph,
                               glusterd_volinfo_t *volinfo, dict_t *set_dict)
 {
-    data_t *tmp_data = NULL;
     char *volname = NULL;
     int ret = 0;
 
@@ -3911,6 +3912,7 @@ client_graph_set_perf_options(volgen_graph_t *graph,
     volname = volinfo->volname;
 
 #ifdef BUILD_GNFS
+    data_t *tmp_data = NULL;
     tmp_data = dict_get_sizen(set_dict, "nfs-volume-file");
     if (!tmp_data)
         return volgen_graph_set_options_generic(graph, set_dict, volinfo,

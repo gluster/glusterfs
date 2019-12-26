@@ -779,7 +779,6 @@ int
 start_ganesha(char **op_errstr)
 {
     int ret = -1;
-    dict_t *vol_opts = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     runner_t runner = {
@@ -791,11 +790,10 @@ start_ganesha(char **op_errstr)
 
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
     {
-        vol_opts = volinfo->dict;
 #ifdef BUILD_GNFS
         /* Gluster-nfs has to be disabled across the trusted pool */
         /* before attempting to start nfs-ganesha */
-        ret = dict_set_str(vol_opts, NFS_DISABLE_MAP_KEY, "on");
+        ret = dict_set_str_sizen(volinfo->dict, NFS_DISABLE_MAP_KEY, "on");
         if (ret)
             goto out;
 #endif
