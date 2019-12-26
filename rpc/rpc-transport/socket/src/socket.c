@@ -4693,6 +4693,11 @@ fini(rpc_transport_t *this)
         pthread_mutex_destroy(&priv->out_lock);
         pthread_mutex_destroy(&priv->cond_lock);
         pthread_cond_destroy(&priv->cond);
+
+        GF_ASSERT(priv->notify.in_progress == 0);
+        pthread_mutex_destroy(&priv->notify.lock);
+        pthread_cond_destroy(&priv->notify.cond);
+
         if (priv->use_ssl && priv->ssl_ssl) {
             SSL_clear(priv->ssl_ssl);
             SSL_free(priv->ssl_ssl);
