@@ -4092,33 +4092,33 @@ reconfigure(rpc_transport_t *this, dict_t *options)
                              &(priv->timeout)) != 0)
         priv->timeout = GF_NETWORK_TIMEOUT;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued transport.tcp-user-timeout=%d", priv->timeout);
+           "Reconfigured transport.tcp-user-timeout=%d", priv->timeout);
 
     if (dict_get_uint32(options, "transport.listen-backlog", &backlog) == 0) {
         priv->backlog = backlog;
         gf_log(this->name, GF_LOG_DEBUG,
-               "Reconfigued transport.listen-backlog=%d", priv->backlog);
+               "Reconfigured transport.listen-backlog=%d", priv->backlog);
     }
 
     if (dict_get_int32_sizen(options, "transport.socket.keepalive-time",
                              &(priv->keepaliveidle)) != 0)
         priv->keepaliveidle = GF_KEEPALIVE_TIME;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued transport.socket.keepalive-time=%d",
+           "Reconfigured transport.socket.keepalive-time=%d",
            priv->keepaliveidle);
 
     if (dict_get_int32_sizen(options, "transport.socket.keepalive-interval",
                              &(priv->keepaliveintvl)) != 0)
         priv->keepaliveintvl = GF_KEEPALIVE_INTERVAL;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued transport.socket.keepalive-interval=%d",
+           "Reconfigured transport.socket.keepalive-interval=%d",
            priv->keepaliveintvl);
 
     if (dict_get_int32_sizen(options, "transport.socket.keepalive-count",
                              &(priv->keepalivecnt)) != 0)
         priv->keepalivecnt = GF_KEEPALIVE_COUNT;
     gf_log(this->name, GF_LOG_DEBUG,
-           "Reconfigued transport.socket.keepalive-count=%d",
+           "Reconfigured transport.socket.keepalive-count=%d",
            priv->keepalivecnt);
 
     optstr = NULL;
@@ -4611,7 +4611,7 @@ socket_init(rpc_transport_t *this)
     if (dict_get_int32_sizen(this->options, "transport.tcp-user-timeout",
                              &(priv->timeout)) != 0)
         priv->timeout = GF_NETWORK_TIMEOUT;
-    gf_log(this->name, GF_LOG_DEBUG, "Configued transport.tcp-user-timeout=%d",
+    gf_log(this->name, GF_LOG_DEBUG, "Configured transport.tcp-user-timeout=%d",
            priv->timeout);
 
     if (dict_get_int32_sizen(this->options, "transport.socket.keepalive-time",
@@ -4628,7 +4628,7 @@ socket_init(rpc_transport_t *this)
     if (dict_get_int32_sizen(this->options, "transport.socket.keepalive-count",
                              &(priv->keepalivecnt)) != 0)
         priv->keepalivecnt = GF_KEEPALIVE_COUNT;
-    gf_log(this->name, GF_LOG_DEBUG, "Reconfigued transport.keepalivecnt=%d",
+    gf_log(this->name, GF_LOG_DEBUG, "Reconfigured transport.keepalivecnt=%d",
            priv->keepalivecnt);
 
     if (dict_get_uint32(this->options, "transport.listen-backlog",
@@ -4777,7 +4777,6 @@ struct volume_options options[] = {
     {.key = {"transport.socket.nodelay"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "1"},
-    {.key = {"transport.socket.lowlat"}, .type = GF_OPTION_TYPE_BOOL},
     {.key = {"transport.socket.keepalive"},
      .type = GF_OPTION_TYPE_BOOL,
      .op_version = {1},

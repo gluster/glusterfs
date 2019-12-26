@@ -433,7 +433,6 @@ cat > $B0/glustershd.vol <<EOF
 volume ${V0}-replicate-0-client-0
     type protocol/client
     option send-gids on
-    option transport.socket.lowlat off
     option transport.socket.keepalive-interval 2
     option remote-host $H0
     option remote-subvolume $b0
@@ -479,7 +478,6 @@ volume ${V0}-replicate-0-client-1
     option send-gids on
     option non-blocking-io off
     option transport.listen-backlog 1024
-    option transport.socket.lowlat off
     option transport.socket.keepalive-interval 2
     option password a0ad63dd-8314-4f97-9160-1b93e3cb1f0b
     option username 459d48e8-2a92-4f11-89f2-077b29f6f86d
@@ -498,7 +496,6 @@ volume ${V0}-replicate-0-thin-arbiter-client
     option remote-subvolume $ta
     option filter-O_DIRECT disable
     option non-blocking-io off
-    option transport.socket.lowlat off
     option transport.socket.keepalive-interval 2
     option transport.socket.read-fail-log off
     option remote-host $H0
