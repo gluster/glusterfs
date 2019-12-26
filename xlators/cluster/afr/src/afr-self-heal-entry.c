@@ -86,6 +86,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
         0,
     };
     unsigned char *newentry = NULL;
+    char dir_uuid_str[64] = {0}, iatt_uuid_str[64] = {0};
 
     priv = this->private;
     iatt = &replies[source].poststat;
@@ -93,8 +94,8 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SELF_HEAL_FAILED,
                "Invalid ia_type (%d) or gfid(%s). source brick=%d, "
                "pargfid=%s, name=%s",
-               iatt->ia_type, uuid_utoa(iatt->ia_gfid), source,
-               uuid_utoa(dir->gfid), name);
+               iatt->ia_type, uuid_utoa_r(iatt->ia_gfid, iatt_uuid_str), source,
+               uuid_utoa_r(dir->gfid, dir_uuid_str), name);
         ret = -EINVAL;
         goto out;
     }

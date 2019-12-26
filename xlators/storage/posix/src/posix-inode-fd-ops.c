@@ -2061,6 +2061,7 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
     gf_boolean_t locked = _gf_false;
     gf_boolean_t update_atomic = _gf_false;
     posix_inode_ctx_t *ctx = NULL;
+    char in_uuid_str[64] = {0}, out_uuid_str[64] = {0};
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -2201,8 +2202,8 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_COPY_FILE_RANGE_FAILED,
                "copy_file_range failed: fd_in: %p (gfid: %s) ,"
                " fd_out %p (gfid:%s)",
-               fd_in, uuid_utoa(fd_in->inode->gfid), fd_out,
-               uuid_utoa(fd_out->inode->gfid));
+               fd_in, uuid_utoa_r(fd_in->inode->gfid, in_uuid_str), fd_out,
+               uuid_utoa_r(fd_out->inode->gfid, out_uuid_str));
         goto out;
     }
 

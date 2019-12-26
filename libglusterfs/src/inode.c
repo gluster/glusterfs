@@ -957,6 +957,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
     inode_t *old_inode = NULL;
     inode_table_t *table = NULL;
     inode_t *link_inode = NULL;
+    char link_uuid_str[64] = {0}, parent_uuid_str[64] = {0};
 
     table = inode->table;
 
@@ -1031,11 +1032,12 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
         if (!old_dentry || old_dentry->inode != link_inode) {
             dentry = dentry_create(link_inode, parent, name);
             if (!dentry) {
-                gf_msg_callingfn(
-                    THIS->name, GF_LOG_ERROR, 0, LG_MSG_DENTRY_CREATE_FAILED,
-                    "dentry create failed on "
-                    "inode %s with parent %s",
-                    uuid_utoa(link_inode->gfid), uuid_utoa(parent->gfid));
+                gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0,
+                                 LG_MSG_DENTRY_CREATE_FAILED,
+                                 "dentry create failed on "
+                                 "inode %s with parent %s",
+                                 uuid_utoa_r(link_inode->gfid, link_uuid_str),
+                                 uuid_utoa_r(parent->gfid, parent_uuid_str));
                 errno = ENOMEM;
                 return NULL;
             }

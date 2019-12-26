@@ -820,6 +820,7 @@ posix_set_ctime_cfr(call_frame_t *frame, xlator_t *this,
     };
     int ret = 0;
     struct posix_private *priv = NULL;
+    char in_uuid_str[64] = {0}, out_uuid_str[64] = {0};
 
     priv = this->private;
 
@@ -834,9 +835,11 @@ posix_set_ctime_cfr(call_frame_t *frame, xlator_t *this,
                    "posix set mdata failed, No ctime : in: %s gfid_in:%s "
                    "out: %s gfid_out:%s",
                    real_path_in,
-                   inode_in ? uuid_utoa(inode_in->gfid) : "No inode",
+                   (inode_in ? uuid_utoa_r(inode_in->gfid, in_uuid_str)
+                             : "No inode"),
                    real_path_out,
-                   inode_out ? uuid_utoa(inode_out->gfid) : "No inode");
+                   (inode_out ? uuid_utoa_r(inode_out->gfid, out_uuid_str)
+                              : "No inode"));
             goto out;
         }
 
