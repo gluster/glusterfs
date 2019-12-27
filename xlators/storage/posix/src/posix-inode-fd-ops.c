@@ -4509,7 +4509,7 @@ posix_common_removexattr(call_frame_t *frame, loc_t *loc, fd_t *fd,
         ret = posix_fdstat(this, inode, _fd, &preop);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_FDSTAT_FAILED,
-                   "fdstat operaton failed on %s", real_path);
+                   "fdstat operaton failed on %s", real_path ? real_path : "");
         }
     }
 
