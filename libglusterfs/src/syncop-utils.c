@@ -345,10 +345,8 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
     gf_dirent_t *tmp = NULL;
     uint32_t jobs_running = 0;
     uint32_t qlen = 0;
-    pthread_cond_t cond;
-    pthread_mutex_t mut;
-    gf_boolean_t cond_init = _gf_false;
-    gf_boolean_t mut_init = _gf_false;
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+    pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
     gf_dirent_t entries;
     xlator_t *this = NULL;
 
@@ -378,15 +376,6 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
 
     INIT_LIST_HEAD(&entries.list);
     INIT_LIST_HEAD(&q.list);
-    ret = pthread_mutex_init(&mut, NULL);
-    if (ret)
-        goto out;
-    mut_init = _gf_true;
-
-    ret = pthread_cond_init(&cond, NULL);
-    if (ret)
-        goto out;
-    cond_init = _gf_true;
 
     while ((ret = syncop_readdir(subvol, fd, 131072, offset, &entries, xdata,
                                  NULL))) {
@@ -452,21 +441,17 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
 out:
     if (fd)
         fd_unref(fd);
-    if (mut_init && cond_init) {
-        pthread_mutex_lock(&mut);
-        {
-            while (jobs_running)
-                pthread_cond_wait(&cond, &mut);
-        }
-        pthread_mutex_unlock(&mut);
-        gf_dirent_free(&q);
-        gf_dirent_free(&entries);
-    }
 
-    if (mut_init)
-        pthread_mutex_destroy(&mut);
-    if (cond_init)
-        pthread_cond_destroy(&cond);
+    pthread_mutex_lock(&mut);
+    {
+        while (jobs_running)
+            pthread_cond_wait(&cond, &mut);
+    }
+    pthread_mutex_unlock(&mut);
+
+    gf_dirent_free(&q);
+    gf_dirent_free(&entries);
+
     return ret | retval;
 }
 

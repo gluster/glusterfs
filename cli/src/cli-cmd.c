@@ -232,18 +232,6 @@ out:
 }
 
 int
-cli_cmd_cond_init()
-{
-    pthread_mutex_init(&cond_mutex, NULL);
-    pthread_cond_init(&cond, NULL);
-
-    pthread_mutex_init(&conn_mutex, NULL);
-    pthread_cond_init(&conn, NULL);
-
-    return 0;
-}
-
-int
 cli_cmd_lock()
 {
     pthread_mutex_lock(&cond_mutex);
