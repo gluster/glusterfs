@@ -2145,6 +2145,8 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         0,
     };
 
+    dict_t *xdata_rsp = dict_ref(xdata);
+
     DECLARE_OLD_FS_ID_VAR;
 
     VALIDATE_OR_GOTO(frame, out);
@@ -2192,6 +2194,28 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     op_ret = posix_pstat(this, loc->inode, NULL, real_path, &stbuf, _gf_false);
     if ((op_ret == -1) && (errno == ENOENT)) {
         was_present = 0;
+    }
+
+    if (!was_present) {
+        if (posix_is_layout_stale(xdata, par_path, this)) {
+            op_ret = -1;
+            op_errno = EIO;
+            if (!xdata_rsp) {
+                xdata_rsp = dict_new();
+                if (!xdata_rsp) {
+                    op_errno = ENOMEM;
+                    goto out;
+                }
+            }
+
+            if (dict_set_int32_sizen(xdata_rsp, GF_PREOP_CHECK_FAILED, 1) ==
+                -1) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_DICT_SET_FAILED,
+                       "setting key %s in dict failed", GF_PREOP_CHECK_FAILED);
+            }
+
+            goto out;
+        }
     }
 
     if (priv->o_direct)
@@ -2313,7 +2337,10 @@ out:
 
     STACK_UNWIND_STRICT(create, frame, op_ret, op_errno, fd,
                         (loc) ? loc->inode : NULL, &stbuf, &preparent,
-                        &postparent, xdata);
+                        &postparent, xdata_rsp);
+
+    if (xdata_rsp)
+        dict_unref(xdata_rsp);
 
     return 0;
 }

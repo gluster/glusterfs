@@ -1502,4 +1502,10 @@ dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict,
                        dict_t *xdata);
 
+int32_t
+dht_create_lock(call_frame_t *frame, xlator_t *subvol);
+
+int
+dht_set_parent_layout_in_dict(loc_t *loc, xlator_t *this, dht_local_t *local);
+
 #endif /* _DHT_H */
