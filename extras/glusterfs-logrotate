@@ -45,3 +45,24 @@
   compress
   delaycompress
 }
+
+# Rotate snapd log
+/var/log/glusterfs/snaps/*/*.log {
+    sharedscripts
+    weekly
+    maxsize 10M
+    minsize 100k
+
+    # 6 months of logs are good enough
+    rotate 26
+
+    missingok
+    compress
+    delaycompress
+    notifempty
+    postrotate
+    for pid in `ps -aef | grep glusterfs | egrep "snapd" | awk '{print $2}'`; do
+        /usr/bin/kill -HUP $pid > /dev/null 2>&1 || true
+    done
+    endscript
+}
