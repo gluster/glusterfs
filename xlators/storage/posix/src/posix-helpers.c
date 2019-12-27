@@ -3586,3 +3586,79 @@ posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
         }
     }
 }
+
+gf_boolean_t
+posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
+{
+    int op_ret = 0;
+    ssize_t size = 0;
+    char value_buf[4096] = {
+        0,
+    };
+    gf_boolean_t have_val = _gf_false;
+    data_t *arg_data = NULL;
+    char *xattr_name = NULL;
+    gf_boolean_t is_stale = _gf_false;
+
+    op_ret = dict_get_str_sizen(xdata, GF_PREOP_PARENT_KEY, &xattr_name);
+    if (xattr_name == NULL) {
+        op_ret = 0;
+        goto out;
+    }
+
+    arg_data = dict_get(xdata, xattr_name);
+    if (!arg_data) {
+        op_ret = 0;
+        goto out;
+    }
+
+    size = sys_lgetxattr(par_path, xattr_name, value_buf,
+                         sizeof(value_buf) - 1);
+
+    if (size >= 0) {
+        have_val = _gf_true;
+    } else {
+        if (errno == ERANGE) {
+            gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_PREOP_CHECK_FAILED,
+                   "getxattr on key (%s) path (%s) failed due to"
+                   " buffer overflow",
+                   xattr_name, par_path);
+            size = sys_lgetxattr(par_path, xattr_name, NULL, 0);
+        }
+        if (size < 0) {
+            op_ret = -1;
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_PREOP_CHECK_FAILED,
+                   "getxattr on key (%s)  failed, path : %s", xattr_name,
+                   par_path);
+            goto out;
+        }
+    }
+
+    if (!have_val) {
+        size = sys_lgetxattr(par_path, xattr_name, value_buf, size);
+        if (size < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_PREOP_CHECK_FAILED,
+                   "getxattr on key (%s) failed (%s)", xattr_name,
+                   strerror(errno));
+            goto out;
+        }
+    }
+
+    if ((arg_data->len != size) || (memcmp(arg_data->data, value_buf, size))) {
+        gf_msg(this->name, GF_LOG_INFO, EIO, P_MSG_PREOP_CHECK_FAILED,
+               "failing preop as on-disk xattr value differs from argument "
+               "value for key %s",
+               xattr_name);
+        op_ret = -1;
+    }
+
+out:
+    dict_del_sizen(xdata, xattr_name);
+    dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
+
+    if (op_ret == -1) {
+        is_stale = _gf_true;
+    }
+
+    return is_stale;
+}

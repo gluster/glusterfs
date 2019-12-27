@@ -8341,6 +8341,11 @@ dht_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     xlator_t *prev = NULL;
     int ret = -1;
     dht_local_t *local = NULL;
+    gf_boolean_t parent_layout_changed = _gf_false;
+    char pgfid[GF_UUID_BUF_SIZE] = {0};
+    xlator_t *subvol = NULL;
+
+    local = frame->local;
 
     local = frame->local;
     if (!local) {
@@ -8349,8 +8354,69 @@ dht_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         goto out;
     }
 
-    if (op_ret == -1)
+    if (op_ret == -1) {
+        local->op_errno = op_errno;
+        parent_layout_changed = (xdata &&
+                                 dict_get(xdata, GF_PREOP_CHECK_FAILED))
+                                    ? _gf_true
+                                    : _gf_false;
+
+        if (parent_layout_changed) {
+            if (local && local->lock[0].layout.parent_layout.locks) {
+                /* Returning failure as the layout could not be fixed even under
+                 * the lock */
+                goto out;
+            }
+
+            gf_uuid_unparse(local->loc.parent->gfid, pgfid);
+            gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_PARENT_LAYOUT_CHANGED,
+                   "create (%s/%s) (path: %s): parent layout "
+                   "changed. Attempting a layout refresh and then a "
+                   "retry",
+                   pgfid, local->loc.name, local->loc.path);
+
+            /*
+              dht_refresh_layout needs directory info in local->loc.Hence,
+              storing the parent_loc in local->loc and storing the create
+              context in local->loc2. We will restore this information in
+              dht_creation_do.
+             */
+
+            loc_wipe(&local->loc2);
+
+            ret = loc_copy(&local->loc2, &local->loc);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                       "loc_copy failed %s", local->loc.path);
+
+                goto out;
+            }
+
+            loc_wipe(&local->loc);
+
+            ret = dht_build_parent_loc(this, &local->loc, &local->loc2,
+                                       &op_errno);
+
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_LOC_FAILED,
+                       "parent loc build failed");
+                goto out;
+            }
+
+            subvol = dht_subvol_get_hashed(this, &local->loc2);
+
+            ret = dht_create_lock(frame, subvol);
+            if (ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INODE_LK_ERROR,
+                       "locking parent failed");
+                goto out;
+            }
+
+            return 0;
+        }
+
         goto out;
+    }
 
     prev = cookie;
 
@@ -8471,6 +8537,8 @@ dht_create_wind_to_avail_subvol(call_frame_t *frame, xlator_t *this,
         gf_msg_debug(this->name, 0, "creating %s on %s", loc->path,
                      subvol->name);
 
+        dht_set_parent_layout_in_dict(loc, this, local);
+
         STACK_WIND_COOKIE(frame, dht_create_cbk, subvol, subvol,
                           subvol->fops->create, loc, flags, mode, umask, fd,
                           params);
@@ -8479,10 +8547,6 @@ dht_create_wind_to_avail_subvol(call_frame_t *frame, xlator_t *this,
         avail_subvol = dht_free_disk_available_subvol(this, subvol, local);
 
         if (avail_subvol != subvol) {
-            local->params = dict_ref(params);
-            local->flags = flags;
-            local->mode = mode;
-            local->umask = umask;
             local->cached_subvol = avail_subvol;
             local->hashed_subvol = subvol;
 
@@ -8497,6 +8561,8 @@ dht_create_wind_to_avail_subvol(call_frame_t *frame, xlator_t *this,
 
         gf_msg_debug(this->name, 0, "creating %s on %s", loc->path,
                      subvol->name);
+
+        dht_set_parent_layout_in_dict(loc, this, local);
 
         STACK_WIND_COOKIE(frame, dht_create_cbk, subvol, subvol,
                           subvol->fops->create, loc, flags, mode, umask, fd,
@@ -8713,7 +8779,7 @@ err:
     return 0;
 }
 
-static int32_t
+int32_t
 dht_create_lock(call_frame_t *frame, xlator_t *subvol)
 {
     dht_local_t *local = NULL;
@@ -8759,6 +8825,60 @@ err:
 }
 
 int
+dht_set_parent_layout_in_dict(loc_t *loc, xlator_t *this, dht_local_t *local)
+{
+    dht_conf_t *conf = this->private;
+    dht_layout_t *parent_layout = NULL;
+    int *parent_disk_layout = NULL;
+    xlator_t *hashed_subvol = NULL;
+    char pgfid[GF_UUID_BUF_SIZE] = {0};
+    int ret = 0;
+
+    gf_uuid_unparse(loc->parent->gfid, pgfid);
+
+    parent_layout = dht_layout_get(this, loc->parent);
+    hashed_subvol = dht_subvol_get_hashed(this, loc);
+
+    ret = dht_disk_layout_extract_for_subvol(this, parent_layout, hashed_subvol,
+                                             &parent_disk_layout);
+    if (ret == -1) {
+        gf_msg(this->name, GF_LOG_WARNING, local->op_errno,
+               DHT_MSG_PARENT_LAYOUT_CHANGED,
+               "%s (%s/%s) (path: %s): "
+               "extracting in-memory layout of parent failed. ",
+               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        goto err;
+    }
+
+    ret = dict_set_str_sizen(local->params, GF_PREOP_PARENT_KEY,
+                             conf->xattr_name);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, local->op_errno,
+               DHT_MSG_PARENT_LAYOUT_CHANGED,
+               "%s (%s/%s) (path: %s): "
+               "setting %s key in params dictionary failed. ",
+               gf_fop_list[local->fop], pgfid, loc->name, loc->path,
+               GF_PREOP_PARENT_KEY);
+        goto err;
+    }
+
+    ret = dict_set_bin(local->params, conf->xattr_name, parent_disk_layout,
+                       4 * 4);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, local->op_errno,
+               DHT_MSG_PARENT_LAYOUT_CHANGED,
+               "%s (%s/%s) (path: %s): "
+               "setting parent-layout in params dictionary failed. ",
+               gf_fop_list[local->fop], pgfid, loc->name, loc->path);
+        goto err;
+    }
+
+err:
+    dht_layout_unref(this, parent_layout);
+    return ret;
+}
+
+int
 dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            mode_t mode, mode_t umask, fd_t *fd, dict_t *params)
 {
@@ -8784,6 +8904,11 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         goto err;
     }
 
+    local->params = dict_ref(params);
+    local->flags = flags;
+    local->mode = mode;
+    local->umask = umask;
+
     if (dht_filter_loc_subvol_key(this, loc, &local->loc, &subvol)) {
         gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_INFO,
                "creating %s on %s (got create on %s)", local->loc.path,
@@ -8799,10 +8924,6 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         if (hashed_subvol && (hashed_subvol != subvol)) {
             /* Create the linkto file and then the data file */
-            local->params = dict_ref(params);
-            local->flags = flags;
-            local->mode = mode;
-            local->umask = umask;
             local->cached_subvol = subvol;
             local->hashed_subvol = hashed_subvol;
 
@@ -8815,6 +8936,9 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          * file as we expect a lookup everywhere if there are problems
          * with the parent layout
          */
+
+        dht_set_parent_layout_in_dict(loc, this, local);
+
         STACK_WIND_COOKIE(frame, dht_create_cbk, subvol, subvol,
                           subvol->fops->create, &local->loc, flags, mode, umask,
                           fd, params);
@@ -8865,11 +8989,6 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
                     goto err;
                 }
-
-                local->params = dict_ref(params);
-                local->flags = flags;
-                local->mode = mode;
-                local->umask = umask;
 
                 loc_wipe(&local->loc);
 

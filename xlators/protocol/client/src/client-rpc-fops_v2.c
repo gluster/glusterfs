@@ -2076,11 +2076,12 @@ client4_0_create_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
+    ret = client_post_create_v2(this, &rsp, &stbuf, &preparent, &postparent,
+                                local, &xdata);
+    if (ret < 0)
+        goto out;
+
     if (-1 != rsp.op_ret) {
-        ret = client_post_create_v2(this, &rsp, &stbuf, &preparent, &postparent,
-                                    local, &xdata);
-        if (ret < 0)
-            goto out;
         ret = client_add_fd_to_saved_fds(frame->this, fd, &local->loc,
                                          local->flags, rsp.fd, 0);
         if (ret) {

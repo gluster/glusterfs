@@ -658,4 +658,8 @@ posix_spawn_ctx_janitor_thread(xlator_t *this);
 
 void
 posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xdata);
+
+gf_boolean_t
+posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this);
+
 #endif /* _POSIX_H */
