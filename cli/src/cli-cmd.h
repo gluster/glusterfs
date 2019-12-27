@@ -102,9 +102,6 @@ int
 cli_cmd_broadcast_response(int32_t status);
 
 int
-cli_cmd_cond_init();
-
-int
 cli_cmd_lock();
 
 int
