@@ -6707,21 +6707,6 @@ out:
     return changelog;
 }
 
-gf_boolean_t
-afr_decide_heal_info(afr_private_t *priv, unsigned char *sources, int source)
-{
-    int sources_count = 0;
-
-    if (source < 0)
-        goto out;
-
-    sources_count = AFR_COUNT(sources, priv->child_count);
-    if (sources_count == priv->child_count)
-        return _gf_false;
-out:
-    return _gf_true;
-}
-
 static dict_t *
 afr_set_heal_info(char *status)
 {
@@ -7791,15 +7776,15 @@ afr_ta_has_quorum(afr_private_t *priv, afr_local_t *local)
     return _gf_false;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_add_replica_mount_lookup_on_root(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
 
-    local = frame->local;
-
     if (frame->root->pid != GF_CLIENT_PID_ADD_REPLICA_MOUNT)
         return _gf_false;
+
+    local = frame->local;
 
     if (local->op != GF_FOP_LOOKUP)
         /* TODO:If the replica count is being increased on a plain distribute
@@ -7817,15 +7802,11 @@ afr_is_add_replica_mount_lookup_on_root(call_frame_t *frame)
 }
 
 gf_boolean_t
-afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
-                      unsigned char *subvols)
+afr_lookup_has_quorum(call_frame_t *frame, const unsigned int up_children_count)
 {
-    afr_private_t *priv = this->private;
-
-    if (frame && afr_is_add_replica_mount_lookup_on_root(frame)) {
-        if (AFR_COUNT(subvols, priv->child_count) > 0)
-            return _gf_true;
-    }
+    if (frame && (up_children_count > 0) &&
+        afr_is_add_replica_mount_lookup_on_root(frame))
+        return _gf_true;
 
     return _gf_false;
 }
