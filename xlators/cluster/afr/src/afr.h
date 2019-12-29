@@ -1380,8 +1380,8 @@ void
 afr_ta_locked_priv_invalidate(afr_private_t *priv);
 
 gf_boolean_t
-afr_lookup_has_quorum(call_frame_t *frame, xlator_t *this,
-                      unsigned char *subvols);
+afr_lookup_has_quorum(call_frame_t *frame,
+                      const unsigned int up_children_count);
 
 void
 afr_mark_new_entry_changelog(call_frame_t *frame, xlator_t *this);
