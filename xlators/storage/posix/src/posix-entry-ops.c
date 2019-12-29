@@ -1109,9 +1109,6 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     int32_t skip_unlink = 0;
     int32_t fdstat_requested = 0;
     dict_t *unwind_dict = NULL;
-    void *uuid = NULL;
-    char uuid_str[GF_UUID_BUF_SIZE] = {0};
-    char gfid_str[GF_UUID_BUF_SIZE] = {0};
     gf_boolean_t get_link_count = _gf_false;
     posix_inode_ctx_t *ctx = NULL;
 
@@ -1140,21 +1137,6 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     }
 
     priv = this->private;
-
-    op_ret = dict_get_ptr(xdata, TIER_LINKFILE_GFID, &uuid);
-
-    if (!op_ret && gf_uuid_compare(uuid, stbuf.ia_gfid)) {
-        op_errno = ENOENT;
-        op_ret = -1;
-        gf_uuid_unparse(uuid, uuid_str);
-        gf_uuid_unparse(stbuf.ia_gfid, gfid_str);
-        gf_msg_debug(this->name, op_errno,
-                     "Mismatch in gfid for path "
-                     "%s. Aborting the unlink. loc->gfid = %s, "
-                     "stbuf->ia_gfid = %s",
-                     real_path, uuid_str, gfid_str);
-        goto out;
-    }
 
     op_ret = dict_get_int32_sizen(xdata, DHT_SKIP_OPEN_FD_UNLINK,
                                   &check_open_fd);
@@ -1186,10 +1168,6 @@ posix_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     skip_unlink = posix_skip_non_linkto_unlink(
         xdata, loc, DHT_SKIP_NON_LINKTO_UNLINK,
         SLEN(DHT_SKIP_NON_LINKTO_UNLINK), DHT_LINKTO, &stbuf, real_path);
-    skip_unlink = skip_unlink || posix_skip_non_linkto_unlink(
-                                     xdata, loc, TIER_SKIP_NON_LINKTO_UNLINK,
-                                     SLEN(TIER_SKIP_NON_LINKTO_UNLINK),
-                                     TIER_LINKTO, &stbuf, real_path);
     if (skip_unlink) {
         op_ret = -1;
         op_errno = EBUSY;
