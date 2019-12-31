@@ -10,7 +10,7 @@ cases as published by the Free Software Foundation.
 
 #include "glusterd-volgen.h"
 #include "glusterd-utils.h"
-
+#include "sys/stat.h"
 static int
 validate_cache_max_min_size(glusterd_volinfo_t *volinfo, dict_t *dict,
                             char *key, char *value, char **op_errstr)
@@ -783,6 +783,32 @@ validate_reten_mode(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     ret = 0;
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
+
+    return ret;
+}
+static int
+is_directory(const char *path)
+{
+    struct stat statbuf;
+    if (stat(path, &statbuf) != 0)
+        return 0;
+    return S_ISDIR(statbuf.st_mode);
+}
+static int
+validate_statedump_path(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                        char *value, char **op_errstr)
+{
+    xlator_t *this = NULL;
+    this = THIS;
+    GF_ASSERT(this);
+
+    int ret = 0;
+    if (!is_directory(value)) {
+        gf_asprintf(op_errstr, "Failed: %s is not a directory", value);
+        ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+               *op_errstr);
+    }
 
     return ret;
 }
@@ -1588,7 +1614,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {.key = "server.statedump-path",
      .voltype = "protocol/server",
      .option = "statedump-path",
-     .op_version = 1},
+     .op_version = 1,
+     .validate_fn = validate_statedump_path},
     {.key = "server.outstanding-rpc-limit",
      .voltype = "protocol/server",
      .option = "rpc.outstanding-rpc-limit",
