@@ -185,8 +185,7 @@ struct gf_sock_incoming {
     uint32_t fraghdr;
     msg_type_t msg_type;
     sp_rpcrecord_state_t record_state;
-    char complete_record;
-    char _pad[3];
+    char _pad[4];
 };
 
 typedef struct {
