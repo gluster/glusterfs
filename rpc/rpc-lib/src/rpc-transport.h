@@ -252,9 +252,6 @@ int32_t
 rpc_transport_disconnect(rpc_transport_t *this, gf_boolean_t wait);
 
 int32_t
-rpc_transport_destroy(rpc_transport_t *this);
-
-int32_t
 rpc_transport_notify(rpc_transport_t *this, rpc_transport_event_t event,
                      void *data, ...);
 
@@ -283,9 +280,6 @@ rpc_transport_get_peername(rpc_transport_t *this, char *hostname, int hostlen);
 int32_t
 rpc_transport_get_peeraddr(rpc_transport_t *this, char *peeraddr, int addrlen,
                            struct sockaddr_storage *sa, size_t salen);
-
-int32_t
-rpc_transport_get_myname(rpc_transport_t *this, char *hostname, int hostlen);
 
 int32_t
 rpc_transport_get_myaddr(rpc_transport_t *this, char *peeraddr, int addrlen,

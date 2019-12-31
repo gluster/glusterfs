@@ -12,13 +12,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/poll.h>
-#include <fnmatch.h>
 #include <stdint.h>
 
-#include <glusterfs/logging.h>
 #include "rpc-transport.h"
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/list.h>
 
 #ifndef GF_OPTION_LIST_EMPTY
 #define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
@@ -64,17 +60,6 @@ out:
 }
 
 int32_t
-rpc_transport_get_myname(rpc_transport_t *this, char *hostname, int hostlen)
-{
-    int32_t ret = -1;
-    GF_VALIDATE_OR_GOTO("rpc", this, out);
-
-    ret = this->ops->get_myname(this, hostname, hostlen);
-out:
-    return ret;
-}
-
-int32_t
 rpc_transport_get_peername(rpc_transport_t *this, char *hostname, int hostlen)
 {
     int32_t ret = -1;
@@ -88,14 +73,10 @@ out:
 int
 rpc_transport_throttle(rpc_transport_t *this, gf_boolean_t onoff)
 {
-    int ret = 0;
-
     if (!this->ops->throttle)
         return -ENOSYS;
 
-    ret = this->ops->throttle(this, onoff);
-
-    return ret;
+    return this->ops->throttle(this, onoff);
 }
 
 int32_t
@@ -189,7 +170,7 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
     char *name = NULL;
     void *handle = NULL;
     char *type = NULL;
-    char str[] = "ERROR";
+    static char str[] = "ERROR";
     int32_t ret = -1;
     int is_tcp = 0, is_unix = 0, is_ibsdp = 0;
     volume_opt_list_t *vol_opt = NULL;
@@ -214,9 +195,9 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
     type = str;
 
     /* Backward compatibility */
-    ret = dict_get_str(options, "transport-type", &type);
+    ret = dict_get_str_sizen(options, "transport-type", &type);
     if (ret < 0) {
-        ret = dict_set_str(options, "transport-type", "socket");
+        ret = dict_set_str_sizen(options, "transport-type", "socket");
         if (ret < 0)
             gf_log("dict", GF_LOG_DEBUG, "setting transport-type failed");
         else
@@ -238,15 +219,16 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
         is_ibsdp = strcmp(type, "ib-sdp");
         if ((is_tcp == 0) || (is_unix == 0) || (is_ibsdp == 0)) {
             if (is_unix == 0)
-                ret = dict_set_str(options, "transport.address-family", "unix");
+                ret = dict_set_str_sizen(options, "transport.address-family",
+                                         "unix");
             if (is_ibsdp == 0)
-                ret = dict_set_str(options, "transport.address-family",
-                                   "inet-sdp");
+                ret = dict_set_str_sizen(options, "transport.address-family",
+                                         "inet-sdp");
 
             if (ret < 0)
                 gf_log("dict", GF_LOG_DEBUG, "setting address-family failed");
 
-            ret = dict_set_str(options, "transport-type", "socket");
+            ret = dict_set_str_sizen(options, "transport-type", "socket");
             if (ret < 0)
                 gf_log("dict", GF_LOG_DEBUG, "setting transport-type failed");
         }
@@ -255,9 +237,9 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
     /* client-bind-insecure is for clients protocol, and
      * bind-insecure for glusterd. Both mutually exclusive
      */
-    ret = dict_get_str(options, "client-bind-insecure", &type);
+    ret = dict_get_str_sizen(options, "client-bind-insecure", &type);
     if (ret)
-        ret = dict_get_str(options, "bind-insecure", &type);
+        ret = dict_get_str_sizen(options, "bind-insecure", &type);
     if (ret == 0) {
         ret = gf_string2boolean(type, &bind_insecure);
         if (ret < 0) {
@@ -276,7 +258,7 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
         trans->bind_insecure = 1;
     }
 
-    ret = dict_get_str(options, "transport-type", &type);
+    ret = dict_get_str_sizen(options, "transport-type", &type);
     if (ret < 0) {
         gf_log("rpc-transport", GF_LOG_ERROR,
                "'option transport-type <xx>' missing in volume '%s'",
@@ -289,7 +271,7 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
         goto fail;
     }
 
-    if (dict_get(options, "notify-poller-death")) {
+    if (dict_get_sizen(options, "notify-poller-death")) {
         trans->notify_poller_death = 1;
     }
 
@@ -457,13 +439,10 @@ fail:
     return ret;
 }
 
-int32_t
+static void
 rpc_transport_destroy(rpc_transport_t *this)
 {
     struct dnscache6 *cache = NULL;
-    int32_t ret = -1;
-
-    GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
     if (this->clnt_options)
         dict_unref(this->clnt_options);
@@ -491,10 +470,6 @@ rpc_transport_destroy(rpc_transport_t *this)
     }
 
     GF_FREE(this);
-
-    ret = 0;
-fail:
-    return ret;
 }
 
 rpc_transport_t *
@@ -577,16 +552,17 @@ rpc_transport_keepalive_options_set(dict_t *options, int32_t interval,
     GF_ASSERT(options);
     GF_ASSERT((interval > 0) || (time > 0));
 
-    ret = dict_set_int32(options, "transport.socket.keepalive-interval",
-                         interval);
+    ret = dict_set_int32_sizen(options, "transport.socket.keepalive-interval",
+                               interval);
     if (ret)
         goto out;
 
-    ret = dict_set_int32(options, "transport.socket.keepalive-time", time);
+    ret = dict_set_int32_sizen(options, "transport.socket.keepalive-time",
+                               time);
     if (ret)
         goto out;
 
-    ret = dict_set_int32(options, "transport.tcp-user-timeout", timeout);
+    ret = dict_set_int32_sizen(options, "transport.tcp-user-timeout", timeout);
     if (ret)
         goto out;
 out:
@@ -609,30 +585,30 @@ rpc_transport_unix_options_build(dict_t *dict, char *filepath,
         goto out;
     }
 
-    ret = dict_set_dynstr(dict, "transport.socket.connect-path", fpath);
+    ret = dict_set_dynstr_sizen(dict, "transport.socket.connect-path", fpath);
     if (ret) {
         GF_FREE(fpath);
         goto out;
     }
 
-    ret = dict_set_str(dict, "transport.address-family", "unix");
+    ret = dict_set_str_sizen(dict, "transport.address-family", "unix");
     if (ret)
         goto out;
 
-    ret = dict_set_str(dict, "transport.socket.nodelay", "off");
+    ret = dict_set_str_sizen(dict, "transport.socket.nodelay", "off");
     if (ret)
         goto out;
 
-    ret = dict_set_str(dict, "transport-type", "socket");
+    ret = dict_set_str_sizen(dict, "transport-type", "socket");
     if (ret)
         goto out;
 
-    ret = dict_set_str(dict, "transport.socket.keepalive", "off");
+    ret = dict_set_str_sizen(dict, "transport.socket.keepalive", "off");
     if (ret)
         goto out;
 
     if (frame_timeout > 0) {
-        ret = dict_set_int32(dict, "frame-timeout", frame_timeout);
+        ret = dict_set_int32_sizen(dict, "frame-timeout", frame_timeout);
         if (ret)
             goto out;
     }
@@ -647,9 +623,9 @@ rpc_transport_inet_options_build(dict_t *dict, const char *hostname, int port,
     char *host = NULL;
     int ret = -1;
 #ifdef IPV6_DEFAULT
-    char *addr_family = "inet6";
+    static char *addr_family = "inet6";
 #else
-    char *addr_family = "inet";
+    static char *addr_family = "inet";
 #endif
 
     GF_ASSERT(hostname);
@@ -662,7 +638,7 @@ rpc_transport_inet_options_build(dict_t *dict, const char *hostname, int port,
         goto out;
     }
 
-    ret = dict_set_dynstr(dict, "remote-host", host);
+    ret = dict_set_dynstr_sizen(dict, "remote-host", host);
     if (ret) {
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set remote-host with %s",
                host);
@@ -670,21 +646,22 @@ rpc_transport_inet_options_build(dict_t *dict, const char *hostname, int port,
         goto out;
     }
 
-    ret = dict_set_int32(dict, "remote-port", port);
+    ret = dict_set_int32_sizen(dict, "remote-port", port);
     if (ret) {
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set remote-port with %d",
                port);
         goto out;
     }
 
-    ret = dict_set_str(dict, "address-family", (af != NULL ? af : addr_family));
+    ret = dict_set_str_sizen(dict, "address-family",
+                             (af != NULL ? af : addr_family));
     if (ret) {
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set address-family to %s",
                addr_family);
         goto out;
     }
 
-    ret = dict_set_str(dict, "transport-type", "socket");
+    ret = dict_set_str_sizen(dict, "transport-type", "socket");
     if (ret) {
         gf_log(THIS->name, GF_LOG_WARNING,
                "failed to set trans-type with socket");
