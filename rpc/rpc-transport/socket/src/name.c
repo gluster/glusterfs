@@ -105,10 +105,10 @@ af_unix_client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,
     struct sockaddr_un *addr = NULL;
     int32_t ret = 0;
 
-    path_data = dict_get(this->options, "transport.socket.bind-path");
+    path_data = dict_get_sizen(this->options, "transport.socket.bind-path");
     if (path_data) {
         char *path = data_to_str(path_data);
-        if (!path || strlen(path) > UNIX_PATH_MAX) {
+        if (!path || path_data->len > UNIX_PATH_MAX) {
             gf_log(this->name, GF_LOG_TRACE,
                    "bind-path not specified for unix socket, "
                    "letting connect to assign default value");
@@ -134,7 +134,7 @@ err:
     return ret;
 }
 
-int32_t
+static int32_t
 client_fill_address_family(rpc_transport_t *this, sa_family_t *sa_family)
 {
     data_t *address_family_data = NULL;
@@ -145,12 +145,13 @@ client_fill_address_family(rpc_transport_t *this, sa_family_t *sa_family)
         goto out;
     }
 
-    address_family_data = dict_get(this->options, "transport.address-family");
+    address_family_data = dict_get_sizen(this->options,
+                                         "transport.address-family");
     if (!address_family_data) {
         data_t *remote_host_data = NULL, *connect_path_data = NULL;
-        remote_host_data = dict_get(this->options, "remote-host");
-        connect_path_data = dict_get(this->options,
-                                     "transport.socket.connect-path");
+        remote_host_data = dict_get_sizen(this->options, "remote-host");
+        connect_path_data = dict_get_sizen(this->options,
+                                           "transport.socket.connect-path");
 
         if (!(remote_host_data || connect_path_data) ||
             (remote_host_data && connect_path_data)) {
@@ -179,7 +180,7 @@ client_fill_address_family(rpc_transport_t *this, sa_family_t *sa_family)
         }
 
     } else {
-        char *address_family = data_to_str(address_family_data);
+        const char *address_family = data_to_str(address_family_data);
         if (!strcasecmp(address_family, "unix")) {
             *sa_family = AF_UNIX;
         } else if (!strcasecmp(address_family, "inet")) {
@@ -211,12 +212,12 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
     data_t *remote_host_data = NULL;
     data_t *remote_port_data = NULL;
     char *remote_host = NULL;
-    uint16_t remote_port = 0;
+    uint16_t remote_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
     struct addrinfo *addr_info = NULL;
     int32_t ret = 0;
     struct in6_addr serveraddr;
 
-    remote_host_data = dict_get(options, "remote-host");
+    remote_host_data = dict_get_sizen(options, "remote-host");
     if (remote_host_data == NULL) {
         gf_log(this->name, GF_LOG_ERROR,
                "option remote-host missing in volume %s", this->name);
@@ -232,25 +233,23 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
         goto err;
     }
 
-    remote_port_data = dict_get(options, "remote-port");
+    remote_port_data = dict_get_sizen(options, "remote-port");
     if (remote_port_data == NULL) {
         gf_log(this->name, GF_LOG_TRACE,
                "option remote-port missing in volume %s. Defaulting to %d",
                this->name, GF_DEFAULT_SOCKET_LISTEN_PORT);
-
-        remote_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
     } else {
         remote_port = data_to_uint16(remote_port_data);
+        if (remote_port == (uint16_t)-1) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "option remote-port has invalid port in volume %s",
+                   this->name);
+            ret = -1;
+            goto err;
+        }
     }
 
-    if (remote_port == (uint16_t)-1) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "option remote-port has invalid port in volume %s", this->name);
-        ret = -1;
-        goto err;
-    }
-
-    /* Need to update transport-address family if address-family is not provide
+    /* Need to update transport-address family if address-family is not provided
        to command-line arguments
     */
     if (inet_pton(AF_INET6, remote_host, &serveraddr)) {
@@ -282,15 +281,21 @@ af_unix_client_get_remote_sockaddr(rpc_transport_t *this,
     struct sockaddr_un *sockaddr_un = NULL;
     char *connect_path = NULL;
     data_t *connect_path_data = NULL;
-    int32_t ret = 0;
+    int32_t ret = -1;
 
-    connect_path_data = dict_get(this->options,
-                                 "transport.socket.connect-path");
+    connect_path_data = dict_get_sizen(this->options,
+                                       "transport.socket.connect-path");
     if (!connect_path_data) {
         gf_log(this->name, GF_LOG_ERROR,
                "option transport.unix.connect-path not specified for "
                "address-family unix");
-        ret = -1;
+        goto err;
+    }
+
+    if ((connect_path_data->len + 1) > UNIX_PATH_MAX) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "connect-path value length %d > %d octets",
+               connect_path_data->len + 1, UNIX_PATH_MAX);
         goto err;
     }
 
@@ -298,15 +303,6 @@ af_unix_client_get_remote_sockaddr(rpc_transport_t *this,
     if (!connect_path) {
         gf_log(this->name, GF_LOG_ERROR,
                "transport.unix.connect-path is null-string");
-        ret = -1;
-        goto err;
-    }
-
-    if ((strlen(connect_path) + 1) > UNIX_PATH_MAX) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "connect-path value length %" GF_PRI_SIZET " > %d octets",
-               strlen(connect_path), UNIX_PATH_MAX);
-        ret = -1;
         goto err;
     }
 
@@ -315,6 +311,7 @@ af_unix_client_get_remote_sockaddr(rpc_transport_t *this,
     strcpy(sockaddr_un->sun_path, connect_path);
     *sockaddr_len = sizeof(struct sockaddr_un);
 
+    ret = 0;
 err:
     return ret;
 }
@@ -328,7 +325,8 @@ af_unix_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
     int32_t ret = 0;
     struct sockaddr_un *sunaddr = (struct sockaddr_un *)addr;
 
-    listen_path_data = dict_get(this->options, "transport.socket.listen-path");
+    listen_path_data = dict_get_sizen(this->options,
+                                      "transport.socket.listen-path");
     if (!listen_path_data) {
         gf_log(this->name, GF_LOG_ERROR,
                "missing option transport.socket.listen-path");
@@ -342,7 +340,7 @@ af_unix_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
 #define UNIX_PATH_MAX 108
 #endif
 
-    if ((strlen(listen_path) + 1) > UNIX_PATH_MAX) {
+    if ((listen_path_data->len + 1) > UNIX_PATH_MAX) {
         gf_log(this->name, GF_LOG_ERROR,
                "option transport.unix.listen-path has value length "
                "%" GF_PRI_SIZET " > %d",
@@ -375,14 +373,14 @@ af_inet_server_get_local_sockaddr(rpc_transport_t *this, struct sockaddr *addr,
 
     options = this->options;
 
-    listen_port_data = dict_get(options, "transport.socket.listen-port");
+    listen_port_data = dict_get_sizen(options, "transport.socket.listen-port");
     if (listen_port_data) {
         listen_port = data_to_uint16(listen_port_data);
     } else {
         listen_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
     }
 
-    listen_host_data = dict_get(options, "transport.socket.bind-address");
+    listen_host_data = dict_get_sizen(options, "transport.socket.bind-address");
     if (listen_host_data) {
         listen_host = data_to_str(listen_host_data);
     } else {
@@ -546,23 +544,24 @@ err:
     return ret;
 }
 
-int32_t
+static int32_t
 server_fill_address_family(rpc_transport_t *this, sa_family_t *sa_family)
 {
     data_t *address_family_data = NULL;
     int32_t ret = -1;
 
 #ifdef IPV6_DEFAULT
-    char *addr_family = "inet6";
+    const char *addr_family = "inet6";
     sa_family_t default_family = AF_INET6;
 #else
-    char *addr_family = "inet";
+    const char *addr_family = "inet";
     sa_family_t default_family = AF_INET;
 #endif
 
     GF_VALIDATE_OR_GOTO("socket", sa_family, out);
 
-    address_family_data = dict_get(this->options, "transport.address-family");
+    address_family_data = dict_get_sizen(this->options,
+                                         "transport.address-family");
     if (address_family_data) {
         char *address_family = NULL;
         address_family = data_to_str(address_family_data);
@@ -634,7 +633,7 @@ err:
     return ret;
 }
 
-int32_t
+static int32_t
 fill_inet6_inet_identifiers(rpc_transport_t *this,
                             struct sockaddr_storage *addr, int32_t addr_len,
                             char *identifier)
