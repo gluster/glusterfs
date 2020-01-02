@@ -40,8 +40,8 @@ enum argp_option_keys {
     ARGP_PORT_KEY = 'p',
 };
 
-int cli_default_conn_timeout;
-int cli_ten_minutes_timeout;
+extern int cli_default_conn_timeout;
+extern int cli_ten_minutes_timeout;
 
 typedef enum {
     COLD_BRICK_COUNT,
