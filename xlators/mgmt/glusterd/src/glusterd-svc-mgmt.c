@@ -189,7 +189,7 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
 
         if (this->ctx->cmd_args.valgrind) {
             len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s.log",
-                           svc->proc.logfile, svc->name);
+                           svc->proc.logdir, svc->name);
             if ((len < 0) || (len >= PATH_MAX)) {
                 ret = -1;
                 goto unlock;
