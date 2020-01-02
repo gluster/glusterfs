@@ -4161,6 +4161,34 @@ static void __attribute__((destructor)) fini_openssl_mt(void)
     ERR_free_strings();
 }
 
+/* The function returns 0 if AES bit is enabled on the CPU */
+static int
+ssl_check_aes_bit(void)
+{
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+    int ret = 1;
+    size_t len = 0;
+    char *line = NULL;
+    char *match = NULL;
+
+    GF_ASSERT(fp != NULL);
+
+    while (getline(&line, &len, fp) > 0) {
+        if (!strncmp(line, "flags", 5)) {
+            match = strstr(line, " aes");
+            if ((match != NULL) && ((match[4] == ' ') || (match[4] == 0))) {
+                ret = 0;
+                break;
+            }
+        }
+    }
+
+    free(line);
+    fclose(fp);
+
+    return ret;
+}
+
 static int
 ssl_setup_connection_params(rpc_transport_t *this)
 {
@@ -4182,6 +4210,10 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
     if (!priv->ssl_enabled && !priv->mgmt_ssl) {
         return 0;
+    }
+
+    if (!ssl_check_aes_bit()) {
+        cipher_list = "AES128:" DEFAULT_CIPHER_LIST;
     }
 
     priv->ssl_own_cert = DEFAULT_CERT_PATH;
