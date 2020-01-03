@@ -5737,13 +5737,31 @@ __afr_get_up_children_count(afr_private_t *priv)
     return up_children;
 }
 
+static int
+__get_heard_from_all_status(xlator_t *this)
+{
+    afr_private_t *priv = this->private;
+    int i;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!priv->last_event[i]) {
+            return 0;
+        }
+    }
+    if (priv->thin_arbiter_count && !priv->ta_child_up) {
+        return 0;
+    }
+    return 1;
+}
+
 glusterfs_event_t
-__afr_transform_event_from_state(afr_private_t *priv)
+__afr_transform_event_from_state(xlator_t *this)
 {
     int i = 0;
     int up_children = 0;
+    afr_private_t *priv = this->private;
 
-    if (AFR_COUNT(priv->last_event, priv->child_count) == priv->child_count)
+    if (__get_heard_from_all_status(this))
         /* have_heard_from_all. Let afr_notify() do the propagation. */
         return GF_EVENT_MAXVAL;
 
@@ -5785,7 +5803,7 @@ afr_notify_cbk(void *data)
             goto unlock;
         }
         priv->timer = NULL;
-        event = __afr_transform_event_from_state(priv);
+        event = __afr_transform_event_from_state(this);
         if (event != GF_EVENT_MAXVAL)
             propagate = _gf_true;
     }
@@ -5810,20 +5828,6 @@ __afr_launch_notify_timer(xlator_t *this, afr_private_t *priv)
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_TIMER_CREATE_FAIL,
                "Cannot create timer for delayed initialization");
     }
-}
-
-static int
-__get_heard_from_all_status(xlator_t *this)
-{
-    afr_private_t *priv = this->private;
-    int i;
-
-    for (i = 0; i < priv->child_count; i++) {
-        if (!priv->last_event[i]) {
-            return 0;
-        }
-    }
-    return 1;
 }
 
 static int
