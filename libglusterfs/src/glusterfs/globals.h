@@ -117,6 +117,7 @@
 
 #define GD_OP_VERSION_7_0 70000 /* Op-version for GlusterFS 7.0 */
 #define GD_OP_VERSION_7_1 70100 /* Op-version for GlusterFS 7.1 */
+#define GD_OP_VERSION_7_2 70200 /* Op-version for GlusterFS 7.2 */
 
 #define GD_OP_VERSION_8_0 80000 /* Op-version for GlusterFS 8.0 */
 
