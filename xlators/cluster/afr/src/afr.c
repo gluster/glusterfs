@@ -241,6 +241,8 @@ reconfigure(xlator_t *this, dict_t *options)
                      out);
 
     GF_OPTION_RECONF("eager-lock", priv->eager_lock, options, bool, out);
+    GF_OPTION_RECONF("optimistic-change-log", priv->optimistic_change_log,
+                     options, bool, out);
     GF_OPTION_RECONF("quorum-type", qtype, options, str, out);
     GF_OPTION_RECONF("quorum-count", priv->quorum_count, options, uint32, out);
     fix_quorum_options(this, priv, qtype, options);
