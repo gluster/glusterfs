@@ -6153,7 +6153,7 @@ cli_print_volume_status_mempool(dict_t *dict, char *prefix)
         if (ret)
             goto out;
 
-        keylen = snprintf(key, sizeof(key), "%s.pool%d.pool-misses", prefix, i);
+        snprintf(key, sizeof(key), "%s.pool%d.pool-misses", prefix, i);
         ret = dict_get_uint64(dict, key, &pool_misses);
         if (ret)
             goto out;
