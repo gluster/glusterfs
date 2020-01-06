@@ -473,6 +473,8 @@ pl_inodelk_xattr_fill_multiple(dict_t *this, char *key, data_t *value,
     tmp_key = gf_strdup(key);
     strtok_r(tmp_key, ":", &save_ptr);
     if (!*save_ptr) {
+        if (tmp_key)
+            GF_FREE(tmp_key);
         gf_msg(THIS->name, GF_LOG_ERROR, 0, EINVAL,
                "Could not tokenize domain string from key %s", key);
         return -1;
