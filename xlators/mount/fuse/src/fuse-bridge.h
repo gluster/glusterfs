@@ -196,14 +196,20 @@ struct fuse_private {
 };
 typedef struct fuse_private fuse_private_t;
 
+typedef uint64_t errnomask_t[2];
+#define MASK_ERRNO(mask, n) ((mask)[(n) >> 6] |= ((uint64_t)1 << ((n)&63)))
+#define GET_ERRNO_MASK(mask, n) ((mask)[(n) >> 6] & ((uint64_t)1 << ((n)&63)))
+#define ERRNOMASK_MAX (64 * (sizeof(errnomask_t) / sizeof(uint64_t)))
+
 #define INVAL_BUF_SIZE                                                         \
     (sizeof(struct fuse_out_header) +                                          \
      max(sizeof(struct fuse_notify_inval_inode_out),                           \
          sizeof(struct fuse_notify_inval_entry_out) + NAME_MAX + 1))
 
 struct fuse_invalidate_node {
-    char inval_buf[INVAL_BUF_SIZE];
+    errnomask_t errnomask;
     struct list_head next;
+    char inval_buf[INVAL_BUF_SIZE];
 };
 typedef struct fuse_invalidate_node fuse_invalidate_node_t;
 
@@ -211,6 +217,7 @@ struct fuse_timed_message {
     struct fuse_out_header fuse_out_header;
     void *fuse_message_body;
     struct timespec scheduled_ts;
+    errnomask_t errnomask;
     struct list_head next;
 };
 typedef struct fuse_timed_message fuse_timed_message_t;
