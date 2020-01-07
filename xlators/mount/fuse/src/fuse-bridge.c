@@ -205,7 +205,7 @@ fusedump_setup_meta(struct iovec *iovs, char *dir,
 
 static int
 check_and_dump_fuse_W(fuse_private_t *priv, struct iovec *iov_out, int count,
-                      ssize_t res)
+                      ssize_t res, errnomask_t errnomask)
 {
     char w = 'W';
     struct iovec diov[4] = {
@@ -223,8 +223,59 @@ check_and_dump_fuse_W(fuse_private_t *priv, struct iovec *iov_out, int count,
     struct fuse_out_header *fouh = NULL;
 
     if (res == -1) {
-        gf_log_callingfn("glusterfs-fuse", GF_LOG_ERROR,
-                         "writing to fuse device failed: %s", strerror(errno));
+        const char *errdesc = NULL;
+        gf_loglevel_t loglevel = GF_LOG_ERROR;
+
+        /* If caller masked the errno, then it
+         * does not indicate an error at the application
+         * level, so we degrade the log severity to DEBUG.
+         */
+        if (errnomask && errno < ERRNOMASK_MAX &&
+            GET_ERRNO_MASK(errnomask, errno))
+            loglevel = GF_LOG_DEBUG;
+
+        switch (errno) {
+            /* The listed errnos are FUSE status indicators,
+             * not legit values according to POSIX (see write(3p)),
+             * so resolving them according to the standard
+             * POSIX interpretation would be misleading.
+             */
+            case ENOENT:
+                errdesc = "ENOENT";
+                break;
+            case ENOTDIR:
+                errdesc = "ENOTDIR";
+                break;
+            case ENODEV:
+                errdesc = "ENODEV";
+                break;
+            case EPERM:
+                errdesc = "EPERM";
+                break;
+            case ENOMEM:
+                errdesc = "ENOMEM";
+                break;
+            case ENOTCONN:
+                errdesc = "ENOTCONN";
+                break;
+            case ECONNREFUSED:
+                errdesc = "ECONNREFUSED";
+                break;
+            case EOVERFLOW:
+                errdesc = "EOVERFLOW";
+                break;
+            case EBUSY:
+                errdesc = "EBUSY";
+                break;
+            case ENOTEMPTY:
+                errdesc = "ENOTEMPTY";
+                break;
+            default:
+                errdesc = strerror(errno);
+        }
+
+        gf_log_callingfn("glusterfs-fuse", loglevel,
+                         "writing to fuse device failed: %s", errdesc);
         return errno;
     }
 
@@ -289,7 +340,7 @@ send_fuse_iov(xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
     gf_log("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s", res,
            fouh->len, res == -1 ? strerror(errno) : "");
 
-    return check_and_dump_fuse_W(priv, iov_out, count, res);
+    return check_and_dump_fuse_W(priv, iov_out, count, res, NULL);
 }
 
 static int
@@ -359,6 +410,15 @@ fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
 
         fouh->unique = 0;
         fouh->error = FUSE_NOTIFY_INVAL_ENTRY;
+
+        if (ENOENT < ERRNOMASK_MAX)
+            MASK_ERRNO(node->errnomask, ENOENT);
+        if (ENOTDIR < ERRNOMASK_MAX)
+            MASK_ERRNO(node->errnomask, ENOTDIR);
+        if (EBUSY < ERRNOMASK_MAX)
+            MASK_ERRNO(node->errnomask, EBUSY);
+        if (ENOTEMPTY < ERRNOMASK_MAX)
+            MASK_ERRNO(node->errnomask, ENOTEMPTY);
 
         if (dentry->name) {
             nlen = strlen(dentry->name);
@@ -444,6 +504,9 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
     fniio->off = 0;
     fniio->len = -1;
 
+    if (ENOENT < ERRNOMASK_MAX)
+        MASK_ERRNO(node->errnomask, ENOENT);
+
     fuse_log_eh(this, "Invalidated inode %" PRIu64 " (gfid: %s)", fuse_ino,
                 uuid_utoa(inode->gfid));
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
@@ -489,6 +552,7 @@ fuse_timed_message_new(void)
     /* should be NULL if not set */
     dmsg->fuse_message_body = NULL;
     INIT_LIST_HEAD(&dmsg->next);
+    memset(dmsg->errnomask, 0, sizeof(dmsg->errnomask));
 
     return dmsg;
 }
@@ -687,6 +751,8 @@ fuse_interrupt(xlator_t *this, fuse_in_header_t *finh, void *msg,
         dmsg->fuse_out_header.unique = finh->unique;
         dmsg->fuse_out_header.len = sizeof(dmsg->fuse_out_header);
         dmsg->fuse_out_header.error = -EAGAIN;
+        if (ENOENT < ERRNOMASK_MAX)
+            MASK_ERRNO(dmsg->errnomask, ENOENT);
         timespec_now(&dmsg->scheduled_ts);
         timespec_adjust_delta(&dmsg->scheduled_ts,
                               (struct timespec){0, 10000000});
@@ -4885,7 +4951,7 @@ notify_kernel_loop(void *data)
         iov_out.iov_base = node->inval_buf;
         iov_out.iov_len = len;
         rv = sys_writev(priv->fd, &iov_out, 1);
-        check_and_dump_fuse_W(priv, &iov_out, 1, rv);
+        check_and_dump_fuse_W(priv, &iov_out, 1, rv, node->errnomask);
 
         GF_FREE(node);
 
@@ -4977,7 +5043,7 @@ timed_response_loop(void *data)
         iovs[1] = (struct iovec){dmsg->fuse_message_body,
                                  len - sizeof(struct fuse_out_header)};
         rv = sys_writev(priv->fd, iovs, 2);
-        check_and_dump_fuse_W(priv, iovs, 2, rv);
+        check_and_dump_fuse_W(priv, iovs, 2, rv, dmsg->errnomask);
 
         fuse_timed_message_free(dmsg);
 
