@@ -503,6 +503,8 @@ dht_order_rename_lock(call_frame_t *frame, loc_t **loc, xlator_t **subvol)
             uuid_utoa_r(local->loc.pargfid, src);
         else if (local->loc.parent)
             uuid_utoa_r(local->loc.parent->gfid, src);
+        else
+            src[0] = '\0';
 
         strcat(src, local->loc.name);
 
@@ -518,6 +520,8 @@ dht_order_rename_lock(call_frame_t *frame, loc_t **loc, xlator_t **subvol)
             uuid_utoa_r(local->loc2.pargfid, dst);
         else if (local->loc2.parent)
             uuid_utoa_r(local->loc2.parent->gfid, dst);
+        else
+            dst[0] = '\0';
 
         strcat(dst, local->loc2.name);
         ret = strcmp(src, dst);
