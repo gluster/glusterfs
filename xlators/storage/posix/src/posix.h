@@ -16,12 +16,8 @@
 #include <dirent.h>
 #include <time.h>
 
-#ifdef linux
-#ifdef __GLIBC__
+#ifdef HAVE_SET_FSID
 #include <sys/fsuid.h>
-#else
-#include <unistd.h>
-#endif
 #endif
 
 #ifdef HAVE_SYS_XATTR_H
