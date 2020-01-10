@@ -2758,6 +2758,7 @@ gfproxy_client_perfxl_option_handler(volgen_graph_t *graph,
     return 0;
 }
 
+#ifdef BUILD_GNFS
 static int
 nfsperfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
                          void *param)
@@ -2780,6 +2781,7 @@ nfsperfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     else
         return -1;
 }
+#endif
 
 #if (HAVE_LIB_XML)
 int
@@ -3880,7 +3882,6 @@ static int
 client_graph_set_perf_options(volgen_graph_t *graph,
                               glusterd_volinfo_t *volinfo, dict_t *set_dict)
 {
-    char *volname = NULL;
     int ret = 0;
 
     /*
@@ -3909,18 +3910,19 @@ client_graph_set_perf_options(volgen_graph_t *graph,
     if (ret < 0)
         return ret;
 
-    volname = volinfo->volname;
-
 #ifdef BUILD_GNFS
     data_t *tmp_data = NULL;
+    char *volname = NULL;
+
     tmp_data = dict_get_sizen(set_dict, "nfs-volume-file");
-    if (!tmp_data)
-        return volgen_graph_set_options_generic(graph, set_dict, volinfo,
-                                                &perfxl_option_handler);
-    else
-#endif
+    if (tmp_data) {
+        volname = volinfo->volname;
         return volgen_graph_set_options_generic(graph, set_dict, volname,
                                                 &nfsperfxl_option_handler);
+    } else
+#endif
+        return volgen_graph_set_options_generic(graph, set_dict, volinfo,
+                                                &perfxl_option_handler);
 }
 
 static int
