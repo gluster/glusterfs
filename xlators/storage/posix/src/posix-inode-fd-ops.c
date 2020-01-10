@@ -26,7 +26,6 @@
 #include <signal.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include <ftw.h>
 #include <regex.h>
 
 #ifndef GF_BSD_HOST_OS
