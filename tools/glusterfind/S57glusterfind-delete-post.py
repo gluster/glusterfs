@@ -18,7 +18,7 @@ def handle_rm_error(func, path, exc_info):
 
 def get_glusterd_workdir():
     p = Popen(["gluster", "system::", "getwd"],
-              stdout=PIPE, stderr=PIPE)
+              stdout=PIPE, stderr=PIPE, universal_newlines=True)
 
     out, _ = p.communicate()
 
