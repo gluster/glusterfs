@@ -662,7 +662,7 @@ def mode_query(session_dir, args):
     # Merger
     if args.full:
         if len(g_pid_nodefile_map) > 0:
-            cmd = ["sort", "-u"] + g_pid_nodefile_map.values() + \
+            cmd = ["sort", "-u"] + list(g_pid_nodefile_map.values()) + \
                   ["-o", args.outfile]
             execute(cmd,
                     exit_msg="Failed to merge output files "
@@ -674,7 +674,7 @@ def mode_query(session_dir, args):
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
         outfilemerger = OutputMerger(args.outfile + ".db",
-                                     g_pid_nodefile_map.values())
+                                     list(g_pid_nodefile_map.values()))
         write_output(args.outfile, outfilemerger, args.field_separator)
 
     try:
@@ -731,7 +731,7 @@ def mode_pre(session_dir, args):
     # Merger
     if args.full:
         if len(g_pid_nodefile_map) > 0:
-            cmd = ["sort", "-u"] + g_pid_nodefile_map.values() + \
+            cmd = ["sort", "-u"] + list(g_pid_nodefile_map.values()) + \
                   ["-o", args.outfile]
             execute(cmd,
                     exit_msg="Failed to merge output files "
@@ -743,7 +743,7 @@ def mode_pre(session_dir, args):
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
         outfilemerger = OutputMerger(args.outfile + ".db",
-                                     g_pid_nodefile_map.values())
+                                     list(g_pid_nodefile_map.values()))
         write_output(args.outfile, outfilemerger, args.field_separator)
 
     try:
