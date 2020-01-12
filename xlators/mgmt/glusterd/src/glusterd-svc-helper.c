@@ -838,7 +838,6 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
                        "to request buffer");
                 goto *errlbl;
             }
-            dict->extra_free = brick_req.dict.dict_val;
         }
 
         frame->cookie = svc;
@@ -900,6 +899,8 @@ maybe_free_iobuf:
 err:
     if (dict)
         dict_unref(dict);
+    if (brick_req.dict.dict_val)
+        GF_FREE(brick_req.dict.dict_val);
 
     GF_FREE(volfile_content);
     if (spec_fd >= 0)

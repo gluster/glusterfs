@@ -1052,11 +1052,9 @@ __server_getspec(rpcsvc_request_t *req)
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0,
                        GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-                       "Failed to serialize dict "
-                       "to request buffer");
+                       "Failed to serialize dict to request buffer");
                 goto fail;
             }
-            dict->extra_free = rsp.xdata.xdata_val;
         }
 
         /* to allocate the proper buffer to hold the file data */
@@ -1130,6 +1128,9 @@ fail:
 
     if (args.xdata.xdata_val)
         free(args.xdata.xdata_val);
+
+    if (rsp.xdata.xdata_val)
+        GF_FREE(rsp.xdata.xdata_val);
 
     return 0;
 }
