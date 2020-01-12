@@ -118,7 +118,6 @@ struct _dict {
     gf_atomic_t refcount;
     data_pair_t **members;
     data_pair_t *members_list;
-    char *extra_free;
     char *extra_stdfree;
     gf_lock_t lock;
     data_pair_t *members_internal;

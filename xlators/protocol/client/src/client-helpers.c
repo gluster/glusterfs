@@ -175,7 +175,6 @@ unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
                         gf_dirent_t *entries)
 {
     struct gfs3_dirplist *trav = NULL;
-    char *buf = NULL;
     gf_dirent_t *entry = NULL;
     inode_table_t *itable = NULL;
     int entry_len = 0;
@@ -207,22 +206,18 @@ unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
         strcpy(entry->d_name, trav->name);
 
         if (trav->dict.dict_val) {
-            /* Dictionary is sent along with response */
-            buf = gf_memdup(trav->dict.dict_val, trav->dict.dict_len);
-            if (!buf)
+            entry->dict = dict_new();
+            if (!entry->dict)
                 goto out;
 
-            entry->dict = dict_new();
-
-            ret = dict_unserialize(buf, trav->dict.dict_len, &entry->dict);
+            ret = dict_unserialize(trav->dict.dict_val, trav->dict.dict_len,
+                                   &entry->dict);
             if (ret < 0) {
                 gf_msg(THIS->name, GF_LOG_WARNING, EINVAL,
                        PC_MSG_DICT_UNSERIALIZE_FAIL,
                        "failed to unserialize xattr dict");
                 goto out;
             }
-            GF_FREE(buf);
-            buf = NULL;
         }
 
         entry->inode = inode_find(itable, entry->d_stat.ia_gfid);
@@ -237,8 +232,6 @@ unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
 
     ret = 0;
 out:
-    if (buf)
-        GF_FREE(buf);
     if (entry)
         gf_dirent_entry_free(entry);
     return ret;

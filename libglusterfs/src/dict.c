@@ -705,7 +705,6 @@ dict_destroy(dict_t *this)
         mem_put(this->members);
     }
 
-    GF_FREE(this->extra_free);
     free(this->extra_stdfree);
 
     /* update 'ctx->stats.dict.details' using max_count */
