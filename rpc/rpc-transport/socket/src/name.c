@@ -108,7 +108,7 @@ af_unix_client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,
     path_data = dict_get_sizen(this->options, "transport.socket.bind-path");
     if (path_data) {
         char *path = data_to_str(path_data);
-        if (!path || path_data->len > UNIX_PATH_MAX) {
+        if (!path || path_data->len > 108) { /* 108 = addr->sun_path length */
             gf_log(this->name, GF_LOG_TRACE,
                    "bind-path not specified for unix socket, "
                    "letting connect to assign default value");
@@ -292,7 +292,8 @@ af_unix_client_get_remote_sockaddr(rpc_transport_t *this,
         goto err;
     }
 
-    if ((connect_path_data->len + 1) > UNIX_PATH_MAX) {
+    /* 108 = sockaddr_un->sun_path length */
+    if ((connect_path_data->len + 1) > 108) {
         gf_log(this->name, GF_LOG_ERROR,
                "connect-path value length %d > %d octets",
                connect_path_data->len + 1, UNIX_PATH_MAX);
