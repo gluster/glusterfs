@@ -516,7 +516,7 @@ def write_output(outfile, outfilemerger, field_separator):
                     continue
 
                 if row_2_rep and row_2_rep != "":
-                    gfind_write_row(f, row[0], field_separator, p_rep, field_separator, row_2_rep)
+                    gfind_write_row(f, row[0], field_separator, p_rep, row_2_rep)
 
                 else:
                     gfind_write(f, row[0], field_separator, p_rep)
