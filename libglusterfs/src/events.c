@@ -34,7 +34,6 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     int ret = 0;
     int sock = -1;
     char *eventstr = NULL;
-    struct sockaddr_in server;
     va_list arguments;
     char *msg = NULL;
     glusterfs_ctx_t *ctx = NULL;
@@ -42,11 +41,10 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     struct addrinfo hints;
     struct addrinfo *result = NULL;
     xlator_t *this = THIS;
-    int sin_family = AF_INET;
     char *volfile_server_transport = NULL;
 
     /* Global context */
-    ctx = THIS->ctx;
+    ctx = this->ctx;
 
     if (event < 0 || event >= EVENT_LAST) {
         ret = EVENT_ERROR_INVALID_INPUTS;
@@ -60,48 +58,31 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
         goto out;
     }
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-
     if (ctx) {
         volfile_server_transport = ctx->cmd_args.volfile_server_transport;
     }
-
     if (!volfile_server_transport) {
         volfile_server_transport = "tcp";
     }
-    /* Get Host name to send message */
+
+    /* host = NULL returns localhost */
+    host = NULL;
     if (ctx && ctx->cmd_args.volfile_server &&
         (strcmp(volfile_server_transport, "unix"))) {
         /* If it is client code then volfile_server is set
            use that information to push the events. */
-        if ((getaddrinfo(ctx->cmd_args.volfile_server, NULL, &hints,
-                         &result)) != 0) {
-            ret = EVENT_ERROR_RESOLVE;
-            goto out;
-        }
-
-        if (get_ip_from_addrinfo(result, &host) == NULL) {
-            ret = EVENT_ERROR_RESOLVE;
-            goto out;
-        }
-
-        sin_family = result->ai_family;
-    } else {
-        /* Localhost, Use the defined IP for localhost */
-        host = gf_strdup(EVENT_HOST);
+        host = ctx->cmd_args.volfile_server;
     }
 
-    /* Socket Configurations */
-    server.sin_family = sin_family;
-    server.sin_port = htons(EVENT_PORT);
-    ret = inet_pton(server.sin_family, host, &server.sin_addr);
-    if (ret <= 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-               "inet_pton failed with return code %d", ret);
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_ADDRCONFIG;
+
+    if ((getaddrinfo(host, TOSTRING(EVENT_PORT), &hints, &result)) != 0) {
+        ret = EVENT_ERROR_RESOLVE;
         goto out;
     }
-    memset(&server.sin_zero, '\0', sizeof(server.sin_zero));
 
     va_start(arguments, fmt);
     ret = gf_vasprintf(&msg, fmt, arguments);
@@ -113,15 +94,15 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     }
 
     ret = gf_asprintf(&eventstr, "%u %d %s", (unsigned)time(NULL), event, msg);
-
+    GF_FREE(msg);
     if (ret <= 0) {
         ret = EVENT_ERROR_MSG_FORMAT;
         goto out;
     }
 
     /* Send Message */
-    if (sendto(sock, eventstr, strlen(eventstr), 0, (struct sockaddr *)&server,
-               sizeof(server)) <= 0) {
+    if (sendto(sock, eventstr, strlen(eventstr), 0, result->ai_addr,
+               result->ai_addrlen) <= 0) {
         ret = EVENT_ERROR_SEND;
         goto out;
     }
@@ -133,16 +114,9 @@ out:
         sys_close(sock);
     }
 
-    /* Allocated by gf_vasprintf */
-    if (msg)
-        GF_FREE(msg);
-
     /* Allocated by gf_asprintf */
     if (eventstr)
         GF_FREE(eventstr);
-
-    if (host)
-        GF_FREE(host);
 
     if (result)
         freeaddrinfo(result);
