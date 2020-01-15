@@ -1435,15 +1435,31 @@ dht_lookup_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dht_aggregate_xattr(local->xattr, xattr);
         }
 
+        if (__is_root_gfid(stbuf->ia_gfid)) {
+            ret = dht_dir_has_layout(xattr, conf->xattr_name);
+            if (ret >= 0) {
+                if (is_greater_time(local->prebuf.ia_ctime,
+                                    local->prebuf.ia_ctime_nsec,
+                                    stbuf->ia_ctime, stbuf->ia_ctime_nsec)) {
+                    /* Choose source */
+                    local->prebuf.ia_gid = stbuf->ia_gid;
+                    local->prebuf.ia_uid = stbuf->ia_uid;
+
+                    local->prebuf.ia_ctime = stbuf->ia_ctime;
+                    local->prebuf.ia_ctime_nsec = stbuf->ia_ctime_nsec;
+                    local->prebuf.ia_prot = stbuf->ia_prot;
+                }
+            }
+        }
+
         if (local->stbuf.ia_type != IA_INVAL) {
             /* This is not the first subvol to respond
              * Compare values to see if attrs need to be healed
              */
-            if (!__is_root_gfid(stbuf->ia_gfid) &&
-                ((local->stbuf.ia_gid != stbuf->ia_gid) ||
-                 (local->stbuf.ia_uid != stbuf->ia_uid) ||
-                 (is_permission_different(&local->stbuf.ia_prot,
-                                          &stbuf->ia_prot)))) {
+            if ((local->stbuf.ia_gid != stbuf->ia_gid) ||
+                (local->stbuf.ia_uid != stbuf->ia_uid) ||
+                (is_permission_different(&local->stbuf.ia_prot,
+                                         &stbuf->ia_prot))) {
                 local->need_attrheal = 1;
             }
         }
