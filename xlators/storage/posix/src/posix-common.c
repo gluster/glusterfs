@@ -611,6 +611,7 @@ posix_init(xlator_t *this)
         0,
     };
     int hdirfd = -1;
+    char value;
 
     dir_data = dict_get(this->options, "directory");
 
@@ -672,16 +673,11 @@ posix_init(xlator_t *this)
     }
 
     /* Check for Extended attribute support, if not present, log it */
-    op_ret = sys_lsetxattr(dir_data->data, "trusted.glusterfs.test", "working",
-                           8, 0);
-    if (op_ret != -1) {
-        ret = sys_lremovexattr(dir_data->data, "trusted.glusterfs.test");
-        if (ret) {
-            gf_msg(this->name, GF_LOG_DEBUG, errno, P_MSG_INVALID_OPTION,
-                   "failed to remove xattr: "
-                   "trusted.glusterfs.test");
-        }
-    } else {
+    size = sys_lgetxattr(dir_data->data, "user.x", &value, sizeof(value));
+
+    if ((size == -1) && (errno == EOPNOTSUPP)) {
+        gf_msg(this->name, GF_LOG_DEBUG, 0, P_MSG_XDATA_GETXATTR,
+               "getxattr returned %zd", size);
         tmp_data = dict_get(this->options, "mandate-attribute");
         if (tmp_data) {
             if (gf_string2boolean(tmp_data->data, &tmp_bool) == -1) {

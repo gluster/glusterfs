@@ -1941,9 +1941,18 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     local->selfheal.dir_cbk = dir_cbk;
     local->selfheal.layout = dht_layout_ref(this, layout);
 
-    if (local->need_attrheal && !IA_ISINVAL(local->mds_stbuf.ia_type)) {
-        /*Use the one in the mds_stbuf*/
-        local->stbuf = local->mds_stbuf;
+    if (local->need_attrheal) {
+        if (__is_root_gfid(local->stbuf.ia_gfid)) {
+            local->stbuf.ia_gid = local->prebuf.ia_gid;
+            local->stbuf.ia_uid = local->prebuf.ia_uid;
+
+            local->stbuf.ia_ctime = local->prebuf.ia_ctime;
+            local->stbuf.ia_ctime_nsec = local->prebuf.ia_ctime_nsec;
+            local->stbuf.ia_prot = local->prebuf.ia_prot;
+
+        } else if (!IA_ISINVAL(local->mds_stbuf.ia_type)) {
+            local->stbuf = local->mds_stbuf;
+        }
     }
 
     if (!__is_root_gfid(local->stbuf.ia_gfid)) {
