@@ -4950,6 +4950,9 @@ quota_log_usage(xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
         ctx->prev_log = cur_time;
     }
 
+    if (path)
+        GF_FREE(path);
+
     if (usage_str)
         GF_FREE(usage_str);
 }
