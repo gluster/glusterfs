@@ -34,9 +34,9 @@ dht_linkfile_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     is_linkfile = check_is_linkfile(inode, stbuf, xattr, conf->link_xattr_name);
     if (!is_linkfile)
-        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_NOT_LINK_FILE_ERROR,
-               "got non-linkfile %s:%s, gfid = %s", prev->name, local->loc.path,
-               gfid);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_NOT_LINK_FILE_ERROR,
+                "name=%s", prev->name, "path=%s", local->loc.path, "gfid=%s",
+                gfid, NULL);
 out:
     local->linkfile.linkfile_cbk(frame, cookie, this, op_ret, op_errno, inode,
                                  stbuf, postparent, postparent, xattr);
@@ -73,9 +73,8 @@ dht_linkfile_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto out;
         ret = dict_set_uint32(xattrs, conf->link_xattr_name, 256);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
-                   "Failed to set dictionary value. key : %s",
-                   conf->link_xattr_name);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
+                    "mame=%s", conf->link_xattr_name, NULL);
             goto out;
         }
 
@@ -125,27 +124,23 @@ dht_linkfile_create(call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 
         ret = dict_set_gfuuid(dict, "gfid-req", local->gfid, true);
         if (ret)
-            gf_msg("dht-linkfile", GF_LOG_INFO, 0, DHT_MSG_DICT_SET_FAILED,
-                   "%s: Failed to set dictionary value: "
-                   "key = gfid-req, gfid = %s ",
-                   loc->path, gfid);
+            gf_smsg("dht-linkfile", GF_LOG_INFO, 0, DHT_MSG_DICT_SET_FAILED,
+                    "path=%s", loc->path, "gfid=%s", gfid, NULL);
     } else {
         gf_uuid_unparse(loc->gfid, gfid);
     }
 
     ret = dict_set_str(dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
     if (ret)
-        gf_msg("dht-linkfile", GF_LOG_INFO, 0, DHT_MSG_DICT_SET_FAILED,
-               "%s: Failed to set dictionary value: key = %s,"
-               " gfid = %s",
-               loc->path, GLUSTERFS_INTERNAL_FOP_KEY, gfid);
+        gf_smsg("dht-linkfile", GF_LOG_INFO, 0, DHT_MSG_DICT_SET_FAILED,
+                "path=%s", loc->path, "key=%s", GLUSTERFS_INTERNAL_FOP_KEY,
+                "gfid=%s", gfid, NULL);
 
     ret = dict_set_str(dict, conf->link_xattr_name, tovol->name);
 
     if (ret < 0) {
-        gf_msg(frame->this->name, GF_LOG_INFO, 0, DHT_MSG_CREATE_LINK_FAILED,
-               "%s: failed to initialize linkfile data, gfid = %s", loc->path,
-               gfid);
+        gf_smsg(frame->this->name, GF_LOG_INFO, 0, DHT_MSG_CREATE_LINK_FAILED,
+                "path=%s", loc->path, "gfid=%s", gfid, NULL);
         goto out;
     }
 
@@ -186,10 +181,9 @@ dht_linkfile_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret == -1) {
         gf_uuid_unparse(local->loc.gfid, gfid);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, DHT_MSG_UNLINK_FAILED,
-               "Unlinking linkfile %s (gfid = %s)on "
-               "subvolume %s failed ",
-               local->loc.path, gfid, subvol->name);
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, DHT_MSG_UNLINK_FAILED,
+                "path=%s", local->loc.path, "gfid=%s", gfid, "subvolume=%s",
+                subvol->name, NULL);
     }
 
     DHT_STACK_DESTROY(frame);
@@ -269,10 +263,9 @@ dht_linkfile_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     loc = &local->loc;
 
     if (op_ret)
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_SETATTR_FAILED,
-               "Failed to set attr uid/gid on %s"
-               " :<gfid:%s> ",
-               (loc->path ? loc->path : "NULL"), uuid_utoa(local->gfid));
+        gf_smsg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_SETATTR_FAILED,
+                "path=%s", (loc->path ? loc->path : "NULL"), "gfid=%s",
+                uuid_utoa(local->gfid), NULL);
 
     DHT_STACK_DESTROY(frame);
 
