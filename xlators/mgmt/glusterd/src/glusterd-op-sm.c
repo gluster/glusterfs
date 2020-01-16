@@ -5493,6 +5493,7 @@ glusterd_op_ac_stage_op(glusterd_op_sm_event_t *event, void *ctx)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set transaction id.");
         GF_FREE(txn_id);
+        txn_id = NULL;
         goto out;
     }
 
@@ -5511,7 +5512,8 @@ out:
      * txn_opinfo can't be cleared as that'll lead to a race of referring op_ctx
      * after it's being freed.
      */
-    if (txn_op_info.skip_locking && priv->op_version >= GD_OP_VERSION_6_0)
+    if (txn_op_info.skip_locking && priv->op_version >= GD_OP_VERSION_6_0 &&
+        txn_id)
         ret = glusterd_clear_txn_opinfo(txn_id);
 
     if (rsp_dict)
