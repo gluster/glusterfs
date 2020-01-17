@@ -266,7 +266,9 @@ allowed_values=ERROR,INFO,WARNING,DEBUG
 
 [ssh-port]
 value=22
-validation=int
+validation=minmax
+min=1
+max=65535
 help=Set SSH port
 type=int
 

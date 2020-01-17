@@ -223,6 +223,22 @@ TEST $GEOREP_CLI  $master $slave_url resume
 #Validate failure of volume stop when geo-rep is running
 TEST ! $CLI volume stop $GMV0
 
+#Negative test for ssh-port
+#Port should be integer and between 1-65535 range
+
+TEST ! $GEOREP_CLI $master $slave_url config ssh-port -22
+
+TEST ! $GEOREP_CLI $master $slave_url config ssh-port abc
+
+TEST ! $GEOREP_CLI $master $slave_url config ssh-port 6875943
+
+TEST ! $GEOREP_CLI $master $slave_url config ssh-port 4.5
+
+TEST ! $GEOREP_CLI $master $slave_url config ssh-port 22a
+
+#Config Set ssh-port to validate int validation
+TEST $GEOREP_CLI $master $slave config ssh-port 22
+
 #Hybrid directory rename test BZ#1763439
 TEST $GEOREP_CLI $master $slave_url config change_detector xsync
 mkdir ${master_mnt}/dir1

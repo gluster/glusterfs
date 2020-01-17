@@ -71,6 +71,19 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 4 check_status_num_rows "Created"
 #Config gluster-command-dir
 TEST $GEOREP_CLI $master $slave config gluster-command-dir ${GLUSTER_CMD_DIR}
 
+#Negative test for ssh-port
+#Port should be integer and between 1-65535 range
+
+TEST ! $GEOREP_CLI $master $slave config ssh-port -22
+
+TEST ! $GEOREP_CLI $master $slave config ssh-port abc
+
+TEST ! $GEOREP_CLI $master $slave config ssh-port 6875943
+
+TEST ! $GEOREP_CLI $master $slave config ssh-port 4.5
+
+TEST ! $GEOREP_CLI $master $slave config ssh-port 22a
+
 #Config Set ssh-port to validate int validation
 TEST $GEOREP_CLI $master $slave config ssh-port 22
 
