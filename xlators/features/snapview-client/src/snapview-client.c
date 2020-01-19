@@ -755,13 +755,12 @@ gf_svc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                loc->path, uuid_utoa(fd->inode->gfid));
         goto out;
     }
+    loc_copy(&local->loc, loc);
+    frame->local = local;
 
     SVC_GET_SUBVOL_FROM_CTX(this, op_ret, op_errno, inode_type, ret, loc->inode,
                             subvolume, out);
-
-    loc_copy(&local->loc, loc);
     local->subvolume = subvolume;
-    frame->local = local;
 
     STACK_WIND(frame, gf_svc_opendir_cbk, subvolume, subvolume->fops->opendir,
                loc, fd, xdata);
