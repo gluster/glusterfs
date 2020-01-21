@@ -78,6 +78,9 @@ dht_hash_compute(xlator_t *this, int type, const char *name, uint32_t *hash_p)
 
     priv = this->private;
 
+    if (name == NULL)
+        return -1;
+
     len = strlen(name) + 1;
     rsync_friendly_name = alloca(len);
 
