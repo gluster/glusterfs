@@ -249,6 +249,7 @@ server_setvolume(rpcsvc_request_t *req)
     char *subdir_mount = NULL;
     char *client_name = NULL;
     gf_boolean_t cleanup_starting = _gf_false;
+    gf_boolean_t xlator_in_graph = _gf_true;
 
     params = dict_new();
     reply = dict_new();
@@ -300,8 +301,10 @@ server_setvolume(rpcsvc_request_t *req)
     LOCK(&ctx->volfile_lock);
     {
         xl = get_xlator_by_name(this, name);
-        if (!xl)
+        if (!xl) {
+            xlator_in_graph = _gf_false;
             xl = this;
+        }
     }
     UNLOCK(&ctx->volfile_lock);
     if (xl == NULL) {
@@ -576,20 +579,30 @@ server_setvolume(rpcsvc_request_t *req)
                          "failed to set error "
                          "msg");
     } else {
-        gf_event(EVENT_CLIENT_AUTH_REJECT,
-                 "client_uid=%s;"
-                 "client_identifier=%s;server_identifier=%s;"
-                 "brick_path=%s",
-                 client->client_uid, req->trans->peerinfo.identifier,
-                 req->trans->myinfo.identifier, name);
-        gf_msg(this->name, GF_LOG_ERROR, EACCES, PS_MSG_AUTHENTICATE_ERROR,
-               "Cannot authenticate client"
-               " from %s %s",
-               client->client_uid, (clnt_version) ? clnt_version : "old");
-
         op_ret = -1;
-        op_errno = EACCES;
-        ret = dict_set_str(reply, "ERROR", "Authentication failed");
+        if (!xlator_in_graph) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOENT, PS_MSG_AUTHENTICATE_ERROR,
+                   "Cannot authenticate client"
+                   " from %s %s because brick is not attached in graph",
+                   client->client_uid, (clnt_version) ? clnt_version : "old");
+
+            op_errno = ENOENT;
+            ret = dict_set_str(reply, "ERROR", "Brick not found");
+        } else {
+            gf_event(EVENT_CLIENT_AUTH_REJECT,
+                     "client_uid=%s;"
+                     "client_identifier=%s;server_identifier=%s;"
+                     "brick_path=%s",
+                     client->client_uid, req->trans->peerinfo.identifier,
+                     req->trans->myinfo.identifier, name);
+            gf_msg(this->name, GF_LOG_ERROR, EACCES, PS_MSG_AUTHENTICATE_ERROR,
+                   "Cannot authenticate client"
+                   " from %s %s",
+                   client->client_uid, (clnt_version) ? clnt_version : "old");
+
+            op_errno = EACCES;
+            ret = dict_set_str(reply, "ERROR", "Authentication failed");
+        }
         if (ret < 0)
             gf_msg_debug(this->name, 0,
                          "failed to set error "
