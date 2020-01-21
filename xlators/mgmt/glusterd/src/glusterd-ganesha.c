@@ -421,6 +421,35 @@ check_host_list(void)
 }
 
 int
+gd_ganesha_send_dbus(char *volname, char *value)
+{
+    runner_t runner = {
+        0,
+    };
+    int ret = -1;
+    runinit(&runner);
+
+    GF_VALIDATE_OR_GOTO("glusterd-ganesha", volname, out);
+    GF_VALIDATE_OR_GOTO("glusterd-ganesha", value, out);
+
+    ret = 0;
+    if (check_host_list()) {
+        /* Check whether ganesha is running on this node */
+        if (manage_service("status")) {
+            gf_msg("glusterd-ganesha", GF_LOG_WARNING, 0,
+                   GD_MSG_GANESHA_NOT_RUNNING,
+                   "Export failed, NFS-Ganesha is not running");
+        } else {
+            runner_add_args(&runner, GANESHA_PREFIX "/dbus-send.sh", CONFDIR,
+                            value, volname, NULL);
+            ret = runner_run(&runner);
+        }
+    }
+out:
+    return ret;
+}
+
+int
 manage_export_config(char *volname, char *value, char **op_errstr)
 {
     runner_t runner = {
@@ -447,9 +476,6 @@ int
 ganesha_manage_export(dict_t *dict, char *value,
                       gf_boolean_t update_cache_invalidation, char **op_errstr)
 {
-    runner_t runner = {
-        0,
-    };
     int ret = -1;
     glusterd_volinfo_t *volinfo = NULL;
     dict_t *vol_opts = NULL;
@@ -458,7 +484,6 @@ ganesha_manage_export(dict_t *dict, char *value,
     glusterd_conf_t *priv = NULL;
     gf_boolean_t option = _gf_false;
 
-    runinit(&runner);
     this = THIS;
     GF_ASSERT(this);
     priv = this->private;
@@ -538,26 +563,13 @@ ganesha_manage_export(dict_t *dict, char *value,
             goto out;
         }
     }
-
-    if (check_host_list()) {
-        /* Check whether ganesha is running on this node */
-        if (manage_service("status")) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_GANESHA_NOT_RUNNING,
-                   "Export failed, NFS-Ganesha is not running");
-        } else {
-            runner_add_args(&runner, GANESHA_PREFIX "/dbus-send.sh", CONFDIR,
-                            value, volname, NULL);
-            ret = runner_run(&runner);
-            if (ret) {
-                gf_asprintf(op_errstr,
-                            "Dynamic export"
-                            " addition/deletion failed."
-                            " Please see log file for details");
-                goto out;
-            }
-        }
+    ret = gd_ganesha_send_dbus(volname, value);
+    if (ret) {
+        gf_asprintf(op_errstr,
+                    "Dynamic export addition/deletion failed."
+                    " Please see log file for details");
+        goto out;
     }
-
     if (update_cache_invalidation) {
         vol_opts = volinfo->dict;
         ret = dict_set_dynstr_with_alloc(vol_opts,

@@ -5322,6 +5322,48 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
     dict_deln(snap_vol->dict, "features.barrier", SLEN("features.barrier"));
     gd_update_volume_op_versions(snap_vol);
 
+    /* *
+     * Create the export file from the node where ganesha.enable "on"
+     * is executed
+     * */
+    if (glusterd_is_ganesha_cluster() &&
+        glusterd_check_ganesha_export(snap_vol)) {
+        if (is_origin_glusterd(dict)) {
+            ret = manage_export_config(clonename, "on", NULL);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_EXPORT_FILE_CREATE_FAIL,
+                       "Failed to create"
+                       "export file for NFS-Ganesha\n");
+                goto out;
+            }
+        }
+
+        ret = dict_set_dynstr_with_alloc(snap_vol->dict,
+                                         "features.cache-invalidation", "on");
+        ret = gd_ganesha_send_dbus(clonename, "on");
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EXPORT_FILE_CREATE_FAIL,
+                   "Dynamic export addition/deletion failed."
+                   " Please see log file for details. Clone name = %s",
+                   clonename);
+            goto out;
+        }
+    }
+    if (!glusterd_is_ganesha_cluster() &&
+        glusterd_check_ganesha_export(snap_vol)) {
+        /* This happens when a snapshot was created when Ganesha was
+         * enabled globally. Then Ganesha disabled from the cluster.
+         * In such cases, we will have the volume level option set
+         * on dict, So we have to disable it as it doesn't make sense
+         * to keep the option.
+         */
+
+        ret = dict_set_dynstr(snap_vol->dict, "ganesha.enable", "off");
+        if (ret)
+            goto out;
+    }
+
     ret = glusterd_store_volinfo(snap_vol, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_SET_FAIL,
@@ -5393,8 +5435,31 @@ out:
         for (i = 0; unsupported_opt[i].key; i++)
             GF_FREE(unsupported_opt[i].value);
 
-        if (snap_vol)
+        if (snap_vol) {
+            if (glusterd_is_ganesha_cluster() &&
+                glusterd_check_ganesha_export(snap_vol)) {
+                if (is_origin_glusterd(dict)) {
+                    ret = manage_export_config(clonename, "on", NULL);
+                    if (ret) {
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               GD_MSG_EXPORT_FILE_CREATE_FAIL,
+                               "Failed to create"
+                               "export file for NFS-Ganesha\n");
+                    }
+                }
+
+                ret = gd_ganesha_send_dbus(clonename, "off");
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0,
+                           GD_MSG_EXPORT_FILE_CREATE_FAIL,
+                           "Dynamic export addition/deletion failed."
+                           " Please see log file for details. Clone name = %s",
+                           clonename);
+                }
+            }
+
             glusterd_snap_volume_remove(rsp_dict, snap_vol, _gf_true, _gf_true);
+        }
         snap_vol = NULL;
     }
 
