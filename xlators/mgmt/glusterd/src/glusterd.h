@@ -1197,6 +1197,8 @@ glusterd_op_set_ganesha(dict_t *dict, char **errstr);
 int
 ganesha_manage_export(dict_t *dict, char *value,
                       gf_boolean_t update_cache_invalidation, char **op_errstr);
+int
+gd_ganesha_send_dbus(char *volname, char *value);
 gf_boolean_t
 glusterd_is_ganesha_cluster();
 gf_boolean_t
