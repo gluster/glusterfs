@@ -782,8 +782,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                "SETVOLUME on remote-host failed: %s", remote_error);
 
         errno = op_errno;
-        if (remote_error &&
-            (strcmp("Authentication failed", remote_error) == 0)) {
+        if (remote_error && (op_errno == EACCES)) {
             auth_fail = _gf_true;
             op_ret = 0;
         }

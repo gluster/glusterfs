@@ -17,6 +17,7 @@ TEST $CLI volume create $V0 $H0:$B0/$V0
 # Set auth.allow so it *doesn't* include ourselves.
 TEST $CLI volume set $V0 auth.allow 1.2.3.4
 TEST $CLI volume start $V0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
 
 # "System getspec" will include the username and password if the request comes
 # from a server (which we are).  Unfortunately, this will cause authentication
