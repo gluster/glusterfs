@@ -416,6 +416,7 @@ Summary:          NFS-Ganesha configuration
 Group:            Applications/File
 
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
+Requires:         nfs-ganesha-selinux >= 2.7.6
 Requires:         nfs-ganesha-gluster >= 2.7.6
 Requires:         pcs >= 0.10.0
 Requires:         resource-agents >= 4.2.0
@@ -431,7 +432,7 @@ Requires:         net-tools
 %endif
 
 %if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
-%if ( 0%{?rhel} )
+%if ( 0%{?rhel} && 0%{?rhel} < 8 )
 Requires: selinux-policy >= 3.13.1-160
 Requires(post):   policycoreutils-python
 Requires(postun): policycoreutils-python
