@@ -811,6 +811,7 @@ start_ganesha(char **op_errstr)
      * running, hence we can skip the process of stopping gluster-nfs
      * service
      */
+#ifdef BUILD_GNFS
     if (priv->nfs_svc.inited) {
         ret = priv->nfs_svc.stop(&(priv->nfs_svc), SIGKILL);
         if (ret) {
@@ -821,6 +822,7 @@ start_ganesha(char **op_errstr)
             goto out;
         }
     }
+#endif
 
     if (check_host_list()) {
         runinit(&runner);

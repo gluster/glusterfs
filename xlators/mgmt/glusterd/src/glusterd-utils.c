@@ -5471,10 +5471,12 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     glusterd_svc_build_pidfile_path(server, priv->rundir, pidfile,
                                     sizeof(pidfile));
 
-    if (strcmp(server, priv->nfs_svc.name) == 0)
-        svc = &(priv->nfs_svc);
-    else if (strcmp(server, priv->quotad_svc.name) == 0)
+    if (strcmp(server, priv->quotad_svc.name) == 0)
         svc = &(priv->quotad_svc);
+#ifdef BUILD_GNFS
+    else if (strcmp(server, priv->nfs_svc.name) == 0)
+        svc = &(priv->nfs_svc);
+#endif
     else if (strcmp(server, priv->bitd_svc.name) == 0)
         svc = &(priv->bitd_svc);
     else if (strcmp(server, priv->scrub_svc.name) == 0)

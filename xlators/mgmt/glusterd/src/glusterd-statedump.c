@@ -200,10 +200,10 @@ glusterd_dump_priv(xlator_t *this)
 
         gf_proc_dump_build_key(key, "glusterd", "ping-timeout");
         gf_proc_dump_write(key, "%d", priv->ping_timeout);
-
+#ifdef BUILD_GNFS
         gf_proc_dump_build_key(key, "glusterd", "nfs.online");
         gf_proc_dump_write(key, "%d", priv->nfs_svc.online);
-
+#endif
         gf_proc_dump_build_key(key, "glusterd", "quotad.online");
         gf_proc_dump_write(key, "%d", priv->quotad_svc.online);
 

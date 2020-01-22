@@ -5782,13 +5782,13 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     count = 0;
 
     fprintf(fp, "\n[Services]\n");
-
+#ifdef BUILD_GNFS
     if (priv->nfs_svc.inited) {
         fprintf(fp, "svc%d.name: %s\n", ++count, priv->nfs_svc.name);
         fprintf(fp, "svc%d.online_status: %s\n\n", count,
                 priv->nfs_svc.online ? "Online" : "Offline");
     }
-
+#endif
     if (priv->bitd_svc.inited) {
         fprintf(fp, "svc%d.name: %s\n", ++count, priv->bitd_svc.name);
         fprintf(fp, "svc%d.online_status: %s\n\n", count,
