@@ -1673,7 +1673,9 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     dict_t *vol_opts = NULL;
+#ifdef BUILD_GNFS
     gf_boolean_t nfs_disabled = _gf_false;
+#endif
     gf_boolean_t shd_enabled = _gf_false;
 
     GF_ASSERT(dict);
@@ -1737,16 +1739,7 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
 
     vol_opts = volinfo->dict;
 
-    if ((cmd & GF_CLI_STATUS_NFS) != 0) {
-        nfs_disabled = dict_get_str_boolean(vol_opts, NFS_DISABLE_MAP_KEY,
-                                            _gf_false);
-        if (nfs_disabled) {
-            ret = -1;
-            snprintf(msg, sizeof(msg), "NFS server is disabled for volume %s",
-                     volname);
-            goto out;
-        }
-    } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
+    if ((cmd & GF_CLI_STATUS_SHD) != 0) {
         if (glusterd_is_shd_compatible_volume(volinfo)) {
             shd_enabled = gd_is_self_heal_enabled(volinfo, vol_opts);
         } else {
@@ -1761,6 +1754,17 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
                      "Self-heal Daemon is disabled for volume %s", volname);
             goto out;
         }
+#ifdef BUILD_GNFS
+    } else if ((cmd & GF_CLI_STATUS_NFS) != 0) {
+        nfs_disabled = dict_get_str_boolean(vol_opts, NFS_DISABLE_MAP_KEY,
+                                            _gf_false);
+        if (nfs_disabled) {
+            ret = -1;
+            snprintf(msg, sizeof(msg), "NFS server is disabled for volume %s",
+                     volname);
+            goto out;
+        }
+#endif
     } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
         if (!glusterd_is_volume_quota_enabled(volinfo)) {
             ret = -1;
@@ -3369,7 +3373,9 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_conf_t *priv = NULL;
     dict_t *vol_opts = NULL;
+#ifdef BUILD_GNFS
     gf_boolean_t nfs_disabled = _gf_false;
+#endif
     gf_boolean_t shd_enabled = _gf_false;
     gf_boolean_t origin_glusterd = _gf_false;
     int snapd_enabled, bitrot_enabled, volume_quota_enabled;
@@ -3420,21 +3426,22 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     }
     vol_opts = volinfo->dict;
 
-    if ((cmd & GF_CLI_STATUS_NFS) != 0) {
-        ret = glusterd_add_node_to_dict(priv->nfs_svc.name, rsp_dict, 0,
-                                        vol_opts);
-        if (ret)
-            goto out;
-        other_count++;
-        node_count++;
-
-    } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
+    if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
         ret = glusterd_add_node_to_dict(priv->quotad_svc.name, rsp_dict, 0,
                                         vol_opts);
         if (ret)
             goto out;
         other_count++;
         node_count++;
+#ifdef BUILD_GNFS
+    } else if ((cmd & GF_CLI_STATUS_NFS) != 0) {
+        ret = glusterd_add_node_to_dict(priv->nfs_svc.name, rsp_dict, 0,
+                                        vol_opts);
+        if (ret)
+            goto out;
+        other_count++;
+        node_count++;
+#endif
     } else if ((cmd & GF_CLI_STATUS_BITD) != 0) {
         ret = glusterd_add_node_to_dict(priv->bitd_svc.name, rsp_dict, 0,
                                         vol_opts);
@@ -3487,8 +3494,10 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     } else {
         snapd_enabled = glusterd_is_snapd_enabled(volinfo);
         shd_enabled = gd_is_self_heal_enabled(volinfo, vol_opts);
+#ifdef BUILD_GNFS
         nfs_disabled = dict_get_str_boolean(vol_opts, NFS_DISABLE_MAP_KEY,
                                             _gf_false);
+#endif
         volume_quota_enabled = glusterd_is_volume_quota_enabled(volinfo);
         bitrot_enabled = glusterd_is_bitrot_enabled(volinfo);
 
@@ -3531,7 +3540,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                     node_count++;
                 }
             }
-
+#ifdef BUILD_GNFS
             if (!nfs_disabled) {
                 ret = glusterd_add_node_to_dict(priv->nfs_svc.name, rsp_dict,
                                                 other_index, vol_opts);
@@ -3541,7 +3550,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 other_count++;
                 node_count++;
             }
-
+#endif
             if (volume_quota_enabled) {
                 ret = glusterd_add_node_to_dict(priv->quotad_svc.name, rsp_dict,
                                                 other_index, vol_opts);
@@ -6168,6 +6177,7 @@ glusterd_bricks_select_profile_volume(dict_t *dict, char **op_errstr,
             goto out;
             break;
         case GF_CLI_STATS_INFO:
+#ifdef BUILD_GNFS
             ret = dict_get_str_boolean(dict, "nfs", _gf_false);
             if (ret) {
                 if (!priv->nfs_svc.online) {
@@ -6192,6 +6202,7 @@ glusterd_bricks_select_profile_volume(dict_t *dict, char **op_errstr,
                 ret = 0;
                 goto out;
             }
+#endif
             cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
             {
                 if (glusterd_is_brick_started(brickinfo)) {
@@ -6223,6 +6234,7 @@ glusterd_bricks_select_profile_volume(dict_t *dict, char **op_errstr,
             break;
 
         case GF_CLI_STATS_TOP:
+#ifdef BUILD_GNFS
             ret = dict_get_str_boolean(dict, "nfs", _gf_false);
             if (ret) {
                 if (!priv->nfs_svc.online) {
@@ -6247,6 +6259,7 @@ glusterd_bricks_select_profile_volume(dict_t *dict, char **op_errstr,
                 ret = 0;
                 goto out;
             }
+#endif
             ret = dict_get_strn(dict, "brick", SLEN("brick"), &brick);
             if (!ret) {
                 ret = glusterd_volume_brickinfo_get_by_brick(
@@ -6926,6 +6939,7 @@ glusterd_bricks_select_status_volume(dict_t *dict, char **op_errstr,
         cds_list_add_tail(&pending_node->list, selected);
 
         ret = 0;
+#ifdef BUILD_GNFS
     } else if ((cmd & GF_CLI_STATUS_NFS) != 0) {
         if (!priv->nfs_svc.online) {
             ret = -1;
@@ -6945,6 +6959,7 @@ glusterd_bricks_select_status_volume(dict_t *dict, char **op_errstr,
         cds_list_add_tail(&pending_node->list, selected);
 
         ret = 0;
+#endif
     } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
         svc = &(volinfo->shd.svc);
         if (!svc->online) {

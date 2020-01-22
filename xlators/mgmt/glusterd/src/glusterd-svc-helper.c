@@ -87,10 +87,11 @@ glusterd_svcs_stop(glusterd_volinfo_t *volinfo)
     priv = this->private;
     GF_ASSERT(priv);
 
+#ifdef BUILD_GNFS
     ret = priv->nfs_svc.stop(&(priv->nfs_svc), SIGKILL);
     if (ret)
         goto out;
-
+#endif
     ret = priv->quotad_svc.stop(&(priv->quotad_svc), SIGTERM);
     if (ret)
         goto out;
@@ -106,6 +107,7 @@ glusterd_svcs_stop(glusterd_volinfo_t *volinfo)
         goto out;
 
     ret = priv->scrub_svc.stop(&(priv->scrub_svc), SIGTERM);
+
 out:
     return ret;
 }
