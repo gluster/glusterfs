@@ -49,7 +49,11 @@ GLFS_MSGID(
     PC_MSG_CLIENT_LOCK_INFO, PC_MSG_CACHE_INVALIDATION_FAIL,
     PC_MSG_CHILD_STATUS, PC_MSG_GFID_NULL, PC_MSG_RECALL_LEASE_FAIL,
     PC_MSG_INODELK_CONTENTION_FAIL, PC_MSG_ENTRYLK_CONTENTION_FAIL,
-    PC_MSG_BIGGER_SIZE, PC_MSG_CLIENT_DUMP_LOCKS_FAILED, PC_MSG_UNKNOWN_CMD);
+    PC_MSG_BIGGER_SIZE, PC_MSG_CLIENT_DUMP_LOCKS_FAILED, PC_MSG_UNKNOWN_CMD,
+    PC_MSG_REOPEN_FAILED, PC_MSG_FIND_KEY_FAILED, PC_MSG_VOL_ID_CHANGED,
+    PC_MSG_GETHOSTNAME_FAILED, PC_MSG_VOLFILE_KEY_SET_FAILED,
+    PC_MSG_VOLFILE_CHECKSUM_FAILED, PC_MSG_FRAME_NOT_FOUND,
+    PC_MSG_REMOTE_SUBVOL_SET_FAIL, PC_MSG_HANDSHAKE_PGM_NOT_FOUND);
 
 #define PC_MSG_REMOTE_OP_FAILED_STR "remote operation failed."
 #define PC_MSG_XDR_DECODING_FAILED_STR "XDR decoding failed"
@@ -57,4 +61,48 @@ GLFS_MSGID(
 #define PC_MSG_BIGGER_SIZE_STR "read-size is bigger than iobuf isze"
 #define PC_MSG_CLIENT_DUMP_LOCKS_FAILED_STR "client dump locks failed"
 #define PC_MSG_UNKNOWN_CMD_STR "Unknown cmd"
+#define PC_MSG_CHILD_UP_NOTIFY_FAILED_STR "notify of CHILD_UP failed"
+#define PC_MSG_CHILD_STATUS_STR                                                \
+    "Defering sending CHILD_UP message as the client translators are not yet " \
+    "ready to serve"
+#define PC_MSG_CHILD_UP_NOTIFY_STR "last fd open'd - notifying CHILD_UP"
+#define PC_MSG_RPC_STATUS_ERROR_STR                                            \
+    "received RPC status error, returning ENOTCONN"
+#define PC_MSG_REOPEN_FAILED_STR "reopen failed"
+#define PC_MSG_DIR_OP_SUCCESS_STR "reopen dir succeeded"
+#define PC_MSG_DIR_OP_FAILED_STR "failed to send the re-opendir request"
+#define PC_MSG_CHILD_UP_NOTIFY_DELAY_STR                                       \
+    "fds open - Delaying child_up until they are re-opened"
+#define PC_MSG_VOL_SET_FAIL_STR "failed to set the volume"
+#define PC_MSG_DICT_UNSERIALIZE_FAIL_STR "failed to unserialize buffer to dict"
+#define PC_MSG_DICT_GET_FAILED_STR "failed to get from reply dict"
+#define PC_MSG_SETVOLUME_FAIL_STR "SETVOLUME on remote-host failed"
+#define PC_MSG_VOLFILE_NOTIFY_FAILED_STR "notify of VOLFILE_MODIFIED failed"
+#define PC_MSG_FIND_KEY_FAILED_STR "failed to find key in the options"
+#define PC_MSG_VOL_ID_CHANGED_STR                                              \
+    "volume-id changed, can't connect to server. Needs remount"
+#define PC_MSG_REMOTE_VOL_CONNECTED_STR "Connected, attached to remote volume"
+#define PC_MSG_AUTH_FAILED_STR "sending AUTH_FAILED event"
+#define PC_MSG_AUTH_FAILED_NOTIFY_FAILED_STR "notify of AUTH_FAILED failed"
+#define PC_MSG_CHILD_CONNECTING_EVENT_STR "sending CHILD_CONNECTING event"
+#define PC_MSG_CHILD_CONNECTING_NOTIFY_FAILED_STR                              \
+    "notify of CHILD_CONNECTING failed"
+#define PC_MSG_DICT_SET_FAILED_STR "failed to set in handshake msg"
+#define PC_MSG_GETHOSTNAME_FAILED_STR "gethostname: failed"
+#define PC_MSG_PROCESS_UUID_SET_FAIL_STR                                       \
+    "asprintf failed while setting process_uuid"
+#define PC_MSG_VOLFILE_KEY_SET_FAILED_STR "failed to set volfile-key"
+#define PC_MSG_VOLFILE_CHECKSUM_FAILED_STR "failed to set volfile-checksum"
+#define PC_MSG_DICT_SERIALIZE_FAIL_STR "failed to serialize dictionary"
+#define PC_MSG_PGM_NOT_FOUND_STR "xlator not found OR RPC program not found"
+#define PC_MSG_VERSION_INFO_STR "Using Program"
+#define PC_MSG_FRAME_NOT_FOUND_STR "frame not found with rpc request"
+#define PC_MSG_PORT_NUM_ERROR_STR                                              \
+    "failed to get the port number for remote subvolume. Please run gluster "  \
+    "volume status on server to see if brick process is running"
+#define PC_MSG_REMOTE_SUBVOL_SET_FAIL_STR "remote-subvolume not set in volfile"
+#define PC_MSG_VERSION_ERROR_STR "failed to get the version from server"
+#define PC_MSG_NO_VERSION_SUPPORT_STR "server doesn't support the version"
+#define PC_MSG_HANDSHAKE_PGM_NOT_FOUND_STR "handshake program not found"
+
 #endif /* !_PC_MESSAGES_H__ */
