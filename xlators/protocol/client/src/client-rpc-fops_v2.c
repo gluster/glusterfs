@@ -59,8 +59,8 @@ client4_0_symlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -129,8 +129,8 @@ client4_0_mknod_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -195,8 +195,8 @@ client4_0_mkdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -252,8 +252,8 @@ client4_0_open_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_open_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -314,8 +314,8 @@ client4_0_stat_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -370,8 +370,8 @@ client4_0_readlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readlink_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -435,8 +435,8 @@ client4_0_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -496,8 +496,8 @@ client4_0_rmdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -551,8 +551,8 @@ client4_0_truncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -601,8 +601,8 @@ client4_0_statfs_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_statfs_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -658,8 +658,8 @@ client4_0_writev_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -710,8 +710,8 @@ client4_0_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -772,8 +772,8 @@ client4_0_fsync_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -822,8 +822,8 @@ client4_0_setxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -880,8 +880,8 @@ client4_0_getxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_dict_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         op_errno = EINVAL;
         goto out;
@@ -954,8 +954,8 @@ client4_0_fgetxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_dict_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         op_errno = EINVAL;
         goto out;
@@ -1021,8 +1021,8 @@ client4_0_removexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1078,8 +1078,8 @@ client4_0_fremovexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1123,8 +1123,8 @@ client4_0_fsyncdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1169,8 +1169,8 @@ client4_0_access_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1221,8 +1221,8 @@ client4_0_ftruncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1271,8 +1271,8 @@ client4_0_fstat_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1317,8 +1317,8 @@ client4_0_inodelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1364,8 +1364,8 @@ client4_0_finodelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1413,8 +1413,8 @@ client4_0_entrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1460,8 +1460,8 @@ client4_0_fentrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1511,8 +1511,8 @@ client4_0_xattrop_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_dict_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         op_errno = EINVAL;
         goto out;
@@ -1580,8 +1580,8 @@ client4_0_fxattrop_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (ret < 0) {
         rsp.op_ret = -1;
         op_errno = EINVAL;
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         goto out;
     }
     op_errno = rsp.op_errno;
@@ -1642,8 +1642,8 @@ client4_0_fsetxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1702,8 +1702,8 @@ client4_0_fallocate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1757,8 +1757,8 @@ client4_0_discard_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1809,8 +1809,8 @@ client4_0_zerofill_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1855,8 +1855,8 @@ client4_0_ipc_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1900,8 +1900,8 @@ client4_0_seek_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_seek_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -1952,8 +1952,8 @@ client4_0_setattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2006,8 +2006,8 @@ client4_0_fsetattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2069,8 +2069,8 @@ client4_0_create_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_create_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2135,8 +2135,8 @@ client4_0_lease_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_lease_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2188,8 +2188,8 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_lk_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2259,8 +2259,8 @@ client4_0_readdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readdir_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2317,8 +2317,8 @@ client4_0_readdirp_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readdirp_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2384,8 +2384,8 @@ client4_0_rename_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_rename_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2446,8 +2446,8 @@ client4_0_link_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2505,8 +2505,8 @@ client4_0_opendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
        but separated by fop number only */
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_open_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2575,8 +2575,8 @@ client4_0_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         op_errno = EINVAL;
         goto out;
@@ -2670,8 +2670,8 @@ client4_0_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_read_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2745,8 +2745,8 @@ client4_0_getactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_getactivelk_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2800,8 +2800,8 @@ client4_0_setactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -2858,8 +2858,8 @@ client4_0_copy_file_range_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -3060,8 +3060,7 @@ client4_0_lookup(call_frame_t *frame, xlator_t *this, void *data)
                                 (xdrproc_t)xdr_gfx_lookup_req);
 
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3107,8 +3106,7 @@ client4_0_stat(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_stat_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_stat_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3151,8 +3149,7 @@ client4_0_truncate(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_truncate_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_truncate_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3195,8 +3192,7 @@ client4_0_ftruncate(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_FTRUNCATE, client4_0_ftruncate_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_ftruncate_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3238,8 +3234,7 @@ client4_0_access(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_access_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_access_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3292,8 +3287,7 @@ client4_0_readlink(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_readlink_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_readlink_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3335,8 +3329,7 @@ client4_0_unlink(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_unlink_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_unlink_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3378,8 +3371,7 @@ client4_0_rmdir(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_rmdir_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_rmdir_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -3437,8 +3429,7 @@ client4_0_symlink(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_symlink_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_symlink_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3483,8 +3474,7 @@ client4_0_rename(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_rename_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_rename_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3543,8 +3533,7 @@ client4_0_link(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_link_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_link_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3598,8 +3587,7 @@ client4_0_mknod(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_mknod_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_mknod_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -3665,8 +3653,7 @@ client4_0_mkdir(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_mkdir_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_mkdir_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -3723,8 +3710,7 @@ client4_0_create(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_create_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_create_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3784,8 +3770,7 @@ client4_0_open(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_open_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_open_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3860,9 +3845,9 @@ client4_0_readv(call_frame_t *frame, xlator_t *this, void *data)
     rsp_iobuf = NULL;
 
     if (args->size > rsp_vec.iov_len) {
-        gf_msg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_NO_MEMORY,
-               "read-size (%lu) is bigger than iobuf size (%lu)",
-               (unsigned long)args->size, (unsigned long)rsp_vec.iov_len);
+        gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_BIGGER_SIZE,
+                "read-size=%lu", (unsigned long)args->size, "iobuf-size=%lu",
+                (unsigned long)rsp_vec.iov_len, NULL);
         op_errno = EINVAL;
         goto unwind;
     }
@@ -3876,8 +3861,7 @@ client4_0_readv(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_readv_cbk, &cp,
                                 (xdrproc_t)xdr_gfx_read_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -3941,8 +3925,7 @@ client4_0_writev(call_frame_t *frame, xlator_t *this, void *data)
          * do the unwind for us (see rpc_clnt_submit), so don't unwind
          * here in such cases.
          */
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4002,8 +3985,7 @@ client4_0_flush(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_flush_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_flush_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4045,8 +4027,7 @@ client4_0_fsync(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_fsync_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_fsync_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4090,8 +4071,7 @@ client4_0_fstat(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_fstat_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_fstat_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4145,8 +4125,7 @@ client4_0_opendir(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_opendir_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_opendir_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4190,8 +4169,7 @@ client4_0_fsyncdir(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_fsyncdir_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_fsyncdir_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4234,8 +4212,7 @@ client4_0_statfs(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_statfs_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_statfs_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4278,8 +4255,7 @@ client4_0_setxattr(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_setxattr_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_setxattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
     GF_FREE(req.dict.pairs.pairs_val);
 
@@ -4324,8 +4300,7 @@ client4_0_fsetxattr(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_FSETXATTR, client4_0_fsetxattr_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_fsetxattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.dict.pairs.pairs_val);
@@ -4377,8 +4352,7 @@ client4_0_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_FGETXATTR, client4_0_fgetxattr_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_fgetxattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4441,9 +4415,8 @@ client4_0_getxattr(call_frame_t *frame, xlator_t *this, void *data)
 
             ret = client_dump_locks((char *)args->name, args->loc->inode, dict);
             if (ret) {
-                gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-                       "Client dump "
-                       "locks failed");
+                gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                        PC_MSG_CLIENT_DUMP_LOCKS_FAILED, NULL);
                 op_errno = ENOMEM;
                 goto unwind;
             }
@@ -4465,8 +4438,7 @@ client4_0_getxattr(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_getxattr_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_getxattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4527,8 +4499,7 @@ client4_0_xattrop(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_xattrop_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_xattrop_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.dict.pairs.pairs_val);
@@ -4579,8 +4550,7 @@ client4_0_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_fxattrop_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_fxattrop_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.dict.pairs.pairs_val);
@@ -4625,8 +4595,7 @@ client4_0_removexattr(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_REMOVEXATTR, client4_0_removexattr_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_removexattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4669,8 +4638,7 @@ client4_0_fremovexattr(call_frame_t *frame, xlator_t *this, void *data)
         this, &req, frame, conf->fops, GFS3_OP_FREMOVEXATTR,
         client4_0_fremovexattr_cbk, NULL, (xdrproc_t)xdr_gfx_fremovexattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4712,8 +4680,7 @@ client4_0_lease(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_lease_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_lease_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4756,8 +4723,8 @@ client4_0_lk(call_frame_t *frame, xlator_t *this, void *data)
     ret = client_cmd_to_gf_cmd(args->cmd, &gf_cmd);
     if (ret) {
         op_errno = EINVAL;
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         goto unwind;
     }
 
@@ -4783,8 +4750,7 @@ client4_0_lk(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_lk_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_lk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4826,8 +4792,7 @@ client4_0_inodelk(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_inodelk_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_inodelk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4876,8 +4841,7 @@ client4_0_finodelk(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_finodelk_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_finodelk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4921,8 +4885,7 @@ client4_0_entrylk(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_entrylk_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_entrylk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -4965,8 +4928,7 @@ client4_0_fentrylk(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_fentrylk_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_fentrylk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5068,8 +5030,7 @@ client4_0_readdir(call_frame_t *frame, xlator_t *this, void *data)
                                 (xdrproc_t)xdr_gfx_readdir_req);
 
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5173,8 +5134,7 @@ client4_0_readdirp(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_readdirp_cbk, &cp,
                                 (xdrproc_t)xdr_gfx_readdirp_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5221,8 +5181,7 @@ client4_0_setattr(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_setattr_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_setattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5263,8 +5222,7 @@ client4_0_fallocate(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_FALLOCATE, client4_0_fallocate_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_fallocate_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5305,8 +5263,7 @@ client4_0_discard(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_discard_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_discard_req);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
 
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -5348,8 +5305,7 @@ client4_0_zerofill(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_zerofill_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_zerofill_req);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
 
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -5391,8 +5347,7 @@ client4_0_ipc(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_ipc_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_ipc_req);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
 
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -5436,8 +5391,7 @@ client4_0_seek(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_seek_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_seek_req);
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
 
     GF_FREE(req.xdata.pairs.pairs_val);
 
@@ -5485,8 +5439,7 @@ client4_0_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_GETACTIVELK, client4_0_getactivelk_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_getactivelk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5540,8 +5493,7 @@ client4_0_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_SETACTIVELK, client4_0_setactivelk_cbk,
                                 NULL, (xdrproc_t)xdr_gfx_setactivelk_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     clnt_setactivelk_req_cleanup_v2(&req);
@@ -5585,8 +5537,8 @@ client4_rchecksum_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_rchecksum_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -5746,8 +5698,8 @@ client4_0_put_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
-               "XDR decoding failed");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+                NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
@@ -5811,8 +5763,7 @@ client4_0_namelink(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_namelink_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_namelink_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -5928,8 +5879,7 @@ client4_0_put(call_frame_t *frame, xlator_t *this, void *data)
          * do the unwind for us (see rpc_clnt_submit), so don't unwind
          * here in such cases.
          */
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     return 0;
@@ -5997,8 +5947,7 @@ client4_0_copy_file_range(call_frame_t *frame, xlator_t *this, void *data)
          * do the unwind for us (see rpc_clnt_submit), so don't unwind
          * here in such cases.
          */
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -6040,8 +5989,7 @@ client4_0_fsetattr(call_frame_t *frame, xlator_t *this, void *data)
                                 client4_0_fsetattr_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_fsetattr_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
@@ -6086,8 +6034,7 @@ client4_0_rchecksum(call_frame_t *frame, xlator_t *this, void *data)
                                 GFS3_OP_RCHECKSUM, client4_rchecksum_cbk, NULL,
                                 (xdrproc_t)xdr_gfx_rchecksum_req);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
-               "failed to send the fop");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED, NULL);
     }
 
     GF_FREE(req.xdata.pairs.pairs_val);
