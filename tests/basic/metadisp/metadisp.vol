@@ -1,0 +1,14 @@
+volume posix-0
+  type storage/posix
+  option directory /d/backends/b0/0
+end-volume
+
+volume posix-1
+  type storage/posix
+  option directory /d/backends/b0/1
+end-volume
+
+volume metadisp-0
+  type features/metadisp
+  subvolumes posix-0 posix-1
+end-volume

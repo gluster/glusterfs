@@ -164,6 +164,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/cloudsync/src/cloudsync-plugins/src/cloudsyncs3/src/Makefile
                 xlators/features/cloudsync/src/cloudsync-plugins/src/cvlt/Makefile
                 xlators/features/cloudsync/src/cloudsync-plugins/src/cvlt/src/Makefile
+                xlators/features/metadisp/Makefile
+                xlators/features/metadisp/src/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
@@ -809,6 +811,17 @@ if test "x${with_server}" = "xyes" -a "x$enable_georeplication" != "xno"; then
 fi
 AC_SUBST(GEOREP_EXTRAS_SUBDIR)
 AM_CONDITIONAL(USE_GEOREP, test "x$enable_georeplication" != "xno")
+
+# METADISP section
+AC_ARG_ENABLE([metadisp],
+              AC_HELP_STRING([--enable-metadisp],
+                             [Enable the metadata dispersal xlator]))
+BUILD_METADISP=no
+if test "x${enable_metadisp}" = "xyes"; then
+  BUILD_METADISP=yes
+fi
+AM_CONDITIONAL([BUILD_METADISP], [test "x$BUILD_METADISP" = "xyes"])
+# end METADISP section
 
 # Events section
 AC_ARG_ENABLE([events],
@@ -1675,6 +1688,7 @@ echo "IPV6 default         : $with_ipv6_default"
 echo "Use TIRPC            : $with_libtirpc"
 echo "With Python          : ${PYTHON_VERSION}"
 echo "Cloudsync            : $BUILD_CLOUDSYNC"
+echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo
 
