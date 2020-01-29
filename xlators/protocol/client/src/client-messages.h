@@ -53,7 +53,13 @@ GLFS_MSGID(
     PC_MSG_REOPEN_FAILED, PC_MSG_FIND_KEY_FAILED, PC_MSG_VOL_ID_CHANGED,
     PC_MSG_GETHOSTNAME_FAILED, PC_MSG_VOLFILE_KEY_SET_FAILED,
     PC_MSG_VOLFILE_CHECKSUM_FAILED, PC_MSG_FRAME_NOT_FOUND,
-    PC_MSG_REMOTE_SUBVOL_SET_FAIL, PC_MSG_HANDSHAKE_PGM_NOT_FOUND);
+    PC_MSG_REMOTE_SUBVOL_SET_FAIL, PC_MSG_HANDSHAKE_PGM_NOT_FOUND,
+    PC_MSG_MERGE_IOBREF_FAILED, PC_MSG_ADD_IOBUF_FAILED,
+    PC_MSG_RELEASE_DIR_OP_FAILED, PC_MSG_REMOTE_HOST_SET_FAILED,
+    PC_MSG_REMOTE_PORT_SET_FAILED, PC_MSG_REMOTE_HOST_NOT_SET,
+    PC_MSG_NOREMOTE_HOST, PC_MSG_REMOTE_SUBVOL_NOT_GIVEN,
+    PC_MSG_FATAL_CLIENT_PROTOCOL, PC_MSG_VOL_DANGLING,
+    PC_MSG_CREATE_MEM_POOL_FAILED, PC_MSG_PVT_XLATOR_NULL, PC_MSG_XLATOR_NULL);
 
 #define PC_MSG_REMOTE_OP_FAILED_STR "remote operation failed."
 #define PC_MSG_XDR_DECODING_FAILED_STR "XDR decoding failed"
@@ -104,5 +110,40 @@ GLFS_MSGID(
 #define PC_MSG_VERSION_ERROR_STR "failed to get the version from server"
 #define PC_MSG_NO_VERSION_SUPPORT_STR "server doesn't support the version"
 #define PC_MSG_HANDSHAKE_PGM_NOT_FOUND_STR "handshake program not found"
-
+#define PC_MSG_MERGE_IOBREF_FAILED_STR                                         \
+    "cannot merge iobref passed from caller into new_iobref"
+#define PC_MSG_ADD_IOBUF_FAILED_STR "cannot add iobuf into iobref"
+#define PC_MSG_RELEASE_DIR_OP_FAILED_STR "release dir op failed"
+#define PC_MSG_FILE_OP_FAILED_STR "release fop failed"
+#define PC_MSG_REMOTE_HOST_SET_FAILED_STR "failed to set remote-host"
+#define PC_MSG_REMOTE_PORT_SET_FAILED_STR "failed to set remote-port"
+#define PC_MSG_RPC_INIT_STR "client rpc init command"
+#define PC_MSG_RPC_DESTROY_STR "client rpc destroy command"
+#define PC_MSG_HANDSHAKE_RETURN_STR "handshake msg returned"
+#define PC_MSG_CLIENT_DISCONNECTED_STR                                         \
+    "disconnected from client, process will keep trying to connect glusterd "  \
+    "until brick's port is available"
+#define PC_MSG_CHILD_DOWN_NOTIFY_FAILED_STR "CHILD_DOWN notify failed"
+#define PC_MSG_PARENT_UP_STR                                                   \
+    "parent translators are ready, attempting connect on transport"
+#define PC_MSG_PARENT_DOWN_STR                                                 \
+    "current graph is no longer active, destroying rpc_client"
+#define PC_MSG_REMOTE_HOST_NOT_SET_STR                                         \
+    "Remote host is not set. Assuming the volfile server as remote host"
+#define PC_MSG_NOREMOTE_HOST_STR "No remote host to connect"
+#define PC_MSG_REMOTE_SUBVOL_NOT_GIVEN_STR "option 'remote-subvolume' not given"
+#define PC_MSG_NO_MEMORY_STR "Memory accounting init failed"
+#define PC_MSG_RPC_INVALID_CALL_STR                                            \
+    "RPC destroy called on already destroyed connection"
+#define PC_MSG_RPC_INITED_ALREADY_STR "client rpc already init'ed"
+#define PC_MSG_RPC_INIT_FAILED_STR "failed to initialize RPC"
+#define PC_MSG_RPC_NOTIFY_FAILED_STR "failed to register notify"
+#define PC_MSG_RPC_CBK_FAILED_STR "failed to reister callback program"
+#define PC_MSG_FATAL_CLIENT_PROTOCOL_STR                                       \
+    "FATAL: client protocol, translator cannot have any subvolumes"
+#define PC_MSG_VOL_DANGLING_STR "Volume is dangling"
+#define PC_MSG_CREATE_MEM_POOL_FAILED_STR                                      \
+    "failed to create local_t's memory pool"
+#define PC_MSG_XLATOR_NULL_STR "xlator is NULL"
+#define PC_MSG_PVT_XLATOR_NULL_STR "private structure of the xlator is NULL"
 #endif /* !_PC_MESSAGES_H__ */

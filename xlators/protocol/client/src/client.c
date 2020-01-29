@@ -221,18 +221,15 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
         if (cp && cp->iobref != NULL) {
             ret = iobref_merge(new_iobref, cp->iobref);
             if (ret != 0) {
-                gf_msg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_NO_MEMORY,
-                       "cannot merge "
-                       "iobref passed from caller into "
-                       "new_iobref");
+                gf_smsg(this->name, GF_LOG_WARNING, ENOMEM,
+                        PC_MSG_MERGE_IOBREF_FAILED, NULL);
             }
         }
 
         ret = iobref_add(new_iobref, iobuf);
         if (ret != 0) {
-            gf_msg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_NO_MEMORY,
-                   "cannot add iobuf into "
-                   "iobref");
+            gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_ADD_IOBUF_FAILED,
+                    NULL);
             goto out;
         }
 
@@ -329,8 +326,8 @@ client_releasedir(xlator_t *this, fd_t *fd)
     }
 out:
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DIR_OP_FAILED,
-               "releasedir fop failed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_RELEASE_DIR_OP_FAILED,
+                NULL);
     return 0;
 }
 
@@ -355,8 +352,7 @@ client_release(xlator_t *this, fd_t *fd)
     }
 out:
     if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FILE_OP_FAILED,
-               "release fop failed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FILE_OP_FAILED, NULL);
     return 0;
 }
 
@@ -1153,8 +1149,8 @@ client_set_remote_options(char *value, xlator_t *this)
         }
         ret = dict_set_dynstr_sizen(this->options, "remote-host", host_dup);
         if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
-                   "failed to set remote-host with %s", host);
+            gf_smsg(this->name, GF_LOG_WARNING, 0,
+                    PC_MSG_REMOTE_HOST_SET_FAILED, "host=%s", host, NULL);
             GF_FREE(host_dup);
             goto out;
         }
@@ -1169,8 +1165,8 @@ client_set_remote_options(char *value, xlator_t *this)
         ret = dict_set_dynstr_sizen(this->options, "remote-subvolume",
                                     subvol_dup);
         if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
-                   "failed to set remote-host with %s", host);
+            gf_smsg(this->name, GF_LOG_WARNING, 0,
+                    PC_MSG_REMOTE_HOST_SET_FAILED, "host=%s", host, NULL);
             GF_FREE(subvol_dup);
             goto out;
         }
@@ -1181,8 +1177,8 @@ client_set_remote_options(char *value, xlator_t *this)
 
         ret = dict_set_int32_sizen(this->options, "remote-port", remote_port);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
-                   "failed to set remote-port to %d", remote_port);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_REMOTE_PORT_SET_FAILED,
+                    "remote-port=%d", remote_port, NULL);
             goto out;
         }
     }
@@ -1211,8 +1207,7 @@ client_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
     if (is_client_rpc_init_command(dict, this, &value) == _gf_true) {
         GF_ASSERT(value);
-        gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_RPC_INIT,
-               "client rpc init command");
+        gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_RPC_INIT, NULL);
         ret = client_set_remote_options(value, this);
         if (!ret) {
             op_ret = 0;
@@ -1223,8 +1218,7 @@ client_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     }
 
     if (is_client_rpc_destroy_command(dict, this) == _gf_true) {
-        gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_RPC_DESTROY,
-               "client rpc destroy command");
+        gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_RPC_DESTROY, NULL);
         ret = client_destroy_rpc(this);
         if (ret) {
             op_ret = 0;
@@ -2195,9 +2189,8 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
     this = mydata;
     if (!this || !this->private) {
-        gf_msg("client", GF_LOG_ERROR, EINVAL, PC_MSG_INVALID_ENTRY,
-               (this != NULL) ? "private structure of the xlator is NULL"
-                              : "xlator is NULL");
+        gf_smsg("client", GF_LOG_ERROR, EINVAL, PC_MSG_XLATOR_NULL,
+                (this != NULL) ? "private structue" : "", NULL);
         goto out;
     }
 
@@ -2221,10 +2214,8 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
             ret = client_handshake(this, rpc);
             if (ret)
-                gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_HANDSHAKE_RETURN,
-                       "handshake "
-                       "msg returned %d",
-                       ret);
+                gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_HANDSHAKE_RETURN,
+                        "ret=%d", ret, NULL);
             break;
         }
         case RPC_CLNT_DISCONNECT:
@@ -2235,13 +2226,9 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             if (!conf->skip_notify) {
                 if (conf->can_log_disconnect) {
                     if (!conf->disconnect_err_logged) {
-                        gf_msg(this->name, GF_LOG_INFO, 0,
-                               PC_MSG_CLIENT_DISCONNECTED,
-                               "disconnected from %s. Client "
-                               "process will keep trying to "
-                               "connect to glusterd until "
-                               "brick's port is available",
-                               conf->rpc->conn.name);
+                        gf_smsg(this->name, GF_LOG_INFO, 0,
+                                PC_MSG_CLIENT_DISCONNECTED, "conn-name=%s",
+                                conf->rpc->conn.name, NULL);
                     } else {
                         gf_msg_debug(this->name, 0,
                                      "disconnected from %s. "
@@ -2281,9 +2268,8 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                     goto out;
                 }
                 if (ret)
-                    gf_msg(this->name, GF_LOG_INFO, 0,
-                           PC_MSG_CHILD_DOWN_NOTIFY_FAILED,
-                           "CHILD_DOWN notify failed");
+                    gf_smsg(this->name, GF_LOG_INFO, 0,
+                            PC_MSG_CHILD_DOWN_NOTIFY_FAILED, NULL);
 
             } else {
                 if (conf->can_log_disconnect)
@@ -2330,18 +2316,14 @@ notify(xlator_t *this, int32_t event, void *data, ...)
 
     switch (event) {
         case GF_EVENT_PARENT_UP: {
-            gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_PARENT_UP,
-                   "parent translators are ready, attempting connect "
-                   "on transport");
+            gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_PARENT_UP, NULL);
 
             rpc_clnt_start(conf->rpc);
             break;
         }
 
         case GF_EVENT_PARENT_DOWN:
-            gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_PARENT_DOWN,
-                   "current graph is no longer active, destroying "
-                   "rpc_client ");
+            gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_PARENT_DOWN, NULL);
 
             pthread_mutex_lock(&conf->lock);
             {
@@ -2384,23 +2366,20 @@ client_check_remote_host(xlator_t *this, dict_t *options)
 
     ret = dict_get_str_sizen(options, "remote-host", &remote_host);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, EINVAL, PC_MSG_DICT_GET_FAILED,
-               "Remote host is not set. "
-               "Assuming the volfile server as remote host");
+        gf_smsg(this->name, GF_LOG_INFO, EINVAL, PC_MSG_REMOTE_HOST_NOT_SET,
+                NULL);
 
         if (!this->ctx->cmd_args.volfile_server) {
-            gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_DICT_GET_FAILED,
-                   "No remote host to "
-                   "connect.");
+            gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_NOREMOTE_HOST,
+                    NULL);
             goto out;
         }
 
         ret = dict_set_str_sizen(options, "remote-host",
                                  this->ctx->cmd_args.volfile_server);
         if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_GET_FAILED,
-                   "Failed to set the "
-                   "remote host");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_REMOTE_HOST_SET_FAILED,
+                    NULL);
             goto out;
         }
     }
@@ -2423,8 +2402,8 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
 
     GF_OPTION_INIT("remote-subvolume", conf->opt.remote_subvolume, path, out);
     if (!conf->opt.remote_subvolume)
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "option 'remote-subvolume' not given");
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                PC_MSG_REMOTE_SUBVOL_NOT_GIVEN, NULL);
 
     GF_OPTION_INIT("filter-O_DIRECT", conf->filter_o_direct, bool, out);
 
@@ -2455,8 +2434,7 @@ mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_client_mt_end + 1);
 
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, PC_MSG_NO_MEMORY,
-               "Memory accounting init failed");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, PC_MSG_NO_MEMORY, NULL);
         return ret;
     }
 
@@ -2483,9 +2461,7 @@ client_destroy_rpc(xlator_t *this)
         goto out;
     }
 
-    gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_RPC_INVALID_CALL,
-           "RPC destroy called on already destroyed "
-           "connection");
+    gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_RPC_INVALID_CALL, NULL);
 
 out:
     return ret;
@@ -2500,24 +2476,20 @@ client_init_rpc(xlator_t *this)
     conf = this->private;
 
     if (conf->rpc) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_RPC_INITED_ALREADY,
-               "client rpc already "
-               "init'ed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_RPC_INITED_ALREADY, NULL);
         ret = -1;
         goto out;
     }
 
     conf->rpc = rpc_clnt_new(this->options, this, this->name, 0);
     if (!conf->rpc) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_INIT_FAILED,
-               "failed to initialize RPC");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_INIT_FAILED, NULL);
         goto out;
     }
 
     ret = rpc_clnt_register_notify(conf->rpc, client_rpc_notify, this);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_NOTIFY_FAILED,
-               "failed to register notify");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_NOTIFY_FAILED, NULL);
         goto out;
     }
 
@@ -2526,8 +2498,7 @@ client_init_rpc(xlator_t *this)
 
     ret = rpcclnt_cbk_program_register(conf->rpc, &gluster_cbk_prog, this);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_CBK_FAILED,
-               "failed to register callback program");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_CBK_FAILED, NULL);
         goto out;
     }
 
@@ -2633,15 +2604,13 @@ init(xlator_t *this)
     clnt_conf_t *conf = NULL;
 
     if (this->children) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_INVALID_ENTRY,
-               "FATAL: client protocol "
-               "translator cannot have any subvolumes");
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_FATAL_CLIENT_PROTOCOL,
+                NULL);
         goto out;
     }
 
     if (!this->parents) {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Volume is dangling. ");
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_VOL_DANGLING, NULL);
     }
 
     conf = GF_CALLOC(1, sizeof(*conf), gf_client_mt_clnt_conf_t);
@@ -2686,8 +2655,8 @@ init(xlator_t *this)
     this->local_pool = mem_pool_new(clnt_local_t, 64);
     if (!this->local_pool) {
         ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, PC_MSG_NO_MEMORY,
-               "failed to create local_t's memory pool");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, PC_MSG_CREATE_MEM_POOL_FAILED,
+                NULL);
         goto out;
     }
 
