@@ -5797,6 +5797,7 @@ glfs_cbk_upcall_syncop(void *opaque)
         goto out;
     } else if (ret) {
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY, NULL);
+        GLFS_FREE(up_arg);
         goto out;
     }
 
