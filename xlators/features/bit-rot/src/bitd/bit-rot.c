@@ -1717,21 +1717,25 @@ out:
     return 0;
 }
 
-/**
- * Initialize signer specific structures, spawn worker threads.
- */
-
 static void
 br_fini_signer(xlator_t *this, br_private_t *priv)
 {
     int i = 0;
 
-    for (; i < BR_WORKERS; i++) {
+    if (priv == NULL)
+        return;
+
+    for (; i < priv->signer_th_count; i++) {
         (void)gf_thread_cleanup_xint(priv->obj_queue->workers[i]);
     }
+    GF_FREE(priv->obj_queue->workers);
 
     pthread_cond_destroy(&priv->object_cond);
 }
+
+/**
+ * Initialize signer specific structures, spawn worker threads.
+ */
 
 static int32_t
 br_init_signer(xlator_t *this, br_private_t *priv)
@@ -1752,7 +1756,12 @@ br_init_signer(xlator_t *this, br_private_t *priv)
         goto cleanup_cond;
     INIT_LIST_HEAD(&priv->obj_queue->objects);
 
-    for (i = 0; i < BR_WORKERS; i++) {
+    priv->obj_queue->workers = GF_CALLOC(
+        priv->signer_th_count, sizeof(pthread_t), gf_br_mt_br_worker_t);
+    if (!priv->obj_queue->workers)
+        goto cleanup_obj_queue;
+
+    for (i = 0; i < priv->signer_th_count; i++) {
         ret = gf_thread_create(&priv->obj_queue->workers[i], NULL,
                                br_process_object, this, "brpobj");
         if (ret != 0) {
@@ -1769,7 +1778,9 @@ cleanup_threads:
     for (i--; i >= 0; i--) {
         (void)gf_thread_cleanup_xint(priv->obj_queue->workers[i]);
     }
+    GF_FREE(priv->obj_queue->workers);
 
+cleanup_obj_queue:
     GF_FREE(priv->obj_queue);
 
 cleanup_cond:
@@ -1822,7 +1833,7 @@ br_rate_limit_signer(xlator_t *this, int child_count, int numbricks)
     if (contribution == 0)
         contribution = 1;
     spec.rate = BR_HASH_CALC_READ_SIZE * contribution;
-    spec.maxlimit = BR_WORKERS * BR_HASH_CALC_READ_SIZE;
+    spec.maxlimit = priv->signer_th_count * BR_HASH_CALC_READ_SIZE;
 
 #endif
 
@@ -1841,11 +1852,16 @@ br_rate_limit_signer(xlator_t *this, int child_count, int numbricks)
 static int32_t
 br_signer_handle_options(xlator_t *this, br_private_t *priv, dict_t *options)
 {
-    if (options)
+    if (options) {
         GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, uint32,
                          error_return);
-    else
+        GF_OPTION_RECONF("signer-threads", priv->signer_th_count, options,
+                         uint32, error_return);
+    } else {
         GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+        GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
+                       error_return);
+    }
 
     return 0;
 
@@ -1861,6 +1877,8 @@ br_signer_init(xlator_t *this, br_private_t *priv)
 
     GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
     GF_OPTION_INIT("brick-count", numbricks, int32, error_return);
+    GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
+                   error_return);
 
     ret = br_rate_limit_signer(this, priv->child_count, numbricks);
     if (ret)
@@ -2186,6 +2204,15 @@ struct volume_options options[] = {
         .flags = OPT_FLAG_SETTABLE,
         .description = "Pause/Resume scrub. Upon resume, scrubber "
                        "continues from where it left off.",
+    },
+    {
+        .key = {"signer-threads"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = BR_WORKERS,
+        .op_version = {GD_OP_VERSION_8_0},
+        .flags = OPT_FLAG_SETTABLE,
+        .description = "Number of signing process threads. As a best "
+                       "practice, set this to the number of processor cores",
     },
     {.key = {NULL}},
 };

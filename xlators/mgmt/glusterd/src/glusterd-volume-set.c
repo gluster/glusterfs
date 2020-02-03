@@ -2651,6 +2651,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .op_version = GD_OP_VERSION_3_7_0,
         .type = NO_DOC,
     },
+    {
+        .key = "features.signer-threads",
+        .voltype = "features/bit-rot",
+        .value = BR_WORKERS,
+        .option = "signer-threads",
+        .op_version = GD_OP_VERSION_8_0,
+        .type = NO_DOC,
+    },
+    /* Upcall translator options */
     /* Upcall translator options */
     {
         .key = "features.cache-invalidation",

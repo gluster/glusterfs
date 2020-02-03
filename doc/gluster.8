@@ -218,6 +218,12 @@ Use "!<OPTION>" to reset option <OPTION> to default value.
 \fB\ volume bitrot <VOLNAME> {enable|disable} \fR
 Enable/disable bitrot for volume <VOLNAME>
 .TP
+\fB\ volume bitrot <VOLNAME> signing-time <time-in-secs> \fR
+Waiting time for an object after last fd is closed to start signing process.
+.TP
+\fB\ volume bitrot <VOLNAME> signer-threads <count> \fR
+Number of signing process threads. Usually set to number of available cores.
+.TP
 \fB\ volume bitrot <VOLNAME> scrub-throttle {lazy|normal|aggressive} \fR
 Scrub-throttle value is a measure of how fast or slow the scrubber scrubs the filesystem for volume <VOLNAME>
 .TP

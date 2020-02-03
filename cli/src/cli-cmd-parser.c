@@ -5587,9 +5587,9 @@ cli_cmd_bitrot_parse(const char **words, int wordcount, dict_t **options)
     int32_t ret = -1;
     char *w = NULL;
     char *volname = NULL;
-    static char *opwords[] = {
-        "enable",       "disable", "scrub-throttle", "scrub-frequency", "scrub",
-        "signing-time", NULL};
+    static char *opwords[] = {"enable",          "disable", "scrub-throttle",
+                              "scrub-frequency", "scrub",   "signing-time",
+                              "signer-threads",  NULL};
     static char *scrub_throt_values[] = {"lazy", "normal", "aggressive", NULL};
     static char *scrub_freq_values[] = {
         "hourly", "daily", "weekly", "biweekly", "monthly", "minute", NULL};
@@ -5598,6 +5598,7 @@ cli_cmd_bitrot_parse(const char **words, int wordcount, dict_t **options)
     dict_t *dict = NULL;
     gf_bitrot_type type = GF_BITROT_OPTION_TYPE_NONE;
     int32_t expiry_time = 0;
+    int32_t signer_th_count = 0;
 
     GF_ASSERT(words);
     GF_ASSERT(options);
@@ -5778,6 +5779,31 @@ cli_cmd_bitrot_parse(const char **words, int wordcount, dict_t **options)
             }
             goto set_type;
         }
+    } else if (!strcmp(words[3], "signer-threads")) {
+        if (!words[4]) {
+            cli_err(
+                "Missing signer-thread value for bitrot "
+                "option");
+            ret = -1;
+            goto out;
+        } else {
+            type = GF_BITROT_OPTION_TYPE_SIGNER_THREADS;
+
+            signer_th_count = strtol(words[4], NULL, 0);
+            if (signer_th_count < 1) {
+                cli_err("signer-thread count should not be less than 1");
+                ret = -1;
+                goto out;
+            }
+
+            ret = dict_set_uint32(dict, "signer-threads",
+                                  (unsigned int)signer_th_count);
+            if (ret) {
+                cli_out("Failed to set dict for bitrot");
+                goto out;
+            }
+            goto set_type;
+        }
     } else {
         cli_err(
             "Invalid option %s for bitrot. Please enter valid "
@@ -5786,7 +5812,6 @@ cli_cmd_bitrot_parse(const char **words, int wordcount, dict_t **options)
         ret = -1;
         goto out;
     }
-
 set_type:
     ret = dict_set_int32(dict, "type", type);
     if (ret < 0)
