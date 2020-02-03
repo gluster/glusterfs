@@ -63,10 +63,8 @@ typedef enum {
             goto label;                                                        \
         }                                                                      \
         if (remote_fd == -1) {                                                 \
-            gf_msg(xl->name, GF_LOG_WARNING, EBADFD, PC_MSG_BAD_FD,            \
-                   " (%s) "                                                    \
-                   "remote_fd is -1. EBADFD",                                  \
-                   uuid_utoa(fd->inode->gfid));                                \
+            gf_smsg(xl->name, GF_LOG_WARNING, EBADFD, PC_MSG_BAD_FD,           \
+                    "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);              \
             op_errno = EBADFD;                                                 \
             goto label;                                                        \
         }                                                                      \

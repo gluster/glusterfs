@@ -16,24 +16,21 @@
 static int
 client_cbk_null(struct rpc_clnt *rpc, void *mydata, void *data)
 {
-    gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
-           "this function should not be called");
+    gf_smsg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR, NULL);
     return 0;
 }
 
 static int
 client_cbk_fetchspec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
-    gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
-           "this function should not be called");
+    gf_smsg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR, NULL);
     return 0;
 }
 
 static int
 client_cbk_ino_flush(struct rpc_clnt *rpc, void *mydata, void *data)
 {
-    gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
-           "this function should not be called");
+    gf_smsg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR, NULL);
     return 0;
 }
 
@@ -61,8 +58,8 @@ client_cbk_recall_lease(struct rpc_clnt *rpc, void *mydata, void *data)
                          (xdrproc_t)xdr_gfs3_recall_lease_req);
 
     if (ret < 0) {
-        gf_msg(THIS->name, GF_LOG_WARNING, -ret, PC_MSG_RECALL_LEASE_FAIL,
-               "XDR decode of recall lease failed.");
+        gf_smsg(THIS->name, GF_LOG_WARNING, -ret, PC_MSG_RECALL_LEASE_FAIL,
+                NULL);
         goto out;
     }
 
@@ -113,8 +110,8 @@ client_cbk_cache_invalidation(struct rpc_clnt *rpc, void *mydata, void *data)
                          (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req);
 
     if (ret < 0) {
-        gf_msg(THIS->name, GF_LOG_WARNING, -ret, PC_MSG_CACHE_INVALIDATION_FAIL,
-               "XDR decode of cache_invalidation failed.");
+        gf_smsg(THIS->name, GF_LOG_WARNING, -ret,
+                PC_MSG_CACHE_INVALIDATION_FAIL, NULL);
         goto out;
     }
 
@@ -205,8 +202,8 @@ client_cbk_inodelk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
                          (xdrproc_t)xdr_gfs4_inodelk_contention_req);
 
     if (ret < 0) {
-        gf_msg(THIS->name, GF_LOG_WARNING, -ret, PC_MSG_INODELK_CONTENTION_FAIL,
-               "XDR decode of inodelk contention failed.");
+        gf_smsg(THIS->name, GF_LOG_WARNING, -ret,
+                PC_MSG_INODELK_CONTENTION_FAIL, NULL);
         goto out;
     }
 
@@ -256,8 +253,8 @@ client_cbk_entrylk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
                          (xdrproc_t)xdr_gfs4_entrylk_contention_req);
 
     if (ret < 0) {
-        gf_msg(THIS->name, GF_LOG_WARNING, -ret, PC_MSG_ENTRYLK_CONTENTION_FAIL,
-               "XDR decode of entrylk contention failed.");
+        gf_smsg(THIS->name, GF_LOG_WARNING, -ret,
+                PC_MSG_ENTRYLK_CONTENTION_FAIL, NULL);
         goto out;
     }
 
