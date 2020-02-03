@@ -60,7 +60,8 @@ GLFS_MSGID(
     PC_MSG_NOREMOTE_HOST, PC_MSG_REMOTE_SUBVOL_NOT_GIVEN,
     PC_MSG_FATAL_CLIENT_PROTOCOL, PC_MSG_VOL_DANGLING,
     PC_MSG_CREATE_MEM_POOL_FAILED, PC_MSG_PVT_XLATOR_NULL, PC_MSG_XLATOR_NULL,
-    PC_MSG_LEASE_FOP_FAILED);
+    PC_MSG_LEASE_FOP_FAILED, PC_MSG_DICT_SET_FAIL, PC_MSG_NO_MEM,
+    PC_MSG_UNKNOWN_LOCK_TYPE, PC_MSG_CLIENT_UID_ALLOC_FAILED);
 
 #define PC_MSG_REMOTE_OP_FAILED_STR "remote operation failed."
 #define PC_MSG_XDR_DECODING_FAILED_STR "XDR decoding failed"
@@ -148,4 +149,26 @@ GLFS_MSGID(
 #define PC_MSG_XLATOR_NULL_STR "xlator is NULL"
 #define PC_MSG_PVT_XLATOR_NULL_STR "private structure of the xlator is NULL"
 #define PC_MSG_LEASE_FOP_FAILED_STR "Lease fop failed"
+#define PC_MSG_LOCK_ERROR_STR                                                  \
+    "Unexpected case in subtract_locks. Please send a bug report to "          \
+    "gluster-devel@gluster.org"
+#define PC_MSG_FD_CTX_INVALID_STR "fdctx not valid"
+#define PC_MSG_FD_GET_FAIL_STR "failed to get fd context. sending EBADFD"
+#define PC_MSG_DICT_SET_FAIL_STR "could not set dict"
+#define PC_MSG_CLIENT_LOCK_INFO_STR "client lock info"
+#define PC_MSG_BAD_FD_STR "remote_fd is -1. EBADFD"
+#define PC_MSG_FUNCTION_CALL_ERROR_STR "this function should not be called"
+#define PC_MSG_RECALL_LEASE_FAIL_STR "XDR decode of recall lease failed"
+#define PC_MSG_CACHE_INVALIDATION_FAIL_STR                                     \
+    "XDR decode of cache_invalidation failed"
+#define PC_MSG_INODELK_CONTENTION_FAIL_STR                                     \
+    "XDR decode of inodelk contention failed"
+#define PC_MSG_ENTRYLK_CONTENTION_FAIL_STR                                     \
+    "XDR decode of entrylk contention failed"
+#define PC_MSG_FD_DUPLICATE_TRY_STR "trying duplicate remote fd set"
+#define PC_MSG_FD_SET_FAIL_STR "failed to set remote-fd"
+#define PC_MSG_NO_MEM_STR "No memory"
+#define PC_MSG_UNKNOWN_LOCK_TYPE_STR "Unknown lock type"
+#define PC_MSG_CLIENT_UID_ALLOC_FAILED_STR "client-uid could not be allocated"
+
 #endif /* !_PC_MESSAGES_H__ */

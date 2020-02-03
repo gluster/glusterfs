@@ -91,23 +91,23 @@ this_fd_set_ctx(fd_t *file, xlator_t *this, loc_t *loc, clnt_fd_ctx_t *ctx)
     ret = fd_ctx_get(file, this, &oldaddr);
     if (ret >= 0) {
         if (loc)
-            gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_FD_DUPLICATE_TRY,
-                   "%s (%s): trying duplicate remote fd set. ", loc->path,
-                   uuid_utoa(loc->inode->gfid));
+            gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_FD_DUPLICATE_TRY,
+                    "path=%s", loc->path, "gfid=%s",
+                    uuid_utoa(loc->inode->gfid), NULL);
         else
-            gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_FD_DUPLICATE_TRY,
-                   "%p: trying duplicate remote fd set. ", file);
+            gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_FD_DUPLICATE_TRY,
+                    "file=%p", file, NULL);
     }
 
     ret = fd_ctx_set(file, this, (uint64_t)(unsigned long)ctx);
     if (ret < 0) {
         if (loc)
-            gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_SET_FAIL,
-                   "%s (%s): failed to set remote fd", loc->path,
-                   uuid_utoa(loc->inode->gfid));
+            gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_SET_FAIL,
+                    "path=%s", loc->path, "gfid=%s",
+                    uuid_utoa(loc->inode->gfid), NULL);
         else
-            gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_SET_FAIL,
-                   "%p: failed to set remote fd", file);
+            gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_SET_FAIL,
+                    "file=%p", file, NULL);
     }
 out:
     return;
@@ -213,9 +213,8 @@ unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
             ret = dict_unserialize(trav->dict.dict_val, trav->dict.dict_len,
                                    &entry->dict);
             if (ret < 0) {
-                gf_msg(THIS->name, GF_LOG_WARNING, EINVAL,
-                       PC_MSG_DICT_UNSERIALIZE_FAIL,
-                       "failed to unserialize xattr dict");
+                gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL,
+                        PC_MSG_DICT_UNSERIALIZE_FAIL, "xattr", NULL);
                 goto out;
             }
         }
@@ -538,7 +537,7 @@ clnt_unserialize_rsp_locklist(xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
     while (trav) {
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0, "No memory");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_NO_MEM, NULL);
             goto out;
         }
 
@@ -578,7 +577,7 @@ clnt_unserialize_rsp_locklist_v2(xlator_t *this,
     while (trav) {
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0, "No memory");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_NO_MEM, NULL);
             goto out;
         }
 
@@ -662,8 +661,8 @@ serialize_req_locklist(lock_migration_info_t *locklist,
                 break;
 
             default:
-                gf_msg(THIS->name, GF_LOG_ERROR, 0, 0,
-                       "Unknown lock type: %" PRId32 "!", tmp->flock.l_type);
+                gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_UNKNOWN_LOCK_TYPE,
+                        "type=%" PRId32, tmp->flock.l_type, NULL);
                 break;
         }
 
@@ -673,8 +672,8 @@ serialize_req_locklist(lock_migration_info_t *locklist,
 
         trav->client_uid = gf_strdup(tmp->client_uid);
         if (!trav->client_uid) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, 0,
-                   "client_uid could not be allocated");
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_CLIENT_UID_ALLOC_FAILED,
+                    NULL);
             ret = -1;
             goto out;
         }
@@ -725,8 +724,8 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
                 break;
 
             default:
-                gf_msg(THIS->name, GF_LOG_ERROR, 0, 0,
-                       "Unknown lock type: %" PRId32 "!", tmp->flock.l_type);
+                gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_UNKNOWN_LOCK_TYPE,
+                        "type=%" PRId32, tmp->flock.l_type, NULL);
                 break;
         }
 
@@ -736,8 +735,8 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
 
         trav->client_uid = gf_strdup(tmp->client_uid);
         if (!trav->client_uid) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, 0,
-                   "client_uid could not be allocated");
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_CLIENT_UID_ALLOC_FAILED,
+                    NULL);
             ret = -1;
             goto out;
         }

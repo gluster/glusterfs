@@ -24,14 +24,12 @@ __dump_client_lock(client_posix_lock_t *lock)
 
     this = THIS;
 
-    gf_msg(this->name, GF_LOG_INFO, 0, PC_MSG_CLIENT_LOCK_INFO,
-           "{fd=%p}"
-           "{%s lk-owner:%s %" PRId64 " - %" PRId64
-           "}"
-           "{start=%" PRId64 " end=%" PRId64 "}",
-           lock->fd, lock->fl_type == F_WRLCK ? "Write-Lock" : "Read-Lock",
-           lkowner_utoa(&lock->owner), lock->user_flock.l_start,
-           lock->user_flock.l_len, lock->fl_start, lock->fl_end);
+    gf_smsg(
+        this->name, GF_LOG_INFO, 0, PC_MSG_CLIENT_LOCK_INFO, "fd=%p", lock->fd,
+        "fl_type=%s", lock->fl_type == F_WRLCK ? "Write-Lock" : "Read-Lock",
+        "lk-owner=%s", lkowner_utoa(&lock->owner), "l_start=%" PRId64,
+        lock->user_flock.l_start, "l_len=%" PRId64, lock->user_flock.l_len,
+        "start=%" PRId64, lock->fl_start, "end=%" PRId64, lock->fl_end, NULL);
 }
 
 static int
@@ -203,9 +201,7 @@ subtract_locks(client_posix_lock_t *big, client_posix_lock_t *small)
         memcpy(v.locks[1], small, sizeof(client_posix_lock_t));
     } else {
         /* LOG-TODO : decide what more info is required here*/
-        gf_msg("client-protocol", GF_LOG_CRITICAL, 0, PC_MSG_LOCK_ERROR,
-               "Unexpected case in subtract_locks. Please send "
-               "a bug report to gluster-devel@gluster.org");
+        gf_smsg("client-protocol", GF_LOG_CRITICAL, 0, PC_MSG_LOCK_ERROR, NULL);
     }
 
     return v;
@@ -343,8 +339,8 @@ delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner)
     if (!fdctx) {
         pthread_spin_unlock(&conf->fd_lock);
 
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_FD_CTX_INVALID,
-               "fdctx not valid");
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_FD_CTX_INVALID,
+                NULL);
         ret = -1;
         goto out;
     }
@@ -461,8 +457,7 @@ client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
     if (!fdctx) {
         pthread_spin_unlock(&conf->fd_lock);
 
-        gf_msg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL,
-               "failed to get fd context. sending EBADFD");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL, NULL);
         ret = -EBADFD;
         goto out;
     }
@@ -498,8 +493,8 @@ client_dump_locks(char *name, inode_t *inode, dict_t *dict)
 
     ret = dict_set_dynstr(new_dict, CLIENT_DUMP_LOCKS, dict_string);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
-               "could not set dict with %s", CLIENT_DUMP_LOCKS);
+        gf_smsg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAIL, "lock=%s",
+                CLIENT_DUMP_LOCKS, NULL);
         goto out;
     }
 

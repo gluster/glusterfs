@@ -714,8 +714,8 @@ client_pre_lk(xlator_t *this, gfs3_lk_req *req, int32_t cmd,
     ret = client_cmd_to_gf_cmd(cmd, &gf_cmd);
     if (ret) {
         op_errno = EINVAL;
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         goto out;
     }
 
@@ -827,8 +827,8 @@ client_pre_inodelk(xlator_t *this, gfs3_inodelk_req *req, loc_t *loc, int cmd,
     else if (cmd == F_SETLKW || cmd == F_SETLKW64)
         gf_cmd = GF_LK_SETLKW;
     else {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         op_errno = EINVAL;
         goto out;
     }
@@ -877,8 +877,8 @@ client_pre_finodelk(xlator_t *this, gfs3_finodelk_req *req, fd_t *fd, int cmd,
     else if (cmd == F_SETLKW || cmd == F_SETLKW64)
         gf_cmd = GF_LK_SETLKW;
     else {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         goto out;
     }
 
@@ -2895,8 +2895,8 @@ client_pre_lk_v2(xlator_t *this, gfx_lk_req *req, int32_t cmd,
     ret = client_cmd_to_gf_cmd(cmd, &gf_cmd);
     if (ret) {
         op_errno = EINVAL;
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         goto out;
     }
 
@@ -3005,8 +3005,8 @@ client_pre_inodelk_v2(xlator_t *this, gfx_inodelk_req *req, loc_t *loc, int cmd,
     else if (cmd == F_SETLKW || cmd == F_SETLKW64)
         gf_cmd = GF_LK_SETLKW;
     else {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         op_errno = EINVAL;
         goto out;
     }
@@ -3055,8 +3055,8 @@ client_pre_finodelk_v2(xlator_t *this, gfx_finodelk_req *req, fd_t *fd, int cmd,
     else if (cmd == F_SETLKW || cmd == F_SETLKW64)
         gf_cmd = GF_LK_SETLKW;
     else {
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_INVALID_ENTRY,
-               "Unknown cmd (%d)!", gf_cmd);
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+                "gf_cmd=%d", gf_cmd, NULL);
         goto out;
     }
 
