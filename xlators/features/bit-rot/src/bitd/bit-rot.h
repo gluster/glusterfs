@@ -30,12 +30,6 @@
 
 #include <openssl/sha.h>
 
-/**
- * TODO: make this configurable. As a best practice, set this to the
- * number of processor cores.
- */
-#define BR_WORKERS 4
-
 typedef enum scrub_throttle {
     BR_SCRUB_THROTTLE_VOID = -1,
     BR_SCRUB_THROTTLE_LAZY = 0,
@@ -108,12 +102,12 @@ struct br_child {
 typedef struct br_child br_child_t;
 
 struct br_obj_n_workers {
-    struct list_head objects;      /* queue of objects expired from the
-                                      timer wheel and ready to be picked
-                                      up for signing */
-    pthread_t workers[BR_WORKERS]; /* Threads which pick up the objects
-                                      from the above queue and start
-                                      signing each object */
+    struct list_head objects; /* queue of objects expired from the
+                                 timer wheel and ready to be picked
+                                 up for signing */
+    pthread_t *workers;       /* Threads which pick up the objects
+                                 from the above queue and start
+                                 signing each object */
 };
 
 struct br_scrubber {
@@ -208,6 +202,8 @@ struct br_private {
                                       the objects */
 
     uint32_t expiry_time; /* objects "wait" time */
+
+    uint32_t signer_th_count; /* Number of signing process threads */
 
     tbf_t *tbf; /* token bucket filter */
 

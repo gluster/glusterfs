@@ -2967,6 +2967,16 @@ struct cli_cmd bitrot_cmds[] = {
     {"volume bitrot <VOLNAME> {enable|disable}", NULL, /*cli_cmd_bitrot_cbk,*/
      "Enable/disable bitrot for volume <VOLNAME>"},
 
+    {"volume bitrot <VOLNAME> signing-time <time-in-secs>",
+     NULL, /*cli_cmd_bitrot_cbk,*/
+     "Waiting time for an object after last fd is closed to start signing "
+     "process"},
+
+    {"volume bitrot <VOLNAME> signer-threads <count>",
+     NULL, /*cli_cmd_bitrot_cbk,*/
+     "Number of signing process threads. Usually set to number of available "
+     "cores"},
+
     {"volume bitrot <VOLNAME> scrub-throttle {lazy|normal|aggressive}",
      NULL, /*cli_cmd_bitrot_cbk,*/
      "Set the speed of the scrubber for volume <VOLNAME>"},
@@ -2982,6 +2992,8 @@ struct cli_cmd bitrot_cmds[] = {
      "the scrubber. ondemand starts the scrubber immediately."},
 
     {"volume bitrot <VOLNAME> {enable|disable}\n"
+     "volume bitrot <VOLNAME> signing-time <time-in-secs>\n"
+     "volume bitrot <VOLNAME> signer-threads <count>\n"
      "volume bitrot <volname> scrub-throttle {lazy|normal|aggressive}\n"
      "volume bitrot <volname> scrub-frequency {hourly|daily|weekly|biweekly"
      "|monthly}\n"

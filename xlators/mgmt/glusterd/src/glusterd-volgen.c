@@ -4308,6 +4308,12 @@ bitrot_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
             return -1;
     }
 
+    if (!strcmp(vme->option, "signer-threads")) {
+        ret = xlator_set_fixed_option(xl, "signer-threads", vme->value);
+        if (ret)
+            return -1;
+    }
+
     return ret;
 }
 

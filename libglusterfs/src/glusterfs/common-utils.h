@@ -123,6 +123,7 @@ trap(void);
 
 /* Default value of signing waiting time to sign a file for bitrot */
 #define SIGNING_TIMEOUT "120"
+#define BR_WORKERS "4"
 
 /* xxhash */
 #define GF_XXH64_DIGEST_LENGTH 8
