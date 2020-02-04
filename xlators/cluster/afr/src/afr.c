@@ -556,8 +556,10 @@ init(xlator_t *this)
 
     priv->child_latency = GF_MALLOC(sizeof(*priv->child_latency) * child_count,
                                     gf_afr_mt_child_latency_t);
+    priv->halo_child_up = GF_CALLOC(sizeof(unsigned char), child_count,
+                                    gf_afr_mt_char);
 
-    if (!priv->child_up || !priv->child_latency) {
+    if (!priv->child_up || !priv->child_latency || !priv->halo_child_up) {
         ret = -ENOMEM;
         goto out;
     }
