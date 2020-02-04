@@ -3626,6 +3626,8 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
              * for client xlators in volfile.
              * ta client xlator indexes are - 2, 5, 8 depending on the index of
              * subvol. e.g- For first subvol ta client xlator id is volname-ta-2
+             * For pending-xattr, ta name would be
+             * 'volname-ta-2.{{volume-uuid}}' from GD_OP_VERSION_7_3.
              */
             ta_brick_index = 0;
             if (volinfo->thin_arbiter_count == 1) {
@@ -3638,8 +3640,16 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                     }
                     ta_brick_index++;
                 }
-
-                strncat(ptr, ta_brick->brick_id, strlen(ta_brick->brick_id));
+                if (conf->op_version < GD_OP_VERSION_7_3) {
+                    strncat(ptr, ta_brick->brick_id,
+                            strlen(ta_brick->brick_id));
+                } else {
+                    char ta_volname[PATH_MAX] = "";
+                    int len = snprintf(ta_volname, PATH_MAX, "%s.%s",
+                                       ta_brick->brick_id,
+                                       uuid_utoa(volinfo->volume_id));
+                    strncat(ptr, ta_volname, len);
+                }
             }
 
             ret = xlator_set_fixed_option(afr_xlators_list[index++],
