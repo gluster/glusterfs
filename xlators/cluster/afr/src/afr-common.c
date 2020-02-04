@@ -5665,6 +5665,8 @@ afr_priv_dump(xlator_t *this)
                            GF_ATOMIC_GET(priv->pending_reads[i]));
         sprintf(key, "child_latency[%d]", i);
         gf_proc_dump_write(key, "%" PRId64, priv->child_latency[i]);
+        sprintf(key, "halo_child_up[%d]", i);
+        gf_proc_dump_write(key, "%d", priv->halo_child_up[i]);
     }
     gf_proc_dump_write("data_self_heal", "%d", priv->data_self_heal);
     gf_proc_dump_write("metadata_self_heal", "%d", priv->metadata_self_heal);
@@ -5841,7 +5843,7 @@ find_best_down_child(xlator_t *this)
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (priv->child_up[i] && priv->child_latency[i] >= 0 &&
+        if (!priv->child_up[i] && priv->child_latency[i] >= 0 &&
             priv->child_latency[i] < best_latency) {
             best_child = i;
             best_latency = priv->child_latency[i];
@@ -5913,7 +5915,9 @@ __afr_handle_ping_event(xlator_t *this, xlator_t *child_xlator, const int idx,
                    "), "
                    "marking child down.",
                    child_latency_msec, halo_max_latency_msec);
-            *event = GF_EVENT_CHILD_DOWN;
+            if (priv->halo_child_up[idx]) {
+                *event = GF_EVENT_CHILD_DOWN;
+            }
         }
     } else if (child_latency_msec < halo_max_latency_msec &&
                priv->child_up[idx] == 0) {
@@ -5925,7 +5929,9 @@ __afr_handle_ping_event(xlator_t *this, xlator_t *child_xlator, const int idx,
                    "), "
                    "marking child up.",
                    child_latency_msec, halo_max_latency_msec);
-            *event = GF_EVENT_CHILD_UP;
+            if (priv->halo_child_up[idx]) {
+                *event = GF_EVENT_CHILD_UP;
+            }
         } else {
             gf_log(child_xlator->name, GF_LOG_INFO,
                    "Not marking child %d up, "
@@ -5992,7 +5998,10 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
 
     if (child_latency_msec < 0) {
         /*set to INT64_MAX-1 so that it is found for best_down_child*/
-        priv->child_latency[idx] = AFR_HALO_MAX_LATENCY;
+        priv->halo_child_up[idx] = 1;
+        if (priv->child_latency[idx] < 0) {
+            priv->child_latency[idx] = AFR_HALO_MAX_LATENCY;
+        }
     }
 
     /*
@@ -6081,6 +6090,7 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
      */
     if (child_latency_msec < 0) {
         priv->child_latency[idx] = child_latency_msec;
+        priv->halo_child_up[idx] = 0;
     }
     priv->child_up[idx] = 0;
 
@@ -6661,6 +6671,7 @@ afr_priv_destroy(afr_private_t *priv)
     GF_FREE(priv->pending_key);
     GF_FREE(priv->children);
     GF_FREE(priv->child_up);
+    GF_FREE(priv->halo_child_up);
     GF_FREE(priv->child_latency);
     LOCK_DESTROY(&priv->lock);
 

@@ -191,6 +191,7 @@ typedef struct _afr_private {
     struct list_head ta_onwireq;
 
     unsigned char *child_up;
+    unsigned char *halo_child_up;
     int64_t *child_latency;
     unsigned char *local;
 
