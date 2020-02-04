@@ -159,6 +159,8 @@ typedef struct clnt_conf {
                                   locks when a client disconnects.
                                */
 
+    gf_boolean_t connection_to_brick; /*True from attempt to connect to brick
+                                        till disconnection to brick*/
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
