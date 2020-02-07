@@ -167,6 +167,9 @@ glusterfs_leaseid_exist(void);
 int
 glusterfs_globals_init(glusterfs_ctx_t *ctx);
 
+void
+gf_thread_needs_cleanup(void);
+
 struct tvec_base *
 glusterfs_ctx_tw_get(glusterfs_ctx_t *ctx);
 void
