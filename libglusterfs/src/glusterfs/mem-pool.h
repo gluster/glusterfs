@@ -244,24 +244,26 @@ typedef struct per_thread_pool {
 } per_thread_pool_t;
 
 typedef struct per_thread_pool_list {
-    /*
-     * These first two members are protected by the global pool lock.  When
-     * a thread first tries to use any pool, we create one of these.  We
-     * link it into the global list using thr_list so the pool-sweeper
-     * thread can find it, and use pthread_setspecific so this thread can
-     * find it.  When the per-thread destructor runs, we "poison" the pool
-     * list to prevent further allocations.  This also signals to the
-     * pool-sweeper thread that the list should be detached and freed after
-     * the next time it's swept.
-     */
+    /* thr_list is used to place the TLS pool_list into the active global list
+     * (pool_threads) or the inactive global list (pool_free_threads). It's
+     * protected by the global pool_lock. */
     struct list_head thr_list;
-    unsigned int poison;
+
+    /* This lock is used to update poison and the hot/cold lists of members
+     * of 'pools' array. */
+    pthread_spinlock_t lock;
+
+    /* This field is used to mark a pool_list as not being owned by any thread.
+     * This means that the sweeper thread won't be cleaning objects stored in
+     * its pools. mem_put() uses it to decide if the object being released is
+     * placed into its original pool_list or directly destroyed. */
+    bool poison;
+
     /*
      * There's really more than one pool, but the actual number is hidden
      * in the implementation code so we just make it a single-element array
      * here.
      */
-    pthread_spinlock_t lock;
     per_thread_pool_t pools[1];
 } per_thread_pool_list_t;
 
@@ -306,7 +308,7 @@ void
 mem_pool_destroy(struct mem_pool *pool);
 
 void
-mem_pool_thread_destructor(void);
+mem_pool_thread_destructor(per_thread_pool_list_t *pool_list);
 
 void
 gf_mem_acct_enable_set(void *ctx);

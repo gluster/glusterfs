@@ -314,7 +314,18 @@ glusterfs_cleanup(void *ptr)
         GF_FREE(thread_syncopctx.groups);
     }
 
-    mem_pool_thread_destructor();
+    mem_pool_thread_destructor(NULL);
+}
+
+void
+gf_thread_needs_cleanup(void)
+{
+    /* The value stored in free_key TLS is not really used for anything, but
+     * pthread implementation doesn't call the TLS destruction function unless
+     * it's != NULL. This function must be called whenever something is
+     * allocated for this thread so that glusterfs_cleanup() will be called
+     * and resources can be released. */
+    (void)pthread_setspecific(free_key, (void *)1);
 }
 
 static void

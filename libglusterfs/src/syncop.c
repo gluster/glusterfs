@@ -97,6 +97,13 @@ syncopctx_setfsgroups(int count, const void *groups)
 
     /* set/reset the ngrps, this is where reset of groups is handled */
     opctx->ngrps = count;
+
+    if ((opctx->valid & SYNCOPCTX_GROUPS) == 0) {
+        /* This is the first time we are storing groups into the TLS structure
+         * so we mark the current thread so that it will be properly cleaned
+         * up when the thread terminates. */
+        gf_thread_needs_cleanup();
+    }
     opctx->valid |= SYNCOPCTX_GROUPS;
 
 out:
