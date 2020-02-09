@@ -3443,6 +3443,10 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                       defrag, fd, migrate_data, dir_dfmeta,
                                       xattr_req, &should_commit_hash, perrno);
 
+            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
+                goto out;
+            }
+
             if (ret) {
                 gf_log(this->name, GF_LOG_WARNING,
                        "Found "
@@ -3901,6 +3905,10 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
             ret = gf_defrag_fix_layout(this, defrag, &entry_loc, fix_layout,
                                        migrate_data);
+
+            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
+                goto out;
+            }
 
             if (ret && ret != 2) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LAYOUT_FIX_FAILED,
