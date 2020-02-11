@@ -49,25 +49,15 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 2
 
-#Kill brick 0 and turn on the client side heal and do ls to trigger the heal.
-#The pending xattrs on bricks 1 & 2 should have pending entry on brick 0.
-TEST kill_brick $V0 $H0 $B0/${V0}0
+# We were killing one brick and checking that entry heal does not reset the
+# pending xattrs for the down brick. Now that we need all bricks to be up for
+# entry heal, I'm removing that test from the .t
+
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.entry-self-heal on
 
 TEST ls $M0
-EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.$V0-client-0 $B0/${V0}1
-EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.$V0-client-0 $B0/${V0}2
-EXPECT_WITHIN $HEAL_TIMEOUT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}1
-EXPECT_WITHIN $HEAL_TIMEOUT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-1 $B0/${V0}2
-
-#Bring back all the bricks and trigger the heal again by doing ls. Now the
-#pending xattrs on all the bricks should be 0.
-TEST $CLI volume start $V0 force
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
-TEST ls $M0
-
 TEST cat $M0/f1
 TEST cat $M0/f2
 TEST cat $M0/f3

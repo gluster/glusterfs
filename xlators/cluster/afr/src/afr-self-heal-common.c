@@ -1575,7 +1575,6 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
     char *accused = NULL;      /* Accused others without any self-accusal */
     char *pending = NULL;      /* Have pending operations on others */
     char *self_accused = NULL; /* Accused itself */
-    int min_participants = -1;
 
     priv = this->private;
 
@@ -1599,12 +1598,7 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
         }
     }
 
-    if (type == AFR_DATA_TRANSACTION || type == AFR_METADATA_TRANSACTION) {
-        min_participants = priv->child_count;
-    } else {
-        min_participants = AFR_SH_MIN_PARTICIPANTS;
-    }
-    if (afr_success_count(replies, priv->child_count) < min_participants) {
+    if (afr_success_count(replies, priv->child_count) < priv->child_count) {
         /* Treat this just like locks not being acquired */
         return -ENOTCONN;
     }

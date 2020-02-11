@@ -7423,7 +7423,7 @@ afr_fav_child_reset_sink_xattrs(void *opaque)
         ret = afr_selfheal_inodelk(heal_frame, this, inode, this->name, 0, 0,
                                    locked_on);
         {
-            if (ret < AFR_SH_MIN_PARTICIPANTS)
+            if (ret < priv->child_count)
                 goto data_unlock;
             ret = __afr_selfheal_data_prepare(
                 heal_frame, this, inode, locked_on, sources, sinks,
@@ -7440,7 +7440,7 @@ afr_fav_child_reset_sink_xattrs(void *opaque)
         ret = afr_selfheal_inodelk(heal_frame, this, inode, this->name,
                                    LLONG_MAX - 1, 0, locked_on);
         {
-            if (ret < AFR_SH_MIN_PARTICIPANTS)
+            if (ret < priv->child_count)
                 goto mdata_unlock;
             ret = __afr_selfheal_metadata_prepare(
                 heal_frame, this, inode, locked_on, sources, sinks,
