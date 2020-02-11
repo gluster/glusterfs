@@ -598,7 +598,7 @@ afr_selfheal_entry_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
     ret = afr_selfheal_entrylk(frame, this, fd->inode, this->name, NULL,
                                locked_on);
     {
-        if (ret < AFR_SH_MIN_PARTICIPANTS) {
+        if (ret < priv->child_count) {
             gf_msg_debug(this->name, 0,
                          "%s: Skipping "
                          "entry self-heal as only %d sub-volumes "
@@ -992,7 +992,7 @@ __afr_selfheal_entry(call_frame_t *frame, xlator_t *this, fd_t *fd,
     ret = afr_selfheal_entrylk(frame, this, fd->inode, this->name, NULL,
                                data_lock);
     {
-        if (ret < AFR_SH_MIN_PARTICIPANTS) {
+        if (ret < priv->child_count) {
             gf_msg_debug(this->name, 0,
                          "%s: Skipping "
                          "entry self-heal as only %d sub-volumes could "
@@ -1116,7 +1116,7 @@ afr_selfheal_entry(call_frame_t *frame, xlator_t *this, inode_t *inode)
     ret = afr_selfheal_tie_breaker_entrylk(frame, this, inode, priv->sh_domain,
                                            NULL, locked_on);
     {
-        if (ret < AFR_SH_MIN_PARTICIPANTS) {
+        if (ret < priv->child_count) {
             gf_msg_debug(this->name, 0,
                          "%s: Skipping "
                          "entry self-heal as only %d sub-volumes could "
