@@ -11,8 +11,6 @@
 #ifndef _AFR_SELFHEAL_H
 #define _AFR_SELFHEAL_H
 
-#define AFR_SH_MIN_PARTICIPANTS 2
-
 /* Perform fop on all UP subvolumes and wait for all callbacks to return */
 
 #define AFR_ONALL(frame, rfn, fop, args...)                                    \
