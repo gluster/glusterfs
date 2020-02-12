@@ -28,7 +28,12 @@ HA_VOL_MNT="/var/run/gluster/shared_storage"
 HA_CONFDIR=$HA_VOL_MNT"/nfs-ganesha"
 SERVICE_MAN="DISTRO_NOT_FOUND"
 
-RHEL6_PCS_CNAME_OPTION="--name"
+# rhel, fedora id, version
+ID=""
+VERSION_ID=""
+
+PCS9OR10_PCS_CNAME_OPTION=""
+PCS9OR10_PCS_CLONE_OPTION="clone"
 SECRET_PEM="/var/lib/glusterd/nfs/secret.pem"
 
 # UNBLOCK RA uses shared_storage which may become unavailable
@@ -101,9 +106,9 @@ determine_service_manager () {
         then
                 SERVICE_MAN="/sbin/service"
         fi
-        if [ "${SERVICE_MAN}" == "DISTRO_NOT_FOUND" ]
+        if [[ "${SERVICE_MAN}X" == "DISTRO_NOT_FOUNDX" ]]
         then
-                echo "Service manager not recognized, exiting"
+                logger "Service manager not recognized, exiting"
                 exit 1
         fi
 }
@@ -114,7 +119,7 @@ manage_service ()
         local new_node=${2}
         local option=
 
-        if [ "${action}" == "start" ]; then
+        if [[ "${action}" == "start" ]]; then
                 option="yes"
         else
                 option="no"
@@ -122,7 +127,7 @@ manage_service ()
         ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} root@${new_node} "${GANESHA_HA_SH} --setup-ganesha-conf-files $HA_CONFDIR $option"
 
-        if [ "${SERVICE_MAN}" == "/bin/systemctl" ]
+        if [[ "${SERVICE_MAN}" == "/bin/systemctl" ]]
         then
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} root@${new_node} "${SERVICE_MAN}  ${action} nfs-ganesha"
@@ -140,7 +145,7 @@ check_cluster_exists()
 
     if [ -e /var/run/corosync.pid ]; then
         cluster_name=$(pcs status | grep "Cluster name:" | cut -d ' ' -f 3)
-        if [ ${cluster_name} -a ${cluster_name} = ${name} ]; then
+        if [[ "${cluster_name}X" == "${name}X" ]]; then
             logger "$name already exists, exiting"
             exit 0
         fi
@@ -155,7 +160,7 @@ determine_servers()
     local tmp_ifs=${IFS}
     local ha_servers=""
 
-    if [ "X${cmd}X" != "XsetupX" -a "X${cmd}X" != "XstatusX" ]; then
+    if [ "${cmd}X" != "setupX" -a "${cmd}X" != "statusX" ]; then
         ha_servers=$(pcs status | grep "Online:" | grep -o '\[.*\]' | sed -e 's/\[//' | sed -e 's/\]//')
         IFS=$' '
         for server in ${ha_servers} ; do
@@ -193,15 +198,21 @@ setup_cluster()
 
     logger "setting up cluster ${name} with the following ${servers}"
 
-    pcs cluster auth ${servers}
-    # pcs cluster setup --name ${name} ${servers}
-    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --enable --transport udpu ${servers}
+    # pcs cluster setup --force ${PCS9OR10_PCS_CNAME_OPTION} ${name} ${servers}
+    pcs cluster setup --force ${PCS9OR10_PCS_CNAME_OPTION} ${name} --enable ${servers}
     if [ $? -ne 0 ]; then
-        logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --enable --transport udpu ${servers} failed"
+        logger "pcs cluster setup ${PCS9OR10_PCS_CNAME_OPTION} ${name} --enable ${servers} failed, shutting down ganesha and bailing out"
         #set up failed stop all ganesha process and clean up symlinks in cluster
         stop_ganesha_all "${servers}"
         exit 1;
     fi
+
+    # pcs cluster auth ${servers}
+    pcs cluster auth
+    if [ $? -ne 0 ]; then
+        logger "pcs cluster auth failed"
+    fi
+
     pcs cluster start --all
     if [ $? -ne 0 ]; then
         logger "pcs cluster start failed"
@@ -217,7 +228,7 @@ setup_cluster()
     done
 
     unclean=$(pcs status | grep -u "UNCLEAN")
-    while [[ "${unclean}X" = "UNCLEANX" ]]; do
+    while [[ "${unclean}X" == "UNCLEANX" ]]; do
          sleep 1
          unclean=$(pcs status | grep -u "UNCLEAN")
     done
@@ -244,7 +255,7 @@ setup_finalize_ha()
     local stopped=""
 
     stopped=$(pcs status | grep -u "Stopped")
-    while [[ "${stopped}X" = "StoppedX" ]]; do
+    while [[ "${stopped}X" == "StoppedX" ]]; do
          sleep 1
          stopped=$(pcs status | grep -u "Stopped")
     done
@@ -265,7 +276,7 @@ refresh_config ()
         if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
-            if [ ${short_host} != ${current_host} ]; then
+            if [[ ${short_host} != ${current_host} ]]; then
                 output=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
@@ -398,7 +409,7 @@ wrap_create_virt_ip_constraints()
     # the result is "node2 node3 node4"; for node2, "node3 node4 node1"
     # and so on.
     while [[ ${1} ]]; do
-        if [ "${1}" = "${primary}" ]; then
+        if [[ ${1} == ${primary} ]]; then
             shift
             while [[ ${1} ]]; do
                 tail=${tail}" "${1}
@@ -429,15 +440,15 @@ setup_create_resources()
     local cibfile=$(mktemp -u)
 
     # fixup /var/lib/nfs
-    logger "pcs resource create nfs_setup ocf:heartbeat:ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} --clone"
-    pcs resource create nfs_setup ocf:heartbeat:ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} --clone
+    logger "pcs resource create nfs_setup ocf:heartbeat:ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} ${PCS9OR10_PCS_CLONE_OPTION}"
+    pcs resource create nfs_setup ocf:heartbeat:ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} ${PCS9OR10_PCS_CLONE_OPTION}
     if [ $? -ne 0 ]; then
-        logger "warning: pcs resource create nfs_setup ocf:heartbeat:ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} --clone failed"
+        logger "warning: pcs resource create nfs_setup ocf:heartbeat:ganesha_nfsd ha_vol_mnt=${HA_VOL_MNT} ${PCS9OR10_PCS_CLONE_OPTION} failed"
     fi
 
-    pcs resource create nfs-mon ocf:heartbeat:ganesha_mon --clone
+    pcs resource create nfs-mon ocf:heartbeat:ganesha_mon ${PCS9OR10_PCS_CLONE_OPTION}
     if [ $? -ne 0 ]; then
-        logger "warning: pcs resource create nfs-mon ocf:heartbeat:ganesha_mon --clone failed"
+        logger "warning: pcs resource create nfs-mon ocf:heartbeat:ganesha_mon ${PCS9OR10_PCS_CLONE_OPTION} failed"
     fi
 
     # see comment in (/usr/lib/ocf/resource.d/heartbeat/ganesha_grace
@@ -445,9 +456,9 @@ setup_create_resources()
     # ganesha-active crm_attribute
     sleep 5
 
-    pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone notify=true
+    pcs resource create nfs-grace ocf:heartbeat:ganesha_grace ${PCS9OR10_PCS_CLONE_OPTION} notify=true
     if [ $? -ne 0 ]; then
-        logger "warning: pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone failed"
+        logger "warning: pcs resource create nfs-grace ocf:heartbeat:ganesha_grace ${PCS9OR10_PCS_CLONE_OPTION} failed"
     fi
 
     pcs constraint location nfs-grace-clone rule score=-INFINITY grace-active ne 1
@@ -616,7 +627,7 @@ addnode_recreate_resources()
     --after ${add_node}-nfs_block
     if [ $? -ne 0 ]; then
         logger "warning pcs resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr \
-	ip=${add_vip} cidr_netmask=32 op monitor interval=15s failed"
+        ip=${add_vip} cidr_netmask=32 op monitor interval=15s failed"
     fi
 
     pcs -f ${cibfile} constraint order nfs-grace-clone then ${add_node}-cluster_ip-1
@@ -780,7 +791,7 @@ setup_state_volume()
             touch ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
         fi
         for server in ${HA_SERVERS} ; do
-            if [ ${server} != ${dirname} ]; then
+            if [[ ${server} != ${dirname} ]]; then
                 ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/${server}
                 ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${dirname}/nfs/statd/${server}
             fi
@@ -794,7 +805,7 @@ setup_state_volume()
 enable_pacemaker()
 {
     while [[ ${1} ]]; do
-        if [ "${SERVICE_MAN}" == "/usr/bin/systemctl" ]; then
+        if [[ "${SERVICE_MAN}" == "/bin/systemctl" ]]; then
             ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
 ${SECRET_PEM} root@${1} "${SERVICE_MAN} enable pacemaker"
         else
@@ -892,7 +903,7 @@ delnode_state_volume()
     rm -rf ${mnt}/nfs-ganesha/${dirname}
 
     for server in ${HA_SERVERS} ; do
-        if [[ "${server}" != "${dirname}" ]]; then
+        if [[ ${server} != ${dirname} ]]; then
             rm -f ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
             rm -f ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
         fi
@@ -963,7 +974,7 @@ status()
 
 create_ganesha_conf_file()
 {
-        if [ $1 == "yes" ];
+        if [[ "$1" == "yes" ]];
         then
                 if [  -e $GANESHA_CONF ];
                 then
@@ -1012,6 +1023,13 @@ main()
      semanage boolean -m gluster_use_execmem --on
     fi
 
+    local osid=""
+
+    osid=$(grep ^ID= /etc/os-release)
+    eval $(echo ${osid} | grep -F ID=)
+    osid=$(grep ^VERSION_ID= /etc/os-release)
+    eval $(echo ${osid} | grep -F VERSION_ID=)
+
     HA_CONFDIR=${1%/}; shift
     local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
     local node=""
@@ -1032,7 +1050,17 @@ main()
 
         determine_servers "setup"
 
-        if [ "X${HA_NUM_SERVERS}X" != "X1X" ]; then
+        # Fedora 29+ and rhel/centos 8 has PCS-0.10.x
+        # default is pcs-0.10.x options but check for
+        # rhel/centos 7 (pcs-0.9.x) and adjust accordingly
+        if [[ ${ID} =~ {rhel,centos} ]]; then
+            if [[ ${VERSION_ID} == 7.* ]]; then
+                PCS9OR10_PCS_CNAME_OPTION="--name"
+                PCS9OR10_PCS_CLONE_OPTION="--clone"
+            fi
+        fi
+
+        if [[ "${HA_NUM_SERVERS}X" != "1X" ]]; then
 
             determine_service_manager
 
