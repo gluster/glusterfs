@@ -550,25 +550,17 @@ mem_pools_preinit(void)
 static __attribute__((destructor)) void
 mem_pools_postfini(void)
 {
-    per_thread_pool_list_t *pool_list, *next;
-
-    /* This is part of a process shutdown (or dlclose()) which means that
-     * most probably all threads should be stopped. However this is not the
-     * case for gluster and there are even legitimate situations in which we
-     * could have some threads alive. What is sure is that none of those
-     * threads should be using anything from this library, so destroying
-     * everything here should be fine and safe. */
-
-    list_for_each_entry_safe(pool_list, next, &pool_threads, thr_list)
-    {
-        mem_pool_thread_destructor(pool_list);
-    }
-
-    list_for_each_entry_safe(pool_list, next, &pool_free_threads, thr_list)
-    {
-        list_del(&pool_list->thr_list);
-        FREE(pool_list);
-    }
+    /* TODO: This function should destroy all per thread memory pools that
+     *       are still alive, but this is not possible right now because glibc
+     *       starts calling destructors as soon as exit() is called, and
+     *       gluster doesn't ensure that all threads have been stopped before
+     *       calling exit(). Existing threads would crash when they try to use
+     *       memory or they terminate if we destroy things here.
+     *
+     *       When we propertly terminate all threads, we can add the needed
+     *       code here. Till then we need to leave the memory allocated. Most
+     *       probably this function will be executed on process termination,
+     *       so the memory will be released anyway by the system. */
 }
 
 /* Call mem_pools_init() once threading has been configured completely. This
