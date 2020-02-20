@@ -121,7 +121,7 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 
 #define PL_CHECK_LOCK_ENFORCE_KEY(frame, dict, name, this, loc, fd, priv)      \
     do {                                                                       \
-        if (dict_get(dict, GF_ENFORCE_MANDATORY_LOCK) ||                       \
+        if ((dict && (dict_get_sizen(dict, GF_ENFORCE_MANDATORY_LOCK))) ||     \
             (name && (strcmp(name, GF_ENFORCE_MANDATORY_LOCK) == 0))) {        \
             inode_t *__inode = (loc ? loc->inode : fd->inode);                 \
             pl_inode_t *__pl_inode = pl_inode_get(this, __inode, NULL);        \
