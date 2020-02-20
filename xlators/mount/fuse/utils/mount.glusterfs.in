@@ -776,6 +776,7 @@ main ()
             [ $(echo $volume_str_temp | grep -c "/") -eq 1 ] &&
                     [ "$volume_id_temp" != "snaps" ]  && {
                 volume_id=$volume_id_temp;
+                [ ${first_char} = '/' ] && volume_id=/$volume_id;
                 subdir_mount=$(echo "$volume_str_temp" | cut -f2- -d '/');
             }
         }
