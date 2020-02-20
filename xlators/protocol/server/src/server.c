@@ -108,8 +108,7 @@ server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 
     iob = gfs_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
-        gf_msg("", GF_LOG_ERROR, 0, PS_MSG_SERIALIZE_REPLY_FAILED,
-               "Failed to serialize reply");
+        gf_smsg("", GF_LOG_ERROR, 0, PS_MSG_SERIALIZE_REPLY_FAILED, NULL);
         goto ret;
     }
 
@@ -303,8 +302,7 @@ get_auth_types(dict_t *this, char *key, data_t *value, void *data)
             /* TODO: backward compatibility, remove when
                newer versions are available */
             tmp = "addr";
-            gf_msg("server", GF_LOG_WARNING, 0, PS_MSG_AUTH_IP_ERROR,
-                   "assuming 'auth.ip' to be 'auth.addr'");
+            gf_smsg("server", GF_LOG_WARNING, 0, PS_MSG_AUTH_IP_ERROR, NULL);
         }
         ret = dict_set_dynptr(auth_dict, tmp, NULL, 0);
         if (ret < 0) {
@@ -333,8 +331,8 @@ _check_for_auth_option(dict_t *d, char *k, data_t *v, void *tmp)
         goto out;
 
     if (strncmp(tail, "addr.", 5) != 0) {
-        gf_msg(xl->name, GF_LOG_TRACE, 0, PS_MSG_SKIP_FORMAT_CHK,
-               "skip format check for non-addr auth option %s", k);
+        gf_smsg(xl->name, GF_LOG_TRACE, 0, PS_MSG_SKIP_FORMAT_CHK, "option=%s",
+                k, NULL);
         goto out;
     }
 
@@ -356,10 +354,8 @@ _check_for_auth_option(dict_t *d, char *k, data_t *v, void *tmp)
         ret = xlator_option_validate_addr_list(xl, "auth-*", v->data, NULL,
                                                NULL);
         if (ret)
-            gf_msg(xl->name, GF_LOG_ERROR, 0, PS_MSG_INTERNET_ADDR_ERROR,
-                   "internet address '%s' does not conform "
-                   "to standards.",
-                   v->data);
+            gf_smsg(xl->name, GF_LOG_ERROR, 0, PS_MSG_INTERNET_ADDR_ERROR,
+                    "data=%s", v->data, NULL);
     }
 out:
     return ret;
@@ -379,11 +375,8 @@ validate_auth_options(xlator_t *this, dict_t *dict)
         error = dict_foreach(dict, _check_for_auth_option, trav->xlator);
 
         if (-1 == error) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_AUTHENTICATE_ERROR,
-                   "volume '%s' "
-                   "defined as subvolume, but no authentication "
-                   "defined for the same",
-                   trav->xlator->name);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_AUTHENTICATE_ERROR,
+                    "name=%s", trav->xlator->name, NULL);
             break;
         }
         trav = trav->next;
@@ -494,15 +487,13 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
             if (!client)
                 goto unref_transport;
 
-            gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_CLIENT_DISCONNECTING,
-                   "disconnecting connection"
-                   " from %s",
-                   client->client_uid);
+            gf_smsg(this->name, GF_LOG_INFO, 0, PS_MSG_CLIENT_DISCONNECTING,
+                    "client-uid=%s", client->client_uid, NULL);
 
             ret = dict_get_str_sizen(this->options, "auth-path", &auth_path);
             if (ret) {
-                gf_msg(this->name, GF_LOG_WARNING, 0, PS_MSG_DICT_GET_FAILED,
-                       "failed to get auth-path");
+                gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_DICT_GET_FAILED,
+                        "type=auth-path", NULL);
                 auth_path = NULL;
             }
 
@@ -645,8 +636,7 @@ server_mem_acct_init(xlator_t *this)
     ret = xlator_mem_acct_init(this, gf_server_mt_end + 1);
 
     if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
-               "Memory accounting init failed");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY, NULL);
         return ret;
     }
 out:
@@ -775,9 +765,8 @@ server_reconfigure(xlator_t *this, dict_t *options)
     if (data) {
         ret = gf_string2boolean(data->data, &trace);
         if (ret != 0) {
-            gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
-                   "'trace' takes on only "
-                   "boolean values. Neglecting option");
+            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
+                    NULL);
             ret = -1;
             goto out;
         }
@@ -787,8 +776,7 @@ server_reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("statedump-path", statedump_path, options, path, do_auth);
     if (!statedump_path) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_STATEDUMP_PATH_ERROR,
-               "Error while reconfiguring statedump path");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_STATEDUMP_PATH_ERROR, NULL);
         goto do_auth;
     }
     gf_path_strip_trailing_slashes(statedump_path);
@@ -821,16 +809,14 @@ do_auth:
     GF_OPTION_RECONF("gid-timeout", conf->gid_cache_timeout, options, int32,
                      do_rpc);
     if (gid_cache_reconf(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_GRP_CACHE_ERROR,
-               "Failed to reconfigure group cache.");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_GRP_CACHE_ERROR, NULL);
         goto do_rpc;
     }
 
 do_rpc:
     rpc_conf = conf->rpc;
     if (!rpc_conf) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONF_ERROR,
-               "No rpc_conf !!!!");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONF_ERROR, NULL);
         goto out;
     }
 
@@ -884,9 +870,8 @@ do_rpc:
                 ret = gf_authenticate(xprt->clnt_options, options,
                                       conf->auth_modules);
                 if (ret == AUTH_ACCEPT) {
-                    gf_msg(kid->name, GF_LOG_TRACE, 0, PS_MSG_CLIENT_ACCEPTED,
-                           "authorized client, hence we "
-                           "continue with this connection");
+                    gf_smsg(kid->name, GF_LOG_TRACE, 0, PS_MSG_CLIENT_ACCEPTED,
+                            NULL);
                 } else {
                     gf_event(EVENT_CLIENT_AUTH_REJECT,
                              "client_uid=%s;"
@@ -896,11 +881,10 @@ do_rpc:
                              xprt->xl_private->client_uid,
                              xprt->peerinfo.identifier, xprt->myinfo.identifier,
                              auth_path);
-                    gf_msg(this->name, GF_LOG_INFO, EACCES,
-                           PS_MSG_AUTHENTICATE_ERROR,
-                           "unauthorized client, hence "
-                           "terminating the connection %s",
-                           xprt->peerinfo.identifier);
+                    gf_smsg(this->name, GF_LOG_INFO, EACCES,
+                            PS_MSG_UNAUTHORIZED_CLIENT,
+                            "peerinfo-identifier=%s", xprt->peerinfo.identifier,
+                            NULL);
                     rpc_transport_disconnect(xprt, _gf_false);
                 }
             }
@@ -911,8 +895,7 @@ do_rpc:
     ret = rpcsvc_set_outstanding_rpc_limit(
         rpc_conf, options, RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONF_ERROR,
-               "Failed to reconfigure outstanding-rpc-limit");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RECONFIGURE_FAILED, NULL);
         goto out;
     }
 
@@ -922,9 +905,8 @@ do_rpc:
             if (listeners->trans->reconfigure)
                 listeners->trans->reconfigure(listeners->trans, options);
             else
-                gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_ERROR,
-                       "Reconfigure "
-                       "not found for transport");
+                gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_ERROR,
+                        NULL);
         }
     }
 
@@ -1052,14 +1034,12 @@ server_init(xlator_t *this)
     GF_VALIDATE_OR_GOTO("init", this, out);
 
     if (this->children == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_SUBVOL_NULL,
-               "protocol/server should have subvolume");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_SUBVOL_NULL, NULL);
         goto out;
     }
 
     if (this->parents != NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_PARENT_VOL_ERROR,
-               "protocol/server should not have parent volumes");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_PARENT_VOL_ERROR, NULL);
         goto out;
     }
 
@@ -1096,8 +1076,8 @@ server_init(xlator_t *this)
         gf_path_strip_trailing_slashes(statedump_path);
         this->ctx->statedump_path = gf_strdup(statedump_path);
     } else {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_STATEDUMP_PATH_ERROR,
-               "Error setting statedump path");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_SET_STATEDUMP_PATH_ERROR,
+                NULL);
         ret = -1;
         goto out;
     }
@@ -1128,8 +1108,7 @@ server_init(xlator_t *this)
 
     GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, int32, out);
     if (gid_cache_init(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_GRP_CACHE_ERROR,
-               "Failed to initialize group cache.");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_INIT_GRP_CACHE_ERROR, NULL);
         goto out;
     }
 
@@ -1148,9 +1127,7 @@ server_init(xlator_t *this)
     /* RPC related */
     conf->rpc = rpcsvc_init(this, this->ctx, this->options, 0);
     if (conf->rpc == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPCSVC_CREATE_FAILED,
-               "creation of rpcsvc "
-               "failed");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPCSVC_CREATE_FAILED, NULL);
         ret = -1;
         goto out;
     }
@@ -1158,8 +1135,7 @@ server_init(xlator_t *this)
     ret = rpcsvc_set_outstanding_rpc_limit(
         conf->rpc, this->options, RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONF_ERROR,
-               "Failed to configure outstanding-rpc-limit");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONFIGURE_FAILED, NULL);
         goto out;
     }
 
@@ -1171,15 +1147,15 @@ server_init(xlator_t *this)
 
     ret = dict_get_str_sizen(this->options, "transport-type", &transport_type);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_ERROR,
-               "option transport-type not set");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_TYPE_NOT_SET,
+                NULL);
         ret = -1;
         goto out;
     }
     total_transport = rpc_transport_count(transport_type);
     if (total_transport <= 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_ERROR,
-               "failed to get total number of available tranpsorts");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                PS_MSG_GET_TOTAL_AVAIL_TRANSPORT_FAILED, NULL);
         ret = -1;
         goto out;
     }
@@ -1188,24 +1164,21 @@ server_init(xlator_t *this)
 
     ret = rpcsvc_create_listeners(conf->rpc, this->options, this->name);
     if (ret < 1) {
-        gf_msg(this->name, GF_LOG_WARNING, 0,
-               PS_MSG_RPCSVC_LISTENER_CREATE_FAILED,
-               "creation of listener failed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0,
+                PS_MSG_RPCSVC_LISTENER_CREATE_FAILED, NULL);
         if (ret != -EADDRINUSE)
             ret = -1;
         goto out;
     } else if (ret < total_transport) {
-        gf_msg(this->name, GF_LOG_ERROR, 0,
-               PS_MSG_RPCSVC_LISTENER_CREATE_FAILED,
-               "creation of %d listeners failed, continuing with "
-               "succeeded transport",
-               (total_transport - ret));
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                PS_MSG_RPCSVC_LISTENER_CREATE_FAILED, "number=%d",
+                "continuing with succeeded transport", (total_transport - ret),
+                NULL);
     }
 
     ret = rpcsvc_register_notify(conf->rpc, server_rpc_notify, this);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PS_MSG_RPCSVC_NOTIFY,
-               "registration of notify with rpcsvc failed");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_RPCSVC_NOTIFY, NULL);
         goto out;
     }
 
@@ -1215,11 +1188,10 @@ server_init(xlator_t *this)
      */
     ret = rpcsvc_program_register(conf->rpc, &glusterfs3_3_fop_prog, _gf_true);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED,
-               "registration of program (name:%s, prognum:%d, "
-               "progver:%d) failed",
-               glusterfs3_3_fop_prog.progname, glusterfs3_3_fop_prog.prognum,
-               glusterfs3_3_fop_prog.progver);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED, "name=%s",
+                glusterfs3_3_fop_prog.progname, "prognum=%d",
+                glusterfs3_3_fop_prog.prognum, "progver=%d",
+                glusterfs3_3_fop_prog.progver, NULL);
         goto out;
     }
 
@@ -1239,11 +1211,10 @@ server_init(xlator_t *this)
     ret = rpcsvc_program_register(conf->rpc, &gluster_handshake_prog,
                                   _gf_false);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED,
-               "registration of program (name:%s, prognum:%d, "
-               "progver:%d) failed",
-               gluster_handshake_prog.progname, gluster_handshake_prog.prognum,
-               gluster_handshake_prog.progver);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED, "name=%s",
+                gluster_handshake_prog.progname, "prognum=%d",
+                gluster_handshake_prog.prognum, "progver=%d",
+                gluster_handshake_prog.progver, NULL);
         rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         rpcsvc_program_unregister(conf->rpc, &glusterfs4_0_fop_prog);
         goto out;
@@ -1257,18 +1228,14 @@ server_init(xlator_t *this)
         lim.rlim_max = 1048576;
 
         if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, PS_MSG_ULIMIT_SET_FAILED,
-                   "WARNING: Failed to "
-                   "set 'ulimit -n 1M': %s",
-                   strerror(errno));
+            gf_smsg(this->name, GF_LOG_WARNING, errno, PS_MSG_ULIMIT_SET_FAILED,
+                    "errno=%s", strerror(errno), NULL);
             lim.rlim_cur = 65536;
             lim.rlim_max = 65536;
 
             if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_msg(this->name, GF_LOG_WARNING, errno, PS_MSG_FD_NOT_FOUND,
-                       "Failed to set "
-                       "max open fd to 64k: %s",
-                       strerror(errno));
+                gf_smsg(this->name, GF_LOG_WARNING, errno, PS_MSG_FD_NOT_FOUND,
+                        "errno=%s", strerror(errno), NULL);
             } else {
                 gf_msg_trace(this->name, 0,
                              "max open fd set "
@@ -1280,9 +1247,8 @@ server_init(xlator_t *this)
     if (!this->ctx->cmd_args.volfile_id) {
         /* In some use cases this is a valid case, but
            document this to be annoying log in that case */
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_VOL_FILE_OPEN_FAILED,
-               "volfile-id argument not given. "
-               "This is mandatory argument, defaulting to 'gluster'");
+        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_VOL_FILE_OPEN_FAILED,
+                NULL);
         this->ctx->cmd_args.volfile_id = gf_strdup("gluster");
     }
     FIRST_CHILD(this)->volfile_id = gf_strdup(this->ctx->cmd_args.volfile_id);
@@ -1418,9 +1384,9 @@ server_process_event_upcall(xlator_t *this, void *data)
             xdrproc = (xdrproc_t)xdr_gfs4_entrylk_contention_req;
             break;
         default:
-            gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
-                   "Received invalid upcall event(%d)",
-                   upcall_data->event_type);
+            gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                    PS_MSG_INVLAID_UPCALL_EVENT, "event-type=%d",
+                    upcall_data->event_type, NULL);
             goto out;
     }
 
@@ -1512,10 +1478,8 @@ server_process_child_event(xlator_t *this, int32_t event, void *data,
             }
 
             if (!tmp->name)
-                gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_CHILD_STATUS_FAILED,
-                       "No xlator %s is found in "
-                       "child status list",
-                       victim->name);
+                gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_CHILD_STATUS_FAILED,
+                        "name=%s", victim->name, NULL);
         }
         list_for_each_entry(xprt, &conf->xprt_list, list)
         {
@@ -1564,9 +1528,8 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
 
             ret = server_process_event_upcall(this, data);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       PS_MSG_SERVER_EVENT_UPCALL_FAILED,
-                       "server_process_event_upcall failed");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        PS_MSG_SERVER_EVENT_UPCALL_FAILED, NULL);
                 goto out;
             }
             break;
@@ -1585,9 +1548,8 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
             ret = server_process_child_event(this, event, data,
                                              GF_CBK_CHILD_UP);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       PS_MSG_SERVER_EVENT_UPCALL_FAILED,
-                       "server_process_child_event failed");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        PS_MSG_SERVER_CHILD_EVENT_FAILED, NULL);
                 goto out;
             }
             default_notify(this, event, data);
@@ -1604,9 +1566,8 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
             ret = server_process_child_event(this, event, data,
                                              GF_CBK_CHILD_DOWN);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       PS_MSG_SERVER_EVENT_UPCALL_FAILED,
-                       "server_process_child_event failed");
+                gf_smsg(this->name, GF_LOG_ERROR, 0,
+                        PS_MSG_SERVER_CHILD_EVENT_FAILED, NULL);
                 goto out;
             }
             default_notify(this, event, data);
