@@ -4,6 +4,7 @@
 . $(dirname $0)/../../volume.rc
 
 cleanup;
+PROCESS_UP_TIMEOUT=90
 
 function is_gfapi_program_alive()
 {
@@ -19,9 +20,14 @@ function is_gfapi_program_alive()
 
 function get_active_lock_count {
     brick=$1
+    i1=$2
+    i2=$3
+    pattern="ACTIVE.*client-${brick: -1}"
+
     sdump=$(generate_brick_statedump $V0 $H0 $brick)
-    lock_count="$(grep ACTIVE $sdump| wc -l)"
-    echo "$lock_count"
+    lock_count1="$(egrep "$i1" $sdump -A3| egrep "$pattern"|uniq|wc -l)"
+    lock_count2="$(egrep "$i2" $sdump -A3| egrep "$pattern"|uniq|wc -l)"
+    echo "$((lock_count1+lock_count2))"
 }
 
 TEST glusterd
@@ -49,6 +55,11 @@ TEST [ $client_pid ]
 TEST sleep 5 # By now, the client would  have opened an fd on FILE1 and FILE2 and waiting for a SIGUSR1.
 EXPECT "Y" is_gfapi_program_alive $client_pid
 
+gfid_str1=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/${V0}0/FILE1))
+inode1="FILE1|gfid:$gfid_str1"
+gfid_str2=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/${V0}0/FILE2))
+inode2="FILE2|gfid:$gfid_str2"
+
 # Kill brick-3 and let client-1 take lock on both files.
 TEST kill_brick $V0 $H0 $B0/${V0}2
 TEST kill -SIGUSR1 $client_pid
@@ -56,15 +67,15 @@ TEST kill -SIGUSR1 $client_pid
 EXPECT "Y" is_gfapi_program_alive $client_pid
 
 # Check lock is present on brick-1 and brick-2
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}0 $inode1 $inode2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}1 $inode1 $inode2
 
 # Restart brick-3 and check that the lock has healed on it.
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
 TEST sleep 10 #Needed for client to re-open fd? Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd.
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}2 $inode1 $inode2
 
 #------------------------------------------------------------------------------
 # Kill same brick before heal completes the first time and check it completes the second time.
@@ -80,7 +91,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST $CLI volume reset $V0 delay-gen
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}0 $inode1 $inode2
 
 #------------------------------------------------------------------------------
 # Kill 2 bricks and bring it back. The fds must be marked bad.
