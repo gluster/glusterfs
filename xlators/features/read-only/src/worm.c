@@ -452,24 +452,12 @@ worm_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     GF_ASSERT(priv);
     if (priv->worm_file) {
-        dict = dict_new();
-        if (!dict) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "Error creating the "
-                   "dict");
-            goto out;
-        }
-        ret = dict_set_int8(dict, "trusted.worm_file", 1);
+        ret = fd_ctx_set(fd, this, 1);
         if (ret) {
             gf_log(this->name, GF_LOG_ERROR,
-                   "Error in setting "
-                   "the dict");
-            goto out;
-        }
-        ret = syncop_fsetxattr(this, fd, dict, 0, NULL, NULL);
-        if (ret) {
-            gf_log(this->name, GF_LOG_ERROR, "Error setting xattr");
-            goto out;
+                   "Failed to set the fd ctx "
+                   "for gfid:%s . Worm feature may not work for the gfid",
+                   uuid_utoa(inode->gfid));
         }
         ret = worm_init_state(this, _gf_true, fd);
         if (ret) {
@@ -617,7 +605,62 @@ struct xlator_fops fops = {
     .lk = ro_lk,
 };
 
-struct xlator_cbks cbks;
+int32_t
+worm_release(xlator_t *this, fd_t *fd)
+{
+    dict_t *dict = NULL;
+    int ret = -1;
+    dict = dict_new();
+    uint64_t value = 0;
+    loc_t loc = {
+        0,
+    };
+    read_only_priv_t *priv = NULL;
+    priv = this->private;
+
+    if (priv->worm_file) {
+        if (!dict) {
+            gf_log(this->name, GF_LOG_ERROR, "Error creating the dict");
+            goto out;
+        }
+
+        ret = fd_ctx_get(fd, this, &value);
+        if (ret) {
+            gf_log(this->name, GF_LOG_DEBUG, "Failed to get the fd ctx");
+        }
+        if (!value) {
+            goto out;
+        }
+
+        ret = dict_set_int8(dict, "trusted.worm_file", 1);
+        if (ret) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "Error in setting "
+                   "the dict");
+            goto out;
+        }
+
+        loc.inode = inode_ref(fd->inode);
+        gf_uuid_copy(loc.gfid, fd->inode->gfid);
+        ret = syncop_setxattr(this, &loc, dict, 0, NULL, NULL);
+        if (ret) {
+            gf_log(this->name, GF_LOG_ERROR, "Error setting xattr");
+            goto out;
+        }
+
+        gf_worm_state_transition(this, _gf_false, &loc, GF_FOP_WRITE);
+    }
+
+out:
+    loc_wipe(&loc);
+    if (dict)
+        dict_unref(dict);
+    return 0;
+}
+
+struct xlator_cbks cbks = {
+    .release = worm_release,
+};
 
 struct volume_options options[] = {
     {.key = {"worm"},
