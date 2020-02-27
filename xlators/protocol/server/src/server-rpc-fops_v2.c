@@ -56,10 +56,10 @@ server4_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dict_to_xdr(xdata, &rsp.xdata);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno, PS_MSG_STATFS,
-               "%" PRId64 ": STATFS, client: %s, error-xlator: %s",
-               frame->root->unique, STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_WARNING, op_errno, PS_MSG_STATFS,
+                "frame=%" PRId64, frame->root->unique, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -146,25 +146,20 @@ out:
 
     if (op_ret) {
         if (state->resolve.bname) {
-            gf_msg(this->name, fop_log_level(GF_FOP_LOOKUP, op_errno), op_errno,
-                   PS_MSG_LOOKUP_INFO,
-                   "%" PRId64
-                   ": LOOKUP %s (%s/%s), client: %s, "
-                   "error-xlator: %s",
-                   frame->root->unique, state->loc.path,
-                   uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-                   STACK_CLIENT_NAME(frame->root),
-                   STACK_ERR_XL_NAME(frame->root));
+            gf_smsg(this->name, fop_log_level(GF_FOP_LOOKUP, op_errno),
+                    op_errno, PS_MSG_LOOKUP_INFO, "frame=%" PRId64,
+                    frame->root->unique, "path=%s", state->loc.path,
+                    "uuid_utoa=%s", uuid_utoa(state->resolve.pargfid),
+                    "bname=%s", state->resolve.bname, "client=%s",
+                    STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                    STACK_ERR_XL_NAME(frame->root), NULL);
         } else {
-            gf_msg(this->name, fop_log_level(GF_FOP_LOOKUP, op_errno), op_errno,
-                   PS_MSG_LOOKUP_INFO,
-                   "%" PRId64
-                   ": LOOKUP %s (%s), client: %s, "
-                   "error-xlator: %s",
-                   frame->root->unique, state->loc.path,
-                   uuid_utoa(state->resolve.gfid),
-                   STACK_CLIENT_NAME(frame->root),
-                   STACK_ERR_XL_NAME(frame->root));
+            gf_smsg(this->name, fop_log_level(GF_FOP_LOOKUP, op_errno),
+                    op_errno, PS_MSG_LOOKUP_INFO, "frame=%" PRId64,
+                    frame->root->unique, "path=%s", state->loc.path,
+                    "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "client=%s",
+                    STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                    STACK_ERR_XL_NAME(frame->root), NULL);
         }
     }
 
@@ -192,12 +187,12 @@ server4_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_LEASE, op_errno), op_errno,
-               PS_MSG_LK_INFO,
-               "%" PRId64 ": LEASE %s (%s), client: %s, error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_LEASE, op_errno), op_errno,
+                PS_MSG_LK_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
     }
     server4_post_lease(&rsp, lease);
 
@@ -228,14 +223,12 @@ server4_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_LK, op_errno), op_errno,
-               PS_MSG_LK_INFO,
-               "%" PRId64 ": LK %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_LK, op_errno), op_errno,
+                PS_MSG_LK_INFO, "frame=%" PRId64, frame->root->unique,
+                "fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -268,14 +261,12 @@ server4_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, fop_log_level(GF_FOP_INODELK, op_errno), op_errno,
-               PS_MSG_INODELK_INFO,
-               "%" PRId64
-               ": INODELK %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_INODELK, op_errno), op_errno,
+                PS_MSG_INODELK_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", state->loc.path, "uuuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -307,14 +298,12 @@ server4_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, fop_log_level(GF_FOP_FINODELK, op_errno), op_errno,
-               PS_MSG_INODELK_INFO,
-               "%" PRId64 ": FINODELK %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FINODELK, op_errno), op_errno,
+                PS_MSG_INODELK_INFO, "frame=%" PRId64, frame->root->unique,
+                "FINODELK_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -346,14 +335,12 @@ server4_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, fop_log_level(GF_FOP_ENTRYLK, op_errno), op_errno,
-               PS_MSG_ENTRYLK_INFO,
-               "%" PRId64
-               ": ENTRYLK %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_ENTRYLK, op_errno), op_errno,
+                PS_MSG_ENTRYLK_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -385,14 +372,12 @@ server4_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, fop_log_level(GF_FOP_FENTRYLK, op_errno), op_errno,
-               PS_MSG_ENTRYLK_INFO,
-               "%" PRId64 ": FENTRYLK %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FENTRYLK, op_errno), op_errno,
+                PS_MSG_ENTRYLK_INFO, "frame=%" PRId64, frame->root->unique,
+                "FENTRYLK_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator: %s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -423,13 +408,12 @@ server4_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_ACCESS_INFO,
-               "%" PRId64
-               ": ACCESS %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_ACCESS_INFO,
+                "frame=%" PRId64, frame->root->unique, "path=%s",
+                (state->loc.path) ? state->loc.path : "", "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -462,13 +446,13 @@ server4_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret) {
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_DIR_INFO,
-               "%" PRId64
-               ": RMDIR %s (%s/%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_DIR_INFO,
+                "frame=%" PRId64, frame->root->unique, "RMDIR_pat=%s",
+                (state->loc.path) ? state->loc.path : "", "uuid_utoa=%s",
+                uuid_utoa(state->resolve.pargfid), "bname=%s",
+                state->resolve.bname, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -504,14 +488,13 @@ server4_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, fop_log_level(GF_FOP_MKDIR, op_errno), op_errno,
-               PS_MSG_DIR_INFO,
-               "%" PRId64
-               ": MKDIR %s (%s/%s) client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_MKDIR, op_errno), op_errno,
+                PS_MSG_DIR_INFO, "frame=%" PRId64, frame->root->unique,
+                "MKDIR_path=%s", (state->loc.path) ? state->loc.path : "",
+                "uuid_utoa=%s", uuid_utoa(state->resolve.pargfid), "bname=%s",
+                state->resolve.bname, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -546,14 +529,13 @@ server4_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, fop_log_level(GF_FOP_MKNOD, op_errno), op_errno,
-               PS_MSG_MKNOD_INFO,
-               "%" PRId64
-               ": MKNOD %s (%s/%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_MKNOD, op_errno), op_errno,
+                PS_MSG_MKNOD_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.pargfid), "bname=%s",
+                state->resolve.bname, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -585,14 +567,12 @@ server4_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FSYNCDIR, op_errno), op_errno,
-               PS_MSG_DIR_INFO,
-               "%" PRId64 ": FSYNCDIR %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FSYNCDIR, op_errno), op_errno,
+                PS_MSG_DIR_INFO, "frame=%" PRId64, frame->root->unique,
+                "FSYNCDIR_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -625,14 +605,12 @@ server4_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_READDIR, op_errno), op_errno,
-               PS_MSG_DIR_INFO,
-               "%" PRId64 ": READDIR %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_READDIR, op_errno), op_errno,
+                PS_MSG_DIR_INFO, "frame=%" PRId64, frame->root->unique,
+                "READDIR_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -676,14 +654,12 @@ server4_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_OPENDIR, op_errno), op_errno,
-               PS_MSG_DIR_INFO,
-               "%" PRId64
-               ": OPENDIR %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_OPENDIR, op_errno), op_errno,
+                PS_MSG_DIR_INFO, "frame=%" PRId64, frame->root->unique,
+                "OPENDIR_path=%s", (state->loc.path) ? state->loc.path : "",
+                "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -725,13 +701,12 @@ server4_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         else
             loglevel = GF_LOG_INFO;
 
-        gf_msg(this->name, loglevel, op_errno, PS_MSG_REMOVEXATTR_INFO,
-               "%" PRId64
-               ": REMOVEXATTR %s (%s) of key %s, client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), state->name,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, loglevel, op_errno, PS_MSG_REMOVEXATTR_INFO,
+                "frame=%" PRId64, frame->root->unique, "path=%s",
+                state->loc.path, "uuid_utoa=%s", uuid_utoa(state->resolve.gfid),
+                "name=%s", state->name, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -762,14 +737,13 @@ server4_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret == -1) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FREMOVEXATTR, op_errno),
-               op_errno, PS_MSG_REMOVEXATTR_INFO,
-               "%" PRId64 ": FREMOVEXATTR %" PRId64
-               " (%s) (%s), "
-               "client: %s, error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), state->name,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FREMOVEXATTR, op_errno),
+                op_errno, PS_MSG_REMOVEXATTR_INFO, "frame=%" PRId64,
+                frame->root->unique, "FREMOVEXATTR_fd_no%" PRId64,
+                state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "name=%s", state->name,
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator: %s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -801,14 +775,12 @@ server4_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret == -1) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_GETXATTR, op_errno), op_errno,
-               PS_MSG_GETXATTR_INFO,
-               "%" PRId64
-               ": GETXATTR %s (%s) (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), state->name,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_GETXATTR, op_errno), op_errno,
+                PS_MSG_GETXATTR_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "name=%s", state->name,
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -843,14 +815,12 @@ server4_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret == -1) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FGETXATTR, op_errno), op_errno,
-               PS_MSG_GETXATTR_INFO,
-               "%" PRId64 ": FGETXATTR %" PRId64
-               " (%s) (%s), "
-               "client: %s, error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), state->name,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FGETXATTR, op_errno), op_errno,
+                PS_MSG_GETXATTR_INFO, "frame=%" PRId64, frame->root->unique,
+                "FGETXATTR_fd_no=%" PRId64, state->resolve.fd_no,
+                "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "name=%s",
+                state->name, "client=%s", STACK_CLIENT_NAME(frame->root),
+                "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -890,11 +860,9 @@ server4_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_errno == ENOTSUP) {
             gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
         } else {
-            gf_msg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
-                   "client: %s, "
-                   "error-xlator: %s",
-                   STACK_CLIENT_NAME(frame->root),
-                   STACK_ERR_XL_NAME(frame->root));
+            gf_smsg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
+                    "client=%s", STACK_CLIENT_NAME(frame->root),
+                    "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         }
         goto out;
     }
@@ -932,11 +900,9 @@ server4_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_errno == ENOTSUP) {
             gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
         } else {
-            gf_msg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
-                   "client: %s, "
-                   "error-xlator: %s",
-                   STACK_CLIENT_NAME(frame->root),
-                   STACK_ERR_XL_NAME(frame->root));
+            gf_smsg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
+                    "client=%s", STACK_CLIENT_NAME(frame->root),
+                    "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         }
         goto out;
     }
@@ -980,14 +946,14 @@ server4_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == -1) {
         uuid_utoa_r(state->resolve.pargfid, oldpar_str);
         uuid_utoa_r(state->resolve2.pargfid, newpar_str);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_RENAME_INFO,
-               "%" PRId64
-               ": RENAME %s (%s/%s) -> %s (%s/%s), "
-               "client: %s, error-xlator: %s",
-               frame->root->unique, state->loc.path, oldpar_str,
-               state->resolve.bname, state->loc2.path, newpar_str,
-               state->resolve2.bname, STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_RENAME_INFO,
+                "frame=%" PRId64, frame->root->unique, "loc.path=%s",
+                state->loc.path, "oldpar_str=%s", oldpar_str, "resolve-name=%s",
+                state->resolve.bname, "loc2.path=%s", state->loc2.path,
+                "newpar_str=%s", newpar_str, "resolve2=%s",
+                state->resolve2.bname, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1022,14 +988,13 @@ server4_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret) {
-        gf_msg(this->name, fop_log_level(GF_FOP_UNLINK, op_errno), op_errno,
-               PS_MSG_LINK_INFO,
-               "%" PRId64
-               ": UNLINK %s (%s/%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_UNLINK, op_errno), op_errno,
+                PS_MSG_LINK_INFO, "frame=%" PRId64, frame->root->unique,
+                "UNLINK_path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.pargfid), "bname=%s",
+                state->resolve.bname, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator: %s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1072,13 +1037,13 @@ server4_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
-               "%" PRId64
-               ": SYMLINK %s (%s/%s), client: %s, "
-               "error-xlator:%s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
+                "frame=%" PRId64, frame->root->unique, "SYMLINK_path= %s",
+                (state->loc.path) ? state->loc.path : "", "uuid_utoa=%s",
+                uuid_utoa(state->resolve.pargfid), "bname=%s",
+                state->resolve.bname, "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1123,13 +1088,12 @@ server4_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         uuid_utoa_r(state->resolve.gfid, gfid_str);
         uuid_utoa_r(state->resolve2.pargfid, newpar_str);
 
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
-               "%" PRId64
-               ": LINK %s (%s) -> %s/%s, client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path, gfid_str, newpar_str,
-               state->resolve2.bname, STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
+                "frame=%" PRId64, frame->root->unique, "LINK_path=%s",
+                state->loc.path, "gfid_str=%s", gfid_str, "newpar_str=%s",
+                newpar_str, "resolve2.bname=%s", state->resolve2.bname,
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1163,13 +1127,11 @@ server4_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_TRUNCATE_INFO,
-               "%" PRId64
-               ": TRUNCATE %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_TRUNCATE_INFO,
+                "frame=%" PRId64, frame->root->unique, "TRUNCATE_path=%s",
+                state->loc.path, "uuid_utoa=%s", uuid_utoa(state->resolve.gfid),
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1203,14 +1165,12 @@ server4_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     state = CALL_STATE(frame);
     if (op_ret) {
-        gf_msg(this->name, fop_log_level(GF_FOP_FSTAT, op_errno), op_errno,
-               PS_MSG_STAT_INFO,
-               "%" PRId64 ": FSTAT %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FSTAT, op_errno), op_errno,
+                PS_MSG_STAT_INFO, "frame=%" PRId64, frame->root->unique,
+                "FSTAT_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1242,14 +1202,12 @@ server4_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FTRUNCATE, op_errno), op_errno,
-               PS_MSG_TRUNCATE_INFO,
-               "%" PRId64 ": FTRUNCATE %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FTRUNCATE, op_errno), op_errno,
+                PS_MSG_TRUNCATE_INFO, "frame=%" PRId64, frame->root->unique,
+                "FTRUNCATE_fd_no=%" PRId64, state->resolve.fd_no,
+                "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1282,14 +1240,12 @@ server4_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FLUSH, op_errno), op_errno,
-               PS_MSG_FLUSH_INFO,
-               "%" PRId64 ": FLUSH %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FLUSH, op_errno), op_errno,
+                PS_MSG_FLUSH_INFO, "frame=%" PRId64, frame->root->unique,
+                "FLUSH_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator: %s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1321,14 +1277,12 @@ server4_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FSYNC, op_errno), op_errno,
-               PS_MSG_SYNC_INFO,
-               "%" PRId64 ": FSYNC %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FSYNC, op_errno), op_errno,
+                PS_MSG_SYNC_INFO, "frame=%" PRId64, frame->root->unique,
+                "FSYNC_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator: %s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1362,14 +1316,12 @@ server4_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_WRITE, op_errno), op_errno,
-               PS_MSG_WRITE_INFO,
-               "%" PRId64 ": WRITEV %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_WRITE, op_errno), op_errno,
+                PS_MSG_WRITE_INFO, "frame=%" PRId64, frame->root->unique,
+                "WRITEV_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1414,14 +1366,12 @@ server4_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_READ, op_errno), op_errno,
-               PS_MSG_READ_INFO,
-               "%" PRId64 ": READV %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_READ, op_errno), op_errno,
+                PS_MSG_READ_INFO, "frame=%" PRId64, frame->root->unique,
+                "READV_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1455,14 +1405,12 @@ server4_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_RCHECKSUM, op_errno), op_errno,
-               PS_MSG_CHKSUM_INFO,
-               "%" PRId64 ": RCHECKSUM %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_RCHECKSUM, op_errno), op_errno,
+                PS_MSG_CHKSUM_INFO, "frame=%" PRId64, frame->root->unique,
+                "RCHECKSUM_fd_no=%" PRId64, state->resolve.fd_no,
+                "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1494,12 +1442,12 @@ server4_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_OPEN, op_errno), op_errno,
-               PS_MSG_OPEN_INFO,
-               "%" PRId64 ": OPEN %s (%s), client: %s, error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_OPEN, op_errno), op_errno,
+                PS_MSG_OPEN_INFO, "frame=%" PRId64, frame->root->unique,
+                "OPEN_path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1536,13 +1484,12 @@ server4_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_CREATE_INFO,
-               "%" PRId64
-               ": CREATE %s (%s/%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(
+            this->name, GF_LOG_INFO, op_errno, PS_MSG_CREATE_INFO,
+            "frame=%" PRId64, frame->root->unique, "path=%s", state->loc.path,
+            "uuid_utoa=%s", uuid_utoa(state->resolve.pargfid), "bname=%s",
+            state->resolve.bname, "client=%s", STACK_CLIENT_NAME(frame->root),
+            "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1592,13 +1539,11 @@ server4_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
-               "%" PRId64
-               ": READLINK %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
+                "frame=%" PRId64, frame->root->unique, "READLINK_path=%s",
+                state->loc.path, "uuid_utoa=%s", uuid_utoa(state->resolve.gfid),
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1633,12 +1578,12 @@ server4_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     state = CALL_STATE(frame);
     if (op_ret) {
-        gf_msg(this->name, fop_log_level(GF_FOP_STAT, op_errno), op_errno,
-               PS_MSG_STAT_INFO,
-               "%" PRId64 ": STAT %s (%s), client: %s, error-xlator: %s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_STAT, op_errno), op_errno,
+                PS_MSG_STAT_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", (state->loc.path) ? state->loc.path : "",
+                "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1671,13 +1616,12 @@ server4_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SETATTR_INFO,
-               "%" PRId64
-               ": SETATTR %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, (state->loc.path) ? state->loc.path : "",
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SETATTR_INFO,
+                "frame=%" PRId64, frame->root->unique, "path=%s",
+                (state->loc.path) ? state->loc.path : "", "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1711,14 +1655,12 @@ server4_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FSETATTR, op_errno), op_errno,
-               PS_MSG_SETATTR_INFO,
-               "%" PRId64 ": FSETATTR %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FSETATTR, op_errno), op_errno,
+                PS_MSG_SETATTR_INFO, "frame=%" PRId64,
+                "FSETATTR_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1752,14 +1694,12 @@ server4_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_XATTROP, op_errno), op_errno,
-               PS_MSG_XATTROP_INFO,
-               "%" PRId64
-               ": XATTROP %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_XATTROP, op_errno), op_errno,
+                PS_MSG_XATTROP_INFO, "frame=%" PRId64, frame->root->unique,
+                "path=%s", state->loc.path, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1794,14 +1734,12 @@ server4_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FXATTROP, op_errno), op_errno,
-               PS_MSG_XATTROP_INFO,
-               "%" PRId64 ": FXATTROP %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FXATTROP, op_errno), op_errno,
+                PS_MSG_XATTROP_INFO, "frame=%" PRId64, frame->root->unique,
+                "FXATTROP_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1840,14 +1778,12 @@ server4_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_READDIRP, op_errno), op_errno,
-               PS_MSG_DIR_INFO,
-               "%" PRId64 ": READDIRP %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_READDIRP, op_errno), op_errno,
+                PS_MSG_DIR_INFO, "frame=%" PRId64, frame->root->unique,
+                "READDIRP_fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1893,14 +1829,12 @@ server4_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_FALLOCATE, op_errno), op_errno,
-               PS_MSG_ALLOC_INFO,
-               "%" PRId64 ": FALLOCATE %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_FALLOCATE, op_errno), op_errno,
+                PS_MSG_ALLOC_INFO, "frame=%" PRId64, frame->root->unique,
+                "FALLOCATE_fd_no=%" PRId64, state->resolve.fd_no,
+                "uuid_utoa=%s", uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1934,14 +1868,12 @@ server4_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, fop_log_level(GF_FOP_DISCARD, op_errno), op_errno,
-               PS_MSG_DISCARD_INFO,
-               "%" PRId64 ": DISCARD %" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_DISCARD, op_errno), op_errno,
+                PS_MSG_DISCARD_INFO, "frame=%" PRId64, frame->root->unique,
+                "fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator: %s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -1977,14 +1909,12 @@ server4_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dict_to_xdr(xdata, &rsp.xdata);
 
     if (op_ret) {
-        gf_msg(this->name, fop_log_level(GF_FOP_ZEROFILL, op_errno), op_errno,
-               PS_MSG_ZEROFILL_INFO,
-               "%" PRId64 ": ZEROFILL%" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_ZEROFILL, op_errno), op_errno,
+                PS_MSG_ZEROFILL_INFO, "frame=%" PRId64, frame->root->unique,
+                "fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -2018,13 +1948,12 @@ server4_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dict_to_xdr(xdata, &rsp.xdata);
 
     if (op_ret) {
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_IPC_INFO,
-               "%" PRId64 ": IPC%" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_IPC_INFO,
+                "frame=%" PRId64, frame->root->unique, "IPC=%" PRId64,
+                state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -2056,14 +1985,12 @@ server4_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dict_to_xdr(xdata, &rsp.xdata);
 
     if (op_ret) {
-        gf_msg(this->name, fop_log_level(GF_FOP_SEEK, op_errno), op_errno,
-               PS_MSG_SEEK_INFO,
-               "%" PRId64 ": SEEK%" PRId64
-               " (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_SEEK, op_errno), op_errno,
+                PS_MSG_SEEK_INFO, "frame=%" PRId64, frame->root->unique,
+                "fd_no=%" PRId64, state->resolve.fd_no, "uuid_utoa=%s",
+                uuid_utoa(state->resolve.gfid), "client=%s",
+                STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -2096,13 +2023,11 @@ server4_setactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         state = CALL_STATE(frame);
-        gf_msg(this->name, GF_LOG_INFO, op_errno, 0,
-               "%" PRId64
-               ": SETACTIVELK %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SETACTIVELK_INFO,
+                "frame=%" PRId64, frame->root->unique, "path==%s",
+                state->loc.path, "uuid_utoa=%s", uuid_utoa(state->resolve.gfid),
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -2171,9 +2096,10 @@ server4_icreate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_CREATE_INFO,
-               "%" PRId64 ": ICREATE [%s] ==> (%s)", frame->root->unique,
-               uuid_utoa(state->resolve.gfid), strerror(op_errno));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_CREATE_INFO,
+                "frame=%" PRId64, uuid_utoa(state->resolve.gfid),
+                "ICREATE_gfid=%s", uuid_utoa(state->resolve.gfid),
+                "op_errno=%s", strerror(op_errno), NULL);
         goto out;
     }
 
@@ -2226,13 +2152,12 @@ server4_put_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     state = CALL_STATE(frame);
 
     if (op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_PUT_INFO,
-               "%" PRId64
-               ": PUT %s (%s/%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.pargfid), state->resolve.bname,
-               STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(
+            this->name, GF_LOG_INFO, op_errno, PS_MSG_PUT_INFO,
+            "frame=%" PRId64, frame->root->unique, "path=%s", state->loc.path,
+            "uuid_utoa=%s", uuid_utoa(state->resolve.pargfid), "bname=%s",
+            state->resolve.bname, "client=%s", STACK_CLIENT_NAME(frame->root),
+            "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -2280,14 +2205,13 @@ server4_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         uuid_utoa_r(state->resolve.gfid, in_gfid);
         uuid_utoa_r(state->resolve2.gfid, out_gfid);
 
-        gf_msg(this->name, fop_log_level(GF_FOP_COPY_FILE_RANGE, op_errno),
-               op_errno, PS_MSG_WRITE_INFO,
-               "%" PRId64 ": COPY_FILE_RANGE %" PRId64 " (%s), %" PRId64
-               " (%s) client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->resolve.fd_no, in_gfid,
-               state->resolve2.fd_no, out_gfid, STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, fop_log_level(GF_FOP_COPY_FILE_RANGE, op_errno),
+                op_errno, PS_MSG_WRITE_INFO, "frame=%" PRId64,
+                frame->root->unique, "COPY_FILE_RANGE_fd_no=%" PRId64,
+                state->resolve.fd_no, "in_gfid=%s", in_gfid,
+                "resolve2_fd_no=%" PRId64, state->resolve2.fd_no, "out_gfid=%s",
+                out_gfid, "client=%s", STACK_CLIENT_NAME(frame->root),
+                "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         goto out;
     }
 
@@ -2773,8 +2697,7 @@ server4_opendir_resume(call_frame_t *frame, xlator_t *bound_xl)
 
     state->fd = fd_create(state->loc.inode, frame->root->pid);
     if (!state->fd) {
-        gf_msg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED,
-               "could not create the fd");
+        gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED, NULL);
         goto err;
     }
 
@@ -3137,9 +3060,9 @@ server4_create_resume(call_frame_t *frame, xlator_t *bound_xl)
 
     state->fd = fd_create(state->loc.inode, frame->root->pid);
     if (!state->fd) {
-        gf_msg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED,
-               "fd creation for the inode %s failed",
-               state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : NULL);
+        gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_FD_CREATE_FAILED, "inode=%s",
+                state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : NULL,
+                NULL);
         state->resolve.op_ret = -1;
         state->resolve.op_errno = ENOMEM;
         goto err;
@@ -3385,13 +3308,11 @@ server4_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret < 0) {
         state = CALL_STATE(frame);
 
-        gf_msg(this->name, GF_LOG_INFO, op_errno, 0,
-               "%" PRId64
-               ": GETACTIVELK %s (%s), client: %s, "
-               "error-xlator: %s",
-               frame->root->unique, state->loc.path,
-               uuid_utoa(state->resolve.gfid), STACK_CLIENT_NAME(frame->root),
-               STACK_ERR_XL_NAME(frame->root));
+        gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_GETACTIVELK_INFO,
+                "frame=%" PRId64, frame->root->unique, "path=%s",
+                state->loc.path, "gfid=%s", uuid_utoa(state->resolve.gfid),
+                "client=%s", STACK_CLIENT_NAME(frame->root), "error-xlator=%s",
+                STACK_ERR_XL_NAME(frame->root), NULL);
 
         goto out;
     }
@@ -4112,9 +4033,8 @@ server4_0_release(rpcsvc_request_t *req)
 
     serv_ctx = server_ctx_get(client, client->this);
     if (serv_ctx == NULL) {
-        gf_msg(req->trans->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED,
-               "server_ctx_get() "
-               "failed");
+        gf_smsg(req->trans->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED,
+                NULL);
         req->rpc_err = SYSTEM_ERR;
         goto out;
     }
@@ -4158,9 +4078,8 @@ server4_0_releasedir(rpcsvc_request_t *req)
 
     serv_ctx = server_ctx_get(client, client->this);
     if (serv_ctx == NULL) {
-        gf_msg(req->trans->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED,
-               "server_ctx_get() "
-               "failed");
+        gf_smsg(req->trans->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED,
+                NULL);
         req->rpc_err = SYSTEM_ERR;
         goto out;
     }
@@ -5531,13 +5450,10 @@ server4_0_lk(rpcsvc_request_t *req)
             state->flock.l_type = F_UNLCK;
             break;
         default:
-            gf_msg(frame->root->client->bound_xl->name, GF_LOG_ERROR, 0,
-                   PS_MSG_LOCK_ERROR,
-                   "fd - %" PRId64
-                   " (%s): Unknown "
-                   "lock type: %" PRId32 "!",
-                   state->resolve.fd_no, uuid_utoa(state->fd->inode->gfid),
-                   state->type);
+            gf_smsg(frame->root->client->bound_xl->name, GF_LOG_ERROR, 0,
+                    PS_MSG_LOCK_ERROR, "fd=%" PRId64, state->resolve.fd_no,
+                    "uuid_utoa=%s", uuid_utoa(state->fd->inode->gfid),
+                    "lock type=" PRId32, state->type, NULL);
             break;
     }
 
