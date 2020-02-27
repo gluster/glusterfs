@@ -52,14 +52,14 @@ gid_resolve(server_conf_t *conf, call_stack_t *root)
 
     ret = getpwuid_r(root->uid, &mypw, mystrs, sizeof(mystrs), &result);
     if (ret != 0) {
-        gf_msg("gid-cache", GF_LOG_ERROR, errno, PS_MSG_GET_UID_FAILED,
-               "getpwuid_r(%u) failed", root->uid);
+        gf_smsg("gid-cache", GF_LOG_ERROR, errno, PS_MSG_GET_UID_FAILED,
+                "uid=%u", root->uid, NULL);
         return -1;
     }
 
     if (!result) {
-        gf_msg("gid-cache", GF_LOG_ERROR, 0, PS_MSG_UID_NOT_FOUND,
-               "getpwuid_r(%u) found nothing", root->uid);
+        gf_smsg("gid-cache", GF_LOG_ERROR, 0, PS_MSG_UID_NOT_FOUND, "uid=%u",
+                root->uid, NULL);
         return -1;
     }
 
@@ -67,9 +67,9 @@ gid_resolve(server_conf_t *conf, call_stack_t *root)
 
     ngroups = gf_getgrouplist(result->pw_name, root->gid, &mygroups);
     if (ngroups == -1) {
-        gf_msg("gid-cache", GF_LOG_ERROR, 0, PS_MSG_MAPPING_ERROR,
-               "could not map %s to group list (%d gids)", result->pw_name,
-               root->ngrps);
+        gf_smsg("gid-cache", GF_LOG_ERROR, 0, PS_MSG_MAPPING_ERROR,
+                "pw_name=%s", result->pw_name, "root->ngtps=%d", root->ngrps,
+                NULL);
         return -1;
     }
     root->ngrps = (uint16_t)ngroups;
@@ -313,13 +313,12 @@ do_fd_cleanup(xlator_t *this, client_t *client, fdentry_t *fdentries,
             ret = inode_path(fd->inode, NULL, &path);
 
             if (ret > 0) {
-                gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FD_CLEANUP,
-                       "fd cleanup on %s", path);
+                gf_smsg(this->name, GF_LOG_INFO, 0, PS_MSG_FD_CLEANUP,
+                        "path=%s", path, NULL);
                 GF_FREE(path);
             } else {
-                gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FD_CLEANUP,
-                       "fd cleanup on inode with gfid %s",
-                       uuid_utoa(fd->inode->gfid));
+                gf_smsg(this->name, GF_LOG_INFO, 0, PS_MSG_FD_CLEANUP,
+                        "inode-gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
             }
 
             tmp_frame->local = fd;
@@ -363,9 +362,7 @@ server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags,
     serv_ctx = server_ctx_get(client, client->this);
 
     if (serv_ctx == NULL) {
-        gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED,
-               "server_ctx_get() "
-               "failed");
+        gf_smsg(this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_CTX_GET_FAILED, NULL);
         goto out;
     }
 
@@ -413,8 +410,7 @@ server_connection_cleanup(xlator_t *this, client_t *client, int32_t flags,
                      fd_count);
         ret = do_fd_cleanup(this, client, fdentries, fd_count, detach);
     } else
-        gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL,
-               "no fdentries to clean");
+        gf_smsg(this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL, NULL);
 
     if (cd_ret || ret)
         ret = -1;
@@ -598,9 +594,8 @@ server_build_config(xlator_t *this, server_conf_t *conf)
     if (data) {
         ret = gf_string2boolean(data->data, &conf->verify_volfile);
         if (ret != 0) {
-            gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
-                   "wrong value for '"
-                   "verify-volfile-checksum', Neglecting option");
+            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_WRONG_VALUE,
+                    NULL);
         }
     }
 
@@ -608,9 +603,8 @@ server_build_config(xlator_t *this, server_conf_t *conf)
     if (data) {
         ret = gf_string2boolean(data->data, &conf->trace);
         if (ret != 0) {
-            gf_msg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
-                   "'trace' takes on only "
-                   "boolean values. Neglecting option");
+            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
+                    NULL);
         }
     }
 
@@ -631,18 +625,16 @@ server_build_config(xlator_t *this, server_conf_t *conf)
            or directory specified is non standard */
         ret = sys_stat(data->data, &buf);
         if ((ret != 0) || !S_ISDIR(buf.st_mode)) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_DIR_NOT_FOUND,
-                   "Directory '%s' doesn't "
-                   "exist, exiting.",
-                   data->data);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_DIR_NOT_FOUND,
+                    "data=%s", data->data, NULL);
             ret = -1;
             goto out;
         }
         /* Make sure that conf-dir doesn't contain ".." in path */
         if ((gf_strstr(data->data, "/", "..")) == -1) {
             ret = -1;
-            gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_CONF_DIR_INVALID,
-                   "%s: invalid conf_dir", data->data);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_CONF_DIR_INVALID,
+                    "data=%s", data->data, NULL);
             goto out;
         }
 
@@ -824,8 +816,9 @@ server_print_reply(call_frame_t *frame, int op_ret, int op_errno)
     if (state->fd)
         snprintf(fdstr, 32, " fd=%p", state->fd);
 
-    gf_msg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_MSG,
-           "%s%s => (%d, %d)%s", op, caller, op_ret, op_errno, fdstr);
+    gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_MSG, "op=%s", op,
+            "caller=%s", caller, "op_ret=%d", op_ret, "op_errno=%d", op_errno,
+            "fdstr=%s", fdstr, NULL);
 out:
     return;
 }
@@ -885,9 +878,10 @@ server_print_request(call_frame_t *frame)
             break;
     }
 
-    gf_msg(this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_MSG, "%s%s%s%s%s%s%s", op,
-           caller, resolve_vars, loc_vars, resolve2_vars, loc2_vars,
-           other_vars);
+    gf_smsg(this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_MSG, "op=%s", op,
+            "caller=%s", caller, "resolve_vars=%s", resolve_vars, "loc_vars=%s",
+            loc_vars, "resolve2_vars=%s", resolve2_vars, "loc2_vars=%s",
+            loc2_vars, "other_vars=%s", other_vars, NULL);
 out:
     return;
 }
@@ -923,8 +917,8 @@ serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                                               (char **)&trav->dict.dict_val,
                                               &trav->dict.dict_len);
             if (ret != 0) {
-                gf_msg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_DICT_SERIALIZE_FAIL,
-                       "failed to serialize reply dict");
+                gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_DICT_SERIALIZE_FAIL,
+                        NULL);
                 errno = -ret;
                 trav->dict.dict_len = 0;
                 goto out;
@@ -1155,8 +1149,8 @@ common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
                 break;
 
             default:
-                gf_msg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_LOCK_ERROR,
-                       "Unknown lock type: %" PRId32 "!", tmp->flock.l_type);
+                gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_LOCK_ERROR,
+                        "lock_type=%" PRId32, tmp->flock.l_type, NULL);
                 break;
         }
 
@@ -1255,8 +1249,9 @@ gf_server_check_getxattr_cmd(call_frame_t *frame, const char *key)
         {
             list_for_each_entry(xprt, &conf->xprt_list, list)
             {
-                gf_msg("mount-point-list", GF_LOG_INFO, 0, PS_MSG_MOUNT_PT_FAIL,
-                       "%s", xprt->peerinfo.identifier);
+                gf_smsg("mount-point-list", GF_LOG_INFO, 0,
+                        PS_MSG_MOUNT_PT_FAIL, "identifier=%s",
+                        xprt->peerinfo.identifier, NULL);
             }
         }
         pthread_mutex_unlock(&conf->mutex);
@@ -1286,9 +1281,8 @@ gf_server_check_setxattr_cmd(call_frame_t *frame, dict_t *dict)
             total_read += xprt->total_bytes_read;
             total_write += xprt->total_bytes_write;
         }
-        gf_msg("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT,
-               "total-read %" PRIu64 ", total-write %" PRIu64, total_read,
-               total_write);
+        gf_smsg("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT, "total-read=%" PRIu64,
+                total_read, "total-write=%" PRIu64, total_write, NULL);
     }
 
     return 0;
@@ -1364,15 +1358,15 @@ auth_set_username_passwd(dict_t *input_params, dict_t *config_params,
 
     ret = dict_get_str(input_params, "password", &password);
     if (ret) {
-        gf_msg("auth/login", GF_LOG_WARNING, 0, PS_MSG_DICT_GET_FAILED,
-               "password not found, returning DONT-CARE");
+        gf_smsg("auth/login", GF_LOG_WARNING, 0, PS_MSG_PASSWORD_NOT_FOUND,
+                NULL);
         goto out;
     }
 
     ret = dict_get_str(input_params, "remote-subvolume", &brick_name);
     if (ret) {
-        gf_msg("auth/login", GF_LOG_ERROR, 0, PS_MSG_DICT_GET_FAILED,
-               "remote-subvolume not specified");
+        gf_smsg("auth/login", GF_LOG_ERROR, 0,
+                PS_MSG_REMOTE_SUBVOL_NOT_SPECIFIED, NULL);
         ret = -1;
         goto out;
     }
@@ -1404,10 +1398,8 @@ auth_set_username_passwd(dict_t *input_params, dict_t *config_params,
                 GF_FREE(searchstr);
 
                 if (!passwd_data) {
-                    gf_msg("auth/login", GF_LOG_ERROR, 0, PS_MSG_LOGIN_ERROR,
-                           "wrong "
-                           "username/password "
-                           "combination");
+                    gf_smsg("auth/login", GF_LOG_ERROR, 0, PS_MSG_LOGIN_ERROR,
+                            NULL);
                     ret = -1;
                     goto out;
                 }
@@ -1417,10 +1409,8 @@ auth_set_username_passwd(dict_t *input_params, dict_t *config_params,
                     client->auth.username = gf_strdup(username);
                     client->auth.passwd = gf_strdup(password);
                 } else {
-                    gf_msg("auth/login", GF_LOG_ERROR, 0, PS_MSG_LOGIN_ERROR,
-                           "wrong "
-                           "password for user %s",
-                           username);
+                    gf_smsg("auth/login", GF_LOG_ERROR, 0, PS_MSG_LOGIN_ERROR,
+                            "username=%s", username, NULL);
                 }
                 break;
             }
@@ -1457,7 +1447,7 @@ unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi)
     while (trav) {
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
             goto out;
         }
 
@@ -1494,7 +1484,7 @@ unserialize_req_locklist_v2(gfx_setactivelk_req *req,
     while (trav) {
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, 0, "No memory");
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
             goto out;
         }
 

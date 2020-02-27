@@ -63,7 +63,8 @@ GLFS_MSGID(
     PS_MSG_RPC_CONFIGURE_FAILED, PS_MSG_TRANSPORT_TYPE_NOT_SET,
     PS_MSG_GET_TOTAL_AVAIL_TRANSPORT_FAILED, PS_MSG_INVLAID_UPCALL_EVENT,
     PS_MSG_SERVER_CHILD_EVENT_FAILED, PS_MSG_SETACTIVELK_INFO,
-    PS_MSG_GETACTIVELK_INFO);
+    PS_MSG_GETACTIVELK_INFO, PS_MSG_WRONG_VALUE, PS_MSG_PASSWORD_NOT_FOUND,
+    PS_MSG_REMOTE_SUBVOL_NOT_SPECIFIED, PS_MSG_NO_MEM);
 
 #define PS_MSG_SERIALIZE_REPLY_FAILED_STR "Failed to serialize reply"
 #define PS_MSG_AUTH_IP_ERROR_STR "assuming 'auth.ip' to be 'auth.addr'"
@@ -147,4 +148,21 @@ GLFS_MSGID(
 #define PS_MSG_SETATTR_INFO_STR "SETATTR info"
 #define PS_MSG_SERVER_CTX_GET_FAILED_STR "server_ctx_get() failed"
 #define PS_MSG_LOCK_ERROR_STR "Unknown lock type"
+#define PS_MSG_GET_UID_FAILED_STR "getpwuid_r failed"
+#define PS_MSG_UID_NOT_FOUND_STR "getpwuid_r found nothing"
+#define PS_MSG_MAPPING_ERROR_STR "could not map to group list"
+#define PS_MSG_FD_CLEANUP_STR "fd cleanup"
+#define PS_MSG_FDENTRY_NULL_STR "no fdentry to clean"
+#define PS_MSG_WRONG_VALUE_STR                                                 \
+    "wrong value for 'verify-volfile-checksum', Neglecting option"
+#define PS_MSG_DIR_NOT_FOUND_STR "Directory doesnot exist"
+#define PS_MSG_CONF_DIR_INVALID_STR "invalid conf_dir"
+#define PS_MSG_SERVER_MSG_STR "server msg"
+#define PS_MSG_DICT_SERIALIZE_FAIL_STR "failed to serialize reply dict"
+#define PS_MSG_MOUNT_PT_FAIL_STR "mount point fail"
+#define PS_MSG_RW_STAT_STR "stat"
+#define PS_MSG_PASSWORD_NOT_FOUND_STR "password not found, returning DONT-CARE"
+#define PS_MSG_REMOTE_SUBVOL_NOT_SPECIFIED_STR "remote-subvolume not specified"
+#define PS_MSG_LOGIN_ERROR_STR "wrong password for user"
+#define PS_MSG_NO_MEM_STR "No memory"
 #endif /* !_PS_MESSAGES_H__ */
