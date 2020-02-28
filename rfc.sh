@@ -154,15 +154,12 @@ rebase_changes()
 #   [[:space:]]+
 #      Followed by 1 or more spaces
 #
-#   (gluster\/glusterfs|bz)?
-#      Followed by nothing, 'gluster/glusterfs' or 'bz'
-#
 #   #
 #      Followed by #
 #
 #   [[:digit:]]+
 #      Followed by 1 or more digits
-REFRE="^[[:space:]]*(Fixes|Updates)(:)?[[:space:]]+(gluster\/glusterfs|bz)?#[[:digit:]]+"
+REFRE="^[[:space:]]*(Fixes|Updates)(:)?[[:space:]]+#[[:digit:]]+"
 
 editor_mode()
 {
@@ -181,22 +178,17 @@ editor_mode()
 
         while true; do
             echo Commit: "\"$(head -n 1 $1)\""
-            echo -n "Reference (Bugzilla ID or Github Issue ID): "
-            read bug
-            if [ -z "$bug" ]; then
+            echo -n "Github Issue ID: "
+            read issue
+            if [ -z "$issue" ]; then
                 return;
             fi
-            if ! is_num "$bug"; then
-                echo "Invalid reference ID ($bug)!!!";
+            if ! is_num "$issue"; then
+                echo "Invalid Github Issue ID!!!";
                 continue;
             fi
 
-            bz_string="bz"
-            if [ $bug -lt 742000 ]; then
-                bz_string=""
-            fi
-
-            echo "Select yes '(y)' if this patch fixes the bug/feature completely,"
+            echo "Select yes '(y)' if this patch fixes the issue/feature completely,"
             echo -n "or is the last of the patchset which brings feature (Y/n): "
             read fixes
             fixes_string="Fixes"
@@ -204,7 +196,7 @@ editor_mode()
                 fixes_string="Updates"
             fi
 
-            sed "/^Change-Id:/{p; s/^.*$/${fixes_string}: ${bz_string}#${bug}/;}" $1 > $1.new && \
+            sed "/^Change-Id:/{p; s/^.*$/${fixes_string}: #${issue}/;}" $1 > $1.new && \
                 mv $1.new $1;
             return;
         done
@@ -229,34 +221,24 @@ warn_reference_missing()
     echo ""
     echo "=== Missing a reference in commit! ==="
     echo ""
-    echo "Gluster commits are made with a reference to a bug or a github issue"
+    echo "Gluster commits are made with a reference to a github issue"
     echo ""
-    echo "Submissions that are enhancements (IOW, not functional"
-    echo "bug fixes, but improvements of any nature to the code) are tracked"
-    echo "using github issues [1]."
+    echo "A check on the commit message, reveals that there is no "
+    echo "github issue referenced in the commit message."
     echo ""
-    echo "Submissions that are bug fixes are tracked using Bugzilla [2]."
+    echo "https://github.com/gluster/glusterfs/issues/new"
     echo ""
-    echo "A check on the commit message, reveals that there is no bug or"
-    echo "github issue referenced in the commit message"
+    echo "Please open an issue and reference the same in the commit message "
+    echo "using the following tags:"
     echo ""
-    echo "[1] https://github.com/gluster/glusterfs/issues/new"
-    echo "[2] https://bugzilla.redhat.com/enter_bug.cgi?product=GlusterFS"
-    echo ""
-    echo "Please file an issue or a bug report and reference the same in the"
-    echo "commit message using the following tags:"
-    echo "GitHub Issues:"
-    echo "\"Fixes: gluster/glusterfs#n\" OR \"Updates: gluster/glusterfs#n\","
-    echo "\"Fixes: #n\" OR \"Updates: #n\","
-    echo "Bugzilla ID:"
-    echo "\"Fixes: bz#n\" OR \"Updates: bz#n\","
-    echo "where n is the issue or bug number"
+    echo "\"Fixes: #NNNN\" OR \"Updates: #NNNN\","
+    echo "where NNNN is the issue id"
     echo ""
     echo "You may abort the submission choosing 'N' below and use"
     echo "'git commit --amend' to add the issue reference before posting"
     echo "to gerrit."
     echo ""
-    echo -n "Missing reference to a bug or a github issue. Continue (y/N): "
+    echo -n "Missing reference to a github issue. Continue (y/N): "
     read moveon
     if [ "${moveon}" = 'Y' ] || [ "${moveon}" = 'y' ]; then
         return;
@@ -287,7 +269,7 @@ main()
     # see note above variable REFRE for regex elaboration
     reference=$(git log -n1 --format='%b' | grep -iow -E "${REFRE}" | awk -F '#' '{print $2}');
 
-    # If this is a commit against master and does not have a bug ID or a github
+    # If this is a commit against master and does not have a github
     # issue reference. Warn the contributor that one of the 2 is required
     if [ -z "${reference}" ] && [ $branch = "master" ]; then
         warn_reference_missing;
