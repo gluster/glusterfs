@@ -45,13 +45,16 @@
         afr_local_t *__local = frame->local;                                   \
         afr_private_t *__priv = frame->this->private;                          \
         int __i = 0;                                                           \
-        int __count = AFR_COUNT(list, __priv->child_count);                    \
+        int __count = 0;                                                       \
+        unsigned char *__list = alloca(__priv->child_count);                   \
                                                                                \
+        memcpy(__list, list, sizeof(*__list) * __priv->child_count);           \
+        __count = AFR_COUNT(__list, __priv->child_count);                      \
         __local->barrier.waitfor = __count;                                    \
         afr_local_replies_wipe(__local, __priv);                               \
                                                                                \
         for (__i = 0; __i < __priv->child_count; __i++) {                      \
-            if (!list[__i])                                                    \
+            if (!__list[__i])                                                  \
                 continue;                                                      \
             STACK_WIND_COOKIE(frame, rfn, (void *)(long)__i,                   \
                               __priv->children[__i],                           \

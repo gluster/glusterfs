@@ -1905,17 +1905,15 @@ int
 afr_selfheal_unlocked_discover(call_frame_t *frame, inode_t *inode, uuid_t gfid,
                                struct afr_reply *replies)
 {
-    afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     dict_t *dict = NULL;
 
-    priv = frame->this->private;
     local = frame->local;
     if (local && local->xattr_req)
         dict = local->xattr_req;
 
     return afr_selfheal_unlocked_discover_on(frame, inode, gfid, replies,
-                                             priv->child_up, dict);
+                                             local->child_up, dict);
 }
 
 unsigned int
