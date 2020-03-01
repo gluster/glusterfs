@@ -560,13 +560,15 @@ afr_selfheal_name_unlocked_inspect(call_frame_t *frame, xlator_t *this,
     struct afr_reply *replies = NULL;
     inode_t *inode = NULL;
     int first_idx = -1;
+    afr_local_t *local = NULL;
 
     priv = this->private;
+    local = frame->local;
 
     replies = alloca0(sizeof(*replies) * priv->child_count);
 
     inode = afr_selfheal_unlocked_lookup_on(frame, parent, bname, replies,
-                                            priv->child_up, NULL);
+                                            local->child_up, NULL);
     if (!inode)
         return -ENOMEM;
 
