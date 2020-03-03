@@ -192,8 +192,18 @@ gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         loc.inode = inode_ref(inode);
         gf_uuid_copy(loc.gfid, stbuf->ia_gfid);
+
+        pid_t pid = frame->root->pid;
+        uid_t uid = frame->root->uid;
+        gid_t gid = frame->root->gid;
+        frame->root->uid = 0;
+        frame->root->gid = 0;
+        frame->root->pid = GF_CLIENT_PID_SET_UTIME;
         STACK_WIND(frame, gf_utime_set_mdata_setxattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->setxattr, &loc, dict, 0, NULL);
+        frame->root->uid = uid;
+        frame->root->gid = gid;
+        frame->root->pid = pid;
 
         dict_unref(dict);
         inode_unref(loc.inode);
