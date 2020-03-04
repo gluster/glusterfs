@@ -4104,6 +4104,10 @@ fini(xlator_t *this)
     if (!priv)
         return;
     this->private = NULL;
+    if (this->local_pool) {
+        mem_pool_destroy(this->local_pool);
+        this->local_pool = NULL;
+    }
     GF_FREE(priv->brickname);
     GF_FREE(priv);
 

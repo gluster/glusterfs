@@ -403,7 +403,13 @@ server_call_xlator_mem_cleanup(xlator_t *this, char *victim_name)
 
     arg = calloc(1, sizeof(*arg));
     arg->this = this;
-    arg->victim_name = gf_strdup(victim_name);
+    arg->victim_name = strdup(victim_name);
+    if (!arg->victim_name) {
+        gf_smsg(this->name, GF_LOG_CRITICAL, ENOMEM, LG_MSG_NO_MEMORY,
+                "Memory allocation is failed");
+        return;
+    }
+
     th_ret = gf_thread_create_detached(&th_id, server_graph_janitor_threads,
                                        arg, "graphjanitor");
     if (th_ret) {
@@ -411,7 +417,7 @@ server_call_xlator_mem_cleanup(xlator_t *this, char *victim_name)
                "graph janitor Thread"
                " creation is failed for brick %s",
                victim_name);
-        GF_FREE(arg->victim_name);
+        free(arg->victim_name);
         free(arg);
     }
 }
@@ -621,7 +627,7 @@ server_graph_janitor_threads(void *data)
     }
 
 out:
-    GF_FREE(arg->victim_name);
+    free(arg->victim_name);
     free(arg);
     return NULL;
 }

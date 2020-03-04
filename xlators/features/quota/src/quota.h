@@ -214,6 +214,9 @@ struct quota_priv {
     char *volume_uuid;
     uint64_t validation_count;
     int32_t quotad_conn_status;
+    pthread_mutex_t conn_mutex;
+    pthread_cond_t conn_cond;
+    gf_boolean_t conn_status;
 };
 typedef struct quota_priv quota_priv_t;
 

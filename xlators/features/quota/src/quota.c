@@ -5008,6 +5008,43 @@ quota_forget(xlator_t *this, inode_t *inode)
     return 0;
 }
 
+int
+notify(xlator_t *this, int event, void *data, ...)
+{
+    quota_priv_t *priv = NULL;
+    int ret = 0;
+    rpc_clnt_t *rpc = NULL;
+    gf_boolean_t conn_status = _gf_true;
+    xlator_t *victim = data;
+
+    priv = this->private;
+    if (!priv || !priv->is_quota_on)
+        goto out;
+
+    if (event == GF_EVENT_PARENT_DOWN) {
+        rpc = priv->rpc_clnt;
+        if (rpc) {
+            rpc_clnt_disable(rpc);
+            pthread_mutex_lock(&priv->conn_mutex);
+            {
+                conn_status = priv->conn_status;
+                while (conn_status) {
+                    (void)pthread_cond_wait(&priv->conn_cond,
+                                            &priv->conn_mutex);
+                    conn_status = priv->conn_status;
+                }
+            }
+            pthread_mutex_unlock(&priv->conn_mutex);
+            gf_log(this->name, GF_LOG_INFO,
+                   "Notify GF_EVENT_PARENT_DOWN for brick %s", victim->name);
+        }
+    }
+
+out:
+    ret = default_notify(this, event, data);
+    return ret;
+}
+
 int32_t
 init(xlator_t *this)
 {
@@ -5049,6 +5086,10 @@ init(xlator_t *this)
                "failed to create local_t's memory pool");
         goto err;
     }
+
+    pthread_mutex_init(&priv->conn_mutex, NULL);
+    pthread_cond_init(&priv->conn_cond, NULL);
+    priv->conn_status = _gf_false;
 
     if (priv->is_quota_on) {
         rpc = quota_enforcer_init(this, this->options);
@@ -5163,20 +5204,22 @@ fini(xlator_t *this)
 {
     quota_priv_t *priv = NULL;
     rpc_clnt_t *rpc = NULL;
-    int i = 0, cnt = 0;
 
     priv = this->private;
     if (!priv)
         return;
     rpc = priv->rpc_clnt;
     priv->rpc_clnt = NULL;
-    this->private = NULL;
     if (rpc) {
-        cnt = GF_ATOMIC_GET(rpc->refcount);
-        for (i = 0; i < cnt; i++)
-            rpc_clnt_unref(rpc);
+        rpc_clnt_connection_cleanup(&rpc->conn);
+        rpc_clnt_unref(rpc);
     }
+
+    this->private = NULL;
     LOCK_DESTROY(&priv->lock);
+    pthread_mutex_destroy(&priv->conn_mutex);
+    pthread_cond_destroy(&priv->conn_cond);
+
     GF_FREE(priv);
     if (this->local_pool) {
         mem_pool_destroy(this->local_pool);
@@ -5308,6 +5351,7 @@ struct volume_options options[] = {
 xlator_api_t xlator_api = {
     .init = init,
     .fini = fini,
+    .notify = notify,
     .reconfigure = reconfigure,
     .mem_acct_init = mem_acct_init,
     .op_version = {1}, /* Present from the initial version */
