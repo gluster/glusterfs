@@ -937,6 +937,8 @@ xlator_mem_cleanup(xlator_t *this)
     xlator_list_t **trav_p = NULL;
     xlator_t *top = NULL;
     xlator_t *victim = NULL;
+    glusterfs_graph_t *graph = NULL;
+    gf_boolean_t graph_cleanup = _gf_false;
 
     if (this->call_cleanup || !this->ctx)
         return;
@@ -944,18 +946,18 @@ xlator_mem_cleanup(xlator_t *this)
     this->call_cleanup = 1;
     ctx = this->ctx;
 
+    inode_table = this->itable;
+    if (inode_table) {
+        inode_table_destroy(inode_table);
+        this->itable = NULL;
+    }
+
     xlator_call_fini(trav);
 
     while (prev) {
         trav = prev->next;
         xlator_mem_free(prev);
         prev = trav;
-    }
-
-    inode_table = this->itable;
-    if (inode_table) {
-        inode_table_destroy(inode_table);
-        this->itable = NULL;
     }
 
     if (this->fini) {
@@ -967,16 +969,27 @@ xlator_mem_cleanup(xlator_t *this)
     if (ctx->active) {
         top = ctx->active->first;
         LOCK(&ctx->volfile_lock);
-        /* TODO here we have leak for xlator node in a graph */
-        /* Need to move only top xlator from a graph */
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             victim = (*trav_p)->xlator;
             if (victim->call_cleanup && !strcmp(victim->name, this->name)) {
+                graph_cleanup = _gf_true;
                 (*trav_p) = (*trav_p)->next;
                 break;
             }
         }
         UNLOCK(&ctx->volfile_lock);
+    }
+
+    if (graph_cleanup) {
+        prev = this;
+        graph = ctx->active;
+        pthread_mutex_lock(&graph->mutex);
+        while (prev) {
+            trav = prev->next;
+            GF_FREE(prev);
+            prev = trav;
+        }
+        pthread_mutex_unlock(&graph->mutex);
     }
 }
 
@@ -1544,6 +1557,11 @@ graph_total_client_xlator(glusterfs_graph_t *graph)
     }
 
     xl = graph->first;
+    if (!strcmp(xl->type, "protocol/server")) {
+        gf_msg_debug(xl->name, 0, "Return because it is a server graph");
+        return 0;
+    }
+
     while (xl) {
         if (strcmp(xl->type, "protocol/client") == 0) {
             count++;

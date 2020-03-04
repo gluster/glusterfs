@@ -2852,6 +2852,7 @@ fini(xlator_t *this)
         if (priv->active || priv->rpc_active) {
             /* terminate RPC server/threads */
             changelog_cleanup_rpc(this, priv);
+            GF_FREE(priv->ev_dispatcher);
         }
         /* call barrier_disable to cancel timer */
         if (priv->barrier_enabled)
