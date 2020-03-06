@@ -449,7 +449,8 @@ client_pre_fsync(xlator_t *this, gfs3_fsync_req *req, fd_t *fd, int32_t flags,
     int64_t remote_fd = -1;
     int op_errno = 0;
 
-    CLIENT_GET_REMOTE_FD(this, fd, DEFAULT_REMOTE_FD, remote_fd, op_errno, out);
+    CLIENT_GET_REMOTE_FD(this, fd, FALLBACK_TO_ANON_FD, remote_fd, op_errno,
+                         out);
 
     req->fd = remote_fd;
     req->data = flags;
@@ -2641,7 +2642,8 @@ client_pre_fsync_v2(xlator_t *this, gfx_fsync_req *req, fd_t *fd, int32_t flags,
     int64_t remote_fd = -1;
     int op_errno = 0;
 
-    CLIENT_GET_REMOTE_FD(this, fd, DEFAULT_REMOTE_FD, remote_fd, op_errno, out);
+    CLIENT_GET_REMOTE_FD(this, fd, FALLBACK_TO_ANON_FD, remote_fd, op_errno,
+                         out);
 
     req->fd = remote_fd;
     req->data = flags;
