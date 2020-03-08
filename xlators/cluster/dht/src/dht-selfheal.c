@@ -8,9 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "dht-common.h"
 #include "dht-lock.h"
-#include <glusterfs/glusterfs-acl.h>
 
 #define DHT_SET_LAYOUT_RANGE(layout, i, srt, chunk, path)                      \
     do {                                                                       \
@@ -35,7 +33,7 @@
         }                                                                      \
     } while (0)
 
-int
+static int
 dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
                          gf_boolean_t newdir, dht_selfheal_layout_t healer,
                          dht_need_heal_t should_heal);
@@ -523,7 +521,7 @@ out:
     return fixit;
 }
 
-int
+static int
 dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
                          gf_boolean_t newdir, dht_selfheal_layout_t healer,
                          dht_need_heal_t should_heal)
@@ -614,7 +612,7 @@ err:
     return -1;
 }
 
-int
+static int
 dht_selfheal_dir_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int op_ret, int op_errno, dict_t *xdata)
 {
@@ -685,7 +683,7 @@ dht_set_user_xattr(dict_t *dict, char *k, data_t *v, void *data)
     return ret;
 }
 
-int
+static int
 dht_selfheal_dir_xattr_persubvol(call_frame_t *frame, loc_t *loc,
                                  dht_layout_t *layout, int i,
                                  xlator_t *req_subvol)
@@ -814,7 +812,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_fix_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 {
     dht_local_t *local = NULL;
@@ -863,7 +861,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_selfheal_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 {
     dht_local_t *local = NULL;
@@ -938,38 +936,6 @@ dht_selfheal_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
     dht_layout_unref(this, dummy);
 out:
     return 0;
-}
-
-gf_boolean_t
-dht_is_subvol_part_of_layout(dht_layout_t *layout, xlator_t *xlator)
-{
-    int i = 0;
-    gf_boolean_t ret = _gf_false;
-
-    for (i = 0; i < layout->cnt; i++) {
-        if (!strcmp(layout->list[i].xlator->name, xlator->name)) {
-            ret = _gf_true;
-            break;
-        }
-    }
-
-    return ret;
-}
-
-int
-dht_layout_index_from_conf(dht_layout_t *layout, xlator_t *xlator)
-{
-    int i = -1;
-    int j = 0;
-
-    for (j = 0; j < layout->cnt; j++) {
-        if (!strcmp(layout->list[j].xlator->name, xlator->name)) {
-            i = j;
-            break;
-        }
-    }
-
-    return i;
 }
 
 int
@@ -1062,7 +1028,7 @@ dht_selfheal_dir_setattr(call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
     return 0;
 }
 
-int
+static int
 dht_selfheal_dir_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int op_ret, int op_errno, inode_t *inode,
                            struct iatt *stbuf, struct iatt *preparent,
@@ -1114,86 +1080,7 @@ out:
     return 0;
 }
 
-void
-dht_selfheal_dir_mkdir_setacl(dict_t *xattr, dict_t *dict)
-{
-    data_t *acl_default = NULL;
-    data_t *acl_access = NULL;
-    xlator_t *this = NULL;
-    int ret = -1;
-
-    GF_ASSERT(xattr);
-    GF_ASSERT(dict);
-
-    this = THIS;
-    GF_ASSERT(this);
-
-    acl_default = dict_get(xattr, POSIX_ACL_DEFAULT_XATTR);
-
-    if (!acl_default) {
-        gf_msg_debug(this->name, 0, "ACL_DEFAULT xattr not present");
-        goto cont;
-    }
-    ret = dict_set(dict, POSIX_ACL_DEFAULT_XATTR, acl_default);
-    if (ret)
-        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
-                "key=%s", POSIX_ACL_DEFAULT_XATTR, NULL);
-cont:
-    acl_access = dict_get(xattr, POSIX_ACL_ACCESS_XATTR);
-    if (!acl_access) {
-        gf_msg_debug(this->name, 0, "ACL_ACCESS xattr not present");
-        goto out;
-    }
-    ret = dict_set(dict, POSIX_ACL_ACCESS_XATTR, acl_access);
-    if (ret)
-        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
-                "key=%s", POSIX_ACL_ACCESS_XATTR, NULL);
-
-out:
-    return;
-}
-
-void
-dht_selfheal_dir_mkdir_setquota(dict_t *src, dict_t *dst)
-{
-    data_t *quota_limit_key = NULL;
-    data_t *quota_limit_obj_key = NULL;
-    xlator_t *this = NULL;
-    int ret = -1;
-
-    GF_ASSERT(src);
-    GF_ASSERT(dst);
-
-    this = THIS;
-    GF_ASSERT(this);
-
-    quota_limit_key = dict_get(src, QUOTA_LIMIT_KEY);
-    if (!quota_limit_key) {
-        gf_msg_debug(this->name, 0, "QUOTA_LIMIT_KEY xattr not present");
-        goto cont;
-    }
-    ret = dict_set(dst, QUOTA_LIMIT_KEY, quota_limit_key);
-    if (ret)
-        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
-                "key=%s", QUOTA_LIMIT_KEY, NULL);
-
-cont:
-    quota_limit_obj_key = dict_get(src, QUOTA_LIMIT_OBJECTS_KEY);
-    if (!quota_limit_obj_key) {
-        gf_msg_debug(this->name, 0,
-                     "QUOTA_LIMIT_OBJECTS_KEY xattr not present");
-        goto out;
-    }
-    ret = dict_set(dst, QUOTA_LIMIT_OBJECTS_KEY, quota_limit_obj_key);
-    if (ret)
-        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
-                "key=%s", QUOTA_LIMIT_OBJECTS_KEY, NULL);
-
-out:
-    return;
-}
-
-int
+static int
 dht_selfheal_dir_mkdir_lookup_done(call_frame_t *frame, xlator_t *this)
 {
     dht_local_t *local = NULL;
@@ -1270,7 +1157,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
                                   xlator_t *this, int op_ret, int op_errno,
                                   inode_t *inode, struct iatt *stbuf,
@@ -1364,7 +1251,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_selfheal_dir_mkdir_lock_cbk(call_frame_t *frame, void *cookie,
                                 xlator_t *this, int32_t op_ret,
                                 int32_t op_errno, dict_t *xdata)
@@ -1433,7 +1320,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                        int force)
 {
@@ -1507,7 +1394,7 @@ err:
     return -1;
 }
 
-int
+static int
 dht_selfheal_layout_alloc_start(xlator_t *this, loc_t *loc,
                                 dht_layout_t *layout)
 {
@@ -1616,8 +1503,6 @@ dht_selfheal_layout_new_directory(call_frame_t *frame, loc_t *loc,
                                   dht_layout_t *new_layout);
 
 void
-dht_layout_entry_swap(dht_layout_t *layout, int i, int j);
-void
 dht_layout_range_swap(dht_layout_t *layout, int i, int j);
 
 /*
@@ -1626,7 +1511,7 @@ dht_layout_range_swap(dht_layout_t *layout, int i, int j);
  */
 #define OV_ENTRY(x, y) table[x * new->cnt + y]
 
-void
+static void
 dht_selfheal_layout_maximize_overlap(call_frame_t *frame, loc_t *loc,
                                      dht_layout_t *new, dht_layout_t *old)
 {
@@ -1703,7 +1588,7 @@ dht_selfheal_layout_maximize_overlap(call_frame_t *frame, loc_t *loc,
     }
 }
 
-dht_layout_t *
+static dht_layout_t *
 dht_fix_layout_of_directory(call_frame_t *frame, loc_t *loc,
                             dht_layout_t *layout)
 {
@@ -1806,7 +1691,7 @@ done:
  * Having to call this 2x for each entry in the layout is pretty horrible, but
  * that's what all of this layout-sorting nonsense gets us.
  */
-uint32_t
+static uint32_t
 dht_get_chunks_from_xl(xlator_t *parent, xlator_t *child)
 {
     dht_conf_t *priv = parent->private;
@@ -1924,7 +1809,7 @@ done:
     return;
 }
 
-int
+static int
 dht_selfheal_dir_getafix(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 {
     dht_local_t *local = NULL;
@@ -2391,7 +2276,7 @@ dht_dir_attr_heal_done(int ret, call_frame_t *sync_frame, void *data)
 }
 
 /* EXIT: dht_update_commit_hash_for_layout */
-int
+static int
 dht_update_commit_hash_for_layout_done(call_frame_t *frame, void *cookie,
                                        xlator_t *this, int32_t op_ret,
                                        int32_t op_errno, dict_t *xdata)
@@ -2411,7 +2296,7 @@ dht_update_commit_hash_for_layout_done(call_frame_t *frame, void *cookie,
     return 0;
 }
 
-int
+static int
 dht_update_commit_hash_for_layout_unlock(call_frame_t *frame, xlator_t *this)
 {
     dht_local_t *local = NULL;
@@ -2438,7 +2323,7 @@ dht_update_commit_hash_for_layout_unlock(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 dht_update_commit_hash_for_layout_cbk(call_frame_t *frame, void *cookie,
                                       xlator_t *this, int op_ret, int op_errno,
                                       dict_t *xdata)
@@ -2465,7 +2350,7 @@ dht_update_commit_hash_for_layout_cbk(call_frame_t *frame, void *cookie,
     return 0;
 }
 
-int
+static int
 dht_update_commit_hash_for_layout_resume(call_frame_t *frame, void *cookie,
                                          xlator_t *this, int32_t op_ret,
                                          int32_t op_errno, dict_t *xdata)
