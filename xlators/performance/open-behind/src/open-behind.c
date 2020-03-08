@@ -206,8 +206,13 @@ ob_fd_free(ob_fd_t *ob_fd)
     if (ob_fd->xdata)
         dict_unref(ob_fd->xdata);
 
-    if (ob_fd->open_frame)
+    if (ob_fd->open_frame) {
+        /* If we sill have a frame it means that background open has never
+         * been triggered. We need to release the pending reference. */
+        fd_unref(ob_fd->fd);
+
         STACK_DESTROY(ob_fd->open_frame->root);
+    }
 
     GF_FREE(ob_fd);
 }
@@ -297,6 +302,7 @@ ob_wake_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             call_resume(stub);
     }
 
+    /* The background open is completed. We can release the 'fd' reference. */
     fd_unref(fd);
 
     STACK_DESTROY(frame->root);
@@ -331,7 +337,9 @@ ob_fd_wake(xlator_t *this, fd_t *fd, ob_fd_t *ob_fd)
     }
 
     if (frame) {
-        frame->local = fd_ref(fd);
+        /* We don't need to take a reference here. We already have a reference
+         * while the open is pending. */
+        frame->local = fd;
 
         STACK_WIND(frame, ob_wake_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->open, &ob_fd->loc, ob_fd->flags, fd,
@@ -345,15 +353,12 @@ void
 ob_inode_wake(xlator_t *this, struct list_head *ob_fds)
 {
     ob_fd_t *ob_fd = NULL, *tmp = NULL;
-    fd_t *fd = NULL;
 
     if (!list_empty(ob_fds)) {
         list_for_each_entry_safe(ob_fd, tmp, ob_fds, ob_fds_on_inode)
         {
             ob_fd_wake(this, ob_fd->fd, ob_fd);
-            fd = ob_fd->fd;
             ob_fd_free(ob_fd);
-            fd_unref(fd);
         }
     }
 }
@@ -365,7 +370,7 @@ ob_fd_copy(ob_fd_t *src, ob_fd_t *dst)
     if (!src || !dst)
         goto out;
 
-    dst->fd = __fd_ref(src->fd);
+    dst->fd = src->fd;
     dst->loc.inode = inode_ref(src->loc.inode);
     gf_uuid_copy(dst->loc.gfid, src->loc.gfid);
     dst->flags = src->flags;
@@ -509,7 +514,6 @@ ob_open_behind(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     ob_fd->ob_inode = ob_inode;
 
-    /* don't do fd_ref, it'll cause leaks */
     ob_fd->fd = fd;
 
     ob_fd->open_frame = copy_frame(frame);
@@ -539,15 +543,16 @@ ob_open_behind(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     }
     UNLOCK(&fd->inode->lock);
 
-    if (!open_in_progress && !unlinked) {
-        fd_ref(fd);
+    /* We take a reference while the background open is pending or being
+     * processed. If we finally wind the request in the foreground, then
+     * ob_fd_free() will take care of this additional reference. */
+    fd_ref(fd);
 
+    if (!open_in_progress && !unlinked) {
         STACK_UNWIND_STRICT(open, frame, 0, 0, fd, xdata);
 
         if (!conf->lazy_open)
             ob_fd_wake(this, fd, NULL);
-
-        fd_unref(fd);
     } else {
         ob_fd_free(ob_fd);
         STACK_WIND(frame, default_open_cbk, FIRST_CHILD(this),
