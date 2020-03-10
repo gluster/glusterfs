@@ -158,9 +158,9 @@ gf_cli_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_log("cli", GF_LOG_INFO, "Received resp to probe");
 
-    if (rsp.op_ret) {
-        if (rsp.op_errstr && rsp.op_errstr[0] != '\0') {
-            snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
+    if (rsp.op_errstr && rsp.op_errstr[0] != '\0') {
+        snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
+        if (rsp.op_ret) {
             gf_log("cli", GF_LOG_ERROR, "%s", msg);
         }
     }
