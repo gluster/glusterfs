@@ -227,6 +227,18 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
         is_force = _gf_true;
     }
 
+    if (volinfo->snap_count > 0 || !cds_list_empty(&volinfo->snap_volumes)) {
+        snprintf(msg, sizeof(msg),
+                 "Volume %s  has %" PRIu64
+                 " snapshots. "
+                 "Changing the volume configuration will not effect snapshots."
+                 "But the snapshot brick mount should be intact to "
+                 "make them function.",
+                 volname, volinfo->snap_count);
+        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_SNAP_WARN, "%s", msg);
+        msg[0] = '\0';
+    }
+
     ret = glusterd_get_dst_brick_info(&dst_brick, volname, op_errstr,
                                       &dst_brickinfo, &host, dict,
                                       &dup_dstbrick);
