@@ -1448,6 +1448,18 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
+    if (volinfo->snap_count > 0 || !cds_list_empty(&volinfo->snap_volumes)) {
+        snprintf(msg, sizeof(msg),
+                 "Volume %s  has %" PRIu64
+                 " snapshots. "
+                 "Changing the volume configuration will not effect snapshots."
+                 "But the snapshot brick mount should be intact to "
+                 "make them function.",
+                 volname, volinfo->snap_count);
+        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_SNAP_WARN, "%s", msg);
+        msg[0] = '\0';
+    }
+
     ret = dict_get_int32n(dict, "count", SLEN("count"), &count);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
@@ -1835,6 +1847,21 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                                   "attempting this command again.",
                                   volname);
                 goto out;
+            }
+
+            if (volinfo->snap_count > 0 ||
+                !cds_list_empty(&volinfo->snap_volumes)) {
+                snprintf(msg, sizeof(msg),
+                         "Volume %s  has %" PRIu64
+                         " snapshots. "
+                         "Changing the volume configuration will not effect "
+                         "snapshots."
+                         "But the snapshot brick mount should be intact to "
+                         "make them function.",
+                         volname, volinfo->snap_count);
+                gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_SNAP_WARN, "%s",
+                       msg);
+                msg[0] = '\0';
             }
 
             ret = glusterd_remove_brick_validate_bricks(
