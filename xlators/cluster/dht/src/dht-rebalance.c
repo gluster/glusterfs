@@ -3870,7 +3870,8 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             ret = gf_defrag_fix_layout(this, defrag, &entry_loc, fix_layout,
                                        migrate_data);
 
-            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
+            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED ||
+                defrag->defrag_status == GF_DEFRAG_STATUS_FAILED) {
                 goto out;
             }
 
