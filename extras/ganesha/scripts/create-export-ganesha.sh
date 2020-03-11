@@ -64,6 +64,7 @@ echo "      Pseudo=\"/$VOL\";"
 echo '      Protocols = "3", "4" ;'
 echo '      Transports = "UDP","TCP";'
 echo '      SecType = "sys";'
+echo '      Security_Label = False;'
 echo "     }"
 }
 if [ "$OPTION" = "on" ];
