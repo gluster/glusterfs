@@ -240,7 +240,7 @@ struct syncopctx {
         task = synctask_get();                                                 \
         stb->task = task;                                                      \
         if (task)                                                              \
-            frame = task->opframe;                                             \
+            frame = copy_frame(task->opframe);                                 \
         else                                                                   \
             frame = syncop_create_frame(THIS);                                 \
                                                                                \
@@ -261,10 +261,7 @@ struct syncopctx {
         STACK_WIND_COOKIE(frame, cbk, (void *)stb, subvol, fn_op, params);     \
                                                                                \
         __yield(stb);                                                          \
-        if (task)                                                              \
-            STACK_RESET(frame->root);                                          \
-        else                                                                   \
-            STACK_DESTROY(frame->root);                                        \
+        STACK_DESTROY(frame->root);                                            \
     } while (0)
 
 /*
