@@ -1924,7 +1924,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
 {
     struct posix_private *priv = NULL;
     int ret = -1;
-    char timestamp[256] = {
+    char timestamp[GF_TIMESTR_SIZE] = {
         0,
     };
     int fd = -1;

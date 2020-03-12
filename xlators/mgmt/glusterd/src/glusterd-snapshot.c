@@ -3221,7 +3221,7 @@ glusterd_snapshot_get_snap_detail(dict_t *dict, glusterd_snap_t *snap,
     int volcount = 0;
     char key[32] = ""; /* keyprefix is quite small, up to 16 bytes */
     int keylen;
-    char timestr[64] = "";
+    char timestr[GF_TIMESTR_SIZE] = "";
     char *value = NULL;
     glusterd_volinfo_t *snap_vol = NULL;
     glusterd_volinfo_t *tmp_vol = NULL;

@@ -35,7 +35,6 @@
 #define GF_LOG_CONTROL_FILE "/etc/glusterfs/logger.conf"
 #define GF_LOG_BACKTRACE_DEPTH 5
 #define GF_LOG_BACKTRACE_SIZE 4096
-#define GF_LOG_TIMESTR_SIZE 256
 #define GF_MAX_SLOG_PAIR_COUNT 100
 
 #include "glusterfs/logging.h"
@@ -760,7 +759,7 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     xlator_t *this = THIS;
     char *logline = NULL;
     char *msg = NULL;
-    char timestr[GF_LOG_TIMESTR_SIZE] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     char *callstr = NULL;
@@ -820,12 +819,12 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     if (-1 == ret)
         goto out;
 
-    gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
 
-    ret = gf_asprintf(
-        &logline, "[%s.%" GF_PRI_SUSECONDS "] %c [%s:%d:%s] %s %d-%s: %s\n",
-        timestr, tv.tv_usec, gf_level_strings[level], basename, line, function,
-        callstr, ((this->graph) ? this->graph->id : 0), domain, msg);
+    ret = gf_asprintf(&logline, "[%s] %c [%s:%d:%s] %s %d-%s: %s\n", timestr,
+                      gf_level_strings[level], basename, line, function,
+                      callstr, ((this->graph) ? this->graph->id : 0), domain,
+                      msg);
     if (-1 == ret) {
         goto out;
     }
@@ -1088,7 +1087,7 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
     char msg[2048] = {
         0,
     };
-    char timestr[GF_LOG_TIMESTR_SIZE] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     glusterfs_ctx_t *ctx = NULL;
@@ -1116,20 +1115,20 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
     ret = gettimeofday(&tv, NULL);
     if (-1 == ret)
         goto out;
-    gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
 
     /* TODO: Currently we print in the enhanced format, with a message ID
      * of 0. Need to enhance this to support format as configured */
     wlen = snprintf(
         msg, sizeof msg,
-        "[%s.%" GF_PRI_SUSECONDS "] %c [MSGID: %" PRIu64
+        "[%s] %c [MSGID: %" PRIu64
         "]"
         " [%s:%d:%s] %s: no memory "
         "available for size (%" GF_PRI_SIZET
         ") current memory usage in kilobytes %ld"
         " [call stack follows]\n",
-        timestr, tv.tv_usec, gf_level_strings[level], (uint64_t)0, basename,
-        line, function, domain, size,
+        timestr, gf_level_strings[level], (uint64_t)0, basename, line, function,
+        domain, size,
         (!getrusage(RUSAGE_SELF, &r_usage) ? r_usage.ru_maxrss : 0));
     if (-1 == wlen) {
         ret = -1;
@@ -1275,7 +1274,7 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
                   int errnum, uint64_t msgid, char **appmsgstr, char *callstr,
                   struct timeval tv, int graph_id, gf_log_format_t fmt)
 {
-    char timestr[GF_LOG_TIMESTR_SIZE] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     char *header = NULL;
@@ -1286,7 +1285,7 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     gf_log_rotate(ctx);
 
     /* format the time stamp */
-    gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
 
     /* generate footer */
     if (errnum) {
@@ -1302,40 +1301,35 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     if (fmt == gf_logformat_traditional) {
         if (!callstr) {
             ret = gf_asprintf(&header,
-                              "[%s.%" GF_PRI_SUSECONDS
-                              "] %c [%s:%d:%s]"
+                              "[%s] %c [%s:%d:%s]"
                               " %d-%s: %s",
-                              timestr, tv.tv_usec, gf_level_strings[level],
-                              file, line, function, graph_id, domain,
-                              *appmsgstr);
+                              timestr, gf_level_strings[level], file, line,
+                              function, graph_id, domain, *appmsgstr);
         } else {
             ret = gf_asprintf(&header,
-                              "[%s.%" GF_PRI_SUSECONDS
-                              "] %c [%s:%d:%s] %s"
+                              "[%s] %c [%s:%d:%s] %s"
                               " %d-%s: %s",
-                              timestr, tv.tv_usec, gf_level_strings[level],
-                              file, line, function, callstr, graph_id, domain,
-                              *appmsgstr);
+                              timestr, gf_level_strings[level], file, line,
+                              function, callstr, graph_id, domain, *appmsgstr);
         }
     } else { /* gf_logformat_withmsgid */
         /* CEE log format unsupported in logger_glusterlog, so just
          * print enhanced log format */
         if (!callstr) {
             ret = gf_asprintf(&header,
-                              "[%s.%" GF_PRI_SUSECONDS "] %c [MSGID: %" PRIu64
+                              "[%s] %c [MSGID: %" PRIu64
                               "]"
                               " [%s:%d:%s] %d-%s: %s",
-                              timestr, tv.tv_usec, gf_level_strings[level],
-                              msgid, file, line, function, graph_id, domain,
-                              *appmsgstr);
+                              timestr, gf_level_strings[level], msgid, file,
+                              line, function, graph_id, domain, *appmsgstr);
         } else {
             ret = gf_asprintf(&header,
-                              "[%s.%" GF_PRI_SUSECONDS "] %c [MSGID: %" PRIu64
+                              "[%s] %c [MSGID: %" PRIu64
                               "]"
                               " [%s:%d:%s] %s %d-%s: %s",
-                              timestr, tv.tv_usec, gf_level_strings[level],
-                              msgid, file, line, function, callstr, graph_id,
-                              domain, *appmsgstr);
+                              timestr, gf_level_strings[level], msgid, file,
+                              line, function, callstr, graph_id, domain,
+                              *appmsgstr);
         }
     }
     if (-1 == ret) {
@@ -1386,39 +1380,36 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
                           int graph_id)
 {
     int priority;
-    char timestr_latest[GF_LOG_TIMESTR_SIZE] = {
+    char timestr_latest[GF_TIMESTR_SIZE] = {
         0,
     };
-    char timestr_oldest[GF_LOG_TIMESTR_SIZE] = {
+    char timestr_oldest[GF_TIMESTR_SIZE] = {
         0,
     };
 
     SET_LOG_PRIO(level, priority);
 
-    gf_time_fmt(timestr_latest, sizeof timestr_latest, latest.tv_sec,
-                gf_timefmt_FT);
-    gf_time_fmt(timestr_oldest, sizeof timestr_oldest, oldest.tv_sec,
-                gf_timefmt_FT);
+    gf_time_fmt_tv(timestr_latest, sizeof timestr_latest, &latest,
+                   gf_timefmt_FT);
+    gf_time_fmt_tv(timestr_oldest, sizeof timestr_oldest, &oldest,
+                   gf_timefmt_FT);
 
     if (errnum) {
-        syslog(
-            priority,
-            "The message \"[MSGID: %" PRIu64
-            "] [%s:%d:%s] "
-            "%d-%s: %s [%s] \" repeated %d times between %s.%" GF_PRI_SUSECONDS
-            " and %s.%" GF_PRI_SUSECONDS,
-            msgid, file, line, function, graph_id, domain, *appmsgstr,
-            strerror(errnum), refcount, timestr_oldest, oldest.tv_usec,
-            timestr_latest, latest.tv_usec);
+        syslog(priority,
+               "The message \"[MSGID: %" PRIu64
+               "] [%s:%d:%s] "
+               "%d-%s: %s [%s] \" repeated %d times between %s"
+               " and %s",
+               msgid, file, line, function, graph_id, domain, *appmsgstr,
+               strerror(errnum), refcount, timestr_oldest, timestr_latest);
     } else {
         syslog(priority,
                "The message \"[MSGID: %" PRIu64
                "] [%s:%d:%s] "
-               "%d-%s: %s \" repeated %d times between %s.%" GF_PRI_SUSECONDS
-               " and %s.%" GF_PRI_SUSECONDS,
+               "%d-%s: %s \" repeated %d times between %s"
+               " and %s",
                msgid, file, line, function, graph_id, domain, *appmsgstr,
-               refcount, timestr_oldest, oldest.tv_usec, timestr_latest,
-               latest.tv_usec);
+               refcount, timestr_oldest, timestr_latest);
     }
     return 0;
 }
@@ -1432,10 +1423,10 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
                               struct timeval latest, int graph_id)
 {
     int ret = 0;
-    char timestr_latest[GF_LOG_TIMESTR_SIZE] = {
+    char timestr_latest[GF_TIMESTR_SIZE] = {
         0,
     };
-    char timestr_oldest[GF_LOG_TIMESTR_SIZE] = {
+    char timestr_oldest[GF_TIMESTR_SIZE] = {
         0,
     };
     char errstr[256] = {
@@ -1459,21 +1450,17 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
         goto err;
     }
 
-    gf_time_fmt(timestr_latest, sizeof timestr_latest, latest.tv_sec,
-                gf_timefmt_FT);
+    gf_time_fmt_tv(timestr_latest, sizeof timestr_latest, &latest,
+                   gf_timefmt_FT);
 
-    gf_time_fmt(timestr_oldest, sizeof timestr_oldest, oldest.tv_sec,
-                gf_timefmt_FT);
+    gf_time_fmt_tv(timestr_oldest, sizeof timestr_oldest, &oldest,
+                   gf_timefmt_FT);
 
     if (errnum)
         snprintf(errstr, sizeof(errstr) - 1, " [%s]", strerror(errnum));
 
-    ret = gf_asprintf(&footer,
-                      "%s\" repeated %d times between"
-                      " [%s.%" GF_PRI_SUSECONDS "] and [%s.%" GF_PRI_SUSECONDS
-                      "]",
-                      errstr, refcount, timestr_oldest, oldest.tv_usec,
-                      timestr_latest, latest.tv_usec);
+    ret = gf_asprintf(&footer, "%s\" repeated %d times between [%s] and [%s]",
+                      errstr, refcount, timestr_oldest, timestr_latest);
     if (-1 == ret) {
         ret = -1;
         goto err;
@@ -2013,7 +2000,7 @@ _gf_log(const char *domain, const char *file, const char *function, int line,
     const char *basename = NULL;
     FILE *new_logfile = NULL;
     va_list ap;
-    char timestr[GF_LOG_TIMESTR_SIZE] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct timeval tv = {
@@ -2100,12 +2087,11 @@ log:
     if (-1 == ret)
         goto out;
 
-    gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
 
-    ret = gf_asprintf(
-        &logline, "[%s.%" GF_PRI_SUSECONDS "] %c [%s:%d:%s] %d-%s: %s\n",
-        timestr, tv.tv_usec, gf_level_strings[level], basename, line, function,
-        ((this->graph) ? this->graph->id : 0), domain, msg);
+    ret = gf_asprintf(&logline, "[%s] %c [%s:%d:%s] %d-%s: %s\n", timestr,
+                      gf_level_strings[level], basename, line, function,
+                      ((this->graph) ? this->graph->id : 0), domain, msg);
     if (-1 == ret) {
         goto err;
     }
@@ -2225,7 +2211,7 @@ int
 gf_cmd_log(const char *domain, const char *fmt, ...)
 {
     va_list ap;
-    char timestr[64];
+    char timestr[GF_TIMESTR_SIZE];
     struct timeval tv = {
         0,
     };
@@ -2258,10 +2244,9 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
         goto out;
     }
 
-    gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
+    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
 
-    ret = gf_asprintf(&logline, "[%s.%" GF_PRI_SUSECONDS "] %s : %s\n", timestr,
-                      tv.tv_usec, domain, msg);
+    ret = gf_asprintf(&logline, "[%s] %s : %s\n", timestr, domain, msg);
     if (ret == -1) {
         goto out;
     }

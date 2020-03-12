@@ -8075,7 +8075,7 @@ glusterd_sm_tr_log_transition_add_to_dict(dict_t *dict,
     int ret = -1;
     char key[64] = "";
     int keylen;
-    char timestr[64] = "";
+    char timestr[GF_TIMESTR_SIZE] = "";
     char *str = NULL;
 
     GF_ASSERT(dict);

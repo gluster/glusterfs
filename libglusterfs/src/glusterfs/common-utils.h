@@ -148,6 +148,9 @@ trap(void);
 #define GF_THREAD_NAME_LIMIT 16
 #define GF_THREAD_NAME_PREFIX "glfs_"
 
+/* Advisory buffer size for formatted timestamps (see gf_time_fmt) */
+#define GF_TIMESTR_SIZE 256
+
 /*
  * we could have initialized these as +ve values and treated
  * them as negative while comparing etc.. (which would have
@@ -790,7 +793,7 @@ typedef enum {
 } gf_timefmts;
 
 static inline char *
-gf_time_fmt(char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
+gf_time_fmt_tv(char *dst, size_t sz_dst, struct timeval *tv, unsigned int fmt)
 {
     extern void _gf_timestuff(const char ***, const char ***);
     static gf_timefmts timefmt_last = (gf_timefmts)-1;
@@ -798,6 +801,8 @@ gf_time_fmt(char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
     static const char **zeros;
     struct tm tm, *res;
     int localtime = 0;
+    int len = 0;
+    int pos = 0;
 
     if (timefmt_last == ((gf_timefmts)-1)) {
         _gf_timestuff(&fmts, &zeros);
@@ -807,13 +812,33 @@ gf_time_fmt(char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
         fmt = gf_timefmt_default;
     }
     localtime = gf_log_get_localtime();
-    res = localtime ? localtime_r(&utime, &tm) : gmtime_r(&utime, &tm);
-    if (utime && (res != NULL)) {
-        strftime(dst, sz_dst, fmts[fmt], &tm);
+    res = localtime ? localtime_r(&tv->tv_sec, &tm)
+                    : gmtime_r(&tv->tv_sec, &tm);
+    if (tv->tv_sec && (res != NULL)) {
+        len = strftime(dst, sz_dst, fmts[fmt], &tm);
+        if (len == 0)
+            return dst;
+        pos += len;
+        if (tv->tv_usec >= 0) {
+            len = snprintf(dst + pos, sz_dst - pos, ".%" GF_PRI_SUSECONDS,
+                           tv->tv_usec);
+            if (len >= sz_dst - pos)
+                return dst;
+            pos += len;
+        }
+        strftime(dst + pos, sz_dst - pos, " %z", &tm);
     } else {
         strncpy(dst, "N/A", sz_dst);
     }
     return dst;
+}
+
+static inline char *
+gf_time_fmt(char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
+{
+    struct timeval tv = {utime, -1};
+
+    return gf_time_fmt_tv(dst, sz_dst, &tv, fmt);
 }
 
 /* This function helps us use gfid (unique identity) to generate inode's unique

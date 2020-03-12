@@ -5146,7 +5146,7 @@ glusterd_print_snapinfo_by_vol(FILE *fp, glusterd_volinfo_t *volinfo,
     glusterd_volinfo_t *tmp_vol = NULL;
     glusterd_snap_t *snapinfo = NULL;
     int snapcount = 0;
-    char timestr[64] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     char snap_status_str[STATUS_STRLEN] = {

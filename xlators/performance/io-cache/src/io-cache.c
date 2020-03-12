@@ -1945,7 +1945,7 @@ __ioc_cache_dump(ioc_inode_t *ioc_inode, char *prefix)
     char key[GF_DUMP_MAX_BUF_LEN] = {
         0,
     };
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
 
@@ -1956,10 +1956,8 @@ __ioc_cache_dump(ioc_inode_t *ioc_inode, char *prefix)
     table = ioc_inode->table;
 
     if (ioc_inode->cache.tv.tv_sec) {
-        gf_time_fmt(timestr, sizeof timestr, ioc_inode->cache.tv.tv_sec,
-                    gf_timefmt_FT);
-        snprintf(timestr + strlen(timestr), sizeof timestr - strlen(timestr),
-                 ".%" GF_PRI_SUSECONDS, ioc_inode->cache.tv.tv_usec);
+        gf_time_fmt_tv(timestr, sizeof timestr, &ioc_inode->cache.tv,
+                       gf_timefmt_FT);
 
         gf_proc_dump_write("last-cache-validation-time", "%s", timestr);
     }
