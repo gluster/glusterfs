@@ -5728,7 +5728,7 @@ gf_cli_top_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     double time = 0;
     int32_t time_sec = 0;
     long int time_usec = 0;
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     char *openfd_str = NULL;
@@ -7818,7 +7818,7 @@ cmd_heal_volume_brick_out(dict_t *dict, int brick)
     char *status = NULL;
     uint64_t i = 0;
     uint32_t time = 0;
-    char timestr[32] = {0};
+    char timestr[GF_TIMESTR_SIZE] = {0};
     char *shd_status = NULL;
 
     snprintf(key, sizeof key, "%d-hostname", brick);

@@ -1034,7 +1034,7 @@ qr_inodectx_dump(xlator_t *this, inode_t *inode)
     char key_prefix[GF_DUMP_MAX_BUF_LEN] = {
         0,
     };
-    char buf[256] = {
+    char buf[GF_TIMESTR_SIZE] = {
         0,
     };
 
@@ -1050,10 +1050,7 @@ qr_inodectx_dump(xlator_t *this, inode_t *inode)
                        qr_inode->data ? "yes" : "no");
 
     if (qr_inode->last_refresh.tv_sec) {
-        gf_time_fmt(buf, sizeof buf, qr_inode->last_refresh.tv_sec,
-                    gf_timefmt_FT);
-        snprintf(buf + strlen(buf), sizeof buf - strlen(buf),
-                 ".%" GF_PRI_SUSECONDS, qr_inode->last_refresh.tv_usec);
+        gf_time_fmt_tv(buf, sizeof buf, &qr_inode->last_refresh, gf_timefmt_FT);
 
         gf_proc_dump_write("last-cache-validation-time", "%s", buf);
     }

@@ -601,7 +601,7 @@ br_fsscan_deactivate(xlator_t *this)
 static void
 br_scrubber_log_time(xlator_t *this, const char *sfx)
 {
-    char timestr[1024] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct timeval tv = {
@@ -628,7 +628,7 @@ br_scrubber_log_time(xlator_t *this, const char *sfx)
 static void
 br_fsscanner_log_time(xlator_t *this, br_child_t *child, const char *sfx)
 {
-    char timestr[1024] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct timeval tv = {
@@ -922,7 +922,7 @@ br_fsscan_schedule(xlator_t *this)
     struct timeval tv = {
         0,
     };
-    char timestr[1024] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct br_scrubber *fsscrub = NULL;
@@ -975,7 +975,7 @@ int32_t
 br_fsscan_activate(xlator_t *this)
 {
     uint32_t timo = 0;
-    char timestr[1024] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct timeval now = {
@@ -1020,7 +1020,7 @@ br_fsscan_reschedule(xlator_t *this)
 {
     int32_t ret = 0;
     uint32_t timo = 0;
-    char timestr[1024] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct timeval now = {
@@ -1073,7 +1073,7 @@ br_fsscan_ondemand(xlator_t *this)
 {
     int32_t ret = 0;
     uint32_t timo = 0;
-    char timestr[1024] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     struct timeval now = {

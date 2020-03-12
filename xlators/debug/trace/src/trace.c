@@ -22,13 +22,13 @@
 static void
 trace_stat_to_str(struct iatt *buf, char *str, size_t len)
 {
-    char atime_buf[200] = {
+    char atime_buf[GF_TIMESTR_SIZE] = {
         0,
     };
-    char mtime_buf[200] = {
+    char mtime_buf[GF_TIMESTR_SIZE] = {
         0,
     };
-    char ctime_buf[200] = {
+    char ctime_buf[GF_TIMESTR_SIZE] = {
         0,
     };
 
@@ -64,7 +64,7 @@ trace_stat_to_str(struct iatt *buf, char *str, size_t len)
 int
 dump_history_trace(circular_buffer_t *cb, void *data)
 {
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
 
@@ -72,9 +72,7 @@ dump_history_trace(circular_buffer_t *cb, void *data)
        gettimeofday () fails, it's safe to check tm and then dump the time
        at which the entry was added to the buffer */
 
-    gf_time_fmt(timestr, sizeof timestr, cb->tv.tv_sec, gf_timefmt_Ymd_T);
-    snprintf(timestr + strlen(timestr), 256 - strlen(timestr),
-             ".%" GF_PRI_SUSECONDS, cb->tv.tv_usec);
+    gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_Ymd_T);
     gf_proc_dump_write("TIME", "%s", timestr);
 
     gf_proc_dump_write("FOP", "%s\n", (char *)cb->data);
@@ -2209,10 +2207,10 @@ int
 trace_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
               struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-    char actime_str[256] = {
+    char actime_str[GF_TIMESTR_SIZE] = {
         0,
     };
-    char modtime_str[256] = {
+    char modtime_str[GF_TIMESTR_SIZE] = {
         0,
     };
     trace_conf_t *conf = NULL;
@@ -2278,10 +2276,10 @@ int
 trace_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-    char actime_str[256] = {
+    char actime_str[GF_TIMESTR_SIZE] = {
         0,
     };
-    char modtime_str[256] = {
+    char modtime_str[GF_TIMESTR_SIZE] = {
         0,
     };
     trace_conf_t *conf = NULL;

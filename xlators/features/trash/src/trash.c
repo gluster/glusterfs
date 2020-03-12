@@ -212,7 +212,7 @@ void
 append_time_stamp(char *name, size_t name_size)
 {
     int i;
-    char timestr[64] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
 

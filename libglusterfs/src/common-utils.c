@@ -889,7 +889,7 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     char msg[1024] = {
         0,
     };
-    char timestr[64] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     call_stack_t *stack = NULL;

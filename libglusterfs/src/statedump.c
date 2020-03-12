@@ -782,7 +782,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     char brick_name[PATH_MAX] = {
         0,
     };
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     char sign_string[512] = {
@@ -861,10 +861,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     // continue even though gettimeofday() has failed
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-        len = strlen(timestr);
-        snprintf(timestr + len, sizeof timestr - len, ".%" GF_PRI_SUSECONDS,
-                 tv.tv_usec);
+        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "DUMP-START-TIME: %s\n",
@@ -913,10 +910,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt(timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-        len = strlen(timestr);
-        snprintf(timestr + len, sizeof timestr - len, ".%" GF_PRI_SUSECONDS,
-                 tv.tv_usec);
+        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",

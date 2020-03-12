@@ -41,7 +41,7 @@ _gf_dump_details (int argc, char **argv)
 {
         extern FILE *gf_log_logfile;
         int          i = 0;
-        char         timestr[64];
+        char         timestr[GF_TIMESTR_SIZE];
         time_t       utime = 0;
         pid_t        mypid = 0;
         struct utsname uname_buf = {{0, }, };
@@ -482,7 +482,7 @@ fill_uuid(char *uuid, int size, struct timeval tv)
     char hostname[50] = {
         0,
     };
-    char now_str[64];
+    char now_str[GF_TIMESTR_SIZE];
 
     if (gethostname(hostname, sizeof(hostname) - 1) != 0) {
         gf_msg("graph", GF_LOG_ERROR, errno, LG_MSG_GETHOSTNAME_FAILED,
@@ -490,9 +490,8 @@ fill_uuid(char *uuid, int size, struct timeval tv)
         hostname[sizeof(hostname) - 1] = '\0';
     }
 
-    gf_time_fmt(now_str, sizeof now_str, tv.tv_sec, gf_timefmt_dirent);
-    snprintf(uuid, size, "%s-%d-%s:%" GF_PRI_SUSECONDS, hostname, getpid(),
-             now_str, tv.tv_usec);
+    gf_time_fmt_tv(now_str, sizeof now_str, &tv, gf_timefmt_dirent);
+    snprintf(uuid, size, "%s-%d-%s", hostname, getpid(), now_str);
 
     return;
 }

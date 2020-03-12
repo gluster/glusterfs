@@ -1975,7 +1975,7 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
     struct stat stbuf = {
         0,
     };
-    char timestr[32];
+    char timestr[GF_TIMESTR_SIZE];
     char tmp_logfile[1024] = {0};
     char *tmp_logfile_dyn = NULL;
     char *tmp_logfilebase = NULL;

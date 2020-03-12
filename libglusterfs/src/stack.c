@@ -92,7 +92,7 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
     };
 
     int ret = -1;
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     int len;
@@ -162,7 +162,7 @@ gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
     va_list ap;
     call_frame_t *trav;
     int32_t i = 1, cnt = 0;
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     int len;

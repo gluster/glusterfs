@@ -3502,10 +3502,10 @@ pl_dump_lock(char *str, int size, struct gf_flock *flock, gf_lkowner_t *owner,
              time_t *blkd_time, gf_boolean_t active)
 {
     char *type_str = NULL;
-    char granted[256] = {
+    char granted[GF_TIMESTR_SIZE] = {
         0,
     };
-    char blocked[256] = {
+    char blocked[GF_TIMESTR_SIZE] = {
         0,
     };
 
@@ -3556,10 +3556,10 @@ __dump_entrylks(pl_inode_t *pl_inode)
 {
     pl_dom_list_t *dom = NULL;
     pl_entry_lock_t *lock = NULL;
-    char blocked[256] = {
+    char blocked[GF_TIMESTR_SIZE] = {
         0,
     };
-    char granted[256] = {
+    char granted[GF_TIMESTR_SIZE] = {
         0,
     };
     int count = 0;

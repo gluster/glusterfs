@@ -6332,14 +6332,12 @@ out:
 int
 dump_history_fuse(circular_buffer_t *cb, void *data)
 {
-    char timestr[256] = {
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
 
-    gf_time_fmt(timestr, sizeof timestr, cb->tv.tv_sec, gf_timefmt_F_HMS);
+    gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_F_HMS);
 
-    snprintf(timestr + strlen(timestr), 256 - strlen(timestr),
-             ".%" GF_PRI_SUSECONDS, cb->tv.tv_usec);
     gf_proc_dump_write("TIME", "%s", timestr);
 
     gf_proc_dump_write("message", "%s\n", (char *)cb->data);

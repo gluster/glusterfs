@@ -1661,15 +1661,15 @@ cli_xml_output_vol_top_rw_perf(xmlTextWriterPtr writer, dict_t *dict,
     int ret = -1;
     char *filename = NULL;
     uint64_t throughput = 0;
-    long int time_sec = 0;
-    long int time_usec = 0;
-    char timestr[256] = {
+    struct timeval tv = {
+        0,
+    };
+    char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
     char key[1024] = {
         0,
     };
-    int len;
 
     /* <file> */
     ret = xmlTextWriterStartElement(writer, (xmlChar *)"file");
@@ -1692,19 +1692,16 @@ cli_xml_output_vol_top_rw_perf(xmlTextWriterPtr writer, dict_t *dict,
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "%d-time-sec-%d", brick_index, member_index);
-    ret = dict_get_int32(dict, key, (int32_t *)&time_sec);
+    ret = dict_get_int32(dict, key, (int32_t *)&tv.tv_sec);
     if (ret)
         goto out;
 
     snprintf(key, sizeof(key), "%d-time-usec-%d", brick_index, member_index);
-    ret = dict_get_int32(dict, key, (int32_t *)&time_usec);
+    ret = dict_get_int32(dict, key, (int32_t *)&tv.tv_usec);
     if (ret)
         goto out;
 
-    gf_time_fmt(timestr, sizeof timestr, time_sec, gf_timefmt_FT);
-    len = strlen(timestr);
-    snprintf(timestr + len, sizeof(timestr) - len, ".%" GF_PRI_SUSECONDS,
-             time_usec);
+    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
     ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"time", "%s",
                                           timestr);
     XML_RET_CHECK_AND_GOTO(ret, out);
