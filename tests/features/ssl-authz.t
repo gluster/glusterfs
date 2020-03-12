@@ -67,13 +67,14 @@ echo "Memory consumption for glusterfsd process"
 for i in $(seq 1 100); do
         gluster v heal $V0 info >/dev/null
 done
-
+#Wait to cleanup memory
+sleep 10
 end=`pmap -x $glusterfsd_pid | grep total | awk -F " " '{print $4}'`
 diff=$((end-start))
 
-# If memory consumption is more than 5M some leak in SSL code path
+# If memory consumption is more than 15M some leak in SSL code path
 
-TEST [ $diff -lt 5000 ]
+TEST [ $diff -lt 15000 ]
 
 
 # Set ssl-allow to a wildcard that includes our identity.

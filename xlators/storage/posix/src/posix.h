@@ -659,9 +659,6 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
 int
 posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
 
-int
-posix_spawn_ctx_janitor_thread(xlator_t *this);
-
 void
 posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xdata);
 

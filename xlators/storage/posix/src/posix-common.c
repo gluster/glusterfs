@@ -1029,10 +1029,6 @@ posix_init(xlator_t *this)
     pthread_mutex_init(&_private->janitor_mutex, NULL);
     pthread_cond_init(&_private->janitor_cond, NULL);
     INIT_LIST_HEAD(&_private->fsyncs);
-    ret = posix_spawn_ctx_janitor_thread(this);
-    if (ret)
-        goto out;
-
     ret = gf_thread_create(&_private->fsyncer, NULL, posix_fsyncer, this,
                            "posixfsy");
     if (ret) {

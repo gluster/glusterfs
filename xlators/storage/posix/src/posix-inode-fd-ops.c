@@ -1366,7 +1366,6 @@ posix_releasedir(xlator_t *this, fd_t *fd)
     struct posix_fd *pfd = NULL;
     uint64_t tmp_pfd = 0;
     int ret = 0;
-    glusterfs_ctx_t *ctx = NULL;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
@@ -1384,21 +1383,11 @@ posix_releasedir(xlator_t *this, fd_t *fd)
         goto out;
     }
 
-    ctx = THIS->ctx;
-
-    pthread_mutex_lock(&ctx->janitor_lock);
-    {
-        INIT_LIST_HEAD(&pfd->list);
-        list_add_tail(&pfd->list, &ctx->janitor_fds);
-        pthread_cond_signal(&ctx->janitor_cond);
-    }
-    pthread_mutex_unlock(&ctx->janitor_lock);
-
-    /*gf_msg_debug(this->name, 0, "janitor: closing dir fd=%p", pfd->dir);
+    gf_msg_debug(this->name, 0, "janitor: closing dir fd=%p", pfd->dir);
 
     sys_closedir(pfd->dir);
     GF_FREE(pfd);
-    */
+
 out:
     return 0;
 }
@@ -2525,13 +2514,11 @@ posix_release(xlator_t *this, fd_t *fd)
     struct posix_fd *pfd = NULL;
     int ret = -1;
     uint64_t tmp_pfd = 0;
-    glusterfs_ctx_t *ctx = NULL;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
 
     priv = this->private;
-    ctx = THIS->ctx;
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
@@ -2546,13 +2533,10 @@ posix_release(xlator_t *this, fd_t *fd)
                "pfd->dir is %p (not NULL) for file fd=%p", pfd->dir, fd);
     }
 
-    pthread_mutex_lock(&ctx->janitor_lock);
-    {
-        INIT_LIST_HEAD(&pfd->list);
-        list_add_tail(&pfd->list, &ctx->janitor_fds);
-        pthread_cond_signal(&ctx->janitor_cond);
-    }
-    pthread_mutex_unlock(&ctx->janitor_lock);
+    gf_msg_debug(this->name, 0, "janitor: closing dir fd=%p", pfd->dir);
+
+    sys_close(pfd->fd);
+    GF_FREE(pfd);
 
     if (!priv)
         goto out;
