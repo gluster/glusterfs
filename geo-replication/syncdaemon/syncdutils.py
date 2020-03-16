@@ -22,7 +22,7 @@ import socket
 from subprocess import PIPE
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ENOMEM, ECONNABORTED
-from errno import EINTR, ENOENT, ESTALE, EBUSY, ENODATA, errorcode
+from errno import EINTR, ENOENT, ESTALE, EBUSY, ENODATA, errorcode, EIO
 from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
@@ -344,6 +344,17 @@ def log_raise_exception(excont):
                                                         ECONNABORTED):
             logging.error(lf('Gluster Mount process exited',
                              error=errorcode[exc.errno]))
+        elif isinstance(exc, OSError) and exc.errno == EIO:
+            logging.error("Getting \"Input/Output error\" "
+                          "is most likely due to "
+                          "a. Brick is down or "
+                          "b. Split brain issue.")
+            logging.error("This is expected as per design to "
+                          "keep the consistency of the file system. "
+                          "Once the above issue is resolved "
+                          "geo-replication would automatically "
+                          "proceed further.")
+            logtag = "FAIL"
         else:
             logtag = "FAIL"
         if not logtag and logging.getLogger().isEnabledFor(logging.DEBUG):
