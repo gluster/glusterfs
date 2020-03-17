@@ -440,8 +440,6 @@ worm_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     int ret = 0;
     read_only_priv_t *priv = NULL;
-    dict_t *dict = NULL;
-
     // In case of an error exit because fd can be NULL and this would
     // cause an segfault when performing fsetxattr . We explicitly
     // unwind to avoid future problems
@@ -468,8 +466,6 @@ worm_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 out:
     STACK_UNWIND_STRICT(create, frame, op_ret, op_errno, fd, inode, buf,
                         preparent, postparent, xdata);
-    if (dict)
-        dict_unref(dict);
     return ret;
 }
 
