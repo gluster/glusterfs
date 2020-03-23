@@ -2939,13 +2939,20 @@ int
 shard_post_lookup_shards_unlink_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
+    uuid_t gfid = {
+        0,
+    };
 
     local = frame->local;
 
+    if (local->resolver_base_inode)
+        gf_uuid_copy(gfid, local->resolver_base_inode->gfid);
+    else
+        gf_uuid_copy(gfid, local->base_gfid);
+
     if ((local->op_ret < 0) && (local->op_errno != ENOENT)) {
         gf_msg(this->name, GF_LOG_ERROR, local->op_errno, SHARD_MSG_FOP_FAILED,
-               "failed to delete shards of %s",
-               uuid_utoa(local->resolver_base_inode->gfid));
+               "failed to delete shards of %s", uuid_utoa(gfid));
         return 0;
     }
     local->op_ret = 0;
