@@ -282,12 +282,10 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
                                 new_volinfo->volume_id,
                                 sizeof(new_volinfo->volume_id), XATTR_REPLACE);
             if (ret == -1) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SETXATTR_FAIL,
-                       "Failed to "
-                       "set extended attribute %s on %s. "
-                       "Reason: %s, snap: %s",
-                       GF_XATTR_VOL_ID_KEY, new_brickinfo->path,
-                       strerror(errno), new_volinfo->volname);
+                gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_SET_XATTR_FAIL,
+                        "Attribute=%s, Path=%s, Reason=%s, Snap=%s",
+                        GF_XATTR_VOL_ID_KEY, new_brickinfo->path,
+                        strerror(errno), new_volinfo->volname, NULL);
                 goto out;
             }
         }
@@ -2148,18 +2146,27 @@ glusterd_add_snapd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     snprintf(base_key, sizeof(base_key), "brick%d", count);
     snprintf(key, sizeof(key), "%s.hostname", base_key);
     ret = dict_set_str(dict, key, "Snapshot Daemon");
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     snprintf(key, sizeof(key), "%s.path", base_key);
     ret = dict_set_dynstr(dict, key, gf_strdup(uuid_utoa(MY_UUID)));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     snprintf(key, sizeof(key), "%s.port", base_key);
     ret = dict_set_int32(dict, key, volinfo->snapd.port);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     glusterd_svc_build_snapd_pidfile(volinfo, pidfile, sizeof(pidfile));
 
@@ -2169,8 +2176,11 @@ glusterd_add_snapd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
 
     snprintf(key, sizeof(key), "%s.pid", base_key);
     ret = dict_set_int32(dict, key, pid);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     snprintf(key, sizeof(key), "%s.status", base_key);
     ret = dict_set_int32(dict, key, brick_online);
@@ -2671,8 +2681,10 @@ glusterd_missed_snapinfo_new(glusterd_missed_snap_info **missed_snapinfo)
     new_missed_snapinfo = GF_CALLOC(1, sizeof(*new_missed_snapinfo),
                                     gf_gld_mt_missed_snapinfo_t);
 
-    if (!new_missed_snapinfo)
+    if (!new_missed_snapinfo) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     CDS_INIT_LIST_HEAD(&new_missed_snapinfo->missed_snaps);
     CDS_INIT_LIST_HEAD(&new_missed_snapinfo->snap_ops);
@@ -2700,8 +2712,10 @@ glusterd_missed_snap_op_new(glusterd_snap_op_t **snap_op)
     new_snap_op = GF_CALLOC(1, sizeof(*new_snap_op),
                             gf_gld_mt_missed_snapinfo_t);
 
-    if (!new_snap_op)
+    if (!new_snap_op) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     new_snap_op->brick_num = -1;
     new_snap_op->op = -1;
@@ -3593,13 +3607,17 @@ glusterd_copy_folder(const char *source, const char *destination)
             continue;
         ret = snprintf(src_path, sizeof(src_path), "%s/%s", source,
                        entry->d_name);
-        if (ret < 0)
+        if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             goto out;
+        }
 
         ret = snprintf(dest_path, sizeof(dest_path), "%s/%s", destination,
                        entry->d_name);
-        if (ret < 0)
+        if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             goto out;
+        }
 
         ret = glusterd_copy_file(src_path, dest_path);
         if (ret) {
@@ -3755,8 +3773,10 @@ glusterd_copy_quota_files(glusterd_volinfo_t *src_vol,
     GLUSTERD_GET_VOLUME_DIR(dest_dir, dest_vol, priv);
 
     ret = snprintf(src_path, sizeof(src_path), "%s/quota.conf", src_dir);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     /* quota.conf is not present if quota is not enabled, Hence ignoring
      * the absence of this file
@@ -3769,8 +3789,10 @@ glusterd_copy_quota_files(glusterd_volinfo_t *src_vol,
     }
 
     ret = snprintf(dest_path, sizeof(dest_path), "%s/quota.conf", dest_dir);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     ret = glusterd_copy_file(src_path, dest_path);
     if (ret) {
@@ -3794,8 +3816,10 @@ glusterd_copy_quota_files(glusterd_volinfo_t *src_vol,
     }
 
     ret = snprintf(dest_path, sizeof(dest_path), "%s/quota.cksum", dest_dir);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     ret = glusterd_copy_file(src_path, dest_path);
     if (ret) {
@@ -4065,8 +4089,10 @@ glusterd_restore_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
 
     ret = snprintf(src_path, sizeof(src_path), "%s/export.%s.conf", snap_dir,
                    snap->snapname);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     ret = sys_lstat(src_path, &stbuf);
     if (ret) {
@@ -4081,8 +4107,10 @@ glusterd_restore_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
 
     ret = snprintf(dest_path, sizeof(dest_path), "%s/export.%s.conf",
                    GANESHA_EXPORT_DIRECTORY, src_vol->volname);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     ret = glusterd_copy_file(src_path, dest_path);
     if (ret)

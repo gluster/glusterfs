@@ -89,12 +89,15 @@ glusterd_validate_quorum(xlator_t *this, glusterd_op_t op, dict_t *dict,
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=volname", NULL);
         ret = 0;
         goto out;
     }
 
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_VOLINFO_GET_FAIL, NULL);
         ret = 0;
         goto out;
     }
@@ -252,8 +255,11 @@ glusterd_is_volume_in_server_quorum(glusterd_volinfo_t *volinfo)
     int ret = 0;
 
     ret = dict_get_str(volinfo->dict, GLUSTERD_QUORUM_TYPE_KEY, &quorum_type);
-    if (ret)
+    if (ret) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", GLUSTERD_QUORUM_TYPE_KEY, NULL);
         goto out;
+    }
 
     if (strcmp(quorum_type, GLUSTERD_SERVER_QUORUM) == 0)
         res = _gf_true;
@@ -287,8 +293,11 @@ does_gd_meet_server_quorum(xlator_t *this)
 
     ret = glusterd_get_quorum_cluster_counts(this, &active_count,
                                              &quorum_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_QUORUM_CLUSTER_COUNT_GET_FAIL, NULL);
         goto out;
+    }
 
     if (!does_quorum_meet(active_count, quorum_count)) {
         goto out;

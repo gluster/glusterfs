@@ -127,8 +127,10 @@ glusterd_quotadsvc_start(glusterd_svc_t *svc, int flags)
     char *options[] = {svc->name, "--process-name", NULL};
 
     cmdline = dict_new();
-    if (!cmdline)
+    if (!cmdline) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     for (i = 0; options[i]; i++) {
         ret = snprintf(key, sizeof(key), "arg%d", i);

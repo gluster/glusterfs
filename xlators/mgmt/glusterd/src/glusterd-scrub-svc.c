@@ -117,8 +117,10 @@ glusterd_scrubsvc_start(glusterd_svc_t *svc, int flags)
     dict_t *cmdict = NULL;
 
     cmdict = dict_new();
-    if (!cmdict)
+    if (!cmdict) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto error_return;
+    }
 
     ret = dict_set_str(cmdict, "cmdarg0", "--global-timer-wheel");
     if (ret)

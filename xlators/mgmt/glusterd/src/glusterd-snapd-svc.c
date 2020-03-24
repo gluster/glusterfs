@@ -87,8 +87,10 @@ glusterd_snapdsvc_init(void *data)
     svc = &(volinfo->snapd.svc);
 
     ret = snprintf(svc->name, sizeof(svc->name), "%s", snapd_svc_name);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     notify = glusterd_snapdsvc_rpc_notify;
 
@@ -115,6 +117,7 @@ glusterd_snapdsvc_init(void *data)
     glusterd_svc_build_snapd_logfile(logfile, logdir, sizeof(logfile));
     len = snprintf(volfileid, sizeof(volfileid), "snapd/%s", volinfo->volname);
     if ((len < 0) || (len >= sizeof(volfileid))) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -305,6 +308,7 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
         len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-snapd.log",
                        svc->proc.logdir);
         if ((len < 0) || (len >= PATH_MAX)) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             ret = -1;
             goto out;
         }

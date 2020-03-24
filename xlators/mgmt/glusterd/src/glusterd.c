@@ -202,8 +202,10 @@ glusterd_options_init(xlator_t *this)
     priv = this->private;
 
     priv->opts = dict_new();
-    if (!priv->opts)
+    if (!priv->opts) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = glusterd_store_retrieve_options(this);
     if (ret == 0) {
@@ -247,6 +249,7 @@ glusterd_client_statedump_submit_req(char *volname, char *target_ip, char *pid)
     GF_ASSERT(conf);
 
     if (target_ip == NULL || pid == NULL) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
@@ -447,14 +450,19 @@ glusterd_rpcsvc_options_build(dict_t *options)
 {
     int ret = 0;
     uint32_t backlog = 0;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     ret = dict_get_uint32(options, "transport.listen-backlog", &backlog);
 
     if (ret) {
         backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
         ret = dict_set_uint32(options, "transport.listen-backlog", backlog);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=transport.listen-backlog", NULL);
             goto out;
+        }
     }
 
     gf_msg_debug("glusterd", 0, "listen-backlog value: %d", backlog);
@@ -574,6 +582,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
 
     len = snprintf(georepdir, PATH_MAX, "%s/" GEOREP, conf->workdir);
     if ((len < 0) || (len >= PATH_MAX)) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -585,9 +594,11 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
     }
 
     ret = dict_get_str(THIS->options, GEOREP "-log-group", &greplg_s);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=log-group", NULL);
         ret = 0;
-    else {
+    } else {
         gr = getgrnam(greplg_s);
         if (!gr) {
             gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_LOGGROUP_INVALID,
@@ -628,6 +639,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
     }
     len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-slaves", conf->logdir);
     if ((len < 0) || (len >= PATH_MAX)) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -654,6 +666,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
 
     len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-slaves/mbr", conf->logdir);
     if ((len < 0) || (len >= PATH_MAX)) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -1045,6 +1058,8 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
     int rv = 0;
     gf_mount_spec_t *mspec = NULL;
     char *user = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     label = strtail(key, "mountbroker.");
 
@@ -1059,8 +1074,10 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
         return 0;
 
     mspec = GF_CALLOC(1, sizeof(*mspec), gf_gld_mt_mount_spec);
-    if (!mspec)
+    if (!mspec) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto err;
+    }
     mspec->label = label;
 
     if (georep) {
@@ -1116,8 +1133,10 @@ glusterd_init_uds_listener(xlator_t *this)
     GF_ASSERT(this);
 
     options = dict_new();
-    if (!options)
+    if (!options) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     sock_data = dict_get(this->options, "glusterd-sockfile");
     (void)snprintf(sockfile, sizeof(sockfile), "%s",
@@ -1424,9 +1443,8 @@ init(xlator_t *this)
         lim.rlim_max = 65536;
 
         if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_SETXATTR_FAIL,
-                   "Failed to set 'ulimit -n "
-                   " 65536'");
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SET_XATTR_FAIL,
+                    "Failed to set 'ulimit -n 65536'", NULL);
         } else {
             gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_FILE_DESC_LIMIT_SET,
                    "Maximum allowed open file descriptors "

@@ -26,12 +26,17 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
     xlator_t *this = THIS;
     glusterd_svc_t *svc = NULL;
 
-    if (!this)
+    if (!this) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_XLATOR_NOT_DEFINED,
+                NULL);
         goto out;
+    }
 
     options = dict_new();
-    if (!options)
+    if (!options) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     svc = glusterd_conn_get_svc_object(conn);
     if (!svc) {
@@ -46,8 +51,11 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
 
     ret = dict_set_int32n(options, "transport.socket.ignore-enoent",
                           SLEN("transport.socket.ignore-enoent"), 1);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=transport.socket.ignore-enoent", NULL);
         goto out;
+    }
 
     /* @options is free'd by rpc_transport when destroyed */
     rpc = rpc_clnt_new(options, this, (char *)svc->name, 16);
@@ -61,9 +69,10 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
         goto out;
 
     ret = snprintf(conn->sockpath, sizeof(conn->sockpath), "%s", sockpath);
-    if (ret < 0)
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
-    else
+    } else
         ret = 0;
 
     conn->frame_timeout = frame_timeout;

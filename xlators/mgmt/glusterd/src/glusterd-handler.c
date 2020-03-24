@@ -140,6 +140,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     ctx->req = req;
 
     if (!dict) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -147,9 +148,11 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     ret = dict_unserialize(friend_req->vols.vols_val, friend_req->vols.vols_len,
                            &dict);
 
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
-    else
+    } else
         dict->extra_stdfree = friend_req->vols.vols_val;
 
     ctx->vols = dict;
@@ -386,82 +389,129 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
 
     keylen = snprintf(key, sizeof(key), "volume%d.name", count);
     ret = dict_set_strn(volumes, key, keylen, volinfo->volname);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.type", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->type);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.status", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->status);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.brick_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->brick_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.dist_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->dist_leaf_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.stripe_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->stripe_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.replica_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->replica_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.disperse_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->disperse_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.redundancy_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->redundancy_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.arbiter_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->arbiter_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.transport", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->transport_type);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.thin_arbiter_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->thin_arbiter_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     volume_id_str = gf_strdup(uuid_utoa(volinfo->volume_id));
-    if (!volume_id_str)
+    if (!volume_id_str) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.volume_id", count);
     ret = dict_set_dynstrn(volumes, key, keylen, volume_id_str);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.rebalance", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->rebal.defrag_cmd);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "volume%d.snap_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->snap_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
@@ -474,23 +524,33 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         len = snprintf(brick, sizeof(brick), "%s:%s", brickinfo->hostname,
                        brickinfo->path);
         if ((len < 0) || (len >= sizeof(brick))) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             ret = -1;
             goto out;
         }
         buf = gf_strdup(brick);
         keylen = snprintf(key, sizeof(key), "volume%d.brick%d", count, i);
         ret = dict_set_dynstrn(volumes, key, keylen, buf);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
         keylen = snprintf(key, sizeof(key), "volume%d.brick%d.uuid", count, i);
         snprintf(brick_uuid, sizeof(brick_uuid), "%s",
                  uuid_utoa(brickinfo->uuid));
         buf = gf_strdup(brick_uuid);
-        if (!buf)
+        if (!buf) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                    "brick_uuid=%s", brick_uuid, NULL);
             goto out;
+        }
         ret = dict_set_dynstrn(volumes, key, keylen, buf);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
 
         i++;
     }
@@ -500,6 +560,7 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         len = snprintf(ta_brick, sizeof(ta_brick), "%s:%s",
                        ta_brickinfo->hostname, ta_brickinfo->path);
         if ((len < 0) || (len >= sizeof(ta_brick))) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -507,16 +568,23 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         keylen = snprintf(key, sizeof(key), "volume%d.thin_arbiter_brick",
                           count);
         ret = dict_set_dynstrn(volumes, key, keylen, buf);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
     }
 
     ret = glusterd_add_arbiter_info_to_bricks(volinfo, volumes, count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ARBITER_BRICK_SET_INFO_FAIL, NULL);
         goto out;
+    }
 
     dict = volinfo->dict;
     if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = 0;
         goto out;
     }
@@ -812,11 +880,14 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
     gf_msg_debug(this->name, 0, "Received op from uuid %s", str);
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     req_ctx = GF_CALLOC(1, sizeof(*req_ctx), mem_type);
     if (!req_ctx) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
@@ -824,8 +895,8 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
     req_ctx->op = op;
     ret = dict_unserialize(buf_val, buf_len, &dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 
@@ -1601,6 +1672,8 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     if (cli_req.dict.dict_len) {
         dict = dict_new();
         if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             ret = -1;
             goto out;
         }
@@ -1623,6 +1696,7 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
 
     rsp_dict = dict_new();
     if (!rsp_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -1639,9 +1713,8 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "Failed to serialize "
-               "dictionary.");
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
     ret = 0;
@@ -1694,8 +1767,10 @@ __glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
     GF_ASSERT(priv);
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
     {
@@ -1707,8 +1782,11 @@ __glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
     }
 
     ret = dict_set_int32n(dict, "count", SLEN("count"), count);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=count", NULL);
         goto out;
+    }
 
     ret = dict_allocate_and_serialize(dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
@@ -1790,6 +1868,8 @@ __glusterd_handle_ganesha_cmd(rpcsvc_request_t *req)
         /* Unserialize the dictionary */
         dict = dict_new();
         if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             ret = -1;
             goto out;
         }
@@ -2158,9 +2238,8 @@ glusterd_fsm_log_send_resp(rpcsvc_request_t *req, int op_ret, char *op_errstr,
         ret = dict_allocate_and_serialize(dict, &rsp.fsm_log.fsm_log_val,
                                           &rsp.fsm_log.fsm_log_len);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0,
-                   GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-                   "failed to get serialized length of dict");
+            gf_smsg("glusterd", GF_LOG_ERROR, errno,
+                    GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
             return ret;
         }
     }
@@ -2206,6 +2285,7 @@ __glusterd_handle_fsm_log(rpcsvc_request_t *req)
 
     dict = dict_new();
     if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -2432,8 +2512,8 @@ glusterd_op_stage_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
     ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "failed to get serialized length of dict");
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         return ret;
     }
 
@@ -2472,9 +2552,8 @@ glusterd_op_commit_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
         ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                           &rsp.dict.dict_len);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-                   "failed to get serialized length of dict");
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
             goto out;
         }
     }
@@ -2715,12 +2794,18 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
     }
 
     ret = dict_get_int32n(dict, "count", SLEN("count"), &count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=count", NULL);
         goto out;
+    }
 
     ret = dict_get_int32n(dict, "op", SLEN("op"), &op);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=op", NULL);
         goto out;
+    }
 
     if (GD_FRIEND_UPDATE_DEL == op) {
         (void)glusterd_handle_friend_update_delete(dict);
@@ -2979,8 +3064,11 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
 
     if (cli_req.dict.dict_len > 0) {
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             goto out;
+        }
         dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len, &dict);
     }
 
@@ -3207,6 +3295,7 @@ __glusterd_handle_umount(rpcsvc_request_t *req)
     /* check if it is allowed to umount path */
     path = gf_strdup(umnt_req.path);
     if (!path) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED, NULL);
         rsp.op_errno = ENOMEM;
         goto out;
     }
@@ -3414,12 +3503,16 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     char *af = NULL;
 
     peerctx = GF_CALLOC(1, sizeof(*peerctx), gf_gld_mt_peerctx_t);
-    if (!peerctx)
+    if (!peerctx) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     options = dict_new();
-    if (!options)
+    if (!options) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     if (args)
         peerctx->args = *args;
@@ -3513,6 +3606,7 @@ glusterd_friend_add(const char *hoststr, int port,
     *friend = glusterd_peerinfo_new(state, uuid, hoststr, port);
     if (*friend == NULL) {
         ret = -1;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_PEER_ADD_FAIL, NULL);
         goto out;
     }
 
@@ -4090,13 +4184,15 @@ glusterd_list_friends(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
     };
     int keylen;
 
-    priv = THIS->private;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
+
+    priv = this->private;
     GF_ASSERT(priv);
 
     friends = dict_new();
     if (!friends) {
-        gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
-               "Out of Memory");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
     }
 
@@ -4122,24 +4218,36 @@ unlock:
         keylen = snprintf(key, sizeof(key), "friend%d.uuid", count);
         uuid_utoa_r(MY_UUID, my_uuid_str);
         ret = dict_set_strn(friends, key, keylen, my_uuid_str);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
 
         keylen = snprintf(key, sizeof(key), "friend%d.hostname", count);
         ret = dict_set_nstrn(friends, key, keylen, "localhost",
                              SLEN("localhost"));
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
 
         keylen = snprintf(key, sizeof(key), "friend%d.connected", count);
         ret = dict_set_int32n(friends, key, keylen, 1);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
     }
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=count", NULL);
         goto out;
+    }
 
     ret = dict_allocate_and_serialize(friends, &rsp.friends.friends_val,
                                       &rsp.friends.friends_len);
@@ -4311,8 +4419,11 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
 
     if (cli_req.dict.dict_len > 0) {
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             goto out;
+        }
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
         if (ret < 0) {
@@ -4580,6 +4691,7 @@ __glusterd_handle_barrier(rpcsvc_request_t *req)
 
     dict = dict_new();
     if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -5114,12 +5226,17 @@ glusterd_print_gsync_status_by_vol(FILE *fp, glusterd_volinfo_t *volinfo)
         0,
     };
 
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
+
     GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(THIS->name, fp, out);
 
     gsync_rsp_dict = dict_new();
-    if (!gsync_rsp_dict)
+    if (!gsync_rsp_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = gethostname(my_hostname, sizeof(my_hostname));
     if (ret) {
@@ -5264,16 +5381,25 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
 
     ret = dict_set_strn(dict, "brick-name", SLEN("brick-name"),
                         brickinfo->path);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=brick-name", NULL);
         goto out;
+    }
 
     ret = dict_set_int32n(dict, "cmd", SLEN("cmd"), GF_CLI_STATUS_CLIENTS);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=cmd", NULL);
         goto out;
+    }
 
     ret = dict_set_strn(dict, "volname", SLEN("volname"), volinfo->volname);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=volname", NULL);
         goto out;
+    }
 
     ret = dict_allocate_and_serialize(dict, &brick_req->input.input_val,
                                       &brick_req->input.input_len);
@@ -5911,14 +6037,27 @@ get_brickinfo_from_brickid(char *brickid, glusterd_brickinfo_t **brickinfo)
     uuid_t volid = {0};
     int ret = -1;
 
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
+
     brickid_dup = gf_strdup(brickid);
-    if (!brickid_dup)
+    if (!brickid_dup) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                "brick_id=%s", brickid, NULL);
         goto out;
+    }
 
     volid_str = brickid_dup;
     brick = strchr(brickid_dup, ':');
-    if (!volid_str || !brick)
+    if (!volid_str) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
         goto out;
+    }
+
+    if (!brick) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
+        goto out;
+    }
 
     *brick = '\0';
     brick++;

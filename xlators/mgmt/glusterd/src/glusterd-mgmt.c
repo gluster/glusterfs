@@ -601,15 +601,21 @@ gd_mgmt_v3_lock(glusterd_op_t op, dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
         goto out;
+    }
 
     ret = gd_syncop_submit_request(peerinfo->rpc, &req, args, peerid,
                                    &gd_mgmt_v3_prog, GLUSTERD_MGMT_V3_LOCK,
@@ -917,15 +923,21 @@ gd_mgmt_v3_pre_validate_req(glusterd_op_t op, dict_t *op_ctx,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
         goto out;
+    }
 
     ret = gd_syncop_submit_request(
         peerinfo->rpc, &req, args, peerid, &gd_mgmt_v3_prog,
@@ -1279,15 +1291,21 @@ gd_mgmt_v3_brick_op_req(glusterd_op_t op, dict_t *op_ctx,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
         goto out;
+    }
 
     ret = gd_syncop_submit_request(peerinfo->rpc, &req, args, peerid,
                                    &gd_mgmt_v3_prog, GLUSTERD_MGMT_V3_BRICK_OP,
@@ -1536,15 +1554,21 @@ gd_mgmt_v3_commit_req(glusterd_op_t op, dict_t *op_ctx,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
         goto out;
+    }
 
     ret = gd_syncop_submit_request(peerinfo->rpc, &req, args, peerid,
                                    &gd_mgmt_v3_prog, GLUSTERD_MGMT_V3_COMMIT,
@@ -1785,16 +1809,22 @@ gd_mgmt_v3_post_validate_req(glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     req.op = op;
     req.op_ret = op_ret;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
         goto out;
+    }
 
     ret = gd_syncop_submit_request(
         peerinfo->rpc, &req, args, peerid, &gd_mgmt_v3_prog,
@@ -2001,15 +2031,21 @@ gd_mgmt_v3_unlock(glusterd_op_t op, dict_t *op_ctx,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
         goto out;
+    }
 
     ret = gd_syncop_submit_request(peerinfo->rpc, &req, args, peerid,
                                    &gd_mgmt_v3_prog, GLUSTERD_MGMT_V3_UNLOCK,

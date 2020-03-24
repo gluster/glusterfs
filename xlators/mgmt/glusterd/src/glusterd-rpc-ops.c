@@ -183,10 +183,8 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
         ret = dict_allocate_and_serialize(ctx, &rsp.dict.dict_val,
                                           &rsp.dict.dict_len);
         if (ret < 0)
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-                   "failed to "
-                   "serialize buffer");
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         else
             free_ptr = rsp.dict.dict_val;
     }
@@ -1464,6 +1462,7 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *dict = NULL;
 
     if (!frame || !this || !data) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
@@ -1473,15 +1472,24 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
 
     GF_ASSERT(priv);
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=hostname", NULL);
         goto out;
+    }
     ret = dict_get_int32n(dict, "port", SLEN("port"), &port);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_DEBUG, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=port", NULL);
         port = GF_DEFAULT_BASE_PORT;
+    }
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=peerinfo", NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, MY_UUID);
     req.hostname = gf_strdup(hostname);
@@ -1510,6 +1518,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *peer_data = NULL;
 
     if (!frame || !this || !data) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
@@ -1540,6 +1549,8 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
 
     peer_data = dict_new();
     if (!peer_data) {
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                NULL);
         errno = ENOMEM;
         goto out;
     }
@@ -1585,8 +1596,11 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     if (!req.vols.vols_len) {
         ret = dict_allocate_and_serialize(peer_data, &req.vols.vols_val,
                                           &req.vols.vols_len);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
             goto out;
+        }
     }
 
     ret = glusterd_submit_request(
@@ -1760,8 +1774,11 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=peerinfo", NULL);
         goto out;
+    }
 
     // peerinfo should not be in payload
     dict_deln(dict, "peerinfo", SLEN("peerinfo"));
@@ -1771,9 +1788,8 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "Failed to serialize dict "
-               "to request buffer");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
 
@@ -1797,6 +1813,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     }
     frame->cookie = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
     if (!frame->cookie) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }
@@ -1836,8 +1853,11 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=peerinfo", NULL);
         goto out;
+    }
 
     // peerinfo should not be in payload
     dict_deln(dict, "peerinfo", SLEN("peerinfo"));
@@ -1847,9 +1867,8 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "Failed to serialize dict "
-               "to request buffer");
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
 
@@ -1873,6 +1892,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     }
     frame->cookie = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
     if (!frame->cookie) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }
@@ -1954,8 +1974,11 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=peerinfo", NULL);
         goto out;
+    }
 
     // peerinfo should not be in payload
     dict_deln(dict, "peerinfo", SLEN("peerinfo"));
@@ -1965,9 +1988,8 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_allocate_and_serialize(dict, &req.buf.buf_val, &req.buf.buf_len);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "Failed to serialize dict "
-               "to request buffer");
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
     /* Sending valid transaction ID to peers */
@@ -1989,6 +2011,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     }
     frame->cookie = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
     if (!frame->cookie) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }
@@ -2030,8 +2053,11 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=peerinfo", NULL);
         goto out;
+    }
 
     // peerinfo should not be in payload
     dict_deln(dict, "peerinfo", SLEN("peerinfo"));
@@ -2041,9 +2067,8 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_allocate_and_serialize(dict, &req.buf.buf_val, &req.buf.buf_len);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "Failed to serialize dict to "
-               "request buffer");
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
     /* Sending valid transaction ID to peers */
@@ -2065,6 +2090,7 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     }
     frame->cookie = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
     if (!frame->cookie) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }

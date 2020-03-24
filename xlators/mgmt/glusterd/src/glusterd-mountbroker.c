@@ -81,6 +81,7 @@ parse_mount_pattern_desc(gf_mount_spec_t *mspec, char *pdesc)
     mspec->patterns = GF_CALLOC(mspec->len, sizeof(*mspec->patterns),
                                 gf_gld_mt_mount_pattern);
     if (!mspec->patterns) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }
@@ -261,8 +262,11 @@ make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user,
     int ret = 0;
 
     vols = gf_strdup((char *)volnames);
-    if (!vols)
+    if (!vols) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                "Volume name=%s", volnames, NULL);
         goto out;
+    }
 
     for (vc = 1, p = vols; *p; p++) {
         if (*p == ',')
@@ -270,8 +274,10 @@ make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user,
     }
     siz = strlen(volnames) + vc * SLEN("volfile-id=");
     meetspec = GF_CALLOC(1, siz + 1, gf_gld_mt_georep_meet_spec);
-    if (!meetspec)
+    if (!meetspec) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     for (p = vols;;) {
         vol = strtok_r(p, ",", &savetok);

@@ -111,6 +111,8 @@ get_snap_volname_and_volinfo(const char *volpath, char **volname,
         volfile_token = strtok_r(NULL, "/", &save_ptr);
         *volname = gf_strdup(volfile_token);
         if (NULL == *volname) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                    "Volname=%s", volfile_token, NULL);
             ret = -1;
             goto out;
         }
@@ -236,6 +238,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -256,6 +259,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -271,6 +275,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -292,6 +297,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -312,6 +318,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -366,6 +373,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -386,6 +394,7 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (volid_ptr) {
         volid_ptr = strchr(volid_ptr, '/');
         if (!volid_ptr) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -402,6 +411,8 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
         /* Split the volume name */
         vol = strtok_r(dup_volname, ".", &save_ptr);
         if (!vol) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SPLIT_FAIL,
+                    "Volume name=%s", dup_volname, NULL);
             ret = -1;
             goto out;
         }
@@ -446,18 +457,25 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     if (ret) {
         dup_volname = gf_strdup(volid_ptr);
         if (!dup_volname) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                    "Volume name=%s", volid_ptr, NULL);
             ret = -1;
             goto out;
         }
         /* Split the volume name */
         vol = strtok_r(dup_volname, ".", &save_ptr);
         if (!vol) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SPLIT_FAIL,
+                    "Volume name=%s", dup_volname, NULL);
             ret = -1;
             goto out;
         }
         ret = glusterd_volinfo_find(vol, &volinfo);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_VOLINFO_GET_FAIL,
+                    NULL);
             goto out;
+        }
     }
 
 gotvolinfo:
@@ -466,8 +484,10 @@ gotvolinfo:
 
     ret = snprintf(path, path_len, "%s/%s/%s.vol", path_prefix,
                    volinfo->volname, volid_ptr);
-    if (ret == -1)
+    if (ret == -1) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
+    }
 
     ret = sys_stat(path, &stbuf);
 
@@ -522,12 +542,14 @@ glusterd_get_args_from_dict(gf_getspec_req *args, peer_info_t *peerinfo,
     GF_ASSERT(peerinfo);
 
     if (!args->xdata.xdata_len) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = 0;
         goto out;
     }
 
     dict = dict_new();
     if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -561,6 +583,8 @@ glusterd_get_args_from_dict(gf_getspec_req *args, peer_info_t *peerinfo,
     }
     *brick_name = gf_strdup(name);
     if (*brick_name == NULL) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                "Brick_name=%s", name, NULL);
         ret = -1;
         goto out;
     }
@@ -976,6 +1000,7 @@ __server_getspec(rpcsvc_request_t *req)
 
     dict = dict_new();
     if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -ENOMEM;
         goto fail;
     }
@@ -1050,9 +1075,8 @@ __server_getspec(rpcsvc_request_t *req)
             ret = dict_allocate_and_serialize(dict, &rsp.xdata.xdata_val,
                                               &rsp.xdata.xdata_len);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-                       "Failed to serialize dict to request buffer");
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
                 goto fail;
             }
         }
@@ -1073,6 +1097,7 @@ __server_getspec(rpcsvc_request_t *req)
         }
         ret = file_len = stbuf.st_size;
     } else {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_PEER_NOT_FOUND, NULL);
         op_errno = ENOENT;
         goto fail;
     }
@@ -1080,6 +1105,7 @@ __server_getspec(rpcsvc_request_t *req)
     if (file_len) {
         rsp.spec = CALLOC(file_len + 1, sizeof(char));
         if (!rsp.spec) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
             ret = -1;
             op_errno = ENOMEM;
             goto fail;
@@ -1158,13 +1184,17 @@ __server_event_notify(rpcsvc_request_t *req)
                          (xdrproc_t)xdr_gf_event_notify_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
     if (args.dict.dict_len) {
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             return ret;
+        }
         ret = dict_unserialize(args.dict.dict_val, args.dict.dict_len, &dict);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
@@ -1357,6 +1387,7 @@ __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
@@ -1370,8 +1401,10 @@ __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = dict_set_int32(dict, GD_OP_VERSION_KEY, conf->op_version);
     if (ret) {
@@ -1457,6 +1490,7 @@ __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
@@ -1529,22 +1563,25 @@ __server_get_volume_info(rpcsvc_request_t *req)
     char *volume_id_str = NULL;
     int32_t flags = 0;
 
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
+
     ret = xdr_to_generic(req->msg[0], &vol_info_req,
                          (xdrproc_t)xdr_gf_get_volume_info_req);
     if (ret < 0) {
         /* failed to decode msg */
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_VOL_INFO_REQ_RECVD,
-           "Received get volume info req");
+    gf_smsg(this->name, GF_LOG_INFO, 0, GD_MSG_VOL_INFO_REQ_RECVD, NULL);
 
     if (vol_info_req.dict.dict_len) {
         /* Unserialize the dictionary */
         dict = dict_new();
         if (!dict) {
-            gf_msg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_NO_MEMORY,
-                   "Out of Memory");
+            gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             op_errno = ENOMEM;
             ret = -1;
             goto out;
@@ -1553,9 +1590,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
         ret = dict_unserialize(vol_info_req.dict.dict_val,
                                vol_info_req.dict.dict_len, &dict);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-                   "failed to "
-                   "unserialize req-buffer to dictionary");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                    NULL);
             op_errno = -ret;
             ret = -1;
             goto out;
@@ -1566,8 +1602,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     ret = dict_get_int32(dict, "flags", &flags);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
-               "failed to get flags");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=flags", NULL);
         op_errno = -ret;
         ret = -1;
         goto out;
@@ -1575,13 +1611,15 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     if (!flags) {
         /* Nothing to query about. Just return success */
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_NO_FLAG_SET, "No flags set");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_FLAG_SET, NULL);
         ret = 0;
         goto out;
     }
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=volname", NULL);
         op_errno = EINVAL;
         ret = -1;
         goto out;
@@ -1589,6 +1627,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_VOLINFO_GET_FAIL,
+                "Volname=%s", volname, NULL);
         op_errno = EINVAL;
         ret = -1;
         goto out;
@@ -1597,6 +1637,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
     if (flags & (int32_t)GF_GET_VOLUME_UUID) {
         volume_id_str = gf_strdup(uuid_utoa(volinfo->volume_id));
         if (!volume_id_str) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                    NULL);
             op_errno = ENOMEM;
             ret = -1;
             goto out;
@@ -1604,8 +1646,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
         dict_rsp = dict_new();
         if (!dict_rsp) {
-            gf_msg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_NO_MEMORY,
-                   "Out of Memory");
+            gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             op_errno = ENOMEM;
             GF_FREE(volume_id_str);
             ret = -1;
@@ -1613,6 +1655,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
         }
         ret = dict_set_dynstr(dict_rsp, "volume_id", volume_id_str);
         if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=volume_id", NULL);
             op_errno = -ret;
             ret = -1;
             goto out;
@@ -1621,6 +1665,8 @@ __server_get_volume_info(rpcsvc_request_t *req)
     ret = dict_allocate_and_serialize(dict_rsp, &vol_info_rsp.dict.dict_val,
                                       &vol_info_rsp.dict.dict_len);
     if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         op_errno = -ret;
         ret = -1;
         goto out;
@@ -1686,6 +1732,8 @@ __server_get_snap_info(rpcsvc_request_t *req)
     if (snap_info_req.dict.dict_len) {
         dict = dict_new();
         if (!dict) {
+            gf_smsg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             op_errno = ENOMEM;
             ret = -1;
             goto out;
@@ -1716,6 +1764,8 @@ __server_get_snap_info(rpcsvc_request_t *req)
 
     dict_rsp = dict_new();
     if (!dict_rsp) {
+        gf_smsg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                NULL);
         op_errno = ENOMEM;
         ret = -1;
         goto out;
@@ -1908,22 +1958,45 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     int32_t peer_min_op_version = 0;
     int32_t peer_max_op_version = 0;
 
-    if (!dict || !this || !peerinfo)
+    if (!dict) {
+        gf_smsg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                NULL);
         goto out;
+    }
+
+    if (!this) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_XLATOR_NOT_DEFINED,
+                NULL);
+        goto out;
+    }
+
+    if (!peerinfo) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        goto out;
+    }
 
     conf = this->private;
 
     ret = dict_get_int32(dict, GD_OP_VERSION_KEY, &peer_op_version);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", GD_OP_VERSION_KEY, NULL);
         goto out;
+    }
 
     ret = dict_get_int32(dict, GD_MAX_OP_VERSION_KEY, &peer_max_op_version);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", GD_MAX_OP_VERSION_KEY, NULL);
         goto out;
+    }
 
     ret = dict_get_int32(dict, GD_MIN_OP_VERSION_KEY, &peer_min_op_version);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", GD_MIN_OP_VERSION_KEY, NULL);
         goto out;
+    }
 
     ret = -1;
     /* Check if peer can support our op_version */
@@ -2189,14 +2262,20 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
     int ret = -1;
 
     frame = create_frame(this, this->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_smsg("glusterd", GF_LOG_WARNING, errno, GD_MSG_FRAME_CREATE_FAIL,
+                NULL);
         goto out;
+    }
 
     frame->local = peerctx;
 
     req_dict = dict_new();
-    if (!req_dict)
+    if (!req_dict) {
+        gf_smsg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+                NULL);
         goto out;
+    }
 
     ret = dict_set_dynstr(req_dict, GD_PEER_ID_KEY,
                           gf_strdup(uuid_utoa(MY_UUID)));
@@ -2463,12 +2542,17 @@ glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
     int ret = -1;
 
     frame = create_frame(this, this->ctx->pool);
-    if (!frame)
+    if (!frame) {
+        gf_smsg(this->name, GF_LOG_WARNING, errno, GD_MSG_FRAME_CREATE_FAIL,
+                NULL);
         goto out;
+    }
 
     frame->local = peerctx;
-    if (!peerctx)
+    if (!peerctx) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
+    }
 
     RCU_READ_LOCK;
 

@@ -367,8 +367,10 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
     GF_ASSERT(conf);
 
     new_peer = GF_CALLOC(1, sizeof(*new_peer), gf_gld_mt_peerinfo_t);
-    if (!new_peer)
+    if (!new_peer) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     CDS_INIT_LIST_HEAD(&new_peer->uuid_list);
 
@@ -564,12 +566,16 @@ glusterd_peer_hostname_new(const char *hostname,
 
     GF_ASSERT(hostname);
     GF_ASSERT(name);
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     peer_hostname = GF_CALLOC(1, sizeof(*peer_hostname),
                               gf_gld_mt_peer_hostname_t);
 
-    if (!peer_hostname)
+    if (!peer_hostname) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     peer_hostname->hostname = gf_strdup(hostname);
     CDS_INIT_LIST_HEAD(&peer_hostname->hostname_list);
@@ -900,8 +906,11 @@ gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
     {
         snprintf(key, sizeof(key), "%s.hostname%d", prefix, count);
         ret = dict_set_dynstr_with_alloc(dict, key, addr->hostname);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
             goto out;
+        }
         count++;
     }
 
@@ -923,41 +932,61 @@ gd_add_peer_detail_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *friends,
     int keylen;
     char *peer_uuid_str = NULL;
 
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
     GF_ASSERT(peerinfo);
     GF_ASSERT(friends);
 
     peer_uuid_str = gd_peer_uuid_str(peerinfo);
     keylen = snprintf(key, sizeof(key), "friend%d.uuid", count);
     ret = dict_set_strn(friends, key, keylen, peer_uuid_str);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "friend%d.hostname", count);
     ret = dict_set_strn(friends, key, keylen, peerinfo->hostname);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "friend%d.port", count);
     ret = dict_set_int32n(friends, key, keylen, peerinfo->port);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "friend%d.stateId", count);
     ret = dict_set_int32n(friends, key, keylen, peerinfo->state.state);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                "Key=%s in dict", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "friend%d.state", count);
     ret = dict_set_strn(
         friends, key, keylen,
         glusterd_friend_sm_state_name_get(peerinfo->state.state));
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "key=%s",
+                key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "friend%d.connected", count);
     ret = dict_set_int32n(friends, key, keylen, (int32_t)peerinfo->connected);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
         goto out;
+    }
 
     snprintf(key, sizeof(key), "friend%d", count);
     ret = gd_add_peer_hostnames_to_dict(peerinfo, friends, key);
