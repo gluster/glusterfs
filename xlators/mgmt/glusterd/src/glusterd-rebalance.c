@@ -390,8 +390,10 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
         goto out;
 
     options = dict_new();
-    if (!options)
+    if (!options) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     GLUSTERD_GET_DEFRAG_SOCK_FILE(sockfile, volinfo);
 
@@ -497,6 +499,7 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 

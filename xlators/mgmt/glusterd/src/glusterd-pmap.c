@@ -433,17 +433,20 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
     char *brick = NULL;
     int port = 0;
     int ret = -1;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_port_by_brick_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
     brick = args.brick;
 
-    port = pmap_registry_search(THIS, brick, GF_PMAP_PORT_BRICKSERVER,
+    port = pmap_registry_search(this, brick, GF_PMAP_PORT_BRICKSERVER,
                                 _gf_false);
 
     if (!port)
@@ -475,11 +478,14 @@ __gluster_pmap_brickbyport(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_brick_by_port_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
@@ -513,10 +519,13 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
     };
     int ret = -1;
     glusterd_brickinfo_t *brickinfo = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_pmap_signin_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
@@ -570,6 +579,7 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
     rsp.op_ret = pmap_registry_remove(THIS, args.port, args.brick,

@@ -43,6 +43,7 @@ __glusterd_handle_log_rotate(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
@@ -138,6 +139,8 @@ glusterd_op_stage_log_rotate(dict_t *dict, char **op_errstr)
     /* If no brick is specified, do log-rotate for
        all the bricks in the volume */
     if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=brick", NULL);
         ret = 0;
         goto out;
     }
@@ -204,8 +207,11 @@ glusterd_op_log_rotate(dict_t *dict)
     ret = dict_get_str(dict, "brick", &brick);
     /* If no brick is specified, do log-rotate for
        all the bricks in the volume */
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=brick", NULL);
         goto cont;
+    }
 
     ret = glusterd_brickinfo_new_from_brick(brick, &tmpbrkinfo, _gf_false,
                                             NULL);

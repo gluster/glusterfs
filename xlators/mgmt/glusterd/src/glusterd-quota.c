@@ -1900,10 +1900,9 @@ glusterd_get_gfid_from_brick(dict_t *dict, glusterd_volinfo_t *volinfo,
         }
         ret = sys_lgetxattr(backend_path, GFID_XATTR_KEY, gfid, 16);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_SETXATTR_FAIL,
-                   "Failed to get "
-                   "extended attribute %s for directory %s. ",
-                   GFID_XATTR_KEY, backend_path);
+            gf_smsg(this->name, GF_LOG_INFO, errno, GD_MSG_GET_XATTR_FAIL,
+                    "Attribute=%s, Directory=%s", GFID_XATTR_KEY, backend_path,
+                    NULL);
             ret = 0;
             continue;
         }

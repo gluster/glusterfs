@@ -46,7 +46,7 @@ GLFS_MSGID(
     GD_MSG_SNAP_STATUS_FAIL, GD_MSG_SNAP_INIT_FAIL, GD_MSG_VOLINFO_SET_FAIL,
     GD_MSG_VOLINFO_GET_FAIL, GD_MSG_BRICK_CREATION_FAIL,
     GD_MSG_BRICK_GET_INFO_FAIL, GD_MSG_BRICK_NEW_INFO_FAIL, GD_MSG_LVS_FAIL,
-    GD_MSG_SETXATTR_FAIL, GD_MSG_UMOUNTING_SNAP_BRICK, GD_MSG_OP_UNSUPPORTED,
+    GD_MSG_SET_XATTR_FAIL, GD_MSG_UMOUNTING_SNAP_BRICK, GD_MSG_OP_UNSUPPORTED,
     GD_MSG_SNAP_NOT_FOUND, GD_MSG_FS_LABEL_UPDATE_FAIL, GD_MSG_LVM_MOUNT_FAILED,
     GD_MSG_DICT_SET_FAILED, GD_MSG_CANONICALIZE_FAIL, GD_MSG_DICT_GET_FAILED,
     GD_MSG_SNAP_INFO_FAIL, GD_MSG_SNAP_VOL_CONFIG_FAIL,
@@ -116,7 +116,7 @@ GLFS_MSGID(
     GD_MSG_PARSE_BRICKINFO_FAIL, GD_MSG_VERS_STORE_FAIL, GD_MSG_HEADER_ADD_FAIL,
     GD_MSG_QUOTA_CONF_WRITE_FAIL, GD_MSG_QUOTA_CONF_CORRUPT, GD_MSG_FORK_FAIL,
     GD_MSG_CKSUM_COMPUTE_FAIL, GD_MSG_VERS_CKSUM_STORE_FAIL,
-    GD_MSG_GETXATTR_FAIL, GD_MSG_CONVERSION_FAILED, GD_MSG_VOL_NOT_DISTRIBUTE,
+    GD_MSG_GET_XATTR_FAIL, GD_MSG_CONVERSION_FAILED, GD_MSG_VOL_NOT_DISTRIBUTE,
     GD_MSG_VOL_STOPPED, GD_MSG_OPCTX_GET_FAIL, GD_MSG_TASKID_GEN_FAIL,
     GD_MSG_REBALANCE_ID_MISSING, GD_MSG_NO_REBALANCE_PFX_IN_VOLNAME,
     GD_MSG_DEFRAG_STATUS_UPDATE_FAIL, GD_MSG_UUID_GEN_STORE_FAIL,
@@ -302,6 +302,152 @@ GLFS_MSGID(
     GD_MSG_SHD_OBJ_GET_FAIL, GD_MSG_SVC_ATTACH_FAIL, GD_MSG_ATTACH_INFO,
     GD_MSG_DETACH_INFO, GD_MSG_SVC_DETACH_FAIL,
     GD_MSG_RPC_TRANSPORT_GET_PEERNAME_FAIL, GD_MSG_CLUSTER_RC_ENABLE,
-    GD_MSG_NFS_GANESHA_DISABLED, GD_MSG_GANESHA_NOT_RUNNING, GD_MSG_SNAP_WARN);
+    GD_MSG_NFS_GANESHA_DISABLED, GD_MSG_GANESHA_NOT_RUNNING, GD_MSG_SNAP_WARN,
+    GD_MSG_BRICK_SUBVOL_VERIFY_FAIL, GD_MSG_REMOVE_ARBITER_BRICK,
+    GD_MSG_BRICK_NOT_DECOM, GD_MSG_BRICK_STOPPED, GD_MSG_BRICK_DEAD,
+    GD_MSG_BRICK_HOST_NOT_FOUND, GD_MSG_BRICK_HOST_DOWN, GD_MSG_BRICK_DELETE,
+    GD_MSG_BRICK_NO_REMOVE_CMD, GD_MSG_MIGRATION_PROG, GD_MSG_MIGRATION_FAIL,
+    GD_MSG_COPY_FAIL, GD_MSG_REALPATH_GET_FAIL,
+    GD_MSG_ARBITER_BRICK_SET_INFO_FAIL, GD_MSG_STRCHR_FAIL, GD_MSG_SPLIT_FAIL,
+    GD_MSG_ALLOC_AND_COPY_UUID_FAIL, GD_MSG_VOL_SHD_NOT_COMP,
+    GD_MSG_BITROT_NOT_ENABLED, GD_MSG_CREATE_BRICK_DIR_FAILED,
+    GD_MSG_CREATE_GLUSTER_DIR_FAILED, GD_MSG_BRICK_CREATE_MNTPNT,
+    GD_MSG_BRICK_CREATE_ROOT, GD_MSG_SET_XATTR_BRICK_FAIL,
+    GD_MSG_REMOVE_XATTR_FAIL, GD_MSG_XLATOR_NOT_DEFINED,
+    GD_MSG_BRICK_NOT_RUNNING, GD_MSG_INCORRECT_BRICK, GD_MSG_UUID_GET_FAIL,
+    GD_MSG_INVALID_ARGUMENT, GD_MSG_FRAME_CREATE_FAIL,
+    GD_MSG_SNAPSHOT_NOT_THIN_PROVISIONED, GD_MSG_VOL_STOP_ARGS_GET_FAILED,
+    GD_MSG_LSTAT_FAIL, GD_MSG_VOLUME_NOT_IMPORTED,
+    GD_MSG_ADD_BRICK_MNT_INFO_FAIL, GD_MSG_GET_MNT_ENTRY_INFO_FAIL,
+    GD_MSG_QUORUM_CLUSTER_COUNT_GET_FAIL,
+    GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL);
+
+#define GD_MSG_INVALID_ENTRY_STR "Invalid data entry"
+#define GD_MSG_INVALID_ARGUMENT_STR                                            \
+    "Invalid arguments have been given to function"
+#define GD_MSG_GARBAGE_ARGS_STR "Garbage args received"
+#define GD_MSG_BRICK_SUBVOL_VERIFY_FAIL_STR "Brick's subvol verification fail"
+#define GD_MSG_REMOVE_ARBITER_BRICK_STR "Failed to remove arbiter bricks"
+#define GD_MSG_DICT_GET_FAILED_STR "Dict get failed"
+#define GD_MSG_DICT_SET_FAILED_STR "Dict set failed"
+#define GD_MSG_BRICK_NOT_FOUND_STR "Brick not found in volume"
+#define GD_MSG_BRICK_NOT_DECOM_STR "Brick is not decommissoned"
+#define GD_MSG_BRICK_STOPPED_STR "Found stopped brick"
+#define GD_MSG_BRICK_DEAD_STR "Found dead brick"
+#define GD_MSG_BRICK_HOST_NOT_FOUND_STR                                        \
+    "Host node of the brick is not a part of cluster"
+#define GD_MSG_BRICK_HOST_DOWN_STR "Host node of the brick is down"
+#define GD_MSG_BRICK_DELETE_STR                                                \
+    "Deleting all the bricks of the volume is not allowed"
+#define GD_MSG_BRICK_NO_REMOVE_CMD_STR "No remove-brick command issued"
+#define GD_MSG_INCORRECT_BRICK_STR "Incorrect brick for volume"
+#define GD_MSG_MIGRATION_PROG_STR "Migration is in progress"
+#define GD_MSG_MIGRATION_FAIL_STR "Migration has failed"
+#define GD_MSG_XLATOR_NOT_DEFINED_STR "Xlator not defined"
+#define GD_MSG_DICT_CREATE_FAIL_STR "Failed to create dictionary"
+#define GD_MSG_COPY_FAIL_STR "Failed to copy"
+#define GD_MSG_UUID_GET_FAIL_STR "Failed to get the uuid of local glusterd"
+#define GD_MSG_GEO_REP_START_FAILED_STR "Georep start failed for volume"
+#define GD_MSG_REALPATH_GET_FAIL_STR "Failed to get realpath"
+#define GD_MSG_FILE_NOT_FOUND_STR "File not found in directory"
+#define GD_MSG_SRC_FILE_ERROR_STR "Error in source file"
+#define GD_MSG_DICT_UNSERIALIZE_FAIL_STR "Failed to unserialize dict"
+#define GD_MSG_VOL_ID_SET_FAIL_STR "Failed to set volume id"
+#define GD_MSG_ARBITER_BRICK_SET_INFO_FAIL_STR                                 \
+    "Failed to add arbiter info to brick"
+#define GD_MSG_NO_MEMORY_STR "Out of memory"
+#define GD_MSG_GLUSTERD_UMOUNT_FAIL_STR "Failed to unmount path"
+#define GD_MSG_PEER_ADD_FAIL_STR "Failed to add new peer"
+#define GD_MSG_BRICK_GET_INFO_FAIL_STR "Failed to get brick info"
+#define GD_MSG_STRCHR_FAIL_STR "Failed to get the character"
+#define GD_MSG_SPLIT_FAIL_STR "Failed to split"
+#define GD_MSG_VOLINFO_GET_FAIL_STR "Failed to get volinfo"
+#define GD_MSG_PEER_NOT_FOUND_STR "Failed to find peer info"
+#define GD_MSG_DICT_COPY_FAIL_STR "Failed to copy values from dictionary"
+#define GD_MSG_DICT_SERL_LENGTH_GET_FAIL_STR                                   \
+    "Failed to get serialized length of dict"
+#define GD_MSG_ALLOC_AND_COPY_UUID_FAIL_STR                                    \
+    "Failed to allocate memory or copy uuid"
+#define GD_MSG_VOL_NOT_FOUND_STR "Volume not found"
+#define GD_MSG_PEER_DISCONNECTED_STR "Peer is disconnected"
+#define GD_MSG_QUOTA_GET_STAT_FAIL_STR "Failed to get quota status"
+#define GD_MSG_SNAP_STATUS_FAIL_STR "Failed to get status of snapd"
+#define GD_MSG_VALIDATE_FAILED_STR "Failed to validate volume"
+#define GD_MSG_VOL_NOT_STARTED_STR "Volume is not started"
+#define GD_MSG_VOL_SHD_NOT_COMP_STR "Volume is not Self-heal compatible"
+#define GD_MSG_SELF_HEALD_DISABLED_STR "Self-heal daemon is disabled"
+#define GD_MSG_NFS_GANESHA_DISABLED_STR "NFS server is disabled"
+#define GD_MSG_QUOTA_DISABLED_STR "Quota is disabled"
+#define GD_MSG_BITROT_NOT_RUNNING_STR "Bitrot is not enabled"
+#define GD_MSG_BITROT_NOT_ENABLED_STR "Volume does not have bitrot enabled"
+#define GD_MSG_SNAPD_NOT_RUNNING_STR "Snapd is not enabled"
+#define GD_MSG_STRDUP_FAILED_STR "Strdup operation failed"
+#define GD_MSG_QUORUM_CLUSTER_COUNT_GET_FAIL_STR                               \
+    "Failed to get quorum cluster counts"
+#define GD_MSG_GLUSTER_SERVICE_START_FAIL_STR "Failed to start glusterd service"
+#define GD_MSG_PEER_ADDRESS_GET_FAIL_STR "Failed to get the address of peer"
+#define GD_MSG_INVALID_SLAVE_STR "Volume is not a slave volume"
+#define GD_MSG_BRICK_NOT_RUNNING_STR "One or more bricks are not running"
+#define GD_MSG_BRK_MNTPATH_GET_FAIL_STR "Failed to get brick mount device"
+#define GD_MSG_SNAPSHOT_NOT_THIN_PROVISIONED_STR                               \
+    "Snapshot is supported only for thin provisioned LV."
+#define GD_MSG_SNAP_DEVICE_NAME_GET_FAIL_STR                                   \
+    "Failed to copy snapshot device name"
+#define GD_MSG_SNAP_NOT_FOUND_STR "Snapshot does not exist"
+#define GD_MSG_CREATE_BRICK_DIR_FAILED_STR "Failed to create brick directory"
+#define GD_MSG_LSTAT_FAIL_STR "Lstat operation failed"
+#define GD_MSG_DIR_OP_FAILED_STR                                               \
+    "The provided path is already present. It is not a directory"
+#define GD_MSG_BRICK_CREATION_FAIL_STR                                         \
+    "Brick isn't allowed to be created inside glusterd's working directory."
+#define GD_MSG_BRICK_CREATE_ROOT_STR                                           \
+    "The brick is being created in the root partition. It is recommended "     \
+    "that you don't use the system's root partition for storage backend."
+#define GD_MSG_BRICK_CREATE_MNTPNT_STR                                         \
+    "The brick is a mount point. Please create a sub-directory under the "     \
+    "mount point and use that as the brick directory."
+#define GD_MSG_CREATE_GLUSTER_DIR_FAILED_STR                                   \
+    "Failed to create glusterfs directory"
+#define GD_MSG_VOLINFO_IMPORT_FAIL_STR "Volume is not yet imported"
+#define GD_MSG_BRICK_SET_INFO_FAIL_STR                                         \
+    "Failed to add brick mount details to dict"
+#define GD_MSG_SET_XATTR_BRICK_FAIL_STR                                        \
+    "Glusterfs is not supported on brick. Setting extended attribute failed"
+#define GD_MSG_SET_XATTR_FAIL_STR "Failed to set extended attribute"
+#define GD_MSG_REMOVE_XATTR_FAIL_STR "Failed to remove extended attribute"
+#define GD_MSG_XLATOR_SET_OPT_FAIL_STR "Failed to set xlator type"
+#define GD_MSG_XLATOR_LINK_FAIL_STR                                            \
+    "Failed to do the link of xlator with children"
+#define GD_MSG_READ_ERROR_STR "Failed to read directory"
+#define GD_MSG_INCOMPATIBLE_VALUE_STR "Incompatible transport type"
+#define GD_MSG_VOL_STOP_ARGS_GET_FAILED_STR "Failed to get volume stop args"
+#define GD_MSG_FRAME_CREATE_FAIL_STR "Failed to create frame"
+#define GD_MSG_VOLUME_NOT_IMPORTED_STR "Volume has not been imported"
+#define GD_MSG_ADD_BRICK_MNT_INFO_FAIL_STR                                     \
+    "Failed to add brick mount details to dict"
+#define GD_MSG_GET_MNT_ENTRY_INFO_FAIL_STR "Failed to get mount entry details"
+#define GD_MSG_BRICKPATH_ROOT_GET_FAIL_STR "failed to get brick root details"
+#define GD_MSG_VOL_INFO_REQ_RECVD_STR "Received get volume info req"
+#define GD_MSG_NO_FLAG_SET_STR "No flags set"
+#define GD_MSG_CREATE_DIR_FAILED_STR "Failed to create directory"
+#define GD_MSG_POST_HOOK_STUB_INIT_FAIL_STR                                    \
+    "Failed to initialize post hooks stub"
+#define GD_MSG_FILE_OP_FAILED_STR "File operation failed"
+#define GD_MSG_INODE_SIZE_GET_FAIL_STR "Failed to get inode size"
+#define GD_MSG_CMD_EXEC_FAIL_STR "Command execution failed"
+#define GD_MSG_XLATOR_CREATE_FAIL_STR "Failed to create xlator"
+#define GD_MSG_CLRCLK_VOL_REQ_RCVD_STR "Received clear-locks request for volume"
+#define GD_MSG_BRK_PORT_NUM_GET_FAIL_STR                                       \
+    "Couldn't get port number of local bricks"
+#define GD_MSG_CLRLOCKS_MOUNTDIR_CREATE_FAIL_STR                               \
+    "Creating mount directory for clear-locks failed"
+#define GD_MSG_CLRLOCKS_CLNT_MOUNT_FAIL_STR                                    \
+    "Failed to mount clear-locks maintenance client"
+#define GD_MSG_CLRLOCKS_CLNT_UMOUNT_FAIL_STR                                   \
+    "Failed to unmount clear-locks mount point"
+#define GD_MSG_CLRCLK_SND_CMD_FAIL_STR "Failed to send command for clear-locks"
+#define GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL_STR                         \
+    "Failed to allocate memory or get serialized length of dict"
+#define GD_MSG_GET_XATTR_FAIL_STR "Failed to get extended attribute"
 
 #endif /* !_GLUSTERD_MESSAGES_H_ */

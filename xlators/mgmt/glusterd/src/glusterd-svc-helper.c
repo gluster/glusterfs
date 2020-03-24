@@ -239,8 +239,10 @@ glusterd_svc_check_topology_identical(char *svc_name,
     int tmpclean = 0;
     int tmpfd = -1;
 
-    if ((!identical) || (!this) || (!this->private))
+    if ((!identical) || (!this) || (!this->private)) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
+    }
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -358,8 +360,10 @@ glusterd_volume_svc_check_topology_identical(
     int tmpclean = 0;
     int tmpfd = -1;
 
-    if ((!identical) || (!this) || (!this->private))
+    if ((!identical) || (!this) || (!this->private)) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
+    }
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -789,12 +793,16 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
+                NULL);
         goto *errlbl;
     }
 
     if (op == GLUSTERD_SVC_ATTACH) {
         dict = dict_new();
         if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             ret = -ENOMEM;
             goto *errlbl;
         }
@@ -812,6 +820,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
         file_len = stbuf.st_size;
         volfile_content = GF_MALLOC(file_len + 1, gf_common_mt_char);
         if (!volfile_content) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
             ret = -ENOMEM;
             goto *errlbl;
         }
@@ -838,10 +847,8 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
             ret = dict_allocate_and_serialize(dict, &brick_req.dict.dict_val,
                                               &brick_req.dict.dict_len);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-                       "Failed to serialize dict "
-                       "to request buffer");
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
                 goto *errlbl;
             }
         }

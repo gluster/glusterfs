@@ -146,22 +146,33 @@ glusterd_broadcast_friend_delete(char *hostname, uuid_t uuid)
     ctx.op = GD_FRIEND_UPDATE_DEL;
 
     friends = dict_new();
-    if (!friends)
+    if (!friends) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "op");
     ret = dict_set_int32n(friends, key, keylen, ctx.op);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     keylen = snprintf(key, sizeof(key), "hostname");
     ret = dict_set_strn(friends, key, keylen, hostname);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
+    }
 
     RCU_READ_LOCK;
     cds_list_for_each_entry_rcu(peerinfo, &priv->peers, uuid_list)
@@ -370,30 +381,45 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
     peerinfo = glusterd_peerinfo_find(NULL, probe_ctx->hostname);
     if (peerinfo == NULL) {
         // We should not reach this state ideally
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_PEER_NOT_FOUND, NULL);
         ret = -1;
         goto unlock;
     }
 
-    if (!peerinfo->peer)
+    if (!peerinfo->peer) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_PEER_ADDRESS_GET_FAIL,
+                NULL);
         goto unlock;
+    }
     proc = &peerinfo->peer->proctable[GLUSTERD_PROBE_QUERY];
     if (proc->fn) {
         frame = create_frame(this, this->ctx->pool);
         if (!frame) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
+                    NULL);
             goto unlock;
         }
         frame->local = ctx;
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             goto unlock;
+        }
         ret = dict_set_strn(dict, "hostname", SLEN("hostname"),
                             probe_ctx->hostname);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=hostname", NULL);
             goto unlock;
+        }
 
         ret = dict_set_int32n(dict, "port", SLEN("port"), probe_ctx->port);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=port", NULL);
             goto unlock;
+        }
 
         /* The peerinfo reference being set here is going to be used
          * only within this critical section, in glusterd_rpc_probe
@@ -482,12 +508,17 @@ glusterd_ac_send_friend_remove_req(glusterd_friend_sm_event_t *event,
         goto unlock;
     }
 
-    if (!peerinfo->peer)
+    if (!peerinfo->peer) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_PEER_ADDRESS_GET_FAIL,
+                NULL);
         goto unlock;
+    }
     proc = &peerinfo->peer->proctable[GLUSTERD_FRIEND_REMOVE];
     if (proc->fn) {
         frame = create_frame(this, this->ctx->pool);
         if (!frame) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
+                    NULL);
             goto unlock;
         }
         frame->local = data;
@@ -556,13 +587,18 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
         goto out;
     }
 
-    if (!friends)
+    if (!friends) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto unlock;
+    }
 
     ev_ctx.op = GD_FRIEND_UPDATE_ADD;
     ret = dict_set_int32n(friends, key, keylen, ev_ctx.op);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto unlock;
+    }
 
     cds_list_for_each_entry_rcu(peerinfo, &priv->peers, uuid_list)
     {
@@ -578,8 +614,11 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
     }
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=count", NULL);
         goto unlock;
+    }
 
     cds_list_for_each_entry_rcu(peerinfo, &priv->peers, uuid_list)
     {
@@ -665,13 +704,18 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
         goto unlock;
     }
 
-    if (!friends)
+    if (!friends) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ev_ctx.op = GD_FRIEND_UPDATE_ADD;
     ret = dict_set_int32n(friends, key, keylen, ev_ctx.op);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto unlock;
+    }
 
     cds_list_for_each_entry_rcu(peerinfo, &priv->peers, uuid_list)
     {
@@ -687,8 +731,11 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
     }
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=count", NULL);
         goto unlock;
+    }
 
     ret = dict_set_static_ptr(friends, "peerinfo", cur_peerinfo);
     if (ret) {
@@ -1062,6 +1109,7 @@ glusterd_friend_sm_transition_state(uuid_t peerid, char *peername,
     RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(peerid, peername);
     if (!peerinfo) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_PEER_NOT_FOUND, NULL);
         goto out;
     }
 

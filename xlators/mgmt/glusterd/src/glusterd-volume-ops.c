@@ -575,10 +575,14 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
     int ret = 0;
     char *key = NULL;
     char *value = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     ret = dict_get_int32n(dict, "heal-op", SLEN("heal-op"),
                           (int32_t *)&heal_op);
     if (ret || (heal_op == GF_SHD_OP_INVALID)) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                "Key=heal-op", NULL);
         ret = -1;
         goto out;
     }
@@ -616,21 +620,33 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
     } else {
         key = "cluster.granular-entry-heal";
         ret = dict_set_int8(dict, "is-special-key", 1);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=is-special-key", NULL);
             goto out;
+        }
     }
 
     ret = dict_set_strn(dict, "key1", SLEN("key1"), key);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=key1", NULL);
         goto out;
+    }
 
     ret = dict_set_strn(dict, "value1", SLEN("value1"), value);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=value1", NULL);
         goto out;
+    }
 
     ret = dict_set_int32n(dict, "count", SLEN("count"), 1);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=count", NULL);
         goto out;
+    }
 
     ret = glusterd_op_begin_synctask(req, GD_OP_SET_VOLUME, dict);
 
@@ -660,6 +676,7 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
@@ -726,8 +743,11 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
         goto out;
 
     ret = dict_set_int32n(dict, "count", SLEN("count"), volinfo->brick_count);
-    if (ret)
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                "Key=count", NULL);
         goto out;
+    }
 
     ret = glusterd_op_begin_synctask(req, GD_OP_HEAL_VOLUME, dict);
 
@@ -779,6 +799,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
     if (cli_req.dict.dict_len) {
@@ -1119,20 +1140,32 @@ glusterd_op_stop_volume_args_get(dict_t *dict, char **volname, int *flags)
     this = THIS;
     GF_ASSERT(this);
 
-    if (!dict || !volname || !flags)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
+    }
+
+    if (!volname) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
+        goto out;
+    }
+
+    if (!flags) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
+        goto out;
+    }
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), volname);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Unable to get volume name");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=volname", NULL);
         goto out;
     }
 
     ret = dict_get_int32n(dict, "flags", SLEN("flags"), flags);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Unable to get flags");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=flags", NULL);
         goto out;
     }
 out:
@@ -1145,27 +1178,29 @@ glusterd_op_statedump_volume_args_get(dict_t *dict, char **volname,
 {
     int ret = -1;
 
-    if (!dict || !volname || !options || !option_cnt)
+    if (!dict || !volname || !options || !option_cnt) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
+    }
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), volname);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Unable to get volname");
+        gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=volname", NULL);
         goto out;
     }
 
     ret = dict_get_strn(dict, "options", SLEN("options"), options);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Unable to get options");
+        gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=options", NULL);
         goto out;
     }
 
     ret = dict_get_int32n(dict, "option_cnt", SLEN("option_cnt"), option_cnt);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Unable to get option count");
+        gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=option_cnt", NULL);
         goto out;
     }
 
@@ -1392,8 +1427,13 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     GF_ASSERT(this);
 
     ret = glusterd_op_stop_volume_args_get(dict, &volname, &flags);
-    if (ret)
+    if (ret) {
+        snprintf(msg, sizeof(msg), "Failed to get details of volume %s",
+                 volname);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_STOP_ARGS_GET_FAILED,
+                "Volume name=%s", volname, NULL);
         goto out;
+    }
 
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
@@ -1675,14 +1715,15 @@ glusterd_op_stage_heal_volume(dict_t *dict, char **op_errstr)
     if (!glusterd_is_volume_started(volinfo)) {
         ret = -1;
         snprintf(msg, sizeof(msg), "Volume %s is not started.", volname);
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_STARTED, "%s",
-               msg);
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_STARTED,
+                "Volume=%s", volname, NULL);
         *op_errstr = gf_strdup(msg);
         goto out;
     }
 
     opt_dict = volinfo->dict;
     if (!opt_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED, NULL);
         ret = 0;
         goto out;
     }
@@ -1738,6 +1779,8 @@ glusterd_op_stage_statedump_volume(dict_t *dict, char **op_errstr)
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
         snprintf(msg, sizeof(msg), FMTSTR_CHECK_VOL_EXISTS, volname);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_VOLINFO_GET_FAIL,
+                "Volume=%s", volname, NULL);
         goto out;
     }
 
@@ -2852,33 +2895,35 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char *mntpt = NULL;
     char **xl_opts = NULL;
     glusterd_volinfo_t *volinfo = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Failed to get volume name");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=volname", NULL);
         goto out;
     }
     gf_msg_debug("glusterd", 0, "Performing clearlocks on volume %s", volname);
 
     ret = dict_get_strn(dict, "path", SLEN("path"), &path);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Failed to get path");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "Key=path",
+                NULL);
         goto out;
     }
 
     ret = dict_get_strn(dict, "kind", SLEN("kind"), &kind);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Failed to get kind");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "Key=kind",
+                NULL);
         goto out;
     }
 
     ret = dict_get_strn(dict, "type", SLEN("type"), &type);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Failed to get type");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "Key=type",
+                NULL);
         goto out;
     }
 
@@ -2886,10 +2931,9 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     if (ret)
         ret = 0;
 
-    gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_CLRCLK_VOL_REQ_RCVD,
-           "Received clear-locks request for "
-           "volume %s with kind %s type %s and options %s",
-           volname, kind, type, opts);
+    gf_smsg(this->name, GF_LOG_INFO, 0, GD_MSG_CLRCLK_VOL_REQ_RCVD,
+            "Volume=%s, Kind=%s, Type=%s, Options=%s", volname, kind, type,
+            opts, NULL);
 
     if (opts)
         ret = gf_asprintf(&cmd_str, GF_XATTR_CLRLK_CMD ".t%s.k%s.%s", type,
@@ -2902,22 +2946,25 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
         snprintf(msg, sizeof(msg), "Volume %s doesn't exist.", volname);
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND, "%s", msg);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND, "Volume=%s",
+                volname, NULL);
         goto out;
     }
 
     xl_opts = GF_CALLOC(volinfo->brick_count + 1, sizeof(char *),
                         gf_gld_mt_charptr);
-    if (!xl_opts)
+    if (!xl_opts) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     ret = glusterd_clearlocks_get_local_client_ports(volinfo, xl_opts);
     if (ret) {
         snprintf(msg, sizeof(msg),
                  "Couldn't get port numbers of "
                  "local bricks");
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_BRK_PORT_NUM_GET_FAIL, "%s",
-               msg);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRK_PORT_NUM_GET_FAIL,
+                NULL);
         goto out;
     }
 
@@ -2926,8 +2973,8 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         snprintf(msg, sizeof(msg),
                  "Creating mount directory "
                  "for clear-locks failed.");
-        gf_msg(THIS->name, GF_LOG_ERROR, 0,
-               GD_MSG_CLRLOCKS_MOUNTDIR_CREATE_FAIL, "%s", msg);
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_CLRLOCKS_MOUNTDIR_CREATE_FAIL, NULL);
         goto out;
     }
 
@@ -2936,16 +2983,15 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         snprintf(msg, sizeof(msg),
                  "Failed to mount clear-locks "
                  "maintenance client.");
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CLRLOCKS_CLNT_MOUNT_FAIL,
-               "%s", msg);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_CLRLOCKS_CLNT_MOUNT_FAIL,
+                NULL);
         goto out;
     }
 
     ret = glusterd_clearlocks_send_cmd(volinfo, cmd_str, path, result, msg,
                                        sizeof(msg), mntpt);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CLRCLK_SND_CMD_FAIL, "%s",
-               msg);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_CLRCLK_SND_CMD_FAIL, NULL);
         goto umount;
     }
 
@@ -2956,16 +3002,16 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         snprintf(msg, sizeof(msg),
                  "Failed to set clear-locks "
                  "result");
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "%s", msg);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                "Key=lk-summary", NULL);
     }
 
 umount:
     glusterd_clearlocks_unmount(volinfo, mntpt);
 
     if (glusterd_clearlocks_rmdir_mount(volinfo, mntpt))
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_CLRLOCKS_CLNT_UMOUNT_FAIL,
-               "Couldn't unmount "
-               "clear-locks mount point");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_CLRLOCKS_CLNT_UMOUNT_FAIL,
+                NULL);
 
 out:
     if (ret)

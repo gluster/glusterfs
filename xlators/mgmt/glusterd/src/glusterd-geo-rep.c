@@ -115,13 +115,18 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        snprintf(err_str, sizeof(err_str), "Garbage args received");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
     if (cli_req.dict.dict_len) {
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             goto out;
+        }
 
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
@@ -142,13 +147,18 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
             snprintf(err_str, sizeof(err_str),
                      "Failed to get "
                      "the uuid of local glusterd");
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_UUID_GET_FAIL,
+                    NULL);
             ret = -1;
             goto out;
         }
 
         ret = dict_set_dynstr(dict, "host-uuid", host_uuid);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                    "Key=host-uuid", NULL);
             goto out;
+        }
     }
 
     ret = glusterd_op_begin_synctask(req, cli_op, dict);
@@ -188,13 +198,18 @@ __glusterd_handle_copy_file(rpcsvc_request_t *req)
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        snprintf(err_str, sizeof(err_str), "Garbage args received");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
     if (cli_req.dict.dict_len) {
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             goto out;
+        }
 
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
@@ -215,6 +230,8 @@ __glusterd_handle_copy_file(rpcsvc_request_t *req)
             snprintf(err_str, sizeof(err_str),
                      "Failed to get "
                      "the uuid of local glusterd");
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_UUID_GET_FAIL,
+                    NULL);
             ret = -1;
             goto out;
         }
@@ -267,13 +284,18 @@ __glusterd_handle_gsync_set(rpcsvc_request_t *req)
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        snprintf(err_str, sizeof(err_str), "Garbage args received");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
     if (cli_req.dict.dict_len) {
         dict = dict_new();
-        if (!dict)
+        if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             goto out;
+        }
 
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
@@ -294,6 +316,8 @@ __glusterd_handle_gsync_set(rpcsvc_request_t *req)
             snprintf(err_str, sizeof(err_str),
                      "Failed to get "
                      "the uuid of local glusterd");
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_UUID_GET_FAIL,
+                    NULL);
             ret = -1;
             goto out;
         }
@@ -2251,6 +2275,9 @@ glusterd_op_verify_gsync_running(glusterd_volinfo_t *volinfo, char *slave,
                  "Volume %s needs to be started "
                  "before " GEOREP " start",
                  volinfo->volname);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_GEO_REP_START_FAILED,
+                "Volume is not in a started state, Volname=%s",
+                volinfo->volname, NULL);
 
         goto out;
     }
@@ -2555,6 +2582,7 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
         len = snprintf(abs_filename, sizeof(abs_filename), "%s/%s",
                        priv->workdir, filename);
         if ((len < 0) || (len >= sizeof(abs_filename))) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -2567,6 +2595,9 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
             if (len < 0) {
                 strcpy(errmsg, "<error>");
             }
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_REALPATH_GET_FAIL,
+                    "Realpath=%s, Reason=%s", priv->workdir, strerror(errno),
+                    NULL);
             *op_errstr = gf_strdup(errmsg);
             ret = -1;
             goto out;
@@ -2577,6 +2608,8 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
                      "Failed to get "
                      "realpath of %s: %s",
                      filename, strerror(errno));
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_REALPATH_GET_FAIL,
+                    "Filename=%s, Reason=%s", filename, strerror(errno), NULL);
             *op_errstr = gf_strdup(errmsg);
             ret = -1;
             goto out;
@@ -2586,6 +2619,7 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
            will succeed for /var/lib/glusterd_bad */
         len = snprintf(workdir, sizeof(workdir), "%s/", realpath_workdir);
         if ((len < 0) || (len >= sizeof(workdir))) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -2599,6 +2633,8 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
             if (len < 0) {
                 strcpy(errmsg, "<error>");
             }
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_SRC_FILE_ERROR, errmsg,
+                    NULL);
             *op_errstr = gf_strdup(errmsg);
             ret = -1;
             goto out;
@@ -2613,6 +2649,8 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
             if (len < 0) {
                 strcpy(errmsg, "<error>");
             }
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_SRC_FILE_ERROR, errmsg,
+                    NULL);
             *op_errstr = gf_strdup(errmsg);
             goto out;
         }
@@ -2621,9 +2659,9 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
             snprintf(errmsg, sizeof(errmsg),
                      "Source file"
                      " is not a regular file.");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_SRC_FILE_ERROR, errmsg,
+                    NULL);
             *op_errstr = gf_strdup(errmsg);
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SRC_FILE_ERROR, "%s",
-                   errmsg);
             ret = -1;
             goto out;
         }
@@ -2842,8 +2880,11 @@ glusterd_verify_slave(char *volname, char *slave_url, char *slave_vol,
      */
     if (strstr(slave_url, "@")) {
         slave_url_buf = gf_strdup(slave_url);
-        if (!slave_url_buf)
+        if (!slave_url_buf) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_STRDUP_FAILED,
+                    "Slave_url=%s", slave_url, NULL);
             goto out;
+        }
 
         slave_user = strtok_r(slave_url_buf, "@", &save_ptr);
         slave_ip = strtok_r(NULL, "@", &save_ptr);

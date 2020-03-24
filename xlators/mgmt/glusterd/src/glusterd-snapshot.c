@@ -514,6 +514,7 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
     ret = snprintf(georep_session_dir, sizeof(georep_session_dir), "%s/%s/%s",
                    priv->workdir, GEOREP, session);
     if (ret < 0) { /* Negative value is an error */
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
@@ -521,6 +522,7 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
                    priv->workdir, GLUSTERD_VOL_SNAP_DIR_PREFIX,
                    snap_vol->snapshot->snapname, GEOREP, session);
     if (ret < 0) { /* Negative value is an error */
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
@@ -568,12 +570,14 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
         ret = snprintf(src_path, sizeof(src_path), "%s/%s", georep_session_dir,
                        files[i]->d_name);
         if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
             goto out;
         }
 
         ret = snprintf(dest_path, sizeof(dest_path), "%s/%s", snap_session_dir,
                        files[i]->d_name);
         if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
             goto out;
         }
 
@@ -632,12 +636,14 @@ glusterd_snapshot_backup_vol(glusterd_volinfo_t *volinfo)
                    "%s/" GLUSTERD_TRASH "/vols-%s.deleted", priv->workdir,
                    volinfo->volname);
     if ((len < 0) || (len >= sizeof(delete_path))) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
     len = snprintf(trashdir, sizeof(trashdir), "%s/" GLUSTERD_TRASH,
                    priv->workdir);
-    if ((len < 0) || (len >= sizeof(delete_path))) {
+    if ((len < 0) || (len >= sizeof(trashdir))) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
@@ -730,6 +736,7 @@ glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
      * is slave volume.
      */
     if (!origin_vol->gsync_slaves) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_SLAVE, NULL);
         ret = 0;
         goto out;
     }
@@ -1418,6 +1425,8 @@ glusterd_handle_snapshot_config(rpcsvc_request_t *req, glusterd_op_t op,
                           &config_command);
     if (ret) {
         snprintf(err_str, len, "Failed to get config-command type");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=config-command", NULL);
         goto out;
     }
 
@@ -1976,6 +1985,13 @@ glusterd_snap_create_clone_common_prevalidate(
                          "command or use [force] option in "
                          "snapshot create to override this "
                          "behavior.");
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_BRICK_NOT_RUNNING,
+                        "Please run volume status command to see brick "
+                        "status.Please start the stopped brick and then issue "
+                        "snapshot create command or use 'force' option in "
+                        "snapshot create to override this behavior.",
+                        NULL);
             } else {
                 snprintf(err_str, PATH_MAX,
                          "One or more bricks are not running. "
@@ -1984,6 +2000,12 @@ glusterd_snap_create_clone_common_prevalidate(
                          "Please start the stopped brick "
                          "and then issue snapshot clone "
                          "command ");
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_BRICK_NOT_RUNNING,
+                        "Please run snapshot status command to see brick "
+                        "status. Please start the stopped brick and then issue "
+                        "snapshot clone command.",
+                        NULL);
             }
             *op_errno = EG_BRCKDWN;
             ret = -1;
@@ -1999,6 +2021,10 @@ glusterd_snap_create_clone_common_prevalidate(
             if (len < 0) {
                 strcpy(err_str, "<error>");
             }
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_BRK_MNTPATH_GET_FAIL,
+                    "Brick_hostname=%s, Brick_path=%s", brickinfo->hostname,
+                    brickinfo->path, NULL);
             ret = -1;
             goto out;
         }
@@ -2010,6 +2036,11 @@ glusterd_snap_create_clone_common_prevalidate(
                          "all bricks of %s are thinly "
                          "provisioned LV.",
                          volinfo->volname);
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_SNAPSHOT_NOT_THIN_PROVISIONED,
+                        "Ensure that all bricks of volume are thinly "
+                        "provisioned LV, Volume=%s",
+                        volinfo->volname, NULL);
                 ret = -1;
                 goto out;
             }
@@ -2022,6 +2053,9 @@ glusterd_snap_create_clone_common_prevalidate(
                      "cannot copy the snapshot device "
                      "name (volname: %s, snapname: %s)",
                      volinfo->volname, snapname);
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_SNAP_DEVICE_NAME_GET_FAIL, "Volname=%s, Snapname=%s",
+                    volinfo->volname, snapname, NULL);
             *loglevel = GF_LOG_WARNING;
             ret = -1;
             goto out;
@@ -4461,6 +4495,7 @@ glusterd_add_missed_snaps_to_dict(dict_t *rsp_dict,
                    snap_uuid, snap_vol->volname, brick_number, brickinfo->path,
                    op, GD_MISSED_SNAP_PENDING);
     if ((len < 0) || (len >= sizeof(missed_snap_entry))) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
@@ -4468,6 +4503,8 @@ glusterd_add_missed_snaps_to_dict(dict_t *rsp_dict,
     ret = dict_get_int32n(rsp_dict, "missed_snap_count",
                           SLEN("missed_snap_count"), &missed_snap_count);
     if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                "Key=missed_snap_count", NULL);
         /* Initialize the missed_snap_count for the first time */
         missed_snap_count = 0;
     }
@@ -4657,7 +4694,7 @@ glusterd_snap_brick_create(glusterd_volinfo_t *snap_volinfo,
     ret = sys_lsetxattr(brickinfo->path, GF_XATTR_VOL_ID_KEY,
                         snap_volinfo->volume_id, 16, XATTR_REPLACE);
     if (ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_SETXATTR_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_SET_XATTR_FAIL,
                "Failed to set "
                "extended attribute %s on %s. Reason: "
                "%s, snap: %s",
@@ -5409,6 +5446,8 @@ glusterd_snapshot_activate_deactivate_prevalidate(dict_t *dict,
                  "Snapshot (%s) does not "
                  "exist.",
                  snapname);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_NOT_FOUND,
+                "Snapname=%s", snapname, NULL);
         *op_errno = EG_NOSNAP;
         ret = -1;
         goto out;
@@ -7214,11 +7253,15 @@ glusterd_get_brick_lvm_details(dict_t *rsp_dict,
         if (token != NULL) {
             value = gf_strdup(token);
             if (!value) {
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                        "token=%s", token, NULL);
                 ret = -1;
                 goto end;
             }
             ret = snprintf(key, sizeof(key), "%s.data", key_prefix);
             if (ret < 0) {
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL,
+                        NULL);
                 goto end;
             }
 
@@ -7233,11 +7276,15 @@ glusterd_get_brick_lvm_details(dict_t *rsp_dict,
         if (token != NULL) {
             value = gf_strdup(token);
             if (!value) {
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                        "token=%s", token, NULL);
                 ret = -1;
                 goto end;
             }
             ret = snprintf(key, sizeof(key), "%s.lvsize", key_prefix);
             if (ret < 0) {
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL,
+                        NULL);
                 goto end;
             }
 
@@ -7297,6 +7344,7 @@ glusterd_get_single_brick_status(char **op_errstr, dict_t *rsp_dict,
 
     keylen = snprintf(key, sizeof(key), "%s.brick%d.path", keyprefix, index);
     if (keylen < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -7304,11 +7352,14 @@ glusterd_get_single_brick_status(char **op_errstr, dict_t *rsp_dict,
     ret = snprintf(brick_path, sizeof(brick_path), "%s:%s", brickinfo->hostname,
                    brickinfo->path);
     if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
     value = gf_strdup(brick_path);
     if (!value) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                "brick_path=%s", brick_path, NULL);
         ret = -1;
         goto out;
     }
@@ -7384,6 +7435,8 @@ glusterd_get_single_brick_status(char **op_errstr, dict_t *rsp_dict,
                               index);
             if (keylen < 0) {
                 ret = -1;
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL,
+                        NULL);
                 goto out;
             }
 
@@ -7469,6 +7522,7 @@ glusterd_get_single_snap_status(char **op_errstr, dict_t *rsp_dict,
     {
         keylen = snprintf(key, sizeof(key), "%s.vol%d", keyprefix, volcount);
         if (keylen < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             ret = -1;
             goto out;
         }
@@ -7492,6 +7546,7 @@ glusterd_get_single_snap_status(char **op_errstr, dict_t *rsp_dict,
         }
         keylen = snprintf(brickkey, sizeof(brickkey), "%s.brickcount", key);
         if (keylen < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             goto out;
         }
 
@@ -7506,6 +7561,7 @@ glusterd_get_single_snap_status(char **op_errstr, dict_t *rsp_dict,
 
     keylen = snprintf(key, sizeof(key), "%s.volcount", keyprefix);
     if (keylen < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -7545,6 +7601,7 @@ glusterd_get_each_snap_object_status(char **op_errstr, dict_t *rsp_dict,
      */
     keylen = snprintf(key, sizeof(key), "%s.snapname", keyprefix);
     if (keylen < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -7566,6 +7623,7 @@ glusterd_get_each_snap_object_status(char **op_errstr, dict_t *rsp_dict,
 
     keylen = snprintf(key, sizeof(key), "%s.uuid", keyprefix);
     if (keylen < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -7649,6 +7707,7 @@ glusterd_get_snap_status_of_volume(char **op_errstr, dict_t *rsp_dict,
     {
         ret = snprintf(key, sizeof(key), "status.snap%d.snapname", i);
         if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             goto out;
         }
 
@@ -7700,6 +7759,7 @@ glusterd_get_all_snapshot_status(dict_t *dict, char **op_errstr,
     {
         ret = snprintf(key, sizeof(key), "status.snap%d.snapname", i);
         if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
             goto out;
         }
 
@@ -8743,6 +8803,7 @@ glusterd_snapshot_revert_partial_restored_vol(glusterd_volinfo_t *volinfo)
                    "%s/" GLUSTERD_TRASH "/vols-%s.deleted", priv->workdir,
                    volinfo->volname);
     if ((len < 0) || (len >= sizeof(trash_path))) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -8803,12 +8864,10 @@ glusterd_snapshot_revert_partial_restored_vol(glusterd_volinfo_t *volinfo)
                                     snap_vol->volume_id,
                                     sizeof(snap_vol->volume_id), XATTR_REPLACE);
                 if (ret == -1) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SETXATTR_FAIL,
-                           "Failed to set extended "
-                           "attribute %s on %s. "
-                           "Reason: %s, snap: %s",
-                           GF_XATTR_VOL_ID_KEY, brickinfo->path,
-                           strerror(errno), snap_vol->volname);
+                    gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_SET_XATTR_FAIL,
+                            "Attribute=%s, Path=%s, Reason=%s, Snap=%s",
+                            GF_XATTR_VOL_ID_KEY, brickinfo->path,
+                            strerror(errno), snap_vol->volname, NULL);
                     goto out;
                 }
             }
@@ -9188,6 +9247,7 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 

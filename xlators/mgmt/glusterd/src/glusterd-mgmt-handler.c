@@ -165,6 +165,7 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
 
     ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_op_lock_ctx_t);
     if (!ctx) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }
@@ -174,6 +175,7 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
 
     ctx->dict = dict_new();
     if (!ctx->dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -181,8 +183,8 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
     ret = dict_unserialize(lock_req.dict.dict_val, lock_req.dict.dict_len,
                            &ctx->dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 
@@ -264,8 +266,8 @@ glusterd_mgmt_v3_pre_validate_send_resp(rpcsvc_request_t *req, int32_t op,
     ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "failed to get serialized length of dict");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
 
@@ -315,20 +317,21 @@ glusterd_handle_pre_validate_fn(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = dict_unserialize(op_req.dict.dict_val, op_req.dict.dict_len, &dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 
     rsp_dict = dict_new();
     if (!rsp_dict) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
-               "Failed to get new dictionary");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         return -1;
     }
 
@@ -391,8 +394,8 @@ glusterd_mgmt_v3_brick_op_send_resp(rpcsvc_request_t *req, int32_t op,
     ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "failed to get serialized length of dict");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
 
@@ -441,20 +444,21 @@ glusterd_handle_brick_op_fn(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = dict_unserialize(op_req.dict.dict_val, op_req.dict.dict_len, &dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 
     rsp_dict = dict_new();
     if (!rsp_dict) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
-               "Failed to get new dictionary");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         return -1;
     }
 
@@ -518,8 +522,8 @@ glusterd_mgmt_v3_commit_send_resp(rpcsvc_request_t *req, int32_t op,
     ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "failed to get serialized length of dict");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
 
@@ -569,20 +573,21 @@ glusterd_handle_commit_fn(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = dict_unserialize(op_req.dict.dict_val, op_req.dict.dict_len, &dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 
     rsp_dict = dict_new();
     if (!rsp_dict) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
-               "Failed to get new dictionary");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         return -1;
     }
 
@@ -646,8 +651,8 @@ glusterd_mgmt_v3_post_validate_send_resp(rpcsvc_request_t *req, int32_t op,
     ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
                                       &rsp.dict.dict_len);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
-               "failed to get serialized length of dict");
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
     }
 
@@ -696,20 +701,21 @@ glusterd_handle_post_validate_fn(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
-    if (!dict)
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     ret = dict_unserialize(op_req.dict.dict_val, op_req.dict.dict_len, &dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 
     rsp_dict = dict_new();
     if (!rsp_dict) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
-               "Failed to get new dictionary");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         return -1;
     }
 
@@ -867,6 +873,7 @@ glusterd_handle_mgmt_v3_unlock_fn(rpcsvc_request_t *req)
 
     ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_op_lock_ctx_t);
     if (!ctx) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_MEMORY, NULL);
         ret = -1;
         goto out;
     }
@@ -876,6 +883,7 @@ glusterd_handle_mgmt_v3_unlock_fn(rpcsvc_request_t *req)
 
     ctx->dict = dict_new();
     if (!ctx->dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -883,8 +891,8 @@ glusterd_handle_mgmt_v3_unlock_fn(rpcsvc_request_t *req)
     ret = dict_unserialize(lock_req.dict.dict_val, lock_req.dict.dict_len,
                            &ctx->dict);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
-               "failed to unserialize the dictionary");
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
         goto out;
     }
 

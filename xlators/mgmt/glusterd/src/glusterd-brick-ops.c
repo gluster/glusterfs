@@ -182,6 +182,9 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     int replica_nodes = 0;
+    xlator_t *this = NULL;
+    this = THIS;
+    GF_ASSERT(this);
 
     switch (volinfo->type) {
         case GF_CLUSTER_TYPE_NONE:
@@ -190,8 +193,8 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                      "replica count (%d) option given for non replicate "
                      "volume %s",
                      replica_count, volinfo->volname);
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_REPLICA, "%s",
-                   err_str);
+            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, GD_MSG_INVALID_ARGUMENT,
+                    err_str, NULL);
             goto out;
 
         case GF_CLUSTER_TYPE_REPLICATE:
@@ -202,8 +205,8 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                          "than volume %s's replica count (%d)",
                          replica_count, volinfo->volname,
                          volinfo->replica_count);
-                gf_msg(THIS->name, GF_LOG_WARNING, EINVAL, GD_MSG_INVALID_ENTRY,
-                       "%s", err_str);
+                gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                        GD_MSG_INVALID_ARGUMENT, err_str, NULL);
                 goto out;
             }
             if (replica_count == volinfo->replica_count) {
@@ -217,8 +220,8 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                              "(or %dxN)",
                              brick_count, volinfo->dist_leaf_count,
                              volinfo->dist_leaf_count);
-                    gf_msg(THIS->name, GF_LOG_WARNING, EINVAL,
-                           GD_MSG_INVALID_ENTRY, "%s", err_str);
+                    gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                            GD_MSG_INVALID_ARGUMENT, err_str, NULL);
                     goto out;
                 }
                 ret = 1;
@@ -233,6 +236,8 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                          "need %d(xN) bricks for reducing replica "
                          "count of the volume from %d to %d",
                          replica_nodes, volinfo->replica_count, replica_count);
+                gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                        GD_MSG_INVALID_ARGUMENT, err_str, NULL);
                 goto out;
             }
             break;
@@ -282,6 +287,7 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
         snprintf(err_str, sizeof(err_str), "Garbage args received");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
@@ -509,6 +515,8 @@ subvol_matcher_verify(int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
     int i = 0;
     int ret = 0;
     int count = volinfo->replica_count - replica_count;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     if (replica_count && subvols) {
         for (i = 0; i < volinfo->subvol_count; i++) {
@@ -518,6 +526,8 @@ subvol_matcher_verify(int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
                          "Remove exactly %d"
                          " brick(s) from each subvolume.",
                          count);
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_BRICK_SUBVOL_VERIFY_FAIL, err_str, NULL);
                 break;
             }
         }
@@ -531,6 +541,8 @@ subvol_matcher_verify(int *subvols, glusterd_volinfo_t *volinfo, char *err_str,
             ret = -1;
             snprintf(err_str, err_len, "Bricks not from same subvol for %s",
                      vol_type);
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_BRICK_SUBVOL_VERIFY_FAIL, err_str, NULL);
             break;
         }
     } while (++i < volinfo->subvol_count);
@@ -555,6 +567,9 @@ glusterd_remove_brick_validate_arbiters(glusterd_volinfo_t *volinfo,
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_brickinfo_t *last = NULL;
     char *arbiter_array = NULL;
+    xlator_t *this = NULL;
+    this = THIS;
+    GF_ASSERT(this);
 
     if (volinfo->type != GF_CLUSTER_TYPE_REPLICATE)
         goto out;
@@ -573,6 +588,8 @@ glusterd_remove_brick_validate_arbiters(glusterd_volinfo_t *volinfo,
                          "Remove arbiter "
                          "brick(s) only when converting from "
                          "arbiter to replica 2 subvolume.");
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_REMOVE_ARBITER_BRICK, err_str, NULL);
                 ret = -1;
                 goto out;
             }
@@ -597,6 +614,8 @@ glusterd_remove_brick_validate_arbiters(glusterd_volinfo_t *volinfo,
                          "Removed bricks "
                          "must contain arbiter when converting"
                          " to plain distribute.");
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_REMOVE_ARBITER_BRICK, err_str, NULL);
                 ret = -1;
                 break;
             }
@@ -647,6 +666,7 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
         snprintf(err_str, sizeof(err_str), "Received garbage args");
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
 
@@ -1659,6 +1679,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
     };
     glusterd_conf_t *priv = THIS->private;
     int pid = -1;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     /* Check whether all the nodes of the bricks to be removed are
      * up, if not fail the operation */
@@ -1667,6 +1689,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
         ret = dict_get_strn(dict, key, keylen, &brick);
         if (ret) {
             snprintf(msg, sizeof(msg), "Unable to get %s", key);
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                    "key=%s", key, NULL);
             *errstr = gf_strdup(msg);
             goto out;
         }
@@ -1678,6 +1702,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                      "Incorrect brick "
                      "%s for volume %s",
                      brick, volinfo->volname);
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INCORRECT_BRICK,
+                    "Brick=%s, Volume=%s", brick, volinfo->volname, NULL);
             *errstr = gf_strdup(msg);
             goto out;
         }
@@ -1690,6 +1716,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                      "is not decommissioned. "
                      "Use start or force option",
                      brick);
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_BRICK_NOT_DECOM,
+                    "Use 'start' or 'force' option, Brick=%s", brick, NULL);
             *errstr = gf_strdup(msg);
             ret = -1;
             goto out;
@@ -1716,6 +1744,10 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                          "brick %s. Use force option to "
                          "remove the offline brick",
                          brick);
+                gf_smsg(
+                    this->name, GF_LOG_ERROR, errno, GD_MSG_BRICK_STOPPED,
+                    "Use 'force' option to remove the offline brick, Brick=%s",
+                    brick, NULL);
                 *errstr = gf_strdup(msg);
                 ret = -1;
                 goto out;
@@ -1726,6 +1758,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                          "Found dead "
                          "brick %s",
                          brick);
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_BRICK_DEAD,
+                        "Brick=%s", brick, NULL);
                 *errstr = gf_strdup(msg);
                 ret = -1;
                 goto out;
@@ -1743,6 +1777,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                      "Host node of the "
                      "brick %s is not in cluster",
                      brick);
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_BRICK_HOST_NOT_FOUND, "Brick=%s", brick, NULL);
             *errstr = gf_strdup(msg);
             ret = -1;
             goto out;
@@ -1753,6 +1789,8 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                      "Host node of the "
                      "brick %s is down",
                      brick);
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_HOST_DOWN,
+                    "Brick=%s", brick, NULL);
             *errstr = gf_strdup(msg);
             ret = -1;
             goto out;
@@ -1832,6 +1870,7 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
         errstr = gf_strdup(
             "Deleting all the bricks of the "
             "volume is not allowed");
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_DELETE, NULL);
         ret = -1;
         goto out;
     }
@@ -1840,6 +1879,8 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
     switch (cmd) {
         case GF_OP_CMD_NONE:
             errstr = gf_strdup("no remove-brick command issued");
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_NO_REMOVE_CMD,
+                    NULL);
             goto out;
 
         case GF_OP_CMD_STATUS:
@@ -1964,6 +2005,8 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                 errstr = gf_strdup(
                     "use 'force' option as migration "
                     "is in progress");
+                gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_MIGRATION_PROG,
+                        "Use 'force' option", NULL);
                 goto out;
             }
 
@@ -1971,6 +2014,8 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                 errstr = gf_strdup(
                     "use 'force' option as migration "
                     "has failed");
+                gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_MIGRATION_FAIL,
+                        "Use 'force' option", NULL);
                 goto out;
             }
 
@@ -1981,6 +2026,11 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                         "use 'force' option as migration "
                         "of some files might have been skipped or "
                         "has failed");
+                    gf_smsg(this->name, GF_LOG_WARNING, 0,
+                            GD_MSG_MIGRATION_FAIL,
+                            "Use 'force' option, some files might have been "
+                            "skipped",
+                            NULL);
                     goto out;
                 }
             }

@@ -406,8 +406,11 @@ gd_syncop_mgmt_v3_lock(glusterd_op_t op, dict_t *op_ctx,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     gf_uuid_copy(req.txn_id, txn_id);
@@ -507,8 +510,11 @@ gd_syncop_mgmt_v3_unlock(dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
 
     ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
                                       &req.dict.dict_len);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req.uuid, my_uuid);
     gf_uuid_copy(req.txn_id, txn_id);
@@ -842,16 +848,21 @@ gd_syncop_mgmt_stage_op(glusterd_peerinfo_t *peerinfo, struct syncargs *args,
     uuid_t *peerid = NULL;
 
     req = GF_CALLOC(1, sizeof(*req), gf_gld_mt_mop_stage_req_t);
-    if (!req)
+    if (!req) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req->uuid, my_uuid);
     req->op = op;
 
     ret = dict_allocate_and_serialize(dict_out, &req->buf.buf_val,
                                       &req->buf.buf_len);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
     if (ret)
@@ -903,6 +914,8 @@ _gd_syncop_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (rsp.output.output_len) {
         args->dict = dict_new();
         if (!args->dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
             ret = -1;
             args->op_errno = ENOMEM;
             goto out;
@@ -910,8 +923,11 @@ _gd_syncop_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
         ret = dict_unserialize(rsp.output.output_val, rsp.output.output_len,
                                &args->dict);
-        if (ret < 0)
+        if (ret < 0) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_DICT_UNSERIALIZE_FAIL, NULL);
             goto out;
+        }
     }
 
     args->op_ret = rsp.op_ret;
@@ -1152,16 +1168,21 @@ gd_syncop_mgmt_commit_op(glusterd_peerinfo_t *peerinfo, struct syncargs *args,
     uuid_t *peerid = NULL;
 
     req = GF_CALLOC(1, sizeof(*req), gf_gld_mt_mop_commit_req_t);
-    if (!req)
+    if (!req) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
+    }
 
     gf_uuid_copy(req->uuid, my_uuid);
     req->op = op;
 
     ret = dict_allocate_and_serialize(dict_out, &req->buf.buf_val,
                                       &req->buf.buf_len);
-    if (ret)
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
         goto out;
+    }
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
     if (ret)
@@ -1278,8 +1299,10 @@ gd_stage_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     GF_ASSERT(conf);
 
     rsp_dict = dict_new();
-    if (!rsp_dict)
+    if (!rsp_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
+    }
 
     if ((op == GD_OP_CREATE_VOLUME) || (op == GD_OP_ADD_BRICK) ||
         (op == GD_OP_START_VOLUME))
@@ -1408,6 +1431,7 @@ gd_commit_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
     rsp_dict = dict_new();
     if (!rsp_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -1464,8 +1488,11 @@ commit_done:
 
     if (op == GD_OP_STATUS_VOLUME) {
         ret = dict_get_uint32(req_dict, "cmd", &cmd);
-        if (ret)
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                    "Key=cmd", NULL);
             goto out;
+        }
 
         if (origin_glusterd) {
             if ((cmd & GF_CLI_STATUS_ALL)) {
@@ -1695,6 +1722,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     this = THIS;
     rsp_dict = dict_new();
     if (!rsp_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -1;
         goto out;
     }
