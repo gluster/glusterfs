@@ -484,6 +484,7 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
 
     LOCK_DESTROY(&fd->lock);
 
+    GF_FREE(fd->dir_cache_subs);
     GF_FREE(fd->_ctx);
     if (bound) {
         /*Decrease the count only after close happens on file*/

@@ -348,6 +348,7 @@ struct dht_local {
     /* This is use only for directory operation */
     int32_t valid;
     int32_t mds_heal_fresh_lookup;
+    size_t filled_size;
     short lock_type;
     char need_selfheal;
     char need_xattr_heal;
@@ -512,6 +513,20 @@ struct dht_methods_s {
 
 typedef struct dht_methods_s dht_methods_t;
 
+typedef struct {
+    gf_dirent_t orig_entries;
+    int op_errno;
+    dict_t *xdata;
+    int op_ret;
+    xlator_t *xl;
+    int ready;
+    gf_boolean_t in_progress;
+    off_t start_yoff;
+    off_t end_yoff;
+    call_stub_t *stub;
+    pthread_mutex_t mutex;
+} dir_cache_t;
+
 struct dht_conf {
     xlator_t **subvolumes;
     char *subvolume_status;
@@ -610,6 +625,11 @@ struct dht_conf {
     gf_boolean_t do_weighting;
 
     gf_boolean_t randomize_by_gfid;
+
+    /* Set readdir cache for prefetching the content */
+    gf_boolean_t readdir_cache;
+    gf_atomic_t cache_hit;
+    gf_atomic_t cache_miss;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -1237,6 +1257,9 @@ int32_t
 dht_release(xlator_t *this, fd_t *fd);
 
 int32_t
+dht_releasedir(xlator_t *this, fd_t *fd);
+
+int32_t
 dht_set_fixed_dir_stat(struct iatt *stat);
 
 xlator_t *
@@ -1381,4 +1404,8 @@ dht_dir_layout_error_check(xlator_t *this, inode_t *inode);
 
 int
 dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol);
+
+int32_t
+dht_dump_metrics(xlator_t *this, int fd);
+
 #endif /* _DHT_H */

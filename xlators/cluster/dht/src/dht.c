@@ -97,7 +97,7 @@ struct xlator_dumpops dumpops = {
 
 struct xlator_cbks cbks = {
     .release = dht_release,
-    //      .releasedir = dht_releasedir,
+    .releasedir = dht_releasedir,
     .forget = dht_forget,
 };
 
@@ -112,6 +112,7 @@ xlator_api_t xlator_api = {
     .notify = dht_notify,
     .reconfigure = dht_reconfigure,
     .mem_acct_init = mem_acct_init,
+    .dump_metrics = dht_dump_metrics,
     .op_version = {1}, /* Present from the initial version */
     .dumpops = &dumpops,
     .fops = &fops,

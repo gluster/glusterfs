@@ -23,6 +23,8 @@
 #include <libgen.h>
 #include <signal.h>
 
+#define DHT_DIR_CACHE_SIZE 131072
+
 static int
 dht_rmdir_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, gf_dirent_t *entries,
@@ -43,6 +45,9 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int
 dht_rmdir_unlock(call_frame_t *frame, xlator_t *this);
+
+static int
+dht_readdir_cache_fetch_v2(call_frame_t *frame, fd_t *fd, dir_cache_t *cache);
 
 static const char *dht_dbg_vxattrs[] = {DHT_DBG_HASHED_SUBVOL_PATTERN, NULL};
 
@@ -6271,16 +6276,99 @@ err:
     return 0;
 }
 
+static int
+dht_dir_cache_set_xdata(call_frame_t *frame, dict_t *xattr, xlator_t *this,
+                        dir_cache_t *cache)
+{
+    dht_conf_t *conf = NULL;
+    dht_local_t *local = NULL;
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO("dht", frame, out);
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO("dht", this->private, out);
+    GF_VALIDATE_OR_GOTO("dht", cache, out);
+    GF_VALIDATE_OR_GOTO("dht", xattr, out);
+
+    local = frame->local;
+    conf = this->private;
+
+    ret = dict_set_uint32(xattr, conf->link_xattr_name, 256);
+    if (ret)
+        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+               "Failed to set dictionary value"
+               " : key = %s",
+               conf->link_xattr_name);
+
+    if (conf->readdir_optimize == _gf_true) {
+        if (cache->xl != local->first_up_subvol) {
+            ret = dict_set_int32(xattr, GF_READDIR_SKIP_DIRS, 1);
+            if (ret)
+                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
+                       "Failed to set "
+                       "dictionary value: "
+                       "key = %s",
+                       GF_READDIR_SKIP_DIRS);
+        } else {
+            dict_del(xattr, GF_READDIR_SKIP_DIRS);
+        }
+    }
+
+    if (conf->subvolume_cnt == 1) {
+        ret = dict_set_uint32(xattr, conf->xattr_name, 4 * 4);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, ENOMEM, DHT_MSG_DICT_SET_FAILED,
+                   "Failed to set dictionary "
+                   "value:key = %s ",
+                   conf->xattr_name);
+        }
+    }
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
+dht_dir_cache_prepare_init(dir_cache_t *cache, fd_t *fd)
+{
+    GF_VALIDATE_OR_GOTO("dht", cache, out);
+    GF_VALIDATE_OR_GOTO("dht", fd, out);
+
+    pthread_mutex_lock(&cache->mutex);
+    {
+        INIT_LIST_HEAD(&cache->orig_entries.list);
+        cache->op_errno = 0;
+        cache->op_ret = 0;
+        cache->start_yoff = 0;
+        cache->ready = 0;
+        cache->end_yoff = 0;
+        cache->stub = NULL;
+    }
+    pthread_mutex_unlock(&cache->mutex);
+out:
+    return 0;
+}
+
 int
 dht_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
            int op_errno, fd_t *fd, dict_t *xdata)
 {
     dht_local_t *local = NULL;
+    int i = 0;
     int this_call_cnt = 0;
     xlator_t *prev = NULL;
+    dir_cache_t *cache = NULL;
+    dir_cache_t *found = NULL;
+    dht_conf_t *conf = NULL;
 
     local = frame->local;
     prev = cookie;
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO("dht", conf, post_unlock);
+
+    /* When conf->readdir_cache set to false then cache value will be NULL*/
+    if (local->fd)
+        cache = local->fd->dir_cache_subs;
 
     LOCK(&frame->lock);
     {
@@ -6293,8 +6381,22 @@ dht_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
 
         local->op_ret = 0;
+        if (cache) {
+            for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (cache[i].xl == NULL) {
+                    found = &cache[i];
+                    found->xl = prev;
+                    break;
+                }
+            }
+        }
     }
     UNLOCK(&frame->lock);
+
+    if (found) {
+        dht_dir_cache_prepare_init(found, fd);
+        dht_readdir_cache_fetch_v2(frame, fd, found);
+    }
 post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt))
@@ -6498,6 +6600,7 @@ dht_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     int i = -1;
     int ret = 0;
     gf_boolean_t new_xdata = _gf_false;
+    dir_cache_t *cache = NULL;
     xlator_t **subvolumes = NULL;
     int call_count = 0;
 
@@ -6535,6 +6638,25 @@ dht_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
     call_count = local->call_cnt = conf->subvolume_cnt;
     subvolumes = conf->subvolumes;
+
+    if (conf->readdir_cache && !fd->dir_cache_subs) {
+        fd->dir_cache_subs = (dir_cache_t *)GF_CALLOC(
+            conf->subvolume_cnt, sizeof(dir_cache_t), gf_dir_cache_t);
+        if (!fd->dir_cache_subs) {
+            op_errno = ENOMEM;
+            goto err;
+        }
+
+        /* The memory will be freed from dht_releasedir. But dht_releasedir will
+         * only called if there is a ctx set, so setting fd ctx this fd.*/
+        fd_ctx_set(fd, this, 1);
+
+        cache = fd->dir_cache_subs;
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+            INIT_LIST_HEAD(&cache[i].orig_entries.list);
+            pthread_mutex_init(&(cache[i].mutex), NULL);
+        }
+    }
 
     /* In case of parallel-readdir, the readdir-ahead will be loaded
      * below dht, in this case, if we want to enable or disable SKIP_DIRs
@@ -7039,38 +7161,247 @@ unwind:
     return 0;
 }
 
+static dir_cache_t *
+dht_dir_get_next_cache(dht_conf_t *conf, fd_t *fd, xlator_t *xl)
+{
+    int i = 0;
+    dir_cache_t *cache = NULL;
+    if (!xl)
+        return NULL;
+    cache = fd->dir_cache_subs;
+
+    for (i = 0; i < conf->subvolume_cnt; i++) {
+        if (cache[i].xl == xl) {
+            return &cache[i];
+        }
+    }
+    return NULL;
+}
+
 static int
-dht_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-               off_t yoff, int whichop, dict_t *dict)
+dht_cache_readdir_fill(call_frame_t *frame, xlator_t *this, dir_cache_t *cache,
+                       gf_dirent_t *entries, fd_t *fd, size_t *filled_size,
+                       off_t yoff, gf_boolean_t *stubbed, dict_t *dict)
+{
+    dht_local_t *local = NULL;
+    gf_dirent_t *entry = NULL;
+    gf_dirent_t *tmp = NULL;
+    xlator_t *prev = NULL;
+    int count = 0;
+    int ret = -1;
+    dht_conf_t *conf = NULL;
+    size_t this_size = 0;
+    xlator_t *next_subvol = NULL;
+    dir_cache_t *next_cache = NULL;
+    gf_boolean_t is_full = _gf_false;
+    call_stub_t *stub = NULL;
+    off_t last_doff;
+
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
+
+    prev = cache->xl;
+    local = frame->local;
+    conf = this->private;
+
+    pthread_mutex_lock(&cache->mutex);
+    {
+        if (yoff != cache->start_yoff) {
+            gf_msg("dht-cache", GF_LOG_INFO, 0, DHT_MSG_CACHE_INVALID,
+                   "mismatch in offset yoff= %lld start = %lld",
+                   (long long)yoff, (long long)cache->start_yoff);
+            pthread_mutex_unlock(&cache->mutex);
+            goto out;
+        }
+
+        if (!cache->ready) {
+            if (cache->in_progress == _gf_false) {
+                gf_msg("dht-cache", GF_LOG_INFO, 0,
+                       DHT_MSG_PARENT_LAYOUT_CHANGED,
+                       "cache returned with out completing");
+                ret = -1;
+            } else if (cache->stub) {
+                gf_msg("dht-cache", GF_LOG_INFO, 0,
+                       DHT_MSG_PARENT_LAYOUT_CHANGED, "Stub is already active");
+                ret = -1;
+            } else {
+                stub = fop_readdirp_stub(frame, NULL, fd, local->size, yoff,
+                                         dict);
+                INIT_LIST_HEAD(&stub->args_cbk.entries.list);
+                list_splice_init(&entries->list, &stub->args_cbk.entries.list);
+                cache->stub = stub;
+                *stubbed = _gf_true;
+                ret = 0;
+            }
+            pthread_mutex_unlock(&cache->mutex);
+            goto out;
+        }
+
+        if (cache->op_ret < 0)
+            goto next;
+
+        last_doff = cache->start_yoff;
+        ret = 0;
+        list_for_each_entry_safe(entry, tmp, (&(cache->orig_entries).list),
+                                 list)
+        {
+            this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+                        strlen(entry->d_name) + 1;
+            if (*filled_size + this_size > local->size) {
+                is_full = _gf_true;
+                break;
+            }
+
+            list_del_init(&entry->list);
+            last_doff = entry->d_off;
+
+            list_add_tail(&entry->list, &entries->list);
+            count++;
+            *filled_size += this_size;
+        }
+        cache->start_yoff = last_doff;
+        local->op_ret += count;
+        cache->op_ret -= count;
+    }
+next:
+    pthread_mutex_unlock(&cache->mutex);
+    if (!is_full && *filled_size < local->size && cache->op_errno == ENOENT) {
+        next_subvol = dht_subvol_next(this, prev);
+        next_cache = dht_dir_get_next_cache(conf, fd, next_subvol);
+        if (next_cache) {
+            dht_cache_readdir_fill(frame, this, next_cache, entries, fd,
+                                   filled_size, 0, stubbed, dict);
+        }
+    }
+
+    /* We need to ensure that only the last subvolume's end-of-directory
+     * notification is respected so that directory reading does not stop
+     * before all subvolumes have been read. That could happen because the
+     * posix for each subvolume sends a ENOENT on end-of-directory but in
+     * distribute we're not concerned only with a posix's view of the
+     * directory but the aggregated namespace' view of the directory.
+     */
+
+    pthread_mutex_lock(&cache->mutex);
+    {
+        if (list_empty(&cache->orig_entries.list)) {
+            if (cache->op_errno != ENOENT)
+                cache->ready = 0;
+            if (prev == dht_last_up_subvol(this))
+                local->op_errno = cache->op_errno;
+        }
+    }
+    pthread_mutex_unlock(&cache->mutex);
+out:
+    if (ret >= 0)
+        GF_ATOMIC_INC(conf->cache_hit);
+    return ret;
+}
+
+static int
+dht_cache_refresh(xlator_t *this, fd_t *fd, call_frame_t *frame)
+{
+    dir_cache_t *cache = NULL;
+    dht_conf_t *conf = NULL;
+    int i = 0;
+    gf_boolean_t in_progress = _gf_false;
+
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+    GF_VALIDATE_OR_GOTO(this->name, fd, out);
+    GF_VALIDATE_OR_GOTO(this->name, fd->dir_cache_subs, out);
+
+    conf = this->private;
+    cache = fd->dir_cache_subs;
+    for (i = 0; i < conf->subvolume_cnt; i++) {
+        pthread_mutex_lock(&cache[i].mutex);
+        in_progress = cache[i].in_progress;
+        pthread_mutex_unlock(&cache[i].mutex);
+        if (!cache[i].xl || cache[i].op_errno == ENOENT || in_progress) {
+            continue;
+        }
+        dht_readdir_cache_fetch_v2(frame, fd, &cache[i]);
+    }
+out:
+    return 0;
+}
+
+int
+dht_cached_readdir(call_frame_t *frame, xlator_t *this, xlator_t *xvol,
+                   off_t yoff, dict_t *dict)
+{
+    dht_local_t *local = NULL;
+    gf_dirent_t entries;
+    dht_conf_t *conf = NULL;
+    dir_cache_t *cache = NULL;
+    fd_t *fd = NULL;
+    gf_boolean_t stubbed = _gf_false;
+
+    int ret = -1;
+    int i = 0;
+
+    GF_VALIDATE_OR_GOTO("dht", frame, err);
+    GF_VALIDATE_OR_GOTO("dht", this, err);
+    GF_VALIDATE_OR_GOTO(this->name, xvol, err);
+
+    conf = this->private;
+    local = frame->local;
+    GF_VALIDATE_OR_GOTO(this->name, conf, err);
+    GF_VALIDATE_OR_GOTO(this->name, local, err);
+
+    fd = local->fd;
+    cache = fd->dir_cache_subs;
+    if (!cache) {
+        /* If readdir_cache is disabled, then cache will be null
+         * So error out here with ret = -1.
+         */
+        goto err;
+    }
+
+    INIT_LIST_HEAD(&entries.list);
+    for (i = 0; i < conf->subvolume_cnt; i++) {
+        if (cache[i].xl == xvol) {
+            local->op_ret = 0;
+            local->filled_size = 0;
+            ret = dht_cache_readdir_fill(frame, this, &cache[i], &entries, fd,
+                                         &local->filled_size, yoff, &stubbed,
+                                         dict);
+            if (ret >= 0 && stubbed == _gf_false) {
+                dht_cache_refresh(this, fd, frame);
+            }
+            break;
+        }
+    }
+    if (ret >= 0 && stubbed == _gf_false) {
+        DHT_STACK_UNWIND(readdir, frame, local->op_ret, local->op_errno,
+                         &entries, NULL);
+
+        gf_dirent_free(&entries);
+    }
+err:
+    return ret;
+}
+
+static int
+dht_do_normal_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                      size_t size, off_t yoff, int whichop, dict_t *dict,
+                      xlator_t *xvol)
 {
     dht_local_t *local = NULL;
     int op_errno = -1;
-    xlator_t *xvol = NULL;
-    int ret = 0;
+    int ret = -1;
     dht_conf_t *conf = NULL;
 
     VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(frame->local, err);
     VALIDATE_OR_GOTO(this, err);
     VALIDATE_OR_GOTO(fd, err);
     VALIDATE_OR_GOTO(this->private, err);
 
+    local = frame->local;
     conf = this->private;
-
-    local = dht_local_init(frame, NULL, NULL, whichop);
-    if (!local) {
-        op_errno = ENOMEM;
-        goto err;
-    }
-
-    local->fd = fd_ref(fd);
-    local->size = size;
-    local->xattr_req = (dict) ? dict_ref(dict) : NULL;
-    local->first_up_subvol = dht_first_up_subvol(this);
-    local->op_ret = -1;
-
-    dht_deitransform(this, yoff, &xvol);
-
-    /* TODO: do proper readdir */
     if (whichop == GF_FOP_READDIRP) {
         if (dict)
             local->xattr = dict_ref(dict);
@@ -7111,21 +7442,441 @@ dht_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
             }
         }
-
+    }
+    if (whichop == GF_FOP_READDIRP) {
         STACK_WIND_COOKIE(frame, dht_readdirp_cbk, xvol, xvol,
                           xvol->fops->readdirp, fd, size, yoff, local->xattr);
     } else {
         STACK_WIND_COOKIE(frame, dht_readdir_cbk, xvol, xvol,
                           xvol->fops->readdir, fd, size, yoff, local->xattr);
     }
-
     return 0;
-
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
     DHT_STACK_UNWIND(readdir, frame, -1, op_errno, NULL, NULL);
+    return ret;
+}
 
+static int
+dht_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+               off_t yoff, int whichop, dict_t *dict)
+{
+    dht_local_t *local = NULL;
+    xlator_t *xvol = NULL;
+    int op_errno = -1;
+    int ret = 0;
+    dht_conf_t *conf = NULL;
+
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(this, err);
+    VALIDATE_OR_GOTO(fd, err);
+    VALIDATE_OR_GOTO(this->private, err);
+
+    conf = this->private;
+
+    local = dht_local_init(frame, NULL, NULL, whichop);
+    if (!local) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    local->fd = fd_ref(fd);
+    local->size = size;
+    local->xattr_req = (dict) ? dict_ref(dict) : NULL;
+    local->first_up_subvol = dht_first_up_subvol(this);
+    local->op_ret = -1;
+
+    dht_deitransform(this, yoff, &xvol);
+
+    if (conf->subvolume_cnt != 1 && whichop == GF_FOP_READDIRP) {
+        ret = dht_cached_readdir(frame, this, xvol, yoff, dict);
+        if (ret >= 0) {
+            goto done;
+        }
+    }
+    gf_msg_debug("dht-cache", 0, "Doing normal readdir");
+
+    if (conf->readdir_cache) {
+        GF_ATOMIC_INC(conf->cache_miss);
+    }
+    dht_do_normal_readdir(frame, this, fd, size, yoff, whichop, dict, xvol);
     return 0;
+err:
+    op_errno = (op_errno == -1) ? errno : op_errno;
+    DHT_STACK_UNWIND(readdir, frame, -1, op_errno, NULL, NULL);
+done:
+    return 0;
+}
+
+static int
+dht_readdirp_cache_resume(xlator_t *this, fd_t *fd, dir_cache_t *cache)
+{
+    call_stub_t *stub = NULL;
+    dht_local_t *local = NULL;
+    dht_conf_t *conf = NULL;
+    gf_boolean_t stubbed = _gf_false;
+    int ret;
+
+    conf = this->private;
+
+    pthread_mutex_lock(&cache->mutex);
+    if (!cache->stub) {
+        goto unlock;
+    }
+
+    stub = cache->stub;
+    cache->stub = NULL;
+unlock:
+    pthread_mutex_unlock(&cache->mutex);
+    if (stub) {
+        local = stub->frame->local;
+        // call_resume(stub);
+        list_del_init(&stub->list);
+        ret = dht_cache_readdir_fill(stub->frame, stub->frame->this, cache,
+                                     &stub->args_cbk.entries, local->fd,
+                                     &local->filled_size, stub->args.offset,
+                                     &stubbed, stub->args.xdata);
+        if (ret >= 0 && stubbed == _gf_false) {
+            dht_cache_refresh(stub->frame->this, local->fd, stub->frame);
+            DHT_STACK_UNWIND(readdir, stub->frame, local->op_ret,
+                             local->op_errno, &stub->args_cbk.entries, NULL);
+        } else if (ret < 0) {
+            gf_msg("dht-cache", GF_LOG_INFO, 0, DHT_MSG_PARENT_LAYOUT_CHANGED,
+                   "Failed to do cached readdir, Doing normal readdir");
+            if (conf)
+                GF_ATOMIC_INC(conf->cache_miss);
+            dht_do_normal_readdir(stub->frame, stub->frame->this, local->fd,
+                                  local->size, stub->args.offset, local->fop,
+                                  stub->args.xdata, cache->xl);
+        }
+
+        gf_dirent_free(&stub->args_cbk.entries);
+        call_stub_destroy(stub);
+    }
+    return 0;
+}
+
+static int
+dht_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+                int op_errno, gf_dirent_t *orig_entries, dict_t *xdata)
+{
+    dht_local_t *local = NULL;
+    gf_dirent_t *entries;
+    gf_dirent_t *orig_entry = NULL;
+    gf_dirent_t *entry = NULL;
+    xlator_t *prev = NULL;
+    off_t next_offset = 0;
+    int count = 0;
+    dht_layout_t *layout = NULL;
+    dht_conf_t *conf = NULL;
+    dht_methods_t *methods = NULL;
+    xlator_t *subvol = 0;
+    xlator_t *hashed_subvol = 0;
+    int ret = 0;
+    int readdir_optimize = 0;
+    inode_table_t *itable = NULL;
+    inode_t *inode = NULL;
+    dir_cache_t *cache = NULL;
+    gf_boolean_t skip_hashed_check = _gf_false;
+
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
+
+    cache = frame->cookie;
+    local = frame->local;
+
+    GF_VALIDATE_OR_GOTO(this->name, local->fd, out);
+    GF_VALIDATE_OR_GOTO(this->name, cache, out);
+    GF_VALIDATE_OR_GOTO(this->name, cache->xl, out);
+
+    if (local->fd->inode)
+        itable = local->fd->inode->table;
+
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+
+    entries = &cache->orig_entries;
+    prev = cache->xl;
+    methods = &(conf->methods);
+
+    if (op_ret <= 0) {
+        goto done;
+    }
+
+    /* Why aren't we skipping DHT entirely in case of a single subvol?
+     * Because if this was a larger volume earlier and all but one subvol
+     * was removed, there might be stale linkto files on the subvol.
+     */
+
+    if (!local->layout)
+        local->layout = dht_layout_get(this, local->fd->inode);
+
+    layout = local->layout;
+
+    /* We have seen crashes in while running "rm -rf" on tier volumes
+       when the layout was NULL on the hot tier. This will skip the
+       entries on the subvol without a layout, hence preventing the crash
+       but rmdir might fail with "directory not empty" errors*/
+
+    if (layout == NULL)
+        goto done;
+
+    if (conf->readdir_optimize == _gf_true)
+        readdir_optimize = 1;
+
+    gf_msg_debug(this->name, 0, "Processing entries from %s", prev->name);
+
+    pthread_mutex_lock(&cache->mutex);
+    {
+        list_for_each_entry(orig_entry, (&orig_entries->list), list)
+        {
+            next_offset = orig_entry->d_off;
+
+            gf_msg_debug(this->name, 0, "%s: entry = %s, type = %d", prev->name,
+                         orig_entry->d_name, orig_entry->d_type);
+
+            if (IA_ISINVAL(orig_entry->d_stat.ia_type)) {
+                /*stat failed somewhere- display this entry but the data may
+                 * be inaccurate.
+                 */
+                gf_msg_debug(
+                    this->name, EINVAL, "Invalid stat for %s (gfid %s)",
+                    orig_entry->d_name, uuid_utoa(orig_entry->d_stat.ia_gfid));
+            }
+
+            if (check_is_linkfile(NULL, (&orig_entry->d_stat), orig_entry->dict,
+                                  conf->link_xattr_name)) {
+                gf_msg_debug(this->name, 0, "%s: %s is a linkto file",
+                             prev->name, orig_entry->d_name);
+                continue;
+            }
+
+            if (skip_hashed_check) {
+                goto list;
+            }
+
+            if (check_is_dir(NULL, (&orig_entry->d_stat), NULL)) {
+                /*Directory entries filtering :
+                 * a) If rebalance is running, pick from first_up_subvol
+                 * b) (rebalance not running)hashed subvolume is NULL or
+                 * down then filter in first_up_subvolume. Other wise the
+                 * corresponding hashed subvolume will take care of the
+                 * directory entry.
+                 */
+                if (readdir_optimize) {
+                    if (prev == local->first_up_subvol)
+                        goto list;
+                    else
+                        continue;
+                }
+
+                hashed_subvol = methods->layout_search(this, layout,
+                                                       orig_entry->d_name);
+
+                if (prev == hashed_subvol)
+                    goto list;
+                if ((hashed_subvol && dht_subvol_status(conf, hashed_subvol)) ||
+                    (prev != local->first_up_subvol))
+                    continue;
+
+                goto list;
+            }
+
+        list:
+            entry = gf_dirent_for_name(orig_entry->d_name);
+            if (!entry) {
+                goto done;
+            }
+
+            /* Do this if conf->search_unhashed is set to "auto" */
+            if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
+                subvol = methods->layout_search(this, layout,
+                                                orig_entry->d_name);
+                if (!subvol || (subvol != prev)) {
+                    /* TODO: Count the number of entries which need
+                       linkfile to prove its existence in fs */
+                    layout->search_unhashed++;
+                }
+            }
+
+            entry->d_off = orig_entry->d_off;
+            entry->d_stat = orig_entry->d_stat;
+            entry->d_ino = orig_entry->d_ino;
+            entry->d_type = orig_entry->d_type;
+            entry->d_len = orig_entry->d_len;
+
+            if (orig_entry->dict)
+                entry->dict = dict_ref(orig_entry->dict);
+
+            /* making sure we set the inode ctx right with layout,
+               currently possible only for non-directories, so for
+               directories don't set entry inodes */
+            if (IA_ISDIR(entry->d_stat.ia_type)) {
+                entry->d_stat.ia_blocks = DHT_DIR_STAT_BLOCKS;
+                entry->d_stat.ia_size = DHT_DIR_STAT_SIZE;
+                if (orig_entry->inode) {
+                    dht_inode_ctx_time_update(orig_entry->inode, this,
+                                              &entry->d_stat, 1);
+
+                    if (conf->subvolume_cnt == 1) {
+                        dht_populate_inode_for_dentry(this, prev, entry,
+                                                      orig_entry);
+                    }
+                }
+            } else {
+                if (orig_entry->dict &&
+                    dict_get(orig_entry->dict, conf->link_xattr_name)) {
+                    /* Strip out the S and T flags set by rebalance*/
+                    DHT_STRIP_PHASE1_FLAGS(&entry->d_stat);
+                }
+
+                if (orig_entry->inode) {
+                    ret = dht_layout_preset(this, prev, orig_entry->inode);
+                    if (ret)
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                               DHT_MSG_LAYOUT_SET_FAILED,
+                               "failed to link the layout "
+                               "in inode for %s",
+                               orig_entry->d_name);
+
+                    entry->inode = inode_ref(orig_entry->inode);
+                } else if (itable) {
+                    /*
+                     * orig_entry->inode might be null if any upper
+                     * layer xlators below client set to null, to
+                     * force a lookup on the inode even if the inode
+                     * is present in the inode table. In that case
+                     * we just update the ctx to make sure we didn't
+                     * missed anything.
+                     */
+                    inode = inode_find(itable, orig_entry->d_stat.ia_gfid);
+                    if (inode) {
+                        ret = dht_layout_preset(this, prev, inode);
+                        if (ret)
+                            gf_msg(this->name, GF_LOG_WARNING, 0,
+                                   DHT_MSG_LAYOUT_SET_FAILED,
+                                   "failed to link the layout"
+                                   " in inode for %s",
+                                   orig_entry->d_name);
+                        inode_unref(inode);
+                        inode = NULL;
+                    }
+                }
+            }
+
+            gf_msg_debug(this->name, 0, "%s: Adding entry = %s", prev->name,
+                         entry->d_name);
+
+            list_add_tail(&entry->list, &entries->list);
+            count++;
+        }
+
+    done:
+
+        /* We need to ensure that only the last subvolume's end-of-directory
+         * notification is respected so that directory reading does not stop
+         * before all subvolumes have been read. That could happen because the
+         * posix for each subvolume sends a ENOENT on end-of-directory but in
+         * distribute we're not concerned only with a posix's view of the
+         * directory but the aggregated namespace' view of the directory.
+         * Possible values:
+         * op_ret == 0 and op_errno != 0
+         *   if op_errno != ENOENT : Error.Unwind.
+         *   if op_errno == ENOENT : There are no more entries on this subvol.
+         *                           Move to the next one.
+         * op_ret > 0 and count == 0 :
+         *    The subvol returned entries to dht but all were stripped out.
+         *    For example, if they were linkto files or dirs where
+         *    hashed_subvol != prev. Try to get some entries by winding
+         *    to the next subvol. This can be dangerous if parallel readdir
+         *    is enabled as it grows the stack.
+         *
+         * op_ret > 0 and count > 0:
+         *   We found some entries. Unwind even if the buffer is not full.
+         *
+         */
+
+        if (op_ret >= 0)
+            cache->op_ret += count;
+        cache->op_errno = op_errno;
+        cache->in_progress = _gf_false;
+        cache->ready = 1;
+        if (count != 0) {
+            cache->xdata = dict_ref(xdata);
+            cache->end_yoff = next_offset;
+        }
+    }
+    pthread_mutex_unlock(&cache->mutex);
+out:
+    if (cache) {
+        dht_readdirp_cache_resume(this, local->fd, cache);
+    }
+
+    DHT_STACK_DESTROY(frame);
+    return 0;
+}
+
+static int
+dht_readdir_cache_fetch_v2(call_frame_t *frame, fd_t *fd, dir_cache_t *cache)
+{
+    call_frame_t *cache_frame = NULL;
+    dht_local_t *cache_local = NULL;
+    xlator_t *this = NULL;
+    dict_t *xdata_in = NULL;
+    int ret = -1;
+    gf_boolean_t in_progress = _gf_false;
+
+    GF_VALIDATE_OR_GOTO("dht", fd, out);
+
+    this = frame->this;
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO("dht", cache, out);
+
+    cache_frame = copy_frame(frame);
+    if (!cache_frame) {
+        goto out;
+    }
+    cache_local = dht_local_init(cache_frame, NULL, fd, GF_FOP_READDIRP);
+    if (!cache_local) {
+        goto out;
+    }
+
+    xdata_in = dict_new();
+    if (!xdata_in) {
+        goto out;
+    }
+
+    pthread_mutex_lock(&cache->mutex);
+    if (cache->in_progress) {
+        in_progress = _gf_true;
+    } else {
+        cache->in_progress = _gf_true;
+    }
+    pthread_mutex_unlock(&cache->mutex);
+    if (in_progress) {
+        goto out;
+    }
+    ret = dht_dir_cache_set_xdata(frame, xdata_in, this, cache);
+    if (ret)
+        goto out;
+
+    cache_local->size = DHT_DIR_CACHE_SIZE;
+    cache_local->first_up_subvol = dht_first_up_subvol(this);
+    cache_frame->cookie = cache;
+    STACK_WIND(cache_frame, dht_fill_fd_cbk, cache->xl,
+               cache->xl->fops->readdirp, fd, cache_local->size,
+               cache->end_yoff, xdata_in);
+    ret = 0;
+
+out:
+    if (ret)
+        DHT_STACK_DESTROY(cache_frame);
+
+    if (xdata_in)
+        dict_unref(xdata_in);
+
+    return ret;
 }
 
 int
@@ -11228,10 +11979,50 @@ dht_set_local_rebalance(xlator_t *this, dht_local_t *local, struct iatt *stbuf,
 
     return 0;
 }
+static int
+dht_cleanup_dir_cache(dir_cache_t *cache, int cnt)
+{
+    int i = 0;
+    for (i = 0; i < cnt; i++) {
+        if (cache[i].xdata)
+            dict_unref(cache[i].xdata);
+        gf_dirent_free(&cache[i].orig_entries);
+        pthread_mutex_destroy(&cache[i].mutex);
+        if (cache[i].stub)
+            gf_msg("dht-cache", GF_LOG_CRITICAL, 0,
+                   DHT_MSG_PARENT_LAYOUT_CHANGED,
+                   "releasedir is called when stub is active. Probably a ref "
+                   "leak");
+
+        cache[i].op_errno = 0;
+        cache[i].op_ret = 0;
+        cache[i].ready = 0;
+        cache[i].xl = NULL;
+    }
+    return 0;
+}
+
+int32_t
+dht_releasedir(xlator_t *this, fd_t *fd)
+{
+    dht_conf_t *conf = NULL;
+    conf = this->private;
+    if (fd->dir_cache_subs)
+        dht_cleanup_dir_cache(fd->dir_cache_subs, conf->subvolume_cnt);
+    GF_FREE(fd->dir_cache_subs);
+    fd->dir_cache_subs = NULL;
+    return 0;
+}
 
 int32_t
 dht_release(xlator_t *this, fd_t *fd)
 {
+    dht_conf_t *conf = NULL;
+    conf = this->private;
+    if (fd->dir_cache_subs)
+        dht_cleanup_dir_cache(fd->dir_cache_subs, conf->subvolume_cnt);
+    GF_FREE(fd->dir_cache_subs);
+    fd->dir_cache_subs = NULL;
     return dht_fd_ctx_destroy(this, fd);
 }
 

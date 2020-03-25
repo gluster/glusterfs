@@ -11,6 +11,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}{0..1}
 TEST $CLI volume set $V0 nfs.disable yes
 TEST $CLI volume set $V0 dht.force-readdirp yes
+TEST $CLI volume set $V0 cluster.readdir-cache disable
 TEST $CLI volume set $V0 performance.readdir-ahead off
 TEST $CLI volume set $V0 performance.force-readdirp no
 TEST $CLI volume start $V0

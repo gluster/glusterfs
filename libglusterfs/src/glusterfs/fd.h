@@ -45,6 +45,7 @@ struct _fd {
     gf_lock_t lock; /* used ONLY for manipulating
                        'struct _fd_ctx' array (_ctx).*/
     struct _fd_ctx *_ctx;
+    void *dir_cache_subs;
     int xl_count; /* Number of xl referred in this fd */
     struct fd_lk_ctx *lk_ctx;
     gf_boolean_t anonymous; /* fd which does not have counterpart open

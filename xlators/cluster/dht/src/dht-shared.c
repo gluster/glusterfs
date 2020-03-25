@@ -117,6 +117,12 @@ dht_priv_dump(xlator_t *this)
     gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
     gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
     gf_proc_dump_write("use-readdirp", "%d", conf->use_readdirp);
+    gf_proc_dump_write("readdir-cache", "%d", conf->readdir_cache);
+
+    gf_proc_dump_write("readdir_cache_miss_count", "%" PRId64,
+                       GF_ATOMIC_GET(conf->cache_hit));
+    gf_proc_dump_write("readdir_cache_miss_count", "%" PRId64,
+                       GF_ATOMIC_GET(conf->cache_miss));
 
     if (conf->du_stats && conf->subvolume_status) {
         for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -150,6 +156,22 @@ out:
     return ret;
 }
 
+int32_t
+dht_dump_metrics(xlator_t *this, int fd)
+{
+    dht_conf_t *conf = NULL;
+
+    conf = this->private;
+    if (!conf)
+        goto out;
+
+    dprintf(fd, "%s.readdir_cache_hit_count %" PRId64 "\n", this->name,
+            GF_ATOMIC_GET(conf->cache_hit));
+    dprintf(fd, "%s.readdir_cache_miss_count %" PRId64 "\n", this->name,
+            GF_ATOMIC_GET(conf->cache_miss));
+out:
+    return 0;
+}
 int32_t
 dht_inodectx_dump(xlator_t *this, inode_t *inode)
 {
@@ -475,6 +497,8 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("force-migration", conf->force_migration, options, bool,
                      out);
 
+    GF_OPTION_RECONF("readdir-cache", conf->readdir_cache, options, bool, out);
+
     if (conf->defrag) {
         if (dict_get_str(options, "rebal-throttle", &temp_str) == 0) {
             ret = dht_configure_throttle(this, conf, temp_str);
@@ -722,6 +746,9 @@ dht_init(xlator_t *this)
         }
     }
 
+    GF_ATOMIC_INIT(conf->cache_hit, 0);
+    GF_ATOMIC_INIT(conf->cache_miss, 0);
+
     GF_OPTION_INIT("lookup-optimize", conf->lookup_optimize, bool, err);
 
     GF_OPTION_INIT("unhashed-sticky-bit", conf->unhashed_sticky_bit, bool, err);
@@ -744,6 +771,8 @@ dht_init(xlator_t *this)
     GF_OPTION_INIT("lock-migration", conf->lock_migration_enabled, bool, err);
 
     GF_OPTION_INIT("force-migration", conf->force_migration, bool, err);
+
+    GF_OPTION_INIT("readdir-cache", conf->readdir_cache, bool, err);
 
     if (defrag) {
         defrag->lock_migration_enabled = conf->lock_migration_enabled;
@@ -1092,6 +1121,17 @@ struct volume_options dht_options[] = {
      .description = "If disabled, rebalance will not migrate files that "
                     "are being written to by an application",
      .op_version = {GD_OP_VERSION_4_0_0},
+     .level = OPT_STATUS_ADVANCED,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+
+    {.key = {"readdir-cache"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "on",
+     .description =
+         "This option if set to ON enables the readdir cache which prefetch the"
+         "the content and use it to evaluate the efficient readdir between "
+         "subvol",
+     .op_version = {GD_OP_VERSION_9_0},
      .level = OPT_STATUS_ADVANCED,
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 
