@@ -149,7 +149,7 @@ def initLogger():
     sh.setFormatter(formatter)
 
     process = subprocess.Popen(["gluster", "--print-logdir"],
-                               stdout=subprocess.PIPE)
+                               stdout=subprocess.PIPE, universal_newlines=True)
     logfile = os.path.join(process.stdout.read()[:-1], SCRIPT_NAME + ".log")
 
     fh = logging.FileHandler(logfile)
