@@ -23,8 +23,8 @@ from datetime import datetime
 from errno import EACCES, EAGAIN, ENOENT
 import logging
 
-from syncdutils import EVENT_GEOREP_ACTIVE, EVENT_GEOREP_PASSIVE, gf_event
-from syncdutils import EVENT_GEOREP_CHECKPOINT_COMPLETED, lf
+from syncdutils import (EVENT_GEOREP_ACTIVE, EVENT_GEOREP_PASSIVE, gf_event,
+                        EVENT_GEOREP_CHECKPOINT_COMPLETED, lf)
 
 DEFAULT_STATUS = "N/A"
 MONITOR_STATUS = ("Created", "Started", "Paused", "Stopped")

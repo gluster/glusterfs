@@ -24,10 +24,10 @@ from datetime import datetime
 import gsyncdconfig as gconf
 import libgfchangelog
 from rconf import rconf
-from syncdutils import Thread, GsyncdError, escape_space_newline
-from syncdutils import unescape_space_newline, gauxpfx, escape
-from syncdutils import lstat, errno_wrap, FreeObject, lf, matching_disk_gfid
-from syncdutils import NoStimeAvailable, PartialHistoryAvailable
+from syncdutils import (Thread, GsyncdError, escape_space_newline,
+                        unescape_space_newline, gauxpfx, escape,
+                        lstat, errno_wrap, FreeObject, lf, matching_disk_gfid,
+                        NoStimeAvailable, PartialHistoryAvailable)
 
 URXTIME = (-1, 0)
 

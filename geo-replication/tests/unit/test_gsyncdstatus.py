@@ -13,11 +13,11 @@ import unittest
 import os
 import urllib
 
-from syncdaemon.gstatus import GeorepStatus, set_monitor_status
-from syncdaemon.gstatus import get_default_values
-from syncdaemon.gstatus import MONITOR_STATUS, DEFAULT_STATUS
-from syncdaemon.gstatus import STATUS_VALUES, CRAWL_STATUS_VALUES
-from syncdaemon.gstatus import human_time, human_time_utc
+from syncdaemon.gstatus import (GeorepStatus, set_monitor_status,
+                                get_default_values,
+                                MONITOR_STATUS, DEFAULT_STATUS,
+                                STATUS_VALUES, CRAWL_STATUS_VALUES,
+                                human_time, human_time_utc)
 
 
 class GeorepStatusTestCase(unittest.TestCase):

@@ -21,8 +21,8 @@ import subprocess
 import socket
 from subprocess import PIPE
 from threading import Lock, Thread as baseThread
-from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ENOMEM, ECONNABORTED
-from errno import EINTR, ENOENT, ESTALE, EBUSY, ENODATA, errorcode, EIO
+from errno import (EACCES, EAGAIN, EPIPE, ENOTCONN, ENOMEM, ECONNABORTED,
+                   EINTR, ENOENT, ESTALE, EBUSY, ENODATA, errorcode, EIO)
 from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid

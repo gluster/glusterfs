@@ -12,8 +12,9 @@ import os
 from ctypes import CDLL, RTLD_GLOBAL, get_errno, byref, c_ulong
 from ctypes.util import find_library
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
-from py2py3 import gr_cl_history_changelog, gr_cl_done, gr_create_string_buffer
-from py2py3 import gr_cl_register, gr_cl_history_done, bytearray_to_str
+from py2py3 import (gr_cl_history_changelog, gr_cl_done,
+                    gr_create_string_buffer, gr_cl_register,
+                    gr_cl_history_done, bytearray_to_str)
 
 
 libgfc = CDLL(
