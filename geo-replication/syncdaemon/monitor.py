@@ -22,12 +22,12 @@ from resource import SSH
 import gsyncdconfig as gconf
 import libgfchangelog
 from rconf import rconf
-from syncdutils import select, waitpid, errno_wrap, lf, grabpidfile
-from syncdutils import set_term_handler, GsyncdError
-from syncdutils import Thread, finalize, Volinfo, VolinfoFromGconf
-from syncdutils import gf_event, EVENT_GEOREP_FAULTY, get_up_nodes
+from syncdutils import (select, waitpid, errno_wrap, lf, grabpidfile,
+                        set_term_handler, GsyncdError,
+                        Thread, finalize, Volinfo, VolinfoFromGconf,
+                        gf_event, EVENT_GEOREP_FAULTY, get_up_nodes,
+                        unshare_propagation_supported)
 from gsyncdstatus import GeorepStatus, set_monitor_status
-from syncdutils import unshare_propagation_supported
 import py2py3
 from py2py3 import pipe
 

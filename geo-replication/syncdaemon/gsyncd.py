@@ -22,8 +22,8 @@ import gsyncdconfig as gconf
 from rconf import rconf
 import subcmds
 from conf import GLUSTERD_WORKDIR, GLUSTERFS_CONFDIR, GCONF_VERSION
-from syncdutils import set_term_handler, finalize, lf
-from syncdutils import log_raise_exception, FreeObject, escape
+from syncdutils import (set_term_handler, finalize, lf,
+                        log_raise_exception, FreeObject, escape)
 import argsupgrade
 
 

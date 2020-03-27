@@ -19,8 +19,8 @@ import struct
 import logging
 import tempfile
 import subprocess
-from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EACCES
-from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY, EPERM
+from errno import (EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EACCES,
+                   EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY, EPERM)
 import errno
 
 from rconf import rconf
@@ -31,19 +31,19 @@ import repce
 from repce import RepceServer, RepceClient
 from master import gmaster_builder
 import syncdutils
-from syncdutils import GsyncdError, select, privileged, funcode
-from syncdutils import entry2pb, gauxpfx, errno_wrap, lstat
-from syncdutils import NoStimeAvailable, PartialHistoryAvailable
-from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
-from syncdutils import get_changelog_log_level, get_rsync_version
-from syncdutils import GX_GFID_CANONICAL_LEN
-from syncdutils import gf_mount_ready
+from syncdutils import (GsyncdError, select, privileged, funcode,
+                        entry2pb, gauxpfx, errno_wrap, lstat,
+                        NoStimeAvailable, PartialHistoryAvailable,
+                        ChangelogException, ChangelogHistoryNotAvailable,
+                        get_changelog_log_level, get_rsync_version,
+                        GX_GFID_CANONICAL_LEN,
+                        gf_mount_ready, lf, Popen, sup,
+                        Xattr, matching_disk_gfid, get_gfid_from_mnt,
+                        unshare_propagation_supported, get_slv_dir_path)
 from gsyncdstatus import GeorepStatus
-from syncdutils import lf, Popen, sup
-from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
-from syncdutils import unshare_propagation_supported, get_slv_dir_path
-from py2py3 import pipe, str_to_bytearray, entry_pack_reg
-from py2py3 import entry_pack_reg_stat, entry_pack_mkdir, entry_pack_symlink
+from py2py3 import (pipe, str_to_bytearray, entry_pack_reg,
+                    entry_pack_reg_stat, entry_pack_mkdir,
+                    entry_pack_symlink)
 
 
 ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')

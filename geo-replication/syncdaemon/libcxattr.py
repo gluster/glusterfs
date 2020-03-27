@@ -10,8 +10,8 @@
 
 import os
 from ctypes import CDLL, get_errno
-from py2py3 import bytearray_to_str, gr_create_string_buffer
-from py2py3 import gr_query_xattr, gr_lsetxattr, gr_lremovexattr
+from py2py3 import (bytearray_to_str, gr_create_string_buffer,
+                    gr_query_xattr, gr_lsetxattr, gr_lremovexattr)
 
 
 class Xattr(object):
