@@ -1283,13 +1283,13 @@ __wb_pick_unwinds(wb_inode_t *wb_inode, list_head_t *lies)
 
         wb_inode->window_current += req->orig_size;
 
+        wb_inode->gen++;
+
         if (!req->ordering.fulfilled) {
             /* burden increased */
             list_add_tail(&req->lie, &wb_inode->liability);
 
             req->ordering.lied = 1;
-
-            wb_inode->gen++;
 
             uuid_utoa_r(req->gfid, gfid);
             gf_msg_debug(wb_inode->this->name, 0,
