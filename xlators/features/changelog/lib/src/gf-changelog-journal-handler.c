@@ -534,9 +534,8 @@ out:
     return ret;
 }
 
-int
-gf_changelog_consume(xlator_t *this, gf_changelog_journal_t *jnl,
-                     char *from_path, gf_boolean_t no_publish)
+void *
+gf_changelog_consume(void *data)
 {
     int ret = -1;
     int fd1 = 0;
@@ -551,6 +550,18 @@ gf_changelog_consume(xlator_t *this, gf_changelog_journal_t *jnl,
     char to_path[PATH_MAX] = {
         0,
     };
+
+    gf_changelog_consume_data_t *ccd = NULL;
+    xlator_t *this = NULL;
+    gf_changelog_journal_t *jnl = NULL;
+    char from_path[PATH_MAX];
+    gf_boolean_t no_publish;
+
+    ccd = (gf_changelog_consume_data_t *)data;
+    this = ccd->this;
+    jnl = ccd->jnl;
+    strcpy(from_path, ccd->changelog_path);
+    no_publish = ccd->no_publish;
 
     if (snprintf(to_path, PATH_MAX, "%s%s", jnl->jnl_current_dir,
                  basename(from_path)) >= PATH_MAX)
@@ -612,7 +623,7 @@ close_fd:
     sys_close(fd1);
 
 out:
-    return ret;
+    return NULL;
 }
 
 void *
@@ -627,6 +638,12 @@ gf_changelog_process(void *data)
     jnl_proc = jnl->jnl_proc;
     THIS = jnl->this;
     this = jnl->this;
+
+    gf_changelog_consume_data_t *curr = NULL;
+    curr = (gf_changelog_consume_data_t *)data;
+    curr->this = this;
+    curr->jnl = jnl;
+    curr->no_publish = _gf_false;
 
     while (1) {
         pthread_mutex_lock(&jnl_proc->lock);
@@ -646,7 +663,8 @@ gf_changelog_process(void *data)
         pthread_mutex_unlock(&jnl_proc->lock);
 
         if (entry) {
-            (void)gf_changelog_consume(this, jnl, entry->path, _gf_false);
+            strcpy((curr->changelog_path), entry->path);
+            (void)gf_changelog_consume(curr);
             GF_FREE(entry);
         }
     }
