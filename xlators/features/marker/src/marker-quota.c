@@ -1713,21 +1713,17 @@ mq_initiate_quota_task(void *opaque)
     }
 
 out:
-    if (dirty) {
-        if (ret < 0) {
-            /* On failure clear dirty status flag.
-             * In the next lookup inspect_directory_xattr
-             * can set the status flag and fix the
-             * dirty directory.
-             * Do the same if the dir was dirty before
-             * txn
-             */
-            ret = mq_inode_ctx_get(parent_loc.inode, this, &parent_ctx);
-            if (ret == 0)
-                mq_set_ctx_dirty_status(parent_ctx, _gf_false);
-        } else {
-            ret = mq_mark_dirty(this, &parent_loc, 0);
-        }
+    if ((dirty) && (ret < 0)) {
+        /* On failure clear dirty status flag.
+         * In the next lookup inspect_directory_xattr
+         * can set the status flag and fix the
+         * dirty directory.
+         * Do the same if the dir was dirty before
+         * txn
+         */
+        ret = mq_inode_ctx_get(parent_loc.inode, this, &parent_ctx);
+        if (ret == 0)
+            mq_set_ctx_dirty_status(parent_ctx, _gf_false);
     }
 
     if (locked)
