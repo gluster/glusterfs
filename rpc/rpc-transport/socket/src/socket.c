@@ -4171,11 +4171,16 @@ ssl_setup_connection_params(rpc_transport_t *this)
     char *cipher_list = DEFAULT_CIPHER_LIST;
     char *dh_param = DEFAULT_DH_PARAM;
     char *ec_curve = DEFAULT_EC_CURVE;
+    gf_boolean_t dh_flag = _gf_false;
 
     priv = this->private;
 
     if (priv->ssl_ctx != NULL) {
         gf_log(this->name, GF_LOG_TRACE, "found old SSL context!");
+        return 0;
+    }
+
+    if (!priv->ssl_enabled && !priv->mgmt_ssl) {
         return 0;
     }
 
@@ -4225,28 +4230,25 @@ ssl_setup_connection_params(rpc_transport_t *this)
             priv->crl_path = gf_strdup(optstr);
     }
 
-    gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO : GF_LOG_DEBUG,
-           "SSL support on the I/O path is %s",
-           priv->ssl_enabled ? "ENABLED" : "NOT enabled");
-    gf_log(this->name, priv->mgmt_ssl ? GF_LOG_INFO : GF_LOG_DEBUG,
-           "SSL support for glusterd is %s",
-           priv->mgmt_ssl ? "ENABLED" : "NOT enabled");
-
     if (!priv->mgmt_ssl) {
         if (!dict_get_int32_sizen(this->options, SSL_CERT_DEPTH_OPT,
                                   &cert_depth)) {
-            gf_log(this->name, GF_LOG_INFO, "using certificate depth %d",
-                   cert_depth);
         }
     } else {
         cert_depth = this->ctx->ssl_cert_depth;
-        gf_log(this->name, GF_LOG_INFO, "using certificate depth %d",
-               cert_depth);
     }
+    gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO : GF_LOG_DEBUG,
+           "SSL support for MGMT is %s IO path is %s certificate depth is %d "
+           "for peer %s",
+           (priv->mgmt_ssl ? "ENABLED" : "NOT enabled"),
+           (priv->ssl_enabled ? "ENABLED" : "NOT enabled"), cert_depth,
+           this->peerinfo.identifier);
+
     if (!dict_get_str_sizen(this->options, SSL_CIPHER_LIST_OPT, &cipher_list)) {
         gf_log(this->name, GF_LOG_INFO, "using cipher list %s", cipher_list);
     }
     if (!dict_get_str_sizen(this->options, SSL_DH_PARAM_OPT, &dh_param)) {
+        dh_flag = _gf_true;
         gf_log(this->name, GF_LOG_INFO, "using DH parameters %s", dh_param);
     }
     if (!dict_get_str_sizen(this->options, SSL_EC_CURVE_OPT, &ec_curve)) {
@@ -4281,12 +4283,15 @@ ssl_setup_connection_params(rpc_transport_t *this)
 #ifdef SSL_OP_NO_COMPRESSION
         SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_COMPRESSION);
 #endif
-
-        if ((bio = BIO_new_file(dh_param, "r")) == NULL) {
-            gf_log(this->name, GF_LOG_INFO,
-                   "failed to open %s, "
-                   "DH ciphers are disabled",
-                   dh_param);
+        /* Upload file to bio wrapper only if dh param is configured
+         */
+        if (dh_flag) {
+            if ((bio = BIO_new_file(dh_param, "r")) == NULL) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "failed to open %s, "
+                       "DH ciphers are disabled",
+                       dh_param);
+            }
         }
 
         if (bio != NULL) {
