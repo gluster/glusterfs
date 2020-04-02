@@ -1,12 +1,13 @@
 <!-- Please use this template while reporting an issue, providing as much information as possible. Failure to do so may result in a delayed response. Thank you! -->
 
-**Description of problem: **
+**Description of problem:**
 
 
 **The exact command to reproduce the issue**:
 
 
-**The full output of the command that failed**:<details>
+**The full output of the command that failed**:
+<details>
 
 
 
@@ -18,11 +19,12 @@
 **Additional info:**
 
 
-** - The output of the `gluster volume info` command**:<details>
+**- The output of the `gluster volume info` command**:
+<details>
 
 
 
 </details>
 
-** - The operating system / glusterfs version**:
+**- The operating system / glusterfs version**:
 
