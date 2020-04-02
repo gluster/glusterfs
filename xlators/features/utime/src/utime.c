@@ -147,6 +147,7 @@ gf_utime_set_mdata_setxattr_cbk(call_frame_t *frame, void *cookie,
     }
     frame->local = NULL;
     call_resume(stub);
+    STACK_DESTROY(frame->root);
     return 0;
 }
 
@@ -162,6 +163,7 @@ gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     loc_t loc = {
         0,
     };
+    call_frame_t *new_frame = NULL;
 
     if (!op_ret && dict_get(xdata, GF_XATTR_MDATA_KEY) == NULL) {
         dict = dict_new();
@@ -181,29 +183,32 @@ gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    "dict set of key for set-ctime-mdata failed");
             goto err;
         }
-        frame->local = fop_lookup_cbk_stub(frame, default_lookup_cbk, op_ret,
-                                           op_errno, inode, stbuf, xdata,
-                                           postparent);
-        if (!frame->local) {
+        new_frame = copy_frame(frame);
+        if (!new_frame) {
+            op_errno = ENOMEM;
+            goto stub_err;
+        }
+
+        new_frame->local = fop_lookup_cbk_stub(frame, default_lookup_cbk,
+                                               op_ret, op_errno, inode, stbuf,
+                                               xdata, postparent);
+        if (!new_frame->local) {
             gf_msg(this->name, GF_LOG_WARNING, ENOMEM, UTIME_MSG_NO_MEMORY,
                    "lookup_cbk stub allocation failed");
+            op_errno = ENOMEM;
+            STACK_DESTROY(new_frame->root);
             goto stub_err;
         }
 
         loc.inode = inode_ref(inode);
         gf_uuid_copy(loc.gfid, stbuf->ia_gfid);
 
-        pid_t pid = frame->root->pid;
-        uid_t uid = frame->root->uid;
-        gid_t gid = frame->root->gid;
-        frame->root->uid = 0;
-        frame->root->gid = 0;
-        frame->root->pid = GF_CLIENT_PID_SET_UTIME;
-        STACK_WIND(frame, gf_utime_set_mdata_setxattr_cbk, FIRST_CHILD(this),
-                   FIRST_CHILD(this)->fops->setxattr, &loc, dict, 0, NULL);
-        frame->root->uid = uid;
-        frame->root->gid = gid;
-        frame->root->pid = pid;
+        new_frame->root->uid = 0;
+        new_frame->root->gid = 0;
+        new_frame->root->pid = GF_CLIENT_PID_SET_UTIME;
+        STACK_WIND(new_frame, gf_utime_set_mdata_setxattr_cbk,
+                   FIRST_CHILD(this), FIRST_CHILD(this)->fops->setxattr, &loc,
+                   dict, 0, NULL);
 
         dict_unref(dict);
         inode_unref(loc.inode);
