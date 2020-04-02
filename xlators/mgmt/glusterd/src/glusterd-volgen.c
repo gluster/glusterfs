@@ -3670,6 +3670,38 @@ out:
 }
 
 static int
+set_volfile_id_option(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      int clusters)
+{
+    xlator_t *xlator = NULL;
+    int i = 0;
+    int ret = -1;
+    glusterd_conf_t *conf = NULL;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+
+    if (conf->op_version < GD_OP_VERSION_9_0)
+        return 0;
+    xlator = first_of(graph);
+
+    for (i = 0; i < clusters; i++) {
+        ret = xlator_set_fixed_option(xlator, "volume-id",
+                                      uuid_utoa(volinfo->volume_id));
+        if (ret)
+            goto out;
+
+        xlator = xlator->next;
+    }
+
+out:
+    return ret;
+}
+
+static int
 volgen_graph_build_ec_clusters(volgen_graph_t *graph,
                                glusterd_volinfo_t *volinfo)
 {
@@ -3686,6 +3718,12 @@ volgen_graph_build_ec_clusters(volgen_graph_t *graph,
         volinfo->brick_count, volinfo->disperse_count, start_count);
     if (clusters < 0)
         goto out;
+
+    ret = set_volfile_id_option(graph, volinfo, clusters);
+    if (ret) {
+        clusters = -1;
+        goto out;
+    }
 
     sprintf(option, "%d", volinfo->redundancy_count);
     ec = first_of(graph);
@@ -3806,38 +3844,6 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
 out:
     GF_FREE(afr_xattrs_list);
     GF_FREE(afr_xlators_list);
-    return ret;
-}
-
-static int
-set_volfile_id_option(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                      int clusters)
-{
-    xlator_t *xlator = NULL;
-    int i = 0;
-    int ret = -1;
-    glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
-
-    if (conf->op_version < GD_OP_VERSION_9_0)
-        return 0;
-    xlator = first_of(graph);
-
-    for (i = 0; i < clusters; i++) {
-        ret = xlator_set_fixed_option(xlator, "volume-id",
-                                      uuid_utoa(volinfo->volume_id));
-        if (ret)
-            goto out;
-
-        xlator = xlator->next;
-    }
-
-out:
     return ret;
 }
 

@@ -16,7 +16,7 @@
 #include "ec-common.h"
 #include "ec-combine.h"
 #include "ec-fops.h"
-
+#include <string.h>
 /* FOP: flush */
 
 int32_t
@@ -903,12 +903,21 @@ ec_lookup(call_frame_t *frame, xlator_t *this, uintptr_t target,
     ec_cbk_t callback = {.lookup = func};
     ec_fop_data_t *fop = NULL;
     int32_t error = ENOMEM;
+    ec_t *ec = this->private;
 
     gf_msg_trace("ec", 0, "EC(LOOKUP) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    if (loc->name && loc->parent) {
+        if (ec_is_private_directory(ec, loc->parent->gfid, loc->name,
+                                    frame->root->pid)) {
+            error = -EPERM;
+            goto out;
+        }
+    }
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_LOOKUP, EC_FLAG_LOCK_SHARED,
                                target, fop_flags, ec_wind_lookup,

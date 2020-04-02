@@ -43,6 +43,29 @@ static char *ec_read_policies[EC_READ_POLICY_MAX + 1] = {
         }                                                                      \
     } while (0)
 
+void
+ec_handle_anon_inode_options(ec_t *ec, dict_t *options)
+{
+    char *volfile_id_str = NULL;
+    uuid_t gfid_str = {0};
+
+    /*If volume id is not present don't enable anything*/
+    if (dict_get_str(options, "volume-id", &volfile_id_str))
+        return;
+
+    GF_ASSERT(strlen(EC_ANON_DIR_PREFIX) + strlen(volfile_id_str) <= NAME_MAX);
+
+    /*anon_inode name is not supposed to change once assigned*/
+    if (!ec->anon_inode.name[0]) {
+        snprintf(ec->anon_inode.name, sizeof(ec->anon_inode.name), "%s-%s",
+                 EC_ANON_DIR_PREFIX, volfile_id_str);
+        gf_uuid_parse(volfile_id_str, gfid_str);
+        /*Flip a bit to make sure volfile-id and anon-gfid are not same*/
+        gfid_str[0] ^= 1;
+        uuid_utoa_r(gfid_str, ec->anon_inode.gfid);
+    }
+}
+
 int32_t
 ec_parse_options(xlator_t *this)
 {
@@ -286,6 +309,10 @@ reconfigure(xlator_t *this, dict_t *options)
                      failed);
     GF_OPTION_RECONF("stripe-cache", ec->stripe_cache, options, uint32, failed);
     GF_OPTION_RECONF("quorum-count", ec->quorum_count, options, uint32, failed);
+
+    ec_handle_anon_inode_options(ec, options);
+    GF_OPTION_RECONF("use-anonymous-inode", ec->anon_inode.enabled, options,
+                     bool, failed);
     ret = 0;
     if (ec_assign_read_policy(ec, read_policy)) {
         ret = -1;
@@ -872,6 +899,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("quorum-count", ec->quorum_count, uint32, failed);
     GF_OPTION_INIT("ec-read-mask", read_mask_str, str, failed);
 
+    ec_handle_anon_inode_options(ec, this->options);
+    GF_OPTION_INIT("use-anonymous-inode", ec->anon_inode.enabled, bool, failed);
     if (ec_assign_read_mask(ec, read_mask_str))
         goto failed;
 
@@ -1852,6 +1881,13 @@ struct volume_options options[] = {
         .description = "This option can be used to choose which bricks can be"
                        " used for reading data/metadata of a file/directory",
     },
+    {.key = {"use-anonymous-inode"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "off",
+     .op_version = {GD_OP_VERSION_9_0},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+     .tags = {"disperse"},
+     .description = "Setting this option heals renames efficiently"},
     {
         .key = {NULL},
     },

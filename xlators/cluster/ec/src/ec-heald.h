@@ -27,4 +27,8 @@ ec_shd_index_healer_wake(ec_t *ec);
 void
 ec_selfheal_daemon_fini(xlator_t *this);
 
+int
+ec_create_anon_inode_dir(call_frame_t *frame, xlator_t *this, ec_t *ec,
+                         inode_t **inode);
+
 #endif /* __EC_HEALD_H__ */

@@ -25,6 +25,14 @@ typedef enum { EC_DATA_TXN, EC_METADATA_TXN } ec_txn_t;
 
 #define EC_FLAG_LOCK_SHARED 0x0001
 
+#define EC_REPLIES_ALLOC(replies, numsubvols)                                  \
+    do {                                                                       \
+        int __i = 0;                                                           \
+        replies = alloca0(numsubvols * sizeof(*replies));                      \
+        for (__i = 0; __i < numsubvols; __i++)                                 \
+            INIT_LIST_HEAD(&replies[__i].entries.list);                        \
+    } while (0)
+
 #define QUORUM_CBK(fn, fop, frame, cookie, this, op_ret, op_errno, params...)  \
     do {                                                                       \
         ec_t *__ec = fop->xl->private;                                         \
@@ -231,4 +239,7 @@ gf_boolean_t
 __ec_is_last_fop(ec_t *ec);
 void
 ec_lock_update_good(ec_lock_t *lock, ec_fop_data_t *fop);
+
+gf_boolean_t
+ec_is_private_directory(ec_t *ec, uuid_t pargfid, const char *name, pid_t pid);
 #endif /* __EC_COMMON_H__ */

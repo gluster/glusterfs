@@ -17,6 +17,7 @@
 #include <glusterfs/atomic.h>
 
 #define EC_GF_MAX_REGS 16
+#define EC_ANON_DIR_PREFIX ".glusterfs-anonymous-inode"
 
 enum _ec_heal_need;
 typedef enum _ec_heal_need ec_heal_need_t;
@@ -120,6 +121,9 @@ typedef struct _ec_self_heald ec_self_heald_t;
 
 struct _ec_statistics;
 typedef struct _ec_statistics ec_statistics_t;
+
+struct _ec_anon_inode;
+typedef struct _ec_anon_inode ec_anon_inode_t;
 
 struct _ec;
 typedef struct _ec ec_t;
@@ -633,6 +637,13 @@ struct _ec_statistics {
     } shd;
 };
 
+struct _ec_anon_inode {
+    gf_boolean_t enabled; /* using anon-inode option is enabled or not */
+    uintptr_t mask;       /*Stores where anon-inode dir is created*/
+    char name[NAME_MAX + 1];
+    char gfid[UUID_SIZE + 1];
+};
+
 struct _ec {
     xlator_t *xl;
     int32_t healers;
@@ -685,6 +696,7 @@ struct _ec {
     ec_read_policy_t read_policy;
     ec_matrix_list_t matrix;
     ec_statistics_t stats;
+    ec_anon_inode_t anon_inode;
 };
 
 #endif /* __EC_TYPES_H__ */

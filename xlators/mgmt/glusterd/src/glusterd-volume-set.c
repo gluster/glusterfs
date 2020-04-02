@@ -3146,10 +3146,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                        "access-control xlator in volume",
         .type = NO_DOC,
     },
-
     {.key = "cluster.use-anonymous-inode",
      .voltype = "cluster/replicate",
      .op_version = GD_OP_VERSION_9_0,
-     .value = "yes",
+     .value = "Yes",
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = "disperse.use-anonymous-inode",
+     .voltype = "cluster/disperse",
+     .op_version = GD_OP_VERSION_9_0,
+     .value = "Yes",
+     .description = "Setting this option heals renames efficiently",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = NULL}};
