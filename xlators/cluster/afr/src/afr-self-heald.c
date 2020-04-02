@@ -1481,15 +1481,6 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
         case GF_SHD_OP_INDEX_SUMMARY:
             /* this case has been handled in glfs-heal.c */
             break;
-        case GF_SHD_OP_HEALED_FILES:
-        case GF_SHD_OP_HEAL_FAILED_FILES:
-            for (i = 0; i < priv->child_count; i++) {
-                keylen = snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
-                AFR_SET_DICT_AND_LOG(this->name, output, key, keylen,
-                                     SOP_NOT_SUPPORTED,
-                                     SLEN(SOP_NOT_SUPPORTED));
-            }
-            break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             eh_dump(shd->split_brain, output, afr_add_shd_event);
             break;

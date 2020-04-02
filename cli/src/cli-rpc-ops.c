@@ -7926,8 +7926,6 @@ gf_is_cli_heal_get_command(gf_xl_afr_op_t heal_op)
         [GF_SHD_OP_HEAL_INDEX] = 0,
         [GF_SHD_OP_HEAL_FULL] = 0,
         [GF_SHD_OP_INDEX_SUMMARY] = 1,
-        [GF_SHD_OP_HEALED_FILES] = 1,
-        [GF_SHD_OP_HEAL_FAILED_FILES] = 1,
         [GF_SHD_OP_SPLIT_BRAIN_FILES] = 1,
         [GF_SHD_OP_STATISTICS] = 1,
         [GF_SHD_OP_STATISTICS_HEAL_COUNT] = 1,
@@ -8014,12 +8012,6 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         case GF_SHD_OP_INDEX_SUMMARY:
             heal_op_str = "list of entries to be healed";
             break;
-        case GF_SHD_OP_HEALED_FILES:
-            heal_op_str = "list of healed entries";
-            break;
-        case GF_SHD_OP_HEAL_FAILED_FILES:
-            heal_op_str = "list of heal failed entries";
-            break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             heal_op_str = "list of split brain entries";
             break;
@@ -8032,12 +8024,14 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
             heal_op_str = "count of entries to be healed per replica";
             break;
-        /* The below 4 cases are never hit; they're coded only to make
-         * compiler warnings go away.*/
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
         case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
         case GF_SHD_OP_HEAL_SUMMARY:
+        case GF_SHD_OP_HEALED_FILES:
+        case GF_SHD_OP_HEAL_FAILED_FILES:
+            /* These cases are never hit; they're coded just to silence the
+             * compiler warnings.*/
             break;
 
         case GF_SHD_OP_INVALID:
@@ -8112,8 +8106,6 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 cmd_heal_volume_statistics_heal_count_out(dict, i);
             break;
         case GF_SHD_OP_INDEX_SUMMARY:
-        case GF_SHD_OP_HEALED_FILES:
-        case GF_SHD_OP_HEAL_FAILED_FILES:
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             for (i = 0; i < brick_count; i++)
                 cmd_heal_volume_brick_out(dict, i);

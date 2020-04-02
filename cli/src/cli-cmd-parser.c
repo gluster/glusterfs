@@ -3906,8 +3906,6 @@ heal_command_type_get(const char *command)
         [GF_SHD_OP_HEAL_INDEX] = NULL,
         [GF_SHD_OP_HEAL_FULL] = "full",
         [GF_SHD_OP_INDEX_SUMMARY] = "info",
-        [GF_SHD_OP_HEALED_FILES] = NULL,
-        [GF_SHD_OP_HEAL_FAILED_FILES] = NULL,
         [GF_SHD_OP_SPLIT_BRAIN_FILES] = NULL,
         [GF_SHD_OP_STATISTICS] = "statistics",
         [GF_SHD_OP_STATISTICS_HEAL_COUNT] = NULL,
