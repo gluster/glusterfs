@@ -52,12 +52,16 @@ gf_fuse_unmount (const char *mountpoint, int fd)
         if (geteuid () == 0) {
                 fuse_mnt_umount ("fuse", mountpoint, mountpoint, 1);
                 return;
+        } else {
+            GFFUSE_LOGERR ("fuse: Effective-uid: %d", geteuid());
         }
 
         res = umount2 (mountpoint, 2);
         if (res == 0)
                 return;
 
+        GFFUSE_LOGERR ("fuse: failed to unmount %s: %s",
+                       mountpoint, strerror (errno));
         pid = fork ();
         if (pid == -1)
                 return;
@@ -67,6 +71,8 @@ gf_fuse_unmount (const char *mountpoint, int fd)
                                        "--", mountpoint, NULL };
 
                 execvp (FUSERMOUNT_PROG, (char **)argv);
+                GFFUSE_LOGERR ("fuse: failed to execute fuserumount: %s",
+                               strerror (errno));
                 _exit (1);
         }
         waitpid (pid, NULL, 0);
