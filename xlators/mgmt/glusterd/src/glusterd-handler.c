@@ -1399,7 +1399,7 @@ __glusterd_handle_cli_get_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_GET_VOL_REQ_RCVD,
+    gf_msg(this->name, GF_LOG_DEBUG, 0, GD_MSG_GET_VOL_REQ_RCVD,
            "Received get vol req");
 
     if (cli_req.dict.dict_len) {
