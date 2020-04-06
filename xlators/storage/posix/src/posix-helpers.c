@@ -3510,13 +3510,14 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
     op_ret = dict_get_str_sizen(xdata, GF_PREOP_PARENT_KEY, &xattr_name);
     if (xattr_name == NULL) {
         op_ret = 0;
-        goto out;
+        return is_stale;
     }
 
     arg_data = dict_get(xdata, xattr_name);
     if (!arg_data) {
         op_ret = 0;
-        goto out;
+        dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
+        return is_stale;
     }
 
     size = sys_lgetxattr(par_path, xattr_name, value_buf,
