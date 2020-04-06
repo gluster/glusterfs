@@ -24,7 +24,7 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1..3}
 TEST $CLI volume start $V0
 
 EXPECT 1 count_brick_processes
-EXPECT 1 count_brick_pids
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 1 count_brick_pids
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 online_brick_count
 
 pkill gluster
