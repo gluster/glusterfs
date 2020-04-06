@@ -740,6 +740,7 @@ glfs_new_fs(const char *volname)
 
     INIT_LIST_HEAD(&fs->openfds);
     INIT_LIST_HEAD(&fs->upcall_list);
+    INIT_LIST_HEAD(&fs->waitq);
 
     PTHREAD_MUTEX_INIT(&fs->mutex, NULL, fs->pthread_flags, GLFS_INIT_MUTEX,
                        err);
@@ -1227,6 +1228,7 @@ pub_glfs_fini(struct glfs *fs)
     call_pool_t *call_pool = NULL;
     int fs_init = 0;
     int err = -1;
+    struct synctask *waittask = NULL;
 
     DECLARE_OLD_THIS;
 
@@ -1247,6 +1249,13 @@ pub_glfs_fini(struct glfs *fs)
     }
 
     call_pool = fs->ctx->pool;
+
+    /* Wake up any suspended synctasks */
+    while (!list_empty(&fs->waitq)) {
+        waittask = list_entry(fs->waitq.next, struct synctask, waitq);
+        list_del_init(&waittask->waitq);
+        synctask_wake(waittask);
+    }
 
     while (countdown--) {
         /* give some time for background frames to finish */
