@@ -30,7 +30,6 @@ TEST $GFS -f fubar.vol $M0
 # If we had DONT_EXPECT_WITHIN we could use that, but we don't.
 sleep 10
 EXPECT 0 check_mounted $M0
-ps aux | grep gluster
 
 # Set auth.allow to include us.  This mount should therefore succeed.
 TEST $CLI volume set $V0 auth.allow "$(get_addresses)"
