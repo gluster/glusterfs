@@ -11,6 +11,10 @@ function is_snapd_running {
          $CLI volume status $1 | grep "Snapshot Daemon" | wc -l;
 }
 
+function snapd_pid {
+    $CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $8'}
+}
+
 TEST glusterd;
 
 TEST pidof glusterd;
@@ -25,14 +29,12 @@ TEST $CLI volume set $V0 features.uss enable;
 
 EXPECT "1" is_snapd_running $V0
 
-SNAPD_PID=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $8'});
+SNAPD_PID=$(snapd_pid);
 
 TEST [ $SNAPD_PID -gt 0 ]
 
 kill -9 $SNAPD_PID
 
-SNAPD_PID=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $8'});
-
-TEST [ $SNAPD_PID = 'N/A' ]
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^N/A$" snapd_pid
 
 cleanup  ;
