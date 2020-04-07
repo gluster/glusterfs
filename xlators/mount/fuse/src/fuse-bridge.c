@@ -6374,6 +6374,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     fuse_private_t *private = NULL;
     gf_boolean_t start_thread = _gf_false;
     glusterfs_graph_t *graph = NULL;
+    struct pollfd pfd = {0};
 
    private
     = this->private;
@@ -6441,6 +6442,32 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             /* Authentication failure is an error and glusterfs should stop */
             gf_log(this->name, GF_LOG_ERROR,
                    "Server authenication failed. Shutting down.");
+            pthread_mutex_lock(&private->sync_mutex);
+            {
+                /*Wait for mount to finish*/
+                if (!private->mount_finished) {
+                    pfd.fd = private->status_pipe[0];
+                    pfd.events = POLLIN | POLLHUP | POLLERR;
+                    if (poll(&pfd, 1, -1) < 0) {
+                        gf_log(this->name, GF_LOG_ERROR, "poll error %s",
+                               strerror(errno));
+                        goto auth_fail_unlock;
+                    }
+                    if (pfd.revents & POLLIN) {
+                        if (fuse_get_mount_status(this) != 0) {
+                            goto auth_fail_unlock;
+                        }
+                       private
+                        ->mount_finished = _gf_true;
+                    } else if (pfd.revents) {
+                        gf_log(this->name, GF_LOG_ERROR,
+                               "mount pipe closed without status");
+                        goto auth_fail_unlock;
+                    }
+                }
+            }
+        auth_fail_unlock:
+            pthread_mutex_unlock(&private->sync_mutex);
             fini(this);
             break;
         }
