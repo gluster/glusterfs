@@ -67,3 +67,4 @@ EXPECT "$D0" cat $M1/test2.txt
 TEST write_to "$M0/test2.txt" "$D1"
 EXPECT "$D1" cat $M0/test2.txt
 EXPECT "$D1" cat $M1/test2.txt
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
