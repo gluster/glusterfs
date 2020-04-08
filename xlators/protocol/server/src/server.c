@@ -407,6 +407,7 @@ server_call_xlator_mem_cleanup(xlator_t *this, char *victim_name)
     if (!arg->victim_name) {
         gf_smsg(this->name, GF_LOG_CRITICAL, ENOMEM, LG_MSG_NO_MEMORY,
                 "Memory allocation is failed");
+        free(arg);
         return;
     }
 
