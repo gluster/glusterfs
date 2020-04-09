@@ -190,7 +190,7 @@ rpcsvc_get_drc_client(rpcsvc_drc_globals_t *drc,
     if (!client)
         goto out;
 
-    client->ref = 0;
+    GF_ATOMIC_INIT(client->ref, 0);
     client->sock_union = (union gf_sock_union) * sockaddr;
     client->op_count = 0;
     INIT_LIST_HEAD(&client->client_list);
@@ -246,7 +246,7 @@ static drc_client_t *
 rpcsvc_drc_client_ref(drc_client_t *client)
 {
     GF_ASSERT(client);
-    client->ref++;
+    GF_ATOMIC_INC(client->ref);
     return client;
 }
 
@@ -261,11 +261,12 @@ rpcsvc_drc_client_ref(drc_client_t *client)
 static drc_client_t *
 rpcsvc_drc_client_unref(rpcsvc_drc_globals_t *drc, drc_client_t *client)
 {
-    GF_ASSERT(drc);
-    GF_ASSERT(client->ref);
+    uint32_t refcount;
 
-    client->ref--;
-    if (!client->ref) {
+    GF_ASSERT(drc);
+
+    refcount = GF_ATOMIC_DEC(client->ref);
+    if (!refcount) {
         drc->client_count--;
         rpcsvc_remove_drc_client(client);
         client = NULL;
@@ -589,7 +590,7 @@ rpcsvc_drc_priv(rpcsvc_drc_globals_t *drc)
         }
 
         gf_proc_dump_build_key(key, "client", "%d.ref_count", i);
-        gf_proc_dump_write(key, "%d", client->ref);
+        gf_proc_dump_write(key, "%" PRIu32, GF_ATOMIC_GET(client->ref));
         gf_proc_dump_build_key(key, "client", "%d.op_count", i);
         gf_proc_dump_write(key, "%d", client->op_count);
         i++;
