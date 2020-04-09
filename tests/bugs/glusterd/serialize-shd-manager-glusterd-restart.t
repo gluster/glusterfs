@@ -4,7 +4,7 @@
 . $(dirname $0)/../../cluster.rc
 
 function check_peers {
-count=`$CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l`
+count=`$CLI_3 peer status | grep 'Peer in Cluster (Connected)' | wc -l`
 echo $count
 }
 
