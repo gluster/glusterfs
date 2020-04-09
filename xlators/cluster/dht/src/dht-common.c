@@ -619,13 +619,14 @@ dht_discover_complete(xlator_t *this, call_frame_t *discover_frame)
 
         if (local->need_xattr_heal && !heal_path) {
             local->need_xattr_heal = 0;
-            ret = dht_dir_xattr_heal(this, local);
-            if (ret)
-                gf_msg(this->name, GF_LOG_ERROR, ret,
+            ret = dht_dir_xattr_heal(this, local, &op_errno);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, op_errno,
                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
                        "xattr heal failed for "
                        "directory  gfid is %s ",
                        gfid_local);
+            }
         }
     }
 
@@ -1256,7 +1257,7 @@ err:
    to non hashed subvol
 */
 int
-dht_dir_xattr_heal(xlator_t *this, dht_local_t *local)
+dht_dir_xattr_heal(xlator_t *this, dht_local_t *local, int *op_errno)
 {
     dht_local_t *copy_local = NULL;
     call_frame_t *copy = NULL;
@@ -1268,6 +1269,7 @@ dht_dir_xattr_heal(xlator_t *this, dht_local_t *local)
                "No gfid exists for path %s "
                "so healing xattr is not possible",
                local->loc.path);
+        *op_errno = EIO;
         goto out;
     }
 
@@ -1281,6 +1283,7 @@ dht_dir_xattr_heal(xlator_t *this, dht_local_t *local)
                    "Memory allocation failed "
                    "for path %s gfid %s ",
                    local->loc.path, gfid_local);
+            *op_errno = ENOMEM;
             DHT_STACK_DESTROY(copy);
         } else {
             copy_local->stbuf = local->stbuf;
@@ -1295,6 +1298,7 @@ dht_dir_xattr_heal(xlator_t *this, dht_local_t *local)
                        "Synctask creation failed to heal xattr "
                        "for path %s gfid %s ",
                        local->loc.path, gfid_local);
+                *op_errno = ENOMEM;
                 DHT_STACK_DESTROY(copy);
             }
         }

@@ -1433,7 +1433,7 @@ dht_dir_set_heal_xattr(xlator_t *this, dht_local_t *local, dict_t *dst,
                        dict_t *src, int *uret, int *uflag);
 
 int
-dht_dir_xattr_heal(xlator_t *this, dht_local_t *local);
+dht_dir_xattr_heal(xlator_t *this, dht_local_t *local, int *op_errno);
 
 int
 dht_common_mark_mdsxattr(call_frame_t *frame, int *errst, int flag);
