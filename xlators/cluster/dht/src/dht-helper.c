@@ -2083,6 +2083,7 @@ dht_heal_full_path_done(int op_ret, call_frame_t *heal_frame, void *data)
     dht_local_t *local = NULL;
     xlator_t *this = NULL;
     int ret = -1;
+    int op_errno = 0;
 
     local = heal_frame->local;
     main_frame = local->main_frame;
@@ -2092,11 +2093,12 @@ dht_heal_full_path_done(int op_ret, call_frame_t *heal_frame, void *data)
     dht_set_fixed_dir_stat(&local->postparent);
     if (local->need_xattr_heal) {
         local->need_xattr_heal = 0;
-        ret = dht_dir_xattr_heal(this, local);
-        if (ret)
-            gf_smsg(this->name, GF_LOG_ERROR, ret,
+        ret = dht_dir_xattr_heal(this, local, &op_errno);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                     DHT_MSG_DIR_XATTR_HEAL_FAILED, "path=%s", local->loc.path,
                     NULL);
+        }
     }
 
     DHT_STACK_UNWIND(lookup, main_frame, 0, 0, local->inode, &local->stbuf,

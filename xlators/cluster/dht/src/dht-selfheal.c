@@ -1326,6 +1326,7 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
 {
     int missing_dirs = 0;
     int i = 0;
+    int op_errno = 0;
     int ret = -1;
     dht_local_t *local = NULL;
     xlator_t *this = NULL;
@@ -1348,11 +1349,12 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
         if (!__is_root_gfid(local->stbuf.ia_gfid)) {
             if (local->need_xattr_heal) {
                 local->need_xattr_heal = 0;
-                ret = dht_dir_xattr_heal(this, local);
-                if (ret)
-                    gf_smsg(this->name, GF_LOG_ERROR, ret,
+                ret = dht_dir_xattr_heal(this, local, &op_errno);
+                if (ret) {
+                    gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                             DHT_MSG_DIR_XATTR_HEAL_FAILED, "path=%s",
                             local->loc.path, "gfid=%s", local->gfid, NULL);
+                }
             } else {
                 if (!gf_uuid_is_null(local->gfid))
                     gf_uuid_copy(loc->gfid, local->gfid);
