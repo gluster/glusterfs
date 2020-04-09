@@ -24,7 +24,7 @@ struct drc_client {
     struct rb_table *rbtree;
     /* no. of ops currently cached */
     uint32_t op_count;
-    uint32_t ref;
+    gf_atomic_uint32_t ref;
     struct list_head client_list;
 };
 
