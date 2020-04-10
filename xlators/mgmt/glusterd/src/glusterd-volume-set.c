@@ -8,9 +8,10 @@ later), or the GNU General Public License, version 2 (GPLv2), in all
 cases as published by the Free Software Foundation.
 */
 
+#include <glusterfs/syscall.h>
 #include "glusterd-volgen.h"
 #include "glusterd-utils.h"
-#include "sys/stat.h"
+
 static int
 validate_cache_max_min_size(glusterd_volinfo_t *volinfo, dict_t *dict,
                             char *key, char *value, char **op_errstr)
@@ -790,7 +791,7 @@ static int
 is_directory(const char *path)
 {
     struct stat statbuf;
-    if (stat(path, &statbuf) != 0)
+    if (sys_stat(path, &statbuf) != 0)
         return 0;
     return S_ISDIR(statbuf.st_mode);
 }
