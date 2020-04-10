@@ -168,8 +168,8 @@ TEST [ "$gfid_1" != "$gfid_2" ]
 #We know that second brick has the bigger size file
 BIGGER_FILE_MD5=$(md5sum $B0/${V0}1/f3 | cut -d\  -f1)
 
-TEST ls $M0/f3
-TEST cat $M0/f3
+TEST ls $M0 #Trigger entry heal via readdir inode refresh
+TEST cat $M0/f3 #Trigger data heal via readv inode refresh
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 #gfid split-brain should be resolved
@@ -215,8 +215,8 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 2
 
-TEST ls $M0/f4
-TEST cat $M0/f4
+TEST ls $M0 #Trigger entry heal via readdir inode refresh
+TEST cat $M0/f4  #Trigger data heal via readv inode refresh
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
 #gfid split-brain should be resolved

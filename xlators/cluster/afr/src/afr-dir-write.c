@@ -119,11 +119,11 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
             continue;
         if (local->replies[i].op_ret < 0) {
             if (local->inode)
-                afr_inode_event_gen_reset(local->inode, this);
+                afr_inode_need_refresh_set(local->inode, this);
             if (local->parent)
-                afr_inode_event_gen_reset(local->parent, this);
+                afr_inode_need_refresh_set(local->parent, this);
             if (local->parent2)
-                afr_inode_event_gen_reset(local->parent2, this);
+                afr_inode_need_refresh_set(local->parent2, this);
             continue;
         }
 
