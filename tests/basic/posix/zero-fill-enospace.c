@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <glusterfs/api/glfs.h>
 #include <glusterfs/api/glfs-handles.h>
 
@@ -8,7 +9,7 @@ main(int argc, char *argv[])
     glfs_t *fs = NULL;
     glfs_fd_t *fd = NULL;
     int ret = 1;
-    int size = 0;
+    off_t size = 0;
 
     if (argc != 6) {
         fprintf(stderr,
@@ -45,12 +46,12 @@ main(int argc, char *argv[])
         goto out;
     }
 
-    size = atoi(argv[5]);
+    size = strtol(argv[5], NULL, 10);
     if (size < 0) {
         fprintf(stderr, "Wrong size %s", argv[5]);
         goto out;
     }
-    ret = glfs_zerofill(fd, 0, atoi(argv[5]));
+    ret = glfs_zerofill(fd, 0, size);
     if (ret <= 0) {
         fprintf(stderr, "glfs_zerofill: returned %d\n", ret);
         goto out;

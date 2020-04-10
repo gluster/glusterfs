@@ -50,8 +50,9 @@ main(int argc, char *argv[])
         goto out;
     }
 
-    off = atoi(argv[4]);
-    len = atoi(argv[5]);
+    /* Note that off_t is signed but size_t isn't. */
+    off = strtol(argv[4], NULL, 10);
+    len = strtoul(argv[5], NULL, 10);
 
     ret = glfs_discard(fd, off, len);
     if (ret <= 0) {
