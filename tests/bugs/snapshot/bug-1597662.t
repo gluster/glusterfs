@@ -34,12 +34,13 @@ function is_snap_path
 EXPECT "1" is_snap_path
 
 $CLI snapshot deactivate snap1;
-
+EXPECT_WITHIN ${PROCESS_DOWN_TIMEOUT} 'Stopped' snapshot_status snap1
 # snap is deactivated so snap_path should not exist
 EXPECT "0" is_snap_path
 
 # activate snap again
 $CLI snapshot activate snap1;
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} 'Started' snapshot_status snap1
 
 # snap is active so snap_path should exist
 EXPECT "1" is_snap_path

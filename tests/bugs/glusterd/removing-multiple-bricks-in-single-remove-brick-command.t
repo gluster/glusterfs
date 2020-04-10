@@ -49,6 +49,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 #Create a 3x3 dist-rep volume
 TEST $CLI volume create $V1 replica 3 $H0:$B0/${V1}{0,1,2,3,4,5,6,7,8};
 TEST $CLI volume start $V1
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "9" brick_count ${V1}
 
 # Mount FUSE and create file/directory
 TEST glusterfs -s $H0 --volfile-id $V1 $M0
