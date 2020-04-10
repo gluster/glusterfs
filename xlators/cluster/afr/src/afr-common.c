@@ -885,7 +885,7 @@ __afr_set_in_flight_sb_status(xlator_t *this, afr_local_t *local,
                 metadatamap |= (1 << index);
             }
             if (metadatamap_old != metadatamap) {
-                event = 0;
+                __afr_inode_need_refresh_set(inode, this);
             }
             break;
 
@@ -898,7 +898,7 @@ __afr_set_in_flight_sb_status(xlator_t *this, afr_local_t *local,
                 datamap |= (1 << index);
             }
             if (datamap_old != datamap)
-                event = 0;
+                __afr_inode_need_refresh_set(inode, this);
             break;
 
         default:
@@ -1062,34 +1062,6 @@ out:
 }
 
 int
-__afr_inode_event_gen_reset_small(inode_t *inode, xlator_t *this)
-{
-    int ret = -1;
-    uint16_t datamap = 0;
-    uint16_t metadatamap = 0;
-    uint32_t event = 0;
-    uint64_t val = 0;
-    afr_inode_ctx_t *ctx = NULL;
-
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret)
-        return ret;
-
-    val = ctx->read_subvol;
-
-    metadatamap = (val & 0x000000000000ffff) >> 0;
-    datamap = (val & 0x00000000ffff0000) >> 16;
-    event = 0;
-
-    val = ((uint64_t)metadatamap) | (((uint64_t)datamap) << 16) |
-          (((uint64_t)event) << 32);
-
-    ctx->read_subvol = val;
-
-    return ret;
-}
-
-int
 __afr_inode_read_subvol_get(inode_t *inode, xlator_t *this, unsigned char *data,
                             unsigned char *metadata, int *event_p)
 {
@@ -1156,22 +1128,6 @@ __afr_inode_split_brain_choice_set(inode_t *inode, xlator_t *this,
 
     ret = 0;
 out:
-    return ret;
-}
-
-int
-__afr_inode_event_gen_reset(inode_t *inode, xlator_t *this)
-{
-    afr_private_t *priv = NULL;
-    int ret = -1;
-
-    priv = this->private;
-
-    if (priv->child_count <= 16)
-        ret = __afr_inode_event_gen_reset_small(inode, this);
-    else
-        ret = -1;
-
     return ret;
 }
 
@@ -1324,30 +1280,22 @@ out:
     return need_refresh;
 }
 
-static int
-afr_inode_need_refresh_set(inode_t *inode, xlator_t *this)
+int
+__afr_inode_need_refresh_set(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
     afr_inode_ctx_t *ctx = NULL;
 
-    GF_VALIDATE_OR_GOTO(this->name, inode, out);
-
-    LOCK(&inode->lock);
-    {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret)
-            goto unlock;
-
+    ret = __afr_inode_ctx_get(this, inode, &ctx);
+    if (ret == 0) {
         ctx->need_refresh = _gf_true;
     }
-unlock:
-    UNLOCK(&inode->lock);
-out:
+
     return ret;
 }
 
 int
-afr_inode_event_gen_reset(inode_t *inode, xlator_t *this)
+afr_inode_need_refresh_set(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
 
@@ -1355,7 +1303,7 @@ afr_inode_event_gen_reset(inode_t *inode, xlator_t *this)
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_event_gen_reset(inode, this);
+        ret = __afr_inode_need_refresh_set(inode, this);
     }
     UNLOCK(&inode->lock);
 out:
@@ -1790,7 +1738,7 @@ afr_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
     ret = afr_inode_get_readable(frame, inode, this, local->readable,
                                  &event_generation, local->transaction.type);
 
-    if (ret == -EIO || (local->is_read_txn && !event_generation)) {
+    if (ret == -EIO) {
         /* No readable subvolume even after refresh ==> splitbrain.*/
         if (!priv->fav_child_policy) {
             err = EIO;
@@ -3050,7 +2998,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         if (read_subvol == -1)
             goto cant_interpret;
         if (ret) {
-            afr_inode_event_gen_reset(local->inode, this);
+            afr_inode_need_refresh_set(local->inode, this);
             dict_del_sizen(local->replies[read_subvol].xdata, GF_CONTENT_KEY);
         }
     } else {
@@ -3606,6 +3554,7 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     int read_subvol = -1;
+    int ret = 0;
     unsigned char *data_readable = NULL;
     unsigned char *success_replies = NULL;
 
@@ -3627,7 +3576,10 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
     if (!afr_has_quorum(success_replies, this, frame))
         goto unwind;
 
-    afr_replies_interpret(frame, this, local->inode, NULL);
+    ret = afr_replies_interpret(frame, this, local->inode, NULL);
+    if (ret) {
+        afr_inode_need_refresh_set(local->inode, this);
+    }
 
     read_subvol = afr_read_subvol_decide(local->inode, this, NULL,
                                          data_readable);
@@ -3888,11 +3840,7 @@ afr_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     afr_read_subvol_get(loc->inode, this, NULL, NULL, &event,
                         AFR_DATA_TRANSACTION, NULL);
 
-    if (afr_is_inode_refresh_reqd(loc->inode, this, event,
-                                  local->event_generation))
-        afr_inode_refresh(frame, this, loc->inode, NULL, afr_discover_do);
-    else
-        afr_discover_do(frame, this, 0);
+    afr_discover_do(frame, this, 0);
 
     return 0;
 out:
@@ -4033,11 +3981,7 @@ afr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     afr_read_subvol_get(loc->parent, this, NULL, NULL, &event,
                         AFR_DATA_TRANSACTION, NULL);
 
-    if (afr_is_inode_refresh_reqd(loc->inode, this, event,
-                                  local->event_generation))
-        afr_inode_refresh(frame, this, loc->parent, NULL, afr_lookup_do);
-    else
-        afr_lookup_do(frame, this, 0);
+    afr_lookup_do(frame, this, 0);
 
     return 0;
 out:
