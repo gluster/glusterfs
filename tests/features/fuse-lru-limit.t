@@ -10,6 +10,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}{0,1}
 TEST $CLI volume start $V0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "2" online_brick_count
 
 EXPECT "1" get_mount_active_size_value $V0 $M0
 EXPECT "0" get_mount_lru_size_value $V0 $M0
