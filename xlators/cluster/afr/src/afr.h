@@ -997,7 +997,10 @@ afr_inode_read_subvol_set(inode_t *inode, xlator_t *this,
                           int event_generation);
 
 int
-afr_inode_event_gen_reset(inode_t *inode, xlator_t *this);
+__afr_inode_need_refresh_set(inode_t *inode, xlator_t *this);
+
+int
+afr_inode_need_refresh_set(inode_t *inode, xlator_t *this);
 
 int
 afr_read_subvol_select_by_policy(inode_t *inode, xlator_t *this,
