@@ -87,8 +87,9 @@ main(int argc, char *argv[])
         goto out;
     }
 
-    offset = atoi(argv[4]);
-    len = atoi(argv[5]);
+    /* Note that off_t is signed but size_t isn't. */
+    offset = strtol(argv[4], NULL, 10);
+    len = strtoul(argv[5], NULL, 10);
 
     fd = glfs_open(fs, argv[6], O_RDWR);
     if (fd == NULL) {
