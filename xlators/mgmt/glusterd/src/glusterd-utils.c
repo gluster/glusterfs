@@ -14797,3 +14797,107 @@ out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
 }
+
+static gf_boolean_t
+search_peer_in_auth_list(char *peer_hostname, char *auth_allow_list)
+{
+    if (strstr(auth_allow_list, peer_hostname)) {
+        return _gf_true;
+    }
+
+    return _gf_false;
+}
+
+/* glusterd_add_peers_to_auth_list() adds peers into auth.allow list
+ * if auth.allow list is not empty. This is called for add-brick and
+ * replica brick operations to avoid failing the temporary mount. New
+ * volfiles will be generated and clients are notified reg new volfiles.
+ */
+void
+glusterd_add_peers_to_auth_list(char *volname)
+{
+    int ret = 0;
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_peerinfo_t *peerinfo = NULL;
+    xlator_t *this = NULL;
+    glusterd_conf_t *conf = NULL;
+    int32_t len = 0;
+    char *auth_allow_list = NULL;
+    char *new_auth_allow_list = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+    conf = this->private;
+    GF_ASSERT(conf);
+
+    GF_VALIDATE_OR_GOTO(this->name, volname, out);
+
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+               "Unable to find volume: %s", volname);
+        goto out;
+    }
+
+    ret = dict_get_str_sizen(volinfo->dict, "auth.allow", &auth_allow_list);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_FAILED,
+               "auth allow list is not set");
+        goto out;
+    }
+    cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
+    {
+        len += strlen(peerinfo->hostname);
+    }
+    len += strlen(auth_allow_list) + 1;
+
+    new_auth_allow_list = GF_CALLOC(1, len, gf_common_mt_char);
+
+    new_auth_allow_list = strncat(new_auth_allow_list, auth_allow_list,
+                                  strlen(auth_allow_list));
+    cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
+    {
+        ret = search_peer_in_auth_list(peerinfo->hostname, new_auth_allow_list);
+        if (!ret) {
+            gf_log(this->name, GF_LOG_DEBUG,
+                   "peer %s not found in auth.allow list", peerinfo->hostname);
+            new_auth_allow_list = strcat(new_auth_allow_list, ",");
+            new_auth_allow_list = strncat(new_auth_allow_list,
+                                          peerinfo->hostname,
+                                          strlen(peerinfo->hostname));
+        }
+    }
+    if (strcmp(new_auth_allow_list, auth_allow_list) != 0) {
+        /* In case, new_auth_allow_list is not same as auth_allow_list,
+         * we need to update the volinfo->dict with new_auth_allow_list.
+         * we delete the auth_allow_list and replace it with
+         * new_auth_allow_list. for reverting the changes in post commit, we
+         * keep the copy of auth_allow_list as old_auth_allow_list in
+         * volinfo->dict.
+         */
+        dict_del_sizen(volinfo->dict, "auth.allow");
+        ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
+                            new_auth_allow_list);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set new auth.allow list");
+            goto out;
+        }
+        ret = dict_set_strn(volinfo->dict, "old.auth.allow",
+                            SLEN("old.auth.allow"), auth_allow_list);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set old auth.allow list");
+            goto out;
+        }
+        ret = glusterd_create_volfiles_and_notify_services(volinfo);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+                   "failed to create volfiles");
+            goto out;
+        }
+    }
+out:
+    GF_FREE(new_auth_allow_list);
+    return;
+}
