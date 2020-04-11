@@ -1364,4 +1364,7 @@ glusterd_options_init(xlator_t *this);
 int32_t
 glusterd_recreate_volfiles(glusterd_conf_t *conf);
 
+void
+glusterd_add_peers_to_auth_list(char *volname);
+
 #endif

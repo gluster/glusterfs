@@ -239,6 +239,8 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
         msg[0] = '\0';
     }
 
+    glusterd_add_peers_to_auth_list(volname);
+
     ret = glusterd_get_dst_brick_info(&dst_brick, volname, op_errstr,
                                       &dst_brickinfo, &host, dict,
                                       &dup_dstbrick);

@@ -1398,6 +1398,8 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
     }
 
+    glusterd_add_peers_to_auth_list(volname);
+
     if (glusterd_is_volume_replicate(volinfo)) {
         /* Do not allow add-brick for stopped volumes when replica-count
          * is being increased.
