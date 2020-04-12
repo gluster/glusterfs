@@ -10999,21 +10999,13 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                 if (defrag->is_exiting)
                     goto unlock;
                 if ((cmd == GF_DEFRAG_CMD_STATUS) ||
-                    (cmd == GF_DEFRAG_CMD_STATUS_TIER) ||
                     (cmd == GF_DEFRAG_CMD_DETACH_STATUS))
                     gf_defrag_status_get(conf, output);
-                else if (cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
-                    gf_defrag_start_detach_tier(defrag);
                 else if (cmd == GF_DEFRAG_CMD_DETACH_START)
                     defrag->cmd = GF_DEFRAG_CMD_DETACH_START;
                 else if (cmd == GF_DEFRAG_CMD_STOP ||
-                         cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER ||
                          cmd == GF_DEFRAG_CMD_DETACH_STOP)
                     gf_defrag_stop(conf, GF_DEFRAG_STATUS_STOPPED, output);
-                else if (cmd == GF_DEFRAG_CMD_PAUSE_TIER)
-                    ret = gf_defrag_pause_tier(this, defrag);
-                else if (cmd == GF_DEFRAG_CMD_RESUME_TIER)
-                    ret = gf_defrag_resume_tier(this, defrag);
             }
         unlock:
             UNLOCK(&defrag->lock);
