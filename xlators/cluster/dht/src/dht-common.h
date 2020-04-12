@@ -1238,24 +1238,6 @@ dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int
 gf_defrag_status_get(dht_conf_t *conf, dict_t *dict);
 
-void
-gf_defrag_set_pause_state(gf_tier_conf_t *tier_conf, tier_pause_state_t state);
-
-tier_pause_state_t
-gf_defrag_get_pause_state(gf_tier_conf_t *tier_conf);
-
-int
-gf_defrag_pause_tier(xlator_t *this, gf_defrag_info_t *defrag);
-
-tier_pause_state_t
-gf_defrag_check_pause_tier(gf_tier_conf_t *defrag);
-
-int
-gf_defrag_resume_tier(xlator_t *this, gf_defrag_info_t *defrag);
-
-int
-gf_defrag_start_detach_tier(gf_defrag_info_t *defrag);
-
 int
 gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output);
 
