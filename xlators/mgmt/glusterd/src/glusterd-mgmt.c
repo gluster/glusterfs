@@ -187,6 +187,16 @@ gd_mgmt_v3_pre_validate_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
                 goto out;
             }
             break;
+        case GD_OP_REMOVE_BRICK:
+            ret = glusterd_op_stage_remove_brick(dict, op_errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, 0,
+                       GD_MSG_PRE_VALIDATION_FAIL,
+                       "Remove brick prevalidation failed.");
+                goto out;
+            }
+            break;
+
         case GD_OP_RESET_BRICK:
             ret = glusterd_reset_brick_prevalidate(dict, op_errstr, rsp_dict);
             if (ret) {
@@ -333,6 +343,15 @@ gd_mgmt_v3_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COMMIT_OP_FAIL,
                        "Volume stop commit failed.");
+                goto out;
+            }
+            break;
+        }
+        case GD_OP_REMOVE_BRICK: {
+            ret = glusterd_op_remove_brick(dict, op_errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COMMIT_OP_FAIL,
+                       "Remove-brick commit failed.");
                 goto out;
             }
             break;
@@ -759,6 +778,7 @@ glusterd_pre_validate_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                 goto out;
             }
         case GD_OP_STOP_VOLUME:
+        case GD_OP_REMOVE_BRICK:
         case GD_OP_PROFILE_VOLUME:
         case GD_OP_DEFRAG_BRICK_VOLUME:
         case GD_OP_REBALANCE:
@@ -948,7 +968,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     }
 
     if (op == GD_OP_PROFILE_VOLUME || op == GD_OP_STOP_VOLUME ||
-        op == GD_OP_REBALANCE) {
+        op == GD_OP_REBALANCE || op == GD_OP_REMOVE_BRICK) {
         ret = glusterd_validate_quorum(this, op, req_dict, op_errstr);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SERVER_QUORUM_NOT_MET,
@@ -1076,6 +1096,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
         case GD_OP_START_VOLUME:
         case GD_OP_STOP_VOLUME:
         case GD_OP_ADD_BRICK:
+        case GD_OP_REMOVE_BRICK:
         case GD_OP_DEFRAG_BRICK_VOLUME:
         case GD_OP_REPLACE_BRICK:
         case GD_OP_RESET_BRICK:
@@ -1559,12 +1580,25 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
-    if (op == GD_OP_REBALANCE || op == GD_OP_DEFRAG_BRICK_VOLUME) {
-        ret = glusterd_set_rebalance_id_in_rsp_dict(req_dict, op_ctx);
-        if (ret) {
-            gf_log(this->name, GF_LOG_WARNING,
-                   "Failed to set rebalance id in dict.");
-        }
+    switch (op) {
+        case GD_OP_REBALANCE:
+        case GD_OP_DEFRAG_BRICK_VOLUME:
+
+            ret = glusterd_set_rebalance_id_in_rsp_dict(req_dict, op_ctx);
+            if (ret) {
+                gf_log(this->name, GF_LOG_WARNING,
+                       "Failed to set rebalance id in dict.");
+            }
+            break;
+        case GD_OP_REMOVE_BRICK:
+            ret = glusterd_set_rebalance_id_for_remove_brick(req_dict, op_ctx);
+            if (ret) {
+                gf_log(this->name, GF_LOG_WARNING,
+                       "Failed to set rebalance id for remove-brick in dict.");
+            }
+            break;
+        default:
+            break;
     }
     rsp_dict = dict_new();
     if (!rsp_dict) {

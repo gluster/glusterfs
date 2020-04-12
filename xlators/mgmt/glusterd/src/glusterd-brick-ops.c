@@ -620,6 +620,7 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     char key[64] = "";
     int keylen;
     int i = 1;
+    glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_brickinfo_t **brickinfo_list = NULL;
@@ -638,6 +639,8 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     GF_ASSERT(req);
     this = THIS;
     GF_ASSERT(this);
+    conf = this->private;
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -834,7 +837,17 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     if (ret)
         goto out;
 
-    ret = glusterd_op_begin_synctask(req, GD_OP_REMOVE_BRICK, dict);
+    if (conf->op_version < GD_OP_VERSION_8_0) {
+        gf_msg_debug(this->name, 0,
+                     "The cluster is operating at "
+                     "version less than %d. remove-brick operation"
+                     "falling back to syncop framework.",
+                     GD_OP_VERSION_8_0);
+        ret = glusterd_op_begin_synctask(req, GD_OP_REMOVE_BRICK, dict);
+    } else {
+        ret = glusterd_mgmt_v3_initiate_all_phases(req, GD_OP_REMOVE_BRICK,
+                                                   dict);
+    }
 
 out:
     if (ret) {
@@ -2147,6 +2160,83 @@ out:
 }
 
 int
+glusterd_set_rebalance_id_for_remove_brick(dict_t *req_dict, dict_t *rsp_dict)
+{
+    int ret = -1;
+    char *volname = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    char msg[2048] = {0};
+    char *task_id_str = NULL;
+    xlator_t *this = NULL;
+    int32_t cmd = 0;
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    GF_ASSERT(rsp_dict);
+    GF_ASSERT(req_dict);
+
+    ret = dict_get_strn(rsp_dict, "volname", SLEN("volname"), &volname);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "volname not found");
+        goto out;
+    }
+
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_VOL_NOT_FOUND,
+               "Unable to allocate memory");
+        goto out;
+    }
+
+    ret = dict_get_int32n(rsp_dict, "command", SLEN("command"), &cmd);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+               "Unable to get command");
+        goto out;
+    }
+
+    /* remove brick task id is generted in glusterd_op_stage_remove_brick(),
+     * but rsp_dict is unavailable there. So copying it to rsp_dict from
+     * req_dict here. */
+
+    if (is_origin_glusterd(rsp_dict)) {
+        ret = dict_get_strn(req_dict, GF_REMOVE_BRICK_TID_KEY,
+                            SLEN(GF_REMOVE_BRICK_TID_KEY), &task_id_str);
+        if (ret) {
+            snprintf(msg, sizeof(msg), "Missing rebalance id for remove-brick");
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_REBALANCE_ID_MISSING,
+                   "%s", msg);
+            ret = 0;
+        } else {
+            gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+
+            ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id,
+                                             rsp_dict, GF_REMOVE_BRICK_TID_KEY,
+                                             SLEN(GF_REMOVE_BRICK_TID_KEY));
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_REMOVE_BRICK_ID_SET_FAIL,
+                       "Failed to set remove-brick-id");
+                goto out;
+            }
+        }
+    }
+    if (!gf_uuid_is_null(volinfo->rebal.rebalance_id) &&
+        GD_OP_REMOVE_BRICK == volinfo->rebal.op) {
+        ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id, rsp_dict,
+                                         GF_REMOVE_BRICK_TID_KEY,
+                                         SLEN(GF_REMOVE_BRICK_TID_KEY));
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set task-id for volume %s", volname);
+            goto out;
+        }
+    }
+out:
+    return ret;
+}
+int
 glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
 {
     int ret = -1;
@@ -2460,7 +2550,7 @@ out:
     GF_FREE(brick_tmpstr);
     if (bricks_dict)
         dict_unref(bricks_dict);
-
+    gf_msg_debug(this->name, 0, "returning %d ", ret);
     return ret;
 }
 
