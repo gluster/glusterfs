@@ -222,7 +222,7 @@ out:
 }
 
 int
-afr_shd_index_purge(xlator_t *subvol, inode_t *inode, char *name,
+afr_shd_entry_purge(xlator_t *subvol, inode_t *inode, char *name,
                     ia_type_t type)
 {
     int ret = 0;
@@ -424,7 +424,7 @@ afr_shd_index_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     ret = afr_shd_selfheal(healer, healer->subvol, gfid);
 
     if (ret == -ENOENT || ret == -ESTALE)
-        afr_shd_index_purge(subvol, parent->inode, entry->d_name, val);
+        afr_shd_entry_purge(subvol, parent->inode, entry->d_name, val);
 
     if (ret == 2)
         /* If bricks crashed in pre-op after creating indices/xattrop
@@ -843,6 +843,176 @@ out:
     return need_heal;
 }
 
+static int
+afr_shd_anon_inode_cleaner(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                           void *data)
+{
+    struct subvol_healer *healer = data;
+    afr_private_t *priv = healer->this->private;
+    call_frame_t *frame = NULL;
+    afr_local_t *local = NULL;
+    int ret = 0;
+    loc_t loc = {0};
+    int count = 0;
+    int i = 0;
+    int op_errno = 0;
+    struct iatt *iatt = NULL;
+    gf_boolean_t multiple_links = _gf_false;
+    unsigned char *gfid_present = alloca0(priv->child_count);
+    unsigned char *entry_present = alloca0(priv->child_count);
+    char *type = "file";
+
+    frame = afr_frame_create(healer->this, &ret);
+    if (!frame) {
+        ret = -ret;
+        goto out;
+    }
+    local = frame->local;
+    if (AFR_COUNT(local->child_up, priv->child_count) != priv->child_count) {
+        gf_msg_debug(healer->this->name, 0,
+                     "Not all bricks are up. Skipping "
+                     "cleanup of %s on %s",
+                     entry->d_name, subvol->name);
+        ret = 0;
+        goto out;
+    }
+
+    loc.inode = inode_new(parent->inode->table);
+    if (!loc.inode) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    ret = gf_uuid_parse(entry->d_name, loc.gfid);
+    if (ret) {
+        ret = 0;
+        goto out;
+    }
+    AFR_ONLIST(local->child_up, frame, afr_selfheal_discover_cbk, lookup, &loc,
+               NULL);
+    for (i = 0; i < priv->child_count; i++) {
+        if (local->replies[i].op_ret == 0) {
+            count++;
+            gfid_present[i] = 1;
+            iatt = &local->replies[i].poststat;
+            if (iatt->ia_type == IA_IFDIR) {
+                type = "dir";
+            }
+
+            if (i == healer->subvol) {
+                if (local->replies[i].poststat.ia_nlink > 1) {
+                    multiple_links = _gf_true;
+                }
+            }
+        } else if (local->replies[i].op_errno != ENOENT &&
+                   local->replies[i].op_errno != ESTALE) {
+            /*We don't have complete view. Skip the entry*/
+            gf_msg_debug(healer->this->name, local->replies[i].op_errno,
+                         "Skipping cleanup of %s on %s", entry->d_name,
+                         subvol->name);
+            ret = 0;
+            goto out;
+        }
+    }
+
+    /*Inode is deleted from subvol*/
+    if (count == 1 || (iatt->ia_type != IA_IFDIR && multiple_links)) {
+        gf_msg(healer->this->name, GF_LOG_WARNING, 0,
+               AFR_MSG_EXPUNGING_FILE_OR_DIR, "expunging %s %s/%s on %s", type,
+               priv->anon_inode_name, entry->d_name, subvol->name);
+        ret = afr_shd_entry_purge(subvol, parent->inode, entry->d_name,
+                                  iatt->ia_type);
+        if (ret == -ENOENT || ret == -ESTALE)
+            ret = 0;
+    } else if (count > 1) {
+        loc_wipe(&loc);
+        loc.parent = inode_ref(parent->inode);
+        loc.name = entry->d_name;
+        loc.inode = inode_new(parent->inode->table);
+        if (!loc.inode) {
+            ret = -ENOMEM;
+            goto out;
+        }
+        AFR_ONLIST(local->child_up, frame, afr_selfheal_discover_cbk, lookup,
+                   &loc, NULL);
+        count = 0;
+        for (i = 0; i < priv->child_count; i++) {
+            if (local->replies[i].op_ret == 0) {
+                count++;
+                entry_present[i] = 1;
+                iatt = &local->replies[i].poststat;
+            } else if (local->replies[i].op_errno != ENOENT &&
+                       local->replies[i].op_errno != ESTALE) {
+                /*We don't have complete view. Skip the entry*/
+                gf_msg_debug(healer->this->name, local->replies[i].op_errno,
+                             "Skipping cleanup of %s on %s", entry->d_name,
+                             subvol->name);
+                ret = 0;
+                goto out;
+            }
+        }
+        for (i = 0; i < priv->child_count; i++) {
+            if (gfid_present[i] && !entry_present[i]) {
+                /*Entry is not anonymous on at least one subvol*/
+                gf_msg_debug(healer->this->name, 0,
+                             "Valid entry present on %s "
+                             "Skipping cleanup of %s on %s",
+                             priv->children[i]->name, entry->d_name,
+                             subvol->name);
+                ret = 0;
+                goto out;
+            }
+        }
+
+        gf_msg(healer->this->name, GF_LOG_WARNING, 0,
+               AFR_MSG_EXPUNGING_FILE_OR_DIR,
+               "expunging %s %s/%s on all subvols", type, priv->anon_inode_name,
+               entry->d_name);
+        ret = 0;
+        for (i = 0; i < priv->child_count; i++) {
+            op_errno = -afr_shd_entry_purge(priv->children[i], loc.parent,
+                                            entry->d_name, iatt->ia_type);
+            if (op_errno != ENOENT && op_errno != ESTALE) {
+                ret |= -op_errno;
+            }
+        }
+    }
+
+out:
+    if (frame)
+        AFR_STACK_DESTROY(frame);
+    loc_wipe(&loc);
+    return ret;
+}
+
+static void
+afr_cleanup_anon_inode_dir(struct subvol_healer *healer)
+{
+    int ret = 0;
+    call_frame_t *frame = NULL;
+    afr_private_t *priv = healer->this->private;
+    loc_t loc = {0};
+
+    ret = afr_anon_inode_create(healer->this, healer->subvol, &loc.inode);
+    if (ret)
+        goto out;
+
+    frame = afr_frame_create(healer->this, &ret);
+    if (!frame) {
+        ret = -ret;
+        goto out;
+    }
+
+    ret = syncop_mt_dir_scan(frame, priv->children[healer->subvol], &loc,
+                             GF_CLIENT_PID_SELF_HEALD, healer,
+                             afr_shd_anon_inode_cleaner, NULL,
+                             priv->shd.max_threads, priv->shd.wait_qlength);
+out:
+    if (frame)
+        AFR_STACK_DESTROY(frame);
+    loc_wipe(&loc);
+    return;
+}
+
 void *
 afr_shd_index_healer(void *data)
 {
@@ -899,6 +1069,10 @@ afr_shd_index_healer(void *data)
             */
             sleep(1);
         } while (ret > 0);
+
+        if (ret == 0) {
+            afr_cleanup_anon_inode_dir(healer);
+        }
 
         if (ret == 0 && pre_crawl_xdata &&
             !healer->crawl_event.heal_failed_count) {

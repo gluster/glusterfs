@@ -16,50 +16,166 @@
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/events.h>
 
-static int
+int
+afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
+                              inode_t *inode, int child,
+                              struct afr_reply *replies,
+                              gf_boolean_t *anon_inode)
+{
+    afr_private_t *priv = NULL;
+    afr_local_t *local = NULL;
+    xlator_t *subvol = NULL;
+    int ret = 0;
+    int i = 0;
+    char g[64] = {0};
+    unsigned char *lookup_success = NULL;
+    call_frame_t *frame = NULL;
+    loc_t loc2 = {
+        0,
+    };
+    loc_t loc = {
+        0,
+    };
+
+    priv = this->private;
+    subvol = priv->children[child];
+    lookup_success = alloca0(priv->child_count);
+    uuid_utoa_r(replies[child].poststat.ia_gfid, g);
+    loc.inode = inode_new(inode->table);
+    if (!loc.inode) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    if (replies[child].poststat.ia_type == IA_IFDIR) {
+        /* This directory may have sub-directory hierarchy which may need to
+         * be preserved for subsequent heals. So unconditionally move the
+         * directory to anonymous-inode directory*/
+        *anon_inode = _gf_true;
+        goto anon_inode;
+    }
+
+    frame = afr_frame_create(this, &ret);
+    if (!frame) {
+        ret = -ret;
+        goto out;
+    }
+    local = frame->local;
+    gf_uuid_copy(loc.gfid, replies[child].poststat.ia_gfid);
+    AFR_ONLIST(local->child_up, frame, afr_selfheal_discover_cbk, lookup, &loc,
+               NULL);
+    for (i = 0; i < priv->child_count; i++) {
+        if (local->replies[i].op_ret == 0) {
+            lookup_success[i] = 1;
+        } else if (local->replies[i].op_errno != ENOENT &&
+                   local->replies[i].op_errno != ESTALE) {
+            ret = -local->replies[i].op_errno;
+        }
+    }
+
+    if (priv->quorum_count) {
+        if (afr_has_quorum(lookup_success, this, NULL)) {
+            *anon_inode = _gf_true;
+        }
+    } else if (AFR_COUNT(lookup_success, priv->child_count) > 1) {
+        *anon_inode = _gf_true;
+    } else if (ret) {
+        goto out;
+    }
+
+anon_inode:
+    if (!*anon_inode) {
+        ret = 0;
+        goto out;
+    }
+
+    loc.parent = inode_ref(dir);
+    gf_uuid_copy(loc.pargfid, dir->gfid);
+    loc.name = name;
+
+    ret = afr_anon_inode_create(this, child, &loc2.parent);
+    if (ret < 0)
+        goto out;
+
+    loc2.name = g;
+    ret = syncop_rename(subvol, &loc, &loc2, NULL, NULL);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, -ret, AFR_MSG_EXPUNGING_FILE_OR_DIR,
+               "Rename to %s dir %s/%s (%s) on %s failed",
+               priv->anon_inode_name, uuid_utoa(dir->gfid), name, g,
+               subvol->name);
+    } else {
+        gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_EXPUNGING_FILE_OR_DIR,
+               "Rename to %s dir %s/%s (%s) on %s successful",
+               priv->anon_inode_name, uuid_utoa(dir->gfid), name, g,
+               subvol->name);
+    }
+
+out:
+    loc_wipe(&loc);
+    loc_wipe(&loc2);
+    if (frame) {
+        AFR_STACK_DESTROY(frame);
+    }
+
+    return ret;
+}
+
+int
 afr_selfheal_entry_delete(xlator_t *this, inode_t *dir, const char *name,
                           inode_t *inode, int child, struct afr_reply *replies)
 {
+    char g[64] = {0};
     afr_private_t *priv = NULL;
     xlator_t *subvol = NULL;
     int ret = 0;
     loc_t loc = {
         0,
     };
-    char g[64];
+    gf_boolean_t anon_inode = _gf_false;
 
     priv = this->private;
-
     subvol = priv->children[child];
 
-    loc.parent = inode_ref(dir);
-    gf_uuid_copy(loc.pargfid, dir->gfid);
-    loc.name = name;
-    loc.inode = inode_ref(inode);
-
-    if (replies[child].valid && replies[child].op_ret == 0) {
-        switch (replies[child].poststat.ia_type) {
-            case IA_IFDIR:
-                gf_msg(this->name, GF_LOG_WARNING, 0,
-                       AFR_MSG_EXPUNGING_FILE_OR_DIR,
-                       "expunging dir %s/%s (%s) on %s", uuid_utoa(dir->gfid),
-                       name, uuid_utoa_r(replies[child].poststat.ia_gfid, g),
-                       subvol->name);
-                ret = syncop_rmdir(subvol, &loc, 1, NULL, NULL);
-                break;
-            default:
-                gf_msg(this->name, GF_LOG_WARNING, 0,
-                       AFR_MSG_EXPUNGING_FILE_OR_DIR,
-                       "expunging file %s/%s (%s) on %s", uuid_utoa(dir->gfid),
-                       name, uuid_utoa_r(replies[child].poststat.ia_gfid, g),
-                       subvol->name);
-                ret = syncop_unlink(subvol, &loc, NULL, NULL);
-                break;
-        }
+    if ((!replies[child].valid) || (replies[child].op_ret < 0)) {
+        /*Nothing to do*/
+        ret = 0;
+        goto out;
     }
 
-    loc_wipe(&loc);
+    if (priv->use_anon_inode) {
+        ret = afr_selfheal_entry_anon_inode(this, dir, name, inode, child,
+                                            replies, &anon_inode);
+        if (ret < 0 || anon_inode)
+            goto out;
+    }
 
+    loc.parent = inode_ref(dir);
+    loc.inode = inode_new(inode->table);
+    if (!loc.inode) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    loc.name = name;
+    switch (replies[child].poststat.ia_type) {
+        case IA_IFDIR:
+            gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_EXPUNGING_FILE_OR_DIR,
+                   "expunging dir %s/%s (%s) on %s", uuid_utoa(dir->gfid), name,
+                   uuid_utoa_r(replies[child].poststat.ia_gfid, g),
+                   subvol->name);
+            ret = syncop_rmdir(subvol, &loc, 1, NULL, NULL);
+            break;
+        default:
+            gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_EXPUNGING_FILE_OR_DIR,
+                   "expunging file %s/%s (%s) on %s", uuid_utoa(dir->gfid),
+                   name, uuid_utoa_r(replies[child].poststat.ia_gfid, g),
+                   subvol->name);
+            ret = syncop_unlink(subvol, &loc, NULL, NULL);
+            break;
+    }
+
+out:
+    loc_wipe(&loc);
     return ret;
 }
 
@@ -76,6 +192,9 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
     loc_t srcloc = {
         0,
     };
+    loc_t anonloc = {
+        0,
+    };
     xlator_t *this = frame->this;
     afr_private_t *priv = NULL;
     dict_t *xdata = NULL;
@@ -86,15 +205,17 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
         0,
     };
     unsigned char *newentry = NULL;
-    char dir_uuid_str[64] = {0}, iatt_uuid_str[64] = {0};
+    char iatt_uuid_str[64] = {0};
+    char dir_uuid_str[64] = {0};
 
     priv = this->private;
     iatt = &replies[source].poststat;
+    uuid_utoa_r(iatt->ia_gfid, iatt_uuid_str);
     if (iatt->ia_type == IA_INVAL || gf_uuid_is_null(iatt->ia_gfid)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SELF_HEAL_FAILED,
                "Invalid ia_type (%d) or gfid(%s). source brick=%d, "
                "pargfid=%s, name=%s",
-               iatt->ia_type, uuid_utoa_r(iatt->ia_gfid, iatt_uuid_str), source,
+               iatt->ia_type, iatt_uuid_str, source,
                uuid_utoa_r(dir->gfid, dir_uuid_str), name);
         ret = -EINVAL;
         goto out;
@@ -120,14 +241,24 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
 
     srcloc.inode = inode_ref(inode);
     gf_uuid_copy(srcloc.gfid, iatt->ia_gfid);
-    if (iatt->ia_type != IA_IFDIR)
-        ret = syncop_lookup(priv->children[dst], &srcloc, 0, 0, 0, 0);
-    if (iatt->ia_type == IA_IFDIR || ret == -ENOENT || ret == -ESTALE) {
+    ret = syncop_lookup(priv->children[dst], &srcloc, 0, 0, 0, 0);
+    if (ret == -ENOENT || ret == -ESTALE) {
         newentry[dst] = 1;
         ret = afr_selfheal_newentry_mark(frame, this, inode, source, replies,
                                          sources, newentry);
         if (ret)
             goto out;
+    } else if (ret == 0 && iatt->ia_type == IA_IFDIR && priv->use_anon_inode) {
+        // Try rename from hidden directory
+        ret = afr_anon_inode_create(this, dst, &anonloc.parent);
+        if (ret < 0)
+            goto out;
+        anonloc.inode = inode_ref(inode);
+        anonloc.name = iatt_uuid_str;
+        ret = syncop_rename(priv->children[dst], &anonloc, &loc, NULL, NULL);
+        if (ret == -ENOENT || ret == -ESTALE)
+            ret = -1; /*This sets 'mismatch' to true*/
+        goto out;
     }
 
     mode = st_mode_from_ia(iatt->ia_prot, iatt->ia_type);
@@ -166,6 +297,7 @@ out:
     GF_FREE(linkname);
     loc_wipe(&loc);
     loc_wipe(&srcloc);
+    loc_wipe(&anonloc);
     return ret;
 }
 
@@ -578,6 +710,11 @@ afr_selfheal_entry_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     priv = this->private;
 
+    if (afr_is_private_directory(priv, fd->inode->gfid, name,
+                                 GF_CLIENT_PID_SELF_HEALD)) {
+        return 0;
+    }
+
     xattr = dict_new();
     if (!xattr)
         return -ENOMEM;
@@ -626,7 +763,7 @@ afr_selfheal_entry_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
                                           replies);
 
         if ((ret == 0) && (priv->esh_granular) && parent_idx_inode) {
-            ret = afr_shd_index_purge(subvol, parent_idx_inode, name,
+            ret = afr_shd_entry_purge(subvol, parent_idx_inode, name,
                                       inode->ia_type);
             /* Why is ret force-set to 0? We do not care about
              * index purge failing for full heal as it is quite
@@ -756,10 +893,6 @@ afr_selfheal_entry_do_subvol(call_frame_t *frame, xlator_t *this, fd_t *fd,
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
 
-            if (__is_root_gfid(fd->inode->gfid) &&
-                !strcmp(entry->d_name, GF_REPLICATE_TRASH_DIR))
-                continue;
-
             ret = afr_selfheal_entry_dirent(iter_frame, this, fd, entry->d_name,
                                             loc.inode, subvol,
                                             local->need_full_crawl);
@@ -822,7 +955,7 @@ afr_selfheal_entry_granular_dirent(xlator_t *subvol, gf_dirent_t *entry,
         /* The name indices under the pgfid index dir are guaranteed
          * to be regular files. Hence the hardcoding.
          */
-        afr_shd_index_purge(subvol, parent->inode, entry->d_name, IA_IFREG);
+        afr_shd_entry_purge(subvol, parent->inode, entry->d_name, IA_IFREG);
         ret = 0;
         goto out;
     }

@@ -94,105 +94,105 @@ wildcard_not_exists() {
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
 
-# testing glusterd [1-3]
+# testing glusterd
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info
 
-# creating distributed volume [4]
+# creating distributed volume
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2}
 
-# checking volume status [5-7]
+# checking volume status
 EXPECT "$V0" volinfo_field $V0 'Volume Name'
 EXPECT 'Created' volinfo_field $V0 'Status'
 EXPECT '2' brick_count $V0
 
-# test without enabling trash translator [8]
+# test without enabling trash translator
 TEST start_vol $V0 $M0
 
-# test on enabling trash translator [9-10]
+# test on enabling trash translator
 TEST $CLI volume set $V0 features.trash on
 EXPECT 'on' volinfo_field $V0 'features.trash'
 
-# files directly under mount point [11]
+# files directly under mount point
 create_files $M0/file1 $M0/file2
 TEST file_exists $V0 file1 file2
 
-# perform unlink [12]
+# perform unlink
 TEST unlink_op file1
 
-# perform truncate [13]
+# perform truncate
 TEST truncate_op file2 4
 
-# create files directory hierarchy and check [14]
+# create files directory hierarchy and check
 mkdir -p $M0/1/2/3
 create_files $M0/1/2/3/foo1 $M0/1/2/3/foo2
 TEST file_exists $V0 1/2/3/foo1 1/2/3/foo2
 
-# perform unlink [15]
+# perform unlink
 TEST unlink_op 1/2/3/foo1
 
-# perform truncate [16]
+# perform truncate
 TEST truncate_op 1/2/3/foo2 4
 
 # create a directory for eliminate pattern
 mkdir $M0/a
 
-# set the eliminate pattern [17-18]
+# set the eliminate pattern
 TEST $CLI volume set $V0 features.trash-eliminate-path /a
 EXPECT '/a' volinfo_field $V0 'features.trash-eliminate-path'
 
-# create two files and check [19]
+# create two files and check
 create_files $M0/a/test1 $M0/a/test2
 TEST file_exists $V0 a/test1 a/test2
 
-# remove from eliminate pattern [20]
+# remove from eliminate pattern
 rm -f $M0/a/test1
 EXPECT "Y" wildcard_not_exists $M0/.trashcan/a/test1*
 
-# truncate from eliminate path [21-23]
+# truncate from eliminate path
 truncate -s 2 $M0/a/test2
 TEST [ -e $M0/a/test2 ]
 TEST [ `ls -l $M0/a/test2 | awk '{print $5}'` -eq 2 ]
 EXPECT "Y" wildcard_not_exists $M0/.trashcan/a/test2*
 
-# set internal op on [24-25]
+# set internal op on
 TEST $CLI volume set $V0 features.trash-internal-op on
 EXPECT 'on' volinfo_field $V0 'features.trash-internal-op'
 
-# again create two files and check [26]
+# again create two files and check
 create_files $M0/inop1 $M0/inop2
 TEST file_exists $V0 inop1 inop2
 
-# perform unlink [27]
+# perform unlink
 TEST unlink_op inop1
 
-# perform truncate [28]
+# perform truncate
 TEST truncate_op inop2 4
 
-# remove one brick and restart the volume [28-31]
+# remove one brick and restart the volume
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 force
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST start_vol $V0 $M0 $M0/.trashcan
 
-# again create two files and check [33]
+# again create two files and check
 create_files $M0/rebal1 $M0/rebal2
 TEST file_exists $V0 rebal1 rebal2
 
-# add one brick [34-35]
+# add one brick
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}3
 TEST [ -d $B0/${V0}3 ]
 
 
-# perform rebalance [36]
+# perform rebalance
 TEST $CLI volume rebalance $V0 start force
 EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 
 #Find out which file was migrated to the new brick
 file_name=$(ls $B0/${V0}3/rebal*| xargs basename)
 
-# check whether rebalance was succesful [37-40]
+# check whether rebalance was succesful
 EXPECT "Y" wildcard_exists $B0/${V0}3/$file_name*
 EXPECT "Y" wildcard_exists $B0/${V0}1/.trashcan/internal_op/$file_name*
 
@@ -201,52 +201,42 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 # force required in case rebalance is not over
 TEST $CLI volume stop $V0 force
 
-# create a replicated volume [41]
+# create a replicated volume
 TEST $CLI volume create $V1 replica 2 $H0:$B0/${V1}{1,2}
 
-# checking volume status [42-45]
+# checking volume status
 EXPECT "$V1" volinfo_field $V1 'Volume Name'
 EXPECT 'Replicate' volinfo_field $V1 'Type'
 EXPECT 'Created' volinfo_field $V1 'Status'
 EXPECT '2' brick_count $V1
 
-# enable trash with options and start the replicate volume by disabling automatic self-heal [46-50]
+# enable trash with options and start the replicate volume by disabling automatic self-heal
 TEST $CLI volume set $V1 features.trash on
 TEST $CLI volume set $V1 features.trash-internal-op on
 EXPECT 'on' volinfo_field $V1 'features.trash'
 EXPECT 'on' volinfo_field $V1 'features.trash-internal-op'
 TEST start_vol $V1 $M1 $M1/.trashcan
 
-# mount and check for trash directory [51]
+# mount and check for trash directory
 TEST [ -d $M1/.trashcan/internal_op ]
 
-# create a file and check [52]
+# create a file and check
 touch $M1/self
 TEST [ -e $B0/${V1}1/self -a -e $B0/${V1}2/self ]
 
-# kill one brick and delete the file from mount point [53-54]
+# kill one brick and delete the file from mount point
 kill_brick $V1 $H0 $B0/${V1}1
 EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "1" online_brick_count
 rm -f $M1/self
 EXPECT "Y" wildcard_exists $B0/${V1}2/.trashcan/self*
 
-# force start the volume and trigger the self-heal manually [55-57]
-TEST $CLI volume start $V1 force
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" online_brick_count
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
-# Since we created the file under root of the volume, it will be
-# healed automatically
-
-# check for the removed file in trashcan [58]
-EXPECT_WITHIN $HEAL_TIMEOUT "Y" wildcard_exists $B0/${V1}1/.trashcan/internal_op/self*
-
-# check renaming of trash directory through cli [59-62]
+# check renaming of trash directory through cli
 TEST $CLI volume set $V0 trash-dir abc
 TEST start_vol $V0 $M0 $M0/abc
 TEST [ -e $M0/abc -a ! -e $M0/.trashcan ]
 EXPECT "Y" wildcard_exists $B0/${V0}1/abc/internal_op/rebal*
 
-# ensure that rename and delete operation on trash directory fails [63-65]
+# ensure that rename and delete operation on trash directory fails
 rm -rf $M0/abc/internal_op
 TEST [ -e $M0/abc/internal_op ]
 rm -rf $M0/abc/

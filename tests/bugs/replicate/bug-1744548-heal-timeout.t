@@ -25,14 +25,14 @@ TEST ! $CLI volume heal $V0
 TEST $CLI volume profile $V0 start
 TEST $CLI volume profile $V0 info clear
 TEST $CLI volume heal $V0 enable
-# Each brick does 3 opendirs, corresponding to dirty, xattrop and entry-changes
-EXPECT_WITHIN $HEAL_TIMEOUT "^333$" get_cumulative_opendir_count
+# Each brick does 4 opendirs, corresponding to dirty, xattrop and entry-changes, anonymous-inode
+EXPECT_WITHIN 4 "^444$" get_cumulative_opendir_count
 
 # Check that a change in heal-timeout is honoured immediately.
 TEST $CLI volume set $V0 cluster.heal-timeout 5
 sleep 10
 # Two crawls must have happened.
-EXPECT_WITHIN $HEAL_TIMEOUT "^999$" get_cumulative_opendir_count
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "^121212$" get_cumulative_opendir_count
 
 # shd must not heal if it is disabled and heal-timeout is changed.
 TEST $CLI volume heal $V0 disable

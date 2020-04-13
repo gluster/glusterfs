@@ -164,8 +164,8 @@ afr_validate_read_subvol(inode_t *inode, xlator_t *this, int par_read_subvol)
 }
 
 static void
-afr_readdir_transform_entries(gf_dirent_t *subvol_entries, int subvol,
-                              gf_dirent_t *entries, fd_t *fd)
+afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
+                              int subvol, gf_dirent_t *entries, fd_t *fd)
 {
     int ret = -1;
     gf_dirent_t *entry = NULL;
@@ -183,8 +183,8 @@ afr_readdir_transform_entries(gf_dirent_t *subvol_entries, int subvol,
 
     list_for_each_entry_safe(entry, tmp, &subvol_entries->list, list)
     {
-        if (__is_root_gfid(fd->inode->gfid) &&
-            !strcmp(entry->d_name, GF_REPLICATE_TRASH_DIR)) {
+        if (afr_is_private_directory(priv, fd->inode->gfid, entry->d_name,
+                                     frame->root->pid)) {
             continue;
         }
 
@@ -228,8 +228,8 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (op_ret >= 0)
-        afr_readdir_transform_entries(subvol_entries, (long)cookie, &entries,
-                                      local->fd);
+        afr_readdir_transform_entries(frame, subvol_entries, (long)cookie,
+                                      &entries, local->fd);
 
     AFR_STACK_UNWIND(readdir, frame, op_ret, op_errno, &entries, xdata);
 

@@ -369,4 +369,9 @@ gf_boolean_t
 afr_is_file_empty_on_all_children(afr_private_t *priv,
                                   struct afr_reply *replies);
 
+int
+afr_selfheal_entry_delete(xlator_t *this, inode_t *dir, const char *name,
+                          inode_t *inode, int child, struct afr_reply *replies);
+int
+afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode);
 #endif /* !_AFR_SELFHEAL_H */
