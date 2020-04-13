@@ -42,6 +42,7 @@
 #define AFR_LK_HEAL_DOM "afr.lock-heal.domain"
 
 #define AFR_HALO_MAX_LATENCY 99999
+#define AFR_ANON_DIR_PREFIX ".glusterfs-anonymous-inode"
 
 #define PFLAG_PENDING (1 << 0)
 #define PFLAG_SBRAIN (1 << 1)
@@ -190,6 +191,7 @@ typedef struct _afr_private {
     struct list_head ta_waitq;
     struct list_head ta_onwireq;
 
+    unsigned char *anon_inode;
     unsigned char *child_up;
     unsigned char *halo_child_up;
     int64_t *child_latency;
@@ -275,10 +277,15 @@ typedef struct _afr_private {
     gf_boolean_t esh_granular;
     gf_boolean_t consistent_io;
     gf_boolean_t data_self_heal; /* on/off */
+    gf_boolean_t use_anon_inode;
 
     /*For lock healing.*/
     struct list_head saved_locks;
     struct list_head lk_healq;
+
+    /*For anon-inode handling */
+    char anon_inode_name[NAME_MAX + 1];
+    char anon_gfid_str[UUID_SIZE + 1];
 } afr_private_t;
 
 typedef enum {
@@ -1409,4 +1416,8 @@ afr_dom_lock_release(call_frame_t *frame);
 void
 afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
                          unsigned char *replies);
+
+gf_boolean_t
+afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
+                         pid_t pid);
 #endif /* __AFR_H__ */

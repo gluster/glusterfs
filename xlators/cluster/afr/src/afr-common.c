@@ -45,6 +45,41 @@ afr_quorum_errno(afr_private_t *priv)
     return ENOTCONN;
 }
 
+gf_boolean_t
+afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
+                         pid_t pid)
+{
+    if (!__is_root_gfid(pargfid)) {
+        return _gf_false;
+    }
+
+    if (strcmp(name, GF_REPLICATE_TRASH_DIR) == 0) {
+        /*For backward compatibility /.landfill is private*/
+        return _gf_true;
+    }
+
+    if (pid == GF_CLIENT_PID_GSYNCD) {
+        /*geo-rep needs to create/sync private directory on slave because
+         * it appears in changelog*/
+        return _gf_false;
+    }
+
+    if (pid == GF_CLIENT_PID_GLFS_HEAL || pid == GF_CLIENT_PID_SELF_HEALD) {
+        if (strcmp(name, priv->anon_inode_name) == 0) {
+            /* anonymous-inode dir is private*/
+            return _gf_true;
+        }
+    } else {
+        if (strncmp(name, AFR_ANON_DIR_PREFIX, strlen(AFR_ANON_DIR_PREFIX)) ==
+            0) {
+            /* anonymous-inode dir prefix is private for geo-rep to work*/
+            return _gf_true;
+        }
+    }
+
+    return _gf_false;
+}
+
 void
 afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
                          unsigned char *replies)
@@ -3978,11 +4013,10 @@ afr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         return 0;
     }
 
-    if (__is_root_gfid(loc->parent->gfid)) {
-        if (!strcmp(loc->name, GF_REPLICATE_TRASH_DIR)) {
-            op_errno = EPERM;
-            goto out;
-        }
+    if (afr_is_private_directory(this->private, loc->parent->gfid, loc->name,
+                                 frame->root->pid)) {
+        op_errno = EPERM;
+        goto out;
     }
 
     local = AFR_FRAME_INIT(frame, op_errno);
@@ -5660,6 +5694,7 @@ afr_priv_dump(xlator_t *this)
                        priv->background_self_heal_count);
     gf_proc_dump_write("healers", "%d", priv->healers);
     gf_proc_dump_write("read-hash-mode", "%d", priv->hash_mode);
+    gf_proc_dump_write("use-anonymous-inode", "%d", priv->use_anon_inode);
     if (priv->quorum_count == AFR_QUORUM_AUTO) {
         gf_proc_dump_write("quorum-type", "auto");
     } else if (priv->quorum_count == 0) {
@@ -6653,6 +6688,7 @@ afr_priv_destroy(afr_private_t *priv)
     GF_FREE(priv->local);
     GF_FREE(priv->pending_key);
     GF_FREE(priv->children);
+    GF_FREE(priv->anon_inode);
     GF_FREE(priv->child_up);
     GF_FREE(priv->halo_child_up);
     GF_FREE(priv->child_latency);

@@ -2750,3 +2750,185 @@ afr_choose_source_by_policy(afr_private_t *priv, unsigned char *sources,
 out:
     return source;
 }
+
+static int
+afr_anon_inode_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         struct iatt *buf, struct iatt *preparent,
+                         struct iatt *postparent, dict_t *xdata)
+{
+    afr_local_t *local = frame->local;
+    int i = (long)cookie;
+
+    local->replies[i].valid = 1;
+    local->replies[i].op_ret = op_ret;
+    local->replies[i].op_errno = op_errno;
+    if (op_ret == 0) {
+        local->op_ret = 0;
+        local->replies[i].poststat = *buf;
+        local->replies[i].preparent = *preparent;
+        local->replies[i].postparent = *postparent;
+    }
+    if (xdata) {
+        local->replies[i].xdata = dict_ref(xdata);
+    }
+
+    syncbarrier_wake(&local->barrier);
+    return 0;
+}
+
+int
+afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode)
+{
+    call_frame_t *frame = NULL;
+    afr_local_t *local = NULL;
+    afr_private_t *priv = this->private;
+    unsigned char *mkdir_on = alloca0(priv->child_count);
+    unsigned char *lookup_on = alloca0(priv->child_count);
+    loc_t loc = {0};
+    int32_t op_errno = 0;
+    int32_t child_op_errno = 0;
+    struct iatt iatt = {0};
+    dict_t *xdata = NULL;
+    uuid_t anon_inode_gfid = {0};
+    int mkdir_count = 0;
+    int i = 0;
+
+    /*Try to mkdir everywhere and return success if the dir exists on 'child'
+     */
+
+    if (!priv->use_anon_inode) {
+        op_errno = EINVAL;
+        goto out;
+    }
+
+    frame = afr_frame_create(this, &op_errno);
+    if (op_errno) {
+        goto out;
+    }
+    local = frame->local;
+    if (!local->child_up[child]) {
+        /*Other bricks may need mkdir so don't error out yet*/
+        child_op_errno = ENOTCONN;
+    }
+    gf_uuid_parse(priv->anon_gfid_str, anon_inode_gfid);
+    for (i = 0; i < priv->child_count; i++) {
+        if (!local->child_up[i])
+            continue;
+
+        if (priv->anon_inode[i]) {
+            mkdir_on[i] = 0;
+        } else {
+            mkdir_on[i] = 1;
+            mkdir_count++;
+        }
+    }
+
+    if (mkdir_count == 0) {
+        *linked_inode = inode_find(this->itable, anon_inode_gfid);
+        if (*linked_inode) {
+            op_errno = 0;
+            goto out;
+        }
+    }
+
+    loc.parent = inode_ref(this->itable->root);
+    loc.name = priv->anon_inode_name;
+    loc.inode = inode_new(this->itable);
+    if (!loc.inode) {
+        op_errno = ENOMEM;
+        goto out;
+    }
+
+    xdata = dict_new();
+    if (!xdata) {
+        op_errno = ENOMEM;
+        goto out;
+    }
+
+    op_errno = -dict_set_gfuuid(xdata, "gfid-req", anon_inode_gfid, _gf_true);
+    if (op_errno) {
+        goto out;
+    }
+
+    if (mkdir_count == 0) {
+        memcpy(lookup_on, local->child_up, priv->child_count);
+        goto lookup;
+    }
+
+    AFR_ONLIST(mkdir_on, frame, afr_anon_inode_mkdir_cbk, mkdir, &loc, 0755, 0,
+               xdata);
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!mkdir_on[i]) {
+            continue;
+        }
+
+        if (local->replies[i].op_ret == 0) {
+            priv->anon_inode[i] = 1;
+            iatt = local->replies[i].poststat;
+        } else if (local->replies[i].op_ret < 0 &&
+                   local->replies[i].op_errno == EEXIST) {
+            lookup_on[i] = 1;
+        } else if (i == child) {
+            child_op_errno = local->replies[i].op_errno;
+        }
+    }
+
+    if (AFR_COUNT(lookup_on, priv->child_count) == 0) {
+        goto link;
+    }
+
+lookup:
+    AFR_ONLIST(lookup_on, frame, afr_selfheal_discover_cbk, lookup, &loc,
+               xdata);
+    for (i = 0; i < priv->child_count; i++) {
+        if (!lookup_on[i]) {
+            continue;
+        }
+
+        if (local->replies[i].op_ret == 0) {
+            if (gf_uuid_compare(anon_inode_gfid,
+                                local->replies[i].poststat.ia_gfid) == 0) {
+                priv->anon_inode[i] = 1;
+                iatt = local->replies[i].poststat;
+            } else {
+                if (i == child)
+                    child_op_errno = EINVAL;
+                gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_DATA,
+                       "%s has gfid: %s", priv->anon_inode_name,
+                       uuid_utoa(local->replies[i].poststat.ia_gfid));
+            }
+        } else if (i == child) {
+            child_op_errno = local->replies[i].op_errno;
+        }
+    }
+link:
+    if (!gf_uuid_is_null(iatt.ia_gfid)) {
+        *linked_inode = inode_link(loc.inode, loc.parent, loc.name, &iatt);
+        if (*linked_inode) {
+            op_errno = 0;
+            inode_lookup(*linked_inode);
+        } else {
+            op_errno = ENOMEM;
+        }
+        goto out;
+    }
+
+out:
+    if (xdata)
+        dict_unref(xdata);
+    loc_wipe(&loc);
+    /*child_op_errno takes precedence*/
+    if (child_op_errno == 0) {
+        child_op_errno = op_errno;
+    }
+
+    if (child_op_errno && *linked_inode) {
+        inode_unref(*linked_inode);
+        *linked_inode = NULL;
+    }
+    if (frame)
+        AFR_STACK_DESTROY(frame);
+    return -child_op_errno;
+}

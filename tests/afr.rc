@@ -115,3 +115,9 @@ function afr_private_key_value()
 #xargs at the end will strip leading spaces
         grep -E "^${key} = " $m/.meta/graphs/active/${v}-replicate-${replica_id}/private | cut -f2 -d'=' | xargs
 }
+
+function afr_anon_entry_count()
+{
+    local b=$1
+    ls $b/.glusterfs-anonymous-inode* | wc -l
+}

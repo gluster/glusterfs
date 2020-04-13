@@ -135,6 +135,27 @@ set_data_self_heal_algorithm(afr_private_t *priv, char *algo)
     }
 }
 
+void
+afr_handle_anon_inode_options(afr_private_t *priv, dict_t *options)
+{
+    char *volfile_id_str = NULL;
+    uuid_t anon_inode_gfid = {0};
+
+    /*If volume id is not present don't enable anything*/
+    if (dict_get_str(options, "volume-id", &volfile_id_str))
+        return;
+    GF_ASSERT(strlen(AFR_ANON_DIR_PREFIX) + strlen(volfile_id_str) <= NAME_MAX);
+    /*anon_inode_name is not supposed to change once assigned*/
+    if (!priv->anon_inode_name[0]) {
+        snprintf(priv->anon_inode_name, sizeof(priv->anon_inode_name), "%s-%s",
+                 AFR_ANON_DIR_PREFIX, volfile_id_str);
+        gf_uuid_parse(volfile_id_str, anon_inode_gfid);
+        /*Flip a bit to make sure volfile-id and anon-gfid are not same*/
+        anon_inode_gfid[0] ^= 1;
+        uuid_utoa_r(anon_inode_gfid, priv->anon_gfid_str);
+    }
+}
+
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
@@ -290,6 +311,10 @@ reconfigure(xlator_t *this, dict_t *options)
         consistent_io = _gf_false;
     priv->consistent_io = consistent_io;
 
+    afr_handle_anon_inode_options(priv, options);
+
+    GF_OPTION_RECONF("use-anonymous-inode", priv->use_anon_inode, options, bool,
+                     out);
     if (priv->shd.enabled) {
         if ((priv->shd.enabled != enabled_old) ||
             (timeout_old != priv->shd.timeout))
@@ -541,7 +566,9 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("consistent-metadata", priv->consistent_metadata, bool, out);
     GF_OPTION_INIT("consistent-io", priv->consistent_io, bool, out);
+    afr_handle_anon_inode_options(priv, this->options);
 
+    GF_OPTION_INIT("use-anonymous-inode", priv->use_anon_inode, bool, out);
     if (priv->quorum_count != 0)
         priv->consistent_io = _gf_false;
 
@@ -553,6 +580,9 @@ init(xlator_t *this)
         goto out;
     }
 
+    priv->anon_inode = GF_CALLOC(sizeof(unsigned char), child_count,
+                                 gf_afr_mt_char);
+
     priv->child_up = GF_CALLOC(sizeof(unsigned char), child_count,
                                gf_afr_mt_char);
 
@@ -561,7 +591,8 @@ init(xlator_t *this)
     priv->halo_child_up = GF_CALLOC(sizeof(unsigned char), child_count,
                                     gf_afr_mt_char);
 
-    if (!priv->child_up || !priv->child_latency || !priv->halo_child_up) {
+    if (!priv->child_up || !priv->child_latency || !priv->halo_child_up ||
+        !priv->anon_inode) {
         ret = -ENOMEM;
         goto out;
     }
@@ -1286,6 +1317,14 @@ struct volume_options options[] = {
      .tags = {"replicate"},
      .description = "This option exists only for backward compatibility "
                     "and configuring it doesn't have any effect"},
+    {.key = {"use-anonymous-inode"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "no",
+     .op_version = {GD_OP_VERSION_8_0},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+     .tags = {"replicate"},
+     .description = "Setting this option heals directory renames efficiently"},
+
     {.key = {NULL}},
 };
 

@@ -3138,4 +3138,9 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .type = NO_DOC,
     },
 
+    {.key = "cluster.use-anonymous-inode",
+     .voltype = "cluster/replicate",
+     .op_version = GD_OP_VERSION_9_0,
+     .value = "yes",
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = NULL}};
