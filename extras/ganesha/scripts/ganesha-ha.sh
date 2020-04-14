@@ -935,7 +935,7 @@ status()
     done
 
     # print the nodes that are expected to be online
-    grep -E "^Online:" ${scratch}
+    grep -E "Online:" ${scratch}
 
     echo
 
