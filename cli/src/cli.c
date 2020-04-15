@@ -33,12 +33,6 @@
 #include <malloc.h>
 #endif
 
-#ifdef HAVE_MALLOC_STATS
-#ifdef DEBUG
-#include <mcheck.h>
-#endif
-#endif
-
 #include "cli.h"
 #include "cli-quotad-client.h"
 #include "cli-cmd.h"

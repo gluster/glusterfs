@@ -47,12 +47,6 @@
 #include <malloc.h>
 #endif
 
-#ifdef HAVE_MALLOC_STATS
-#ifdef DEBUG
-#include <mcheck.h>
-#endif
-#endif
-
 #include <glusterfs/xlator.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>

@@ -270,7 +270,7 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
 void
 gf_proc_dump_mem_info()
 {
-#ifdef HAVE_MALLOC_STATS
+#ifdef HAVE_MALLINFO
     struct mallinfo info;
 
     memset(&info, 0, sizeof(struct mallinfo));
@@ -296,7 +296,7 @@ gf_proc_dump_mem_info_to_dict(dict_t *dict)
 {
     if (!dict)
         return;
-#ifdef HAVE_MALLOC_STATS
+#ifdef HAVE_MALLINFO
     struct mallinfo info;
     int ret = -1;
 

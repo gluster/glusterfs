@@ -915,11 +915,11 @@ AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
 fi
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
-AC_CHECK_FUNC([malloc_stats], [have_malloc_stats=yes])
-if test "x${have_malloc_stats}" = "xyes"; then
-   AC_DEFINE(HAVE_MALLOC_STATS, 1, [define if found malloc_stats])
+AC_CHECK_FUNC([mallinfo], [have_mallinfo=yes])
+if test "x${have_mallinfo}" = "xyes"; then
+   AC_DEFINE(HAVE_MALLINFO, 1, [define if found mallinfo])
 fi
-AC_SUBST(HAVE_MALLOC_STATS)
+AC_SUBST(HAVE_MALLINFO)
 
 dnl Linux, Solaris, Cygwin
 AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec])
