@@ -18,7 +18,7 @@ done
 shift $((OPTIND-1))
 
 
-branch="master";
+branch="release-8";
 
 set_hooks_commit_msg()
 {
