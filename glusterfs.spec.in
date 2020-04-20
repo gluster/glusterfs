@@ -111,6 +111,12 @@
 ## All %%global definitions should be placed here and keep them sorted
 ##
 
+# selinux booleans whose defalut value needs modification
+# these booleans will be consumed by "%%selinux_set_booleans" macro.
+%if ( 0%{?rhel} && 0%{?rhel} >= 8 )
+%global selinuxbooleans rsync_full_access=1 rsync_client=1
+%endif
+
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %global _with_systemd true
 %endif
@@ -466,6 +472,12 @@ Requires:         python%{_pythonver}-gluster = %{version}-%{release}
 
 Requires:         rsync
 Requires:         util-linux
+# required for setting selinux bools
+%if ( 0%{?rhel} && 0%{?rhel} >= 8 )
+Requires:            selinux-policy-targeted
+Requires(post):      selinux-policy-targeted
+BuildRequires:       selinux-policy-devel
+%endif
 
 %description geo-replication
 GlusterFS is a distributed file-system capable of scaling to several
@@ -864,6 +876,9 @@ exit 0
 
 %if ( 0%{!?_without_georeplication:1} )
 %post geo-replication
+%if ( 0%{?rhel} && 0%{?rhel} >= 8 )
+%selinux_set_booleans %{selinuxbooleans}
+%endif
 if [ $1 -ge 1 ]; then
     %systemd_postun_with_restart glusterd
 fi
