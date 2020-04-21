@@ -3128,4 +3128,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "features/cloudsync",
      .op_version = GD_OP_VERSION_7_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {
+        .key = "features.acl",
+        .voltype = "features/access-control",
+        .value = "enable",
+        .option = "!features",
+        .op_version = GD_OP_VERSION_8_0,
+        .description = "(WARNING: for debug purpose only) enable/disable "
+                       "access-control xlator in volume",
+        .type = NO_DOC,
+    },
+
     {.key = NULL}};

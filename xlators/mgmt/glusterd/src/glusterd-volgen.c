@@ -1869,10 +1869,23 @@ brick_graph_add_acl(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!graph || !volinfo || !set_dict)
         goto out;
 
-    xl = volgen_graph_add(graph, "features/access-control", volinfo->volname);
-    if (!xl)
+    ret = dict_get_str_boolean(set_dict, "features.acl", 1);
+    if (!ret) {
+        /* Skip creating this volume if option is disabled */
+        /* By default, this is 'true' */
         goto out;
+    } else if (ret < 0) {
+        /* lets not treat this as error, as this option is not critical,
+           and implemented for debug help */
+        gf_log(THIS->name, GF_LOG_INFO,
+               "failed to get 'features.acl' flag from dict");
+    }
 
+    xl = volgen_graph_add(graph, "features/access-control", volinfo->volname);
+    if (!xl) {
+        ret = -1;
+        goto out;
+    }
     ret = 0;
 out:
     return ret;
