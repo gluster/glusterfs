@@ -182,14 +182,15 @@ meta_uuid_copy(uuid_t dst, uuid_t src)
 }
 
 static void
-default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type)
+default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type,
+                       gf_boolean_t is_tunable)
 {
     struct timeval tv = {};
 
     iatt->ia_type = type;
     switch (type) {
         case IA_IFDIR:
-            iatt->ia_prot = ia_prot_from_st_mode(0755);
+            iatt->ia_prot = ia_prot_from_st_mode(0555);
             iatt->ia_nlink = 2;
             break;
         case IA_IFLNK:
@@ -197,7 +198,7 @@ default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type)
             iatt->ia_nlink = 1;
             break;
         default:
-            iatt->ia_prot = ia_prot_from_st_mode(0644);
+            iatt->ia_prot = ia_prot_from_st_mode(is_tunable ? 0644 : 0444);
             iatt->ia_nlink = 1;
             break;
     }
@@ -225,7 +226,7 @@ meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type)
         return;
 
     if (!ops->iatt_fill)
-        default_meta_iatt_fill(iatt, inode, type);
+        default_meta_iatt_fill(iatt, inode, type, !!ops->file_write);
     else
         ops->iatt_fill(THIS, inode, iatt);
     return;
