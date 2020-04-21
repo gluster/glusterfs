@@ -619,7 +619,7 @@ out:
 static int
 __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
                                 loc_t *loc, struct iatt *stbuf, fd_t **dst_fd,
-                                int *fop_errno)
+                                int *fop_errno, int file_has_holes)
 {
     int ret = -1;
     int ret2 = -1;
@@ -788,7 +788,7 @@ __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
 
     /* No need to bother about 0 byte size files */
     if (stbuf->ia_size > 0) {
-        if (conf->use_fallocate) {
+        if (conf->use_fallocate && !file_has_holes) {
             ret = syncop_fallocate(to, fd, 0, 0, stbuf->ia_size, NULL, NULL);
             if (ret < 0) {
                 if (ret == -EOPNOTSUPP || ret == -EINVAL || ret == -ENOSYS) {
@@ -815,9 +815,7 @@ __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
                     goto out;
                 }
             }
-        }
-
-        if (!conf->use_fallocate) {
+        } else {
             ret = syncop_ftruncate(to, fd, stbuf->ia_size, NULL, NULL, NULL,
                                    NULL);
             if (ret < 0) {
@@ -1703,9 +1701,13 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         goto out;
     }
 
+    /* Try to preserve 'holes' while migrating data */
+    if (stbuf.ia_size > (stbuf.ia_blocks * GF_DISK_SECTOR_SIZE))
+        file_has_holes = 1;
+
     /* create the destination, with required modes/xattr */
     ret = __dht_rebalance_create_dst_file(this, to, from, loc, &stbuf, &dst_fd,
-                                          fop_errno);
+                                          fop_errno, file_has_holes);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                "Create dst failed"
@@ -1749,8 +1751,8 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
          * destination. We need to do update this only post migration
          * as in case of failure the linkto needs to point to the source
          * subvol */
-        ret = __dht_rebalance_create_dst_file(this, to, from, loc, &stbuf,
-                                              &dst_fd, fop_errno);
+        ret = __dht_rebalance_create_dst_file(
+            this, to, from, loc, &stbuf, &dst_fd, fop_errno, file_has_holes);
         if (ret) {
             gf_log(this->name, GF_LOG_ERROR,
                    "Create dst failed"
@@ -1837,9 +1839,6 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
             ret = 0;
         goto out;
     }
-    /* Try to preserve 'holes' while migrating data */
-    if (stbuf.ia_size > (stbuf.ia_blocks * GF_DISK_SECTOR_SIZE))
-        file_has_holes = 1;
 
     ret = __dht_rebalance_migrate_data(this, defrag, from, to, src_fd, dst_fd,
                                        stbuf.ia_size, file_has_holes,
