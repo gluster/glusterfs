@@ -15,8 +15,8 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1..2};
 TEST $CLI volume start $V0
 
 # Mount FUSE without selinux:
-TEST glusterfs -s $H0 --volfile-id $V0 $M0;
-TEST glusterfs -s $H0 --volfile-id $V0 $M1;
+TEST glusterfs -s $H0 --volfile-id $V0 --direct-io-mode=enable $M0;
+TEST glusterfs -s $H0 --volfile-id $V0 --direct-io-mode=enable $M1;
 
 D0="test-message0";
 D1="test-message1";
@@ -37,10 +37,7 @@ TEST write_to "$M0/test.txt" "$D1"
 EXPECT "$D1" cat $M0/test.txt
 EXPECT "$D0" cat $M1/test.txt
 
-# This is 3.7 for no good reason. We could have kept this to
-# any number above 2 seconds. Noticed that when it is 2 seconds, or
-# less, there is a possibility of not getting a lookup on the same inode.
-sleep 3.7
+sleep 1
 
 # TODO: This line normally fails
 EXPECT "$D1" cat $M1/test.txt
@@ -73,7 +70,3 @@ EXPECT "$D0" cat $M1/test2.txt
 TEST write_to "$M0/test2.txt" "$D1"
 EXPECT "$D1" cat $M0/test2.txt
 EXPECT "$D1" cat $M1/test2.txt
-
-
-#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1718191
-#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1718191
