@@ -38,7 +38,8 @@ def initLogger(script_name):
     sh.setFormatter(formatter)
 
     process = subprocess.Popen(["gluster", "--print-logdir"],
-                               stdout=subprocess.PIPE)
+                               stdout=subprocess.PIPE,
+                               universal_newlines=True)
     out, err = process.communicate()
     if process.returncode == 0:
         logfile = os.path.join(out.strip(), script_name[:-3]+".log")
