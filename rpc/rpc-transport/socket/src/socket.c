@@ -1154,7 +1154,7 @@ __socket_reset(rpc_transport_t *this)
         SSL_free(priv->ssl_ssl);
         priv->ssl_ssl = NULL;
     }
-    if (priv->use_ssl && priv->ssl_ctx) {
+    if (priv->ssl_ctx) {
         SSL_CTX_free(priv->ssl_ctx);
         priv->ssl_ctx = NULL;
     }
@@ -4608,7 +4608,7 @@ fini(rpc_transport_t *this)
             SSL_free(priv->ssl_ssl);
             priv->ssl_ssl = NULL;
         }
-        if (priv->use_ssl && priv->ssl_ctx) {
+        if (priv->ssl_ctx) {
             SSL_CTX_free(priv->ssl_ctx);
             priv->ssl_ctx = NULL;
         }
