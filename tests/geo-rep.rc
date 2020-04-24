@@ -1,4 +1,9 @@
 GEO_REP_TIMEOUT=120
+CHECK_MOUNT_TIMEOUT=50
+#check for mount point
+function check_mounted () {
+  df | grep $1 | wc -l
+}
 
 function check_status_num_rows()
 {

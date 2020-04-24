@@ -5,7 +5,7 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
-SCRIPT_TIMEOUT=500
+SCRIPT_TIMEOUT=600
 
 ### Basic Non-root geo-rep setup test with Distribute Replicate volumes
 
@@ -144,12 +144,15 @@ TEST pidof glusterd;
 TEST $CLI volume create $META_VOL replica 3 $H0:$B0/${META_VOL}{1,2,3};
 TEST $CLI volume start $META_VOL
 TEST mkdir -p $META_MNT
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "3" brick_count ${META_VOL}
 TEST glusterfs -s $H0 --volfile-id $META_VOL $META_MNT
 
 ##Mount master
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "4" brick_count $GMV0
 TEST glusterfs -s $H0 --volfile-id $GMV0 $M0
 
 ##Mount slave
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "4" brick_count $GSV0
 TEST glusterfs -s $H0 --volfile-id $GSV0 $M1
 
 ## Check status of mount-broker
@@ -189,6 +192,8 @@ TEST gluster-georep-sshkey generate
 
 TEST $GEOREP_CLI $master $slave_url create push-pem
 
+#check for session creation
+EXPECT_WITHIN $GEO_REP_TIMEOUT 4 check_status_non_root "Created"
 #Config gluster-command-dir
 TEST $GEOREP_CLI $master $slave_url config gluster-command-dir ${GLUSTER_CMD_DIR}
 
@@ -240,21 +245,25 @@ TEST ! $GEOREP_CLI $master $slave_url config ssh-port 22a
 TEST $GEOREP_CLI $master $slave config ssh-port 22
 
 #Hybrid directory rename test BZ#1763439
-TEST $GEOREP_CLI $master $slave_url config change_detector xsync
-mkdir ${master_mnt}/dir1
-mkdir ${master_mnt}/dir1/dir2
-mkdir ${master_mnt}/dir1/dir3
-mkdir ${master_mnt}/hybrid_d1
 
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/hybrid_d1
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1/dir2
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1/dir3
+TEST $GEOREP_CLI $master $slave_url config change_detector xsync
+#verify master and slave mount
+
+EXPECT_WITHIN $CHECK_MOUNT_TIMEOUT "^1$" check_mounted ${master_mnt}
+EXPECT_WITHIN $CHECK_MOUNT_TIMEOUT "^1$" check_mounted ${slave_mnt}
+
+#Create test data for hybrid crawl
+TEST mkdir ${master_mnt}/dir1
+TEST mkdir ${master_mnt}/dir1/dir2
+TEST mkdir ${master_mnt}/dir1/dir3
+TEST mkdir ${master_mnt}/hybrid_d1
 
 mv ${master_mnt}/hybrid_d1 ${master_mnt}/hybrid_rn_d1
 mv ${master_mnt}/dir1/dir2 ${master_mnt}/rn_dir2
 mv ${master_mnt}/dir1/dir3 ${master_mnt}/dir1/rn_dir3
 
+#Verify hybrid crawl data on slave
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/hybrid_rn_d1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/rn_dir2
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/dir1/rn_dir3
