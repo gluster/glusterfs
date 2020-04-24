@@ -3905,6 +3905,17 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
      */
 
     ret = syncop_setxattr(this, loc, fix_layout, 0, NULL, NULL);
+
+    /* In case of a race where the directory is deleted just before
+     * layout setxattr, the errors are updated in the layout structure.
+     * We can use this information to make a decision whether the directory
+     * is deleted entirely.
+     */
+    if (ret == 0) {
+        ret = dht_dir_layout_error_check(this, loc->inode);
+        ret = -ret;
+    }
+
     if (ret) {
         if (-ret == ENOENT || -ret == ESTALE) {
             gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_LAYOUT_FIX_FAILED,

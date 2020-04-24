@@ -1481,4 +1481,7 @@ dht_create_lock(call_frame_t *frame, xlator_t *subvol);
 int
 dht_set_parent_layout_in_dict(loc_t *loc, xlator_t *this, dht_local_t *local);
 
+int
+dht_dir_layout_error_check(xlator_t *this, inode_t *inode);
+
 #endif /* _DHT_H */
