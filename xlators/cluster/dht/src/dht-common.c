@@ -11436,3 +11436,22 @@ dht_pt_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
                FIRST_CHILD(this)->fops->fgetxattr, fd, key, xdata);
     return 0;
 }
+
+/* The job of this function is to check if all the xlators have updated
+ * error in the layout. */
+int
+dht_dir_layout_error_check(xlator_t *this, inode_t *inode)
+{
+    dht_layout_t *layout = NULL;
+    int i = 0;
+
+    layout = dht_layout_get(this, inode);
+    for (i = 0; i < layout->cnt; i++) {
+        if (layout->list[i].err == 0) {
+            return 0;
+        }
+    }
+
+    /* Returning the first xlator error as all xlators have errors */
+    return layout->list[0].err;
+}
