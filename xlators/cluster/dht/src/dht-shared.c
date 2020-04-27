@@ -700,6 +700,10 @@ dht_init(xlator_t *this)
         pthread_cond_init(&defrag->fc_wakeup_cond, 0);
 
         defrag->global_error = 0;
+
+        defrag->is_pure_distribute = _gf_false;
+
+        defrag->operate_dist = _gf_true;
     }
 
     conf->use_fallocate = 1;

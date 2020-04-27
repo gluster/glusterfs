@@ -598,6 +598,15 @@ struct gf_defrag_info_ {
     gf_boolean_t stats;
     /* lock migration flag */
     gf_boolean_t lock_migration_enabled;
+
+    /* local system crawl */
+    char **local_brick_paths;
+
+    /* whether the volume is pure distribute */
+    gf_boolean_t is_pure_distribute;
+
+    /*TODO: Introduce a glusterd option to tune this behaviour*/
+    gf_boolean_t operate_dist;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -1482,4 +1491,6 @@ dht_set_parent_layout_in_dict(loc_t *loc, xlator_t *this, dht_local_t *local);
 int
 dht_dir_layout_error_check(xlator_t *this, inode_t *inode);
 
+int
+dht_get_brick_paths(xlator_t *this, dht_conf_t *conf, loc_t *loc);
 #endif /* _DHT_H */
