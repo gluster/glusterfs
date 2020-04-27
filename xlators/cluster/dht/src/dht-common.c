@@ -11465,3 +11465,117 @@ dht_dir_layout_error_check(xlator_t *this, inode_t *inode)
     /* Returning the first xlator error as all xlators have errors */
     return layout->list[0].err;
 }
+
+/* Get brick paths from all the local subvols and store for use.
+ *
+ * TODO: Make sure newly added brick is not picked for migration.
+ * Otherwise there will be no rebalance as directory entries won't be present
+ * on a newly added brick */
+int
+dht_get_brick_paths(xlator_t *this, dht_conf_t *conf, loc_t *loc)
+{
+    dict_t *dict = NULL;
+    gf_defrag_info_t *defrag = conf->defrag;
+    char *key = NULL;
+    char *tmp = NULL;
+    char *str = NULL;
+    char *token;
+    char *saveptr = NULL;
+    int i = 1;
+    int j = 0;
+    int ret = 0;
+
+    key = gf_strdup("glusterfs.pathinfo");
+    if (!key) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, 0,
+               "failed to allocate "
+               "memory");
+        ret = -1;
+        goto out;
+    }
+
+    defrag->local_brick_paths = GF_CALLOC(conf->local_subvols_cnt,
+                                          sizeof(*defrag->local_brick_paths),
+                                          gf_common_mt_pointer);
+
+    for (j = 0; j < conf->local_subvols_cnt; j++) {
+        ret = syncop_getxattr(conf->local_subvols[j], loc, &dict, key, NULL,
+                              NULL);
+        if (ret == -1) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, 0,
+                   "failed to get path,"
+                   " errno %d",
+                   ret);
+            /* TODO: We need not break out from here and can resume operation.
+             * We need a place holder in gf_defrag_info_t to mark which
+             * local_brick_paths we are working on. Right now, we blindly
+             * take defrag->local_brick_path[0]. This can be dynamic based on
+             * need */
+            goto out;
+        }
+
+        str = NULL;
+        ret = dict_get_str(dict, key, &str);
+        if (ret != 0) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, 0, "dict get failed for :%s",
+                   key);
+            goto out;
+        }
+        if (str == NULL) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0, "key:%s not found", key);
+            ret = -1;
+            goto out;
+        }
+
+        if (!defrag->is_pure_distribute) {
+            tmp = strstr(str, "REPLICATE");
+            if (tmp) {
+                defrag->is_pure_distribute = _gf_false;
+                break;
+            }
+
+            /*TODO: fetching glusterfs.pathinfo on erasure volume is failing.
+             *Function the old way till we get it resolved */
+            tmp = strstr(str, "ERASURE");
+            if (tmp) {
+                defrag->is_pure_distribute = _gf_false;
+                break;
+            }
+
+            defrag->is_pure_distribute = _gf_true;
+        }
+
+        saveptr = NULL;
+
+        for (token = strtok_r(str, ":", &saveptr), i = 1; token;) {
+            token = strtok_r(NULL, ":", &saveptr);
+            i++;
+            if (i == 3) {
+                token = strtok_r(token, ">", &saveptr);
+                break;
+            } else {
+                continue;
+            }
+        }
+
+        defrag->local_brick_paths[j] = gf_strdup(token);
+    }
+
+out:
+    if (ret == -1) {
+        gf_msg(this->name, GF_LOG_INFO, 0, 0,
+               "failed to get brick path. "
+               "Will operate old way");
+        for (j = 0; j < conf->local_subvols_cnt; j++) {
+            GF_FREE(defrag->local_brick_paths[j]);
+        }
+        defrag->is_pure_distribute = _gf_false;
+    }
+
+    if (defrag->is_pure_distribute) {
+        gf_msg(this->name, GF_LOG_INFO, 0, 0, "volume type : pure distribute");
+    }
+
+    GF_FREE(key);
+    return ret;
+}

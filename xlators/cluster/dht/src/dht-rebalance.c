@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <glusterfs/events.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
+#include <string.h>
 
 #define GF_DISK_SECTOR_SIZE 512
 #define DHT_REBALANCE_PID 4242        /* Change it if required */
@@ -4052,6 +4053,368 @@ out:
 }
 
 int
+gf_defrag_fix_layout_puredist(xlator_t *this, gf_defrag_info_t *defrag,
+                              loc_t *loc, dict_t *fix_layout,
+                              dict_t *migrate_data)
+{
+    int ret = -1;
+    loc_t entry_loc = {
+        0,
+    };
+    fd_t *fd = NULL;
+    inode_t *linked_inode = NULL, *inode = NULL;
+    dht_conf_t *conf = NULL;
+    int should_commit_hash = 1;
+    int perrno = 0;
+    /* absolute brick path length */
+    int brick_len = 0;
+    /* dir path length (relative to gluster mount) */
+    int dir_len = 0;
+    /* absolute dir path length */
+    int total_len = 0;
+    struct dirent *entry = NULL;
+    struct dirent scratch[2] = {{
+        0,
+    }};
+    DIR *dirp = NULL;
+    int full_entry_length = 0;
+    int entry_len = 0;
+    char full_entry_path[4096] = {
+        0,
+    };
+    char full_dir_path[4096] = {
+        0,
+    };
+    ssize_t size = 0;
+    uuid_t tmp_gfid;
+    struct stat tmpbuf = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+
+    struct stat lstatbuf = {
+        0,
+    };
+    struct iatt stbuf = {
+        0,
+    };
+
+    conf = this->private;
+    if (!conf) {
+        ret = -1;
+        goto out;
+    }
+
+    /*
+     * Since the primary target for the following lookup is to figure out if the
+     * entry still exists, going to do a direct stat call rather than going
+     * through the whole gluster stack. There are some benefits of doing gluster
+     * lookup, but this is redundant since we have done already one gluster
+     * lookup in the parent function.
+     *
+     * Randomly selecting the first local subvol to read, since it is expected
+     * that the directory structure is present in all the subvols identically
+     */
+
+    brick_len = strlen(defrag->local_brick_paths[0]);
+    /* discarding the first "/" */
+    dir_len = strlen(loc->path) - 1;
+    /* Extra two: one for "/" at the end and one more for '\0'*/
+    total_len = brick_len + dir_len + 2;
+
+    snprintf(full_dir_path, total_len, "%s%s/", defrag->local_brick_paths[0],
+             loc->path + 1);
+
+    ret = sys_lstat(full_dir_path, &tmpbuf);
+    if (ret == -1) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "[absolutepath %s] directory "
+               "not found, path %s error %d",
+               full_dir_path, loc->path, errno);
+        goto out;
+    }
+
+    dirp = sys_opendir(full_dir_path);
+    if (!dirp) {
+        ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, errno, 0, "failed to open dir : %s",
+               loc->path);
+        if (conf->decommission_subvols_cnt) {
+            defrag->total_failures++;
+        }
+        goto out;
+    }
+
+    while ((entry = sys_readdir(dirp, scratch)) != NULL) {
+        if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
+            ret = 1;
+            goto out;
+        }
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..") ||
+            !strcmp(entry->d_name, ".glusterfs"))
+            continue;
+
+        /* TODO: Need to add a check for _DIRENT_HAVE_D_TYPE flag to fall back
+           to stat in case d_type is not defined */
+        if (entry->d_type != DT_DIR) {
+            continue;
+        }
+
+        entry_len = strlen(entry->d_name);
+        full_entry_length = total_len + entry_len + 1; /* one more for "/"*/
+
+        snprintf(full_entry_path, full_entry_length, "%s%s/", full_dir_path,
+                 entry->d_name);
+
+        size = sys_lgetxattr(full_entry_path, GFID_XATTR_KEY, tmp_gfid, 16);
+        if (size != 16) {
+            gf_log(this->name, GF_LOG_ERROR, "gfid not found, path %s",
+                   full_entry_path);
+            continue;
+        }
+
+        loc_wipe(&entry_loc);
+
+        ret = dht_build_child_loc(this, &entry_loc, loc, entry->d_name);
+        if (ret) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "Child loc"
+                   " build failed for entry: %s",
+                   entry->d_name);
+
+            if (conf->decommission_in_progress) {
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+
+                goto out;
+            } else {
+                should_commit_hash = 0;
+
+                continue;
+            }
+        }
+
+        if (gf_uuid_is_null(tmp_gfid)) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "%s/%s"
+                   " gfid not present",
+                   loc->path, entry->d_name);
+            continue;
+        }
+
+        gf_uuid_copy(entry_loc.gfid, tmp_gfid);
+
+        /*In case the gfid stored in the inode by inode_link
+         *and the gfid obtained in the lookup differs, then
+         *client3_3_lookup_cbk will return ESTALE and proper
+         *error will be captured.
+         */
+        memset(&lstatbuf, 0, sizeof(struct stat));
+        ret = sys_lstat(full_entry_path, &lstatbuf);
+        if (ret == -1) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, 0, "lstat failed for %s",
+                   entry->d_name);
+        }
+
+        memset(&stbuf, 0, sizeof(struct iatt));
+        iatt_from_stat(&stbuf, &lstatbuf);
+        gf_uuid_copy(stbuf.ia_gfid, entry_loc.gfid);
+        linked_inode = inode_link(entry_loc.inode, loc->inode, entry->d_name,
+                                  &stbuf);
+
+        inode = entry_loc.inode;
+        entry_loc.inode = linked_inode;
+        inode_unref(inode);
+
+        if (gf_uuid_is_null(loc->gfid)) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "%s/%s"
+                   " gfid not present",
+                   loc->path, entry->d_name);
+            continue;
+        }
+
+        gf_uuid_copy(entry_loc.pargfid, loc->gfid);
+
+        ret = syncop_lookup(this, &entry_loc, &iatt, NULL, NULL, NULL);
+        if (ret) {
+            if (-ret == ENOENT || -ret == ESTALE) {
+                gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
+                       "Dir:%s renamed or removed. "
+                       "Skipping",
+                       loc->path);
+                ret = 0;
+                if (conf->decommission_subvols_cnt) {
+                    defrag->total_failures++;
+                }
+                continue;
+            } else {
+                gf_msg(this->name, GF_LOG_ERROR, -ret,
+                       DHT_MSG_DIR_LOOKUP_FAILED, "lookup failed for:%s",
+                       entry_loc.path);
+
+                defrag->total_failures++;
+
+                if (conf->decommission_in_progress) {
+                    defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                    ret = -1;
+                    goto out;
+                } else {
+                    should_commit_hash = 0;
+                    continue;
+                }
+            }
+        }
+
+        /* A return value of 2 means, either process_dir or
+         * lookup of a dir failed. Hence, don't commit hash
+         * for the current directory*/
+
+        ret = gf_defrag_fix_layout_puredist(this, defrag, &entry_loc,
+                                            fix_layout, migrate_data);
+
+        if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
+            goto out;
+        }
+
+        if (ret && ret != 2) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LAYOUT_FIX_FAILED,
+                   "Fix layout failed for %s", entry_loc.path);
+
+            defrag->total_failures++;
+
+            if (conf->decommission_in_progress) {
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+
+                goto out;
+            } else {
+                /* Let's not commit-hash if
+                 * gf_defrag_fix_layout failed*/
+                continue;
+            }
+        }
+    }
+
+    ret = sys_closedir(dirp);
+    if (ret) {
+        gf_msg_debug(this->name, 0,
+                     "Failed to close dir %s. Reason :"
+                     " %s",
+                     full_dir_path, strerror(errno));
+        ret = 0;
+    }
+
+    dirp = NULL;
+
+    /* A directory layout is fixed only after its subdirs are healed to
+     * any newly added bricks. If the layout is fixed before subdirs are
+     * healed, the newly added brick will get a non-null layout.
+     * Any subdirs which hash to that layout will no longer show up
+     * in a directory listing until they are healed.
+     */
+
+    ret = syncop_setxattr(this, loc, fix_layout, 0, NULL, NULL);
+
+    /* In case of a race where the directory is deleted just before
+     * layout setxattr, the errors are updated in the layout structure.
+     * We can use this information to make a decision whether the directory
+     * is deleted entirely.
+     */
+    if (ret == 0) {
+        ret = dht_dir_layout_error_check(this, loc->inode);
+        ret = -ret;
+    }
+
+    if (ret) {
+        if (-ret == ENOENT || -ret == ESTALE) {
+            gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_LAYOUT_FIX_FAILED,
+                   "Setxattr failed. Dir %s "
+                   "renamed or removed",
+                   loc->path);
+            if (conf->decommission_subvols_cnt) {
+                defrag->total_failures++;
+            }
+            ret = 0;
+            goto out;
+        } else {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_LAYOUT_FIX_FAILED,
+                   "Setxattr failed for %s", loc->path);
+
+            defrag->total_failures++;
+
+            if (conf->decommission_in_progress) {
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                ret = -1;
+                goto out;
+            }
+        }
+    }
+
+    if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
+        (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
+        ret = gf_defrag_process_dir(this, defrag, loc, migrate_data, &perrno);
+
+        if (ret && (ret != 2)) {
+            if (perrno == ENOENT || perrno == ESTALE) {
+                ret = 0;
+                goto out;
+            } else {
+                defrag->total_failures++;
+
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
+                       "gf_defrag_process_dir failed for "
+                       "directory: %s",
+                       loc->path);
+
+                if (conf->decommission_in_progress) {
+                    goto out;
+                }
+
+                should_commit_hash = 0;
+            }
+        } else if (ret == 2) {
+            should_commit_hash = 0;
+        }
+    }
+
+    gf_msg_trace(this->name, 0, "fix layout called on %s", loc->path);
+
+    if (should_commit_hash &&
+        gf_defrag_settle_hash(this, defrag, loc, fix_layout) != 0) {
+        defrag->total_failures++;
+
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SETTLE_HASH_FAILED,
+               "Settle hash failed for %s", loc->path);
+
+        ret = -1;
+
+        if (conf->decommission_in_progress) {
+            defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+            goto out;
+        }
+    }
+
+    ret = 0;
+out:
+    loc_wipe(&entry_loc);
+
+    if (fd)
+        fd_unref(fd);
+
+    if (ret == 0 && should_commit_hash == 0) {
+        ret = 2;
+    }
+
+    if (dirp) {
+        sys_closedir(dirp);
+    }
+
+    return ret;
+}
+
+int
 dht_init_local_subvols_and_nodeuuids(xlator_t *this, dht_conf_t *conf,
                                      loc_t *loc)
 {
@@ -4405,6 +4768,7 @@ gf_defrag_start_crawl(void *data)
     pthread_t *tid = NULL;
     pthread_t filecnt_thread;
     gf_boolean_t fc_thread_started = _gf_false;
+    int i = 0;
 
     this = data;
     if (!this)
@@ -4539,6 +4903,12 @@ gf_defrag_start_crawl(void *data)
             goto out;
         }
 
+        ret = dht_get_brick_paths(this, conf, &loc);
+        if (ret) {
+            gf_log(this->name, GF_LOG_WARNING, "could not get brick path");
+            ret = 0;
+        }
+
         /* Initialise the structures required for parallel migration */
         ret = gf_defrag_parallel_migration_init(this, defrag, &tid,
                                                 &thread_index);
@@ -4556,11 +4926,23 @@ gf_defrag_start_crawl(void *data)
         }
     }
 
-    ret = gf_defrag_fix_layout(this, defrag, &loc, fix_layout, migrate_data);
-    if (ret && ret != 2) {
-        defrag->total_failures++;
-        ret = -1;
-        goto out;
+    /* TODO: Need to introduce a flag to safely operate in the old way */
+    if (defrag->operate_dist && defrag->is_pure_distribute) {
+        ret = gf_defrag_fix_layout_puredist(this, defrag, &loc, fix_layout,
+                                            migrate_data);
+        if (ret && ret != 2) {
+            defrag->total_failures++;
+            ret = -1;
+            goto out;
+        }
+    } else {
+        ret = gf_defrag_fix_layout(this, defrag, &loc, fix_layout,
+                                   migrate_data);
+        if (ret && ret != 2) {
+            defrag->total_failures++;
+            ret = -1;
+            goto out;
+        }
     }
 
     if (ret != 2 &&
@@ -4605,6 +4987,14 @@ out:
         defrag->is_exiting = 1;
     }
     UNLOCK(&defrag->lock);
+
+    for (i = 0; i < conf->local_subvols_cnt; i++) {
+        if (defrag->local_brick_paths[i]) {
+            GF_FREE(defrag->local_brick_paths[i]);
+        }
+    }
+
+    GF_FREE(defrag->local_brick_paths);
 
     GF_FREE(defrag);
     conf->defrag = NULL;
