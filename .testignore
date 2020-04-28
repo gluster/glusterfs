@@ -1,4 +1,6 @@
 .github/ISSUE_TEMPLATE
+.github/PULL_REQUEST_TEMPLATE
+.github/stale.yml
 .gitignore
 .mailmap
 .testignore
