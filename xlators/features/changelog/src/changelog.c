@@ -2036,20 +2036,20 @@ notify(xlator_t *this, int event, void *data, ...)
                     priv->notify_down = _gf_true;
                 }
                 UNLOCK(&priv->lock);
-                list_for_each_entry_safe(listener, next, &priv->rpc->listeners,
-                                         list)
-                {
-                    if (listener->trans) {
-                        rpc_transport_unref(listener->trans);
+                if (priv->rpc) {
+                    list_for_each_entry_safe(listener, next,
+                                             &priv->rpc->listeners, list)
+                    {
+                        if (listener->trans) {
+                            rpc_transport_unref(listener->trans);
+                        }
                     }
+                    rpcsvc_destroy(priv->rpc);
+                    priv->rpc = NULL;
                 }
                 CHANGELOG_MAKE_SOCKET_PATH(priv->changelog_brick, sockfile,
                                            UNIX_PATH_MAX);
                 sys_unlink(sockfile);
-                if (priv->rpc) {
-                    rpcsvc_destroy(priv->rpc);
-                    priv->rpc = NULL;
-                }
                 if (!cleanup_notify)
                     default_notify(this, GF_EVENT_PARENT_DOWN, data);
             }
