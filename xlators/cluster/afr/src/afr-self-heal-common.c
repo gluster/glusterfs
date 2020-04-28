@@ -1909,7 +1909,8 @@ afr_selfheal_unlocked_discover(call_frame_t *frame, inode_t *inode, uuid_t gfid,
     dict_t *dict = NULL;
 
     local = frame->local;
-    if (local && local->xattr_req)
+
+    if (local->xattr_req)
         dict = local->xattr_req;
 
     return afr_selfheal_unlocked_discover_on(frame, inode, gfid, replies,
