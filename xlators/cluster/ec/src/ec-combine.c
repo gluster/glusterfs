@@ -343,9 +343,8 @@ out:
 }
 
 static int32_t
-ec_dict_data_concat(const char *fmt, ec_cbk_data_t *cbk, int32_t which,
-                    char *key, char *new_key, const char *def,
-                    gf_boolean_t global, ...)
+ec_dict_data_concat(ec_cbk_data_t *cbk, int32_t which, char *key, char *new_key,
+                    const char *def, gf_boolean_t global, const char *fmt, ...)
 {
     ec_t *ec = cbk->fop->xl->private;
     data_t *data[ec->nodes];
@@ -357,7 +356,7 @@ ec_dict_data_concat(const char *fmt, ec_cbk_data_t *cbk, int32_t which,
 
     ec_dict_list(data, cbk, which, key, global);
 
-    va_start(args, global);
+    va_start(args, fmt);
     err = ec_concat_prepare(cbk->fop->xl, &pre, &sep, &post, fmt, args);
     va_end(args);
 
@@ -730,14 +729,14 @@ ec_dict_data_combine(dict_t *dict, char *key, data_t *value, void *arg)
 
     if ((strcmp(key, GF_XATTR_PATHINFO_KEY) == 0) ||
         (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0)) {
-        return ec_dict_data_concat("(<EC:%s> { })", data->cbk, data->which, key,
-                                   NULL, NULL, _gf_false,
+        return ec_dict_data_concat(data->cbk, data->which, key, NULL, NULL,
+                                   _gf_false, _gf_false, "(<EC:%s> { })",
                                    data->cbk->fop->xl->name);
     }
 
     if (strncmp(key, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) == 0) {
-        return ec_dict_data_concat("{\n}", data->cbk, data->which, key, NULL,
-                                   NULL, _gf_false);
+        return ec_dict_data_concat(data->cbk, data->which, key, NULL, NULL,
+                                   _gf_false, "{\n}");
     }
 
     if (strncmp(key, GF_XATTR_LOCKINFO_KEY, SLEN(GF_XATTR_LOCKINFO_KEY)) == 0) {
@@ -767,9 +766,9 @@ ec_dict_data_combine(dict_t *dict, char *key, data_t *value, void *arg)
     if (XATTR_IS_NODE_UUID(key)) {
         if (data->cbk->fop->int32) {
             /* List of node uuid is requested */
-            return ec_dict_data_concat("{ }", data->cbk, data->which, key,
+            return ec_dict_data_concat(data->cbk, data->which, key,
                                        GF_XATTR_LIST_NODE_UUIDS_KEY, UUID0_STR,
-                                       _gf_true);
+                                       _gf_true, "{ }");
         } else {
             return ec_dict_data_uuid(data->cbk, data->which, key);
         }
