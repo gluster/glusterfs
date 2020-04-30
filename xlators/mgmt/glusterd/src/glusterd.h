@@ -209,6 +209,9 @@ typedef struct {
     gf_boolean_t restart_done;
     dict_t *opts;
     synclock_t big_lock;
+    synccond_t cond_restart_bricks;
+    synccond_t cond_restart_shd;
+    synccond_t cond_blockers;
     rpcsvc_t *uds_rpc; /* RPCSVC for the unix domain socket */
     uint32_t base_port;
     uint32_t max_port;

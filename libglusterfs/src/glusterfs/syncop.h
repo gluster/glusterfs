@@ -16,6 +16,8 @@
 #include <ucontext.h>
 #include "glusterfs/dict.h"   // for dict_t
 #include "glusterfs/stack.h"  // for call_frame_t, STACK_DESTROY, STACK_...
+#include "glusterfs/timer.h"
+
 #define SYNCENV_PROC_MAX 16
 #define SYNCENV_PROC_MIN 2
 #define SYNCPROC_IDLE_TIME 600
@@ -32,6 +34,7 @@
 struct synctask;
 struct syncproc;
 struct syncenv;
+struct synccond;
 
 typedef int (*synctask_cbk_t)(int ret, call_frame_t *frame, void *opaque);
 
@@ -55,9 +58,12 @@ struct synctask {
     call_frame_t *opframe;
     synctask_cbk_t synccbk;
     synctask_fn_t syncfn;
-    synctask_state_t state;
+    struct timespec *delta;
+    gf_timer_t *timer;
+    struct synccond *synccond;
     void *opaque;
     void *stack;
+    synctask_state_t state;
     int woken;
     int slept;
     int ret;
@@ -85,18 +91,20 @@ struct syncproc {
 /* hosts the scheduler thread and framework for executing synctasks */
 struct syncenv {
     struct syncproc proc[SYNCENV_PROC_MAX];
-    int procs;
-
-    struct list_head runq;
-    int runcount;
-    struct list_head waitq;
-    int waitcount;
-
-    int procmin;
-    int procmax;
 
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+
+    struct list_head runq;
+    struct list_head waitq;
+
+    int procs;
+    int procs_idle;
+
+    int runcount;
+
+    int procmin;
+    int procmax;
 
     size_t stacksize;
 
@@ -122,6 +130,13 @@ struct synclock {
     lock_type_t type;
 };
 typedef struct synclock synclock_t;
+
+struct synccond {
+    pthread_mutex_t pmutex;
+    pthread_cond_t pcond;
+    struct list_head waitq;
+};
+typedef struct synccond synccond_t;
 
 struct syncbarrier {
     gf_boolean_t initialized; /*Set on successful initialization*/
@@ -219,7 +234,7 @@ struct syncopctx {
 #define __yield(args)                                                          \
     do {                                                                       \
         if (args->task) {                                                      \
-            synctask_yield(args->task);                                        \
+            synctask_yield(args->task, NULL);                                  \
         } else {                                                               \
             pthread_mutex_lock(&args->mutex);                                  \
             {                                                                  \
@@ -310,7 +325,9 @@ synctask_join(struct synctask *task);
 void
 synctask_wake(struct synctask *task);
 void
-synctask_yield(struct synctask *task);
+synctask_yield(struct synctask *task, struct timespec *delta);
+void
+synctask_sleep(int32_t secs);
 void
 synctask_waitfor(struct synctask *task, int count);
 
@@ -407,6 +424,24 @@ int
 synclock_trylock(synclock_t *lock);
 int
 synclock_unlock(synclock_t *lock);
+
+int32_t
+synccond_init(synccond_t *cond);
+
+void
+synccond_destroy(synccond_t *cond);
+
+int
+synccond_wait(synccond_t *cond, synclock_t *lock);
+
+int
+synccond_timedwait(synccond_t *cond, synclock_t *lock, struct timespec *delta);
+
+void
+synccond_signal(synccond_t *cond);
+
+void
+synccond_broadcast(synccond_t *cond);
 
 int
 syncbarrier_init(syncbarrier_t *barrier);

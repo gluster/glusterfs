@@ -270,9 +270,7 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     }
 
     while (conf->restart_shd) {
-        synclock_unlock(&conf->big_lock);
-        sleep(2);
-        synclock_lock(&conf->big_lock);
+        synccond_wait(&conf->cond_restart_shd, &conf->big_lock);
     }
     conf->restart_shd = _gf_true;
     shd_restart = _gf_true;
@@ -328,8 +326,10 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
         }
     }
 out:
-    if (shd_restart)
+    if (shd_restart) {
         conf->restart_shd = _gf_false;
+        synccond_broadcast(&conf->cond_restart_shd);
+    }
     if (volinfo)
         glusterd_volinfo_unref(volinfo);
     if (ret)

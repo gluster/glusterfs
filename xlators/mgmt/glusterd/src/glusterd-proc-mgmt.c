@@ -114,7 +114,7 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
         goto out;
 
     synclock_unlock(&conf->big_lock);
-    sleep(1);
+    synctask_sleep(1);
     synclock_lock(&conf->big_lock);
     if (gf_is_service_running(proc->pidfile, &pid)) {
         ret = kill(pid, SIGKILL);

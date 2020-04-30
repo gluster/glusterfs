@@ -937,6 +937,12 @@ syncbarrier_destroy
 syncbarrier_init
 syncbarrier_wait
 syncbarrier_wake
+synccond_init
+synccond_destroy
+synccond_wait
+synccond_timedwait
+synccond_signal
+synccond_broadcast
 syncenv_destroy
 syncenv_new
 synclock_destroy
@@ -1014,6 +1020,7 @@ synctask_new
 synctask_new1
 synctask_set
 synctask_setid
+synctask_sleep
 synctask_wake
 synctask_yield
 sys_access
