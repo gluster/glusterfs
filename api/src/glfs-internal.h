@@ -453,7 +453,7 @@ glfs_process_upcall_event(struct glfs *fs, void *data)
         if (task) {                                                            \
             list_add_tail(&task->waitq, &fs->waitq);                           \
             pthread_mutex_unlock(&fs->mutex);                                  \
-            synctask_yield(task);                                              \
+            synctask_yield(task, NULL);                                        \
             pthread_mutex_lock(&fs->mutex);                                    \
         } else {                                                               \
             /* non-synctask */                                                 \

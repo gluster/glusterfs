@@ -5040,22 +5040,22 @@ glusterd_import_friend_volumes_synctask(void *opaque)
      * restarted (refer glusterd_restart_bricks ())
      */
     while (conf->restart_bricks) {
-        synclock_unlock(&conf->big_lock);
-        sleep(2);
-        synclock_lock(&conf->big_lock);
+        synccond_wait(&conf->cond_restart_bricks, &conf->big_lock);
     }
     conf->restart_bricks = _gf_true;
 
     while (i <= count) {
         ret = glusterd_import_friend_volume(peer_data, i);
         if (ret) {
-            conf->restart_bricks = _gf_false;
-            goto out;
+            break;
         }
         i++;
     }
-    glusterd_svcs_manager(NULL);
+    if (i > count) {
+        glusterd_svcs_manager(NULL);
+    }
     conf->restart_bricks = _gf_false;
+    synccond_broadcast(&conf->cond_restart_bricks);
 out:
     if (peer_data)
         dict_unref(peer_data);
@@ -5735,7 +5735,9 @@ my_callback(struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
     call_frame_t *frame = v_frame;
     glusterd_conf_t *conf = frame->this->private;
 
-    GF_ATOMIC_DEC(conf->blockers);
+    if (GF_ATOMIC_DEC(conf->blockers) == 0) {
+        synccond_broadcast(&conf->cond_blockers);
+    }
 
     STACK_DESTROY(frame->root);
     return 0;
@@ -5837,7 +5839,9 @@ attach_brick_callback(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 out:
-    GF_ATOMIC_DEC(conf->blockers);
+    if (GF_ATOMIC_DEC(conf->blockers) == 0) {
+        synccond_broadcast(&conf->cond_blockers);
+    }
     STACK_DESTROY(frame->root);
     return 0;
 }
@@ -6022,7 +6026,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
          * TBD: see if there's a better way
          */
         synclock_unlock(&conf->big_lock);
-        sleep(1);
+        synctask_sleep(1);
         synclock_lock(&conf->big_lock);
     }
 
@@ -6162,7 +6166,7 @@ find_compat_brick_in_vol(glusterd_conf_t *conf,
                          "brick %s is still"
                          " starting, waiting for 2 seconds ",
                          other_brick->path);
-            sleep(2);
+            synctask_sleep(2);
             synclock_lock(&conf->big_lock);
             retries--;
         }
@@ -6651,9 +6655,7 @@ glusterd_restart_bricks(void *opaque)
      * glusterd_compare_friend_data ())
      */
     while (conf->restart_bricks) {
-        synclock_unlock(&conf->big_lock);
-        sleep(2);
-        synclock_lock(&conf->big_lock);
+        synccond_wait(&conf->cond_restart_bricks, &conf->big_lock);
     }
     conf->restart_bricks = _gf_true;
 
@@ -6770,6 +6772,7 @@ out:
     GF_ATOMIC_DEC(conf->blockers);
     conf->restart_done = _gf_true;
     conf->restart_bricks = _gf_false;
+    synccond_broadcast(&conf->cond_restart_bricks);
 
 return_block:
     return ret;

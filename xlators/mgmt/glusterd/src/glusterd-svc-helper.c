@@ -634,7 +634,9 @@ my_callback(struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    GF_ATOMIC_DEC(conf->blockers);
+    if (GF_ATOMIC_DEC(conf->blockers) == 0) {
+        synccond_broadcast(&conf->cond_blockers);
+    }
 
     STACK_DESTROY(frame->root);
 out:
@@ -722,7 +724,9 @@ out:
     if (volinfo)
         glusterd_volinfo_unref(volinfo);
 
-    GF_ATOMIC_DEC(conf->blockers);
+    if (GF_ATOMIC_DEC(conf->blockers) == 0) {
+        synccond_broadcast(&conf->cond_blockers);
+    }
     STACK_DESTROY(frame->root);
     return 0;
 }
@@ -969,7 +973,7 @@ glusterd_attach_svc(glusterd_svc_t *svc, glusterd_volinfo_t *volinfo, int flags)
          * TBD: see if there's a better way
          */
         synclock_unlock(&conf->big_lock);
-        sleep(1);
+        synctask_sleep(1);
         synclock_lock(&conf->big_lock);
     }
     ret = -1;
@@ -1023,7 +1027,7 @@ glusterd_detach_svc(glusterd_svc_t *svc, glusterd_volinfo_t *volinfo, int sig)
          * TBD: see if there's a better way
          */
         synclock_unlock(&conf->big_lock);
-        sleep(1);
+        synctask_sleep(1);
         synclock_lock(&conf->big_lock);
     }
     ret = -1;
