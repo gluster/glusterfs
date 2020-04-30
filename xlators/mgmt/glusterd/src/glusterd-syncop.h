@@ -32,7 +32,7 @@
         ret = gd_syncop_submit_request(rpc, req, stb, cookie, prog, procnum,   \
                                        cbk, (xdrproc_t)xdrproc);               \
         if (!ret)                                                              \
-            synctask_yield(stb->task);                                         \
+            synctask_yield(stb->task, NULL);                                   \
         else                                                                   \
             gf_asprintf(&stb->errstr,                                          \
                         "%s failed. Check log file"                            \

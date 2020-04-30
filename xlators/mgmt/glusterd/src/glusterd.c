@@ -1872,6 +1872,9 @@ init(xlator_t *this)
     (void)strncpy(conf->logdir, logdir, sizeof(conf->logdir));
 
     synclock_init(&conf->big_lock, SYNC_LOCK_RECURSIVE);
+    synccond_init(&conf->cond_restart_bricks);
+    synccond_init(&conf->cond_restart_shd);
+    synccond_init(&conf->cond_blockers);
     pthread_mutex_init(&conf->xprt_lock, NULL);
     INIT_LIST_HEAD(&conf->xprt_list);
     pthread_mutex_init(&conf->import_volumes, NULL);

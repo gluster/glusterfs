@@ -1961,9 +1961,7 @@ glusterd_update_snaps_synctask(void *opaque)
     synclock_lock(&conf->big_lock);
 
     while (conf->restart_bricks) {
-        synclock_unlock(&conf->big_lock);
-        sleep(2);
-        synclock_lock(&conf->big_lock);
+        synccond_wait(&conf->cond_restart_bricks, &conf->big_lock);
     }
     conf->restart_bricks = _gf_true;
 
@@ -2070,6 +2068,7 @@ out:
     if (dict)
         dict_unref(dict);
     conf->restart_bricks = _gf_false;
+    synccond_broadcast(&conf->cond_restart_bricks);
 
     return ret;
 }
