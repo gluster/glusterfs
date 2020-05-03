@@ -696,6 +696,7 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = -1;
     dht_conf_t *conf = 0;
     dht_layout_t *layout = NULL;
+    int32_t mds_heal_fresh_lookup = 0;
 
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
@@ -703,6 +704,7 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     conf = this->private;
     layout = local->selfheal.layout;
+    mds_heal_fresh_lookup = local->mds_heal_fresh_lookup;
 
     if (op_ret) {
         gf_msg_debug(this->name, op_ret,
@@ -723,7 +725,7 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  layout);
     }
 out:
-    if (local && local->mds_heal_fresh_lookup)
+    if (mds_heal_fresh_lookup)
         DHT_STACK_DESTROY(frame);
     return 0;
 }
