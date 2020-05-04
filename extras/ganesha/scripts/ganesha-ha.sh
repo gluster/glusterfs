@@ -919,8 +919,9 @@ status()
     local index=1
     local nodes
 
-    # change tabs to spaces, strip leading spaces
-    pcs status | sed -e "s/\t/ /g" -e "s/^[ ]*//" > ${scratch}
+    # change tabs to spaces, strip leading spaces, including any 
+    # new '*' at the beginning of a line introduced in pcs-0.10.x
+    pcs status | sed -e "s/\t/ /g" -e "s/^[ ]*\*//" -e "s/^[ ]*//" > ${scratch}
 
     nodes[0]=${1}; shift
 
