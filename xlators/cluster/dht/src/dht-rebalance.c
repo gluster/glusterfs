@@ -46,6 +46,8 @@ gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
     if (meta) {
         for (i = 0; i < local_subvols_cnt; i++) {
             gf_dirent_free(&meta->equeue[i]);
+            if (meta->lfd && meta->lfd[i])
+                fd_unref(meta->lfd[i]);
         }
 
         GF_FREE(meta->equeue);
@@ -53,6 +55,7 @@ gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
         GF_FREE(meta->iterator);
         GF_FREE(meta->offset_var);
         GF_FREE(meta->fetch_entries);
+        GF_FREE(meta->lfd);
         GF_FREE(meta);
     }
 }
@@ -3056,7 +3059,7 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
                                struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
                                int *should_commit_hash, int *perrno)
 {
-    int ret = -1;
+    int ret = 0;
     char is_linkfile = 0;
     gf_dirent_t *df_entry = NULL;
     struct dht_container *tmp_container = NULL;
@@ -3072,6 +3075,13 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
     }
 
     if (dir_dfmeta->fetch_entries[i] == 1) {
+        if (!fd) {
+            dir_dfmeta->fetch_entries[i] = 0;
+            dir_dfmeta->offset_var[i].readdir_done = 1;
+            ret = 0;
+            goto out;
+        }
+
         ret = syncop_readdirp(conf->local_subvols[i], fd, 131072,
                               dir_dfmeta->offset_var[i].offset,
                               &(dir_dfmeta->equeue[i]), xattr_req, NULL);
@@ -3231,7 +3241,6 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                       dict_t *migrate_data, int *perrno)
 {
     int ret = -1;
-    fd_t *fd = NULL;
     dht_conf_t *conf = NULL;
     gf_dirent_t entries;
     dict_t *xattr_req = NULL;
@@ -3265,28 +3274,50 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         goto out;
     }
 
-    fd = fd_create(loc->inode, defrag->pid);
-    if (!fd) {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to create fd");
-        ret = -1;
-        goto out;
-    }
-
-    ret = syncop_opendir(this, loc, fd, NULL, NULL);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, -ret, DHT_MSG_MIGRATE_DATA_FAILED,
-               "Migrate data failed: Failed to open dir %s", loc->path);
-        *perrno = -ret;
-        ret = -1;
-        goto out;
-    }
-
-    fd_bind(fd);
     dir_dfmeta = GF_CALLOC(1, sizeof(*dir_dfmeta), gf_common_mt_pointer);
     if (!dir_dfmeta) {
         gf_log(this->name, GF_LOG_ERROR, "dir_dfmeta is NULL");
         ret = -1;
         goto out;
+    }
+
+    dir_dfmeta->lfd = GF_CALLOC(local_subvols_cnt, sizeof(fd_t *),
+                                gf_common_mt_pointer);
+    if (!dir_dfmeta->lfd) {
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_INSUFF_MEMORY,
+                "for dir_dfmeta", NULL);
+        ret = -1;
+        *perrno = ENOMEM;
+        goto out;
+    }
+
+    for (i = 0; i < local_subvols_cnt; i++) {
+        dir_dfmeta->lfd[i] = fd_create(loc->inode, defrag->pid);
+        if (!dir_dfmeta->lfd[i]) {
+            gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_FD_CREATE_FAILED,
+                    NULL);
+            *perrno = ENOMEM;
+            ret = -1;
+            goto out;
+        }
+
+        ret = syncop_opendir(conf->local_subvols[i], loc, dir_dfmeta->lfd[i],
+                             NULL, NULL);
+        if (ret) {
+            fd_unref(dir_dfmeta->lfd[i]);
+            dir_dfmeta->lfd[i] = NULL;
+            gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_FAILED_TO_OPEN,
+                    "dir: %s", loc->path, "subvol: %s",
+                    conf->local_subvols[i]->name, NULL);
+
+            if (conf->decommission_in_progress) {
+                *perrno = -ret;
+                ret = -1;
+                goto out;
+            }
+        } else {
+            fd_bind(dir_dfmeta->lfd[i]);
+        }
     }
 
     dir_dfmeta->head = GF_CALLOC(local_subvols_cnt, sizeof(*(dir_dfmeta->head)),
@@ -3321,6 +3352,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         ret = -1;
         goto out;
     }
+
     ret = gf_defrag_ctx_subvols_init(dir_dfmeta->offset_var, this);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -3333,7 +3365,8 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     dir_dfmeta->fetch_entries = GF_CALLOC(local_subvols_cnt, sizeof(int),
                                           gf_common_mt_int);
     if (!dir_dfmeta->fetch_entries) {
-        gf_log(this->name, GF_LOG_ERROR, "dir_dfmeta->fetch_entries is NULL");
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_INSUFF_MEMORY,
+                "for dir_dfmeta->fetch_entries", NULL);
         ret = -1;
         goto out;
     }
@@ -3403,8 +3436,9 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             ldfq_count <= MAX_MIGRATE_QUEUE_COUNT &&
             !dht_dfreaddirp_done(dir_dfmeta->offset_var, local_subvols_cnt)) {
             ret = gf_defrag_get_entry(this, dfc_index, &container, loc, conf,
-                                      defrag, fd, migrate_data, dir_dfmeta,
-                                      xattr_req, &should_commit_hash, perrno);
+                                      defrag, dir_dfmeta->lfd[dfc_index],
+                                      migrate_data, dir_dfmeta, xattr_req,
+                                      &should_commit_hash, perrno);
 
             if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
                 goto out;
@@ -3461,9 +3495,6 @@ out:
 
     if (xattr_req)
         dict_unref(xattr_req);
-
-    if (fd)
-        fd_unref(fd);
 
     if (ret == 0 && should_commit_hash == 0) {
         ret = 2;

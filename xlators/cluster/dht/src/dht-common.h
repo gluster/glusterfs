@@ -752,6 +752,8 @@ struct dir_dfmeta {
     struct list_head **head;
     struct list_head **iterator;
     int *fetch_entries;
+    /* fds corresponding to local subvols only */
+    fd_t **lfd;
 };
 
 typedef struct dht_migrate_info {
