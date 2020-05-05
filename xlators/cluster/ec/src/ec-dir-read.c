@@ -386,9 +386,16 @@ ec_manager_readdir(ec_fop_data_t *fop, int32_t state)
             /* Return error if opendir has not been successfully called on
              * any subvolume. */
             ctx = ec_fd_get(fop->fd, fop->xl);
-            if ((ctx == NULL) || (ctx->open == 0)) {
-                fop->error = EINVAL;
+            if (ctx == NULL) {
+                fop->error = ENOMEM;
+            } else if (ctx->open == 0) {
+                fop->error = EBADFD;
+            }
 
+            if (fop->error) {
+                gf_msg(fop->xl->name, GF_LOG_ERROR, fop->error,
+                       EC_MSG_INVALID_REQUEST, "EC is not winding readdir: %s",
+                       ec_msg_str(fop));
                 return EC_STATE_REPORT;
             }
 
