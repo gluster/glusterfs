@@ -5,20 +5,22 @@
 
 cleanup;
 
+mkfs.xfs 2>&1 | grep reflink
+if [ $? -ne 0 ]; then
+    SKIP_TESTS
+    exit
+fi
+
+
 TEST glusterd
 
+TEST truncate -s 2G $B0/xfs_image
 # for now, a xfs filesystem with reflink support is created.
 # In future, better to make changes in MKFS_LOOP so that,
 # once can create a xfs filesystem with reflink enabled in
 # generic and simple way, instead of doing below steps each
 # time.
-TEST truncate -s 2G $B0/xfs_image
-mkfs.xfs 2>&1 | grep reflink
-if [ $? -eq 0 ]; then
-    mkfs.xfs -f -i size=512 -m reflink=1 $B0/xfs_image;
-else
-    mkfs.xfs -f -i size=512 $B0/xfs_image;
-fi
+TEST mkfs.xfs -f -i size=512 -m reflink=1 $B0/xfs_image;
 
 TEST mkdir $B0/bricks
 TEST mount -t xfs -o loop $B0/xfs_image $B0/bricks
