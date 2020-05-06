@@ -849,7 +849,8 @@ sys_copy_file_range(int fd_in, off64_t *off_in, int fd_out, off64_t *off_out,
     return syscall(SYS_copy_file_range, fd_in, off_in, fd_out, off_out, len,
                    flags);
 #else
-    return -ENOSYS;
+    errno = ENOSYS;
+    return -1;
 #endif /* HAVE_COPY_FILE_RANGE_SYS */
 #endif /* HAVE_COPY_FILE_RANGE */
 }
