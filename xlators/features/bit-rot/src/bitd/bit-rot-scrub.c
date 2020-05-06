@@ -1799,7 +1799,7 @@ br_collect_bad_objects_of_child(xlator_t *this, br_child_t *child, dict_t *dict,
     tmp_count = total_count;
 
     for (j = 0; j < count; j++) {
-        len = snprintf(key, PATH_MAX, "quarantine-%d", j);
+        len = snprintf(key, sizeof(key), "quarantine-%d", j);
         ret = dict_get_strn(child_dict, key, len, &entry);
         if (ret)
             continue;
@@ -1810,7 +1810,7 @@ br_collect_bad_objects_of_child(xlator_t *this, br_child_t *child, dict_t *dict,
         if ((len < 0) || (len >= PATH_MAX)) {
             continue;
         }
-        snprintf(main_key, PATH_MAX, "quarantine-%d", tmp_count);
+        snprintf(main_key, sizeof(main_key), "quarantine-%d", tmp_count);
 
         ret = dict_set_dynstr_with_alloc(dict, main_key, tmp);
         if (!ret)
