@@ -16,8 +16,8 @@
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
 
 #define GF_DISK_SECTOR_SIZE 512
-#define DHT_REBALANCE_PID 4242              /* Change it if required */
-#define DHT_REBALANCE_BLKSIZE (1024 * 1024) /* 1 MB */
+#define DHT_REBALANCE_PID 4242        /* Change it if required */
+#define DHT_REBALANCE_BLKSIZE 1048576 /* 1 MB */
 #define MAX_MIGRATE_QUEUE_COUNT 500
 #define MIN_MIGRATE_QUEUE_COUNT 200
 #define MAX_REBAL_TYPE_SIZE 16
@@ -145,75 +145,6 @@ dht_strip_out_acls(dict_t *dict)
         dict_del(dict, "trusted.SGI_ACL_FILE");
         dict_del(dict, POSIX_ACL_ACCESS_XATTR);
     }
-}
-
-static int
-dht_write_with_holes(xlator_t *to, fd_t *fd, struct iovec *vec, int count,
-                     int32_t size, off_t offset, struct iobref *iobref,
-                     int *fop_errno)
-{
-    int i = 0;
-    int ret = -1;
-    int start_idx = 0;
-    int tmp_offset = 0;
-    int write_needed = 0;
-    int buf_len = 0;
-    int size_pending = 0;
-    char *buf = NULL;
-
-    /* loop through each vector */
-    for (i = 0; i < count; i++) {
-        buf = vec[i].iov_base;
-        buf_len = vec[i].iov_len;
-
-        for (start_idx = 0; (start_idx + GF_DISK_SECTOR_SIZE) <= buf_len;
-             start_idx += GF_DISK_SECTOR_SIZE) {
-            if (mem_0filled(buf + start_idx, GF_DISK_SECTOR_SIZE) != 0) {
-                write_needed = 1;
-                continue;
-            }
-
-            if (write_needed) {
-                ret = syncop_write(
-                    to, fd, (buf + tmp_offset), (start_idx - tmp_offset),
-                    (offset + tmp_offset), iobref, 0, NULL, NULL);
-                /* 'path' will be logged in calling function */
-                if (ret < 0) {
-                    gf_log(THIS->name, GF_LOG_WARNING, "failed to write (%s)",
-                           strerror(-ret));
-                    *fop_errno = -ret;
-                    ret = -1;
-                    goto out;
-                }
-
-                write_needed = 0;
-            }
-            tmp_offset = start_idx + GF_DISK_SECTOR_SIZE;
-        }
-
-        if ((start_idx < buf_len) || write_needed) {
-            /* This means, last chunk is not yet written.. write it */
-            ret = syncop_write(to, fd, (buf + tmp_offset),
-                               (buf_len - tmp_offset), (offset + tmp_offset),
-                               iobref, 0, NULL, NULL);
-            if (ret < 0) {
-                /* 'path' will be logged in calling function */
-                gf_log(THIS->name, GF_LOG_WARNING, "failed to write (%s)",
-                       strerror(-ret));
-                *fop_errno = -ret;
-                ret = -1;
-                goto out;
-            }
-        }
-
-        size_pending = (size - buf_len);
-        if (!size_pending)
-            break;
-    }
-
-    ret = size;
-out:
-    return ret;
 }
 
 /*
@@ -1070,22 +1001,90 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
     int ret = 0;
     int count = 0;
     off_t offset = 0;
+    off_t data_offset = 0;
+    off_t hole_offset = 0;
     struct iovec *vector = NULL;
     struct iobref *iobref = NULL;
     uint64_t total = 0;
     size_t read_size = 0;
+    size_t data_block_size = 0;
     dict_t *xdata = NULL;
     dht_conf_t *conf = NULL;
 
     conf = this->private;
+
     /* if file size is '0', no need to enter this loop */
     while (total < ia_size) {
-        read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE)
-                         ? DHT_REBALANCE_BLKSIZE
-                         : (ia_size - total));
+        /* This is a regular file - read it sequentially */
+        if (!hole_exists) {
+            read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE)
+                             ? DHT_REBALANCE_BLKSIZE
+                             : (ia_size - total));
+        } else {
+            /* This is a sparse file - read only the data segments in the file
+             */
+
+            /* If the previous data block is fully copied, find the next data
+             * segment
+             * starting at the offset of the last read and written byte,  */
+            if (data_block_size <= 0) {
+                ret = syncop_seek(from, src, offset, GF_SEEK_DATA, NULL,
+                                  &data_offset);
+                if (ret) {
+                    if (ret == -ENXIO)
+                        ret = 0; /* No more data segments */
+                    else
+                        *fop_errno = -ret; /* Error occurred */
+
+                    break;
+                }
+
+                /* If the position of the current data segment is greater than
+                 * the position of the next hole, find the next hole in order to
+                 * calculate the length of the new data segment */
+                if (data_offset > hole_offset) {
+                    /* Starting at the offset of the last data segment, find the
+                     * next hole */
+                    ret = syncop_seek(from, src, data_offset, GF_SEEK_HOLE,
+                                      NULL, &hole_offset);
+                    if (ret) {
+                        /* If an error occurred here it's a real error because
+                         * if the seek for a data segment was successful then
+                         * necessarily another hole must exist (EOF is a hole)
+                         */
+                        *fop_errno = -ret;
+                        break;
+                    }
+
+                    /* Calculate the total size of the current data block */
+                    data_block_size = hole_offset - data_offset;
+                }
+            } else {
+                /* There is still data in the current segment, move the
+                 * data_offset to the position of the last written byte */
+                data_offset = offset;
+            }
+
+            /* Calculate how much data needs to be read and written. If the data
+             * segment's length is bigger than DHT_REBALANCE_BLKSIZE, read and
+             * write DHT_REBALANCE_BLKSIZE data length and the rest in the
+             * next iteration(s) */
+            read_size = ((data_block_size > DHT_REBALANCE_BLKSIZE)
+                             ? DHT_REBALANCE_BLKSIZE
+                             : data_block_size);
+
+            /* Calculate the remaining size of the data block - maybe there's no
+             * need to seek for data in the next iteration */
+            data_block_size -= read_size;
+
+            /* Set offset to the offset of the data segment so read and write
+             * will have the correct position */
+            offset = data_offset;
+        }
 
         ret = syncop_readv(from, src, read_size, offset, 0, &vector, &count,
                            &iobref, NULL, NULL, NULL);
+
         if (!ret || (ret < 0)) {
             if (!ret) {
                 /* File was probably truncated*/
@@ -1097,50 +1096,42 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
             break;
         }
 
-        if (hole_exists) {
-            ret = dht_write_with_holes(to, dst, vector, count, ret, offset,
-                                       iobref, fop_errno);
-        } else {
-            if (!conf->force_migration && !dht_is_tier_xlator(this)) {
+        if (!conf->force_migration && !dht_is_tier_xlator(this)) {
+            if (!xdata) {
+                xdata = dict_new();
                 if (!xdata) {
-                    xdata = dict_new();
-                    if (!xdata) {
-                        gf_msg("dht", GF_LOG_ERROR, 0,
-                               DHT_MSG_MIGRATE_FILE_FAILED,
-                               "insufficient memory");
-                        ret = -1;
-                        *fop_errno = ENOMEM;
-                        break;
-                    }
-
-                    /* Fail this write and abort rebalance if we
-                     * detect a write from client since migration of
-                     * this file started. This is done to avoid
-                     * potential data corruption due to out of order
-                     * writes from rebalance and client to the same
-                     * region (as compared between src and dst
-                     * files). See
-                     * https://github.com/gluster/glusterfs/issues/308
-                     * for more details.
-                     */
-                    ret = dict_set_int32(xdata, GF_AVOID_OVERWRITE, 1);
-                    if (ret) {
-                        gf_msg("dht", GF_LOG_ERROR, 0, ENOMEM,
-                               "failed to set dict");
-                        ret = -1;
-                        *fop_errno = ENOMEM;
-                        break;
-                    }
+                    gf_msg("dht", GF_LOG_ERROR, 0, DHT_MSG_MIGRATE_FILE_FAILED,
+                           "insufficient memory");
+                    ret = -1;
+                    *fop_errno = ENOMEM;
+                    break;
                 }
-            }
-            ret = syncop_writev(to, dst, vector, count, offset, iobref, 0, NULL,
-                                NULL, xdata, NULL);
-            if (ret < 0) {
-                *fop_errno = -ret;
+
+                /* Fail this write and abort rebalance if we
+                 * detect a write from client since migration of
+                 * this file started. This is done to avoid
+                 * potential data corruption due to out of order
+                 * writes from rebalance and client to the same
+                 * region (as compared between src and dst
+                 * files). See
+                 * https://github.com/gluster/glusterfs/issues/308
+                 * for more details.
+                 */
+                ret = dict_set_int32_sizen(xdata, GF_AVOID_OVERWRITE, 1);
+                if (ret) {
+                    gf_msg("dht", GF_LOG_ERROR, 0, ENOMEM,
+                           "failed to set dict");
+                    ret = -1;
+                    *fop_errno = ENOMEM;
+                    break;
+                }
             }
         }
 
+        ret = syncop_writev(to, dst, vector, count, offset, iobref, 0, NULL,
+                            NULL, xdata, NULL);
         if (ret < 0) {
+            *fop_errno = -ret;
             break;
         }
 
