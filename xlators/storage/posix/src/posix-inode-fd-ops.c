@@ -2294,8 +2294,7 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
                                  flags);
 
     if (op_ret < 0) {
-        op_errno = -op_ret;
-        op_ret = -1;
+        op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_COPY_FILE_RANGE_FAILED,
                "copy_file_range failed: fd_in: %p (gfid: %s) ,"
                " fd_out %p (gfid:%s)",
