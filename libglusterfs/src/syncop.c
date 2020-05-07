@@ -2881,12 +2881,13 @@ syncop_seek(xlator_t *subvol, fd_t *fd, off_t offset, gf_seek_what_t what,
     SYNCOP(subvol, (&args), syncop_seek_cbk, subvol->fops->seek, fd, offset,
            what, xdata_in);
 
-    if (*off)
-        *off = args.offset;
-
-    if (args.op_ret == -1)
+    if (args.op_ret < 0) {
         return -args.op_errno;
-    return args.op_ret;
+    } else {
+        if (off)
+            *off = args.offset;
+        return args.op_ret;
+    }
 }
 
 int
