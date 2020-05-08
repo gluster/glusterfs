@@ -78,6 +78,20 @@ typedef struct fuse_in_header fuse_in_header_t;
 typedef void(fuse_handler_t)(xlator_t *this, fuse_in_header_t *finh, void *msg,
                              struct iobuf *iobuf);
 
+enum fusedev_errno {
+    FUSEDEV_ENOENT,
+    FUSEDEV_ENOTDIR,
+    FUSEDEV_ENODEV,
+    FUSEDEV_EPERM,
+    FUSEDEV_ENOMEM,
+    FUSEDEV_ENOTCONN,
+    FUSEDEV_ECONNREFUSED,
+    FUSEDEV_EOVERFLOW,
+    FUSEDEV_EBUSY,
+    FUSEDEV_ENOTEMPTY,
+    FUSEDEV_EMAXPLUS
+};
+
 struct fuse_private {
     int fd;
     uint32_t proto_minor;
@@ -191,6 +205,10 @@ struct fuse_private {
 
     /* LRU Limit, if not set, default is 128k for now */
     uint32_t lru_limit;
+
+    /* counters for fusdev errnos */
+    uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
+    pthread_mutex_t fusedev_errno_cnt_mutex;
 };
 typedef struct fuse_private fuse_private_t;
 
