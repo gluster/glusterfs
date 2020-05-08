@@ -225,14 +225,30 @@ check_and_dump_fuse_W(fuse_private_t *priv, struct iovec *iov_out, int count,
     if (res == -1) {
         const char *errdesc = NULL;
         gf_loglevel_t loglevel = GF_LOG_ERROR;
+        gf_boolean_t errno_degraded = _gf_false;
+        gf_boolean_t errno_promoted = _gf_false;
+
+#define ACCOUNT_ERRNO(eno)                                                     \
+    do {                                                                       \
+        if (errno_degraded) {                                                  \
+            pthread_mutex_lock(&priv->fusedev_errno_cnt_mutex);                \
+            {                                                                  \
+                if (!++priv->fusedev_errno_cnt[FUSEDEV_##eno])                 \
+                    errno_promoted = _gf_true;                                 \
+            }                                                                  \
+            pthread_mutex_unlock(&priv->fusedev_errno_cnt_mutex);              \
+        }                                                                      \
+    } while (0)
 
         /* If caller masked the errno, then it
          * does not indicate an error at the application
          * level, so we degrade the log severity to DEBUG.
          */
         if (errnomask && errno < ERRNOMASK_MAX &&
-            GET_ERRNO_MASK(errnomask, errno))
+            GET_ERRNO_MASK(errnomask, errno)) {
             loglevel = GF_LOG_DEBUG;
+            errno_degraded = _gf_true;
+        }
 
         switch (errno) {
             /* The listed errnos are FUSE status indicators,
@@ -242,33 +258,43 @@ check_and_dump_fuse_W(fuse_private_t *priv, struct iovec *iov_out, int count,
              */
             case ENOENT:
                 errdesc = "ENOENT";
+                ACCOUNT_ERRNO(ENOENT);
                 break;
             case ENOTDIR:
                 errdesc = "ENOTDIR";
+                ACCOUNT_ERRNO(ENOTDIR);
                 break;
             case ENODEV:
                 errdesc = "ENODEV";
+                ACCOUNT_ERRNO(ENODEV);
                 break;
             case EPERM:
                 errdesc = "EPERM";
+                ACCOUNT_ERRNO(EPERM);
                 break;
             case ENOMEM:
                 errdesc = "ENOMEM";
+                ACCOUNT_ERRNO(ENOMEM);
                 break;
             case ENOTCONN:
                 errdesc = "ENOTCONN";
+                ACCOUNT_ERRNO(ENOTCONN);
                 break;
             case ECONNREFUSED:
                 errdesc = "ECONNREFUSED";
+                ACCOUNT_ERRNO(ECONNREFUSED);
                 break;
             case EOVERFLOW:
                 errdesc = "EOVERFLOW";
+                ACCOUNT_ERRNO(EOVERFLOW);
                 break;
             case EBUSY:
                 errdesc = "EBUSY";
+                ACCOUNT_ERRNO(EBUSY);
                 break;
             case ENOTEMPTY:
                 errdesc = "ENOTEMPTY";
+                ACCOUNT_ERRNO(ENOTEMPTY);
                 break;
             default:
                 errdesc = strerror(errno);
@@ -276,7 +302,13 @@ check_and_dump_fuse_W(fuse_private_t *priv, struct iovec *iov_out, int count,
 
         gf_log_callingfn("glusterfs-fuse", loglevel,
                          "writing to fuse device failed: %s", errdesc);
+        if (errno_promoted)
+            gf_log("glusterfs-fuse", GF_LOG_WARNING,
+                   "writing to fuse device yielded %s %d times", errdesc,
+                   UINT8_MAX + 1);
         return errno;
+
+#undef ACCOUNT_ERRNO
     }
 
     fouh = iov_out[0].iov_base;
@@ -6670,6 +6702,8 @@ init(xlator_t *this_xl)
 
     INIT_LIST_HEAD(&priv->interrupt_list);
     pthread_mutex_init(&priv->interrupt_mutex, NULL);
+
+    pthread_mutex_init(&priv->fusedev_errno_cnt_mutex, NULL);
 
     /* get options from option dictionary */
     ret = dict_get_str(options, ZR_MOUNTPOINT_OPT, &value_string);
