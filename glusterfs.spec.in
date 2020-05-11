@@ -474,6 +474,8 @@ Requires:         rsync
 Requires:         util-linux
 # required for setting selinux bools
 %if ( 0%{?rhel} && 0%{?rhel} >= 8 )
+Requires(post):      policycoreutils-python-utils
+Requires(postun):    policycoreutils-python-utils
 Requires:            selinux-policy-targeted
 Requires(post):      selinux-policy-targeted
 BuildRequires:       selinux-policy-devel
@@ -1466,6 +1468,9 @@ exit 0
 %endif
 
 %changelog
+* Mon May 11 2020 Sunny Kumar <sunkumar@redhat.com>
+- added requires policycoreutils-python-utils on rhel8 for geo-replication
+
 * Wed Oct 9 2019 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - remove leftover bd xlator cruft
 
