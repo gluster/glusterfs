@@ -3410,6 +3410,8 @@ fuse_release(xlator_t *this, fuse_in_header_t *finh, void *msg,
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
            "finh->unique: %" PRIu64 ": RELEASE %p", finh->unique, state->fd);
 
+    fd_close(state->fd);
+
     fuse_fd_ctx_destroy(this, state->fd);
     fd_unref(fd);
 
