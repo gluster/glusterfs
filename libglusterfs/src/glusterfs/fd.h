@@ -106,6 +106,9 @@ fd_ref(fd_t *fd);
 void
 fd_unref(fd_t *fd);
 
+void
+fd_close(fd_t *fd);
+
 fd_t *
 fd_create(struct _inode *inode, pid_t pid);
 

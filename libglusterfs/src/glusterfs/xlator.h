@@ -702,6 +702,8 @@ typedef size_t (*cbk_inodectx_size_t)(xlator_t *this, inode_t *inode);
 
 typedef size_t (*cbk_fdctx_size_t)(xlator_t *this, fd_t *fd);
 
+typedef void (*cbk_fdclose_t)(xlator_t *this, fd_t *fd);
+
 struct xlator_cbks {
     cbk_forget_t forget;
     cbk_release_t release;
@@ -712,6 +714,8 @@ struct xlator_cbks {
     cbk_ictxmerge_t ictxmerge;
     cbk_inodectx_size_t ictxsize;
     cbk_fdctx_size_t fdctxsize;
+    cbk_fdclose_t fdclose;
+    cbk_fdclose_t fdclosedir;
 };
 
 typedef int32_t (*dumpop_priv_t)(xlator_t *this);

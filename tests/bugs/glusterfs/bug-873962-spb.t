@@ -14,6 +14,7 @@ TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
+TEST $CLI volume set $V0 performance.open-behind off
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume start $V0
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $M0 --direct-io-mode=enable

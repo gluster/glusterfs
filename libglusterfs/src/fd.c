@@ -502,6 +502,32 @@ out:
 }
 
 void
+fd_close(fd_t *fd)
+{
+    xlator_t *xl, *old_THIS;
+
+    old_THIS = THIS;
+
+    for (xl = fd->inode->table->xl->graph->first; xl != NULL; xl = xl->next) {
+        if (!xl->call_cleanup) {
+            THIS = xl;
+
+            if (IA_ISDIR(fd->inode->ia_type)) {
+                if (xl->cbks->fdclosedir != NULL) {
+                    xl->cbks->fdclosedir(xl, fd);
+                }
+            } else {
+                if (xl->cbks->fdclose != NULL) {
+                    xl->cbks->fdclose(xl, fd);
+                }
+            }
+        }
+    }
+
+    THIS = old_THIS;
+}
+
+void
 fd_unref(fd_t *fd)
 {
     int32_t refcount = 0;
