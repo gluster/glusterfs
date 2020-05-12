@@ -451,6 +451,7 @@ gf_event_unregister_close
 fd_anonymous
 fd_anonymous_with_flags
 fd_bind
+fd_close
 fd_create
 fd_create_uint64
 __fd_ctx_del
