@@ -991,6 +991,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     gf_boolean_t is_valid_add_brick = _gf_false;
+    gf_boolean_t restart_shd = _gf_false;
     struct statvfs brickstat = {
         0,
     };
@@ -1147,6 +1148,15 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     if (glusterd_is_volume_replicate(volinfo)) {
         if (replica_count && conf->op_version >= GD_OP_VERSION_3_7_10) {
             is_valid_add_brick = _gf_true;
+            if (volinfo->status == GLUSTERD_STATUS_STARTED) {
+                ret = volinfo->shd.svc.stop(&(volinfo->shd.svc), SIGTERM);
+                if (ret) {
+                    gf_msg("glusterd", GF_LOG_ERROR, 0,
+                           GD_MSG_GLUSTER_SERVICES_STOP_FAIL,
+                           "Failed to stop shd for %s.", volinfo->volname);
+                }
+                restart_shd = _gf_true;
+            }
             ret = generate_dummy_client_volfiles(volinfo);
             if (ret) {
                 gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
@@ -1221,6 +1231,14 @@ generate_volfiles:
 out:
     GF_FREE(free_ptr1);
     GF_FREE(free_ptr2);
+    if (restart_shd) {
+        if (volinfo->shd.svc.manager(&(volinfo->shd.svc), volinfo,
+                                     PROC_START_NO_WAIT)) {
+            gf_msg("glusterd", GF_LOG_CRITICAL, 0,
+                   GD_MSG_GLUSTER_SERVICE_START_FAIL,
+                   "Failed to start shd for %s.", volinfo->volname);
+        }
+    }
 
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;

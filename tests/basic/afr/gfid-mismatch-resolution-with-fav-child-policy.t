@@ -227,4 +227,3 @@ HEALED_MD5=$(md5sum $B0/${V0}2/f4 | cut -d\  -f1)
 TEST [ "$MAJORITY_MD5" == "$HEALED_MD5" ]
 
 cleanup;
-#G_TESTDEF_TEST_STATUS_NETBSD7=1501390
