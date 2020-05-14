@@ -61,10 +61,15 @@ TEST ! $CLI volume set $V0 background-self-heal-count "      "
 TEST   $CLI volume set $V0 background-self-heal-count 10
 EXPECT "10" volume_option $V0 cluster.background-self-heal-count
 
-TEST ! $CLI volume set $V0 cache-size ""
-TEST ! $CLI volume set $V0 cache-size "    "
-TEST   $CLI volume set $V0 cache-size 512MB
-EXPECT "512MB" volume_option $V0 performance.cache-size
+TEST ! $CLI volume set $V0 io-cache-size ""
+TEST ! $CLI volume set $V0 io-cache-size "    "
+TEST   $CLI volume set $V0 io-cache-size 64MB
+EXPECT "64MB" volume_option $V0 performance.io-cache-size
+
+TEST ! $CLI volume set $V0 quick-read-cache-size ""
+TEST ! $CLI volume set $V0 quick-read-cache-size "    "
+TEST   $CLI volume set $V0 quick-read-cache-size 512MB
+EXPECT "512MB" volume_option $V0 performance.quick-read-cache-size
 
 TEST ! $CLI volume set $V0 self-heal-daemon ""
 TEST ! $CLI volume set $V0 self-heal-daemon "    "

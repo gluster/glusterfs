@@ -43,7 +43,7 @@ sleep 1
 EXPECT "$D1" cat $M1/test.txt
 
 TEST $CLI volume set $V0 features.cache-invalidation on
-TEST $CLI volume set $V0 performance.qr-cache-timeout 15
+TEST $CLI volume set $V0 performance.quick-read-cache-timeout 15
 TEST $CLI volume set $V0 performance.md-cache-timeout 15
 
 TEST write_to "$M0/test1.txt" "$D0"

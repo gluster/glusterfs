@@ -39,7 +39,7 @@ TEST glusterd
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 4 online_brick_count
 EXPECT 1 count_brick_processes
 
-TEST $CLI volume set $V1 performance.cache-size 32MB
+TEST $CLI volume set $V1 performance.io-cache-size 32MB
 TEST $CLI volume stop $V1
 TEST $CLI volume start $V1
 
