@@ -11,6 +11,8 @@ TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5}
 TEST $CLI volume create $V1 $H0:$B0/${V1}{0..5}
 TEST $CLI volume set $V0 disperse.eager-lock-timeout 5
 TEST $CLI volume set $V0 performance.flush-behind off
+TEST $CLI volume set $V0 disperse.background-heals 0
+TEST $CLI volume set $V0 disperse.heal-wait-qlength 0
 
 #Should fail on non-disperse volume
 TEST ! $CLI volume set $V1 disperse.quorum-count 5
