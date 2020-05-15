@@ -6360,20 +6360,203 @@ out:
 }
 
 int32_t
+shard_common_set_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+    int ret = -1;
+    struct iatt *prebuf = NULL;
+    struct iatt *postbuf = NULL;
+    struct iatt *stbuf = NULL;
+    data_t *data = NULL;
+    shard_local_t *local = NULL;
+
+    local = frame->local;
+
+    if (op_ret < 0) {
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
+        goto err;
+    }
+
+    if (!xdata)
+        goto unwind;
+
+    data = dict_get(xdata, GF_PRESTAT);
+    if (data) {
+        stbuf = data_to_iatt(data, GF_PRESTAT);
+        prebuf = GF_MALLOC(sizeof(struct iatt), gf_common_mt_char);
+        if (prebuf == NULL) {
+            local->op_ret = -1;
+            local->op_errno = ENOMEM;
+            goto err;
+        }
+        *prebuf = *stbuf;
+        prebuf->ia_size = local->prebuf.ia_size;
+        prebuf->ia_blocks = local->prebuf.ia_blocks;
+        ret = dict_set_iatt(xdata, GF_PRESTAT, prebuf, false);
+        if (ret < 0) {
+            local->op_ret = -1;
+            local->op_errno = ENOMEM;
+            goto err;
+        }
+        prebuf = NULL;
+    }
+
+    data = dict_get(xdata, GF_POSTSTAT);
+    if (data) {
+        stbuf = data_to_iatt(data, GF_POSTSTAT);
+        postbuf = GF_MALLOC(sizeof(struct iatt), gf_common_mt_char);
+        if (postbuf == NULL) {
+            local->op_ret = -1;
+            local->op_errno = ENOMEM;
+            goto err;
+        }
+        *postbuf = *stbuf;
+        postbuf->ia_size = local->prebuf.ia_size;
+        postbuf->ia_blocks = local->prebuf.ia_blocks;
+        ret = dict_set_iatt(xdata, GF_POSTSTAT, postbuf, false);
+        if (ret < 0) {
+            local->op_ret = -1;
+            local->op_errno = ENOMEM;
+            goto err;
+        }
+        postbuf = NULL;
+    }
+
+unwind:
+    if (local->fd)
+        SHARD_STACK_UNWIND(fsetxattr, frame, local->op_ret, local->op_errno,
+                           xdata);
+    else
+        SHARD_STACK_UNWIND(setxattr, frame, local->op_ret, local->op_errno,
+                           xdata);
+    return 0;
+
+err:
+    GF_FREE(prebuf);
+    GF_FREE(postbuf);
+    shard_common_failure_unwind(local->fop, frame, local->op_ret,
+                                local->op_errno);
+    return 0;
+}
+
+int32_t
+shard_post_lookup_set_xattr_handler(call_frame_t *frame, xlator_t *this)
+{
+    shard_local_t *local = NULL;
+
+    local = frame->local;
+
+    if (local->op_ret < 0) {
+        shard_common_failure_unwind(local->fop, frame, local->op_ret,
+                                    local->op_errno);
+        return 0;
+    }
+
+    if (local->fd)
+        STACK_WIND(frame, shard_common_set_xattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fsetxattr, local->fd,
+                   local->xattr_req, local->flags, local->xattr_rsp);
+    else
+        STACK_WIND(frame, shard_common_set_xattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->setxattr, &local->loc,
+                   local->xattr_req, local->flags, local->xattr_rsp);
+    return 0;
+}
+
+int32_t
+shard_common_set_xattr(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
+                       loc_t *loc, fd_t *fd, dict_t *dict, int32_t flags,
+                       dict_t *xdata)
+{
+    int ret = -1;
+    int op_errno = ENOMEM;
+    uint64_t block_size = 0;
+    shard_local_t *local = NULL;
+    inode_t *inode = loc ? loc->inode : fd->inode;
+
+    if ((IA_ISDIR(inode->ia_type)) || (IA_ISLNK(inode->ia_type))) {
+        if (loc)
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
+                            xdata);
+        else
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags,
+                            xdata);
+        return 0;
+    }
+
+    /* Sharded or not, if shard's special xattrs are attempted to be set,
+     * fail the fop with EPERM (except if the client is gsyncd.
+     */
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        GF_IF_INTERNAL_XATTR_GOTO(SHARD_XATTR_PREFIX "*", dict, op_errno, err);
+    }
+
+    ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+               "Failed to get block size from inode ctx of %s",
+               uuid_utoa(inode->gfid));
+        goto err;
+    }
+
+    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        if (loc)
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
+                            xdata);
+        else
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags,
+                            xdata);
+        return 0;
+    }
+
+    local = mem_get0(this->local_pool);
+    if (!local)
+        goto err;
+
+    frame->local = local;
+    local->fop = fop;
+    if (loc) {
+        if (loc_copy(&local->loc, loc) != 0)
+            goto err;
+    }
+
+    if (fd) {
+        local->fd = fd_ref(fd);
+        local->loc.inode = inode_ref(fd->inode);
+        gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+    }
+    local->flags = flags;
+    /* Reusing local->xattr_req and local->xattr_rsp to store the setxattr dict
+     * and the xdata dict
+     */
+    if (dict)
+        local->xattr_req = dict_ref(dict);
+    if (xdata)
+        local->xattr_rsp = dict_ref(xdata);
+
+    /* To-Do: Switch from LOOKUP which is path-based, to FSTAT if the fop is
+     * on an fd. This comes under a generic class of bugs in shard tracked by
+     * bz #1782428.
+     */
+    shard_lookup_base_file(frame, this, &local->loc,
+                           shard_post_lookup_set_xattr_handler);
+    return 0;
+err:
+    shard_common_failure_unwind(fop, frame, -1, op_errno);
+    return 0;
+}
+
+int32_t
 shard_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 int32_t flags, dict_t *xdata)
 {
-    int op_errno = EINVAL;
-
-    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
-        GF_IF_INTERNAL_XATTR_GOTO(SHARD_XATTR_PREFIX "*", dict, op_errno, out);
-    }
-
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags, xdata);
-    return 0;
-out:
-    shard_common_failure_unwind(GF_FOP_FSETXATTR, frame, -1, op_errno);
+    shard_common_set_xattr(frame, this, GF_FOP_FSETXATTR, NULL, fd, dict, flags,
+                           xdata);
     return 0;
 }
 
@@ -6381,17 +6564,8 @@ int32_t
 shard_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                int32_t flags, dict_t *xdata)
 {
-    int op_errno = EINVAL;
-
-    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
-        GF_IF_INTERNAL_XATTR_GOTO(SHARD_XATTR_PREFIX "*", dict, op_errno, out);
-    }
-
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->setxattr,
-                    loc, dict, flags, xdata);
-    return 0;
-out:
-    shard_common_failure_unwind(GF_FOP_SETXATTR, frame, -1, op_errno);
+    shard_common_set_xattr(frame, this, GF_FOP_SETXATTR, loc, NULL, dict, flags,
+                           xdata);
     return 0;
 }
 
