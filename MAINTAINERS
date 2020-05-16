@@ -54,7 +54,6 @@ General Project Architects
 M: Amar Tumballi <amarts@gmail.com>
 M: Xavier Hernandez  <xhernandez@redhat.com>
 P: Pranith Karampuri <pkarampu@redhat.com>
-P: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Atin Mukherjee <amukherj@redhat.com>
 
 xlators:
@@ -96,7 +95,6 @@ S: Maintained
 F: xlators/features/changelog/
 
 Distributed Hashing Table (DHT)
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Susant Palai <spalai@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/
@@ -115,7 +113,6 @@ F: xlators/debug/error-gen/
 
 FUSE Bridge
 M: Csaba Henk <chenk@redhat.com>
-P: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Niels de Vos <ndevos@redhat.com>
 S: Maintained
 F: xlators/mount/
@@ -127,7 +124,6 @@ S: Maintained
 F: xlators/features/index/
 
 IO Cache
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: xlators/performance/io-cache/
@@ -158,7 +154,6 @@ S: Maintained
 F: xlators/features/locks/
 
 Marker
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 M: Kotresh HR <khiremat@redhat.com>
 S: Maintained
 F: xlators/features/marker/
@@ -188,7 +183,6 @@ S: Odd Fixes
 F: xlators/nfs/server/
 
 Open-behind
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/performance/open-behind/
 
@@ -200,25 +194,21 @@ S: Maintained
 F: xlators/storage/posix/
 
 Quick-read
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/performance/quick-read/
 
 Quota
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 M: Shyamsundar Ranganathan <srangana@redhat.com>
 P: Hari Gowtham <hgowtham@redhat.com>
 S: Maintained
 F: xlators/features/quota/
 
 Read-ahead
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Csaba Henk <chenk@redhat.com>
 S: Maintained
 F: xlators/performance/read-ahead/
 
 Readdir-ahead
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/performance/readdir-ahead/
 
@@ -242,7 +232,6 @@ S: Maintained
 F: xlators/features/upcall/
 
 Write-behind
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Csaba Henk <chenk@redhat.com>
 S: Maintained
 F: xlators/performance/write-behind/
@@ -293,7 +282,6 @@ M: Jeff Darcy <jeff@pl.atyp.us>
 P: Kaleb Keithley <kkeithle@redhat.com>
 P: Niels de Vos <ndevos@redhat.com>
 P: Pranith Karampuri <pkarampu@redhat.com>
-P: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: libglusterfs/
@@ -316,13 +304,11 @@ F: xlators/mgmt/glusterd/
 
 Protocol
 M: Niels de Vos <ndevos@redhat.com>
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: xlators/protocol/
 
 Remote Procedure Call subsystem
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Mohit Agrawal <moagrawa@redhat.com>
 S: Maintained
 F: rpc/rpc-lib/
@@ -337,7 +323,6 @@ F: xlators/mgmt/glusterd/src/glusterd-snap*
 F: extras/snap-scheduler.py
 
 Socket subsystem
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 P: Krutika Dhananjay <kdhananj@redhat.com>
 P: Milind Changire <mchangir@redhat.com>
 P: Mohammed Rafi KC <rkavunga@redhat.com>
@@ -521,3 +506,4 @@ M: Luis Pabon
 M: Ira Cooper
 M: Shwetha Panduranga
 M: Nithya Balachandran
+M: Raghavendra Gowdappa
