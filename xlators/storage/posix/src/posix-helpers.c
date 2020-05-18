@@ -2315,7 +2315,7 @@ posix_spawn_disk_space_check_thread(xlator_t *xl)
 
         ret = gf_thread_create(&priv->disk_space_check, NULL,
                                posix_disk_space_check_thread_proc, xl,
-                               "posix_reserve");
+                               "posixrsv");
         if (ret) {
             priv->disk_space_check_active = _gf_false;
             gf_msg(xl->name, GF_LOG_ERROR, errno, P_MSG_DISK_SPACE_CHECK_FAILED,
