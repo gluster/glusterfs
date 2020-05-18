@@ -29,10 +29,10 @@ gf_thread_create_detached (pthread_t *thread,
 As max name length for a thread in POSIX is only 16 characters including the
 '\0' character, you have to be a little creative with naming. Also, it is
 important that all Gluster threads have common prefix. Considering these
-conditions, we have "gluster" as prefix for all the threads created by these
+conditions, we have "glfs_" as prefix for all the threads created by these
 wrapper functions. It is responsibility of the owner of thread to provide the
 suffix part of the name. It does not have to be a descriptive name, as it has
-only 8 letters to work with. However, it should be unique enough such that it
+only 10 letters to work with. However, it should be unique enough such that it
 can be matched with a table which describes it.
 
 If n number of threads are spwaned to perform same function, it is must that the
@@ -87,6 +87,7 @@ such that it can be matched with a table below without ambiguity.
 - posixfsy - posix fsync
 - posixhc  - posix heal
 - posixjan - posix janitor
+- posixrsv - posix reserve
 - quiesce  - quiesce dequeue
 - rdmaAsyn - rdma async event handler
 - rdmaehan - rdma completion handler
