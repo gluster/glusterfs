@@ -2924,7 +2924,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .flags = VOLOPT_FLAG_CLIENT_OPT,
         .op_version = GD_OP_VERSION_3_11_0,
     },
-
+    {.key = VKEY_SERVER_READDIR,
+     .voltype = "performance/readdir-ahead",
+     .option = "!server-readdirahead",
+     .value = "off",
+     .flags = VOLOPT_FLAG_NONE,
+     .type = NO_DOC,
+     .op_version = GD_OP_VERSION_9_0,
+     .validate_fn = validate_boolean,
+     .description = "If this option is off, the readdir ahead will be "
+                    "enabled in the server side"},
     /* Brick multiplexing options */
     {.key = GLUSTERD_BRICK_MULTIPLEX_KEY,
      .voltype = "mgmt/glusterd",

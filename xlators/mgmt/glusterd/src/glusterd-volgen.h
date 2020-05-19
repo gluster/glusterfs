@@ -37,6 +37,7 @@
 #define VKEY_READDIR_AHEAD "performance.readdir-ahead"
 #define VKEY_RDA_CACHE_LIMIT "performance.rda-cache-limit"
 #define VKEY_RDA_REQUEST_SIZE "performance.rda-request-size"
+#define VKEY_SERVER_READDIR "performance.server-readdirahead"
 #define VKEY_CONFIG_GFPROXY "config.gfproxyd"
 #define VKEY_CONFIG_GLOBAL_THREADING "config.global-threading"
 #define VKEY_CONFIG_CLIENT_THREADS "config.client-threads"

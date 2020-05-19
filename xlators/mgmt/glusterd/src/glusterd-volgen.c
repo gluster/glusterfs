@@ -2334,6 +2334,46 @@ out:
 }
 
 static int
+brick_graph_add_rda(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                    dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+    xlator_t *xl = NULL;
+    int ret = -1;
+    char *value = NULL;
+    gf_boolean_t enabled = _gf_false;
+
+    if (!graph || !volinfo || !set_dict)
+        goto out;
+
+    xl = volgen_graph_add(graph, "performance/readdir-ahead", volinfo->volname);
+    if (!xl) {
+        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_GRAPH_FEATURE_ADD_FAIL,
+               "failed to add performance/readdir-ahead to graph");
+        goto out;
+    }
+
+    ret = glusterd_volinfo_get(volinfo, VKEY_SERVER_READDIR, &value);
+    if (gf_string2boolean(value, &enabled) == -1)
+        goto out;
+    if (!enabled) {
+        ret = glusterd_volinfo_get(volinfo, "cluster.readdir-cache", &value);
+        if (gf_string2boolean(value, &enabled) == -1)
+            goto out;
+    }
+    if (enabled)
+        ret = xlator_set_fixed_option(xl, "pass-through", "off");
+    else
+        ret = xlator_set_fixed_option(xl, "pass-through", "on");
+
+    if (ret)
+        gf_log("glusterd", GF_LOG_WARNING, "failed to set rda options");
+
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
 brick_graph_add_io_stats(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                          dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2640,6 +2680,7 @@ out:
 static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_server, NULL},
     {brick_graph_add_io_stats, "NULL"},
+    {brick_graph_add_rda, "readdir-ahead"},
     {brick_graph_add_sdfs, "sdfs"},
     {brick_graph_add_namespace, "namespace"},
     {brick_graph_add_cdc, NULL},
