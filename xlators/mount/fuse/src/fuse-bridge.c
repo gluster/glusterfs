@@ -2217,7 +2217,6 @@ fuse_mknod(xlator_t *this, fuse_in_header_t *finh, void *msg,
     fuse_state_t *state = NULL;
 #if FUSE_KERNEL_MINOR_VERSION >= 12
     fuse_private_t *priv = NULL;
-    int32_t ret = -1;
 
     priv = this->private;
     if (priv->proto_minor < 12)
@@ -2289,7 +2288,6 @@ fuse_mkdir(xlator_t *this, fuse_in_header_t *finh, void *msg,
     char *name = (char *)(fmi + 1);
 #if FUSE_KERNEL_MINOR_VERSION >= 12
     fuse_private_t *priv = NULL;
-    int32_t ret = -1;
 #endif
 
     fuse_state_t *state;
@@ -2815,7 +2813,6 @@ fuse_create(xlator_t *this, fuse_in_header_t *finh, void *msg,
 #if FUSE_KERNEL_MINOR_VERSION >= 12
     struct fuse_create_in *fci = msg;
     fuse_private_t *priv = NULL;
-    int32_t ret = -1;
 #else
     struct fuse_open_in *fci = msg;
 #endif
