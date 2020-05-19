@@ -143,7 +143,7 @@ gf_posix_acl_get_key(const acl_type_t type)
     return acl_key;
 }
 
-static inline const acl_type_t
+static inline acl_type_t
 gf_posix_acl_get_type(const char *key)
 {
     acl_type_t type = 0;
