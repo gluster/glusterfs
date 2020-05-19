@@ -730,6 +730,8 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
                     else:
                         dirpath = dirpath.strip("/")
                         pargfid = get_gfid_from_mnt(dirpath)
+                        if isinstance(pargfid, int):
+                            return None
                     dir_entry = os.path.join(pfx, pargfid, basename)
                     return dir_entry
 
