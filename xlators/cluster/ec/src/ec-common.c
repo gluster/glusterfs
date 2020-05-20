@@ -316,17 +316,19 @@ ec_check_status(ec_fop_data_t *fop)
         }
     }
 
-    gf_msg(fop->xl->name, GF_LOG_WARNING, 0, EC_MSG_OP_FAIL_ON_SUBVOLS,
-           "Operation failed on %d of %d subvolumes.(up=%s, mask=%s, "
-           "remaining=%s, good=%s, bad=%s, %s)",
-           gf_bits_count(ec->xl_up & ~(fop->remaining | fop->good)), ec->nodes,
-           ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
-           ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
-           ec_bin(str3, sizeof(str3), fop->remaining, ec->nodes),
-           ec_bin(str4, sizeof(str4), fop->good, ec->nodes),
-           ec_bin(str5, sizeof(str5), ec->xl_up & ~(fop->remaining | fop->good),
-                  ec->nodes),
-           ec_msg_str(fop));
+    gf_msg(
+        fop->xl->name, GF_LOG_WARNING, 0, EC_MSG_OP_FAIL_ON_SUBVOLS,
+        "Operation failed on %d of %d subvolumes.(up=%s, mask=%s, "
+        "remaining=%s, good=%s, bad=%s,"
+        "(Least significant bit represents first client/brick of subvol), %s)",
+        gf_bits_count(ec->xl_up & ~(fop->remaining | fop->good)), ec->nodes,
+        ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
+        ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
+        ec_bin(str3, sizeof(str3), fop->remaining, ec->nodes),
+        ec_bin(str4, sizeof(str4), fop->good, ec->nodes),
+        ec_bin(str5, sizeof(str5), ec->xl_up & ~(fop->remaining | fop->good),
+               ec->nodes),
+        ec_msg_str(fop));
     if (fop->use_fd) {
         if (fop->fd != NULL) {
             ec_fheal(NULL, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
@@ -614,10 +616,10 @@ ec_msg_str(ec_fop_data_t *fop)
     loc_t *loc2 = NULL;
     char gfid1[64] = {0};
     char gfid2[64] = {0};
+    ec_fop_data_t *parent = fop->parent;
 
     if (fop->errstr)
         return fop->errstr;
-
     if (!fop->use_fd) {
         loc1 = &fop->loc[0];
         loc2 = &fop->loc[1];
@@ -625,21 +627,43 @@ ec_msg_str(ec_fop_data_t *fop)
         if (fop->id == GF_FOP_RENAME) {
             gf_asprintf(&fop->errstr,
                         "FOP : '%s' failed on '%s' and '%s' with gfids "
-                        "%s and %s respectively",
+                        "%s and %s respectively. Parent FOP: %s",
                         ec_fop_name(fop->id), loc1->path, loc2->path,
                         uuid_utoa_r(loc1->gfid, gfid1),
-                        uuid_utoa_r(loc2->gfid, gfid2));
+                        uuid_utoa_r(loc2->gfid, gfid2),
+                        parent ? ec_fop_name(parent->id) : "No Parent");
         } else {
-            gf_asprintf(&fop->errstr, "FOP : '%s' failed on '%s' with gfid %s",
-                        ec_fop_name(fop->id), loc1->path,
-                        uuid_utoa_r(loc1->gfid, gfid1));
+            gf_asprintf(
+                &fop->errstr,
+                "FOP : '%s' failed on '%s' with gfid %s. Parent FOP: %s",
+                ec_fop_name(fop->id), loc1->path,
+                uuid_utoa_r(loc1->gfid, gfid1),
+                parent ? ec_fop_name(parent->id) : "No Parent");
         }
     } else {
-        gf_asprintf(&fop->errstr, "FOP : '%s' failed on gfid %s",
-                    ec_fop_name(fop->id),
-                    uuid_utoa_r(fop->fd->inode->gfid, gfid1));
+        gf_asprintf(
+            &fop->errstr, "FOP : '%s' failed on gfid %s. Parent FOP: %s",
+            ec_fop_name(fop->id), uuid_utoa_r(fop->fd->inode->gfid, gfid1),
+            parent ? ec_fop_name(parent->id) : "No Parent");
     }
     return fop->errstr;
+}
+
+static void
+ec_log_insufficient_vol(ec_fop_data_t *fop, int32_t have, uint32_t need,
+                        int32_t loglevel)
+{
+    ec_t *ec = fop->xl->private;
+    char str1[32], str2[32], str3[32];
+
+    gf_msg(ec->xl->name, loglevel, 0, EC_MSG_CHILDS_INSUFFICIENT,
+           "Insufficient available children for this request: "
+           "Have : %d, Need : %u : Child UP : %s "
+           "Mask: %s, Healing : %s : %s ",
+           have, need, ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
+           ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
+           ec_bin(str3, sizeof(str3), fop->healing, ec->nodes),
+           ec_msg_str(fop));
 }
 
 static int32_t
@@ -699,11 +723,7 @@ ec_child_select(ec_fop_data_t *fop)
     ec_trace("SELECT", fop, "");
 
     if ((num < fop->minimum) && (num < ec->fragments)) {
-        gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_CHILDS_INSUFFICIENT,
-               "Insufficient available children "
-               "for this request (have %d, need "
-               "%d). %s",
-               num, fop->minimum, ec_msg_str(fop));
+        ec_log_insufficient_vol(fop, num, fop->minimum, GF_LOG_ERROR);
         return 0;
     }
 
@@ -711,11 +731,7 @@ ec_child_select(ec_fop_data_t *fop)
         (fop->locks[0].update[EC_DATA_TXN] ||
          fop->locks[0].update[EC_METADATA_TXN])) {
         if (ec->quorum_count && (num < ec->quorum_count)) {
-            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_CHILDS_INSUFFICIENT,
-                   "Insufficient available children "
-                   "for this request (have %d, need "
-                   "%d). %s",
-                   num, ec->quorum_count, ec_msg_str(fop));
+            ec_log_insufficient_vol(fop, num, ec->quorum_count, GF_LOG_ERROR);
             return 0;
         }
     }

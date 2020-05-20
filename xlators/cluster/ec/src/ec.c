@@ -325,13 +325,18 @@ ec_get_event_from_state(ec_t *ec)
 void
 ec_up(xlator_t *this, ec_t *ec)
 {
+    char str1[32], str2[32];
+
     if (ec->timer != NULL) {
         gf_timer_call_cancel(this->ctx, ec->timer);
         ec->timer = NULL;
     }
 
     ec->up = 1;
-    gf_msg(this->name, GF_LOG_INFO, 0, EC_MSG_EC_UP, "Going UP");
+    gf_msg(this->name, GF_LOG_INFO, 0, EC_MSG_EC_UP,
+           "Going UP : Child UP = %s Child Notify = %s",
+           ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
+           ec_bin(str2, sizeof(str2), ec->xl_notify, ec->nodes));
 
     gf_event(EVENT_EC_MIN_BRICKS_UP, "subvol=%s", this->name);
 }
@@ -339,13 +344,18 @@ ec_up(xlator_t *this, ec_t *ec)
 void
 ec_down(xlator_t *this, ec_t *ec)
 {
+    char str1[32], str2[32];
+
     if (ec->timer != NULL) {
         gf_timer_call_cancel(this->ctx, ec->timer);
         ec->timer = NULL;
     }
 
     ec->up = 0;
-    gf_msg(this->name, GF_LOG_INFO, 0, EC_MSG_EC_DOWN, "Going DOWN");
+    gf_msg(this->name, GF_LOG_INFO, 0, EC_MSG_EC_DOWN,
+           "Going DOWN : Child UP = %s Child Notify = %s",
+           ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
+           ec_bin(str2, sizeof(str2), ec->xl_notify, ec->nodes));
 
     gf_event(EVENT_EC_MIN_BRICKS_NOT_UP, "subvol=%s", this->name);
 }
