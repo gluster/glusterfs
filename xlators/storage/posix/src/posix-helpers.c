@@ -1055,7 +1055,7 @@ verify_handle:
         ret = posix_handle_soft(this, path, loc, uuid_curr, &stat);
 
 out:
-    if (!(*op_errno))
+    if (ret && !(*op_errno))
         *op_errno = errno;
     return ret;
 }
