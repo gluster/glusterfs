@@ -2188,6 +2188,16 @@ glusterd_snapshot_clone_prevalidate(dict_t *dict, char **op_errstr,
         goto out;
     }
 
+    if (!glusterd_is_volume_started(snap_vol)) {
+        snprintf(err_str, sizeof(err_str),
+                 "Snapshot %s is "
+                 "not activated",
+                 snap->snapname);
+        loglevel = GF_LOG_WARNING;
+        *op_errno = EG_VOLSTP;
+        goto out;
+    }
+
     ret = dict_get_bin(dict, "vol1_volid", (void **)&snap_volid);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
