@@ -3051,7 +3051,7 @@ error:
  * others in that they must be given higher priority while
  * returning to the user.
  *
- * The hierarchy is ENODATA > ENOENT > ESTALE > others
+ * The hierarchy is ENODATA > ENOENT > ESTALE > ENOSPC others
  */
 
 int
@@ -3063,6 +3063,8 @@ afr_higher_errno(int32_t old_errno, int32_t new_errno)
         return ENOENT;
     if (old_errno == ESTALE || new_errno == ESTALE)
         return ESTALE;
+    if (old_errno == ENOSPC || new_errno == ENOSPC)
+        return ENOSPC;
 
     return new_errno;
 }
