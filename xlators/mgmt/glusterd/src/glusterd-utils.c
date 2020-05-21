@@ -6769,9 +6769,11 @@ glusterd_restart_bricks(void *opaque)
     ret = 0;
 
 out:
-    GF_ATOMIC_DEC(conf->blockers);
     conf->restart_done = _gf_true;
     conf->restart_bricks = _gf_false;
+    if (GF_ATOMIC_DEC(conf->blockers) == 0) {
+        synccond_broadcast(&conf->cond_blockers);
+    }
     synccond_broadcast(&conf->cond_restart_bricks);
 
 return_block:
