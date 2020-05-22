@@ -318,6 +318,7 @@ typedef struct shard_local {
     uint32_t deletion_rate;
     gf_boolean_t cleanup_required;
     uuid_t base_gfid;
+    char *name;
 } shard_local_t;
 
 typedef struct shard_inode_ctx {
