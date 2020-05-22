@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -22,10 +23,21 @@ TEST $CLI volume set $V0 md-cache-timeout 10
 # Write data into a file such that its size crosses shard-block-size
 TEST dd if=/dev/zero of=$M0/foo bs=1048576 count=8 oflag=direct
 
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
+
 # Execute a setxattr on the file.
 TEST setfattr -n trusted.libvirt -v some-value $M0/foo
 
 # Size of the file should be the aggregated size, not the shard-block-size
 EXPECT '8388608' stat -c %s $M0/foo
 
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
+
+# Execute a removexattr on the file.
+TEST setfattr -x trusted.libvirt $M0/foo
+
+# Size of the file should be the aggregated size, not the shard-block-size
+EXPECT '8388608' stat -c %s $M0/foo
 cleanup
