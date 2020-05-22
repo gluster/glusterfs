@@ -4875,14 +4875,6 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
         ret = -1;
         goto out;
     }
-    for (i = 0; i < gsync_count; i++) {
-        sts_vals[i] = GF_CALLOC(1, sizeof(gf_gsync_status_t),
-                                gf_common_mt_char);
-        if (!sts_vals[i]) {
-            ret = -1;
-            goto out;
-        }
-    }
 
     ret = gf_cli_read_status_data(dict, sts_vals, spacing, gsync_count,
                                   num_of_fields);
