@@ -19,8 +19,15 @@
 #include "xdr-generic.h"
 #include "glusterd1-xdr.h"
 
+/* In seconds */
+#define CONNECT_TIMEOUT 60
+#define REPLY_TIMEOUT 120
+
 int done = 0;
 int rpc_status;
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 struct rpc_clnt_procedure gf_attach_actors[GLUSTERD_BRICK_MAXVALUE] = {
     [GLUSTERD_BRICK_NULL] = {"NULL", NULL},
@@ -38,8 +45,12 @@ struct rpc_clnt_program gf_attach_prog = {
 int32_t
 my_callback(struct rpc_req *req, struct iovec *iov, int count, void *frame)
 {
+    pthread_mutex_lock(&mutex);
     rpc_status = req->rpc_status;
     done = 1;
+    /* Signal main thread which is the only waiter */
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
     return 0;
 }
 
@@ -48,6 +59,7 @@ int
 send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
 {
     int ret = -1;
+    struct timespec ts;
     struct iobuf *iobuf = NULL;
     struct iobref *iobref = NULL;
     struct iovec iov = {
@@ -57,7 +69,6 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     call_frame_t *frame = NULL;
     gd1_mgmt_brick_op_req brick_req;
     void *req = &brick_req;
-    int i;
 
     brick_req.op = op;
     brick_req.name = path;
@@ -87,12 +98,20 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
 
     iov.iov_len = ret;
 
-    for (i = 0; i < 60; ++i) {
-        if (rpc->conn.connected) {
-            break;
-        }
-        sleep(1);
+    /* Wait for connection */
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += CONNECT_TIMEOUT;
+    pthread_mutex_lock(&rpc->conn.lock);
+    {
+        while (!rpc->conn.connected)
+            if (pthread_cond_timedwait(&rpc->conn.cond, &rpc->conn.lock, &ts) ==
+                ETIMEDOUT) {
+                fprintf(stderr, "timeout waiting for RPC connection\n");
+                pthread_mutex_unlock(&rpc->conn.lock);
+                return EXIT_FAILURE;
+            }
     }
+    pthread_mutex_unlock(&rpc->conn.lock);
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
@@ -104,9 +123,19 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     ret = rpc_clnt_submit(rpc, &gf_attach_prog, op, my_callback, &iov, 1, NULL,
                           0, iobref, frame, NULL, 0, NULL, 0, NULL);
     if (!ret) {
-        for (i = 0; !done && (i < 120); ++i) {
-            sleep(1);
+        /* OK, wait for callback */
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += REPLY_TIMEOUT;
+        pthread_mutex_lock(&mutex);
+        {
+            while (!done)
+                if (pthread_cond_timedwait(&cond, &mutex, &ts) == ETIMEDOUT) {
+                    fprintf(stderr, "timeout waiting for RPC reply\n");
+                    pthread_mutex_unlock(&mutex);
+                    return EXIT_FAILURE;
+                }
         }
+        pthread_mutex_unlock(&mutex);
     }
 
 out:

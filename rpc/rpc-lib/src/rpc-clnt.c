@@ -960,6 +960,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
                 conn->config.remote_port = 0;
                 conn->connected = 1;
                 conn->disconnected = 0;
+                pthread_cond_broadcast(&conn->cond);
             }
             pthread_mutex_unlock(&conn->lock);
 
@@ -1005,6 +1006,7 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
 
     conn = &clnt->conn;
     pthread_mutex_init(&clnt->conn.lock, NULL);
+    pthread_cond_init(&clnt->conn.cond, NULL);
 
     conn->name = gf_strdup(name);
     if (!conn->name) {
@@ -1830,6 +1832,7 @@ rpc_clnt_destroy(struct rpc_clnt *rpc)
     saved_frames_destroy(saved_frames);
     pthread_mutex_destroy(&rpc->lock);
     pthread_mutex_destroy(&rpc->conn.lock);
+    pthread_cond_destroy(&rpc->conn.cond);
 
     /* mem-pool should be destroyed, otherwise,
        it will cause huge memory leaks */

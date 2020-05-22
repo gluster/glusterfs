@@ -127,6 +127,7 @@ struct rpc_clnt_config {
 
 struct rpc_clnt_connection {
     pthread_mutex_t lock;
+    pthread_cond_t cond;
     rpc_transport_t *trans;
     struct rpc_clnt_config config;
     gf_timer_t *reconnect;
