@@ -45,7 +45,8 @@ gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
 
     if (meta) {
         for (i = 0; i < local_subvols_cnt; i++) {
-            gf_dirent_free(&meta->equeue[i]);
+            if (meta->equeue)
+                gf_dirent_free(&meta->equeue[i]);
             if (meta->lfd && meta->lfd[i])
                 fd_unref(meta->lfd[i]);
         }
