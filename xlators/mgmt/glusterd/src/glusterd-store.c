@@ -2642,6 +2642,13 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
         brick_count++;
     }
 
+    if (gf_store_iter_destroy(tmpiter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+        goto out;
+    }
+
     ret = gf_store_iter_new(volinfo->shandle, &tmpiter);
 
     if (ret)
