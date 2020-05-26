@@ -77,6 +77,46 @@ TEST ! $CLI_1 volume status $V0 shd
 #test explicitly provided options
 TEST $CLI_1 --timeout=120 --log-level=INFO volume status
 
+#changing timezone to a different one, to check localtime logging feature
+TEST export TZ='Asia/Kolkata'
+TEST restart_glusterd 1
+
+#localtime logging enable
+TEST $CLI_1 volume set all cluster.localtime-logging enable
+EXPECT '1' logging_time_check $LOGDIR
+
+#localtime logging disable
+TEST $CLI_1 volume set all cluster.localtime-logging disable
+EXPECT '0' logging_time_check $LOGDIR
+
+#changing timezone back to original timezone
+TEST export TZ='UTC'
+
+#negative tests for volume options
+#'set' option to enable quota/inode-quota is now depreciated
+TEST ! $CLI_1 volume set $V0 quota enable
+TEST ! $CLI_1 volume set $V0 inode-quota enable
+
+#invalid transport type 'rcp'
+TEST ! $CLI_1 volume set $V0 config.transport rcp
+
+#'op-version' option is not valid for a single volume
+TEST ! $CLI_1 volume set $V0 cluster.op-version 72000
+
+#'op-version' option can't be used with any other option
+TEST ! $CLI_1 volume set all cluster.localtime-logging disable cluster.op-version 72000
+
+#invalid format of 'op-version'
+TEST ! $CLI_1 volume set all cluster.op-version 72-000
+
+#provided 'op-version' value is greater than max allowed op-version
+op_version=$($CLI_1 volume get all cluster.max-op-version | awk 'NR==3 {print$2}')
+op_version=$((op_version+1000))  #this can be any number greater than 0
+TEST ! $CLI_1 volume set all cluster.op-version $op_version
+
+#provided 'op-verison' value cannot be less than the current cluster op-version value
+TEST ! $CLI_1 volume set all cluster.op-version 00000
+
 # system commnds
 TEST $CLI_1 system help
 TEST $CLI_1 system uuid get

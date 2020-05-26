@@ -18,20 +18,6 @@ TEST $CLI_1 peer probe $H2;
 
 EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count 1
 
-#test case for bug 1266818 - disabling enable-shared-storage option
-##should not delete user created volume with name glusterd_shared_storage
-
-## creating a volume with name glusterd_shared_storage
-TEST $CLI_1 volume create glusterd_shared_storage  $H1:$B1/${V0}0 $H2:$B2/${V0}1
-TEST $CLI_1 volume start glusterd_shared_storage
-
-## disabling enable-shared-storage should not succeed and should not delete the
-## user created volume with name "glusterd_shared_storage"
-TEST ! $CLI_1 volume all enable-shared-storage disable
-
-## volume with name should exist
-TEST $CLI_1 volume info glusterd_shared_storage
-
 #testcase: bug-1245045-remove-brick-validation
 
 TEST $CLI_1 peer probe $H3;

@@ -992,3 +992,11 @@ function get-xml()
 {
         $CLI $1 --xml | xmllint --format - | grep $2 | sed 's/\(<"$2">\|<\/"$2">\)//g'
 }
+
+function logging_time_check()
+{
+    local logdir=$1
+    local logfile=`echo ${0##*/}`_glusterd1.log
+
+    cat $logdir/1/$logfile | tail -n 2 | head -n 1 | grep $(date +%H:%M) | wc -l
+}
