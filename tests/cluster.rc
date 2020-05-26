@@ -90,6 +90,20 @@ function kill_glusterd() {
     kill `cat $pidfile`;
 }
 
+function restart_glusterd() {
+    local index=$1
+    local b
+    local pidfile
+    local g
+
+    b="B$index"
+    pidfile="${!b}/glusterd.pid"
+
+    kill `cat $pidfile`
+
+    g="glusterd_${index}"
+    ${!g}
+}
 
 function kill_node() {
     local index=$1;
