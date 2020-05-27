@@ -1405,4 +1405,8 @@ afr_is_lock_mode_mandatory(dict_t *xdata);
 
 void
 afr_dom_lock_release(call_frame_t *frame);
+
+void
+afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
+                         unsigned char *replies);
 #endif /* __AFR_H__ */

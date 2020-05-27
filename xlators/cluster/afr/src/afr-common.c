@@ -45,7 +45,7 @@ afr_quorum_errno(afr_private_t *priv)
     return ENOTCONN;
 }
 
-static void
+void
 afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
                          unsigned char *replies)
 {
@@ -2877,6 +2877,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         0,
     };
     gf_boolean_t locked_entry = _gf_false;
+    gf_boolean_t in_flight_create = _gf_false;
     gf_boolean_t can_interpret = _gf_true;
     inode_t *parent = NULL;
     ia_type_t ia_type = IA_INVAL;
@@ -2920,17 +2921,12 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         if (!replies[i].valid)
             continue;
 
-        if (locked_entry && replies[i].op_ret == -1 &&
-            replies[i].op_errno == ENOENT) {
-            /* Second, check entry is still
-               "underway" in creation */
-            local->op_ret = -1;
-            local->op_errno = ENOENT;
-            goto error;
-        }
-
-        if (replies[i].op_ret == -1)
+        if (replies[i].op_ret == -1) {
+            if (locked_entry && replies[i].op_errno == ENOENT) {
+                in_flight_create = _gf_true;
+            }
             continue;
+        }
 
         if (read_subvol == -1 || !readable[read_subvol]) {
             read_subvol = i;
@@ -2938,6 +2934,12 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
             ia_type = replies[i].poststat.ia_type;
             local->op_ret = 0;
         }
+    }
+
+    if (in_flight_create && !afr_has_quorum(success_replies, this, NULL)) {
+        local->op_ret = -1;
+        local->op_errno = ENOENT;
+        goto error;
     }
 
     if (read_subvol == -1)
