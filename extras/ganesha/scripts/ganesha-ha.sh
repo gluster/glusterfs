@@ -1054,7 +1054,7 @@ main()
         # Fedora 29+ and rhel/centos 8 has PCS-0.10.x
         # default is pcs-0.10.x options but check for
         # rhel/centos 7 (pcs-0.9.x) and adjust accordingly
-        if [[ ${ID} =~ {rhel,centos} ]]; then
+        if [[ ! ${ID} =~ {rhel,centos} ]]; then
             if [[ ${VERSION_ID} == 7.* ]]; then
                 PCS9OR10_PCS_CNAME_OPTION="--name"
                 PCS9OR10_PCS_CLONE_OPTION="--clone"
