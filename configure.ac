@@ -731,6 +731,9 @@ AC_ARG_ENABLE([georeplication],
 
 BUILD_SYNCDAEMON=no
 case $host_os in
+     freebsd*)
+#do nothing
+       ;;
      linux*)
 #do nothing
        ;;
@@ -1207,10 +1210,6 @@ case $host_os in
         ;;
      *freebsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${GF_CFLAGS} -O0"
-        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
-        GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-        GF_CFLAGS="${GF_CFLAGS} -D_LIBGEN_H_"
         GF_CFLAGS="${GF_CFLAGS} -DO_DSYNC=0"
         GF_CFLAGS="${GF_CFLAGS} -Dxdr_quad_t=xdr_longlong_t"
         GF_CFLAGS="${GF_CFLAGS} -Dxdr_u_quad_t=xdr_u_longlong_t"
