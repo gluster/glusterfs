@@ -2422,8 +2422,13 @@ afr_is_delayed_changelog_post_op_needed(call_frame_t *frame, xlator_t *this,
         goto out;
     }
 
-    if ((local->op != GF_FOP_WRITE) && (local->op != GF_FOP_FXATTROP)) {
-        /*Only allow writes but shard does [f]xattrops on writes, so
+    if (local->transaction.disable_delayed_post_op) {
+        goto out;
+    }
+
+    if ((local->op != GF_FOP_WRITE) && (local->op != GF_FOP_FXATTROP) &&
+        (local->op != GF_FOP_FSYNC)) {
+        /*Only allow writes/fsyncs but shard does [f]xattrops on writes, so
          * they are fine too*/
         goto out;
     }

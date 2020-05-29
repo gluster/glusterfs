@@ -862,7 +862,7 @@ typedef struct _afr_local {
 
         int (*unwind)(call_frame_t *frame, xlator_t *this);
 
-        /* post-op hook */
+        gf_boolean_t disable_delayed_post_op;
     } transaction;
 
     syncbarrier_t barrier;
