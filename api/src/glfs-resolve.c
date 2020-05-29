@@ -728,6 +728,7 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
         0,
     };
     char uuid1[64];
+    dict_t *xdata = NULL;
 
     oldinode = oldfd->inode;
     oldsubvol = oldinode->table->xl;
@@ -736,7 +737,16 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
         return fd_ref(oldfd);
 
     if (!oldsubvol->switched) {
-        ret = syncop_fsync(oldsubvol, oldfd, 0, NULL, NULL, NULL, NULL);
+        xdata = dict_new();
+        if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
+            gf_smsg(fs->volname, GF_LOG_WARNING, ENOMEM, API_MSG_FSYNC_FAILED,
+                    "err=%s", "last-fsync set failed", "gfid=%s",
+                    uuid_utoa_r(oldfd->inode->gfid, uuid1), "subvol=%s",
+                    graphid_str(oldsubvol), "id=%d", oldsubvol->graph->id,
+                    NULL);
+        }
+
+        ret = syncop_fsync(oldsubvol, oldfd, 0, NULL, NULL, xdata, NULL);
         DECODE_SYNCOP_ERR(ret);
         if (ret) {
             gf_smsg(fs->volname, GF_LOG_WARNING, errno, API_MSG_FSYNC_FAILED,
@@ -815,6 +825,9 @@ out:
         fd_unref(newfd);
         newfd = NULL;
     }
+
+    if (xdata)
+        dict_unref(xdata);
 
     return newfd;
 }
