@@ -1525,6 +1525,7 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
     xlator_t *old_target = NULL;
     xlator_t *hashed_subvol = NULL;
     fd_t *linkto_fd = NULL;
+    dict_t *xdata = NULL;
 
     if (from == to) {
         gf_msg_debug(this->name, 0,
@@ -1848,7 +1849,15 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
     /* TODO: Sync the locks */
 
-    ret = syncop_fsync(to, dst_fd, 0, NULL, NULL, NULL, NULL);
+    xdata = dict_new();
+    if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "%s: failed to set last-fsync flag on "
+               "%s (%s)",
+               loc->path, to->name, strerror(ENOMEM));
+    }
+
+    ret = syncop_fsync(to, dst_fd, 0, NULL, NULL, xdata, NULL);
     if (ret) {
         gf_log(this->name, GF_LOG_WARNING, "%s: failed to fsync on %s (%s)",
                loc->path, to->name, strerror(-ret));
@@ -2311,10 +2320,14 @@ out:
 
     if (dst_fd)
         syncop_close(dst_fd);
+
     if (src_fd)
         syncop_close(src_fd);
     if (linkto_fd)
         syncop_close(linkto_fd);
+
+    if (xdata)
+        dict_unref(xdata);
 
     loc_wipe(&tmp_loc);
     loc_wipe(&parent_loc);

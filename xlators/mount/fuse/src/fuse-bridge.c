@@ -5617,6 +5617,7 @@ fuse_migrate_fd(xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
     char create_in_progress = 0;
     fuse_fd_ctx_t *basefd_ctx = NULL;
     fd_t *oldfd = NULL;
+    dict_t *xdata = NULL;
 
     basefd_ctx = fuse_fd_ctx_get(this, basefd);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
@@ -5653,10 +5654,23 @@ fuse_migrate_fd(xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
     }
 
     if (oldfd->inode->table->xl == old_subvol) {
-        if (IA_ISDIR(oldfd->inode->ia_type))
+        if (IA_ISDIR(oldfd->inode->ia_type)) {
             ret = syncop_fsyncdir(old_subvol, oldfd, 0, NULL, NULL);
-        else
-            ret = syncop_fsync(old_subvol, oldfd, 0, NULL, NULL, NULL, NULL);
+        } else {
+            xdata = dict_new();
+            if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
+                gf_log("glusterfs-fuse", GF_LOG_WARNING,
+                       "last-fsync set failed (%s) on fd (%p)"
+                       "(basefd:%p basefd-inode.gfid:%s) "
+                       "(old-subvolume:%s-%d new-subvolume:%s-%d)",
+                       strerror(ENOMEM), oldfd, basefd,
+                       uuid_utoa(basefd->inode->gfid), old_subvol->name,
+                       old_subvol->graph->id, new_subvol->name,
+                       new_subvol->graph->id);
+            }
+
+            ret = syncop_fsync(old_subvol, oldfd, 0, NULL, NULL, xdata, NULL);
+        }
 
         if (ret < 0) {
             gf_log("glusterfs-fuse", GF_LOG_WARNING,
@@ -5710,6 +5724,9 @@ out:
     }
 
     fd_unref(oldfd);
+
+    if (xdata)
+        dict_unref(xdata);
 
     return ret;
 }

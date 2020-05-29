@@ -901,7 +901,7 @@ typedef struct _afr_local {
         gf_boolean_t uninherit_done;
         gf_boolean_t uninherit_value;
 
-        /* post-op hook */
+        gf_boolean_t disable_delayed_post_op;
     } transaction;
 
     syncbarrier_t barrier;
