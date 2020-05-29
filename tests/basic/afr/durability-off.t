@@ -26,6 +26,8 @@ TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 EXPECT "^0$" echo $($CLI volume profile $V0 info | grep -w FSYNC | wc -l)
 
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 #Test that fsyncs happen when durability is on
 TEST $CLI volume set $V0 cluster.ensure-durability on
 TEST $CLI volume set $V0 performance.strict-write-ordering on

@@ -2506,6 +2506,7 @@ afr_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
     call_frame_t *transaction_frame = NULL;
     int ret = -1;
     int32_t op_errno = ENOMEM;
+    int8_t last_fsync = 0;
 
     AFR_ERROR_OUT_IF_FDCTX_INVALID(fd, this, op_errno, out);
     transaction_frame = copy_frame(frame);
@@ -2516,10 +2517,16 @@ afr_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
     if (!local)
         goto out;
 
-    if (xdata)
+    if (xdata) {
         local->xdata_req = dict_copy_with_ref(xdata, NULL);
-    else
+        if (dict_get_int8(xdata, "last-fsync", &last_fsync) == 0) {
+            if (last_fsync) {
+                local->transaction.disable_delayed_post_op = _gf_true;
+            }
+        }
+    } else {
         local->xdata_req = dict_new();
+    }
 
     if (!local->xdata_req)
         goto out;
