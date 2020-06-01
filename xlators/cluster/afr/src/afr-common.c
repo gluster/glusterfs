@@ -6599,6 +6599,8 @@ afr_priv_destroy(afr_private_t *priv)
 
     if (!priv)
         goto out;
+
+    GF_FREE(priv->sh_domain);
     GF_FREE(priv->last_event);
 
     child_count = priv->child_count;
