@@ -660,85 +660,70 @@ out:
 }
 
 static int
-_storeslaves(dict_t *this, char *key, data_t *value, void *data)
-{
-    int32_t ret = 0;
-    gf_store_handle_t *shandle = NULL;
-    xlator_t *xl = NULL;
-
-    xl = THIS;
-    GF_ASSERT(xl);
-
-    shandle = (gf_store_handle_t *)data;
-
-    GF_ASSERT(shandle);
-    GF_ASSERT(shandle->fd > 0);
-    GF_ASSERT(shandle->path);
-    GF_ASSERT(key);
-    GF_ASSERT(value);
-    GF_ASSERT(value->data);
-
-    gf_msg_debug(xl->name, 0, "Storing in volinfo:key= %s, val=%s", key,
-                 value->data);
-
-    ret = gf_store_save_value(shandle->fd, key, (char *)value->data);
-    if (ret) {
-        gf_msg(xl->name, GF_LOG_ERROR, 0, GD_MSG_STORE_HANDLE_WRITE_FAIL,
-               "Unable to write into store"
-               " handle for path: %s",
-               shandle->path);
-        return -1;
-    }
-    return 0;
-}
-
-int
-_storeopts(dict_t *this, char *key, data_t *value, void *data)
+_storeopts(dict_t *dict_value, char *key, data_t *value, void *data)
 {
     int32_t ret = 0;
     int32_t exists = 0;
+    int32_t option_len = 0;
     gf_store_handle_t *shandle = NULL;
-    xlator_t *xl = NULL;
+    glusterd_volinfo_data_store_t *dict_data = NULL;
+    xlator_t *this = NULL;
 
-    xl = THIS;
-    GF_ASSERT(xl);
+    this = THIS;
+    GF_ASSERT(this);
 
-    shandle = (gf_store_handle_t *)data;
+    dict_data = (glusterd_volinfo_data_store_t *)data;
+    shandle = dict_data->shandle;
 
     GF_ASSERT(shandle);
     GF_ASSERT(shandle->fd > 0);
-    GF_ASSERT(shandle->path);
     GF_ASSERT(key);
     GF_ASSERT(value);
     GF_ASSERT(value->data);
 
-    if (is_key_glusterd_hooks_friendly(key)) {
-        exists = 1;
+    if (dict_data->key_check == 1) {
+        if (is_key_glusterd_hooks_friendly(key)) {
+            exists = 1;
 
-    } else {
-        exists = glusterd_check_option_exists(key, NULL);
+        } else {
+            exists = glusterd_check_option_exists(key, NULL);
+        }
     }
-
-    if (1 == exists) {
-        gf_msg_debug(xl->name, 0,
-                     "Storing in volinfo:key= %s, "
+    if (exists == 1 || dict_data->key_check == 0) {
+        gf_msg_debug(this->name, 0,
+                     "Storing in buffer for volinfo:key= %s, "
                      "val=%s",
                      key, value->data);
-
     } else {
-        gf_msg_debug(xl->name, 0, "Discarding:key= %s, val=%s", key,
+        gf_msg_debug(this->name, 0, "Discarding:key= %s, val=%s", key,
                      value->data);
         return 0;
     }
 
-    ret = gf_store_save_value(shandle->fd, key, (char *)value->data);
-    if (ret) {
-        gf_msg(xl->name, GF_LOG_ERROR, 0, GD_MSG_STORE_HANDLE_WRITE_FAIL,
-               "Unable to write into store"
-               " handle for path: %s",
-               shandle->path);
+    /*
+     * The option_len considers the length of the key value
+     * pair and along with that '=' and '\n'.
+     */
+    option_len = strlen(key) + strlen((char *)value->data) + 2;
+
+    if ((VOLINFO_BUFFER_SIZE - dict_data->buffer_len - 1) < option_len) {
+        ret = gf_store_save_items(shandle->fd, dict_data->buffer);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_OP_FAILED, NULL);
+            return -1;
+        }
+        dict_data->buffer_len = 0;
+        dict_data->buffer[0] = '\0';
+    }
+    ret = snprintf(dict_data->buffer + dict_data->buffer_len, option_len + 1,
+                   "%s=%s\n", key, (char *)value->data);
+    if (ret < 0 || ret > option_len + 1) {
+        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_COPY_FAIL, NULL);
         return -1;
     }
+
+    dict_data->buffer_len += ret;
+
     return 0;
 }
 
@@ -1013,7 +998,7 @@ glusterd_store_create_snap_dir(glusterd_snap_t *snap)
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_store_volinfo_write(int fd, glusterd_volinfo_t *volinfo)
 {
     int32_t ret = -1;
@@ -1021,19 +1006,47 @@ glusterd_store_volinfo_write(int fd, glusterd_volinfo_t *volinfo)
     GF_ASSERT(fd > 0);
     GF_ASSERT(volinfo);
     GF_ASSERT(volinfo->shandle);
+    xlator_t *this = NULL;
+    glusterd_volinfo_data_store_t *dict_data = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
 
     shandle = volinfo->shandle;
+
+    dict_data = GF_CALLOC(1, sizeof(glusterd_volinfo_data_store_t),
+                          gf_gld_mt_volinfo_dict_data_t);
+    if (dict_data == NULL) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_MEMORY, NULL);
+        return -1;
+    }
+
     ret = glusterd_volume_exclude_options_write(fd, volinfo);
-    if (ret)
+    if (ret) {
         goto out;
+    }
+
+    dict_data->shandle = shandle;
+    dict_data->key_check = 1;
 
     shandle->fd = fd;
-    dict_foreach(volinfo->dict, _storeopts, shandle);
+    dict_foreach(volinfo->dict, _storeopts, (void *)dict_data);
 
-    dict_foreach(volinfo->gsync_slaves, _storeslaves, shandle);
+    dict_data->key_check = 0;
+    dict_foreach(volinfo->gsync_slaves, _storeopts, (void *)dict_data);
+
+    if (dict_data->buffer_len > 0) {
+        ret = gf_store_save_items(fd, dict_data->buffer);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_OP_FAILED, NULL);
+            goto out;
+        }
+    }
+
     shandle->fd = 0;
 out:
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    GF_FREE(dict_data);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1274,14 +1287,6 @@ out:
     return ret;
 }
 
-static int
-_gd_store_rebalance_dict(dict_t *dict, char *key, data_t *value, void *data)
-{
-    int fd = *(int *)data;
-
-    return gf_store_save_value(fd, key, value->data);
-}
-
 int32_t
 glusterd_store_node_state_write(int fd, glusterd_volinfo_t *volinfo)
 {
@@ -1289,6 +1294,12 @@ glusterd_store_node_state_write(int fd, glusterd_volinfo_t *volinfo)
     char buf[PATH_MAX];
     char uuid[UUID_SIZE + 1];
     uint total_len = 0;
+    glusterd_volinfo_data_store_t *dict_data = NULL;
+    gf_store_handle_t shandle;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(fd > 0);
     GF_ASSERT(volinfo);
@@ -1328,14 +1339,33 @@ glusterd_store_node_state_write(int fd, glusterd_volinfo_t *volinfo)
     }
 
     ret = gf_store_save_items(fd, buf);
-    if (ret)
+    if (ret) {
         goto out;
+    }
 
     if (volinfo->rebal.dict) {
-        dict_foreach(volinfo->rebal.dict, _gd_store_rebalance_dict, &fd);
+        dict_data = GF_CALLOC(1, sizeof(glusterd_volinfo_data_store_t),
+                              gf_gld_mt_volinfo_dict_data_t);
+        if (dict_data == NULL) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_MEMORY, NULL);
+            return -1;
+        }
+        dict_data->shandle = &shandle;
+        shandle.fd = fd;
+        dict_foreach(volinfo->rebal.dict, _storeopts, (void *)dict_data);
+        if (dict_data->buffer_len > 0) {
+            ret = gf_store_save_items(fd, dict_data->buffer);
+            if (ret) {
+                gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_OP_FAILED,
+                        NULL);
+                goto out;
+                ;
+            }
+        }
     }
 out:
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    GF_FREE(dict_data);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -3343,20 +3373,6 @@ glusterd_store_set_options_path(glusterd_conf_t *conf, char *path, size_t len)
     snprintf(path, len, "%s/options", conf->workdir);
 }
 
-int
-_store_global_opts(dict_t *this, char *key, data_t *value, void *data)
-{
-    gf_store_handle_t *shandle = data;
-
-    if (gf_store_save_value(shandle->fd, key, (char *)value->data)) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_STORE_HANDLE_WRITE_FAIL,
-               "Unable to write into store handle for key : %s, value %s", key,
-               (char *)value->data);
-    }
-
-    return 0;
-}
-
 int32_t
 glusterd_store_options(xlator_t *this, dict_t *opts)
 {
@@ -3365,13 +3381,15 @@ glusterd_store_options(xlator_t *this, dict_t *opts)
     char path[PATH_MAX] = {0};
     int fd = -1;
     int32_t ret = -1;
+    glusterd_volinfo_data_store_t *dict_data = NULL;
 
     conf = this->private;
     glusterd_store_set_options_path(conf, path, sizeof(path));
 
     ret = gf_store_handle_new(path, &shandle);
-    if (ret)
+    if (ret) {
         goto out;
+    }
 
     fd = gf_store_mkstemp(shandle);
     if (fd <= 0) {
@@ -3379,13 +3397,30 @@ glusterd_store_options(xlator_t *this, dict_t *opts)
         goto out;
     }
 
+    dict_data = GF_CALLOC(1, sizeof(glusterd_volinfo_data_store_t),
+                          gf_gld_mt_volinfo_dict_data_t);
+    if (dict_data == NULL) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_MEMORY, NULL);
+        return -1;
+    }
+    dict_data->shandle = shandle;
     shandle->fd = fd;
-    dict_foreach(opts, _store_global_opts, shandle);
-    shandle->fd = 0;
+    dict_foreach(opts, _storeopts, (void *)dict_data);
+    if (dict_data->buffer_len > 0) {
+        ret = gf_store_save_items(fd, dict_data->buffer);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_OP_FAILED, NULL);
+            goto out;
+        }
+    }
+
     ret = gf_store_rename_tmppath(shandle);
-    if (ret)
+    if (ret) {
         goto out;
+    }
 out:
+    shandle->fd = 0;
+    GF_FREE(dict_data);
     if ((ret < 0) && (fd > 0))
         gf_store_unlink_tmppath(shandle);
     gf_store_handle_destroy(shandle);

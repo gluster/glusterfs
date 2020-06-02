@@ -29,7 +29,7 @@ typedef enum glusterd_store_ver_ac_ {
 } glusterd_volinfo_ver_ac_t;
 
 #define UUID_SIZE 36
-
+#define VOLINFO_BUFFER_SIZE 4093
 #define GLUSTERD_STORE_UUID_KEY "UUID"
 
 #define GLUSTERD_STORE_KEY_VOL_TYPE "type"
@@ -111,6 +111,19 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME "migration-run-time"
 
 #define GLUSTERD_STORE_KEY_GANESHA_GLOBAL "nfs-ganesha"
+
+/*
+ * The structure is responsible for handling the parameter for writes into
+ * the buffer before it is finally written to the file. The writes will be
+ * of the form of key-value pairs.
+ */
+struct glusterd_volinfo_data_store_ {
+    gf_store_handle_t *shandle; /*Contains fd and path of the file */
+    int16_t buffer_len;
+    char key_check; /* flag to check if key is to be validated before write*/
+    char buffer[VOLINFO_BUFFER_SIZE];
+};
+typedef struct glusterd_volinfo_data_store_ glusterd_volinfo_data_store_t;
 
 int32_t
 glusterd_store_volinfo(glusterd_volinfo_t *volinfo,

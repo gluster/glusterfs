@@ -27,6 +27,7 @@ typedef enum gf_gld_mem_types_ {
     gf_gld_mt_mop_stage_req_t,
     gf_gld_mt_probe_ctx_t,
     gf_gld_mt_glusterd_volinfo_t,
+    gf_gld_mt_volinfo_dict_data_t,
     gf_gld_mt_glusterd_brickinfo_t,
     gf_gld_mt_peer_hostname_t,
     gf_gld_mt_defrag_info,
