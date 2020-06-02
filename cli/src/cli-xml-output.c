@@ -1953,11 +1953,11 @@ cli_xml_output_vol_profile_stats(xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO(ret, out);
 
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"size",
-                                              "%" PRIu32, (1 << i));
+                                              "%" PRIu32, (1U << i));
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-        snprintf(key, sizeof(key), "%d-%d-read-%d", brick_index, interval,
-                 (1 << i));
+        snprintf(key, sizeof(key), "%d-%d-read-%" PRIu32, brick_index, interval,
+                 (1U << i));
         ret = dict_get_uint64(dict, key, &read_count);
         if (ret)
             read_count = 0;
@@ -1965,8 +1965,8 @@ cli_xml_output_vol_profile_stats(xmlTextWriterPtr writer, dict_t *dict,
                                               "%" PRIu64, read_count);
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-        snprintf(key, sizeof(key), "%d-%d-write-%d", brick_index, interval,
-                 (1 << i));
+        snprintf(key, sizeof(key), "%d-%d-write-%" PRIu32, brick_index,
+                 interval, (1U << i));
         ret = dict_get_uint64(dict, key, &write_count);
         if (ret)
             write_count = 0;
