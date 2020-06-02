@@ -5344,7 +5344,8 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     double total_percentage_latency = 0;
 
     for (i = 0; i < 32; i++) {
-        snprintf(key, sizeof(key), "%d-%d-read-%d", count, interval, (1 << i));
+        snprintf(key, sizeof(key), "%d-%d-read-%" PRIu32, count, interval,
+                 (1U << i));
         ret = dict_get_uint64(dict, key, &rb_counts[i]);
         if (ret) {
             gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
@@ -5352,7 +5353,8 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     }
 
     for (i = 0; i < 32; i++) {
-        snprintf(key, sizeof(key), "%d-%d-write-%d", count, interval, (1 << i));
+        snprintf(key, sizeof(key), "%d-%d-write-%" PRIu32, count, interval,
+                 (1U << i));
         ret = dict_get_uint64(dict, key, &wb_counts[i]);
         if (ret) {
             gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
@@ -5438,7 +5440,8 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
         if ((rb_counts[i] == 0) && (wb_counts[i] == 0))
             continue;
         per_line++;
-        snprintf(output + index, sizeof(output) - index, "%19db+ ", (1 << i));
+        snprintf(output + index, sizeof(output) - index, "%19" PRIu32 "b+ ",
+                 (1U << i));
         if (rb_counts[i]) {
             snprintf(read_blocks + index, sizeof(read_blocks) - index,
                      "%21" PRId64 " ", rb_counts[i]);
