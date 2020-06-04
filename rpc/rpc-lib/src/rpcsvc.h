@@ -457,7 +457,7 @@ struct rpcsvc_program {
     gf_boolean_t alive;
 
     gf_boolean_t synctask;
-    char request_queue_status[EVENT_MAX_THREADS / 8 + 1];
+    unsigned long request_queue_status[EVENT_MAX_THREADS / __BITS_PER_LONG];
 };
 
 typedef struct rpcsvc_cbk_program {

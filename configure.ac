@@ -911,6 +911,25 @@ if test "x${have_backtrace}" = "xyes"; then
 fi
 AC_SUBST(HAVE_BACKTRACE)
 
+dnl Old (before C11) compiler can compile (but not link) this:
+dnl
+dnl int main () {
+dnl     _Static_assert(1, "True");
+dnl     return 0;
+dnl }
+dnl
+dnl assuming that _Static_assert is an implicitly declared function. So
+dnl we're trying to link just to make sure that this is not the case.
+
+AC_MSG_CHECKING([whether $CC supports C11 _Static_assert])
+AC_TRY_LINK([], [_Static_assert(1, "True");],
+            [STATIC_ASSERT=yes], [STATIC_ASSERT=no])
+
+AC_MSG_RESULT([$STATIC_ASSERT])
+if test x$STATIC_ASSERT = "xyes"; then
+   AC_DEFINE(HAVE_STATIC_ASSERT, 1, [Define if C11 _Static_assert is supported.])
+fi
+
 if test "x${have_backtrace}" != "xyes"; then
 AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
    [],

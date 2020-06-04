@@ -12,6 +12,7 @@
 #define _GF_EVENT_H_
 
 #include <pthread.h>
+#include "common-utils.h"
 #include "list.h"
 
 struct event_pool;
@@ -30,6 +31,9 @@ typedef void (*event_handler_t)(int fd, int idx, int gen, void *data,
 #define EVENT_EPOLL_TABLES 1024
 #define EVENT_EPOLL_SLOTS 1024
 #define EVENT_MAX_THREADS 1024
+
+/* See rpcsvc.h to check why. */
+GF_STATIC_ASSERT(EVENT_MAX_THREADS % __BITS_PER_LONG == 0);
 
 struct event_pool {
     struct event_ops *ops;
