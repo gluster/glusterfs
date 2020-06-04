@@ -66,59 +66,33 @@ rpcsvc_request_handler(void *arg);
 static int
 rpcsvc_match_subnet_v4(const char *addrtok, const char *ipaddr);
 
-void
+static void
 rpcsvc_toggle_queue_status(rpcsvc_program_t *prog,
-                           rpcsvc_request_queue_t *queue, char status[])
+                           rpcsvc_request_queue_t *queue,
+                           unsigned long status[])
 {
-    int queue_index = 0, status_index = 0, set_bit = 0;
+    unsigned queue_index = queue - prog->request_queue;
 
-    if (queue != &prog->request_queue[0]) {
-        queue_index = (queue - &prog->request_queue[0]);
-    }
-
-    status_index = queue_index / 8;
-    set_bit = queue_index % 8;
-
-    status[status_index] ^= (1 << set_bit);
-
-    return;
+    status[queue_index / __BITS_PER_LONG] ^= (1UL << (queue_index %
+                                                      __BITS_PER_LONG));
 }
 
 int
 rpcsvc_get_free_queue_index(rpcsvc_program_t *prog)
 {
-    int queue_index = 0, max_index = 0, i = 0;
-    unsigned int right_most_unset_bit = 0;
+    unsigned i, j = 0;
 
-    right_most_unset_bit = 8;
-
-    max_index = gf_roof(EVENT_MAX_THREADS, 8) / 8;
-    for (i = 0; i < max_index; i++) {
-        if (prog->request_queue_status[i] == 0) {
-            right_most_unset_bit = 0;
+    for (i = 0; i < EVENT_MAX_THREADS / __BITS_PER_LONG; i++)
+        if (prog->request_queue_status[i] != ULONG_MAX) {
+            j = __builtin_ctzl(~prog->request_queue_status[i]);
             break;
-        } else {
-            /* get_rightmost_set_bit (sic)*/
-            right_most_unset_bit = __builtin_ctz(
-                ~prog->request_queue_status[i]);
-            if (right_most_unset_bit < 8) {
-                break;
-            }
         }
-    }
 
-    if (right_most_unset_bit > 7) {
-        queue_index = -1;
-    } else {
-        queue_index = i * 8;
-        queue_index += right_most_unset_bit;
-    }
+    if (i == EVENT_MAX_THREADS / __BITS_PER_LONG)
+        return -1;
 
-    if (queue_index != -1) {
-        prog->request_queue_status[i] |= (0x1 << right_most_unset_bit);
-    }
-
-    return queue_index;
+    prog->request_queue_status[i] |= (1UL << j);
+    return i * __BITS_PER_LONG + j;
 }
 
 rpcsvc_notify_wrapper_t *

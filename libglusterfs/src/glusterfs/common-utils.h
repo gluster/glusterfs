@@ -18,6 +18,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <openssl/md5.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -25,6 +26,11 @@
 #include <limits.h>
 #include <fnmatch.h>
 #include <uuid/uuid.h>
+
+/* FreeBSD, etc. */
+#ifndef __BITS_PER_LONG
+#define __BITS_PER_LONG (CHAR_BIT * (sizeof(long)))
+#endif
 
 #ifndef ffsll
 #define ffsll(x) __builtin_ffsll(x)
@@ -439,6 +445,15 @@ BIT_VALUE(unsigned char *array, unsigned int index)
                              "Assertion failed: " #x);                         \
         }                                                                      \
     } while (0)
+#endif
+
+/* Compile-time assert, borrowed from Linux kernel. */
+#ifdef HAVE_STATIC_ASSERT
+#define GF_STATIC_ASSERT(expr, ...)                                            \
+    __gf_static_assert(expr, ##__VA_ARGS__, #expr)
+#define __gf_static_assert(expr, msg, ...) _Static_assert(expr, msg)
+#else
+#define GF_STATIC_ASSERT(expr, ...)
 #endif
 
 #define GF_ABORT(msg...)                                                       \
