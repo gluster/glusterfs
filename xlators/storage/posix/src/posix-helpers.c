@@ -3503,6 +3503,7 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
     gf_boolean_t have_val = _gf_false;
     data_t *arg_data = NULL;
     char *xattr_name = NULL;
+    size_t xattr_len = 0;
     gf_boolean_t is_stale = _gf_false;
 
     op_ret = dict_get_str_sizen(xdata, GF_PREOP_PARENT_KEY, &xattr_name);
@@ -3511,7 +3512,8 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
         return is_stale;
     }
 
-    arg_data = dict_get(xdata, xattr_name);
+    xattr_len = strlen(xattr_name);
+    arg_data = dict_getn(xdata, xattr_name, xattr_len);
     if (!arg_data) {
         op_ret = 0;
         dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
@@ -3559,7 +3561,7 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
     }
 
 out:
-    dict_del_sizen(xdata, xattr_name);
+    dict_deln(xdata, xattr_name, xattr_len);
     dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
 
     if (op_ret == -1) {
