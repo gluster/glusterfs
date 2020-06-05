@@ -314,8 +314,6 @@ client_destroy(client_t *client)
 
     clienttable = client->this->ctx->clienttable;
 
-    LOCK_DESTROY(&client->scratch_ctx.lock);
-
     LOCK(&clienttable->lock);
     {
         clienttable->cliententries[client->tbl_index].client = NULL;
@@ -332,6 +330,8 @@ client_destroy(client_t *client)
 
     if (client->subdir_inode)
         inode_unref(client->subdir_inode);
+
+    LOCK_DESTROY(&client->scratch_ctx.lock);
 
     GF_FREE(client->auth.data);
     GF_FREE(client->auth.username);
