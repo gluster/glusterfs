@@ -675,7 +675,9 @@ glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
     glusterd_gfproxydsvc_build(&new_volinfo->gfproxyd.svc);
     glusterd_shdsvc_build(&new_volinfo->shd.svc);
 
+    pthread_mutex_init(&new_volinfo->store_volinfo_lock, NULL);
     pthread_mutex_init(&new_volinfo->reflock, NULL);
+
     *volinfo = glusterd_volinfo_ref(new_volinfo);
 
     ret = 0;
@@ -956,7 +958,10 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
     glusterd_auth_cleanup(volinfo);
     glusterd_shd_svcproc_cleanup(&volinfo->shd);
 
+    pthread_mutex_destroy(&volinfo->store_volinfo_lock);
     pthread_mutex_destroy(&volinfo->reflock);
+    LOCK_DESTROY(&volinfo->lock);
+
     GF_FREE(volinfo);
     ret = 0;
 out:
