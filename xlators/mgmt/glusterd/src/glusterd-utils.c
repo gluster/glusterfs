@@ -3626,6 +3626,7 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
                "Version of volume %s differ. local version = %d, "
                "remote version = %d on peer %s",
                volinfo->volname, volinfo->version, version, hostname);
+        GF_ATOMIC_INIT(volinfo->volpeerupdate, 1);
         *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
         goto out;
     } else if (version < volinfo->version) {
@@ -4746,7 +4747,7 @@ glusterd_volinfo_stop_stale_bricks(glusterd_volinfo_t *new_volinfo,
          * brick multiplexing enabled, then stop the brick process
          */
         if (ret || (new_brickinfo->snap_status == -1) ||
-            is_brick_mx_enabled()) {
+            GF_ATOMIC_GET(old_volinfo->volpeerupdate)) {
             /*TODO: may need to switch to 'atomic' flavour of
              * brick_stop, once we make peer rpc program also
              * synctask enabled*/
@@ -6449,7 +6450,8 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
      * three different triggers for an attempt to start the brick process
      * due to the quorum handling code in glusterd_friend_sm.
      */
-    if (brickinfo->status == GF_BRICK_STARTING || brickinfo->start_triggered) {
+    if (brickinfo->status == GF_BRICK_STARTING || brickinfo->start_triggered ||
+        GF_ATOMIC_GET(volinfo->volpeerupdate)) {
         gf_msg_debug(this->name, 0,
                      "brick %s is already in starting "
                      "phase",

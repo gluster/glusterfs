@@ -513,6 +513,10 @@ struct glusterd_volinfo_ {
      * volfile generation code, we are
      * temporarily appending either "-hot"
      * or "-cold" */
+    gf_atomic_t volpeerupdate;
+    /* Flag to check about volume has received updates
+       from peer
+    */
 };
 
 typedef enum gd_snap_status_ {
