@@ -100,10 +100,8 @@ $CLI_2 volume set $V0 performance.readdir-ahead on
 $CLI_2 volume set $V1 performance.readdir-ahead on
 
 TEST $glusterd_1;
+EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 
-sleep 10
-
-EXPECT 4 count_brick_processes
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 4 count_brick_pids
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0  count_N/A_brick_pids
 
