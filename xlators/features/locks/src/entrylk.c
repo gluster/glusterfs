@@ -204,9 +204,9 @@ out:
     return revoke_lock;
 }
 
-static gf_boolean_t
-__entrylk_needs_contention_notify(xlator_t *this, pl_entry_lock_t *lock,
-                                  struct timespec *now)
+void
+entrylk_contention_notify_check(xlator_t *this, pl_entry_lock_t *lock,
+                                struct timespec *now, struct list_head *contend)
 {
     posix_locks_private_t *priv;
     int64_t elapsed;
@@ -216,7 +216,7 @@ __entrylk_needs_contention_notify(xlator_t *this, pl_entry_lock_t *lock,
     /* If this lock is in a list, it means that we are about to send a
      * notification for it, so no need to do anything else. */
     if (!list_empty(&lock->contend)) {
-        return _gf_false;
+        return;
     }
 
     elapsed = now->tv_sec;
@@ -225,7 +225,7 @@ __entrylk_needs_contention_notify(xlator_t *this, pl_entry_lock_t *lock,
         elapsed--;
     }
     if (elapsed < priv->notify_contention_delay) {
-        return _gf_false;
+        return;
     }
 
     /* All contention notifications will be sent outside of the locked
@@ -238,7 +238,7 @@ __entrylk_needs_contention_notify(xlator_t *this, pl_entry_lock_t *lock,
 
     lock->contention_time = *now;
 
-    return _gf_true;
+    list_add_tail(&lock->contend, contend);
 }
 
 void
@@ -332,9 +332,7 @@ __entrylk_grantable(xlator_t *this, pl_dom_list_t *dom, pl_entry_lock_t *lock,
                     break;
                 }
             }
-            if (__entrylk_needs_contention_notify(this, tmp, now)) {
-                list_add_tail(&tmp->contend, contend);
-            }
+            entrylk_contention_notify_check(this, tmp, now, contend);
         }
     }
 
@@ -697,10 +695,9 @@ __grant_blocked_entry_locks(xlator_t *this, pl_inode_t *pl_inode,
         bl_ret = __lock_entrylk(bl->this, pl_inode, bl, 0, dom, now, contend);
 
         if (bl_ret == 0) {
-            list_add(&bl->blocked_locks, granted);
+            list_add_tail(&bl->blocked_locks, granted);
         }
     }
-    return;
 }
 
 /* Grants locks if possible which are blocked on a lock */

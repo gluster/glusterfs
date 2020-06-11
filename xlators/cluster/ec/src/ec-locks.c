@@ -24,8 +24,35 @@ ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
     ec_t *ec = fop->xl->private;
     ec_cbk_data_t *ans = NULL;
     ec_cbk_data_t *cbk = NULL;
-    uintptr_t locked = 0, notlocked = 0;
+    uintptr_t locked = 0;
+    int32_t good = 0;
+    int32_t eagain = 0;
+    int32_t estale = 0;
     int32_t error = -1;
+
+    /* There are some errors that we'll handle in an special way while trying
+     * to acquire a lock.
+     *
+     *   EAGAIN:  If it's found during a parallel non-blocking lock request, we
+     *            consider that there's contention on the inode, so we consider
+     *            the acquisition a failure and try again with a sequential
+     *            blocking lock request. This will ensure that we get a lock on
+     *            as many bricks as possible (ignoring EAGAIN here would cause
+     *            unnecessary triggers of self-healing).
+     *
+     *            If it's found during a sequential blocking lock request, it's
+     *            considered an error. Lock will only succeed if there are
+     *            enough other bricks locked.
+     *
+     *   ESTALE:  This can appear during parallel or sequential lock request if
+     *            the inode has just been unlinked. We consider this error is
+     *            not recoverable, but we also don't consider it as fatal. So,
+     *            if it happens during parallel lock, we won't attempt a
+     *            sequential one unless there are EAGAIN errors on other
+     *            bricks (and are enough to form a quorum), but if we reach
+     *            quorum counting the ESTALE bricks, we consider the whole
+     *            result of the operation is ESTALE instead of EIO.
+     */
 
     list_for_each_entry(ans, &fop->cbk_list, list)
     {
@@ -34,24 +61,23 @@ ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
                 error = EIO;
             }
             locked |= ans->mask;
+            good = ans->count;
             cbk = ans;
-        } else {
-            if (ans->op_errno == EAGAIN) {
-                switch (fop->uint32) {
-                    case EC_LOCK_MODE_NONE:
-                    case EC_LOCK_MODE_ALL:
-                        /* Goal is to treat non-blocking lock as failure
-                         * even if there is a single EAGAIN*/
-                        notlocked |= ans->mask;
-                        break;
-                }
-            }
+        } else if (ans->op_errno == ESTALE) {
+            estale += ans->count;
+        } else if ((ans->op_errno == EAGAIN) &&
+                   (fop->uint32 != EC_LOCK_MODE_INC)) {
+            eagain += ans->count;
         }
     }
 
     if (error == -1) {
-        if (gf_bits_count(locked | notlocked) >= ec->fragments) {
-            if (notlocked == 0) {
+        /* If we have enough quorum with succeeded and EAGAIN answers, we
+         * ignore for now any ESTALE answer. If there are EAGAIN answers,
+         * we retry with a sequential blocking lock request if needed.
+         * Otherwise we succeed. */
+        if ((good + eagain) >= ec->fragments) {
+            if (eagain == 0) {
                 if (fop->answer == NULL) {
                     fop->answer = cbk;
                 }
@@ -64,21 +90,28 @@ ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
                     case EC_LOCK_MODE_NONE:
                         error = EAGAIN;
                         break;
-
                     case EC_LOCK_MODE_ALL:
                         fop->uint32 = EC_LOCK_MODE_INC;
                         break;
-
                     default:
+                        /* This shouldn't happen because eagain cannot be > 0
+                         * when fop->uint32 is EC_LOCK_MODE_INC. */
                         error = EIO;
                         break;
                 }
             }
         } else {
-            if (fop->answer && fop->answer->op_ret < 0)
+            /* We have been unable to find enough candidates that will be able
+             * to take the lock. If we have quorum on some answer, we return
+             * it. Otherwise we check if ESTALE answers allow us to reach
+             * quorum. If so, we return ESTALE. */
+            if (fop->answer && fop->answer->op_ret < 0) {
                 error = fop->answer->op_errno;
-            else
+            } else if ((good + eagain + estale) >= ec->fragments) {
+                error = ESTALE;
+            } else {
                 error = EIO;
+            }
         }
     }
 

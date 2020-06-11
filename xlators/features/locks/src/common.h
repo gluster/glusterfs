@@ -105,6 +105,15 @@ void
 __pl_inodelk_unref(pl_inode_lock_t *lock);
 
 void
+__grant_blocked_inode_locks(xlator_t *this, pl_inode_t *pl_inode,
+                            struct list_head *granted, pl_dom_list_t *dom,
+                            struct timespec *now, struct list_head *contend);
+
+void
+unwind_granted_inodes(xlator_t *this, pl_inode_t *pl_inode,
+                      struct list_head *granted);
+
+void
 grant_blocked_entry_locks(xlator_t *this, pl_inode_t *pl_inode,
                           pl_dom_list_t *dom, struct timespec *now,
                           struct list_head *contend);
@@ -204,6 +213,16 @@ pl_metalock_is_active(pl_inode_t *pl_inode);
 void
 __pl_queue_lock(pl_inode_t *pl_inode, posix_lock_t *reqlock);
 
+void
+inodelk_contention_notify_check(xlator_t *xl, pl_inode_lock_t *lock,
+                                struct timespec *now,
+                                struct list_head *contend);
+
+void
+entrylk_contention_notify_check(xlator_t *xl, pl_entry_lock_t *lock,
+                                struct timespec *now,
+                                struct list_head *contend);
+
 gf_boolean_t
 pl_does_monkey_want_stuck_lock();
 
@@ -218,4 +237,26 @@ pl_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd);
 
 gf_boolean_t
 pl_is_lk_owner_valid(gf_lkowner_t *owner, client_t *client);
+
+int32_t
+pl_inode_remove_prepare(xlator_t *xl, call_frame_t *frame, loc_t *loc,
+                        pl_inode_t **ppl_inode, struct list_head *contend);
+
+int32_t
+pl_inode_remove_complete(xlator_t *xl, pl_inode_t *pl_inode, call_stub_t *stub,
+                         struct list_head *contend);
+
+void
+pl_inode_remove_wake(struct list_head *list);
+
+void
+pl_inode_remove_cbk(xlator_t *xl, pl_inode_t *pl_inode, int32_t error);
+
+void
+pl_inode_remove_unlocked(xlator_t *xl, pl_inode_t *pl_inode,
+                         struct list_head *list);
+
+int32_t
+pl_inode_remove_inodelk(pl_inode_t *pl_inode, pl_inode_lock_t *lock);
+
 #endif /* __COMMON_H__ */
