@@ -102,6 +102,9 @@ struct __pl_inode_lock {
 
     struct list_head client_list; /* list of all locks from a client */
     short fl_type;
+
+    int32_t status; /* Error code when we try to grant a lock in blocked
+                       state */
 };
 typedef struct __pl_inode_lock pl_inode_lock_t;
 
@@ -164,13 +167,14 @@ struct __pl_inode {
     struct list_head rw_list;            /* list of waiting r/w requests */
     struct list_head reservelk_list;     /* list of reservelks */
     struct list_head blocked_reservelks; /* list of blocked reservelks */
-    struct list_head
-        blocked_calls; /* List of blocked lock calls while a reserve is held*/
-    struct list_head metalk_list; /* Meta lock list */
-                                  /* This is to store the incoming lock
-                                     requests while meta lock is enabled */
-    struct list_head queued_locks;
-    int mandatory; /* if mandatory locking is enabled */
+    struct list_head blocked_calls;      /* List of blocked lock calls while a
+                                            reserve is held*/
+    struct list_head metalk_list;        /* Meta lock list */
+    struct list_head queued_locks;       /* This is to store the incoming lock
+                                            requests while meta lock is enabled */
+    struct list_head waiting; /* List of pending fops waiting to unlink/rmdir
+                                 the inode. */
+    int mandatory;            /* if mandatory locking is enabled */
 
     inode_t *refkeeper; /* hold refs on an inode while locks are
                            held to prevent pruning */
@@ -197,7 +201,13 @@ struct __pl_inode {
     */
     int fop_wind_count;
     pthread_cond_t check_fop_wind_count;
+
     gf_boolean_t track_fop_wind_count;
+
+    int32_t links;           /* Number of hard links the inode has. */
+    uint32_t remove_running; /* Number of remove operations running. */
+    gf_boolean_t is_locked;  /* Regular locks will be blocked. */
+    gf_boolean_t removed;    /* The inode has been deleted. */
 };
 typedef struct __pl_inode pl_inode_t;
 
