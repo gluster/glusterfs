@@ -460,10 +460,15 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
         INIT_LIST_HEAD(&pl_inode->blocked_calls);
         INIT_LIST_HEAD(&pl_inode->metalk_list);
         INIT_LIST_HEAD(&pl_inode->queued_locks);
+        INIT_LIST_HEAD(&pl_inode->waiting);
         gf_uuid_copy(pl_inode->gfid, inode->gfid);
 
         pl_inode->check_mlock_info = _gf_true;
         pl_inode->mlock_enforced = _gf_false;
+
+        /* -2 means never looked up. -1 means something went wrong and link
+         * tracking is disabled. */
+        pl_inode->links = -2;
 
         ret = __inode_ctx_put(inode, this, (uint64_t)(long)(pl_inode));
         if (ret) {
@@ -1289,4 +1294,300 @@ pl_is_lk_owner_valid(gf_lkowner_t *owner, client_t *client)
         return _gf_false;
     }
     return _gf_true;
+}
+
+static int32_t
+pl_inode_from_loc(loc_t *loc, inode_t **pinode)
+{
+    inode_t *inode = NULL;
+    int32_t error = 0;
+
+    if (loc->inode != NULL) {
+        inode = inode_ref(loc->inode);
+        goto done;
+    }
+
+    if (loc->parent == NULL) {
+        error = EINVAL;
+        goto done;
+    }
+
+    if (!gf_uuid_is_null(loc->gfid)) {
+        inode = inode_find(loc->parent->table, loc->gfid);
+        if (inode != NULL) {
+            goto done;
+        }
+    }
+
+    if (loc->name == NULL) {
+        error = EINVAL;
+        goto done;
+    }
+
+    inode = inode_grep(loc->parent->table, loc->parent, loc->name);
+    if (inode == NULL) {
+        /* We haven't found any inode. This means that the file doesn't exist
+         * or that even if it exists, we don't have any knowledge about it, so
+         * we don't have locks on it either, which is fine for our purposes. */
+        goto done;
+    }
+
+done:
+    *pinode = inode;
+
+    return error;
+}
+
+static gf_boolean_t
+pl_inode_has_owners(xlator_t *xl, client_t *client, pl_inode_t *pl_inode,
+                    struct timespec *now, struct list_head *contend)
+{
+    pl_dom_list_t *dom;
+    pl_inode_lock_t *lock;
+    gf_boolean_t has_owners = _gf_false;
+
+    list_for_each_entry(dom, &pl_inode->dom_list, inode_list)
+    {
+        list_for_each_entry(lock, &dom->inodelk_list, list)
+        {
+            /* If the lock belongs to the same client, we assume it's related
+             * to the same operation, so we allow the removal to continue. */
+            if (lock->client == client) {
+                continue;
+            }
+            /* If the lock belongs to an internal process, we don't block the
+             * removal. */
+            if (lock->client_pid < 0) {
+                continue;
+            }
+            if (contend == NULL) {
+                return _gf_true;
+            }
+            has_owners = _gf_true;
+            inodelk_contention_notify_check(xl, lock, now, contend);
+        }
+    }
+
+    return has_owners;
+}
+
+int32_t
+pl_inode_remove_prepare(xlator_t *xl, call_frame_t *frame, loc_t *loc,
+                        pl_inode_t **ppl_inode, struct list_head *contend)
+{
+    struct timespec now;
+    inode_t *inode;
+    pl_inode_t *pl_inode;
+    int32_t error;
+
+    pl_inode = NULL;
+
+    error = pl_inode_from_loc(loc, &inode);
+    if ((error != 0) || (inode == NULL)) {
+        goto done;
+    }
+
+    pl_inode = pl_inode_get(xl, inode, NULL);
+    if (pl_inode == NULL) {
+        inode_unref(inode);
+        error = ENOMEM;
+        goto done;
+    }
+
+    /* pl_inode_from_loc() already increments ref count for inode, so
+     * we only assign here our reference. */
+    pl_inode->inode = inode;
+
+    timespec_now(&now);
+
+    pthread_mutex_lock(&pl_inode->mutex);
+
+    if (pl_inode->removed) {
+        error = ESTALE;
+        goto unlock;
+    }
+
+    if (pl_inode_has_owners(xl, frame->root->client, pl_inode, &now, contend)) {
+        error = -1;
+        /* We skip the unlock here because the caller must create a stub when
+         * we return -1 and do a call to pl_inode_remove_complete(), which
+         * assumes the lock is still acquired and will release it once
+         * everything else is prepared. */
+        goto done;
+    }
+
+    pl_inode->is_locked = _gf_true;
+    pl_inode->remove_running++;
+
+unlock:
+    pthread_mutex_unlock(&pl_inode->mutex);
+
+done:
+    *ppl_inode = pl_inode;
+
+    return error;
+}
+
+int32_t
+pl_inode_remove_complete(xlator_t *xl, pl_inode_t *pl_inode, call_stub_t *stub,
+                         struct list_head *contend)
+{
+    pl_inode_lock_t *lock;
+    int32_t error = -1;
+
+    if (stub != NULL) {
+        list_add_tail(&stub->list, &pl_inode->waiting);
+        pl_inode->is_locked = _gf_true;
+    } else {
+        error = ENOMEM;
+
+        while (!list_empty(contend)) {
+            lock = list_first_entry(contend, pl_inode_lock_t, list);
+            list_del_init(&lock->list);
+            __pl_inodelk_unref(lock);
+        }
+    }
+
+    pthread_mutex_unlock(&pl_inode->mutex);
+
+    if (error < 0) {
+        inodelk_contention_notify(xl, contend);
+    }
+
+    inode_unref(pl_inode->inode);
+
+    return error;
+}
+
+void
+pl_inode_remove_wake(struct list_head *list)
+{
+    call_stub_t *stub;
+
+    while (!list_empty(list)) {
+        stub = list_first_entry(list, call_stub_t, list);
+        list_del_init(&stub->list);
+
+        call_resume(stub);
+    }
+}
+
+void
+pl_inode_remove_cbk(xlator_t *xl, pl_inode_t *pl_inode, int32_t error)
+{
+    struct list_head contend, granted;
+    struct timespec now;
+    pl_dom_list_t *dom;
+
+    if (pl_inode == NULL) {
+        return;
+    }
+
+    INIT_LIST_HEAD(&contend);
+    INIT_LIST_HEAD(&granted);
+    timespec_now(&now);
+
+    pthread_mutex_lock(&pl_inode->mutex);
+
+    if (error == 0) {
+        if (pl_inode->links >= 0) {
+            pl_inode->links--;
+        }
+        if (pl_inode->links == 0) {
+            pl_inode->removed = _gf_true;
+        }
+    }
+
+    pl_inode->remove_running--;
+
+    if ((pl_inode->remove_running == 0) && list_empty(&pl_inode->waiting)) {
+        pl_inode->is_locked = _gf_false;
+
+        list_for_each_entry(dom, &pl_inode->dom_list, inode_list)
+        {
+            __grant_blocked_inode_locks(xl, pl_inode, &granted, dom, &now,
+                                        &contend);
+        }
+    }
+
+    pthread_mutex_unlock(&pl_inode->mutex);
+
+    unwind_granted_inodes(xl, pl_inode, &granted);
+
+    inodelk_contention_notify(xl, &contend);
+
+    inode_unref(pl_inode->inode);
+}
+
+void
+pl_inode_remove_unlocked(xlator_t *xl, pl_inode_t *pl_inode,
+                         struct list_head *list)
+{
+    call_stub_t *stub, *tmp;
+
+    if (!pl_inode->is_locked) {
+        return;
+    }
+
+    list_for_each_entry_safe(stub, tmp, &pl_inode->waiting, list)
+    {
+        if (!pl_inode_has_owners(xl, stub->frame->root->client, pl_inode, NULL,
+                                 NULL)) {
+            list_move_tail(&stub->list, list);
+        }
+    }
+}
+
+/* This function determines if an inodelk attempt can be done now or it needs
+ * to wait.
+ *
+ * Possible return values:
+ *   < 0: An error occurred. Currently only -ESTALE can be returned if the
+ *        inode has been deleted previously by unlink/rmdir/rename
+ *   = 0: The lock can be attempted.
+ *   > 0: The lock needs to wait because a conflicting remove operation is
+ *        ongoing.
+ */
+int32_t
+pl_inode_remove_inodelk(pl_inode_t *pl_inode, pl_inode_lock_t *lock)
+{
+    pl_dom_list_t *dom;
+    pl_inode_lock_t *ilock;
+
+    /* If the inode has been deleted, we won't allow any lock. */
+    if (pl_inode->removed) {
+        return -ESTALE;
+    }
+
+    /* We only synchronize with locks made for regular operations coming from
+     * the user. Locks done for internal purposes are hard to control and could
+     * lead to long delays or deadlocks quite easily. */
+    if (lock->client_pid < 0) {
+        return 0;
+    }
+    if (!pl_inode->is_locked) {
+        return 0;
+    }
+    if (pl_inode->remove_running > 0) {
+        return 1;
+    }
+
+    list_for_each_entry(dom, &pl_inode->dom_list, inode_list)
+    {
+        list_for_each_entry(ilock, &dom->inodelk_list, list)
+        {
+            /* If a lock from the same client is already granted, we allow this
+             * one to continue. This is necessary to prevent deadlocks when
+             * multiple locks are taken for the same operation.
+             *
+             * On the other side it's unlikely that the same client sends
+             * completely unrelated locks for the same inode.
+             */
+            if (ilock->client == lock->client) {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
 }
