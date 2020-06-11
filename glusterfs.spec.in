@@ -471,6 +471,7 @@ Summary:          GlusterFS libglusterfs library
 Requires:         libgfrpc0%{?_isa} = %{version}-%{release}
 Requires:         libgfxdr0%{?_isa} = %{version}-%{release}
 Obsoletes:        %{name}-libs <= %{version}-%{release}
+Provides:         %{name}-libs = %{version}-%{release}
 
 %description -n libglusterfs0
 GlusterFS is a distributed file-system capable of scaling to several
@@ -487,6 +488,7 @@ Summary:          GlusterFS libglusterfs library
 Requires:         libgfrpc-devel%{?_isa} = %{version}-%{release}
 Requires:         libgfxdr-devel%{?_isa} = %{version}-%{release}
 Obsoletes:        %{name}-devel <= %{version}-%{release}
+Provides:         %{name}-devel = %{version}-%{release}
 
 %description -n libglusterfs-devel
 GlusterFS is a distributed file-system capable of scaling to several
@@ -503,6 +505,7 @@ Summary:          GlusterFS api library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
 Obsoletes:        %{name}-api <= %{version}-%{release}
+Provides:         %{name}-api = %{version}-%{release}
 
 %description -n libgfapi0
 GlusterFS is a distributed file-system capable of scaling to several
@@ -519,6 +522,7 @@ Summary:          Development Libraries
 Requires:         libglusterfs-devel%{?_isa} = %{version}-%{release}
 Requires:         libacl-devel
 Obsoletes:        %{name}-api-devel <= %{version}-%{release}
+Provides:         %{name}-api-devel = %{version}-%{release}
 
 %description -n libgfapi-devel
 GlusterFS is a distributed file-system capable of scaling to several
@@ -533,6 +537,7 @@ This package provides libgfapi.so and the api C header files.
 %package -n libgfchangelog0
 Summary:          GlusterFS libchangelog library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-libs <= %{version}-%{release}
 
 %description -n libgfchangelog0
 GlusterFS is a distributed file-system capable of scaling to several
@@ -547,6 +552,7 @@ This package provides the libgfchangelog library
 %package -n libgfchangelog-devel
 Summary:          GlusterFS libchangelog library
 Requires:         libglusterfs-devel%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-devel <= %{version}-%{release}
 
 %description -n libgfchangelog-devel
 GlusterFS is a distributed file-system capable of scaling to several
@@ -561,6 +567,7 @@ This package provides libgfchangelog.so and changelog C header files.
 %package -n libgfrpc0
 Summary:          GlusterFS libgfrpc0 library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-libs <= %{version}-%{release}
 
 %description -n libgfrpc0
 GlusterFS is a distributed file-system capable of scaling to several
@@ -575,6 +582,7 @@ This package provides the libgfrpc library
 %package -n libgfrpc-devel
 Summary:          GlusterFS libgfrpc library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-devel <= %{version}-%{release}
 
 %description -n libgfrpc-devel
 GlusterFS is a distributed file-system capable of scaling to several
@@ -589,6 +597,7 @@ This package provides libgfrpc.so and rpc C header files.
 %package -n libgfxdr0
 Summary:          GlusterFS libgfxdr0 library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-libs <= %{version}-%{release}
 
 %description -n libgfxdr0
 GlusterFS is a distributed file-system capable of scaling to several
@@ -603,6 +612,7 @@ This package provides the libgfxdr library
 %package -n libgfxdr-devel
 Summary:          GlusterFS libgfxdr library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-devel <= %{version}-%{release}
 
 %description -n libgfxdr-devel
 GlusterFS is a distributed file-system capable of scaling to several
@@ -617,6 +627,7 @@ This package provides libgfxdr.so.
 %package -n libglusterd0
 Summary:          GlusterFS libglusterd library
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
+Obsoletes:        %{name}-libs <= %{version}-%{release}
 
 %description -n libglusterd0
 GlusterFS is a distributed file-system capable of scaling to several
