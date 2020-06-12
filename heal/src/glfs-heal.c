@@ -1055,6 +1055,10 @@ glfsh_set_heal_options(glfs_t *fs, gf_xl_afr_op_t heal_op)
     if (ret)
         goto out;
 
+    ret = glfs_set_xlator_option(fs, "*-replicate-*", "halo-enabled", "off");
+    if (ret)
+        goto out;
+
     if ((heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) &&
         (heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) &&
         (heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME))
