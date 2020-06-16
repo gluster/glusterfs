@@ -28,7 +28,7 @@ static pthread_cond_t conn = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int cli_op_ret = 0;
-int connected = 0;
+static gf_boolean_t connected = _gf_false;
 
 static unsigned
 cli_cmd_needs_connection(struct cli_cmd_word *word)
@@ -328,17 +328,30 @@ cli_cmd_await_connected(unsigned conn_timo)
 }
 
 int32_t
-cli_cmd_broadcast_connected()
+cli_cmd_broadcast_connected(gf_boolean_t status)
 {
     pthread_mutex_lock(&conn_mutex);
     {
-        connected = 1;
+        connected = status;
         pthread_cond_broadcast(&conn);
     }
-
     pthread_mutex_unlock(&conn_mutex);
 
     return 0;
+}
+
+gf_boolean_t
+cli_cmd_connected(void)
+{
+    gf_boolean_t status;
+
+    pthread_mutex_lock(&conn_mutex);
+    {
+        status = connected;
+    }
+    pthread_mutex_unlock(&conn_mutex);
+
+    return status;
 }
 
 int

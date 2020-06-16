@@ -329,11 +329,14 @@ cli_local_get();
 void
 cli_local_wipe(cli_local_t *local);
 
-int32_t
-cli_cmd_await_connected();
+gf_boolean_t
+cli_cmd_connected();
 
 int32_t
-cli_cmd_broadcast_connected();
+cli_cmd_await_connected(unsigned timeout);
+
+int32_t
+cli_cmd_broadcast_connected(gf_boolean_t status);
 
 int
 cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
