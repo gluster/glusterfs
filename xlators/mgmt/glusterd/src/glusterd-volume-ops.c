@@ -873,6 +873,8 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
     int32_t local_brick_count = 0;
     int32_t i = 0;
     int32_t type = 0;
+    int32_t replica_count = 0;
+    int32_t disperse_count = 0;
     char *brick = NULL;
     char *tmpptr = NULL;
     xlator_t *this = NULL;
@@ -967,15 +969,42 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         }
 
         if (!is_force) {
-            if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
-                (type == GF_CLUSTER_TYPE_DISPERSE)) {
-                ret = glusterd_check_brick_order(dict, msg, type);
+            if (type == GF_CLUSTER_TYPE_REPLICATE) {
+                ret = dict_get_int32n(dict, "replica-count",
+                                      SLEN("replica-count"), &replica_count);
                 if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
-                           "Not creating volume because of "
-                           "bad brick order");
+                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                           "Bricks check : Could"
+                           " not retrieve replica count");
                     goto out;
                 }
+                gf_msg_debug(this->name, 0,
+                             "Replicate cluster type "
+                             "found. Checking brick order.");
+                ret = glusterd_check_brick_order(dict, msg, type,
+                                                 replica_count);
+            } else if (type == GF_CLUSTER_TYPE_DISPERSE) {
+                ret = dict_get_int32n(dict, "disperse-count",
+                                      SLEN("disperse-count"), &disperse_count);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                           "Bricks check : Could"
+                           " not retrieve disperse count");
+                    goto out;
+                }
+                gf_msg_debug(this->name, 0,
+                             "Disperse cluster type"
+                             " found. Checking brick order.");
+                ret = glusterd_check_brick_order(dict, msg, type,
+                                                 disperse_count);
+            }
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
+                       "Not creating the volume because of "
+                       "bad brick order. %s",
+                       msg);
+                *op_errstr = gf_strdup(msg);
+                goto out;
             }
         }
     }

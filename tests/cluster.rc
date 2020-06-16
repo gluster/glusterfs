@@ -11,7 +11,7 @@ function launch_cluster() {
     define_backends $count;
     define_hosts $count;
     define_glusterds $count $2;
-    define_clis $count;
+    define_clis $count $3;
 
     start_glusterds;
 }
@@ -134,8 +134,13 @@ function define_clis() {
         lopt1="--log-file=$logdir/$logfile1"
 
 
-        eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock $lopt'";
-        eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock $lopt1'";
+        if [ "$2" == "-NO_FORCE" ]; then
+                eval "CLI_$i='$CLI_NO_FORCE --glusterd-sock=${!b}/glusterd/gd.sock $lopt'";
+                eval "CLI$i='$CLI_NO_FORCE --glusterd-sock=${!b}/glusterd/gd.sock $lopt1'";
+        else
+                eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock $lopt'";
+                eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock $lopt1'";
+        fi
     done
 }
 

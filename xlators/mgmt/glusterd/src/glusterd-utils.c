@@ -14360,7 +14360,8 @@ glusterd_compare_addrinfo(struct addrinfo *first, struct addrinfo *next)
  * volume are present on the same server
  */
 int32_t
-glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type)
+glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
+                           int32_t sub_count)
 {
     int ret = -1;
     int i = 0;
@@ -14377,7 +14378,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type)
     char *tmpptr = NULL;
     char *volname = NULL;
     int32_t brick_count = 0;
-    int32_t sub_count = 0;
     struct addrinfo *ai_info = NULL;
     char brick_addr[128] = {
         0,
@@ -14428,31 +14428,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type)
         goto out;
     }
 
-    if (type != GF_CLUSTER_TYPE_DISPERSE) {
-        ret = dict_get_int32n(dict, "replica-count", SLEN("replica-count"),
-                              &sub_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                   "Bricks check : Could"
-                   " not retrieve replica count");
-            goto out;
-        }
-        gf_msg_debug(this->name, 0,
-                     "Replicate cluster type "
-                     "found. Checking brick order.");
-    } else {
-        ret = dict_get_int32n(dict, "disperse-count", SLEN("disperse-count"),
-                              &sub_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                   "Bricks check : Could"
-                   " not retrieve disperse count");
-            goto out;
-        }
-        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DISPERSE_CLUSTER_FOUND,
-               "Disperse cluster type"
-               " found. Checking brick order.");
-    }
     brick_list_dup = brick_list_ptr = gf_strdup(brick_list);
     /* Resolve hostnames and get addrinfo */
     while (i < brick_count) {
@@ -14547,5 +14522,6 @@ out:
         ai_list_tmp2 = ai_list_tmp1;
     }
     free(ai_list_tmp2);
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
 }
