@@ -1357,4 +1357,8 @@ afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv,
 
 void
 afr_selfheal_childup(xlator_t *this, afr_private_t *priv);
+
+void
+afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
+                         unsigned char *replies);
 #endif /* __AFR_H__ */

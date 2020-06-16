@@ -53,8 +53,6 @@ TEST ! ls $B0/${V0}1/file$i
 TEST ls $B0/${V0}2/file$i
 dirty=$(get_hex_xattr trusted.afr.dirty $B0/${V0}2)
 TEST [ "$dirty" != "000000000000000000000000" ]
-EXPECT "000000010000000100000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/${V0}2/file$i
-EXPECT "000000010000000100000000" get_hex_xattr trusted.afr.$V0-client-1 $B0/${V0}2/file$i
 
 TEST $CLI volume set $V0 self-heal-daemon on
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status

@@ -345,6 +345,7 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
     afr_private_t *priv = NULL;
     int pre_op_count = 0;
     int failed_count = 0;
+    unsigned char *success_replies = NULL;
 
     local = frame->local;
     priv = this->private;
@@ -360,7 +361,14 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
     failed_count = AFR_COUNT(local->transaction.failed_subvols,
                              priv->child_count);
 
+    /* FOP succeeded on all bricks. */
     if (pre_op_count == priv->child_count && !failed_count)
+        return;
+
+    /* FOP did not suceed on quorum no. of bricks. */
+    success_replies = alloca0(priv->child_count);
+    afr_fill_success_replies(local, priv, success_replies);
+    if (!afr_has_quorum(success_replies, this, NULL))
         return;
 
     if (priv->thin_arbiter_count) {
