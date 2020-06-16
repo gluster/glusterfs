@@ -1341,4 +1341,8 @@ afr_mark_new_entry_changelog(call_frame_t *frame, xlator_t *this);
 
 void
 afr_selfheal_childup(xlator_t *this, afr_private_t *priv);
+
+void
+afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
+                         unsigned char *replies);
 #endif /* __AFR_H__ */
