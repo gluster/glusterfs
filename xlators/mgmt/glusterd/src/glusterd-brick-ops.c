@@ -1426,20 +1426,35 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     /* Check brick order if the volume type is replicate or disperse. If
      * force at the end of command not given then check brick order.
+     * doing this check at the originator node is sufficient.
      */
 
-    if (!is_force) {
-        if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ||
-            (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)) {
-            ret = glusterd_check_brick_order(dict, msg, volinfo->type);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
-                       "Not adding brick because of "
-                       "bad brick order. %s",
-                       msg);
-                *op_errstr = gf_strdup(msg);
-                goto out;
-            }
+    if (is_origin_glusterd(dict) && !is_force) {
+        ret = 0;
+        if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
+            gf_msg_debug(this->name, 0,
+                         "Replicate cluster type "
+                         "found. Checking brick order.");
+            if (replica_count)
+                ret = glusterd_check_brick_order(dict, msg, volinfo->type,
+                                                 replica_count);
+            else
+                ret = glusterd_check_brick_order(dict, msg, volinfo->type,
+                                                 volinfo->replica_count);
+        } else if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
+            gf_msg_debug(this->name, 0,
+                         "Disperse cluster type"
+                         " found. Checking brick order.");
+            ret = glusterd_check_brick_order(dict, msg, volinfo->type,
+                                             volinfo->disperse_count);
+        }
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
+                   "Not adding brick because of "
+                   "bad brick order. %s",
+                   msg);
+            *op_errstr = gf_strdup(msg);
+            goto out;
         }
     }
 
