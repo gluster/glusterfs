@@ -55,7 +55,6 @@
 
 #include "xdr-generic.h"
 
-extern int connected;
 /* using argp for command line parsing */
 
 const char *argp_program_version =
@@ -303,14 +302,14 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
     switch (event) {
         case RPC_CLNT_CONNECT: {
-            cli_cmd_broadcast_connected();
+            cli_cmd_broadcast_connected(_gf_true);
             gf_log(this->name, GF_LOG_TRACE, "got RPC_CLNT_CONNECT");
             break;
         }
 
         case RPC_CLNT_DISCONNECT: {
+            cli_cmd_broadcast_connected(_gf_false);
             gf_log(this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
-            connected = 0;
             if (!global_state->prompt && global_state->await_connected) {
                 ret = 1;
                 cli_out(
