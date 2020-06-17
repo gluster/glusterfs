@@ -28,6 +28,5 @@ flock $M0/testfile sleep 6 & { sleep 0.3; flock -w 2 $M0/testfile true; echo ok 
 EXPECT_WITHIN 4 ok cat got_lock;
 
 ## Finish up
-sleep 7;
 rm -f got_lock;
 cleanup;

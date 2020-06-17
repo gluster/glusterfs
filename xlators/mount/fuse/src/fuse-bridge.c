@@ -4782,16 +4782,8 @@ fuse_setlk_interrupt_handler_cbk(call_frame_t *frame, void *cookie,
                                  int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
     fuse_interrupt_state_t intstat = INTERRUPT_NONE;
-    fuse_interrupt_record_t *fir;
+    fuse_interrupt_record_t *fir = cookie;
     fuse_state_t *state = NULL;
-    int ret = 0;
-
-    ret = dict_get_bin(xdata, "fuse-interrupt-record", (void **)&fir);
-    if (ret < 0) {
-        gf_log("glusterfs-fuse", GF_LOG_ERROR, "interrupt record not found");
-
-        goto out;
-    }
 
     intstat = op_ret >= 0 ? INTERRUPT_HANDLED : INTERRUPT_SQUELCHED;
 
@@ -4803,7 +4795,6 @@ fuse_setlk_interrupt_handler_cbk(call_frame_t *frame, void *cookie,
         GF_FREE(state);
     }
 
-out:
     STACK_DESTROY(frame->root);
 
     return 0;
@@ -4841,9 +4832,10 @@ fuse_setlk_interrupt_handler(xlator_t *this, fuse_interrupt_record_t *fir)
     frame->op = GF_FOP_GETXATTR;
     state->name = xattr_name;
 
-    STACK_WIND(frame, fuse_setlk_interrupt_handler_cbk, state->active_subvol,
-               state->active_subvol->fops->fgetxattr, state->fd, xattr_name,
-               state->xdata);
+    STACK_WIND_COOKIE(frame, fuse_setlk_interrupt_handler_cbk, fir,
+                      state->active_subvol,
+                      state->active_subvol->fops->fgetxattr, state->fd,
+                      xattr_name, state->xdata);
 
     return;
 
@@ -4866,15 +4858,9 @@ fuse_setlk_resume(fuse_state_t *state)
     fir = fuse_interrupt_record_new(state->finh, fuse_setlk_interrupt_handler);
     state_clone = gf_memdup(state, sizeof(*state));
     if (state_clone) {
-        /*
-         * Calling this allocator with fir casted to (char *) seems like
-         * an abuse of this API, but in fact the API is stupid to assume
-         * a (char *) argument (in the funcion it's casted to (void *)
-         * anyway).
-         */
-        state_clone->xdata = dict_for_key_value(
-            "fuse-interrupt-record", (char *)fir, sizeof(*fir), _gf_true);
+        state_clone->xdata = dict_new();
     }
+
     if (!fir || !state_clone || !state_clone->xdata) {
         if (fir) {
             GF_FREE(fir);
