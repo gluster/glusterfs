@@ -181,9 +181,9 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
             if (plock->blocked) {
                 bcount++;
                 pl_trace_out(this, plock->frame, NULL, NULL, F_SETLKW,
-                             &plock->user_flock, -1, EAGAIN, NULL);
+                             &plock->user_flock, -1, EINTR, NULL);
 
-                STACK_UNWIND_STRICT(lk, plock->frame, -1, EAGAIN,
+                STACK_UNWIND_STRICT(lk, plock->frame, -1, EINTR,
                                     &plock->user_flock, NULL);
 
             } else {
