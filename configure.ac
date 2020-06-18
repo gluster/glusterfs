@@ -278,31 +278,45 @@ else
         BUILD_DEBUG=no
 fi
 
+SANITIZER=none
+
 AC_ARG_ENABLE([asan],
               AC_HELP_STRING([--enable-asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
-        BUILD_ASAN=yes
-        AC_CHECK_LIB([asan], [__asan_report_error], ,
-                [AC_MSG_ERROR([libasan.so not found, this is required for --enable-asan])])
-        GF_CFLAGS="${GF_CFLAGS} -O1 -g -fsanitize=address -fno-omit-frame-pointer"
-        dnl -lasan always need to be the first library, otherwise libxml complains
-        GF_LDFLAGS="-lasan ${GF_LDFLAGS}"
-else
-        BUILD_ASAN=no
+        SANITIZER=asan
+        AC_CHECK_LIB([asan], [__asan_init], ,
+                [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
+        GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
+        GF_LDFLAGS="${GF_LDFLAGS} -lasan"
 fi
 
-AC_ARG_ENABLE([atan],
+AC_ARG_ENABLE([tsan],
               AC_HELP_STRING([--enable-tsan],
-                             [Enable ThreadSanitizer support]))
+                             [Enable Thread Sanitizer support]))
 if test "x$enable_tsan" = "xyes"; then
-        BUILD_TSAN=yes
+        if test "x$SANITIZER" != "xnone"; then
+                AC_MSG_ERROR([only one sanitizer can be enabled at once])
+        fi
+        SANITIZER=tsan
         AC_CHECK_LIB([tsan], [__tsan_init], ,
-                [AC_MSG_ERROR([libtsan.so not found, this is required for --enable-tsan])])
-        GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread"
+                [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
+        GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread -fno-omit-frame-pointer"
         GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
-else
-        BUILD_TSAN=no
+fi
+
+AC_ARG_ENABLE([ubsan],
+              AC_HELP_STRING([--enable-ubsan],
+                             [Enable Undefined Behavior Sanitizer support]))
+if test "x$enable_ubsan" = "xyes"; then
+        if test "x$SANITIZER" != "xnone"; then
+                AC_MSG_ERROR([only one sanitizer can be enabled at once])
+        fi
+        SANITIZER=ubsan
+        AC_CHECK_LIB([ubsan], [__ubsan_default_options], ,
+                [AC_MSG_ERROR([--enable-ubsan requires libubsan.so, exiting])])
+        GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=undefined -fno-omit-frame-pointer"
+        GF_LDFLAGS="${GF_LDFLAGS} -lubsan"
 fi
 
 # Initialize CFLAGS before usage
@@ -1613,8 +1627,7 @@ echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Enable Debug         : $BUILD_DEBUG"
-echo "Enable ASAN          : $BUILD_ASAN"
-echo "Enable TSAN          : $BUILD_TSAN"
+echo "Sanitizer enabled    : $SANITIZER"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "Unit Tests           : $BUILD_UNITTEST"
@@ -1635,14 +1648,10 @@ echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo
 
-if test "x$BUILD_ASAN" = "xyes"; then
-    echo "### Run below command before executing your tests if your system"
-    echo "### has 'gcc --version' above 7.x (works on Fedora 27 and Above)"
-    echo "export ASAN_OPTIONS=log_path=/var/log/glusterfs/asan-output.log"
-    echo ""
-    echo "### Above is required to get details of asan run, as glusterfs"
-    echo "### processes are daemon processes. Further details and more"
-    echo "### options can be found under 'Run-time flags' at"
-    echo "### https://github.com/google/sanitizers/wiki/AddressSanitizerFlags"
-    echo
+# dnl Note: ${X^^} capitalization assumes bash >= 4.x
+if test "x$SANITIZER" != "xnone"; then
+        echo "Note: since glusterfs processes are daemon processes, use"
+        echo "'export ${SANITIZER^^}_OPTIONS=log_path=/path/to/xxx.log' to collect"
+        echo "sanitizer output. Further details and more options can be"
+        echo "found at https://github.com/google/sanitizers."
 fi
