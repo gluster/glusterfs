@@ -1,6 +1,8 @@
 [Unit]
 Description=GlusterFS, a clustered file-system server
 Documentation=man:glusterd(8)
+StartLimitBurst=6
+StartLimitIntervalSec=3600
 Requires=@RPCBIND_SERVICE@
 After=network.target @RPCBIND_SERVICE@
 Before=network-online.target
@@ -18,7 +20,6 @@ SuccessExitStatus=15
 Restart=on-abnormal
 RestartSec=60
 StartLimitBurst=6
-StartLimitIntervalSec=3600
 StartLimitInterval=3600
 
 [Install]
