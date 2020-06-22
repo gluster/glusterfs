@@ -2395,23 +2395,8 @@ posix_fsyncer_syncfs(xlator_t *this, struct list_head *head)
 
     stub = list_entry(head->prev, call_stub_t, list);
     ret = posix_fd_ctx_get(stub->args.fd, this, &pfd, NULL);
-    if (ret)
-        return;
-
-#ifdef GF_LINUX_HOST_OS
-        /* syncfs() is not "declared" in RHEL's glibc even though
-           the kernel has support.
-        */
-#include <sys/syscall.h>
-#include <unistd.h>
-#ifdef SYS_syncfs
-    syscall(SYS_syncfs, pfd->fd);
-#else
-    sync();
-#endif
-#else
-    sync();
-#endif
+    if (!ret)
+        (void)gf_syncfs(pfd->fd);
 }
 
 void *

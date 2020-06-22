@@ -1037,6 +1037,19 @@ else
    CFLAGS=${OLD_CFLAGS}
 fi
 
+AC_CHECK_FUNC([syncfs], [have_syncfs=yes])
+if test "x${have_syncfs}" = "xyes"; then
+   AC_DEFINE(HAVE_SYNCFS, 1, [define if syncfs exists])
+else
+   OLD_CFLAGS=${CFLAGS}
+   CFLAGS="-D_GNU_SOURCE"
+   AC_CHECK_DECL([SYS_syncfs], , , [#include <sys/syscall.h>])
+   if test "x${ac_cv_have_decl_SYS_syncfs}" = "xyes"; then
+      AC_DEFINE(HAVE_SYNCFS_SYS, 1, [define if SYS_syncfs is available])
+   fi
+   CFLAGS=${OLD_CFLAGS}
+fi
+
 BUILD_NANOSECOND_TIMESTAMPS=no
 AC_CHECK_FUNC([utimensat], [have_utimensat=yes])
 if test "x${have_utimensat}" = "xyes"; then
