@@ -1205,6 +1205,9 @@ int
 gf_d_type_from_ia_type(ia_type_t type);
 
 int
+gf_syncfs(int fd);
+
+int
 gf_nanosleep(uint64_t nsec);
 
 #endif /* _COMMON_UTILS_H */

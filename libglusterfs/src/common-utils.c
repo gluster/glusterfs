@@ -37,6 +37,9 @@
 #ifndef GF_LINUX_HOST_OS
 #include <sys/resource.h>
 #endif
+#ifdef HAVE_SYNCFS_SYS
+#include <sys/syscall.h>
+#endif
 
 #include "glusterfs/compat-errno.h"
 #include "glusterfs/common-utils.h"
@@ -5410,5 +5413,22 @@ gf_nanosleep(uint64_t nsec)
         req = rem;
     } while (ret == -1 && errno == EINTR);
 
+    return ret;
+}
+
+int
+gf_syncfs(int fd)
+{
+    int ret = 0;
+#if defined(HAVE_SYNCFS)
+    /* Linux with glibc recent enough. */
+    ret = syncfs(fd);
+#elif defined(HAVE_SYNCFS_SYS)
+    /* Linux with no library function. */
+    ret = syscall(SYS_syncfs, fd);
+#else
+    /* Fallback to generic UNIX stuff. */
+    sync();
+#endif
     return ret;
 }
