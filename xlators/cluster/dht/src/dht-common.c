@@ -1657,7 +1657,7 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     uint32_t vol_commit_hash = 0;
     xlator_t *subvol = NULL;
     int32_t check_mds = 0;
-    int errst = 0;
+    int errst = 0, i = 0;
     int32_t mds_xattr_val[1] = {0};
 
     GF_VALIDATE_OR_GOTO("dht", frame, err);
@@ -1724,6 +1724,14 @@ dht_revalidate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
                     local->need_lookup_everywhere = 1;
                 } else if (IA_ISDIR(local->loc.inode->ia_type)) {
+                    layout = local->layout;
+                    for (i = 0; i < layout->cnt; i++) {
+                        if (layout->list[i].xlator == prev) {
+                            layout->list[i].err = op_errno;
+                            break;
+                        }
+                    }
+
                     local->need_selfheal = 1;
                 }
             }
