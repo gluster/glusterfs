@@ -2053,61 +2053,6 @@ dht_selfheal_restore(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     return ret;
 }
 
-/* List xattrs of a subvols and compare with mds xattrs.
- * If there are differences, remove extra xattrs from the subvol */
-int
-dht_dir_remove_extra_xattrs(xlator_t *this, xlator_t *subvol,
-                            dht_local_t *local, dict_t *mds_xattr)
-{
-    dict_t *subvol_xattr = NULL;
-    data_pair_t *subvol_xattrs = NULL;
-    data_pair_t *mds_xattrs = NULL;
-    int ret = 0;
-
-    /* List the xattrs of the subvol */
-    ret = syncop_listxattr(subvol, &local->loc, &subvol_xattr, NULL, NULL);
-    if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_LIST_XATTRS_FAILED,
-                "path=%s", local->loc.path, "name=%s", local->mds_subvol->name,
-                NULL);
-        goto out;
-    }
-
-    subvol_xattrs = subvol_xattr->members_list;
-
-    /* While the subvol still has xattrs, try to find a matching xattrs in mds
-     */
-    while (subvol_xattrs != NULL) {
-        mds_xattrs = mds_xattr->members_list;
-
-        /* While mds still has xattrs, check if the current xattrs is a match */
-        while (mds_xattrs != NULL &&
-               strcmp(subvol_xattrs->key, mds_xattrs->key) != 0) {
-            mds_xattrs = mds_xattrs->next;
-        }
-
-        if (mds_xattrs == NULL) {
-            /* No xattrs matched, remove the extra xattrs from the subvol and
-             * it's dict */
-            ret = syncop_removexattr(subvol, &local->loc, subvol_xattrs->key,
-                                     NULL, NULL);
-            if (ret < 0) {
-                gf_msg(this->name, GF_LOG_ERROR, -ret, 0,
-                       "%s: removexattr failed key %s", local->loc.path,
-                       subvol_xattrs->key);
-                goto out;
-            }
-
-            dict_del(subvol_xattr, subvol_xattrs->key);
-        }
-
-        subvol_xattrs = subvol_xattrs->next;
-    }
-
-out:
-    return ret;
-}
-
 int
 dht_dir_heal_xattrs(void *data)
 {
@@ -2210,14 +2155,6 @@ dht_dir_heal_xattrs(void *data)
         subvol = conf->subvolumes[i];
         if (subvol == mds_subvol)
             continue;
-
-        ret = dht_dir_remove_extra_xattrs(this, subvol, local, mds_xattr);
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, 0,
-                   "removing extra xattrs from subvol %s failed on path %s",
-                   subvol->name, local->loc.path);
-        }
-
         if (uret || uflag) {
             ret = syncop_setxattr(subvol, &local->loc, user_xattr, 0, xdata,
                                   NULL);
