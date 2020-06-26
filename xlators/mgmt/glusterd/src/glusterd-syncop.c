@@ -1718,6 +1718,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rpc_clnt_t *rpc = NULL;
     dict_t *rsp_dict = NULL;
     int32_t cmd = GF_OP_CMD_NONE;
+    glusterd_volinfo_t *volinfo = NULL;
 
     this = THIS;
     rsp_dict = dict_new();
@@ -1750,18 +1751,28 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     cds_list_for_each_entry_safe(pending_node, tmp, &selected, list)
     {
         rpc = glusterd_pending_node_get_rpc(pending_node);
+        /* In the case of rebalance if the rpc object is null, we try to
+         * create the rpc object. if the rebalance daemon is down, it returns
+         * -1. otherwise, rpc object will be created and referenced.
+         */
         if (!rpc) {
-            if (pending_node->type == GD_NODE_REBALANCE) {
-                ret = 0;
-                glusterd_defrag_volume_node_rsp(req_dict, NULL, op_ctx);
+            if (pending_node->type == GD_NODE_REBALANCE && pending_node->node) {
+                volinfo = pending_node->node;
+                ret = glusterd_rebalance_rpc_create(volinfo);
+                if (ret) {
+                    ret = 0;
+                    glusterd_defrag_volume_node_rsp(req_dict, NULL, op_ctx);
+                    goto out;
+                } else {
+                    rpc = glusterd_defrag_rpc_get(volinfo->rebal.defrag);
+                }
+            } else {
+                ret = -1;
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RPC_FAILURE,
+                       "Brick Op failed "
+                       "due to rpc failure.");
                 goto out;
             }
-
-            ret = -1;
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RPC_FAILURE,
-                   "Brick Op failed "
-                   "due to rpc failure.");
-            goto out;
         }
 
         ret = gd_syncop_mgmt_brick_op(rpc, pending_node, op, req_dict, op_ctx,
