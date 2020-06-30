@@ -968,6 +968,9 @@ case $host_os in
     CFLAGS="${CFLAGS} -isystem /usr/local/include"
     ARGP_LDADD=-largp
     ;;
+    *netbsd*)
+    ARGP_LDADD=-largp
+    ;;
 esac
 dnl argp-standalone does not provide a pkg-config file
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))

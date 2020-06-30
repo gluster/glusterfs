@@ -61,7 +61,7 @@ mount_slave()
 
 parse_cli()
 {
-    if [[ $# -ne 4 ]]; then
+    if [ "$#" -ne 4 ]; then
         echo "Usage: gfind_missing_files <brick-path> <slave-host> <slave-vol> <OUTFILE>"
         exit 1
     else

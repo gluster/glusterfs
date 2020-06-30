@@ -41,6 +41,10 @@
 #include "xdr-rpcclnt.h"
 #include <glusterfs/glusterfs-acl.h>
 
+#ifndef PTHREAD_MUTEX_ADAPTIVE_NP
+#define PTHREAD_MUTEX_ADAPTIVE_NP PTHREAD_MUTEX_DEFAULT
+#endif
+
 static struct rpcsvc_program gluster_dump_prog;
 
 #define rpcsvc_alloc_request(svc, request)                                     \
