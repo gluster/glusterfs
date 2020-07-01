@@ -276,7 +276,7 @@ gf_fill_iatt_for_dirent(gf_dirent_t *entry, inode_t *parent, xlator_t *subvol)
     gf_uuid_copy(loc.pargfid, parent->gfid);
     loc.name = entry->d_name;
     loc.parent = inode_ref(parent);
-    ret = inode_path(loc.inode, entry->d_name, &path);
+    ret = inode_path(loc.parent, entry->d_name, &path);
     loc.path = path;
     if (ret < 0)
         goto out;
