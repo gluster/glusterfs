@@ -617,8 +617,9 @@ tear_down_cluster(gf_boolean_t run_teardown)
             goto out;
         }
 
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-        while (entry) {
+        while ((entry = sys_readdir(dir, scratch))) {
+            if (gf_irrelevant_entry(entry))
+                continue;
             snprintf(path, PATH_MAX, "%s/%s", CONFDIR, entry->d_name);
             ret = sys_lstat(path, &st);
             if (ret == -1) {
@@ -649,7 +650,6 @@ tear_down_cluster(gf_boolean_t run_teardown)
 
             gf_msg_debug(THIS->name, 0, "%s %s",
                          ret ? "Failed to remove" : "Removed", entry->d_name);
-            GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
         }
 
         ret = sys_closedir(dir);

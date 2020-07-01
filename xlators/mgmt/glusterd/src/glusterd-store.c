@@ -1781,8 +1781,9 @@ glusterd_store_delete_snap(glusterd_snap_t *snap)
         goto out;
     }
 
-    GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-    while (entry) {
+    while ((entry = sys_readdir(dir, scratch))) {
+        if (gf_irrelevant_entry(entry))
+            continue;
         len = snprintf(path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
         if ((len < 0) || (len >= PATH_MAX)) {
             goto stat_failed;
@@ -1812,7 +1813,6 @@ glusterd_store_delete_snap(glusterd_snap_t *snap)
                      ret ? "Failed to remove" : "Removed", entry->d_name);
     stat_failed:
         memset(path, 0, sizeof(path));
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
     }
 
     ret = sys_closedir(dir);
@@ -3485,28 +3485,28 @@ glusterd_store_retrieve_volumes(xlator_t *this, glusterd_snap_t *snap)
         goto out;
     }
 
-    GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-
-    while (entry) {
+    while ((entry = sys_readdir(dir, scratch))) {
+        if (gf_irrelevant_entry(entry))
+            continue;
         if (snap && ((!strcmp(entry->d_name, "geo-replication")) ||
                      (!strcmp(entry->d_name, "info"))))
-            goto next;
+            continue;
 
         len = snprintf(entry_path, PATH_MAX, "%s/%s", path, entry->d_name);
-        if ((len < 0) || (len >= PATH_MAX)) {
-            goto next;
-        }
+        if ((len < 0) || (len >= PATH_MAX))
+            continue;
+
         ret = sys_lstat(entry_path, &st);
         if (ret == -1) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
                    "Failed to stat entry %s : %s", path, strerror(errno));
-            goto next;
+            continue;
         }
 
         if (!S_ISDIR(st.st_mode)) {
             gf_msg_debug(this->name, 0, "%s is not a valid volume",
                          entry->d_name);
-            goto next;
+            continue;
         }
 
         volinfo = glusterd_store_retrieve_volume(entry->d_name, snap);
@@ -3529,8 +3529,6 @@ glusterd_store_retrieve_volumes(xlator_t *this, glusterd_snap_t *snap)
             glusterd_store_create_nodestate_sh_on_absence(volinfo);
             glusterd_store_perform_node_state_store(volinfo);
         }
-    next:
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
     }
 
     ret = 0;
@@ -4080,9 +4078,9 @@ glusterd_store_retrieve_snaps(xlator_t *this)
         goto out;
     }
 
-    GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-
-    while (entry) {
+    while ((entry = sys_readdir(dir, scratch))) {
+        if (gf_irrelevant_entry(entry))
+            continue;
         if (strcmp(entry->d_name, GLUSTERD_MISSED_SNAPS_LIST_FILE)) {
             ret = glusterd_store_retrieve_snap(entry->d_name);
             if (ret) {
@@ -4091,7 +4089,6 @@ glusterd_store_retrieve_snaps(xlator_t *this)
                 goto out;
             }
         }
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
     }
 
     /* Retrieve missed_snaps_list */
@@ -4538,11 +4535,9 @@ glusterd_store_retrieve_peers(xlator_t *this)
         goto out;
     }
 
-    for (;;) {
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-        if (!entry) {
-            break;
-        }
+    while ((entry = sys_readdir(dir, scratch))) {
+        if (gf_irrelevant_entry(entry))
+            continue;
         if (gf_uuid_parse(entry->d_name, tmp_uuid) != 0) {
             gf_log(this->name, GF_LOG_WARNING, "skipping non-peer file %s",
                    entry->d_name);

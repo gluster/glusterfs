@@ -478,8 +478,9 @@ glusterd_stop_all_quota_crawl_service(glusterd_conf_t *priv,
     if (dir == NULL)
         return;
 
-    GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-    while (entry) {
+    while ((entry = sys_readdir(dir, scratch))) {
+        if (gf_irrelevant_entry(entry))
+            continue;
         len = snprintf(pidfile, sizeof(pidfile), "%s/%s", pid_dir,
                        entry->d_name);
         if ((len >= 0) && (len < sizeof(pidfile))) {
@@ -487,8 +488,6 @@ glusterd_stop_all_quota_crawl_service(glusterd_conf_t *priv,
                                          _gf_true);
             sys_unlink(pidfile);
         }
-
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
     }
     sys_closedir(dir);
 }

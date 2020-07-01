@@ -4707,8 +4707,9 @@ recursive_rmdir(const char *delete_path)
         goto out;
     }
 
-    GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
-    while (entry) {
+    while ((entry = sys_readdir(dir, scratch))) {
+        if (gf_irrelevant_entry(entry))
+            continue;
         snprintf(path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
         ret = sys_lstat(path, &st);
         if (ret == -1) {
@@ -4734,8 +4735,6 @@ recursive_rmdir(const char *delete_path)
 
         gf_msg_debug(this->name, 0, "%s %s",
                      ret ? "Failed to remove" : "Removed", entry->d_name);
-
-        GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scratch);
     }
 
     ret = sys_closedir(dir);
