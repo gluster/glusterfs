@@ -486,18 +486,15 @@ union gf_sock_union {
 
 #define IOV_MIN(n) min(IOV_MAX, n)
 
-#define GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scr)                            \
-    do {                                                                       \
-        entry = NULL;                                                          \
-        if (dir) {                                                             \
-            entry = sys_readdir(dir, scr);                                     \
-            while (entry && (!strcmp(entry->d_name, ".") ||                    \
-                             !fnmatch("*.tmp", entry->d_name, 0) ||            \
-                             !strcmp(entry->d_name, ".."))) {                  \
-                entry = sys_readdir(dir, scr);                                 \
-            }                                                                  \
-        }                                                                      \
-    } while (0)
+static inline gf_boolean_t
+gf_irrelevant_entry(struct dirent *entry)
+{
+    GF_ASSERT(entry);
+
+    return (!strcmp(entry->d_name, ".") ||
+            !fnmatch("*.tmp", entry->d_name, 0) ||
+            !strcmp(entry->d_name, ".."));
+}
 
 static inline void
 iov_free(struct iovec *vector, int count)
