@@ -72,7 +72,8 @@ F: xlators/features/arbiter/
 
 Automatic File Replication (AFR)
 M: Pranith Karampuri <pkarampu@redhat.com>
-P: Ravishankar N <ravishankar@redhat.com>
+M: Ravishankar N <ravishankar@redhat.com>
+P: Karthik US <ksubrahm@redhat.com>
 S: Maintained
 F: xlators/cluster/afr/
 
