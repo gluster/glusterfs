@@ -1679,13 +1679,13 @@ brick_graph_add_posix(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
+    this = THIS;
+
     if (!graph || !volinfo || !set_dict || !brickinfo) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
 
