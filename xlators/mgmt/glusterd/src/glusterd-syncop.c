@@ -1798,7 +1798,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     pending_node = NULL;
     ret = 0;
 out:
-    if (pending_node)
+    if (pending_node && pending_node->node)
         glusterd_pending_node_put_rpc(pending_node);
 
     if (rsp_dict)

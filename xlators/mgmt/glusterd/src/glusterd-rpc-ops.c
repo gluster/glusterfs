@@ -1462,7 +1462,7 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *dict = NULL;
 
     if (!frame || !this || !data) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
@@ -1518,7 +1518,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *peer_data = NULL;
 
     if (!frame || !this || !data) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
