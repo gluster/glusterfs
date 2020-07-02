@@ -390,13 +390,33 @@ ec_manager_getxattr(ec_fop_data_t *fop, int32_t state)
 int32_t
 ec_getxattr_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
                      int32_t op_ret, int32_t op_errno, uintptr_t mask,
-                     uintptr_t good, uintptr_t bad, dict_t *xdata)
+                     uintptr_t good, uintptr_t bad, uint32_t pending,
+                     dict_t *xdata)
 {
     fop_getxattr_cbk_t func = cookie;
     ec_t *ec = xl->private;
     dict_t *dict = NULL;
     char *str;
     char bin1[65], bin2[65];
+
+    /* We try to return the 'pending' information in xdata, but if this cannot
+     * be set, we will ignore it silently. We prefer to report the success or
+     * failure of the heal itself. */
+    if (xdata == NULL) {
+        xdata = dict_new();
+    } else {
+        dict_ref(xdata);
+    }
+    if (xdata != NULL) {
+        if (dict_set_uint32(xdata, EC_XATTR_HEAL_NEW, pending) != 0) {
+            /* dict_set_uint32() is marked as 'warn_unused_result' and gcc
+             * enforces to check the result in this case. However we don't
+             * really care if it succeeded or not. We'll just do the same.
+             *
+             * This empty 'if' avoids the warning, and it will be removed by
+             * the optimizer. */
+        }
+    }
 
     if (op_ret >= 0) {
         dict = dict_new();
@@ -431,10 +451,13 @@ ec_getxattr_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
     }
 
 out:
-    func(frame, NULL, xl, op_ret, op_errno, dict, NULL);
+    func(frame, NULL, xl, op_ret, op_errno, dict, xdata);
 
     if (dict != NULL) {
         dict_unref(dict);
+    }
+    if (xdata != NULL) {
+        dict_unref(xdata);
     }
 
     return 0;
