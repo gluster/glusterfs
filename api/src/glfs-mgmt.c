@@ -364,6 +364,7 @@ out:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volumeid, 3.5.0)
 int
 pub_glfs_get_volumeid(struct glfs *fs, char *volid, size_t size)
 {
@@ -417,8 +418,6 @@ out:
 invalid_fs:
     return -1;
 }
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volumeid, 3.5.0);
 
 int
 glfs_get_volume_info(struct glfs *fs)

@@ -81,25 +81,40 @@
 #ifndef GFAPI_PRIVATE
 #define GFAPI_PRIVATE(sym, ver) /**/
 #endif
+#if __GNUC__ >= 10
 #define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, ver)                                   \
-    asm(".symver pub_" STR(fn) ", " STR(fn) "@@GFAPI_" STR(ver))
+    __attribute__((__symver__(STR(fn) "@@GFAPI_" STR(ver))))
 
 #define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, ver)                                  \
-    asm(".symver priv_" STR(fn) ", " STR(fn) "@@GFAPI_PRIVATE_" STR(ver))
+    __attribute__((__symver__(STR(fn) "@@GFAPI_PRIVATE_" STR(ver))))
 
 #define GFAPI_SYMVER_PUBLIC(fn1, fn2, ver)                                     \
-    asm(".symver pub_" STR(fn1) ", " STR(fn2) "@GFAPI_" STR(ver))
+    __attribute__((__symver__(STR(fn2) "@GFAPI_" STR(ver))))
 
 #define GFAPI_SYMVER_PRIVATE(fn1, fn2, ver)                                    \
-    asm(".symver priv_" STR(fn1) ", " STR(fn2) "@GFAPI_PRIVATE_" STR(ver))
+    __attribute__((__symver__(STR(fn2) "@GFAPI_PRIVATE_" STR(ver))))
+
+#else
+#define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, ver)                                   \
+    asm(".symver pub_" STR(fn) ", " STR(fn) "@@GFAPI_" STR(ver));
+
+#define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, ver)                                  \
+    asm(".symver priv_" STR(fn) ", " STR(fn) "@@GFAPI_PRIVATE_" STR(ver));
+
+#define GFAPI_SYMVER_PUBLIC(fn1, fn2, ver)                                     \
+    asm(".symver pub_" STR(fn1) ", " STR(fn2) "@GFAPI_" STR(ver));
+
+#define GFAPI_SYMVER_PRIVATE(fn1, fn2, ver)                                    \
+    asm(".symver priv_" STR(fn1) ", " STR(fn2) "@GFAPI_PRIVATE_" STR(ver));
+#endif
 #define STR(str) #str
 #else
 #ifndef GFAPI_PUBLIC
-#define GFAPI_PUBLIC(sym, ver) __asm("_" __STRING(sym) "$GFAPI_" __STRING(ver))
+#define GFAPI_PUBLIC(sym, ver) __asm("_" __STRING(sym) "$GFAPI_" __STRING(ver));
 #endif
 #ifndef GFAPI_PRIVATE
 #define GFAPI_PRIVATE(sym, ver)                                                \
-    __asm("_" __STRING(sym) "$GFAPI_PRIVATE_" __STRING(ver))
+    __asm("_" __STRING(sym) "$GFAPI_PRIVATE_" __STRING(ver));
 #endif
 #define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, dotver)  /**/
 #define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, dotver) /**/
