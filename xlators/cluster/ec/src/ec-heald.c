@@ -160,15 +160,27 @@ int
 ec_shd_selfheal(struct subvol_healer *healer, int child, loc_t *loc,
                 gf_boolean_t full)
 {
+    dict_t *xdata = NULL;
+    uint32_t count;
     int32_t ret;
 
-    ret = syncop_getxattr(healer->this, loc, NULL, EC_XATTR_HEAL, NULL, NULL);
-    if (!full && (ret >= 0) && (loc->inode->ia_type == IA_IFDIR)) {
+    ret = syncop_getxattr(healer->this, loc, NULL, EC_XATTR_HEAL, NULL, &xdata);
+    if (!full && (loc->inode->ia_type == IA_IFDIR)) {
         /* If we have just healed a directory, it's possible that
-         * other index entries have appeared to be healed. We put a
-         * mark so that we can check it later and restart a scan
-         * without delay. */
-        healer->rerun = _gf_true;
+         * other index entries have appeared to be healed. */
+        if ((xdata != NULL) &&
+            (dict_get_uint32(xdata, EC_XATTR_HEAL_NEW, &count) == 0) &&
+            (count > 0)) {
+            /* Force a rerun of the index healer. */
+            gf_msg_debug(healer->this->name, 0, "%d more entries to heal",
+                         count);
+
+            healer->rerun = _gf_true;
+        }
+    }
+
+    if (xdata != NULL) {
+        dict_unref(xdata);
     }
 
     return ret;
