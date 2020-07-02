@@ -70,6 +70,7 @@ struct ec_name_data {
     char *name;
     inode_t *parent;
     default_args_cbk_t *replies;
+    uint32_t heal_pending;
 };
 
 static char *ec_ignore_xattrs[] = {GF_SELINUX_XATTR_KEY, QUOTA_SIZE_KEY, NULL};
@@ -994,6 +995,7 @@ ec_set_new_entry_dirty(ec_t *ec, loc_t *loc, struct iatt *ia,
         ret = -ENOTCONN;
         goto out;
     }
+
 out:
     if (xattr)
         dict_unref(xattr);
@@ -1172,6 +1174,7 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     dict_t *xdata = NULL;
     char *linkname = NULL;
     ec_config_t config;
+
     /* There should be just one gfid key */
     EC_REPLIES_ALLOC(replies, ec->nodes);
     if (gfid_db->count != 1) {
@@ -1416,6 +1419,11 @@ __ec_heal_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
 
     ret = ec_create_name(frame, ec, parent, name, replies, gfid_db, enoent,
                          participants);
+    if (ret >= 0) {
+        /* If ec_create_name() succeeded we return 1 to indicate that a new
+         * file has been created and it will need to be healed. */
+        ret = 1;
+    }
 out:
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
@@ -1493,18 +1501,22 @@ ec_name_heal_handler(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     ret = ec_heal_name(name_data->frame, ec, parent->inode, entry->d_name,
                        name_on);
 
-    if (ret < 0)
+    if (ret < 0) {
         memset(name_on, 0, ec->nodes);
+    } else {
+        name_data->heal_pending += ret;
+    }
 
     for (i = 0; i < ec->nodes; i++)
         if (name_data->participants[i] && !name_on[i])
             name_data->failed_on[i] = 1;
+
     return 0;
 }
 
 int
 ec_heal_names(call_frame_t *frame, ec_t *ec, inode_t *inode,
-              unsigned char *participants)
+              unsigned char *participants, uint32_t *pending)
 {
     int i = 0;
     int j = 0;
@@ -1517,7 +1529,7 @@ ec_heal_names(call_frame_t *frame, ec_t *ec, inode_t *inode,
     name_data.frame = frame;
     name_data.participants = participants;
     name_data.failed_on = alloca0(ec->nodes);
-    ;
+    name_data.heal_pending = 0;
 
     for (i = 0; i < ec->nodes; i++) {
         if (!participants[i])
@@ -1536,6 +1548,8 @@ ec_heal_names(call_frame_t *frame, ec_t *ec, inode_t *inode,
             break;
         }
     }
+    *pending += name_data.heal_pending;
+
     loc_wipe(&loc);
     return ret;
 }
@@ -1543,7 +1557,7 @@ ec_heal_names(call_frame_t *frame, ec_t *ec, inode_t *inode,
 int
 __ec_heal_entry(call_frame_t *frame, ec_t *ec, inode_t *inode,
                 unsigned char *heal_on, unsigned char *sources,
-                unsigned char *healed_sinks)
+                unsigned char *healed_sinks, uint32_t *pending)
 {
     unsigned char *locked_on = NULL;
     unsigned char *output = NULL;
@@ -1588,7 +1602,7 @@ unlock:
         if (sources[i] || healed_sinks[i])
             participants[i] = 1;
     }
-    ret = ec_heal_names(frame, ec, inode, participants);
+    ret = ec_heal_names(frame, ec, inode, participants, pending);
 
     if (EC_COUNT(participants, ec->nodes) <= ec->fragments)
         goto out;
@@ -1609,7 +1623,8 @@ out:
 
 int
 ec_heal_entry(call_frame_t *frame, ec_t *ec, inode_t *inode,
-              unsigned char *sources, unsigned char *healed_sinks)
+              unsigned char *sources, unsigned char *healed_sinks,
+              uint32_t *pending)
 {
     unsigned char *locked_on = NULL;
     unsigned char *up_subvols = NULL;
@@ -1640,7 +1655,7 @@ ec_heal_entry(call_frame_t *frame, ec_t *ec, inode_t *inode,
             goto unlock;
         }
         ret = __ec_heal_entry(frame, ec, inode, locked_on, sources,
-                              healed_sinks);
+                              healed_sinks, pending);
     }
 unlock:
     cluster_uninodelk(ec->xl_list, locked_on, ec->nodes, replies, output, frame,
@@ -1961,14 +1976,14 @@ ec_manager_heal_block(ec_fop_data_t *fop, int32_t state)
             if (fop->cbks.heal) {
                 fop->cbks.heal(fop->req_frame, fop->data, fop->xl, 0, 0,
                                (heal->good | heal->bad), heal->good, heal->bad,
-                               NULL);
+                               0, NULL);
             }
 
             return EC_STATE_END;
         case -EC_STATE_REPORT:
             if (fop->cbks.heal) {
                 fop->cbks.heal(fop->req_frame, fop->data, fop->xl, -1,
-                               fop->error, 0, 0, 0, NULL);
+                               fop->error, 0, 0, 0, 0, NULL);
             }
 
             return EC_STATE_END;
@@ -2005,14 +2020,15 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, heal, this, -1, error, 0, 0, 0, NULL);
+        func(frame, heal, this, -1, error, 0, 0, 0, 0, NULL);
     }
 }
 
 int32_t
 ec_heal_block_done(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, uintptr_t mask,
-                   uintptr_t good, uintptr_t bad, dict_t *xdata)
+                   uintptr_t good, uintptr_t bad, uint32_t pending,
+                   dict_t *xdata)
 {
     ec_heal_t *heal = cookie;
 
@@ -2498,6 +2514,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
     intptr_t mbad = 0;
     intptr_t good = 0;
     intptr_t bad = 0;
+    uint32_t pending = 0;
     ec_fop_data_t *fop = data;
     gf_boolean_t blocking = _gf_false;
     ec_heal_need_t need_heal = EC_HEAL_NONEED;
@@ -2533,7 +2550,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
     if (loc->name && strlen(loc->name)) {
         ret = ec_heal_name(frame, ec, loc->parent, (char *)loc->name,
                            participants);
-        if (ret == 0) {
+        if (ret >= 0) {
             gf_msg_debug(this->name, 0,
                          "%s: name heal "
                          "successful on %" PRIXPTR,
@@ -2551,7 +2568,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
 
     /* Mount triggers heal only when it detects that it must need heal, shd
      * triggers heals periodically which need not be thorough*/
-    if (ec->shd.iamshd) {
+    if (ec->shd.iamshd && (ret <= 0)) {
         ec_heal_inspect(frame, ec, loc->inode, up_subvols, _gf_false, _gf_false,
                         &need_heal);
 
@@ -2561,13 +2578,15 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
             goto out;
         }
     }
+
     sources = alloca0(ec->nodes);
     healed_sinks = alloca0(ec->nodes);
     if (IA_ISREG(loc->inode->ia_type)) {
         ret = ec_heal_data(frame, ec, blocking, loc->inode, sources,
                            healed_sinks);
     } else if (IA_ISDIR(loc->inode->ia_type) && !partial) {
-        ret = ec_heal_entry(frame, ec, loc->inode, sources, healed_sinks);
+        ret = ec_heal_entry(frame, ec, loc->inode, sources, healed_sinks,
+                            &pending);
     } else {
         ret = 0;
         memcpy(sources, participants, ec->nodes);
@@ -2597,10 +2616,11 @@ out:
     if (fop->cbks.heal) {
         fop->cbks.heal(fop->req_frame, fop->data, fop->xl, op_ret, op_errno,
                        ec_char_array_to_mask(participants, ec->nodes),
-                       mgood & good, mbad & bad, NULL);
+                       mgood & good, mbad & bad, pending, NULL);
     }
     if (frame)
         STACK_DESTROY(frame->root);
+
     return;
 }
 
@@ -2648,7 +2668,7 @@ ec_heal_fail(ec_t *ec, ec_fop_data_t *fop)
 {
     if (fop->cbks.heal) {
         fop->cbks.heal(fop->req_frame, fop->data, ec->xl, -1, fop->error, 0, 0,
-                       0, NULL);
+                       0, 0, NULL);
     }
     ec_fop_data_release(fop);
 }
@@ -2835,7 +2855,7 @@ fail:
     if (fop)
         ec_fop_data_release(fop);
     if (func)
-        func(frame, data, this, -1, err, 0, 0, 0, NULL);
+        func(frame, data, this, -1, err, 0, 0, 0, 0, NULL);
 }
 
 int
