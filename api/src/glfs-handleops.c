@@ -60,6 +60,7 @@ glfs_iatt_from_stat(struct stat *stat, int valid, struct iatt *iatt,
     return;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lookupat, 3.7.4)
 struct glfs_object *
 pub_glfs_h_lookupat(struct glfs *fs, struct glfs_object *parent,
                     const char *path, struct stat *stat, int follow)
@@ -126,8 +127,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lookupat, 3.7.4);
-
+GFAPI_SYMVER_PUBLIC(glfs_h_lookupat34, glfs_h_lookupat, 3.4.2)
 struct glfs_object *
 pub_glfs_h_lookupat34(struct glfs *fs, struct glfs_object *parent,
                       const char *path, struct stat *stat)
@@ -135,8 +135,7 @@ pub_glfs_h_lookupat34(struct glfs *fs, struct glfs_object *parent,
     return pub_glfs_h_lookupat(fs, parent, path, stat, 0);
 }
 
-GFAPI_SYMVER_PUBLIC(glfs_h_lookupat34, glfs_h_lookupat, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_statfs, 3.7.0)
 int
 pub_glfs_h_statfs(struct glfs *fs, struct glfs_object *object,
                   struct statvfs *statvfs)
@@ -194,8 +193,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_statfs, 3.7.0);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_stat, 3.4.2)
 int
 pub_glfs_h_stat(struct glfs *fs, struct glfs_object *object, struct stat *stat)
 {
@@ -259,8 +257,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_stat, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getattrs, 3.4.2)
 int
 pub_glfs_h_getattrs(struct glfs *fs, struct glfs_object *object,
                     struct stat *stat)
@@ -316,8 +313,6 @@ out:
 invalid_fs:
     return ret;
 }
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getattrs, 3.4.2);
 
 int
 glfs_h_getxattrs_common(struct glfs *fs, struct glfs_object *object,
@@ -380,6 +375,7 @@ out:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getxattrs, 3.5.1)
 int
 pub_glfs_h_getxattrs(struct glfs *fs, struct glfs_object *object,
                      const char *name, void *value, size_t size)
@@ -416,8 +412,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getxattrs, 3.5.1);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_setattrs, 3.4.2)
 int
 pub_glfs_h_setattrs(struct glfs *fs, struct glfs_object *object,
                     struct stat *stat, int valid)
@@ -480,8 +475,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_setattrs, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_setxattrs, 3.5.0)
 int
 pub_glfs_h_setxattrs(struct glfs *fs, struct glfs_object *object,
                      const char *name, const void *value, size_t size,
@@ -568,8 +562,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_setxattrs, 3.5.0);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_removexattrs, 3.5.1)
 int
 pub_glfs_h_removexattrs(struct glfs *fs, struct glfs_object *object,
                         const char *name)
@@ -626,8 +619,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_removexattrs, 3.5.1);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_open, 3.4.2)
 struct glfs_fd *
 pub_glfs_h_open(struct glfs *fs, struct glfs_object *object, int flags)
 {
@@ -727,8 +719,7 @@ invalid_fs:
     return glfd;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_open, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat, 3.4.2)
 struct glfs_object *
 pub_glfs_h_creat(struct glfs *fs, struct glfs_object *parent, const char *path,
                  int flags, mode_t mode, struct stat *stat)
@@ -840,8 +831,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat_open, 6.6)
 struct glfs_object *
 pub_glfs_h_creat_open(struct glfs *fs, struct glfs_object *parent,
                       const char *path, int flags, mode_t mode,
@@ -975,8 +965,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat_open, 6.6);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_mkdir, 3.4.2)
 struct glfs_object *
 pub_glfs_h_mkdir(struct glfs *fs, struct glfs_object *parent, const char *path,
                  mode_t mode, struct stat *stat)
@@ -1074,8 +1063,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_mkdir, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_mknod, 3.4.2)
 struct glfs_object *
 pub_glfs_h_mknod(struct glfs *fs, struct glfs_object *parent, const char *path,
                  mode_t mode, dev_t dev, struct stat *stat)
@@ -1172,8 +1160,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_mknod, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_unlink, 3.4.2)
 int
 pub_glfs_h_unlink(struct glfs *fs, struct glfs_object *parent, const char *path)
 {
@@ -1244,8 +1231,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_unlink, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_opendir, 3.4.2)
 struct glfs_fd *
 pub_glfs_h_opendir(struct glfs *fs, struct glfs_object *object)
 {
@@ -1327,8 +1313,7 @@ invalid_fs:
     return glfd;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_opendir, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_access, 3.6.0)
 int
 pub_glfs_h_access(struct glfs *fs, struct glfs_object *object, int mask)
 {
@@ -1385,8 +1370,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_access, 3.6.0);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_extract_handle, 3.4.2)
 ssize_t
 pub_glfs_h_extract_handle(struct glfs_object *object, unsigned char *handle,
                           int len)
@@ -1417,8 +1401,7 @@ out:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_extract_handle, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_create_from_handle, 3.4.2)
 struct glfs_object *
 pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
                               struct stat *stat)
@@ -1541,8 +1524,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_create_from_handle, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_close, 3.4.2)
 int
 pub_glfs_h_close(struct glfs_object *object)
 {
@@ -1555,8 +1537,7 @@ pub_glfs_h_close(struct glfs_object *object)
     return 0;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_close, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_truncate, 3.4.2)
 int
 pub_glfs_h_truncate(struct glfs *fs, struct glfs_object *object, off_t offset)
 {
@@ -1616,8 +1597,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_truncate, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_symlink, 3.4.2)
 struct glfs_object *
 pub_glfs_h_symlink(struct glfs *fs, struct glfs_object *parent,
                    const char *name, const char *data, struct stat *stat)
@@ -1716,8 +1696,7 @@ invalid_fs:
     return object;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_symlink, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_readlink, 3.4.2)
 int
 pub_glfs_h_readlink(struct glfs *fs, struct glfs_object *object, char *buf,
                     size_t bufsiz)
@@ -1782,8 +1761,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_readlink, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_link, 3.4.2)
 int
 pub_glfs_h_link(struct glfs *fs, struct glfs_object *linksrc,
                 struct glfs_object *parent, const char *name)
@@ -1880,8 +1858,7 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_link, 3.4.2);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2)
 int
 pub_glfs_h_rename(struct glfs *fs, struct glfs_object *olddir,
                   const char *oldname, struct glfs_object *newdir,
@@ -1990,8 +1967,6 @@ out:
 invalid_fs:
     return ret;
 }
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 
 /*
  * Given a handle/gfid, find if the corresponding inode is present in
@@ -2200,6 +2175,7 @@ glfs_release_upcall(void *ptr)
  * calling glfs_fini(..). Hence making an assumption that 'fs' & ctx structures
  * cannot be freed while in this routine.
  */
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.16)
 int
 pub_glfs_h_poll_upcall(struct glfs *fs, struct glfs_upcall **up_arg)
 {
@@ -2317,8 +2293,6 @@ err:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.16);
-
 static gf_boolean_t log_upcall370 = _gf_true; /* log once */
 
 /* The old glfs_h_poll_upcall interface requires intimate knowledge of the
@@ -2332,6 +2306,7 @@ static gf_boolean_t log_upcall370 = _gf_true; /* log once */
  *
  * WARNING: this function will be removed in the future.
  */
+GFAPI_SYMVER_PUBLIC(glfs_h_poll_upcall370, glfs_h_poll_upcall, 3.7.0)
 int
 pub_glfs_h_poll_upcall370(struct glfs *fs, struct glfs_callback_arg *up_arg)
 {
@@ -2399,12 +2374,11 @@ out:
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC(glfs_h_poll_upcall370, glfs_h_poll_upcall, 3.7.0);
-
 #ifdef HAVE_ACL_LIBACL_H
 #include <glusterfs/glusterfs-acl.h>
 #include <acl/libacl.h>
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_set, 3.7.0)
 int
 pub_glfs_h_acl_set(struct glfs *fs, struct glfs_object *object,
                    const acl_type_t type, const acl_t acl)
@@ -2453,6 +2427,7 @@ invalid_fs:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_get, 3.7.0)
 acl_t
 pub_glfs_h_acl_get(struct glfs *fs, struct glfs_object *object,
                    const acl_type_t type)
@@ -2507,6 +2482,7 @@ invalid_fs:
     return acl;
 }
 #else /* !HAVE_ACL_LIBACL_H */
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_get, 3.7.0)
 acl_t
 pub_glfs_h_acl_get(struct glfs *fs, struct glfs_object *object,
                    const acl_type_t type)
@@ -2515,6 +2491,7 @@ pub_glfs_h_acl_get(struct glfs *fs, struct glfs_object *object,
     return NULL;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_set, 3.7.0)
 int
 pub_glfs_h_acl_set(struct glfs *fs, struct glfs_object *object,
                    const acl_type_t type, const acl_t acl)
@@ -2523,10 +2500,9 @@ pub_glfs_h_acl_set(struct glfs *fs, struct glfs_object *object,
     return -1;
 }
 #endif
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_set, 3.7.0);
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_get, 3.7.0);
 
 /* The API to perform read using anonymous fd */
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_read, 3.7.0)
 ssize_t
 pub_glfs_h_anonymous_read(struct glfs *fs, struct glfs_object *object,
                           const void *buf, size_t count, off_t offset)
@@ -2550,9 +2526,8 @@ pub_glfs_h_anonymous_read(struct glfs *fs, struct glfs_object *object,
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_read, 3.7.0);
-
 /* The API to perform write using anonymous fd */
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_write, 3.7.0)
 ssize_t
 pub_glfs_h_anonymous_write(struct glfs *fs, struct glfs_object *object,
                            const void *buf, size_t count, off_t offset)
@@ -2576,8 +2551,7 @@ pub_glfs_h_anonymous_write(struct glfs *fs, struct glfs_object *object,
     return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_write, 3.7.0);
-
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_object_copy, 3.11.0)
 struct glfs_object *
 pub_glfs_object_copy(struct glfs_object *src)
 {
@@ -2599,8 +2573,8 @@ pub_glfs_object_copy(struct glfs_object *src)
 out:
     return object;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_object_copy, 3.11.0);
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_object, 3.11.0)
 struct glfs_object *
 pub_glfs_xreaddirplus_get_object(struct glfs_xreaddirp_stat *xstat)
 {
@@ -2616,8 +2590,8 @@ pub_glfs_xreaddirplus_get_object(struct glfs_xreaddirp_stat *xstat)
 out:
     return NULL;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_object, 3.11.0);
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lease, 4.0.0)
 int
 pub_glfs_h_lease(struct glfs *fs, struct glfs_object *object,
                  struct glfs_lease *lease)
@@ -2679,5 +2653,3 @@ out:
 invalid_fs:
     return ret;
 }
-
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lease, 4.0.0);

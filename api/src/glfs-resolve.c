@@ -162,6 +162,7 @@ __glfs_refresh_inode(struct glfs *fs, xlator_t *subvol, inode_t *inode,
     return newinode;
 }
 
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_loc_touchup, 3.4.0)
 int
 priv_glfs_loc_touchup(loc_t *loc)
 {
@@ -175,8 +176,6 @@ priv_glfs_loc_touchup(loc_t *loc)
 
     return ret;
 }
-
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_loc_touchup, 3.4.0);
 
 int
 glfs_resolve_symlink(struct glfs *fs, xlator_t *subvol, inode_t *inode,
@@ -467,6 +466,7 @@ out:
     return inode;
 }
 
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_resolve_at, 3.4.0)
 int
 priv_glfs_resolve_at(struct glfs *fs, xlator_t *subvol, inode_t *at,
                      const char *origpath, loc_t *loc, struct iatt *iatt,
@@ -617,8 +617,6 @@ invalid_fs:
     return ret;
 }
 
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_resolve_at, 3.4.0);
-
 int
 glfs_resolve_path(struct glfs *fs, xlator_t *subvol, const char *origpath,
                   loc_t *loc, struct iatt *iatt, int follow, int reval)
@@ -647,6 +645,7 @@ out:
     return ret;
 }
 
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_resolve, 3.7.0)
 int
 priv_glfs_resolve(struct glfs *fs, xlator_t *subvol, const char *origpath,
                   loc_t *loc, struct iatt *iatt, int reval)
@@ -657,7 +656,6 @@ priv_glfs_resolve(struct glfs *fs, xlator_t *subvol, const char *origpath,
 
     return ret;
 }
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_resolve, 3.7.0);
 
 int
 glfs_lresolve(struct glfs *fs, xlator_t *subvol, const char *origpath,
@@ -978,6 +976,7 @@ __glfs_active_subvol(struct glfs *fs)
     return new_subvol;
 }
 
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_subvol_done, 3.4.0)
 void
 priv_glfs_subvol_done(struct glfs *fs, xlator_t *subvol)
 {
@@ -1005,8 +1004,7 @@ priv_glfs_subvol_done(struct glfs *fs, xlator_t *subvol)
     }
 }
 
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_subvol_done, 3.4.0);
-
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_active_subvol, 3.4.0)
 xlator_t *
 priv_glfs_active_subvol(struct glfs *fs)
 {
@@ -1033,8 +1031,6 @@ priv_glfs_active_subvol(struct glfs *fs)
 
     return subvol;
 }
-
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_active_subvol, 3.4.0);
 
 int
 __glfs_cwd_set(struct glfs *fs, inode_t *inode)
