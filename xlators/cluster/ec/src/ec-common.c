@@ -230,7 +230,7 @@ ec_child_next(ec_t *ec, ec_fop_data_t *fop, uint32_t idx)
 int32_t
 ec_heal_report(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, uintptr_t mask, uintptr_t good,
-               uintptr_t bad, dict_t *xdata)
+               uintptr_t bad, uint32_t pending, dict_t *xdata)
 {
     if (op_ret < 0) {
         gf_msg(this->name, GF_LOG_DEBUG, op_errno, EC_MSG_HEAL_FAIL,
