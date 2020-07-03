@@ -381,7 +381,7 @@ __afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
     ret = __afr_selfheal_assign_gfid(this, parent, pargfid, bname, inode,
                                      replies, gfid, locked_on, source, sources,
                                      is_gfid_absent, &gfid_idx);
-    if (ret)
+    if (ret || (gfid_idx < 0))
         return ret;
 
     ret = __afr_selfheal_name_impunge(frame, this, parent, pargfid, bname,

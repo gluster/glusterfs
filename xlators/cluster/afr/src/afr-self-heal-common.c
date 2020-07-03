@@ -140,7 +140,7 @@ heal:
         }
     }
 out:
-    if (gfid_idx && (*gfid_idx == -1) && (ret == 0)) {
+    if (gfid_idx && (*gfid_idx == -1) && (ret == 0) && local) {
         ret = -afr_final_errno(local, priv);
     }
     loc_wipe(&loc);
