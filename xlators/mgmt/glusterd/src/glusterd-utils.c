@@ -13171,7 +13171,7 @@ glusterd_get_value_for_vme_entry(struct volopt_map_entry *vme, char **def_val)
     ret = xlator_option_info_list(&vol_opt_handle, key, &local_def_val, &descr);
     if (ret) {
         /*Swallow Error if option not found*/
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GET_KEY_FAILED,
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_GET_KEY_FAILED,
                "Failed to get option for %s "
                "key",
                key);
