@@ -205,6 +205,7 @@ glusterfs_serialize_reply(rpcsvc_request_t *req, void *arg,
     retlen = xdr_serialize_generic(*outmsg, arg, xdrproc);
     if (retlen == -1) {
         gf_log(THIS->name, GF_LOG_ERROR, "Failed to encode message");
+        GF_FREE(iob);
         goto ret;
     }
 
