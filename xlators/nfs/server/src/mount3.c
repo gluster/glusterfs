@@ -4062,6 +4062,11 @@ mnt3svc_init(xlator_t *nfsx)
 
     mnt3prog.private = mstate;
     options = dict_new();
+    if (options == NULL) {
+        gf_msg(GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_GFID_DICT_CREATE_FAIL,
+               "dict allocation failed");
+        goto err;
+    }
 
     ret = gf_asprintf(&portstr, "%d", GF_MOUNTV3_PORT);
     if (ret == -1)
@@ -4097,7 +4102,6 @@ mnt3svc_init(xlator_t *nfsx)
     if (ret == -1) {
         gf_msg(GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_LISTENERS_CREATE_FAIL,
                "Unable to create listeners");
-        dict_unref(options);
         goto err;
     }
 
@@ -4162,6 +4166,11 @@ mnt1svc_init(xlator_t *nfsx)
     mnt1prog.private = mstate;
 
     options = dict_new();
+    if (options == NULL) {
+        gf_msg(GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_GFID_DICT_CREATE_FAIL,
+               "dict allocation failed");
+        goto err;
+    }
 
     ret = gf_asprintf(&portstr, "%d", GF_MOUNTV1_PORT);
     if (ret == -1)

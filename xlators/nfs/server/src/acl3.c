@@ -571,6 +571,12 @@ acl3_setacl_resume(void *carg)
     acl3_check_fh_resolve_status(cs, stat, acl3err);
     nfs_request_user_init(&nfu, cs->req);
     xattr = dict_new();
+    if (xattr == NULL) {
+        gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_GFID_DICT_CREATE_FAIL,
+               "dict allocation failed");
+        goto acl3err;
+    }
+
     if (cs->aclcount)
         ret = dict_set_static_bin(xattr, POSIX_ACL_ACCESS_XATTR, cs->aclxattr,
                                   posix_acl_xattr_size(cs->aclcount));
@@ -724,7 +730,6 @@ acl3svc_init(xlator_t *nfsx)
     struct nfs_state *nfs = NULL;
     dict_t *options = NULL;
     int ret = -1;
-    char *portstr = NULL;
     static gf_boolean_t acl3_inited = _gf_false;
 
     /* Already inited */
@@ -742,12 +747,14 @@ acl3svc_init(xlator_t *nfsx)
     acl3prog.private = ns;
 
     options = dict_new();
-
-    ret = gf_asprintf(&portstr, "%d", GF_ACL3_PORT);
-    if (ret == -1)
+    if (options == NULL) {
+        gf_msg(GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_GFID_DICT_CREATE_FAIL,
+               "dict allocation failed");
         goto err;
+    }
 
-    ret = dict_set_dynstr(options, "transport.socket.listen-port", portstr);
+    ret = dict_set_dynstr(options, "transport.socket.listen-port",
+                          GF_ACL3_PORT);
     if (ret == -1)
         goto err;
     ret = dict_set_str(options, "transport-type", "socket");
@@ -783,7 +790,6 @@ acl3svc_init(xlator_t *nfsx)
     if (ret == -1) {
         gf_msg(GF_ACL, GF_LOG_ERROR, errno, NFS_MSG_LISTENERS_CREATE_FAIL,
                "Unable to create listeners");
-        dict_unref(options);
         goto err;
     }
 

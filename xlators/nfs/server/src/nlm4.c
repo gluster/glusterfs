@@ -1054,6 +1054,12 @@ nlm4_establish_callback(nfs3_call_state_t *cs, call_frame_t *cbk_frame)
     }
 
     options = dict_new();
+    if (options == NULL) {
+        gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_GFID_DICT_CREATE_FAIL,
+               "dict allocation failed");
+        goto err;
+    }
+
     ret = dict_set_str(options, "transport-type", "socket");
     if (ret == -1) {
         gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
@@ -2592,6 +2598,11 @@ nlm4svc_init(xlator_t *nfsx)
     nlm4prog.private = ns;
 
     options = dict_new();
+    if (options == NULL) {
+        gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_GFID_DICT_CREATE_FAIL,
+               "dict allocation failed");
+        goto err;
+    }
 
     ret = gf_asprintf(&portstr, "%d", GF_NLM4_PORT);
     if (ret == -1)
@@ -2633,7 +2644,6 @@ nlm4svc_init(xlator_t *nfsx)
     if (ret == -1) {
         gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_LISTENERS_CREATE_FAIL,
                "Unable to create listeners");
-        dict_unref(options);
         goto err;
     }
     INIT_LIST_HEAD(&nlm_client_list);
