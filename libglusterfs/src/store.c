@@ -666,6 +666,8 @@ gf_store_iter_destroy(gf_store_iter_t *iter)
                iter->filepath, ret);
 
     GF_FREE(iter);
+    iter = NULL;
+
     return ret;
 }
 
