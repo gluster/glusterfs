@@ -189,6 +189,12 @@ typedef ssize_t (*cli_serialize_t)(struct iovec outmsg, void *args);
 
 extern struct cli_state *global_state; /* use only in readline callback */
 
+extern struct rpc_clnt *global_quotad_rpc;
+
+extern struct rpc_clnt *global_rpc;
+
+extern rpc_clnt_prog_t *cli_rpc_prog;
+
 typedef const char *(*cli_selector_t)(void *wcon);
 
 char *

@@ -18,10 +18,6 @@
 #include "cli-mem-types.h"
 #include "protocol-common.h"
 
-extern struct rpc_clnt *global_rpc;
-
-extern rpc_clnt_prog_t *cli_rpc_prog;
-
 extern struct cli_cmd volume_cmds[];
 extern struct cli_cmd bitrot_cmds[];
 extern struct cli_cmd quota_cmds[];

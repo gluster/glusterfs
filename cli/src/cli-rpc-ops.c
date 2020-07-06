@@ -47,9 +47,7 @@
 
 enum gf_task_types { GF_TASK_TYPE_REBALANCE, GF_TASK_TYPE_REMOVE_BRICK };
 
-extern struct rpc_clnt *global_quotad_rpc;
 rpc_clnt_prog_t cli_quotad_clnt;
-extern rpc_clnt_prog_t *cli_rpc_prog;
 
 static int32_t
 gf_cli_remove_brick(call_frame_t *frame, xlator_t *this, void *data);

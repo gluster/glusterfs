@@ -10,9 +10,6 @@
 
 #include "cli-quotad-client.h"
 
-extern struct rpc_clnt global_quotad_rpc;
-extern struct rpc_clnt_program cli_quotad_clnt;
-
 int
 cli_quotad_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
                           int procnum, struct iobref *iobref, xlator_t *this,
@@ -60,7 +57,7 @@ cli_quotad_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
     }
 
     /* Send the msg */
-    ret = rpc_clnt_submit(&global_quotad_rpc, prog, procnum, cbkfn, &iov, count,
+    ret = rpc_clnt_submit(global_quotad_rpc, prog, procnum, cbkfn, &iov, count,
                           NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
     ret = 0;
 

@@ -28,10 +28,6 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/events.h>
 
-extern struct rpc_clnt *global_rpc;
-extern struct rpc_clnt *global_quotad_rpc;
-
-extern rpc_clnt_prog_t *cli_rpc_prog;
 extern rpc_clnt_prog_t cli_quotad_clnt;
 
 static int

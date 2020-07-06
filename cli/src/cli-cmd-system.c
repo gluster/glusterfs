@@ -18,10 +18,6 @@
 #include "cli-mem-types.h"
 #include "protocol-common.h"
 
-extern struct rpc_clnt *global_rpc;
-
-extern rpc_clnt_prog_t *cli_rpc_prog;
-
 int
 cli_cmd_system_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
                         const char **words, int wordcount);
