@@ -71,6 +71,7 @@ const char *argp_program_version =
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
 struct rpc_clnt *global_quotad_rpc;
+
 struct rpc_clnt *global_rpc;
 
 rpc_clnt_prog_t *cli_rpc_prog;

@@ -17,8 +17,6 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-extern rpc_clnt_prog_t *cli_rpc_prog;
-
 int
 cli_cmd_snapshot_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
                           const char **words, int wordcount);
