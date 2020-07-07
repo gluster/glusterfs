@@ -67,7 +67,8 @@ afr_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-afr_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
+afr_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+            dict_t *xdata)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
