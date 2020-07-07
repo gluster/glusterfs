@@ -230,7 +230,11 @@ def get_changelog_rollover_time(volumename):
 
     try:
         tree = etree.fromstring(out)
-        return int(tree.find('volGetopts/Opt/Value').text)
+        val = tree.find('volGetopts/Opt/Value').text
+        if val is not None:
+            # Filter the value by split, as it may be 'X (DEFAULT)'
+            # and we only need 'X'
+            return int(val.split(' ', 1)[0])
     except ParseError:
         return DEFAULT_CHANGELOG_INTERVAL
 
