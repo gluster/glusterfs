@@ -67,7 +67,7 @@ extern struct rpcsvc_program gd_svc_cli_trusted_progs;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
-extern char snap_mount_dir[PATH_MAX];
+extern char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
     .progname = "Gluster Callback",
