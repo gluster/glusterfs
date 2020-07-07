@@ -13328,7 +13328,9 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
                 gf_asprintf(&def_val, "%d", priv->op_version);
                 need_free = _gf_true;
             } else {
-                def_val = valid_all_vol_opts[i].dflt_val;
+                gf_asprintf(&def_val, "%s (DEFAULT)",
+                            valid_all_vol_opts[i].dflt_val);
+                need_free = _gf_true;
             }
         }
 
@@ -13414,6 +13416,7 @@ glusterd_get_default_val_for_volopt(dict_t *ctx, gf_boolean_t all_opts,
     int count = 0;
     xlator_t *this = NULL;
     char *def_val = NULL;
+    char *def_val_str = NULL;
     char dict_key[50] = "";
     int keylen;
     gf_boolean_t key_found = _gf_false;
@@ -13474,7 +13477,13 @@ glusterd_get_default_val_for_volopt(dict_t *ctx, gf_boolean_t all_opts,
             goto out;
         }
         sprintf(dict_key, "value%d", count);
-        ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val);
+        if (get_value_vme) {  // the value was never changed  - DEFAULT is used
+            gf_asprintf(&def_val_str, "%s (DEFAULT)", def_val);
+            ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val_str);
+            GF_FREE(def_val_str);
+            def_val_str = NULL;
+        } else
+            ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to "
