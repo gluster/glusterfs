@@ -189,6 +189,12 @@ enum _gf_xlator_ipc_targets {
 typedef enum _gf_special_pid gf_special_pid_t;
 typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
 
+/* Array to hold custom xattr keys */
+extern char *xattrs_to_heal[];
+
+char **
+get_xattrs_to_heal();
+
 /* The DHT file rename operation is not a straightforward rename.
  * It involves creating linkto and linkfiles, and can unlink or rename the
  * source file depending on the hashed and cached subvols for the source

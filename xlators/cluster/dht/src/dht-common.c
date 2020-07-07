@@ -17,6 +17,7 @@
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
+#include <glusterfs/common-utils.h>
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -42,15 +43,6 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int
 dht_rmdir_unlock(call_frame_t *frame, xlator_t *this);
-
-char *xattrs_to_heal[] = {"user.",
-                          POSIX_ACL_ACCESS_XATTR,
-                          POSIX_ACL_DEFAULT_XATTR,
-                          QUOTA_LIMIT_KEY,
-                          QUOTA_LIMIT_OBJECTS_KEY,
-                          GF_SELINUX_XATTR_KEY,
-                          GF_XATTR_MDATA_KEY,
-                          NULL};
 
 static const char *dht_dbg_vxattrs[] = {DHT_DBG_HASHED_SUBVOL_PATTERN, NULL};
 
@@ -84,6 +76,8 @@ dht_set_fixed_dir_stat(struct iatt *stat)
 static gf_boolean_t
 dht_match_xattr(const char *key)
 {
+    char **xattrs_to_heal = get_xattrs_to_heal();
+
     return gf_get_index_by_elem(xattrs_to_heal, (char *)key) >= 0;
 }
 
@@ -5460,11 +5454,13 @@ dht_dir_common_set_remove_xattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     int call_cnt = 0;
     dht_local_t *local = NULL;
     char gfid_local[GF_UUID_BUF_SIZE] = {0};
+    char **xattrs_to_heal;
 
     conf = this->private;
     local = frame->local;
     call_cnt = conf->subvolume_cnt;
     local->flags = flags;
+    xattrs_to_heal = get_xattrs_to_heal();
 
     if (!gf_uuid_is_null(local->gfid)) {
         gf_uuid_unparse(local->gfid, gfid_local);

@@ -53,6 +53,7 @@
 #include "xxhash.h"
 #include <ifaddrs.h>
 #include "glusterfs/libglusterfs-messages.h"
+#include "glusterfs/glusterfs-acl.h"
 #ifdef __FreeBSD__
 #include <pthread_np.h>
 #undef BIT_SET
@@ -77,6 +78,15 @@ char *vol_type_str[] = {
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
+
+char *xattrs_to_heal[] = {"user.",
+                          POSIX_ACL_ACCESS_XATTR,
+                          POSIX_ACL_DEFAULT_XATTR,
+                          QUOTA_LIMIT_KEY,
+                          QUOTA_LIMIT_OBJECTS_KEY,
+                          GF_SELINUX_XATTR_KEY,
+                          GF_XATTR_MDATA_KEY,
+                          NULL};
 
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
@@ -5430,4 +5440,10 @@ gf_syncfs(int fd)
     sync();
 #endif
     return ret;
+}
+
+char **
+get_xattrs_to_heal()
+{
+    return xattrs_to_heal;
 }
