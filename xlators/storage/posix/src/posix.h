@@ -668,4 +668,7 @@ posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xdata);
 gf_boolean_t
 posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this);
 
+int
+posix_delete_user_xattr(dict_t *dict, char *k, data_t *v, void *data);
+
 #endif /* _POSIX_H */

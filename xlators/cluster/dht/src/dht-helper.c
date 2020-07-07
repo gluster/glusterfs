@@ -2267,6 +2267,7 @@ dht_dir_set_heal_xattr(xlator_t *this, dht_local_t *local, dict_t *dst,
     int luret = -1;
     int luflag = -1;
     int i = 0;
+    char **xattrs_to_heal;
 
     if (!src || !dst) {
         gf_smsg(this->name, GF_LOG_WARNING, EINVAL, DHT_MSG_DST_NULL_SET_FAILED,
@@ -2281,6 +2282,9 @@ dht_dir_set_heal_xattr(xlator_t *this, dht_local_t *local, dict_t *dst,
        and set it to dst dict, here index start from 1 because
        user xattr already checked in previous statement
     */
+
+    xattrs_to_heal = get_xattrs_to_heal();
+
     for (i = 1; xattrs_to_heal[i]; i++) {
         keyval = dict_get(src, xattrs_to_heal[i]);
         if (keyval) {

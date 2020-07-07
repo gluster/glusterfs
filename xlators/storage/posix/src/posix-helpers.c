@@ -3555,3 +3555,22 @@ out:
 
     return is_stale;
 }
+
+/* Delete user xattr from the file at the file-path specified by data and from
+ * dict */
+int
+posix_delete_user_xattr(dict_t *dict, char *k, data_t *v, void *data)
+{
+    int ret;
+    char *real_path = data;
+
+    ret = sys_lremovexattr(real_path, k);
+    if (ret) {
+        gf_msg("posix-helpers", GF_LOG_ERROR, P_MSG_XATTR_NOT_REMOVED, errno,
+               "removexattr failed. key %s path %s", k, real_path);
+    }
+
+    dict_del(dict, k);
+
+    return ret;
+}

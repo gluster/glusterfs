@@ -1182,3 +1182,4 @@ xlator_is_cleanup_starting
 gf_nanosleep
 gf_syncfs
 graph_total_client_xlator
+get_xattrs_to_heal

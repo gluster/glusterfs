@@ -2156,6 +2156,15 @@ dht_dir_heal_xattrs(void *data)
         if (subvol == mds_subvol)
             continue;
         if (uret || uflag) {
+            /* Custom xattr heal is required - let posix handle it */
+            ret = dict_set_int8(xdata, "sync_backend_xattrs", _gf_true);
+            if (ret) {
+                gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+                        "path=%s", local->loc.path, "key=%s",
+                        "sync_backend_xattrs", NULL);
+                goto out;
+            }
+
             ret = syncop_setxattr(subvol, &local->loc, user_xattr, 0, xdata,
                                   NULL);
             if (ret) {
@@ -2164,6 +2173,8 @@ dht_dir_heal_xattrs(void *data)
                         DHT_MSG_DIR_XATTR_HEAL_FAILED,
                         "set-user-xattr-failed path=%s", local->loc.path,
                         "subvol=%s", subvol->name, "gfid=%s", gfid, NULL);
+            } else {
+                dict_del(xdata, "sync_backend_xattrs");
             }
         }
     }

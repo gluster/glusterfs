@@ -54,6 +54,7 @@
 #include <glusterfs/events.h>
 #include "posix-gfid-path.h"
 #include <glusterfs/compat-uuid.h>
+#include <glusterfs/common-utils.h>
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -2708,6 +2709,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     int32_t ret = 0;
     ssize_t acl_size = 0;
     dict_t *xattr = NULL;
+    dict_t *subvol_xattrs = NULL;
     posix_xattr_filler_t filler = {
         0,
     };
@@ -2723,6 +2725,10 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     struct mdata_iatt mdata_iatt = {
         0,
     };
+    int8_t sync_backend_xattrs = _gf_false;
+    data_pair_t *custom_xattrs;
+    data_t *keyval = NULL;
+    char **xattrs_to_heal = get_xattrs_to_heal();
 
     DECLARE_OLD_FS_ID_VAR;
     SET_FS_ID(frame->root->uid, frame->root->gid);
@@ -2905,6 +2911,66 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         goto out;
     }
 
+    ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
+    if (ret) {
+        gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+    }
+
+    if (sync_backend_xattrs) {
+        /* List all custom xattrs */
+        subvol_xattrs = dict_new();
+        if (!subvol_xattrs)
+            goto out;
+
+        ret = dict_set_int32_sizen(xdata, "list-xattr", 1);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
+                   "Unable to set list-xattr in dict ");
+            goto out;
+        }
+
+        subvol_xattrs = posix_xattr_fill(this, real_path, loc, NULL, -1, xdata,
+                                         NULL);
+
+        /* Remove all user xattrs from the file */
+        dict_foreach_fnmatch(subvol_xattrs, "user.*", posix_delete_user_xattr,
+                             real_path);
+
+        /* Remove all custom xattrs from the file */
+        for (i = 1; xattrs_to_heal[i]; i++) {
+            keyval = dict_get(subvol_xattrs, xattrs_to_heal[i]);
+            if (keyval) {
+                ret = sys_lremovexattr(real_path, xattrs_to_heal[i]);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, P_MSG_XATTR_NOT_REMOVED,
+                           errno, "removexattr failed. key %s path %s",
+                           xattrs_to_heal[i], loc->path);
+                    goto out;
+                }
+
+                dict_del(subvol_xattrs, xattrs_to_heal[i]);
+                keyval = NULL;
+            }
+        }
+
+        /* Set custom xattrs based on info provided by DHT */
+        custom_xattrs = dict->members_list;
+
+        while (custom_xattrs != NULL) {
+            ret = sys_lsetxattr(real_path, custom_xattrs->key,
+                                custom_xattrs->value->data,
+                                custom_xattrs->value->len, flags);
+            if (ret) {
+                op_errno = errno;
+                gf_log(this->name, GF_LOG_ERROR, "setxattr failed - %s %d",
+                       custom_xattrs->key, ret);
+                goto out;
+            }
+
+            custom_xattrs = custom_xattrs->next;
+        }
+    }
+
     xattr = dict_new();
     if (!xattr)
         goto out;
@@ -3011,6 +3077,9 @@ out:
 
     if (xattr)
         dict_unref(xattr);
+
+    if (subvol_xattrs)
+        dict_unref(subvol_xattrs);
 
     return 0;
 }
