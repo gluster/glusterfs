@@ -1183,3 +1183,4 @@ mgmt_is_multiplexed_daemon
 xlator_is_cleanup_starting
 gf_nanosleep
 graph_total_client_xlator
+get_xattrs_to_heal
