@@ -512,8 +512,38 @@ function run_head_tests()
     run_tests "$htests"
 }
 
-function parse_args () {
-    args=`getopt frcbkphHno:t: "$@"`
+function show_usage ()
+{
+    cat <<EOF
+Usage: $0 <opts> [<glob>|<bzid>]...
+
+Options:
+
+-f  force
+-h  skip tests altering from HEAD
+-H  run only tests altering from HEAD
+-r  retry failed tests
+-R  do not retry failed tests
+-c  dont't exit on failure
+-b  don't skip bad tests
+-k  don't skip known bugs
+-p  don't keep logs from preceding runs
+-o  OUTPUT
+-t  TIMEOUT
+-n  skip NFS tests
+--help
+EOF
+}
+
+usage="no"
+
+function parse_args ()
+{
+    args=`getopt -u -l help frRcbkphHno:t: "$@"`
+    if ! [ $? -eq 0 ]; then
+	show_usage
+	exit 1
+    fi
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -521,6 +551,7 @@ function parse_args () {
         -h)    head="no" ;;
         -H)    head="only" ;;
         -r)    retry="yes" ;;
+        -R)    retry="no" ;;
         -c)    exit_on_failure="no" ;;
         -b)    skip_bad_tests="no" ;;
         -k)    skip_known_bugs="no" ;;
@@ -528,6 +559,7 @@ function parse_args () {
         -o)    result_output="$2"; shift;;
         -t)    run_timeout="$2"; shift;;
         -n)    nfs_tests="no";;
+        --help) usage="yes" ;;
         --)    shift; break;;
         esac
         shift
@@ -542,6 +574,10 @@ echo
 
 # Get user options
 parse_args "$@"
+if [ x"$usage" == x"yes" ]; then
+    show_usage
+    exit 0
+fi
 
 # Make sure we're running as the root user
 check_user
