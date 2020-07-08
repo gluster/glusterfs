@@ -43,18 +43,22 @@ function test_interrupt {
         # If the test helper fails (which is considered a setup error, not failure of the test
         # case itself), kill will be invoked without argument, and that will be the actual
         # error which is caught.
-        TEST "./$(dirname $0)/open_and_sleep $M0/testfile | { sleep 0.1; xargs -n1 kill -INT; }"
+        TEST "./$(dirname $0)/open_and_sleep $M0/testfile-$handlebool | { sleep 0.1; xargs -n1 kill -INT; }"
 
         TEST "grep -E '$logpattern' $log_file"
         # Basic sanity check, making sure filesystem has not crashed.
-        TEST test -f $M0/testfile
+        TEST test -f $M0/testfile-$handlebool
 }
 
 # Theoretically FLUSH might finish before INTERRUPT is handled,
-# in which case we'd get the "no handler found" message (but it's unlikely).
-test_interrupt yes 'FLUSH.*interrupt handler triggered|INTERRUPT.*no handler found'
+# in which case we'd get the "no handler found" message instead of
+# "interrupt handler triggered" (but it's unlikely).
+# If that's observed, the pattern can be changed to
+# 'FLUSH.*interrupt handler triggered|[I]NTERRUPT.*no handler found'
+# to fix the test.
+test_interrupt yes '[F]LUSH.*interrupt handler triggered'
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
-test_interrupt no 'INTERRUPT.*no handler found'
+test_interrupt no '[I]NTERRUPT.*no handler found'
 
 ## Finish up
 TEST $CLI volume stop $V0;
