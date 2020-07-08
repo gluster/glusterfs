@@ -670,6 +670,9 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
         0,
     };
 
+    this = THIS;
+    GF_ASSERT(this);
+
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -679,9 +682,6 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (cli_req.dict.dict_len) {
         /* Unserialize the dictionary */
