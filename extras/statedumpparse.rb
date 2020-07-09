@@ -17,24 +17,34 @@ end
 # client.c:client_fd_lk_ctx_dump uses a six-dash record separator.
 ARRSEP = /^(-{5,6}=-{5,6})?$/
 HEAD = /^\[(.*)\]$/
+INPUT_FORMATS = %w[statedump json]
 
 format = 'json'
+input_format = 'statedump'
 tz = '+0000'
 memstat_select,memstat_reject = //,/\Z./
-human = false
 OptionParser.new do |op|
   op.banner << " [<] <STATEDUMP>"
-  op.on("-f", "--format=F", "json/yaml/memstat") { |s| format = s }
+  op.on("-f", "--format=F", "json/yaml/memstat(-[plain|human|json])") { |s| format = s }
+  op.on("--input-format=F", INPUT_FORMATS.join(?/)) { |s| input_format = s }
   op.on("--timezone=T",
         "time zone to apply to zoneless timestamps [default UTC]") { |s| tz = s }
-  op.on("--memstat-select=RX", "memstat: select memory types maxtching RX") { |s|
+  op.on("--memstat-select=RX", "memstat: select memory types matching RX") { |s|
     memstat_select = Regexp.new s
   }
-  op.on("--memstat-reject=RX", "memstat: reject memory types maxtching RX") { |s|
+  op.on("--memstat-reject=RX", "memstat: reject memory types matching RX") { |s|
     memstat_reject = Regexp.new s
   }
-  op.on("--memstat-human", "memstat: human readable") { human = true }
 end.parse!
+
+
+if format =~ /\Amemstat(?:-(.*))?/
+  memstat_type = $1 || 'plain'
+  unless %w[plain human json].include? memstat_type
+    raise "unknown memstat type #{memstat_type.dump}"
+  end
+  format = 'memstat'
+end
 
 repr, logsep = case format
 when 'yaml'
@@ -50,8 +60,11 @@ else
 end
 formatter = proc { |e| puts repr.call(e) }
 
-d1 = {}
+INPUT_FORMATS.include? input_format or raise "unkwown input format '#{input_format}'"
 
+dumpinfo = {}
+
+# parse a statedump entry
 elem_cbk = proc { |s,&cbk|
   arraylike = false
   s.grep(/\S/).empty? and next
@@ -74,15 +87,8 @@ elem_cbk = proc { |s,&cbk|
     body.reject(&:empty?).map { |e|
       ea = e.map { |l|
         k,v = l.split("=",2)
-        [k, begin
-           Integer v
-         rescue ArgumentError
-           begin
-             Float v
-           rescue ArgumentError
-             v
-           end
-         end]
+        m = /\A(0|-?[1-9]\d*)(\.\d+)?\Z/.match v
+        [k, m ? (m[2] ? Float(v) : Integer(v)) : v]
       }
       begin
         ea.to_h
@@ -93,83 +99,110 @@ elem_cbk = proc { |s,&cbk|
   }
 
   if body
-    cbk.call [head, arraylike ? body : body[0]]
+    cbk.call [head, arraylike ? body : (body.empty? ? {} : body[0])]
   else
     STDERR.puts ["WARNING: failed to parse record:", repr.call(s)].join(logsep)
   end
 }
 
+# aggregator routine
 aggr = case format
 when 'memstat'
-  mh = {}
+  meminfo = {}
+  # commit memory-related entries to meminfo
   proc { |k,r|
     case k
     when /memusage/
-      (mh["GF_MALLOC"]||={})[k] ||= r["size"] if k =~ memstat_select and k !~ memstat_reject
+      (meminfo["GF_MALLOC"]||={})[k] ||= r["size"] if k =~ memstat_select and k !~ memstat_reject
     when "mempool"
       r.each {|e|
         kk = "mempool:#{e['pool-name']}"
-        (mh["mempool"]||={})[kk] ||= e["size"] if kk =~ memstat_select and kk !~ memstat_reject
+        (meminfo["mempool"]||={})[kk] ||= e["size"] if kk =~ memstat_select and kk !~ memstat_reject
       }
     end
   }
 else
+  # just format data, don't actually aggregate anything
   proc { |pair| formatter.call pair }
 end
 
-acc = []
-$<.each { |l|
-  l = l.strip
-  if l =~ /^(DUMP-(?:START|END)-TIME):\s+(.*)/
-    d1["_meta"]||={}
-    (d1["_meta"]["date"]||={})[$1] = Time.parse([$2, tz].join " ")
-    next
-  end
+# processing the data
+case input_format
+when 'statedump'
+  acc = []
+  $<.each { |l|
+    l = l.strip
+    if l =~ /^(DUMP-(?:START|END)-TIME):\s+(.*)/
+      dumpinfo["_meta"]||={}
+      (dumpinfo["_meta"]["date"]||={})[$1] = Time.parse([$2, tz].join " ")
+      next
+    end
 
-  if l =~ HEAD
-    elem_cbk.call(acc, &aggr)
-    acc = [l]
-    next
-  end
+    if l =~ HEAD
+      elem_cbk.call(acc, &aggr)
+      acc = [l]
+      next
+    end
 
-  acc << l
-}
-elem_cbk.call(acc, &aggr)
+    acc << l
+  }
+  elem_cbk.call(acc, &aggr)
+when 'json'
+  $<.each { |l|
+    r = JSON.load l
+    case r
+    when Array
+      aggr[r]
+    when Hash
+      dumpinfo.merge! r
+    end
+  }
+end
 
+# final actions: output aggregated data
 case format
 when 'memstat'
-  hr = proc { |n|
-    qa = %w[B kB MB GB]
-    q = ((1...qa.size).find {|i| n < (1 << i*10)} || qa.size) - 1
-    [n*100 / (1 << q*10) / 100.0,  qa[q]].join
-  }
-
-  ma = mh.values.map(&:to_a).inject(:+)
-  totals = mh.map { |coll,h| [coll, h.values.inject(:+)] }.to_h
+  ma = meminfo.values.map(&:to_a).inject(:+)
+  totals = meminfo.map { |coll,h| [coll, h.values.inject(:+)] }.to_h
   tt = ma.transpose[1].inject(:+)
 
-  templ = "%{val} %{key}"
-  tft = proc { |t| t }
-  nft = if human
-    nw = [ma.transpose[1], totals.values, tt].flatten.map{|n| hr[n].size}.max
-    proc { |n|
-      hn = hr[n]
-      " " * (nw - hn.size) + hn
+  summary_sep,showm = case memstat_type
+  when 'json'
+    ["", proc { |k,v| puts({type: k, value: v}.to_json) }]
+  when 'plain', 'human'
+    # human-friendly number representation
+    hr = proc { |n|
+      qa = %w[B kB MB GB]
+      q = ((1...qa.size).find {|i| n < (1 << i*10)} || qa.size) - 1
+      "%.2f%s" % [n.to_f / (1 << q*10), qa[q]]
     }
+
+    templ = "%{val} %{key}"
+    tft = proc { |t| t }
+    nft = if memstat_type == 'human'
+      nw = [ma.transpose[1], totals.values, tt].flatten.map{|n| hr[n].size}.max
+      proc { |n|
+        hn = hr[n]
+        " " * (nw - hn.size) + hn
+      }
+    else
+      nw = tt.to_s.size
+      proc { |n| "%#{nw}d" % n }
+    end
+    ## Alternative template, key first:
+    # templ = "%{key} %{val}"
+    # tw = ma.transpose[0].map(&:size).max
+    # tft = proc { |t| t + " " * [tw - t.size, 0].max }
+    # nft = (memstat_type == 'human') ? hr : proc { |n| n }
+    ["\n", proc { |k,v| puts templ % {key: tft[k], val: nft[v]} }]
   else
-    nw = tt.to_s.size
-    proc { |n| "%#{nw}d" % n }
+    raise 'this should be impossible'
   end
-  # templ = "%{key} %{val}"
-  # tw = ma.transpose[0].map(&:size).max
-  # tft = proc { |t| t + " " * [tw - t.size, 0].max }
-  # nft = human ? hr : proc { |n| n }
-  showm = proc { |k,v| puts templ % {key: tft[k], val: nft[v]} }
 
   ma.sort_by { |k,v| v }.each(&showm)
-  puts
+  print summary_sep
   totals.each { |coll,t| showm.call "Total #{coll}", t }
   showm.call "TOTAL", tt
 else
-  formatter.call d1
+  formatter.call dumpinfo
 end
