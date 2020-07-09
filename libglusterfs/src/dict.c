@@ -1105,59 +1105,73 @@ data_to_int64(data_t *data)
 {
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
-    return (int64_t)strtoull(data->data, NULL, 0);
+    char *endptr = NULL;
+    int64_t value = 0;
+
+    errno = 0;
+    value = strtoll(data->data, &endptr, 0);
+
+    if (endptr && *endptr != '\0')
+        /* Unrecognized characters at the end of string. */
+        errno = EINVAL;
+    if (errno) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, errno,
+                         LG_MSG_DATA_CONVERSION_ERROR,
+                         "Error in data conversion: '%s' can't "
+                         "be represented as int64_t",
+                         data->data);
+        return -1;
+    }
+    return value;
 }
+
+/* Like above but implies signed range check. */
+
+#define DATA_TO_RANGED_SIGNED(endptr, value, data, type, min, max)             \
+    do {                                                                       \
+        errno = 0;                                                             \
+        value = strtoll(data->data, &endptr, 0);                               \
+        if (endptr && *endptr != '\0')                                         \
+            errno = EINVAL;                                                    \
+        if (errno || value > max || value < min) {                             \
+            gf_msg_callingfn("dict", GF_LOG_WARNING, errno,                    \
+                             LG_MSG_DATA_CONVERSION_ERROR,                     \
+                             "Error in data conversion: '%s' can't "           \
+                             "be represented as " #type,                       \
+                             data->data);                                      \
+            return -1;                                                         \
+        }                                                                      \
+        return (type)value;                                                    \
+    } while (0)
 
 int32_t
 data_to_int32(data_t *data)
 {
-    VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
+    char *endptr = NULL;
+    int64_t value = 0;
 
-    return strtoul(data->data, NULL, 0);
+    VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
+    DATA_TO_RANGED_SIGNED(endptr, value, data, int32_t, INT_MIN, INT_MAX);
 }
 
 int16_t
 data_to_int16(data_t *data)
 {
+    char *endptr = NULL;
+    int64_t value = 0;
+
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
-
-    int16_t value = 0;
-
-    errno = 0;
-    value = strtol(data->data, NULL, 0);
-
-    if ((value > SHRT_MAX) || (value < SHRT_MIN)) {
-        errno = ERANGE;
-        gf_msg_callingfn("dict", GF_LOG_WARNING, errno,
-                         LG_MSG_DATA_CONVERSION_ERROR,
-                         "Error in data"
-                         " conversion: detected overflow");
-        return -1;
-    }
-
-    return (int16_t)value;
+    DATA_TO_RANGED_SIGNED(endptr, value, data, int16_t, SHRT_MIN, SHRT_MAX);
 }
 
 int8_t
 data_to_int8(data_t *data)
 {
+    char *endptr = NULL;
+    int64_t value = 0;
+
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
-
-    int8_t value = 0;
-
-    errno = 0;
-    value = strtol(data->data, NULL, 0);
-
-    if ((value > SCHAR_MAX) || (value < SCHAR_MIN)) {
-        errno = ERANGE;
-        gf_msg_callingfn("dict", GF_LOG_WARNING, errno,
-                         LG_MSG_DATA_CONVERSION_ERROR,
-                         "Error in data"
-                         " conversion: detected overflow");
-        return -1;
-    }
-
-    return (int8_t)value;
+    DATA_TO_RANGED_SIGNED(endptr, value, data, int8_t, CHAR_MIN, CHAR_MAX);
 }
 
 uint64_t
@@ -1165,57 +1179,72 @@ data_to_uint64(data_t *data)
 {
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
-    return strtoll(data->data, NULL, 0);
+    char *endptr = NULL;
+    uint64_t value = 0;
+
+    errno = 0;
+    value = strtoull(data->data, &endptr, 0);
+
+    if (endptr && *endptr != '\0')
+        errno = EINVAL;
+    if (errno) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, errno,
+                         LG_MSG_DATA_CONVERSION_ERROR,
+                         "Error in data conversion: '%s' can't "
+                         "be represented as uint64_t",
+                         data->data);
+        return -1;
+    }
+    return value;
 }
+
+/* Like above but implies unsigned range check. */
+
+#define DATA_TO_RANGED_UNSIGNED(endptr, value, data, type, max)                \
+    do {                                                                       \
+        errno = 0;                                                             \
+        value = strtoull(data->data, &endptr, 0);                              \
+        if (endptr && *endptr != '\0')                                         \
+            errno = EINVAL;                                                    \
+        if (errno || value > max) {                                            \
+            gf_msg_callingfn("dict", GF_LOG_WARNING, errno,                    \
+                             LG_MSG_DATA_CONVERSION_ERROR,                     \
+                             "Error in data conversion: '%s' can't "           \
+                             "be represented as " #type,                       \
+                             data->data);                                      \
+            return -1;                                                         \
+        }                                                                      \
+        return (type)value;                                                    \
+    } while (0)
 
 uint32_t
 data_to_uint32(data_t *data)
 {
-    VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
+    char *endptr = NULL;
+    uint64_t value = 0;
 
-    return strtol(data->data, NULL, 0);
+    VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
+    DATA_TO_RANGED_UNSIGNED(endptr, value, data, uint32_t, UINT_MAX);
 }
 
 uint16_t
 data_to_uint16(data_t *data)
 {
+    char *endptr = NULL;
+    uint64_t value = 0;
+
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
-
-    uint16_t value = 0;
-
-    errno = 0;
-    value = strtol(data->data, NULL, 0);
-
-    if ((USHRT_MAX - value) < 0) {
-        errno = ERANGE;
-        gf_msg_callingfn("dict", GF_LOG_WARNING, errno,
-                         LG_MSG_DATA_CONVERSION_ERROR,
-                         "Error in data conversion: "
-                         "overflow detected");
-        return -1;
-    }
-
-    return (uint16_t)value;
+    DATA_TO_RANGED_UNSIGNED(endptr, value, data, uint16_t, USHRT_MAX);
 }
 
 uint8_t
 data_to_uint8(data_t *data)
 {
+    char *endptr = NULL;
+    uint64_t value = 0;
+
     VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
-
-    errno = 0;
-    uint32_t value = strtol(data->data, NULL, 0);
-
-    if ((UCHAR_MAX - (uint8_t)value) < 0) {
-        errno = ERANGE;
-        gf_msg_callingfn("dict", GF_LOG_WARNING, errno,
-                         LG_MSG_DATA_CONVERSION_ERROR,
-                         "data "
-                         "conversion overflow detected");
-        return -1;
-    }
-
-    return (uint8_t)value;
+    DATA_TO_RANGED_UNSIGNED(endptr, value, data, uint8_t, UCHAR_MAX);
 }
 
 char *
