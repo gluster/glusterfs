@@ -894,6 +894,19 @@ class Popen(subprocess.Popen):
             self.errfail()
 
 
+def host_brick_split(value):
+    """
+    IPv6 compatible way to split and get the host
+    and brick information. Example inputs:
+    node1.example.com:/exports/bricks/brick1/brick
+    fe80::af0f:df82:844f:ef66%utun0:/exports/bricks/brick1/brick
+    """
+    parts = value.split(":")
+    brick = parts[-1]
+    hostparts = parts[0:-1]
+    return (":".join(hostparts), brick)
+
+
 class Volinfo(object):
 
     def __init__(self, vol, host='localhost', prelude=[], master=True):
@@ -936,7 +949,7 @@ class Volinfo(object):
     @memoize
     def bricks(self):
         def bparse(b):
-            host, dirp = b.find("name").text.split(':', 2)
+            host, dirp = host_brick_split(b.find("name").text)
             return {'host': host, 'dir': dirp, 'uuid': b.find("hostUuid").text}
         return [bparse(b) for b in self.get('brick')]
 
@@ -1012,6 +1025,16 @@ class VolinfoFromGconf(object):
     def is_hot(self, brickpath):
         return False
 
+    def is_uuid(self, value):
+        try:
+            uuid.UUID(value)
+            return True
+        except ValueError:
+            return False
+
+    def possible_path(self, value):
+        return "/" in value
+
     @property
     @memoize
     def bricks(self):
@@ -1025,8 +1048,22 @@ class VolinfoFromGconf(object):
         out = []
         for b in bricks_data:
             parts = b.split(":")
-            bpath = parts[2] if len(parts) == 3 else ""
-            out.append({"host": parts[1], "dir": bpath, "uuid": parts[0]})
+            b_uuid = None
+            if self.is_uuid(parts[0]):
+                b_uuid = parts[0]
+                # Set all parts except first
+                parts = parts[1:]
+
+            if self.possible_path(parts[-1]):
+                bpath = parts[-1]
+                # Set all parts except last
+                parts = parts[0:-1]
+
+            out.append({
+                "host": ":".join(parts),   # if remaining parts are IPv6 name
+                "dir": bpath,
+                "uuid": b_uuid
+            })
 
         return out
 
