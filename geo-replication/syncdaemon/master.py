@@ -27,7 +27,8 @@ from rconf import rconf
 from syncdutils import (Thread, GsyncdError, escape_space_newline,
                         unescape_space_newline, gauxpfx, escape,
                         lstat, errno_wrap, FreeObject, lf, matching_disk_gfid,
-                        NoStimeAvailable, PartialHistoryAvailable)
+                        NoStimeAvailable, PartialHistoryAvailable,
+                        host_brick_split)
 
 URXTIME = (-1, 0)
 
@@ -1466,7 +1467,7 @@ class GMasterChangelogMixin(GMasterCommon):
         node = rconf.args.resource_remote
         node_data = node.split("@")
         node = node_data[-1]
-        remote_node_ip = node.split(":")[0]
+        remote_node_ip, _ = host_brick_split(node)
         self.status.set_slave_node(remote_node_ip)
 
     def changelogs_batch_process(self, changes):
