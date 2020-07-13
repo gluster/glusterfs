@@ -4856,7 +4856,14 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
 
         gf_log("cli", GF_LOG_INFO, "%s", errmsg);
         cli_out("%s", errmsg);
-        ret = -1;
+
+        /*
+         * The status query for geo-rep returns
+         * command failure if the return value isn't 0
+         * even though the status command gives a valid
+         * response stating no active session.
+         */
+        ret = 0;
         goto out;
     }
 
