@@ -168,7 +168,8 @@ reconfigure(xlator_t *this, dict_t *options)
                      bool, out);
 
     GF_OPTION_RECONF("data-self-heal", data_self_heal, options, str, out);
-    gf_string2boolean(data_self_heal, &priv->data_self_heal);
+    if (gf_string2boolean(data_self_heal, &priv->data_self_heal) == -1)
+        goto out;
 
     GF_OPTION_RECONF("entry-self-heal", priv->entry_self_heal, options, bool,
                      out);
@@ -485,7 +486,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("heal-wait-queue-length", priv->heal_wait_qlen, uint32, out);
 
     GF_OPTION_INIT("data-self-heal", data_self_heal, str, out);
-    gf_string2boolean(data_self_heal, &priv->data_self_heal);
+    if (gf_string2boolean(data_self_heal, &priv->data_self_heal) == -1)
+        goto out;
 
     GF_OPTION_INIT("data-self-heal-algorithm", data_self_heal_algorithm, str,
                    out);
