@@ -4737,12 +4737,10 @@ fuse_setlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state = NULL;
     int ret = 0;
 
-    ret = fuse_interrupt_finish_fop(frame, this, _gf_false, (void **)&state);
-    if (state) {
-        GF_FREE(state->name);
-        dict_unref(state->xdata);
-        GF_FREE(state);
-    }
+    ret = fuse_interrupt_finish_fop(frame, this, _gf_true, (void **)&state);
+    GF_FREE(state->name);
+    dict_unref(state->xdata);
+    GF_FREE(state);
     if (ret) {
         return 0;
     }
@@ -4799,17 +4797,10 @@ fuse_setlk_interrupt_handler_cbk(call_frame_t *frame, void *cookie,
 {
     fuse_interrupt_state_t intstat = INTERRUPT_NONE;
     fuse_interrupt_record_t *fir = cookie;
-    fuse_state_t *state = NULL;
 
     intstat = op_ret >= 0 ? INTERRUPT_HANDLED : INTERRUPT_SQUELCHED;
 
-    fuse_interrupt_finish_interrupt(this, fir, intstat, _gf_false,
-                                    (void **)&state);
-    if (state) {
-        GF_FREE(state->name);
-        dict_unref(state->xdata);
-        GF_FREE(state);
-    }
+    fuse_interrupt_finish_interrupt(this, fir, intstat, _gf_true, NULL);
 
     STACK_DESTROY(frame->root);
 
