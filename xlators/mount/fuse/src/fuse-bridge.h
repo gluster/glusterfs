@@ -244,6 +244,7 @@ enum fuse_interrupt_state {
     INTERRUPT_NONE,
     INTERRUPT_SQUELCHED,
     INTERRUPT_HANDLED,
+    INTERRUPT_WAITING_HANDLER,
 };
 typedef enum fuse_interrupt_state fuse_interrupt_state_t;
 struct fuse_interrupt_record;

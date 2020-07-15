@@ -833,18 +833,22 @@ fuse_interrupt_finish_fop(call_frame_t *frame, xlator_t *this,
         {
             intstat_orig = fir->interrupt_state;
             if (fir->interrupt_state == INTERRUPT_NONE) {
-                fir->interrupt_state = INTERRUPT_SQUELCHED;
                 if (sync) {
-                    while (fir->interrupt_state == INTERRUPT_NONE) {
+                    fir->interrupt_state = INTERRUPT_WAITING_HANDLER;
+                    while (fir->interrupt_state != INTERRUPT_SQUELCHED) {
                         pthread_cond_wait(&fir->handler_cond,
                                           &fir->handler_mutex);
                     }
-                }
+                } else
+                    fir->interrupt_state = INTERRUPT_SQUELCHED;
             }
         }
         pthread_mutex_unlock(&fir->handler_mutex);
     }
 
+    GF_ASSERT(intstat_orig == INTERRUPT_NONE ||
+              intstat_orig == INTERRUPT_HANDLED ||
+              intstat_orig == INTERRUPT_SQUELCHED);
     gf_log("glusterfs-fuse", GF_LOG_DEBUG, "intstat_orig=%d", intstat_orig);
 
     /*
@@ -894,19 +898,29 @@ fuse_interrupt_finish_interrupt(xlator_t *this, fuse_interrupt_record_t *fir,
     };
     fuse_interrupt_state_t intstat_orig = INTERRUPT_NONE;
 
+    GF_ASSERT(intstat == INTERRUPT_HANDLED || intstat == INTERRUPT_SQUELCHED);
+
     pthread_mutex_lock(&fir->handler_mutex);
     {
         intstat_orig = fir->interrupt_state;
-        if (fir->interrupt_state == INTERRUPT_NONE) {
-            fir->interrupt_state = intstat;
-            if (sync) {
+        switch (intstat_orig) {
+            case INTERRUPT_NONE:
+                fir->interrupt_state = intstat;
+                break;
+            case INTERRUPT_WAITING_HANDLER:
+                fir->interrupt_state = INTERRUPT_SQUELCHED;
                 pthread_cond_signal(&fir->handler_cond);
-            }
+                break;
+            default:
+                break;
         }
         finh = fir->fuse_in_header;
     }
     pthread_mutex_unlock(&fir->handler_mutex);
 
+    GF_ASSERT(intstat_orig == INTERRUPT_NONE ||
+              (sync && intstat_orig == INTERRUPT_WAITING_HANDLER) ||
+              (!sync && intstat_orig == INTERRUPT_SQUELCHED));
     gf_log("glusterfs-fuse", GF_LOG_DEBUG, "intstat_orig=%d", intstat_orig);
 
     /*
