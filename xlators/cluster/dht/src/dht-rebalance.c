@@ -2558,10 +2558,10 @@ out:
  * all hardlinks.
  */
 
-int
+gf_boolean_t
 gf_defrag_should_i_migrate(xlator_t *this, int local_subvol_index, uuid_t gfid)
 {
-    int ret = 0;
+    gf_boolean_t ret = _gf_false;
     int i = local_subvol_index;
     char *str = NULL;
     uint32_t hashval = 0;
@@ -2583,12 +2583,11 @@ gf_defrag_should_i_migrate(xlator_t *this, int local_subvol_index, uuid_t gfid)
     }
 
     str = uuid_utoa_r(gfid, buf);
-    ret = dht_hash_compute(this, 0, str, &hashval);
-    if (ret == 0) {
+    if (dht_hash_compute(this, 0, str, &hashval) == 0) {
         index = (hashval % entry->count);
         if (entry->elements[index].info == REBAL_NODEUUID_MINE) {
             /* Index matches this node's nodeuuid.*/
-            ret = 1;
+            ret = _gf_true;
             goto out;
         }
 
@@ -2601,12 +2600,12 @@ gf_defrag_should_i_migrate(xlator_t *this, int local_subvol_index, uuid_t gfid)
                 /* None of the bricks in the subvol are up.
                  * CHILD_DOWN will kill the process soon */
 
-                return 0;
+                return _gf_false;
             }
 
             if (entry->elements[index].info == REBAL_NODEUUID_MINE) {
                 /* Index matches this node's nodeuuid.*/
-                ret = 1;
+                ret = _gf_true;
                 goto out;
             }
         }
@@ -2655,6 +2654,7 @@ gf_defrag_migrate_single_file(void *opaque)
     struct iatt *iatt_ptr = NULL;
     gf_boolean_t update_skippedcount = _gf_true;
     int i = 0;
+    gf_boolean_t should_i_migrate = 0;
 
     rebal_entry = (struct dht_container *)opaque;
     if (!rebal_entry) {
@@ -2709,11 +2709,29 @@ gf_defrag_migrate_single_file(void *opaque)
         goto out;
     }
 
+    should_i_migrate = gf_defrag_should_i_migrate(
+        this, rebal_entry->local_subvol_index, entry->d_stat.ia_gfid);
+
     gf_uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
 
     gf_uuid_copy(entry_loc.pargfid, loc->gfid);
 
     ret = syncop_lookup(this, &entry_loc, &iatt, NULL, NULL, NULL);
+
+    if (!should_i_migrate) {
+        /* this node isn't supposed to migrate the file. suppressing any
+         * potential error from lookup as this file is under migration by
+         * another node */
+        if (ret) {
+            gf_msg_debug(this->name, -ret,
+                         "Ignoring lookup failure: node isn't migrating %s",
+                         entry_loc.path);
+            ret = 0;
+        }
+        gf_msg_debug(this->name, 0, "Don't migrate %s ", entry_loc.path);
+        goto out;
+    }
+
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_MIGRATE_FILE_FAILED,
                "Migrate file failed: %s lookup failed", entry_loc.path);
@@ -2731,12 +2749,6 @@ gf_defrag_migrate_single_file(void *opaque)
         }
 
         ret = 0;
-        goto out;
-    }
-
-    if (!gf_defrag_should_i_migrate(this, rebal_entry->local_subvol_index,
-                                    entry->d_stat.ia_gfid)) {
-        gf_msg_debug(this->name, 0, "Don't migrate %s ", entry_loc.path);
         goto out;
     }
 
