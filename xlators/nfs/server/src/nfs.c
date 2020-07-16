@@ -1157,7 +1157,7 @@ out:
     return ret;
 }
 
-int
+static int
 nfs_reconfigure_state(xlator_t *this, dict_t *options)
 {
     int ret = 0;
@@ -1167,8 +1167,8 @@ nfs_reconfigure_state(xlator_t *this, dict_t *options)
     gf_boolean_t optbool;
     uint32_t optuint32;
     struct nfs_state *nfs = NULL;
-    char *blacklist_keys[] = {"nfs.port", "nfs.transport-type",
-                              "nfs.mem-factor", NULL};
+    static char *options_require_restart[] = {"nfs.port", "nfs.transport-type",
+                                              "nfs.mem-factor", NULL};
 
     GF_VALIDATE_OR_GOTO(GF_NFS, this, out);
     GF_VALIDATE_OR_GOTO(GF_NFS, this->private, out);
@@ -1176,14 +1176,14 @@ nfs_reconfigure_state(xlator_t *this, dict_t *options)
 
     nfs = (struct nfs_state *)this->private;
 
-    /* Black listed options can't be reconfigured, they need
+    /* Some listed options can't be reconfigured, they need
      * NFS to be restarted. There are two cases 1. SET 2. UNSET.
      * 1. SET */
-    while (blacklist_keys[keyindx]) {
-        if (dict_get(options, blacklist_keys[keyindx])) {
+    while (options_require_restart[keyindx]) {
+        if (dict_get(options, options_require_restart[keyindx])) {
             gf_msg(GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RECONFIG_FAIL,
                    "Reconfiguring %s needs NFS restart",
-                   blacklist_keys[keyindx]);
+                   options_require_restart[keyindx]);
             goto out;
         }
         keyindx++;

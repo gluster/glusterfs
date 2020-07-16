@@ -50,8 +50,8 @@ r00t()
     return conf->super_uid;
 }
 
-int
-whitelisted_xattr(const char *key)
+static int
+allowed_xattr(const char *key)
 {
     if (!key)
         return 0;
@@ -2016,7 +2016,7 @@ int
 posix_acl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                    const char *name, dict_t *xdata)
 {
-    if (whitelisted_xattr(name))
+    if (allowed_xattr(name))
         goto green;
 
     if (acl_permits(frame, loc->inode, POSIX_ACL_READ))
@@ -2039,7 +2039,7 @@ int
 posix_acl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                     const char *name, dict_t *xdata)
 {
-    if (whitelisted_xattr(name))
+    if (allowed_xattr(name))
         goto green;
 
     if (acl_permits(frame, fd->inode, POSIX_ACL_READ))
@@ -2072,7 +2072,7 @@ posix_acl_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         goto red;
     }
 
-    if (whitelisted_xattr(name)) {
+    if (allowed_xattr(name)) {
         if (!frame_is_user(frame, ctx->uid)) {
             op_errno = EPERM;
             goto red;
