@@ -38,6 +38,13 @@ do
 done
 TEST useradd -o -M -u ${NEW_UID} -g ${NEW_GID} -G ${NEW_USER}-${NEW_GIDS} ${NEW_USER}
 
+# Linux < 3.8 exports only first 32 gids of pid to userspace
+kernel_exports_few_gids=0
+if [ "$OSTYPE" = Linux ] && \
+   su -m ${NEW_USER} -c "grep ^Groups: /proc/self/status | wc -w | xargs -I@ expr @ - 1 '<' $LAST_GID - $NEW_GID + 1" > /dev/null; then
+       kernel_exports_few_gids=1
+fi
+
 # preparation done, start the tests
 
 TEST glusterd
@@ -48,6 +55,8 @@ TEST $CLI volume set $V0 nfs.disable off
 TEST $CLI volume set ${V0} server.manage-gids off
 TEST $CLI volume start ${V0}
 
+# This is just a synchronization hack to make sure the bricks are
+# up before going on.
 EXPECT_WITHIN ${NFS_EXPORT_TIMEOUT} "1" is_nfs_export_available
 
 # mount the volume with POSIX ACL support, without --resolve-gids
@@ -69,8 +78,8 @@ TEST [ $? -eq 0 ]
 su -m ${NEW_USER} -c "touch ${M0}/first-32-gids-2/success > /dev/null"
 TEST [ $? -eq 0 ]
 
-su -m ${NEW_USER} -c "touch ${M0}/gid-64/failure > /dev/null"
-TEST [ $? -ne 0 ]
+su -m ${NEW_USER} -c "touch ${M0}/gid-64/success--if-all-gids-exported > /dev/null"
+TEST [ $? -eq $kernel_exports_few_gids ]
 
 su -m ${NEW_USER} -c "touch ${M0}/gid-120/failure > /dev/null"
 TEST [ $? -ne 0 ]
