@@ -139,8 +139,6 @@ get_fuse_state(xlator_t *this, fuse_in_header_t *finh)
     return state;
 }
 
-#define FUSE_MAX_AUX_GROUPS                                                    \
-    32 /* We can get only up to 32 aux groups from /proc */
 void
 frame_fill_groups(call_frame_t *frame)
 {
@@ -150,8 +148,6 @@ frame_fill_groups(call_frame_t *frame)
     char filename[32];
     char line[4096];
     char *ptr = NULL;
-    FILE *fp = NULL;
-    int idx = 0;
     long int id = 0;
     char *saveptr = NULL;
     char *endptr = NULL;
@@ -191,45 +187,72 @@ frame_fill_groups(call_frame_t *frame)
 
         call_stack_set_groups(frame->root, ngroups, &mygroups);
     } else {
+        FILE *fp = NULL;
+
         ret = snprintf(filename, sizeof filename, "/proc/%d/status",
                        frame->root->pid);
-        if (ret >= sizeof filename)
+        if (ret >= sizeof filename) {
+            gf_log(this->name, GF_LOG_ERROR, "procfs path exceeds buffer size");
             goto out;
+        }
 
         fp = fopen(filename, "r");
-        if (!fp)
+        if (!fp) {
+            gf_log(this->name, GF_LOG_ERROR, "failed to open %s: %s", filename,
+                   strerror(errno));
             goto out;
+        }
 
-        if (call_stack_alloc_groups(frame->root, ngroups) != 0)
-            goto out;
+        for (;;) {
+            gf_boolean_t found_groups = _gf_false;
+            int idx = 0;
 
-        while ((ptr = fgets(line, sizeof line, fp))) {
-            if (strncmp(ptr, "Groups:", 7) != 0)
-                continue;
+            if (call_stack_alloc_groups(frame->root, ngroups) != 0) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "failed to allocate gid buffer");
+                goto out;
+            }
 
+            while ((ptr = fgets(line, sizeof line, fp))) {
+                if (strncmp(ptr, "Groups:", 7) == 0) {
+                    found_groups = _gf_true;
+                    break;
+                }
+            }
+            if (!found_groups) {
+                gf_log(this->name, GF_LOG_ERROR, "cannot find gid list in %s",
+                       filename);
+                break;
+            }
             ptr = line + 8;
 
             for (ptr = strtok_r(ptr, " \t\r\n", &saveptr); ptr;
                  ptr = strtok_r(NULL, " \t\r\n", &saveptr)) {
                 errno = 0;
                 id = strtol(ptr, &endptr, 0);
-                if (errno == ERANGE)
+                if (errno == ERANGE || !endptr || *endptr) {
+                    gf_log(this->name, GF_LOG_ERROR, "failed to parse %s",
+                           filename);
                     break;
-                if (!endptr || *endptr)
-                    break;
-                frame->root->groups[idx++] = id;
-                if (idx == FUSE_MAX_AUX_GROUPS)
+                }
+                if (idx < call_stack_groups_capacity(frame->root))
+                    frame->root->groups[idx] = id;
+                idx++;
+                if (idx == GF_MAX_AUX_GROUPS)
                     break;
             }
-
-            frame->root->ngrps = idx;
-            break;
+            if (idx > call_stack_groups_capacity(frame->root)) {
+                ngroups = idx;
+                rewind(fp);
+            } else {
+                frame->root->ngrps = idx;
+                break;
+            }
         }
+    out:
+        if (fp)
+            fclose(fp);
     }
-
-out:
-    if (fp)
-        fclose(fp);
 #elif defined(GF_SOLARIS_HOST_OS)
     char filename[32];
     char scratch[128];
@@ -245,7 +268,7 @@ out:
         fp = fopen(filename, "r");
         if (fp != NULL) {
             if (fgets(scratch, sizeof scratch, fp) != NULL) {
-                ngrps = MIN(prcred->pr_ngroups, FUSE_MAX_AUX_GROUPS);
+                ngrps = MIN(prcred->pr_ngroups, GF_MAX_AUX_GROUPS);
                 if (call_stack_alloc_groups(frame->root, ngrps) != 0) {
                     fclose(fp);
                     return;

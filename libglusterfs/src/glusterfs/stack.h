@@ -429,6 +429,7 @@ call_stack_alloc_groups(call_stack_t *stack, int ngrps)
     if (ngrps <= SMALL_GROUP_COUNT) {
         stack->groups = stack->groups_small;
     } else {
+        GF_FREE(stack->groups_large);
         stack->groups_large = GF_CALLOC(ngrps, sizeof(gid_t),
                                         gf_common_mt_groups_t);
         if (!stack->groups_large)
@@ -439,6 +440,12 @@ call_stack_alloc_groups(call_stack_t *stack, int ngrps)
     stack->ngrps = ngrps;
 
     return 0;
+}
+
+static inline int
+call_stack_groups_capacity(call_stack_t *stack)
+{
+    return max(stack->ngrps, SMALL_GROUP_COUNT);
 }
 
 static inline int
