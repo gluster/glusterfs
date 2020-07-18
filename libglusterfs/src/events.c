@@ -51,13 +51,6 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
         goto out;
     }
 
-    /* Initialize UDP socket */
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        ret = EVENT_ERROR_SOCKET;
-        goto out;
-    }
-
     if (ctx) {
         volfile_server_transport = ctx->cmd_args.volfile_server_transport;
     }
@@ -66,7 +59,6 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     }
 
     /* host = NULL returns localhost */
-    host = NULL;
     if (ctx && ctx->cmd_args.volfile_server &&
         (strcmp(volfile_server_transport, "unix"))) {
         /* If it is client code then volfile_server is set
@@ -81,6 +73,23 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
 
     if ((getaddrinfo(host, TOSTRING(EVENT_PORT), &hints, &result)) != 0) {
         ret = EVENT_ERROR_RESOLVE;
+        goto out;
+    }
+
+    // iterate over the result and break when socket creation is success.
+    for (; result != NULL; result = result->ai_next) {
+        sock = socket(result->ai_family, result->ai_socktype,
+                      result->ai_protocol);
+        if (sock != -1) {
+            break;
+        }
+    }
+    /*
+     * If none of the addrinfo structures lead to a successful socket
+     * creation, socket creation has failed.
+     */
+    if (sock < 0) {
+        ret = EVENT_ERROR_SOCKET;
         goto out;
     }
 

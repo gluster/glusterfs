@@ -28,6 +28,8 @@ def get_glusterd_workdir():
     return glusterd_workdir
 
 SERVER_ADDRESS = "0.0.0.0"
+SERVER_ADDRESSv4 = "0.0.0.0"
+SERVER_ADDRESSv6 = "::1"
 DEFAULT_CONFIG_FILE = "@SYSCONF_DIR@/glusterfs/eventsconfig.json"
 CUSTOM_CONFIG_FILE_TO_SYNC = "/events/config.json"
 CUSTOM_CONFIG_FILE = get_glusterd_workdir() + CUSTOM_CONFIG_FILE_TO_SYNC
