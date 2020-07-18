@@ -13,6 +13,7 @@
 from __future__ import print_function
 import sys
 import signal
+import threading
 try:
     import socketserver
 except ImportError:
@@ -23,10 +24,17 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from eventtypes import all_events
 import handlers
 import utils
-from eventsapiconf import SERVER_ADDRESS, PID_FILE
+from eventsapiconf import SERVER_ADDRESSv4, SERVER_ADDRESSv6, PID_FILE
 from eventsapiconf import AUTO_BOOL_ATTRIBUTES, AUTO_INT_ATTRIBUTES
 from utils import logger, PidFile, PidFileLockFailed, boolify
 
+# Subclass so that specifically IPv4 packets are captured
+class UDPServerv4(socketserver.ThreadingUDPServer):
+    address_family = socket.AF_INET
+
+# Subclass so that specifically IPv6 packets are captured
+class UDPServerv6(socketserver.ThreadingUDPServer):
+    address_family = socket.AF_INET6
 
 class GlusterEventsRequestHandler(socketserver.BaseRequestHandler):
 
@@ -89,6 +97,10 @@ def signal_handler_sigusr2(sig, frame):
     utils.restart_webhook_pool()
 
 
+def UDP_server_thread(sock):
+    sock.serve_forever()
+
+
 def init_event_server():
     utils.setup_logger()
     utils.load_all()
@@ -99,15 +111,26 @@ def init_event_server():
         sys.stderr.write("Unable to get Port details from Config\n")
         sys.exit(1)
 
-    # Start the Eventing Server, UDP Server
+    # Creating the Eventing Server, UDP Server for IPv4 packets
     try:
-        server = socketserver.ThreadingUDPServer(
-            (SERVER_ADDRESS, port),
-            GlusterEventsRequestHandler)
+        serverv4 = UDPServerv4((SERVER_ADDRESSv4, port),
+                   GlusterEventsRequestHandler)
     except socket.error as e:
-        sys.stderr.write("Failed to start Eventsd: {0}\n".format(e))
+        sys.stderr.write("Failed to start Eventsd for IPv4: {0}\n".format(e))
         sys.exit(1)
-    server.serve_forever()
+    # Creating the Eventing Server, UDP Server for IPv6 packets
+    try:
+        serverv6 = UDPServerv6((SERVER_ADDRESSv6, port),
+                   GlusterEventsRequestHandler)
+    except socket.error as e:
+        sys.stderr.write("Failed to start Eventsd for IPv6: {0}\n".format(e))
+        sys.exit(1)
+    server_thread1 = threading.Thread(target=UDP_server_thread,
+                     args=(serverv4,))
+    server_thread2 = threading.Thread(target=UDP_server_thread,
+                     args=(serverv6,))
+    server_thread1.start()
+    server_thread2.start()
 
 
 def get_args():
