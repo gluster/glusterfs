@@ -6545,7 +6545,8 @@ search_brick_path_from_proc(pid_t brick_pid, char *brickpath)
         }
     }
 out:
-    sys_closedir(dirp);
+    if (dirp)
+        sys_closedir(dirp);
     return brick_path;
 }
 
