@@ -198,6 +198,19 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         goto out;
     }
 
+#ifdef __NetBSD__
+    /* Same for NetBSD's .attribute directory */
+    if (__is_root_gfid(loc->pargfid) && loc->name &&
+        (strcmp(loc->name, ".attribute") == 0)) {
+        gf_msg(this->name, GF_LOG_WARNING, EPERM, P_MSG_LOOKUP_NOT_PERMITTED,
+               "Lookup issued on .attribute,"
+               " which is not permitted");
+        op_errno = EPERM;
+        op_ret = -1;
+        goto out;
+    }
+#endif /* __NetBSD__ */
+
     op_ret = dict_get_int32_sizen(xdata, GF_GFIDLESS_LOOKUP, &gfidless);
     op_ret = -1;
     if (gf_uuid_is_null(loc->pargfid) || (loc->name == NULL)) {
@@ -649,6 +662,19 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         op_ret = -1;
         goto out;
     }
+
+#ifdef __NetBSD__
+    /* Same for NetBSD's .attribute directory */
+    if (__is_root_gfid(loc->pargfid) &&
+        (strcmp(loc->name, ".attribute") == 0)) {
+        gf_msg(this->name, GF_LOG_WARNING, EPERM, P_MSG_MKDIR_NOT_PERMITTED,
+               "mkdir issued on .attribute, which"
+               "is not permitted");
+        op_errno = EPERM;
+        op_ret = -1;
+        goto out;
+    }
+#endif
 
     priv = this->private;
     VALIDATE_OR_GOTO(priv, out);
@@ -1415,6 +1441,19 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         op_ret = -1;
         goto out;
     }
+
+#ifdef __NetBSD__
+    /* Same for NetBSD's .attribute directory */
+    if (__is_root_gfid(loc->pargfid) &&
+        (strcmp(loc->name, ".attribute") == 0)) {
+        gf_msg(this->name, GF_LOG_WARNING, EPERM, P_MSG_RMDIR_NOT_PERMITTED,
+               "rmdir issued on .attribute, which"
+               "is not permitted");
+        op_errno = EPERM;
+        op_ret = -1;
+        goto out;
+    }
+#endif
 
     priv = this->private;
 
