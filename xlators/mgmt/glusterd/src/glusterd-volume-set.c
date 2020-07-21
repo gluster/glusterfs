@@ -2486,7 +2486,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .voltype = "storage/posix",
         .op_version = GD_OP_VERSION_4_1_0,
     },
-    {.key = "storage.bd-aio", .voltype = "storage/bd", .op_version = 3},
     {.key = "config.memory-accounting",
      .voltype = "mgmt/glusterd",
      .option = "!config",
