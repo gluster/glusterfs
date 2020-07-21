@@ -184,9 +184,11 @@ xlator_volopt_dynload(char *xlator_type, void **dl_handle,
                       volume_opt_list_t *opt_list)
 {
     int ret = -1;
+    int flag = 0;
     char *name = NULL;
     void *handle = NULL;
     xlator_api_t *xlapi = NULL;
+    volume_option_t *opt = NULL;
 
     GF_VALIDATE_OR_GOTO("xlator", xlator_type, out);
 
@@ -194,8 +196,10 @@ xlator_volopt_dynload(char *xlator_type, void **dl_handle,
      * need this check */
     if (!strstr(xlator_type, "rpc-transport"))
         ret = gf_asprintf(&name, "%s/%s.so", XLATORDIR, xlator_type);
-    else
+    else {
+        flag = 1;
         ret = gf_asprintf(&name, "%s/%s.so", XLATORPARENTDIR, xlator_type);
+    }
     if (-1 == ret) {
         goto out;
     }
@@ -211,18 +215,29 @@ xlator_volopt_dynload(char *xlator_type, void **dl_handle,
         goto out;
     }
 
-    /* check new struct first, and then check this */
-    xlapi = dlsym(handle, "xlator_api");
-    if (!xlapi) {
-        gf_smsg("xlator", GF_LOG_ERROR, 0, LG_MSG_DLSYM_ERROR, "error=%s",
-                dlerror(), NULL);
-        goto out;
-    }
+    if (flag == 0) {
+        /* check new struct first, and then check this */
+        xlapi = dlsym(handle, "xlator_api");
+        if (!xlapi) {
+            gf_smsg("xlator", GF_LOG_ERROR, 0, LG_MSG_DLSYM_ERROR, "error=%s",
+                    dlerror(), NULL);
+            goto out;
+        }
 
-    opt_list->given_opt = xlapi->options;
-    if (!opt_list->given_opt) {
-        gf_smsg("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED, NULL);
-        goto out;
+        opt_list->given_opt = xlapi->options;
+        if (!opt_list->given_opt) {
+            gf_smsg("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED, NULL);
+            goto out;
+        }
+    } else {
+        opt = dlsym(handle, "options");
+        if (!opt) {
+            gf_smsg("xlator", GF_LOG_ERROR, 0, LG_MSG_DLSYM_ERROR, "error=%s",
+                    dlerror(), NULL);
+            goto out;
+        }
+
+        opt_list->given_opt = opt;
     }
 
     *dl_handle = handle;
