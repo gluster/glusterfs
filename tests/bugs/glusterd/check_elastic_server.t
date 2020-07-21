@@ -23,6 +23,9 @@ EXPECT 'Created' cluster_volinfo_field 1 $V0 'Status';
 $CLI_1 volume start $V0
 EXPECT 'Started' cluster_volinfo_field 1 $V0 'Status';
 
+#Mount invalid volume
+TEST ! glusterfs -s $H1 --volfile-id=$V0_NA $M0;
+
 #Mount FUSE
 TEST glusterfs -s $H1 --volfile-id=$V0 $M0;
 
