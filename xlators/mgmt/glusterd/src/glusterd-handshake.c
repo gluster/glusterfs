@@ -1062,10 +1062,11 @@ __server_getspec(rpcsvc_request_t *req)
     }
     RCU_READ_UNLOCK;
     if (peer_cnt) {
-        ret = dict_set_str(dict, GLUSTERD_BRICK_SERVERS, peer_hosts);
-        if (ret) {
+        op_ret = dict_set_str(dict, GLUSTERD_BRICK_SERVERS, peer_hosts);
+        if (op_ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "failed to set peer_host in dict");
+            ret = op_ret;
             goto fail;
         }
     }
