@@ -2,7 +2,7 @@ lib_LTLIBRARIES = libgfrpc.la
 
 libgfrpc_la_SOURCES = auth-unix.c rpcsvc-auth.c rpcsvc.c auth-null.c \
 	rpc-transport.c xdr-rpc.c xdr-rpcclnt.c rpc-clnt.c auth-glusterfs.c \
-	rpc-drc.c $(CONTRIBDIR)/sunrpc/xdr_sizeof.c  rpc-clnt-ping.c \
+	rpc-drc.c rpc-clnt-ping.c \
         autoscale-threads.c mgmt-pmap.c
 
 EXTRA_DIST = libgfrpc.sym
