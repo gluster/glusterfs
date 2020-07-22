@@ -698,6 +698,14 @@ if test "x$enable_fuse_client" != "xno"; then
 fi
 
 AC_SUBST(FUSE_CLIENT_SUBDIR)
+
+AC_ARG_ENABLE([fuse-notifications],
+  AS_HELP_STRING([--disable-fuse-notifications], [Disable FUSE notifications]))
+
+AS_IF([test "x$enable_fuse_notifications" != "xno"], [
+  AC_DEFINE([HAVE_FUSE_NOTIFICATIONS], [1], [Use FUSE notifications])
+])
+
 # end FUSE section
 
 
