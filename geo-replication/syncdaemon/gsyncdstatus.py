@@ -57,7 +57,7 @@ def human_time_utc(ts):
 
 def get_default_values():
     return {
-        "slave_node": DEFAULT_STATUS,
+        "subordinate_node": DEFAULT_STATUS,
         "worker_status": DEFAULT_STATUS,
         "last_synced": 0,
         "last_synced_entry": 0,
@@ -124,12 +124,12 @@ def set_monitor_status(status_file, status):
 
 
 class GeorepStatus(object):
-    def __init__(self, monitor_status_file, master_node, brick, master_node_id,
-                 master, slave, monitor_pid_file=None):
-        self.master = master
-        slv_data = slave.split("::")
-        self.slave_host = slv_data[0]
-        self.slave_volume = slv_data[1].split(":")[0]  # Remove Slave UUID
+    def __init__(self, monitor_status_file, main_node, brick, main_node_id,
+                 main, subordinate, monitor_pid_file=None):
+        self.main = main
+        slv_data = subordinate.split("::")
+        self.subordinate_host = slv_data[0]
+        self.subordinate_volume = slv_data[1].split(":")[0]  # Remove Subordinate UUID
         self.work_dir = os.path.dirname(monitor_status_file)
         self.monitor_status_file = monitor_status_file
         self.filename = os.path.join(self.work_dir,
@@ -140,19 +140,19 @@ class GeorepStatus(object):
         os.close(fd)
         fd = os.open(self.monitor_status_file, os.O_CREAT | os.O_RDWR)
         os.close(fd)
-        self.master_node = master_node
-        self.master_node_id = master_node_id
+        self.main_node = main_node
+        self.main_node_id = main_node_id
         self.brick = brick
         self.default_values = get_default_values()
         self.monitor_pid_file = monitor_pid_file
 
     def send_event(self, event_type, **kwargs):
         gf_event(event_type,
-                 master_volume=self.master,
-                 master_node=self.master_node,
-                 master_node_id=self.master_node_id,
-                 slave_host=self.slave_host,
-                 slave_volume=self.slave_volume,
+                 main_volume=self.main,
+                 main_node=self.main_node,
+                 main_node_id=self.main_node_id,
+                 subordinate_host=self.subordinate_host,
+                 subordinate_volume=self.subordinate_volume,
                  brick_path=self.brick,
                  **kwargs)
 
@@ -185,7 +185,7 @@ class GeorepStatus(object):
 
     def reset_on_worker_start(self):
         def merger(data):
-            data["slave_node"] = DEFAULT_STATUS
+            data["subordinate_node"] = DEFAULT_STATUS
             data["crawl_status"] = DEFAULT_STATUS
             data["entry"] = 0
             data["data"] = 0
@@ -252,9 +252,9 @@ class GeorepStatus(object):
             logging.info(lf("Crawl Status Change",
                             status=status))
 
-    def set_slave_node(self, slave_node):
+    def set_subordinate_node(self, subordinate_node):
         def merger(data):
-            data["slave_node"] = slave_node
+            data["subordinate_node"] = subordinate_node
             return json.dumps(data)
 
         self._update(merger)
@@ -297,7 +297,7 @@ class GeorepStatus(object):
         """
         Monitor Status --->        Created    Started  Paused      Stopped
         ----------------------------------------------------------------------
-        slave_node                 N/A        VALUE    VALUE       N/A
+        subordinate_node                 N/A        VALUE    VALUE       N/A
         status                     Created    VALUE    Paused      Stopped
         last_synced                N/A        VALUE    VALUE       VALUE
         last_synced_entry          N/A        VALUE    VALUE       VALUE
@@ -392,7 +392,7 @@ class GeorepStatus(object):
             data["checkpoint_completion_time_utc"] = DEFAULT_STATUS
 
         if data["worker_status"] not in ["Active", "Passive"]:
-            data["slave_node"] = DEFAULT_STATUS
+            data["subordinate_node"] = DEFAULT_STATUS
 
         if data.get("last_synced_utc", 0) == 0:
             data["last_synced_utc"] = DEFAULT_STATUS

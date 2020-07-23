@@ -52,16 +52,16 @@ def main():
 
     # Monitor Status File update
     p = sp.add_parser("monitor-status")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave details user@host::vol format")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate details user@host::vol format")
     p.add_argument("status", help="Update Monitor Status")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--debug", action="store_true")
 
     # Monitor
     p = sp.add_parser("monitor")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave details user@host::vol format")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate details user@host::vol format")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--pause-on-start",
                    action="store_true",
@@ -72,60 +72,60 @@ def main():
 
     # Worker
     p = sp.add_parser("worker")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave details user@host::vol format")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate details user@host::vol format")
     p.add_argument("--local-path", help="Local Brick Path")
     p.add_argument("--feedback-fd", type=int,
                    help="feedback fd between monitor and worker")
-    p.add_argument("--local-node", help="Local master node")
+    p.add_argument("--local-node", help="Local main node")
     p.add_argument("--local-node-id", help="Local Node ID")
     p.add_argument("--subvol-num", type=int, help="Subvolume number")
     p.add_argument("--is-hottier", action="store_true",
                    help="Is this brick part of hot tier")
     p.add_argument("--resource-remote",
-                   help="Remote node to connect to Slave Volume")
+                   help="Remote node to connect to Subordinate Volume")
     p.add_argument("--resource-remote-id",
-                   help="Remote node ID to connect to Slave Volume")
-    p.add_argument("--slave-id", help="Slave Volume ID")
+                   help="Remote node ID to connect to Subordinate Volume")
+    p.add_argument("--subordinate-id", help="Subordinate Volume ID")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--debug", action="store_true")
 
-    # Slave
-    p = sp.add_parser("slave")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave details user@host::vol format")
+    # Subordinate
+    p = sp.add_parser("subordinate")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate details user@host::vol format")
     p.add_argument("--session-owner")
-    p.add_argument("--master-brick",
-                   help="Master brick which is connected to the Slave")
-    p.add_argument("--master-node",
-                   help="Master node which is connected to the Slave")
-    p.add_argument("--master-node-id",
-                   help="Master node ID which is connected to the Slave")
-    p.add_argument("--local-node", help="Local Slave node")
-    p.add_argument("--local-node-id", help="Local Slave ID")
+    p.add_argument("--main-brick",
+                   help="Main brick which is connected to the Subordinate")
+    p.add_argument("--main-node",
+                   help="Main node which is connected to the Subordinate")
+    p.add_argument("--main-node-id",
+                   help="Main node ID which is connected to the Subordinate")
+    p.add_argument("--local-node", help="Local Subordinate node")
+    p.add_argument("--local-node-id", help="Local Subordinate ID")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--debug", action="store_true")
 
-    # All configurations which are configured via "slave-" options
+    # All configurations which are configured via "subordinate-" options
     # DO NOT add default values for these configurations, default values
     # will be picked from template config file
-    p.add_argument("--slave-timeout", type=int,
-                   help="Timeout to end gsyncd at Slave side")
+    p.add_argument("--subordinate-timeout", type=int,
+                   help="Timeout to end gsyncd at Subordinate side")
     p.add_argument("--use-rsync-xattrs", action="store_true")
-    p.add_argument("--slave-log-level", help="Slave Gsyncd Log level")
-    p.add_argument("--slave-gluster-log-level",
-                   help="Slave Gluster mount Log level")
-    p.add_argument("--slave-gluster-command-dir",
-                   help="Directory where Gluster binaries exist on slave")
-    p.add_argument("--slave-access-mount", action="store_true",
-                   help="Do not lazy umount the slave volume")
-    p.add_argument("--master-dist-count", type=int,
-                   help="Master Distribution count")
+    p.add_argument("--subordinate-log-level", help="Subordinate Gsyncd Log level")
+    p.add_argument("--subordinate-gluster-log-level",
+                   help="Subordinate Gluster mount Log level")
+    p.add_argument("--subordinate-gluster-command-dir",
+                   help="Directory where Gluster binaries exist on subordinate")
+    p.add_argument("--subordinate-access-mount", action="store_true",
+                   help="Do not lazy umount the subordinate volume")
+    p.add_argument("--main-dist-count", type=int,
+                   help="Main Distribution count")
 
     # Status
     p = sp.add_parser("status")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--local-path", help="Local Brick Path")
     p.add_argument("--debug", action="store_true")
@@ -139,8 +139,8 @@ def main():
 
     # Config-get
     p = sp.add_parser("config-get")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate")
     p.add_argument("--name", help="Config Name")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--debug", action="store_true")
@@ -151,8 +151,8 @@ def main():
 
     # Config-set
     p = sp.add_parser("config-set")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate")
     p.add_argument("-n", "--name", help="Config Name")
     p.add_argument("-v", "--value", help="Config Value")
     p.add_argument("-c", "--config-file", help="Config File")
@@ -160,8 +160,8 @@ def main():
 
     # Config-reset
     p = sp.add_parser("config-reset")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate")
     p.add_argument("name", help="Config Name")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--debug", action="store_true")
@@ -174,8 +174,8 @@ def main():
 
     # Delete
     p = sp.add_parser("delete")
-    p.add_argument("master", help="Master Volume Name")
-    p.add_argument("slave", help="Slave")
+    p.add_argument("main", help="Main Volume Name")
+    p.add_argument("subordinate", help="Subordinate")
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument('--path', dest='paths', action="append")
     p.add_argument("--reset-sync-time", action="store_true",
@@ -189,25 +189,25 @@ def main():
     # variables, use this for adding extra variables
     extra_tmpl_args = {}
 
-    # Add First/Primary Slave host, user and volume
-    if getattr(args, "slave", None) is not None:
-        hostdata, slavevol = args.slave.split("::")
+    # Add First/Primary Subordinate host, user and volume
+    if getattr(args, "subordinate", None) is not None:
+        hostdata, subordinatevol = args.subordinate.split("::")
         hostdata = hostdata.split("@")
-        slavehost = hostdata[-1]
-        slaveuser = "root"
+        subordinatehost = hostdata[-1]
+        subordinateuser = "root"
         if len(hostdata) == 2:
-            slaveuser = hostdata[0]
-        extra_tmpl_args["primary_slave_host"] = slavehost
-        extra_tmpl_args["slaveuser"] = slaveuser
-        extra_tmpl_args["slavevol"] = slavevol
+            subordinateuser = hostdata[0]
+        extra_tmpl_args["primary_subordinate_host"] = subordinatehost
+        extra_tmpl_args["subordinateuser"] = subordinateuser
+        extra_tmpl_args["subordinatevol"] = subordinatevol
 
     # Add Bricks encoded path
     if getattr(args, "local_path", None) is not None:
         extra_tmpl_args["local_id"] = escape(args.local_path)
 
-    # Add Master Bricks encoded path(For Slave)
-    if getattr(args, "master_brick", None) is not None:
-        extra_tmpl_args["master_brick_id"] = escape(args.master_brick)
+    # Add Main Bricks encoded path(For Subordinate)
+    if getattr(args, "main_brick", None) is not None:
+        extra_tmpl_args["main_brick_id"] = escape(args.main_brick)
 
     # Load configurations
     config_file = getattr(args, "config_file", None)
@@ -215,14 +215,14 @@ def main():
     # Subcmd accepts config file argument but not passed
     # Set default path for config file in that case
     # If an subcmd accepts config file then it also accepts
-    # master and Slave arguments.
+    # main and Subordinate arguments.
     if config_file is None and hasattr(args, "config_file") \
-        and args.subcmd != "slave":
+        and args.subcmd != "subordinate":
         config_file = "%s/geo-replication/%s_%s_%s/gsyncd.conf" % (
             GLUSTERD_WORKDIR,
-            args.master,
-            extra_tmpl_args["primary_slave_host"],
-            extra_tmpl_args["slavevol"])
+            args.main,
+            extra_tmpl_args["primary_subordinate_host"],
+            extra_tmpl_args["subordinatevol"])
 
     # If Config file path not exists, log error and continue using default conf
     config_file_error_msg = None
@@ -236,14 +236,14 @@ def main():
 
     rconf.config_file = config_file
 
-    # Override gconf values from argument values only if it is slave gsyncd
+    # Override gconf values from argument values only if it is subordinate gsyncd
     override_from_args = False
-    if args.subcmd == "slave":
+    if args.subcmd == "subordinate":
         override_from_args = True
 
     if config_file is not None and \
        args.subcmd in ["monitor", "config-get", "config-set", "config-reset"]:
-        ret = gconf.is_config_file_old(config_file, args.master, extra_tmpl_args["slavevol"])
+        ret = gconf.is_config_file_old(config_file, args.main, extra_tmpl_args["subordinatevol"])
         if ret is not None:
            gconf.config_upgrade(config_file, ret)
 
@@ -259,23 +259,23 @@ def main():
     if args.subcmd in ("worker"):
         # If Worker, then add brick path also to label
         label = "%s %s" % (args.subcmd, args.local_path)
-    elif args.subcmd == "slave":
-        # If Slave add Master node and Brick details
-        label = "%s %s%s" % (args.subcmd, args.master_node, args.master_brick)
+    elif args.subcmd == "subordinate":
+        # If Subordinate add Main node and Brick details
+        label = "%s %s%s" % (args.subcmd, args.main_node, args.main_brick)
 
     # Setup Logger
     # Default log file
     log_file = gconf.get("cli-log-file")
     log_level = gconf.get("cli-log-level")
-    if getattr(args, "master", None) is not None and \
-       getattr(args, "slave", None) is not None:
+    if getattr(args, "main", None) is not None and \
+       getattr(args, "subordinate", None) is not None:
         log_file = gconf.get("log-file")
         log_level = gconf.get("log-level")
 
-    # Use different log file location for Slave log file
-    if args.subcmd == "slave":
-        log_file = gconf.get("slave-log-file")
-        log_level = gconf.get("slave-log-level")
+    # Use different log file location for Subordinate log file
+    if args.subcmd == "subordinate":
+        log_file = gconf.get("subordinate-log-file")
+        log_level = gconf.get("subordinate-log-level")
 
     if args.debug:
         log_file = "-"

@@ -167,7 +167,7 @@ class GitBranchDiff:
         " command line parser"
         author = subprocess.check_output('git config user.email',
                                                   shell = True).rstrip('\n')
-        source = "remotes/origin/master"
+        source = "remotes/origin/main"
         options  = [' --pretty=format:"%h %s" ']
         path = subprocess.check_output('git rev-parse --show-toplevel',
                                             shell = True).rstrip('\n')

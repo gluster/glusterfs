@@ -30,7 +30,7 @@ def gethostbyname(hnam):
                           (hnam, ex.strerror))
 
 
-def slave_url(urldata):
+def subordinate_url(urldata):
     urldata = urldata.replace("ssh://", "")
     host, vol = urldata.split("::")
     vol = vol.split(":")[0]
@@ -51,15 +51,15 @@ def init_gsyncd_template_conf():
         os.close(fd)
 
 
-def init_gsyncd_session_conf(master, slave):
-    slave = slave_url(slave)
-    master = master.strip(":")
-    slavehost, slavevol = slave.split("::")
-    slavehost = slavehost.split("@")[-1]
+def init_gsyncd_session_conf(main, subordinate):
+    subordinate = subordinate_url(subordinate)
+    main = main.strip(":")
+    subordinatehost, subordinatevol = subordinate.split("::")
+    subordinatehost = subordinatehost.split("@")[-1]
 
     # Session Config File
     path = "%s/geo-replication/%s_%s_%s/gsyncd.conf" % (
-        GLUSTERD_WORKDIR, master, slavehost, slavevol)
+        GLUSTERD_WORKDIR, main, subordinatehost, subordinatevol)
 
     if os.path.exists(os.path.dirname(path)) and not os.path.exists(path):
         fd = os.open(path, os.O_CREAT | os.O_RDWR)
@@ -95,8 +95,8 @@ def upgrade():
         # --glusterd-uuid=f26ac7a8-eb1b-4ea7-959c-80b27d3e43d0
         # f241::gv2
         p = ArgumentParser()
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("--glusterd-uuid")
         p.add_argument("-c")
         p.add_argument("--iprefix")
@@ -104,12 +104,12 @@ def upgrade():
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
         # Overwrite the sys.argv after rearrange
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
         sys.argv = [
             sys.argv[0],
             "monitor",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             "--local-node-id",
             pargs.glusterd_uuid
         ]
@@ -117,20 +117,20 @@ def upgrade():
         # -c gsyncd.conf --iprefix=/var :gv1 f241::gv2
         # --status-get --path /bricks/b1
         p = ArgumentParser()
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("-c")
         p.add_argument("--path")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         sys.argv = [
             sys.argv[0],
             "status",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             "--local-path",
             pargs.path
         ]
@@ -164,38 +164,38 @@ def upgrade():
         p = ArgumentParser()
         p.add_argument("--normalize-url")
         pargs = p.parse_known_args(sys.argv[1:])[0]
-        print(("ssh://%s" % slave_url(pargs.normalize_url)))
+        print(("ssh://%s" % subordinate_url(pargs.normalize_url)))
         sys.exit(0)
     elif "--config-get-all" in sys.argv:
         #  -c gsyncd.conf --iprefix=/var :gv1 f241::gv2 --config-get-all
         p = ArgumentParser()
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("-c")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         sys.argv = [
             sys.argv[0],
             "config-get",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             "--show-defaults",
             "--use-underscore"
         ]
     elif "--verify" in sys.argv and "spawning" in sys.argv:
         # Just checks that able to spawn gsyncd or not
         sys.exit(0)
-    elif "--slavevoluuid-get" in sys.argv:
-        # --slavevoluuid-get f241::gv2
+    elif "--subordinatevoluuid-get" in sys.argv:
+        # --subordinatevoluuid-get f241::gv2
         p = ArgumentParser()
-        p.add_argument("--slavevoluuid-get")
+        p.add_argument("--subordinatevoluuid-get")
         p.add_argument("-c")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
-        host, vol = pargs.slavevoluuid_get.split("::")
+        host, vol = pargs.subordinatevoluuid_get.split("::")
 
         # Modified sys.argv
         sys.argv = [
@@ -226,40 +226,40 @@ def upgrade():
         # --iprefix=/var :gv1 f241::gv2
         p = ArgumentParser()
         p.add_argument("--create")
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("-c")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         # Modified sys.argv
         sys.argv = [
             sys.argv[0],
             "monitor-status",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             pargs.create
         ]
     elif "--config-get" in sys.argv:
         # -c gsyncd.conf --iprefix=/var :gv1 f241::gv2 --config-get pid-file
         p = ArgumentParser()
         p.add_argument("--config-get")
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("-c")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         # Modified sys.argv
         sys.argv = [
             sys.argv[0],
             "config-get",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             "--only-value",
             "--show-defaults",
             "--name",
@@ -273,22 +273,22 @@ def upgrade():
         # --path=/bricks/b1  -c gsyncd.conf :gv1 f241::gv2
         # --config-set log_level DEBUG
         p = ArgumentParser()
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("--config-set", action='store_true')
         p.add_argument("name")
         p.add_argument("--value")
         p.add_argument("-c")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         # Modified sys.argv
         sys.argv = [
             sys.argv[0],
             "config-set",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             "--name=%s" % pargs.name,
             "--value=%s" % pargs.value
         ]
@@ -309,20 +309,20 @@ def upgrade():
         # -c gsyncd.conf --iprefix=/var :gv1 f241::gv2 --config-del log_level
         p = ArgumentParser()
         p.add_argument("--config-del")
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("-c")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         # Modified sys.argv
         sys.argv = [
             sys.argv[0],
             "config-reset",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave),
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate),
             pargs.config_del.replace("_", "-")
         ]
     elif "--delete" in sys.argv:
@@ -331,13 +331,13 @@ def upgrade():
         p = ArgumentParser()
         p.add_argument("--reset-sync-time", action="store_true")
         p.add_argument("--path-list")
-        p.add_argument("master")
-        p.add_argument("slave")
+        p.add_argument("main")
+        p.add_argument("subordinate")
         p.add_argument("--iprefix")
         p.add_argument("-c")
         pargs = p.parse_known_args(sys.argv[1:])[0]
 
-        init_gsyncd_session_conf(pargs.master, pargs.slave)
+        init_gsyncd_session_conf(pargs.main, pargs.subordinate)
 
         paths = pargs.path_list.split("--path=")
         paths = ["--path=%s" % x.strip() for x in paths if x.strip() != ""]
@@ -346,8 +346,8 @@ def upgrade():
         sys.argv = [
             sys.argv[0],
             "delete",
-            pargs.master.strip(":"),
-            slave_url(pargs.slave)
+            pargs.main.strip(":"),
+            subordinate_url(pargs.subordinate)
         ]
         sys.argv += paths
 

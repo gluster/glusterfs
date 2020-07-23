@@ -226,12 +226,12 @@ class Gconf(object):
                 self.default_values[k] = self.gconf.get(k, "")
                 self.gconf[k] = v.strip()
 
-        # Overwrite the Slave configurations which are sent as
-        # arguments to gsyncd slave
+        # Overwrite the Subordinate configurations which are sent as
+        # arguments to gsyncd subordinate
         if self.override_from_args:
             for k, v in self.args.items():
                 k = k.replace("_", "-")
-                if k.startswith("slave-") and k in self.gconf:
+                if k.startswith("subordinate-") and k in self.gconf:
                     self.gconf[k] = v
 
         self._tmpl_substitute()
@@ -344,10 +344,10 @@ class Gconf(object):
 
         return False
 
-def is_config_file_old(config_file, mastervol, slavevol):
+def is_config_file_old(config_file, mainvol, subordinatevol):
     cnf = RawConfigParser()
     cnf.read(config_file)
-    session_section = "peers %s %s" % (mastervol, slavevol)
+    session_section = "peers %s %s" % (mainvol, subordinatevol)
     try:
         return dict(cnf.items(session_section))
     except NoSectionError:
@@ -373,7 +373,7 @@ def config_upgrade(config_file, ret):
                 new_value = "rsync"
             config.set('vars', new_key, new_value)
         elif key == "timeout":
-            new_key = "slave-timeout"
+            new_key = "subordinate-timeout"
             config.set('vars', new_key, value)
         #for changes like: ignore_deletes to ignore-deletes
         else:

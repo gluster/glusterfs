@@ -55,7 +55,7 @@ class GeorepStatusTestCase(unittest.TestCase):
 
     def test_default_values_test(self):
         self.assertTrue(get_default_values(), {
-            "slave_node": DEFAULT_STATUS,
+            "subordinate_node": DEFAULT_STATUS,
             "worker_status": DEFAULT_STATUS,
             "last_synced": 0,
             "last_synced_utc": 0,
@@ -98,15 +98,15 @@ class GeorepStatusTestCase(unittest.TestCase):
             self.status.set_worker_crawl_status(st)
             self.assertTrue(self.status.get_status()["crawl_status"], st)
 
-    def test_slave_node(self):
+    def test_subordinate_node(self):
         set_monitor_status(self.monitor_status_file, "Started")
         self.status.set_active()
-        self.status.set_slave_node("fvm2")
-        self.assertTrue(self.status.get_status()["slave_node"], "fvm2")
+        self.status.set_subordinate_node("fvm2")
+        self.assertTrue(self.status.get_status()["subordinate_node"], "fvm2")
 
         self.status.set_worker_status("Passive")
-        self.status.set_slave_node("fvm2")
-        self.assertTrue(self.status.get_status()["slave_node"], "fvm2")
+        self.status.set_subordinate_node("fvm2")
+        self.assertTrue(self.status.get_status()["subordinate_node"], "fvm2")
 
     def test_active_worker_status(self):
         set_monitor_status(self.monitor_status_file, "Started")
