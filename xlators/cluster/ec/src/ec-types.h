@@ -130,7 +130,12 @@ typedef void (*ec_resume_f)(ec_fop_data_t *, int32_t);
 
 enum _ec_read_policy { EC_ROUND_ROBIN, EC_GFID_HASH, EC_READ_POLICY_MAX };
 
-enum _ec_heal_need { EC_HEAL_NONEED, EC_HEAL_MAYBE, EC_HEAL_MUST };
+enum _ec_heal_need {
+    EC_HEAL_NONEED,
+    EC_HEAL_MAYBE,
+    EC_HEAL_MUST,
+    EC_HEAL_PURGE_INDEX
+};
 
 enum _ec_stripe_part { EC_STRIPE_HEAD, EC_STRIPE_TAIL };
 
