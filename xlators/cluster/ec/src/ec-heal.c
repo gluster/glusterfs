@@ -2497,6 +2497,59 @@ out:
     return ret;
 }
 
+int
+ec_heal_set_dirty_without_lock(call_frame_t *frame, ec_t *ec, inode_t *inode)
+{
+    int i = 0;
+    int ret = 0;
+    dict_t **xattr = NULL;
+    loc_t loc = {0};
+    uint64_t dirty_xattr[EC_VERSION_SIZE] = {0};
+    unsigned char *on = NULL;
+    default_args_cbk_t *replies = NULL;
+    dict_t *dict = NULL;
+
+    /* Allocate the required memory */
+    loc.inode = inode_ref(inode);
+    gf_uuid_copy(loc.gfid, inode->gfid);
+    on = alloca0(ec->nodes);
+    EC_REPLIES_ALLOC(replies, ec->nodes);
+    xattr = GF_CALLOC(ec->nodes, sizeof(*xattr), gf_common_mt_pointer);
+    if (!xattr) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    dict = dict_new();
+    if (!dict) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    for (i = 0; i < ec->nodes; i++) {
+        xattr[i] = dict;
+        on[i] = 1;
+    }
+    dirty_xattr[EC_METADATA_TXN] = hton64(1);
+    ret = dict_set_static_bin(dict, EC_XATTR_DIRTY, dirty_xattr,
+                              (sizeof(*dirty_xattr) * EC_VERSION_SIZE));
+    if (ret < 0) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    PARALLEL_FOP_ONLIST(ec->xl_list, on, ec->nodes, replies, frame,
+                        ec_wind_xattrop_parallel, &loc, GF_XATTROP_ADD_ARRAY64,
+                        xattr, NULL);
+out:
+    if (dict) {
+        dict_unref(dict);
+    }
+    if (xattr) {
+        GF_FREE(xattr);
+    }
+    cluster_replies_wipe(replies, ec->nodes);
+    loc_wipe(&loc);
+    return ret;
+}
+
 void
 ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
 {
@@ -2572,7 +2625,18 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
         ec_heal_inspect(frame, ec, loc->inode, up_subvols, _gf_false, _gf_false,
                         &need_heal);
 
-        if (need_heal == EC_HEAL_NONEED) {
+        if (need_heal == EC_HEAL_PURGE_INDEX) {
+            gf_msg(ec->xl->name, GF_LOG_INFO, 0, EC_MSG_HEAL_FAIL,
+                   "Index entry needs to be purged for: %s ",
+                   uuid_utoa(loc->gfid));
+            /* We need to send xattrop to set dirty flag so that it can be
+             * healed and index entry could be removed. We need not to take lock
+             * on this entry to do so as we are just setting dirty flag which
+             * actually increases the trusted.ec.dirty count and does not set
+             * the new value.
+             * This will make sure that it is not interfering in other fops.*/
+            ec_heal_set_dirty_without_lock(frame, ec, loc->inode);
+        } else if (need_heal == EC_HEAL_NONEED) {
             gf_msg(ec->xl->name, GF_LOG_DEBUG, 0, EC_MSG_HEAL_FAIL,
                    "Heal is not required for : %s ", uuid_utoa(loc->gfid));
             goto out;
@@ -2984,6 +3048,13 @@ _need_heal_calculate(ec_t *ec, uint64_t *dirty, unsigned char *sources,
                     goto out;
                 }
             }
+            /* If lock count is 0, all dirty flags are 0 and all the
+             * versions are macthing then why are we here. It looks
+             * like something went wrong while removing the index entries
+             * after completing a successful heal or fop. In this case
+             * we need to remove this index entry to avoid triggering heal
+             * in a loop and causing lookups again and again*/
+            *need_heal = EC_HEAL_PURGE_INDEX;
         } else {
             for (i = 0; i < ec->nodes; i++) {
                 /* Since each lock can only increment the dirty
