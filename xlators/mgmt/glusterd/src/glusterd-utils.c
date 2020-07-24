@@ -14982,3 +14982,59 @@ out:
     GF_FREE(new_auth_allow_list);
     return;
 }
+
+int
+glusterd_replace_old_auth_allow_list(char *volname)
+{
+    int ret = 0;
+    glusterd_volinfo_t *volinfo = NULL;
+    xlator_t *this = NULL;
+    char *old_auth_allow_list = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    GF_VALIDATE_OR_GOTO(this->name, volname, out);
+
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+               "Unable to find volume: %s", volname);
+        goto out;
+    }
+
+    ret = dict_get_str_sizen(volinfo->dict, "old.auth.allow",
+                             &old_auth_allow_list);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_FAILED,
+               "old auth allow list is not set, no need to replace the list");
+        ret = 0;
+        goto out;
+    }
+
+    dict_del_sizen(volinfo->dict, "auth.allow");
+    ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
+                        old_auth_allow_list);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+               "Unable to replace auth.allow list");
+        goto out;
+    }
+
+    dict_del_sizen(volinfo->dict, "old.auth.allow");
+
+    ret = glusterd_create_volfiles_and_notify_services(volinfo);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+               "failed to create volfiles");
+        goto out;
+    }
+    ret = glusterd_store_volinfo(volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_STORE_FAIL,
+               "failed to store volinfo");
+        goto out;
+    }
+out:
+    return ret;
+}

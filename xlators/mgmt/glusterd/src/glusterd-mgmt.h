@@ -28,6 +28,10 @@ gd_mgmt_v3_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
                      uint32_t *op_errno, dict_t *rsp_dict);
 
 int32_t
+gd_mgmt_v3_post_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
+                          uint32_t *op_errno, dict_t *rsp_dict);
+
+int32_t
 gd_mgmt_v3_post_validate_fn(glusterd_op_t op, int32_t op_ret, dict_t *dict,
                             char **op_errstr, dict_t *rsp_dict);
 
@@ -84,4 +88,10 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
                                  dict_t *rsp_dict);
 int
 glusterd_op_reset_brick(dict_t *dict, dict_t *rsp_dict);
+
+int
+glusterd_post_commit_add_brick(dict_t *dict, char **op_errstr);
+
+int
+glusterd_post_commit_replace_brick(dict_t *dict, char **op_errstr);
 #endif /* _GLUSTERD_MGMT_H_ */

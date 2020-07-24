@@ -28,6 +28,8 @@ xdr_gd1_mgmt_v3_brick_op_req
 xdr_gd1_mgmt_v3_brick_op_rsp
 xdr_gd1_mgmt_v3_commit_req
 xdr_gd1_mgmt_v3_commit_rsp
+xdr_gd1_mgmt_v3_post_commit_req
+xdr_gd1_mgmt_v3_post_commit_rsp
 xdr_gd1_mgmt_v3_lock_req
 xdr_gd1_mgmt_v3_lock_rsp
 xdr_gd1_mgmt_v3_post_val_req
