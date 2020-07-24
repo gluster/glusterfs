@@ -202,6 +202,21 @@ struct gd1_mgmt_v3_commit_rsp {
         string  op_errstr<>;
 }  ;
 
+struct gd1_mgmt_v3_post_commit_req {
+        unsigned char  uuid[16];
+        int     op;
+        opaque  dict<>;
+}  ;
+
+struct gd1_mgmt_v3_post_commit_rsp {
+        unsigned char  uuid[16];
+        int     op;
+        int     op_ret;
+        int     op_errno;
+        opaque  dict<>;
+        string  op_errstr<>;
+}  ;
+
 struct gd1_mgmt_v3_post_val_req {
         unsigned char  uuid[16];
         int     op;

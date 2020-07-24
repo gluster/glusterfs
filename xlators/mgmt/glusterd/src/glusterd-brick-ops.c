@@ -2234,6 +2234,42 @@ out:
 }
 
 int
+glusterd_post_commit_add_brick(dict_t *dict, char **op_errstr)
+{
+    int ret = 0;
+    char *volname = NULL;
+
+    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+               "Unable to get volume name");
+        goto out;
+    }
+    ret = glusterd_replace_old_auth_allow_list(volname);
+out:
+    return ret;
+}
+
+int
+glusterd_post_commit_replace_brick(dict_t *dict, char **op_errstr)
+{
+    int ret = 0;
+    char *volname = NULL;
+
+    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+               "Unable to get volume name");
+        goto out;
+    }
+    ret = glusterd_replace_old_auth_allow_list(volname);
+out:
+    return ret;
+}
+
+int
 glusterd_set_rebalance_id_for_remove_brick(dict_t *req_dict, dict_t *rsp_dict)
 {
     int ret = -1;

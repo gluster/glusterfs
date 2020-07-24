@@ -626,6 +626,136 @@ out:
 }
 
 static int
+glusterd_mgmt_v3_post_commit_send_resp(rpcsvc_request_t *req, int32_t op,
+                                       int32_t status, char *op_errstr,
+                                       uint32_t op_errno, dict_t *rsp_dict)
+{
+    gd1_mgmt_v3_post_commit_rsp rsp = {
+        {0},
+    };
+    int ret = -1;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+    GF_ASSERT(req);
+
+    rsp.op_ret = status;
+    glusterd_get_uuid(&rsp.uuid);
+    rsp.op = op;
+    rsp.op_errno = op_errno;
+    if (op_errstr)
+        rsp.op_errstr = op_errstr;
+    else
+        rsp.op_errstr = "";
+
+    ret = dict_allocate_and_serialize(rsp_dict, &rsp.dict.dict_val,
+                                      &rsp.dict.dict_len);
+    if (ret < 0) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
+        goto out;
+    }
+
+    ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
+                                (xdrproc_t)xdr_gd1_mgmt_v3_post_commit_rsp);
+
+    GF_FREE(rsp.dict.dict_val);
+out:
+    gf_msg_debug(this->name, 0, "Responded to post commit, ret: %d", ret);
+    return ret;
+}
+
+static int
+glusterd_handle_post_commit_fn(rpcsvc_request_t *req)
+{
+    int32_t ret = -1;
+    gd1_mgmt_v3_post_commit_req op_req = {
+        {0},
+    };
+    xlator_t *this = NULL;
+    char *op_errstr = NULL;
+    dict_t *dict = NULL;
+    dict_t *rsp_dict = NULL;
+    uint32_t op_errno = 0;
+
+    this = THIS;
+    GF_ASSERT(this);
+    GF_ASSERT(req);
+
+    ret = xdr_to_generic(req->msg[0], &op_req,
+                         (xdrproc_t)xdr_gd1_mgmt_v3_post_commit_req);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+               "Failed to decode post commit "
+               "request received from peer");
+        req->rpc_err = GARBAGE_ARGS;
+        goto out;
+    }
+
+    if (glusterd_peerinfo_find_by_uuid(op_req.uuid) == NULL) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_PEER_NOT_FOUND,
+               "%s doesn't "
+               "belong to the cluster. Ignoring request.",
+               uuid_utoa(op_req.uuid));
+        ret = -1;
+        goto out;
+    }
+
+    dict = dict_new();
+    if (!dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
+        goto out;
+    }
+
+    ret = dict_unserialize(op_req.dict.dict_val, op_req.dict.dict_len, &dict);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+                NULL);
+        goto out;
+    }
+
+    rsp_dict = dict_new();
+    if (!rsp_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL, NULL);
+        return -1;
+    }
+
+    ret = gd_mgmt_v3_post_commit_fn(op_req.op, dict, &op_errstr, &op_errno,
+                                    rsp_dict);
+
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
+               "post commit failed on operation %s", gd_op_list[op_req.op]);
+    }
+
+    ret = glusterd_mgmt_v3_post_commit_send_resp(req, op_req.op, ret, op_errstr,
+                                                 op_errno, rsp_dict);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_OP_RESP_FAIL,
+               "Failed to send post commit "
+               "response for operation %s",
+               gd_op_list[op_req.op]);
+        goto out;
+    }
+
+out:
+    if (op_errstr && (strcmp(op_errstr, "")))
+        GF_FREE(op_errstr);
+
+    free(op_req.dict.dict_val);
+
+    if (dict)
+        dict_unref(dict);
+
+    if (rsp_dict)
+        dict_unref(rsp_dict);
+
+    /* Return 0 from handler to avoid double deletion of req obj */
+    return 0;
+}
+
+static int
 glusterd_mgmt_v3_post_validate_send_resp(rpcsvc_request_t *req, int32_t op,
                                          int32_t status, char *op_errstr,
                                          dict_t *rsp_dict)
@@ -963,6 +1093,12 @@ glusterd_handle_commit(rpcsvc_request_t *req)
 }
 
 static int
+glusterd_handle_post_commit(rpcsvc_request_t *req)
+{
+    return glusterd_big_locked_handler(req, glusterd_handle_post_commit_fn);
+}
+
+static int
 glusterd_handle_post_validate(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, glusterd_handle_post_validate_fn);
@@ -986,6 +1122,9 @@ static rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
                                    GLUSTERD_MGMT_V3_BRICK_OP, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_COMMIT] = {"COMMIT", glusterd_handle_commit, NULL,
                                  GLUSTERD_MGMT_V3_COMMIT, DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_POST_COMMIT] = {"POST_COMMIT",
+                                      glusterd_handle_post_commit, NULL,
+                                      GLUSTERD_MGMT_V3_POST_COMMIT, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_POST_VALIDATE] = {"POST_VAL",
                                         glusterd_handle_post_validate, NULL,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE, DRC_NA,

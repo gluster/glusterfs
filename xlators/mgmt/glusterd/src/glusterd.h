@@ -1369,4 +1369,7 @@ glusterd_recreate_volfiles(glusterd_conf_t *conf);
 void
 glusterd_add_peers_to_auth_list(char *volname);
 
+int
+glusterd_replace_old_auth_allow_list(char *volname);
+
 #endif

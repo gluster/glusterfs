@@ -86,6 +86,11 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
                          peer_str, err_string);
                 break;
             }
+            case GLUSTERD_MGMT_V3_POST_COMMIT: {
+                snprintf(op_err, sizeof(op_err), "Post commit failed on %s. %s",
+                         peer_str, err_string);
+                break;
+            }
             case GLUSTERD_MGMT_V3_POST_VALIDATE: {
                 snprintf(op_err, sizeof(op_err),
                          "Post Validation failed on %s. %s", peer_str,
@@ -394,6 +399,47 @@ gd_mgmt_v3_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
             break;
         }
 
+        default:
+            break;
+    }
+
+    ret = 0;
+out:
+    gf_msg_debug(this->name, 0, "OP = %d. Returning %d", op, ret);
+    return ret;
+}
+
+int32_t
+gd_mgmt_v3_post_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
+                          uint32_t *op_errno, dict_t *rsp_dict)
+{
+    int32_t ret = -1;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+    GF_ASSERT(dict);
+    GF_ASSERT(op_errstr);
+    GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
+    GF_ASSERT(rsp_dict);
+
+    switch (op) {
+        case GD_OP_ADD_BRICK:
+            ret = glusterd_post_commit_add_brick(dict, op_errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
+                       "Add-brick post commit failed.");
+                goto out;
+            }
+            break;
+        case GD_OP_REPLACE_BRICK:
+            ret = glusterd_post_commit_replace_brick(dict, op_errstr);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
+                       "Replace-brick post commit failed.");
+                goto out;
+            }
+            break;
         default:
             break;
     }
@@ -1720,6 +1766,274 @@ out:
 }
 
 int32_t
+gd_mgmt_v3_post_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
+                              void *myframe)
+{
+    int32_t ret = -1;
+    struct syncargs *args = NULL;
+    gd1_mgmt_v3_post_commit_rsp rsp = {
+        {0},
+    };
+    call_frame_t *frame = NULL;
+    int32_t op_ret = -1;
+    int32_t op_errno = -1;
+    dict_t *rsp_dict = NULL;
+    xlator_t *this = NULL;
+    uuid_t *peerid = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+    GF_ASSERT(req);
+    GF_ASSERT(myframe);
+
+    frame = myframe;
+    args = frame->local;
+    peerid = frame->cookie;
+    frame->local = NULL;
+    frame->cookie = NULL;
+
+    if (-1 == req->rpc_status) {
+        op_errno = ENOTCONN;
+        goto out;
+    }
+
+    GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, iov, out, op_errno, EINVAL);
+
+    ret = xdr_to_generic(*iov, &rsp,
+                         (xdrproc_t)xdr_gd1_mgmt_v3_post_commit_rsp);
+    if (ret < 0)
+        goto out;
+
+    if (rsp.dict.dict_len) {
+        /* Unserialize the dictionary */
+        rsp_dict = dict_new();
+
+        ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len, &rsp_dict);
+        if (ret < 0) {
+            free(rsp.dict.dict_val);
+            goto out;
+        } else {
+            rsp_dict->extra_stdfree = rsp.dict.dict_val;
+        }
+    }
+
+    gf_uuid_copy(args->uuid, rsp.uuid);
+    pthread_mutex_lock(&args->lock_dict);
+    {
+        ret = glusterd_syncop_aggr_rsp_dict(rsp.op, args->dict, rsp_dict);
+    }
+    pthread_mutex_unlock(&args->lock_dict);
+
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RESP_AGGR_FAIL, "%s",
+               "Failed to aggregate response from "
+               " node/brick");
+        if (!rsp.op_ret)
+            op_ret = ret;
+        else {
+            op_ret = rsp.op_ret;
+            op_errno = rsp.op_errno;
+        }
+    } else {
+        op_ret = rsp.op_ret;
+        op_errno = rsp.op_errno;
+    }
+
+out:
+    if (rsp_dict)
+        dict_unref(rsp_dict);
+
+    gd_mgmt_v3_collate_errors(args, op_ret, op_errno, rsp.op_errstr,
+                              GLUSTERD_MGMT_V3_POST_COMMIT, *peerid, rsp.uuid);
+    GF_FREE(peerid);
+
+    if (rsp.op_errstr)
+        free(rsp.op_errstr);
+
+    /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
+     * the caller function.
+     */
+    if (req->rpc_status != -1)
+        STACK_DESTROY(frame->root);
+    synctask_barrier_wake(args);
+    return 0;
+}
+
+int32_t
+gd_mgmt_v3_post_commit_cbk(struct rpc_req *req, struct iovec *iov, int count,
+                           void *myframe)
+{
+    return glusterd_big_locked_cbk(req, iov, count, myframe,
+                                   gd_mgmt_v3_post_commit_cbk_fn);
+}
+
+int
+gd_mgmt_v3_post_commit_req(glusterd_op_t op, dict_t *op_ctx,
+                           glusterd_peerinfo_t *peerinfo, struct syncargs *args,
+                           uuid_t my_uuid, uuid_t recv_uuid)
+{
+    int32_t ret = -1;
+    gd1_mgmt_v3_post_commit_req req = {
+        {0},
+    };
+    xlator_t *this = NULL;
+    uuid_t *peerid = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+    GF_ASSERT(op_ctx);
+    GF_ASSERT(peerinfo);
+    GF_ASSERT(args);
+
+    ret = dict_allocate_and_serialize(op_ctx, &req.dict.dict_val,
+                                      &req.dict.dict_len);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
+        goto out;
+    }
+
+    gf_uuid_copy(req.uuid, my_uuid);
+    req.op = op;
+
+    GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ALLOC_AND_COPY_UUID_FAIL, NULL);
+        goto out;
+    }
+
+    ret = gd_syncop_submit_request(
+        peerinfo->rpc, &req, args, peerid, &gd_mgmt_v3_prog,
+        GLUSTERD_MGMT_V3_POST_COMMIT, gd_mgmt_v3_post_commit_cbk,
+        (xdrproc_t)xdr_gd1_mgmt_v3_post_commit_req);
+out:
+    GF_FREE(req.dict.dict_val);
+    gf_msg_trace(this->name, 0, "Returning %d", ret);
+    return ret;
+}
+
+int
+glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
+                             char **op_errstr, uint32_t *op_errno,
+                             uint32_t txn_generation)
+{
+    int32_t ret = -1;
+    int32_t peer_cnt = 0;
+    dict_t *rsp_dict = NULL;
+    glusterd_peerinfo_t *peerinfo = NULL;
+    struct syncargs args = {0};
+    uuid_t peer_uuid = {0};
+    xlator_t *this = NULL;
+    glusterd_conf_t *conf = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+    conf = this->private;
+    GF_ASSERT(conf);
+
+    GF_ASSERT(op_ctx);
+    GF_ASSERT(req_dict);
+    GF_ASSERT(op_errstr);
+    GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
+
+    rsp_dict = dict_new();
+    if (!rsp_dict) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
+               "Failed to create response dictionary");
+        goto out;
+    }
+
+    /* Post commit on local node */
+    ret = gd_mgmt_v3_post_commit_fn(op, req_dict, op_errstr, op_errno,
+                                    rsp_dict);
+
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
+               "Post commit failed for "
+               "operation %s on local node",
+               gd_op_list[op]);
+
+        if (*op_errstr == NULL) {
+            ret = gf_asprintf(op_errstr,
+                              "Post commit failed "
+                              "on localhost. Please "
+                              "check log file for details.");
+            if (ret == -1)
+                *op_errstr = NULL;
+
+            ret = -1;
+        }
+        goto out;
+    }
+
+    ret = glusterd_syncop_aggr_rsp_dict(op, op_ctx, rsp_dict);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RESP_AGGR_FAIL, "%s",
+               "Failed to aggregate response from "
+               " node/brick");
+        goto out;
+    }
+
+    dict_unref(rsp_dict);
+    rsp_dict = NULL;
+
+    /* Sending post commit req to other nodes in the cluster */
+    gd_syncargs_init(&args, op_ctx);
+    ret = synctask_barrier_init((&args));
+    if (ret)
+        goto out;
+    peer_cnt = 0;
+
+    RCU_READ_LOCK;
+    cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
+    {
+        /* Only send requests to peers who were available before the
+         * transaction started
+         */
+        if (peerinfo->generation > txn_generation)
+            continue;
+        if (!peerinfo->connected)
+            continue;
+
+        if (op != GD_OP_SYNC_VOLUME &&
+            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            continue;
+
+        gd_mgmt_v3_post_commit_req(op, req_dict, peerinfo, &args, MY_UUID,
+                                   peer_uuid);
+        peer_cnt++;
+    }
+    RCU_READ_UNLOCK;
+
+    if (0 == peer_cnt) {
+        ret = 0;
+        goto out;
+    }
+
+    gd_synctask_barrier_wait((&args), peer_cnt);
+
+    if (args.op_ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
+               "Post commit failed on peers");
+
+        if (args.errstr)
+            *op_errstr = gf_strdup(args.errstr);
+    }
+
+    ret = args.op_ret;
+    *op_errno = args.op_errno;
+
+    gf_msg_debug(this->name, 0,
+                 "Sent post commit req for %s to %d "
+                 "peers. Returning %d",
+                 gd_op_list[op], peer_cnt, ret);
+out:
+    glusterd_op_modify_op_ctx(op, op_ctx);
+    return ret;
+}
+
+int32_t
 gd_mgmt_v3_post_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
                                 int count, void *myframe)
 {
@@ -2405,6 +2719,15 @@ glusterd_mgmt_v3_initiate_all_phases(rpcsvc_request_t *req, glusterd_op_t op,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COMMIT_OP_FAIL,
                "Commit Op Failed");
+        goto out;
+    }
+
+    /* POST COMMIT OP PHASE */
+    ret = glusterd_mgmt_v3_post_commit(op, dict, req_dict, &op_errstr,
+                                       &op_errno, txn_generation);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
+               "Post commit Op Failed");
         goto out;
     }
 
