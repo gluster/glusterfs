@@ -98,7 +98,7 @@ struct _data {
     char *data;
     gf_atomic_t refcount;
     gf_dict_data_type_t data_type;
-    int32_t len;
+    uint32_t len;
     gf_boolean_t is_static;
 };
 
@@ -122,6 +122,8 @@ struct _dict {
     gf_lock_t lock;
     data_pair_t *members_internal;
     data_pair_t free_pair;
+    /* Variable to store total keylen + value->len */
+    uint32_t totkvlen;
 };
 
 typedef gf_boolean_t (*dict_match_t)(dict_t *d, char *k, data_t *v, void *data);

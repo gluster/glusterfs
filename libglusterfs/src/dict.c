@@ -98,6 +98,7 @@ get_new_dict_full(int size_hint)
     }
 
     dict->free_pair.key = NULL;
+    dict->totkvlen = 0;
     LOCK_INIT(&dict->lock);
 
     return dict;
@@ -410,6 +411,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
         if (pair) {
             data_t *unref_data = pair->value;
             pair->value = data_ref(value);
+            this->totkvlen += (value->len - unref_data->len);
             data_unref(unref_data);
             if (key_free)
                 GF_FREE(key);
@@ -445,6 +447,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     }
     pair->key_hash = key_hash;
     pair->value = data_ref(value);
+    this->totkvlen += (keylen + 1 + value->len);
 
     /* If the divisor is 1, the modulo is always 0,
      * in such case avoid hash calculation.
@@ -642,6 +645,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
             else
                 this->members[hashval] = pair->hash_next;
 
+            this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
             if (pair->prev)
@@ -652,6 +656,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
             if (pair->next)
                 pair->next->prev = pair->prev;
 
+            this->totkvlen -= (strlen(pair->key) + 1);
             GF_FREE(pair->key);
             if (pair == &this->free_pair) {
                 this->free_pair.key = NULL;
@@ -701,6 +706,7 @@ dict_destroy(dict_t *this)
         prev = pair;
     }
 
+    this->totkvlen = 0;
     if (this->members != &this->members_internal) {
         mem_put(this->members);
     }
@@ -2175,7 +2181,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             strcpy(pair->key, key);
             pair->key_hash = hash;
             pair->value = data_ref(data);
-
+            this->totkvlen += (strlen(key) + 1 + data->len);
             hashval = hash % this->hash_size;
             pair->hash_next = this->members[hashval];
             this->members[hashval] = pair;
@@ -2901,8 +2907,7 @@ dict_serialized_length_lk(dict_t *this)
 {
     int ret = -EINVAL;
     int count = this->count;
-    int len = DICT_HDR_LEN;
-    data_pair_t *pair = this->members_list;
+    const int keyhdrlen = DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
 
     if (count < 0) {
         gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_COUNT_LESS_THAN_ZERO,
@@ -2910,41 +2915,7 @@ dict_serialized_length_lk(dict_t *this)
         goto out;
     }
 
-    while (count) {
-        if (!pair) {
-            gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_PAIRS_LESS_THAN_COUNT,
-                    NULL);
-            goto out;
-        }
-
-        len += DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
-
-        if (!pair->key) {
-            gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_NULL_PTR, NULL);
-            goto out;
-        }
-
-        len += strlen(pair->key) + 1 /* for '\0' */;
-
-        if (!pair->value) {
-            gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_NULL_PTR, NULL);
-            goto out;
-        }
-
-        if (pair->value->len < 0) {
-            gf_smsg("dict", GF_LOG_ERROR, EINVAL,
-                    LG_MSG_VALUE_LENGTH_LESS_THAN_ZERO, "len=%d",
-                    pair->value->len, NULL);
-            goto out;
-        }
-
-        len += pair->value->len;
-
-        pair = pair->next;
-        count--;
-    }
-
-    ret = len;
+    ret = DICT_HDR_LEN + this->totkvlen + (count * keyhdrlen);
 out:
     return ret;
 }
