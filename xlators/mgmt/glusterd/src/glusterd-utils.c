@@ -14792,6 +14792,7 @@ out:
         free(ai_list_tmp2);
         ai_list_tmp2 = ai_list_tmp1;
     }
+    free(ai_list);
     free(ai_list_tmp2);
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
