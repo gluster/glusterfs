@@ -125,7 +125,7 @@ struct posix_fd {
     off_t dir_eof;         /* offset at dir EOF */
     struct list_head list; /* to add to the janitor list */
     int odirect;
-
+    xlator_t *xl;
     char _pad[4]; /* manual padding */
 };
 
@@ -170,6 +170,7 @@ struct posix_private {
     pthread_cond_t fsync_cond;
     pthread_mutex_t janitor_mutex;
     pthread_cond_t janitor_cond;
+    pthread_cond_t fd_cond;
     int fsync_queue_count;
     int32_t janitor_sleep_duration;
 
@@ -254,8 +255,7 @@ struct posix_private {
     gf_boolean_t aio_configured;
     gf_boolean_t aio_init_done;
     gf_boolean_t aio_capable;
-
-    char _pad[4]; /* manual padding */
+    uint32_t rel_fdcount;
 };
 
 typedef struct {
@@ -661,6 +661,9 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
                      dict_t **xattr_rsp, gf_boolean_t ignore_failure);
 int
 posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
+
+int
+posix_spawn_ctx_janitor_thread(xlator_t *this);
 
 void
 posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xdata);
