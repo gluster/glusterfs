@@ -140,6 +140,7 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
     struct timespec sleep_till = {
         0,
     };
+    glusterfs_ctx_t *ctx = this->ctx;
 
     switch (event) {
         case GF_EVENT_PARENT_UP: {
@@ -150,8 +151,6 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_PARENT_DOWN: {
             if (!victim->cleanup_starting)
                 break;
-            gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
-                   victim->name);
 
             if (priv->janitor) {
                 pthread_mutex_lock(&priv->janitor_mutex);
@@ -177,6 +176,16 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                 GF_FREE(priv->janitor);
             }
             priv->janitor = NULL;
+            pthread_mutex_lock(&ctx->fd_lock);
+            {
+                while (priv->rel_fdcount > 0) {
+                    pthread_cond_wait(&priv->fd_cond, &ctx->fd_lock);
+                }
+            }
+            pthread_mutex_unlock(&ctx->fd_lock);
+
+            gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
+                   victim->name);
             default_notify(this->parents->xlator, GF_EVENT_CHILD_DOWN, data);
         } break;
         default:
@@ -1084,7 +1093,13 @@ posix_init(xlator_t *this)
     pthread_cond_init(&_private->fsync_cond, NULL);
     pthread_mutex_init(&_private->janitor_mutex, NULL);
     pthread_cond_init(&_private->janitor_cond, NULL);
+    pthread_cond_init(&_private->fd_cond, NULL);
     INIT_LIST_HEAD(&_private->fsyncs);
+    _private->rel_fdcount = 0;
+    ret = posix_spawn_ctx_janitor_thread(this);
+    if (ret)
+        goto out;
+
     ret = gf_thread_create(&_private->fsyncer, NULL, posix_fsyncer, this,
                            "posixfsy");
     if (ret) {
@@ -1197,6 +1212,8 @@ posix_fini(xlator_t *this)
 {
     struct posix_private *priv = this->private;
     gf_boolean_t health_check = _gf_false;
+    glusterfs_ctx_t *ctx = this->ctx;
+    uint32_t count;
     int ret = 0;
     int i = 0;
 
@@ -1241,6 +1258,19 @@ posix_fini(xlator_t *this)
         }
         GF_FREE(priv->janitor);
         priv->janitor = NULL;
+    }
+
+    pthread_mutex_lock(&ctx->fd_lock);
+    {
+        count = --ctx->pxl_count;
+        if (count == 0) {
+            pthread_cond_signal(&ctx->fd_cond);
+        }
+    }
+    pthread_mutex_unlock(&ctx->fd_lock);
+
+    if (count == 0) {
+        pthread_join(ctx->janitor, NULL);
     }
 
     if (priv->fsyncer) {
