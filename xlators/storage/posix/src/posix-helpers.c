@@ -1592,6 +1592,99 @@ unlock:
     return;
 }
 
+static struct posix_fd *
+janitor_get_next_fd(glusterfs_ctx_t *ctx)
+{
+    struct posix_fd *pfd = NULL;
+
+    while (list_empty(&ctx->janitor_fds)) {
+        if (ctx->pxl_count == 0) {
+            return NULL;
+        }
+
+        pthread_cond_wait(&ctx->fd_cond, &ctx->fd_lock);
+    }
+
+    pfd = list_first_entry(&ctx->janitor_fds, struct posix_fd, list);
+    list_del_init(&pfd->list);
+
+    return pfd;
+}
+
+static void
+posix_close_pfd(xlator_t *xl, struct posix_fd *pfd)
+{
+    THIS = xl;
+
+    if (pfd->dir == NULL) {
+        gf_msg_trace(xl->name, 0, "janitor: closing file fd=%d", pfd->fd);
+        sys_close(pfd->fd);
+    } else {
+        gf_msg_debug(xl->name, 0, "janitor: closing dir fd=%p", pfd->dir);
+        sys_closedir(pfd->dir);
+    }
+
+    GF_FREE(pfd);
+}
+
+static void *
+posix_ctx_janitor_thread_proc(void *data)
+{
+    xlator_t *xl;
+    struct posix_fd *pfd;
+    glusterfs_ctx_t *ctx = NULL;
+    struct posix_private *priv_fd;
+
+    ctx = data;
+
+    pthread_mutex_lock(&ctx->fd_lock);
+
+    while ((pfd = janitor_get_next_fd(ctx)) != NULL) {
+        pthread_mutex_unlock(&ctx->fd_lock);
+
+        xl = pfd->xl;
+        posix_close_pfd(xl, pfd);
+
+        pthread_mutex_lock(&ctx->fd_lock);
+
+        priv_fd = xl->private;
+        priv_fd->rel_fdcount--;
+        if (!priv_fd->rel_fdcount)
+            pthread_cond_signal(&priv_fd->fd_cond);
+    }
+
+    pthread_mutex_unlock(&ctx->fd_lock);
+
+    return NULL;
+}
+
+int
+posix_spawn_ctx_janitor_thread(xlator_t *this)
+{
+    int ret = 0;
+    glusterfs_ctx_t *ctx = NULL;
+
+    ctx = this->ctx;
+
+    pthread_mutex_lock(&ctx->fd_lock);
+    {
+        if (ctx->pxl_count++ == 0) {
+            ret = gf_thread_create(&ctx->janitor, NULL,
+                                   posix_ctx_janitor_thread_proc, ctx,
+                                   "posixctxjan");
+
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
+                       "spawning janitor thread failed");
+                ctx->pxl_count--;
+            }
+        }
+    }
+    pthread_mutex_unlock(&ctx->fd_lock);
+
+    return ret;
+}
+
 static int
 is_fresh_file(int64_t sec, int64_t ns)
 {

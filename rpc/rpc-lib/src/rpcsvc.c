@@ -343,12 +343,6 @@ rpcsvc_program_actor(rpcsvc_request_t *req)
 
     req->ownthread = program->ownthread;
     req->synctask = program->synctask;
-    if (((req->procnum == GFS3_OP_RELEASE) ||
-         (req->procnum == GFS3_OP_RELEASEDIR)) &&
-        (program->prognum == GLUSTER_FOP_PROGRAM)) {
-        req->ownthread = _gf_false;
-        req->synctask = _gf_true;
-    }
 
     err = SUCCESS;
     gf_log(GF_RPCSVC, GF_LOG_TRACE, "Actor found: %s - %s for %s",

@@ -1687,6 +1687,10 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 
     INIT_LIST_HEAD(&cmd_args->xlator_options);
     INIT_LIST_HEAD(&cmd_args->volfile_servers);
+    ctx->pxl_count = 0;
+    pthread_mutex_init(&ctx->fd_lock, NULL);
+    pthread_cond_init(&ctx->fd_cond, NULL);
+    INIT_LIST_HEAD(&ctx->janitor_fds);
 
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;

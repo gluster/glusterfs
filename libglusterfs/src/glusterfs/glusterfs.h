@@ -730,6 +730,13 @@ struct _glusterfs_ctx {
     } stats;
 
     struct list_head volfile_list;
+    /* Add members to manage janitor threads for cleanup fd */
+    struct list_head janitor_fds;
+    pthread_cond_t fd_cond;
+    pthread_mutex_t fd_lock;
+    pthread_t janitor;
+    /* The variable is use to save total posix xlator count */
+    uint32_t pxl_count;
 
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
