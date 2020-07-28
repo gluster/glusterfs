@@ -209,6 +209,7 @@ struct mem_pool {
     unsigned long sizeof_type;
     unsigned long count; /* requested pool size (unused) */
     char *name;
+    char *xl_name;
     gf_atomic_t active; /* current allocations */
 #ifdef DEBUG
     gf_atomic_t hit;  /* number of allocations served from pt_pool */
