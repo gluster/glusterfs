@@ -301,6 +301,21 @@ if test "x$enable_tsan" = "xyes"; then
         SANITIZER=tsan
         AC_CHECK_LIB([tsan], [__tsan_init], ,
                 [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
+        if test "x$ac_cv_lib_tsan___tsan_init" = xyes; then
+                AC_MSG_CHECKING([whether tsan API can be used])
+                saved_CFLAGS=${CFLAGS}
+                CFLAGS="${CFLAGS} -fsanitize=thread"
+                AC_COMPILE_IFELSE(
+                [AC_LANG_PROGRAM([
+                   [#include <sanitizer/tsan_interface.h>]],
+                   [[__tsan_create_fiber(0)]])],
+                   [TSAN_API=yes], [TSAN_API=no])
+                AC_MSG_RESULT([$TSAN_API])
+                if test x$TSAN_API = "xyes"; then
+                   AC_DEFINE(HAVE_TSAN_API, 1, [Define if tsan API can be used.])
+                fi
+                CFLAGS=${saved_CFLAGS}
+        fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread -fno-omit-frame-pointer"
         GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
 fi

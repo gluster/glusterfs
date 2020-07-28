@@ -31,6 +31,11 @@
 #define SYNCOPCTX_PID 0x00000008
 #define SYNCOPCTX_LKOWNER 0x00000010
 
+#ifdef HAVE_TSAN_API
+/* Currently hardcoded within thread context maintained by the sanitizer. */
+#define TSAN_THREAD_NAMELEN 64
+#endif
+
 struct synctask;
 struct syncproc;
 struct syncenv;
@@ -71,6 +76,13 @@ struct synctask {
     uid_t uid;
     gid_t gid;
 
+#ifdef HAVE_TSAN_API
+    struct {
+        void *fiber;
+        char name[TSAN_THREAD_NAMELEN];
+    } tsan;
+#endif
+
     ucontext_t ctx;
     struct syncproc *proc;
 
@@ -83,6 +95,14 @@ struct synctask {
 
 struct syncproc {
     pthread_t processor;
+
+#ifdef HAVE_TSAN_API
+    struct {
+        void *fiber;
+        char name[TSAN_THREAD_NAMELEN];
+    } tsan;
+#endif
+
     ucontext_t sched;
     struct syncenv *env;
     struct synctask *current;

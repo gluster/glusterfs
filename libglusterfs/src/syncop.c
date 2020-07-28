@@ -11,6 +11,10 @@
 #include "glusterfs/syncop.h"
 #include "glusterfs/libglusterfs-messages.h"
 
+#ifdef HAVE_TSAN_API
+#include <sanitizer/tsan_interface.h>
+#endif
+
 int
 syncopctx_setfsuid(void *uid)
 {
@@ -262,6 +266,11 @@ synctask_yield(struct synctask *task, struct timespec *delta)
     if (task->state != SYNCTASK_DONE) {
         task->state = SYNCTASK_SUSPEND;
     }
+
+#ifdef HAVE_TSAN_API
+    __tsan_switch_to_fiber(task->proc->tsan.fiber, 0);
+#endif
+
     if (swapcontext(&task->ctx, &task->proc->sched) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
                "swapcontext failed");
@@ -356,6 +365,10 @@ synctask_destroy(struct synctask *task)
         pthread_mutex_destroy(&task->mutex);
         pthread_cond_destroy(&task->cond);
     }
+
+#ifdef HAVE_TSAN_API
+    __tsan_destroy_fiber(task->tsan.fiber);
+#endif
 
     GF_FREE(task);
 }
@@ -466,6 +479,13 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     newtask->ctx.uc_stack.ss_sp = newtask->stack;
 
     makecontext(&newtask->ctx, (void (*)(void))synctask_wrap, 0);
+
+#ifdef HAVE_TSAN_API
+    newtask->tsan.fiber = __tsan_create_fiber(0);
+    snprintf(newtask->tsan.name, TSAN_THREAD_NAMELEN, "<synctask of %s>",
+             this->name);
+    __tsan_set_fiber_name(newtask->tsan.fiber, newtask->tsan.name);
+#endif
 
     newtask->state = SYNCTASK_INIT;
 
@@ -638,6 +658,10 @@ synctask_switchto(struct synctask *task)
     task->ctx.uc_flags &= ~_UC_TLSBASE;
 #endif
 
+#ifdef HAVE_TSAN_API
+    __tsan_switch_to_fiber(task->tsan.fiber, 0);
+#endif
+
     if (swapcontext(&task->proc->sched, &task->ctx) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
                "swapcontext failed");
@@ -675,9 +699,20 @@ syncenv_processor(void *thdata)
 
     proc = thdata;
 
+#ifdef HAVE_TSAN_API
+    proc->tsan.fiber = __tsan_create_fiber(0);
+    snprintf(proc->tsan.name, TSAN_THREAD_NAMELEN, "<sched of syncenv@%p>",
+             proc);
+    __tsan_set_fiber_name(proc->tsan.fiber, proc->tsan.name);
+#endif
+
     while ((task = syncenv_task(proc)) != NULL) {
         synctask_switchto(task);
     }
+
+#ifdef HAVE_TSAN_API
+    __tsan_destroy_fiber(proc->tsan.fiber);
+#endif
 
     return NULL;
 }
