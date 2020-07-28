@@ -157,6 +157,7 @@ def get_quota_xattr_brick(dpath):
     xattr_dict['parents'] = {}
 
     for xattr in pairs:
+        xattr = xattr.decode("utf-8")
         xattr_key = xattr.split("=")[0]
         if re.search("# file:", xattr_key):
             # skip the file comment
