@@ -682,6 +682,7 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
     new->sizeof_type = sizeof_type;
     new->count = count;
     new->name = name;
+    new->xl_name = THIS->name;
     new->pool = pool;
     GF_ATOMIC_INIT(new->active, 0);
 #ifdef DEBUG

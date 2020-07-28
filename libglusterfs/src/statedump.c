@@ -377,6 +377,7 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
 
             gf_proc_dump_write("-----", "-----");
             gf_proc_dump_write("pool-name", "%s", pool->name);
+            gf_proc_dump_write("xlator-name", "%s", pool->xl_name);
             gf_proc_dump_write("active-count", "%" GF_PRI_ATOMIC, active);
             gf_proc_dump_write("sizeof-type", "%lu", pool->sizeof_type);
             gf_proc_dump_write("padded-sizeof", "%d",
