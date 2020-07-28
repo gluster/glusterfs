@@ -859,6 +859,7 @@ glusterd_add_shd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
                          int32_t count);
 int32_t
 glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
+                           char **volname, char **bricks, int32_t *brick_count,
                            int32_t sub_count);
 
 #endif

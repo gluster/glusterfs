@@ -1002,7 +1002,8 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
                 gf_msg_debug(this->name, 0,
                              "Replicate cluster type "
                              "found. Checking brick order.");
-                ret = glusterd_check_brick_order(dict, msg, type,
+                ret = glusterd_check_brick_order(dict, msg, type, &volname,
+                                                 &bricks, &brick_count,
                                                  replica_count);
             } else if (type == GF_CLUSTER_TYPE_DISPERSE) {
                 ret = dict_get_int32n(dict, "disperse-count",
@@ -1016,7 +1017,8 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
                 gf_msg_debug(this->name, 0,
                              "Disperse cluster type"
                              " found. Checking brick order.");
-                ret = glusterd_check_brick_order(dict, msg, type,
+                ret = glusterd_check_brick_order(dict, msg, type, &volname,
+                                                 &bricks, &brick_count,
                                                  disperse_count);
             }
             if (ret) {

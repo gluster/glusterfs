@@ -14632,7 +14632,8 @@ glusterd_compare_addrinfo(struct addrinfo *first, struct addrinfo *next)
  */
 int32_t
 glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
-                           int32_t sub_count)
+                           char **volname, char **brick_list,
+                           int32_t *brick_count, int32_t sub_count)
 {
     int ret = -1;
     int i = 0;
@@ -14643,12 +14644,9 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     addrinfo_list_t *ai_list_tmp1 = NULL;
     addrinfo_list_t *ai_list_tmp2 = NULL;
     char *brick = NULL;
-    char *brick_list = NULL;
     char *brick_list_dup = NULL;
     char *brick_list_ptr = NULL;
     char *tmpptr = NULL;
-    char *volname = NULL;
-    int32_t brick_count = 0;
     struct addrinfo *ai_info = NULL;
     char brick_addr[128] = {
         0,
@@ -14676,32 +14674,38 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     ai_list->info = NULL;
     CDS_INIT_LIST_HEAD(&ai_list->list);
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Unable to get volume name");
-        goto out;
+    if (!(*volname)) {
+        ret = dict_get_strn(dict, "volname", SLEN("volname"), &(*volname));
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Unable to get volume name");
+            goto out;
+        }
     }
 
-    ret = dict_get_strn(dict, "bricks", SLEN("bricks"), &brick_list);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Bricks check : Could not "
-               "retrieve bricks list");
-        goto out;
+    if (!(*brick_list)) {
+        ret = dict_get_strn(dict, "bricks", SLEN("bricks"), &(*brick_list));
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Bricks check : Could not "
+                   "retrieve bricks list");
+            goto out;
+        }
     }
 
-    ret = dict_get_int32n(dict, "count", SLEN("count"), &brick_count);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Bricks check : Could not "
-               "retrieve brick count");
-        goto out;
+    if (!(*brick_count)) {
+        ret = dict_get_int32n(dict, "count", SLEN("count"), &(*brick_count));
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Bricks check : Could not "
+                   "retrieve brick count");
+            goto out;
+        }
     }
 
-    brick_list_dup = brick_list_ptr = gf_strdup(brick_list);
+    brick_list_dup = brick_list_ptr = gf_strdup(*brick_list);
     /* Resolve hostnames and get addrinfo */
-    while (i < brick_count) {
+    while (i < *brick_count) {
         ++i;
         brick = strtok_r(brick_list_dup, " \n", &tmpptr);
         brick_list_dup = tmpptr;
@@ -14738,7 +14742,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     ai_list_tmp1 = cds_list_entry(ai_list->list.next, addrinfo_list_t, list);
 
     /* Check for bad brick order */
-    while (i < brick_count) {
+    while (i < *brick_count) {
         ++i;
         ai_info = ai_list_tmp1->info;
         ai_list_tmp1 = cds_list_entry(ai_list_tmp1->list.next, addrinfo_list_t,
