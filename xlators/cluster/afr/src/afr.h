@@ -1271,8 +1271,8 @@ int
 afr_inode_split_brain_choice_set(inode_t *inode, xlator_t *this,
                                  int spb_choice);
 int
-afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
-                                 int *spb_choice);
+afr_split_brain_read_subvol_get(inode_t *inode, xlator_t *this,
+                                call_frame_t *frame, int *spb_subvol);
 int
 afr_get_child_index_from_name(xlator_t *this, char *name);
 

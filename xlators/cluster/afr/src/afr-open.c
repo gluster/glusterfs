@@ -137,7 +137,7 @@ afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
-    int spb_choice = 0;
+    int spb_subvol = 0;
     int event_generation = 0;
     int ret = 0;
     int32_t op_errno = 0;
@@ -179,9 +179,9 @@ afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     ret = afr_inode_get_readable(frame, local->inode, this, NULL,
                                  &event_generation, AFR_DATA_TRANSACTION);
     if ((ret < 0) &&
-        (afr_inode_split_brain_choice_get(local->inode, this, &spb_choice) ==
-         0) &&
-        spb_choice < 0) {
+        (afr_split_brain_read_subvol_get(local->inode, this, NULL,
+                                         &spb_subvol) == 0) &&
+        spb_subvol < 0) {
         afr_inode_refresh(frame, this, local->inode, local->inode->gfid,
                           afr_open_continue);
     } else {

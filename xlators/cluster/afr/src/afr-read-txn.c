@@ -272,7 +272,7 @@ afr_read_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
     int read_subvol = -1;
     inode_t *inode = NULL;
     int ret = -1;
-    int spb_choice = -1;
+    int spb_subvol = -1;
 
     local = frame->local;
     inode = local->inode;
@@ -303,9 +303,9 @@ afr_read_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
     local->read_attempted[read_subvol] = 1;
 readfn:
     if (read_subvol == -1) {
-        ret = afr_inode_split_brain_choice_get(inode, this, &spb_choice);
-        if ((ret == 0) && spb_choice >= 0)
-            read_subvol = spb_choice;
+        ret = afr_split_brain_read_subvol_get(inode, this, frame, &spb_subvol);
+        if ((ret == 0) && spb_subvol >= 0)
+            read_subvol = spb_subvol;
     }
 
     if (read_subvol == -1) {
