@@ -362,6 +362,30 @@ free:
     FREE(ptr);
 }
 
+#if defined(GF_DISABLE_MEMPOOL)
+
+struct mem_pool *
+mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
+                unsigned long count, char *name)
+{
+    struct mem_pool *new;
+
+    new = GF_MALLOC(sizeof(struct mem_pool), gf_common_mt_mem_pool);
+    if (!new)
+        return NULL;
+
+    new->sizeof_type = sizeof_type;
+    return new;
+}
+
+void
+mem_pool_destroy(struct mem_pool *pool)
+{
+    GF_FREE(pool);
+}
+
+#else /* !GF_DISABLE_MEMPOOL */
+
 static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct list_head pool_threads;
 static pthread_mutex_t pool_free_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -371,7 +395,6 @@ static size_t pool_list_size;
 
 static __thread per_thread_pool_list_t *thread_pool_list = NULL;
 
-#if !defined(GF_DISABLE_MEMPOOL)
 #define N_COLD_LISTS 1024
 #define POOL_SWEEP_SECS 30
 
@@ -617,21 +640,29 @@ mem_pools_fini(void)
     pthread_mutex_unlock(&init_mutex);
 }
 
-#else
 void
-mem_pools_init(void)
+mem_pool_destroy(struct mem_pool *pool)
 {
-}
-void
-mem_pools_fini(void)
-{
-}
-void
-mem_pool_thread_destructor(per_thread_pool_list_t *pool_list)
-{
-}
+    if (!pool)
+        return;
 
-#endif
+    /* remove this pool from the owner (glusterfs_ctx_t) */
+    LOCK(&pool->ctx->lock);
+    {
+        list_del(&pool->owner);
+    }
+    UNLOCK(&pool->ctx->lock);
+
+    /* free this pool, but keep the mem_pool_shared */
+    GF_FREE(pool);
+
+    /*
+     * Pools are now permanent, so the mem_pool->pool is kept around. All
+     * of the objects *in* the pool will eventually be freed via the
+     * pool-sweeper thread, and this way we don't have to add a lot of
+     * reference-counting complexity.
+     */
+}
 
 struct mem_pool *
 mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
@@ -698,21 +729,6 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
     UNLOCK(&ctx->lock);
 
     return new;
-}
-
-void *
-mem_get0(struct mem_pool *mem_pool)
-{
-    void *ptr = mem_get(mem_pool);
-    if (ptr) {
-#if defined(GF_DISABLE_MEMPOOL)
-        memset(ptr, 0, mem_pool->sizeof_type);
-#else
-        memset(ptr, 0, AVAILABLE_SIZE(mem_pool->pool->power_of_two));
-#endif
-    }
-
-    return ptr;
 }
 
 per_thread_pool_list_t *
@@ -823,6 +839,23 @@ mem_get_from_pool(struct mem_pool *mem_pool)
     return retval;
 }
 
+#endif /* GF_DISABLE_MEMPOOL */
+
+void *
+mem_get0(struct mem_pool *mem_pool)
+{
+    void *ptr = mem_get(mem_pool);
+    if (ptr) {
+#if defined(GF_DISABLE_MEMPOOL)
+        memset(ptr, 0, mem_pool->sizeof_type);
+#else
+        memset(ptr, 0, AVAILABLE_SIZE(mem_pool->pool->power_of_two));
+#endif
+    }
+
+    return ptr;
+}
+
 void *
 mem_get(struct mem_pool *mem_pool)
 {
@@ -896,28 +929,4 @@ mem_put(void *ptr)
         free(hdr);
     }
 #endif /* GF_DISABLE_MEMPOOL */
-}
-
-void
-mem_pool_destroy(struct mem_pool *pool)
-{
-    if (!pool)
-        return;
-
-    /* remove this pool from the owner (glusterfs_ctx_t) */
-    LOCK(&pool->ctx->lock);
-    {
-        list_del(&pool->owner);
-    }
-    UNLOCK(&pool->ctx->lock);
-
-    /* free this pool, but keep the mem_pool_shared */
-    GF_FREE(pool);
-
-    /*
-     * Pools are now permanent, so the mem_pool->pool is kept around. All
-     * of the objects *in* the pool will eventually be freed via the
-     * pool-sweeper thread, and this way we don't have to add a lot of
-     * reference-counting complexity.
-     */
 }

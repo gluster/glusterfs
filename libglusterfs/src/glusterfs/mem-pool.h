@@ -202,6 +202,24 @@ out:
     return dup_mem;
 }
 
+#ifdef GF_DISABLE_MEMPOOL
+
+/* No-op memory pool enough to fit current API without massive redesign. */
+
+struct mem_pool {
+    unsigned long sizeof_type;
+};
+
+#define mem_pools_init()                                                       \
+    do {                                                                       \
+    } while (0)
+#define mem_pools_fini()                                                       \
+    do {                                                                       \
+    } while (0)
+#define mem_pool_thread_destructor(pool_list) (void)pool_list
+
+#else /* !GF_DISABLE_MEMPOOL */
+
 /* kind of 'header' for the actual mem_pool_shared structure, this might make
  * it possible to dump some more details in a statedump */
 struct mem_pool {
@@ -210,10 +228,10 @@ struct mem_pool {
     unsigned long count; /* requested pool size (unused) */
     char *name;
     char *xl_name;
-    gf_atomic_t active; /* current allocations */
+    gf_atomic_t active;     /* current allocations */
 #ifdef DEBUG
-    gf_atomic_t hit;  /* number of allocations served from pt_pool */
-    gf_atomic_t miss; /* number of std allocs due to miss */
+    gf_atomic_t hit;        /* number of allocations served from pt_pool */
+    gf_atomic_t miss;       /* number of std allocs due to miss */
 #endif
     struct list_head owner; /* glusterfs_ctx_t->mempool_list */
     glusterfs_ctx_t *ctx;   /* take ctx->lock when updating owner */
@@ -287,6 +305,10 @@ void
 mem_pools_init(void); /* start the pool_sweeper thread */
 void
 mem_pools_fini(void); /* cleanup memory pools */
+void
+mem_pool_thread_destructor(per_thread_pool_list_t *pool_list);
+
+#endif /* GF_DISABLE_MEMPOOL */
 
 struct mem_pool *
 mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
@@ -307,9 +329,6 @@ mem_get0(struct mem_pool *pool);
 
 void
 mem_pool_destroy(struct mem_pool *pool);
-
-void
-mem_pool_thread_destructor(per_thread_pool_list_t *pool_list);
 
 void
 gf_mem_acct_enable_set(void *ctx);

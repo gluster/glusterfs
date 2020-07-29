@@ -349,26 +349,13 @@ gf_proc_dump_mem_info_to_dict(dict_t *dict)
 void
 gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
 {
+#ifdef GF_DISABLE_MEMPOOL
+    gf_proc_dump_write("built with --disable-mempool", " so no memory pools");
+#else
     struct mem_pool *pool = NULL;
 
     gf_proc_dump_add_section("mempool");
 
-#if defined(OLD_MEM_POOLS)
-    list_for_each_entry(pool, &ctx->mempool_list, global_list)
-    {
-        gf_proc_dump_write("-----", "-----");
-        gf_proc_dump_write("pool-name", "%s", pool->name);
-        gf_proc_dump_write("hot-count", "%d", pool->hot_count);
-        gf_proc_dump_write("cold-count", "%d", pool->cold_count);
-        gf_proc_dump_write("padded_sizeof", "%lu", pool->padded_sizeof_type);
-        gf_proc_dump_write("alloc-count", "%" PRIu64, pool->alloc_count);
-        gf_proc_dump_write("max-alloc", "%d", pool->max_alloc);
-
-        gf_proc_dump_write("pool-misses", "%" PRIu64, pool->pool_misses);
-        gf_proc_dump_write("cur-stdalloc", "%d", pool->curr_stdalloc);
-        gf_proc_dump_write("max-stdalloc", "%d", pool->max_stdalloc);
-    }
-#else
     LOCK(&ctx->lock);
     {
         list_for_each_entry(pool, &ctx->mempool_list, owner)
@@ -388,15 +375,13 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
         }
     }
     UNLOCK(&ctx->lock);
-
-    /* TODO: details of (struct mem_pool_shared) pool->pool */
-#endif
+#endif /* GF_DISABLE_MEMPOOL */
 }
 
 void
 gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
 {
-#if defined(OLD_MEM_POOLS)
+#ifndef GF_DISABLE_MEMPOOL
     struct mem_pool *pool = NULL;
     char key[GF_DUMP_MAX_BUF_LEN] = {
         0,
@@ -407,51 +392,47 @@ gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
     if (!ctx || !dict)
         return;
 
-    list_for_each_entry(pool, &ctx->mempool_list, global_list)
+    LOCK(&ctx->lock);
     {
-        snprintf(key, sizeof(key), "pool%d.name", count);
-        ret = dict_set_str(dict, key, pool->name);
-        if (ret)
-            return;
+        list_for_each_entry(pool, &ctx->mempool_list, owner)
+        {
+            int64_t active = GF_ATOMIC_GET(pool->active);
 
-        snprintf(key, sizeof(key), "pool%d.hotcount", count);
-        ret = dict_set_int32(dict, key, pool->hot_count);
-        if (ret)
-            return;
+            snprintf(key, sizeof(key), "pool%d.name", count);
+            ret = dict_set_str(dict, key, pool->name);
+            if (ret)
+                goto out;
 
-        snprintf(key, sizeof(key), "pool%d.coldcount", count);
-        ret = dict_set_int32(dict, key, pool->cold_count);
-        if (ret)
-            return;
+            snprintf(key, sizeof(key), "pool%d.active-count", count);
+            ret = dict_set_uint64(dict, key, active);
+            if (ret)
+                goto out;
 
-        snprintf(key, sizeof(key), "pool%d.paddedsizeof", count);
-        ret = dict_set_uint64(dict, key, pool->padded_sizeof_type);
-        if (ret)
-            return;
+            snprintf(key, sizeof(key), "pool%d.sizeof-type", count);
+            ret = dict_set_uint64(dict, key, pool->sizeof_type);
+            if (ret)
+                goto out;
 
-        snprintf(key, sizeof(key), "pool%d.alloccount", count);
-        ret = dict_set_uint64(dict, key, pool->alloc_count);
-        if (ret)
-            return;
+            snprintf(key, sizeof(key), "pool%d.padded-sizeof", count);
+            ret = dict_set_uint64(dict, key, 1 << pool->pool->power_of_two);
+            if (ret)
+                goto out;
 
-        snprintf(key, sizeof(key), "pool%d.max_alloc", count);
-        ret = dict_set_int32(dict, key, pool->max_alloc);
-        if (ret)
-            return;
+            snprintf(key, sizeof(key), "pool%d.size", count);
+            ret = dict_set_uint64(dict, key,
+                                  (1 << pool->pool->power_of_two) * active);
+            if (ret)
+                goto out;
 
-        snprintf(key, sizeof(key), "pool%d.max-stdalloc", count);
-        ret = dict_set_int32(dict, key, pool->max_stdalloc);
-        if (ret)
-            return;
-
-        snprintf(key, sizeof(key), "pool%d.pool-misses", count);
-        ret = dict_set_uint64(dict, key, pool->pool_misses);
-        if (ret)
-            return;
-        count++;
+            snprintf(key, sizeof(key), "pool%d.shared-pool", count);
+            ret = dict_set_static_ptr(dict, key, pool->pool);
+            if (ret)
+                goto out;
+        }
     }
-    ret = dict_set_int32(dict, "mempool-count", count);
-#endif
+out:
+    UNLOCK(&ctx->lock);
+#endif /* !GF_DISABLE_MEMPOOL */
 }
 
 void
