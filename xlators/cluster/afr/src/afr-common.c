@@ -1197,12 +1197,11 @@ afr_inode_get_readable(call_frame_t *frame, inode_t *inode, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
                                  int *spb_choice)
 {
     int ret = -1;
-
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
 
     LOCK(&inode->lock);
@@ -1214,6 +1213,40 @@ out:
     return ret;
 }
 
+/*
+ * frame is used to get the favourite policy. Since
+ * afr_inode_split_brain_choice_get was called with afr_open, it is possible to
+ * have a frame with out local->replies. So in that case, frame is passed as
+ * null, hence this function will handle the frame NULL case.
+ */
+int
+afr_split_brain_read_subvol_get(inode_t *inode, xlator_t *this,
+                                call_frame_t *frame, int *spb_subvol)
+{
+    int ret = -1;
+    afr_local_t *local = NULL;
+    afr_private_t *priv = NULL;
+
+    GF_VALIDATE_OR_GOTO("afr", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+    GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    GF_VALIDATE_OR_GOTO(this->name, spb_subvol, out);
+
+    priv = this->private;
+
+    ret = afr_inode_split_brain_choice_get(inode, this, spb_subvol);
+    if (*spb_subvol < 0 && priv->fav_child_policy && frame && frame->local) {
+        local = frame->local;
+        *spb_subvol = afr_sh_get_fav_by_policy(this, local->replies, inode,
+                                               NULL);
+        if (*spb_subvol >= 0) {
+            ret = 0;
+        }
+    }
+
+out:
+    return ret;
+}
 int
 afr_inode_read_subvol_set(inode_t *inode, xlator_t *this, unsigned char *data,
                           unsigned char *metadata, int event)
@@ -2823,7 +2856,7 @@ afr_attempt_readsubvol_set(call_frame_t *frame, xlator_t *this,
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
-    int spb_choice = -1;
+    int spb_subvol = -1;
     int child_count = -1;
 
     if (*read_subvol != -1)
@@ -2833,10 +2866,10 @@ afr_attempt_readsubvol_set(call_frame_t *frame, xlator_t *this,
     local = frame->local;
     child_count = priv->child_count;
 
-    afr_inode_split_brain_choice_get(local->inode, this, &spb_choice);
-    if ((spb_choice >= 0) &&
+    afr_split_brain_read_subvol_get(local->inode, this, frame, &spb_subvol);
+    if ((spb_subvol >= 0) &&
         (AFR_COUNT(success_replies, child_count) == child_count)) {
-        *read_subvol = spb_choice;
+        *read_subvol = spb_subvol;
     } else if (!priv->quorum_count ||
                frame->root->pid == GF_CLIENT_PID_GLFS_HEAL) {
         *read_subvol = afr_first_up_child(frame, this);
