@@ -206,11 +206,13 @@ glusterd_hooks_set_volume_args(dict_t *dict, runner_t *runner)
     int i = 0;
     int count = 0;
     int ret = -1;
+    int flag = 0;
     char query[1024] = {
         0,
     };
     char *key = NULL;
     char *value = NULL;
+    char *inet_family = NULL;
     xlator_t *this = NULL;
     this = THIS;
     GF_ASSERT(this);
@@ -243,9 +245,23 @@ glusterd_hooks_set_volume_args(dict_t *dict, runner_t *runner)
             continue;
 
         runner_argprintf(runner, "%s=%s", key, value);
+        if ((strncmp(key, "cluster.enable-shared-storage",
+                     SLEN("cluster.enable-shared-storage")) == 0 ||
+             strncmp(key, "enable-shared-storage",
+                     SLEN("enable-shared-storage")) == 0) &&
+            strncmp(value, "enable", SLEN("enable")) == 0)
+            flag = 1;
     }
 
     glusterd_hooks_add_custom_args(dict, runner);
+    if (flag == 1) {
+        ret = dict_get_str_sizen(this->options, "transport.address-family",
+                                 &inet_family);
+        if (!ret) {
+            runner_argprintf(runner, "transport.address-family=%s",
+                             inet_family);
+        }
+    }
 
     ret = 0;
 out:
