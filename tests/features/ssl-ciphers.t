@@ -110,8 +110,15 @@ EXPECT "N" openssl_connect -ssl2 -connect $H0:$BRICK_PORT
 # Test SSLv3 protocol fails
 EXPECT "N" openssl_connect -ssl3 -connect $H0:$BRICK_PORT
 
-# Test TLSv1 protocol fails
-EXPECT "N" openssl_connect -tls1 -connect $H0:$BRICK_PORT
+# Test TLSv1 protocol based on openssl version
+cmd="openssl version"
+ver=$(eval $cmd | awk -F " " '{print $2}' | grep "^1.1")
+if [ "x${ver}" = "x" ]; then
+    supp="N"
+else
+    supp="Y"
+fi
+EXPECT "${supp}" openssl_connect -tls1 -connect $H0:$BRICK_PORT
 
 # Test a HIGH CBC cipher
 cph=`check_cipher -cipher AES256-SHA -connect $H0:$BRICK_PORT`
