@@ -104,8 +104,15 @@ function check_volume_status()
     echo $status
 }
 
-mount_cmd="mount -t glusterfs $local_node_hostname:/gluster_shared_storage \
+key=`echo $5 | cut -d '=' -f 1`
+val=`echo $5 | cut -d '=' -f 2`
+if [ "$key" == "transport.address-family" ]; then
+    mount_cmd="mount -t glusterfs -o xlator-option=transport.address-family=inet6 \
+               $local_node_hostname:/gluster_shared_storage /var/run/gluster/shared_storage"
+else
+    mount_cmd="mount -t glusterfs $local_node_hostname:/gluster_shared_storage \
            /var/run/gluster/shared_storage"
+fi
 
 if [ "$option" == "enable" ]; then
     retry=0;
