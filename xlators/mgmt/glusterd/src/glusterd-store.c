@@ -4399,7 +4399,7 @@ glusterd_store_create_peer_shandle(glusterd_peerinfo_t *peerinfo)
 static int32_t
 glusterd_store_peer_write(int fd, glusterd_peerinfo_t *peerinfo)
 {
-    char buf[128];
+    char buf[PATH_MAX];
     uint total_len = 0;
     int32_t ret = 0;
     int32_t i = 1;
@@ -4408,7 +4408,7 @@ glusterd_store_peer_write(int fd, glusterd_peerinfo_t *peerinfo)
     ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%s\n%s=%d\n",
                    GLUSTERD_STORE_KEY_PEER_UUID, uuid_utoa(peerinfo->uuid),
                    GLUSTERD_STORE_KEY_PEER_STATE, peerinfo->state.state);
-    if (ret < 0 || ret >= sizeof(buf)) {
+    if (ret < 0 || ret >= sizeof(buf) - total_len) {
         ret = -1;
         goto out;
     }
@@ -4419,7 +4419,7 @@ glusterd_store_peer_write(int fd, glusterd_peerinfo_t *peerinfo)
         ret = snprintf(buf + total_len, sizeof(buf) - total_len,
                        GLUSTERD_STORE_KEY_PEER_HOSTNAME "%d=%s\n", i,
                        hostname->hostname);
-        if (ret < 0 || ret >= sizeof(buf)) {
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
             ret = -1;
             goto out;
         }
