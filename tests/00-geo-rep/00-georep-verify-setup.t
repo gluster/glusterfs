@@ -5,7 +5,8 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
-SCRIPT_TIMEOUT=300
+SCRIPT_TIMEOUT=400
+GEO_REP_TIMEOUT=200
 
 ##Cleanup and start glusterd
 cleanup;
