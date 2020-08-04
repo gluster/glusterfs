@@ -438,7 +438,7 @@ gf_resolve_path_parent(const char *path)
 
     GF_VALIDATE_OR_GOTO(THIS->name, path, out);
 
-    if (strlen(path) <= 0) {
+    if (0 == strlen(path)) {
         gf_msg_callingfn(THIS->name, GF_LOG_DEBUG, 0, LG_MSG_INVALID_STRING,
                          "invalid string for 'path'");
         goto out;
@@ -677,23 +677,16 @@ gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
     from_cache = _gf_false;
 out:
     /* Insert into the cache */
-    if (fqdn && !from_cache) {
+    if (fqdn && !from_cache && ip) {
         struct dnscache_entry *entry = gf_dnscache_entry_init();
 
-        if (!entry) {
-            goto out;
+        if (entry) {
+            entry->fqdn = fqdn;
+            entry->ip = gf_strdup(ip);
+            entry->timestamp = time(NULL);
+            entrydata = bin_to_data(entry, sizeof(*entry));
+            dict_set(cache, (char *)ip, entrydata);
         }
-        entry->fqdn = fqdn;
-        if (!ip) {
-            gf_dnscache_entry_deinit(entry);
-            goto out;
-        }
-
-        entry->ip = gf_strdup(ip);
-        entry->timestamp = time(NULL);
-
-        entrydata = bin_to_data(entry, sizeof(*entry));
-        dict_set(cache, (char *)ip, entrydata);
     }
     return fqdn;
 }
@@ -4394,7 +4387,7 @@ gf_backtrace_end(char *buf, size_t frames)
 
     frames = min(frames, GF_BACKTRACE_LEN - pos - 1);
 
-    if (frames <= 0)
+    if (0 == frames)
         return;
 
     memset(buf + pos, ')', frames);
