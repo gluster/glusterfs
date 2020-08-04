@@ -3359,6 +3359,9 @@ volgen_link_bricks(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if ((i % sub_count) == 0) {
             xl = volgen_graph_add_nolink(graph, xl_type, xl_namefmt, volname,
                                          j);
+            if (strncmp(xl_type, "performance/readdir-ahead",
+                        SLEN("performance/readdir-ahead")) == 0)
+                xlator_set_fixed_option(xl, "performance.readdir-ahead", "on");
             j++;
         }
         if (!xl) {
@@ -3593,13 +3596,13 @@ volgen_graph_build_readdir_ahead(volgen_graph_t *graph,
     int32_t clusters = 0;
 
     if (graph->type == GF_QUOTAD || graph->type == GF_SNAPD ||
-        !glusterd_volinfo_get_boolean(volinfo, VKEY_PARALLEL_READDIR) ||
-        !glusterd_volinfo_get_boolean(volinfo, VKEY_READDIR_AHEAD))
+        !glusterd_volinfo_get_boolean(volinfo, VKEY_PARALLEL_READDIR))
         goto out;
 
     clusters = volgen_link_bricks_from_list_tail(
         graph, volinfo, "performance/readdir-ahead", "%s-readdir-ahead-%d",
         child_count, 1);
+
 out:
     return clusters;
 }
