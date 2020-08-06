@@ -1495,31 +1495,12 @@ fail:
  *               -val error, val = errno
  */
 
-int
-dict_get_with_ref(dict_t *this, char *key, data_t **data)
-{
-    if (!this || !key || !data) {
-        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict OR key (%s) is NULL", key);
-        return -EINVAL;
-    }
-
-    return dict_get_with_refn(this, key, strlen(key), data);
-}
-
-int
+static int
 dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
 {
     data_pair_t *pair = NULL;
     int ret = -ENOENT;
     uint32_t hash;
-
-    if (!this || !key || !data) {
-        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict OR key (%s) is NULL", key);
-        ret = -EINVAL;
-        goto err;
-    }
 
     hash = (uint32_t)XXH64(key, keylen, 0);
 
@@ -1533,8 +1514,20 @@ dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
         }
     }
     UNLOCK(&this->lock);
-err:
+
     return ret;
+}
+
+int
+dict_get_with_ref(dict_t *this, char *key, data_t **data)
+{
+    if (!this || !key || !data) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "dict OR key (%s) is NULL", key);
+        return -EINVAL;
+    }
+
+    return dict_get_with_refn(this, key, strlen(key), data);
 }
 
 static int
@@ -1710,7 +1703,7 @@ dict_get_int8(dict_t *this, char *key, int8_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1756,7 +1749,7 @@ dict_get_int16(dict_t *this, char *key, int16_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1828,7 +1821,7 @@ dict_get_int32(dict_t *this, char *key, int32_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1893,7 +1886,7 @@ dict_get_int64(dict_t *this, char *key, int64_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1938,7 +1931,7 @@ dict_get_uint16(dict_t *this, char *key, uint16_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -1983,7 +1976,7 @@ dict_get_uint32(dict_t *this, char *key, uint32_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -2028,7 +2021,7 @@ dict_get_uint64(dict_t *this, char *key, uint64_t *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -2251,7 +2244,7 @@ dict_get_double(dict_t *this, char *key, double *val)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !val) {
+    if (!val) {
         ret = -EINVAL;
         goto err;
     }
@@ -2334,7 +2327,7 @@ dict_get_ptr(dict_t *this, char *key, void **ptr)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !ptr) {
+    if (!ptr) {
         ret = -EINVAL;
         goto err;
     }
@@ -2364,7 +2357,7 @@ dict_get_ptr_and_len(dict_t *this, char *key, void **ptr, int *len)
     data_t *data = NULL;
     int ret = 0;
 
-    if (!this || !key || !ptr) {
+    if (!ptr) {
         ret = -EINVAL;
         goto err;
     }
@@ -2422,7 +2415,7 @@ dict_get_str(dict_t *this, char *key, char **str)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !str) {
+    if (!str) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2596,7 +2589,7 @@ dict_get_bin(dict_t *this, char *key, void **bin)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !bin) {
+    if (!bin) {
         goto err;
     }
 
@@ -2699,7 +2692,7 @@ dict_get_gfuuid(dict_t *this, char *key, uuid_t *gfid)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !gfid) {
+    if (!gfid) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2732,7 +2725,7 @@ dict_get_mdata(dict_t *this, char *key, struct mdata_iatt *mdata)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !mdata) {
+    if (!mdata) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
@@ -2770,7 +2763,7 @@ dict_get_iatt(dict_t *this, char *key, struct iatt *iatt)
     data_t *data = NULL;
     int ret = -EINVAL;
 
-    if (!this || !key || !iatt) {
+    if (!iatt) {
         goto err;
     }
     ret = dict_get_with_ref(this, key, &data);
