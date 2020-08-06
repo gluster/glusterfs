@@ -1004,6 +1004,10 @@ shard_initiate_evicted_inode_fsync(xlator_t *this, inode_t *inode)
 }
 
 int
+shard_common_inode_write_post_lookup_shards_handler(call_frame_t *frame,
+                                                    xlator_t *this);
+
+int
 shard_common_resolve_shards(call_frame_t *frame, xlator_t *this,
                             shard_post_resolve_fop_handler_t post_res_handler)
 {
@@ -1020,21 +1024,47 @@ shard_common_resolve_shards(call_frame_t *frame, xlator_t *this,
     inode_t *fsync_inode = NULL;
     shard_priv_t *priv = NULL;
     shard_local_t *local = NULL;
+    uint64_t resolve_count = 0;
 
     priv = this->private;
     local = frame->local;
     local->call_count = 0;
     shard_idx_iter = local->first_block;
     res_inode = local->resolver_base_inode;
+
+    if ((local->op_ret < 0) || (local->resolve_not))
+        goto out;
+
+    /* If this prealloc FOP is for fresh file creation, then the size of the
+     * file will be 0. Then there will be no shards associated with this file.
+     * So we can skip the lookup process for the shards which do not exists
+     * and directly issue mknod to crete shards.
+     *
+     * In case the prealloc fop is to extend the preallocated file to bigger
+     * size then just lookup and populate inodes of existing shards and
+     * update the create count
+     */
+    if (local->fop == GF_FOP_FALLOCATE) {
+        if (!local->prebuf.ia_size) {
+            local->inode_list[0] = inode_ref(res_inode);
+            local->create_count = local->last_block;
+            shard_common_inode_write_post_lookup_shards_handler(frame, this);
+            return 0;
+        }
+        if (local->prebuf.ia_size < local->total_size)
+            local->create_count = local->last_block -
+                                  ((local->prebuf.ia_size - 1) /
+                                   local->block_size);
+    }
+
+    resolve_count = local->last_block - local->create_count;
+
     if (res_inode)
         gf_uuid_copy(gfid, res_inode->gfid);
     else
         gf_uuid_copy(gfid, local->base_gfid);
 
-    if ((local->op_ret < 0) || (local->resolve_not))
-        goto out;
-
-    while (shard_idx_iter <= local->last_block) {
+    while (shard_idx_iter <= resolve_count) {
         i++;
         if (shard_idx_iter == 0) {
             local->inode_list[i] = inode_ref(res_inode);
@@ -2443,7 +2473,7 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
     int count = 0;
     int call_count = 0;
     int32_t shard_idx_iter = 0;
-    int last_block = 0;
+    int lookup_count = 0;
     char path[PATH_MAX] = {
         0,
     };
@@ -2463,7 +2493,7 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local = frame->local;
     count = call_count = local->call_count;
     shard_idx_iter = local->first_block;
-    last_block = local->last_block;
+    lookup_count = local->last_block - local->create_count;
     local->pls_fop_handler = handler;
     if (local->lookup_shards_barriered)
         local->barrier.waitfor = local->call_count;
@@ -2473,7 +2503,7 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
     else
         gf_uuid_copy(gfid, local->base_gfid);
 
-    while (shard_idx_iter <= last_block) {
+    while (shard_idx_iter <= lookup_count) {
         if (local->inode_list[i]) {
             i++;
             shard_idx_iter++;
@@ -5656,6 +5686,8 @@ shard_common_inode_write_post_resolve_handler(call_frame_t *frame,
         shard_common_lookup_shards(
             frame, this, local->resolver_base_inode,
             shard_common_inode_write_post_lookup_shards_handler);
+    } else if (local->create_count) {
+        shard_common_inode_write_post_lookup_shards_handler(frame, this);
     } else {
         shard_common_inode_write_do(frame, this);
     }
