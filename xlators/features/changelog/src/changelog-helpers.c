@@ -242,8 +242,7 @@ changelog_write(int fd, char *buffer, size_t len)
 }
 
 int
-htime_update(xlator_t *this, changelog_priv_t *priv, unsigned long ts,
-             char *buffer)
+htime_update(xlator_t *this, changelog_priv_t *priv, time_t ts, char *buffer)
 {
     char changelog_path[PATH_MAX + 1] = {
         0,
@@ -273,7 +272,7 @@ htime_update(xlator_t *this, changelog_priv_t *priv, unsigned long ts,
         goto out;
     }
 
-    len = snprintf(x_value, sizeof(x_value), "%lu:%d", ts,
+    len = snprintf(x_value, sizeof(x_value), "%ld:%d", ts,
                    priv->rollover_count);
     if (len >= sizeof(x_value)) {
         ret = -1;
@@ -382,8 +381,7 @@ out:
 }
 
 static int
-changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
-                             unsigned long ts)
+changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv, time_t ts)
 {
     int ret = -1;
     int notify = 0;
@@ -421,16 +419,14 @@ changelog_rollover_changelog(xlator_t *this, changelog_priv_t *priv,
         priv->changelog_fd = -1;
     }
 
-    time_t time = (time_t)ts;
-
-    /* Get GMT time */
-    gmt = gmtime(&time);
+    /* Get GMT time. */
+    gmt = gmtime(&ts);
 
     strftime(yyyymmdd, sizeof(yyyymmdd), "%Y/%m/%d", gmt);
 
     (void)snprintf(ofile, PATH_MAX, "%s/" CHANGELOG_FILE_NAME,
                    priv->changelog_dir);
-    (void)snprintf(nfile, PATH_MAX, "%s/%s/" CHANGELOG_FILE_NAME ".%lu",
+    (void)snprintf(nfile, PATH_MAX, "%s/%s/" CHANGELOG_FILE_NAME ".%ld",
                    priv->changelog_dir, yyyymmdd, ts);
     (void)snprintf(nfile_dir, PATH_MAX, "%s/%s", priv->changelog_dir, yyyymmdd);
 
@@ -593,7 +589,7 @@ out:
  * returns -1 on failure or error
  */
 int
-htime_open(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
+htime_open(xlator_t *this, changelog_priv_t *priv, time_t ts)
 {
     int ht_file_fd = -1;
     int ht_dir_fd = -1;
@@ -723,7 +719,7 @@ out:
  * returns -1 on failure or error
  */
 int
-htime_create(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
+htime_create(xlator_t *this, changelog_priv_t *priv, time_t ts)
 {
     int ht_file_fd = -1;
     int ht_dir_fd = -1;
@@ -741,12 +737,12 @@ htime_create(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
     int32_t len = 0;
 
     gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_NEW_HTIME_FILE,
-            "name=%lu", ts, NULL);
+            "name=%ld", ts, NULL);
 
     CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
 
     /* get the htime file name in ht_file_path */
-    len = snprintf(ht_file_path, PATH_MAX, "%s/%s.%lu", ht_dir_path,
+    len = snprintf(ht_file_path, PATH_MAX, "%s/%s.%ld", ht_dir_path,
                    HTIME_FILE_NAME, ts);
     if ((len < 0) || (len >= PATH_MAX)) {
         ret = -1;
@@ -792,7 +788,7 @@ htime_create(xlator_t *this, changelog_priv_t *priv, unsigned long ts)
         goto out;
     }
 
-    (void)snprintf(ht_file_bname, sizeof(ht_file_bname), "%s.%lu",
+    (void)snprintf(ht_file_bname, sizeof(ht_file_bname), "%s.%ld",
                    HTIME_FILE_NAME, ts);
     if (sys_fsetxattr(ht_dir_fd, HTIME_CURRENT, ht_file_bname,
                       strlen(ht_file_bname), 0)) {
@@ -963,8 +959,8 @@ out:
 }
 
 int
-changelog_start_next_change(xlator_t *this, changelog_priv_t *priv,
-                            unsigned long ts, gf_boolean_t finale)
+changelog_start_next_change(xlator_t *this, changelog_priv_t *priv, time_t ts,
+                            gf_boolean_t finale)
 {
     int ret = -1;
 
@@ -985,21 +981,12 @@ changelog_entry_length()
     return sizeof(changelog_log_data_t);
 }
 
-int
+void
 changelog_fill_rollover_data(changelog_log_data_t *cld, gf_boolean_t is_last)
 {
-    struct timeval tv = {
-        0,
-    };
-
     cld->cld_type = CHANGELOG_TYPE_ROLLOVER;
-
-    if (gettimeofday(&tv, NULL))
-        return -1;
-
-    cld->cld_roll_time = (unsigned long)tv.tv_sec;
+    cld->cld_roll_time = gf_time();
     cld->cld_finale = is_last;
-    return 0;
 }
 
 int
@@ -1355,12 +1342,7 @@ changelog_rollover(void *data)
         if (priv->explicit_rollover == _gf_true)
             sleep(1);
 
-        ret = changelog_fill_rollover_data(&cld, _gf_false);
-        if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, 0,
-                    CHANGELOG_MSG_ROLLOVER_DATA_FILL_FAILED, NULL);
-            continue;
-        }
+        changelog_fill_rollover_data(&cld, _gf_false);
 
         _mask_cancellation();
 

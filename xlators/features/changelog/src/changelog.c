@@ -2252,22 +2252,10 @@ static int
 changelog_init(xlator_t *this, changelog_priv_t *priv)
 {
     int i = 0;
-    int ret = -1;
-    struct timeval tv = {
-        0,
-    };
+    int ret = 0;
     changelog_log_data_t cld = {
         0,
     };
-
-    ret = gettimeofday(&tv, NULL);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, CHANGELOG_MSG_GET_TIME_FAILURE,
-                NULL);
-        goto out;
-    }
-
-    priv->slice.tv_start = tv;
 
     priv->maps[CHANGELOG_TYPE_DATA] = "D ";
     priv->maps[CHANGELOG_TYPE_METADATA] = "M ";
@@ -2287,9 +2275,7 @@ changelog_init(xlator_t *this, changelog_priv_t *priv)
      * in case there was an encoding change. so... things are kept
      * simple here.
      */
-    ret = changelog_fill_rollover_data(&cld, _gf_false);
-    if (ret)
-        goto out;
+    changelog_fill_rollover_data(&cld, _gf_false);
 
     ret = htime_open(this, priv, cld.cld_roll_time);
     /* call htime open with cld's rollover_time */
@@ -2470,9 +2456,6 @@ reconfigure(xlator_t *this, dict_t *options)
     char csnap_dir[PATH_MAX] = {
         0,
     };
-    struct timeval tv = {
-        0,
-    };
     uint32_t timeout = 0;
 
     priv = this->private;
@@ -2564,9 +2547,7 @@ reconfigure(xlator_t *this, dict_t *options)
                      out);
 
     if (active_now || active_earlier) {
-        ret = changelog_fill_rollover_data(&cld, !active_now);
-        if (ret)
-            goto out;
+        changelog_fill_rollover_data(&cld, !active_now);
 
         slice = &priv->slice;
 
@@ -2585,13 +2566,7 @@ reconfigure(xlator_t *this, dict_t *options)
             if (!active_earlier) {
                 gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_RECONFIGURE,
                         NULL);
-                if (gettimeofday(&tv, NULL)) {
-                    gf_smsg(this->name, GF_LOG_ERROR, 0,
-                            CHANGELOG_MSG_HTIME_FETCH_FAILED, NULL);
-                    ret = -1;
-                    goto out;
-                }
-                htime_create(this, priv, tv.tv_sec);
+                htime_create(this, priv, gf_time());
             }
             ret = changelog_spawn_helper_threads(this, priv);
         }
