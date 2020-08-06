@@ -25,9 +25,6 @@ typedef struct _data_pair data_pair_t;
 
 #define dict_add_sizen(this, key, value) dict_addn(this, key, SLEN(key), value)
 
-#define dict_get_with_ref_sizen(this, key, value)                              \
-    dict_get_with_refn(this, key, SLEN(key), value)
-
 #define dict_get_sizen(this, key) dict_getn(this, key, SLEN(key))
 
 #define dict_del_sizen(this, key) dict_deln(this, key, SLEN(key))
@@ -138,6 +135,7 @@ int32_t
 dict_set(dict_t *this, char *key, data_t *value);
 int32_t
 dict_setn(dict_t *this, char *key, const int keylen, data_t *value);
+
 /* function to set a new key/value pair (without checking for duplicate) */
 int32_t
 dict_add(dict_t *this, char *key, data_t *value);
@@ -145,8 +143,6 @@ int32_t
 dict_addn(dict_t *this, char *key, const int keylen, data_t *value);
 int
 dict_get_with_ref(dict_t *this, char *key, data_t **data);
-int
-dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data);
 data_t *
 dict_get(dict_t *this, char *key);
 data_t *
