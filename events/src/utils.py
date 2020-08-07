@@ -13,6 +13,7 @@ import sys
 import json
 import os
 import logging
+import logging.handlers
 import fcntl
 from errno import EBADF
 from threading import Thread
@@ -98,7 +99,7 @@ def setup_logger():
     logger.setLevel(logging.INFO)
 
     # create the logging file handler
-    fh = logging.FileHandler(LOG_FILE)
+    fh = logging.handlers.WatchedFileHandler(LOG_FILE)
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s "
                                   "[%(module)s - %(lineno)s:%(funcName)s] "
