@@ -605,13 +605,11 @@ static void
 __insert_lock(pl_inode_t *pl_inode, posix_lock_t *lock)
 {
     if (lock->blocked)
-        gettimeofday(&lock->blkd_time, NULL);
+        lock->blkd_time = gf_time();
     else
-        gettimeofday(&lock->granted_time, NULL);
+        lock->granted_time = gf_time();
 
     list_add_tail(&lock->list, &pl_inode->ext_list);
-
-    return;
 }
 
 /* Return true if the locks overlap, false otherwise */

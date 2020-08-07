@@ -3684,10 +3684,10 @@ __dump_entrylks(pl_inode_t *pl_inode)
 
         list_for_each_entry(lock, &dom->entrylk_list, domain_list)
         {
-            gf_time_fmt(granted, sizeof(granted), lock->granted_time.tv_sec,
+            gf_time_fmt(granted, sizeof(granted), lock->granted_time,
                         gf_timefmt_FT);
             gf_proc_dump_build_key(key, k, "entrylk[%d](ACTIVE)", count);
-            if (lock->blkd_time.tv_sec == 0) {
+            if (lock->blkd_time == 0) {
                 snprintf(tmp, sizeof(tmp), ENTRY_GRNTD_FMT,
                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK"
                                                      : "ENTRYLK_WRLCK",
@@ -3695,7 +3695,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
                          lkowner_utoa(&lock->owner), lock->client,
                          lock->connection_id, granted);
             } else {
-                gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time.tv_sec,
+                gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time,
                             gf_timefmt_FT);
                 snprintf(tmp, sizeof(tmp), ENTRY_BLKD_GRNTD_FMT,
                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK"
@@ -3712,7 +3712,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
 
         list_for_each_entry(lock, &dom->blocked_entrylks, blocked_locks)
         {
-            gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time.tv_sec,
+            gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time,
                         gf_timefmt_FT);
 
             gf_proc_dump_build_key(key, k, "entrylk[%d](BLOCKED)", count);
@@ -3764,9 +3764,8 @@ __dump_inodelks(pl_inode_t *pl_inode)
 
             SET_FLOCK_PID(&lock->user_flock, lock);
             pl_dump_lock(tmp, sizeof(tmp), &lock->user_flock, &lock->owner,
-                         lock->client, lock->connection_id,
-                         &lock->granted_time.tv_sec, &lock->blkd_time.tv_sec,
-                         _gf_true);
+                         lock->client, lock->connection_id, &lock->granted_time,
+                         &lock->blkd_time, _gf_true);
             gf_proc_dump_write(key, "%s", tmp);
 
             count++;
@@ -3778,8 +3777,8 @@ __dump_inodelks(pl_inode_t *pl_inode)
                                    count);
             SET_FLOCK_PID(&lock->user_flock, lock);
             pl_dump_lock(tmp, sizeof(tmp), &lock->user_flock, &lock->owner,
-                         lock->client, lock->connection_id, 0,
-                         &lock->blkd_time.tv_sec, _gf_false);
+                         lock->client, lock->connection_id, 0, &lock->blkd_time,
+                         _gf_false);
             gf_proc_dump_write(key, "%s", tmp);
 
             count++;
@@ -3812,9 +3811,8 @@ __dump_posixlks(pl_inode_t *pl_inode)
         gf_proc_dump_build_key(key, "posixlk", "posixlk[%d](%s)", count,
                                lock->blocked ? "BLOCKED" : "ACTIVE");
         pl_dump_lock(tmp, sizeof(tmp), &lock->user_flock, &lock->owner,
-                     lock->client, lock->client_uid, &lock->granted_time.tv_sec,
-                     &lock->blkd_time.tv_sec,
-                     (lock->blocked) ? _gf_false : _gf_true);
+                     lock->client, lock->client_uid, &lock->granted_time,
+                     &lock->blkd_time, (lock->blocked) ? _gf_false : _gf_true);
         gf_proc_dump_write(key, "%s", tmp);
 
         count++;
