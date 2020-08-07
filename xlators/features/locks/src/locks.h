@@ -43,9 +43,8 @@ struct __posix_lock {
     fd_t *fd;
     call_frame_t *frame;
 
-    struct timeval blkd_time; /*time at which lock was queued into blkd list*/
-    struct timeval
-        granted_time; /*time at which lock was queued into active list*/
+    time_t blkd_time;    /* time at which lock was queued into blkd list */
+    time_t granted_time; /* time at which lock was queued into active list */
 
     /* These two together serve to uniquely identify each process
        across nodes */
@@ -85,9 +84,9 @@ struct __pl_inode_lock {
 
     call_frame_t *frame;
 
-    struct timeval blkd_time; /*time at which lock was queued into blkd list*/
-    struct timeval
-        granted_time; /*time at which lock was queued into active list*/
+    time_t blkd_time;    /* time at which lock was queued into blkd list */
+    time_t granted_time; /* time at which lock was queued into active list */
+
     /*last time at which lock contention was detected and notified*/
     struct timespec contention_time;
 
@@ -139,9 +138,9 @@ struct __entry_lock {
 
     const char *basename;
 
-    struct timeval blkd_time; /*time at which lock was queued into blkd list*/
-    struct timeval
-        granted_time; /*time at which lock was queued into active list*/
+    time_t blkd_time;    /* time at which lock was queued into blkd list */
+    time_t granted_time; /* time at which lock was queued into active list */
+
     /*last time at which lock contention was detected and notified*/
     struct timespec contention_time;
 

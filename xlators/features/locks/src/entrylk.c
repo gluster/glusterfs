@@ -121,7 +121,6 @@ __stale_entrylk(xlator_t *this, pl_entry_lock_t *candidate_lock,
                 pl_entry_lock_t *requested_lock, time_t *lock_age_sec)
 {
     posix_locks_private_t *priv = NULL;
-    struct timeval curr;
 
     priv = this->private;
 
@@ -129,8 +128,7 @@ __stale_entrylk(xlator_t *this, pl_entry_lock_t *candidate_lock,
      * chance?  Or just the locks we are attempting to acquire?
      */
     if (names_conflict(candidate_lock->basename, requested_lock->basename)) {
-        gettimeofday(&curr, NULL);
-        *lock_age_sec = curr.tv_sec - candidate_lock->granted_time.tv_sec;
+        *lock_age_sec = gf_time() - candidate_lock->granted_time;
         if (*lock_age_sec > priv->revocation_secs)
             return _gf_true;
     }
@@ -544,14 +542,10 @@ static int
 __lock_blocked_add(xlator_t *this, pl_inode_t *pinode, pl_dom_list_t *dom,
                    pl_entry_lock_t *lock, int nonblock)
 {
-    struct timeval now;
-
     if (nonblock)
         goto out;
 
-    gettimeofday(&now, NULL);
-
-    lock->blkd_time = now;
+    lock->blkd_time = gf_time();
     list_add_tail(&lock->blocked_locks, &dom->blocked_entrylks);
 
     gf_msg_trace(this->name, 0, "Blocking lock: {pinode=%p, basename=%s}",
@@ -612,7 +606,7 @@ __lock_entrylk(xlator_t *this, pl_inode_t *pinode, pl_entry_lock_t *lock,
     }
 
     __pl_entrylk_ref(lock);
-    gettimeofday(&lock->granted_time, NULL);
+    lock->granted_time = gf_time();
     list_add(&lock->domain_list, &dom->entrylk_list);
 
     ret = 0;
