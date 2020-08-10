@@ -413,9 +413,6 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     ioc_waitq_t *waitq = NULL;
     size_t iobref_page_size = 0;
     char zero_filled = 0;
-    struct timeval tv = {
-        0,
-    };
 
     GF_ASSERT(frame);
 
@@ -431,7 +428,6 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     zero_filled = ((op_ret >= 0) && (stbuf->ia_mtime == 0));
 
-    gettimeofday(&tv, NULL);
     ioc_inode_lock(ioc_inode);
     {
         if (op_ret == -1 ||
@@ -448,7 +444,7 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             ioc_inode->cache.mtime_nsec = stbuf->ia_mtime_nsec;
         }
 
-        memcpy(&ioc_inode->cache.tv, &tv, sizeof(struct timeval));
+        ioc_inode->cache.last_revalidate = gf_time();
 
         if (op_ret < 0) {
             /* error, readv returned -1 */

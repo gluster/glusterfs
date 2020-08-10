@@ -117,15 +117,13 @@ struct ioc_page {
 struct ioc_cache {
     rbthash_table_t *page_table;
     struct list_head page_lru;
-    time_t mtime;      /*
-                        * seconds component of file mtime
-                        */
-    time_t mtime_nsec; /*
-                        * nanosecond component of file mtime
-                        */
-    struct timeval tv; /*
-                        * time-stamp at last re-validate
-                        */
+    time_t mtime;           /*
+                             * seconds component of file mtime
+                             */
+    time_t mtime_nsec;      /*
+                             * nanosecond component of file mtime
+                             */
+    time_t last_revalidate; /* timestamp at last re-validate */
 };
 
 struct ioc_inode {

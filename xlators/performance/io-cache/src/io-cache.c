@@ -133,23 +133,17 @@ ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
     return 0;
 }
 
-int32_t
+static gf_boolean_t
 ioc_inode_need_revalidate(ioc_inode_t *ioc_inode)
 {
-    int8_t need_revalidate = 0;
-    struct timeval tv = {
-        0,
-    };
     ioc_table_t *table = NULL;
 
+    GF_ASSERT(ioc_inode);
     table = ioc_inode->table;
+    GF_ASSERT(table);
 
-    gettimeofday(&tv, NULL);
-
-    if (time_elapsed(&tv, &ioc_inode->cache.tv) >= table->cache_timeout)
-        need_revalidate = 1;
-
-    return need_revalidate;
+    return (gf_time() - ioc_inode->cache.last_revalidate >=
+            table->cache_timeout);
 }
 
 /*
@@ -411,9 +405,6 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     ioc_inode_t *ioc_inode = NULL;
     size_t destroy_size = 0;
     struct iatt *local_stbuf = NULL;
-    struct timeval tv = {
-        0,
-    };
 
     local = frame->local;
     ioc_inode = local->inode;
@@ -451,10 +442,9 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret < 0)
         local_stbuf = NULL;
 
-    gettimeofday(&tv, NULL);
     ioc_inode_lock(ioc_inode);
     {
-        memcpy(&ioc_inode->cache.tv, &tv, sizeof(struct timeval));
+        ioc_inode->cache.last_revalidate = gf_time();
     }
     ioc_inode_unlock(ioc_inode);
 
@@ -1405,9 +1395,6 @@ ioc_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 {
     ioc_inode_t *ioc_inode = NULL;
     uint64_t tmp_inode = 0;
-    struct timeval tv = {
-        0,
-    };
 
     inode_ctx_get(fd->inode, this, &tmp_inode);
     ioc_inode = (ioc_inode_t *)(long)tmp_inode;
@@ -1418,10 +1405,9 @@ ioc_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         return 0;
     }
 
-    gettimeofday(&tv, NULL);
     ioc_inode_lock(ioc_inode);
     {
-        memcpy(&ioc_inode->cache.tv, &tv, sizeof(struct timeval));
+        ioc_inode->cache.last_revalidate = gf_time();
     }
     ioc_inode_unlock(ioc_inode);
 
@@ -1955,9 +1941,9 @@ __ioc_cache_dump(ioc_inode_t *ioc_inode, char *prefix)
 
     table = ioc_inode->table;
 
-    if (ioc_inode->cache.tv.tv_sec) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &ioc_inode->cache.tv,
-                       gf_timefmt_FT);
+    if (ioc_inode->cache.last_revalidate) {
+        gf_time_fmt(timestr, sizeof timestr, ioc_inode->cache.last_revalidate,
+                    gf_timefmt_FT);
 
         gf_proc_dump_write("last-cache-validation-time", "%s", timestr);
     }
