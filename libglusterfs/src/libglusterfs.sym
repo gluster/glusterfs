@@ -1080,6 +1080,8 @@ sys_write
 sys_writev
 sys_socket
 sys_accept
+sys_kill
+sys_sysctl
 tbf_init
 tbf_throttle
 timespec_now

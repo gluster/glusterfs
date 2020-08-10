@@ -13,6 +13,10 @@
 #include "glusterfs/mem-pool.h"
 #include "glusterfs/libglusterfs-messages.h"
 
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#include <signal.h>
+#endif
 #include <sys/types.h>
 #include <utime.h>
 #include <sys/time.h>
@@ -854,3 +858,19 @@ sys_copy_file_range(int fd_in, off64_t *off_in, int fd_out, off64_t *off_out,
 #endif /* HAVE_COPY_FILE_RANGE_SYS */
 #endif /* HAVE_COPY_FILE_RANGE */
 }
+
+#ifdef __FreeBSD__
+int
+sys_kill(pid_t pid, int sig)
+{
+    return FS_RET_CHECK0(kill(pid, sig), errno);
+}
+
+int
+sys_sysctl(const int *name, u_int namelen, void *oldp, size_t *oldlenp,
+           const void *newp, size_t newlen)
+{
+    return FS_RET_CHECK0(sysctl(name, namelen, oldp, oldlenp, newp, newlen),
+                         errno);
+}
+#endif
