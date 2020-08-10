@@ -1072,7 +1072,7 @@ nfs3_sattr3_to_setattr_valid(sattr3 *sattr, struct iatt *buf, mode_t *omode)
     if (sattr->atime.set_it == SET_TO_SERVER_TIME) {
         valid |= GF_SET_ATTR_ATIME;
         if (buf)
-            buf->ia_atime = time(NULL);
+            buf->ia_atime = gf_time();
     }
 
     if (sattr->mtime.set_it == SET_TO_CLIENT_TIME) {
@@ -1084,7 +1084,7 @@ nfs3_sattr3_to_setattr_valid(sattr3 *sattr, struct iatt *buf, mode_t *omode)
     if (sattr->mtime.set_it == SET_TO_SERVER_TIME) {
         valid |= GF_SET_ATTR_MTIME;
         if (buf)
-            buf->ia_mtime = time(NULL);
+            buf->ia_mtime = gf_time();
     }
 
     return valid;

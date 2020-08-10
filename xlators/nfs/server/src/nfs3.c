@@ -5651,7 +5651,7 @@ nfs3_init_state(xlator_t *nfsx)
         goto free_localpool;
     }
 
-    nfs3->serverstart = (uint64_t)time(NULL);
+    nfs3->serverstart = (uint64_t)gf_time();
     INIT_LIST_HEAD(&nfs3->fdlru);
     LOCK_INIT(&nfs3->fdlrulock);
     nfs3->fdcount = 0;

@@ -897,7 +897,7 @@ __recall_lease(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     }
 
     priv = this->private;
-    recall_time = time(NULL);
+    recall_time = gf_time();
     list_for_each_entry_safe(lease_entry, tmp, &lease_ctx->lease_id_list,
                              lease_id_list)
     {
@@ -1367,7 +1367,7 @@ expired_recall_cleanup(void *data)
     gf_msg_debug(this->name, 0, "Started the expired_recall_cleanup thread");
 
     while (1) {
-        time_now = time(NULL);
+        time_now = gf_time();
         pthread_mutex_lock(&priv->mutex);
         {
             if (priv->fini) {

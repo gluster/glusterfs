@@ -10,6 +10,7 @@
 
 #include "glusterfs/gidcache.h"
 #include "glusterfs/mem-pool.h"
+#include "glusterfs/common-utils.h"
 
 /*
  * We treat this as a very simple set-associative LRU cache, with entries aged
@@ -64,7 +65,7 @@ gid_cache_lookup(gid_cache_t *cache, uint64_t id, uint64_t uid, uint64_t gid)
     time_t now;
     const gid_list_t *agl;
 
-    now = time(NULL);
+    now = gf_time();
     LOCK(&cache->gc_lock);
     bucket = id % cache->gc_nbuckets;
     agl = BUCKET_START(cache->gc_cache, bucket);
@@ -132,7 +133,7 @@ gid_cache_add(gid_cache_t *cache, gid_list_t *gl)
     if (!cache->gc_max_age)
         return 0;
 
-    now = time(NULL);
+    now = gf_time();
     LOCK(&cache->gc_lock);
 
     /*

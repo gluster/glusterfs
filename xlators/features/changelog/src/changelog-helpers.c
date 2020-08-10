@@ -1274,7 +1274,7 @@ changelog_rollover(void *data)
     while (1) {
         (void)pthread_testcancel();
 
-        tv.tv_sec = time(NULL) + priv->rollover_time;
+        tv.tv_sec = gf_time() + priv->rollover_time;
         tv.tv_nsec = 0;
         ret = 0; /* Reset ret to zero */
 

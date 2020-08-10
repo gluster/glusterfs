@@ -316,7 +316,7 @@ upcall_reaper_thread(void *data)
     priv = this->private;
     GF_ASSERT(priv);
 
-    time_now = time(NULL);
+    time_now = gf_time();
     while (!priv->fini) {
         list_for_each_entry_safe(inode_ctx, tmp, &priv->inode_ctx_list,
                                  inode_ctx_list)
@@ -344,7 +344,7 @@ upcall_reaper_thread(void *data)
         /* don't do a very busy loop */
         timeout = get_cache_invalidation_timeout(this);
         sleep(timeout / 2);
-        time_now = time(NULL);
+        time_now = gf_time();
     }
 
     return NULL;
@@ -533,7 +533,7 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
         goto out;
     }
 
-    time_now = time(NULL);
+    time_now = gf_time();
     pthread_mutex_lock(&up_inode_ctx->client_list_lock);
     {
         list_for_each_entry_safe(up_client_entry, tmp,
@@ -670,13 +670,13 @@ upcall_cache_forget(xlator_t *this, inode_t *inode,
         return;
     }
 
-    time_now = time(NULL);
+    time_now = gf_time();
     pthread_mutex_lock(&up_inode_ctx->client_list_lock);
     {
         list_for_each_entry_safe(up_client_entry, tmp,
                                  &up_inode_ctx->client_list, client_list)
         {
-            /* Set the access time to time(NULL)
+            /* Set the access time to gf_time()
              * to send notify */
             up_client_entry->access_time = time_now;
 

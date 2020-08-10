@@ -1213,4 +1213,10 @@ gf_syncfs(int fd);
 int
 gf_nanosleep(uint64_t nsec);
 
+static inline time_t
+gf_time(void)
+{
+    return time(NULL);
+}
+
 #endif /* _COMMON_UTILS_H */
