@@ -5593,7 +5593,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
 
     ret = dict_get_strn(dict, "filename", SLEN("filename"), &tmp_str);
     if (ret) {
-        now = time(NULL);
+        now = gf_time();
         strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S",
                  localtime(&now));
         gf_asprintf(&filename, "%s_%s", "glusterd_state", timestamp);

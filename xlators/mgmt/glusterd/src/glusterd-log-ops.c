@@ -76,7 +76,7 @@ __glusterd_handle_log_rotate(rpcsvc_request_t *req)
            "for volume %s",
            volname);
 
-    ret = dict_set_uint64(dict, "rotate-key", (uint64_t)time(NULL));
+    ret = dict_set_uint64(dict, "rotate-key", (uint64_t)gf_time());
     if (ret)
         goto out;
 

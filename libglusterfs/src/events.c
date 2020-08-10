@@ -93,7 +93,7 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
         goto out;
     }
 
-    ret = gf_asprintf(&eventstr, "%u %d %s", (unsigned)time(NULL), event, msg);
+    ret = gf_asprintf(&eventstr, "%u %d %s", (unsigned)gf_time(), event, msg);
     GF_FREE(msg);
     if (ret <= 0) {
         ret = EVENT_ERROR_MSG_FORMAT;

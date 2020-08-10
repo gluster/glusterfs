@@ -41,7 +41,7 @@ worm_init_state(xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr)
     GF_VALIDATE_OR_GOTO("worm", this, out);
     GF_VALIDATE_OR_GOTO(this->name, file_ptr, out);
 
-    start_time = time(NULL);
+    start_time = gf_time();
     dict = dict_new();
     if (!dict) {
         gf_log(this->name, GF_LOG_ERROR, "Error creating the dict");
@@ -94,7 +94,7 @@ worm_set_state(xlator_t *this, gf_boolean_t fop_with_fd, void *file_ptr,
     if (ret)
         goto out;
     stbuf->ia_mtime = stpre.ia_mtime;
-    stbuf->ia_atime = time(NULL) + retention_state->ret_period;
+    stbuf->ia_atime = gf_time() + retention_state->ret_period;
 
     if (fop_with_fd)
         ret = syncop_fsetattr(this, (fd_t *)file_ptr, stbuf, GF_SET_ATTR_ATIME,
@@ -286,6 +286,7 @@ gf_worm_state_transition(xlator_t *this, gf_boolean_t fop_with_fd,
 {
     int op_errno = EROFS;
     int ret = -1;
+    time_t now = 0;
     uint64_t com_period = 0;
     uint64_t start_time = 0;
     dict_t *dict = NULL;
@@ -337,8 +338,10 @@ gf_worm_state_transition(xlator_t *this, gf_boolean_t fop_with_fd,
         goto out;
     }
 
-    if (ret == -1 && (time(NULL) - start_time) >= com_period) {
-        if ((time(NULL) - stbuf.ia_mtime) >= com_period) {
+    now = gf_time();
+
+    if (ret == -1 && (now - start_time) >= com_period) {
+        if ((now - stbuf.ia_mtime) >= com_period) {
             ret = worm_set_state(this, fop_with_fd, file_ptr, &reten_state,
                                  &stbuf);
             if (ret) {
@@ -352,10 +355,10 @@ gf_worm_state_transition(xlator_t *this, gf_boolean_t fop_with_fd,
             op_errno = 0;
             goto out;
         }
-    } else if (ret == -1 && (time(NULL) - start_time) < com_period) {
+    } else if (ret == -1 && (now - start_time) < com_period) {
         op_errno = 0;
         goto out;
-    } else if (reten_state.retain && ((time(NULL) >= stbuf.ia_atime))) {
+    } else if (reten_state.retain && ((now >= stbuf.ia_atime))) {
         gf_worm_state_lookup(this, fop_with_fd, file_ptr, &reten_state, &stbuf);
     }
     if (reten_state.worm && !reten_state.retain && priv->worm_files_deletable &&

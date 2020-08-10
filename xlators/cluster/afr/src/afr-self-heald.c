@@ -94,7 +94,7 @@ __afr_shd_healer_wait(struct subvol_healer *healer)
     priv = healer->this->private;
 
 disabled_loop:
-    wait_till.tv_sec = time(NULL) + priv->shd.timeout;
+    wait_till.tv_sec = gf_time() + priv->shd.timeout;
 
     while (!healer->rerun) {
         ret = pthread_cond_timedwait(&healer->cond, &healer->mutex, &wait_till);

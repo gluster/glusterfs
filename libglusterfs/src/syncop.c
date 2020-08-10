@@ -593,7 +593,7 @@ syncenv_task(struct syncproc *proc)
 
             env->procs_idle++;
 
-            sleep_till.tv_sec = time(NULL) + SYNCPROC_IDLE_TIME;
+            sleep_till.tv_sec = gf_time() + SYNCPROC_IDLE_TIME;
             ret = pthread_cond_timedwait(&env->cond, &env->mutex, &sleep_till);
 
             env->procs_idle--;

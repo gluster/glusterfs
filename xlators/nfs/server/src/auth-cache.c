@@ -189,7 +189,7 @@ out:
 static int
 _auth_cache_expired(struct auth_cache *cache, struct auth_cache_entry *entry)
 {
-    return ((time(NULL) - entry->timestamp) > cache->ttl_sec);
+    return ((gf_time() - entry->timestamp) > cache->ttl_sec);
 }
 
 /**
@@ -474,7 +474,7 @@ cache_nfs_fh(struct auth_cache *cache, struct nfs3_fh *fh,
         goto out;
     }
 
-    entry->timestamp = time(NULL);
+    entry->timestamp = gf_time();
     /* Update entry->item if it is pointing to a different export_item */
     if (entry->item && entry->item != export_item) {
         GF_REF_PUT(entry->item);

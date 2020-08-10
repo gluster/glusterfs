@@ -843,7 +843,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
              ? dump_options.dump_path
              : ((ctx->statedump_path != NULL) ? ctx->statedump_path
                                               : DEFAULT_VAR_RUN_DIRECTORY)),
-        brick_name, getpid(), (uint64_t)time(NULL));
+        brick_name, getpid(), (uint64_t)gf_time());
     if ((ret < 0) || (ret >= sizeof(path))) {
         goto out;
     }

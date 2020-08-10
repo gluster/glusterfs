@@ -1507,8 +1507,8 @@ init(xlator_t *this)
 
     this->private = pvt;
 
-    /* Give some seed value here */
-    srand(time(NULL));
+    /* Give some seed value here. */
+    srand(gf_time());
 
     ret = 0;
 out:

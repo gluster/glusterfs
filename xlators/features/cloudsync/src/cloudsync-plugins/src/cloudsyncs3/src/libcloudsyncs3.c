@@ -237,7 +237,7 @@ aws_form_request(char *resource, char **date, char *reqtype, char *bucketid,
     int date_len = -1;
     int res_len = -1;
 
-    ctime = time(NULL);
+    ctime = gf_time();
     gtime = gmtime(&ctime);
 
     date_len = strftime(httpdate, sizeof(httpdate),

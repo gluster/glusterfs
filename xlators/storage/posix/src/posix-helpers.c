@@ -1950,7 +1950,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
         goto out;
     }
 
-    time_sec = time(NULL);
+    time_sec = gf_time();
     gf_time_fmt(timestamp, sizeof timestamp, time_sec, gf_timefmt_FT);
     timelen = strlen(timestamp);
 

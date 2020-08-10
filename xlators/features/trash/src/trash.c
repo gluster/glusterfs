@@ -216,7 +216,7 @@ append_time_stamp(char *name, size_t name_size)
         0,
     };
 
-    gf_time_fmt(timestr, sizeof(timestr), time(NULL), gf_timefmt_F_HMS);
+    gf_time_fmt(timestr, sizeof(timestr), gf_time(), gf_timefmt_F_HMS);
 
     /* removing white spaces in timestamp */
     for (i = 0; i < strlen(timestr); i++) {

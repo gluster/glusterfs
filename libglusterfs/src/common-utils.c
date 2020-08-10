@@ -646,7 +646,7 @@ gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
     if (entrydata) {
         dnsentry = (struct dnscache_entry *)entrydata->data;
         /* First check the TTL & timestamp */
-        if (time(NULL) - dnsentry->timestamp > dnscache->ttl) {
+        if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
             gf_dnscache_entry_deinit(dnsentry);
             entrydata->data = NULL; /* Mark this as 'null' so
                                      * dict_del () doesn't try free
@@ -683,7 +683,7 @@ out:
         if (entry) {
             entry->fqdn = fqdn;
             entry->ip = gf_strdup(ip);
-            entry->timestamp = time(NULL);
+            entry->timestamp = gf_time();
             entrydata = bin_to_data(entry, sizeof(*entry));
             dict_set(cache, (char *)ip, entrydata);
         }
@@ -935,7 +935,7 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     {
         /* Dump the timestamp of the crash too, so the previous logs
            can be related */
-        gf_time_fmt(timestr, sizeof timestr, time(NULL), gf_timefmt_FT);
+        gf_time_fmt(timestr, sizeof timestr, gf_time(), gf_timefmt_FT);
         gf_msg_plain_nomem(GF_LOG_ALERT, "time of crash: ");
         gf_msg_plain_nomem(GF_LOG_ALERT, timestr);
     }
