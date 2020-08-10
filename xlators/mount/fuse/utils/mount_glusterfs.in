@@ -469,6 +469,7 @@ parse_options()
 
 main ()
 {
+#if !defined(__FreeBSD__)
     ## `mount` on OSX specifies options as first argument
     echo $1|grep -q -- "-o"
     if [ $? -eq 0 ];  then
@@ -478,7 +479,7 @@ main ()
         volfile_loc=$1
         mount_point=$2
     fi
-
+#endif /* __FreeBSD__ */
     while getopts "Vo:h" opt; do
         case "${opt}" in
             o)
@@ -498,6 +499,12 @@ main ()
                 ;;
         esac
     done
+
+#ifdef __FreeBSD__
+    shift $((OPTIND - 1))
+    volfile_loc="$1"
+    mount_point="$2"
+#endif /* __FreeBSD__ */
 
     [ -r "$volfile_loc" ] || {
         # '%' included to support ipv6 link local addresses
