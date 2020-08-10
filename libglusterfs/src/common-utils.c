@@ -4133,6 +4133,14 @@ gf_skip_header_section(int fd, int header_len)
 gf_boolean_t
 gf_is_pid_running(int pid)
 {
+#ifdef __FreeBSD__
+    int ret = -1;
+
+    ret = sys_kill(pid, 0);
+    if (ret < 0) {
+        return _gf_false;
+    }
+#else
     char fname[32] = {
         0,
     };
@@ -4146,6 +4154,7 @@ gf_is_pid_running(int pid)
     }
 
     sys_close(fd);
+#endif
     return _gf_true;
 }
 
