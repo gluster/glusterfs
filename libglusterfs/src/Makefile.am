@@ -12,7 +12,8 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel \
 	-I$(CONTRIBDIR)/xxhash
 
-libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS) $(LIB_DL)
+libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS) $(LIB_DL) \
+	$(URCU_LIBS) $(URCU_CDS_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION) $(GF_LDFLAGS) \
 	-export-symbols $(top_srcdir)/libglusterfs/src/libglusterfs.sym
 
