@@ -234,7 +234,8 @@ enum gf_dict_data_type_t {
     GF_DATA_TYPE_GFUUID = 7,
     GF_DATA_TYPE_IATT = 8,
     GF_DATA_TYPE_MDATA = 9,
-    GF_DATA_TYPE_MAX = 10,
+    GF_DATA_TYPE_BOOL = 10,
+    GF_DATA_TYPE_MAX = 11,
 };
 typedef enum gf_dict_data_type_t gf_dict_data_type_t;
 

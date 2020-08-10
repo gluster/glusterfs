@@ -6816,12 +6816,7 @@ init(xlator_t *this_xl)
         priv->fuse_dump_fd = ret;
     }
 
-    sync_to_mount = _gf_false;
-    ret = dict_get_str(options, "sync-to-mount", &value_string);
-    if (ret == 0) {
-        ret = gf_string2boolean(value_string, &sync_to_mount);
-        GF_ASSERT(ret == 0);
-    }
+    sync_to_mount = dict_get_str_boolean(options, "sync-to-mount", _gf_false);
 
     priv->fopen_keep_cache = 2;
     if (dict_get(options, "fopen-keep-cache")) {

@@ -230,6 +230,9 @@ data_from_uint32(uint32_t value);
 data_t *
 data_from_uint16(uint16_t value);
 
+data_t *
+data_from_bool(bool value);
+
 char *
 data_to_str(data_t *data);
 void *
@@ -370,7 +373,10 @@ GF_MUST_CHECK int
 dict_get_strn(dict_t *this, char *key, const int keylen, char **str);
 
 GF_MUST_CHECK int
+dict_set_bool(dict_t *this, char *key, bool val);
+GF_MUST_CHECK int
 dict_get_str_boolean(dict_t *this, char *key, int default_val);
+
 GF_MUST_CHECK int
 dict_rename_key(dict_t *this, char *key, char *replace_key);
 GF_MUST_CHECK int

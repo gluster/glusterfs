@@ -474,7 +474,7 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
     }
 
     if (!cmd_args->no_daemon_mode) {
-        DICT_SET_VAL(dict_set_static_ptr, options, "sync-to-mount", "enable",
+        DICT_SET_VAL(dict_set_bool, options, "sync-to-mount", _gf_true,
                      glusterfsd_msg_3);
     }
 

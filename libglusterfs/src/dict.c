@@ -1004,6 +1004,22 @@ data_from_ptr_common(void *value, gf_boolean_t is_static)
 }
 
 data_t *
+data_from_bool(bool value)
+{
+    data_t *data = get_new_data();
+
+    if (!data) {
+        return NULL;
+    }
+
+    data->data = value ? "1" : "0";
+    data->len = 2;
+    data->data_type = GF_DATA_TYPE_BOOL;
+
+    return data;
+}
+
+data_t *
 str_to_data(char *value)
 {
     if (!value) {
@@ -1104,6 +1120,7 @@ static char *data_type_name[GF_DATA_TYPE_MAX] = {
     [GF_DATA_TYPE_GFUUID] = "gf-uuid",
     [GF_DATA_TYPE_IATT] = "iatt",
     [GF_DATA_TYPE_MDATA] = "mdata",
+    [GF_DATA_TYPE_BOOL] = "bool",
 };
 
 int64_t
@@ -2779,6 +2796,26 @@ err:
     if (data)
         data_unref(data);
 
+    return ret;
+}
+
+int
+dict_set_bool(dict_t *this, char *key, bool val)
+{
+    data_t *data = NULL;
+    int ret = 0;
+
+    data = data_from_bool(val);
+    if (!data) {
+        ret = -EINVAL;
+        goto err;
+    }
+
+    ret = dict_set(this, key, data);
+    if (ret < 0)
+        data_destroy(data);
+
+err:
     return ret;
 }
 

@@ -427,6 +427,7 @@ dict_setn_nstrn
 dict_set_nstrn
 dict_set_uint32
 dict_set_uint64
+dict_set_bool
 dict_set_flag
 dict_clear_flag
 dict_check_flag
