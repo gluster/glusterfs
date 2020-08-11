@@ -559,7 +559,7 @@ struct gf_defrag_info_ {
     int cmd;
     inode_t *root_inode;
     uuid_t node_uuid;
-    struct timeval start_time;
+    time_t start_time;
     uint32_t new_commit_hash;
     gf_defrag_status_t defrag_status;
     gf_defrag_pattern_list_t *defrag_pattern;
@@ -635,7 +635,7 @@ struct dht_conf {
     int subvolume_cnt;
     int32_t refresh_interval;
     gf_lock_t subvolume_lock;
-    struct timeval last_stat_fetch;
+    time_t last_stat_fetch;
     gf_lock_t layout_lock;
     dict_t *leaf_to_subvol;
     void *private; /* Can be used by wrapper xlators over

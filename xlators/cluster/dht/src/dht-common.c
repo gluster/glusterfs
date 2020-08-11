@@ -10850,9 +10850,6 @@ dht_notify(xlator_t *this, int event, void *data, ...)
 
     int had_heard_from_all = 0;
     int have_heard_from_all = 0;
-    struct timeval time = {
-        0,
-    };
     gf_defrag_info_t *defrag = NULL;
     dict_t *dict = NULL;
     gf_defrag_type cmd = 0;
@@ -10896,12 +10893,11 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                 break;
             }
 
-            gettimeofday(&time, NULL);
             LOCK(&conf->subvolume_lock);
             {
                 conf->subvolume_status[cnt] = 1;
                 conf->last_event[cnt] = event;
-                conf->subvol_up_time[cnt] = time.tv_sec;
+                conf->subvol_up_time[cnt] = gf_time();
             }
             UNLOCK(&conf->subvolume_lock);
 
