@@ -151,22 +151,18 @@ dht_get_du_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
     dht_conf_t *conf = NULL;
     call_frame_t *statfs_frame = NULL;
     dht_local_t *statfs_local = NULL;
-    struct timeval tv = {
-        0,
-    };
     loc_t tmp_loc = {
         0,
     };
+    time_t now;
 
     conf = this->private;
-
-    gettimeofday(&tv, NULL);
-
+    now = gf_time();
     /* make it root gfid, should be enough to get the proper
        info back */
     tmp_loc.gfid[15] = 1;
 
-    if (tv.tv_sec > (conf->refresh_interval + conf->last_stat_fetch.tv_sec)) {
+    if (now > (conf->refresh_interval + conf->last_stat_fetch)) {
         statfs_frame = copy_frame(frame);
         if (!statfs_frame) {
             goto err;
@@ -198,7 +194,7 @@ dht_get_du_info(call_frame_t *frame, xlator_t *this, loc_t *loc)
                               statfs_local->params);
         }
 
-        conf->last_stat_fetch.tv_sec = tv.tv_sec;
+        conf->last_stat_fetch = now;
     }
     return 0;
 err:

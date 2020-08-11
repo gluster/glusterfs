@@ -140,9 +140,9 @@ dht_priv_dump(xlator_t *this)
         }
     }
 
-    if (conf->last_stat_fetch.tv_sec)
+    if (conf->last_stat_fetch)
         gf_proc_dump_write("last_stat_fetch", "%s",
-                           ctime(&conf->last_stat_fetch.tv_sec));
+                           ctime(&conf->last_stat_fetch));
 
     UNLOCK(&conf->subvolume_lock);
 
