@@ -95,7 +95,7 @@ int32_t
 gf_store_iter_get_matching(gf_store_iter_t *iter, char *key, char **value);
 
 int32_t
-gf_store_iter_destroy(gf_store_iter_t *iter);
+gf_store_iter_destroy(gf_store_iter_t **iter);
 
 char *
 gf_store_strerror(gf_store_op_errno_t op_errno);

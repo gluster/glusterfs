@@ -649,24 +649,24 @@ out:
 }
 
 int32_t
-gf_store_iter_destroy(gf_store_iter_t *iter)
+gf_store_iter_destroy(gf_store_iter_t **iter)
 {
     int32_t ret = -1;
 
-    if (!iter)
+    if (!(*iter))
         return 0;
 
     /* gf_store_iter_new will not return a valid iter object with iter->file
      * being NULL*/
-    ret = fclose(iter->file);
+    ret = fclose((*iter)->file);
     if (ret)
         gf_msg("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
                "Unable"
                " to close file: %s, ret: %d",
-               iter->filepath, ret);
+               (*iter)->filepath, ret);
 
-    GF_FREE(iter);
-    iter = NULL;
+    GF_FREE(*iter);
+    *iter = NULL;
 
     return ret;
 }

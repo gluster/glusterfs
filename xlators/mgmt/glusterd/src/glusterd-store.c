@@ -2309,7 +2309,7 @@ glusterd_store_retrieve_snapd(glusterd_volinfo_t *volinfo)
     ret = 0;
 
 out:
-    if (gf_store_iter_destroy(iter)) {
+    if (gf_store_iter_destroy(&iter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
@@ -2642,7 +2642,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
         brick_count++;
     }
 
-    if (gf_store_iter_destroy(tmpiter)) {
+    if (gf_store_iter_destroy(&tmpiter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
@@ -2823,13 +2823,13 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     ret = 0;
 
 out:
-    if (gf_store_iter_destroy(tmpiter)) {
+    if (gf_store_iter_destroy(&tmpiter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
     }
 
-    if (gf_store_iter_destroy(iter)) {
+    if (gf_store_iter_destroy(&iter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
@@ -2962,7 +2962,7 @@ glusterd_store_retrieve_node_state(glusterd_volinfo_t *volinfo)
     ret = 0;
 
 out:
-    if (gf_store_iter_destroy(iter)) {
+    if (gf_store_iter_destroy(&iter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
@@ -3238,7 +3238,7 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
     ret = 0;
 
 out:
-    if (gf_store_iter_destroy(iter)) {
+    if (gf_store_iter_destroy(&iter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
@@ -3433,7 +3433,7 @@ glusterd_store_retrieve_options(xlator_t *this)
         goto out;
     ret = 0;
 out:
-    (void)gf_store_iter_destroy(iter);
+    (void)gf_store_iter_destroy(&iter);
     gf_store_handle_destroy(shandle);
     return ret;
 }
@@ -3883,7 +3883,7 @@ glusterd_store_update_snap(glusterd_snap_t *snap)
     ret = 0;
 
 out:
-    if (gf_store_iter_destroy(iter)) {
+    if (gf_store_iter_destroy(&iter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
         ret = -1;
@@ -4625,7 +4625,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
         is_ok = _gf_true;
 
     next:
-        (void)gf_store_iter_destroy(iter);
+        (void)gf_store_iter_destroy(&iter);
 
         if (!is_ok) {
             gf_log(this->name, GF_LOG_WARNING,
