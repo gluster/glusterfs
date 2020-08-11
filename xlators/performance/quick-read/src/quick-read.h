@@ -39,7 +39,7 @@ struct qr_inode {
     uint32_t ia_ctime_nsec;
     uint32_t gen_rollover;
     struct iatt buf;
-    struct timeval last_refresh;
+    time_t last_refresh;
     struct list_head lru;
     uint64_t gen;
     uint64_t invalidation_time;

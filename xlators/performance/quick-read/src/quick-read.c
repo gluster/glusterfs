@@ -421,9 +421,6 @@ qr_content_update(xlator_t *this, qr_inode_t *qr_inode, void *data,
     qr_private_t *priv = NULL;
     qr_inode_table_t *table = NULL;
     uint32_t rollover = 0;
-    struct timeval tv = {
-        0,
-    };
 
     rollover = gen >> 32;
     gen = gen & 0xffffffff;
@@ -431,7 +428,6 @@ qr_content_update(xlator_t *this, qr_inode_t *qr_inode, void *data,
     priv = this->private;
     table = &priv->table;
 
-    gettimeofday(&tv, NULL);
     LOCK(&table->lock);
     {
         if ((rollover != qr_inode->gen_rollover) ||
@@ -453,8 +449,7 @@ qr_content_update(xlator_t *this, qr_inode_t *qr_inode, void *data,
         qr_inode->ia_ctime_nsec = buf->ia_ctime_nsec;
 
         qr_inode->buf = *buf;
-
-        memcpy(&qr_inode->last_refresh, &tv, sizeof(struct timeval));
+        qr_inode->last_refresh = gf_time();
 
         __qr_inode_register(this, table, qr_inode);
     }
@@ -524,9 +519,7 @@ __qr_content_refresh(xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf,
 
     if (qr_size_fits(conf, buf) && qr_time_equal(conf, qr_inode, buf)) {
         qr_inode->buf = *buf;
-
-        gettimeofday(&qr_inode->last_refresh, NULL);
-
+        qr_inode->last_refresh = gf_time();
         __qr_inode_register(this, table, qr_inode);
     } else {
         __qr_inode_prune(this, table, qr_inode, gen);
@@ -558,20 +551,14 @@ __qr_cache_is_fresh(xlator_t *this, qr_inode_t *qr_inode)
 {
     qr_conf_t *conf = NULL;
     qr_private_t *priv = NULL;
-    struct timeval now;
-    struct timeval diff;
 
     priv = this->private;
     conf = &priv->conf;
 
-    gettimeofday(&now, NULL);
-
-    timersub(&now, &qr_inode->last_refresh, &diff);
-
-    if (qr_inode->last_refresh.tv_sec < priv->last_child_down)
+    if (qr_inode->last_refresh < priv->last_child_down)
         return _gf_false;
 
-    if (diff.tv_sec >= conf->cache_timeout)
+    if (gf_time() - qr_inode->last_refresh >= conf->cache_timeout)
         return _gf_false;
 
     return _gf_true;
@@ -1049,9 +1036,8 @@ qr_inodectx_dump(xlator_t *this, inode_t *inode)
     gf_proc_dump_write("entire-file-cached", "%s",
                        qr_inode->data ? "yes" : "no");
 
-    if (qr_inode->last_refresh.tv_sec) {
-        gf_time_fmt_tv(buf, sizeof buf, &qr_inode->last_refresh, gf_timefmt_FT);
-
+    if (qr_inode->last_refresh) {
+        gf_time_fmt(buf, sizeof buf, qr_inode->last_refresh, gf_timefmt_FT);
         gf_proc_dump_write("last-cache-validation-time", "%s", buf);
     }
 
