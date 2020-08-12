@@ -4,7 +4,29 @@
 # i.e. where we are interested in the result of a command,
 # we have to run the command in an if-statement.
 
-ORIGIN=${GLUSTER_ORIGIN:-origin}
+UPSTREAM=${GLUSTER_UPSTREAM}
+if [ "x$UPSTREAM" -eq "x" ]; then
+    for rmt in $(git remote); do
+	rmt_repo=$(git remote show $rmt -n | grep Fetch | awk '{ print $3 }');
+	if [ $rmt_repo -eq "git@github:gluster/glusterfs" ]; then
+	    UPSTREAM=$rmt
+	    echo "Picked $rmt as upstream remote"
+	    break
+	fi
+    done
+fi
+
+USER_REPO=${GLUSTER_USER_REPO:-origin}
+if [ "x${USER_REPO}" -eq "x${UPSTREAM}" ] ; then
+    echo "When you submit patches, it should get submitted to your fork, not to upstream directly"
+    echo "If you are not sure, check `for rmt in $(git remote); do git remote show $rmt -n; done`"
+    echo "And pick the correct remote you would like to push to and do `export GLUSTER_USER_REPO=$rmt`"
+    echo ""
+    echo "Exiting..."
+    exit 1
+fi
+
+
 
 while getopts "v" opt; do
     case $opt in
@@ -18,7 +40,7 @@ done
 shift $((OPTIND-1))
 
 
-branch="master";
+branch="devel";
 
 set_hooks_commit_msg()
 {
@@ -50,21 +72,21 @@ is_num()
 backport_id_message()
 {
     echo ""
-    echo "This commit is to a non-master branch, and hence is treated as a backport."
+    echo "This commit is to a non-devel branch, and hence is treated as a backport."
     echo ""
     echo "For backports we would like to retain the same gerrit Change-Id across"
     echo "branches. On auto inspection it is found that a gerrit Change-Id is"
-    echo "missing, or the Change-Id is not found on your local master"
+    echo "missing, or the Change-Id is not found on your local devel branch"
     echo ""
     echo "This could mean a few things:"
     echo "    1. This is not a backport, hence choose Y on the prompt to proceed"
-    echo "    2. Your $ORIGIN master is not up to date, hence the script is unable"
-    echo "       to find the corresponding Change-Id on master. Either choose N,"
+    echo "    2. Your $USER_REPO/devel is not up to date, hence the script is unable"
+    echo "       to find the corresponding Change-Id on devel. Either choose N,"
     echo "       'git fetch', and try again, OR if you are sure you used the"
     echo "       same Change-Id, choose Y at the prompt to proceed"
     echo "    3. You commented or removed the Change-Id in your commit message after"
     echo "       cherry picking the commit. Choose N, fix the commit message to"
-    echo "       use the same Change-Id as master (git commit --amend), resubmit"
+    echo "       use the same Change-Id as 'devel' (git commit --amend), resubmit"
     echo ""
 }
 
@@ -72,8 +94,8 @@ check_backport()
 {
     moveon='N'
 
-    # Backports are never made to master
-    if [ $branch = "master" ]; then
+    # Backports are never made to 'devel'
+    if [ $branch = "devel" ]; then
         return;
     fi
 
@@ -86,22 +108,22 @@ check_backport()
         echo -n "Did not find a Change-Id for a possible backport. Continue (y/N): "
         read moveon
     else
-        # Search master for the same change ID (rebase_changes has run, so we
+        # Search 'devel' for the same change ID (rebase_changes has run, so we
         # should never not find a Change-Id)
-        mchangeid=$(git log $ORIGIN/master --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
+        mchangeid=$(git log $UPSTREAM/devel --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
 
-        # Check if we found the change ID on master, else throw a message to
+        # Check if we found the change ID on 'devel', else throw a message to
         # decide if we should continue.
-        # NOTE: If master was not rebased, we will not find the Change-ID and
+        # NOTE: If 'devel' was not rebased, we will not find the Change-ID and
         # could hit a false positive case here (or if someone checks out some
-        # other branch as master).
+        # other branch as 'devel').
         if [ "${mchangeid}" = "${changeid}" ]; then
             moveon="Y"
         else
             backport_id_message;
             echo "Change-Id of commit: $changeid"
-            echo "Change-Id on master: $mchangeid"
-            echo -n "Did not find mentioned Change-Id on master for a possible backport. Continue (y/N): "
+            echo "Change-Id on devel: $mchangeid"
+            echo -n "Did not find mentioned Change-Id on 'devel' for a possible backport. Continue (y/N): "
             read moveon
         fi
     fi
@@ -116,7 +138,7 @@ check_backport()
 
 rebase_changes()
 {
-    GIT_EDITOR=$0 git rebase -i $ORIGIN/$branch;
+    GIT_EDITOR=$0 git rebase -i $UPSTREAM/$branch;
 }
 
 
@@ -212,7 +234,7 @@ EOF
 
 assert_diverge()
 {
-    git diff $ORIGIN/$branch..HEAD | grep -q .;
+    git diff $UPSTREAM/$branch..HEAD | grep -q .;
 }
 
 
@@ -258,7 +280,7 @@ main()
         return;
     fi
 
-    git fetch $ORIGIN;
+    git fetch $UPSTREAM;
 
     rebase_changes;
 
@@ -269,9 +291,9 @@ main()
     # see note above variable REFRE for regex elaboration
     reference=$(git log -n1 --format='%b' | grep -iow -E "${REFRE}" | awk -F '#' '{print $2}');
 
-    # If this is a commit against master and does not have a github
+    # If this is a commit against 'devel' and does not have a github
     # issue reference. Warn the contributor that one of the 2 is required
-    if [ -z "${reference}" ] && [ $branch = "master" ]; then
+    if [ -z "${reference}" ] && [ $branch = "devel" ]; then
         warn_reference_missing;
     fi
 
@@ -299,9 +321,9 @@ main()
     fi
 
     if [ -z "${reference}" ]; then
-        $drier git push $ORIGIN HEAD:refs/for/$branch/rfc;
+        $drier git push $USER_REPO HEAD:temp_${branch}/$(date +%Y-%m-%d_%s);
     else
-        $drier git push $ORIGIN HEAD:refs/for/$branch/ref-${reference};
+        $drier git push $USER_REPO HEAD:issue${reference}_${branch};
     fi
 }
 
