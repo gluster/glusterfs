@@ -349,14 +349,15 @@ function run_tests()
         timeout_cmd_exists="no"
     fi
 
-    for t in $(find ${regression_testsdir}/tests -name '*.t' \
-               | LC_COLLATE=C sort) ; do
+    all_tests=($(find ${regression_testsdir}/tests -name '*.t' | LC_COLLATE=C sort))
+    all_tests_cnt=${#all_tests[@]}
+    for t in "${all_tests[@]}" ; do
         old_cores=$(ls /*-*.core 2> /dev/null | wc -l)
         total_tests=$((total_tests+1))
         if match $t "$@" ; then
             selected_tests=$((selected_tests+1))
             echo
-            echo $section_separator$section_separator
+            echo $section_separator "(${total_tests} / ${all_tests_cnt})" $section_separator
             if [[ $(get_test_status $t) =~ "BAD_TEST" ]] && \
                [[ $skip_bad_tests == "yes" ]]
             then
