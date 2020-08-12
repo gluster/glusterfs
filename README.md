@@ -3,8 +3,7 @@
   petabytes. It provides interfaces for object, block and file storage.
 
 ## Development
-  Contributions to gluster in the form of patches and new feature additions can
-  be made by following steps outlined at [Developers Guide](http://docs.gluster.org/en/latest/Developer-guide/Developers-Index/#contributing-to-the-gluster-community).
+  The development workflow is documented in [Contributors guide](CONTRIBUTING.md)
 
 ## Documentation
   The Gluster documentation can be found at [Gluster Docs](http://docs.gluster.org).
