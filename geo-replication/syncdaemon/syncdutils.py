@@ -725,7 +725,7 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
                 if not isinstance(realpath, int):
                     basename = os.path.basename(realpath).rstrip('\x00')
                     dirpath = os.path.dirname(realpath)
-                    if dirpath is "/":
+                    if dirpath == "/":
                         pargfid = ROOT_GFID
                     else:
                         dirpath = dirpath.strip("/")
