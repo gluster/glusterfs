@@ -2950,6 +2950,13 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         socket_dump_info(sa, priv->is_server, priv->use_ssl, priv->sock,
                          this->name, "disconnecting from");
 
+        /* Dump the SSL error stack to clear any errors that may otherwise
+         * resurface in the future.
+         */
+        if (priv->use_ssl && priv->ssl_ssl) {
+            ssl_dump_error_stack(this->name);
+        }
+
         /* Logging has happened already in earlier cases */
         gf_log("transport", ((ret >= 0) ? GF_LOG_INFO : GF_LOG_DEBUG),
                "EPOLLERR - disconnecting (sock:%d) (%s)", priv->sock,
