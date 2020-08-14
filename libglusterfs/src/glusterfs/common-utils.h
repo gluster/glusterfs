@@ -1219,4 +1219,36 @@ gf_time(void)
     return time(NULL);
 }
 
+/* Return delta value in microseconds. */
+
+static inline double
+gf_tvdiff(struct timeval *start, struct timeval *end)
+{
+    struct timeval t;
+
+    if (start->tv_usec > end->tv_usec)
+        t.tv_sec = end->tv_sec - 1, t.tv_usec = end->tv_usec + 1000000;
+    else
+        t.tv_sec = end->tv_sec, t.tv_usec = end->tv_usec;
+
+    return (double)(t.tv_sec - start->tv_sec) * 1e6 +
+           (double)(t.tv_usec - start->tv_usec);
+}
+
+/* Return delta value in nanoseconds. */
+
+static inline double
+gf_tsdiff(struct timespec *start, struct timespec *end)
+{
+    struct timespec t;
+
+    if (start->tv_nsec > end->tv_nsec)
+        t.tv_sec = end->tv_sec - 1, t.tv_nsec = end->tv_nsec + 1000000000;
+    else
+        t.tv_sec = end->tv_sec, t.tv_nsec = end->tv_nsec;
+
+    return (double)(t.tv_sec - start->tv_sec) * 1e9 +
+           (double)(t.tv_nsec - start->tv_nsec);
+}
+
 #endif /* _COMMON_UTILS_H */

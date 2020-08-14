@@ -2895,8 +2895,7 @@ gf_defrag_migrate_single_file(void *opaque)
 
     if (defrag->stats == _gf_true) {
         gettimeofday(&end, NULL);
-        elapsed = (end.tv_sec - start.tv_sec) * 1e6 +
-                  (end.tv_usec - start.tv_usec);
+        elapsed = gf_tvdiff(&start, &end);
         gf_log(this->name, GF_LOG_INFO,
                "Migration of "
                "file:%s size:%" PRIu64
@@ -3500,8 +3499,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     }
 
     gettimeofday(&end, NULL);
-    elapsed = (end.tv_sec - dir_start.tv_sec) * 1e6 +
-              (end.tv_usec - dir_start.tv_usec);
+    elapsed = gf_tvdiff(&dir_start, &end);
     gf_log(this->name, GF_LOG_INFO,
            "Migration operation on dir %s took "
            "%.2f secs",

@@ -629,7 +629,7 @@ glusterfs_volume_top_perf(const char *brick_path, dict_t *dict,
         goto out;
     }
 
-    time = (end.tv_sec - begin.tv_sec) * 1e6 + (end.tv_usec - begin.tv_usec);
+    time = gf_tvdiff(&begin, &end);
     throughput = total_blks / time;
     gf_log("glusterd", GF_LOG_INFO,
            "Throughput %.2f Mbps time %.2f secs "
@@ -685,7 +685,7 @@ glusterfs_volume_top_perf(const char *brick_path, dict_t *dict,
         goto out;
     }
 
-    time = (end.tv_sec - begin.tv_sec) * 1e6 + (end.tv_usec - begin.tv_usec);
+    time = gf_tvdiff(&begin, &end);
     throughput = total_blks / time;
     gf_log("glusterd", GF_LOG_INFO,
            "Throughput %.2f Mbps time %.2f secs "
