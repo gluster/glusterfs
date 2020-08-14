@@ -30,8 +30,7 @@ gf_update_latency(call_frame_t *frame)
     if (!(begin->tv_sec && end->tv_sec))
         goto out;
 
-    elapsed = (end->tv_sec - begin->tv_sec) * 1e9 +
-              (end->tv_nsec - begin->tv_nsec);
+    elapsed = gf_tsdiff(begin, end);
 
     if (frame->op < 0 || frame->op >= GF_FOP_MAXVALUE) {
         gf_log("[core]", GF_LOG_WARNING, "Invalid frame op value: %d",

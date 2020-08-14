@@ -292,9 +292,7 @@ is_fop_latency_started(call_frame_t *frame)
         begin = &frame->begin;                                                 \
         end = &frame->end;                                                     \
                                                                                \
-        elapsed = ((end->tv_sec - begin->tv_sec) * 1e9 +                       \
-                   (end->tv_nsec - begin->tv_nsec)) /                          \
-                  1000;                                                        \
+        elapsed = gf_tsdiff(begin, end) / 1000.0;                              \
         throughput = op_ret / elapsed;                                         \
                                                                                \
         conf = this->private;                                                  \
@@ -1776,9 +1774,7 @@ update_ios_latency(struct ios_conf *conf, call_frame_t *frame,
     begin = &frame->begin;
     end = &frame->end;
 
-    elapsed = ((end->tv_sec - begin->tv_sec) * 1e9 +
-               (end->tv_nsec - begin->tv_nsec)) /
-              1000;
+    elapsed = gf_tsdiff(begin, end) / 1000.0;
 
     update_ios_latency_stats(&conf->cumulative, elapsed, op);
     update_ios_latency_stats(&conf->incremental, elapsed, op);
