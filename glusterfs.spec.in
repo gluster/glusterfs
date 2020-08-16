@@ -706,6 +706,9 @@ Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-cli%{?_isa} = %{version}-%{release}
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
 Requires:         libgfchangelog0%{?_isa} = %{version}-%{release}
+%if ( 0%{?fedora} && 0%{?fedora} >= 30  || ( 0%{?rhel} && 0%{?rhel} >= 8 ) )
+Requires:         glusterfs-selinux >= 0.1.0-2
+%endif
 # some daemons (like quota) use a fuse-mount, glusterfsd is part of -fuse
 Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
