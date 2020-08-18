@@ -40,21 +40,21 @@ br_inc_scrubbed_file(br_scrub_stats_t *scrub_stat)
 }
 
 void
-br_update_scrub_start_time(br_scrub_stats_t *scrub_stat, struct timeval *tv)
+br_update_scrub_start_time(br_scrub_stats_t *scrub_stat, time_t time)
 {
     if (!scrub_stat)
         return;
 
     pthread_mutex_lock(&scrub_stat->lock);
     {
-        scrub_stat->scrub_start_tv.tv_sec = tv->tv_sec;
+        scrub_stat->scrub_start_time = time;
     }
     pthread_mutex_unlock(&scrub_stat->lock);
 }
 
 void
 br_update_scrub_finish_time(br_scrub_stats_t *scrub_stat, char *timestr,
-                            struct timeval *tv)
+                            time_t time)
 {
     int lst_size = 0;
 
@@ -67,10 +67,10 @@ br_update_scrub_finish_time(br_scrub_stats_t *scrub_stat, char *timestr,
 
     pthread_mutex_lock(&scrub_stat->lock);
     {
-        scrub_stat->scrub_end_tv.tv_sec = tv->tv_sec;
+        scrub_stat->scrub_end_time = time;
 
-        scrub_stat->scrub_duration = scrub_stat->scrub_end_tv.tv_sec -
-                                     scrub_stat->scrub_start_tv.tv_sec;
+        scrub_stat->scrub_duration = scrub_stat->scrub_end_time -
+                                     scrub_stat->scrub_start_time;
 
         snprintf(scrub_stat->last_scrub_time, lst_size, "%s", timestr);
     }
