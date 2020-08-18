@@ -15,20 +15,22 @@
 #include <sys/time.h>
 #include <pthread.h>
 
+#include <glusterfs/common-utils.h>
+
 struct br_scrub_stats {
-    uint64_t scrubbed_files; /* Total number of scrubbed file */
+    uint64_t scrubbed_files; /* Total number of scrubbed files. */
 
-    uint64_t unsigned_files; /* Total number of unsigned file */
+    uint64_t unsigned_files; /* Total number of unsigned files. */
 
-    uint64_t scrub_duration; /* Duration of last scrub */
+    uint64_t scrub_duration; /* Duration of last scrub. */
 
-    char last_scrub_time[1024]; /*last scrub completion time */
+    char last_scrub_time[GF_TIMESTR_SIZE]; /* Last scrub completion time. */
 
-    struct timeval scrub_start_tv; /* Scrubbing starting time*/
+    time_t scrub_start_time; /* Scrubbing starting time. */
 
-    struct timeval scrub_end_tv; /* Scrubbing finishing time */
+    time_t scrub_end_time; /* Scrubbing finishing time. */
 
-    int8_t scrub_running; /* Scrub running or not */
+    int8_t scrub_running; /* Whether scrub running or not. */
 
     pthread_mutex_t lock;
 };
@@ -40,9 +42,9 @@ br_inc_unsigned_file_count(br_scrub_stats_t *scrub_stat);
 void
 br_inc_scrubbed_file(br_scrub_stats_t *scrub_stat);
 void
-br_update_scrub_start_time(br_scrub_stats_t *scrub_stat, struct timeval *tv);
+br_update_scrub_start_time(br_scrub_stats_t *scrub_stat, time_t time);
 void
 br_update_scrub_finish_time(br_scrub_stats_t *scrub_stat, char *timestr,
-                            struct timeval *tv);
+                            time_t time);
 
 #endif /* __BIT_ROT_SCRUB_STATUS_H__ */
