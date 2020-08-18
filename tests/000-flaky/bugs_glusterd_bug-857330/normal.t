@@ -1,7 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/common.rc
-. $(dirname $0)/../../../volume.rc
+. $(dirname $0)/../../volume.rc
 cleanup;
 
 TEST glusterd
@@ -14,7 +14,7 @@ TEST $CLI volume start $V0;
 
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0;
 
-TEST $PYTHON $(dirname $0)/../../../utils/create-files.py \
+TEST $PYTHON $(dirname $0)/../../utils/create-files.py \
              --multi -b 10 -d 10  -n 10 $M0;
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0

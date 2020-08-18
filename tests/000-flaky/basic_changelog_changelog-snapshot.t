@@ -1,7 +1,7 @@
 #!/bin/bash
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../snapshot.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../snapshot.rc
 
 cleanup;
 ROLLOVER_TIME=3

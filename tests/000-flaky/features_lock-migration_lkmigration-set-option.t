@@ -1,7 +1,7 @@
 #!/bin/bash
 # Test to check
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 #Check lock-migration set option sanity
 cleanup;

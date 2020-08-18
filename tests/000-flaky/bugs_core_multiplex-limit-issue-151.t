@@ -1,8 +1,8 @@
 #!/bin/bash
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../traps.rc
-. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../traps.rc
+. $(dirname $0)/../volume.rc
 
 function count_up_bricks {
         $CLI --xml volume status all | grep '<status>1' | wc -l
