@@ -3,9 +3,9 @@
 # Verify that mounting NFS over UDP (MOUNT service only) works.
 #
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
-. $(dirname $0)/../../nfs.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 #G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
 

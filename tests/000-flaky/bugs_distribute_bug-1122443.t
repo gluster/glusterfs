@@ -1,8 +1,8 @@
 #!/bin/bash
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
-. $(dirname $0)/../../dht.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
+. $(dirname $0)/../dht.rc
 
 make_files() {
     mkdir $1 && \
@@ -42,8 +42,8 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0
 TEST make_files $M0/subdir
 
 # Get mtime before migration
-BEFORE="$(stat -c %n:%Y $M0/subdir/* | tr '\n' ',')"
-
+BEFORE="$(stat -c %n:%Y $M0/subdir/* | sort | tr '\n' ',')"
+echo $BEFORE
 # Migrate brick
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}1
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}0 start
@@ -51,9 +51,10 @@ EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}0 commit
 
 # Get mtime after migration
-EXPECT_WITHIN 5 RECONNECTED bug_1113050_workaround $M0/subdir/*
-AFTER="$(stat -c %n:%Y $M0/subdir/* | tr '\n' ',')"
-
+EXPECT_WITHIN 30 RECONNECTED bug_1113050_workaround $M0/subdir/symlink
+sleep 3
+AFTER="$(stat -c %n:%Y $M0/subdir/* | sort | tr '\n' ',')"
+echo $AFTER
 # Check if mtime is unchanged
 TEST [ "$AFTER" == "$BEFORE" ]
 

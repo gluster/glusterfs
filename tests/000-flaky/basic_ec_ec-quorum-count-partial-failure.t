@@ -1,7 +1,7 @@
 #!/bin/bash
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 #This test checks that partial failure of fop results in main fop failure only
 cleanup;
