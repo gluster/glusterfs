@@ -2,8 +2,8 @@
 
 SCRIPT_TIMEOUT=250
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 create_files () {
 	for i in {1..1000}; do

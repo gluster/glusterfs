@@ -1,8 +1,8 @@
 #!/bin/bash
 
-. $(dirname $0)/../../include.rc
-. $(dirname $0)/../../cluster.rc
-. $(dirname $0)/../../dht.rc
+. $(dirname $0)/../include.rc
+. $(dirname $0)/../cluster.rc
+. $(dirname $0)/../dht.rc
 
 
 # Check if every single rebalance process migrated some files
@@ -10,11 +10,9 @@
 function cluster_rebal_all_nodes_migrated_files {
         val=0
         a=$($CLI_1 volume rebalance $V0 status | grep "completed" | awk '{print $2}');
-#        echo $a
         b=($a)
         for i in "${b[@]}"
         do
-#                echo "$i";
                 if [ "$i" -eq "0" ]; then
                         echo "false";
                         val=1;
