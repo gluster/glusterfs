@@ -333,6 +333,14 @@ ob_stub_dispatch(xlator_t *xl, ob_inode_t *ob_inode, fd_t *fd,
     return 0;
 }
 
+static void
+ob_open_destroy(call_stub_t *stub, fd_t *fd)
+{
+    STACK_DESTROY(stub->frame->root);
+    call_stub_destroy(stub);
+    fd_unref(fd);
+}
+
 static int32_t
 ob_open_dispatch(xlator_t *xl, ob_inode_t *ob_inode, fd_t *fd,
                  call_stub_t *stub)
@@ -355,8 +363,7 @@ ob_open_dispatch(xlator_t *xl, ob_inode_t *ob_inode, fd_t *fd,
 
     if (stub != NULL) {
         if (closed) {
-            call_stub_destroy(stub);
-            fd_unref(fd);
+            ob_open_destroy(stub, fd);
         } else {
             call_resume(stub);
         }
@@ -776,8 +783,7 @@ ob_fdclose(xlator_t *this, fd_t *fd)
     UNLOCK(&fd->inode->lock);
 
     if (stub != NULL) {
-        call_stub_destroy(stub);
-        fd_unref(fd);
+        ob_open_destroy(stub, fd);
     }
 
     ob_resume_pending(&list);
