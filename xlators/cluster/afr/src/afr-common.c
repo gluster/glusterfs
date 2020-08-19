@@ -3668,7 +3668,7 @@ afr_ta_id_file_check(void *opaque)
     this = opaque;
     priv = this->private;
 
-    ret = afr_fill_ta_loc(this, &loc);
+    ret = afr_fill_ta_loc(this, &loc, _gf_false);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to populate thin-arbiter loc for: %s.", loc.name);
