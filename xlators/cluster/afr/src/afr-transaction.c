@@ -124,9 +124,9 @@ afr_release_notify_lock_for_ta(void *opaque)
 
     this = (xlator_t *)opaque;
     priv = this->private;
-    ret = afr_fill_ta_loc(this, &loc);
+    ret = afr_fill_ta_loc(this, &loc, _gf_true);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to populate loc for thin-arbiter.");
         goto out;
     }
@@ -1029,7 +1029,7 @@ set_response:
 }
 
 int
-afr_fill_ta_loc(xlator_t *this, loc_t *loc)
+afr_fill_ta_loc(xlator_t *this, loc_t *loc, gf_boolean_t is_gfid_based_fop)
 {
     afr_private_t *priv = NULL;
 
@@ -1037,6 +1037,11 @@ afr_fill_ta_loc(xlator_t *this, loc_t *loc)
     loc->parent = inode_ref(priv->root_inode);
     gf_uuid_copy(loc->pargfid, loc->parent->gfid);
     loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
+    if (is_gfid_based_fop && gf_uuid_is_null(priv->ta_gfid)) {
+        /* Except afr_ta_id_file_check() which is path based, all other gluster
+         * FOPS need gfid.*/
+        return -EINVAL;
+    }
     gf_uuid_copy(loc->gfid, priv->ta_gfid);
     loc->inode = inode_new(loc->parent->table);
     if (!loc->inode) {
@@ -1044,86 +1049,6 @@ afr_fill_ta_loc(xlator_t *this, loc_t *loc)
         return -ENOMEM;
     }
     return 0;
-}
-
-int
-afr_changelog_thin_arbiter_post_op(xlator_t *this, afr_local_t *local)
-{
-    int ret = 0;
-    afr_private_t *priv = NULL;
-    dict_t *xattr = NULL;
-    int failed_count = 0;
-    struct gf_flock flock = {
-        0,
-    };
-    loc_t loc = {
-        0,
-    };
-    int i = 0;
-
-    priv = this->private;
-    if (!priv->thin_arbiter_count)
-        return 0;
-
-    failed_count = AFR_COUNT(local->transaction.failed_subvols,
-                             priv->child_count);
-    if (!failed_count)
-        return 0;
-
-    GF_ASSERT(failed_count == 1);
-    ret = afr_fill_ta_loc(this, &loc);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
-               "Failed to populate thin-arbiter loc for: %s.", loc.name);
-        goto out;
-    }
-
-    xattr = dict_new();
-    if (!xattr) {
-        ret = -ENOMEM;
-        goto out;
-    }
-    for (i = 0; i < priv->child_count; i++) {
-        ret = dict_set_static_bin(xattr, priv->pending_key[i],
-                                  local->pending[i],
-                                  AFR_NUM_CHANGE_LOGS * sizeof(int));
-        if (ret)
-            goto out;
-    }
-
-    flock.l_type = F_WRLCK;
-    flock.l_start = 0;
-    flock.l_len = 0;
-
-    /*TODO: Convert to two domain locking. */
-    ret = syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX],
-                         AFR_TA_DOM_NOTIFY, &loc, F_SETLKW, &flock, NULL, NULL);
-    if (ret)
-        goto out;
-
-    ret = syncop_xattrop(priv->children[THIN_ARBITER_BRICK_INDEX], &loc,
-                         GF_XATTROP_ADD_ARRAY, xattr, NULL, NULL, NULL);
-
-    if (ret == -EINVAL) {
-        gf_msg(this->name, GF_LOG_INFO, -ret, AFR_MSG_THIN_ARB,
-               "Thin-arbiter has denied post-op on %s for gfid %s.",
-               priv->pending_key[THIN_ARBITER_BRICK_INDEX],
-               uuid_utoa(local->inode->gfid));
-
-    } else if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
-               "Post-op on thin-arbiter id file %s failed for gfid %s.",
-               priv->pending_key[THIN_ARBITER_BRICK_INDEX],
-               uuid_utoa(local->inode->gfid));
-    }
-    flock.l_type = F_UNLCK;
-    syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX], AFR_TA_DOM_NOTIFY,
-                   &loc, F_SETLK, &flock, NULL, NULL);
-out:
-    if (xattr)
-        dict_unref(xattr);
-
-    return ret;
 }
 
 static int
@@ -1220,9 +1145,9 @@ afr_ta_post_op_do(void *opaque)
     this = local->transaction.frame->this;
     priv = this->private;
 
-    ret = afr_fill_ta_loc(this, &loc);
+    ret = afr_fill_ta_loc(this, &loc, _gf_true);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to populate loc for thin-arbiter.");
         goto out;
     }

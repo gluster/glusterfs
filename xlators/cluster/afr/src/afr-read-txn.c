@@ -164,7 +164,7 @@ afr_ta_read_txn(void *opaque)
     xdata_rsp = NULL;
 
     /* It doesn't. So query thin-arbiter to see if it blames any data brick. */
-    ret = afr_fill_ta_loc(this, &loc);
+    ret = afr_fill_ta_loc(this, &loc, _gf_true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to populate thin-arbiter loc for: %s.", loc.name);
