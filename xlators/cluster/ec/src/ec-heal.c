@@ -2498,7 +2498,7 @@ out:
 }
 
 int
-ec_heal_set_dirty_without_lock(call_frame_t *frame, ec_t *ec, inode_t *inode)
+ec_heal_purge_stale_index(call_frame_t *frame, ec_t *ec, inode_t *inode)
 {
     int i = 0;
     int ret = 0;
@@ -2528,7 +2528,6 @@ ec_heal_set_dirty_without_lock(call_frame_t *frame, ec_t *ec, inode_t *inode)
         xattr[i] = dict;
         on[i] = 1;
     }
-    dirty_xattr[EC_METADATA_TXN] = hton64(1);
     ret = dict_set_static_bin(dict, EC_XATTR_DIRTY, dirty_xattr,
                               (sizeof(*dirty_xattr) * EC_VERSION_SIZE));
     if (ret < 0) {
@@ -2629,13 +2628,10 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
             gf_msg(ec->xl->name, GF_LOG_INFO, 0, EC_MSG_HEAL_FAIL,
                    "Index entry needs to be purged for: %s ",
                    uuid_utoa(loc->gfid));
-            /* We need to send xattrop to set dirty flag so that it can be
-             * healed and index entry could be removed. We need not to take lock
-             * on this entry to do so as we are just setting dirty flag which
-             * actually increases the trusted.ec.dirty count and does not set
-             * the new value.
-             * This will make sure that it is not interfering in other fops.*/
-            ec_heal_set_dirty_without_lock(frame, ec, loc->inode);
+            /* We need to send zero-xattrop so that stale index entry could be
+             * removed. We need not take lock on this entry to do so as
+             * xattrop on a brick is atomic. */
+            ec_heal_purge_stale_index(frame, ec, loc->inode);
         } else if (need_heal == EC_HEAL_NONEED) {
             gf_msg(ec->xl->name, GF_LOG_DEBUG, 0, EC_MSG_HEAL_FAIL,
                    "Heal is not required for : %s ", uuid_utoa(loc->gfid));
