@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/timespec.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
@@ -33,8 +32,7 @@
 
 struct mdc_statfs_cache {
     pthread_mutex_t lock;
-    gf_boolean_t initialized;
-    struct timespec last_refreshed;
+    time_t last_refreshed; /* (time_t)-1 if not yet initialized. */
     struct statvfs buf;
 };
 
@@ -61,7 +59,7 @@ struct mdc_statistics {
 };
 
 struct mdc_conf {
-    int timeout;
+    uint32_t timeout;
     gf_boolean_t cache_posix_acl;
     gf_boolean_t cache_glusterfs_acl;
     gf_boolean_t cache_selinux;
@@ -376,10 +374,9 @@ unlock:
 static gf_boolean_t
 __is_cache_valid(xlator_t *this, time_t mdc_time)
 {
-    time_t now = 0;
     gf_boolean_t ret = _gf_true;
     struct mdc_conf *conf = NULL;
-    int timeout = 0;
+    uint32_t timeout = 0;
     time_t last_child_down = 0;
 
     conf = this->private;
@@ -393,15 +390,13 @@ __is_cache_valid(xlator_t *this, time_t mdc_time)
     last_child_down = conf->last_child_down;
     timeout = conf->timeout;
 
-    time(&now);
-
     if ((mdc_time == 0) ||
         ((last_child_down != 0) && (mdc_time < last_child_down))) {
         ret = _gf_false;
         goto out;
     }
 
-    if (now >= (mdc_time + timeout)) {
+    if (gf_time() >= (mdc_time + timeout)) {
         ret = _gf_false;
     }
 
@@ -581,10 +576,9 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
             mdc_from_iatt(mdc, iatt);
             mdc->valid = _gf_true;
             if (update_time) {
-                time(&mdc->ia_time);
-
+                mdc->ia_time = gf_time();
                 if (mdc->xa_time && update_xa_time)
-                    time(&mdc->xa_time);
+                    mdc->xa_time = mdc->ia_time;
             }
 
             gf_msg_callingfn(
@@ -1063,8 +1057,7 @@ mdc_cache_statfs(xlator_t *this, struct statvfs *buf)
     pthread_mutex_lock(&conf->statfs_cache.lock);
     {
         memcpy(&conf->statfs_cache.buf, buf, sizeof(struct statvfs));
-        clock_gettime(CLOCK_MONOTONIC, &conf->statfs_cache.last_refreshed);
-        conf->statfs_cache.initialized = _gf_true;
+        conf->statfs_cache.last_refreshed = gf_time();
     }
     pthread_mutex_unlock(&conf->statfs_cache.lock);
 }
@@ -1073,8 +1066,7 @@ int
 mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 {
     struct mdc_conf *conf = this->private;
-    struct timespec now;
-    double cache_age = 0.0;
+    uint32_t cache_age = 0;
     int ret = 0;
 
     if (!buf || !conf) {
@@ -1083,23 +1075,23 @@ mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
     }
 
     *buf = NULL;
-    timespec_now(&now);
 
     pthread_mutex_lock(&conf->statfs_cache.lock);
     {
-        /* Skip if the cache is not initialized */
-        if (!conf->statfs_cache.initialized) {
+        /* Skip if the cache is not initialized. */
+        if (conf->statfs_cache.last_refreshed == (time_t)-1) {
             ret = -1;
             goto unlock;
         }
 
-        cache_age = (now.tv_sec - conf->statfs_cache.last_refreshed.tv_sec);
+        cache_age = (gf_time() - conf->statfs_cache.last_refreshed);
 
-        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %lf", cache_age);
+        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %u secs",
+               cache_age);
         if (cache_age > conf->timeout) {
-            /* Expire the cache */
+            /* Expire the cache. */
             gf_log(this->name, GF_LOG_DEBUG,
-                   "Cache age %lf exceeded timeout %d", cache_age,
+                   "Cache age %u secs exceeded timeout %u secs", cache_age,
                    conf->timeout);
             ret = -1;
             goto unlock;
@@ -3616,7 +3608,7 @@ int
 mdc_reconfigure(xlator_t *this, dict_t *options)
 {
     struct mdc_conf *conf = NULL;
-    int timeout = 0;
+    int timeout = 0, ret = 0;
     char *tmp_str = NULL;
 
     conf = this->private;
@@ -3656,7 +3648,10 @@ mdc_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("md-cache-statfs", conf->cache_statfs, options, bool, out);
 
     GF_OPTION_RECONF("xattr-cache-list", tmp_str, options, str, out);
-    mdc_xattr_list_populate(conf, tmp_str);
+
+    ret = mdc_xattr_list_populate(conf, tmp_str);
+    if (ret < 0)
+        goto out;
 
     /* If timeout is greater than 60s (default before the patch that added
      * cache invalidation support was added) then, cache invalidation
@@ -3669,25 +3664,22 @@ mdc_reconfigure(xlator_t *this, dict_t *options)
     }
     conf->timeout = timeout;
 
-    (void)mdc_register_xattr_inval(this);
+    ret = mdc_register_xattr_inval(this);
 out:
-    return 0;
+    return ret;
 }
 
 int32_t
 mdc_mem_acct_init(xlator_t *this)
 {
-    int ret = -1;
-
-    ret = xlator_mem_acct_init(this, gf_mdc_mt_end + 1);
-    return ret;
+    return xlator_mem_acct_init(this, gf_mdc_mt_end + 1);
 }
 
 int
 mdc_init(xlator_t *this)
 {
     struct mdc_conf *conf = NULL;
-    int timeout = 0;
+    uint32_t timeout = 0;
     char *tmp_str = NULL;
 
     conf = GF_CALLOC(sizeof(*conf), 1, gf_mdc_mt_mdc_conf_t);
@@ -3699,7 +3691,7 @@ mdc_init(xlator_t *this)
 
     LOCK_INIT(&conf->lock);
 
-    GF_OPTION_INIT("md-cache-timeout", timeout, int32, out);
+    GF_OPTION_INIT("md-cache-timeout", timeout, uint32, out);
 
     GF_OPTION_INIT("cache-selinux", conf->cache_selinux, bool, out);
 
@@ -3733,7 +3725,9 @@ mdc_init(xlator_t *this)
     GF_OPTION_INIT("xattr-cache-list", tmp_str, str, out);
     mdc_xattr_list_populate(conf, tmp_str);
 
-    time(&conf->last_child_down);
+    conf->last_child_down = gf_time();
+    conf->statfs_cache.last_refreshed = (time_t)-1;
+
     /* initialize gf_atomic_t counters */
     GF_ATOMIC_INIT(conf->mdc_counter.stat_hit, 0);
     GF_ATOMIC_INIT(conf->mdc_counter.stat_miss, 0);
@@ -3764,7 +3758,7 @@ out:
 }
 
 void
-mdc_update_child_down_time(xlator_t *this, time_t *now)
+mdc_update_child_down_time(xlator_t *this, time_t now)
 {
     struct mdc_conf *conf = NULL;
 
@@ -3772,7 +3766,7 @@ mdc_update_child_down_time(xlator_t *this, time_t *now)
 
     LOCK(&conf->lock);
     {
-        conf->last_child_down = *now;
+        conf->last_child_down = now;
     }
     UNLOCK(&conf->lock);
 }
@@ -3782,14 +3776,12 @@ mdc_notify(xlator_t *this, int event, void *data, ...)
 {
     int ret = 0;
     struct mdc_conf *conf = NULL;
-    time_t now = 0;
 
     conf = this->private;
     switch (event) {
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_SOME_DESCENDENT_DOWN:
-            time(&now);
-            mdc_update_child_down_time(this, &now);
+            mdc_update_child_down_time(this, gf_time());
             break;
         case GF_EVENT_UPCALL:
             if (conf->mdc_invalidation)
