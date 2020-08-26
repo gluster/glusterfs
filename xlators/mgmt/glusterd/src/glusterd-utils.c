@@ -2220,7 +2220,10 @@ retry:
 
     if (wait) {
         synclock_unlock(&priv->big_lock);
+        errno = 0;
         ret = runner_run(&runner);
+        if (errno != 0)
+            ret = errno;
         synclock_lock(&priv->big_lock);
 
         if (ret == EADDRINUSE) {
