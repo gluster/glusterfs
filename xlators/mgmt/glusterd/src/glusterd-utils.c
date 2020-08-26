@@ -2796,6 +2796,15 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
             ret = -1;
             goto out;
         }
+    } else if (priv->op_version < GD_OP_VERSION_7_0) {
+        ret = get_checksum_for_path(filepath, &cksum, priv->op_version);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
+                   "unable to get "
+                   "checksum for path: %s",
+                   filepath);
+            goto out;
+        }
     }
 
     ret = get_checksum_for_file(fd, &cksum, priv->op_version);
