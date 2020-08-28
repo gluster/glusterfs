@@ -156,15 +156,58 @@ ec_shd_index_purge(xlator_t *subvol, inode_t *inode, char *name)
     return ret;
 }
 
+static gf_boolean_t
+ec_is_heal_completed(char *status)
+{
+    char *bad_pos = NULL;
+    char *zero_pos = NULL;
+
+    if (!status) {
+        return _gf_false;
+    }
+
+    /*Logic:
+     * Status will be of the form Good: <binary>, Bad: <binary>
+     * If heal completes, if we do strchr for '0' it should be present after
+     * 'Bad:' i.e. strRchr for ':'
+     * */
+
+    zero_pos = strchr(status, '0');
+    bad_pos = strrchr(status, ':');
+    if (!zero_pos || !bad_pos) {
+        /*malformed status*/
+        return _gf_false;
+    }
+
+    if (zero_pos > bad_pos) {
+        return _gf_true;
+    }
+
+    return _gf_false;
+}
+
 int
 ec_shd_selfheal(struct subvol_healer *healer, int child, loc_t *loc,
                 gf_boolean_t full)
 {
     dict_t *xdata = NULL;
+    dict_t *dict = NULL;
     uint32_t count;
     int32_t ret;
+    char *heal_status = NULL;
+    ec_t *ec = healer->this->private;
 
-    ret = syncop_getxattr(healer->this, loc, NULL, EC_XATTR_HEAL, NULL, &xdata);
+    GF_ATOMIC_INC(ec->stats.shd.attempted);
+    ret = syncop_getxattr(healer->this, loc, &dict, EC_XATTR_HEAL, NULL,
+                          &xdata);
+    if (ret == 0) {
+        if (dict && (dict_get_str(dict, EC_XATTR_HEAL, &heal_status) == 0)) {
+            if (ec_is_heal_completed(heal_status)) {
+                GF_ATOMIC_INC(ec->stats.shd.completed);
+            }
+        }
+    }
+
     if (!full && (loc->inode->ia_type == IA_IFDIR)) {
         /* If we have just healed a directory, it's possible that
          * other index entries have appeared to be healed. */
@@ -181,6 +224,10 @@ ec_shd_selfheal(struct subvol_healer *healer, int child, loc_t *loc,
 
     if (xdata != NULL) {
         dict_unref(xdata);
+    }
+
+    if (dict) {
+        dict_unref(dict);
     }
 
     return ret;

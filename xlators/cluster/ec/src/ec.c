@@ -710,6 +710,8 @@ ec_statistics_init(ec_t *ec)
     GF_ATOMIC_INIT(ec->stats.stripe_cache.evicts, 0);
     GF_ATOMIC_INIT(ec->stats.stripe_cache.allocs, 0);
     GF_ATOMIC_INIT(ec->stats.stripe_cache.errors, 0);
+    GF_ATOMIC_INIT(ec->stats.shd.attempted, 0);
+    GF_ATOMIC_INIT(ec->stats.shd.completed, 0);
 }
 
 static int
@@ -1579,6 +1581,10 @@ ec_dump_private(xlator_t *this)
                        GF_ATOMIC_GET(ec->stats.stripe_cache.allocs));
     gf_proc_dump_write("errors", "%" GF_PRI_ATOMIC,
                        GF_ATOMIC_GET(ec->stats.stripe_cache.errors));
+    gf_proc_dump_write("heals-attempted", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(ec->stats.shd.attempted));
+    gf_proc_dump_write("heals-completed", "%" GF_PRI_ATOMIC,
+                       GF_ATOMIC_GET(ec->stats.shd.completed));
 
     return 0;
 }

@@ -626,6 +626,11 @@ struct _ec_statistics {
                                 requests. (Basically memory allocation
                                 errors). */
     } stripe_cache;
+    struct {
+        gf_atomic_t attempted; /*Number of heals attempted on
+                                files/directories*/
+        gf_atomic_t completed; /*Number of heals complted on files/directories*/
+    } shd;
 };
 
 struct _ec {
