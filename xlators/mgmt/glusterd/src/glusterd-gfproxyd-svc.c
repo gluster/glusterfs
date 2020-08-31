@@ -310,7 +310,7 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
     }
     runinit(&runner);
 
-    if (this->ctx->cmd_args.valgrind) {
+    if (this->ctx->cmd_args.vgtool != _gf_none) {
         len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s",
                        svc->proc.logdir, svc->proc.logfile);
         if ((len < 0) || (len >= PATH_MAX)) {
@@ -318,8 +318,13 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
             goto out;
         }
 
-        runner_add_args(&runner, "valgrind", "--leak-check=full",
-                        "--trace-children=yes", "--track-origins=yes", NULL);
+        if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+            runner_add_args(&runner, "valgrind", "--leak-check=full",
+                            "--trace-children=yes", "--track-origins=yes",
+                            NULL);
+        else
+            runner_add_args(&runner, "valgrind", "--tool=drd", NULL);
+
         runner_argprintf(&runner, "--log-file=%s", valgrind_logfile);
     }
 

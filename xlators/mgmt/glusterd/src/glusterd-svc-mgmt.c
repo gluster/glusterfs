@@ -162,6 +162,9 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
     char *localtime_logging = NULL;
     char *log_level = NULL;
     char daemon_log_level[30] = {0};
+    char msg[1024] = {
+        0,
+    };
     int32_t len = 0;
 
     this = THIS;
@@ -187,7 +190,7 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
 
         runinit(&runner);
 
-        if (this->ctx->cmd_args.valgrind) {
+        if (this->ctx->cmd_args.vgtool != _gf_none) {
             len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s.log",
                            svc->proc.logdir, svc->name);
             if ((len < 0) || (len >= PATH_MAX)) {
@@ -195,9 +198,13 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
                 goto unlock;
             }
 
-            runner_add_args(&runner, "valgrind", "--leak-check=full",
-                            "--trace-children=yes", "--track-origins=yes",
-                            NULL);
+            if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+                runner_add_args(&runner, "valgrind", "--leak-check=full",
+                                "--trace-children=yes", "--track-origins=yes",
+                                NULL);
+            else
+                runner_add_args(&runner, "valgrind", "--tool=drd", NULL);
+
             runner_argprintf(&runner, "--log-file=%s", valgrind_logfile);
         }
 
@@ -226,8 +233,8 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
         if (cmdline)
             dict_foreach(cmdline, svc_add_args, (void *)&runner);
 
-        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_SVC_START_SUCCESS,
-               "Starting %s service", svc->name);
+        snprintf(msg, sizeof(msg), "Starting %s service", svc->name);
+        runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
 
         if (flags == PROC_START_NO_WAIT) {
             ret = runner_run_nowait(&runner);

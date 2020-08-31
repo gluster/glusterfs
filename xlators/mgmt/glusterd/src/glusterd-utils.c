@@ -2076,8 +2076,8 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
 retry:
     runinit(&runner);
 
-    if (this->ctx->cmd_args.valgrind) {
-        /* Run bricks with valgrind */
+    if (this->ctx->cmd_args.vgtool != _gf_none) {
+        /* Run bricks with valgrind. */
         if (volinfo->logdir) {
             len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s-%s.log",
                            volinfo->logdir, volinfo->volname, exp_path);
@@ -2091,8 +2091,13 @@ retry:
             goto out;
         }
 
-        runner_add_args(&runner, "valgrind", "--leak-check=full",
-                        "--trace-children=yes", "--track-origins=yes", NULL);
+        if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+            runner_add_args(&runner, "valgrind", "--leak-check=full",
+                            "--trace-children=yes", "--track-origins=yes",
+                            NULL);
+        else
+            runner_add_args(&runner, "valgrind", "--tool=drd", NULL);
+
         runner_argprintf(&runner, "--log-file=%s", valgrind_logfile);
     }
 
@@ -2205,7 +2210,7 @@ retry:
     if (is_brick_mx_enabled())
         runner_add_arg(&runner, "--brick-mux");
 
-    runner_log(&runner, "", 0, "Starting GlusterFS");
+    runner_log(&runner, "", GF_LOG_DEBUG, "Starting GlusterFS");
 
     brickinfo->port = port;
     brickinfo->rdma_port = rdma_port;
