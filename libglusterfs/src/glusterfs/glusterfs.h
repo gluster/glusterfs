@@ -466,6 +466,8 @@ typedef struct _server_cmdline server_cmdline_t;
 #define GF_OPTION_DISABLE _gf_false
 #define GF_OPTION_DEFERRED 2
 
+typedef enum { _gf_none, _gf_memcheck, _gf_drd } gf_valgrind_tool;
+
 struct _cmd_args {
     /* basic options */
     char *volfile_server;
@@ -558,7 +560,8 @@ struct _cmd_args {
     /* Run this process with valgrind? Might want to prevent calling
      * functions that prevent valgrind from working correctly, like
      * dlclose(). */
-    int valgrind;
+    gf_valgrind_tool vgtool;
+
     int localtime_logging;
 
     /* For the subdir mount */

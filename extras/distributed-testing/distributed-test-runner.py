@@ -383,14 +383,17 @@ class Handlers:
         return self.shell.call("make install") == 0
 
     @synchronized
-    def prove(self, id, test, timeout, valgrind=False, asan_noleaks=True):
+    def prove(self, id, test, timeout, valgrind="no", asan_noleaks=True):
         assert id == self.client_id
         self.shell.cd(self.gluster_root)
         env = "DEBUG=1 "
-        if valgrind:
+        if valgrind == "memcheck" or valgrind == "yes":
             cmd = "valgrind"
             cmd += " --tool=memcheck --leak-check=full --track-origins=yes"
             cmd += " --show-leak-kinds=all -v prove -v"
+        elif valgrind == "drd":
+            cmd = "valgrind"
+            cmd += " --tool=drd -v prove -v"
         elif asan_noleaks:
             cmd = "prove -v"
             env += "ASAN_OPTIONS=detect_leaks=0 "
@@ -827,8 +830,9 @@ parser.add_argument("--port", help="server port to listen",
                     type=int, default=DEFAULT_PORT)
 # test role
 parser.add_argument("--tester", help="start tester", action="store_true")
-parser.add_argument("--valgrind", help="run tests under valgrind",
-                    action="store_true")
+parser.add_argument("--valgrind[=memcheck,drd]",
+                    help="run tests with valgrind tool 'memcheck' or 'drd'",
+                    default="no")
 parser.add_argument("--asan", help="test with asan enabled",
                     action="store_true")
 parser.add_argument("--asan-noleaks", help="test with asan but no mem leaks",

@@ -219,6 +219,9 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     char valgrind_logfile[PATH_MAX] = {
         0,
     };
+    char msg[1024] = {
+        0,
+    };
     char *volfileserver = NULL;
     char *localtime_logging = NULL;
 
@@ -270,12 +273,17 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
              "rebalance");
     runinit(&runner);
 
-    if (this->ctx->cmd_args.valgrind) {
+    if (this->ctx->cmd_args.vgtool != _gf_none) {
         snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s-rebalance.log",
                  priv->logdir, volinfo->volname);
 
-        runner_add_args(&runner, "valgrind", "--leak-check=full",
-                        "--trace-children=yes", "--track-origins=yes", NULL);
+        if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+            runner_add_args(&runner, "valgrind", "--leak-check=full",
+                            "--trace-children=yes", "--track-origins=yes",
+                            NULL);
+        else
+            runner_add_args(&runner, "valgrind", "--tool=drd", NULL);
+
         runner_argprintf(&runner, "--log-file=%s", valgrind_logfile);
     }
 
@@ -315,6 +323,10 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
         if (strcmp(localtime_logging, "enable") == 0)
             runner_add_arg(&runner, "--localtime-logging");
     }
+
+    snprintf(msg, sizeof(msg), "Starting the rebalance service for volume %s",
+             volinfo->volname);
+    runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
 
     ret = runner_run_nowait(&runner);
     if (ret) {

@@ -409,12 +409,27 @@ esac
 
 # --enable-valgrind prevents calling dlclose(), this leaks memory
 AC_ARG_ENABLE([valgrind],
-              AC_HELP_STRING([--enable-valgrind],
-                             [Enable valgrind for resource leak debugging.]))
-if test "x$enable_valgrind" = "xyes"; then
-        AC_DEFINE(RUN_WITH_VALGRIND, 1, [define if all processes should run under valgrind])
-fi
-
+              AC_HELP_STRING([--enable-valgrind@<:@=memcheck,drd@:>@],
+                             [Enable valgrind for resource leak (memcheck, which is
+                              the default) or thread synchronization (drd) debugging.]))
+case x$enable_valgrind in
+  xmemcheck|xyes)
+    AC_DEFINE(RUN_WITH_MEMCHECK, 1,
+              [Define if all processes should run under 'valgrind --tool=memcheck'.])
+    VALGRIND_TOOL=memcheck
+    ;;
+  xdrd)
+    AC_DEFINE(RUN_WITH_DRD, 1,
+              [Define if all processes should run under 'valgrind --tool=drd'.])
+    VALGRIND_TOOL=drd
+    ;;
+  x|xno)
+    VALGRIND_TOOL=no
+    ;;
+  *)
+    AC_MSG_ERROR([Please specify --enable-valgrind@<:@=memcheck,drd@:>@])
+    ;;
+esac
 
 AC_ARG_WITH([previous-options],
         [AS_HELP_STRING([--with-previous-options],
@@ -1670,6 +1685,7 @@ echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Enable Debug         : $BUILD_DEBUG"
+echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"
 echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"

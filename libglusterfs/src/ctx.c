@@ -37,8 +37,12 @@ glusterfs_ctx_new()
 
     ctx->log.loglevel = DEFAULT_LOG_LEVEL;
 
-#ifdef RUN_WITH_VALGRIND
-    ctx->cmd_args.valgrind = _gf_true;
+#if defined(RUN_WITH_MEMCHECK)
+    ctx->cmd_args.vgtool = _gf_memcheck;
+#elif defined(RUN_WITH_DRD)
+    ctx->cmd_args.vgtool = _gf_drd;
+#else
+    ctx->cmd_args.vgtool = _gf_none;
 #endif
 
     /* lock is never destroyed! */

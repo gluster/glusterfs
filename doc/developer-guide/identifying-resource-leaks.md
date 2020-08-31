@@ -174,3 +174,27 @@ In this case, the resource leak can be addressed by adding a single line to the
 
 Running the same Valgrind command and comparing the output will show that the
 memory leak in `xlators/meta/src/meta.c:init` is not reported anymore.
+
+### Running DRD, the Valgrind thread error detector
+
+When configuring GlusterFS with:
+
+```shell
+./configure --enable-valgrind
+```
+
+the default Valgrind tool (Memcheck) is enabled. But it's also possble to select
+one of Memcheck or DRD by using:
+
+```shell
+./configure --enable-valgrind=memcheck
+```
+
+or:
+
+```shell
+./configure --enable-valgrind=drd
+```
+
+respectively. When using DRD, it's recommended to consult
+https://valgrind.org/docs/manual/drd-manual.html before running.

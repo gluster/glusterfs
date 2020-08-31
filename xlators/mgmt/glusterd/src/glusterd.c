@@ -1423,7 +1423,7 @@ init(xlator_t *this)
     char *mountbroker_root = NULL;
     int i = 0;
     int total_transport = 0;
-    gf_boolean_t valgrind = _gf_false;
+    gf_valgrind_tool vgtool;
     char *valgrind_str = NULL;
     char *transport_type = NULL;
     char var_run_dir[PATH_MAX] = {
@@ -1435,6 +1435,14 @@ init(xlator_t *this)
     char *localtime_logging = NULL;
     int32_t len = 0;
     int op_version = 0;
+
+#if defined(RUN_WITH_MEMCHECK)
+    vgtool = _gf_memcheck;
+#elif defined(RUN_WITH_DRD)
+    vgtool = _gf_drd;
+#else
+    vgtool = _gf_none;
+#endif
 
 #ifndef GF_DARWIN_HOST_OS
     {
@@ -1925,18 +1933,24 @@ init(xlator_t *this)
     }
 
     /* Set option to run bricks on valgrind if enabled in glusterd.vol */
-    this->ctx->cmd_args.valgrind = valgrind;
+    this->ctx->cmd_args.vgtool = vgtool;
     ret = dict_get_str(this->options, "run-with-valgrind", &valgrind_str);
     if (ret < 0) {
         gf_msg_debug(this->name, 0, "cannot get run-with-valgrind value");
     }
     if (valgrind_str) {
-        if (gf_string2boolean(valgrind_str, &valgrind)) {
+        gf_boolean_t vg = _gf_false;
+
+        if (!strcmp(valgrind_str, "memcheck"))
+            this->ctx->cmd_args.vgtool = _gf_memcheck;
+        else if (!strcmp(valgrind_str, "drd"))
+            this->ctx->cmd_args.vgtool = _gf_drd;
+        else if (!gf_string2boolean(valgrind_str, &vg))
+            this->ctx->cmd_args.vgtool = (vg ? _gf_memcheck : _gf_none);
+        else
             gf_msg(this->name, GF_LOG_WARNING, EINVAL, GD_MSG_INVALID_ENTRY,
-                   "run-with-valgrind value not a boolean string");
-        } else {
-            this->ctx->cmd_args.valgrind = valgrind;
-        }
+                   "run-with-valgrind is neither boolean"
+                   " nor one of 'memcheck' or 'drd'");
     }
 
     /* Store ping-timeout in conf */
