@@ -79,9 +79,9 @@ done
 
 if [ "$option" == "disable" ]; then
     # Unmount the volume on all the nodes
-    umount /var/run/gluster/shared_storage
-    cat /etc/fstab  | grep -v "gluster_shared_storage /var/run/gluster/shared_storage/" > /var/run/gluster/fstab.tmp
-    mv /var/run/gluster/fstab.tmp /etc/fstab
+    umount /run/gluster/shared_storage
+    cat /etc/fstab  | grep -v "gluster_shared_storage /run/gluster/shared_storage/" > /run/gluster/fstab.tmp
+    mv /run/gluster/fstab.tmp /etc/fstab
 fi
 
 if [ "$is_originator" == 1 ]; then
@@ -108,10 +108,10 @@ key=`echo $5 | cut -d '=' -f 1`
 val=`echo $5 | cut -d '=' -f 2`
 if [ "$key" == "transport.address-family" ]; then
     mount_cmd="mount -t glusterfs -o xlator-option=transport.address-family=inet6 \
-               $local_node_hostname:/gluster_shared_storage /var/run/gluster/shared_storage"
+               $local_node_hostname:/gluster_shared_storage /run/gluster/shared_storage"
 else
     mount_cmd="mount -t glusterfs $local_node_hostname:/gluster_shared_storage \
-           /var/run/gluster/shared_storage"
+           /run/gluster/shared_storage"
 fi
 
 if [ "$option" == "enable" ]; then
@@ -127,10 +127,10 @@ if [ "$option" == "enable" ]; then
         status=$(check_volume_status)
     done
     # Mount the volume on all the nodes
-    umount /var/run/gluster/shared_storage
-    mkdir -p /var/run/gluster/shared_storage
+    umount /run/gluster/shared_storage
+    mkdir -p /run/gluster/shared_storage
     $mount_cmd
-    cp /etc/fstab /var/run/gluster/fstab.tmp
-    echo "$local_node_hostname:/gluster_shared_storage /var/run/gluster/shared_storage/ glusterfs defaults        0 0" >> /var/run/gluster/fstab.tmp
-    mv /var/run/gluster/fstab.tmp /etc/fstab
+    cp /etc/fstab /run/gluster/fstab.tmp
+    echo "$local_node_hostname:/gluster_shared_storage /run/gluster/shared_storage/ glusterfs defaults        0 0" >> /run/gluster/fstab.tmp
+    mv /run/gluster/fstab.tmp /etc/fstab
 fi
