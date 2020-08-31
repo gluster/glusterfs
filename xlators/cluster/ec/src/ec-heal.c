@@ -2632,6 +2632,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
              * removed. We need not take lock on this entry to do so as
              * xattrop on a brick is atomic. */
             ec_heal_purge_stale_index(frame, ec, loc->inode);
+            goto out;
         } else if (need_heal == EC_HEAL_NONEED) {
             gf_msg(ec->xl->name, GF_LOG_DEBUG, 0, EC_MSG_HEAL_FAIL,
                    "Heal is not required for : %s ", uuid_utoa(loc->gfid));
