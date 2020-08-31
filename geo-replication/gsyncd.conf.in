@@ -123,7 +123,7 @@ type=bool
 help=Use this to set Active Passive mode to meta-volume.
 
 [meta-volume-mnt]
-value=/var/run/gluster/shared_storage
+value=/run/gluster/shared_storage
 help=Meta Volume or Shared Volume mount path
 
 [allow-network]
