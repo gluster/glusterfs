@@ -44,7 +44,8 @@ GLFS_MSGID(BITROT_STUB, BRS_MSG_NO_MEMORY, BRS_MSG_SET_EVENT_FAILED,
            BRS_MSG_NON_BITD_PID, BRS_MSG_SIGN_PREPARE_FAIL,
            BRS_MSG_USING_DEFAULT_THREAD_SIZE, BRS_MSG_ALLOC_MEM_FAILED,
            BRS_MSG_DICT_ALLOC_FAILED, BRS_MSG_CREATE_GF_DIRENT_FAILED,
-           BRS_MSG_ALLOC_FAILED, BRS_MSG_PATH_XATTR_GET_FAILED);
+           BRS_MSG_ALLOC_FAILED, BRS_MSG_PATH_XATTR_GET_FAILED,
+           BRS_MSG_VERSION_PREPARE_FAIL);
 
 #define BRS_MSG_MEM_ACNT_FAILED_STR "Memory accounting init failed"
 #define BRS_MSG_BAD_OBJ_THREAD_FAIL_STR "pthread_init failed"
@@ -68,6 +69,8 @@ GLFS_MSGID(BITROT_STUB, BRS_MSG_NO_MEMORY, BRS_MSG_SET_EVENT_FAILED,
     "daemon. Unwinding the fop"
 #define BRS_MSG_SIGN_PREPARE_FAIL_STR                                          \
     "failed to prepare the signature. Unwinding the fop"
+#define BRS_MSG_VERSION_PREPARE_FAIL_STR                                       \
+    "failed to prepare the version. Unwinding the fop"
 #define BRS_MSG_STUB_ALLOC_FAILED_STR "failed to allocate stub fop, Unwinding"
 #define BRS_MSG_BAD_OBJ_MARK_FAIL_STR "failed to mark object as bad"
 #define BRS_MSG_NON_SCRUB_BAD_OBJ_MARK_STR                                     \

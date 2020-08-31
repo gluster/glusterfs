@@ -424,8 +424,8 @@ br_stub_prepare_version_request(xlator_t *this, dict_t *dict,
     priv = this->private;
     br_set_ongoingversion(obuf, oversion, priv->boot);
 
-    return dict_set_static_bin(dict, BITROT_CURRENT_VERSION_KEY, (void *)obuf,
-                               sizeof(br_version_t));
+    return dict_set_bin(dict, BITROT_CURRENT_VERSION_KEY, (void *)obuf,
+                        sizeof(br_version_t));
 }
 
 static int
@@ -436,8 +436,7 @@ br_stub_prepare_signing_request(dict_t *dict, br_signature_t *sbuf,
 
     br_set_signature(sbuf, sign, signaturelen, &size);
 
-    return dict_set_static_bin(dict, BITROT_SIGNING_VERSION_KEY, (void *)sbuf,
-                               size);
+    return dict_set_bin(dict, BITROT_SIGNING_VERSION_KEY, (void *)sbuf, size);
 }
 
 /**
@@ -854,23 +853,27 @@ br_stub_perform_incversioning(xlator_t *this, call_frame_t *frame,
     op_errno = ENOMEM;
     dict = dict_new();
     if (!dict)
-        goto done;
+        goto out;
     ret = br_stub_alloc_versions(&obuf, NULL, 0);
-    if (ret)
-        goto dealloc_dict;
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ALLOC_MEM_FAILED,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
+        goto out;
+    }
     ret = br_stub_prepare_version_request(this, dict, obuf, writeback_version);
-    if (ret)
-        goto dealloc_versions;
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_VERSION_PREPARE_FAIL,
+                "gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
+        br_stub_dealloc_versions(obuf);
+        goto out;
+    }
 
     ret = br_stub_fd_versioning(
         this, frame, stub, dict, fd, br_stub_fd_incversioning_cbk,
         writeback_version, BR_STUB_INCREMENTAL_VERSIONING, !WRITEBACK_DURABLE);
-
-dealloc_versions:
-    br_stub_dealloc_versions(obuf);
-dealloc_dict:
-    dict_unref(dict);
-done:
+out:
+    if (dict)
+        dict_unref(dict);
     if (ret) {
         if (local)
             frame->local = NULL;
@@ -1025,31 +1028,36 @@ static int
 br_stub_prepare_signature(xlator_t *this, dict_t *dict, inode_t *inode,
                           br_isignature_t *sign, int *fakesuccess)
 {
-    int32_t ret = 0;
+    int32_t ret = -1;
     size_t signaturelen = 0;
     br_signature_t *sbuf = NULL;
 
     if (!br_is_signature_type_valid(sign->signaturetype))
-        goto error_return;
+        goto out;
 
     signaturelen = sign->signaturelen;
     ret = br_stub_alloc_versions(NULL, &sbuf, signaturelen);
-    if (ret)
-        goto error_return;
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_ALLOC_MEM_FAILED,
+                "gfid=%s", uuid_utoa(inode->gfid), NULL);
+        ret = -1;
+        goto out;
+    }
     ret = br_stub_prepare_signing_request(dict, sbuf, sign, signaturelen);
-    if (ret)
-        goto dealloc_versions;
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_SIGN_PREPARE_FAIL,
+                "gfid=%s", uuid_utoa(inode->gfid), NULL);
+        ret = -1;
+        br_stub_dealloc_versions(sbuf);
+        goto out;
+    }
 
+    /* At this point sbuf has been added to dict, so the memory will be freed
+     * when the data from the dict is destroyed
+     */
     ret = br_stub_compare_sign_version(this, inode, sbuf, dict, fakesuccess);
-    if (ret)
-        goto dealloc_versions;
-
-    return 0;
-
-dealloc_versions:
-    br_stub_dealloc_versions(sbuf);
-error_return:
-    return -1;
+out:
+    return ret;
 }
 
 static void
