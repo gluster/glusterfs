@@ -585,6 +585,7 @@ gf_dirent_free
 gf_dirent_orig_offset
 gf_dm_hashfn
 gf_dnscache_init
+gf_dnscache_deinit
 gf_errno_to_error
 gf_error_to_errno
 _gf_event
