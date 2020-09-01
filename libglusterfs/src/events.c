@@ -40,6 +40,7 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     char *host = NULL;
     struct addrinfo hints;
     struct addrinfo *result = NULL;
+    struct addrinfo *iter_result_ptr = NULL;
     xlator_t *this = THIS;
     char *volfile_server_transport = NULL;
 
@@ -77,9 +78,10 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     }
 
     // iterate over the result and break when socket creation is success.
-    for (; result != NULL; result = result->ai_next) {
-        sock = socket(result->ai_family, result->ai_socktype,
-                      result->ai_protocol);
+    for (iter_result_ptr = result; iter_result_ptr != NULL;
+         iter_result_ptr = iter_result_ptr->ai_next) {
+        sock = socket(iter_result_ptr->ai_family, iter_result_ptr->ai_socktype,
+                      iter_result_ptr->ai_protocol);
         if (sock != -1) {
             break;
         }
