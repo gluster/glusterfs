@@ -577,12 +577,32 @@ struct dnscache *
 gf_dnscache_init(time_t ttl)
 {
     struct dnscache *cache = GF_MALLOC(sizeof(*cache), gf_common_mt_dnscache);
-    if (cache) {
-        cache->cache_dict = NULL;
+    if (!cache)
+        return NULL;
+
+    cache->cache_dict = dict_new();
+    if (!cache->cache_dict) {
+        GF_FREE(cache);
+        cache = NULL;
+    } else {
         cache->ttl = ttl;
     }
 
     return cache;
+}
+
+/**
+ * gf_dnscache_deinit -- cleanup resources used by struct dnscache
+ */
+void
+gf_dnscache_deinit(struct dnscache *cache)
+{
+    if (!cache) {
+        gf_msg_plain(GF_LOG_WARNING, "dnscache is NULL");
+        return;
+    }
+    dict_unref(cache->cache_dict);
+    GF_FREE(cache);
 }
 
 /**
@@ -633,12 +653,6 @@ gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
     if (!dnscache)
         goto out;
 
-    if (!dnscache->cache_dict) {
-        dnscache->cache_dict = dict_new();
-        if (!dnscache->cache_dict) {
-            goto out;
-        }
-    }
     cache = dnscache->cache_dict;
 
     /* Quick cache lookup to see if we already hold it */
