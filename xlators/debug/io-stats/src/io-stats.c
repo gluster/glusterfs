@@ -3838,7 +3838,7 @@ ios_conf_destroy(struct ios_conf *conf)
     _ios_destroy_dump_thread(conf);
     ios_destroy_sample_buf(conf->ios_sample_buf);
     LOCK_DESTROY(&conf->lock);
-    GF_FREE(conf->dnscache);
+    gf_dnscache_deinit(conf->dnscache);
     GF_FREE(conf);
 }
 
@@ -3950,11 +3950,14 @@ init(xlator_t *this)
         gf_log(this->name, GF_LOG_ERROR, "Out of memory.");
         goto out;
     }
-    ret = -1;
 
     GF_OPTION_INIT("ios-dnscache-ttl-sec", conf->ios_dnscache_ttl_sec, int32,
                    out);
     conf->dnscache = gf_dnscache_init(conf->ios_dnscache_ttl_sec);
+    if (!conf->dnscache) {
+        ret = -1;
+        goto out;
+    }
 
     GF_OPTION_INIT("sys-log-level", sys_log_str, str, out);
     if (sys_log_str) {

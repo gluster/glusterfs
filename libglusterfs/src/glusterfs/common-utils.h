@@ -255,6 +255,8 @@ list_node_del(struct list_node *node);
 
 struct dnscache *
 gf_dnscache_init(time_t ttl);
+void
+gf_dnscache_deinit(struct dnscache *cache);
 struct dnscache_entry *
 gf_dnscache_entry_init(void);
 void
