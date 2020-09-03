@@ -99,7 +99,7 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     iov.iov_len = ret;
 
     /* Wait for connection */
-    clock_gettime(CLOCK_REALTIME, &ts);
+    timespec_now_realtime(&ts);
     ts.tv_sec += CONNECT_TIMEOUT;
     pthread_mutex_lock(&rpc->conn.lock);
     {
@@ -124,7 +124,7 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
                           0, iobref, frame, NULL, 0, NULL, 0, NULL);
     if (!ret) {
         /* OK, wait for callback */
-        clock_gettime(CLOCK_REALTIME, &ts);
+        timespec_now_realtime(&ts);
         ts.tv_sec += REPLY_TIMEOUT;
         pthread_mutex_lock(&mutex);
         {
