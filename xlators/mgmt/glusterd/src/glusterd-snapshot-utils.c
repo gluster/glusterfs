@@ -2037,8 +2037,9 @@ glusterd_update_snaps_synctask(void *opaque)
                        "Failed to remove snap %s", snap->snapname);
                 goto out;
             }
-            if (dict)
-                dict_unref(dict);
+
+            dict_unref(dict);
+            dict = NULL;
         }
         snprintf(buf, sizeof(buf), "%s.accept_peer_data", prefix);
         ret = dict_get_int32(peer_data, buf, &val);
