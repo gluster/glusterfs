@@ -1505,7 +1505,7 @@ posix_janitor_task(void *data)
     if (!priv)
         goto out;
 
-    time(&now);
+    now = gf_time();
     if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
         if (priv->disable_landfill_purge) {
             gf_msg_debug(this->name, 0,
@@ -1686,15 +1686,14 @@ posix_spawn_ctx_janitor_thread(xlator_t *this)
 }
 
 static int
-is_fresh_file(int64_t sec, int64_t ns)
+is_fresh_file(struct timespec *ts)
 {
-    struct timeval tv;
+    struct timespec now;
     int64_t elapsed;
 
-    gettimeofday(&tv, NULL);
+    timespec_now_realtime(&now);
+    elapsed = (int64_t)gf_tsdiff(ts, &now);
 
-    elapsed = (tv.tv_sec - sec) * 1000000L;
-    elapsed += tv.tv_usec - (ns / 1000L);
     if (elapsed < 0) {
         /* The file has been modified in the future !!!
          * Is it fresh ? previous implementation considered this as a
@@ -1703,11 +1702,7 @@ is_fresh_file(int64_t sec, int64_t ns)
     }
 
     /* If the file is newer than a second, we consider it fresh. */
-    if (elapsed < 1000000) {
-        return 1;
-    }
-
-    return 0;
+    return elapsed < 1000000;
 }
 
 int
@@ -1770,7 +1765,9 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         if (ret != 16) {
             /* TODO: This is a very hacky way of doing this, and very prone to
              *       errors and unexpected behavior. This should be changed. */
-            if (is_fresh_file(stbuf.ia_ctime, stbuf.ia_ctime_nsec)) {
+            struct timespec ts = {.tv_sec = stbuf.ia_ctime,
+                                  .tv_nsec = stbuf.ia_ctime_nsec};
+            if (is_fresh_file(&ts)) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOENT, P_MSG_FRESHFILE,
                        "Fresh file: %s", path);
                 return -ENOENT;
@@ -1784,7 +1781,7 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         if (ret != 16) {
             /* TODO: This is a very hacky way of doing this, and very prone to
              *       errors and unexpected behavior. This should be changed. */
-            if (is_fresh_file(stat.st_ctim.tv_sec, stat.st_ctim.tv_nsec)) {
+            if (is_fresh_file(&stat.st_ctim)) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOENT, P_MSG_FRESHFILE,
                        "Fresh file: %s", path);
                 return -ENOENT;

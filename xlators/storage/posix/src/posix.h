@@ -137,10 +137,6 @@ struct posix_private {
     gf_lock_t lock;
 
     char *hostname;
-    /* Statistics, provides activity of the server */
-
-    struct timeval prev_fetch_time;
-    struct timeval init_time;
 
     time_t last_landfill_check;
 

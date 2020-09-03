@@ -779,7 +779,7 @@ mdc_inode_xatt_set(xlator_t *this, inode_t *inode, dict_t *dict)
         if (newdict)
             mdc->xattr = newdict;
 
-        time(&mdc->xa_time);
+        mdc->xa_time = gf_time();
         gf_msg_trace("md-cache", 0, "xatt cache set for (%s) time:%lld",
                      uuid_utoa(inode->gfid), (long long)mdc->xa_time);
     }

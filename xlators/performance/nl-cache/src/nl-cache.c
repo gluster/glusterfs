@@ -520,15 +520,13 @@ int
 nlc_notify(xlator_t *this, int event, void *data, ...)
 {
     int ret = 0;
-    time_t now = 0;
 
     switch (event) {
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_SOME_DESCENDENT_DOWN:
         case GF_EVENT_CHILD_UP:
         case GF_EVENT_SOME_DESCENDENT_UP:
-            time(&now);
-            nlc_update_child_down_time(this, &now);
+            nlc_update_child_down_time(this, gf_time());
             /* TODO: nlc_clear_all_cache (this); else
              lru prune will lazily clear it*/
             break;
@@ -731,7 +729,7 @@ nlc_init(xlator_t *this)
     GF_ATOMIC_INIT(conf->nlc_counter.nlc_invals, 0);
 
     INIT_LIST_HEAD(&conf->lru);
-    time(&conf->last_child_down);
+    conf->last_child_down = gf_time();
 
     conf->timer_wheel = glusterfs_ctx_tw_get(this->ctx);
     if (!conf->timer_wheel) {

@@ -155,7 +155,7 @@ nlc_local_init(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
                loc_t *loc, loc_t *loc2);
 
 void
-nlc_update_child_down_time(xlator_t *this, time_t *now);
+nlc_update_child_down_time(xlator_t *this, time_t now);
 
 void
 nlc_inode_clear_cache(xlator_t *this, inode_t *inode, int reason);
