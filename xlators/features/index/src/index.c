@@ -2104,7 +2104,7 @@ index_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     worker_enqueue(this, stub);
     return 0;
 normal:
-    ret = dict_get_str(xattr_req, "link-count", &flag);
+    ret = dict_get_str_sizen(xattr_req, "link-count", &flag);
     if ((ret == 0) && (strcmp(flag, GF_XATTROP_INDEX_COUNT) == 0)) {
         STACK_WIND(frame, index_lookup_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
