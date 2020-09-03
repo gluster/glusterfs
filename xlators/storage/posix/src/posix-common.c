@@ -159,7 +159,7 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                     ret = gf_tw_del_timer(this->ctx->tw->timer_wheel,
                                           priv->janitor);
                     if (!ret) {
-                        clock_gettime(CLOCK_REALTIME, &sleep_till);
+                        timespec_now_realtime(&sleep_till);
                         sleep_till.tv_sec += 1;
                         /* Wait to set janitor_task flag to _gf_false by
                          * janitor_task_done */
@@ -167,7 +167,7 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                             (void)pthread_cond_timedwait(&priv->janitor_cond,
                                                          &priv->janitor_mutex,
                                                          &sleep_till);
-                            clock_gettime(CLOCK_REALTIME, &sleep_till);
+                            timespec_now_realtime(&sleep_till);
                             sleep_till.tv_sec += 1;
                         }
                     }

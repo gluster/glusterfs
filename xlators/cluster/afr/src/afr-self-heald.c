@@ -371,7 +371,7 @@ afr_shd_sweep_prepare(struct subvol_healer *healer)
     event->split_brain_count = 0;
     event->heal_failed_count = 0;
 
-    time(&event->start_time);
+    event->start_time = gf_time();
     event->end_time = 0;
     _mask_cancellation();
 }
@@ -386,7 +386,7 @@ afr_shd_sweep_done(struct subvol_healer *healer)
     event = &healer->crawl_event;
     shd = &(((afr_private_t *)healer->this->private)->shd);
 
-    time(&event->end_time);
+    event->end_time = gf_time();
     history = gf_memdup(event, sizeof(*event));
     event->start_time = 0;
 

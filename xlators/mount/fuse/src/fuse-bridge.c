@@ -179,7 +179,7 @@ fusedump_gettime(struct fusedump_timespec *fts)
         0,
     };
 
-    clock_gettime(CLOCK_REALTIME, &ts);
+    timespec_now_realtime(&ts);
 
     fts->sec = ts.tv_sec;
     fts->nsec = ts.tv_nsec;

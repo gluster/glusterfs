@@ -1390,7 +1390,7 @@ qr_init(xlator_t *this)
 
     ret = 0;
 
-    time(&priv->last_child_down);
+    priv->last_child_down = gf_time();
     GF_ATOMIC_INIT(priv->generation, 0);
     this->private = priv;
 out:
@@ -1440,7 +1440,7 @@ qr_conf_destroy(qr_conf_t *conf)
 }
 
 void
-qr_update_child_down_time(xlator_t *this, time_t *now)
+qr_update_child_down_time(xlator_t *this, time_t now)
 {
     qr_private_t *priv = NULL;
 
@@ -1448,7 +1448,7 @@ qr_update_child_down_time(xlator_t *this, time_t *now)
 
     LOCK(&priv->lock);
     {
-        priv->last_child_down = *now;
+        priv->last_child_down = now;
     }
     UNLOCK(&priv->lock);
 }
@@ -1494,7 +1494,6 @@ qr_notify(xlator_t *this, int event, void *data, ...)
 {
     int ret = 0;
     qr_private_t *priv = NULL;
-    time_t now = 0;
     qr_conf_t *conf = NULL;
 
     priv = this->private;
@@ -1503,8 +1502,7 @@ qr_notify(xlator_t *this, int event, void *data, ...)
     switch (event) {
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_SOME_DESCENDENT_DOWN:
-            time(&now);
-            qr_update_child_down_time(this, &now);
+            qr_update_child_down_time(this, gf_time());
             break;
         case GF_EVENT_UPCALL:
             if (conf->qr_invalidation)

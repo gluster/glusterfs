@@ -3930,7 +3930,8 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    ret = dict_set_int64(dict, "snap-time", (int64_t)time(&snap_time));
+    snap_time = gf_time();
+    ret = dict_set_int64(dict, "snap-time", (int64_t)snap_time);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set snap-time");

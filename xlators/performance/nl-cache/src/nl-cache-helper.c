@@ -113,7 +113,7 @@ out:
 }
 
 void
-nlc_update_child_down_time(xlator_t *this, time_t *now)
+nlc_update_child_down_time(xlator_t *this, time_t now)
 {
     nlc_conf_t *conf = NULL;
 
@@ -121,7 +121,7 @@ nlc_update_child_down_time(xlator_t *this, time_t *now)
 
     LOCK(&conf->lock);
     {
-        conf->last_child_down = *now;
+        conf->last_child_down = now;
     }
     UNLOCK(&conf->lock);
 
@@ -262,7 +262,7 @@ nlc_init_invalid_ctx(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
         if (nlc_ctx->timer) {
             gf_tw_mod_timer_pending(conf->timer_wheel, nlc_ctx->timer,
                                     conf->cache_timeout);
-            time(&nlc_ctx->cache_time);
+            nlc_ctx->cache_time = gf_time();
             goto unlock;
         }
 
@@ -496,7 +496,7 @@ __nlc_inode_ctx_timer_start(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
     nlc_ctx->timer_data = tmp;
     gf_tw_add_timer(conf->timer_wheel, timer);
 
-    time(&nlc_ctx->cache_time);
+    nlc_ctx->cache_time = gf_time();
     gf_msg_trace(this->name, 0,
                  "Registering timer:%p, inode:%p, "
                  "gfid:%s",

@@ -1633,9 +1633,8 @@ io_stats_dump_fd(xlator_t *this, struct ios_fd *iosfd)
 {
     struct ios_conf *conf = NULL;
     struct timeval now;
-    uint64_t sec = 0;
-    uint64_t usec = 0;
     int i = 0;
+    double usecs = 0;
     uint64_t data_read = 0;
     uint64_t data_written = 0;
     uint64_t block_count_read = 0;
@@ -1650,23 +1649,15 @@ io_stats_dump_fd(xlator_t *this, struct ios_fd *iosfd)
         return 0;
 
     gettimeofday(&now, NULL);
-
-    if (iosfd->opened_at.tv_usec > now.tv_usec) {
-        now.tv_usec += 1000000;
-        now.tv_usec--;
-    }
-
-    sec = now.tv_sec - iosfd->opened_at.tv_sec;
-    usec = now.tv_usec - iosfd->opened_at.tv_usec;
+    usecs = gf_tvdiff(&iosfd->opened_at, &now);
 
     gf_log(this->name, GF_LOG_INFO, "--- fd stats ---");
 
     if (iosfd->filename)
         gf_log(this->name, GF_LOG_INFO, "      Filename : %s", iosfd->filename);
 
-    if (sec)
-        gf_log(this->name, GF_LOG_INFO,
-               "      Lifetime : %" PRId64 "secs, %" PRId64 "usecs", sec, usec);
+    if (usecs)
+        gf_log(this->name, GF_LOG_INFO, "      Lifetime : %lf secs", usecs);
 
     data_read = GF_ATOMIC_GET(iosfd->data_read);
     if (data_read)

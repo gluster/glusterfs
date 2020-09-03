@@ -1016,16 +1016,13 @@ static uint32_t THRESH_LIMIT = 1209600; /* SECONDS * (EVENTS-1) */
 static void
 iot_apply_event(xlator_t *this, threshold_t *thresh)
 {
-    struct timespec now;
-    time_t delta;
+    time_t delta, now = gf_time();
 
     /* Refresh for manual testing/debugging.  It's cheap. */
     THRESH_LIMIT = THRESH_SECONDS * (THRESH_EVENTS - 1);
 
-    timespec_now(&now);
-
     if (thresh->value && thresh->update_time) {
-        delta = now.tv_sec - thresh->update_time;
+        delta = now - thresh->update_time;
         /* Be careful about underflow. */
         if (thresh->value <= delta) {
             thresh->value = 0;
@@ -1046,7 +1043,7 @@ iot_apply_event(xlator_t *this, threshold_t *thresh)
         kill(getpid(), SIGTRAP);
     }
 
-    thresh->update_time = now.tv_sec;
+    thresh->update_time = now;
 }
 
 static void *
@@ -1311,7 +1308,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             /* Wait for draining stub from queue before notify PARENT_DOWN */
             stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
             if (stub_cnt) {
-                clock_gettime(CLOCK_REALTIME, &sleep_till);
+                timespec_now_realtime(&sleep_till);
                 sleep_till.tv_sec += 1;
                 pthread_mutex_lock(&conf->mutex);
                 {

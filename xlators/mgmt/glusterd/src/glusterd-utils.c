@@ -8492,7 +8492,8 @@ glusterd_sm_tr_log_transition_add(glusterd_sm_tr_log_t *log, int old_state,
     transitions[next].old_state = old_state;
     transitions[next].new_state = new_state;
     transitions[next].event = event;
-    time(&transitions[next].time);
+    transitions[next].time = gf_time();
+
     log->current = next;
     if (log->count < log->size)
         log->count++;

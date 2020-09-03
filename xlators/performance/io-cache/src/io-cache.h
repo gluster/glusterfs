@@ -268,17 +268,6 @@ ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset, size_t size,
         pthread_mutex_unlock(&page->page_lock);                                \
     } while (0)
 
-static inline uint64_t
-time_elapsed(struct timeval *now, struct timeval *then)
-{
-    uint64_t sec = now->tv_sec - then->tv_sec;
-
-    if (sec)
-        return sec;
-
-    return 0;
-}
-
 ioc_inode_t *
 ioc_inode_search(ioc_table_t *table, inode_t *inode);
 
