@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "glusterfs/gf-event.h"
+#include "glusterfs/timespec.h"
 #include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "glusterfs/syscall.h"
@@ -266,7 +267,7 @@ gf_event_dispatch_destroy(struct event_pool *event_pool)
             if (sys_write(fd[1], "dummy", 6) == -1) {
                 break;
             }
-            clock_gettime(CLOCK_REALTIME, &sleep_till);
+            timespec_now_realtime(&sleep_till);
             sleep_till.tv_sec += 1;
             ret = pthread_cond_timedwait(&event_pool->cond, &event_pool->mutex,
                                          &sleep_till);

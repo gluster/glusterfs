@@ -122,7 +122,7 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
         goto out;
     }
 
-    clock_gettime(CLOCK_REALTIME, &current);
+    timespec_now_realtime(&current);
     pthread_mutex_lock(&conn->lock);
     {
         unref = rpc_clnt_remove_ping_timer_locked(rpc);

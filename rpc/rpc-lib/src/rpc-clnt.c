@@ -919,7 +919,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_RECEIVED: {
-            clock_gettime(CLOCK_REALTIME, &conn->last_received);
+            timespec_now_realtime(&conn->last_received);
 
             pollin = data;
             if (pollin->is_reply)
@@ -933,8 +933,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_SENT: {
-            clock_gettime(CLOCK_REALTIME, &conn->last_sent);
-
+            timespec_now_realtime(&conn->last_sent);
             ret = 0;
             break;
         }
