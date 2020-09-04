@@ -740,7 +740,13 @@ struct _glusterfs_ctx {
     pthread_t janitor;
     /* The variable is use to save total posix xlator count */
     uint32_t pxl_count;
+    uint32_t diskxl_count;
 
+    /* List of posix xlator use by disk thread*/
+    struct list_head diskth_xl;
+    pthread_mutex_t xl_lock;
+    pthread_cond_t xl_cond;
+    pthread_t disk_space_check;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

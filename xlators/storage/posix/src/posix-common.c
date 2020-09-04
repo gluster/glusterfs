@@ -141,6 +141,7 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
         0,
     };
     glusterfs_ctx_t *ctx = this->ctx;
+    struct posix_diskxl *pxl = NULL;
 
     switch (event) {
         case GF_EVENT_PARENT_UP: {
@@ -183,6 +184,20 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                 }
             }
             pthread_mutex_unlock(&ctx->fd_lock);
+
+            pxl = priv->pxl;
+            if (pxl) {
+                pthread_mutex_lock(&ctx->xl_lock);
+                {
+                    pxl->detach_notify = 1;
+                    while (pxl->is_use)
+                        pthread_cond_wait(&pxl->cond, &ctx->xl_lock);
+                    list_del_init(&pxl->list);
+                    free(pxl);
+                    priv->pxl = NULL;
+                }
+                pthread_mutex_unlock(&ctx->xl_lock);
+            }
 
             gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
                    victim->name);
@@ -379,15 +394,6 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     priv->disk_unit = 0;
     if (priv->disk_reserve < 100.0)
         priv->disk_unit = 'p';
-
-    if (priv->disk_reserve) {
-        ret = posix_spawn_disk_space_check_thread(this);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_DISK_SPACE_CHECK_FAILED,
-                   "Getting disk space check from thread failed");
-            goto out;
-        }
-    }
 
     GF_OPTION_RECONF("health-check-interval", priv->health_check_interval,
                      options, uint32, out);
@@ -1058,13 +1064,13 @@ posix_init(xlator_t *this)
                " fallback to <hostname>:<export>");
     }
 
-    _private->disk_space_check_active = _gf_false;
     _private->disk_space_full = 0;
 
     GF_OPTION_INIT("reserve", _private->disk_reserve, percent_or_size, out);
 
     /* option can be any one of percent or bytes */
     _private->disk_unit = 0;
+    pthread_cond_init(&_private->fd_cond, NULL);
     if (_private->disk_reserve < 100.0)
         _private->disk_unit = 'p';
 
@@ -1243,12 +1249,6 @@ posix_fini(xlator_t *this)
         priv->health_check = 0;
     }
 
-    if (priv->disk_space_check) {
-        priv->disk_space_check_active = _gf_false;
-        (void)gf_thread_cleanup_xint(priv->disk_space_check);
-        priv->disk_space_check = 0;
-    }
-
     if (priv->janitor) {
         /*TODO: Make sure the synctask is also complete */
         ret = gf_tw_del_timer(this->ctx->tw->timer_wheel, priv->janitor);
@@ -1273,10 +1273,24 @@ posix_fini(xlator_t *this)
         pthread_join(ctx->janitor, NULL);
     }
 
+    pthread_mutex_lock(&ctx->xl_lock);
+    {
+        count = --ctx->diskxl_count;
+        if (count == 0)
+            pthread_cond_signal(&ctx->xl_cond);
+    }
+    pthread_mutex_unlock(&ctx->xl_lock);
+
+    if (count == 0) {
+        pthread_join(ctx->disk_space_check, NULL);
+        ctx->disk_space_check = 0;
+    }
+
     if (priv->fsyncer) {
         (void)gf_thread_cleanup_xint(priv->fsyncer);
         priv->fsyncer = 0;
     }
+
     /*unlock brick dir*/
     if (priv->mount_lock >= 0) {
         (void)sys_close(priv->mount_lock);
