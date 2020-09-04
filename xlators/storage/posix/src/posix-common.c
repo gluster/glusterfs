@@ -45,6 +45,7 @@
 #include <glusterfs/timer.h>
 #include "glusterfs3-xdr.h"
 #include "posix-aio.h"
+#include "posix-io-uring.h"
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-messages.h"
 #include <glusterfs/events.h>
@@ -358,6 +359,14 @@ posix_reconfigure(xlator_t *this, dict_t *options)
         posix_aio_on(this);
     else
         posix_aio_off(this);
+
+    GF_OPTION_RECONF("linux-io_uring", priv->io_uring_configured, options, bool,
+                     out);
+
+    if (priv->io_uring_configured)
+        posix_io_uring_on(this);
+    else
+        posix_io_uring_off(this);
 
     GF_OPTION_RECONF("update-link-count-parent", priv->update_pgfid_nlinks,
                      options, bool, out);
@@ -1049,6 +1058,14 @@ posix_init(xlator_t *this)
         }
     }
 
+    GF_OPTION_INIT("linux-io_uring", _private->io_uring_configured, bool, out);
+    if (_private->io_uring_configured) {
+        op_ret = posix_io_uring_on(this);
+        if (op_ret < 0) {
+            _private->io_uring_configured = _gf_false;
+        }
+    }
+
     GF_OPTION_INIT("node-uuid-pathinfo", _private->node_uuid_pathinfo, bool,
                    out);
     if (_private->node_uuid_pathinfo &&
@@ -1324,6 +1341,12 @@ struct volume_options posix_options[] = {
      .default_value = "off",
      .description = "Support for native Linux AIO",
      .op_version = {1},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"linux-io_uring"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "off",
+     .description = "Support for Linux io_uring",
+     .op_version = {GD_OP_VERSION_9_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"brick-uid"},
      .type = GF_OPTION_TYPE_INT,

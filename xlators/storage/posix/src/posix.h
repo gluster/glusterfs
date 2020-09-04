@@ -38,6 +38,11 @@
 #include "posix-aio.h"
 #endif
 
+#ifdef HAVE_LIBURING
+#include <liburing.h>
+#include "posix-io-uring.h"
+#endif
+
 #define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
 #define MAX_NO_VECT 1024
 
@@ -252,6 +257,18 @@ struct posix_private {
     gf_boolean_t aio_init_done;
     gf_boolean_t aio_capable;
     uint32_t rel_fdcount;
+
+    /*io_uring related.*/
+    gf_boolean_t io_uring_configured;
+#ifdef HAVE_LIBURING
+    struct io_uring ring;
+    gf_boolean_t io_uring_init_done;
+    gf_boolean_t io_uring_capable;
+    gf_boolean_t uring_thread_exit;
+    pthread_t uring_thread;
+    pthread_mutex_t sq_mutex;
+    pthread_mutex_t cq_mutex;
+#endif
 };
 
 typedef struct {
