@@ -1186,3 +1186,8 @@ gf_nanosleep
 gf_syncfs
 graph_total_client_xlator
 get_xattrs_to_heal
+gf_latency_statedump_and_reset
+gf_latency_new
+gf_latency_reset
+gf_latency_update
+gf_frame_latency_update

@@ -264,6 +264,8 @@ struct rpcsvc_request {
     gf_boolean_t ownthread;
 
     gf_boolean_t synctask;
+    struct timespec begin; /*req handling start time*/
+    struct timespec end;   /*req handling end time*/
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
@@ -419,6 +421,7 @@ struct rpcsvc_program {
                                supported by the system. */
     /* Program specific state handed to actors */
     void *private;
+    gf_latency_t *latencies; /*Tracks latency statistics for the rpc call*/
 
     /* This upcall is provided by the program during registration.
      * It is used to notify the program about events like connection being
@@ -686,4 +689,6 @@ rpcsvc_autoscale_threads(glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr);
 
 extern int
 rpcsvc_destroy(rpcsvc_t *svc);
+void
+rpcsvc_statedump(rpcsvc_t *svc);
 #endif

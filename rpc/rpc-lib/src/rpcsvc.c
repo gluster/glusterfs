@@ -13,6 +13,7 @@
 #include <glusterfs/dict.h>
 #include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
+#include <glusterfs/statedump.h>
 #include "xdr-rpc.h"
 #include <glusterfs/iobuf.h>
 #include "xdr-common.h"
@@ -339,6 +340,10 @@ rpcsvc_program_actor(rpcsvc_request_t *req)
         err = PROC_UNAVAIL;
         actor = NULL;
         goto err;
+    }
+
+    if (svc->xl->ctx->measure_latency) {
+        timespec_now(&req->begin);
     }
 
     req->ownthread = program->ownthread;
@@ -1490,10 +1495,18 @@ rpcsvc_submit_generic(rpcsvc_request_t *req, struct iovec *proghdr,
     size_t hdrlen = 0;
     char new_iobref = 0;
     rpcsvc_drc_globals_t *drc = NULL;
+    gf_latency_t *lat = NULL;
 
     if ((!req) || (!req->trans))
         return -1;
 
+    if (req->prog && req->begin.tv_sec) {
+        if ((req->procnum >= 0) && (req->procnum < req->prog->numactors)) {
+            timespec_now(&req->end);
+            lat = &req->prog->latencies[req->procnum];
+            gf_latency_update(lat, &req->begin, &req->end);
+        }
+    }
     trans = req->trans;
 
     for (i = 0; i < hdrcount; i++) {
@@ -1824,6 +1837,15 @@ rpcsvc_submit_message(rpcsvc_request_t *req, struct iovec *proghdr,
                                  iobref);
 }
 
+void
+rpcsvc_program_destroy(rpcsvc_program_t *program)
+{
+    if (program) {
+        GF_FREE(program->latencies);
+        GF_FREE(program);
+    }
+}
+
 int
 rpcsvc_program_unregister(rpcsvc_t *svc, rpcsvc_program_t *program)
 {
@@ -1881,8 +1903,7 @@ rpcsvc_program_unregister(rpcsvc_t *svc, rpcsvc_program_t *program)
 
     ret = 0;
 out:
-    if (prog)
-        GF_FREE(prog);
+    rpcsvc_program_destroy(prog);
 
     if (ret == -1) {
         if (program) {
@@ -2267,6 +2288,11 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
     }
 
     memcpy(newprog, program, sizeof(*program));
+    newprog->latencies = gf_latency_new(program->numactors);
+    if (!newprog->latencies) {
+        rpcsvc_program_destroy(newprog);
+        goto out;
+    }
 
     INIT_LIST_HEAD(&newprog->program);
     pthread_mutexattr_init(&thr_attr);
@@ -3210,6 +3236,48 @@ rpcsvc_match_subnet_v4(const char *addrtok, const char *ipaddr)
 out:
     GF_FREE(netaddr);
     return ret;
+}
+
+void
+rpcsvc_program_dump(rpcsvc_program_t *prog)
+{
+    char key_prefix[GF_DUMP_MAX_BUF_LEN];
+    char key[GF_DUMP_MAX_BUF_LEN];
+    int i;
+
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s", prog->progname);
+    gf_proc_dump_add_section("%s", key_prefix);
+
+    gf_proc_dump_build_key(key, key_prefix, "program-number");
+    gf_proc_dump_write(key, "%d", prog->prognum);
+
+    gf_proc_dump_build_key(key, key_prefix, "program-version");
+    gf_proc_dump_write(key, "%d", prog->progver);
+
+    strncat(key_prefix, ".latency",
+            sizeof(key_prefix) - strlen(key_prefix) - 1);
+
+    for (i = 0; i < prog->numactors; i++) {
+        gf_proc_dump_build_key(key, key_prefix, "%s", prog->actors[i].procname);
+        gf_latency_statedump_and_reset(key, &prog->latencies[i]);
+    }
+}
+
+void
+rpcsvc_statedump(rpcsvc_t *svc)
+{
+    rpcsvc_program_t *prog = NULL;
+    int ret = 0;
+    ret = pthread_rwlock_tryrdlock(&svc->rpclock);
+    if (ret)
+        return;
+    {
+        list_for_each_entry(prog, &svc->programs, program)
+        {
+            rpcsvc_program_dump(prog);
+        }
+    }
+    pthread_rwlock_unlock(&svc->rpclock);
 }
 
 static rpcsvc_actor_t gluster_dump_actors[GF_DUMP_MAXVALUE] = {

@@ -65,3 +65,4 @@ rpc_transport_unix_options_build
 rpc_transport_unref
 rpc_clnt_mgmt_pmap_signout
 rpcsvc_autoscale_threads
+rpcsvc_statedump

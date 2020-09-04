@@ -11,13 +11,23 @@
 #ifndef __LATENCY_H__
 #define __LATENCY_H__
 
-#include "glusterfs/glusterfs.h"
+#include <inttypes.h>
+#include <time.h>
 
-typedef struct fop_latency {
-    double min;   /* min time for the call (microseconds) */
-    double max;   /* max time for the call (microseconds) */
-    double total; /* total time (microseconds) */
+typedef struct _gf_latency {
+    uint64_t min;   /* min time for the call (nanoseconds) */
+    uint64_t max;   /* max time for the call (nanoseconds) */
+    uint64_t total; /* total time (nanoseconds) */
     uint64_t count;
-} fop_latency_t;
+} gf_latency_t;
 
+gf_latency_t *
+gf_latency_new(size_t n);
+
+void
+gf_latency_reset(gf_latency_t *lat);
+
+void
+gf_latency_update(gf_latency_t *lat, struct timespec *begin,
+                  struct timespec *end);
 #endif /* __LATENCY_H__ */

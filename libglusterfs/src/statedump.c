@@ -199,6 +199,40 @@ gf_proc_dump_write(char *key, char *value, ...)
     return ret;
 }
 
+void
+gf_latency_statedump_and_reset(char *key, gf_latency_t *lat)
+{
+    /* Doesn't make sense to continue if there are no fops
+       came in the given interval */
+    if (!lat || !lat->count)
+        return;
+    gf_proc_dump_write(key,
+                       "AVG:%lf CNT:%" PRIu64 " TOTAL:%" PRIu64 " MIN:%" PRIu64
+                       " MAX:%" PRIu64,
+                       (((double)lat->total) / lat->count), lat->count,
+                       lat->total, lat->min, lat->max);
+    gf_latency_reset(lat);
+}
+
+void
+gf_proc_dump_xl_latency_info(xlator_t *xl)
+{
+    char key_prefix[GF_DUMP_MAX_BUF_LEN];
+    char key[GF_DUMP_MAX_BUF_LEN];
+    int i;
+
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.latency", xl->name);
+    gf_proc_dump_add_section("%s", key_prefix);
+
+    for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+        gf_proc_dump_build_key(key, key_prefix, "%s", (char *)gf_fop_list[i]);
+
+        gf_latency_t *lat = &xl->stats.interval.latencies[i];
+
+        gf_latency_statedump_and_reset(key, lat);
+    }
+}
+
 static void
 gf_proc_dump_xlator_mem_info(xlator_t *xl)
 {
@@ -467,7 +501,7 @@ gf_proc_dump_single_xlator_info(xlator_t *trav)
         return;
 
     if (ctx->measure_latency)
-        gf_proc_dump_latency_info(trav);
+        gf_proc_dump_xl_latency_info(trav);
 
     gf_proc_dump_xlator_mem_info(trav);
 
@@ -1011,7 +1045,7 @@ gf_proc_dump_xlator_profile(xlator_t *this, strfd_t *strfd)
     {
         gf_dump_strfd = strfd;
 
-        gf_proc_dump_latency_info(this);
+        gf_proc_dump_xl_latency_info(this);
 
         gf_dump_strfd = NULL;
     }

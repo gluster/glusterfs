@@ -127,4 +127,6 @@ gf_proc_dump_xlator_meminfo(xlator_t *this, strfd_t *strfd);
 void
 gf_proc_dump_xlator_profile(xlator_t *this, strfd_t *strfd);
 
+void
+gf_latency_statedump_and_reset(char *key, gf_latency_t *lat);
 #endif /* STATEDUMP_H */

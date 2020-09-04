@@ -260,6 +260,7 @@ xlator_dynload_apis(xlator_t *xl)
     void *handle = NULL;
     volume_opt_list_t *vol_opt = NULL;
     xlator_api_t *xlapi = NULL;
+    int i = 0;
 
     handle = xl->dlhandle;
 
@@ -356,6 +357,10 @@ xlator_dynload_apis(xlator_t *xl)
 
     memcpy(xl->op_version, xlapi->op_version,
            sizeof(uint32_t) * GF_MAX_RELEASES);
+
+    for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+        gf_latency_reset(&xl->stats.interval.latencies[i]);
+    }
 
     ret = 0;
 out:

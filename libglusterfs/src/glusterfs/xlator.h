@@ -805,7 +805,7 @@ struct _xlator {
 
         struct {
             /* for latency measurement */
-            fop_latency_t latencies[GF_FOP_MAXVALUE];
+            gf_latency_t latencies[GF_FOP_MAXVALUE];
             /* for latency measurement */
             fop_metrics_t metrics[GF_FOP_MAXVALUE];
 
