@@ -336,6 +336,7 @@ ob_stub_dispatch(xlator_t *xl, ob_inode_t *ob_inode, fd_t *fd,
 static void
 ob_open_destroy(call_stub_t *stub, fd_t *fd)
 {
+    stub->frame->local = NULL;
     STACK_DESTROY(stub->frame->root);
     call_stub_destroy(stub);
     fd_unref(fd);
@@ -513,6 +514,56 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
             "open", "path=%s", loc->path, NULL);
 
     return default_open_failure_cbk(frame, -state);
+}
+
+static int32_t
+ob_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
+          mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
+{
+    ob_inode_t *ob_inode;
+    call_stub_t *stub;
+    fd_t *first_fd;
+    ob_state_t state;
+
+    /* Create requests are never delayed. We always send them synchronously. */
+    state = ob_open_and_resume_fd(this, fd, 1, true, true, &ob_inode,
+                                  &first_fd);
+    if (state == OB_STATE_READY) {
+        /* There's no pending open, but there are other file descriptors opened
+         * so we simply forward the request synchronously. */
+        return default_create(frame, this, loc, flags, mode, umask, fd, xdata);
+    }
+
+    if (state == OB_STATE_OPEN_TRIGGERED) {
+        /* The first open is in progress (either because it was already issued
+         * or because this request triggered it). We try to create a new stub
+         * to retry the operation once the initial open completes. */
+        stub = fop_create_stub(frame, ob_create, loc, flags, mode, umask, fd,
+                               xdata);
+        if (stub != NULL) {
+            return ob_stub_dispatch(this, ob_inode, first_fd, stub);
+        }
+
+        state = -ENOMEM;
+    }
+
+    /* Since we forced a synchronous request, OB_STATE_FIRST_OPEN will never
+     * be returned by ob_open_and_resume_fd(). If we are here it can only be
+     * because there has been a problem. */
+
+    /* In case of failure we need to decrement the number of open files because
+     * ob_fdclose() won't be called. */
+
+    LOCK(&fd->inode->lock);
+    {
+        ob_inode->open_count--;
+    }
+    UNLOCK(&fd->inode->lock);
+
+    gf_smsg(this->name, GF_LOG_ERROR, -state, OPEN_BEHIND_MSG_FAILED, "fop=%s",
+            "create", "path=%s", loc->path, NULL);
+
+    return default_create_failure_cbk(frame, -state);
 }
 
 static int32_t
@@ -946,6 +997,7 @@ fini(xlator_t *this)
 
 struct xlator_fops fops = {
     .open = ob_open,
+    .create = ob_create,
     .readv = ob_readv,
     .writev = ob_writev,
     .flush = ob_flush,
