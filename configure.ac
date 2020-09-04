@@ -6,6 +6,7 @@ dnl  General Public License, version 3 or any later version (LGPLv3 or
 dnl  later), or the GNU General Public License, version 2 (GPLv2), in all
 dnl  cases as published by the Free Software Foundation.
 
+// clang-format off
 AC_INIT([glusterfs],
         [m4_esyscmd([build-aux/pkg-version --version])],
         [gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
@@ -1427,6 +1428,14 @@ if test -n "$LIBAIO"; then
    BUILD_LIBAIO=yes
 fi
 
+BUILD_LIBURING=no
+AC_CHECK_HEADERS([liburing.h])
+AC_CHECK_LIB([uring],[io_uring_queue_init],[LIBURING="-luring"])
+
+if test -n "$LIBURING"; then
+   AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled])
+   BUILD_LIBURING=yes
+fi
 dnl gnfs section
 BUILD_GNFS="no"
 RPCBIND_SERVICE=""
@@ -1608,6 +1617,7 @@ AC_SUBST(GF_FUSE_LDADD)
 AC_SUBST(GF_FUSE_CFLAGS)
 AC_SUBST(RLLIBS)
 AC_SUBST(LIBAIO)
+AC_SUBST(LIBURING)
 AC_SUBST(AM_MAKEFLAGS)
 AC_SUBST(AM_LIBTOOLFLAGS)
 AC_SUBST(GF_NO_UNDEFINED)
@@ -1690,6 +1700,7 @@ echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
+echo "Linux-io_uring       : $BUILD_LIBURING"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"

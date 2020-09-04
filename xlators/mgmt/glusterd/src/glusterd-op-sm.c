@@ -1224,7 +1224,24 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             key = key_fixed;
             keylen = strlen(key_fixed);
         }
-
+#ifdef HAVE_LIBURING
+        if (len_strcmp(key, keylen, "storage.linux-io_uring")) {
+            if (volinfo == NULL) {
+                snprintf(errstr, sizeof(errstr), "vol info is NULL for %s.",
+                         volname);
+                ret = -1;
+                goto out;
+            }
+            if (volinfo->status == GLUSTERD_STATUS_STARTED) {
+                snprintf(errstr, sizeof(errstr),
+                         "Changing this option is "
+                         "not supported when volume is in started state. "
+                         "Please stop the volume.");
+                ret = -1;
+                goto out;
+            }
+        }
+#endif
         if (len_strcmp(key, keylen, "cluster.granular-entry-heal")) {
             /* For granular entry-heal, if the set command was
              * invoked through volume-set CLI, then allow the

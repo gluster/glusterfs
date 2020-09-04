@@ -218,4 +218,7 @@ posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata);
 
 void
 posix_disk_space_check(xlator_t *this);
+
+dict_t *
+_fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append);
 #endif /* !_POSIX_HANDLE_H */
