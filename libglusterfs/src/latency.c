@@ -16,34 +16,32 @@
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/statedump.h"
 
-void
-gf_update_latency(call_frame_t *frame)
+gf_latency_t *
+gf_latency_new(size_t n)
 {
-    double elapsed;
-    struct timespec *begin, *end;
+    int i = 0;
+    gf_latency_t *lat = NULL;
 
-    fop_latency_t *lat;
+    lat = GF_MALLOC(n * sizeof(*lat), gf_common_mt_latency_t);
+    if (!lat)
+        return NULL;
 
-    begin = &frame->begin;
-    end = &frame->end;
+    for (i = 0; i < n; i++) {
+        gf_latency_reset(lat + i);
+    }
+    return lat;
+}
 
-    if (!(begin->tv_sec && end->tv_sec))
-        goto out;
-
-    elapsed = gf_tsdiff(begin, end);
-
-    if (frame->op < 0 || frame->op >= GF_FOP_MAXVALUE) {
-        gf_log("[core]", GF_LOG_WARNING, "Invalid frame op value: %d",
-               frame->op);
+void
+gf_latency_update(gf_latency_t *lat, struct timespec *begin,
+                  struct timespec *end)
+{
+    if (!(begin->tv_sec && end->tv_sec)) {
+        /*Measure latency might have been enabled/disabled during the op*/
         return;
     }
 
-    /* Can happen mostly at initiator xlator, as STACK_WIND/UNWIND macros
-       set it right anyways for those frames */
-    if (!frame->op)
-        frame->op = frame->root->op;
-
-    lat = &frame->this->stats.interval.latencies[frame->op];
+    double elapsed = gf_tsdiff(begin, end);
 
     if (lat->max < elapsed)
         lat->max = elapsed;
@@ -53,42 +51,34 @@ gf_update_latency(call_frame_t *frame)
 
     lat->total += elapsed;
     lat->count++;
-out:
-    return;
 }
 
 void
-gf_proc_dump_latency_info(xlator_t *xl)
+gf_latency_reset(gf_latency_t *lat)
 {
-    char key_prefix[GF_DUMP_MAX_BUF_LEN];
-    char key[GF_DUMP_MAX_BUF_LEN];
-    int i;
-
-    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.latency", xl->name);
-    gf_proc_dump_add_section("%s", key_prefix);
-
-    for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-        gf_proc_dump_build_key(key, key_prefix, "%s", (char *)gf_fop_list[i]);
-
-        fop_latency_t *lat = &xl->stats.interval.latencies[i];
-
-        /* Doesn't make sense to continue if there are no fops
-           came in the given interval */
-        if (!lat->count)
-            continue;
-
-        gf_proc_dump_write(
-            key, "AVG:%.03f,CNT:%" PRId64 ",TOTAL:%.03f,MIN:%.03f,MAX:%.03f",
-            (lat->total / lat->count), lat->count, lat->total, lat->min,
-            lat->max);
-    }
-
-    memset(xl->stats.interval.latencies, 0,
-           sizeof(xl->stats.interval.latencies));
-
+    if (!lat)
+        return;
+    memset(lat, 0, sizeof(*lat));
+    lat->min = ULLONG_MAX;
     /* make sure 'min' is set to high value, so it would be
        properly set later */
-    for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-        xl->stats.interval.latencies[i].min = 0xffffffff;
+}
+
+void
+gf_frame_latency_update(call_frame_t *frame)
+{
+    gf_latency_t *lat;
+    /* Can happen mostly at initiator xlator, as STACK_WIND/UNWIND macros
+       set it right anyways for those frames */
+    if (!frame->op)
+        frame->op = frame->root->op;
+
+    if (frame->op < 0 || frame->op >= GF_FOP_MAXVALUE) {
+        gf_log("[core]", GF_LOG_WARNING, "Invalid frame op value: %d",
+               frame->op);
+        return;
     }
+
+    lat = &frame->this->stats.interval.latencies[frame->op];
+    gf_latency_update(lat, &frame->begin, &frame->end);
 }

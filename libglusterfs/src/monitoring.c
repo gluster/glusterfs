@@ -113,15 +113,15 @@ dump_latency_and_count(xlator_t *xl, int fd)
             dprintf(fd, "%s.interval.%s.fail_count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], cbk);
         }
-        if (xl->stats.interval.latencies[index].count != 0.0) {
+        if (xl->stats.interval.latencies[index].count != 0) {
             dprintf(fd, "%s.interval.%s.latency %lf\n", xl->name,
                     gf_fop_list[index],
-                    (xl->stats.interval.latencies[index].total /
+                    (((double)xl->stats.interval.latencies[index].total) /
                      xl->stats.interval.latencies[index].count));
-            dprintf(fd, "%s.interval.%s.max %lf\n", xl->name,
+            dprintf(fd, "%s.interval.%s.max %" PRIu64 "\n", xl->name,
                     gf_fop_list[index],
                     xl->stats.interval.latencies[index].max);
-            dprintf(fd, "%s.interval.%s.min %lf\n", xl->name,
+            dprintf(fd, "%s.interval.%s.min %" PRIu64 "\n", xl->name,
                     gf_fop_list[index],
                     xl->stats.interval.latencies[index].min);
         }

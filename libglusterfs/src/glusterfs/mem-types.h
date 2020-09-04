@@ -133,6 +133,7 @@ enum gf_common_mem_types_ {
     gf_common_volfile_t,
     gf_common_mt_mgmt_v3_lock_timer_t, /* used only in one location */
     gf_common_mt_server_cmdline_t,     /* used only in one location */
+    gf_common_mt_latency_t,
     gf_common_mt_end
 };
 #endif

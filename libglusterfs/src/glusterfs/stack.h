@@ -45,6 +45,9 @@ typedef int32_t (*ret_fn_t)(call_frame_t *frame, call_frame_t *prev_frame,
                             xlator_t *this, int32_t op_ret, int32_t op_errno,
                             ...);
 
+void
+gf_frame_latency_update(call_frame_t *frame);
+
 struct call_pool {
     union {
         struct list_head all_frames;
@@ -149,8 +152,6 @@ struct _call_stack {
     } while (0);
 
 struct xlator_fops;
-void
-gf_update_latency(call_frame_t *frame);
 
 static inline void
 FRAME_DESTROY(call_frame_t *frame)
@@ -158,7 +159,7 @@ FRAME_DESTROY(call_frame_t *frame)
     void *local = NULL;
 
     if (frame->root->ctx->measure_latency)
-        gf_update_latency(frame);
+        gf_frame_latency_update(frame);
 
     list_del_init(&frame->frames);
     if (frame->local) {

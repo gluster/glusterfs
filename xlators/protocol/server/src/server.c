@@ -267,6 +267,8 @@ server_priv(xlator_t *this)
     gf_proc_dump_build_key(key, "server", "total-bytes-write");
     gf_proc_dump_write(key, "%" PRIu64, total_write);
 
+    rpcsvc_statedump(conf->rpc);
+
     ret = 0;
 out:
     if (ret)
