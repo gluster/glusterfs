@@ -3359,14 +3359,20 @@ volgen_link_bricks(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if ((i % sub_count) == 0) {
             xl = volgen_graph_add_nolink(graph, xl_type, xl_namefmt, volname,
                                          j);
-            if (strncmp(xl_type, "performance/readdir-ahead",
-                        SLEN("performance/readdir-ahead")) == 0)
-                xlator_set_fixed_option(xl, "performance.readdir-ahead", "on");
             j++;
         }
+
         if (!xl) {
             ret = -1;
             goto out;
+        }
+
+        if (strncmp(xl_type, "performance/readdir-ahead",
+                    SLEN("performance/readdir-ahead")) == 0) {
+            ret = xlator_set_fixed_option(xl, "performance.readdir-ahead",
+                                          "on");
+            if (ret)
+                goto out;
         }
 
         ret = volgen_xlator_link(xl, trav);
