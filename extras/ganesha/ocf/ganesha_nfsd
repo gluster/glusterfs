@@ -36,7 +36,7 @@ else
 	. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
 
-OCF_RESKEY_ha_vol_mnt_default="/var/run/gluster/shared_storage"
+OCF_RESKEY_ha_vol_mnt_default="/run/gluster/shared_storage"
 : ${OCF_RESKEY_ha_vol_mnt=${OCF_RESKEY_ha_vol_mnt_default}}
 
 ganesha_meta_data() {
