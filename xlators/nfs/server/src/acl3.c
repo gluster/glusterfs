@@ -753,8 +753,7 @@ acl3svc_init(xlator_t *nfsx)
         goto err;
     }
 
-    ret = dict_set_dynstr(options, "transport.socket.listen-port",
-                          GF_ACL3_PORT);
+    ret = dict_set_str(options, "transport.socket.listen-port", GF_ACL3_PORT);
     if (ret == -1)
         goto err;
     ret = dict_set_str(options, "transport-type", "socket");
