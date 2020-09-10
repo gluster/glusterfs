@@ -24,7 +24,7 @@ GANESHA_HA_SH=$(realpath $0)
 HA_NUM_SERVERS=0
 HA_SERVERS=""
 HA_VOL_NAME="gluster_shared_storage"
-HA_VOL_MNT="/var/run/gluster/shared_storage"
+HA_VOL_MNT="/run/gluster/shared_storage"
 HA_CONFDIR=$HA_VOL_MNT"/nfs-ganesha"
 SERVICE_MAN="DISTRO_NOT_FOUND"
 
