@@ -7,6 +7,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 EXPECT 'Created' volinfo_field $V0 'Status';
+TEST $CLI volume set $V0 cluster.granular-entry-heal off
 TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status';
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
@@ -38,8 +39,8 @@ TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000001 $B0/${V0
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000001 $B0/${V0}2/
 
 # Check if pending xattr and dirty-xattr are set for newly-added-brick
-EXPECT "000000010000000100000001" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}0
-EXPECT "000000010000000100000001" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}1
+EXPECT "000000000000000100000001" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}0
+EXPECT "000000000000000100000001" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}1
 EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.dirty $B0/${V0}2
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0

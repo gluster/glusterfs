@@ -2556,6 +2556,11 @@ afr_selfheal_do(call_frame_t *frame, xlator_t *this, uuid_t gfid)
         }
     }
 
+    gf_msg_debug(
+        this->name, 0,
+        "heals needed for %s: [entry-heal=%d, metadata-heal=%d, data-heal=%d]",
+        uuid_utoa(gfid), entry_selfheal, metadata_selfheal, data_selfheal);
+
     if (data_selfheal && priv->data_self_heal)
         data_ret = afr_selfheal_data(frame, this, fd);
 

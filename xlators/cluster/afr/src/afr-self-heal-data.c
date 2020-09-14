@@ -255,6 +255,9 @@ afr_selfheal_data_block(call_frame_t *frame, xlator_t *this, fd_t *fd,
     priv = this->private;
     data_lock = alloca0(priv->child_count);
 
+    gf_msg_debug(this->name, 0, "gfid:%s, offset=%jd, size=%zu",
+                 uuid_utoa(fd->inode->gfid), offset, size);
+
     ret = afr_selfheal_inodelk(frame, this, fd->inode, this->name, offset, size,
                                data_lock);
     {

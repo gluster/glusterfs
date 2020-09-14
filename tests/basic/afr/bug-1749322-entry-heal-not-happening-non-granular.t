@@ -30,6 +30,7 @@ TEST pidof glusterd;
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2};
+TEST $CLI volume set $V0 cluster.granular-entry-heal off
 TEST $CLI volume start $V0;
 TEST $CLI volume set $V0 cluster.heal-timeout 5
 TEST $CLI volume heal $V0 disable
@@ -59,11 +60,8 @@ TEST rm $B0/$V0"2"/.glusterfs/${gfid_str_file4:0:2}/${gfid_str_file4:2:2}/$gfid_
 TEST setfattr -x trusted.gfid $B0/$V0"2"/dir/file4
 
 # B0 and B2 blame each other
-# Set data part of the xattr also to 1 so that local->need_full_crawl is true.
-# Another way is to create the needed entries inside indices/entry-changes
-# folder.
-setfattr -n trusted.afr.$V0-client-0 -v 0x000000010000000000000001 $B0/$V0"2"/dir
-setfattr -n trusted.afr.$V0-client-2 -v 0x000000010000000000000001 $B0/$V0"0"/dir
+setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000001 $B0/$V0"2"/dir
+setfattr -n trusted.afr.$V0-client-2 -v 0x000000000000000000000001 $B0/$V0"0"/dir
 
 # Add entry to xattrop dir on first brick.
 xattrop_dir0=$(afr_get_index_path $B0/$V0"0")
