@@ -93,28 +93,26 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     /* Check if the rebalance phase1 is true */
     if (IS_DHT_MIGRATION_PHASE1(postbuf)) {
-        if (!dht_is_tier_xlator(this)) {
+        if (!local->xattr_req) {
+            local->xattr_req = dict_new();
             if (!local->xattr_req) {
-                local->xattr_req = dict_new();
-                if (!local->xattr_req) {
-                    gf_msg(this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY, ENOMEM,
-                           "insufficient memory");
-                    local->op_errno = ENOMEM;
-                    local->op_ret = -1;
-                    goto out;
-                }
-            }
-
-            ret = dict_set_uint32(local->xattr_req,
-                                  GF_PROTECT_FROM_EXTERNAL_WRITES, 1);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, DHT_MSG_DICT_SET_FAILED, 0,
-                       "Failed to set key %s in dictionary",
-                       GF_PROTECT_FROM_EXTERNAL_WRITES);
+                gf_msg(this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY, ENOMEM,
+                       "insufficient memory");
                 local->op_errno = ENOMEM;
                 local->op_ret = -1;
                 goto out;
             }
+        }
+
+        ret = dict_set_uint32(local->xattr_req, GF_PROTECT_FROM_EXTERNAL_WRITES,
+                              1);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, DHT_MSG_DICT_SET_FAILED, 0,
+                   "Failed to set key %s in dictionary",
+                   GF_PROTECT_FROM_EXTERNAL_WRITES);
+            local->op_errno = ENOMEM;
+            local->op_ret = -1;
+            goto out;
         }
 
         dht_iatt_merge(this, &local->stbuf, postbuf);

@@ -1271,10 +1271,6 @@ dht_selfheal_dir_mkdir_lock_cbk(call_frame_t *frame, void *cookie,
     local->call_cnt = conf->subvolume_cnt;
 
     if (op_ret < 0) {
-        /* We get this error when the directory entry was not created
-         * on a newky attached tier subvol. Hence proceed and do mkdir
-         * on the tier subvol.
-         */
         if (op_errno == EINVAL) {
             local->call_cnt = 1;
             dht_selfheal_dir_mkdir_lookup_done(frame, this);

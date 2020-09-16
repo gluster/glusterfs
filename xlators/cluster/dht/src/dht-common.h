@@ -24,7 +24,6 @@
 #define _DHT_H
 
 #define GF_XATTR_FIX_LAYOUT_KEY "distribute.fix.layout"
-#define GF_XATTR_TIER_LAYOUT_FIXED_KEY "trusted.tier.fix.layout.complete"
 #define GF_XATTR_FILE_MIGRATE_KEY "trusted.distribute.migrate-data"
 #define DHT_MDS_STR "mds"
 #define GF_DHT_LOOKUP_UNHASHED_OFF 0
@@ -36,7 +35,6 @@
 #define DHT_LAYOUT_HEAL_DOMAIN "dht.layout.heal"
 /* Namespace synchronization */
 #define DHT_ENTRY_SYNC_DOMAIN "dht.entry.sync"
-#define TIERING_MIGRATION_KEY "tiering.migration"
 #define DHT_LAYOUT_HASH_INVALID 1
 #define MAX_REBAL_THREADS sysconf(_SC_NPROCESSORS_ONLN)
 
@@ -242,19 +240,6 @@ typedef gf_boolean_t (*dht_need_heal_t)(call_frame_t *frame,
                                         dht_layout_t **inmem,
                                         dht_layout_t **ondisk);
 
-typedef struct {
-    uint64_t blocks_used;
-    uint64_t pblocks_used;
-    uint64_t files_used;
-    uint64_t pfiles_used;
-    uint64_t unhashed_blocks_used;
-    uint64_t unhashed_pblocks_used;
-    uint64_t unhashed_files_used;
-    uint64_t unhashed_pfiles_used;
-    uint64_t unhashed_fsid;
-    uint64_t hashed_fsid;
-} tier_statvfs_t;
-
 struct dht_local {
     loc_t loc;
     loc_t loc2;
@@ -272,7 +257,6 @@ struct dht_local {
     struct iatt preparent;
     struct iatt postparent;
     struct statvfs statvfs;
-    tier_statvfs_t tier_statvfs;
     fd_t *fd;
     inode_t *inode;
     dict_t *params;
@@ -405,14 +389,7 @@ enum gf_defrag_type {
     GF_DEFRAG_CMD_STATUS = 1 + 2,
     GF_DEFRAG_CMD_START_LAYOUT_FIX = 1 + 3,
     GF_DEFRAG_CMD_START_FORCE = 1 + 4,
-    GF_DEFRAG_CMD_START_TIER = 1 + 5,
-    GF_DEFRAG_CMD_STATUS_TIER = 1 + 6,
-    GF_DEFRAG_CMD_START_DETACH_TIER = 1 + 7,
-    GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
-    GF_DEFRAG_CMD_PAUSE_TIER = 1 + 9,
-    GF_DEFRAG_CMD_RESUME_TIER = 1 + 10,
     GF_DEFRAG_CMD_DETACH_STATUS = 1 + 11,
-    GF_DEFRAG_CMD_STOP_TIER = 1 + 12,
     GF_DEFRAG_CMD_DETACH_START = 1 + 13,
     GF_DEFRAG_CMD_DETACH_COMMIT = 1 + 14,
     GF_DEFRAG_CMD_DETACH_COMMIT_FORCE = 1 + 15,
@@ -463,75 +440,6 @@ struct dht_container {
     int local_subvol_index;
 };
 
-typedef enum tier_mode_ {
-    TIER_MODE_NONE = 0,
-    TIER_MODE_TEST,
-    TIER_MODE_WM
-} tier_mode_t;
-
-typedef enum tier_pause_state_ {
-    TIER_RUNNING = 0,
-    TIER_REQUEST_PAUSE,
-    TIER_PAUSED
-} tier_pause_state_t;
-
-/* This Structure is only used in tiering fixlayout */
-typedef struct gf_tier_fix_layout_arg {
-    xlator_t *this;
-    dict_t *fix_layout;
-    pthread_t thread_id;
-} gf_tier_fix_layout_arg_t;
-
-typedef struct gf_tier_conf {
-    int is_tier;
-    int watermark_hi;
-    int watermark_low;
-    int watermark_last;
-    unsigned long block_size;
-    fsblkcnt_t blocks_total;
-    fsblkcnt_t blocks_used;
-    uint64_t max_migrate_bytes;
-    int max_migrate_files;
-    int query_limit;
-    tier_mode_t mode;
-    int percent_full;
-    /* These flags are only used for tier-compact */
-    gf_boolean_t compact_active;
-    /* These 3 flags are set to true when the client changes the */
-    /* compaction mode on the command line. */
-    /* When they are set, the daemon will trigger compaction as */
-    /* soon as possible to activate or deactivate compaction. */
-    /* If in the middle of a compaction, then the switches take */
-    /* effect on the next compaction, not the current one. */
-    /* If the user switches it off, we want to avoid needless */
-    /* compactions. */
-    /* If the user switches it on, they want to compact as soon */
-    /* as possible. */
-    gf_boolean_t compact_mode_switched;
-    gf_boolean_t compact_mode_switched_hot;
-    gf_boolean_t compact_mode_switched_cold;
-    int tier_max_promote_size;
-    int tier_promote_frequency;
-    int tier_demote_frequency;
-    int tier_compact_hot_frequency;
-    int tier_compact_cold_frequency;
-    uint64_t st_last_promoted_size;
-    uint64_t st_last_demoted_size;
-    struct synctask *pause_synctask;
-    gf_timer_t *pause_timer;
-    pthread_mutex_t pause_mutex;
-    int promote_in_progress;
-    int demote_in_progress;
-    /* This Structure is only used in tiering fixlayout */
-    gf_tier_fix_layout_arg_t tier_fix_layout_arg;
-    /* Indicates the index of the first queryfile picked
-     * in the last cycle of promote or demote */
-    int32_t last_promote_qfile_index;
-    int32_t last_demote_qfile_index;
-    tier_pause_state_t pause_state;
-    char volname[GD_VOLUME_NAME_MAX + 1];
-} gf_tier_conf_t;
-
 typedef struct nodeuuid_info {
     char info;   /* Set to 1 is this is my node's uuid*/
     uuid_t uuid; /* Store the nodeuuid as well for debugging*/
@@ -563,13 +471,6 @@ struct gf_defrag_info_ {
     uint32_t new_commit_hash;
     gf_defrag_status_t defrag_status;
     gf_defrag_pattern_list_t *defrag_pattern;
-    gf_tier_conf_t tier_conf;
-
-    /*Data Tiering params for scanner*/
-    uint64_t total_files_promoted;
-    uint64_t total_files_demoted;
-    int write_freq_threshold;
-    int read_freq_threshold;
 
     pthread_cond_t parallel_migration_cond;
     pthread_mutex_t dfq_mutex;
@@ -605,7 +506,6 @@ typedef struct gf_defrag_info_ gf_defrag_info_t;
 struct dht_methods_s {
     int32_t (*migration_get_dst_subvol)(xlator_t *this, dht_local_t *local);
     int32_t (*migration_other)(xlator_t *this, gf_defrag_info_t *defrag);
-    int32_t (*migration_needed)(xlator_t *this);
     xlator_t *(*layout_search)(xlator_t *this, dht_layout_t *layout,
                                const char *name);
 };
@@ -1315,9 +1215,6 @@ dht_layout_missing_dirs(dht_layout_t *layout);
 
 int
 dht_refresh_layout(call_frame_t *frame);
-
-gf_boolean_t
-dht_is_tier_xlator(xlator_t *this);
 
 int
 dht_build_parent_loc(xlator_t *this, loc_t *parent, loc_t *child,
