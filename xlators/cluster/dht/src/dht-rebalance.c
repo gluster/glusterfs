@@ -609,26 +609,23 @@ __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
         goto out;
     }
 
-    if (!!dht_is_tier_xlator(this)) {
-        xdata = dict_new();
-        if (!xdata) {
-            *fop_errno = ENOMEM;
-            ret = -1;
-            gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
-                   DHT_MSG_MIGRATE_FILE_FAILED, "%s: dict_new failed)",
-                   loc->path);
-            goto out;
-        }
+    xdata = dict_new();
+    if (!xdata) {
+        *fop_errno = ENOMEM;
+        ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_MIGRATE_FILE_FAILED,
+               "%s: dict_new failed)", loc->path);
+        goto out;
+    }
 
-        ret = dict_set_int32(xdata, GF_CLEAN_WRITE_PROTECTION, 1);
-        if (ret) {
-            *fop_errno = ENOMEM;
-            ret = -1;
-            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
-                   "%s: failed to set dictionary value: key = %s ", loc->path,
-                   GF_CLEAN_WRITE_PROTECTION);
-            goto out;
-        }
+    ret = dict_set_int32_sizen(xdata, GF_CLEAN_WRITE_PROTECTION, 1);
+    if (ret) {
+        *fop_errno = ENOMEM;
+        ret = -1;
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
+               "%s: failed to set dictionary value: key = %s ", loc->path,
+               GF_CLEAN_WRITE_PROTECTION);
+        goto out;
     }
 
     ret = syncop_lookup(to, loc, &new_stbuf, NULL, xdata, NULL);
@@ -1096,7 +1093,7 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
             break;
         }
 
-        if (!conf->force_migration && !dht_is_tier_xlator(this)) {
+        if (!conf->force_migration) {
             if (!xdata) {
                 xdata = dict_new();
                 if (!xdata) {
@@ -1535,21 +1532,6 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         ret = 0;
         goto out;
     }
-
-    /* If defrag is NULL, it should be assumed that migration is triggered
-     * from client using the trusted.distribute.migrate-data virtual xattr
-     */
-    defrag = conf->defrag;
-
-    /* migration of files from clients is restricted to non-tiered clients
-     * for now */
-    if (!defrag && dht_is_tier_xlator(this)) {
-        ret = ENOTSUP;
-        goto out;
-    }
-
-    if (defrag && defrag->tier_conf.is_tier)
-        log_level = GF_LOG_TRACE;
 
     gf_log(this->name, log_level, "%s: attempting to move from %s to %s",
            loc->path, from->name, to->name);
@@ -2300,14 +2282,12 @@ out:
         }
     }
 
-    if (!dht_is_tier_xlator(this)) {
-        lk_ret = syncop_removexattr(to, loc, GF_PROTECT_FROM_EXTERNAL_WRITES,
-                                    NULL, NULL);
-        if (lk_ret && (lk_ret != -ENODATA) && (lk_ret != -ENOATTR)) {
-            gf_msg(this->name, GF_LOG_WARNING, -lk_ret, 0,
-                   "%s: removexattr failed key %s", loc->path,
-                   GF_PROTECT_FROM_EXTERNAL_WRITES);
-        }
+    lk_ret = syncop_removexattr(to, loc, GF_PROTECT_FROM_EXTERNAL_WRITES, NULL,
+                                NULL);
+    if (lk_ret && (lk_ret != -ENODATA) && (lk_ret != -ENOATTR)) {
+        gf_msg(this->name, GF_LOG_WARNING, -lk_ret, 0,
+               "%s: removexattr failed key %s", loc->path,
+               GF_PROTECT_FROM_EXTERNAL_WRITES);
     }
 
     if (dict)
@@ -3541,7 +3521,6 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
      * rebalance is complete.
      */
     if (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX ||
-        defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER ||
         defrag->cmd == GF_DEFRAG_CMD_DETACH_START) {
         return 0;
     }
@@ -3585,114 +3564,6 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     dict_del(fix_layout, "new-commit-hash");
 
     return 0;
-}
-
-/* Function for doing a named lookup on file inodes during an attach tier
- * So that a hardlink lookup heal i.e gfid to parent gfid lookup heal
- * happens on pre-existing data. This is required so that the ctr database has
- * hardlinks of all the exisitng file in the volume. CTR xlator on the
- * brick/server side does db update/insert of the hardlink on a namelookup.
- * Currently the namedlookup is done synchronous to the fixlayout that is
- * triggered by attach tier. This is not performant, adding more time to
- * fixlayout. The performant approach is record the hardlinks on a compressed
- * datastore and then do the namelookup asynchronously later, giving the ctr db
- * eventual consistency
- * */
-int
-gf_fix_layout_tier_attach_lookup(xlator_t *this, loc_t *parent_loc,
-                                 gf_dirent_t *file_dentry)
-{
-    int ret = -1;
-    dict_t *lookup_xdata = NULL;
-    dht_conf_t *conf = NULL;
-    loc_t file_loc = {
-        0,
-    };
-    struct iatt iatt = {
-        0,
-    };
-
-    GF_VALIDATE_OR_GOTO("tier", this, out);
-
-    GF_VALIDATE_OR_GOTO(this->name, parent_loc, out);
-
-    GF_VALIDATE_OR_GOTO(this->name, file_dentry, out);
-
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    if (!parent_loc->inode) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-               "%s/%s parent is NULL", parent_loc->path, file_dentry->d_name);
-        goto out;
-    }
-
-    conf = this->private;
-
-    loc_wipe(&file_loc);
-
-    if (gf_uuid_is_null(file_dentry->d_stat.ia_gfid)) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-               "%s/%s gfid not present", parent_loc->path, file_dentry->d_name);
-        goto out;
-    }
-
-    gf_uuid_copy(file_loc.gfid, file_dentry->d_stat.ia_gfid);
-
-    if (gf_uuid_is_null(parent_loc->gfid)) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-               "%s/%s"
-               " gfid not present",
-               parent_loc->path, file_dentry->d_name);
-        goto out;
-    }
-
-    gf_uuid_copy(file_loc.pargfid, parent_loc->gfid);
-
-    ret = dht_build_child_loc(this, &file_loc, parent_loc, file_dentry->d_name);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-               "Child loc build failed");
-        ret = -1;
-        goto out;
-    }
-
-    lookup_xdata = dict_new();
-    if (!lookup_xdata) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-               "Failed creating lookup dict for %s", file_dentry->d_name);
-        goto out;
-    }
-
-    ret = dict_set_int32(lookup_xdata, CTR_ATTACH_TIER_LOOKUP, 1);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-               "Failed to set lookup flag");
-        goto out;
-    }
-
-    gf_uuid_copy(file_loc.parent->gfid, parent_loc->gfid);
-
-    /* Sending lookup to cold tier only */
-    ret = syncop_lookup(conf->subvolumes[0], &file_loc, &iatt, NULL,
-                        lookup_xdata, NULL);
-    if (ret) {
-        /* If the file does not exist on the cold tier than it must */
-        /* have been discovered on the hot tier. This is not an error. */
-        gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
-               "%s lookup to cold tier on attach heal failed", file_loc.path);
-        goto out;
-    }
-
-    ret = 0;
-
-out:
-
-    loc_wipe(&file_loc);
-
-    if (lookup_xdata)
-        dict_unref(lookup_xdata);
-
-    return ret;
 }
 
 int
@@ -3817,16 +3688,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
             if (!IA_ISDIR(entry->d_stat.ia_type)) {
-                /* If its a fix layout during the attach
-                 * tier operation do lookups on files
-                 * on cold subvolume so that there is a
-                 * CTR DB Lookup Heal triggered on existing
-                 * data.
-                 * */
-                if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
-                    gf_fix_layout_tier_attach_lookup(this, loc, entry);
-                }
-
                 continue;
             }
             loc_wipe(&entry_loc);
@@ -3992,8 +3853,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         }
     }
 
-    if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
-        (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
+    if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
         ret = gf_defrag_process_dir(this, defrag, loc, migrate_data, &perrno);
 
         if (ret && (ret != 2)) {
@@ -4059,30 +3919,25 @@ dht_init_local_subvols_and_nodeuuids(xlator_t *this, dht_conf_t *conf,
                                      loc_t *loc)
 {
     dict_t *dict = NULL;
-    gf_defrag_info_t *defrag = NULL;
     uuid_t *uuid_ptr = NULL;
     int ret = -1;
     int i = 0;
     int j = 0;
 
-    defrag = conf->defrag;
-
-    if (defrag->cmd != GF_DEFRAG_CMD_START_TIER) {
-        /* Find local subvolumes */
-        ret = syncop_getxattr(this, loc, &dict, GF_REBAL_FIND_LOCAL_SUBVOL,
-                              NULL, NULL);
-        if (ret && (ret != -ENODATA)) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, 0,
-                   "local "
-                   "subvolume determination failed with error: %d",
-                   -ret);
-            ret = -1;
-            goto out;
-        }
-
-        if (!ret)
-            goto out;
+    /* Find local subvolumes */
+    ret = syncop_getxattr(this, loc, &dict, GF_REBAL_FIND_LOCAL_SUBVOL, NULL,
+                          NULL);
+    if (ret && (ret != -ENODATA)) {
+        gf_msg(this->name, GF_LOG_ERROR, -ret, 0,
+               "local "
+               "subvolume determination failed with error: %d",
+               -ret);
+        ret = -1;
+        goto out;
     }
+
+    if (!ret)
+        goto out;
 
     ret = syncop_getxattr(this, loc, &dict, GF_REBAL_OLD_FIND_LOCAL_SUBVOL,
                           NULL, NULL);
@@ -4736,8 +4591,6 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
     uint64_t lookup = 0;
     uint64_t failures = 0;
     uint64_t skipped = 0;
-    uint64_t promoted = 0;
-    uint64_t demoted = 0;
     char *status = "";
     double elapsed = 0;
     uint64_t time_to_complete = 0;
@@ -4756,15 +4609,12 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
     lookup = defrag->num_files_lookedup;
     failures = defrag->total_failures;
     skipped = defrag->skipped;
-    promoted = defrag->total_files_promoted;
-    demoted = defrag->total_files_demoted;
 
     elapsed = gf_time() - defrag->start_time;
 
     /* The rebalance is still in progress */
 
-    if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
-        (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED)) {
+    if (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED) {
         time_to_complete = gf_defrag_get_estimates_based_on_size(conf);
 
         if (time_to_complete && (time_to_complete > elapsed))
@@ -4778,14 +4628,6 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
 
     if (!dict)
         goto log;
-
-    ret = dict_set_uint64(dict, "promoted", promoted);
-    if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set promoted count");
-
-    ret = dict_set_uint64(dict, "demoted", demoted);
-    if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set demoted count");
 
     ret = dict_set_uint64(dict, "files", files);
     if (ret)

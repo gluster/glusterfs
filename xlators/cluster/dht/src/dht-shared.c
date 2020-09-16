@@ -598,7 +598,6 @@ dht_init_methods(xlator_t *this)
     methods = &(conf->methods);
 
     methods->migration_get_dst_subvol = dht_migration_get_dst_subvol;
-    methods->migration_needed = dht_migration_needed;
     methods->migration_other = NULL;
     methods->layout_search = dht_layout_search;
 
@@ -1047,84 +1046,6 @@ struct volume_options dht_options[] = {
     /* NUFA option */
     {.key = {"local-volume-name"}, .type = GF_OPTION_TYPE_XLATOR},
 
-    /* tier options */
-    {
-        .key = {"tier-pause"},
-        .type = GF_OPTION_TYPE_BOOL,
-        .default_value = "off",
-    },
-
-    {
-        .key = {"tier-promote-frequency"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "120",
-    },
-
-    {
-        .key = {"tier-demote-frequency"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "3600",
-    },
-
-    {
-        .key = {"write-freq-threshold"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "0",
-    },
-
-    {
-        .key = {"read-freq-threshold"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "0",
-    },
-    {
-        .key = {"watermark-hi"},
-        .type = GF_OPTION_TYPE_PERCENT,
-        .default_value = "90",
-    },
-    {
-        .key = {"watermark-low"},
-        .type = GF_OPTION_TYPE_PERCENT,
-        .default_value = "75",
-    },
-    {
-        .key = {"tier-mode"},
-        .type = GF_OPTION_TYPE_STR,
-        .default_value = "test",
-    },
-    {
-        .key = {"tier-compact"},
-        .type = GF_OPTION_TYPE_BOOL,
-        .default_value = "off",
-    },
-    {.key = {"tier-hot-compact-frequency"},
-     .type = GF_OPTION_TYPE_INT,
-     .default_value = "604800",
-     .description = "Frequency to compact DBs on hot tier in system"},
-    {.key = {"tier-cold-compact-frequency"},
-     .type = GF_OPTION_TYPE_INT,
-     .default_value = "604800",
-     .description = "Frequency to compact DBs on cold tier in system"},
-    {
-        .key = {"tier-max-mb"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "4000",
-    },
-    {
-        .key = {"tier-max-promote-file-size"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "0",
-    },
-    {
-        .key = {"tier-max-files"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "10000",
-    },
-    {
-        .key = {"tier-query-limit"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "100",
-    },
     /* switch option */
     {.key = {"pattern.switch.case"}, .type = GF_OPTION_TYPE_ANY},
 

@@ -2161,31 +2161,18 @@ static int
 dht_fill_dict_to_avoid_unlink_of_migrating_file(dict_t *dict)
 {
     int ret = 0;
-    xlator_t *this = NULL;
-    char *linktoskip_key = NULL;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("dht", this, err);
-
-    if (dht_is_tier_xlator(this))
-        linktoskip_key = TIER_SKIP_NON_LINKTO_UNLINK;
-    else
-        linktoskip_key = DHT_SKIP_NON_LINKTO_UNLINK;
-
-    ret = dict_set_int32(dict, linktoskip_key, 1);
+    ret = dict_set_int32_sizen(dict, DHT_SKIP_NON_LINKTO_UNLINK, 1);
 
     if (ret)
-        goto err;
+        return -1;
 
-    ret = dict_set_int32(dict, DHT_SKIP_OPEN_FD_UNLINK, 1);
+    ret = dict_set_int32_sizen(dict, DHT_SKIP_OPEN_FD_UNLINK, 1);
 
     if (ret)
-        goto err;
+        return -1;
 
     return 0;
-
-err:
-    return -1;
 }
 
 static int32_t
@@ -4606,17 +4593,7 @@ dht_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         dict_del(xattr, conf->xattr_name);
         dict_del(xattr, conf->mds_xattr_key);
 
-        /* filter out following two xattrs that need not
-         * be visible on the mount point for geo-rep -
-         * trusted.tier.fix.layout.complete and
-         * trusted.tier.tier-dht.commithash
-         */
-
         dict_del(xattr, conf->commithash_xattr_name);
-
-        if (frame->root->pid >= 0 && dht_is_tier_xlator(this)) {
-            dict_del(xattr, GF_XATTR_TIER_LAYOUT_FIXED_KEY);
-        }
 
         if (frame->root->pid >= 0) {
             GF_REMOVE_INTERNAL_XATTR("trusted.glusterfs.quota*", xattr);
@@ -5895,22 +5872,7 @@ dht_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr,
         if (local->rebalance.target_node) {
             local->flags = forced_rebalance;
 
-            /* Flag to suggest its a tiering migration
-             * The reason for this dic key-value is that
-             * promotions and demotions are multithreaded
-             * so the original frame from gf_defrag_start()
-             * is not carried. A new frame will be created when
-             * we do syncop_setxattr(). This does not have the
-             * frame->root->pid of the original frame. So we pass
-             * this dic key-value when we do syncop_setxattr() to do
-             * data migration and set the frame->root->pid to
-             * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
-             * calling dht_start_rebalance_task() */
-            tmp = dict_get(xattr, TIERING_MIGRATION_KEY);
-            if (tmp)
-                frame->root->pid = GF_CLIENT_PID_TIER_DEFRAG;
-            else
-                frame->root->pid = GF_CLIENT_PID_DEFRAG;
+            frame->root->pid = GF_CLIENT_PID_DEFRAG;
 
             ret = dht_start_rebalance_task(this, frame);
             if (!ret)
@@ -6722,10 +6684,9 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     layout = local->layout;
 
-    /* We have seen crashes in while running "rm -rf" on tier volumes
-       when the layout was NULL on the hot tier. This will skip the
-       entries on the subvol without a layout, hence preventing the crash
-       but rmdir might fail with "directory not empty" errors*/
+    /* This will skip the entries on the subvol without a layout,
+     * hence preventing the crash but rmdir might fail with
+     * "directory not empty" errors*/
 
     if (layout == NULL)
         goto done;
@@ -10857,14 +10818,11 @@ dht_notify(xlator_t *this, int event, void *data, ...)
     gf_defrag_type cmd = 0;
     dict_t *output = NULL;
     va_list ap;
-    dht_methods_t *methods = NULL;
     struct gf_upcall *up_data = NULL;
     struct gf_upcall_cache_invalidation *up_ci = NULL;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
-
-    methods = &(conf->methods);
 
     /* had all subvolumes reported status once till now? */
     had_heard_from_all = 1;
@@ -11088,15 +11046,13 @@ dht_notify(xlator_t *this, int event, void *data, ...)
          * thread has already started.
          */
         if (conf->defrag && !run_defrag) {
-            if (methods->migration_needed(this)) {
-                run_defrag = 1;
-                ret = gf_thread_create(&conf->defrag->th, NULL, gf_defrag_start,
-                                       this, "dhtdg");
-                if (ret) {
-                    GF_FREE(conf->defrag);
-                    conf->defrag = NULL;
-                    kill(getpid(), SIGTERM);
-                }
+            run_defrag = 1;
+            ret = gf_thread_create(&conf->defrag->th, NULL, gf_defrag_start,
+                                   this, "dhtdg");
+            if (ret) {
+                GF_FREE(conf->defrag);
+                conf->defrag = NULL;
+                kill(getpid(), SIGTERM);
             }
         }
     }
@@ -11241,28 +11197,6 @@ out:
     return ret;
 }
 
-int32_t
-dht_migration_needed(xlator_t *this)
-{
-    gf_defrag_info_t *defrag = NULL;
-    dht_conf_t *conf = NULL;
-    int ret = 0;
-
-    conf = this->private;
-
-    GF_VALIDATE_OR_GOTO("dht", conf, out);
-    GF_VALIDATE_OR_GOTO("dht", conf->defrag, out);
-
-    defrag = conf->defrag;
-
-    if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
-        (defrag->cmd != GF_DEFRAG_CMD_START_DETACH_TIER))
-        ret = 1;
-
-out:
-    return ret;
-}
-
 /*
 This function should not be called more then once during a FOP
 handling path. It is valid only for for ops on files
@@ -11295,14 +11229,6 @@ dht_set_local_rebalance(xlator_t *this, dht_local_t *local, struct iatt *stbuf,
     local->rebalance.set = 1;
 
     return 0;
-}
-
-gf_boolean_t
-dht_is_tier_xlator(xlator_t *this)
-{
-    if (strcmp(this->type, "cluster/tier") == 0)
-        return _gf_true;
-    return _gf_false;
 }
 
 int32_t
