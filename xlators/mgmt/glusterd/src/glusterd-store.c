@@ -702,9 +702,11 @@ _storeopts(dict_t *dict_value, char *key, data_t *value, void *data)
 
     /*
      * The option_len considers the length of the key value
-     * pair and along with that '=' and '\n'.
+     * pair and along with that '=' and '\n', but as value->len
+     * already considers a NULL at the end of the data, adding
+     * just 1.
      */
-    option_len = strlen(key) + strlen((char *)value->data) + 2;
+    option_len = strlen(key) + value->len + 1;
 
     if ((VOLINFO_BUFFER_SIZE - dict_data->buffer_len - 1) < option_len) {
         ret = gf_store_save_items(shandle->fd, dict_data->buffer);
@@ -716,7 +718,7 @@ _storeopts(dict_t *dict_value, char *key, data_t *value, void *data)
         dict_data->buffer[0] = '\0';
     }
     ret = snprintf(dict_data->buffer + dict_data->buffer_len, option_len + 1,
-                   "%s=%s\n", key, (char *)value->data);
+                   "%s=%s\n", key, value->data);
     if (ret < 0 || ret > option_len + 1) {
         gf_smsg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_COPY_FAIL, NULL);
         return -1;
