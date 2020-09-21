@@ -3415,14 +3415,12 @@ glusterd_store_options(xlator_t *this, dict_t *opts)
     }
 
     ret = gf_store_rename_tmppath(shandle);
-    if (ret) {
-        goto out;
-    }
 out:
     shandle->fd = 0;
     GF_FREE(dict_data);
-    if ((ret < 0) && (fd > 0))
+    if ((ret < 0) && (fd > 0)) {
         gf_store_unlink_tmppath(shandle);
+    }
     gf_store_handle_destroy(shandle);
     return ret;
 }
