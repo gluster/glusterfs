@@ -3053,7 +3053,7 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
                                dht_conf_t *conf, gf_defrag_info_t *defrag,
                                fd_t *fd, dict_t *migrate_data,
                                struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
-                               int *should_commit_hash, int *perrno)
+                               int *perrno)
 {
     int ret = 0;
     char is_linkfile = 0;
@@ -3257,7 +3257,6 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     int dfc_index = 0;
     int throttle_up = 0;
     struct dir_dfmeta *dir_dfmeta = NULL;
-    int should_commit_hash = 1;
     xlator_t *old_THIS = NULL;
 
     gf_log(this->name, GF_LOG_INFO, "migrate data called on %s", loc->path);
@@ -3438,7 +3437,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             ret = gf_defrag_get_entry(this, dfc_index, &container, loc, conf,
                                       defrag, dir_dfmeta->lfd[dfc_index],
                                       migrate_data, dir_dfmeta, xattr_req,
-                                      &should_commit_hash, perrno);
+                                      perrno);
 
             if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
                 goto out;
@@ -3494,10 +3493,6 @@ out:
 
     if (xattr_req)
         dict_unref(xattr_req);
-
-    if (ret == 0 && should_commit_hash == 0) {
-        ret = 2;
-    }
 
     /* It does not matter if it errored out - this number is
      * used to calculate rebalance estimated time to complete.
@@ -3585,7 +3580,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     };
     inode_t *linked_inode = NULL, *inode = NULL;
     dht_conf_t *conf = NULL;
-    int should_commit_hash = 1;
     int perrno = 0;
 
     conf = this->private;
@@ -3704,8 +3698,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                     goto out;
                 } else {
-                    should_commit_hash = 0;
-
                     continue;
                 }
             }
@@ -3768,7 +3760,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         ret = -1;
                         goto out;
                     } else {
-                        should_commit_hash = 0;
                         continue;
                     }
                 }
@@ -3786,7 +3777,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 goto out;
             }
 
-            if (ret && ret != 2) {
+            if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LAYOUT_FIX_FAILED,
                        "Fix layout failed for %s", entry_loc.path);
 
@@ -3856,7 +3847,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
         ret = gf_defrag_process_dir(this, defrag, loc, migrate_data, &perrno);
 
-        if (ret && (ret != 2)) {
+        if (ret) {
             if (perrno == ENOENT || perrno == ESTALE) {
                 ret = 0;
                 goto out;
@@ -3872,18 +3863,13 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 if (conf->decommission_in_progress) {
                     goto out;
                 }
-
-                should_commit_hash = 0;
             }
-        } else if (ret == 2) {
-            should_commit_hash = 0;
         }
     }
 
     gf_msg_trace(this->name, 0, "fix layout called on %s", loc->path);
 
-    if (should_commit_hash &&
-        gf_defrag_settle_hash(this, defrag, loc, fix_layout) != 0) {
+    if (gf_defrag_settle_hash(this, defrag, loc, fix_layout) != 0) {
         defrag->total_failures++;
 
         gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SETTLE_HASH_FAILED,
@@ -3906,10 +3892,6 @@ out:
 
     if (fd)
         fd_unref(fd);
-
-    if (ret == 0 && should_commit_hash == 0) {
-        ret = 2;
-    }
 
     return ret;
 }
@@ -4412,14 +4394,13 @@ gf_defrag_start_crawl(void *data)
     }
 
     ret = gf_defrag_fix_layout(this, defrag, &loc, fix_layout, migrate_data);
-    if (ret && ret != 2) {
+    if (ret) {
         defrag->total_failures++;
         ret = -1;
         goto out;
     }
 
-    if (ret != 2 &&
-        gf_defrag_settle_hash(this, defrag, &loc, fix_layout) != 0) {
+    if (gf_defrag_settle_hash(this, defrag, &loc, fix_layout) != 0) {
         defrag->total_failures++;
         ret = -1;
         goto out;
