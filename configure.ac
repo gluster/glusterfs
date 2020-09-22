@@ -1590,9 +1590,9 @@ case $host_os in
     ;;
 esac
 dnl GF_XLATOR_DEFAULT_LDFLAGS is for most xlators that expose a common set of symbols
-GF_XLATOR_DEFAULT_LDFLAGS='-avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym $(UUID_LIBS) $(GF_NO_UNDEFINED)'
+GF_XLATOR_DEFAULT_LDFLAGS='-avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym $(UUID_LIBS) $(GF_NO_UNDEFINED) $(TIRPC_LIBS)'
 dnl GF_XLATOR_LDFLAGS is for xlators that expose extra symbols, e.g. dht
-GF_XLATOR_LDFLAGS='-avoid-version $(UUID_LIBS) $(GF_NO_UNDEFINED)'
+GF_XLATOR_LDFLAGS='-avoid-version $(UUID_LIBS) $(GF_NO_UNDEFINED) $(TIRPC_LIBS)'
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_CFLAGS)

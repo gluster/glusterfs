@@ -14,6 +14,7 @@ gf_attach_LDADD   = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		    $(top_builddir)/api/src/libgfapi.la \
 		    $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 		    $(top_builddir)/rpc/xdr/src/libgfxdr.la
+gf_attach_LDFLAGS = $(GF_LDFLAGS)
 
 noinst_HEADERS = glusterfsd.h glusterfsd-mem-types.h glusterfsd-messages.h
 
