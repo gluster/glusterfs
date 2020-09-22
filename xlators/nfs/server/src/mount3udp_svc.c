@@ -216,7 +216,7 @@ mount3udp_thread(void *argv)
 
     GF_ASSERT(nfsx);
 
-    glusterfs_this_set(nfsx);
+    THIS = nfsx;
 
     transp = svcudp_create(RPC_ANYSOCK);
     if (transp == NULL) {

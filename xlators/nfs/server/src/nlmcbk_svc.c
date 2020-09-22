@@ -84,8 +84,13 @@ nlmcbk_program_0(struct svc_req *rqstp, register SVCXPRT *transp)
 void *
 nsm_thread(void *argv)
 {
+    xlator_t *nfsx = argv;
     register SVCXPRT *transp;
     int ret = 0;
+
+    GF_ASSERT(nfsx);
+
+    THIS = nfsx;
 
     ret = pmap_unset(NLMCBK_PROGRAM, NLMCBK_V1);
     if (ret == 0) {
