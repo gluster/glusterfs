@@ -1011,7 +1011,8 @@ nlm4_establish_callback(nfs3_call_state_t *cs, call_frame_t *cbk_frame)
     int port = -1;
     struct nlm4_notify_args *ncf = NULL;
 
-    glusterfs_this_set(cs->nfsx);
+    GF_ASSERT(cs->nfsx);
+    THIS = cs->nfsx;
 
     rpc_transport_get_peeraddr(cs->trans, NULL, 0, &sock_union.storage,
                                sizeof(sock_union.storage));
@@ -2714,7 +2715,7 @@ nlm4svc_init(xlator_t *nfsx)
         goto err;
     }
 
-    (void)gf_thread_create(&thr, NULL, nsm_thread, (void *)NULL, "nfsnsm");
+    (void)gf_thread_create(&thr, NULL, nsm_thread, nfsx, "nfsnsm");
 
     timeout.tv_sec = nlm_grace_period;
     timeout.tv_nsec = 0;
