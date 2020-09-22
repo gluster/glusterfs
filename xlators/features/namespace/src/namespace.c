@@ -195,7 +195,7 @@ out:
  * once we've gotten the namespace hash. */
 int32_t
 get_path_resume_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *dict,
+                    gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                     dict_t *xdata)
 {
     path_parse_result_t ret = PATH_PARSE_RESULT_NO_PATH;
@@ -224,7 +224,8 @@ get_path_resume_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* If we get a value back for the GET_ANCESTRY_PATH_KEY, then we
      * try to access it and parse it like a path. */
-    if (!op_ret && !dict_get_str(dict, GET_ANCESTRY_PATH_KEY, &path)) {
+    if (IS_SUCCESS(op_ret) &&
+        !dict_get_str(dict, GET_ANCESTRY_PATH_KEY, &path)) {
         gf_log(this->name, GF_LOG_DEBUG, "G>P %s retrieved path %s",
                uuid_utoa(local->loc.gfid), path);
         /* Now let's parse a path, finally. */

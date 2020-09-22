@@ -104,7 +104,7 @@ typedef struct {
     u_char pargfid[16];
     char *path;
     char *bname;
-    int op_ret;
+    gf_return_t op_ret;
     int op_errno;
     loc_t resolve_loc;
 } server_resolve_t;

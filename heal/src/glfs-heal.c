@@ -62,7 +62,7 @@ typedef struct glfs_info {
     int (*print_heal_op_summary)(int ret, num_entries_t *num_entries);
     int (*print_heal_status)(char *path, uuid_t gfid, char *status);
     int (*print_spb_status)(char *path, uuid_t gfid, char *status);
-    int (*end)(int op_ret, char *op_errstr);
+    int (*end)(int ret, char *op_errstr);
 } glfsh_info_t;
 
 glfsh_info_t *glfsh_output = NULL;
@@ -88,19 +88,18 @@ glfsh_init()
 }
 
 int
-glfsh_end_op_granular_entry_heal(int op_ret, char *op_errstr)
+glfsh_end_op_granular_entry_heal(int ret, char *op_errstr)
 {
     /* If error string is available, give it higher precedence.*/
-
     if (op_errstr) {
         printf("%s\n", op_errstr);
-    } else if (op_ret < 0) {
-        if (op_ret == -EAGAIN)
+    } else if (ret < 0) {
+        if (ret == -EAGAIN)
             printf(
                 "One or more entries need heal. Please execute "
                 "the command again after there are no entries "
                 "to be healed\n");
-        else if (op_ret == -ENOTCONN)
+        else if (ret == -ENOTCONN)
             printf(
                 "One or more bricks could be down. Please "
                 "execute the command again after bringing all "
@@ -110,13 +109,13 @@ glfsh_end_op_granular_entry_heal(int op_ret, char *op_errstr)
             printf(
                 "Command failed - %s. Please check the logs for"
                 " more details\n",
-                strerror(-op_ret));
+                strerror(-ret));
     }
     return 0;
 }
 
 int
-glfsh_end(int op_ret, char *op_errstr)
+glfsh_end(int ret, char *op_errstr)
 {
     if (op_errstr)
         printf("%s\n", op_errstr);
@@ -183,7 +182,6 @@ glfsh_xml_end(int op_ret, char *op_errstr)
 
     if (op_ret < 0) {
         op_errno = -op_ret;
-        op_ret = -1;
         if (op_errstr == NULL) {
             op_errstr = gf_strdup(strerror(op_errno));
             alloc = _gf_true;

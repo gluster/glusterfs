@@ -170,8 +170,8 @@ struct syncbarrier {
 typedef struct syncbarrier syncbarrier_t;
 
 struct syncargs {
-    int op_ret;
     int op_errno;
+    gf_return_t op_ret;
 
     /*
      * The below 3 iatt structures are used in the fops
@@ -280,7 +280,7 @@ struct syncopctx {
             frame = syncop_create_frame(THIS);                                 \
                                                                                \
         if (!frame) {                                                          \
-            stb->op_ret = -1;                                                  \
+            stb->op_ret = gf_error;                                            \
             stb->op_errno = errno;                                             \
             break;                                                             \
         }                                                                      \
@@ -677,7 +677,7 @@ syncop_getactivelk(xlator_t *subvol, loc_t *loc,
 
 int
 syncop_setactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata);
+                       gf_return_t op_ret, int32_t op_errno, dict_t *xdata);
 
 int
 syncop_setactivelk(xlator_t *subvol, loc_t *loc,
@@ -692,7 +692,7 @@ syncop_put(xlator_t *subvol, loc_t *loc, mode_t mode, mode_t umask,
 
 int
 syncop_setactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata);
+                       gf_return_t op_ret, int32_t op_errno, dict_t *xdata);
 
 int
 syncop_icreate(xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *xdata_out);
@@ -711,7 +711,7 @@ syncop_copy_file_range(xlator_t *subvol, fd_t *fd_in, off64_t off_in,
 
 int
 syncop_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                           int op_ret, int op_errno, struct iatt *stbuf,
+                           gf_return_t op_ret, int op_errno, struct iatt *stbuf,
                            struct iatt *prebuf_dst, struct iatt *postbuf_dst,
                            dict_t *xdata);
 

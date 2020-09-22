@@ -1253,4 +1253,9 @@ gf_tsdiff(struct timespec *start, struct timespec *end)
            (double)(t.tv_nsec - start->tv_nsec);
 }
 
+char *
+gf_strerror_r(gf_return_t code, char *str, size_t size);
+char *
+gf_strerror(gf_return_t code);
+
 #endif /* _COMMON_UTILS_H */

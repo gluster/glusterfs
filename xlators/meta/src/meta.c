@@ -30,8 +30,8 @@ meta_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         meta_iatt_fill(&iatt, loc->inode, IA_IFDIR);
         gf_uuid_parse(META_ROOT_GFID, iatt.ia_gfid);
 
-        META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
-                          &parent);
+        META_STACK_UNWIND(lookup, frame, gf_success, 0, loc->inode, &iatt,
+                          xdata, &parent);
         return 0;
     }
 

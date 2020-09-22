@@ -53,7 +53,7 @@ cs_resume_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 cs_inodelk_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata);
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata);
 
 size_t
 cs_write_callback(void *lcurlbuf, size_t size, size_t nitems, void *frame);
@@ -66,13 +66,13 @@ cs_is_file_remote(struct iatt *stbuf, dict_t *xattr);
 
 int32_t
 cs_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata);
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata);
 int
 cs_build_loc(loc_t *loc, call_frame_t *frame);
 
 int
 cs_blocking_inodelk_cbk(call_frame_t *lock_frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata);
+                        gf_return_t op_ret, int32_t op_errno, dict_t *xdata);
 
 int
 cs_read_authinfo(xlator_t *this);
@@ -97,16 +97,17 @@ cs_resume_postprocess(xlator_t *this, call_frame_t *frame, inode_t *inode);
 
 int32_t
 cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata);
 int32_t
 cs_resume_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc,
                    off_t offset, dict_t *xattr_req);
 
 int32_t
-cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct iovec *vector, int32_t count,
-             struct iatt *stbuf, struct iobref *iobref, dict_t *xdata);
+cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
+             int32_t count, struct iatt *stbuf, struct iobref *iobref,
+             dict_t *xdata);
 int32_t
 cs_resume_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 off_t offset, uint32_t flags, dict_t *xdata);

@@ -81,7 +81,7 @@ cs_@NAME@ (call_frame_t *frame, xlator_t *this,
         return 0;
 
 err:
-        CS_STACK_UNWIND (@NAME@, frame, -1, op_errno, @CBK_ERROR_ARGS@);
+        CS_STACK_UNWIND (@NAME@, frame, gf_error, op_errno, @CBK_ERROR_ARGS@);
 
         return 0;
 }
@@ -119,7 +119,7 @@ unwind:
 FD_DATA_MODIFYING_OP_FOP_CBK_TEMPLATE = """
 int32_t
 cs_@NAME@_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno,
+               gf_return_t op_ret, int32_t op_errno,
                @LONG_ARGS@)
 {
         cs_local_t      *local = NULL;
@@ -133,13 +133,13 @@ cs_@NAME@_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Do we need lock here? */
         local->call_cnt++;
 
-        if (op_ret == -1) {
+        if (IS_ERROR(op_ret)) {
                 ret = dict_get_uint64 (xdata, GF_CS_OBJECT_STATUS, &val);
                 if (ret == 0) {
                         if (val == GF_CS_ERROR) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0, 0,
                                         "could not get file state, unwinding");
-                                op_ret = -1;
+                                op_ret = gf_error;
                                 op_errno = EIO;
                                 goto unwind;
                         } else {
@@ -233,7 +233,7 @@ wind:
 
         return 0;
 err:
-        CS_STACK_UNWIND (@NAME@, frame, -1, op_errno, @CBK_ERROR_ARGS@);
+        CS_STACK_UNWIND (@NAME@, frame, gf_error, op_errno, @CBK_ERROR_ARGS@);
 
         return 0;
 }
@@ -242,7 +242,7 @@ err:
 LOC_STAT_OP_FOP_CBK_TEMPLATE = """
 int32_t
 cs_@NAME@_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno,
+               gf_return_t op_ret, int32_t op_errno,
                @LONG_ARGS@)
 {
         int              ret = 0;
@@ -254,7 +254,7 @@ cs_@NAME@_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         loc = &local->loc;
 
-        if (op_ret == 0) {
+        if (IS_SUCCESS(op_ret)) {
                 ret = dict_get_uint64 (xdata, GF_CS_OBJECT_STATUS, &val);
                 if (!ret) {
                         ret = __cs_inode_ctx_update (this, loc->inode, val);

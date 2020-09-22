@@ -371,14 +371,14 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 gf_log_eh(                                                     \
                     "op_ret: %d, op_errno: %d, "                               \
                     "%" PRIu64 ", %s () => %p, gfid: %s",                      \
-                    op_ret, op_errno, frame->root->unique,                     \
+                    GET_RET(op_ret), op_errno, frame->root->unique,            \
                     gf_fop_list[frame->root->op], state->fd,                   \
                     uuid_utoa(state->fd->inode->gfid));                        \
             else                                                               \
                 gf_log_eh(                                                     \
                     "op_ret: %d, op_errno: %d, "                               \
                     "%" PRIu64 ", %s () => %s, gfid: %s",                      \
-                    op_ret, op_errno, frame->root->unique,                     \
+                    GET_RET(op_ret), op_errno, frame->root->unique,            \
                     gf_fop_list[frame->root->op], state->loc.path,             \
                     uuid_utoa(state->loc.gfid));                               \
         }                                                                      \
@@ -418,7 +418,7 @@ typedef struct {
     inode_t *hint;
     u_char pargfid[16];
     inode_t *parhint;
-    int op_ret;
+    gf_return_t op_ret;
     int op_errno;
     loc_t resolve_loc;
 } fuse_resolve_t;

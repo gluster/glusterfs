@@ -245,7 +245,8 @@ grant_blocked_reserve_locks(xlator_t *this, pl_inode_t *pl_inode)
                lkowner_utoa(&lock->owner), lock->user_flock.l_start,
                lock->user_flock.l_len);
 
-        STACK_UNWIND_STRICT(lk, lock->frame, 0, 0, &lock->user_flock, NULL);
+        STACK_UNWIND_STRICT(lk, lock->frame, gf_success, 0, &lock->user_flock,
+                            NULL);
     }
 }
 
@@ -316,9 +317,9 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
             } else {
                 gf_log(this->name, GF_LOG_DEBUG, "returning EAGAIN");
                 pl_trace_out(this, lock->frame, fd, NULL, cmd,
-                             &lock->user_flock, -1, EAGAIN, NULL);
+                             &lock->user_flock, gf_error, EAGAIN, NULL);
                 pl_update_refkeeper(this, fd->inode);
-                STACK_UNWIND_STRICT(lk, lock->frame, -1, EAGAIN,
+                STACK_UNWIND_STRICT(lk, lock->frame, gf_error, EAGAIN,
                                     &lock->user_flock, NULL);
                 __destroy_lock(lock);
             }

@@ -66,7 +66,7 @@ cvlt_free_resources(archive_t *arch)
 static int32_t
 cvlt_extract_store_fops(xlator_t *this, archive_t *arch)
 {
-    int32_t op_ret = -1;
+    int op_ret = -1;
     get_archstore_methods_t get_archstore_methods;
 
     /*
@@ -397,6 +397,7 @@ cvlt_readv_complete(archstore_desc_t *desc, app_callback_info_t *cbkinfo,
     cs_local_t *local = NULL;
     cs_private_t *cspriv = NULL;
     archive_t *priv = NULL;
+    gf_return_t fin_ret;
 
     frame = req->frame;
     this = frame->this;
@@ -444,7 +445,8 @@ cvlt_readv_complete(archstore_desc_t *desc, app_callback_info_t *cbkinfo,
 
 out:
 
-    STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1, &postbuf,
+    SET_RET(fin_ret, op_ret);
+    STACK_UNWIND_STRICT(readv, frame, fin_ret, op_errno, &iov, 1, &postbuf,
                         req->iobref, local->xattr_rsp);
 
     cvlt_free_req(priv, req);
@@ -687,7 +689,7 @@ err:
 int
 cvlt_read(call_frame_t *frame, void *config)
 {
-    int32_t op_ret = -1;
+    int64_t op_ret = -1;
     int32_t op_errno = 0;
     archive_t *parch = NULL;
     cvlt_request_t *req = NULL;
@@ -824,10 +826,13 @@ cvlt_read(call_frame_t *frame, void *config)
 err:
 
     iobref = iobref_new();
-    gf_msg_debug(plugin, 0, " read unwinding stack op_ret = %d, op_errno = %d",
+    gf_msg_debug(plugin, 0,
+                 " read unwinding stack op_ret = %" PRId64 ", op_errno = %d",
                  op_ret, op_errno);
 
-    STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, op_ret);
+    STACK_UNWIND_STRICT(readv, frame, fin_ret, op_errno, &iov, 1,
                         &(local->stbuf), iobref, local->xattr_rsp);
 
     if (iobref) {

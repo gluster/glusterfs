@@ -27,9 +27,9 @@
 #define MARKER_UUID_TYPE 1
 #define MARKER_XTIME_TYPE 2
 
-typedef int32_t (*xlator_specf_unwind_t)(call_frame_t *frame, int op_ret,
-                                         int op_errno, dict_t *dict,
-                                         dict_t *xdata);
+typedef int32_t (*xlator_specf_unwind_t)(call_frame_t *frame,
+                                         gf_return_t op_ret, int op_errno,
+                                         dict_t *dict, dict_t *xdata);
 
 struct volume_mark {
     uint8_t major;
@@ -122,11 +122,13 @@ typedef struct marker_str xl_marker_local_t;
 
 int32_t
 cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
+                        gf_return_t op_ret, int op_errno, dict_t *dict,
+                        dict_t *xdata);
 
 int32_t
 cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
+                       gf_return_t op_ret, int op_errno, dict_t *dict,
+                       dict_t *xdata);
 
 int
 cluster_handle_marker_getxattr(call_frame_t *frame, loc_t *loc,

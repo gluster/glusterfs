@@ -41,8 +41,8 @@ afr_is_fd_fixable(fd_t *fd)
 
 int
 afr_open_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                       struct iatt *postbuf, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno,
+                       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
     afr_local_t *local = frame->local;
 
@@ -52,8 +52,8 @@ afr_open_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, fd_t *fd, dict_t *xdata)
+afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     afr_local_t *local = NULL;
     int call_count = -1;
@@ -69,7 +69,7 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     LOCK(&frame->lock);
     {
-        if (op_ret == -1) {
+        if (IS_ERROR(op_ret)) {
             local->op_errno = op_errno;
             fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
         } else {
@@ -84,7 +84,7 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     if (call_count == 0) {
         afr_handle_replies_quorum(frame, this);
-        if (local->op_ret == -1) {
+        if (IS_ERROR(local->op_ret)) {
             AFR_STACK_UNWIND(open, frame, local->op_ret, local->op_errno, NULL,
                              NULL);
         } else if (fd_ctx->flags & O_TRUNC) {
@@ -111,7 +111,7 @@ afr_open_continue(call_frame_t *frame, xlator_t *this, int err)
     priv = this->private;
 
     if (err) {
-        AFR_STACK_UNWIND(open, frame, -1, err, NULL, NULL);
+        AFR_STACK_UNWIND(open, frame, gf_error, err, NULL, NULL);
     } else {
         local->call_count = AFR_COUNT(local->child_up, priv->child_count);
         call_count = local->call_count;
@@ -190,14 +190,14 @@ afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     return 0;
 out:
-    AFR_STACK_UNWIND(open, frame, -1, op_errno, fd, NULL);
+    AFR_STACK_UNWIND(open, frame, gf_error, op_errno, fd, NULL);
 
     return 0;
 }
 
 int
 afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, fd_t *fd,
+                        gf_return_t op_ret, int32_t op_errno, fd_t *fd,
                         dict_t *xdata)
 {
     afr_local_t *local = NULL;
@@ -209,7 +209,7 @@ afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         gf_msg_debug(this->name, 0,
                      "fd for %s opened "
                      "successfully on subvolume %s",
@@ -224,7 +224,7 @@ afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     LOCK(&local->fd->lock);
     {
-        if (op_ret >= 0) {
+        if (IS_SUCCESS(op_ret)) {
             fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
         } else {
             fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;

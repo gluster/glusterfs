@@ -1209,9 +1209,9 @@ unlock:
     if (ret && new) {
         frame = new->frame;
         if (new->fop == GF_FOP_XATTROP) {
-            INDEX_STACK_UNWIND(xattrop, frame, -1, ENOMEM, NULL, NULL);
+            INDEX_STACK_UNWIND(xattrop, frame, gf_error, ENOMEM, NULL, NULL);
         } else if (new->fop == GF_FOP_FXATTROP) {
-            INDEX_STACK_UNWIND(fxattrop, frame, -1, ENOMEM, NULL, NULL);
+            INDEX_STACK_UNWIND(fxattrop, frame, gf_error, ENOMEM, NULL, NULL);
         }
         call_stub_destroy(new);
     } else if (stub) {
@@ -1221,9 +1221,9 @@ unlock:
 }
 
 static int
-xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-            int32_t op_errno, dict_t *xattr, dict_t *xdata, dict_match_t match,
-            dict_t *matchdata)
+xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+            gf_return_t op_ret, int32_t op_errno, dict_t *xattr, dict_t *xdata,
+            dict_match_t match, dict_t *matchdata)
 {
     inode_t *inode = NULL;
     index_local_t *local = NULL;
@@ -1231,7 +1231,7 @@ xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     local = frame->local;
     inode = inode_ref(local->inode);
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto out;
 
     xattrop_index_action(this, local, xattr, match, matchdata);
@@ -1245,7 +1245,7 @@ out:
 
 int32_t
 index_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                  gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
                   dict_t *xdata)
 {
     index_priv_t *priv = this->private;
@@ -1257,7 +1257,7 @@ index_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 index_xattrop64_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                    gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
                     dict_t *xdata)
 {
     index_priv_t *priv = this->private;
@@ -1308,7 +1308,7 @@ index_xattrop_do(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         ret = index_entry_action(this, local->inode, xdata,
                                  GF_XATTROP_ENTRY_IN_KEY);
     if (ret < 0) {
-        x_cbk(frame, NULL, this, -1, -ret, NULL, NULL);
+        x_cbk(frame, NULL, this, gf_error, -ret, NULL, NULL);
         return;
     }
 
@@ -1359,7 +1359,7 @@ index_xattrop(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 err:
     if ((!local) || (!stub)) {
-        INDEX_STACK_UNWIND(xattrop, frame, -1, ENOMEM, NULL, NULL);
+        INDEX_STACK_UNWIND(xattrop, frame, gf_error, ENOMEM, NULL, NULL);
         return 0;
     }
 
@@ -1394,7 +1394,7 @@ index_fxattrop(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 err:
     if ((!local) || (!stub)) {
-        INDEX_STACK_UNWIND(fxattrop, frame, -1, ENOMEM, NULL, xdata);
+        INDEX_STACK_UNWIND(fxattrop, frame, gf_error, ENOMEM, NULL, xdata);
         return 0;
     }
 
@@ -1510,9 +1510,9 @@ index_getxattr_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 done:
     if (ret)
-        STACK_UNWIND_STRICT(getxattr, frame, -1, -ret, xattr, NULL);
+        STACK_UNWIND_STRICT(getxattr, frame, gf_error, -ret, xattr, NULL);
     else
-        STACK_UNWIND_STRICT(getxattr, frame, 0, 0, xattr, NULL);
+        STACK_UNWIND_STRICT(getxattr, frame, gf_success, 0, xattr, NULL);
 
     if (xattr)
         dict_unref(xattr);
@@ -1560,7 +1560,7 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     struct stat lstatbuf = {0};
     int ret = 0;
     int32_t op_errno = EINVAL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     uint64_t val = IA_INVAL;
     char path[PATH_MAX] = {0};
     struct iatt stbuf = {
@@ -1590,7 +1590,7 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         if ((ret < 0) || (ret > (PATH_MAX - strlen(path)))) {
             op_errno = EINVAL;
-            op_ret = -1;
+            op_ret = gf_error;
             goto done;
         }
 
@@ -1638,7 +1638,7 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (val != IA_INVAL) {
         ret = dict_set_uint64(xattr, GF_INDEX_IA_TYPE_GET_RSP, val);
         if (ret) {
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = -ret;
             goto done;
         }
@@ -1652,13 +1652,13 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     ret = index_save_pargfid_for_entry_changes(this, &iloc, path);
     if (ret) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = -ret;
         goto done;
     }
 
     stbuf.ia_ino = -1;
-    op_ret = 0;
+    op_ret = gf_success;
 done:
     STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno,
                         loc ? loc->inode : NULL, &stbuf, xattr, &postparent);
@@ -1718,7 +1718,7 @@ index_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
     index_priv_t *priv = NULL;
     DIR *dir = NULL;
     int ret = -1;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = 0;
     int count = 0;
     gf_dirent_t entries;
@@ -1747,7 +1747,7 @@ index_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     /* pick ENOENT to indicate EOF */
     op_errno = errno;
-    op_ret = count;
+    SET_RET(op_ret, count);
     if (index_is_virtual_gfid(priv, fd->inode->gfid) && xdata &&
         dict_get(xdata, "get-gfid-type")) {
         args.parent = fd->inode;
@@ -1796,7 +1796,7 @@ index_wipe_index_subdir(void *opaque)
 
 static void
 index_get_parent_iatt(struct iatt *parent, char *path, loc_t *loc,
-                      int32_t *op_ret, int32_t *op_errno)
+                      gf_return_t *op_ret, int32_t *op_errno)
 {
     int ret = -1;
     struct stat lstatbuf = {
@@ -1805,7 +1805,7 @@ index_get_parent_iatt(struct iatt *parent, char *path, loc_t *loc,
 
     ret = sys_lstat(path, &lstatbuf);
     if (ret < 0) {
-        *op_ret = -1;
+        *op_ret = gf_error;
         *op_errno = errno;
         return;
     }
@@ -1822,7 +1822,7 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                     dict_t *xdata)
 {
     int ret = 0;
-    int32_t op_ret = 0;
+    gf_return_t op_ret = gf_success;
     int32_t op_errno = 0;
     char *subdir = NULL;
     char index_dir[PATH_MAX] = {0};
@@ -1844,7 +1844,7 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                         sizeof(index_dir));
 
     index_get_parent_iatt(&preparent, index_dir, loc, &op_ret, &op_errno);
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto done;
 
     gf_uuid_parse(loc->name, gfid);
@@ -1854,7 +1854,7 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
     if (flag == 0) {
         ret = index_del(this, gfid, subdir, type);
         if (ret < 0) {
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = -ret;
             goto done;
         }
@@ -1865,7 +1865,7 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
     }
 
     index_get_parent_iatt(&postparent, index_dir, loc, &op_ret, &op_errno);
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto done;
 
 done:
@@ -1880,7 +1880,7 @@ index_unlink_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
 {
     index_priv_t *priv = NULL;
     index_inode_ctx_t *ictx = NULL;
-    int32_t op_ret = 0;
+    gf_return_t op_ret = gf_success;
     int32_t op_errno = 0;
     int ret = 0;
     index_xattrop_type_t type = XATTROP_TYPE_UNSET;
@@ -1895,13 +1895,13 @@ index_unlink_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
     type = index_get_type_from_vgfid(priv, loc->pargfid);
     ret = index_inode_path(this, loc->parent, index_dir, sizeof(index_dir));
     if (ret < 0) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = -ret;
         goto done;
     }
 
     index_get_parent_iatt(&preparent, index_dir, loc, &op_ret, &op_errno);
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto done;
 
     if (type <= XATTROP_TYPE_UNSET) {
@@ -1923,13 +1923,13 @@ index_unlink_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         ret = index_del(this, gfid, subdir, type);
     }
     if (ret < 0) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = -ret;
         goto done;
     }
 
     index_get_parent_iatt(&postparent, index_dir, loc, &op_ret, &op_errno);
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto done;
 done:
     INDEX_STACK_UNWIND(unlink, frame, op_ret, op_errno, &preparent, &postparent,
@@ -1950,7 +1950,7 @@ index_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     stub = fop_getxattr_stub(frame, index_getxattr_wrapper, loc, name, xdata);
     if (!stub) {
-        STACK_UNWIND_STRICT(getxattr, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT(getxattr, frame, gf_error, ENOMEM, NULL, NULL);
         return 0;
     }
     worker_enqueue(this, stub);
@@ -2062,7 +2062,7 @@ out:
 
 int32_t
 index_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
     xdata = index_fill_link_count(this, xdata);
@@ -2097,8 +2097,8 @@ index_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
     stub = fop_lookup_stub(frame, index_lookup_wrapper, loc, xattr_req);
     if (!stub) {
-        STACK_UNWIND_STRICT(lookup, frame, -1, ENOMEM, loc->inode, NULL, NULL,
-                            NULL);
+        STACK_UNWIND_STRICT(lookup, frame, gf_error, ENOMEM, loc->inode, NULL,
+                            NULL, NULL);
         return 0;
     }
     worker_enqueue(this, stub);
@@ -2118,7 +2118,7 @@ normal:
 
 int32_t
 index_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                 dict_t *xdata)
 {
     xdata = index_fill_link_count(this, xdata);
@@ -2154,7 +2154,7 @@ index_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         goto normal;
 
     frame->local = NULL;
-    STACK_UNWIND_STRICT(opendir, frame, 0, 0, fd, NULL);
+    STACK_UNWIND_STRICT(opendir, frame, gf_success, 0, fd, NULL);
     return 0;
 
 normal:
@@ -2174,7 +2174,7 @@ index_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     stub = fop_readdir_stub(frame, index_readdir_wrapper, fd, size, off, xdata);
     if (!stub) {
-        STACK_UNWIND_STRICT(readdir, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT(readdir, frame, gf_error, ENOMEM, NULL, NULL);
         return 0;
     }
     worker_enqueue(this, stub);
@@ -2196,7 +2196,7 @@ index_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
     stub = fop_unlink_stub(frame, index_unlink_wrapper, loc, xflag, xdata);
     if (!stub) {
-        STACK_UNWIND_STRICT(unlink, frame, -1, ENOMEM, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(unlink, frame, gf_error, ENOMEM, NULL, NULL, NULL);
         return 0;
     }
     worker_enqueue(this, stub);
@@ -2218,7 +2218,7 @@ index_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     stub = fop_rmdir_stub(frame, index_rmdir_wrapper, loc, flags, xdata);
     if (!stub) {
-        STACK_UNWIND_STRICT(rmdir, frame, -1, ENOMEM, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(rmdir, frame, gf_error, ENOMEM, NULL, NULL, NULL);
         return 0;
     }
     worker_enqueue(this, stub);

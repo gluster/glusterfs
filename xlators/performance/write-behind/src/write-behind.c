@@ -148,7 +148,7 @@ typedef struct wb_request {
                            amount by which we shrink the window.
                         */
 
-    int op_ret;
+    gf_return_t op_ret;
     int op_errno;
 
     int32_t refcount;
@@ -552,7 +552,7 @@ wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
         /* Let's be optimistic that we can
            lie about it
         */
-        req->op_ret = req->write_size;
+        SET_RET(req->op_ret, req->write_size);
         req->op_errno = 0;
 
         if (stub->args.fd && (stub->args.fd->flags & O_APPEND))
@@ -867,7 +867,7 @@ __wb_fulfill_request_err(wb_request_t *req, int32_t op_errno)
 
     conf = wb_inode->this->private;
 
-    req->op_ret = -1;
+    req->op_ret = gf_error;
     req->op_errno = op_errno;
 
     if (req->ordering.lied)
@@ -882,7 +882,7 @@ __wb_fulfill_request_err(wb_request_t *req, int32_t op_errno)
             /* response was sent, store the error in a
              * waiter (either an fsync or flush).
              */
-            waiter->op_ret = -1;
+            waiter->op_ret = gf_error;
             waiter->op_errno = op_errno;
         }
 
@@ -1062,7 +1062,7 @@ out:
 
 int
 wb_fulfill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
     wb_inode_t *wb_inode = NULL;
@@ -1097,10 +1097,10 @@ wb_fulfill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * </comment> */
     wb_set_invalidate(wb_inode);
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         wb_fulfill_err(head, op_errno);
-    } else if (op_ret < head->total_size) {
-        wb_fulfill_short_write(head, op_ret);
+    } else if (GET_RET(op_ret) < head->total_size) {
+        wb_fulfill_short_write(head, GET_RET(op_ret));
     } else {
         wb_head_done(head);
     }
@@ -1520,7 +1520,7 @@ __wb_handle_failed_conflict(wb_request_t *req, wb_request_t *conflict,
              * 3. So, skip the request for now.
              * 4. Otherwise, resume (unwind) it with error.
              */
-            req->op_ret = -1;
+            req->op_ret = gf_error;
             req->op_errno = conflict->op_errno;
             if ((req->stub->fop == GF_FOP_TRUNCATE) ||
                 (req->stub->fop == GF_FOP_FTRUNCATE)) {
@@ -1643,10 +1643,10 @@ __wb_pick_winds(wb_inode_t *wb_inode, list_head_t *tasks,
                          req->unique, gf_fop_list[req->fop], req->gen, req_gfid,
                          conflict->unique, gf_fop_list[conflict->fop],
                          conflict->gen, conflict_gfid,
-                         (conflict->op_ret == 1) ? "yes" : "no",
+                         (GET_RET(conflict->op_ret) == 1) ? "yes" : "no",
                          strerror(conflict->op_errno));
 
-            if (conflict->op_ret == -1) {
+            if (IS_ERROR(conflict->op_ret)) {
                 /* There is a conflicting liability which failed
                  * to sync in previous attempts, resume the req
                  * and fail, unless its an fsync/flush.
@@ -1738,7 +1738,7 @@ wb_do_winds(wb_inode_t *wb_inode, list_head_t *tasks)
     {
         list_del_init(&req->winds);
 
-        if (req->op_ret == -1) {
+        if (IS_ERROR(req->op_ret)) {
             call_unwind_error_keep_stub(req->stub, req->op_ret, req->op_errno);
         } else {
             call_resume_keep_stub(req->stub);
@@ -1805,9 +1805,9 @@ wb_set_inode_size(wb_inode_t *wb_inode, struct iatt *postbuf)
 }
 
 int
-wb_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf,
-              dict_t *xdata)
+wb_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
+              struct iatt *postbuf, dict_t *xdata)
 {
     wb_request_t *req = NULL;
     wb_inode_t *wb_inode;
@@ -1899,7 +1899,7 @@ wb_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(writev, frame, -1, op_errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(writev, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -1940,7 +1940,8 @@ wb_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(readv, frame, -1, ENOMEM, NULL, 0, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(readv, frame, gf_error, ENOMEM, NULL, 0, NULL, NULL,
+                        NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -1954,7 +1955,7 @@ noqueue:
 
 int
 wb_flush_bg_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     STACK_DESTROY(frame->root);
     return 0;
@@ -1967,13 +1968,13 @@ wb_flush_helper(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     wb_inode_t *wb_inode = NULL;
     call_frame_t *bg_frame = NULL;
     int32_t op_errno = 0;
-    int op_ret = 0;
+    gf_return_t op_ret = gf_success;
 
     conf = this->private;
 
     wb_inode = wb_inode_ctx_get(this, fd->inode);
     if (!wb_inode) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto unwind;
     }
@@ -1988,7 +1989,7 @@ wb_flush_helper(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 flushbehind:
     bg_frame = copy_frame(frame);
     if (!bg_frame) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto unwind;
     }
@@ -2024,7 +2025,7 @@ wb_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(flush, frame, -1, ENOMEM, NULL);
+    STACK_UNWIND_STRICT(flush, frame, gf_error, ENOMEM, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2070,7 +2071,7 @@ wb_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(fsync, frame, -1, op_errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fsync, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2112,7 +2113,7 @@ wb_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(stat, frame, -1, ENOMEM, NULL, NULL);
+    STACK_UNWIND_STRICT(stat, frame, gf_error, ENOMEM, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2154,7 +2155,7 @@ wb_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(fstat, frame, -1, ENOMEM, NULL, NULL);
+    STACK_UNWIND_STRICT(fstat, frame, gf_error, ENOMEM, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2168,12 +2169,12 @@ noqueue:
 
 int32_t
 wb_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
     GF_ASSERT(frame->local);
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         wb_set_inode_size(frame->local, postbuf);
 
     frame->local = NULL;
@@ -2217,7 +2218,7 @@ wb_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(truncate, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2227,12 +2228,12 @@ unwind:
 
 int32_t
 wb_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     GF_ASSERT(frame->local);
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         wb_set_inode_size(frame->local, postbuf);
 
     frame->local = NULL;
@@ -2285,7 +2286,7 @@ wb_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 unwind:
     frame->local = NULL;
 
-    STACK_UNWIND_STRICT(ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(ftruncate, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2323,7 +2324,7 @@ wb_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
 
     return 0;
 unwind:
-    STACK_UNWIND_STRICT(setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(setattr, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2367,7 +2368,7 @@ wb_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
 
     return 0;
 unwind:
-    STACK_UNWIND_STRICT(fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fsetattr, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2397,8 +2398,8 @@ wb_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(create, frame, gf_error, ENOMEM, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
     return 0;
 }
 
@@ -2420,16 +2421,16 @@ wb_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(open, frame, -1, ENOMEM, NULL, NULL);
+    STACK_UNWIND_STRICT(open, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 }
 
 int32_t
-wb_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *buf, dict_t *xdata,
-              struct iatt *postparent)
+wb_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         wb_inode_t *wb_inode = wb_inode_ctx_get(this, inode);
         if (wb_inode)
             wb_set_inode_size(wb_inode, buf);
@@ -2473,7 +2474,8 @@ unwind:
     if (stub)
         call_stub_destroy(stub);
 
-    STACK_UNWIND_STRICT(lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(lookup, frame, gf_error, ENOMEM, NULL, NULL, NULL,
+                        NULL);
     return 0;
 
 noqueue:
@@ -2535,7 +2537,7 @@ unlock:
 
 int32_t
 wb_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                gf_return_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                 dict_t *xdata)
 {
     wb_inode_t *wb_inode = NULL;
@@ -2546,7 +2548,11 @@ wb_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fd = frame->local;
     frame->local = NULL;
 
-    if (op_ret <= 0)
+    if (IS_ERROR(op_ret))
+        goto unwind;
+
+    /* This means no entries are sent, no need to process anything */
+    if (GET_RET(op_ret) == 0)
         goto unwind;
 
     list_for_each_entry(entry, &entries->list, list)
@@ -2630,7 +2636,8 @@ wb_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(link, frame, gf_error, ENOMEM, NULL, NULL, NULL, NULL,
+                        NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2677,7 +2684,7 @@ wb_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_size,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(fallocate, frame, -1, ENOMEM, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fallocate, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2723,7 +2730,7 @@ wb_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(discard, frame, -1, ENOMEM, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(discard, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2768,7 +2775,7 @@ wb_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(zerofill, frame, -1, ENOMEM, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(zerofill, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     if (stub)
         call_stub_destroy(stub);
@@ -2805,8 +2812,8 @@ unwind:
     if (stub)
         call_stub_destroy(stub);
 
-    STACK_UNWIND_STRICT(rename, frame, -1, ENOMEM, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(rename, frame, gf_error, ENOMEM, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
 
     return 0;
 
@@ -2904,7 +2911,7 @@ __wb_dump_requests(struct list_head *head, char *prefix)
 
         gf_proc_dump_write("generation-number", "%" PRIu64, req->gen);
 
-        gf_proc_dump_write("req->op_ret", "%d", req->op_ret);
+        gf_proc_dump_write("req->op_ret", "%d", GET_RET(req->op_ret));
         gf_proc_dump_write("req->op_errno", "%d", req->op_errno);
         gf_proc_dump_write("sync-attempts", "%d", req->wind_count);
 

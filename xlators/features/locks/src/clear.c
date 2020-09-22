@@ -181,9 +181,9 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
             if (plock->blocked) {
                 bcount++;
                 pl_trace_out(this, plock->frame, NULL, NULL, F_SETLKW,
-                             &plock->user_flock, -1, EINTR, NULL);
+                             &plock->user_flock, gf_error, EINTR, NULL);
 
-                STACK_UNWIND_STRICT(lk, plock->frame, -1, EINTR,
+                STACK_UNWIND_STRICT(lk, plock->frame, gf_error, EINTR,
                                     &plock->user_flock, NULL);
 
             } else {
@@ -265,8 +265,8 @@ blkd:
         {
             list_del_init(&ilock->blocked_locks);
             pl_trace_out(this, ilock->frame, NULL, NULL, F_SETLKW,
-                         &ilock->user_flock, -1, EAGAIN, ilock->volume);
-            STACK_UNWIND_STRICT(inodelk, ilock->frame, -1, EAGAIN, NULL);
+                         &ilock->user_flock, gf_error, EAGAIN, ilock->volume);
+            STACK_UNWIND_STRICT(inodelk, ilock->frame, gf_error, EAGAIN, NULL);
             // No need to take lock as the locks are only in one list
             __pl_inodelk_unref(ilock);
         }
@@ -370,9 +370,9 @@ blkd:
         {
             list_del_init(&elock->blocked_locks);
             entrylk_trace_out(this, elock->frame, elock->volume, NULL, NULL,
-                              elock->basename, ENTRYLK_LOCK, elock->type, -1,
-                              EAGAIN);
-            STACK_UNWIND_STRICT(entrylk, elock->frame, -1, EAGAIN, NULL);
+                              elock->basename, ENTRYLK_LOCK, elock->type,
+                              gf_error, EAGAIN);
+            STACK_UNWIND_STRICT(entrylk, elock->frame, gf_error, EAGAIN, NULL);
 
             __pl_entrylk_unref(elock);
         }

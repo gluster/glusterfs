@@ -70,7 +70,7 @@ struct ioc_local {
     loc_t file_loc;
     off_t offset;
     size_t size;
-    int32_t op_ret;
+    gf_return_t op_ret;
     int32_t op_errno;
     struct list_head fill_list; /* list of ioc_fill structures */
     off_t pending_offset;       /*
@@ -178,9 +178,9 @@ ptr_to_str(void *ptr);
 
 int32_t
 ioc_readv_disabled_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                       int32_t count, struct iatt *stbuf, struct iobref *iobref,
-                       dict_t *xdata);
+                       gf_return_t op_ret, int32_t op_errno,
+                       struct iovec *vector, int32_t count, struct iatt *stbuf,
+                       struct iobref *iobref, dict_t *xdata);
 
 ioc_page_t *
 __ioc_page_get(ioc_inode_t *ioc_inode, off_t offset);
@@ -202,7 +202,7 @@ void
 ioc_page_flush(ioc_page_t *page);
 
 ioc_waitq_t *
-__ioc_page_error(ioc_page_t *page, int32_t op_ret, int32_t op_errno);
+__ioc_page_error(ioc_page_t *page, gf_return_t op_ret, int32_t op_errno);
 
 void
 ioc_frame_return(call_frame_t *frame);

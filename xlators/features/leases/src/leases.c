@@ -17,7 +17,7 @@
 
 int32_t
 leases_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(open, frame, op_ret, op_errno, fd, xdata);
 
@@ -85,14 +85,14 @@ err:
         GF_FREE(fd_ctx);
     }
 
-    STACK_UNWIND_STRICT(open, frame, -1, op_errno, NULL, NULL);
+    STACK_UNWIND_STRICT(open, frame, gf_error, op_errno, NULL, NULL);
     return 0;
 }
 
 int32_t
-leases_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                  dict_t *xdata)
+leases_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,
                         xdata);
@@ -135,14 +135,15 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(writev, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(writev, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
-leases_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, struct iovec *vector, int count,
-                 struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+leases_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 gf_return_t op_ret, int op_errno, struct iovec *vector,
+                 int count, struct iatt *stbuf, struct iobref *iobref,
+                 dict_t *xdata)
 {
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, vector, count, stbuf,
                         iobref, xdata);
@@ -183,13 +184,15 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(readv, frame, -1, errno, NULL, 0, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(readv, frame, gf_error, errno, NULL, 0, NULL, NULL,
+                        NULL);
     return 0;
 }
 
 int32_t
-leases_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
+leases_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct gf_flock *lock,
+              dict_t *xdata)
 {
     STACK_UNWIND_STRICT(lk, frame, op_ret, op_errno, lock, xdata);
 
@@ -228,7 +231,7 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(lk, frame, -1, errno, NULL, NULL);
+    STACK_UNWIND_STRICT(lk, frame, gf_error, errno, NULL, NULL);
     return 0;
 }
 
@@ -241,7 +244,7 @@ leases_lease(call_frame_t *frame, xlator_t *this, loc_t *loc,
     struct gf_lease nullease = {
         0,
     };
-    int32_t op_ret = 0;
+    gf_return_t op_ret = gf_success;
 
     EXIT_IF_LEASES_OFF(this, out);
     EXIT_IF_INTERNAL_FOP(frame, xdata, out);
@@ -249,7 +252,7 @@ leases_lease(call_frame_t *frame, xlator_t *this, loc_t *loc,
     ret = process_lease_req(frame, this, loc->inode, lease);
     if (ret < 0) {
         op_errno = -ret;
-        op_ret = -1;
+        op_ret = gf_error;
     }
     goto unwind;
 
@@ -259,7 +262,7 @@ out:
            "You need to enable it for proper functioning of your "
            "application");
     op_errno = ENOSYS;
-    op_ret = -1;
+    op_ret = gf_error;
 
 unwind:
     STACK_UNWIND_STRICT(lease, frame, op_ret, op_errno,
@@ -269,7 +272,7 @@ unwind:
 
 int32_t
 leases_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int op_ret, int op_errno, struct iatt *prebuf,
+                    gf_return_t op_ret, int op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(truncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -310,13 +313,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(truncate, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(truncate, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int op_ret, int op_errno, struct iatt *statpre,
+                   gf_return_t op_ret, int op_errno, struct iatt *statpre,
                    struct iatt *statpost, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(setattr, frame, op_ret, op_errno, statpre, statpost,
@@ -357,13 +360,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(setattr, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(setattr, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *stbuf,
                   struct iatt *preoldparent, struct iatt *postoldparent,
                   struct iatt *prenewparent, struct iatt *postnewparent,
                   dict_t *xdata)
@@ -407,15 +410,15 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(rename, frame, -1, errno, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(rename, frame, gf_error, errno, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
     return 0;
 }
 
 int32_t
-leases_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, struct iatt *preparent, struct iatt *postparent,
-                  dict_t *xdata)
+leases_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  gf_return_t op_ret, int op_errno, struct iatt *preparent,
+                  struct iatt *postparent, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(unlink, frame, op_ret, op_errno, preparent, postparent,
                         xdata);
@@ -455,14 +458,15 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(unlink, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(unlink, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
-leases_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, inode_t *inode, struct iatt *stbuf,
-                struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+leases_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                gf_return_t op_ret, int op_errno, inode_t *inode,
+                struct iatt *stbuf, struct iatt *preparent,
+                struct iatt *postparent, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(link, frame, op_ret, op_errno, inode, stbuf, preparent,
                         postparent, xdata);
@@ -501,15 +505,16 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(link, frame, -1, errno, NULL, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(link, frame, gf_error, errno, NULL, NULL, NULL, NULL,
+                        NULL);
     return 0;
 }
 
 int32_t
-leases_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, fd_t *fd, inode_t *inode, struct iatt *stbuf,
-                  struct iatt *preparent, struct iatt *postparent,
-                  dict_t *xdata)
+leases_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  gf_return_t op_ret, int op_errno, fd_t *fd, inode_t *inode,
+                  struct iatt *stbuf, struct iatt *preparent,
+                  struct iatt *postparent, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(create, frame, op_ret, op_errno, fd, inode, stbuf,
                         preparent, postparent, xdata);
@@ -551,14 +556,14 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(create, frame, -1, errno, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(create, frame, gf_error, errno, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(fsync, frame, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -596,13 +601,13 @@ out:
                FIRST_CHILD(this)->fops->fsync, fd, flags, xdata);
     return 0;
 err:
-    STACK_UNWIND_STRICT(fsync, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fsync, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -642,13 +647,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(ftruncate, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(ftruncate, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                     struct iatt *statpost, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(fsetattr, frame, op_ret, op_errno, statpre, statpost,
@@ -688,13 +693,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(fsetattr, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fsetattr, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                      struct iatt *post, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, pre, post, xdata);
@@ -736,13 +741,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(fallocate, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(fallocate, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                    struct iatt *post, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, pre, post, xdata);
@@ -782,13 +787,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(discard, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(discard, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 leases_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                     struct iatt *post, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, pre, post, xdata);
@@ -828,13 +833,13 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(zerofill, frame, -1, errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(zerofill, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int
 leases_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(flush, frame, op_ret, op_errno, xdata);
 
@@ -894,8 +899,8 @@ out:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(create, frame, -1, errno, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(create, frame, gf_error, errno, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
     return 0;
 }
 

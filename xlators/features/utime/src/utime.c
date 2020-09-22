@@ -136,12 +136,12 @@ mem_acct_init(xlator_t *this)
 
 int32_t
 gf_utime_set_mdata_setxattr_cbk(call_frame_t *frame, void *cookie,
-                                xlator_t *this, int op_ret, int op_errno,
-                                dict_t *xdata)
+                                xlator_t *this, gf_return_t op_ret,
+                                int op_errno, dict_t *xdata)
 {
     call_stub_t *stub = frame->local;
     /* Don't fail lookup if mdata setxattr fails */
-    if (op_ret) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, op_errno, UTIME_MSG_SET_MDATA_FAILED,
                "dict set of key for set-ctime-mdata failed");
     }
@@ -153,8 +153,8 @@ gf_utime_set_mdata_setxattr_cbk(call_frame_t *frame, void *cookie,
 
 int32_t
 gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                              int32_t op_ret, int32_t op_errno, inode_t *inode,
-                              struct iatt *stbuf, dict_t *xdata,
+                              gf_return_t op_ret, int32_t op_errno,
+                              inode_t *inode, struct iatt *stbuf, dict_t *xdata,
                               struct iatt *postparent)
 {
     dict_t *dict = NULL;
@@ -165,7 +165,7 @@ gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     };
     call_frame_t *new_frame = NULL;
 
-    if (!op_ret && dict_get(xdata, GF_XATTR_MDATA_KEY) == NULL) {
+    if (IS_SUCCESS(op_ret) && dict_get(xdata, GF_XATTR_MDATA_KEY) == NULL) {
         dict = dict_new();
         if (!dict) {
             op_errno = ENOMEM;
@@ -227,7 +227,8 @@ stub_err:
     if (dict) {
         dict_unref(dict);
     }
-    STACK_UNWIND_STRICT(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(lookup, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL);
     return 0;
 }
 
@@ -236,6 +237,7 @@ gf_utime_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
     int op_errno = EINVAL;
     int ret = -1;
+    gf_return_t fin_ret;
 
     VALIDATE_OR_GOTO(frame, err);
     VALIDATE_OR_GOTO(this, err);
@@ -265,7 +267,10 @@ gf_utime_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 free_dict:
     dict_unref(xdata);
 err:
-    STACK_UNWIND_STRICT(lookup, frame, ret, op_errno, NULL, NULL, NULL, NULL);
+
+    SET_RET(fin_ret, ret);
+    STACK_UNWIND_STRICT(lookup, frame, fin_ret, op_errno, NULL, NULL, NULL,
+                        NULL);
     return 0;
 }
 

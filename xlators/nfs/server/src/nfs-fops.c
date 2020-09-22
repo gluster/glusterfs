@@ -265,7 +265,7 @@ err:
 #define nfs_fop_restore_root_ino(locl, fopret, preattr, postattr, prepar,      \
                                  postpar)                                      \
     do {                                                                       \
-        if (fopret == -1)                                                      \
+        if (IS_ERROR(fopret))                                                  \
             break;                                                             \
         if ((locl)->rootinode) {                                               \
             if ((preattr)) {                                                   \
@@ -302,7 +302,7 @@ err:
 #define nfs_fop_newloc_restore_root_ino(locl, fopret, preattr, postattr,       \
                                         prepar, postpar)                       \
     do {                                                                       \
-        if (fopret == -1)                                                      \
+        if (IS_ERROR(fopret))                                                  \
             break;                                                             \
                                                                                \
         if ((locl)->newrootinode) {                                            \
@@ -397,13 +397,13 @@ nfs_gfid_dict(inode_t *inode)
 
 int32_t
 nfs_fop_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *xattr, struct iatt *postparent)
 {
     struct nfs_fop_local *local = NULL;
     fop_lookup_cbk_t progcbk;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         nfs_fix_generation(this, inode);
     }
 
@@ -449,7 +449,7 @@ err:
 
 int32_t
 nfs_fop_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                   gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_access_cbk_t progcbk = NULL;
@@ -494,7 +494,7 @@ err:
 
 int32_t
 nfs_fop_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                  dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -539,7 +539,7 @@ err:
 
 int32_t
 nfs_fop_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                   dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -585,7 +585,8 @@ err:
 
 int32_t
 nfs_fop_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                    dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_opendir_cbk_t progcbk = NULL;
@@ -627,7 +628,7 @@ err:
 
 int
 nfs_fop_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_flush_cbk_t progcbk = NULL;
@@ -668,7 +669,7 @@ err:
 
 int32_t
 nfs_fop_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                     gf_return_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                      dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -714,7 +715,7 @@ err:
 
 int32_t
 nfs_fop_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct statvfs *buf,
+                   gf_return_t op_ret, int32_t op_errno, struct statvfs *buf,
                    dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -757,14 +758,14 @@ err:
 
 int32_t
 nfs_fop_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                   struct iatt *buf, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                   inode_t *inode, struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_create_cbk_t progcbk = NULL;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         nfs_fix_generation(this, inode);
     }
 
@@ -811,7 +812,7 @@ err:
 
 int32_t
 nfs_fop_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                     struct iatt *post, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -856,14 +857,14 @@ err:
 
 int32_t
 nfs_fop_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_mkdir_cbk_t progcbk = NULL;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         nfs_fix_generation(this, inode);
     }
 
@@ -907,14 +908,14 @@ err:
 
 int32_t
 nfs_fop_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_symlink_cbk_t progcbk = NULL;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         nfs_fix_generation(this, inode);
     }
 
@@ -958,7 +959,7 @@ err:
 
 int32_t
 nfs_fop_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, const char *path,
+                     gf_return_t op_ret, int32_t op_errno, const char *path,
                      struct iatt *buf, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -1002,14 +1003,14 @@ err:
 
 int32_t
 nfs_fop_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_mknod_cbk_t progcbk = NULL;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         nfs_fix_generation(this, inode);
     }
 
@@ -1053,7 +1054,7 @@ err:
 
 int32_t
 nfs_fop_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = frame->local;
@@ -1098,7 +1099,7 @@ err:
 
 int32_t
 nfs_fop_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = frame->local;
@@ -1143,14 +1144,14 @@ err:
 
 int32_t
 nfs_fop_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_link_cbk_t progcbk = NULL;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         nfs_fix_generation(this, inode);
     }
 
@@ -1194,7 +1195,7 @@ err:
 
 int32_t
 nfs_fop_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *preoldparent, struct iatt *postoldparent,
                    struct iatt *prenewparent, struct iatt *postnewparent,
                    dict_t *xdata)
@@ -1249,7 +1250,7 @@ err:
 
 int32_t
 nfs_fop_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_open_cbk_t progcbk = NULL;
@@ -1291,7 +1292,7 @@ err:
 
 int32_t
 nfs_fop_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -1360,7 +1361,7 @@ err:
 
 int32_t
 nfs_fop_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -1404,7 +1405,7 @@ err:
 
 int32_t
 nfs_fop_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                  gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
                   int32_t count, struct iatt *stbuf, struct iobref *iobref,
                   dict_t *xdata)
 {
@@ -1450,7 +1451,7 @@ err:
 
 int32_t
 nfs_fop_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+               gf_return_t op_ret, int32_t op_errno, struct gf_flock *flock,
                dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -1458,7 +1459,7 @@ nfs_fop_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     nfl_to_prog_data(nfl, progcbk, frame);
 
-    if (!op_ret)
+    if (IS_SUCCESS(op_ret))
         fd_lk_insert_and_merge(nfl->fd, nfl->cmd, &nfl->flock);
 
     fd_unref(nfl->fd);
@@ -1502,7 +1503,7 @@ err:
 
 int32_t
 nfs_fop_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
@@ -1545,7 +1546,7 @@ err:
 
 int32_t
 nfs_fop_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_setxattr_cbk_t progcbk = NULL;
@@ -1588,7 +1589,7 @@ err:
 
 int32_t
 nfs_fop_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;

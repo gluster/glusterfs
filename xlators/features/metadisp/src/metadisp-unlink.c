@@ -20,20 +20,21 @@ metadisp_unlink_resume(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 metadisp_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata)
 {
-    METADISP_TRACE(". %d %d", op_ret, op_errno);
+    METADISP_TRACE(". %d %d", GET_RET(op_ret), op_errno);
 
     int ret = 0;
     call_stub_t *stub = NULL;
-    int nlink = 0;
+    uint32_t nlink = 0;
 
     if (cookie) {
         stub = cookie;
     }
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -46,7 +47,7 @@ metadisp_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     ret = dict_get_uint32(xdata, GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
     if (ret != 0) {
         op_errno = EINVAL;
-        op_ret = -1;
+        op_ret = gf_error;
         goto unwind;
     }
     METADISP_TRACE("frontend hardlink count %d %d", ret, nlink);
@@ -68,7 +69,7 @@ unwind:
 
 int32_t
 metadisp_unlink_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno, inode_t *inode,
+                           gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                            struct iatt *buf, dict_t *xdata,
                            struct iatt *postparent)
 {
@@ -78,13 +79,13 @@ metadisp_unlink_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         stub = cookie;
     }
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
     // fail fast on empty gfid so we don't loop forever
     if (gf_uuid_is_null(buf->ia_gfid)) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENODATA;
         goto unwind;
     }
@@ -114,6 +115,7 @@ int32_t
 metadisp_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                 dict_t *xdata)
 {
+    int ret;
     call_stub_t *stub = NULL;
     loc_t backend_loc = {
         0,
@@ -145,9 +147,9 @@ metadisp_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     if (!xdata) {
         xdata = dict_new();
     }
-    dict_set_int32(xdata, GF_REQUEST_LINK_COUNT_XDATA, 1);
+    ret = dict_set_int32(xdata, GF_REQUEST_LINK_COUNT_XDATA, 1);
 
-    METADISP_TRACE("winding frontend unlink to path %s", loc->path);
+    METADISP_TRACE("winding frontend unlink to path %s (%d)", loc->path, ret);
     stub = fop_unlink_stub(frame, metadisp_unlink_resume, &backend_loc, xflag,
                            xdata);
 
@@ -155,6 +157,6 @@ metadisp_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                       METADATA_CHILD(this)->fops->unlink, loc, xflag, xdata);
     return 0;
 unwind:
-    STACK_UNWIND_STRICT(unlink, frame, -1, EINVAL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(unlink, frame, gf_error, EINVAL, NULL, NULL, NULL);
     return 0;
 }

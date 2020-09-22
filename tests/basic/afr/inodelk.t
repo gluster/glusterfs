@@ -11,6 +11,8 @@ TEST glusterd;
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 3 arbiter 1 $H0:$B0/${V0}{0..5}
+TEST $CLI volume set  $V0 client-log-level DEBUG
+TEST $CLI volume set  $V0 brick-log-level DEBUG
 TEST $CLI volume start $V0
 TEST $GFS -s $H0 --volfile-id=$V0 $M0
 
@@ -62,6 +64,8 @@ TEST ! stat $B0/${V0}4/dir2
 TEST ! stat $B0/${V0}5/dir2
 
 #Bring the bricks back up and try mv once more, it should succeed.
+TEST $CLI volume set $V0 brick-log-level TRACE
+TEST $CLI volume set $V0 client-log-level TRACE
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 3
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 4

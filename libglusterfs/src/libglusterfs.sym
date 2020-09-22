@@ -589,6 +589,7 @@ gf_dnscache_deinit
 gf_errno_to_error
 gf_error_to_errno
 _gf_event
+gf_error
 gf_fd_fdptr_get
 gf_fd_fdtable_alloc
 gf_fd_fdtable_copy_all_fds
@@ -697,6 +698,8 @@ gf_store_save_value
 gf_store_save_items
 gf_store_unlink_tmppath
 gf_store_unlock
+gf_strerror
+gf_strerror_r
 gf_string2boolean
 gf_string2bytesize_int64
 gf_string2bytesize_uint64
@@ -743,6 +746,7 @@ gf_vasprintf
 gf_volfile_reconfigure
 gf_xxh64_wrapper
 gf_zero_fill_stat
+gf_success
 gid_cache_add
 gid_cache_init
 gid_cache_lookup

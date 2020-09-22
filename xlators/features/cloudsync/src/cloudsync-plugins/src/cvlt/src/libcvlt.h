@@ -41,7 +41,7 @@ struct _cvlt_request {
     struct iobref *iobref;
     call_frame_t *frame;
     cvlt_op_t op_type;
-    int32_t op_ret;
+    int64_t op_ret;
     int32_t op_errno;
     xlator_t *this;
     sem_t sem;

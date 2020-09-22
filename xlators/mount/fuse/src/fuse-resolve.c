@@ -40,7 +40,7 @@ fuse_resolve_loc_touchup(fuse_state_t *state)
 
 int
 fuse_resolve_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, inode_t *inode,
+                       gf_return_t op_ret, int op_errno, inode_t *inode,
                        struct iatt *buf, dict_t *xattr, struct iatt *postparent)
 {
     fuse_state_t *state = NULL;
@@ -55,11 +55,11 @@ fuse_resolve_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     STACK_DESTROY(frame->root);
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_log(this->name, (op_errno == ENOENT) ? GF_LOG_DEBUG : GF_LOG_WARNING,
                "%s/%s: failed to resolve (%s)", uuid_utoa(resolve_loc->pargfid),
                resolve_loc->name, strerror(op_errno));
-        resolve->op_ret = -1;
+        resolve->op_ret = gf_error;
         resolve->op_errno = op_errno;
         goto out;
     }
@@ -105,7 +105,7 @@ fuse_resolve_entry(fuse_state_t *state)
 
 int
 fuse_resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, inode_t *inode,
+                      gf_return_t op_ret, int op_errno, inode_t *inode,
                       struct iatt *buf, dict_t *xattr, struct iatt *postparent)
 {
     fuse_state_t *state = NULL;
@@ -121,7 +121,7 @@ fuse_resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     STACK_DESTROY(frame->root);
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_log(this->name, (op_errno == ENOENT) ? GF_LOG_DEBUG : GF_LOG_WARNING,
                "%s: failed to resolve (%s)",
                uuid_utoa(resolve->resolve_loc.gfid), strerror(op_errno));
@@ -134,9 +134,9 @@ fuse_resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          */
 
         if (gf_uuid_is_null(resolve->gfid)) {
-            resolve->op_ret = -1;
+            resolve->op_ret = gf_error;
         } else {
-            resolve->op_ret = -2;
+            SET_RET(resolve->op_ret, -2);
         }
 
         resolve->op_errno = op_errno;
@@ -458,7 +458,7 @@ fuse_resolve_fd(fuse_state_t *state)
                "fdctx is NULL for basefd (ptr:%p inode-gfid:%s), "
                "resolver erroring out with errno EINVAL",
                basefd, uuid_utoa(basefd->inode->gfid));
-        resolve->op_ret = -1;
+        resolve->op_ret = gf_error;
         resolve->op_errno = EINVAL;
         goto resolve_continue;
     }
@@ -469,7 +469,7 @@ fuse_resolve_fd(fuse_state_t *state)
 
     fd_migration_error = fuse_migrate_fd_error(state->this, basefd);
     if (fd_migration_error) {
-        resolve->op_ret = -1;
+        resolve->op_ret = gf_error;
         resolve->op_errno = EBADF;
     } else if (state->active_subvol != active_subvol) {
         ret = synctask_new(state->this->ctx->env, fuse_migrate_fd_task, NULL,
@@ -505,7 +505,7 @@ fuse_resolve_fd(fuse_state_t *state)
                        state->active_subvol->graph->id);
             }
 
-            resolve->op_ret = -1;
+            resolve->op_ret = gf_error;
             resolve->op_errno = EBADF;
         } else {
             gf_log(state->this->name, GF_LOG_DEBUG,
@@ -518,7 +518,7 @@ fuse_resolve_fd(fuse_state_t *state)
         }
     }
 
-    if ((resolve->op_ret == -1) && (resolve->op_errno == EBADF)) {
+    if (IS_ERROR(resolve->op_ret) && (resolve->op_errno == EBADF)) {
         gf_log("fuse-resolve", GF_LOG_WARNING,
                "migration of basefd (ptr:%p inode-gfid:%s) "
                "did not complete, failing fop with EBADF "

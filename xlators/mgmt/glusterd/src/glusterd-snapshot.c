@@ -6502,7 +6502,7 @@ glusterd_take_brick_snapshot_cbk(int ret, call_frame_t *frame, void *opaque)
     args = snap_args->args;
 
     if (ret)
-        args->op_ret = ret;
+        SET_RET(args->op_ret, ret);
 
     GF_FREE(opaque);
     synctask_barrier_wake(args);
@@ -6616,11 +6616,11 @@ glusterd_schedule_brick_snapshot(dict_t *dict, dict_t *rsp_dict,
     synctask_barrier_wait((&args), taskcount);
     taskcount = 0;
 
-    if (args.op_ret)
+    if (IS_ERROR(args.op_ret))
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_CREATION_FAIL,
                "Failed to create snapshot");
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 out:
     if (ret && taskcount)
         synctask_barrier_wait((&args), taskcount);

@@ -27,7 +27,7 @@
 
 int32_t
 afr_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     afr_local_t *local = NULL;
     int call_count = -1;
@@ -44,7 +44,7 @@ afr_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     LOCK(&frame->lock);
     {
-        if (op_ret == -1) {
+        if (IS_ERROR(op_ret)) {
             local->op_errno = op_errno;
             fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
         } else {
@@ -117,7 +117,7 @@ afr_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
     return 0;
 out:
-    AFR_STACK_UNWIND(opendir, frame, -1, op_errno, fd, NULL);
+    AFR_STACK_UNWIND(opendir, frame, gf_error, op_errno, fd, NULL);
     return 0;
 }
 
@@ -207,8 +207,8 @@ afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
 
 int32_t
 afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, gf_dirent_t *subvol_entries,
-                dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno,
+                gf_dirent_t *subvol_entries, dict_t *xdata)
 {
     afr_local_t *local = NULL;
     gf_dirent_t entries;
@@ -217,7 +217,7 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
 
-    if (op_ret < 0 && !local->cont.readdir.offset) {
+    if (IS_ERROR(op_ret) && !local->cont.readdir.offset) {
         /* failover only if this was first readdir, detected
            by offset == 0 */
         local->op_ret = op_ret;
@@ -227,7 +227,7 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
     }
 
-    if (op_ret >= 0)
+    if (IS_SUCCESS(op_ret))
         afr_readdir_transform_entries(frame, subvol_entries, (long)cookie,
                                       &entries, local->fd);
 
@@ -250,7 +250,7 @@ afr_readdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
     fd_ctx = afr_fd_ctx_get(local->fd, this);
     if (!fd_ctx) {
         local->op_errno = EINVAL;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
     }
 
     if (subvol == -1 || !fd_ctx) {
@@ -315,7 +315,7 @@ afr_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 out:
-    AFR_STACK_UNWIND(readdir, frame, -1, op_errno, NULL, NULL);
+    AFR_STACK_UNWIND(readdir, frame, gf_error, op_errno, NULL, NULL);
     return 0;
 }
 

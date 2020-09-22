@@ -38,7 +38,7 @@ ec_combine_opendir(ec_fop_data_t *fop, ec_cbk_data_t *dst, ec_cbk_data_t *src)
 
 int32_t
 ec_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+               gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
     ec_cbk_data_t *cbk = NULL;
@@ -52,12 +52,12 @@ ec_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_OPENDIR, idx, op_ret,
                                op_errno);
     if (cbk != NULL) {
-        if (op_ret >= 0) {
+        if (IS_SUCCESS(op_ret)) {
             if (fd != NULL) {
                 cbk->fd = fd_ref(fd);
                 if (cbk->fd == NULL) {
@@ -189,8 +189,8 @@ ec_manager_opendir(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(fop->error != 0);
 
             if (fop->cbks.opendir != NULL) {
-                fop->cbks.opendir(fop->req_frame, fop, fop->xl, -1, fop->error,
-                                  NULL, NULL);
+                fop->cbks.opendir(fop->req_frame, fop, fop->xl, gf_error,
+                                  fop->error, NULL, NULL);
             }
 
             return EC_STATE_LOCK_REUSE;
@@ -272,7 +272,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL, NULL);
+        func(frame, NULL, this, gf_error, error, NULL, NULL);
     }
 }
 
@@ -330,8 +330,8 @@ ec_adjust_readdirp(ec_t *ec, int32_t idx, gf_dirent_t *entries)
 
 int32_t
 ec_common_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
-                      dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno,
+                      gf_dirent_t *entries, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
     ec_cbk_data_t *cbk = NULL;
@@ -345,14 +345,14 @@ ec_common_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, fop->id, idx, op_ret,
                                op_errno);
     if (cbk) {
         if (xdata)
             cbk->xdata = dict_ref(xdata);
-        if (cbk->op_ret >= 0)
+        if (IS_SUCCESS(cbk->op_ret))
             list_splice_init(&entries->list, &cbk->entries.list);
         ec_combine(cbk, NULL);
     }
@@ -449,7 +449,7 @@ ec_manager_readdir(ec_fop_data_t *fop, int32_t state)
                 return EC_STATE_DISPATCH;
             }
 
-            if ((cbk != NULL) && (cbk->op_ret > 0) &&
+            if ((cbk != NULL) && (GET_RET(cbk->op_ret) > 0) &&
                 (fop->id == GF_FOP_READDIRP)) {
                 ec_adjust_readdirp(fop->xl->private, cbk->idx, &cbk->entries);
             }
@@ -483,12 +483,12 @@ ec_manager_readdir(ec_fop_data_t *fop, int32_t state)
         case -EC_STATE_REPORT:
             if (fop->id == GF_FOP_READDIR) {
                 if (fop->cbks.readdir != NULL) {
-                    fop->cbks.readdir(fop->req_frame, fop, fop->xl, -1,
+                    fop->cbks.readdir(fop->req_frame, fop, fop->xl, gf_error,
                                       fop->error, NULL, NULL);
                 }
             } else {
                 if (fop->cbks.readdirp != NULL) {
-                    fop->cbks.readdirp(fop->req_frame, fop, fop->xl, -1,
+                    fop->cbks.readdirp(fop->req_frame, fop, fop->xl, gf_error,
                                        fop->error, NULL, NULL);
                 }
             }
@@ -572,7 +572,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL, NULL);
+        func(frame, NULL, this, gf_error, error, NULL, NULL);
     }
 }
 
@@ -642,6 +642,6 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL, NULL);
+        func(frame, NULL, this, gf_error, error, NULL, NULL);
     }
 }

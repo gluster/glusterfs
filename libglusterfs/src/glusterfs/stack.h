@@ -42,8 +42,8 @@ typedef struct call_pool call_pool_t;
     (stack->client ? stack->client->client_uid : "-")
 
 typedef int32_t (*ret_fn_t)(call_frame_t *frame, call_frame_t *prev_frame,
-                            xlator_t *this, int32_t op_ret, int32_t op_errno,
-                            ...);
+                            xlator_t *this, gf_return_t op_ret,
+                            int32_t op_errno, ...);
 
 void
 gf_frame_latency_update(call_frame_t *frame);
@@ -370,7 +370,7 @@ get_the_pt_fop(void *base_fop, int fop_idx)
 #define STACK_UNWIND STACK_UNWIND_STRICT
 
 /* return from function in type-safe way */
-#define STACK_UNWIND_STRICT(fop, frame, op_ret, op_errno, params...)           \
+#define STACK_UNWIND_STRICT(fop, frame, op_return, op_errno, params...)        \
     do {                                                                       \
         fop_##fop##_cbk_t fn = NULL;                                           \
         call_frame_t *_parent = NULL;                                          \
@@ -380,27 +380,27 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             gf_msg("stack", GF_LOG_CRITICAL, 0, LG_MSG_FRAME_ERROR, "!frame"); \
             break;                                                             \
         }                                                                      \
-        if ((op_ret) < 0) {                                                    \
+        if (IS_ERROR(op_return)) {                                             \
             gf_msg_debug("stack-trace", op_errno,                              \
                          "stack-address: %p, "                                 \
-                         "%s returned %d error: %s",                           \
-                         frame->root, THIS->name, (int32_t)(op_ret),           \
+                         "%s returned %s error: %s",                           \
+                         frame->root, THIS->name, gf_strerror(op_return),      \
                          strerror(op_errno));                                  \
         } else {                                                               \
             gf_msg_trace("stack-trace", 0,                                     \
                          "stack-address: %p, "                                 \
                          "%s returned %d",                                     \
-                         frame->root, THIS->name, (int32_t)(op_ret));          \
+                         frame->root, THIS->name, op_return.op_ret);           \
         }                                                                      \
         fn = (fop_##fop##_cbk_t)frame->ret;                                    \
         _parent = frame->parent;                                               \
         LOCK(&frame->root->stack_lock);                                        \
         {                                                                      \
             _parent->ref_count--;                                              \
-            if ((op_ret) < 0 && (op_errno) != frame->root->error) {            \
+            if (IS_ERROR(op_return) && (op_errno) != frame->root->error) {     \
                 frame->root->err_xl = frame->this;                             \
                 frame->root->error = (op_errno);                               \
-            } else if ((op_ret) == 0) {                                        \
+            } else if (IS_SUCCESS(op_return)) {                                \
                 frame->root->err_xl = NULL;                                    \
                 frame->root->error = 0;                                        \
             }                                                                  \
@@ -416,11 +416,12 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             if (_parent->ret == NULL)                                          \
                 timespec_now(&_parent->end);                                   \
         }                                                                      \
-        if (op_ret < 0) {                                                      \
+        if (IS_ERROR(op_return)) {                                             \
             GF_ATOMIC_INC(THIS->stats.total.metrics[frame->op].cbk);           \
             GF_ATOMIC_INC(THIS->stats.interval.metrics[frame->op].cbk);        \
         }                                                                      \
-        fn(_parent, frame->cookie, _parent->this, op_ret, op_errno, params);   \
+        fn(_parent, frame->cookie, _parent->this, op_return, op_errno,         \
+           params);                                                            \
         THIS = old_THIS;                                                       \
     } while (0)
 

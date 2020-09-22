@@ -49,7 +49,7 @@ gd_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     glusterd_peerinfo_t *peerinfo = NULL;
 
     if (op_ret) {
-        args->op_ret = op_ret;
+        SET_RET(args->op_ret, op_ret);
         args->op_errno = op_errno;
 
         RCU_READ_LOCK;
@@ -896,7 +896,7 @@ _gd_syncop_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     frame->local = NULL;
 
     /* initialize */
-    args->op_ret = -1;
+    args->op_ret = gf_error;
     args->op_errno = EINVAL;
 
     if (-1 == req->rpc_status) {
@@ -930,7 +930,7 @@ _gd_syncop_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    args->op_ret = rsp.op_ret;
+    SET_RET(args->op_ret, rsp.op_ret);
     args->op_errno = rsp.op_errno;
     args->errstr = gf_strdup(rsp.op_errstr);
 
@@ -969,7 +969,7 @@ gd_syncop_mgmt_brick_op(struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
     xlator_t *this = NULL;
 
     this = THIS;
-    args.op_ret = -1;
+    args.op_ret = gf_error;
     args.op_errno = ENOTCONN;
 
     if ((pnode->type == GD_NODE_NFS) || (pnode->type == GD_NODE_QUOTAD) ||
@@ -1000,13 +1000,13 @@ gd_syncop_mgmt_brick_op(struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Error setting index on brick status"
                    " rsp dict");
-            args.op_ret = -1;
+            args.op_ret = gf_error;
             goto out;
         }
     }
 
     if (req->op == GLUSTERD_BRICK_TERMINATE) {
-        if (args.op_ret && (args.op_errno == ENOTCONN)) {
+        if (IS_ERROR(args.op_ret) && (args.op_errno == ENOTCONN)) {
             /*
              * This is actually OK.  It happens when the target
              * brick process exits and we saw the closed connection
@@ -1015,11 +1015,11 @@ gd_syncop_mgmt_brick_op(struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
              * fault, and the fact that the process exited means
              * that our goal of terminating the brick was achieved.
              */
-            args.op_ret = 0;
+            args.op_ret = gf_success;
         }
     }
 
-    if (args.op_ret == 0)
+    if (IS_SUCCESS(args.op_ret))
         glusterd_handle_node_rsp(dict_out, pnode->node, op, args.dict, op_ctx,
                                  errstr, pnode->type);
 
@@ -1027,7 +1027,7 @@ out:
     errno = args.op_errno;
     if (args.dict)
         dict_unref(args.dict);
-    if (args.op_ret && errstr && (*errstr == NULL)) {
+    if (IS_ERROR(args.op_ret) && errstr && (*errstr == NULL)) {
         if (op == GD_OP_HEAL_VOLUME) {
             gf_asprintf(errstr,
                         "Glusterd Syncop Mgmt brick op '%s' failed."
@@ -1041,7 +1041,7 @@ out:
         }
     }
     gd_brick_op_req_free(req);
-    return args.op_ret;
+    return GET_RET(args.op_ret);
 }
 
 int32_t
@@ -1251,7 +1251,7 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         if (args.errstr)
             *op_errstr = gf_strdup(args.errstr);
         else {
@@ -1267,7 +1267,7 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
         }
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 
     gf_msg_debug(this->name, 0,
                  "Sent lock op req for 'Volume %s' "
@@ -1391,7 +1391,7 @@ stage_done:
     else if (dict_get_str(aggr_dict, "errstr", &errstr) == 0)
         *op_errstr = gf_strdup(errstr);
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 
 out:
     if ((ret == 0) && (op == GD_OP_QUOTA)) {
@@ -1529,7 +1529,7 @@ commit_done:
     }
 
     gd_synctask_barrier_wait((&args), peer_cnt);
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
     if (args.errstr)
         *op_errstr = gf_strdup(args.errstr);
     else if (dict_get_str(op_ctx, "errstr", &errstr) == 0)
@@ -1643,7 +1643,7 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 
     gf_msg_debug(this->name, 0,
                  "Sent unlock op req for 'Volume %s' "

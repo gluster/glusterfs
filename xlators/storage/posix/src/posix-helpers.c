@@ -2305,7 +2305,7 @@ posix_disk_space_check(xlator_t *this)
 {
     struct posix_private *priv = NULL;
     char *subvol_path = NULL;
-    int op_ret = 0;
+    int ret;
     double size = 0;
     double percent = 0;
     struct statvfs buf = {0};
@@ -2318,9 +2318,9 @@ posix_disk_space_check(xlator_t *this)
 
     subvol_path = priv->base_path;
 
-    op_ret = sys_statvfs(subvol_path, &buf);
+    ret = sys_statvfs(subvol_path, &buf);
 
-    if (op_ret == -1) {
+    if (ret == -1) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
                "statvfs failed on %s", subvol_path);
         goto out;
@@ -2453,7 +2453,7 @@ posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_GET_FDCTX_FAILED,
                "could not get fdctx for fd(%s)",
                uuid_utoa(stub->args.fd->inode->gfid));
-        call_unwind_error(stub, -1, op_errno);
+        call_unwind_error(stub, gf_error, op_errno);
         return;
     }
 
@@ -2469,11 +2469,11 @@ posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
                "could not fstat fd(%s)", uuid_utoa(stub->args.fd->inode->gfid));
-        call_unwind_error(stub, -1, errno);
+        call_unwind_error(stub, gf_error, errno);
         return;
     }
 
-    call_unwind_error(stub, 0, 0);
+    call_unwind_error(stub, gf_success, 0);
 }
 
 static void
@@ -3570,7 +3570,7 @@ posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
 gf_boolean_t
 posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
 {
-    int op_ret = 0;
+    int ret;
     ssize_t size = 0;
     char value_buf[4096] = {
         0,
@@ -3581,16 +3581,14 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
     size_t xattr_len = 0;
     gf_boolean_t is_stale = _gf_false;
 
-    op_ret = dict_get_str_sizen(xdata, GF_PREOP_PARENT_KEY, &xattr_name);
+    ret = dict_get_str_sizen(xdata, GF_PREOP_PARENT_KEY, &xattr_name);
     if (xattr_name == NULL) {
-        op_ret = 0;
         return is_stale;
     }
 
     xattr_len = strlen(xattr_name);
     arg_data = dict_getn(xdata, xattr_name, xattr_len);
     if (!arg_data) {
-        op_ret = 0;
         dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
         return is_stale;
     }
@@ -3609,7 +3607,7 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
             size = sys_lgetxattr(par_path, xattr_name, NULL, 0);
         }
         if (size < 0) {
-            op_ret = -1;
+            ret = -1;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_PREOP_CHECK_FAILED,
                    "getxattr on key (%s)  failed, path : %s", xattr_name,
                    par_path);
@@ -3632,14 +3630,14 @@ posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this)
                "failing preop as on-disk xattr value differs from argument "
                "value for key %s",
                xattr_name);
-        op_ret = -1;
+        ret = -1;
     }
 
 out:
     dict_deln(xdata, xattr_name, xattr_len);
     dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
 
-    if (op_ret == -1) {
+    if (ret == -1) {
         is_stale = _gf_true;
     }
 

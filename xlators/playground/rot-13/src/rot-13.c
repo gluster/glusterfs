@@ -46,7 +46,7 @@ rot13_iovec(struct iovec *vector, int count)
 
 int32_t
 rot13_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
                 int32_t count, struct iatt *stbuf, struct iobref *iobref,
                 dict_t *xdata)
 {
@@ -71,7 +71,7 @@ rot13_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 int32_t
 rot13_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,

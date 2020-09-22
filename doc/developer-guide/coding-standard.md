@@ -643,7 +643,7 @@ int32_t
 sample_fop (call_frame_t *frame, xlator_t *this, ...)
 {
         char *            var1     = NULL;
-        int32_t           op_ret   = -1;
+        gf_return_t           op_ret   = -1;
         int32_t           op_errno = 0;
         DIR *             dir      = NULL;
         struct posix_fd * pfd      = NULL;

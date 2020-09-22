@@ -52,8 +52,9 @@ changelog_init(xlator_t *this, changelog_priv_t *priv);
 
 int32_t
 changelog_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -61,7 +62,7 @@ changelog_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 
@@ -173,8 +174,9 @@ out:
 
 int32_t
 changelog_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno,
+                     struct iatt *preparent, struct iatt *postparent,
+                     dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -182,7 +184,7 @@ changelog_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 
@@ -321,7 +323,7 @@ out:
 
 int32_t
 changelog_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                      struct iatt *preoldparent, struct iatt *postoldparent,
                      struct iatt *prenewparent, struct iatt *postnewparent,
                      dict_t *xdata)
@@ -331,7 +333,7 @@ changelog_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     priv = this->private;
     local = frame->local;
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 unwind:
     changelog_dec_fop_cnt(this, priv, local);
@@ -439,7 +441,7 @@ out:
 
 int32_t
 changelog_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
@@ -449,7 +451,7 @@ changelog_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 
@@ -549,7 +551,7 @@ out:
 
 int32_t
 changelog_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
@@ -559,7 +561,7 @@ changelog_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 
@@ -678,7 +680,7 @@ out:
 
 int32_t
 changelog_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, inode_t *inode,
+                      gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                       struct iatt *buf, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
 {
@@ -688,7 +690,7 @@ changelog_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 
@@ -799,7 +801,7 @@ out:
 
 int32_t
 changelog_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
@@ -809,7 +811,7 @@ changelog_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_ENTRY);
 
@@ -945,8 +947,8 @@ out:
 
 int32_t
 changelog_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                     struct iatt *buf, struct iatt *preparent,
+                     gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                     inode_t *inode, struct iatt *buf, struct iatt *preparent,
                      struct iatt *postparent, dict_t *xdata)
 {
     int32_t ret = 0;
@@ -959,7 +961,7 @@ changelog_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     /* fill the event structure.. similar to open() */
     ev.ev_type = CHANGELOG_OP_TYPE_CREATE;
@@ -1105,7 +1107,7 @@ out:
 
 int32_t
 changelog_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno,
+                       gf_return_t op_ret, int32_t op_errno,
                        struct iatt *preop_stbuf, struct iatt *postop_stbuf,
                        dict_t *xdata)
 {
@@ -1115,7 +1117,7 @@ changelog_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA);
 
@@ -1161,7 +1163,7 @@ wind:
 
 int32_t
 changelog_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno,
+                      gf_return_t op_ret, int32_t op_errno,
                       struct iatt *preop_stbuf, struct iatt *postop_stbuf,
                       dict_t *xdata)
 {
@@ -1171,7 +1173,7 @@ changelog_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA);
 
@@ -1230,7 +1232,7 @@ wind:
 
 int32_t
 changelog_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                           gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -1238,7 +1240,7 @@ changelog_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
@@ -1281,7 +1283,7 @@ wind:
 
 int32_t
 changelog_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                          gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -1289,7 +1291,7 @@ changelog_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
@@ -1334,7 +1336,7 @@ wind:
 
 int32_t
 changelog_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -1342,7 +1344,7 @@ changelog_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
@@ -1398,10 +1400,10 @@ changelog_handle_virtual_xattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         /* Assign local to prev_entry, so unwind will take
          * care of cleanup. */
         ((changelog_local_t *)(frame->local))->prev_entry = local;
-        CHANGELOG_STACK_UNWIND(setxattr, frame, 0, 0, NULL);
+        CHANGELOG_STACK_UNWIND(setxattr, frame, gf_success, 0, NULL);
         return;
     } else {
-        CHANGELOG_STACK_UNWIND(setxattr, frame, -1, ENOTSUP, NULL);
+        CHANGELOG_STACK_UNWIND(setxattr, frame, gf_error, ENOTSUP, NULL);
         return;
     }
 }
@@ -1447,7 +1449,7 @@ wind:
 
 int32_t
 changelog_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                        gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -1455,7 +1457,7 @@ changelog_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
@@ -1499,7 +1501,7 @@ wind:
 
 int32_t
 changelog_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
                       dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
@@ -1508,7 +1510,7 @@ changelog_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA);
 
@@ -1556,7 +1558,7 @@ wind:
 
 int32_t
 changelog_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                       gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
                        dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
@@ -1565,7 +1567,7 @@ changelog_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
@@ -1620,8 +1622,8 @@ wind:
 
 int32_t
 changelog_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                       struct iatt *postbuf, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno,
+                       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -1629,7 +1631,7 @@ changelog_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_DATA);
 
@@ -1668,8 +1670,9 @@ wind:
 
 int32_t
 changelog_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                        struct iatt *postbuf, dict_t *xdata)
+                        gf_return_t op_ret, int32_t op_errno,
+                        struct iatt *prebuf, struct iatt *postbuf,
+                        dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
     changelog_local_t *local = NULL;
@@ -1677,7 +1680,7 @@ changelog_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_DATA);
 
@@ -1718,7 +1721,7 @@ wind:
 
 int32_t
 changelog_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     changelog_priv_t *priv = NULL;
@@ -1727,7 +1730,8 @@ changelog_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret <= 0) || !local), unwind);
+    CHANGELOG_COND_GOTO(
+        priv, (IS_ERROR(op_ret) || (GET_RET(op_ret) == 0) || !local), unwind);
 
     changelog_update(this, priv, local, CHANGELOG_TYPE_DATA);
 
@@ -1774,7 +1778,7 @@ wind:
 
 int
 changelog_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
+                   gf_return_t op_ret, int op_errno, fd_t *fd, dict_t *xdata)
 {
     int ret = 0;
     changelog_priv_t *priv = NULL;
@@ -1789,7 +1793,7 @@ changelog_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         logopen = _gf_true;
     }
 
-    CHANGELOG_COND_GOTO(priv, ((op_ret < 0) || !logopen), unwind);
+    CHANGELOG_COND_GOTO(priv, (IS_ERROR((op_ret)) || !logopen), unwind);
 
     /* fill the event structure */
     ev.ev_type = CHANGELOG_OP_TYPE_OPEN;
@@ -1862,7 +1866,7 @@ changelog_ipc(call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
     if (xdata)
         (void)dict_foreach(xdata, _changelog_generic_dispatcher, this);
 
-    STACK_UNWIND_STRICT(ipc, frame, 0, 0, NULL);
+    STACK_UNWIND_STRICT(ipc, frame, gf_success, 0, NULL);
     return 0;
 
 wind:
@@ -2105,7 +2109,7 @@ notify(xlator_t *this, int event, void *data, ...)
                         ret = -1;
                 }
                 UNLOCK(&priv->lock);
-                /* If ret = -1, then changelog barrier is already
+                /* If ret = gf_error, then changelog barrier is already
                  * disabled because of error or timeout.
                  */
                 if (ret == 0) {

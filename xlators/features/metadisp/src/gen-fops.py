@@ -64,7 +64,7 @@ metadisp_@NAME@ (call_frame_t *frame, xlator_t *this,
   return 0;
 
 unwind:
-  STACK_UNWIND_STRICT(lookup, frame, -1, EINVAL, NULL, NULL, NULL, NULL);
+  STACK_UNWIND_STRICT(lookup, frame, gf_error, EINVAL, NULL, NULL, NULL, NULL);
   return 0;
 }
 """

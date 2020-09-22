@@ -32,7 +32,7 @@ struct sdfs_local {
     loc_t parent_loc;
     call_stub_t *stub;
     sdfs_lock_t *lock;
-    int op_ret;
+    gf_return_t op_ret;
     int op_errno;
     gf_atomic_t call_cnt;
 };

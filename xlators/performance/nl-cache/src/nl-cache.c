@@ -87,12 +87,12 @@ out:
     do {                                                                       \
         nlc_conf_t *conf = NULL;                                               \
                                                                                \
-        if (op_ret != 0)                                                       \
+        if (IS_ERROR(op_ret))                                                  \
             goto out;                                                          \
                                                                                \
         conf = this->private;                                                  \
                                                                                \
-        if (op_ret < 0 || !IS_PEC_ENABLED(conf))                               \
+        if (IS_ERROR(op_ret) || !IS_PEC_ENABLED(conf))                         \
             goto out;                                                          \
         nlc_dentry_op(frame, this, multilink);                                 \
     out:                                                                       \
@@ -101,7 +101,7 @@ out:
 
 static int32_t
 nlc_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *buf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                struct iatt *preoldparent, struct iatt *postoldparent,
                struct iatt *prenewparent, struct iatt *postnewparent,
                dict_t *xdata)
@@ -122,9 +122,10 @@ nlc_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 }
 
 static int32_t
-nlc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *buf,
-              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+nlc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+              dict_t *xdata)
 {
     NLC_FOP_CBK(mknod, _gf_false, frame, cookie, this, op_ret, op_errno, inode,
                 buf, preparent, postparent, xdata);
@@ -142,7 +143,7 @@ nlc_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 static int32_t
 nlc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
@@ -161,9 +162,10 @@ nlc_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 }
 
 static int32_t
-nlc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *buf,
-              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+nlc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+              dict_t *xdata)
 {
     NLC_FOP_CBK(mkdir, _gf_false, frame, cookie, this, op_ret, op_errno, inode,
                 buf, preparent, postparent, xdata);
@@ -181,7 +183,7 @@ nlc_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 static int32_t
 nlc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
     nlc_local_t *local = NULL;
@@ -195,7 +197,7 @@ nlc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* Donot add to pe, this may lead to duplicate entry and
      * requires search before adding if list of strings */
-    if (op_ret < 0 && op_errno == ENOENT) {
+    if (IS_ERROR(op_ret) && op_errno == ENOENT) {
         nlc_dir_add_ne(this, local->loc.parent, local->loc.name);
         GF_ATOMIC_INC(conf->nlc_counter.nlc_miss);
     }
@@ -242,17 +244,17 @@ wind:
                FIRST_CHILD(this)->fops->lookup, loc, xdata);
     return 0;
 unwind:
-    NLC_STACK_UNWIND(lookup, frame, -1, ENOENT, NULL, NULL, NULL, NULL);
+    NLC_STACK_UNWIND(lookup, frame, gf_error, ENOENT, NULL, NULL, NULL, NULL);
     return 0;
 err:
-    NLC_STACK_UNWIND(lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+    NLC_STACK_UNWIND(lookup, frame, gf_error, ENOMEM, NULL, NULL, NULL, NULL);
     return 0;
 }
 
 static int32_t
-nlc_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *preparent, struct iatt *postparent,
-              dict_t *xdata)
+nlc_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
+              struct iatt *postparent, dict_t *xdata)
 {
     NLC_FOP_CBK(rmdir, _gf_false, frame, cookie, this, op_ret, op_errno,
                 preparent, postparent, xdata);
@@ -269,7 +271,8 @@ nlc_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 static int32_t
 nlc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *dict,
+                 dict_t *xdata)
 {
     nlc_conf_t *conf = NULL;
 
@@ -279,7 +282,7 @@ nlc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!IS_PEC_ENABLED(conf))
         goto out;
 
-    if (op_ret < 0 && op_errno == ENOENT) {
+    if (IS_ERROR(op_ret) && op_errno == ENOENT) {
         GF_ATOMIC_INC(conf->nlc_counter.getrealfilename_miss);
     }
 
@@ -292,7 +295,8 @@ static int32_t
 nlc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
              dict_t *xdata)
 {
-    int32_t op_ret = -1;
+    gf_return_t fin_ret;
+    int op_ret = -1;
     int32_t op_errno = 0;
     dict_t *dict = NULL;
     nlc_local_t *local = NULL;
@@ -336,17 +340,18 @@ wind:
     return 0;
 unwind:
     GF_ATOMIC_INC(conf->nlc_counter.getrealfilename_hit);
-    NLC_STACK_UNWIND(getxattr, frame, op_ret, op_errno, dict, NULL);
+    SET_RET(fin_ret, op_ret);
+    NLC_STACK_UNWIND(getxattr, frame, fin_ret, op_errno, dict, NULL);
     dict_unref(dict);
     return 0;
 err:
-    NLC_STACK_UNWIND(getxattr, frame, -1, ENOMEM, NULL, NULL);
+    NLC_STACK_UNWIND(getxattr, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 }
 
 static int32_t
 nlc_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
@@ -365,9 +370,10 @@ nlc_symlink(call_frame_t *frame, xlator_t *this, const char *linkpath,
 }
 
 static int32_t
-nlc_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, inode_t *inode, struct iatt *buf,
-             struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+nlc_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+             struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+             dict_t *xdata)
 {
     NLC_FOP_CBK(link, _gf_false, frame, cookie, this, op_ret, op_errno, inode,
                 buf, preparent, postparent, xdata);
@@ -385,7 +391,7 @@ nlc_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
 static int32_t
 nlc_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
     uint32_t link_count = 0;

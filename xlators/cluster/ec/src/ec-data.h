@@ -15,7 +15,8 @@
 
 ec_cbk_data_t *
 ec_cbk_data_allocate(call_frame_t *frame, xlator_t *this, ec_fop_data_t *fop,
-                     int32_t id, int32_t idx, int32_t op_ret, int32_t op_errno);
+                     int32_t id, int32_t idx, gf_return_t op_ret,
+                     int32_t op_errno);
 ec_fop_data_t *
 ec_fop_data_allocate(call_frame_t *frame, xlator_t *this, int32_t id,
                      uint32_t flags, uintptr_t target, uint32_t fop_flags,

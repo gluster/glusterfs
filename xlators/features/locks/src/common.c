@@ -233,7 +233,7 @@ pl_trace_in(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc, int cmd,
 }
 
 void
-pl_print_verdict(char *str, int size, int op_ret, int op_errno)
+pl_print_verdict(char *str, int size, int32_t op_ret, int op_errno)
 {
     char *verdict = NULL;
 
@@ -254,7 +254,7 @@ pl_print_verdict(char *str, int size, int op_ret, int op_errno)
 
 void
 pl_trace_out(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc, int cmd,
-             struct gf_flock *flock, int op_ret, int op_errno,
+             struct gf_flock *flock, gf_return_t op_ret, int op_errno,
              const char *domain)
 
 {
@@ -276,7 +276,7 @@ pl_trace_out(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc, int cmd,
     else
         pl_print_lock(pl_lock, 256, cmd, flock, &frame->root->lk_owner);
 
-    pl_print_verdict(verdict, 32, op_ret, op_errno);
+    pl_print_verdict(verdict, 32, GET_RET(op_ret), op_errno);
 
     gf_log(this->name, GF_LOG_INFO,
            "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}", verdict, pl_locker,
@@ -391,7 +391,7 @@ pl_fetch_mlock_info_from_disk(xlator_t *this, pl_inode_t *pl_inode,
 {
     dict_t *xdata_rsp = NULL;
     int ret = 0;
-    int op_ret = 0;
+    int32_t op_ret = 0;
 
     if (!local) {
         return -1;
@@ -979,9 +979,9 @@ grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode)
         list_del_init(&lock->list);
 
         pl_trace_out(this, lock->frame, NULL, NULL, F_SETLKW, &lock->user_flock,
-                     0, 0, NULL);
+                     gf_success, 0, NULL);
         local = lock->frame->local;
-        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, 0, 0,
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, gf_success, 0,
                                  &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
@@ -1029,9 +1029,9 @@ pl_send_prelock_unlock(xlator_t *this, pl_inode_t *pl_inode,
         list_del_init(&lock->list);
 
         pl_trace_out(this, lock->frame, NULL, NULL, F_SETLKW, &lock->user_flock,
-                     0, 0, NULL);
+                     gf_success, 0, NULL);
         local = lock->frame->local;
-        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, 0, 0,
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, gf_success, 0,
                                  &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
@@ -1204,8 +1204,8 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     list_for_each_entry_safe(lock, i, &unwind_blist, list)
     {
         PL_STACK_UNWIND_AND_FREE(((pl_local_t *)lock->frame->local), lk,
-                                 lock->frame, -1, EBUSY, &lock->user_flock,
-                                 NULL);
+                                 lock->frame, gf_error, EBUSY,
+                                 &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
 
@@ -1213,7 +1213,7 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     list_for_each_entry_safe(rw, itr, &unwind_rw_list, list)
     {
         pl_clean_local(rw->stub->frame->local);
-        call_unwind_error(rw->stub, -1, EBUSY);
+        call_unwind_error(rw->stub, gf_error, EBUSY);
     }
 
     return ret;

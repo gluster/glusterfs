@@ -26,7 +26,7 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 FOPS_CBK_COMMON_TEMPLATE = """
 int32_t
 gf_utime_@NAME@_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno,
+                     gf_return_t op_ret, int32_t op_errno,
                     @LONG_ARGS@)
 {
         STACK_UNWIND_STRICT (@NAME@, frame, op_ret, op_errno, @SHORT_ARGS@);

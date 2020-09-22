@@ -224,7 +224,7 @@ out:
     loc_wipe(&loc);
 
     if (read_subvol == -1) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = op_errno;
     }
     afr_read_txn_wind(frame, this, read_subvol);
@@ -241,7 +241,7 @@ afr_ta_read_txn_synctask(call_frame_t *frame, xlator_t *this)
     local = frame->local;
     ta_frame = afr_ta_frame_create(this);
     if (!ta_frame) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,
                "Failed to create ta_frame");
@@ -254,7 +254,7 @@ afr_ta_read_txn_synctask(call_frame_t *frame, xlator_t *this)
                "Failed to launch "
                "afr_ta_read_txn synctask for gfid %s.",
                uuid_utoa(local->inode->gfid));
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         STACK_DESTROY(ta_frame->root);
         goto out;
@@ -414,18 +414,18 @@ afr_read_txn(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local->transaction.type = type;
 
     if (priv->quorum_count && !afr_has_quorum(local->child_up, this, NULL)) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = afr_quorum_errno(priv);
         goto read;
     }
 
     if (!afr_is_consistent_io_possible(local, priv, &local->op_errno)) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         goto read;
     }
 
     if (priv->thin_arbiter_count && !afr_ta_has_quorum(priv, local)) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = -afr_quorum_errno(priv);
         goto read;
     }

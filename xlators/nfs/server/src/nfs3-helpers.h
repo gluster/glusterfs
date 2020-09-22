@@ -30,7 +30,7 @@ nfs3_extract_lookup_name(lookup3args *args);
 extern nfsstat3
 nfs3_errno_to_nfsstat3(int errnum);
 
-extern nfsstat3 nfs3_cbk_errno_status(int32_t, int32_t);
+extern nfsstat3 nfs3_cbk_errno_status(gf_return_t, int32_t);
 
 extern void
 nfs3_fill_lookup3res(lookup3res *res, nfsstat3 stat, struct nfs3_fh *newfh,

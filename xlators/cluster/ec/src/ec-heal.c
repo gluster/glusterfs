@@ -152,7 +152,7 @@ ec_heal_check(ec_fop_data_t *fop, uintptr_t *pgood)
 
     list_for_each_entry(cbk, &fop->cbk_list, list)
     {
-        mask[cbk->op_ret >= 0] |= cbk->mask;
+        mask[GET_RET(cbk->op_ret) >= 0] |= cbk->mask;
     }
 
     if (pgood != NULL) {
@@ -199,12 +199,12 @@ ec_heal_avoid(ec_fop_data_t *fop)
 
 int32_t
 ec_heal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
     ec_heal_t *heal = fop->data;
 
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         GF_ASSERT(
             ec_set_inode_size(heal->fop, heal->fd->inode, heal->total_size));
     }
@@ -295,19 +295,20 @@ ec_wind_xattrop_parallel(call_frame_t *frame, xlator_t *subvol, int child_index,
 
 int32_t
 ec_heal_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
     ec_heal_t *heal = fop->data;
 
-    ec_trace("WRITE_CBK", cookie, "ret=%d, errno=%d", op_ret, op_errno);
+    ec_trace("WRITE_CBK", cookie, "ret=%d, errno=%d", GET_RET(op_ret),
+             op_errno);
 
     gf_msg_debug(fop->xl->name, 0,
                  "%s: write op_ret %d, op_errno %s"
                  " at %" PRIu64,
-                 uuid_utoa(heal->fd->inode->gfid), op_ret, strerror(op_errno),
-                 heal->offset);
+                 uuid_utoa(heal->fd->inode->gfid), GET_RET(op_ret),
+                 strerror(op_errno), heal->offset);
 
     ec_heal_update(cookie, 0);
 
@@ -316,18 +317,18 @@ ec_heal_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 ec_heal_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                  gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
                   int32_t count, struct iatt *stbuf, struct iobref *iobref,
                   dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
     ec_heal_t *heal = fop->data;
 
-    ec_trace("READ_CBK", fop, "ret=%d, errno=%d", op_ret, op_errno);
+    ec_trace("READ_CBK", fop, "ret=%d, errno=%d", GET_RET(op_ret), op_errno);
 
     ec_heal_avoid(fop);
 
-    if (op_ret > 0) {
+    if (GET_RET(op_ret) > 0) {
         gf_msg_debug(fop->xl->name, 0,
                      "%s: read succeeded, proceeding "
                      "to write at %" PRIu64,
@@ -336,7 +337,7 @@ ec_heal_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   ec_heal_writev_cbk, heal, heal->fd, vector, count,
                   heal->offset, 0, iobref, NULL);
     } else {
-        if (op_ret < 0) {
+        if (IS_ERROR(op_ret)) {
             gf_msg_debug(fop->xl->name, 0,
                          "%s: read failed %s, failing "
                          "to heal block at %" PRIu64,
@@ -422,7 +423,7 @@ ec_heal_entry_find_direction(ec_t *ec, default_args_cbk_t *replies,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret == -1)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         if (source == -1)
@@ -453,7 +454,7 @@ ec_heal_entry_find_direction(ec_t *ec, default_args_cbk_t *replies,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret == -1)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         if (versions[i] == versions[source])
@@ -476,7 +477,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
     int ret = 0;
     int call_count = 0;
     dict_t **xattr = NULL;
-    int op_ret = 0;
+    gf_return_t op_ret;
     loc_t loc = {0};
     gf_boolean_t erase_dirty = _gf_false;
     uint64_t *versions_xattr = NULL;
@@ -494,13 +495,13 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
     EC_REPLIES_ALLOC(replies, ec->nodes);
     xattr = GF_CALLOC(ec->nodes, sizeof(*xattr), gf_common_mt_pointer);
     if (!xattr) {
-        op_ret = -ENOMEM;
+        SET_RET(op_ret, -ENOMEM);
         goto out;
     }
     for (i = 0; i < ec->nodes; i++) {
         xattr[i] = dict_new();
         if (!xattr[i]) {
-            op_ret = -ENOMEM;
+            SET_RET(op_ret, -ENOMEM);
             goto out;
         }
     }
@@ -511,7 +512,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
         ec->nodes)
         erase_dirty = _gf_true;
     else
-        op_ret = -ENOTCONN;
+        SET_RET(op_ret, -ENOTCONN);
 
     /* Populate the xattr array */
     for (i = 0; i < ec->nodes; i++) {
@@ -520,7 +521,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
         versions_xattr = GF_CALLOC(EC_VERSION_SIZE, sizeof(*versions_xattr),
                                    gf_common_mt_pointer);
         if (!versions_xattr) {
-            op_ret = -ENOMEM;
+            SET_RET(op_ret, -ENOMEM);
             continue;
         }
 
@@ -528,7 +529,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
         ret = dict_set_bin(xattr[i], EC_XATTR_VERSION, versions_xattr,
                            (sizeof(*versions_xattr) * EC_VERSION_SIZE));
         if (ret < 0) {
-            op_ret = -ENOMEM;
+            SET_RET(op_ret, -ENOMEM);
             continue;
         }
 
@@ -536,7 +537,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
             dirty_xattr = GF_CALLOC(EC_VERSION_SIZE, sizeof(*dirty_xattr),
                                     gf_common_mt_pointer);
             if (!dirty_xattr) {
-                op_ret = -ENOMEM;
+                SET_RET(op_ret, -ENOMEM);
                 continue;
             }
 
@@ -544,7 +545,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
             ret = dict_set_bin(xattr[i], EC_XATTR_DIRTY, dirty_xattr,
                                (sizeof(*dirty_xattr) * EC_VERSION_SIZE));
             if (ret < 0) {
-                op_ret = -ENOMEM;
+                SET_RET(op_ret, -ENOMEM);
                 continue;
             }
         }
@@ -574,7 +575,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
     }
 
     if (ret < call_count) {
-        op_ret = -ENOTCONN;
+        SET_RET(op_ret, -ENOTCONN);
         goto out;
     }
 
@@ -589,7 +590,7 @@ out:
     }
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
-    return op_ret;
+    return GET_RET(op_ret);
 }
 
 int
@@ -617,7 +618,7 @@ ec_heal_metadata_find_direction(ec_t *ec, default_args_cbk_t *replies,
     for (i = 0; i < ec->nodes; i++) {
         if (!replies[i].valid)
             continue;
-        if (replies[i].op_ret < 0)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
         ret = ec_dict_get_array(replies[i].xdata, EC_XATTR_VERSION, xattr,
                                 EC_VERSION_SIZE);
@@ -637,7 +638,7 @@ ec_heal_metadata_find_direction(ec_t *ec, default_args_cbk_t *replies,
         same_count = 1;
         source_ia = replies[i].stat;
         for (j = i + 1; j < ec->nodes; j++) {
-            if (!replies[j].valid || replies[j].op_ret < 0)
+            if (!replies[j].valid || IS_ERROR(replies[j].op_ret))
                 continue;
             child_ia = replies[j].stat;
             if (!IA_EQUAL(source_ia, child_ia, gfid) ||
@@ -667,7 +668,7 @@ ec_heal_metadata_find_direction(ec_t *ec, default_args_cbk_t *replies,
     for (i = 0; i < ec->nodes; i++) {
         if (groups[i] == groups[same_source])
             sources[i] = 1;
-        else if (replies[i].valid && replies[i].op_ret >= 0)
+        else if (replies[i].valid && IS_SUCCESS(replies[i].op_ret))
             healed_sinks[i] = 1;
     }
     for (i = 0; i < ec->nodes; i++) {
@@ -1045,7 +1046,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
     for (i = 0; i < ec->nodes; i++) {
         if (!replies[i].valid)
             continue;
-        if (replies[i].op_ret == -1) {
+        if (IS_ERROR(replies[i].op_ret)) {
             if (replies[i].op_errno == ESTALE || replies[i].op_errno == ENOENT)
                 estale_count++;
             else
@@ -1076,7 +1077,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
     gf_uuid_copy(loc.pargfid, loc.parent->gfid);
     loc.name = name_data->name;
     for (i = 0; i < ec->nodes; i++) {
-        if (same[i] && replies[i].valid && (replies[i].op_ret == 0)) {
+        if (same[i] && replies[i].valid && IS_SUCCESS(replies[i].op_ret)) {
             ia = &replies[i].stat;
             break;
         }
@@ -1219,7 +1220,7 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     for (i = 0; i < ec->nodes; i++) {
         if (!lookup_replies[i].valid)
             continue;
-        if (lookup_replies[i].op_ret)
+        if (IS_ERROR(lookup_replies[i].op_ret))
             continue;
         on[i] = 1;
     }
@@ -1364,7 +1365,7 @@ __ec_heal_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret == -1) {
+        if (IS_ERROR(replies[i].op_ret)) {
             /*If ESTALE comes here, that means parent dir is not
              * present, nothing to do there, so reset participants
              * for that brick*/
@@ -1692,7 +1693,7 @@ ec_heal_data_find_direction(ec_t *ec, default_args_cbk_t *replies,
     for (i = 0; i < ec->nodes; i++) {
         if (!replies[i].valid)
             continue;
-        if (replies[i].op_ret < 0)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
         dict = (which == EC_COMBINE_XDATA) ? replies[i].xdata
                                            : replies[i].xattr;
@@ -1747,7 +1748,8 @@ ec_heal_data_find_direction(ec_t *ec, default_args_cbk_t *replies,
             goto out;
         memcpy(sources, same, ec->nodes);
         for (i = 0; i < ec->nodes; i++) {
-            if (replies[i].valid && (replies[i].op_ret == 0) && !sources[i])
+            if (replies[i].valid && IS_SUCCESS(replies[i].op_ret) &&
+                !sources[i])
                 healed_sinks[i] = 1;
         }
     }
@@ -1974,15 +1976,15 @@ ec_manager_heal_block(ec_fop_data_t *fop, int32_t state)
 
         case EC_STATE_REPORT:
             if (fop->cbks.heal) {
-                fop->cbks.heal(fop->req_frame, fop->data, fop->xl, 0, 0,
-                               (heal->good | heal->bad), heal->good, heal->bad,
-                               0, NULL);
+                fop->cbks.heal(fop->req_frame, fop->data, fop->xl, gf_success,
+                               0, (heal->good | heal->bad), heal->good,
+                               heal->bad, 0, NULL);
             }
 
             return EC_STATE_END;
         case -EC_STATE_REPORT:
             if (fop->cbks.heal) {
-                fop->cbks.heal(fop->req_frame, fop->data, fop->xl, -1,
+                fop->cbks.heal(fop->req_frame, fop->data, fop->xl, gf_error,
                                fop->error, 0, 0, 0, 0, NULL);
             }
 
@@ -2020,13 +2022,13 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, heal, this, -1, error, 0, 0, 0, 0, NULL);
+        func(frame, heal, this, gf_error, error, 0, 0, 0, 0, NULL);
     }
 }
 
 int32_t
 ec_heal_block_done(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, uintptr_t mask,
+                   gf_return_t op_ret, int32_t op_errno, uintptr_t mask,
                    uintptr_t good, uintptr_t bad, uint32_t pending,
                    dict_t *xdata)
 {
@@ -2036,7 +2038,7 @@ ec_heal_block_done(call_frame_t *frame, void *cookie, xlator_t *this,
         heal->fop->heal = NULL;
     }
     heal->fop = NULL;
-    heal->error = op_ret < 0 ? op_errno : 0;
+    heal->error = IS_ERROR(op_ret) ? op_errno : 0;
     syncbarrier_wake(heal->data);
     return 0;
 }
@@ -2211,13 +2213,13 @@ __ec_fd_data_adjust_versions(call_frame_t *frame, ec_t *ec, fd_t *fd,
     dict_t *xattr = NULL;
     int i = 0;
     int ret = 0;
-    int op_ret = 0;
+    gf_return_t op_ret;
     int source = -1;
     gf_boolean_t erase_dirty = _gf_false;
 
     xattr = dict_new();
     if (!xattr) {
-        op_ret = -ENOMEM;
+        SET_RET(op_ret, -ENOMEM);
         goto out;
     }
 
@@ -2235,7 +2237,7 @@ __ec_fd_data_adjust_versions(call_frame_t *frame, ec_t *ec, fd_t *fd,
     }
 
     if (source == -1) {
-        op_ret = -ENOTCONN;
+        SET_RET(op_ret, -ENOTCONN);
         goto out;
     }
 
@@ -2262,7 +2264,7 @@ __ec_fd_data_adjust_versions(call_frame_t *frame, ec_t *ec, fd_t *fd,
 out:
     if (xattr)
         dict_unref(xattr);
-    return op_ret;
+    return GET_RET(op_ret);
 }
 
 int
@@ -2560,7 +2562,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
     unsigned char *healed_sinks = NULL;
     ec_t *ec = NULL;
     int ret = 0;
-    int op_ret = 0;
+    gf_return_t op_ret;
     int op_errno = 0;
     intptr_t mgood = 0;
     intptr_t mbad = 0;
@@ -2658,7 +2660,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
         good = ec_char_array_to_mask(sources, ec->nodes);
         bad = ec_char_array_to_mask(healed_sinks, ec->nodes);
     } else {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = -ret;
     }
     msources = alloca0(ec->nodes);
@@ -2668,7 +2670,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
         mgood = ec_char_array_to_mask(msources, ec->nodes);
         mbad = ec_char_array_to_mask(mhealed_sinks, ec->nodes);
     } else {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = -ret;
     }
 
@@ -2728,8 +2730,8 @@ void
 ec_heal_fail(ec_t *ec, ec_fop_data_t *fop)
 {
     if (fop->cbks.heal) {
-        fop->cbks.heal(fop->req_frame, fop->data, ec->xl, -1, fop->error, 0, 0,
-                       0, 0, NULL);
+        fop->cbks.heal(fop->req_frame, fop->data, ec->xl, gf_error, fop->error,
+                       0, 0, 0, 0, NULL);
     }
     ec_fop_data_release(fop);
 }
@@ -2916,7 +2918,7 @@ fail:
     if (fop)
         ec_fop_data_release(fop);
     if (func)
-        func(frame, data, this, -1, err, 0, 0, 0, 0, NULL);
+        func(frame, data, this, gf_error, err, 0, 0, 0, 0, NULL);
 }
 
 int

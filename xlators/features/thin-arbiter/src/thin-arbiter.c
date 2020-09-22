@@ -92,7 +92,7 @@ ta_release_fop(ta_fop_t *fop)
 
 int32_t
 ta_set_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *dict,
+                   gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                    dict_t *xdata)
 {
     TA_STACK_UNWIND(xattrop, frame, op_ret, op_errno, dict, xdata);
@@ -130,14 +130,14 @@ ta_verify_on_disk_source(ta_fop_t *fop, dict_t *dict)
 
 int32_t
 ta_get_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *dict,
+                   gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                    dict_t *xdata)
 {
     ta_fop_t *fop = NULL;
     int ret = 0;
 
     fop = frame->local;
-    if (op_ret) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -160,7 +160,7 @@ ta_get_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 unwind:
 
-    TA_STACK_UNWIND(xattrop, frame, -1, op_errno, NULL, NULL);
+    TA_STACK_UNWIND(xattrop, frame, gf_error, op_errno, NULL, NULL);
     return -1;
 }
 
@@ -226,7 +226,7 @@ ta_fxattrop(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 unwind:
 
-    TA_STACK_UNWIND(xattrop, frame, -1, -ret, NULL, NULL);
+    TA_STACK_UNWIND(xattrop, frame, gf_error, -ret, NULL, NULL);
     return 0;
 }
 
@@ -250,7 +250,7 @@ ta_xattrop(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 unwind:
 
-    TA_STACK_UNWIND(xattrop, frame, -1, -ret, NULL, NULL);
+    TA_STACK_UNWIND(xattrop, frame, gf_error, -ret, NULL, NULL);
     return 0;
 }
 

@@ -10,7 +10,7 @@
 
 int32_t
 metadisp_create_dentry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno, fd_t *fd,
+                           gf_return_t op_ret, int32_t op_errno, fd_t *fd,
                            inode_t *inode, struct iatt *buf,
                            struct iatt *preparent, struct iatt *postparent,
                            dict_t *xdata)
@@ -34,13 +34,13 @@ metadisp_create_resume(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 metadisp_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                    struct iatt *buf, struct iatt *preparent,
+                    gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
-    METADISP_TRACE("%d %d", op_ret, op_errno);
+    METADISP_TRACE("%d %d", GET_RET(op_ret), op_errno);
     call_stub_t *stub = cookie;
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         STACK_UNWIND_STRICT(create, frame, op_ret, op_errno, fd, inode, buf,
                             preparent, postparent, xdata);
         return 0;
@@ -59,8 +59,8 @@ metadisp_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(create, frame, -1, EINVAL, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(create, frame, gf_error, EINVAL, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
     return 0;
 }
 
@@ -93,8 +93,8 @@ metadisp_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(create, frame, -1, EINVAL, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(create, frame, gf_error, EINVAL, NULL, NULL, NULL, NULL,
+                        NULL, NULL);
     return 0;
 out:
     return -1;

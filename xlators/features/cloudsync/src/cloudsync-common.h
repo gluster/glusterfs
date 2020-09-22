@@ -37,7 +37,7 @@ typedef struct cs_local {
     call_stub_t *stub;
     call_frame_t *main_frame;
     int op_errno;
-    int op_ret;
+    gf_return_t op_ret;
     fd_t *dlfd;
     off_t dloffset;
     struct iatt stbuf;

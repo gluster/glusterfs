@@ -51,11 +51,11 @@ match_uuid_local(const char *name, char *uuid)
         return -1;
 
     name = strtail((char *)name, MARKER_XATTR_PREFIX);
-    if (!name || name++ [0] != '.')
+    if (!name || (name++[0] != '.'))
         return -1;
 
     name = strtail((char *)name, uuid);
-    if (!name || strcmp(name, ".xtime") != 0)
+    if (!name || (strcmp(name, ".xtime") != 0))
         return -1;
 
     return 0;
@@ -127,7 +127,7 @@ cluster_marker_unwind(call_frame_t *frame, char *key, void *value, size_t size,
 {
     xl_marker_local_t *local = frame->local;
     int ret = 0;
-    int32_t op_ret = 0;
+    gf_return_t op_ret = {0};
     int32_t op_errno = 0;
     gf_boolean_t unref = _gf_false;
 
@@ -139,7 +139,7 @@ cluster_marker_unwind(call_frame_t *frame, char *key, void *value, size_t size,
             if (dict) {
                 unref = _gf_true;
             } else {
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = ENOMEM;
                 goto out;
             }
@@ -147,7 +147,7 @@ cluster_marker_unwind(call_frame_t *frame, char *key, void *value, size_t size,
 
         ret = dict_set_static_bin(dict, key, value, size);
         if (ret) {
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = ENOMEM;
             goto out;
         }
@@ -155,7 +155,7 @@ cluster_marker_unwind(call_frame_t *frame, char *key, void *value, size_t size,
 
     op_errno = evaluate_marker_results(local->gauge, local->count);
     if (op_errno)
-        op_ret = -1;
+        op_ret = gf_error;
 
 out:
     if (local->xl_specf_unwind) {
@@ -172,7 +172,8 @@ out:
 /* Aggregate all the <volid>.xtime attrs of the cluster and send the max*/
 int32_t
 cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *dict, dict_t *xdata)
+                        gf_return_t op_ret, int op_errno, dict_t *dict,
+                        dict_t *xdata)
 
 {
     int32_t callcnt = 0;
@@ -192,7 +193,7 @@ cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         callcnt = --local->call_count;
 
-        if (op_ret) {
+        if (IS_ERROR(op_ret)) {
             marker_local_incr_errcount(local, op_errno);
             goto unlock;
         }
@@ -231,7 +232,8 @@ post_unlock:
 
 int32_t
 cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, dict_t *dict, dict_t *xdata)
+                       gf_return_t op_ret, int op_errno, dict_t *dict,
+                       dict_t *xdata)
 {
     int32_t callcnt = 0;
     struct volume_mark *volmark = NULL;
@@ -246,7 +248,7 @@ cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         callcnt = --local->call_count;
         vol_uuid = local->vol_uuid;
 
-        if (op_ret) {
+        if (IS_ERROR(op_ret)) {
             marker_local_incr_errcount(local, op_errno);
             goto unlock;
         }
@@ -258,7 +260,7 @@ cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->count[MCNT_FOUND]) {
             if ((local->volmark->major != volmark->major) ||
                 (local->volmark->minor != volmark->minor)) {
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = EINVAL;
                 goto unlock;
             }
@@ -483,7 +485,7 @@ cluster_handle_marker_getxattr(call_frame_t *frame, loc_t *loc,
     return 0;
 fail:
     if (unwind)
-        unwind(frame, -1, ENOMEM, NULL, NULL);
+        unwind(frame, gf_error, ENOMEM, NULL, NULL);
     else
         default_getxattr_failure_cbk(frame, ENOMEM);
     return 0;

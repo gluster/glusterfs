@@ -364,7 +364,7 @@ out:
 
 void
 check_ancestory_continue(struct list_head *parents, inode_t *inode,
-                         int32_t op_ret, int32_t op_errno, void *data)
+                         gf_return_t op_ret, int32_t op_errno, void *data)
 {
     call_frame_t *frame = NULL;
     quota_local_t *local = NULL;
@@ -381,13 +381,13 @@ check_ancestory_continue(struct list_head *parents, inode_t *inode,
                "Hence, failing fop with EIO",
                uuid_utoa(inode->gfid));
         op_errno = EIO;
-        op_ret = -1;
+        op_ret = gf_error;
     }
 
     LOCK(&local->lock);
     {
         link_count = --local->link_count;
-        if (op_ret < 0) {
+        if (IS_ERROR(op_ret)) {
             local->op_ret = op_ret;
             local->op_errno = op_errno;
         }
@@ -418,22 +418,22 @@ check_ancestory(call_frame_t *frame, inode_t *inode)
 
     if (cur_inode) {
         inode_unref(cur_inode);
-        check_ancestory_continue(NULL, NULL, 0, 0, frame);
+        check_ancestory_continue(NULL, NULL, gf_success, 0, frame);
     } else {
-        check_ancestory_continue(NULL, NULL, -1, ESTALE, frame);
+        check_ancestory_continue(NULL, NULL, gf_error, ESTALE, frame);
     }
 }
 
 void
-check_ancestory_2_cbk(struct list_head *parents, inode_t *inode, int32_t op_ret,
-                      int32_t op_errno, void *data)
+check_ancestory_2_cbk(struct list_head *parents, inode_t *inode,
+                      gf_return_t op_ret, int32_t op_errno, void *data)
 {
     inode_t *this_inode = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
     this_inode = data;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto out;
 
     if (parents == NULL || list_empty(parents)) {
@@ -548,7 +548,7 @@ out:
 }
 
 static void
-quota_handle_validate_error(call_frame_t *frame, int32_t op_ret,
+quota_handle_validate_error(call_frame_t *frame, gf_return_t op_ret,
                             int32_t op_errno)
 {
     quota_local_t *local;
@@ -560,7 +560,7 @@ quota_handle_validate_error(call_frame_t *frame, int32_t op_ret,
     if (local == NULL)
         goto out;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         LOCK(&local->lock);
         {
             local->op_ret = op_ret;
@@ -576,7 +576,7 @@ out:
 
 int32_t
 quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
     quota_local_t *local = NULL;
@@ -589,7 +589,7 @@ quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -715,8 +715,8 @@ out:
 
 int32_t
 quota_build_ancestry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
-                         dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno,
+                         gf_dirent_t *entries, dict_t *xdata)
 {
     inode_t *parent = NULL;
     inode_t *tmp_parent = NULL;
@@ -738,10 +738,10 @@ quota_build_ancestry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     frame->local = NULL;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto err;
 
-    if ((op_ret > 0) && (entries != NULL)) {
+    if ((GET_RET(op_ret) > 0) && (entries != NULL)) {
         list_for_each_entry(entry, &entries->list, list)
         {
             if (__is_root_gfid(entry->inode->gfid)) {
@@ -832,11 +832,12 @@ quota_build_ancestry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    local->ancestry_cbk(&parents, local->loc.inode, 0, 0, local->ancestry_data);
+    local->ancestry_cbk(&parents, local->loc.inode, gf_success, 0,
+                        local->ancestry_data);
     goto cleanup;
 
 err:
-    local->ancestry_cbk(NULL, NULL, -1, op_errno, local->ancestry_data);
+    local->ancestry_cbk(NULL, NULL, gf_error, op_errno, local->ancestry_data);
 
 cleanup:
     STACK_DESTROY(frame->root);
@@ -865,9 +866,10 @@ quota_build_ancestry(inode_t *inode, quota_ancestry_built_t ancestry_cbk,
     quota_local_t *local = NULL;
     call_frame_t *new_frame = NULL;
     int op_errno = ENOMEM;
-    int op_ret = -1;
+    gf_return_t op_ret = gf_error;
     xlator_t *this = NULL;
     dict_t *xdata_req = NULL;
+    int ret = -1;
 
     this = THIS;
 
@@ -893,21 +895,21 @@ quota_build_ancestry(inode_t *inode, quota_ancestry_built_t ancestry_cbk,
     local->ancestry_data = data;
     local->loc.inode = inode_ref(inode);
 
-    op_ret = dict_set_int8(xdata_req, QUOTA_LIMIT_KEY, 1);
-    if (op_ret < 0) {
-        op_errno = -op_ret;
+    ret = dict_set_int8(xdata_req, QUOTA_LIMIT_KEY, 1);
+    if (ret) {
+        op_errno = -ret;
         goto err;
     }
 
-    op_ret = dict_set_int8(xdata_req, QUOTA_LIMIT_OBJECTS_KEY, 1);
-    if (op_ret < 0) {
-        op_errno = -op_ret;
+    ret = dict_set_int8(xdata_req, QUOTA_LIMIT_OBJECTS_KEY, 1);
+    if (ret) {
+        op_errno = -ret;
         goto err;
     }
 
-    op_ret = dict_set_int8(xdata_req, GET_ANCESTRY_DENTRY_KEY, 1);
-    if (op_ret < 0) {
-        op_errno = -op_ret;
+    ret = dict_set_int8(xdata_req, GET_ANCESTRY_DENTRY_KEY, 1);
+    if (ret) {
+        op_errno = -ret;
         goto err;
     }
 
@@ -920,7 +922,7 @@ quota_build_ancestry(inode_t *inode, quota_ancestry_built_t ancestry_cbk,
     STACK_WIND(new_frame, quota_build_ancestry_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readdirp, fd, 0, 0, xdata_req);
 
-    op_ret = 0;
+    ret = 0;
 
 err:
     if (fd)
@@ -929,8 +931,9 @@ err:
     if (xdata_req)
         dict_unref(xdata_req);
 
-    if (op_ret < 0) {
-        ancestry_cbk(NULL, NULL, -1, op_errno, data);
+    SET_RET(op_ret, ret);
+    if (IS_ERROR(op_ret)) {
+        ancestry_cbk(NULL, NULL, op_ret, op_errno, data);
 
         if (new_frame) {
             local = new_frame->local;
@@ -1014,7 +1017,7 @@ err:
 
 void
 quota_check_limit_continuation(struct list_head *parents, inode_t *inode,
-                               int32_t op_ret, int32_t op_errno, void *data)
+                               gf_return_t op_ret, int32_t op_errno, void *data)
 {
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
@@ -1033,8 +1036,8 @@ quota_check_limit_continuation(struct list_head *parents, inode_t *inode,
     else
         par_local = local;
 
-    if ((op_ret < 0) || list_empty(parents)) {
-        if (op_ret >= 0) {
+    if (IS_ERROR(op_ret) || list_empty(parents)) {
+        if (IS_SUCCESS(op_ret)) {
             gf_msg(this->name, GF_LOG_WARNING, EIO, Q_MSG_ANCESTRY_BUILD_FAILED,
                    "Couldn't build ancestry for inode (gfid:%s). "
                    "Without knowing ancestors till root, quota"
@@ -1044,7 +1047,7 @@ quota_check_limit_continuation(struct list_head *parents, inode_t *inode,
             op_errno = EIO;
         }
 
-        quota_handle_validate_error(frame, -1, op_errno);
+        quota_handle_validate_error(frame, gf_error, op_errno);
         goto out;
     }
 
@@ -1126,7 +1129,7 @@ quota_check_object_limit(call_frame_t *frame, quota_inode_ctx_t *ctx,
         }
 
         if (hard_limit_exceeded) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = EDQUOT;
             *op_errno = EDQUOT;
             goto out;
@@ -1193,7 +1196,7 @@ quota_check_size_limit(call_frame_t *frame, quota_inode_ctx_t *ctx,
         }
 
         if (hard_limit_exceeded) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = EDQUOT;
 
             space_available = ctx->hard_lim - ctx->size;
@@ -1358,7 +1361,7 @@ done:
     return 0;
 
 err:
-    quota_handle_validate_error(frame, -1, op_errno);
+    quota_handle_validate_error(frame, gf_error, op_errno);
 
     inode_unref(_inode);
     return 0;
@@ -1403,7 +1406,7 @@ out:
             /* Caller should decrement link_count, in case parent is
              * NULL
              */
-            quota_handle_validate_error(frame, -1, ENOMEM);
+            quota_handle_validate_error(frame, gf_error, ENOMEM);
         }
 
         if (new_frame) {
@@ -1582,28 +1585,32 @@ out:
 
 int32_t
 quota_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
     quota_local_t *local = NULL;
     inode_t *this_inode = NULL;
+    int ret;
 
     local = frame->local;
     frame->local = NULL;
 
-    if (op_ret >= 0 && inode) {
+    if (IS_SUCCESS(op_ret) && inode) {
         this_inode = inode_ref(inode);
 
-        op_ret = quota_fill_inodectx(this, inode, dict, &local->loc, buf,
-                                     &op_errno);
-        if (op_ret < 0)
+        ret = quota_fill_inodectx(this, inode, dict, &local->loc, buf,
+                                  &op_errno);
+        if (ret < 0) {
+            op_ret = gf_error;
             op_errno = ENOMEM;
+        }
     }
 
     QUOTA_STACK_UNWIND(lookup, frame, op_ret, op_errno, inode, buf, dict,
                        postparent);
 
-    if (op_ret < 0 || this_inode == NULL || gf_uuid_is_null(this_inode->gfid))
+    if (IS_ERROR(op_ret) || this_inode == NULL ||
+        gf_uuid_is_null(this_inode->gfid))
         goto out;
 
     check_ancestory_2(this, local, this_inode);
@@ -1665,7 +1672,8 @@ err:
         dict_unref(xattr_req);
 
     if (ret < 0) {
-        QUOTA_STACK_UNWIND(lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+        QUOTA_STACK_UNWIND(lookup, frame, gf_error, ENOMEM, NULL, NULL, NULL,
+                           NULL);
     }
 
     return 0;
@@ -1678,7 +1686,7 @@ off:
 
 int32_t
 quota_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     int32_t ret = 0;
@@ -1688,7 +1696,7 @@ quota_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
 
-    if ((op_ret < 0) || (local == NULL) || (postbuf == NULL)) {
+    if (IS_ERROR(op_ret) || (local == NULL) || (postbuf == NULL)) {
         goto out;
     }
 
@@ -1738,14 +1746,14 @@ quota_writev_helper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     GF_VALIDATE_OR_GOTO("quota", local, unwind);
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
 
         if ((op_errno == EDQUOT) && (local->space_available > 0)) {
             new_count = iov_subset(vector, count, 0, local->space_available,
                                    &new_vector, 0);
             if (new_count < 0) {
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 local->op_errno = ENOMEM;
                 goto unwind;
             }
@@ -1803,7 +1811,7 @@ quota_writev_helper(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(writev, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -1919,7 +1927,7 @@ quota_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(writev, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 
 off:
@@ -1930,7 +1938,7 @@ off:
 
 int32_t
 quota_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
@@ -1952,7 +1960,7 @@ quota_mkdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     op_errno = local->op_errno;
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         goto unwind;
     }
 
@@ -1962,7 +1970,7 @@ quota_mkdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    QUOTA_STACK_UNWIND(mkdir, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                        NULL);
     return 0;
 }
@@ -2020,7 +2028,7 @@ quota_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    QUOTA_STACK_UNWIND(mkdir, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                        NULL);
 
     return 0;
@@ -2034,7 +2042,7 @@ off:
 
 int32_t
 quota_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+                 gf_return_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
@@ -2044,7 +2052,7 @@ quota_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_dentry_t *dentry = NULL;
 
     local = frame->local;
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -2054,7 +2062,7 @@ quota_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                "cannot create quota "
                "context in inode(gfid:%s)",
                uuid_utoa(inode->gfid));
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto unwind;
     }
@@ -2070,7 +2078,7 @@ quota_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    "cannot create a new dentry "
                    "(name:%s) for inode(gfid:%s)",
                    local->loc.name, uuid_utoa(local->loc.inode->gfid));
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = ENOMEM;
             goto unlock;
         }
@@ -2096,7 +2104,7 @@ quota_create_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     GF_VALIDATE_OR_GOTO("quota", local, unwind);
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         goto unwind;
     }
@@ -2107,8 +2115,8 @@ quota_create_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL, NULL);
+    QUOTA_STACK_UNWIND(create, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL, NULL);
     return 0;
 }
 
@@ -2161,8 +2169,8 @@ quota_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     quota_check_limit(frame, loc->parent, this);
     return 0;
 err:
-    QUOTA_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL, NULL);
+    QUOTA_STACK_UNWIND(create, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL, NULL);
 
     return 0;
 
@@ -2174,14 +2182,14 @@ off:
 
 int32_t
 quota_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
     uint64_t value = 0;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -2238,7 +2246,7 @@ quota_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
 err:
     if (ret == -1) {
-        QUOTA_STACK_UNWIND(unlink, frame, -1, 0, NULL, NULL, NULL);
+        QUOTA_STACK_UNWIND(unlink, frame, gf_error, 0, NULL, NULL, NULL);
     }
 
     return 0;
@@ -2251,7 +2259,7 @@ off:
 
 int32_t
 quota_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
@@ -2261,7 +2269,7 @@ quota_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_dentry_t *dentry = NULL;
     char found = 0;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -2303,7 +2311,7 @@ quota_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        "cannot create a new dentry (name:%s)"
                        "for inode(gfid:%s)",
                        local->loc.name, uuid_utoa(local->loc.inode->gfid));
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = ENOMEM;
                 goto unlock;
             }
@@ -2334,7 +2342,7 @@ quota_link_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
     op_errno = local->op_errno;
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         goto unwind;
     }
 
@@ -2343,7 +2351,8 @@ quota_link_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(link, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                       NULL);
     return 0;
 }
 
@@ -2362,7 +2371,7 @@ quota_link_continue(call_frame_t *frame)
     local = frame->local;
     this = THIS;
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         goto err;
     }
@@ -2427,7 +2436,8 @@ quota_link_continue(call_frame_t *frame)
     return;
 
 err:
-    QUOTA_STACK_UNWIND(link, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                       NULL);
     return;
 
 wind:
@@ -2516,7 +2526,8 @@ quota_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(link, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                       NULL);
     return 0;
 
 off:
@@ -2532,7 +2543,7 @@ wind:
 
 int32_t
 quota_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                  struct iatt *preoldparent, struct iatt *postoldparent,
                  struct iatt *prenewparent, struct iatt *postnewparent,
                  dict_t *xdata)
@@ -2543,7 +2554,7 @@ quota_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_dentry_t *old_dentry = NULL, *dentry = NULL;
     char new_dentry_found = 0;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -2608,7 +2619,7 @@ quota_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        "for inode(gfid:%s)",
                        local->newloc.name,
                        uuid_utoa(local->newloc.inode->gfid));
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = ENOMEM;
                 goto unlock;
             }
@@ -2639,7 +2650,7 @@ quota_rename_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
     op_errno = local->op_errno;
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         goto unwind;
     }
 
@@ -2649,14 +2660,14 @@ quota_rename_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL, NULL);
+    QUOTA_STACK_UNWIND(rename, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL, NULL);
     return 0;
 }
 
 static int32_t
 quota_rename_get_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, inode_t *inode,
+                          gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                           struct iatt *buf, dict_t *xdata,
                           struct iatt *postparent)
 {
@@ -2671,7 +2682,7 @@ quota_rename_get_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     GF_ASSERT(local);
     local->link_count = 1;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto out;
 
     ret = dict_get_bin(xdata, QUOTA_SIZE_KEY, (void **)&size);
@@ -2687,7 +2698,7 @@ quota_rename_get_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 
 out:
-    quota_handle_validate_error(frame, -1, op_errno);
+    quota_handle_validate_error(frame, gf_error, op_errno);
     return 0;
 }
 
@@ -2704,7 +2715,7 @@ quota_rename_continue(call_frame_t *frame)
     local = frame->local;
     this = THIS;
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         goto err;
     }
@@ -2769,8 +2780,8 @@ quota_rename_continue(call_frame_t *frame)
     return;
 
 err:
-    QUOTA_STACK_UNWIND(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL, NULL);
+    QUOTA_STACK_UNWIND(rename, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL, NULL);
     return;
 }
 
@@ -2840,8 +2851,8 @@ quota_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL, NULL);
+    QUOTA_STACK_UNWIND(rename, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL, NULL);
     return 0;
 
 off:
@@ -2857,7 +2868,7 @@ wind:
 
 int32_t
 quota_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
@@ -2866,7 +2877,7 @@ quota_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_dentry_t *dentry = NULL;
     int32_t ret = -1;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -2894,7 +2905,7 @@ quota_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    "cannot create "
                    "a new dentry (name:%s) for inode(gfid:%s)",
                    local->loc.name, uuid_utoa(local->loc.inode->gfid));
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = ENOMEM;
         }
     }
@@ -2918,7 +2929,7 @@ quota_symlink_helper(call_frame_t *frame, xlator_t *this, const char *linkpath,
 
     GF_VALIDATE_OR_GOTO("quota", local, unwind);
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         goto unwind;
     }
@@ -2928,8 +2939,8 @@ quota_symlink_helper(call_frame_t *frame, xlator_t *this, const char *linkpath,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL);
+    QUOTA_STACK_UNWIND(symlink, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL);
     return 0;
 }
 
@@ -2980,8 +2991,8 @@ quota_symlink(call_frame_t *frame, xlator_t *this, const char *linkpath,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                       NULL);
+    QUOTA_STACK_UNWIND(symlink, frame, gf_error, op_errno, NULL, NULL, NULL,
+                       NULL, NULL);
 
     return 0;
 
@@ -2993,13 +3004,13 @@ off:
 
 int32_t
 quota_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3061,7 +3072,7 @@ quota_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(truncate, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     return 0;
 off:
@@ -3072,13 +3083,13 @@ off:
 
 int32_t
 quota_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3132,7 +3143,7 @@ quota_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     return 0;
 err:
-    QUOTA_STACK_UNWIND(ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(ftruncate, frame, gf_error, ENOMEM, NULL, NULL, NULL);
 
     return 0;
 
@@ -3184,7 +3195,7 @@ dict_set:
 
     gf_msg_debug(this->name, 0, "str = %s", dir_limit);
 
-    QUOTA_STACK_UNWIND(getxattr, frame, 0, 0, dict, NULL);
+    QUOTA_STACK_UNWIND(getxattr, frame, gf_success, 0, dict, NULL);
 
     ret = 0;
 
@@ -3235,13 +3246,13 @@ quota_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 quota_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *buf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3302,7 +3313,7 @@ quota_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(stat, frame, -1, ENOMEM, NULL, NULL);
+    QUOTA_STACK_UNWIND(stat, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 
 off:
@@ -3313,13 +3324,13 @@ off:
 
 int32_t
 quota_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                 dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3375,7 +3386,7 @@ quota_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(fstat, frame, -1, ENOMEM, NULL, NULL);
+    QUOTA_STACK_UNWIND(fstat, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 
 off:
@@ -3386,13 +3397,13 @@ off:
 
 int32_t
 quota_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, const char *path,
+                   gf_return_t op_ret, int32_t op_errno, const char *path,
                    struct iatt *buf, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3452,7 +3463,7 @@ quota_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(readlink, frame, -1, ENOMEM, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(readlink, frame, gf_error, ENOMEM, NULL, NULL, NULL);
     return 0;
 
 off:
@@ -3463,14 +3474,14 @@ off:
 
 int32_t
 quota_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
                 int32_t count, struct iatt *buf, struct iobref *iobref,
                 dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3525,7 +3536,8 @@ quota_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(readv, frame, -1, ENOMEM, NULL, -1, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(readv, frame, gf_error, ENOMEM, NULL, -1, NULL, NULL,
+                       NULL);
     return 0;
 
 off:
@@ -3536,13 +3548,13 @@ off:
 
 int32_t
 quota_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3596,7 +3608,7 @@ quota_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(fsync, frame, -1, ENOMEM, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(fsync, frame, gf_error, ENOMEM, NULL, NULL, NULL);
     return 0;
 
 off:
@@ -3607,13 +3619,13 @@ off:
 
 int32_t
 quota_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                   struct iatt *statpost, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3677,7 +3689,7 @@ quota_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(setattr, frame, gf_error, ENOMEM, NULL, NULL, NULL);
     return 0;
 
 off:
@@ -3688,13 +3700,13 @@ off:
 
 int32_t
 quota_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                    struct iatt *statpost, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3752,7 +3764,7 @@ quota_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(fsetattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(fsetattr, frame, gf_error, ENOMEM, NULL, NULL, NULL);
     return 0;
 
 off:
@@ -3763,7 +3775,7 @@ off:
 
 int32_t
 quota_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
@@ -3773,7 +3785,7 @@ quota_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     quota_dentry_t *dentry = NULL;
 
     local = frame->local;
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -3783,7 +3795,7 @@ quota_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                "cannot create quota context in "
                "inode(gfid:%s)",
                uuid_utoa(inode->gfid));
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto unwind;
     }
@@ -3799,7 +3811,7 @@ quota_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    "cannot create a new dentry "
                    "(name:%s) for inode(gfid:%s)",
                    local->loc.name, uuid_utoa(local->loc.inode->gfid));
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = ENOMEM;
             goto unlock;
         }
@@ -3824,7 +3836,7 @@ quota_mknod_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     GF_VALIDATE_OR_GOTO("quota", local, unwind);
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         goto unwind;
     }
@@ -3835,7 +3847,7 @@ quota_mknod_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    QUOTA_STACK_UNWIND(mknod, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                        NULL);
     return 0;
 }
@@ -3887,7 +3899,8 @@ quota_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(mknod, frame, -1, ENOMEM, NULL, NULL, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(mknod, frame, gf_error, ENOMEM, NULL, NULL, NULL, NULL,
+                       NULL);
     return 0;
 
 off:
@@ -3898,13 +3911,13 @@ off:
 
 int
 quota_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int op_ret, int op_errno, dict_t *xdata)
+                   gf_return_t op_ret, int op_errno, dict_t *xdata)
 {
     quota_local_t *local = NULL;
     quota_inode_ctx_t *ctx = NULL;
     int ret = 0;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         goto out;
     }
 
@@ -3938,7 +3951,7 @@ quota_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 {
     quota_priv_t *priv = NULL;
     int op_errno = EINVAL;
-    int op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int64_t hard_lim = -1;
     int64_t soft_lim = -1;
     int64_t object_hard_limit = -1;
@@ -4001,20 +4014,22 @@ off:
 
 int
 quota_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int op_ret, int op_errno, dict_t *xdata)
+                    gf_return_t op_ret, int op_errno, dict_t *xdata)
 {
     quota_inode_ctx_t *ctx = NULL;
     quota_local_t *local = NULL;
+    int ret;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto out;
 
     local = frame->local;
     if (!local)
         goto out;
 
-    op_ret = quota_inode_ctx_get(local->loc.inode, this, &ctx, 1);
-    if ((op_ret < 0) || (ctx == NULL)) {
+    ret = quota_inode_ctx_get(local->loc.inode, this, &ctx, 1);
+    if ((ret < 0) || (ctx == NULL)) {
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto out;
     }
@@ -4038,7 +4053,7 @@ quota_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 int flags, dict_t *xdata)
 {
     quota_priv_t *priv = NULL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = EINVAL;
     quota_local_t *local = NULL;
     int64_t hard_lim = -1;
@@ -4098,7 +4113,7 @@ off:
 
 int
 quota_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     QUOTA_STACK_UNWIND(removexattr, frame, op_ret, op_errno, xdata);
     return 0;
@@ -4134,7 +4149,7 @@ quota_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(removexattr, frame, -1, op_errno, NULL);
+    QUOTA_STACK_UNWIND(removexattr, frame, gf_error, op_errno, NULL);
     return 0;
 
 off:
@@ -4145,7 +4160,7 @@ off:
 
 int
 quota_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     QUOTA_STACK_UNWIND(fremovexattr, frame, op_ret, op_errno, xdata);
     return 0;
@@ -4156,7 +4171,7 @@ quota_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                    const char *name, dict_t *xdata)
 {
     quota_priv_t *priv = NULL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = EINVAL;
 
     priv = this->private;
@@ -4187,7 +4202,7 @@ off:
 
 int32_t
 quota_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct statvfs *buf,
+                 gf_return_t op_ret, int32_t op_errno, struct statvfs *buf,
                  dict_t *xdata)
 {
     inode_t *inode = NULL;
@@ -4202,7 +4217,7 @@ quota_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* This fop will fail mostly in case of client disconnect,
      * which is already logged. Hence, not logging here */
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto unwind;
     /*
      * We should never get here unless quota_statfs (below) sent us a
@@ -4266,7 +4281,7 @@ quota_statfs_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     GF_VALIDATE_OR_GOTO("quota", local, err);
 
-    if (-1 == local->op_ret) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         goto err;
     }
@@ -4275,14 +4290,14 @@ quota_statfs_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
                       FIRST_CHILD(this)->fops->statfs, loc, xdata);
     return 0;
 err:
-    QUOTA_STACK_UNWIND(statfs, frame, -1, op_errno, NULL, NULL);
+    QUOTA_STACK_UNWIND(statfs, frame, gf_error, op_errno, NULL, NULL);
 
     return 0;
 }
 
 int32_t
 quota_statfs_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, inode_t *inode,
+                          gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                           struct iatt *buf, dict_t *xdata,
                           struct iatt *postparent)
 {
@@ -4296,7 +4311,7 @@ quota_statfs_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto resume;
 
     GF_ASSERT(local);
@@ -4341,7 +4356,8 @@ resume:
 
 void
 quota_get_limit_dir_continuation(struct list_head *parents, inode_t *inode,
-                                 int32_t op_ret, int32_t op_errno, void *data)
+                                 gf_return_t op_ret, int32_t op_errno,
+                                 void *data)
 {
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
@@ -4351,8 +4367,8 @@ quota_get_limit_dir_continuation(struct list_head *parents, inode_t *inode,
     frame = data;
     this = THIS;
 
-    if ((op_ret < 0) || list_empty(parents)) {
-        if (op_ret >= 0) {
+    if (IS_ERROR(op_ret) || list_empty(parents)) {
+        if (IS_SUCCESS(op_ret)) {
             gf_msg(this->name, GF_LOG_WARNING, EIO, Q_MSG_ANCESTRY_BUILD_FAILED,
                    "Couldn't build ancestry for inode (gfid:%s). "
                    "Without knowing ancestors till root, quota "
@@ -4362,7 +4378,7 @@ quota_get_limit_dir_continuation(struct list_head *parents, inode_t *inode,
             op_errno = EIO;
         }
 
-        quota_handle_validate_error(frame, -1, op_errno);
+        quota_handle_validate_error(frame, gf_error, op_errno);
         goto out;
     }
 
@@ -4390,7 +4406,7 @@ quota_statfs_continue(call_frame_t *frame, xlator_t *this, inode_t *inode)
 
     ret = quota_validate(frame, local->inode, this, quota_statfs_validate_cbk);
     if (0 > ret)
-        quota_handle_validate_error(frame, -1, -ret);
+        quota_handle_validate_error(frame, gf_error, -ret);
 }
 
 void
@@ -4524,14 +4540,14 @@ off:
     return 0;
 
 err:
-    QUOTA_STACK_UNWIND(statfs, frame, -1, op_errno, NULL, NULL);
+    QUOTA_STACK_UNWIND(statfs, frame, gf_error, op_errno, NULL, NULL);
 
     return 0;
 }
 
 int
 quota_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int op_ret, int op_errno, gf_dirent_t *entries,
+                   gf_return_t op_ret, int op_errno, gf_dirent_t *entries,
                    dict_t *xdata)
 {
     gf_dirent_t *entry = NULL;
@@ -4540,7 +4556,11 @@ quota_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret <= 0)
+    if (IS_ERROR(op_ret))
+        goto unwind;
+
+    /* This means no entries are sent, no need to process anything */
+    if (GET_RET(op_ret) == 0)
         goto unwind;
 
     local = frame->local;
@@ -4625,7 +4645,7 @@ quota_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND_STRICT(readdirp, frame, gf_error, EINVAL, NULL, NULL);
 
     if (new_dict) {
         dict_unref(dict);
@@ -4641,7 +4661,7 @@ off:
 
 int32_t
 quota_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
     int32_t ret = 0;
@@ -4651,7 +4671,7 @@ quota_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
 
-    if ((op_ret < 0) || (local == NULL)) {
+    if (IS_ERROR(op_ret) || (local == NULL)) {
         goto out;
     }
 
@@ -4695,7 +4715,7 @@ quota_fallocate_helper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     GF_VALIDATE_OR_GOTO("quota", local, unwind);
 
-    if (local->op_ret == -1) {
+    if (IS_ERROR(local->op_ret)) {
         op_errno = local->op_errno;
         if (op_errno == ENOENT || op_errno == ESTALE) {
             /* We may get ENOENT/ESTALE in case of below scenario
@@ -4723,7 +4743,7 @@ quota_fallocate_helper(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(fallocate, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -4836,7 +4856,7 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
     return 0;
 
 unwind:
-    QUOTA_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+    QUOTA_STACK_UNWIND(fallocate, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 
 off:

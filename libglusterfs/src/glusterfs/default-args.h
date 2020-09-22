@@ -18,224 +18,229 @@
 #include "glusterfs/xlator.h"
 
 int
-args_lookup_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_lookup_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, inode_t *inode, struct iatt *buf,
                       dict_t *xdata, struct iatt *postparent);
 
 int
-args_stat_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    struct iatt *buf, dict_t *xdata);
+args_stat_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, struct iatt *buf, dict_t *xdata);
 
 int
-args_fstat_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iatt *buf, dict_t *xdata);
+args_fstat_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iatt *buf, dict_t *xdata);
 
 int
-args_truncate_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_truncate_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, struct iatt *prebuf,
                         struct iatt *postbuf, dict_t *xdata);
 
 int
-args_ftruncate_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_ftruncate_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, struct iatt *prebuf,
                          struct iatt *postbuf, dict_t *xdata);
 
 int
-args_access_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_access_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, dict_t *xdata);
 
 int
-args_readlink_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_readlink_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, const char *path, struct iatt *stbuf,
                         dict_t *xdata);
 
 int
-args_mknod_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata);
-
-int
-args_mkdir_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata);
-
-int
-args_unlink_cbk_store(default_args_cbk_t *args, int32_t op_ret,
-                      int32_t op_errno, struct iatt *preparent,
-                      struct iatt *postparent, dict_t *xdata);
-
-int
-args_rmdir_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
+args_mknod_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, inode_t *inode, struct iatt *buf,
                      struct iatt *preparent, struct iatt *postparent,
                      dict_t *xdata);
 
 int
-args_symlink_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_mkdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, inode_t *inode, struct iatt *buf,
+                     struct iatt *preparent, struct iatt *postparent,
+                     dict_t *xdata);
+
+int
+args_unlink_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                      int32_t op_errno, struct iatt *preparent,
+                      struct iatt *postparent, dict_t *xdata);
+
+int
+args_rmdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iatt *preparent,
+                     struct iatt *postparent, dict_t *xdata);
+
+int
+args_symlink_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, inode_t *inode, struct iatt *buf,
                        struct iatt *preparent, struct iatt *postparent,
                        dict_t *xdata);
 
 int
-args_rename_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_rename_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct iatt *buf,
                       struct iatt *preoldparent, struct iatt *postoldparent,
                       struct iatt *prenewparent, struct iatt *postnewparent,
                       dict_t *xdata);
 
 int
-args_link_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata);
+args_link_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, inode_t *inode, struct iatt *buf,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata);
 
 int
-args_create_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_create_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, fd_t *fd, inode_t *inode,
                       struct iatt *buf, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata);
 
 int
-args_open_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    fd_t *fd, dict_t *xdata);
+args_open_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, fd_t *fd, dict_t *xdata);
 
 int
-args_readv_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iovec *vector, int32_t count, struct iatt *stbuf,
-                     struct iobref *iobref, dict_t *xdata);
+args_readv_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iovec *vector, int32_t count,
+                     struct iatt *stbuf, struct iobref *iobref, dict_t *xdata);
 
 int
-args_writev_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_writev_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata);
 
 int
-args_put_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                   struct iatt *postparent, dict_t *xdata);
+args_put_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                   int32_t op_errno, inode_t *inode, struct iatt *buf,
+                   struct iatt *preparent, struct iatt *postparent,
+                   dict_t *xdata);
 
 int
-args_flush_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     dict_t *xdata);
+args_flush_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, dict_t *xdata);
 
 int
-args_fsync_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata);
+args_fsync_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf, dict_t *xdata);
 
 int
-args_opendir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_opendir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, fd_t *fd, dict_t *xdata);
 
 int
-args_fsyncdir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fsyncdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata);
 
 int
-args_statfs_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_statfs_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct statvfs *buf, dict_t *xdata);
 
 int
-args_setxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_setxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata);
 
 int
-args_getxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_getxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *dict, dict_t *xdata);
 
 int
-args_fsetxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fsetxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, dict_t *xdata);
 
 int
-args_fgetxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fgetxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, dict_t *dict, dict_t *xdata);
 
 int
-args_removexattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_removexattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                            int32_t op_errno, dict_t *xdata);
 
 int
-args_fremovexattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fremovexattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                             int32_t op_errno, dict_t *xdata);
 
 int
-args_lk_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                  struct gf_flock *lock, dict_t *xdata);
+args_lk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                  int32_t op_errno, struct gf_flock *lock, dict_t *xdata);
 
 int
-args_inodelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_inodelk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, dict_t *xdata);
 
 int
-args_finodelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_finodelk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata);
 
 int
-args_entrylk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_entrylk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, dict_t *xdata);
 
 int
-args_fentrylk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fentrylk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata);
 
 int
-args_readdirp_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_readdirp_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, gf_dirent_t *entries, dict_t *xdata);
 
 int
-args_readdir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_readdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, gf_dirent_t *entries, dict_t *xdata);
 
 int
-args_rchecksum_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_rchecksum_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, uint32_t weak_checksum,
                          uint8_t *strong_checksum, dict_t *xdata);
 
 int
-args_xattrop_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_xattrop_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, dict_t *xattr, dict_t *xdata);
 
 int
-args_fxattrop_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fxattrop_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xattr, dict_t *xdata);
 
 int
-args_setattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_setattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, struct iatt *statpre,
                        struct iatt *statpost, dict_t *xdata);
 
 int
-args_fsetattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fsetattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, struct iatt *statpre,
                         struct iatt *statpost, dict_t *xdata);
 
 int
-args_fallocate_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fallocate_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, struct iatt *statpre,
                          struct iatt *statpost, dict_t *xdata);
 
 int
-args_discard_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_discard_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, struct iatt *statpre,
                        struct iatt *statpost, dict_t *xdata);
 
 int
-args_zerofill_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_zerofill_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, struct iatt *statpre,
                         struct iatt *statpost, dict_t *xdata);
 
 int
-args_ipc_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                   dict_t *xdata);
+args_ipc_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                   int32_t op_errno, dict_t *xdata);
 
 int
-args_seek_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    off_t offset, dict_t *xdata);
+args_seek_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, off_t offset, dict_t *xdata);
 
 void
-args_lease_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct gf_lease *lease, dict_t *xdata);
+args_lease_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct gf_lease *lease, dict_t *xdata);
 
 int
-args_copy_file_range_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_copy_file_range_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                                int32_t op_errno, struct iatt *stbuf,
                                struct iatt *prebuf_dst,
                                struct iatt *postbuf_dst, dict_t *xdata);
@@ -430,7 +435,7 @@ args_lease_store(default_args_t *args, loc_t *loc, struct gf_lease *lease,
                  dict_t *xdata);
 
 int
-args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_getactivelk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                            int32_t op_errno, lock_migration_info_t *locklist,
                            dict_t *xdata);
 

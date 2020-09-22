@@ -907,15 +907,16 @@ ec_combine_check(ec_cbk_data_t *dst, ec_cbk_data_t *src, ec_combine_f combine)
 {
     ec_fop_data_t *fop = dst->fop;
 
-    if (dst->op_ret != src->op_ret) {
+    if (GET_RET(dst->op_ret) != GET_RET(src->op_ret)) {
         gf_msg_debug(fop->xl->name, 0,
                      "Mismatching return code in "
                      "answers of '%s': %d <-> %d",
-                     ec_fop_name(fop->id), dst->op_ret, src->op_ret);
+                     ec_fop_name(fop->id), GET_RET(dst->op_ret),
+                     GET_RET(src->op_ret));
 
         return 0;
     }
-    if (dst->op_ret < 0) {
+    if (IS_ERROR(dst->op_ret)) {
         if (dst->op_errno != src->op_errno) {
             gf_msg_debug(fop->xl->name, 0,
                          "Mismatching errno code in "
@@ -935,7 +936,7 @@ ec_combine_check(ec_cbk_data_t *dst, ec_cbk_data_t *src, ec_combine_f combine)
         return 0;
     }
 
-    if ((dst->op_ret >= 0) && (combine != NULL)) {
+    if (IS_SUCCESS(dst->op_ret) && (combine != NULL)) {
         return combine(fop, dst, src);
     }
 

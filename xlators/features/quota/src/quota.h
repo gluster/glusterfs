@@ -161,7 +161,7 @@ struct quota_inode_ctx {
 typedef struct quota_inode_ctx quota_inode_ctx_t;
 
 typedef void (*quota_ancestry_built_t)(struct list_head *parents,
-                                       inode_t *inode, int32_t op_ret,
+                                       inode_t *inode, gf_return_t op_ret,
                                        int32_t op_errno, void *data);
 
 typedef void (*quota_fop_continue_t)(call_frame_t *frame);
@@ -175,7 +175,7 @@ struct quota_local {
     loc_t validate_loc;
     int64_t delta;
     int8_t object_delta;
-    int32_t op_ret;
+    gf_return_t op_ret;
     int32_t op_errno;
     int64_t size;
     char just_validated;

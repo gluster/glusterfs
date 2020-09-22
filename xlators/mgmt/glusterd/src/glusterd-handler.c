@@ -5409,7 +5409,7 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
     GD_SYNCOP(rpc, (&args), NULL, gd_syncop_brick_op_cbk, brick_req,
               &gd_brick_prog, brick_req->op, xdr_gd1_mgmt_brick_op_req);
 
-    if (args.op_ret)
+    if (IS_ERROR(args.op_ret))
         goto out;
 
     ret = dict_get_int32n(args.dict, "clientcount", SLEN("clientcount"),

@@ -26,7 +26,7 @@ args_lookup_store(default_args_t *args, loc_t *loc, dict_t *xdata)
 }
 
 int
-args_lookup_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_lookup_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, inode_t *inode, struct iatt *buf,
                       dict_t *xdata, struct iatt *postparent)
 {
@@ -55,12 +55,12 @@ args_stat_store(default_args_t *args, loc_t *loc, dict_t *xdata)
 }
 
 int
-args_stat_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    struct iatt *buf, dict_t *xdata)
+args_stat_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         args->stat = *buf;
     if (xdata)
         args->xdata = dict_ref(xdata);
@@ -80,8 +80,8 @@ args_fstat_store(default_args_t *args, fd_t *fd, dict_t *xdata)
 }
 
 int
-args_fstat_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iatt *buf, dict_t *xdata)
+args_fstat_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -105,7 +105,7 @@ args_truncate_store(default_args_t *args, loc_t *loc, off_t off, dict_t *xdata)
 }
 
 int
-args_truncate_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_truncate_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, struct iatt *prebuf,
                         struct iatt *postbuf, dict_t *xdata)
 {
@@ -135,7 +135,7 @@ args_ftruncate_store(default_args_t *args, fd_t *fd, off_t off, dict_t *xdata)
 }
 
 int
-args_ftruncate_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_ftruncate_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, struct iatt *prebuf,
                          struct iatt *postbuf, dict_t *xdata)
 {
@@ -163,7 +163,7 @@ args_access_store(default_args_t *args, loc_t *loc, int32_t mask, dict_t *xdata)
 }
 
 int
-args_access_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_access_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -187,7 +187,7 @@ args_readlink_store(default_args_t *args, loc_t *loc, size_t size,
 }
 
 int
-args_readlink_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_readlink_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, const char *path, struct iatt *stbuf,
                         dict_t *xdata)
 {
@@ -218,9 +218,10 @@ args_mknod_store(default_args_t *args, loc_t *loc, mode_t mode, dev_t rdev,
 }
 
 int
-args_mknod_cbk_store(default_args_cbk_t *args, int op_ret, int32_t op_errno,
-                     inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata)
+args_mknod_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, inode_t *inode, struct iatt *buf,
+                     struct iatt *preparent, struct iatt *postparent,
+                     dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -253,9 +254,10 @@ args_mkdir_store(default_args_t *args, loc_t *loc, mode_t mode, mode_t umask,
 }
 
 int
-args_mkdir_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata)
+args_mkdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, inode_t *inode, struct iatt *buf,
+                     struct iatt *preparent, struct iatt *postparent,
+                     dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -285,7 +287,7 @@ args_unlink_store(default_args_t *args, loc_t *loc, int xflag, dict_t *xdata)
 }
 
 int
-args_unlink_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_unlink_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
 {
@@ -312,9 +314,9 @@ args_rmdir_store(default_args_t *args, loc_t *loc, int flags, dict_t *xdata)
 }
 
 int
-args_rmdir_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iatt *preparent, struct iatt *postparent,
-                     dict_t *xdata)
+args_rmdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iatt *preparent,
+                     struct iatt *postparent, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -342,7 +344,7 @@ args_symlink_store(default_args_t *args, const char *linkname, loc_t *loc,
 }
 
 int
-args_symlink_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_symlink_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, inode_t *inode, struct iatt *buf,
                        struct iatt *preparent, struct iatt *postparent,
                        dict_t *xdata)
@@ -376,7 +378,7 @@ args_rename_store(default_args_t *args, loc_t *oldloc, loc_t *newloc,
 }
 
 int
-args_rename_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_rename_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct iatt *buf,
                       struct iatt *preoldparent, struct iatt *postoldparent,
                       struct iatt *prenewparent, struct iatt *postnewparent,
@@ -414,9 +416,10 @@ args_link_store(default_args_t *args, loc_t *oldloc, loc_t *newloc,
 }
 
 int
-args_link_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
+args_link_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, inode_t *inode, struct iatt *buf,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -450,7 +453,7 @@ args_create_store(default_args_t *args, loc_t *loc, int32_t flags, mode_t mode,
 }
 
 int
-args_create_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_create_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, fd_t *fd, inode_t *inode,
                       struct iatt *buf, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
@@ -488,8 +491,8 @@ args_open_store(default_args_t *args, loc_t *loc, int32_t flags, fd_t *fd,
 }
 
 int
-args_open_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    fd_t *fd, dict_t *xdata)
+args_open_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -518,13 +521,13 @@ args_readv_store(default_args_t *args, fd_t *fd, size_t size, off_t off,
 }
 
 int
-args_readv_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iovec *vector, int32_t count, struct iatt *stbuf,
-                     struct iobref *iobref, dict_t *xdata)
+args_readv_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iovec *vector, int32_t count,
+                     struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         args->vector = iov_dup(vector, count);
         args->count = count;
         args->stat = *stbuf;
@@ -554,13 +557,13 @@ args_writev_store(default_args_t *args, fd_t *fd, struct iovec *vector,
 }
 
 int
-args_writev_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_writev_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret >= 0)
+    if (IS_SUCCESS(op_ret))
         args->poststat = *postbuf;
     if (prebuf)
         args->prestat = *prebuf;
@@ -591,13 +594,14 @@ args_put_store(default_args_t *args, loc_t *loc, mode_t mode, mode_t umask,
 }
 
 int
-args_put_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct iatt *buf, struct iatt *preparent,
-                   struct iatt *postparent, dict_t *xdata)
+args_put_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                   int32_t op_errno, inode_t *inode, struct iatt *buf,
+                   struct iatt *preparent, struct iatt *postparent,
+                   dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret >= 0)
+    if (IS_SUCCESS(op_ret))
         args->stat = *buf;
     if (inode)
         args->inode = inode_ref(inode);
@@ -621,8 +625,8 @@ args_flush_store(default_args_t *args, fd_t *fd, dict_t *xdata)
 }
 
 int
-args_flush_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     dict_t *xdata)
+args_flush_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -645,8 +649,9 @@ args_fsync_store(default_args_t *args, fd_t *fd, int32_t datasync,
 }
 
 int
-args_fsync_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
+args_fsync_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -673,7 +678,7 @@ args_opendir_store(default_args_t *args, loc_t *loc, fd_t *fd, dict_t *xdata)
 }
 
 int
-args_opendir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_opendir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -698,7 +703,7 @@ args_fsyncdir_store(default_args_t *args, fd_t *fd, int32_t datasync,
     return 0;
 }
 int
-args_fsyncdir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fsyncdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -719,12 +724,12 @@ args_statfs_store(default_args_t *args, loc_t *loc, dict_t *xdata)
 }
 
 int
-args_statfs_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_statfs_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                       int32_t op_errno, struct statvfs *buf, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         args->statvfs = *buf;
     if (xdata)
         args->xdata = dict_ref(xdata);
@@ -747,7 +752,7 @@ args_setxattr_store(default_args_t *args, loc_t *loc, dict_t *dict,
 }
 
 int
-args_setxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_setxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -772,7 +777,7 @@ args_getxattr_store(default_args_t *args, loc_t *loc, const char *name,
 }
 
 int
-args_getxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_getxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -800,7 +805,7 @@ args_fsetxattr_store(default_args_t *args, fd_t *fd, dict_t *dict,
 }
 
 int
-args_fsetxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fsetxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -825,7 +830,7 @@ args_fgetxattr_store(default_args_t *args, fd_t *fd, const char *name,
 }
 
 int
-args_fgetxattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fgetxattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -850,7 +855,7 @@ args_removexattr_store(default_args_t *args, loc_t *loc, const char *name,
 }
 
 int
-args_removexattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_removexattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                            int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -873,7 +878,7 @@ args_fremovexattr_store(default_args_t *args, fd_t *fd, const char *name,
 }
 
 int
-args_fremovexattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fremovexattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                             int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -898,12 +903,12 @@ args_lk_store(default_args_t *args, fd_t *fd, int32_t cmd,
 }
 
 int
-args_lk_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                  struct gf_flock *lock, dict_t *xdata)
+args_lk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                  int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         args->lock = *lock;
     if (xdata)
         args->xdata = dict_ref(xdata);
@@ -927,7 +932,7 @@ args_inodelk_store(default_args_t *args, const char *volume, loc_t *loc,
 }
 
 int
-args_inodelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_inodelk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -957,7 +962,7 @@ args_finodelk_store(default_args_t *args, const char *volume, fd_t *fd,
 }
 
 int
-args_finodelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_finodelk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -990,7 +995,7 @@ args_entrylk_store(default_args_t *args, const char *volume, loc_t *loc,
 }
 
 int
-args_entrylk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_entrylk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -1022,7 +1027,7 @@ args_fentrylk_store(default_args_t *args, const char *volume, fd_t *fd,
 }
 
 int
-args_fentrylk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fentrylk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -1046,14 +1051,14 @@ args_readdirp_store(default_args_t *args, fd_t *fd, size_t size, off_t off,
 }
 
 int
-args_readdirp_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_readdirp_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
     gf_dirent_t *stub_entry = NULL, *entry = NULL;
 
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret > 0) {
+    if (GET_RET(op_ret) > 0) {
         list_for_each_entry(entry, &entries->list, list)
         {
             stub_entry = gf_dirent_for_name(entry->d_name);
@@ -1090,14 +1095,14 @@ args_readdir_store(default_args_t *args, fd_t *fd, size_t size, off_t off,
 }
 
 int
-args_readdir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_readdir_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
     gf_dirent_t *stub_entry = NULL, *entry = NULL;
 
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret > 0) {
+    if (GET_RET(op_ret) > 0) {
         list_for_each_entry(entry, &entries->list, list)
         {
             stub_entry = gf_dirent_for_name(entry->d_name);
@@ -1128,13 +1133,13 @@ args_rchecksum_store(default_args_t *args, fd_t *fd, off_t offset, int32_t len,
 }
 
 int
-args_rchecksum_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_rchecksum_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, uint32_t weak_checksum,
                          uint8_t *strong_checksum, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         args->weak_checksum = weak_checksum;
         args->strong_checksum = gf_memdup(strong_checksum,
                                           SHA256_DIGEST_LENGTH);
@@ -1160,7 +1165,7 @@ args_xattrop_store(default_args_t *args, loc_t *loc, gf_xattrop_flags_t optype,
 }
 
 int
-args_xattrop_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_xattrop_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -1188,7 +1193,7 @@ args_fxattrop_store(default_args_t *args, fd_t *fd, gf_xattrop_flags_t optype,
 }
 
 int
-args_fxattrop_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fxattrop_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
     args->op_ret = op_ret;
@@ -1218,7 +1223,7 @@ args_setattr_store(default_args_t *args, loc_t *loc, struct iatt *stbuf,
 }
 
 int
-args_setattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_setattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, struct iatt *statpre,
                        struct iatt *statpost, dict_t *xdata)
 {
@@ -1251,7 +1256,7 @@ args_fsetattr_store(default_args_t *args, fd_t *fd, struct iatt *stbuf,
     return 0;
 }
 int
-args_fsetattr_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fsetattr_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, struct iatt *statpre,
                         struct iatt *statpost, dict_t *xdata)
 {
@@ -1284,7 +1289,7 @@ args_fallocate_store(default_args_t *args, fd_t *fd, int32_t mode, off_t offset,
 }
 
 int
-args_fallocate_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_fallocate_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                          int32_t op_errno, struct iatt *statpre,
                          struct iatt *statpost, dict_t *xdata)
 {
@@ -1316,7 +1321,7 @@ args_discard_store(default_args_t *args, fd_t *fd, off_t offset, size_t len,
 }
 
 int
-args_discard_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_discard_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                        int32_t op_errno, struct iatt *statpre,
                        struct iatt *statpost, dict_t *xdata)
 {
@@ -1348,7 +1353,7 @@ args_zerofill_store(default_args_t *args, fd_t *fd, off_t offset, off_t len,
 }
 
 int
-args_zerofill_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_zerofill_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                         int32_t op_errno, struct iatt *statpre,
                         struct iatt *statpost, dict_t *xdata)
 {
@@ -1375,8 +1380,8 @@ args_ipc_store(default_args_t *args, int32_t op, dict_t *xdata)
 }
 
 int
-args_ipc_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                   dict_t *xdata)
+args_ipc_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                   int32_t op_errno, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -1402,8 +1407,8 @@ args_seek_store(default_args_t *args, fd_t *fd, off_t offset,
 }
 
 int
-args_seek_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                    off_t offset, dict_t *xdata)
+args_seek_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                    int32_t op_errno, off_t offset, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
@@ -1415,7 +1420,7 @@ args_seek_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
 }
 
 int
-args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_getactivelk_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                            int32_t op_errno, lock_migration_info_t *locklist,
                            dict_t *xdata)
 {
@@ -1425,7 +1430,7 @@ args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
     args->op_ret = op_ret;
     args->op_errno = op_errno;
     /*op_ret needs to carry the number of locks present in the list*/
-    if (op_ret > 0) {
+    if (GET_RET(op_ret) > 0) {
         list_for_each_entry(entry, &locklist->list, list)
         {
             stub_entry = GF_CALLOC(1, sizeof(*stub_entry), gf_common_mt_char);
@@ -1509,12 +1514,12 @@ args_lease_store(default_args_t *args, loc_t *loc, struct gf_lease *lease,
 }
 
 void
-args_lease_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
-                     struct gf_lease *lease, dict_t *xdata)
+args_lease_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
+                     int32_t op_errno, struct gf_lease *lease, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         args->lease = *lease;
     if (xdata)
         args->xdata = dict_ref(xdata);
@@ -1562,14 +1567,14 @@ args_copy_file_range_store(default_args_t *args, fd_t *fd_in, off64_t off_in,
 }
 
 int
-args_copy_file_range_cbk_store(default_args_cbk_t *args, int32_t op_ret,
+args_copy_file_range_cbk_store(default_args_cbk_t *args, gf_return_t op_ret,
                                int32_t op_errno, struct iatt *stbuf,
                                struct iatt *prebuf_dst,
                                struct iatt *postbuf_dst, dict_t *xdata)
 {
     args->op_ret = op_ret;
     args->op_errno = op_errno;
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         if (postbuf_dst)
             args->poststat = *postbuf_dst;
         if (prebuf_dst)

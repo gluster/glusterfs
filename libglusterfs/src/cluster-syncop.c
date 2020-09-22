@@ -98,7 +98,7 @@ cluster_fop_success_fill(default_args_cbk_t *replies, int numsubvols,
     int count = 0;
 
     for (i = 0; i < numsubvols; i++) {
-        if (replies[i].valid && replies[i].op_ret >= 0) {
+        if (replies[i].valid && IS_SUCCESS(replies[i].op_ret)) {
             success[i] = 1;
             count++;
         } else {
@@ -124,7 +124,7 @@ cluster_replies_wipe(default_args_cbk_t *replies, int numsubvols)
 
 int32_t
 cluster_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
     FOP_CBK(lookup, frame, cookie, op_ret, op_errno, inode, buf, xdata,
@@ -134,7 +134,7 @@ cluster_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                  dict_t *xdata)
 {
     FOP_CBK(stat, frame, cookie, op_ret, op_errno, buf, xdata);
@@ -143,7 +143,7 @@ cluster_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     FOP_CBK(truncate, frame, cookie, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -152,7 +152,7 @@ cluster_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
 {
     FOP_CBK(ftruncate, frame, cookie, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -161,7 +161,7 @@ cluster_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                   gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(access, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -169,7 +169,7 @@ cluster_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, const char *path,
+                     gf_return_t op_ret, int32_t op_errno, const char *path,
                      struct iatt *buf, dict_t *xdata)
 {
     FOP_CBK(readlink, frame, cookie, op_ret, op_errno, path, buf, xdata);
@@ -178,7 +178,7 @@ cluster_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
@@ -189,7 +189,7 @@ cluster_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
@@ -200,7 +200,7 @@ cluster_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     FOP_CBK(unlink, frame, cookie, op_ret, op_errno, preparent, postparent,
@@ -210,7 +210,7 @@ cluster_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
     FOP_CBK(rmdir, frame, cookie, op_ret, op_errno, preparent, postparent,
@@ -220,7 +220,7 @@ cluster_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
@@ -231,7 +231,7 @@ cluster_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *preoldparent, struct iatt *postoldparent,
                    struct iatt *prenewparent, struct iatt *postnewparent,
                    dict_t *xdata)
@@ -243,7 +243,7 @@ cluster_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
@@ -254,8 +254,8 @@ cluster_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                   struct iatt *buf, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                   inode_t *inode, struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     FOP_CBK(create, frame, cookie, op_ret, op_errno, fd, inode, buf, preparent,
@@ -265,7 +265,7 @@ cluster_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     FOP_CBK(open, frame, cookie, op_ret, op_errno, fd, xdata);
     return 0;
@@ -273,7 +273,7 @@ cluster_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                  gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
                   int32_t count, struct iatt *stbuf, struct iobref *iobref,
                   dict_t *xdata)
 {
@@ -284,7 +284,7 @@ cluster_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     FOP_CBK(writev, frame, cookie, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -293,7 +293,7 @@ cluster_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_put_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
@@ -304,7 +304,7 @@ cluster_put_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(flush, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -312,7 +312,7 @@ cluster_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     FOP_CBK(fsync, frame, cookie, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -321,7 +321,7 @@ cluster_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                   dict_t *xdata)
 {
     FOP_CBK(fstat, frame, cookie, op_ret, op_errno, buf, xdata);
@@ -330,7 +330,8 @@ cluster_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                    dict_t *xdata)
 {
     FOP_CBK(opendir, frame, cookie, op_ret, op_errno, fd, xdata);
     return 0;
@@ -338,7 +339,7 @@ cluster_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(fsyncdir, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -346,7 +347,7 @@ cluster_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct statvfs *buf,
+                   gf_return_t op_ret, int32_t op_errno, struct statvfs *buf,
                    dict_t *xdata)
 {
     FOP_CBK(statfs, frame, cookie, op_ret, op_errno, buf, xdata);
@@ -355,7 +356,7 @@ cluster_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(setxattr, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -363,7 +364,7 @@ cluster_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(fsetxattr, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -371,7 +372,7 @@ cluster_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *dict,
+                      gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                       dict_t *xdata)
 {
     FOP_CBK(fgetxattr, frame, cookie, op_ret, op_errno, dict, xdata);
@@ -380,7 +381,7 @@ cluster_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
     FOP_CBK(getxattr, frame, cookie, op_ret, op_errno, dict, xdata);
@@ -389,7 +390,7 @@ cluster_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *dict,
+                    gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                     dict_t *xdata)
 {
     FOP_CBK(xattrop, frame, cookie, op_ret, op_errno, dict, xdata);
@@ -398,7 +399,7 @@ cluster_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
     FOP_CBK(fxattrop, frame, cookie, op_ret, op_errno, dict, xdata);
@@ -407,7 +408,7 @@ cluster_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                        gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(removexattr, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -415,7 +416,7 @@ cluster_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(fremovexattr, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -423,7 +424,7 @@ cluster_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
+               gf_return_t op_ret, int32_t op_errno, struct gf_flock *lock,
                dict_t *xdata)
 {
     FOP_CBK(lk, frame, cookie, op_ret, op_errno, lock, xdata);
@@ -432,7 +433,7 @@ cluster_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(inodelk, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -440,7 +441,7 @@ cluster_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(finodelk, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -448,7 +449,7 @@ cluster_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(entrylk, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -456,7 +457,7 @@ cluster_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(fentrylk, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -464,8 +465,9 @@ cluster_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
-                      uint8_t *strong_checksum, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno,
+                      uint32_t weak_checksum, uint8_t *strong_checksum,
+                      dict_t *xdata)
 {
     FOP_CBK(rchecksum, frame, cookie, op_ret, op_errno, weak_checksum,
             strong_checksum, xdata);
@@ -474,7 +476,7 @@ cluster_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                    gf_return_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                     dict_t *xdata)
 {
     FOP_CBK(readdir, frame, cookie, op_ret, op_errno, entries, xdata);
@@ -483,7 +485,7 @@ cluster_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                     gf_return_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                      dict_t *xdata)
 {
     FOP_CBK(readdirp, frame, cookie, op_ret, op_errno, entries, xdata);
@@ -492,7 +494,7 @@ cluster_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                     struct iatt *statpost, dict_t *xdata)
 {
     FOP_CBK(setattr, frame, cookie, op_ret, op_errno, statpre, statpost, xdata);
@@ -501,7 +503,7 @@ cluster_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                      struct iatt *statpost, dict_t *xdata)
 {
     FOP_CBK(fsetattr, frame, cookie, op_ret, op_errno, statpre, statpost,
@@ -511,7 +513,7 @@ cluster_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                      gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                       struct iatt *post, dict_t *xdata)
 {
     FOP_CBK(fallocate, frame, cookie, op_ret, op_errno, pre, post, xdata);
@@ -520,7 +522,7 @@ cluster_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                     struct iatt *post, dict_t *xdata)
 {
     FOP_CBK(discard, frame, cookie, op_ret, op_errno, pre, post, xdata);
@@ -529,7 +531,7 @@ cluster_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                      struct iatt *post, dict_t *xdata)
 {
     FOP_CBK(zerofill, frame, cookie, op_ret, op_errno, pre, post, xdata);
@@ -538,7 +540,7 @@ cluster_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 cluster_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     FOP_CBK(ipc, frame, cookie, op_ret, op_errno, xdata);
     return 0;
@@ -1077,7 +1079,7 @@ cluster_inodelk(xlator_t **subvols, unsigned char *on, int numsubvols,
                &loc, F_SETLK, &flock, NULL);
 
     for (i = 0; i < numsubvols; i++) {
-        if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+        if (IS_ERROR(replies[i].op_ret) && replies[i].op_errno == EAGAIN) {
             cluster_fop_success_fill(replies, numsubvols, locked_on);
             cluster_uninodelk(subvols, locked_on, numsubvols, replies, output,
                               frame, this, dom, inode, off, size);
@@ -1147,7 +1149,7 @@ cluster_entrylk(xlator_t **subvols, unsigned char *on, int numsubvols,
                &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
 
     for (i = 0; i < numsubvols; i++) {
-        if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+        if (IS_ERROR(replies[i].op_ret) && replies[i].op_errno == EAGAIN) {
             cluster_fop_success_fill(replies, numsubvols, locked_on);
             cluster_unentrylk(subvols, locked_on, numsubvols, replies, output,
                               frame, this, dom, inode, name);
@@ -1187,7 +1189,7 @@ cluster_tiebreaker_inodelk(xlator_t **subvols, unsigned char *on,
                &loc, F_SETLK, &flock, NULL);
 
     for (i = 0; i < numsubvols; i++) {
-        if (replies[i].valid && replies[i].op_ret == 0) {
+        if (replies[i].valid && IS_SUCCESS(replies[i].op_ret)) {
             num_success++;
             continue;
         }
@@ -1195,7 +1197,7 @@ cluster_tiebreaker_inodelk(xlator_t **subvols, unsigned char *on,
         /* TODO: If earlier subvols fail with an error other
          * than EAGAIN, we could still have 2 clients competing
          * for the lock*/
-        if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+        if (IS_ERROR(replies[i].op_ret) && replies[i].op_errno == EAGAIN) {
             cluster_fop_success_fill(replies, numsubvols, locked_on);
             cluster_uninodelk(subvols, locked_on, numsubvols, replies, output,
                               frame, this, dom, inode, off, size);
@@ -1235,11 +1237,11 @@ cluster_tiebreaker_entrylk(xlator_t **subvols, unsigned char *on,
                &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
 
     for (i = 0; i < numsubvols; i++) {
-        if (replies[i].valid && replies[i].op_ret == 0) {
+        if (replies[i].valid && IS_SUCCESS(replies[i].op_ret)) {
             num_success++;
             continue;
         }
-        if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+        if (IS_ERROR(replies[i].op_ret) && replies[i].op_errno == EAGAIN) {
             cluster_fop_success_fill(replies, numsubvols, locked_on);
             cluster_unentrylk(subvols, locked_on, numsubvols, replies, output,
                               frame, this, dom, inode, name);

@@ -13,7 +13,7 @@ metadisp_fsync_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t
 metadisp_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     call_stub_t *stub = NULL;
@@ -21,7 +21,7 @@ metadisp_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         stub = cookie;
     }
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 

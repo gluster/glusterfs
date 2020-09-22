@@ -107,7 +107,7 @@ int
 server_post_open(call_frame_t *frame, xlator_t *this, gfs3_open_rsp *rsp,
                  fd_t *fd);
 void
-server_post_readv(gfs3_read_rsp *rsp, struct iatt *stbuf, int op_ret);
+server_post_readv(gfs3_read_rsp *rsp, struct iatt *stbuf, gf_return_t op_ret);
 
 int
 server_post_opendir(call_frame_t *frame, xlator_t *this, gfs3_opendir_rsp *rsp,
@@ -160,7 +160,7 @@ int
 server4_post_open(call_frame_t *frame, xlator_t *this, gfx_open_rsp *rsp,
                   fd_t *fd);
 void
-server4_post_readv(gfx_read_rsp *rsp, struct iatt *stbuf, int op_ret);
+server4_post_readv(gfx_read_rsp *rsp, struct iatt *stbuf, gf_return_t op_ret);
 
 int
 server4_post_create(call_frame_t *frame, gfx_create_rsp *rsp,

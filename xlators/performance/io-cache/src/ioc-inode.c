@@ -73,7 +73,7 @@ ioc_inode_wakeup(call_frame_t *frame, ioc_inode_t *ioc_inode,
     GF_VALIDATE_OR_GOTO(frame->this->name, local, out);
 
     if (ioc_inode == NULL) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EINVAL;
         gf_smsg(frame->this->name, GF_LOG_WARNING, 0, IO_CACHE_MSG_INODE_NULL,
                 NULL);

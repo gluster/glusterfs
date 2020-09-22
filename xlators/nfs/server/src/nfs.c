@@ -469,11 +469,11 @@ unlock:
 
 int32_t
 nfs_start_subvol_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, inode_t *inode,
-                            struct iatt *buf, dict_t *xattr,
+                            gf_return_t op_ret, int32_t op_errno,
+                            inode_t *inode, struct iatt *buf, dict_t *xattr,
                             struct iatt *postparent)
 {
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(GF_NFS, GF_LOG_CRITICAL, op_errno, NFS_MSG_LOOKUP_ROOT_FAIL,
                "Failed to lookup root: %s", strerror(op_errno));
         goto err;

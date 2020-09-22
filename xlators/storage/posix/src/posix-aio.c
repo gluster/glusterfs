@@ -76,7 +76,7 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
         0,
     };
     int _fd = -1;
-    int op_ret = -1;
+    gf_return_t op_ret;
     int op_errno = 0;
     struct iovec iov;
     struct iobref *iobref = NULL;
@@ -94,7 +94,7 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
     offset = paiocb->offset;
 
     if (res < 0) {
-        op_ret = -1;
+        ret = -1;
         op_errno = -res;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_READV_FAILED,
                "readv(async) failed fd=%d,size=%lu,offset=%llu (%d)", _fd,
@@ -105,19 +105,18 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
 
     ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
     if (ret != 0) {
-        op_ret = -1;
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
                "fstat failed on fd=%d", _fd);
         goto out;
     }
 
-    op_ret = res;
+    ret = res;
     op_errno = 0;
 
     iobref = iobref_new();
     if (!iobref) {
-        op_ret = -1;
+        ret = -1;
         op_errno = ENOMEM;
         goto out;
     }
@@ -125,15 +124,16 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
     iobref_add(iobref, iobuf);
 
     iov.iov_base = iobuf_ptr(iobuf);
-    iov.iov_len = op_ret;
+    iov.iov_len = ret;
 
     /* Hack to notify higher layers of EOF. */
     if (!postbuf.ia_size || (offset + iov.iov_len) >= postbuf.ia_size)
         op_errno = ENOENT;
 
-    GF_ATOMIC_ADD(priv->read_value, op_ret);
+    GF_ATOMIC_ADD(priv->read_value, ret);
 
 out:
+    SET_RET(op_ret, ret);
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1, &postbuf,
                         iobref, NULL);
     if (iobuf)
@@ -229,7 +229,7 @@ posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(readv, frame, -1, op_errno, 0, 0, 0, 0, 0);
+    STACK_UNWIND_STRICT(readv, frame, gf_error, op_errno, 0, 0, 0, 0, 0);
     if (iobuf)
         iobuf_unref(iobuf);
 
@@ -254,14 +254,14 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
         0,
     };
     int _fd = -1;
-    int op_ret = -1;
+    gf_return_t op_ret;
     int op_errno = 0;
     int ret = 0;
     struct posix_private *priv = NULL;
     fd_t *fd = NULL;
 
     if (!paiocb) {
-        op_ret = -1;
+        ret = -1;
         op_errno = EINVAL;
         goto out;
     }
@@ -274,7 +274,7 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
     _fd = paiocb->_fd;
 
     if (res < 0) {
-        op_ret = -1;
+        ret = -1;
         op_errno = -res;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_WRITEV_FAILED,
                "writev(async) failed fd=%d,offset=%llu (%d)", _fd,
@@ -285,19 +285,19 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
 
     ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
     if (ret != 0) {
-        op_ret = -1;
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
                "fstat failed on fd=%d", _fd);
         goto out;
     }
 
-    op_ret = res;
+    ret = res;
     op_errno = 0;
 
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
+    GF_ATOMIC_ADD(priv->write_value, ret);
 
 out:
+    SET_RET(op_ret, ret);
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, &prebuf, &postbuf,
                         NULL);
 
@@ -389,7 +389,7 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(writev, frame, -1, op_errno, 0, 0, 0);
+    STACK_UNWIND_STRICT(writev, frame, gf_error, op_errno, 0, 0, 0);
 
     if (paiocb) {
         if (paiocb->iobref)

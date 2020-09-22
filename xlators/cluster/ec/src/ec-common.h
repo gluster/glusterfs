@@ -28,7 +28,7 @@ typedef enum { EC_DATA_TXN, EC_METADATA_TXN } ec_txn_t;
 #define QUORUM_CBK(fn, fop, frame, cookie, this, op_ret, op_errno, params...)  \
     do {                                                                       \
         ec_t *__ec = fop->xl->private;                                         \
-        int32_t __op_ret = 0;                                                  \
+        gf_return_t __op_ret;                                                  \
         int32_t __op_errno = 0;                                                \
         int32_t __success_count = gf_bits_count(fop->good);                    \
                                                                                \
@@ -37,8 +37,8 @@ typedef enum { EC_DATA_TXN, EC_METADATA_TXN } ec_txn_t;
         if (!fop->parent && frame &&                                           \
             (GF_CLIENT_PID_SELF_HEALD != frame->root->pid) &&                  \
             __ec->quorum_count && (__success_count < __ec->quorum_count) &&    \
-            op_ret >= 0) {                                                     \
-            __op_ret = -1;                                                     \
+            IS_SUCCESS(op_ret)) {                                              \
+            __op_ret = gf_error;                                               \
             __op_errno = EIO;                                                  \
             gf_msg(__ec->xl->name, GF_LOG_ERROR, 0,                            \
                    EC_MSG_CHILDS_INSUFFICIENT,                                 \
@@ -214,11 +214,11 @@ ec_get_heal_info(xlator_t *this, loc_t *loc, dict_t **dict);
 
 int32_t
 ec_lock_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata);
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata);
 
 void
 ec_update_fd_status(fd_t *fd, xlator_t *xl, int child_index,
-                    int32_t ret_status);
+                    gf_return_t ret_status);
 gf_boolean_t
 ec_is_entry_healing(ec_fop_data_t *fop);
 void

@@ -156,7 +156,7 @@ shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
                                                                                \
         __ret = dict_set_uint64(dict, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);        \
         if (__ret) {                                                           \
-            local->op_ret = -1;                                                \
+            local->op_ret = gf_error;                                          \
             local->op_errno = ENOMEM;                                          \
             gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,    \
                    "Failed to set dict value:"                                 \
@@ -252,7 +252,7 @@ typedef int32_t (*shard_post_update_size_fop_handler_t)(call_frame_t *frame,
                                                         xlator_t *this);
 
 typedef struct shard_local {
-    int op_ret;
+    gf_return_t op_ret;
     int op_errno;
     uint64_t first_block;
     uint64_t last_block;

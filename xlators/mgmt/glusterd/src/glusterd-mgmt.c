@@ -49,7 +49,7 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     GF_ASSERT(uuid);
 
     if (op_ret) {
-        args->op_ret = op_ret;
+        SET_RET(args->op_ret, op_ret);
         args->op_errno = op_errno;
 
         RCU_READ_LOCK;
@@ -754,7 +754,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
     if (args.errstr)
         *op_errstr = gf_strdup(args.errstr);
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
     *op_errno = args.op_errno;
 
     gf_msg_debug(this->name, 0,
@@ -1108,7 +1108,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PRE_VALIDATION_FAIL,
                "Pre Validation failed on peers");
 
@@ -1116,7 +1116,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
             *op_errstr = gf_strdup(args.errstr);
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
     *op_errno = args.op_errno;
 
     gf_msg_debug(this->name, 0,
@@ -1461,7 +1461,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_OP_FAIL,
                "Brick ops failed on peers");
 
@@ -1469,7 +1469,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
             *op_errstr = gf_strdup(args.errstr);
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 
     gf_msg_debug(this->name, 0,
                  "Sent brick op req for %s "
@@ -1745,7 +1745,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COMMIT_OP_FAIL,
                "Commit failed on peers");
 
@@ -1753,7 +1753,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
             *op_errstr = gf_strdup(args.errstr);
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
     *op_errno = args.op_errno;
 
     gf_msg_debug(this->name, 0,
@@ -2013,7 +2013,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
                "Post commit failed on peers");
 
@@ -2021,7 +2021,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
             *op_errstr = gf_strdup(args.errstr);
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
     *op_errno = args.op_errno;
 
     gf_msg_debug(this->name, 0,
@@ -2242,7 +2242,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_VALIDATION_FAIL,
                "Post Validation failed on peers");
 
@@ -2250,7 +2250,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
             *op_errstr = gf_strdup(args.errstr);
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 
     gf_msg_debug(this->name, 0,
                  "Sent post valaidation req for %s "
@@ -2431,7 +2431,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
 
     gd_synctask_barrier_wait((&args), peer_cnt);
 
-    if (args.op_ret) {
+    if (IS_ERROR(args.op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_UNLOCK_FAIL,
                "Unlock failed on peers");
 
@@ -2439,7 +2439,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
             *op_errstr = gf_strdup(args.errstr);
     }
 
-    ret = args.op_ret;
+    ret = GET_RET(args.op_ret);
 
     gf_msg_debug(this->name, 0,
                  "Sent unlock op req for %s "

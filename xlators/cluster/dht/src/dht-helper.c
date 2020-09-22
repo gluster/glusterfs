@@ -397,64 +397,71 @@ handle_err:
 
     switch (fop) {
         case GF_FOP_WRITE:
-            DHT_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_FLUSH:
-            DHT_STACK_UNWIND(flush, frame, -1, op_errno, NULL);
-            break;
-
-        case GF_FOP_FSETATTR:
-            DHT_STACK_UNWIND(fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_ZEROFILL:
-            DHT_STACK_UNWIND(zerofill, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_DISCARD:
-            DHT_STACK_UNWIND(discard, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_FALLOCATE:
-            DHT_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_FTRUNCATE:
-            DHT_STACK_UNWIND(ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_FSYNC:
-            DHT_STACK_UNWIND(fsync, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_READ:
-            DHT_STACK_UNWIND(readv, frame, -1, op_errno, NULL, 0, NULL, NULL,
+            DHT_STACK_UNWIND(writev, frame, gf_error, op_errno, NULL, NULL,
                              NULL);
             break;
 
+        case GF_FOP_FLUSH:
+            DHT_STACK_UNWIND(flush, frame, gf_error, op_errno, NULL);
+            break;
+
+        case GF_FOP_FSETATTR:
+            DHT_STACK_UNWIND(fsetattr, frame, gf_error, op_errno, NULL, NULL,
+                             NULL);
+            break;
+
+        case GF_FOP_ZEROFILL:
+            DHT_STACK_UNWIND(zerofill, frame, gf_error, op_errno, NULL, NULL,
+                             NULL);
+            break;
+
+        case GF_FOP_DISCARD:
+            DHT_STACK_UNWIND(discard, frame, gf_error, op_errno, NULL, NULL,
+                             NULL);
+            break;
+
+        case GF_FOP_FALLOCATE:
+            DHT_STACK_UNWIND(fallocate, frame, gf_error, op_errno, NULL, NULL,
+                             NULL);
+            break;
+
+        case GF_FOP_FTRUNCATE:
+            DHT_STACK_UNWIND(ftruncate, frame, gf_error, op_errno, NULL, NULL,
+                             NULL);
+            break;
+
+        case GF_FOP_FSYNC:
+            DHT_STACK_UNWIND(fsync, frame, gf_error, op_errno, NULL, NULL,
+                             NULL);
+            break;
+
+        case GF_FOP_READ:
+            DHT_STACK_UNWIND(readv, frame, gf_error, op_errno, NULL, 0, NULL,
+                             NULL, NULL);
+            break;
+
         case GF_FOP_FSTAT:
-            DHT_STACK_UNWIND(fstat, frame, -1, op_errno, NULL, NULL);
+            DHT_STACK_UNWIND(fstat, frame, gf_error, op_errno, NULL, NULL);
             break;
 
         case GF_FOP_FSETXATTR:
-            DHT_STACK_UNWIND(fsetxattr, frame, -1, op_errno, NULL);
+            DHT_STACK_UNWIND(fsetxattr, frame, gf_error, op_errno, NULL);
             break;
 
         case GF_FOP_FREMOVEXATTR:
-            DHT_STACK_UNWIND(fremovexattr, frame, -1, op_errno, NULL);
+            DHT_STACK_UNWIND(fremovexattr, frame, gf_error, op_errno, NULL);
             break;
 
         case GF_FOP_FXATTROP:
-            DHT_STACK_UNWIND(fxattrop, frame, -1, op_errno, NULL, NULL);
+            DHT_STACK_UNWIND(fxattrop, frame, gf_error, op_errno, NULL, NULL);
             break;
 
         case GF_FOP_FGETXATTR:
-            DHT_STACK_UNWIND(fgetxattr, frame, -1, op_errno, NULL, NULL);
+            DHT_STACK_UNWIND(fgetxattr, frame, gf_error, op_errno, NULL, NULL);
             break;
 
         case GF_FOP_FINODELK:
-            DHT_STACK_UNWIND(finodelk, frame, -1, op_errno, NULL);
+            DHT_STACK_UNWIND(finodelk, frame, gf_error, op_errno, NULL);
             break;
 
         default:
@@ -830,7 +837,7 @@ dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
             inode = fd->inode;
     }
 
-    local->op_ret = -1;
+    local->op_ret = gf_error;
     local->op_errno = EUCLEAN;
     local->fop = fop;
 
@@ -1238,14 +1245,14 @@ dht_init_subvolumes(xlator_t *this, dht_conf_t *conf)
 */
 
 static int
-dht_migration_complete_check_done(int op_ret, call_frame_t *frame, void *data)
+dht_migration_complete_check_done(int ret, call_frame_t *frame, void *data)
 {
     dht_local_t *local = NULL;
     xlator_t *subvol = NULL;
 
     local = frame->local;
 
-    if (op_ret != 0)
+    if (ret != 0)
         goto out;
 
     if (local->cached_subvol == NULL) {
@@ -1256,7 +1263,7 @@ dht_migration_complete_check_done(int op_ret, call_frame_t *frame, void *data)
     subvol = local->cached_subvol;
 
 out:
-    local->rebalance.target_op_fn(THIS, subvol, frame, op_ret);
+    local->rebalance.target_op_fn(THIS, subvol, frame, ret);
 
     return 0;
 }
@@ -1516,7 +1523,7 @@ dht_rebalance_complete_check(xlator_t *this, call_frame_t *frame)
   1 : File is being migrated but not by this DHT layer.
 */
 static int
-dht_inprogress_check_done(int op_ret, call_frame_t *frame, void *data)
+dht_inprogress_check_done(int ret, call_frame_t *frame, void *data)
 {
     dht_local_t *local = NULL;
     xlator_t *dst_subvol = NULL, *src_subvol = NULL;
@@ -1524,7 +1531,7 @@ dht_inprogress_check_done(int op_ret, call_frame_t *frame, void *data)
 
     local = frame->local;
 
-    if (op_ret != 0)
+    if (ret != 0)
         goto out;
 
     inode = local->loc.inode ? local->loc.inode : local->fd->inode;
@@ -1539,7 +1546,7 @@ dht_inprogress_check_done(int op_ret, call_frame_t *frame, void *data)
     }
 
 out:
-    local->rebalance.target_op_fn(THIS, dst_subvol, frame, op_ret);
+    local->rebalance.target_op_fn(THIS, dst_subvol, frame, ret);
 
     return 0;
 }
@@ -2077,13 +2084,13 @@ out:
 }
 
 int
-dht_heal_full_path_done(int op_ret, call_frame_t *heal_frame, void *data)
+dht_heal_full_path_done(int ret, call_frame_t *heal_frame, void *data)
 {
     call_frame_t *main_frame = NULL;
     dht_local_t *local = NULL;
     xlator_t *this = NULL;
-    int ret = -1;
     int op_errno = 0;
+    gf_return_t op_ret;
 
     local = heal_frame->local;
     main_frame = local->main_frame;
@@ -2101,7 +2108,8 @@ dht_heal_full_path_done(int op_ret, call_frame_t *heal_frame, void *data)
         }
     }
 
-    DHT_STACK_UNWIND(lookup, main_frame, 0, 0, local->inode, &local->stbuf,
+    op_ret = gf_success;
+    DHT_STACK_UNWIND(lookup, main_frame, op_ret, 0, local->inode, &local->stbuf,
                      local->xattr, &local->postparent);
 
     DHT_STACK_DESTROY(heal_frame);
@@ -2202,7 +2210,7 @@ out:
 }
 
 int
-dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
+dht_lk_inode_unref(call_frame_t *frame, gf_return_t op_ret)
 {
     int ret = -1;
     dht_local_t *local = NULL;
@@ -2230,7 +2238,7 @@ dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
     switch (local->lock_type) {
         case F_RDLCK:
         case F_WRLCK:
-            if (op_ret) {
+            if (IS_ERROR(op_ret)) {
                 gf_uuid_unparse(inode->gfid, gfid);
                 gf_msg_debug(this->name, 0, "lock request failed for gfid %s",
                              gfid);
@@ -2240,7 +2248,7 @@ dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
             break;
 
         case F_UNLCK:
-            if (!op_ret) {
+            if (IS_SUCCESS(op_ret)) {
                 inode_unref(inode);
             } else {
                 gf_uuid_unparse(inode->gfid, gfid);

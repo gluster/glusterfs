@@ -209,7 +209,7 @@ afr_selfheal_extract_xattr(xlator_t *this, struct afr_reply *replies,
 
 int
 afr_sh_generic_fop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, struct iatt *pre,
+                       gf_return_t op_ret, int op_errno, struct iatt *pre,
                        struct iatt *post, dict_t *xdata);
 
 int
@@ -242,7 +242,7 @@ afr_inode_find(xlator_t *this, uuid_t gfid);
 
 int
 afr_selfheal_discover_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int op_ret, int op_errno, inode_t *inode,
+                          gf_return_t op_ret, int op_errno, inode_t *inode,
                           struct iatt *buf, dict_t *xdata, struct iatt *parbuf);
 void
 afr_reply_copy(struct afr_reply *dst, struct afr_reply *src);
@@ -334,7 +334,7 @@ afr_selfheal_do(call_frame_t *frame, xlator_t *this, uuid_t gfid);
 
 int
 afr_selfheal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, dict_t *xdata);
+                      gf_return_t op_ret, int op_errno, dict_t *xdata);
 
 int
 afr_locked_fill(call_frame_t *frame, xlator_t *this, unsigned char *locked_on);

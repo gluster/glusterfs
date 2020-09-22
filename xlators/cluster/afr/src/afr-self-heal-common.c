@@ -37,7 +37,8 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
 
     priv = this->private;
     wind_on = alloca0(priv->child_count);
-    if (source >= 0 && replies[source].valid && replies[source].op_ret == 0)
+    if (source >= 0 && replies[source].valid &&
+        IS_SUCCESS(replies[source].op_ret))
         ia_type = replies[source].poststat.ia_type;
 
     if (ia_type != IA_INVAL)
@@ -55,7 +56,7 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
     for (i = 0; i < priv->child_count; i++) {
         if (source == -1) {
             /* case (a) above. */
-            if (replies[i].valid && replies[i].op_ret == 0 &&
+            if (replies[i].valid && IS_SUCCESS(replies[i].op_ret) &&
                 replies[i].poststat.ia_type != IA_INVAL) {
                 ia_type = replies[i].poststat.ia_type;
                 break;
@@ -64,7 +65,8 @@ afr_lookup_and_heal_gfid(xlator_t *this, inode_t *parent, const char *name,
             /* case (b) above. */
             if (i == source)
                 continue;
-            if (sources[i] && replies[i].valid && replies[i].op_ret == 0 &&
+            if (sources[i] && replies[i].valid &&
+                IS_SUCCESS(replies[i].op_ret) &&
                 replies[i].poststat.ia_type != IA_INVAL) {
                 ia_type = replies[i].poststat.ia_type;
                 break;
@@ -77,7 +79,7 @@ heal:
      * with the inode and update those replies.
      */
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
 
         if (gf_uuid_is_null(gfid) &&
@@ -132,7 +134,7 @@ heal:
         for (i = 0; i < priv->child_count; i++) {
             if (!wind_on[i])
                 continue;
-            if (replies[i].valid && replies[i].op_ret == 0 &&
+            if (replies[i].valid && IS_SUCCESS(replies[i].op_ret) &&
                 !gf_uuid_is_null(replies[i].poststat.ia_gfid)) {
                 *gfid_idx = i;
                 break;
@@ -161,7 +163,7 @@ afr_gfid_sbrain_source_from_src_brick(xlator_t *this, struct afr_reply *replies,
 
     priv = this->private;
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret == -1)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
         if (strcmp(priv->children[i]->name, src_brick) == 0)
             return i;
@@ -178,7 +180,7 @@ afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
     int votes;
 
     for (i = 0; i < child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret == -1)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
 
         votes = 1;
@@ -203,7 +205,7 @@ afr_gfid_sbrain_source_from_bigger_file(struct afr_reply *replies,
     uint64_t size = 0;
 
     for (i = 0; i < child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret == -1)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
         if (size < replies[i].poststat.ia_size) {
             src = i;
@@ -225,7 +227,7 @@ afr_gfid_sbrain_source_from_latest_mtime(struct afr_reply *replies,
     uint32_t mtime_nsec = 0;
 
     for (i = 0; i < child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
         if ((mtime < replies[i].poststat.ia_mtime) ||
             ((mtime == replies[i].poststat.ia_mtime) &&
@@ -407,7 +409,8 @@ out:
 
 int
 afr_selfheal_post_op_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+                         gf_return_t op_ret, int op_errno, dict_t *xattr,
+                         dict_t *xdata)
 {
     afr_local_t *local = NULL;
 
@@ -437,18 +440,18 @@ afr_selfheal_post_op(call_frame_t *frame, xlator_t *this, inode_t *inode,
     loc.inode = inode_ref(inode);
     gf_uuid_copy(loc.gfid, inode->gfid);
 
-    local->op_ret = 0;
+    local->op_ret = gf_success;
 
     STACK_WIND(frame, afr_selfheal_post_op_cbk, priv->children[subvol],
                priv->children[subvol]->fops->xattrop, &loc,
                GF_XATTROP_ADD_ARRAY, xattr, xdata);
 
     syncbarrier_wait(&local->barrier, 1);
-    if (local->op_ret < 0)
+    if (IS_ERROR(local->op_ret))
         ret = -local->op_errno;
 
     loc_wipe(&loc);
-    local->op_ret = 0;
+    local->op_ret = gf_success;
 
     return ret;
 }
@@ -476,7 +479,7 @@ afr_check_stale_error(struct afr_reply *replies, afr_private_t *priv)
 
 int
 afr_sh_generic_fop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, struct iatt *pre,
+                       gf_return_t op_ret, int op_errno, struct iatt *pre,
                        struct iatt *post, dict_t *xdata)
 {
     int i = (long)cookie;
@@ -797,7 +800,7 @@ afr_selfheal_extract_xattr(xlator_t *this, struct afr_reply *replies,
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
 
         if (!replies[i].xdata)
@@ -831,7 +834,7 @@ afr_mark_largest_file_as_source(xlator_t *this, unsigned char *sources,
     for (i = 0; i < priv->child_count; i++) {
         if (!sources[i])
             continue;
-        if (!replies[i].valid || replies[i].op_ret != 0) {
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret)) {
             sources[i] = 0;
             continue;
         }
@@ -862,7 +865,7 @@ afr_mark_latest_mtime_file_as_source(xlator_t *this, unsigned char *sources,
     for (i = 0; i < priv->child_count; i++) {
         if (!sources[i])
             continue;
-        if (!replies[i].valid || replies[i].op_ret != 0) {
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret)) {
             sources[i] = 0;
             continue;
         }
@@ -932,7 +935,7 @@ afr_can_decide_split_brain_source_sinks(struct afr_reply *replies,
     int i = 0;
 
     for (i = 0; i < child_count; i++)
-        if (replies[i].valid != 1 || replies[i].op_ret != 0)
+        if (replies[i].valid != 1 || IS_ERROR(replies[i].op_ret))
             return _gf_false;
 
     return _gf_true;
@@ -1315,7 +1318,7 @@ afr_is_file_empty_on_all_children(afr_private_t *priv,
     int i = 0;
 
     for (i = 0; i < priv->child_count; i++) {
-        if ((!replies[i].valid) || (replies[i].op_ret != 0) ||
+        if ((!replies[i].valid) || IS_ERROR(replies[i].op_ret) ||
             (replies[i].poststat.ia_size != 0))
             return _gf_false;
     }
@@ -1746,7 +1749,7 @@ afr_log_selfheal(uuid_t gfid, xlator_t *this, int ret, char *type, int source,
 
 int
 afr_selfheal_discover_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int op_ret, int op_errno, inode_t *inode,
+                          gf_return_t op_ret, int op_errno, inode_t *inode,
                           struct iatt *buf, dict_t *xdata, struct iatt *parbuf)
 {
     afr_local_t *local = NULL;
@@ -1924,14 +1927,14 @@ afr_success_count(struct afr_reply *replies, unsigned int count)
     unsigned int success = 0;
 
     for (i = 0; i < count; i++)
-        if (replies[i].valid && replies[i].op_ret == 0)
+        if (replies[i].valid && IS_SUCCESS(replies[i].op_ret))
             success++;
     return success;
 }
 
 int
 afr_selfheal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int op_errno, dict_t *xdata)
 {
     afr_local_t *local = NULL;
     int i = 0;
@@ -1960,7 +1963,7 @@ afr_locked_fill(call_frame_t *frame, xlator_t *this, unsigned char *locked_on)
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (local->replies[i].valid && local->replies[i].op_ret == 0) {
+        if (local->replies[i].valid && IS_SUCCESS(local->replies[i].op_ret)) {
             locked_on[i] = 1;
             count++;
         } else {
@@ -2027,7 +2030,7 @@ afr_selfheal_inodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
               NULL);
 
     for (i = 0; i < priv->child_count; i++) {
-        if (local->replies[i].op_ret == -1 &&
+        if (IS_ERROR(local->replies[i].op_ret) &&
             local->replies[i].op_errno == EAGAIN) {
             afr_locked_fill(frame, this, locked_on);
             afr_selfheal_uninodelk(frame, this, inode, dom, off, size,
@@ -2053,9 +2056,10 @@ afr_get_lock_and_eagain_counts(afr_private_t *priv, struct afr_reply *replies,
     for (i = 0; i < priv->child_count; i++) {
         if (!replies[i].valid)
             continue;
-        if (replies[i].op_ret == 0) {
+        if (IS_SUCCESS(replies[i].op_ret)) {
             (*lock_count)++;
-        } else if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+        } else if (IS_ERROR(replies[i].op_ret) &&
+                   replies[i].op_errno == EAGAIN) {
             (*eagain_count)++;
         }
     }
@@ -2175,7 +2179,7 @@ afr_selfheal_entrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
               ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
 
     for (i = 0; i < priv->child_count; i++) {
-        if (local->replies[i].op_ret == -1 &&
+        if (IS_ERROR(local->replies[i].op_ret) &&
             local->replies[i].op_errno == EAGAIN) {
             afr_locked_fill(frame, this, locked_on);
             afr_selfheal_unentrylk(frame, this, inode, dom, name, locked_on,
@@ -2310,7 +2314,7 @@ afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
     for (i = 0; i < priv->child_count; i++) {
         if (!replies[i].valid)
             continue;
-        if (replies[i].op_ret == -1)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         /* The data segment of the changelog can be non-zero to indicate
@@ -2753,7 +2757,7 @@ out:
 
 static int
 afr_anon_inode_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                          struct iatt *buf, struct iatt *preparent,
                          struct iatt *postparent, dict_t *xdata)
 {
@@ -2763,8 +2767,8 @@ afr_anon_inode_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local->replies[i].valid = 1;
     local->replies[i].op_ret = op_ret;
     local->replies[i].op_errno = op_errno;
-    if (op_ret == 0) {
-        local->op_ret = 0;
+    if (IS_SUCCESS(op_ret)) {
+        local->op_ret = gf_success;
         local->replies[i].poststat = *buf;
         local->replies[i].preparent = *preparent;
         local->replies[i].postparent = *postparent;
@@ -2864,10 +2868,10 @@ afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode)
             continue;
         }
 
-        if (local->replies[i].op_ret == 0) {
+        if (IS_SUCCESS(local->replies[i].op_ret)) {
             priv->anon_inode[i] = 1;
             iatt = local->replies[i].poststat;
-        } else if (local->replies[i].op_ret < 0 &&
+        } else if (IS_ERROR(local->replies[i].op_ret) &&
                    local->replies[i].op_errno == EEXIST) {
             lookup_on[i] = 1;
         } else if (i == child) {
@@ -2887,7 +2891,7 @@ lookup:
             continue;
         }
 
-        if (local->replies[i].op_ret == 0) {
+        if (IS_SUCCESS(local->replies[i].op_ret)) {
             if (gf_uuid_compare(anon_inode_gfid,
                                 local->replies[i].poststat.ia_gfid) == 0) {
                 priv->anon_inode[i] = 1;

@@ -551,13 +551,13 @@ unwind_granted_inodes(xlator_t *this, pl_inode_t *pl_inode,
 {
     pl_inode_lock_t *lock;
     pl_inode_lock_t *tmp;
-    int32_t op_ret;
+    gf_return_t op_ret;
     int32_t op_errno;
 
     list_for_each_entry_safe(lock, tmp, granted, blocked_locks)
     {
         if (lock->status == 0) {
-            op_ret = 0;
+            op_ret = gf_success;
             op_errno = 0;
             gf_log(this->name, GF_LOG_TRACE,
                    "%s (pid=%d) (lk-owner=%s) %" PRId64 " - %" PRId64
@@ -566,7 +566,7 @@ unwind_granted_inodes(xlator_t *this, pl_inode_t *pl_inode,
                    lock->client_pid, lkowner_utoa(&lock->owner),
                    lock->user_flock.l_start, lock->user_flock.l_len);
         } else {
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = -lock->status;
         }
         pl_trace_out(this, lock->frame, NULL, NULL, F_SETLKW, &lock->user_flock,
@@ -709,7 +709,7 @@ pl_inodelk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
             list_del_init(&l->client_list);
 
             if (l->frame)
-                STACK_UNWIND_STRICT(inodelk, l->frame, -1, EAGAIN, NULL);
+                STACK_UNWIND_STRICT(inodelk, l->frame, gf_error, EAGAIN, NULL);
             list_add_tail(&l->client_list, &released);
         }
     }
@@ -975,7 +975,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
                   inode_t *inode, int32_t cmd, struct gf_flock *flock,
                   loc_t *loc, fd_t *fd, dict_t *xdata)
 {
-    int32_t op_ret = -1;
+    gf_return_t op_ret = {-1};
     int32_t op_errno = 0;
     int ret = -1;
     GF_UNUSED int dict_ret = -1;
@@ -1034,7 +1034,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
                              frame, this, dom->domain, conn_id, &op_errno);
 
     if (!reqlock) {
-        op_ret = -1;
+        op_ret = gf_error;
         goto unwind;
     }
 
@@ -1073,7 +1073,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
             goto unwind;
     }
 
-    op_ret = 0;
+    op_ret = gf_success;
 
 unwind:
     if (flock != NULL)

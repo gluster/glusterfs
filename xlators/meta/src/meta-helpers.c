@@ -241,7 +241,7 @@ meta_inode_discover(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     meta_iatt_fill(&iatt, loc->inode, loc->inode->ia_type);
 
-    META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
+    META_STACK_UNWIND(lookup, frame, gf_success, 0, loc->inode, &iatt, xdata,
                       &postparent);
     return 0;
 }

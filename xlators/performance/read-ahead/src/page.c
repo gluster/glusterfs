@@ -85,7 +85,7 @@ ra_wait_on_page(ra_page_t *page, call_frame_t *frame)
 
     waitq = GF_CALLOC(1, sizeof(*waitq), gf_ra_mt_ra_waitq_t);
     if (!waitq) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         goto out;
     }
@@ -123,9 +123,10 @@ ra_waitq_return(ra_waitq_t *waitq)
 }
 
 int
-ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct iovec *vector, int32_t count,
-             struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
+             int32_t count, struct iatt *stbuf, struct iobref *iobref,
+             dict_t *xdata)
 {
     ra_local_t *local = NULL;
     off_t pending_offset = 0;
@@ -150,14 +151,14 @@ ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         gf_msg(this->name, GF_LOG_WARNING, EBADF,
                READ_AHEAD_MSG_FD_CONTEXT_NOT_SET,
                "read-ahead context not set in fd (%p)", fd);
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EBADF;
         goto out;
     }
 
     ra_file_lock(file);
     {
-        if (op_ret >= 0)
+        if (IS_SUCCESS(op_ret))
             file->stbuf = *stbuf;
 
         page = ra_page_get(file, pending_offset);
@@ -191,11 +192,11 @@ ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
          * we're trying to indicate.
          */
         if (page->dirty && page->poisoned) {
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = ECANCELED;
         }
 
-        if (op_ret < 0) {
+        if (IS_ERROR(op_ret)) {
             waitq = ra_page_error(page, op_ret, op_errno);
             goto unlock;
         }
@@ -207,7 +208,7 @@ ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         page->vector = iov_dup(vector, count);
         if (page->vector == NULL) {
-            waitq = ra_page_error(page, -1, ENOMEM);
+            waitq = ra_page_error(page, gf_error, ENOMEM);
             goto unlock;
         }
 
@@ -249,14 +250,15 @@ ra_page_fault(ra_file_t *file, call_frame_t *frame, off_t offset)
     ra_local_t *fault_local = NULL;
     ra_page_t *page = NULL;
     ra_waitq_t *waitq = NULL;
-    int32_t op_ret = -1, op_errno = -1;
+    gf_return_t op_ret = gf_error;
+    int op_errno = -1;
 
     GF_VALIDATE_OR_GOTO("read-ahead", frame, out);
     GF_VALIDATE_OR_GOTO(frame->this->name, file, out);
 
     fault_frame = copy_frame(frame);
     if (fault_frame == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto err;
     }
@@ -264,7 +266,7 @@ ra_page_fault(ra_file_t *file, call_frame_t *frame, off_t offset)
     fault_local = mem_get0(THIS->local_pool);
     if (fault_local == NULL) {
         STACK_DESTROY(fault_frame->root);
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto err;
     }
@@ -314,7 +316,7 @@ ra_frame_fill(ra_page_t *page, call_frame_t *frame)
     local = frame->local;
     fill = &local->fill;
 
-    if (local->op_ret != -1 && page->size) {
+    if (IS_SUCCESS(local->op_ret) && page->size) {
         if (local->offset > page->offset)
             src_offset = local->offset - page->offset;
         else
@@ -338,7 +340,7 @@ ra_frame_fill(ra_page_t *page, call_frame_t *frame)
 
         new = GF_CALLOC(1, sizeof(*new), gf_ra_mt_ra_fill_t);
         if (new == NULL) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = ENOMEM;
             goto out;
         }
@@ -349,7 +351,7 @@ ra_frame_fill(ra_page_t *page, call_frame_t *frame)
         new->count = iov_subset(page->vector, page->count, src_offset,
                                 copy_size, &new->vector, 0);
         if (new->count < 0) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = ENOMEM;
             iobref_unref(new->iobref);
             GF_FREE(new);
@@ -361,7 +363,7 @@ ra_frame_fill(ra_page_t *page, call_frame_t *frame)
         new->next->prev = new;
         new->prev->next = new;
 
-        local->op_ret += copy_size;
+        SET_RET(local->op_ret, (GET_RET(local->op_ret) + copy_size));
     }
 
 out:
@@ -389,7 +391,7 @@ ra_frame_unwind(call_frame_t *frame)
 
     iobref = iobref_new();
     if (iobref == NULL) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
     }
 
@@ -402,7 +404,7 @@ ra_frame_unwind(call_frame_t *frame)
 
     vector = GF_CALLOC(count, sizeof(*vector), gf_ra_mt_iovec);
     if (vector == NULL) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         iobref_unref(iobref);
         iobref = NULL;
@@ -419,7 +421,7 @@ ra_frame_unwind(call_frame_t *frame)
 
             copied += (fill->count * sizeof(*vector));
             if (iobref_merge(iobref, fill->iobref)) {
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 local->op_errno = ENOMEM;
                 iobref_unref(iobref);
                 iobref = NULL;
@@ -541,7 +543,7 @@ out:
  *
  */
 ra_waitq_t *
-ra_page_error(ra_page_t *page, int32_t op_ret, int32_t op_errno)
+ra_page_error(ra_page_t *page, gf_return_t op_ret, int32_t op_errno)
 {
     ra_waitq_t *waitq = NULL;
     ra_waitq_t *trav = NULL;
@@ -557,7 +559,7 @@ ra_page_error(ra_page_t *page, int32_t op_ret, int32_t op_errno)
         frame = trav->data;
 
         local = frame->local;
-        if (local->op_ret != -1) {
+        if (IS_SUCCESS(local->op_ret)) {
             local->op_ret = op_ret;
             local->op_errno = op_errno;
         }
@@ -593,7 +595,7 @@ ra_file_destroy(ra_file_t *file)
 
     trav = file->pages.next;
     while (trav != &file->pages) {
-        ra_page_error(trav, -1, EINVAL);
+        ra_page_error(trav, gf_error, EINVAL);
         trav = file->pages.next;
     }
 

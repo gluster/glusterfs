@@ -56,7 +56,7 @@ ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
 
     list_for_each_entry(ans, &fop->cbk_list, list)
     {
-        if (ans->op_ret >= 0) {
+        if (IS_SUCCESS(ans->op_ret)) {
             if (locked != 0) {
                 error = EIO;
             }
@@ -105,7 +105,7 @@ ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
              * to take the lock. If we have quorum on some answer, we return
              * it. Otherwise we check if ESTALE answers allow us to reach
              * quorum. If so, we return ESTALE. */
-            if (fop->answer && fop->answer->op_ret < 0) {
+            if (fop->answer && IS_ERROR(fop->answer->op_ret)) {
                 error = fop->answer->op_errno;
             } else if ((good + eagain + estale) >= ec->fragments) {
                 error = ESTALE;
@@ -122,9 +122,9 @@ ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
 
 int32_t
 ec_lock_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno, EC_MSG_UNLOCK_FAILED,
                "Failed to unlock an entry/inode");
     }
@@ -134,10 +134,10 @@ ec_lock_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 ec_lock_lk_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
-                    dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno,
+                    struct gf_flock *flock, dict_t *xdata)
 {
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno, EC_MSG_LK_UNLOCK_FAILED,
                "Failed to unlock an lk");
     }
@@ -149,7 +149,7 @@ ec_lock_lk_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 ec_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, dict_t *xdata)
+               gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
     ec_cbk_data_t *cbk = NULL;
@@ -163,7 +163,7 @@ ec_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_ENTRYLK, idx, op_ret,
                                op_errno);
@@ -282,12 +282,12 @@ ec_manager_entrylk(ec_fop_data_t *fop, int32_t state)
 
             if (fop->id == GF_FOP_ENTRYLK) {
                 if (fop->cbks.entrylk != NULL) {
-                    fop->cbks.entrylk(fop->req_frame, fop, fop->xl, -1,
+                    fop->cbks.entrylk(fop->req_frame, fop, fop->xl, gf_error,
                                       fop->error, NULL);
                 }
             } else {
                 if (fop->cbks.fentrylk != NULL) {
-                    fop->cbks.fentrylk(fop->req_frame, fop, fop->xl, -1,
+                    fop->cbks.fentrylk(fop->req_frame, fop, fop->xl, gf_error,
                                        fop->error, NULL);
                 }
             }
@@ -370,7 +370,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL);
+        func(frame, NULL, this, gf_error, error, NULL);
     }
 }
 
@@ -378,7 +378,7 @@ out:
 
 int32_t
 ec_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
     ec_cbk_data_t *cbk = NULL;
@@ -392,7 +392,7 @@ ec_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_FENTRYLK, idx, op_ret,
                                op_errno);
@@ -502,7 +502,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL);
+        func(frame, NULL, this, gf_error, error, NULL);
     }
 }
 
@@ -510,7 +510,7 @@ out:
 
 int32_t
 ec_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, dict_t *xdata)
+               gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
     ec_cbk_data_t *cbk = NULL;
@@ -524,7 +524,7 @@ ec_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_INODELK, idx, op_ret,
                                op_errno);
@@ -657,12 +657,12 @@ ec_manager_inodelk(ec_fop_data_t *fop, int32_t state)
 
             if (fop->id == GF_FOP_INODELK) {
                 if (fop->cbks.inodelk != NULL) {
-                    fop->cbks.inodelk(fop->req_frame, fop, fop->xl, -1,
+                    fop->cbks.inodelk(fop->req_frame, fop, fop->xl, gf_error,
                                       fop->error, NULL);
                 }
             } else {
                 if (fop->cbks.finodelk != NULL) {
-                    fop->cbks.finodelk(fop->req_frame, fop, fop->xl, -1,
+                    fop->cbks.finodelk(fop->req_frame, fop, fop->xl, gf_error,
                                        fop->error, NULL);
                 }
             }
@@ -749,7 +749,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL);
+        func(frame, NULL, this, gf_error, error, NULL);
     }
 }
 
@@ -757,7 +757,7 @@ out:
 
 int32_t
 ec_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
     ec_cbk_data_t *cbk = NULL;
@@ -771,7 +771,7 @@ ec_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_FINODELK, idx, op_ret,
                                op_errno);
@@ -885,7 +885,7 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL);
+        func(frame, NULL, this, gf_error, error, NULL);
     }
 }
 
@@ -906,7 +906,7 @@ ec_combine_lk(ec_fop_data_t *fop, ec_cbk_data_t *dst, ec_cbk_data_t *src)
 }
 
 int32_t
-ec_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+ec_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, gf_return_t op_ret,
           int32_t op_errno, struct gf_flock *flock, dict_t *xdata)
 {
     ec_fop_data_t *fop = NULL;
@@ -921,12 +921,12 @@ ec_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     fop = frame->local;
 
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx, frame,
-             op_ret, op_errno);
+             GET_RET(op_ret), op_errno);
 
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_LK, idx, op_ret,
                                op_errno);
     if (cbk != NULL) {
-        if (op_ret >= 0) {
+        if (IS_SUCCESS(op_ret)) {
             if (flock != NULL) {
                 cbk->flock.l_type = flock->l_type;
                 cbk->flock.l_whence = flock->l_whence;
@@ -1046,8 +1046,8 @@ ec_manager_lk(ec_fop_data_t *fop, int32_t state)
             GF_ASSERT(fop->error != 0);
 
             if (fop->cbks.lk != NULL) {
-                fop->cbks.lk(fop->req_frame, fop, fop->xl, -1, fop->error, NULL,
-                             NULL);
+                fop->cbks.lk(fop->req_frame, fop, fop->xl, gf_error, fop->error,
+                             NULL, NULL);
             }
 
             return EC_STATE_END;
@@ -1123,6 +1123,6 @@ out:
     if (fop != NULL) {
         ec_manager(fop, error);
     } else {
-        func(frame, NULL, this, -1, error, NULL, NULL);
+        func(frame, NULL, this, gf_error, error, NULL, NULL);
     }
 }

@@ -16,8 +16,9 @@
 #include <glusterfs/events.h>
 
 int
-dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, struct statvfs *statvfs, dict_t *xdata)
+dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                gf_return_t op_ret, int op_errno, struct statvfs *statvfs,
+                dict_t *xdata)
 {
     dht_conf_t *conf = NULL;
     xlator_t *prev = NULL;
@@ -32,7 +33,7 @@ dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     conf = this->private;
     prev = cookie;
 
-    if (op_ret == -1 || !statvfs) {
+    if (IS_ERROR(op_ret) || !statvfs) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno,
                DHT_MSG_GET_DISK_INFO_ERROR, "failed to get disk info from %s",
                prev->name);

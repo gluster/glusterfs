@@ -86,6 +86,16 @@ const char *gf_upcall_list[GF_UPCALL_FLAGS_MAXVALUE] = {
     [GF_UPCALL_LEASE_RECALL] = "LEASE_RECALL",
 };
 
+const char *gf_xlator_list[GF_XLATOR_MAXVALUE] = {
+    [GF_XLATOR_BACKEND] = "backend-filesystem",
+    [GF_XLATOR_POSIX] = "storage/posix",
+    [GF_XLATOR_DHT] = "cluster/distribute",
+    [GF_XLATOR_AFR] = "cluster/replicate",
+};
+
+const gf_return_t gf_error = {-1};
+const gf_return_t gf_success = {0};
+
 /* THIS */
 
 /* This global ctx is a bad hack to prevent some of the libgfapi crashes.
@@ -106,6 +116,9 @@ static __thread struct syncopctx thread_syncopctx = {};
 static __thread char thread_uuid_buf[GF_UUID_BUF_SIZE] = {};
 static __thread char thread_lkowner_buf[GF_LKOWNER_BUF_SIZE] = {};
 static __thread char thread_leaseid_buf[GF_LEASE_ID_BUF_SIZE] = {};
+
+/* TODO: add macro for size */
+static __thread char thread_errorcode_buf[1024] = {};
 
 int
 gf_global_mem_acct_enable_get(void)
@@ -299,6 +312,14 @@ glusterfs_leaseid_buf_get()
     }
 
     return buf;
+}
+
+// ERRORCODE_BUFFER
+
+char *
+glusterfs_errorcode_buf_get()
+{
+    return thread_errorcode_buf;
 }
 
 char *

@@ -3,16 +3,16 @@
 
 int32_t
 metadisp_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-    METADISP_TRACE("got open results %d %d", op_ret, op_errno);
+    METADISP_TRACE("got open results %d %d", GET_RET(op_ret), op_errno);
 
     call_stub_t *stub = NULL;
     if (cookie) {
         stub = cookie;
     }
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -65,6 +65,6 @@ metadisp_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                       METADATA_CHILD(this)->fops->open, loc, flags, fd, xdata);
     return 0;
 unwind:
-    STACK_UNWIND_STRICT(open, frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND_STRICT(open, frame, gf_error, EINVAL, NULL, NULL);
     return 0;
 }

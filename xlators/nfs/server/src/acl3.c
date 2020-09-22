@@ -257,7 +257,8 @@ acl3_setacl_reply(rpcsvc_request_t *req, setaclreply *reply)
  */
 int
 acl3_getacl_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *dict,
+                dict_t *xdata)
 {
     nfsstat3 stat = NFS3ERR_SERVERFAULT;
     nfs3_call_state_t *cs = NULL;
@@ -273,7 +274,7 @@ acl3_getacl_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
     cs = frame->local;
     getaclreply = &cs->args.getaclreply;
-    if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
+    if (IS_ERROR(op_ret) && (op_errno != ENODATA && op_errno != ENOATTR)) {
         stat = nfs3_cbk_errno_status(op_ret, op_errno);
         goto err;
     } else if (!dict) {
@@ -321,7 +322,7 @@ err:
  */
 int
 acl3_default_getacl_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *dict,
+                        gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                         dict_t *xdata)
 {
     nfsstat3 stat = NFS3ERR_SERVERFAULT;
@@ -342,7 +343,7 @@ acl3_default_getacl_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
     cs = frame->local;
     getaclreply = &cs->args.getaclreply;
-    if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
+    if (IS_ERROR(op_ret) && (op_errno != ENODATA && op_errno != ENOATTR)) {
         stat = nfs3_cbk_errno_status(op_ret, op_errno);
         goto err;
     } else if (!dict) {
@@ -389,8 +390,9 @@ err:
 }
 
 int
-acl3_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *buf, dict_t *xdata)
+acl3_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
+              dict_t *xdata)
 {
     nfsstat3 stat = NFS3ERR_SERVERFAULT;
     nfs3_call_state_t *cs = NULL;
@@ -410,7 +412,7 @@ acl3_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     cs = frame->local;
     getaclreply = &cs->args.getaclreply;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         stat = nfs3_cbk_errno_status(op_ret, op_errno);
         goto err;
     }
@@ -538,11 +540,11 @@ rpcerr:
 
 int
 acl3_setacl_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     nfs3_call_state_t *cs = NULL;
     cs = frame->local;
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         nfsstat3 status = nfs3_cbk_errno_status(op_ret, op_errno);
         cs->args.setaclreply.status = status;
     }

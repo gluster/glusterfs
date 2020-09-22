@@ -224,7 +224,7 @@ free_state(server_state_t *state)
 
 static int
 server_connection_cleanup_flush_cbk(call_frame_t *frame, void *cookie,
-                                    xlator_t *this, int32_t op_ret,
+                                    xlator_t *this, gf_return_t op_ret,
                                     int32_t op_errno, dict_t *xdata)
 {
     int32_t ret = -1;
@@ -783,7 +783,7 @@ server_resolve_is_empty(server_resolve_t *resolve)
 }
 
 void
-server_print_reply(call_frame_t *frame, int op_ret, int op_errno)
+server_print_reply(call_frame_t *frame, gf_return_t op_ret, int op_errno)
 {
     server_conf_t *conf = NULL;
     server_state_t *state = NULL;

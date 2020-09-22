@@ -209,7 +209,7 @@ err:
 
 int
 sdfs_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     sdfs_local_t *local = NULL;
     call_stub_t *stub = NULL;
@@ -224,7 +224,7 @@ sdfs_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->stub = NULL;
         call_resume(stub);
     } else {
-        if (op_ret < 0)
+        if (IS_ERROR(op_ret))
             gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                    "Unlocking entry lock failed for %s", local->loc.name);
 
@@ -236,7 +236,7 @@ sdfs_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 sdfs_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *stbuf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
@@ -266,7 +266,7 @@ sdfs_mkdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -280,8 +280,8 @@ sdfs_mkdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(mkdir, local->main_frame, -1, op_errno, NULL, NULL,
-                        NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(mkdir, local->main_frame, gf_error, op_errno, NULL,
+                        NULL, NULL, NULL, NULL);
 
     local->main_frame = NULL;
     SDFS_STACK_DESTROY(frame);
@@ -318,8 +318,8 @@ sdfs_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(mkdir, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -329,7 +329,7 @@ err:
 
 int
 sdfs_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
     sdfs_local_t *local = NULL;
@@ -357,7 +357,7 @@ sdfs_rmdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -370,8 +370,8 @@ sdfs_rmdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(rmdir, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL);
+    STACK_UNWIND_STRICT(rmdir, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL);
 
     local->main_frame = NULL;
     SDFS_STACK_DESTROY(frame);
@@ -407,7 +407,7 @@ sdfs_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(rmdir, frame, -1, op_errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(rmdir, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -417,7 +417,7 @@ err:
 
 int
 sdfs_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                 struct iatt *stbuf, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
@@ -447,7 +447,7 @@ sdfs_create_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -461,8 +461,8 @@ sdfs_create_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(create, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(create, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL, NULL, NULL, NULL);
 
     local->main_frame = NULL;
     SDFS_STACK_DESTROY(frame);
@@ -499,8 +499,8 @@ sdfs_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(create, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL, NULL);
+    STACK_UNWIND_STRICT(create, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -510,7 +510,7 @@ err:
 
 int
 sdfs_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
     sdfs_local_t *local = NULL;
@@ -538,7 +538,7 @@ sdfs_unlink_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -551,8 +551,8 @@ sdfs_unlink_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(unlink, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL);
+    STACK_UNWIND_STRICT(unlink, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL);
 
     local->main_frame = NULL;
     SDFS_STACK_DESTROY(frame);
@@ -588,7 +588,7 @@ sdfs_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(unlink, frame, -1, op_errno, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(unlink, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -598,7 +598,7 @@ err:
 
 int
 sdfs_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *stbuf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
@@ -627,7 +627,7 @@ sdfs_symlink_helper(call_frame_t *frame, xlator_t *this, const char *linkname,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -640,8 +640,8 @@ sdfs_symlink_helper(call_frame_t *frame, xlator_t *this, const char *linkname,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(link, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(link, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL, NULL, NULL);
 
     local->main_frame = NULL;
     SDFS_STACK_DESTROY(frame);
@@ -678,7 +678,7 @@ sdfs_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(link, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    STACK_UNWIND_STRICT(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                         NULL);
 
     if (new_frame)
@@ -689,7 +689,7 @@ err:
 
 int
 sdfs_common_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                        gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     sdfs_local_t *local = NULL;
     int this_call_cnt = 0;
@@ -701,7 +701,7 @@ sdfs_common_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     locks = local->lock;
     lk_index = (long)cookie;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         local->op_ret = op_ret;
         local->op_errno = op_errno;
     } else {
@@ -721,7 +721,7 @@ sdfs_common_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->stub = NULL;
         call_resume(stub);
     } else {
-        if (local->op_ret < 0)
+        if (IS_ERROR(local->op_ret))
             gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                    "unlocking entry lock failed ");
         SDFS_STACK_DESTROY(frame);
@@ -731,9 +731,10 @@ sdfs_common_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-sdfs_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *stbuf,
-              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+sdfs_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *stbuf, struct iatt *preparent,
+              struct iatt *postparent, dict_t *xdata)
 {
     sdfs_local_t *local = NULL;
     sdfs_lock_t *lock = NULL;
@@ -772,7 +773,7 @@ sdfs_link_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
     local = frame->local;
     locks = local->lock;
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed");
         goto err;
@@ -783,8 +784,8 @@ sdfs_link_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(link, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(link, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL, NULL, NULL);
 
     local->main_frame = NULL;
     for (i = 0; i < locks->lock_count && locks->entrylk->locked[i]; i++) {
@@ -921,7 +922,7 @@ sdfs_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     return 0;
 err:
 
-    STACK_UNWIND_STRICT(link, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    STACK_UNWIND_STRICT(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                         NULL);
 
     if (new_frame)
@@ -932,7 +933,7 @@ err:
 
 int
 sdfs_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *stbuf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
@@ -961,7 +962,7 @@ sdfs_mknod_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -974,8 +975,8 @@ sdfs_mknod_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(mknod, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(mknod, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL, NULL, NULL);
 
     local->main_frame = NULL;
     SDFS_STACK_DESTROY(frame);
@@ -1012,8 +1013,8 @@ sdfs_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(mknod, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -1023,7 +1024,7 @@ err:
 
 int
 sdfs_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *stbuf,
                 struct iatt *preoldparent, struct iatt *postoldparent,
                 struct iatt *prenewparent, struct iatt *postnewparent,
                 dict_t *xdata)
@@ -1068,7 +1069,7 @@ sdfs_rename_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
     local = frame->local;
     lock = local->lock;
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed ");
         goto err;
@@ -1080,8 +1081,8 @@ sdfs_rename_helper(call_frame_t *frame, xlator_t *this, loc_t *oldloc,
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(rename, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(rename, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL, NULL, NULL, NULL);
 
     local->main_frame = NULL;
     for (i = 0; i < lock->lock_count && lock->entrylk->locked[i]; i++) {
@@ -1185,8 +1186,8 @@ sdfs_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     return 0;
 err:
 
-    STACK_UNWIND_STRICT(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL, NULL);
+    STACK_UNWIND_STRICT(rename, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -1196,7 +1197,7 @@ err:
 
 int
 sdfs_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *stbuf, dict_t *xdata, struct iatt *postparent)
 {
     sdfs_local_t *local = NULL;
@@ -1232,7 +1233,7 @@ sdfs_lookup_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     gf_uuid_unparse(loc->pargfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -1245,8 +1246,8 @@ sdfs_lookup_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(lookup, local->main_frame, -1, local->op_errno, NULL,
-                        NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(lookup, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL, NULL, NULL);
     local->main_frame = NULL;
 
     SDFS_STACK_DESTROY(frame);
@@ -1294,7 +1295,8 @@ sdfs_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(lookup, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);
@@ -1304,7 +1306,7 @@ err:
 
 int32_t
 sdfs_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                  gf_return_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                   dict_t *xdata)
 {
     sdfs_local_t *local = NULL;
@@ -1331,7 +1333,7 @@ sdfs_readdirp_helper(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     gf_uuid_unparse(fd->inode->gfid, gfid);
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
                "Acquiring entry lock failed for directory %s "
                "with parent gfid %s",
@@ -1344,8 +1346,8 @@ sdfs_readdirp_helper(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 err:
-    STACK_UNWIND_STRICT(readdirp, local->main_frame, -1, local->op_errno, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(readdirp, local->main_frame, gf_error, local->op_errno,
+                        NULL, NULL);
 
     local->main_frame = NULL;
 
@@ -1384,7 +1386,7 @@ sdfs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, op_errno, NULL, NULL);
+    STACK_UNWIND_STRICT(readdirp, frame, gf_error, op_errno, NULL, NULL);
 
     if (new_frame)
         SDFS_STACK_DESTROY(new_frame);

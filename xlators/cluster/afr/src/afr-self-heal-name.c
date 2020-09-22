@@ -72,7 +72,7 @@ __afr_selfheal_name_impunge(call_frame_t *frame, xlator_t *this,
     gf_uuid_copy(parent->gfid, pargfid);
 
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
 
         if (gf_uuid_compare(replies[i].poststat.ia_gfid,
@@ -108,7 +108,7 @@ __afr_selfheal_name_expunge(xlator_t *this, inode_t *parent, uuid_t pargfid,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         ret |= afr_selfheal_entry_delete(this, parent, bname, inode, i,
@@ -132,7 +132,7 @@ afr_selfheal_name_need_heal_check(xlator_t *this, struct afr_reply *replies)
         if (!replies[i].valid)
             continue;
 
-        if ((replies[i].op_ret == -1) && (replies[i].op_errno == ENODATA))
+        if (IS_ERROR(replies[i].op_ret) && (replies[i].op_errno == ENODATA))
             need_heal = _gf_true;
 
         if (first_idx == -1) {
@@ -140,14 +140,14 @@ afr_selfheal_name_need_heal_check(xlator_t *this, struct afr_reply *replies)
             continue;
         }
 
-        if (replies[i].op_ret != replies[first_idx].op_ret)
+        if (GET_RET(replies[i].op_ret) != GET_RET(replies[first_idx].op_ret))
             need_heal = _gf_true;
 
         if (gf_uuid_compare(replies[i].poststat.ia_gfid,
                             replies[first_idx].poststat.ia_gfid))
             need_heal = _gf_true;
 
-        if ((replies[i].op_ret == 0) &&
+        if (IS_SUCCESS(replies[i].op_ret) &&
             (gf_uuid_is_null(replies[i].poststat.ia_gfid)))
             need_heal = _gf_true;
     }
@@ -169,7 +169,7 @@ afr_selfheal_name_type_mismatch_check(xlator_t *this, struct afr_reply *replies,
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
 
         if (replies[i].poststat.ia_type == IA_INVAL)
@@ -229,7 +229,7 @@ afr_selfheal_name_gfid_mismatch_check(xlator_t *this, struct afr_reply *replies,
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || IS_ERROR(replies[i].op_ret))
             continue;
 
         if (gf_uuid_is_null(replies[i].poststat.ia_gfid))
@@ -287,7 +287,7 @@ afr_selfheal_name_source_empty_check(xlator_t *this, struct afr_reply *replies,
         if (!sources[i])
             continue;
 
-        if (replies[i].op_ret == -1 && replies[i].op_errno == ENOENT)
+        if (IS_ERROR(replies[i].op_ret) && replies[i].op_errno == ENOENT)
             continue;
 
         source_is_empty = _gf_false;
@@ -547,7 +547,7 @@ afr_selfheal_name_unlocked_inspect(call_frame_t *frame, xlator_t *this,
         if (!replies[i].valid)
             continue;
 
-        if ((replies[i].op_ret == -1) && (replies[i].op_errno == ENODATA)) {
+        if (IS_ERROR(replies[i].op_ret) && (replies[i].op_errno == ENODATA)) {
             *need_heal = _gf_true;
             break;
         }
@@ -557,7 +557,7 @@ afr_selfheal_name_unlocked_inspect(call_frame_t *frame, xlator_t *this,
             continue;
         }
 
-        if (replies[i].op_ret != replies[first_idx].op_ret) {
+        if (GET_RET(replies[i].op_ret) != GET_RET(replies[first_idx].op_ret)) {
             *need_heal = _gf_true;
             break;
         }

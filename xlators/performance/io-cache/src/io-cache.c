@@ -80,7 +80,8 @@ ioc_get_inode (dict_t *dict, char *name)
 
 int
 ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
-                 struct iovec *vector, int32_t count, int op_ret, off_t offset)
+                 struct iovec *vector, int32_t count, gf_return_t op_ret,
+                 off_t offset)
 {
     size_t size = 0;
     off_t rounded_offset = 0, rounded_end = 0, trav_offset = 0,
@@ -89,7 +90,7 @@ ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
     ioc_page_t *trav = NULL;
 
     size = iov_length(vector, count);
-    size = min(size, op_ret);
+    size = min(size, GET_RET(op_ret));
 
     rounded_offset = gf_floor(offset, ioc_inode->table->page_size);
     rounded_end = gf_roof(offset + size, ioc_inode->table->page_size);
@@ -195,7 +196,7 @@ ioc_inode_flush(ioc_inode_t *ioc_inode)
 
 int32_t
 ioc_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *preop,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *preop,
                 struct iatt *postop, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(setattr, frame, op_ret, op_errno, preop, postop, xdata);
@@ -279,23 +280,23 @@ out:
 
 int32_t
 ioc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *stbuf, dict_t *xdata, struct iatt *postparent)
 {
     ioc_local_t *local = NULL;
 
-    if (op_ret != 0)
+    if (IS_ERROR(op_ret))
         goto out;
 
     local = frame->local;
     if (local == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto out;
     }
 
     if (!this || !this->private) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto out;
     }
@@ -346,7 +347,8 @@ unwind:
         mem_put(local);
     }
 
-    STACK_UNWIND_STRICT(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(lookup, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL);
 
     return 0;
 }
@@ -398,7 +400,7 @@ ioc_invalidate(xlator_t *this, inode_t *inode)
  */
 int32_t
 ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                       gf_return_t op_ret, int32_t op_errno, struct iatt *stbuf,
                        dict_t *xdata)
 {
     ioc_local_t *local = NULL;
@@ -410,8 +412,8 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     ioc_inode = local->inode;
     local_stbuf = stbuf;
 
-    if ((op_ret == -1) ||
-        ((op_ret >= 0) && !ioc_cache_still_valid(ioc_inode, stbuf))) {
+    if ((IS_ERROR(op_ret)) ||
+        ((IS_SUCCESS(op_ret)) && !ioc_cache_still_valid(ioc_inode, stbuf))) {
         gf_msg_debug(ioc_inode->table->xl->name, 0,
                      "cache for inode(%p) is invalid. flushing all pages",
                      ioc_inode);
@@ -422,7 +424,7 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         ioc_inode_lock(ioc_inode);
         {
             destroy_size = __ioc_inode_flush(ioc_inode);
-            if (op_ret >= 0) {
+            if (IS_SUCCESS(op_ret)) {
                 ioc_inode->cache.mtime = stbuf->ia_mtime;
                 ioc_inode->cache.mtime_nsec = stbuf->ia_mtime_nsec;
             }
@@ -439,7 +441,7 @@ ioc_cache_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         ioc_table_unlock(ioc_inode->table);
     }
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         local_stbuf = NULL;
 
     ioc_inode_lock(ioc_inode);
@@ -517,7 +519,7 @@ ioc_cache_validate(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
     validate_local = mem_get0(THIS->local_pool);
     if (validate_local == NULL) {
         ret = -1;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         gf_smsg(ioc_inode->table->xl->name, GF_LOG_ERROR, 0,
                 IO_CACHE_MSG_NO_MEMORY, NULL);
@@ -527,7 +529,7 @@ ioc_cache_validate(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
     validate_frame = copy_frame(frame);
     if (validate_frame == NULL) {
         ret = -1;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         mem_put(validate_local);
         gf_smsg(ioc_inode->table->xl->name, GF_LOG_ERROR, 0,
@@ -590,8 +592,8 @@ ioc_get_priority(ioc_table_t *table, const char *path)
  *
  */
 int32_t
-ioc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, fd_t *fd, dict_t *xdata)
+ioc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     uint64_t tmp_ioc_inode = 0;
     ioc_local_t *local = NULL;
@@ -600,14 +602,14 @@ ioc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     local = frame->local;
     if (!this || !this->private) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto out;
     }
 
     table = this->private;
 
-    if (op_ret != -1) {
+    if (IS_SUCCESS(op_ret)) {
         inode_ctx_get(fd->inode, this, &tmp_ioc_inode);
         ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
 
@@ -669,7 +671,7 @@ out:
  */
 int32_t
 ioc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
@@ -682,7 +684,7 @@ ioc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local = frame->local;
     if (!this || !this->private) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto out;
     }
@@ -690,7 +692,7 @@ ioc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     table = this->private;
     path = local->file_loc.path;
 
-    if (op_ret != -1) {
+    if (IS_SUCCESS(op_ret)) {
         /* assign weight */
         weight = ioc_get_priority(table, path);
 
@@ -750,9 +752,10 @@ out:
 }
 
 int32_t
-ioc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *buf,
-              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+ioc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+              dict_t *xdata)
 {
     ioc_local_t *local = NULL;
     ioc_table_t *table = NULL;
@@ -762,7 +765,7 @@ ioc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     local = frame->local;
     if (!this || !this->private) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto out;
     }
@@ -770,7 +773,7 @@ ioc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     table = this->private;
     path = local->file_loc.path;
 
-    if (op_ret != -1) {
+    if (IS_SUCCESS(op_ret)) {
         /* assign weight */
         weight = ioc_get_priority(table, path);
 
@@ -831,8 +834,8 @@ unwind:
         mem_put(local);
     }
 
-    STACK_UNWIND_STRICT(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL);
+    STACK_UNWIND_STRICT(mknod, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
 
     return 0;
 }
@@ -854,7 +857,7 @@ ioc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     local = mem_get0(this->local_pool);
     if (local == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
-        STACK_UNWIND_STRICT(open, frame, -1, ENOMEM, NULL, NULL);
+        STACK_UNWIND_STRICT(open, frame, gf_error, ENOMEM, NULL, NULL);
         return 0;
     }
 
@@ -889,8 +892,8 @@ ioc_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     local = mem_get0(this->local_pool);
     if (local == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
-        STACK_UNWIND_STRICT(create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
-                            NULL, NULL);
+        STACK_UNWIND_STRICT(create, frame, gf_error, ENOMEM, NULL, NULL, NULL,
+                            NULL, NULL, NULL);
         return 0;
     }
 
@@ -1001,7 +1004,7 @@ ioc_dispatch_requests(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                 if (!trav) {
                     gf_smsg(frame->this->name, GF_LOG_CRITICAL, ENOMEM,
                             IO_CACHE_MSG_NO_MEMORY, NULL);
-                    local->op_ret = -1;
+                    local->op_ret = gf_error;
                     local->op_errno = ENOMEM;
                     ioc_inode_unlock(ioc_inode);
                     goto out;
@@ -1032,7 +1035,7 @@ ioc_dispatch_requests(call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
 
                     ret = ioc_wait_on_inode(ioc_inode, trav);
                     if (ret < 0) {
-                        local->op_ret = -1;
+                        local->op_ret = gf_error;
                         local->op_errno = -ret;
                         need_validate = 0;
 
@@ -1201,7 +1204,8 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 
 out:
-    STACK_UNWIND_STRICT(readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(readv, frame, gf_error, op_errno, NULL, 0, NULL, NULL,
+                        NULL);
     return 0;
 }
 
@@ -1217,7 +1221,7 @@ out:
  */
 int32_t
 ioc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
     ioc_local_t *local = NULL;
@@ -1227,9 +1231,9 @@ ioc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     frame->local = NULL;
     inode_ctx_get(local->fd->inode, this, &ioc_inode);
 
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         ioc_update_pages(frame, (ioc_inode_t *)(long)ioc_inode, local->vector,
-                         local->op_ret, op_ret, local->offset);
+                         GET_RET(local->op_ret), op_ret, local->offset);
     }
 
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1266,7 +1270,7 @@ ioc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     if (local == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, IO_CACHE_MSG_NO_MEMORY, NULL);
 
-        STACK_UNWIND_STRICT(writev, frame, -1, ENOMEM, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(writev, frame, gf_error, ENOMEM, NULL, NULL, NULL);
         return 0;
     }
 
@@ -1278,8 +1282,8 @@ ioc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     if (ioc_inode) {
         local->iobref = iobref_ref(iobref);
         local->vector = iov_dup(vector, count);
-        local->op_ret = count;
         local->offset = offset;
+        SET_RET(local->op_ret, count);
     }
 
     STACK_WIND(frame, ioc_writev_cbk, FIRST_CHILD(this),
@@ -1302,7 +1306,7 @@ ioc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
  */
 int32_t
 ioc_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(truncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1323,7 +1327,7 @@ ioc_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int32_t
 ioc_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1382,8 +1386,9 @@ ioc_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 }
 
 int32_t
-ioc_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-           int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
+ioc_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+           gf_return_t op_ret, int32_t op_errno, struct gf_flock *lock,
+           dict_t *xdata)
 {
     STACK_UNWIND_STRICT(lk, frame, op_ret, op_errno, lock, xdata);
     return 0;
@@ -1401,7 +1406,7 @@ ioc_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     if (!ioc_inode) {
         gf_msg_debug(this->name, EBADFD,
                      "inode context is NULL: returning EBADFD");
-        STACK_UNWIND_STRICT(lk, frame, -1, EBADFD, NULL, NULL);
+        STACK_UNWIND_STRICT(lk, frame, gf_error, EBADFD, NULL, NULL);
         return 0;
     }
 
@@ -1418,8 +1423,9 @@ ioc_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 }
 
 int
-ioc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, gf_dirent_t *entries, dict_t *xdata)
+ioc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 gf_return_t op_ret, int op_errno, gf_dirent_t *entries,
+                 dict_t *xdata)
 {
     gf_dirent_t *entry = NULL;
     char *path = NULL;
@@ -1428,7 +1434,11 @@ ioc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     fd = frame->local;
     frame->local = NULL;
 
-    if (op_ret <= 0)
+    if (IS_ERROR(op_ret))
+        goto unwind;
+
+    /* This means no entries are sent, no need to process anything */
+    if (GET_RET(op_ret) == 0)
         goto unwind;
 
     list_for_each_entry(entry, &entries->list, list)
@@ -1459,7 +1469,7 @@ ioc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 static int32_t
 ioc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                 struct iatt *post, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, pre, post, xdata);
@@ -1484,7 +1494,7 @@ ioc_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 static int32_t
 ioc_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *pre,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *pre,
                  struct iatt *post, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, pre, post, xdata);

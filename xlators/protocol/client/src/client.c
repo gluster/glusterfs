@@ -379,7 +379,7 @@ client_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 out:
     /* think of avoiding a missing frame */
     if (ret)
-        STACK_UNWIND_STRICT(lookup, frame, -1, ENOTCONN, NULL, NULL, NULL,
+        STACK_UNWIND_STRICT(lookup, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
                             NULL);
 
     return 0;
@@ -407,7 +407,7 @@ client_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(stat, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(stat, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -436,7 +436,8 @@ client_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(truncate, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(truncate, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -465,7 +466,8 @@ client_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(ftruncate, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(ftruncate, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -494,7 +496,7 @@ client_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(access, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(access, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -523,7 +525,8 @@ client_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(readlink, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(readlink, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -554,8 +557,8 @@ client_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(mknod, frame, -1, ENOTCONN, NULL, NULL, NULL, NULL,
-                            NULL);
+        STACK_UNWIND_STRICT(mknod, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
+                            NULL, NULL);
 
     return 0;
 }
@@ -585,8 +588,8 @@ client_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(mkdir, frame, -1, ENOTCONN, NULL, NULL, NULL, NULL,
-                            NULL);
+        STACK_UNWIND_STRICT(mkdir, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
+                            NULL, NULL);
 
     return 0;
 }
@@ -615,7 +618,8 @@ client_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(unlink, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(unlink, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -645,7 +649,7 @@ client_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 out:
     /* think of avoiding a missing frame */
     if (ret)
-        STACK_UNWIND_STRICT(rmdir, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(rmdir, frame, gf_error, ENOTCONN, NULL, NULL, NULL);
 
     return 0;
 }
@@ -675,8 +679,8 @@ client_symlink(call_frame_t *frame, xlator_t *this, const char *linkpath,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(symlink, frame, -1, ENOTCONN, NULL, NULL, NULL,
-                            NULL, NULL);
+        STACK_UNWIND_STRICT(symlink, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL, NULL, NULL);
 
     return 0;
 }
@@ -705,8 +709,8 @@ client_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(rename, frame, -1, ENOTCONN, NULL, NULL, NULL, NULL,
-                            NULL, NULL);
+        STACK_UNWIND_STRICT(rename, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
+                            NULL, NULL, NULL);
 
     return 0;
 }
@@ -735,8 +739,8 @@ client_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(link, frame, -1, ENOTCONN, NULL, NULL, NULL, NULL,
-                            NULL);
+        STACK_UNWIND_STRICT(link, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
+                            NULL, NULL);
 
     return 0;
 }
@@ -769,8 +773,8 @@ client_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(create, frame, -1, ENOTCONN, NULL, NULL, NULL, NULL,
-                            NULL, NULL);
+        STACK_UNWIND_STRICT(create, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
+                            NULL, NULL, NULL);
 
     return 0;
 }
@@ -801,7 +805,7 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(open, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(open, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -834,8 +838,8 @@ client_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(readv, frame, -1, ENOTCONN, NULL, 0, NULL, NULL,
-                            NULL);
+        STACK_UNWIND_STRICT(readv, frame, gf_error, ENOTCONN, NULL, 0, NULL,
+                            NULL, NULL);
 
     return 0;
 }
@@ -871,7 +875,8 @@ client_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(writev, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(writev, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -898,7 +903,7 @@ client_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(flush, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(flush, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -927,7 +932,7 @@ client_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fsync, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(fsync, frame, gf_error, ENOTCONN, NULL, NULL, NULL);
 
     return 0;
 }
@@ -954,7 +959,7 @@ client_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fstat, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(fstat, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -983,7 +988,7 @@ client_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(opendir, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(opendir, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1012,7 +1017,7 @@ client_fsyncdir(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fsyncdir, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(fsyncdir, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1039,7 +1044,7 @@ client_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(statfs, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(statfs, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1073,8 +1078,8 @@ client_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(copy_file_range, frame, -1, ENOTCONN, NULL, NULL,
-                            NULL, NULL);
+        STACK_UNWIND_STRICT(copy_file_range, frame, gf_error, ENOTCONN, NULL,
+                            NULL, NULL, NULL);
 
     return 0;
 }
@@ -1198,6 +1203,7 @@ client_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     int op_ret = -1;
     int op_errno = ENOTCONN;
     int need_unwind = 0;
+    gf_return_t fin_ret;
     clnt_conf_t *conf = NULL;
     rpc_clnt_procedure_t *proc = NULL;
     clnt_args_t args = {
@@ -1247,8 +1253,10 @@ client_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
     }
 out:
-    if (need_unwind)
-        STACK_UNWIND_STRICT(setxattr, frame, op_ret, op_errno, NULL);
+    if (need_unwind) {
+        SET_RET(fin_ret, op_ret);
+        STACK_UNWIND_STRICT(setxattr, frame, fin_ret, op_errno, NULL);
+    }
 
     return 0;
 }
@@ -1278,7 +1286,7 @@ client_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fsetxattr, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(fsetxattr, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1307,7 +1315,7 @@ client_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fgetxattr, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(fgetxattr, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1336,7 +1344,7 @@ client_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(getxattr, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(getxattr, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1366,7 +1374,7 @@ client_xattrop(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(xattrop, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(xattrop, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1396,7 +1404,7 @@ client_fxattrop(call_frame_t *frame, xlator_t *this, fd_t *fd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fxattrop, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(fxattrop, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1425,7 +1433,7 @@ client_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(removexattr, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(removexattr, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1454,7 +1462,7 @@ client_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fremovexattr, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(fremovexattr, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1483,7 +1491,7 @@ client_lease(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(lk, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(lk, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1513,7 +1521,7 @@ client_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(lk, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(lk, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1544,7 +1552,7 @@ client_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(inodelk, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(inodelk, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1575,7 +1583,7 @@ client_finodelk(call_frame_t *frame, xlator_t *this, const char *volume,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(finodelk, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(finodelk, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1608,7 +1616,7 @@ client_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(entrylk, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(entrylk, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1641,7 +1649,7 @@ client_fentrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fentrylk, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(fentrylk, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1671,7 +1679,8 @@ client_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(rchecksum, frame, -1, ENOTCONN, 0, NULL, NULL);
+        STACK_UNWIND_STRICT(rchecksum, frame, gf_error, ENOTCONN, 0, NULL,
+                            NULL);
 
     return 0;
 }
@@ -1704,7 +1713,7 @@ client_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(readdir, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(readdir, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1737,7 +1746,7 @@ client_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(readdirp, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(readdirp, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -1767,7 +1776,8 @@ client_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(setattr, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(setattr, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -1797,7 +1807,8 @@ client_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fsetattr, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(fsetattr, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -1828,7 +1839,8 @@ client_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(fallocate, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(fallocate, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -1858,7 +1870,8 @@ client_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(discard, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(discard, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -1888,7 +1901,8 @@ client_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(zerofill, frame, -1, ENOTCONN, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(zerofill, frame, gf_error, ENOTCONN, NULL, NULL,
+                            NULL);
 
     return 0;
 }
@@ -1915,7 +1929,7 @@ client_ipc(call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(ipc, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(ipc, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -1945,7 +1959,7 @@ client_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(seek, frame, -1, ENOTCONN, 0, NULL);
+        STACK_UNWIND_STRICT(seek, frame, gf_error, ENOTCONN, 0, NULL);
 
     return 0;
 }
@@ -1973,7 +1987,7 @@ client_getactivelk(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(getactivelk, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(getactivelk, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -2002,7 +2016,7 @@ client_setactivelk(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(setactivelk, frame, -1, ENOTCONN, NULL);
+        STACK_UNWIND_STRICT(setactivelk, frame, gf_error, ENOTCONN, NULL);
 
     return 0;
 }
@@ -2032,7 +2046,7 @@ client_getspec(call_frame_t *frame, xlator_t *this, const char *key,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(getspec, frame, -1, EINVAL, NULL);
+        STACK_UNWIND_STRICT(getspec, frame, gf_error, EINVAL, NULL);
 
     return 0;
 }
@@ -2056,7 +2070,7 @@ client_compound(call_frame_t *frame, xlator_t *this, void *data, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(compound, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(compound, frame, gf_error, ENOTCONN, NULL, NULL);
 
     return 0;
 }
@@ -2083,7 +2097,8 @@ client_namelink(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(namelink, frame, -1, EINVAL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(namelink, frame, gf_error, EINVAL, NULL, NULL,
+                            NULL);
     return 0;
 }
 
@@ -2111,7 +2126,7 @@ client_icreate(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(icreate, frame, -1, EINVAL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(icreate, frame, gf_error, EINVAL, NULL, NULL, NULL);
     return 0;
 }
 
@@ -2150,8 +2165,8 @@ client_put(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(put, frame, -1, ENOTCONN, NULL, NULL, NULL, NULL,
-                            NULL);
+        STACK_UNWIND_STRICT(put, frame, gf_error, ENOTCONN, NULL, NULL, NULL,
+                            NULL, NULL);
 
     return 0;
 }
@@ -2633,7 +2648,7 @@ init(xlator_t *this)
 
     this->private = conf;
 
-    /* If it returns -1, then its a failure, if it returns +1 we need
+    /* If it returns gf_error, then its a failure, if it returns +1 we need
        have to understand that 'this' is subvolume of a xlator which,
        will set the remote host and remote subvolume in a setxattr
        call.

@@ -69,8 +69,8 @@
             frame->local = NULL;                                               \
     } while (0)
 
-typedef int(br_stub_version_cbk)(call_frame_t *, void *, xlator_t *, int32_t,
-                                 int32_t, dict_t *);
+typedef int(br_stub_version_cbk)(call_frame_t *, void *, xlator_t *,
+                                 gf_return_t, int32_t, dict_t *);
 
 typedef struct br_stub_inode_ctx {
     int need_writeback;           /* does the inode need

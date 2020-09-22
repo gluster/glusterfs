@@ -65,7 +65,7 @@ afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
     AFR_ONLIST(local->child_up, frame, afr_selfheal_discover_cbk, lookup, &loc,
                NULL);
     for (i = 0; i < priv->child_count; i++) {
-        if (local->replies[i].op_ret == 0) {
+      if (GET_RET(local->replies[i].op_ret) == 0) {
             lookup_success[i] = 1;
         } else if (local->replies[i].op_errno != ENOENT &&
                    local->replies[i].op_errno != ESTALE) {
@@ -137,7 +137,7 @@ afr_selfheal_entry_delete(xlator_t *this, inode_t *dir, const char *name,
     priv = this->private;
     subvol = priv->children[child];
 
-    if ((!replies[child].valid) || (replies[child].op_ret < 0)) {
+    if ((!replies[child].valid) || IS_ERROR(replies[child].op_ret)) {
         /*Nothing to do*/
         ret = 0;
         goto out;
@@ -319,10 +319,11 @@ __afr_selfheal_heal_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
     /* Skip healing this entry if the last lookup on it failed for reasons
      * other than ENOENT.
      */
-    if ((replies[source].op_ret < 0) && (replies[source].op_errno != ENOENT))
+    if (IS_ERROR(replies[source].op_ret) &&
+        (replies[source].op_errno != ENOENT))
         return -replies[source].op_errno;
 
-    if (replies[source].op_ret == 0) {
+    if (IS_SUCCESS(replies[source].op_ret)) {
         ret = afr_lookup_and_heal_gfid(this, fd->inode, name, inode, replies,
                                        source, sources,
                                        &replies[source].poststat.ia_gfid, NULL);
@@ -333,7 +334,7 @@ __afr_selfheal_heal_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
     for (i = 0; i < priv->child_count; i++) {
         if (!healed_sinks[i])
             continue;
-        if (replies[source].op_ret == -1 &&
+        if (IS_ERROR(replies[source].op_ret) &&
             replies[source].op_errno == ENOENT) {
             ret = afr_selfheal_entry_delete(this, fd->inode, name, inode, i,
                                             replies);
@@ -376,7 +377,7 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret != 0)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         if (gf_uuid_is_null(replies[i].poststat.ia_gfid))
@@ -446,7 +447,7 @@ __afr_selfheal_merge_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (replies[i].valid && replies[i].op_ret == 0) {
+        if (replies[i].valid && IS_SUCCESS(replies[i].op_ret)) {
             source = i;
             break;
         }
@@ -459,7 +460,7 @@ __afr_selfheal_merge_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     /* Set all the sources as 1, otheriwse newentry_mark won't be set */
     for (i = 0; i < priv->child_count; i++) {
-        if (replies[i].valid && replies[i].op_ret == 0) {
+        if (replies[i].valid && IS_SUCCESS(replies[i].op_ret)) {
             sources[i] = 1;
         }
     }

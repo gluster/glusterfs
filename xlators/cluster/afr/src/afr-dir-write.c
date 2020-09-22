@@ -86,7 +86,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid)
             continue;
-        if (local->replies[i].op_ret == -1)
+        if (IS_ERROR(local->replies[i].op_ret))
             continue;
         gf_uuid_copy(args.gfid, local->replies[i].poststat.ia_gfid);
         args.ia_type = local->replies[i].poststat.ia_type;
@@ -109,7 +109,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
         parent2_read_subvol = afr_data_subvol_get(local->parent2, this, NULL,
                                                   local->readable2, NULL, NULL);
 
-    local->op_ret = -1;
+    local->op_ret = gf_error;
     local->op_errno = afr_final_errno(local, priv);
     afr_pick_error_xdata(local, priv, local->parent, local->readable,
                          local->parent2, local->readable2);
@@ -117,7 +117,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid)
             continue;
-        if (local->replies[i].op_ret < 0) {
+        if (IS_ERROR(local->replies[i].op_ret)) {
             if (local->inode)
                 afr_inode_need_refresh_set(local->inode, this);
             if (local->parent)
@@ -127,7 +127,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
             continue;
         }
 
-        if (local->op_ret == -1) {
+        if (IS_ERROR(local->op_ret)) {
             local->op_ret = local->replies[i].op_ret;
             local->op_errno = local->replies[i].op_errno;
 
@@ -169,7 +169,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
 
 static void
 __afr_dir_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
-                     int op_ret, int op_errno, struct iatt *poststat,
+                     gf_return_t op_ret, int op_errno, struct iatt *poststat,
                      struct iatt *preparent, struct iatt *postparent,
                      struct iatt *preparent2, struct iatt *postparent2,
                      dict_t *xdata)
@@ -186,7 +186,7 @@ __afr_dir_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
     if (xdata)
         local->replies[child_index].xdata = dict_ref(xdata);
 
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         if (poststat)
             local->replies[child_index].poststat = *poststat;
         if (preparent)
@@ -211,7 +211,7 @@ __afr_dir_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
 
 static int
 __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int op_ret, int op_errno, struct iatt *buf,
+                    gf_return_t op_ret, int op_errno, struct iatt *buf,
                     struct iatt *preparent, struct iatt *postparent,
                     struct iatt *preparent2, struct iatt *postparent2,
                     dict_t *xdata)
@@ -253,8 +253,8 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_mark_new_entry_changelog_cbk(call_frame_t *frame, void *cookie,
-                                 xlator_t *this, int op_ret, int op_errno,
-                                 dict_t *xattr, dict_t *xdata)
+                                 xlator_t *this, gf_return_t op_ret,
+                                 int op_errno, dict_t *xattr, dict_t *xdata)
 {
     int call_count = 0;
 
@@ -350,7 +350,7 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
     local = frame->local;
     priv = this->private;
 
-    if (local->op_ret < 0)
+    if (IS_ERROR(local->op_ret))
         return;
 
     if (local->op != GF_FOP_CREATE && local->op != GF_FOP_MKNOD &&
@@ -406,8 +406,8 @@ afr_create_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_create_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                    struct iatt *buf, struct iatt *preparent,
+                    gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
     return __afr_dir_write_cbk(frame, cookie, this, op_ret, op_errno, buf,
@@ -492,8 +492,8 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL,
-                     NULL);
+    AFR_STACK_UNWIND(create, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL, NULL);
     return 0;
 }
 
@@ -522,7 +522,7 @@ afr_mknod_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_mknod_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
@@ -601,7 +601,8 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(mknod, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL);
     return 0;
 }
 
@@ -630,7 +631,7 @@ afr_mkdir_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_mkdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
@@ -715,7 +716,8 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(mkdir, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL);
     return 0;
 }
 
@@ -744,7 +746,7 @@ afr_link_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_link_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
@@ -822,7 +824,8 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(link, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL);
     return 0;
 }
 
@@ -851,7 +854,7 @@ afr_symlink_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_symlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, inode_t *inode,
+                     gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                      struct iatt *buf, struct iatt *preparent,
                      struct iatt *postparent, dict_t *xdata)
 {
@@ -929,7 +932,7 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    AFR_STACK_UNWIND(symlink, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                      NULL);
     return 0;
 }
@@ -960,7 +963,7 @@ afr_rename_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_rename_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                     struct iatt *preoldparent, struct iatt *postoldparent,
                     struct iatt *prenewparent, struct iatt *postnewparent,
                     dict_t *xdata)
@@ -1048,8 +1051,8 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL,
-                     NULL);
+    AFR_STACK_UNWIND(rename, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL, NULL);
     return 0;
 }
 
@@ -1077,8 +1080,9 @@ afr_unlink_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_unlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata)
 {
     return __afr_dir_write_cbk(frame, cookie, this, op_ret, op_errno, NULL,
                                preparent, postparent, NULL, NULL, xdata);
@@ -1152,7 +1156,7 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(unlink, frame, -1, op_errno, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(unlink, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -1180,7 +1184,7 @@ afr_rmdir_unwind(call_frame_t *frame, xlator_t *this)
 
 int
 afr_rmdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     return __afr_dir_write_cbk(frame, cookie, this, op_ret, op_errno, NULL,
@@ -1255,7 +1259,7 @@ out:
     if (transaction_frame)
         AFR_STACK_DESTROY(transaction_frame);
 
-    AFR_STACK_UNWIND(rmdir, frame, -1, op_errno, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(rmdir, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 

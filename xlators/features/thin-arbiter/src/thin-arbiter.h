@@ -29,7 +29,7 @@
 #define TA_STACK_UNWIND(fop, frame, op_ret, op_errno, params...)               \
     do {                                                                       \
         ta_fop_t *__local = NULL;                                              \
-        int32_t __op_ret = 0;                                                  \
+        gf_return_t __op_ret = gf_success;                                     \
         int32_t __op_errno = 0;                                                \
                                                                                \
         __local = frame->local;                                                \

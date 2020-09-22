@@ -16,7 +16,7 @@ extern struct volume_options dht_options[];
 
 int
 nufa_local_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, inode_t *inode,
+                      gf_return_t op_ret, int op_errno, inode_t *inode,
                       struct iatt *stbuf, dict_t *xattr,
                       struct iatt *postparent)
 {
@@ -45,7 +45,7 @@ nufa_local_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto out;
 
     is_linkfile = check_is_linkfile(inode, stbuf, xattr, conf->link_xattr_name);
@@ -59,7 +59,7 @@ nufa_local_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          "could not set pre-set layout for subvol"
                          " %s",
                          prev->name);
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = EINVAL;
             goto err;
         }
@@ -74,12 +74,12 @@ nufa_local_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->inode = inode_ref(inode);
         local->xattr = dict_ref(xattr);
 
-        local->op_ret = 0;
+        local->op_ret = gf_success;
         local->op_errno = 0;
 
         local->layout = dht_layout_new(this, conf->subvolume_cnt);
         if (!local->layout) {
-            op_ret = -1;
+            op_ret = gf_error;
             op_errno = ENOMEM;
             goto err;
         }
@@ -238,22 +238,22 @@ nufa_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(lookup, frame, gf_error, op_errno, NULL, NULL, NULL, NULL);
     return 0;
 }
 
 int
 nufa_create_linkfile_create_cbk(call_frame_t *frame, void *cookie,
-                                xlator_t *this, int op_ret, int op_errno,
-                                inode_t *inode, struct iatt *stbuf,
-                                struct iatt *preparent, struct iatt *postparent,
-                                dict_t *xdata)
+                                xlator_t *this, gf_return_t op_ret,
+                                int op_errno, inode_t *inode,
+                                struct iatt *stbuf, struct iatt *preparent,
+                                struct iatt *postparent, dict_t *xdata)
 {
     dht_local_t *local = NULL;
 
     local = frame->local;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto err;
 
     STACK_WIND_COOKIE(frame, dht_create_cbk, local->cached_subvol,
@@ -264,8 +264,8 @@ nufa_create_linkfile_create_cbk(call_frame_t *frame, void *cookie,
     return 0;
 
 err:
-    DHT_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL,
-                     NULL);
+    DHT_STACK_UNWIND(create, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL, NULL);
     return 0;
 }
 
@@ -329,15 +329,15 @@ nufa_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL,
-                     NULL);
+    DHT_STACK_UNWIND(create, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL, NULL);
 
     return 0;
 }
 
 int
 nufa_mknod_linkfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, inode_t *inode,
+                        gf_return_t op_ret, int op_errno, inode_t *inode,
                         struct iatt *stbuf, struct iatt *preparent,
                         struct iatt *postparent, dict_t *xdata)
 {
@@ -346,11 +346,11 @@ nufa_mknod_linkfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     if (!local || !local->cached_subvol) {
         op_errno = EINVAL;
-        op_ret = -1;
+        op_ret = gf_error;
         goto err;
     }
 
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         STACK_WIND_COOKIE(
             frame, dht_newfile_cbk, (void *)local->cached_subvol,
             local->cached_subvol, local->cached_subvol->fops->mknod,
@@ -429,7 +429,8 @@ nufa_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(mknod, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
+                     NULL);
 
     return 0;
 }

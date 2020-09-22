@@ -44,7 +44,7 @@ struct ra_local {
     struct ra_fill fill;
     off_t offset;
     size_t size;
-    int32_t op_ret;
+    gf_return_t op_ret;
     int32_t op_errno;
     off_t pending_offset;
     size_t pending_size;
@@ -120,7 +120,7 @@ void
 ra_page_flush(ra_page_t *page);
 
 ra_waitq_t *
-ra_page_error(ra_page_t *page, int32_t op_ret, int32_t op_errno);
+ra_page_error(ra_page_t *page, gf_return_t op_ret, int32_t op_errno);
 void
 ra_page_purge(ra_page_t *page);
 

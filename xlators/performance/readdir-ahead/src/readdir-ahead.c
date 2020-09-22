@@ -383,6 +383,7 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     gf_dirent_t entries;
     int ret = 0;
     int op_errno = 0;
+    gf_return_t op_ret;
     gf_boolean_t serve = _gf_false;
 
     ctx = get_rda_fd_ctx(fd, this);
@@ -459,7 +460,8 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     UNLOCK(&ctx->lock);
 
     if (serve) {
-        STACK_UNWIND_STRICT(readdirp, frame, ret, op_errno, &entries, xdata);
+        SET_RET(op_ret, ret);
+        STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, &entries, xdata);
         gf_dirent_free(&entries);
     }
 
@@ -474,13 +476,13 @@ bypass:
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, ENOMEM, NULL, NULL);
+    STACK_UNWIND_STRICT(readdirp, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 }
 
 static int32_t
 rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                gf_return_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                 dict_t *xdata)
 {
     gf_dirent_t *dirent = NULL;
@@ -564,12 +566,12 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (ctx->cur_size >= priv->rda_high_wmark)
         ctx->state &= ~RDA_FD_PLUGGED;
 
-    if (!op_ret || op_errno == ENOENT) {
+    if (IS_SUCCESS(op_ret) || op_errno == ENOENT) {
         /* we've hit eod */
         ctx->state &= ~RDA_FD_RUNNING;
         ctx->state |= RDA_FD_EOD;
         ctx->op_errno = op_errno;
-    } else if (op_ret == -1) {
+    } else if (IS_ERROR(op_ret)) {
         /* kill the preload and pend the error */
         ctx->state &= ~RDA_FD_RUNNING;
         ctx->state |= RDA_FD_ERROR;
@@ -624,7 +626,8 @@ out:
     }
 
     if (serve) {
-        STACK_UNWIND_STRICT(readdirp, stub->frame, ret, op_errno,
+        SET_RET(op_ret, ret);
+        STACK_UNWIND_STRICT(readdirp, stub->frame, op_ret, op_errno,
                             &serve_entries, xdata);
         gf_dirent_free(&serve_entries);
         call_stub_destroy(stub);
@@ -714,9 +717,9 @@ err:
 
 static int32_t
 rda_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-    if (!op_ret)
+    if (IS_SUCCESS(op_ret))
         rda_fill_fd(frame, this, fd);
 
     RDA_STACK_UNWIND(opendir, frame, op_ret, op_errno, fd, xdata);
@@ -750,13 +753,13 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     return 0;
 
 unwind:
-    STACK_UNWIND_STRICT(opendir, frame, -1, op_errno, fd, xdata);
+    STACK_UNWIND_STRICT(opendir, frame, gf_error, op_errno, fd, xdata);
     return 0;
 }
 
 static int32_t
 rda_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -764,7 +767,7 @@ rda_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -792,7 +795,7 @@ rda_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
 static int32_t
 rda_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -800,7 +803,7 @@ rda_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -825,7 +828,7 @@ rda_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_size,
 
 static int32_t
 rda_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -833,7 +836,7 @@ rda_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -858,7 +861,7 @@ rda_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 static int32_t
 rda_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -866,7 +869,7 @@ rda_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -891,7 +894,7 @@ rda_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 static int32_t
 rda_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -899,7 +902,7 @@ rda_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -924,7 +927,7 @@ rda_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 static int32_t
 rda_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -932,7 +935,7 @@ rda_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -957,11 +960,11 @@ rda_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
 static int32_t
 rda_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct rda_local *local = NULL;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -984,11 +987,11 @@ rda_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
 static int32_t
 rda_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct rda_local *local = NULL;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -1011,7 +1014,7 @@ rda_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
 static int32_t
 rda_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                 struct iatt *statpost, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -1019,7 +1022,7 @@ rda_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -1044,7 +1047,7 @@ rda_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
 
 static int32_t
 rda_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *statpre,
                  struct iatt *statpost, dict_t *xdata)
 {
     struct rda_local *local = NULL;
@@ -1052,7 +1055,7 @@ rda_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -1077,11 +1080,11 @@ rda_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
 
 static int32_t
 rda_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct rda_local *local = NULL;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;
@@ -1104,11 +1107,11 @@ rda_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 static int32_t
 rda_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     struct rda_local *local = NULL;
 
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     local = frame->local;

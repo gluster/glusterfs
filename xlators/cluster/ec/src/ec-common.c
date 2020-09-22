@@ -24,7 +24,7 @@
 #define EC_INVALID_INDEX UINT32_MAX
 
 void
-ec_update_fd_status(fd_t *fd, xlator_t *xl, int idx, int32_t ret_status)
+ec_update_fd_status(fd_t *fd, xlator_t *xl, int idx, gf_return_t ret_status)
 {
     ec_fd_t *fd_ctx;
 
@@ -35,7 +35,7 @@ ec_update_fd_status(fd_t *fd, xlator_t *xl, int idx, int32_t ret_status)
     {
         fd_ctx = __ec_fd_get(fd, xl);
         if (fd_ctx) {
-            if (ret_status >= 0)
+            if (IS_SUCCESS(ret_status))
                 fd_ctx->fd_status[idx] = EC_FD_OPENED;
             else
                 fd_ctx->fd_status[idx] = EC_FD_NOT_OPENED;
@@ -229,10 +229,10 @@ ec_child_next(ec_t *ec, ec_fop_data_t *fop, uint32_t idx)
 
 int32_t
 ec_heal_report(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, uintptr_t mask, uintptr_t good,
-               uintptr_t bad, uint32_t pending, dict_t *xdata)
+               gf_return_t op_ret, int32_t op_errno, uintptr_t mask,
+               uintptr_t good, uintptr_t bad, uint32_t pending, dict_t *xdata)
 {
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_DEBUG, op_errno, EC_MSG_HEAL_FAIL,
                "Heal failed");
     } else {
@@ -264,7 +264,7 @@ ec_fop_needs_name_heal(ec_fop_data_t *fop)
 
     list_for_each_entry(cbk, &fop->cbk_list, list)
     {
-        if (cbk->op_ret < 0 && cbk->op_errno == ENOENT) {
+        if (IS_ERROR(cbk->op_ret) && cbk->op_errno == ENOENT) {
             enoent_cbk = cbk;
             break;
         }
@@ -307,7 +307,7 @@ ec_check_status(ec_fop_data_t *fop)
         return;
     }
 
-    if (fop->answer && fop->answer->op_ret >= 0) {
+    if (fop->answer && IS_SUCCESS(fop->answer->op_ret)) {
         if ((fop->id == GF_FOP_LOOKUP) || (fop->id == GF_FOP_STAT) ||
             (fop->id == GF_FOP_FSTAT)) {
             partial = fop->answer->iatt[0].ia_type == IA_IFDIR;
@@ -395,19 +395,19 @@ ec_fop_set_error(ec_fop_data_t *fop, int32_t error)
 gf_boolean_t
 ec_cbk_set_error(ec_cbk_data_t *cbk, int32_t error, gf_boolean_t ro)
 {
-    if ((error != 0) && (cbk->op_ret >= 0)) {
+    if ((error != 0) && IS_SUCCESS(cbk->op_ret)) {
         /* If cbk->op_errno was 0, it means that the fop succeeded and this
          * error has happened while processing the answer. If the operation was
          * read-only, there's no problem (i.e. we simply return the generated
          * error code). However if it caused a modification, we must return EIO
          * to indicate that the operation has been partially executed. */
         cbk->op_errno = ro ? error : EIO;
-        cbk->op_ret = -1;
+        cbk->op_ret = gf_error;
 
         ec_fop_set_error(cbk->fop, cbk->op_errno);
     }
 
-    return (cbk->op_ret < 0);
+    return (IS_ERROR(cbk->op_ret));
 }
 
 ec_cbk_data_t *
@@ -423,7 +423,7 @@ ec_fop_prepare_answer(ec_fop_data_t *fop, gf_boolean_t ro)
         return NULL;
     }
 
-    if (cbk->op_ret < 0) {
+    if (IS_ERROR(cbk->op_ret)) {
         ec_fop_set_error(fop, cbk->op_errno);
     }
 
@@ -832,7 +832,7 @@ ec_dispatch_one_retry(ec_fop_data_t *fop, ec_cbk_data_t **cbk)
     if (cbk != NULL) {
         *cbk = tmp;
     }
-    if ((tmp != NULL) && (tmp->op_ret < 0) &&
+    if ((tmp != NULL) && IS_ERROR(tmp->op_ret) &&
         ec_is_recoverable_error(tmp->op_errno)) {
         GF_ASSERT(fop->mask & (1ULL << tmp->idx));
         fop->mask ^= (1ULL << tmp->idx);
@@ -1214,7 +1214,7 @@ ec_set_dirty_flag(ec_lock_link_t *link, ec_inode_t *ctx, uint64_t *dirty)
 
 int32_t
 ec_prepare_update_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *dict,
+                      gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                       dict_t *xdata)
 {
     struct list_head list;
@@ -1243,7 +1243,7 @@ ec_prepare_update_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 list_add_tail(&link->fop->cbk_list, &list);
         }
     }
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno, EC_MSG_SIZE_VERS_GET_FAIL,
                "Failed to get size and version :  %s", ec_msg_str(fop));
 
@@ -1694,13 +1694,13 @@ unlock:
 
 int32_t
 ec_get_real_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, inode_t *inode,
+                     gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                      struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
     ec_fop_data_t *fop = cookie;
     ec_lock_link_t *link;
 
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         link = fop->data;
         link->size = buf->ia_size;
     } else {
@@ -1905,7 +1905,7 @@ ec_lock_acquired(ec_lock_link_t *link)
 }
 
 int32_t
-ec_locked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+ec_locked(call_frame_t *frame, void *cookie, xlator_t *this, gf_return_t op_ret,
           int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
@@ -1914,7 +1914,7 @@ ec_locked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     link = fop->data;
     lock = link->lock;
-    if (op_ret >= 0) {
+    if (IS_SUCCESS(op_ret)) {
         lock->mask = lock->good_mask = fop->good;
         lock->healing = 0;
 
@@ -2140,7 +2140,7 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
 
     lock->release |= release;
 
-    if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
+    if ((fop->error == 0) && (cbk != NULL) && IS_SUCCESS(cbk->op_ret)) {
         if (link->update[0]) {
             ctx->post_version[0]++;
         }
@@ -2248,13 +2248,13 @@ ec_lock_unfreeze(ec_lock_link_t *link)
 }
 
 int32_t
-ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-            int32_t op_errno, dict_t *xdata)
+ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
+            gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
     ec_lock_link_t *link = fop->data;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_WARNING, op_errno, EC_MSG_UNLOCK_FAILED,
                "entry/inode unlocking failed :(%s)", ec_msg_str(link->fop));
     } else {
@@ -2312,7 +2312,7 @@ unlock:
 
 int32_t
 ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                            gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
                             dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
@@ -2324,7 +2324,7 @@ ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
     lock = link->lock;
     ctx = lock->ctx;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         if (link->lock->fd == NULL) {
             ec_inode_bad_inc(link->lock->loc.inode, this);
         } else {
@@ -2855,7 +2855,7 @@ ec_update_stripe(ec_t *ec, ec_stripe_list_t *stripe_cache, ec_stripe_t *stripe,
     /* On write fops, we only update existing fragments if the write has
      * succeeded. Otherwise, we remove them from the cache. */
     if ((fop->id == GF_FOP_WRITE) && (fop->answer != NULL) &&
-        (fop->answer->op_ret >= 0)) {
+        IS_SUCCESS(fop->answer->op_ret)) {
         base = stripe->frag_offset - fop->frag_range.first;
         base *= ec->fragments;
 
@@ -2870,7 +2870,7 @@ ec_update_stripe(ec_t *ec, ec_stripe_list_t *stripe_cache, ec_stripe_t *stripe,
          * size by the user, so we update the stripe if the write has
          * modified at least one byte (meaning ec has written the full
          * stripe). */
-        if (base < fop->answer->op_ret + fop->head) {
+        if (base < (GET_RET(fop->answer->op_ret) + fop->head)) {
             memcpy(stripe->data, fop->vector[0].iov_base + base,
                    ec->stripe_size);
             list_move_tail(&stripe->lru, &stripe_cache->lru);

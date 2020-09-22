@@ -28,9 +28,9 @@ int
 aws_download_s3(call_frame_t *frame, void *config);
 
 int
-aws_dlwritev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                 dict_t *xdata);
+aws_dlwritev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf, dict_t *xdata);
 
 void *
 aws_init(xlator_t *this);

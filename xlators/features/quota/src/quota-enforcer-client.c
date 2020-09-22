@@ -39,7 +39,7 @@ extern struct rpc_clnt_program quota_enforcer_clnt;
 
 int32_t
 quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *xdata, struct iatt *postparent);
 
 int
@@ -157,7 +157,7 @@ quota_enforcer_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
     op_errno = gf_error_to_errno(rsp.op_errno);
     gf_stat_to_iatt(&rsp.postparent, &postparent);
 
-    if (rsp.op_ret == -1)
+    if (rsp.op_ret < 0)
         goto out;
 
     rsp.op_ret = -1;
@@ -224,7 +224,7 @@ out:
         priv->quotad_conn_status = 0;
     }
 
-    if (rsp.op_ret == -1) {
+    if (rsp.op_ret < 0) {
         /* any error other than ENOENT */
         if (rsp.op_errno != ENOENT)
             gf_msg(
@@ -242,8 +242,10 @@ out:
                local->quotad_conn_retry);
     }
 
-    local->validate_cbk(frame, NULL, this, rsp.op_ret, rsp.op_errno, inode,
-                        &stbuf, xdata, &postparent);
+    gf_return_t op_ret;
+    SET_RET(op_ret, rsp.op_ret);
+    local->validate_cbk(frame, NULL, this, op_ret, rsp.op_errno, inode, &stbuf,
+                        xdata, &postparent);
 
 clean:
     if (xdata)
@@ -318,7 +320,7 @@ _quota_enforcer_lookup(void *data)
     return;
 
 unwind:
-    local->validate_cbk(frame, NULL, this, -1, op_errno, NULL, NULL, NULL,
+    local->validate_cbk(frame, NULL, this, gf_error, op_errno, NULL, NULL, NULL,
                         NULL);
 
     GF_FREE(req.xdata.xdata_val);
@@ -345,7 +347,7 @@ quota_enforcer_lookup(call_frame_t *frame, xlator_t *this, dict_t *xdata,
     return 0;
 
 unwind:
-    validate_cbk(frame, NULL, this, -1, ESTALE, NULL, NULL, NULL, NULL);
+    validate_cbk(frame, NULL, this, gf_error, ESTALE, NULL, NULL, NULL, NULL);
 
     return 0;
 }

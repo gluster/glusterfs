@@ -446,7 +446,7 @@ entrylk_trace_in(xlator_t *this, call_frame_t *frame, const char *domain,
 void
 entrylk_trace_out(xlator_t *this, call_frame_t *frame, const char *domain,
                   fd_t *fd, loc_t *loc, const char *basename, entrylk_cmd cmd,
-                  entrylk_type type, int op_ret, int op_errno)
+                  entrylk_type type, gf_return_t op_ret, int op_errno)
 {
     posix_locks_private_t *priv = NULL;
     char pl_locker[256];
@@ -462,7 +462,7 @@ entrylk_trace_out(xlator_t *this, call_frame_t *frame, const char *domain,
     pl_print_locker(pl_locker, 256, this, frame);
     pl_print_lockee(pl_lockee, 256, fd, loc);
     pl_print_entrylk(pl_entrylk, 256, cmd, type, basename, domain);
-    pl_print_verdict(verdict, 32, op_ret, op_errno);
+    pl_print_verdict(verdict, 32, GET_RET(op_ret), op_errno);
 
     gf_log(this->name, GF_LOG_INFO,
            "[%s] Locker = {%s} Lockee = {%s} Lock = {%s}", verdict, pl_locker,
@@ -716,9 +716,9 @@ grant_blocked_entry_locks(xlator_t *this, pl_inode_t *pl_inode,
     list_for_each_entry_safe(lock, tmp, &granted_list, blocked_locks)
     {
         entrylk_trace_out(this, lock->frame, NULL, NULL, NULL, lock->basename,
-                          ENTRYLK_LOCK, lock->type, 0, 0);
+                          ENTRYLK_LOCK, lock->type, gf_success, 0);
 
-        STACK_UNWIND_STRICT(entrylk, lock->frame, 0, 0, NULL);
+        STACK_UNWIND_STRICT(entrylk, lock->frame, gf_success, 0, NULL);
         lock->frame = NULL;
     }
 
@@ -740,7 +740,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
                   entrylk_type type, loc_t *loc, fd_t *fd, dict_t *xdata)
 
 {
-    int32_t op_ret = -1;
+    gf_return_t op_ret = {-1};
     int32_t op_errno = 0;
     int ret = -1;
     char unwind = 1;
@@ -795,7 +795,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     reqlock = new_entrylk_lock(pinode, basename, type, dom->domain, frame,
                                conn_id, &op_errno);
     if (!reqlock) {
-        op_ret = -1;
+        op_ret = gf_error;
         goto unwind;
     }
 
@@ -824,7 +824,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
             if (pl_does_monkey_want_stuck_lock()) {
                 gf_log(this->name, GF_LOG_WARNING,
                        "MONKEY LOCKING (forcing stuck lock)!");
-                op_ret = 0;
+                op_ret = gf_success;
                 need_inode_unref = _gf_true;
                 pthread_mutex_lock(&pinode->mutex);
                 {
@@ -851,7 +851,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
                                      pcontend);
                 if (ret == 0) {
                     reqlock->frame = NULL;
-                    op_ret = 0;
+                    op_ret = gf_success;
                 } else {
                     op_errno = -ret;
                 }
@@ -893,7 +893,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
                 if (unlocked) {
                     list_del_init(&unlocked->client_list);
                     __pl_entrylk_unref(unlocked);
-                    op_ret = 0;
+                    op_ret = gf_success;
                 } else {
                     op_errno = EINVAL;
                 }
@@ -918,7 +918,7 @@ pl_common_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     /* The following (extra) unref corresponds to the ref that
      * was done at the time the lock was granted.
      */
-    if ((cmd == ENTRYLK_UNLOCK) && (op_ret == 0))
+    if ((cmd == ENTRYLK_UNLOCK) && IS_SUCCESS(op_ret))
         inode_unref(pinode->inode);
 
 out:
@@ -1074,7 +1074,7 @@ pl_entrylk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
             list_del_init(&l->client_list);
 
             if (l->frame)
-                STACK_UNWIND_STRICT(entrylk, l->frame, -1, EAGAIN, NULL);
+                STACK_UNWIND_STRICT(entrylk, l->frame, gf_error, EAGAIN, NULL);
             list_add_tail(&l->client_list, &released);
         }
     }

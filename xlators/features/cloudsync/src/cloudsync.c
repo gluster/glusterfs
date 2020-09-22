@@ -311,13 +311,13 @@ cs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
     return 0;
 err:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, op_errno, NULL, NULL);
+    STACK_UNWIND_STRICT(readdirp, frame, gf_error, op_errno, NULL, NULL);
     return 0;
 }
 
 int32_t
 cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
     cs_local_t *local = NULL;
@@ -328,14 +328,14 @@ cs_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     local->call_cnt++;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "truncate failed");
         ret = dict_get_uint64(xdata, GF_CS_OBJECT_STATUS, &val);
         if (ret == 0) {
             if (val == GF_CS_ERROR) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                        "could not get file state, unwinding");
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = EIO;
                 goto unwind;
             } else {
@@ -442,13 +442,14 @@ cs_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     return 0;
 err:
-    CS_STACK_UNWIND(truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
+    CS_STACK_UNWIND(truncate, frame, gf_error, ENOMEM, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
-cs_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct statvfs *buf, dict_t *xdata)
+cs_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct statvfs *buf,
+              dict_t *xdata)
 {
     STACK_UNWIND_STRICT(statfs, frame, op_ret, op_errno, buf, xdata);
     return 0;
@@ -464,7 +465,8 @@ cs_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
 int32_t
 cs_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *dict,
+                dict_t *xdata)
 {
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, dict, xdata);
     return 0;
@@ -481,7 +483,7 @@ cs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
 int32_t
 cs_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     cs_local_t *local = NULL;
 
@@ -535,13 +537,14 @@ cs_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                FIRST_CHILD(this)->fops->setxattr, loc, dict, flags, xdata);
     return 0;
 err:
-    CS_STACK_UNWIND(setxattr, frame, -1, errno, NULL);
+    CS_STACK_UNWIND(setxattr, frame, gf_error, errno, NULL);
     return 0;
 }
 
 int32_t
 cs_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *dict,
+                 dict_t *xdata)
 {
     STACK_UNWIND_STRICT(fgetxattr, frame, op_ret, op_errno, dict, xdata);
     return 0;
@@ -558,7 +561,7 @@ cs_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 
 int32_t
 cs_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(fsetxattr, frame, op_ret, op_errno, xdata);
     return 0;
@@ -574,9 +577,9 @@ cs_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 }
 
 int32_t
-cs_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *preparent, struct iatt *postparent,
-              dict_t *xdata)
+cs_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
+              struct iatt *postparent, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(unlink, frame, op_ret, op_errno, preparent, postparent,
                         xdata);
@@ -608,18 +611,18 @@ cs_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                FIRST_CHILD(this)->fops->unlink, loc, flags, local->xattr_req);
     return 0;
 err:
-    CS_STACK_UNWIND(unlink, frame, -1, errno, NULL, NULL, NULL);
+    CS_STACK_UNWIND(unlink, frame, gf_error, errno, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
-cs_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-            int32_t op_errno, fd_t *fd, dict_t *xdata)
+cs_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+            gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     int ret = 0;
     uint64_t val = 0;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         ret = dict_get_uint64(xdata, GF_CS_OBJECT_STATUS, &val);
         if (!ret) {
             ret = __cs_inode_ctx_update(this, fd->inode, val);
@@ -661,13 +664,14 @@ cs_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                FIRST_CHILD(this)->fops->open, loc, flags, fd, local->xattr_req);
     return 0;
 err:
-    CS_STACK_UNWIND(open, frame, -1, errno, NULL, NULL);
+    CS_STACK_UNWIND(open, frame, gf_error, errno, NULL, NULL);
     return 0;
 }
 
 int32_t
-cs_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct iatt *buf, dict_t *xdata)
+cs_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
+             dict_t *xdata)
 {
     int ret = 0;
     uint64_t val = 0;
@@ -678,7 +682,7 @@ cs_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     fd = local->fd;
 
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         ret = dict_get_uint64(xdata, GF_CS_OBJECT_STATUS, &val);
         if (!ret) {
             gf_msg_debug(this->name, 0, "state %" PRIu64, val);
@@ -725,7 +729,7 @@ wind:
                FIRST_CHILD(this)->fops->fstat, fd, local->xattr_req);
     return 0;
 err:
-    CS_STACK_UNWIND(fstat, frame, -1, errno, NULL, NULL);
+    CS_STACK_UNWIND(fstat, frame, gf_error, errno, NULL, NULL);
     return 0;
 }
 
@@ -750,7 +754,7 @@ cs_local_init(xlator_t *this, call_frame_t *frame, loc_t *loc, fd_t *fd,
         local->fd = fd_ref(fd);
     }
 
-    local->op_ret = -1;
+    local->op_ret = gf_error;
     local->op_errno = EUCLEAN;
     local->fop = fop;
     local->dloffset = 0;
@@ -791,7 +795,7 @@ cs_lock_wipe(call_frame_t *lock_frame)
 
 int32_t
 cs_inodelk_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     cs_lock_wipe(frame);
 
@@ -1044,7 +1048,7 @@ cs_update_xattrs(call_frame_t *frame, dict_t *xdata)
     local->xattrinfo.lxattr = GF_CALLOC(1, sizeof(cs_loc_xattr_t),
                                         gf_cs_mt_cs_lxattr_t);
     if (!local->xattrinfo.lxattr) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         goto err;
     }
@@ -1054,7 +1058,7 @@ cs_update_xattrs(call_frame_t *frame, dict_t *xdata)
     if (local->remotepath) {
         local->xattrinfo.lxattr->file_path = gf_strdup(local->remotepath);
         if (!local->xattrinfo.lxattr->file_path) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = ENOMEM;
             goto err;
         }
@@ -1069,7 +1073,7 @@ cs_update_xattrs(call_frame_t *frame, dict_t *xdata)
     size = strlen(this->name) - strlen("-cloudsync") + 1;
     local->xattrinfo.lxattr->volname = GF_CALLOC(1, size, gf_common_mt_char);
     if (!local->xattrinfo.lxattr->volname) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         goto err;
     }
@@ -1155,9 +1159,10 @@ out:
 }
 
 int32_t
-cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct iovec *vector, int32_t count,
-             struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
+             int32_t count, struct iatt *stbuf, struct iobref *iobref,
+             dict_t *xdata)
 {
     cs_local_t *local = NULL;
     int ret = 0;
@@ -1169,13 +1174,13 @@ cs_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     local->call_cnt++;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         ret = dict_get_uint64(xdata, GF_CS_OBJECT_STATUS, &val);
         if (ret == 0) {
             if (val == GF_CS_ERROR) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                        "could not get file state, unwinding");
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = EIO;
                 goto unwind;
             } else {
@@ -1274,7 +1279,7 @@ cs_resume_remote_readv(call_frame_t *frame, xlator_t *this, fd_t *fd,
         gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                "status is GF_CS_ERROR."
                " Aborting readv");
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EREMOTE;
         ret = -1;
         goto unwind;
@@ -1297,7 +1302,7 @@ cs_resume_remote_readv(call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                  size, flags);
         /* Failed to submit the remote readv fop to plugin */
         if (ret) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = EREMOTE;
             goto unwind;
         }
@@ -1305,7 +1310,7 @@ cs_resume_remote_readv(call_frame_t *frame, xlator_t *this, fd_t *fd,
          * we should not perform remote reads.
          */
     } else {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EINVAL;
         goto unwind;
     }
@@ -1386,7 +1391,8 @@ cs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 
 err:
-    CS_STACK_UNWIND(readv, frame, -1, op_errno, NULL, -1, NULL, NULL, NULL);
+    CS_STACK_UNWIND(readv, frame, gf_error, op_errno, NULL, -1, NULL, NULL,
+                    NULL);
 
     return 0;
 }
@@ -1404,8 +1410,9 @@ cs_resume_remote_readv_postprocess(xlator_t *this, call_frame_t *frame,
 }
 
 int
-cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, struct iatt *stbuf, dict_t *xdata)
+cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  gf_return_t op_ret, int op_errno, struct iatt *stbuf,
+                  dict_t *xdata)
 {
     cs_local_t *local = NULL;
     call_stub_t *stub = NULL;
@@ -1416,7 +1423,7 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     local = frame->local;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         local->op_ret = op_ret;
         local->op_errno = op_errno;
         gf_msg(this->name, GF_LOG_ERROR, 0, op_errno, "stat check failed");
@@ -1428,7 +1435,7 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             inode = local->loc.inode;
 
         if (!inode) {
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = EINVAL;
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    "null inode "
@@ -1440,7 +1447,7 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (ret == 0) {
             if (val == GF_CS_ERROR) {
                 cs_inode_ctx_reset(this, inode);
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 local->op_errno = EIO;
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                        "status = GF_CS_ERROR. failed to get "
@@ -1451,14 +1458,14 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 gf_msg_debug(this->name, 0, "status : %" PRIu64, val);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, 0, "ctx update failed");
-                    local->op_ret = -1;
+                    local->op_ret = gf_error;
                     local->op_errno = ENOMEM;
                     goto err;
                 }
             }
         } else {
             gf_msg_debug(this->name, 0, "status not found in dict");
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = ENOMEM;
             goto err;
         }
@@ -1468,7 +1475,7 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             gf_msg_debug(this->name, 0, "filepath returned %s", filepath);
             local->remotepath = gf_strdup(filepath);
             if (!local->remotepath) {
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 local->op_errno = ENOMEM;
                 goto err;
             }
@@ -1480,7 +1487,7 @@ cs_stat_check_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (ret)
             goto err;
 
-        local->op_ret = 0;
+        local->op_ret = gf_success;
         local->xattr_rsp = dict_ref(xdata);
         memcpy(&local->stbuf, stbuf, sizeof(struct iatt));
     }
@@ -1585,7 +1592,7 @@ cs_common_cbk(call_frame_t *frame)
 
 int
 cs_blocking_inodelk_cbk(call_frame_t *lock_frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                        gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     cs_local_t *main_local = NULL;
     call_frame_t *main_frame = NULL;
@@ -1596,7 +1603,7 @@ cs_blocking_inodelk_cbk(call_frame_t *lock_frame, void *cookie, xlator_t *this,
     main_frame = lock_local->main_frame;
     main_local = main_frame->local;
 
-    if (op_ret) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "inodelk failed");
         main_local->op_errno = op_errno;
         main_local->op_ret = op_ret;
@@ -1757,7 +1764,7 @@ cs_resume_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     if (state == GF_CS_ERROR) {
         /* file is already remote */
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EINVAL;
         gf_msg(this->name, GF_LOG_WARNING, 0, 0,
                "file %s , could not figure file state", loc->path);
@@ -1766,7 +1773,7 @@ cs_resume_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     if (state == GF_CS_REMOTE) {
         /* file is already remote */
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EINVAL;
         gf_msg(this->name, GF_LOG_WARNING, 0, EINVAL,
                "file %s is already remote", loc->path);
@@ -1776,7 +1783,7 @@ cs_resume_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (state == GF_CS_DOWNLOADING) {
         gf_msg(this->name, GF_LOG_WARNING, 0, 0,
                " file is in downloading state.");
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EINVAL;
         goto unwind;
     }
@@ -1909,7 +1916,7 @@ cs_resume_postprocess(xlator_t *this, call_frame_t *frame, inode_t *inode)
         gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                "status is GF_CS_ERROR."
                " Aborting write");
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EREMOTE;
         ret = -1;
         goto out;
@@ -1923,7 +1930,7 @@ cs_resume_postprocess(xlator_t *this, call_frame_t *frame, inode_t *inode)
         } else {
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    " download failed, unwinding writev");
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = EREMOTE;
             ret = -1;
         }

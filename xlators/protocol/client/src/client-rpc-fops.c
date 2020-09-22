@@ -92,7 +92,9 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(symlink, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(symlink, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), inode, &stbuf,
                         &preparent, &postparent, xdata);
 
@@ -161,9 +163,10 @@ out:
                 "path=%s", local->loc.path, NULL);
     }
 
-    CLIENT_STACK_UNWIND(mknod, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), inode, &stbuf,
-                        &preparent, &postparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(mknod, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        inode, &stbuf, &preparent, &postparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -229,9 +232,10 @@ out:
                 "Path=%s", local->loc.path, NULL);
     }
 
-    CLIENT_STACK_UNWIND(mkdir, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), inode, &stbuf,
-                        &preparent, &postparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(mkdir, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        inode, &stbuf, &preparent, &postparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -367,8 +371,10 @@ out:
                 loc_gfid_utoa(&local->loc), NULL);
     }
 
-    CLIENT_STACK_UNWIND(open, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), fd, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(open, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        fd, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -425,8 +431,10 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(stat, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &iatt, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(stat, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &iatt, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -484,7 +492,9 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(readlink, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(readlink, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), rsp.path, &iatt,
                         xdata);
 
@@ -551,9 +561,10 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(unlink, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &preparent,
-                        &postparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(unlink, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &preparent, &postparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -608,9 +619,10 @@ out:
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
-    CLIENT_STACK_UNWIND(rmdir, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &preparent,
-                        &postparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(rmdir, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &preparent, &postparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -663,7 +675,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(truncate, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(truncate, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -715,8 +729,10 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(statfs, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &statfs, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(statfs, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &statfs, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -776,9 +792,10 @@ out:
         if (local->attempt_reopen)
             client_attempt_reopen(local->fd, this);
     }
-    CLIENT_STACK_UNWIND(writev, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
-                        xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(writev, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &prestat, &poststat, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -836,8 +853,10 @@ out:
                 fop_log_level(GF_FOP_FLUSH, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(flush, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(flush, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -893,9 +912,10 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(fsync, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
-                        xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fsync, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &prestat, &poststat, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -955,7 +975,9 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(setxattr, frame, rsp.op_ret, op_errno, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(setxattr, frame, fin_ret, op_errno, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -1025,7 +1047,9 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(getxattr, frame, rsp.op_ret, op_errno, dict, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(getxattr, frame, fin_ret, op_errno, dict, xdata);
 
     /* don't use GF_FREE, this memory was allocated by libc */
     free(rsp.dict.dict_val);
@@ -1091,7 +1115,9 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(fgetxattr, frame, rsp.op_ret, op_errno, dict, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fgetxattr, frame, fin_ret, op_errno, dict, xdata);
 
     free(rsp.dict.dict_val);
 
@@ -1155,7 +1181,9 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(removexattr, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(removexattr, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1203,7 +1231,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(fremovexattr, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fremovexattr, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1251,7 +1281,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(fsyncdir, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fsyncdir, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1299,8 +1331,10 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(access, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(access, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -1353,7 +1387,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(ftruncate, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(ftruncate, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -1405,8 +1441,10 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(fstat, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &stat, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fstat, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &stat, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -1453,7 +1491,9 @@ out:
                 fop_log_level(GF_FOP_INODELK, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(inodelk, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(inodelk, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1505,7 +1545,9 @@ out:
         if (local->attempt_reopen)
             client_attempt_reopen(local->fd, this);
     }
-    CLIENT_STACK_UNWIND(finodelk, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(finodelk, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1554,7 +1596,9 @@ out:
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(entrylk, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(entrylk, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1603,7 +1647,9 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(fentrylk, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fentrylk, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -1662,7 +1708,9 @@ out:
                 loc_gfid_utoa(&local->loc), NULL);
     }
 
-    CLIENT_STACK_UNWIND(xattrop, frame, rsp.op_ret, gf_error_to_errno(op_errno),
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(xattrop, frame, fin_ret, gf_error_to_errno(op_errno),
                         dict, xdata);
 
     free(rsp.dict.dict_val);
@@ -1728,8 +1776,10 @@ out:
         if (local->attempt_reopen)
             client_attempt_reopen(local->fd, this);
     }
-    CLIENT_STACK_UNWIND(fxattrop, frame, rsp.op_ret,
-                        gf_error_to_errno(op_errno), dict, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fxattrop, frame, fin_ret, gf_error_to_errno(op_errno),
+                        dict, xdata);
 
     free(rsp.dict.dict_val);
 
@@ -1791,7 +1841,9 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(fsetxattr, frame, rsp.op_ret, op_errno, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fsetxattr, frame, fin_ret, op_errno, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -1843,7 +1895,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(fsetattr, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fsetattr, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -1903,7 +1957,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(fallocate, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(fallocate, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -1958,7 +2014,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(discard, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(discard, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -2012,7 +2070,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(zerofill, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(zerofill, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -2060,7 +2120,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(ipc, frame, rsp.op_ret, gf_error_to_errno(rsp.op_errno),
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(ipc, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
                         xdata);
 
     free(rsp.xdata.xdata_val);
@@ -2108,8 +2170,10 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(seek, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), rsp.offset, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(seek, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        rsp.offset, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -2163,7 +2227,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(setattr, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(setattr, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
                         xdata);
 
@@ -2241,9 +2307,10 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, "Path=%s", local->loc.path, NULL);
     }
 
-    CLIENT_STACK_UNWIND(create, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), fd, inode, &stbuf,
-                        &preparent, &postparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(create, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        fd, inode, &stbuf, &preparent, &postparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -2291,7 +2358,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(rchecksum, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(rchecksum, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), rsp.weak_checksum,
                         (uint8_t *)rsp.strong_checksum.strong_checksum_val,
                         xdata);
@@ -2354,8 +2423,10 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(lease, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &lease, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(lease, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &lease, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -2425,7 +2496,9 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(lk, frame, rsp.op_ret, gf_error_to_errno(rsp.op_errno),
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(lk, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
                         &lock, xdata);
 
     free(rsp.xdata.xdata_val);
@@ -2481,7 +2554,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, "remote_fd=%d", local->cmd, NULL);
     }
-    CLIENT_STACK_UNWIND(readdir, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(readdir, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &entries, xdata);
 
     if (rsp.op_ret != -1) {
@@ -2540,7 +2615,9 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(readdirp, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(readdirp, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &entries, xdata);
 
     if (rsp.op_ret != -1) {
@@ -2610,9 +2687,11 @@ out:
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
-    CLIENT_STACK_UNWIND(rename, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), &stbuf, &preoldparent,
-                        &postoldparent, &prenewparent, &postnewparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(rename, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        &stbuf, &preoldparent, &postoldparent, &prenewparent,
+                        &postnewparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -2677,9 +2756,10 @@ out:
         }
     }
 
-    CLIENT_STACK_UNWIND(link, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), inode, &stbuf,
-                        &preparent, &postparent, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(link, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        inode, &stbuf, &preparent, &postparent, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -2744,7 +2824,9 @@ out:
                 "Path=%s", local->loc.path, "gfid=%s",
                 loc_gfid_utoa(&local->loc), NULL);
     }
-    CLIENT_STACK_UNWIND(opendir, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(opendir, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), fd, xdata);
 
     free(rsp.xdata.xdata_val);
@@ -2843,7 +2925,9 @@ out:
                          "node");
     }
 
-    CLIENT_STACK_UNWIND(lookup, frame, rsp.op_ret, rsp.op_errno, inode, &stbuf,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(lookup, frame, fin_ret, rsp.op_errno, inode, &stbuf,
                         xdata, &postparent);
 
     if (xdata)
@@ -2906,9 +2990,10 @@ out:
         if (local->attempt_reopen)
             client_attempt_reopen(local->fd, this);
     }
-    CLIENT_STACK_UNWIND(readv, frame, rsp.op_ret,
-                        gf_error_to_errno(rsp.op_errno), vector, rspcount,
-                        &stat, iobref, xdata);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(readv, frame, fin_ret, gf_error_to_errno(rsp.op_errno),
+                        vector, rspcount, &stat, iobref, xdata);
 
     free(rsp.xdata.xdata_val);
 
@@ -2986,7 +3071,9 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(getactivelk, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(getactivelk, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), &locklist, xdata);
 
     free(rsp.xdata.xdata_val);
@@ -3039,7 +3126,9 @@ out:
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
-    CLIENT_STACK_UNWIND(setactivelk, frame, rsp.op_ret,
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, rsp.op_ret);
+    CLIENT_STACK_UNWIND(setactivelk, frame, fin_ret,
                         gf_error_to_errno(rsp.op_errno), xdata);
 
     free(rsp.xdata.xdata_val);
@@ -3228,7 +3317,8 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(lookup, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3273,7 +3363,7 @@ client3_3_stat(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(stat, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(stat, frame, gf_error, op_errno, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3315,7 +3405,7 @@ client3_3_truncate(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(truncate, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(truncate, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -3357,7 +3447,7 @@ client3_3_ftruncate(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(ftruncate, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -3399,7 +3489,7 @@ client3_3_access(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(access, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(access, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -3487,7 +3577,7 @@ unwind:
         iobref_unref(rsp_iobref);
     }
 
-    CLIENT_STACK_UNWIND(readlink, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(readlink, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -3528,7 +3618,7 @@ client3_3_unlink(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(unlink, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(unlink, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -3569,7 +3659,7 @@ client3_3_rmdir(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(rmdir, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(rmdir, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -3629,8 +3719,8 @@ client3_3_symlink(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 unwind:
 
-    CLIENT_STACK_UNWIND(symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL);
+    CLIENT_STACK_UNWIND(symlink, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3673,8 +3763,8 @@ client3_3_rename(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL, NULL);
+    CLIENT_STACK_UNWIND(rename, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3731,7 +3821,7 @@ client3_3_link(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(link, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+    CLIENT_STACK_UNWIND(link, frame, gf_error, op_errno, NULL, NULL, NULL, NULL,
                         NULL);
     GF_FREE(req.xdata.xdata_val);
 
@@ -3784,8 +3874,8 @@ client3_3_mknod(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL);
+    CLIENT_STACK_UNWIND(mknod, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3850,8 +3940,8 @@ client3_3_mkdir(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL);
+    CLIENT_STACK_UNWIND(mkdir, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3908,8 +3998,8 @@ client3_3_create(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                        NULL, NULL);
+    CLIENT_STACK_UNWIND(create, frame, gf_error, op_errno, NULL, NULL, NULL,
+                        NULL, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -3968,7 +4058,7 @@ client3_3_open(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(open, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(open, frame, gf_error, op_errno, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -4067,7 +4157,8 @@ unwind:
     if (rsp_iobref)
         iobref_unref(rsp_iobref);
 
-    CLIENT_STACK_UNWIND(readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(readv, frame, gf_error, op_errno, NULL, 0, NULL, NULL,
+                        NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4128,7 +4219,7 @@ client3_3_writev(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(writev, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4189,7 +4280,7 @@ client3_3_flush(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(flush, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(flush, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4231,7 +4322,7 @@ client3_3_fsync(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(fsync, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(fsync, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4275,7 +4366,7 @@ client3_3_fstat(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(fstat, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(fstat, frame, gf_error, op_errno, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4329,7 +4420,7 @@ client3_3_opendir(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(opendir, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(opendir, frame, gf_error, op_errno, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -4372,7 +4463,7 @@ client3_3_fsyncdir(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(fsyncdir, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(fsyncdir, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4415,7 +4506,7 @@ client3_3_statfs(call_frame_t *frame, xlator_t *this, void *data)
     return 0;
 
 unwind:
-    CLIENT_STACK_UNWIND(statfs, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(statfs, frame, gf_error, op_errno, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -4458,7 +4549,7 @@ client3_3_setxattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(setxattr, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(setxattr, frame, gf_error, op_errno, NULL);
     GF_FREE(req.dict.dict_val);
 
     GF_FREE(req.xdata.xdata_val);
@@ -4504,7 +4595,7 @@ client3_3_fsetxattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fsetxattr, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(fsetxattr, frame, gf_error, op_errno, NULL);
     GF_FREE(req.dict.dict_val);
 
     GF_FREE(req.xdata.xdata_val);
@@ -4592,7 +4683,7 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fgetxattr, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(fgetxattr, frame, gf_error, op_errno, NULL, NULL);
 
     if (rsp_iobref)
         iobref_unref(rsp_iobref);
@@ -4614,7 +4705,7 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
     };
     dict_t *dict = NULL;
     int ret = 0;
-    int32_t op_ret = -1;
+    int op_ret = -1;
     int op_errno = ESTALE;
     int count = 0;
     clnt_local_t *local = NULL;
@@ -4720,7 +4811,9 @@ unwind:
     if (rsp_iobref)
         iobref_unref(rsp_iobref);
 
-    CLIENT_STACK_UNWIND(getxattr, frame, op_ret, op_errno, dict, NULL);
+    gf_return_t fin_ret;
+    SET_RET(fin_ret, op_ret);
+    CLIENT_STACK_UNWIND(getxattr, frame, fin_ret, op_errno, dict, NULL);
 
     if (dict) {
         dict_unref(dict);
@@ -4819,7 +4912,7 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(xattrop, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(xattrop, frame, gf_error, op_errno, NULL, NULL);
 
     GF_FREE(req.dict.dict_val);
 
@@ -4913,7 +5006,7 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fxattrop, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(fxattrop, frame, gf_error, op_errno, NULL, NULL);
 
     GF_FREE(req.dict.dict_val);
 
@@ -4961,7 +5054,7 @@ client3_3_removexattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(removexattr, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(removexattr, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5004,7 +5097,7 @@ client3_3_fremovexattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fremovexattr, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(fremovexattr, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5046,7 +5139,7 @@ client3_3_lease(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(lease, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(lease, frame, gf_error, op_errno, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5116,7 +5209,7 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(lk, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(lk, frame, gf_error, op_errno, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5158,7 +5251,7 @@ client3_3_inodelk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(inodelk, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(inodelk, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5206,7 +5299,7 @@ client3_3_finodelk(call_frame_t *frame, xlator_t *this, void *data)
     GF_FREE(req.xdata.xdata_val);
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(finodelk, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(finodelk, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5251,7 +5344,7 @@ client3_3_entrylk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(entrylk, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(entrylk, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5294,7 +5387,7 @@ client3_3_fentrylk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fentrylk, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(fentrylk, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5334,7 +5427,7 @@ client3_3_rchecksum(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(rchecksum, frame, -1, op_errno, 0, NULL, NULL);
+    CLIENT_STACK_UNWIND(rchecksum, frame, gf_error, op_errno, 0, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5439,7 +5532,7 @@ unwind:
     if (rsp_iobref)
         iobref_unref(rsp_iobref);
 
-    CLIENT_STACK_UNWIND(readdir, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(readdir, frame, gf_error, op_errno, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5543,7 +5636,7 @@ unwind:
 
     GF_FREE(req.dict.dict_val);
 
-    CLIENT_STACK_UNWIND(readdirp, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(readdirp, frame, gf_error, op_errno, NULL, NULL);
     return 0;
 }
 
@@ -5585,7 +5678,7 @@ client3_3_setattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(setattr, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(setattr, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5626,7 +5719,7 @@ client3_3_fsetattr(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(fsetattr, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5667,7 +5760,7 @@ client3_3_fallocate(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(fallocate, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5707,7 +5800,7 @@ client3_3_discard(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(discard, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(discard, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5749,7 +5842,7 @@ client3_3_zerofill(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(zerofill, frame, -1, op_errno, NULL, NULL, NULL);
+    CLIENT_STACK_UNWIND(zerofill, frame, gf_error, op_errno, NULL, NULL, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5791,7 +5884,7 @@ client3_3_ipc(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(ipc, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(ipc, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5835,7 +5928,7 @@ client3_3_seek(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(ipc, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(ipc, frame, gf_error, op_errno, NULL);
     GF_FREE(req.xdata.xdata_val);
 
     return 0;
@@ -5885,7 +5978,7 @@ client3_3_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(getactivelk, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(getactivelk, frame, gf_error, op_errno, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
@@ -5945,7 +6038,7 @@ client3_3_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
 
 unwind:
 
-    CLIENT_STACK_UNWIND(setactivelk, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(setactivelk, frame, gf_error, op_errno, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 

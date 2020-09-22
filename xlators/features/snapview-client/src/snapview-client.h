@@ -47,7 +47,7 @@ typedef struct __svc_local svc_local_t;
             if (!new_xdata) {                                                  \
                 gf_log(this->name, GF_LOG_ERROR,                               \
                        "failed to allocate new dict");                         \
-                op_ret = -1;                                                   \
+                op_ret = gf_error;                                             \
                 op_errno = ENOMEM;                                             \
                 goto label;                                                    \
             }                                                                  \
@@ -55,7 +55,7 @@ typedef struct __svc_local svc_local_t;
         ret = dict_set_str(xdata, "entry-point", "true");                      \
         if (ret) {                                                             \
             gf_log(this->name, GF_LOG_ERROR, "failed to set dict");            \
-            op_ret = -1;                                                       \
+            op_ret = gf_error;                                                 \
             op_errno = ENOMEM;                                                 \
             goto label;                                                        \
         }                                                                      \
@@ -69,7 +69,7 @@ typedef struct __svc_local svc_local_t;
             gf_log(this->name, GF_LOG_ERROR,                                   \
                    "inode context not found for gfid %s",                      \
                    uuid_utoa(inode->gfid));                                    \
-            op_ret = -1;                                                       \
+            op_ret = gf_error;                                                 \
             op_errno = EINVAL;                                                 \
             goto label;                                                        \
         }                                                                      \

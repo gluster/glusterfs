@@ -54,7 +54,8 @@ main(int argc, char *argv[])
 
     ret = stat(filepath, &stbuf);
     if (ret < 0) {
-        fprintf(stderr, "stat failed on path %s (%s)\n", strerror(errno));
+        fprintf(stderr, "stat failed on path %s (%s)\n", filepath,
+                strerror(errno));
         goto err;
     }
 

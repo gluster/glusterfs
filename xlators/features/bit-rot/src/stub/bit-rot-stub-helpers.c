@@ -352,7 +352,7 @@ br_stub_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     struct stat lstatbuf = {0};
     int ret = 0;
     int32_t op_errno = EINVAL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     struct iatt stbuf = {
         0,
     };
@@ -388,10 +388,11 @@ br_stub_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     iatt_from_stat(&stbuf, &lstatbuf);
     gf_uuid_copy(stbuf.ia_gfid, priv->bad_object_dir_gfid);
 
-    op_ret = op_errno = 0;
+    op_errno = 0;
+    op_ret = gf_success;
     xattr = dict_new();
     if (!xattr) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
     }
 
@@ -561,7 +562,7 @@ br_stub_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
     br_stub_fd_t *fctx = NULL;
     DIR *dir = NULL;
     int ret = -1;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = 0;
     int count = 0;
     gf_dirent_t entries;
@@ -591,7 +592,7 @@ br_stub_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     /* pick ENOENT to indicate EOF */
     op_errno = errno;
-    op_ret = count;
+    SET_RET(op_ret, count);
 
     dict = xdata;
     (void)br_stub_bad_objects_path(this, fd, &entries, &dict);

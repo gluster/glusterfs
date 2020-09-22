@@ -200,7 +200,7 @@ afr_pick_error_xdata(afr_local_t *local, afr_private_t *priv, inode_t *inode1,
         if (!local->replies[i].valid)
             continue;
 
-        if (local->replies[i].op_ret >= 0)
+        if (IS_SUCCESS(local->replies[i].op_ret))
             continue;
 
         if (local->replies[i].op_errno == ENOTCONN)
@@ -218,7 +218,7 @@ afr_pick_error_xdata(afr_local_t *local, afr_private_t *priv, inode_t *inode1,
             if (!local->replies[i].valid)
                 continue;
 
-            if (local->replies[i].op_ret >= 0)
+            if (IS_SUCCESS(local->replies[i].op_ret))
                 continue;
 
             if (!local->replies[i].xdata)
@@ -306,7 +306,7 @@ afr_transaction_fop(call_frame_t *frame, xlator_t *this)
                  AFR_COUNT(failed_subvols, priv->child_count);
     /* Fail if pre-op did not succeed on quorum no. of bricks. */
     if (!afr_changelog_has_quorum(local, this) || !call_count) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         /* local->op_errno is already captured in changelog cbk. */
         afr_transaction_resume(frame, this);
         return 0;
@@ -315,7 +315,7 @@ afr_transaction_fop(call_frame_t *frame, xlator_t *this)
     /* Fail if at least one writeable brick isn't up.*/
     if (local->transaction.type == AFR_DATA_TRANSACTION &&
         !afr_is_write_subvol_valid(frame, this)) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EIO;
         afr_transaction_resume(frame, this);
         return 0;
@@ -394,7 +394,7 @@ afr_lock_fail_shared(afr_local_t *local, struct list_head *list)
     while (!list_empty(list)) {
         each = list_entry(list->next, afr_local_t, transaction.wait_list);
         list_del_init(&each->transaction.wait_list);
-        each->op_ret = -1;
+        each->op_ret = gf_error;
         each->op_errno = local->op_errno;
         afr_transaction_done(each->transaction.frame,
                              each->transaction.frame->this);
@@ -432,10 +432,11 @@ afr_transaction_detach_fop_frame(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *fop_frame = NULL;
-
+    int32_t ret;
     local = frame->local;
-
-    afr_handle_inconsistent_fop(frame, &local->op_ret, &local->op_errno);
+    ret = GET_RET(local->op_ret);
+    afr_handle_inconsistent_fop(frame, &ret, &local->op_errno);
+    SET_RET(local->op_ret, ret);
     LOCK(&frame->lock);
     {
         fop_frame = local->transaction.main_frame;
@@ -539,7 +540,7 @@ afr_txn_arbitrate_fop(call_frame_t *frame, xlator_t *this)
     /* If arbiter is the only source, do not proceed. */
     if (pre_op_sources_count < 2 &&
         local->transaction.pre_op_sources[ARBITER_BRICK_INDEX]) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOTCONN;
         for (i = 0; i < priv->child_count; i++)
             local->transaction.failed_subvols[i] = 1;
@@ -570,7 +571,7 @@ afr_transaction_perform_fop(call_frame_t *frame, xlator_t *this)
         ret = afr_write_subvol_set(frame, this);
         if (ret) {
             /*act as if operation failed on all subvols*/
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             local->op_errno = -ret;
             for (i = 0; i < priv->child_count; i++)
                 local->transaction.failed_subvols[i] = 1;
@@ -736,7 +737,7 @@ afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this)
 
     /* Fail the FOP if post-op did not succeed on quorum no. of bricks. */
     if (!afr_changelog_has_quorum(local, this)) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         /*local->op_errno is already captured in changelog cbk*/
     }
 
@@ -755,7 +756,7 @@ static void
 afr_changelog_post_op_fail(call_frame_t *frame, xlator_t *this, int op_errno)
 {
     afr_local_t *local = frame->local;
-    local->op_ret = -1;
+    local->op_ret = gf_error;
     local->op_errno = op_errno;
 
     gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_THIN_ARB,
@@ -957,7 +958,7 @@ afr_handle_quorum(call_frame_t *frame, xlator_t *this)
         return;
 
     /* If the fop already failed return right away to preserve errno */
-    if (local->op_ret == -1)
+    if (IS_ERROR(local->op_ret))
         return;
 
     /*
@@ -998,7 +999,7 @@ afr_handle_quorum(call_frame_t *frame, xlator_t *this)
     }
 
 set_response:
-    local->op_ret = -1;
+    local->op_ret = gf_error;
     local->op_errno = afr_final_errno(local, priv);
     if (local->op_errno == 0)
         local->op_errno = afr_quorum_errno(priv);
@@ -1395,7 +1396,7 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     else
         need_undirty = _gf_true;
 
-    if (local->op_ret < 0 && !nothing_failed) {
+    if (IS_ERROR(local->op_ret) && !nothing_failed) {
         if (afr_need_dirty_marking(frame, this)) {
             local->dirty[idx] = hton32(1);
             goto set_dirty;
@@ -1641,8 +1642,9 @@ unlock:
 }
 
 int
-afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, dict_t *xattr, dict_t *xdata)
+afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  gf_return_t op_ret, int op_errno, dict_t *xattr,
+                  dict_t *xdata)
 {
     afr_local_t *local = NULL;
     int call_count = -1;
@@ -1651,7 +1653,7 @@ afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     local = frame->local;
     child_index = (long)cookie;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         local->op_errno = op_errno;
         afr_transaction_fop_failed(frame, this, child_index);
     }
@@ -1724,7 +1726,7 @@ afr_changelog_populate_xdata(call_frame_t *frame, afr_xattrop_type_t op,
                  * an earlier entry txn that may have failed on some
                  * of the sub-volumes.
                  */
-                if (local->op_ret)
+                if (IS_ERROR(local->op_ret))
                     need_entry_key_set = _gf_false;
             } else {
                 key = GF_XATTROP_ENTRY_IN_KEY;
@@ -2004,7 +2006,7 @@ next:
     return 0;
 err:
     local->internal_lock.lock_cbk = afr_transaction_done;
-    local->op_ret = -1;
+    local->op_ret = gf_error;
     local->op_errno = op_errno;
 
     afr_handle_lock_acquire_failure(local);
@@ -2025,7 +2027,7 @@ afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
     int_lock = &local->internal_lock;
 
     /* Initiate blocking locks if non-blocking has failed */
-    if (int_lock->lock_op_ret < 0) {
+    if (IS_ERROR(int_lock->lock_op_ret)) {
         gf_msg_debug(this->name, 0,
                      "Non blocking locks failed. Proceeding to blocking");
         int_lock->lock_cbk = afr_internal_lock_finish;
@@ -2049,7 +2051,7 @@ afr_post_blocking_rename_cbk(call_frame_t *frame, xlator_t *this)
     local = frame->local;
     int_lock = &local->internal_lock;
 
-    if (int_lock->lock_op_ret < 0) {
+    if (IS_ERROR(int_lock->lock_op_ret)) {
         gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_INTERNAL_LKS_FAILED,
                "Blocking entrylks failed.");
 
@@ -2268,14 +2270,14 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
 
     local->internal_lock.lock_cbk = NULL;
     if (!local->transaction.eager_lock_on) {
-        if (local->internal_lock.lock_op_ret < 0) {
+        if (IS_ERROR(local->internal_lock.lock_op_ret)) {
             afr_transaction_done(frame, this);
             return 0;
         }
         afr_changelog_pre_op(frame, this);
     } else {
         lock = &local->inode_ctx->lock[local->transaction.type];
-        if (local->internal_lock.lock_op_ret < 0) {
+        if (IS_ERROR(local->internal_lock.lock_op_ret)) {
             afr_handle_lock_acquire_failure(local);
         } else {
             lock->event_generation = local->event_generation;
@@ -2425,7 +2427,7 @@ afr_fd_has_witnessed_unstable_write(xlator_t *this, inode_t *inode)
 
 int
 afr_changelog_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, struct iatt *pre,
+                        gf_return_t op_ret, int op_errno, struct iatt *pre,
                         struct iatt *post, dict_t *xdata)
 {
     afr_private_t *priv = NULL;
@@ -2436,7 +2438,7 @@ afr_changelog_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     local = frame->local;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         /* Failure of fsync() is as good as failure of previous
            write(). So treat it like one.
         */

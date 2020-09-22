@@ -523,13 +523,14 @@ typedef int (*nlm4_resume_fn_t)(void *cs);
 
 int32_t
 nlm4_file_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                   gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                   dict_t *xdata)
 {
     nfs3_call_state_t *cs = frame->local;
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         fd_bind(cs->fd);
-    cs->resolve_ret = op_ret;
+    cs->resolve_ret = GET_RET(op_ret);
     cs->resume_fn(cs);
 
     frame->local = NULL;
@@ -779,14 +780,14 @@ nlm4_test_reply(nfs3_call_state_t *cs, nlm4_stats stat, struct gf_flock *flock)
 
 int
 nlm4svc_test_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                 gf_return_t op_ret, int32_t op_errno, struct gf_flock *flock,
                  dict_t *xdata)
 {
     nlm4_stats stat = nlm4_denied;
     nfs3_call_state_t *cs = NULL;
 
     cs = frame->local;
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         stat = nlm4_errno_to_nlm4stat(op_errno);
         goto err;
     } else if (flock->l_type == F_UNLCK)
@@ -1391,7 +1392,7 @@ ret:
 
 int
 nlm4svc_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                 gf_return_t op_ret, int32_t op_errno, struct gf_flock *flock,
                  dict_t *xdata)
 {
     nlm4_stats stat = nlm4_denied;
@@ -1405,7 +1406,7 @@ nlm4svc_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     caller_name = cs->args.nlm4_lockargs.alock.caller_name;
     transit_cnt = nlm_dec_transit_count(cs->fd, caller_name);
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         if (transit_cnt == 0)
             nlm_search_and_delete(cs->fd, &cs->args.nlm4_lockargs.alock);
         stat = nlm4_errno_to_nlm4stat(op_errno);
@@ -1595,14 +1596,14 @@ nlm4svc_nm_lock(rpcsvc_request_t *req)
 
 int
 nlm4svc_cancel_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                   gf_return_t op_ret, int32_t op_errno, struct gf_flock *flock,
                    dict_t *xdata)
 {
     nlm4_stats stat = nlm4_denied;
     nfs3_call_state_t *cs = NULL;
 
     cs = frame->local;
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         stat = nlm4_errno_to_nlm4stat(op_errno);
         goto err;
     } else {
@@ -1754,14 +1755,14 @@ rpcerr:
 
 int
 nlm4svc_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct gf_flock *flock,
+                   gf_return_t op_ret, int32_t op_errno, struct gf_flock *flock,
                    dict_t *xdata)
 {
     nlm4_stats stat = nlm4_denied;
     nfs3_call_state_t *cs = NULL;
 
     cs = GF_REF_GET((nfs3_call_state_t *)frame->local);
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         stat = nlm4_errno_to_nlm4stat(op_errno);
         goto err;
     } else {

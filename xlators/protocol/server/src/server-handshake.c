@@ -238,7 +238,7 @@ server_setvolume(rpcsvc_request_t *req)
     char *msg = NULL;
     xlator_t *this = NULL;
     int32_t ret = -1;
-    int32_t op_ret = -1;
+    int op_ret = -1;
     int32_t op_errno = EINVAL;
     uint32_t opversion = 0;
     rpc_transport_t *xprt = NULL;

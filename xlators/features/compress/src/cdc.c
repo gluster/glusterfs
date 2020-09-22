@@ -25,9 +25,10 @@ cdc_cleanup_iobref(cdc_info_t *ci)
 }
 
 int32_t
-cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iovec *vector, int32_t count,
-              struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
+              int32_t count, struct iatt *stbuf, struct iobref *iobref,
+              dict_t *xdata)
 {
     int ret = -1;
     cdc_priv_t *priv = NULL;
@@ -40,14 +41,17 @@ cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     priv = this->private;
 
-    if (op_ret <= 0)
+    if (IS_ERROR(op_ret))
         goto default_out;
 
-    if ((priv->min_file_size != 0) && (op_ret < priv->min_file_size))
+    if (GET_RET(op_ret) == 0)
+        goto default_out;
+
+    if ((priv->min_file_size != 0) && (GET_RET(op_ret) < priv->min_file_size))
         goto default_out;
 
     ci.count = count;
-    ci.ibytes = op_ret;
+    ci.ibytes = GET_RET(op_ret);
     ci.vector = vector;
     ci.buf = NULL;
     ci.iobref = NULL;
@@ -69,7 +73,8 @@ cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (ret)
         goto default_out;
 
-    STACK_UNWIND_STRICT(readv, frame, ci.nbytes, op_errno, ci.vec, ci.ncount,
+    SET_RET(op_ret, ci.nbytes);
+    STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, ci.vec, ci.ncount,
                         stbuf, iobref, xdata);
     cdc_cleanup_iobref(&ci);
     return 0;
@@ -98,7 +103,7 @@ cdc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 int32_t
 cdc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,
@@ -168,7 +173,7 @@ default_out:
                flags, iobref, xdata);
     return 0;
 err:
-    STACK_UNWIND_STRICT(writev, frame, -1, EINVAL, NULL, NULL, NULL);
+    STACK_UNWIND_STRICT(writev, frame, gf_error, EINVAL, NULL, NULL, NULL);
     return 0;
 }
 

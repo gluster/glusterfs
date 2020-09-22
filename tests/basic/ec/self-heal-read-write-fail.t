@@ -53,6 +53,7 @@ TEST $CLI volume reset $V0 debug.error-fops
 TEST $CLI volume reset $V0 debug.error-number
 TEST $CLI volume reset $V0 debug.error-failure
 
+TEST $CLI volume set $V0 client-log-level TRACE
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 EXPECT_WITHIN $HEAL_TIMEOUT "^2$" get_pending_heal_count $V0

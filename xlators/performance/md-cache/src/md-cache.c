@@ -1132,7 +1132,7 @@ mdc_prepare_request(xlator_t *this, mdc_local_t *local, dict_t *xdata)
 
 int
 mdc_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct statvfs *buf,
+               gf_return_t op_ret, int32_t op_errno, struct statvfs *buf,
                dict_t *xdata)
 {
     struct mdc_conf *conf = this->private;
@@ -1142,7 +1142,7 @@ mdc_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
             mdc_inode_iatt_invalidate(this, local->loc.inode);
         }
@@ -1163,14 +1163,15 @@ out:
 int
 mdc_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    int ret = 0, op_ret = 0, op_errno = 0;
+    int ret = 0, op_errno = 0;
+    gf_return_t op_ret = {0};
     struct statvfs *buf = NULL;
     mdc_local_t *local = NULL;
     struct mdc_conf *conf = this->private;
 
     local = mdc_local_get(frame, loc->inode);
     if (!local) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto out;
     }
@@ -1187,7 +1188,6 @@ mdc_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     ret = mdc_load_statfs_info_from_cache(this, &buf);
     if (ret == 0 && buf) {
-        op_ret = 0;
         op_errno = 0;
         goto out;
     }
@@ -1204,7 +1204,7 @@ out:
 
 int
 mdc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
 {
     mdc_local_t *local = NULL;
@@ -1215,7 +1215,7 @@ mdc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if (op_errno == ENOENT)
             GF_ATOMIC_INC(conf->mdc_counter.negative_lookup);
 
@@ -1301,8 +1301,8 @@ mdc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 
     GF_ATOMIC_INC(conf->mdc_counter.stat_hit);
-    MDC_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &stbuf, xattr_rsp,
-                     &postparent);
+    MDC_STACK_UNWIND(lookup, frame, gf_success, 0, loc->inode, &stbuf,
+                     xattr_rsp, &postparent);
 
     if (xattr_rsp)
         dict_unref(xattr_rsp);
@@ -1326,8 +1326,9 @@ uncached:
 }
 
 int
-mdc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct iatt *buf, dict_t *xdata)
+mdc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
+             dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -1335,7 +1336,7 @@ mdc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
             mdc_inode_iatt_invalidate(this, local->loc.inode);
         }
@@ -1378,7 +1379,7 @@ mdc_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         goto uncached;
 
     GF_ATOMIC_INC(conf->mdc_counter.stat_hit);
-    MDC_STACK_UNWIND(stat, frame, 0, 0, &stbuf, xdata);
+    MDC_STACK_UNWIND(stat, frame, gf_success, 0, &stbuf, xdata);
 
     return 0;
 
@@ -1397,8 +1398,9 @@ uncached:
 }
 
 int
-mdc_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *buf, dict_t *xdata)
+mdc_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
+              dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -1406,7 +1408,7 @@ mdc_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         }
@@ -1444,7 +1446,7 @@ mdc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         goto uncached;
 
     GF_ATOMIC_INC(conf->mdc_counter.stat_hit);
-    MDC_STACK_UNWIND(fstat, frame, 0, 0, &stbuf, xdata);
+    MDC_STACK_UNWIND(fstat, frame, gf_success, 0, &stbuf, xdata);
 
     return 0;
 
@@ -1464,7 +1466,7 @@ uncached:
 
 int
 mdc_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -1474,7 +1476,7 @@ mdc_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT))
             mdc_inode_iatt_invalidate(this, local->loc.inode);
 
@@ -1508,7 +1510,7 @@ mdc_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
 int
 mdc_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -1518,7 +1520,7 @@ mdc_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
 
@@ -1552,9 +1554,10 @@ mdc_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 }
 
 int
-mdc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *buf,
-              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+mdc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+              dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -1563,7 +1566,7 @@ mdc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
             mdc_inode_iatt_invalidate(this, local->loc.parent);
         }
@@ -1603,9 +1606,10 @@ mdc_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 }
 
 int
-mdc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, inode_t *inode, struct iatt *buf,
-              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+mdc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+              struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+              dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -1614,7 +1618,7 @@ mdc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
             mdc_inode_iatt_invalidate(this, local->loc.parent);
         }
@@ -1655,7 +1659,7 @@ mdc_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 int
 mdc_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -1665,7 +1669,7 @@ mdc_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         /* if errno is ESTALE, parent is not present, which implies even
          * child is not present. Also, man 2 unlink states unlink can
          * return ENOENT if a component in pathname does not
@@ -1713,9 +1717,9 @@ mdc_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t xflag,
 }
 
 int
-mdc_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *preparent, struct iatt *postparent,
-              dict_t *xdata)
+mdc_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
+              struct iatt *postparent, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -1724,7 +1728,7 @@ mdc_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         /* if errno is ESTALE, parent is not present, which implies even
          * child is not present. Also, man 2 rmdir states rmdir can
          * return ENOENT if a directory component in pathname does not
@@ -1769,7 +1773,7 @@ mdc_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
 
 int
 mdc_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
                 struct iatt *postparent, dict_t *xdata)
 {
@@ -1780,7 +1784,7 @@ mdc_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
             mdc_inode_iatt_invalidate(this, local->loc.parent);
         }
@@ -1830,7 +1834,7 @@ wind:
 
 int
 mdc_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *buf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                struct iatt *preoldparent, struct iatt *postoldparent,
                struct iatt *prenewparent, struct iatt *postnewparent,
                dict_t *xdata)
@@ -1841,7 +1845,7 @@ mdc_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
             mdc_inode_iatt_invalidate(this, local->loc.inode);
             mdc_inode_iatt_invalidate(this, local->loc2.parent);
@@ -1891,9 +1895,10 @@ mdc_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 }
 
 int
-mdc_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, inode_t *inode, struct iatt *buf,
-             struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
+mdc_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, inode_t *inode,
+             struct iatt *buf, struct iatt *preparent, struct iatt *postparent,
+             dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -1902,7 +1907,7 @@ mdc_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
             mdc_inode_iatt_invalidate(this, local->loc.inode);
             mdc_inode_iatt_invalidate(this, local->loc2.parent);
@@ -1944,7 +1949,7 @@ mdc_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
 int
 mdc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
+               gf_return_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
@@ -1955,7 +1960,7 @@ mdc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
             mdc_inode_iatt_invalidate(this, local->loc.parent);
         }
@@ -1996,8 +2001,8 @@ mdc_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 }
 
 static int
-mdc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, fd_t *fd, dict_t *xdata)
+mdc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -2006,7 +2011,7 @@ mdc_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT))
             mdc_inode_iatt_invalidate(this, local->loc.inode);
         goto out;
@@ -2045,9 +2050,10 @@ out:
 }
 
 int
-mdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iovec *vector, int32_t count,
-              struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+mdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
+              int32_t count, struct iatt *stbuf, struct iobref *iobref,
+              dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -2055,7 +2061,7 @@ mdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2088,7 +2094,7 @@ mdc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 int
 mdc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -2097,7 +2103,7 @@ mdc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2132,7 +2138,7 @@ mdc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
 int
 mdc_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -2141,7 +2147,7 @@ mdc_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         mdc_inode_iatt_set(this, local->loc.inode, NULL, local->incident_time);
         goto out;
     }
@@ -2207,7 +2213,7 @@ wind:
 
 int
 mdc_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -2216,7 +2222,7 @@ mdc_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2282,9 +2288,9 @@ wind:
 }
 
 int
-mdc_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf,
-              dict_t *xdata)
+mdc_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
+              struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -2292,7 +2298,7 @@ mdc_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2325,7 +2331,7 @@ mdc_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
 
 int
 mdc_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
     struct iatt prestat = {
@@ -2340,7 +2346,7 @@ mdc_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->loc.inode);
         goto out;
@@ -2384,7 +2390,7 @@ mdc_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr,
 
 int
 mdc_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
     struct iatt prestat = {
@@ -2399,7 +2405,7 @@ mdc_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ESTALE) || (op_errno == ENOENT))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2443,7 +2449,8 @@ mdc_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xattr,
 
 int
 mdc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xattr, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
+                 dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -2451,7 +2458,7 @@ mdc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->loc.inode);
         goto out;
@@ -2478,6 +2485,7 @@ mdc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
              dict_t *xdata)
 {
     int ret;
+    gf_return_t op_ret;
     int op_errno = ENODATA;
     mdc_local_t *local = NULL;
     dict_t *xattr = NULL;
@@ -2506,7 +2514,8 @@ mdc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
     }
 
     GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
-    MDC_STACK_UNWIND(getxattr, frame, ret, op_errno, xattr, xdata);
+    SET_RET(op_ret, ret);
+    MDC_STACK_UNWIND(getxattr, frame, op_ret, op_errno, xattr, xdata);
 
     if (xattr)
         dict_unref(xattr);
@@ -2531,7 +2540,7 @@ uncached:
 
 int
 mdc_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                  gf_return_t op_ret, int32_t op_errno, dict_t *xattr,
                   dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -2540,7 +2549,7 @@ mdc_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2567,6 +2576,7 @@ mdc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
               dict_t *xdata)
 {
     int ret;
+    gf_return_t op_ret;
     mdc_local_t *local = NULL;
     dict_t *xattr = NULL;
     int op_errno = ENODATA;
@@ -2594,7 +2604,8 @@ mdc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
     }
 
     GF_ATOMIC_INC(conf->mdc_counter.xattr_hit);
-    MDC_STACK_UNWIND(fgetxattr, frame, ret, op_errno, xattr, xdata);
+    SET_RET(op_ret, ret);
+    MDC_STACK_UNWIND(fgetxattr, frame, op_ret, op_errno, xattr, xdata);
 
     if (xattr)
         dict_unref(xattr);
@@ -2619,7 +2630,7 @@ uncached:
 
 int
 mdc_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
     struct iatt prestat = {
@@ -2634,7 +2645,7 @@ mdc_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->loc.inode);
         goto out;
@@ -2698,7 +2709,7 @@ mdc_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = -1;
         op_errno = ENODATA;
 
-        MDC_STACK_UNWIND(removexattr, frame, ret, op_errno, xdata);
+        MDC_STACK_UNWIND(removexattr, frame, gf_error, op_errno, xdata);
     } else {
         STACK_WIND(frame, mdc_removexattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
@@ -2718,7 +2729,7 @@ uncached:
 
 int
 mdc_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
     struct iatt prestat = {
@@ -2733,7 +2744,7 @@ mdc_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -2798,7 +2809,7 @@ mdc_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = -1;
         op_errno = ENODATA;
 
-        MDC_STACK_UNWIND(fremovexattr, frame, ret, op_errno, xdata);
+        MDC_STACK_UNWIND(fremovexattr, frame, gf_error, op_errno, xdata);
     } else {
         STACK_WIND(frame, mdc_fremovexattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fremovexattr, fd, name, xdata);
@@ -2818,7 +2829,7 @@ uncached:
 
 int32_t
 mdc_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -2826,7 +2837,7 @@ mdc_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         goto out;
 
     if ((op_errno == ESTALE) || (op_errno == ENOENT))
@@ -2863,8 +2874,9 @@ mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 }
 
 int
-mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, gf_dirent_t *entries, dict_t *xdata)
+mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 gf_return_t op_ret, int op_errno, gf_dirent_t *entries,
+                 dict_t *xdata)
 {
     gf_dirent_t *entry = NULL;
     mdc_local_t *local = NULL;
@@ -2873,8 +2885,8 @@ mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (!local)
         goto unwind;
 
-    if (op_ret <= 0) {
-        if ((op_ret == -1) && ((op_errno == ENOENT) || (op_errno == ESTALE)))
+    if (GET_RET(op_ret) <= 0) {
+        if (IS_ERROR(op_ret) && ((op_errno == ENOENT) || (op_errno == ESTALE)))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto unwind;
     }
@@ -2918,13 +2930,14 @@ mdc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 out:
-    MDC_STACK_UNWIND(readdirp, frame, -1, ENOMEM, NULL, NULL);
+    MDC_STACK_UNWIND(readdirp, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 }
 
 int
-mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, gf_dirent_t *entries, dict_t *xdata)
+mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                gf_return_t op_ret, int op_errno, gf_dirent_t *entries,
+                dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -2932,7 +2945,7 @@ mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (!local)
         goto out;
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         goto out;
 
     if ((op_errno == ESTALE) || (op_errno == ENOENT))
@@ -2972,13 +2985,13 @@ mdc_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 unwind:
-    MDC_STACK_UNWIND(readdir, frame, -1, ENOMEM, NULL, NULL);
+    MDC_STACK_UNWIND(readdir, frame, gf_error, ENOMEM, NULL, NULL);
     return 0;
 }
 
 int
 mdc_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -2987,7 +3000,7 @@ mdc_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -3023,7 +3036,7 @@ mdc_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 
 int
 mdc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -3032,7 +3045,7 @@ mdc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -3066,7 +3079,7 @@ mdc_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 int
 mdc_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -3075,7 +3088,7 @@ mdc_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         if ((op_errno == ENOENT) || (op_errno == ESTALE))
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto out;
@@ -3109,7 +3122,7 @@ mdc_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 int32_t
 mdc_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, const char *path,
+                 gf_return_t op_ret, int32_t op_errno, const char *path,
                  struct iatt *buf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
@@ -3118,7 +3131,7 @@ mdc_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         goto out;
 
     if ((op_errno == ENOENT) || (op_errno == ESTALE))
@@ -3146,13 +3159,13 @@ mdc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     return 0;
 
 unwind:
-    MDC_STACK_UNWIND(readlink, frame, -1, ENOMEM, NULL, NULL, NULL);
+    MDC_STACK_UNWIND(readlink, frame, gf_error, ENOMEM, NULL, NULL, NULL);
     return 0;
 }
 
 int32_t
 mdc_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -3160,7 +3173,7 @@ mdc_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         goto out;
 
     if ((op_errno == ESTALE) || (op_errno == ENOENT))
@@ -3188,13 +3201,13 @@ mdc_fsyncdir(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
     return 0;
 
 unwind:
-    MDC_STACK_UNWIND(fsyncdir, frame, -1, ENOMEM, NULL);
+    MDC_STACK_UNWIND(fsyncdir, frame, gf_error, ENOMEM, NULL);
     return 0;
 }
 
 int32_t
 mdc_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, dict_t *xdata)
+               gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
 
@@ -3202,7 +3215,7 @@ mdc_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local)
         goto out;
 
-    if (op_ret == 0)
+    if (IS_SUCCESS(op_ret))
         goto out;
 
     if ((op_errno == ESTALE) || (op_errno == ENOENT))
@@ -3230,7 +3243,7 @@ mdc_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
     return 0;
 
 unwind:
-    MDC_STACK_UNWIND(access, frame, -1, ENOMEM, NULL);
+    MDC_STACK_UNWIND(access, frame, gf_error, ENOMEM, NULL);
     return 0;
 }
 

@@ -5463,3 +5463,37 @@ get_xattrs_to_heal()
 {
     return xattrs_to_heal;
 }
+
+char *
+gf_strerror_r(gf_return_t code, char *str, size_t size)
+{
+    int32_t errorcode = code.op_ret;
+    int xl_idx = (errorcode & 0x3ff00000) >> 20; /* 4k xlator-index in graph */
+    int xl_id = (errorcode & 0xfe000) >> 13;     /* 128 xlator IDs */
+    int reason = (errorcode & 0x1fff);           /* 8k reasons per xlators */
+
+    /* If errorcode is -1, then most probably no 'SETERROR()' happened on it */
+    if (-1 == errorcode) {
+        snprintf(str, size, "-1");
+        goto out;
+    }
+
+    if (gf_xlator_list[xl_id]) {
+        snprintf(str, size, "%s: %d %d", gf_xlator_list[xl_id], xl_idx, reason);
+    } else {
+        snprintf(str, size, "%d: %d %d", xl_id, xl_idx, reason);
+    }
+
+out:
+    str[size - 1] = '\0';
+    return str;
+}
+
+/*Thread safe conversion function*/
+char *
+gf_strerror(gf_return_t code)
+{
+    char *error_buffer = glusterfs_errorcode_buf_get();
+
+    return gf_strerror_r(code, error_buffer, 1024);
+}

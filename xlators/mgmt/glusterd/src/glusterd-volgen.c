@@ -2663,7 +2663,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_posix, "posix"},
 };
 
-static glusterd_server_xlator_t
+static gf_xlator_list_t
 get_server_xlator(char *xlator)
 {
     int i = 0;

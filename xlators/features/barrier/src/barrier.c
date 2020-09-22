@@ -41,7 +41,7 @@ barrier_local_free_gfid(call_frame_t *frame)
 
 int32_t
 barrier_truncate_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno,
+                            gf_return_t op_ret, int32_t op_errno,
                             struct iatt *prebuf, struct iatt *postbuf,
                             dict_t *xdata)
 {
@@ -53,7 +53,7 @@ barrier_truncate_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_ftruncate_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                             int32_t op_ret, int32_t op_errno,
+                             gf_return_t op_ret, int32_t op_errno,
                              struct iatt *prebuf, struct iatt *postbuf,
                              dict_t *xdata)
 {
@@ -65,7 +65,7 @@ barrier_ftruncate_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_unlink_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno,
+                          gf_return_t op_ret, int32_t op_errno,
                           struct iatt *preparent, struct iatt *postparent,
                           dict_t *xdata)
 {
@@ -77,7 +77,7 @@ barrier_unlink_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_rmdir_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno,
+                         gf_return_t op_ret, int32_t op_errno,
                          struct iatt *preparent, struct iatt *postparent,
                          dict_t *xdata)
 {
@@ -89,10 +89,10 @@ barrier_rmdir_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_rename_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, struct iatt *buf,
-                          struct iatt *preoldparent, struct iatt *postoldparent,
-                          struct iatt *prenewparent, struct iatt *postnewparent,
-                          dict_t *xdata)
+                          gf_return_t op_ret, int32_t op_errno,
+                          struct iatt *buf, struct iatt *preoldparent,
+                          struct iatt *postoldparent, struct iatt *prenewparent,
+                          struct iatt *postnewparent, dict_t *xdata)
 {
     barrier_local_free_gfid(frame);
     STACK_UNWIND_STRICT(rename, frame, op_ret, op_errno, buf, preoldparent,
@@ -102,8 +102,9 @@ barrier_rename_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_writev_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                          struct iatt *postbuf, dict_t *xdata)
+                          gf_return_t op_ret, int32_t op_errno,
+                          struct iatt *prebuf, struct iatt *postbuf,
+                          dict_t *xdata)
 {
     barrier_local_free_gfid(frame);
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, prebuf, postbuf,
@@ -113,8 +114,9 @@ barrier_writev_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_fsync_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                         struct iatt *postbuf, dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno,
+                         struct iatt *prebuf, struct iatt *postbuf,
+                         dict_t *xdata)
 {
     barrier_local_free_gfid(frame);
     STACK_UNWIND_STRICT(fsync, frame, op_ret, op_errno, prebuf, postbuf, xdata);
@@ -123,8 +125,8 @@ barrier_fsync_cbk_resume(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 barrier_removexattr_cbk_resume(call_frame_t *frame, void *cookie,
-                               xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               dict_t *xdata)
+                               xlator_t *this, gf_return_t op_ret,
+                               int32_t op_errno, dict_t *xdata)
 {
     barrier_local_free_gfid(frame);
     STACK_UNWIND_STRICT(removexattr, frame, op_ret, op_errno, xdata);
@@ -133,7 +135,7 @@ barrier_removexattr_cbk_resume(call_frame_t *frame, void *cookie,
 
 int32_t
 barrier_fremovexattr_cbk_resume(call_frame_t *frame, void *cookie,
-                                xlator_t *this, int32_t op_ret,
+                                xlator_t *this, gf_return_t op_ret,
                                 int32_t op_errno, dict_t *xdata)
 {
     barrier_local_free_gfid(frame);
@@ -143,7 +145,7 @@ barrier_fremovexattr_cbk_resume(call_frame_t *frame, void *cookie,
 
 int32_t
 barrier_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     BARRIER_FOP_CBK(writev, out, frame, this, op_ret, op_errno, prebuf, postbuf,
@@ -154,7 +156,7 @@ out:
 
 int32_t
 barrier_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     BARRIER_FOP_CBK(fremovexattr, out, frame, this, op_ret, op_errno, xdata);
 out:
@@ -163,7 +165,7 @@ out:
 
 int32_t
 barrier_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                        gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     BARRIER_FOP_CBK(removexattr, out, frame, this, op_ret, op_errno, xdata);
 out:
@@ -172,7 +174,7 @@ out:
 
 int32_t
 barrier_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     BARRIER_FOP_CBK(truncate, out, frame, this, op_ret, op_errno, prebuf,
@@ -183,7 +185,7 @@ out:
 
 int32_t
 barrier_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
 {
     BARRIER_FOP_CBK(ftruncate, out, frame, this, op_ret, op_errno, prebuf,
@@ -194,7 +196,7 @@ out:
 
 int32_t
 barrier_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *preoldparent, struct iatt *postoldparent,
                    struct iatt *prenewparent, struct iatt *postnewparent,
                    dict_t *xdata)
@@ -208,7 +210,7 @@ out:
 
 int32_t
 barrier_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
     BARRIER_FOP_CBK(rmdir, out, frame, this, op_ret, op_errno, preparent,
@@ -219,7 +221,7 @@ out:
 
 int32_t
 barrier_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     BARRIER_FOP_CBK(unlink, out, frame, this, op_ret, op_errno, preparent,
@@ -230,7 +232,7 @@ out:
 
 int32_t
 barrier_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
 {
     BARRIER_FOP_CBK(fsync, out, frame, this, op_ret, op_errno, prebuf, postbuf,

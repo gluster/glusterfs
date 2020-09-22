@@ -73,12 +73,12 @@ dht_blocking_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
 int32_t
 dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
-                                   xlator_t *this, int32_t op_ret,
+                                   xlator_t *this, gf_return_t op_ret,
                                    int32_t op_errno, dict_t *xdata);
 
 int32_t
 dht_blocking_entrylk_after_inodelk_rename(call_frame_t *frame, void *cookie,
-                                          xlator_t *this, int32_t op_ret,
+                                          xlator_t *this, gf_return_t op_ret,
                                           int32_t op_errno, dict_t *xdata);
 
 void

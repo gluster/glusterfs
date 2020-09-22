@@ -215,7 +215,7 @@ cluster_fop_success_fill(default_args_cbk_t *replies, int numsubvols,
 
 int32_t
 cluster_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *dict,
+                    gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                     dict_t *xdata);
 
 int

@@ -52,15 +52,15 @@ nfl_inodes_init(struct nfs_fop_local *nfl, inode_t *inode, inode_t *parent,
 
 int32_t
 nfs_inode_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                     struct iatt *buf, struct iatt *preparent,
+                     gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                     inode_t *inode, struct iatt *buf, struct iatt *preparent,
                      struct iatt *postparent, dict_t *xdata)
 {
     struct nfs_fop_local *nfl = frame->local;
     fop_create_cbk_t progcbk = NULL;
     inode_t *linked_inode = NULL;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_link;
 
     linked_inode = inode_link(inode, nfl->parent, nfl->path, buf);
@@ -122,7 +122,7 @@ err:
 
 int32_t
 nfs_inode_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
@@ -130,7 +130,7 @@ nfs_inode_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop_mkdir_cbk_t progcbk = NULL;
     inode_t *linked_inode = NULL;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_link;
 
     linked_inode = inode_link(inode, nfl->parent, nfl->path, buf);
@@ -172,12 +172,13 @@ err:
 
 int32_t
 nfs_inode_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                   gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                   dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_open_cbk_t progcbk = NULL;
 
-    if ((op_ret == -1) && (fd))
+    if ((IS_ERROR(op_ret)) && (fd))
         fd_unref(fd);
     /* Not needed here since the fd is cached in higher layers and the bind
      * must happen atomically when the fd gets added to the fd LRU.
@@ -229,7 +230,7 @@ err:
 
 int32_t
 nfs_inode_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                      struct iatt *preoldparent, struct iatt *postoldparent,
                      struct iatt *prenewparent, struct iatt *postnewparent,
                      dict_t *xdata)
@@ -238,7 +239,7 @@ nfs_inode_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop_rename_cbk_t progcbk = NULL;
 
     nfl = frame->local;
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_link;
 
     inode_rename(this->itable, nfl->parent, nfl->path, nfl->newparent,
@@ -277,7 +278,7 @@ err:
 
 int32_t
 nfs_inode_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
@@ -285,7 +286,7 @@ nfs_inode_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fop_link_cbk_t progcbk = NULL;
     inode_t *linked_inode = NULL;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_link;
 
     nfl = frame->local;
@@ -328,15 +329,16 @@ err:
 
 int32_t
 nfs_inode_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                     struct iatt *postparent, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno,
+                     struct iatt *preparent, struct iatt *postparent,
+                     dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_unlink_cbk_t progcbk = NULL;
 
     nfl = frame->local;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_unlink;
 
     inode_unlink(nfl->inode, nfl->parent, nfl->path);
@@ -374,15 +376,16 @@ err:
 
 int32_t
 nfs_inode_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_rmdir_cbk_t progcbk = NULL;
 
     nfl = frame->local;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_unlink;
 
     inode_unlink(nfl->inode, nfl->parent, nfl->path);
@@ -421,7 +424,7 @@ err:
 
 int32_t
 nfs_inode_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
@@ -431,7 +434,7 @@ nfs_inode_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     nfl = frame->local;
 
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_link;
 
     linked_inode = inode_link(inode, nfl->parent, nfl->path, buf);
@@ -476,7 +479,7 @@ err:
 
 int32_t
 nfs_inode_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, inode_t *inode,
+                      gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                       struct iatt *buf, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
 {
@@ -485,7 +488,7 @@ nfs_inode_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     inode_t *linked_inode = NULL;
 
     nfl = frame->local;
-    if (op_ret == -1)
+    if (IS_ERROR(op_ret))
         goto do_not_link;
 
     linked_inode = inode_link(inode, nfl->parent, nfl->path, buf);
@@ -529,12 +532,13 @@ err:
 
 int32_t
 nfs_inode_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                      dict_t *xdata)
 {
     struct nfs_fop_local *nfl = NULL;
     fop_open_cbk_t progcbk = NULL;
 
-    if (op_ret != -1)
+    if (IS_SUCCESS(op_ret))
         fd_bind(fd);
 
     inodes_nfl_to_prog_data(nfl, progcbk, frame);

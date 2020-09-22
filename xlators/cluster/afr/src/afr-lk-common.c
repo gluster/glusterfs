@@ -182,7 +182,7 @@ initialize_internal_lock_variables(call_frame_t *frame, xlator_t *this)
     int_lock = &local->internal_lock;
 
     int_lock->lock_count = 0;
-    int_lock->lock_op_ret = -1;
+    int_lock->lock_op_ret = gf_error;
     int_lock->lock_op_errno = 0;
     int_lock->lk_attempted_count = 0;
 
@@ -270,7 +270,7 @@ afr_log_locks_failure(call_frame_t *frame, char *where, char *what,
 
 static int32_t
 afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
@@ -286,13 +286,13 @@ afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     lockee_num = (int)((long)cookie) / priv->child_count;
     child_index = (int)((long)cookie) % priv->child_count;
 
-    if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
+    if (IS_ERROR(op_ret) && op_errno != ENOTCONN && op_errno != EBADFD) {
         afr_log_locks_failure(frame, priv->children[child_index]->name,
                               "unlock", op_errno);
     }
 
     int_lock->lockee[lockee_num].locked_nodes[child_index] &= LOCKED_NO;
-    if (local->transaction.type == AFR_DATA_TRANSACTION && op_ret != 1)
+    if (local->transaction.type == AFR_DATA_TRANSACTION && GET_RET(op_ret) != 1)
         ret = afr_write_subvol_reset(frame, this);
 
     LOCK(&frame->lock);
@@ -311,7 +311,7 @@ afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 void
 afr_internal_lock_wind(call_frame_t *frame,
                        int32_t (*cbk)(call_frame_t *, void *, xlator_t *,
-                                      int32_t, int32_t, dict_t *),
+                                      gf_return_t, int32_t, dict_t *),
                        void *cookie, int child, int lockee_num,
                        gf_boolean_t blocking, gf_boolean_t unlock)
 {
@@ -420,8 +420,8 @@ out:
 }
 
 static int32_t
-afr_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, dict_t *xdata)
+afr_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+             gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
@@ -439,7 +439,7 @@ afr_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     LOCK(&frame->lock);
     {
-        if (op_ret == -1) {
+        if (IS_ERROR(op_ret)) {
             if (op_errno == ENOSYS) {
                 /* return ENOTSUP */
                 gf_msg(this->name, GF_LOG_ERROR, ENOSYS,
@@ -458,10 +458,10 @@ afr_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     }
     UNLOCK(&frame->lock);
 
-    if ((op_ret == -1) && (op_errno == ENOSYS)) {
+    if (IS_ERROR(op_ret) && (op_errno == ENOSYS)) {
         afr_unlock_now(frame, this);
     } else {
-        if (op_ret == 0) {
+        if (IS_SUCCESS(op_ret)) {
             int_lock->lockee[lockee_num]
                 .locked_nodes[child_index] |= LOCKED_YES;
             int_lock->lockee[lockee_num].locked_count++;
@@ -552,8 +552,8 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_FD_CTX_GET_FAILED,
                    "unable to get fd ctx for fd=%p", local->fd);
 
-            local->op_ret = -1;
-            int_lock->lock_op_ret = -1;
+            local->op_ret = gf_error;
+            int_lock->lock_op_ret = gf_error;
 
             afr_unlock_now(frame, this);
 
@@ -563,8 +563,8 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
 
     if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
         if (!is_blocking_locks_count_sufficient(frame, this)) {
-            local->op_ret = -1;
-            int_lock->lock_op_ret = -1;
+            local->op_ret = gf_error;
+            int_lock->lock_op_ret = gf_error;
 
             afr_unlock_now(frame, this);
 
@@ -577,7 +577,7 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
 
         gf_msg_debug(this->name, 0, "we're done locking");
 
-        int_lock->lock_op_ret = 0;
+        int_lock->lock_op_ret = gf_success;
         int_lock->lock_cbk(frame, this);
         return 0;
     }
@@ -617,7 +617,7 @@ afr_blocking_lock(call_frame_t *frame, xlator_t *this)
 
 static int32_t
 afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
@@ -634,7 +634,7 @@ afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     int_lock = &local->internal_lock;
 
-    if (op_ret == 0 && local->transaction.type == AFR_DATA_TRANSACTION) {
+    if (IS_SUCCESS(op_ret) && local->transaction.type == AFR_DATA_TRANSACTION) {
         LOCK(&local->inode->lock);
         {
             local->inode_ctx->lock_count++;
@@ -644,7 +644,7 @@ afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     LOCK(&frame->lock);
     {
-        if (op_ret < 0) {
+        if (IS_ERROR(op_ret)) {
             if (op_errno == ENOSYS) {
                 /* return ENOTSUP */
                 gf_msg(this->name, GF_LOG_ERROR, ENOSYS,
@@ -658,7 +658,7 @@ afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int_lock->lock_op_errno = op_errno;
                 local->op_errno = op_errno;
             }
-        } else if (op_ret == 0) {
+        } else if (IS_SUCCESS(op_ret)) {
             int_lock->lockee[lockee_num]
                 .locked_nodes[child_index] |= LOCKED_YES;
             int_lock->lockee[lockee_num].locked_count++;
@@ -674,7 +674,7 @@ afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         /* all locks successful. Proceed to call FOP */
         if (int_lock->lock_count == int_lock->lk_expected_count) {
             gf_msg_trace(this->name, 0, "All servers locked. Calling the cbk");
-            int_lock->lock_op_ret = 0;
+            int_lock->lock_op_ret = gf_success;
             int_lock->lock_cbk(frame, this);
         }
         /* Not all locks were successful. Unlock and try locking
@@ -717,8 +717,8 @@ afr_lock_nonblocking(call_frame_t *frame, xlator_t *this)
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_FD_CTX_GET_FAILED,
                    "unable to get fd ctx for fd=%p", local->fd);
 
-            local->op_ret = -1;
-            int_lock->lock_op_ret = -1;
+            local->op_ret = gf_error;
+            int_lock->lock_op_ret = gf_error;
             local->op_errno = EINVAL;
             int_lock->lock_op_errno = EINVAL;
 

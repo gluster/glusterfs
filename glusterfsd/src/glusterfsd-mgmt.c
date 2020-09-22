@@ -715,7 +715,7 @@ int
 glusterfs_handle_translator_op(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
-    int32_t op_ret = 0;
+    int op_ret = 0;
     gd1_mgmt_brick_op_req xlator_req = {
         0,
     };

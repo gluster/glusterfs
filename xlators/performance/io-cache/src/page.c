@@ -305,7 +305,7 @@ __ioc_wait_on_page(ioc_page_t *page, call_frame_t *frame, off_t offset,
     GF_VALIDATE_OR_GOTO(frame->this->name, local, out);
 
     if (page == NULL) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
                 IO_CACHE_MSG_NULL_PAGE_WAIT, NULL);
@@ -314,7 +314,7 @@ __ioc_wait_on_page(ioc_page_t *page, call_frame_t *frame, off_t offset,
 
     waitq = GF_CALLOC(1, sizeof(*waitq), gf_ioc_mt_ioc_waitq_t);
     if (waitq == NULL) {
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = ENOMEM;
         goto out;
     }
@@ -399,9 +399,10 @@ ioc_waitq_return(ioc_waitq_t *waitq)
 }
 
 int
-ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct iovec *vector, int32_t count,
-              struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
+ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+              gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
+              int32_t count, struct iatt *stbuf, struct iobref *iobref,
+              dict_t *xdata)
 {
     ioc_local_t *local = NULL;
     off_t offset = 0;
@@ -426,11 +427,11 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     table = ioc_inode->table;
     GF_ASSERT(table);
 
-    zero_filled = ((op_ret >= 0) && (stbuf->ia_mtime == 0));
+    zero_filled = (IS_SUCCESS(op_ret) && (stbuf->ia_mtime == 0));
 
     ioc_inode_lock(ioc_inode);
     {
-        if (op_ret == -1 ||
+        if (IS_ERROR(op_ret) ||
             !(zero_filled || ioc_cache_still_valid(ioc_inode, stbuf))) {
             gf_msg_trace(ioc_inode->table->xl->name, 0,
                          "cache for inode(%p) is invalid. flushing "
@@ -439,20 +440,21 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             destroy_size = __ioc_inode_flush(ioc_inode);
         }
 
-        if ((op_ret >= 0) && !zero_filled) {
+        if (IS_SUCCESS(op_ret) && !zero_filled) {
             ioc_inode->cache.mtime = stbuf->ia_mtime;
             ioc_inode->cache.mtime_nsec = stbuf->ia_mtime_nsec;
         }
 
         ioc_inode->cache.last_revalidate = gf_time();
 
-        if (op_ret < 0) {
+        if (IS_ERROR(op_ret)) {
             /* error, readv returned -1 */
             page = __ioc_page_get(ioc_inode, offset);
             if (page)
                 waitq = __ioc_page_error(page, op_ret, op_errno);
         } else {
-            gf_msg_trace(ioc_inode->table->xl->name, 0, "op_ret = %d", op_ret);
+            gf_msg_trace(ioc_inode->table->xl->name, 0, "op_ret = %d",
+                         GET_RET(op_ret));
             page = __ioc_page_get(ioc_inode, offset);
             if (!page) {
                 /* page was flushed */
@@ -474,7 +476,7 @@ ioc_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 if (page->vector == NULL) {
                     page = __ioc_page_get(ioc_inode, offset);
                     if (page != NULL)
-                        waitq = __ioc_page_error(page, -1, ENOMEM);
+                        waitq = __ioc_page_error(page, gf_error, ENOMEM);
                     goto unlock;
                 }
 
@@ -563,13 +565,14 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
     call_frame_t *fault_frame = NULL;
     ioc_local_t *fault_local = NULL;
     ioc_local_t *local = NULL;
-    int32_t op_ret = -1, op_errno = -1;
+    gf_return_t op_ret = gf_error;
+    int op_errno = -1;
     ioc_waitq_t *waitq = NULL;
     ioc_page_t *page = NULL;
 
     GF_ASSERT(ioc_inode);
     if (frame == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         gf_smsg("io-cache", GF_LOG_WARNING, EINVAL, IO_CACHE_MSG_PAGE_FAULT,
                 NULL);
@@ -579,7 +582,7 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
     table = ioc_inode->table;
     fault_frame = copy_frame(frame);
     if (fault_frame == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto err;
     }
@@ -587,7 +590,7 @@ ioc_page_fault(ioc_inode_t *ioc_inode, call_frame_t *frame, fd_t *fd,
     local = frame->local;
     fault_local = mem_get0(THIS->local_pool);
     if (fault_local == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         STACK_DESTROY(fault_frame->root);
         goto err;
@@ -657,7 +660,7 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
     if (page == NULL) {
         gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
                 IO_CACHE_MSG_SERVE_READ_REQUEST, NULL);
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         local->op_errno = EINVAL;
         goto out;
     }
@@ -673,7 +676,7 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
     /* immediately move this page to the end of the page_lru list */
     list_move_tail(&page->page_lru, &ioc_inode->cache.page_lru);
     /* fill local->pending_size bytes from local->pending_offset */
-    if (local->op_ret != -1) {
+    if (IS_SUCCESS(local->op_ret)) {
         local->op_errno = op_errno;
 
         if (page->size == 0) {
@@ -710,7 +713,7 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
         {
             new = GF_CALLOC(1, sizeof(*new), gf_ioc_mt_ioc_fill_t);
             if (new == NULL) {
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 local->op_errno = ENOMEM;
                 goto out;
             }
@@ -721,7 +724,7 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
             new->count = iov_subset(page->vector, page->count, src_offset,
                                     copy_size, &new->vector, 0);
             if (new->count < 0) {
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 local->op_errno = ENOMEM;
 
                 iobref_unref(new->iobref);
@@ -755,7 +758,7 @@ __ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset,
             }
         }
 
-        local->op_ret += copy_size;
+        SET_RET(local->op_ret, (GET_RET(local->op_ret) + copy_size));
     }
 
 done:
@@ -785,7 +788,8 @@ ioc_frame_unwind(call_frame_t *frame)
     struct iatt stbuf = {
         0,
     };
-    int32_t op_ret = 0, op_errno = 0;
+    gf_return_t op_ret = {0};
+    int op_errno = 0;
 
     GF_ASSERT(frame);
 
@@ -793,12 +797,12 @@ ioc_frame_unwind(call_frame_t *frame)
     if (local == NULL) {
         gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
                 IO_CACHE_MSG_LOCAL_NULL, NULL);
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
         goto unwind;
     }
 
-    if (local->op_ret < 0) {
+    if (IS_ERROR(local->op_ret)) {
         op_ret = local->op_ret;
         op_errno = local->op_errno;
         goto unwind;
@@ -807,7 +811,7 @@ ioc_frame_unwind(call_frame_t *frame)
     //  ioc_local_lock (local);
     iobref = iobref_new();
     if (iobref == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
     }
 
@@ -822,7 +826,7 @@ ioc_frame_unwind(call_frame_t *frame)
 
     vector = GF_CALLOC(count, sizeof(*vector), gf_ioc_mt_iovec);
     if (vector == NULL) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = ENOMEM;
     }
 
@@ -836,7 +840,7 @@ ioc_frame_unwind(call_frame_t *frame)
             copied += (fill->count * sizeof(*vector));
 
             if (iobref_merge(iobref, fill->iobref)) {
-                op_ret = -1;
+                op_ret = gf_error;
                 op_errno = ENOMEM;
             }
         }
@@ -847,13 +851,13 @@ ioc_frame_unwind(call_frame_t *frame)
         GF_FREE(fill);
     }
 
-    if (op_ret != -1) {
-        op_ret = iov_length(vector, count);
+    if (IS_SUCCESS(op_ret)) {
+        SET_RET(op_ret, iov_length(vector, count));
     }
 
 unwind:
     gf_msg_trace(frame->this->name, 0, "frame(%p) unwinding with op_ret=%d",
-                 frame, op_ret);
+                 frame, GET_RET(op_ret));
 
     //  ioc_local_unlock (local);
 
@@ -957,7 +961,7 @@ out:
  *
  */
 ioc_waitq_t *
-__ioc_page_error(ioc_page_t *page, int32_t op_ret, int32_t op_errno)
+__ioc_page_error(ioc_page_t *page, gf_return_t op_ret, int32_t op_errno)
 {
     ioc_waitq_t *waitq = NULL, *trav = NULL;
     call_frame_t *frame = NULL;
@@ -979,7 +983,7 @@ __ioc_page_error(ioc_page_t *page, int32_t op_ret, int32_t op_errno)
         local = frame->local;
         ioc_local_lock(local);
         {
-            if (local->op_ret != -1) {
+            if (IS_SUCCESS(local->op_ret)) {
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
             }
@@ -1006,7 +1010,7 @@ out:
  *
  */
 ioc_waitq_t *
-ioc_page_error(ioc_page_t *page, int32_t op_ret, int32_t op_errno)
+ioc_page_error(ioc_page_t *page, gf_return_t op_ret, int32_t op_errno)
 {
     ioc_waitq_t *waitq = NULL;
     struct ioc_inode *inode = NULL;

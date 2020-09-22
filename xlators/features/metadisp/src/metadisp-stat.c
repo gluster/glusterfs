@@ -18,12 +18,12 @@
 
 int32_t
 metadisp_stat_backend_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, struct iatt *buf,
-                          dict_t *xdata)
+                          gf_return_t op_ret, int32_t op_errno,
+                          struct iatt *buf, dict_t *xdata)
 {
-    METADISP_TRACE("got backend stat results %d %d", op_ret, op_errno);
+    METADISP_TRACE("got backend stat results %d %d", GET_RET(op_ret), op_errno);
     if (op_errno == ENOENT) {
-        STACK_UNWIND_STRICT(open, frame, -1, ENODATA, NULL, NULL);
+        STACK_UNWIND_STRICT(open, frame, gf_error, ENODATA, NULL, NULL);
         return 0;
     }
     STACK_UNWIND_STRICT(stat, frame, op_ret, op_errno, buf, xdata);
@@ -37,7 +37,7 @@ metadisp_stat_resume(call_frame_t *frame, xlator_t *this, loc_t *loc,
     METADISP_TRACE("winding stat to path %s", loc->path);
     if (gf_uuid_is_null(loc->gfid)) {
         METADISP_TRACE("bad object, sending EUCLEAN");
-        STACK_UNWIND_STRICT(open, frame, -1, EUCLEAN, NULL, NULL);
+        STACK_UNWIND_STRICT(open, frame, gf_error, EUCLEAN, NULL, NULL);
         return 0;
     }
 
@@ -48,18 +48,18 @@ metadisp_stat_resume(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 metadisp_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                   dict_t *xdata)
 {
     call_stub_t *stub = NULL;
 
-    METADISP_TRACE("got stat results %d %d", op_ret, op_errno);
+    METADISP_TRACE("got stat results %d %d", GET_RET(op_ret), op_errno);
 
     if (cookie) {
         stub = cookie;
     }
 
-    if (op_ret != 0) {
+    if (IS_ERROR(op_ret)) {
         goto unwind;
     }
 
@@ -119,6 +119,6 @@ metadisp_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                       METADATA_CHILD(this)->fops->stat, loc, xdata);
     return 0;
 unwind:
-    STACK_UNWIND_STRICT(stat, frame, -1, EINVAL, NULL, NULL);
+    STACK_UNWIND_STRICT(stat, frame, gf_error, EINVAL, NULL, NULL);
     return 0;
 }

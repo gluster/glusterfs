@@ -30,7 +30,7 @@ extern rpc_clnt_prog_t clnt_pmap_prog;
 int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data)
 {
-    CLIENT_STACK_UNWIND(getspec, frame, -1, ENOSYS, NULL);
+    CLIENT_STACK_UNWIND(getspec, frame, gf_error, ENOSYS, NULL);
     return 0;
 }
 
@@ -697,7 +697,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    int32_t op_ret = 0;
+    int op_ret = 0;
     int32_t op_errno = 0;
     gf_boolean_t auth_fail = _gf_false;
     glusterfs_ctx_t *ctx = NULL;

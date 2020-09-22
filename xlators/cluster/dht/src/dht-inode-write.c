@@ -24,9 +24,9 @@ static int
 dht_zerofill2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
 
 int
-dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-               int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-               dict_t *xdata)
+dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+               gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+               struct iatt *postbuf, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     xlator_t *prev = NULL;
@@ -38,7 +38,7 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     prev = cookie;
 
     if (!local) {
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
         goto out;
     }
@@ -56,9 +56,9 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         return 0;
     }
 
-    if (op_ret == -1 && !dht_inode_missing(op_errno)) {
+    if (IS_ERROR(op_ret) && !dht_inode_missing(op_errno)) {
         local->op_errno = op_errno;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         gf_msg_debug(this->name, 0, "subvolume %s returned -1 (%s)", prev->name,
                      strerror(op_errno));
         goto out;
@@ -85,7 +85,7 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_set_local_rebalance(this, local, NULL, prebuf, postbuf, xdata);
 
     /* Phase 2 of migration */
-    if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
+    if ((IS_ERROR(op_ret)) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
         ret = dht_rebalance_complete_check(this, frame);
         if (!ret)
             return 0;
@@ -99,7 +99,7 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 gf_msg(this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY, ENOMEM,
                        "insufficient memory");
                 local->op_errno = ENOMEM;
-                local->op_ret = -1;
+                local->op_ret = gf_error;
                 goto out;
             }
         }
@@ -111,7 +111,7 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                    "Failed to set key %s in dictionary",
                    GF_PROTECT_FROM_EXTERNAL_WRITES);
             local->op_errno = ENOMEM;
-            local->op_ret = -1;
+            local->op_ret = gf_error;
             goto out;
         }
 
@@ -177,7 +177,7 @@ dht_writev2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
     return 0;
 
 out:
-    DHT_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(writev, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
@@ -228,15 +228,15 @@ dht_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(writev, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
 
 int
-dht_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                 dict_t *xdata)
+dht_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     xlator_t *prev = NULL;
@@ -268,9 +268,9 @@ dht_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         return 0;
     }
 
-    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+    if ((IS_ERROR(op_ret)) && !dht_inode_missing(op_errno)) {
         local->op_errno = op_errno;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                      prev->name);
 
@@ -297,7 +297,7 @@ dht_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_set_local_rebalance(this, local, NULL, prebuf, postbuf, xdata);
 
     /* Phase 2 of migration */
-    if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
+    if ((IS_ERROR(op_ret)) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
         ret = dht_rebalance_complete_check(this, frame);
         if (!ret)
             return 0;
@@ -372,7 +372,7 @@ dht_truncate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
     return 0;
 
 out:
-    DHT_STACK_UNWIND(truncate, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(truncate, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -415,7 +415,7 @@ dht_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(truncate, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(truncate, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
@@ -457,15 +457,15 @@ dht_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(ftruncate, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
 
 int
-dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                  dict_t *xdata)
+dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     xlator_t *prev = NULL;
@@ -494,9 +494,9 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         return 0;
     }
 
-    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+    if ((IS_ERROR(op_ret)) && !dht_inode_missing(op_errno)) {
         local->op_errno = op_errno;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                      prev->name);
 
@@ -518,7 +518,7 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_set_local_rebalance(this, local, NULL, prebuf, postbuf, xdata);
 
     /* Phase 2 of migration */
-    if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
+    if ((IS_ERROR(op_ret)) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
         ret = dht_rebalance_complete_check(this, frame);
         if (!ret)
             return 0;
@@ -589,7 +589,7 @@ dht_fallocate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
     return 0;
 
 out:
-    DHT_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(fallocate, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -635,15 +635,15 @@ dht_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(fallocate, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
 
 int
-dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                dict_t *xdata)
+dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+                struct iatt *postbuf, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     xlator_t *prev = NULL;
@@ -671,9 +671,9 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         return 0;
     }
 
-    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+    if ((IS_ERROR(op_ret)) && !dht_inode_missing(op_errno)) {
         local->op_errno = op_errno;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                      prev->name);
 
@@ -695,7 +695,7 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_set_local_rebalance(this, local, NULL, prebuf, postbuf, xdata);
 
     /* Phase 2 of migration */
-    if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
+    if ((IS_ERROR(op_ret)) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
         ret = dht_rebalance_complete_check(this, frame);
         if (!ret)
             return 0;
@@ -764,7 +764,7 @@ dht_discard2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
     return 0;
 
 out:
-    DHT_STACK_UNWIND(discard, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(discard, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -808,15 +808,15 @@ dht_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(discard, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(discard, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
 
 int
-dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                 dict_t *xdata)
+dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                 gf_return_t op_ret, int op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     xlator_t *prev = NULL;
@@ -843,9 +843,9 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         return 0;
     }
 
-    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+    if ((IS_ERROR(op_ret)) && !dht_inode_missing(op_errno)) {
         local->op_errno = op_errno;
-        local->op_ret = -1;
+        local->op_ret = gf_error;
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                      prev->name);
         goto out;
@@ -866,7 +866,7 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_set_local_rebalance(this, local, NULL, prebuf, postbuf, xdata);
 
     /* Phase 2 of migration */
-    if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
+    if ((IS_ERROR(op_ret)) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
         ret = dht_rebalance_complete_check(this, frame);
         if (!ret)
             return 0;
@@ -939,7 +939,7 @@ dht_zerofill2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
 out:
 
-    DHT_STACK_UNWIND(zerofill, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(zerofill, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
@@ -983,7 +983,7 @@ dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(zerofill, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(zerofill, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
@@ -991,7 +991,7 @@ err:
 /* handle cases of migration here for 'setattr()' calls */
 int
 dht_file_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     dht_local_t *local = NULL;
@@ -1011,7 +1011,7 @@ dht_file_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
     }
 
-    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+    if ((IS_ERROR(op_ret)) && !dht_inode_missing(op_errno)) {
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                      prev->name);
         goto out;
@@ -1026,7 +1026,7 @@ dht_file_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local->rebalance.target_op_fn = dht_setattr2;
 
     /* Phase 2 of migration */
-    if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
+    if ((IS_ERROR(op_ret)) || IS_DHT_MIGRATION_PHASE2(postbuf)) {
         dht_set_local_rebalance(this, local, NULL, prebuf, postbuf, xdata);
 
         ret = dht_rebalance_complete_check(this, frame);
@@ -1090,15 +1090,15 @@ dht_setattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
     return 0;
 
 out:
-    DHT_STACK_UNWIND(setattr, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(setattr, frame, gf_error, op_errno, NULL, NULL, NULL);
     return 0;
 }
 
 /* Keep the existing code same for all the cases other than regular file */
 int
-dht_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, struct iatt *statpre, struct iatt *statpost,
-                dict_t *xdata)
+dht_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                gf_return_t op_ret, int op_errno, struct iatt *statpre,
+                struct iatt *statpost, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     int this_call_cnt = 0;
@@ -1109,7 +1109,7 @@ dht_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     LOCK(&frame->lock);
     {
-        if (op_ret == -1) {
+        if (IS_ERROR(op_ret)) {
             local->op_errno = op_errno;
             UNLOCK(&frame->lock);
             gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
@@ -1120,14 +1120,14 @@ dht_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         dht_iatt_merge(this, &local->prebuf, statpre);
         dht_iatt_merge(this, &local->stbuf, statpost);
 
-        local->op_ret = 0;
+        local->op_ret = gf_success;
         local->op_errno = 0;
     }
     UNLOCK(&frame->lock);
 post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
-        if (local->op_ret == 0)
+        if (IS_SUCCESS(local->op_ret))
             dht_inode_ctx_time_set(local->loc.inode, this, &local->stbuf);
         DHT_STACK_UNWIND(setattr, frame, local->op_ret, local->op_errno,
                          &local->prebuf, &local->stbuf, xdata);
@@ -1139,7 +1139,7 @@ post_unlock:
 /* Keep the existing code same for all the cases other than regular file */
 int
 dht_non_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, struct iatt *statpre,
+                        gf_return_t op_ret, int op_errno, struct iatt *statpre,
                         struct iatt *statpost, dict_t *xdata)
 {
     dht_local_t *local = NULL;
@@ -1149,7 +1149,7 @@ dht_non_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     prev = cookie;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(this->name, op_errno, 0, 0, "subvolume %s returned -1",
                prev->name);
         goto post_unlock;
@@ -1160,7 +1160,7 @@ dht_non_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_iatt_merge(this, &local->prebuf, statpre);
         dht_iatt_merge(this, &local->stbuf, statpost);
 
-        local->op_ret = 0;
+        local->op_ret = gf_success;
         local->op_errno = 0;
     }
     UNLOCK(&frame->lock);
@@ -1168,8 +1168,9 @@ post_unlock:
     this_call_cnt = dht_frame_return(frame);
     if (is_last_call(this_call_cnt)) {
         dht_inode_ctx_time_set(local->loc.inode, this, &local->stbuf);
-        DHT_STACK_UNWIND(setattr, frame, 0, 0, &local->prebuf, &local->stbuf,
-                         xdata);
+        op_ret = gf_success;
+        DHT_STACK_UNWIND(setattr, frame, op_ret, 0, &local->prebuf,
+                         &local->stbuf, xdata);
     }
 
     return 0;
@@ -1177,7 +1178,7 @@ post_unlock:
 
 int
 dht_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int op_ret, int op_errno, struct iatt *statpre,
+                    gf_return_t op_ret, int op_errno, struct iatt *statpre,
                     struct iatt *statpost, dict_t *xdata)
 
 {
@@ -1195,7 +1196,7 @@ dht_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     conf = this->private;
     mds_subvol = local->mds_subvol;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         local->op_ret = op_ret;
         local->op_errno = op_errno;
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
@@ -1203,7 +1204,7 @@ dht_mds_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    local->op_ret = 0;
+    local->op_ret = gf_success;
     loc_stbuf = local->stbuf;
     dht_iatt_merge(this, &local->prebuf, statpre);
     dht_iatt_merge(this, &local->stbuf, statpost);
@@ -1330,7 +1331,7 @@ dht_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(setattr, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(setattr, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }
@@ -1398,7 +1399,7 @@ dht_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(fsetattr, frame, gf_error, op_errno, NULL, NULL, NULL);
 
     return 0;
 }

@@ -1,5 +1,5 @@
 #pragma fragment CBK_TEMPLATE
-int32_t @FOP_PREFIX@_@NAME@_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+int32_t @FOP_PREFIX@_@NAME@_cbk(call_frame_t *frame, void *cookie, xlator_t *this, gf_return_t op_ret,
              int32_t op_errno, @UNWIND_PARAMS@)
 {
     STACK_UNWIND_STRICT(@NAME@, frame, op_ret, op_errno, @UNWIND_ARGS@);
@@ -17,7 +17,7 @@ If you are generating the leaf xlators, remove the STACK_WIND and replace the
                FIRST_CHILD(this)->fops->@NAME@, @WIND_ARGS@);
     return 0;
 err:
-    STACK_UNWIND_STRICT(@NAME@, frame, -1, errno, @ERROR_ARGS@);
+    STACK_UNWIND_STRICT(@NAME@, frame, gf_error, errno, @ERROR_ARGS@);
     return 0;
 }
 

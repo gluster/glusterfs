@@ -143,7 +143,7 @@ afr_dirtime_splitbrain_source(call_frame_t *frame, xlator_t *this,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret != 0)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         if (mtime_ns(&replies[i].poststat) <= mtime)
@@ -167,7 +167,7 @@ afr_dirtime_splitbrain_source(call_frame_t *frame, xlator_t *this,
         if (!replies[i].valid)
             continue;
 
-        if (replies[i].op_ret != 0)
+        if (IS_ERROR(replies[i].op_ret))
             continue;
 
         child_ia = replies[i].poststat;

@@ -142,6 +142,8 @@ glusterfs_this_set(xlator_t *);
 
 extern xlator_t global_xlator;
 extern struct volume_options global_xl_options[];
+extern const gf_return_t gf_error;
+extern const gf_return_t gf_success;
 
 /* syncopctx */
 void *
@@ -164,6 +166,9 @@ char *
 glusterfs_leaseid_buf_get(void);
 char *
 glusterfs_leaseid_exist(void);
+/* errorcode_buf */
+char *
+glusterfs_errorcode_buf_get(void);
 
 /* init */
 int
@@ -179,6 +184,7 @@ glusterfs_ctx_tw_put(glusterfs_ctx_t *ctx);
 
 extern const char *gf_fop_list[];
 extern const char *gf_upcall_list[];
+extern const char *gf_xlator_list[];
 
 /* mem acct enable/disable */
 int

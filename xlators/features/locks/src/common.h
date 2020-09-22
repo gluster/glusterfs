@@ -140,7 +140,7 @@ pl_trace_in(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc, int cmd,
 
 void
 pl_trace_out(xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc, int cmd,
-             struct gf_flock *flock, int op_ret, int op_errno,
+             struct gf_flock *flock, gf_return_t op_ret, int op_errno,
              const char *domain);
 
 void
@@ -158,7 +158,7 @@ entrylk_trace_in(xlator_t *this, call_frame_t *frame, const char *volume,
 void
 entrylk_trace_out(xlator_t *this, call_frame_t *frame, const char *volume,
                   fd_t *fd, loc_t *loc, const char *basename, entrylk_cmd cmd,
-                  entrylk_type type, int op_ret, int op_errno);
+                  entrylk_type type, gf_return_t op_ret, int op_errno);
 
 void
 entrylk_trace_block(xlator_t *this, call_frame_t *frame, const char *volume,
@@ -166,7 +166,7 @@ entrylk_trace_block(xlator_t *this, call_frame_t *frame, const char *volume,
                     entrylk_type type);
 
 void
-pl_print_verdict(char *str, int size, int op_ret, int op_errno);
+pl_print_verdict(char *str, int size, int32_t op_ret, int op_errno);
 
 void
 pl_print_lockee(char *str, int size, fd_t *fd, loc_t *loc);

@@ -251,9 +251,9 @@ nfs3_errno_to_nfsstat3(int errnum)
  * happens by any means, then set NFS3 status to NFS3ERR_SERVERFAULT.
  */
 nfsstat3
-nfs3_cbk_errno_status(int32_t op_ret, int32_t op_errno)
+nfs3_cbk_errno_status(gf_return_t op_ret, int32_t op_errno)
 {
-    if ((op_ret == -1) && (op_errno == 0)) {
+    if (IS_ERROR(op_ret) && (op_errno == 0)) {
         return NFS3ERR_SERVERFAULT;
     }
 
@@ -3522,7 +3522,7 @@ err:
 
 int32_t
 nfs3_fh_resolve_entry_lookup_cbk(call_frame_t *frame, void *cookie,
-                                 xlator_t *this, int32_t op_ret,
+                                 xlator_t *this, gf_return_t op_ret,
                                  int32_t op_errno, inode_t *inode,
                                  struct iatt *buf, dict_t *xattr,
                                  struct iatt *postparent)
@@ -3531,10 +3531,10 @@ nfs3_fh_resolve_entry_lookup_cbk(call_frame_t *frame, void *cookie,
     inode_t *linked_inode = NULL;
 
     cs = frame->local;
-    cs->resolve_ret = op_ret;
+    cs->resolve_ret = GET_RET(op_ret);
     cs->resolve_errno = op_errno;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         if (op_errno == ENOENT) {
             gf_msg_trace(GF_NFS3, 0, "Lookup failed: %s: %s",
                          cs->resolvedloc.path, strerror(op_errno));
@@ -3570,7 +3570,7 @@ err:
 
 int32_t
 nfs3_fh_resolve_inode_lookup_cbk(call_frame_t *frame, void *cookie,
-                                 xlator_t *this, int32_t op_ret,
+                                 xlator_t *this, gf_return_t op_ret,
                                  int32_t op_errno, inode_t *inode,
                                  struct iatt *buf, dict_t *xattr,
                                  struct iatt *postparent)
@@ -3579,10 +3579,10 @@ nfs3_fh_resolve_inode_lookup_cbk(call_frame_t *frame, void *cookie,
     inode_t *linked_inode = NULL;
 
     cs = frame->local;
-    cs->resolve_ret = op_ret;
+    cs->resolve_ret = GET_RET(op_ret);
     cs->resolve_errno = op_errno;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         if (op_errno == ENOENT) {
             gf_msg_trace(GF_NFS3, 0, "Lookup failed: %s: %s",
                          cs->resolvedloc.path, strerror(op_errno));
@@ -3778,7 +3778,7 @@ err_resume_call:
 
 int32_t
 nfs3_fh_resolve_root_lookup_cbk(call_frame_t *frame, void *cookie,
-                                xlator_t *this, int32_t op_ret,
+                                xlator_t *this, gf_return_t op_ret,
                                 int32_t op_errno, inode_t *inode,
                                 struct iatt *buf, dict_t *xattr,
                                 struct iatt *postparent)
@@ -3786,10 +3786,10 @@ nfs3_fh_resolve_root_lookup_cbk(call_frame_t *frame, void *cookie,
     nfs3_call_state_t *cs = NULL;
 
     cs = frame->local;
-    cs->resolve_ret = op_ret;
+    cs->resolve_ret = GET_RET(op_ret);
     cs->resolve_errno = op_errno;
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(GF_NFS3, GF_LOG_ERROR, op_errno, NFS_MSG_LOOKUP_ROOT_FAIL,
                "Root lookup failed: %s", strerror(op_errno));
         goto err;

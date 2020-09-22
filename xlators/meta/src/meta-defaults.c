@@ -55,7 +55,7 @@ int
 meta_default_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                      dict_t *xdata)
 {
-    META_STACK_UNWIND(opendir, frame, 0, 0, fd, xdata);
+    META_STACK_UNWIND(opendir, frame, gf_success, 0, fd, xdata);
     return 0;
 }
 
@@ -66,7 +66,7 @@ meta_default_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
     meta_iatt_fill(&iatt, fd->inode, fd->inode->ia_type);
 
-    META_STACK_UNWIND(fstat, frame, 0, 0, &iatt, xdata);
+    META_STACK_UNWIND(fstat, frame, gf_success, 0, &iatt, xdata);
 
     return 0;
 }
@@ -81,7 +81,7 @@ meta_default_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 int
 meta_default_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-    META_STACK_UNWIND(flush, frame, 0, 0, xdata);
+    META_STACK_UNWIND(flush, frame, gf_success, 0, xdata);
     return 0;
 }
 
@@ -93,6 +93,7 @@ meta_default_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     struct meta_ops *ops = NULL;
     int ret = 0;
     struct iatt dummy = {};
+    gf_return_t op_ret;
 
     ops = meta_ops_get(fd->inode, this);
     if (!ops)
@@ -103,7 +104,8 @@ meta_default_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     ret = ops->file_write(this, fd, vector, count);
 
-    META_STACK_UNWIND(writev, frame, (ret >= 0 ? ret : -1),
+    SET_RET(op_ret, ret);
+    META_STACK_UNWIND(writev, frame, (IS_SUCCESS(op_ret) ? op_ret : gf_error),
                       (ret < 0 ? -ret : 0), &dummy, &dummy, xdata);
     return 0;
 err:
@@ -121,6 +123,7 @@ meta_default_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     off_t copy_offset = 0;
     int copy_size = 0;
     struct iatt iatt = {};
+    gf_return_t op_ret;
 
     meta_fd = meta_fd_get(fd, this);
     if (!meta_fd)
@@ -157,7 +160,8 @@ meta_default_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         memcpy(iov.iov_base, meta_fd->data + copy_offset, copy_size);
     iov.iov_len = copy_size;
 
-    META_STACK_UNWIND(readv, frame, copy_size, 0, &iov, 1, &iatt, iobref, 0);
+    SET_RET(op_ret, copy_size);
+    META_STACK_UNWIND(readv, frame, op_ret, 0, &iov, 1, &iatt, iobref, 0);
 
     iobref_unref(iobref);
 
@@ -172,7 +176,7 @@ meta_default_open(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     xdata_rsp = meta_direct_io_mode(xdata, frame);
 
-    META_STACK_UNWIND(open, frame, 0, 0, fd, xdata_rsp);
+    META_STACK_UNWIND(open, frame, gf_success, 0, fd, xdata_rsp);
 
     return 0;
 }
@@ -242,16 +246,17 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
     strfd_t *strfd = NULL;
     struct iatt iatt = {};
     int len = -1;
+    gf_return_t op_ret;
 
     ops = meta_ops_get(loc->inode, this);
     if (!ops || !ops->link_fill) {
-        META_STACK_UNWIND(readlink, frame, -1, EPERM, 0, 0, 0);
+        META_STACK_UNWIND(readlink, frame, gf_error, EPERM, 0, 0, 0);
         return 0;
     }
 
     strfd = strfd_open();
     if (!strfd) {
-        META_STACK_UNWIND(readlink, frame, -1, ENOMEM, 0, 0, 0);
+        META_STACK_UNWIND(readlink, frame, gf_error, ENOMEM, 0, 0, 0);
         return 0;
     }
 
@@ -261,9 +266,11 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     if (strfd->data) {
         len = strlen(strfd->data);
-        META_STACK_UNWIND(readlink, frame, len, 0, strfd->data, &iatt, xdata);
+        SET_RET(op_ret, len);
+        META_STACK_UNWIND(readlink, frame, op_ret, 0, strfd->data, &iatt,
+                          xdata);
     } else
-        META_STACK_UNWIND(readlink, frame, -1, ENODATA, 0, 0, 0);
+        META_STACK_UNWIND(readlink, frame, gf_error, ENODATA, 0, 0, 0);
 
     strfd_close(strfd);
 
@@ -285,7 +292,7 @@ meta_default_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     meta_iatt_fill(&iatt, fd->inode, IA_IFREG);
 
-    META_STACK_UNWIND(ftruncate, frame, 0, 0, &iatt, &iatt, xdata);
+    META_STACK_UNWIND(ftruncate, frame, gf_success, 0, &iatt, &iatt, xdata);
 
     return 0;
 }
@@ -384,6 +391,7 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     int filled_size = 0;
     int fixed_size = 0;
     int dyn_size = 0;
+    gf_return_t op_ret;
     struct meta_dirent *fixed_dirents = NULL;
     struct meta_dirent *dyn_dirents = NULL;
     struct meta_dirent *dirents = NULL;
@@ -464,13 +472,14 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 
 unwind:
-    META_STACK_UNWIND(readdir, frame, ret, 0, &head, xdata);
+    SET_RET(op_ret, ret);
+    META_STACK_UNWIND(readdir, frame, op_ret, 0, &head, xdata);
 
     gf_dirent_free(&head);
 
     return 0;
 err:
-    META_STACK_UNWIND(readdir, frame, -1, ENOMEM, 0, 0);
+    META_STACK_UNWIND(readdir, frame, gf_error, ENOMEM, 0, 0);
     return 0;
 }
 
@@ -496,7 +505,7 @@ meta_default_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     meta_iatt_fill(&iatt, loc->inode, IA_IFREG);
 
-    META_STACK_UNWIND(truncate, frame, 0, 0, &iatt, &iatt, xdata);
+    META_STACK_UNWIND(truncate, frame, gf_success, 0, &iatt, &iatt, xdata);
 
     return 0;
 }
@@ -509,7 +518,7 @@ meta_default_stat(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     meta_iatt_fill(&iatt, loc->inode, loc->inode->ia_type);
 
-    META_STACK_UNWIND(stat, frame, 0, 0, &iatt, xdata);
+    META_STACK_UNWIND(stat, frame, gf_success, 0, &iatt, xdata);
 
     return 0;
 }
@@ -555,10 +564,10 @@ hook:
 
         meta_iatt_fill(&iatt, loc->inode, dirent->type);
 
-        META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
-                          &parent);
+        META_STACK_UNWIND(lookup, frame, gf_success, 0, loc->inode, &iatt,
+                          xdata, &parent);
     } else {
-        META_STACK_UNWIND(lookup, frame, -1, ENOENT, 0, 0, 0, 0);
+        META_STACK_UNWIND(lookup, frame, gf_error, ENOENT, 0, 0, 0, 0);
     }
 
     for (i = 0; i < ret; i++)

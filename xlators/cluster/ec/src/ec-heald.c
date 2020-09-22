@@ -575,14 +575,14 @@ int
 ec_heal_op(xlator_t *this, dict_t *output, gf_xl_afr_op_t op, int xl_id)
 {
     char key[64] = {0};
-    int op_ret = 0;
+    gf_return_t op_ret;
     ec_t *ec = NULL;
     int i = 0;
     GF_UNUSED int ret = 0;
 
     ec = this->private;
 
-    op_ret = -1;
+    op_ret = gf_error;
     for (i = 0; i < ec->nodes; i++) {
         snprintf(key, sizeof(key), "%d-%d-status", xl_id, i);
 
@@ -599,10 +599,10 @@ ec_heal_op(xlator_t *this, dict_t *output, gf_xl_afr_op_t op, int xl_id)
             } else if (op == GF_SHD_OP_HEAL_INDEX) {
                 ec_shd_index_healer_spawn(this, i);
             }
-            op_ret = 0;
+            op_ret = gf_success;
         }
     }
-    return op_ret;
+    return GET_RET(op_ret);
 }
 
 int

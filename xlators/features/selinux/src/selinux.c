@@ -17,7 +17,8 @@
 
 static int
 selinux_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, dict_t *dict, dict_t *xdata)
+                      gf_return_t op_ret, int op_errno, dict_t *dict,
+                      dict_t *xdata)
 {
     int ret = 0;
     char *name = cookie;
@@ -40,7 +41,7 @@ selinux_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                   const char *name, dict_t *xdata)
 {
     selinux_priv_t *priv = NULL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = EINVAL;
     char *xattr_name = (char *)name;
 
@@ -68,7 +69,8 @@ err:
 
 static int
 selinux_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, dict_t *dict, dict_t *xdata)
+                     gf_return_t op_ret, int op_errno, dict_t *dict,
+                     dict_t *xdata)
 {
     int ret = 0;
     char *name = cookie;
@@ -92,7 +94,7 @@ selinux_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name, dict_t *xdata)
 {
     selinux_priv_t *priv = NULL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = EINVAL;
     char *xattr_name = (char *)name;
 
@@ -119,7 +121,7 @@ err:
 
 static int
 selinux_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int op_ret, int op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int op_errno, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(fsetxattr, frame, op_ret, op_errno, xdata);
     return 0;
@@ -130,7 +132,7 @@ selinux_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                   int flags, dict_t *xdata)
 {
     selinux_priv_t *priv = NULL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = EINVAL;
     int32_t ret = -1;
 
@@ -157,7 +159,7 @@ err:
 
 static int
 selinux_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int op_errno, dict_t *xdata)
 {
     STACK_UNWIND_STRICT(setxattr, frame, op_ret, op_errno, xdata);
     return 0;
@@ -168,7 +170,7 @@ selinux_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                  int flags, dict_t *xdata)
 {
     selinux_priv_t *priv = NULL;
-    int32_t op_ret = -1;
+    gf_return_t op_ret = gf_error;
     int32_t op_errno = EINVAL;
     int32_t ret = -1;
 

@@ -189,12 +189,12 @@ struct _ec_inode {
     uint64_t bad_version;
 };
 
-typedef int32_t (*fop_heal_cbk_t)(call_frame_t *, void *, xlator_t *, int32_t,
-                                  int32_t, uintptr_t, uintptr_t, uintptr_t,
-                                  uint32_t, dict_t *);
-typedef int32_t (*fop_fheal_cbk_t)(call_frame_t *, void *, xlator_t *, int32_t,
-                                   int32_t, uintptr_t, uintptr_t, uintptr_t,
-                                   uint32_t, dict_t *);
+typedef int32_t (*fop_heal_cbk_t)(call_frame_t *, void *, xlator_t *,
+                                  gf_return_t, int32_t, uintptr_t, uintptr_t,
+                                  uintptr_t, uint32_t, dict_t *);
+typedef int32_t (*fop_fheal_cbk_t)(call_frame_t *, void *, xlator_t *,
+                                   gf_return_t, int32_t, uintptr_t, uintptr_t,
+                                   uintptr_t, uint32_t, dict_t *);
 
 union _ec_cbk {
     fop_access_cbk_t access;
@@ -399,7 +399,7 @@ struct _ec_cbk_data {
     ec_fop_data_t *fop;
     ec_cbk_data_t *next; /* next answer in the same group */
     uint32_t idx;
-    int32_t op_ret;
+    gf_return_t op_ret;
     int32_t op_errno;
     int32_t count;
     uintptr_t mask;

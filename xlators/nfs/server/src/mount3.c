@@ -739,7 +739,7 @@ out:
 
 int32_t
 mnt3svc_lookup_mount_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                          struct iatt *buf, dict_t *xattr,
                          struct iatt *postparent)
 {
@@ -776,11 +776,11 @@ mnt3svc_lookup_mount_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!ms) {
         gf_msg(GF_MNT, GF_LOG_ERROR, EINVAL, NFS_MSG_MNT_STATE_NOT_FOUND,
                "mount state not found");
-        op_ret = -1;
+        op_ret = gf_error;
         op_errno = EINVAL;
     }
 
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_msg(GF_NFS, GF_LOG_ERROR, op_errno, NFS_MSG_LOOKUP_MNT_ERROR,
                "error=%s", strerror(op_errno));
         status = mnt3svc_errno_to_mnterr(op_errno);
@@ -811,7 +811,7 @@ mnt3svc_lookup_mount_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 xmit_res:
     nfs3_fh_to_str(&fh, fhstr, sizeof(fhstr));
     gf_msg_debug(GF_MNT, 0, "MNT reply: fh %s, status: %d", fhstr, status);
-    if (op_ret == 0) {
+    if (IS_SUCCESS(op_ret)) {
         svc = rpcsvc_request_service(req);
         autharrlen = rpcsvc_auth_array(svc, mntxl->name, autharr, 10);
     }
@@ -1023,13 +1023,13 @@ err:
 
 int32_t
 mnt3_resolve_subdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, inode_t *inode,
+                        gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                         struct iatt *buf, dict_t *xattr,
                         struct iatt *postparent);
 
 int32_t
 mnt3_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, const char *path,
+                  gf_return_t op_ret, int32_t op_errno, const char *path,
                   struct iatt *buf, dict_t *xdata);
 
 /* There are multiple components in the directory export path and each one
@@ -1109,7 +1109,7 @@ __mnt3_fresh_lookup(mnt3_resolve_t *mres)
 
 int32_t
 mnt3_resolve_subdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, inode_t *inode,
+                        gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                         struct iatt *buf, dict_t *xattr,
                         struct iatt *postparent)
 {
@@ -1135,11 +1135,11 @@ mnt3_resolve_subdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     mres = frame->local;
     ms = mres->mstate;
     mntxl = (xlator_t *)cookie;
-    if (op_ret == -1 && op_errno == ESTALE) {
+    if (IS_ERROR(op_ret) && op_errno == ESTALE) {
         /* Nuke inode from cache and try the LOOKUP
          * request again. */
         return __mnt3_fresh_lookup(mres);
-    } else if (op_ret == -1) {
+    } else if (IS_ERROR(op_ret)) {
         gf_msg(GF_NFS, GF_LOG_ERROR, op_errno, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                "path=%s (%s)", mres->resolveloc.path, strerror(op_errno));
         mntstat = mnt3svc_errno_to_mnterr(op_errno);
@@ -1155,7 +1155,7 @@ mnt3_resolve_subdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     nfs3_fh_build_child_fh(&mres->parentfh, buf, &fh);
     if (strlen(mres->remainingdir) <= 0) {
         int alloclen;
-        op_ret = -1;
+        op_ret = gf_error;
         mntstat = MNT3_OK;
 
         /* Construct the full path */
@@ -1177,7 +1177,7 @@ mnt3_resolve_subdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (authcode != 0) {
             mntstat = MNT3ERR_ACCES;
             gf_msg_debug(GF_MNT, 0, "Client mount not allowed");
-            op_ret = -1;
+            op_ret = gf_error;
             goto err;
         }
 
@@ -1201,12 +1201,13 @@ mnt3_resolve_subdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         GF_FREE(path);
     } else {
         mres->parentfh = fh;
-        op_ret = __mnt3_resolve_export_subdir_comp(mres);
-        if (op_ret < 0)
-            mntstat = mnt3svc_errno_to_mnterr(-op_ret);
+        int ret = __mnt3_resolve_export_subdir_comp(mres);
+        SET_RET(op_ret, ret);
+        if (ret < 0)
+            mntstat = mnt3svc_errno_to_mnterr(-ret);
     }
 err:
-    if (op_ret == -1) {
+    if (IS_ERROR(op_ret)) {
         gf_msg_debug(GF_MNT, 0, "Mount reply status: %d", mntstat);
         svc = rpcsvc_request_service(mres->req);
         autharrlen = rpcsvc_auth_array(svc, mntxl->name, autharr, 10);
@@ -1248,7 +1249,7 @@ err:
  */
 int32_t
 mnt3_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, const char *path,
+                  gf_return_t op_ret, int32_t op_errno, const char *path,
                   struct iatt *buf, dict_t *xdata)
 {
     mnt3_resolve_t *mres = NULL;
@@ -1264,7 +1265,7 @@ mnt3_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     GF_ASSERT(frame);
 
     mres = frame->local;
-    if (!mres || !path || (path[0] == '/') || (op_ret < 0))
+    if (!mres || !path || (path[0] == '/') || (IS_ERROR(op_ret)))
         goto mnterr;
 
     /* Finding current location of symlink */

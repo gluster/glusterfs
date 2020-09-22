@@ -2337,28 +2337,31 @@ rebalance_task(void *data)
 }
 
 static int
-rebalance_task_completion(int op_ret, call_frame_t *sync_frame, void *data)
+rebalance_task_completion(int ret, call_frame_t *sync_frame, void *data)
 {
     int32_t op_errno = EINVAL;
 
-    if (op_ret == -1) {
+    if (ret == -1) {
         /* Failure of migration process, mostly due to write process.
            as we can't preserve the exact errno, lets say there was
            no space to migrate-data
         */
         op_errno = ENOSPC;
-    } else if (op_ret == 1) {
+    } else if (ret == 1) {
         /* migration didn't happen, but is not a failure, let the user
            understand that he doesn't have permission to migrate the
            file.
         */
-        op_ret = -1;
+        ret = -1;
         op_errno = EPERM;
-    } else if (op_ret != 0) {
-        op_errno = -op_ret;
-        op_ret = -1;
+    } else if (ret != 0) {
+        op_errno = -ret;
+        ret = -1;
     }
 
+    /* */
+    gf_return_t op_ret;
+    SET_RET(op_ret, ret);
     DHT_STACK_UNWIND(setxattr, sync_frame, op_ret, op_errno, NULL);
     return 0;
 }

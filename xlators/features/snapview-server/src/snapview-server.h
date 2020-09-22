@@ -100,7 +100,7 @@
                        "failed to get the handle for %s "                      \
                        "(gfid: %s)",                                           \
                        loc->path, uuid_utoa_r(loc->inode->gfid, tmp_uuid));    \
-                ret = -1;                                                      \
+                ret = gf_error;                                                \
                 goto label;                                                    \
             }                                                                  \
                                                                                \

@@ -293,7 +293,7 @@ is_fop_latency_started(call_frame_t *frame)
         end = &frame->end;                                                     \
                                                                                \
         elapsed = gf_tsdiff(begin, end) / 1000.0;                              \
-        throughput = op_ret / elapsed;                                         \
+        throughput = GET_RET(op_ret) / elapsed;                                \
                                                                                \
         conf = this->private;                                                  \
         gettimeofday(&tv, NULL);                                               \
@@ -1912,8 +1912,8 @@ out:
 
 int
 io_stats_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                    struct iatt *buf, struct iatt *preparent,
+                    gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
     struct ios_fd *iosfd = NULL;
@@ -1929,7 +1929,7 @@ io_stats_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!path)
         goto unwind;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         GF_FREE(path);
         goto unwind;
     }
@@ -1967,7 +1967,7 @@ unwind:
 
 int
 io_stats_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     struct ios_fd *iosfd = NULL;
     char *path = NULL;
@@ -1982,7 +1982,7 @@ io_stats_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!path)
         goto unwind;
 
-    if (op_ret < 0) {
+    if (IS_ERROR(op_ret)) {
         GF_FREE(path);
         goto unwind;
     }
@@ -2031,7 +2031,7 @@ unwind:
 
 int
 io_stats_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                   dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, STAT);
@@ -2041,7 +2041,7 @@ io_stats_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                   gf_return_t op_ret, int32_t op_errno, struct iovec *vector,
                    int32_t count, struct iatt *buf, struct iobref *iobref,
                    dict_t *xdata)
 {
@@ -2052,7 +2052,7 @@ io_stats_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fd = frame->local;
     frame->local = NULL;
 
-    if (op_ret > 0) {
+    if (GET_RET(op_ret) > 0) {
         len = iov_length(vector, count);
         ios_bump_read(this, fd, len);
     }
@@ -2073,7 +2073,7 @@ io_stats_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
     struct ios_stat *iosstat = NULL;
@@ -2099,7 +2099,7 @@ io_stats_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                             int32_t op_ret, int32_t op_errno,
+                             gf_return_t op_ret, int32_t op_errno,
                              struct iatt *stbuf, struct iatt *prebuf_dst,
                              struct iatt *postbuf_dst, dict_t *xdata)
 {
@@ -2112,7 +2112,7 @@ io_stats_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, gf_dirent_t *buf,
+                      gf_return_t op_ret, int32_t op_errno, gf_dirent_t *buf,
                       dict_t *xdata)
 {
     struct ios_stat *iosstat = NULL;
@@ -2135,7 +2135,7 @@ io_stats_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, gf_dirent_t *buf,
+                     gf_return_t op_ret, int32_t op_errno, gf_dirent_t *buf,
                      dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, READDIR);
@@ -2145,7 +2145,7 @@ io_stats_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FSYNC);
@@ -2155,7 +2155,7 @@ io_stats_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *preop,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *preop,
                      struct iatt *postop, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, SETATTR);
@@ -2165,8 +2165,9 @@ io_stats_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
-                    struct iatt *postparent, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno,
+                    struct iatt *preparent, struct iatt *postparent,
+                    dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, UNLINK);
     STACK_UNWIND_STRICT(unlink, frame, op_ret, op_errno, preparent, postparent,
@@ -2176,7 +2177,7 @@ io_stats_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                    gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                     struct iatt *preoldparent, struct iatt *postoldparent,
                     struct iatt *prenewparent, struct iatt *postnewparent,
                     dict_t *xdata)
@@ -2189,7 +2190,7 @@ io_stats_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, const char *buf,
+                      gf_return_t op_ret, int32_t op_errno, const char *buf,
                       struct iatt *sbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, READLINK);
@@ -2199,7 +2200,7 @@ io_stats_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
     UPDATE_PROFILE_STATS(frame, LOOKUP);
@@ -2210,7 +2211,7 @@ io_stats_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, inode_t *inode,
+                     gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                      struct iatt *buf, struct iatt *preparent,
                      struct iatt *postparent, dict_t *xdata)
 {
@@ -2222,7 +2223,7 @@ io_stats_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
@@ -2234,7 +2235,7 @@ io_stats_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
@@ -2244,7 +2245,7 @@ io_stats_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
 
     UPDATE_PROFILE_STATS(frame, MKDIR);
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     /* allocate a struct ios_stat and set the inode ctx */
@@ -2261,7 +2262,7 @@ unwind:
 
 int
 io_stats_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  gf_return_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
@@ -2273,7 +2274,7 @@ io_stats_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                   gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FLUSH);
     STACK_UNWIND_STRICT(flush, frame, op_ret, op_errno, xdata);
@@ -2282,13 +2283,14 @@ io_stats_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, fd_t *fd,
+                     dict_t *xdata)
 {
     struct ios_stat *iosstat = NULL;
     int ret = -1;
 
     UPDATE_PROFILE_STATS(frame, OPENDIR);
-    if (op_ret < 0)
+    if (IS_ERROR(op_ret))
         goto unwind;
 
     ios_fd_ctx_set(fd, this, 0);
@@ -2304,7 +2306,7 @@ unwind:
 
 int
 io_stats_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, RMDIR);
@@ -2316,7 +2318,7 @@ io_stats_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, TRUNCATE);
@@ -2327,7 +2329,7 @@ io_stats_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct statvfs *buf,
+                    gf_return_t op_ret, int32_t op_errno, struct statvfs *buf,
                     dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, STATFS);
@@ -2337,7 +2339,7 @@ io_stats_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, SETXATTR);
     STACK_UNWIND_STRICT(setxattr, frame, op_ret, op_errno, xdata);
@@ -2346,7 +2348,7 @@ io_stats_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *dict,
+                      gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                       dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, GETXATTR);
@@ -2356,7 +2358,7 @@ io_stats_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, REMOVEXATTR);
     STACK_UNWIND_STRICT(removexattr, frame, op_ret, op_errno, xdata);
@@ -2365,7 +2367,7 @@ io_stats_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FSETXATTR);
     STACK_UNWIND_STRICT(fsetxattr, frame, op_ret, op_errno, xdata);
@@ -2374,7 +2376,7 @@ io_stats_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *dict,
+                       gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                        dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FGETXATTR);
@@ -2384,7 +2386,7 @@ io_stats_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                          gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FREMOVEXATTR);
     STACK_UNWIND_STRICT(fremovexattr, frame, op_ret, op_errno, xdata);
@@ -2393,7 +2395,7 @@ io_stats_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FSYNCDIR);
     STACK_UNWIND_STRICT(fsyncdir, frame, op_ret, op_errno, xdata);
@@ -2402,7 +2404,7 @@ io_stats_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                    gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, ACCESS);
     STACK_UNWIND_STRICT(access, frame, op_ret, op_errno, xdata);
@@ -2411,8 +2413,8 @@ io_stats_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                       struct iatt *postbuf, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno,
+                       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FTRUNCATE);
     STACK_UNWIND_STRICT(ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -2422,7 +2424,7 @@ io_stats_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   gf_return_t op_ret, int32_t op_errno, struct iatt *buf,
                    dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FSTAT);
@@ -2432,8 +2434,8 @@ io_stats_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                       struct iatt *postbuf, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno,
+                       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FALLOCATE);
     STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -2443,7 +2445,7 @@ io_stats_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, DISCARD);
@@ -2454,7 +2456,7 @@ io_stats_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      gf_return_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, ZEROFILL);
@@ -2465,7 +2467,7 @@ io_stats_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 io_stats_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                 gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, IPC);
     STACK_UNWIND_STRICT(ipc, frame, op_ret, op_errno, xdata);
@@ -2474,7 +2476,7 @@ io_stats_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
+                gf_return_t op_ret, int32_t op_errno, struct gf_flock *lock,
                 dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, LK);
@@ -2484,7 +2486,7 @@ io_stats_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, ENTRYLK);
     STACK_UNWIND_STRICT(entrylk, frame, op_ret, op_errno, xdata);
@@ -2493,7 +2495,7 @@ io_stats_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FENTRYLK);
     STACK_UNWIND_STRICT(fentrylk, frame, op_ret, op_errno, xdata);
@@ -2502,8 +2504,9 @@ io_stats_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
-                       uint8_t *strong_checksum, dict_t *xdata)
+                       gf_return_t op_ret, int32_t op_errno,
+                       uint32_t weak_checksum, uint8_t *strong_checksum,
+                       dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, RCHECKSUM);
     STACK_UNWIND_STRICT(rchecksum, frame, op_ret, op_errno, weak_checksum,
@@ -2513,7 +2516,8 @@ io_stats_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, off_t offset, dict_t *xdata)
+                  gf_return_t op_ret, int32_t op_errno, off_t offset,
+                  dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, SEEK);
     STACK_UNWIND_STRICT(seek, frame, op_ret, op_errno, offset, xdata);
@@ -2522,7 +2526,7 @@ io_stats_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct gf_lease *lease,
+                   gf_return_t op_ret, int32_t op_errno, struct gf_lease *lease,
                    dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, LEASE);
@@ -2532,7 +2536,7 @@ io_stats_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno,
+                         gf_return_t op_ret, int32_t op_errno,
                          lock_migration_info_t *locklist, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, GETACTIVELK);
@@ -2542,7 +2546,7 @@ io_stats_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_setactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                         gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, SETACTIVELK);
     STACK_UNWIND_STRICT(setactivelk, frame, op_ret, op_errno, xdata);
@@ -2551,7 +2555,7 @@ io_stats_setactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_compound_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, void *data,
+                      gf_return_t op_ret, int32_t op_errno, void *data,
                       dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, COMPOUND);
@@ -2561,7 +2565,7 @@ io_stats_compound_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, XATTROP);
@@ -2571,7 +2575,7 @@ io_stats_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *dict,
+                      gf_return_t op_ret, int32_t op_errno, dict_t *dict,
                       dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FXATTROP);
@@ -2581,7 +2585,7 @@ io_stats_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, INODELK);
     STACK_UNWIND_STRICT(inodelk, frame, op_ret, op_errno, xdata);
@@ -2628,7 +2632,7 @@ io_stats_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
 
 int
 io_stats_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                      gf_return_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     UPDATE_PROFILE_STATS(frame, FINODELK);
     STACK_UNWIND_STRICT(finodelk, frame, op_ret, op_errno, xdata);
