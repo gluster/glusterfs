@@ -82,6 +82,9 @@ glusterd_big_locked_handler(rpcsvc_request_t *req, rpcsvc_actor actor_fn)
     return ret;
 }
 
+static char *specific_key_suffix[] = {".quota-cksum", ".cksum",
+                                      ".version", ".quota-version", ".name", NULL};
+
 static int
 glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
                            int port, gd1_mgmt_friend_req *friend_req)
@@ -92,6 +95,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     glusterd_friend_req_ctx_t *ctx = NULL;
     char rhost[UNIX_PATH_MAX + 1] = {0};
     dict_t *dict = NULL;
+    dict_t *peer_ver = NULL;
 
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
@@ -100,6 +104,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
     dict = dict_new();
+    peer_ver = dict_new();
 
     RCU_READ_LOCK;
 
@@ -145,8 +150,10 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         goto out;
     }
 
-    ret = dict_unserialize(friend_req->vols.vols_val, friend_req->vols.vols_len,
-                           &dict);
+    ret = dict_unserialize_specific_keys(friend_req->vols.vols_val,
+                                         friend_req->vols.vols_len, &dict,
+                                         specific_key_suffix,
+                                         &peer_ver);
 
     if (ret) {
         gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
@@ -156,6 +163,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         dict->extra_stdfree = friend_req->vols.vols_val;
 
     ctx->vols = dict;
+    ctx->peer_ver = peer_ver;
     event->ctx = ctx;
 
     ret = glusterd_friend_sm_inject_event(event);
@@ -185,6 +193,8 @@ out:
         } else {
             free(friend_req->vols.vols_val);
         }
+        if (peer_ver)
+            dict_unref(peer_ver);
         if (event)
             GF_FREE(event->peername);
         GF_FREE(event);

@@ -432,6 +432,7 @@ dict_clear_flag
 dict_check_flag
 dict_unref
 dict_unserialize
+dict_unserialize_specific_keys
 drop_token
 eh_destroy
 eh_dump

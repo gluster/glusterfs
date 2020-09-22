@@ -6527,7 +6527,7 @@ find_compatible_brick(glusterd_conf_t *conf, glusterd_volinfo_t *volinfo,
    check if passed pid is match with running  glusterfs process
 */
 
-static int
+int
 glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
 {
     char buf[1024] = "";
@@ -6616,17 +6616,7 @@ glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
 
     if (tmpsockpath[0]) {
         strncpy(sockpath, tmpsockpath, i);
-        /*
-         * Condition to check if the brick socket file is present
-         * in the stated path or not. This helps in preventing
-         * constant re-connect triggered in the RPC layer and also
-         * a log message would help out the user.
-         */
-        ret = sys_access(sockpath, F_OK);
-        if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_NOT_FOUND,
-                    "%s not found", sockpath, NULL);
-        }
+        ret = 0;
     }
 
     return ret;
@@ -6801,14 +6791,14 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    if (gf_uuid_compare(volinfo->volume_id, volid)) {
+    if (strncmp(uuid_utoa(volinfo->volume_id), uuid_utoa(volid),
+                GF_UUID_BUF_SIZE)) {
         gf_log(this->name, GF_LOG_ERROR,
                "Mismatching %s extended attribute on brick root (%s),"
                " brick is deemed not to be a part of the volume (%s)",
                GF_XATTR_VOL_ID_KEY, brickinfo->path, volinfo->volname);
         goto out;
     }
-
     is_service_running = gf_is_service_running(pidfile, &pid);
     if (is_service_running) {
         if (is_brick_mx_enabled()) {
@@ -6864,20 +6854,7 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
             if (!is_brick_mx_enabled()) {
                 glusterd_set_brick_socket_filepath(
                     volinfo, brickinfo, socketpath, sizeof(socketpath));
-                /*
-                 * Condition to check if the brick socket file is present
-                 * in the stated path or not. This helps in preventing
-                 * constant re-connect triggered in the RPC layer and also
-                 * a log message would help out the user.
-                 */
-                ret = sys_access(socketpath, F_OK);
-                if (ret) {
-                    gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_NOT_FOUND,
-                            "%s not found", socketpath, NULL);
-                    goto out;
-                }
             }
-
             gf_log(this->name, GF_LOG_DEBUG,
                    "Using %s as sockfile for brick %s of volume %s ",
                    socketpath, brickinfo->path, volinfo->volname);
@@ -13215,20 +13192,6 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
             goto out;
         }
     }
-
-    if ((conf->op_version >= GD_OP_VERSION_9_0) &&
-        (volinfo->status == GLUSTERD_STATUS_NONE) &&
-        (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
-        ret = dict_set_dynstr_with_alloc(volinfo->dict,
-                                         "cluster.granular-entry-heal", "on");
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
-                   "Failed to set option 'cluster.granular-entry-heal' "
-                   "on volume %s",
-                   volinfo->volname);
-            goto out;
-        }
-    }
 out:
     return ret;
 }
@@ -14373,7 +14336,7 @@ rb_update_dstbrick_port(glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
     if (!dict_ret)
         dst_brickinfo->port = dst_port;
 
-    if (glusterd_gf_is_local_addr(dst_brickinfo->hostname)) {
+    if (gf_is_local_addr(dst_brickinfo->hostname)) {
         gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_BRK_PORT_NO_ADD_INDO,
                "adding dst-brick port no %d", dst_port);
 
@@ -14517,7 +14480,7 @@ glusterd_brick_op_prerequisites(dict_t *dict, char **op, glusterd_op_t *gd_op,
         goto out;
     }
 
-    if (glusterd_gf_is_local_addr((*src_brickinfo)->hostname)) {
+    if (gf_is_local_addr((*src_brickinfo)->hostname)) {
         gf_msg_debug(this->name, 0, "I AM THE SOURCE HOST");
         if ((*src_brickinfo)->port && rsp_dict) {
             ret = dict_set_int32n(rsp_dict, "src-brick-port",

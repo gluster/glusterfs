@@ -61,6 +61,20 @@ get_new_data()
     return data;
 }
 
+data_t *
+get_new_data_from_pool(glusterfs_ctx_t *ctx)
+{
+    data_t *data = mem_get(ctx->dict_data_pool);
+
+    if (!data)
+        return NULL;
+
+    GF_ATOMIC_INIT(data->refcount, 0);
+    data->is_static = _gf_false;
+
+    return data;
+}
+
 static dict_t *
 get_new_dict_full(int size_hint)
 {
@@ -3486,4 +3500,161 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
 unlock:
     UNLOCK(&dict->lock);
     return 0;
+}
+
+/* Popluate specific dictionary on the basis of passed key array at the
+   time of unserialize buffer
+*/
+int32_t
+dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
+                               char **specific_key_arr, dict_t **specific_dict)
+{
+    char *buf = orig_buf;
+    int ret = -1;
+    int32_t count = 0;
+    int i = 0;
+    int j = 0;
+
+    data_t *value = NULL;
+    char *key = NULL;
+    int32_t keylen = 0;
+    int32_t vallen = 0;
+    int32_t hostord = 0;
+    xlator_t *this = NULL;
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    if (!buf) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "buf is null!");
+        goto out;
+    }
+
+    if (size == 0) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "size is 0!");
+        goto out;
+    }
+
+    if (!fill) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "fill is null!");
+        goto out;
+    }
+
+    if (!*fill) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "*fill is null!");
+        goto out;
+    }
+
+    if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                         "undersized buffer "
+                         "passed. available (%lu) < required (%lu)",
+                         (long)(orig_buf + size), (long)(buf + DICT_HDR_LEN));
+        goto out;
+    }
+
+    memcpy(&hostord, buf, sizeof(hostord));
+    count = ntoh32(hostord);
+    buf += DICT_HDR_LEN;
+
+    if (count < 0) {
+        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
+                "count=%d", count, NULL);
+        goto out;
+    }
+
+    /* count will be set by the dict_set's below */
+    (*fill)->count = 0;
+    (*specific_dict)->count = 0;
+
+    for (i = 0; i < count; i++) {
+        if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized "
+                             "buffer passed. available (%lu) < "
+                             "required (%lu)",
+                             (long)(orig_buf + size),
+                             (long)(buf + DICT_DATA_HDR_KEY_LEN));
+            goto out;
+        }
+        memcpy(&hostord, buf, sizeof(hostord));
+        keylen = ntoh32(hostord);
+        buf += DICT_DATA_HDR_KEY_LEN;
+
+        if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized "
+                             "buffer passed. available (%lu) < "
+                             "required (%lu)",
+                             (long)(orig_buf + size),
+                             (long)(buf + DICT_DATA_HDR_VAL_LEN));
+            goto out;
+        }
+        memcpy(&hostord, buf, sizeof(hostord));
+        vallen = ntoh32(hostord);
+        buf += DICT_DATA_HDR_VAL_LEN;
+
+        if ((keylen < 0) || (vallen < 0)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized length passed "
+                             "key:%d val:%d",
+                             keylen, vallen);
+            goto out;
+        }
+        if ((buf + keylen) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized buffer passed. "
+                             "available (%lu) < required (%lu)",
+                             (long)(orig_buf + size), (long)(buf + keylen));
+            goto out;
+        }
+        key = buf;
+        buf += keylen + 1; /* for '\0' */
+
+        if ((buf + vallen) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized buffer passed. "
+                             "available (%lu) < required (%lu)",
+                             (long)(orig_buf + size), (long)(buf + vallen));
+            goto out;
+        }
+        value = get_new_data_from_pool(this->ctx);
+
+        if (!value) {
+            ret = -1;
+            goto out;
+        }
+        value->len = vallen;
+        value->data = gf_memdup(buf, vallen);
+        value->data_type = GF_DATA_TYPE_STR_OLD;
+        value->is_static = _gf_false;
+        buf += vallen;
+
+        ret = dict_addn(*fill, key, keylen, value);
+        for (j = 0; specific_key_arr[j]; j++) {
+            if (strstr(key, specific_key_arr[j])) {
+                value = get_new_data_from_pool(this->ctx);
+                 if (!value) {
+                     ret = -1;
+                     goto out;
+                 }
+                 value->len = vallen;
+                 value->data = gf_memdup(buf, vallen);
+                 value->data_type = GF_DATA_TYPE_STR_OLD;
+                 value->is_static = _gf_false;
+                 ret = dict_addn(*specific_dict, key, keylen, value);
+                 break;
+            }
+        }
+        if (ret < 0)
+            goto out;
+    }
+
+    ret = 0;
+out:
+    return ret;
 }
