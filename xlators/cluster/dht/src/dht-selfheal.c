@@ -1330,9 +1330,11 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
     int ret = -1;
     dht_local_t *local = NULL;
     xlator_t *this = NULL;
+    dht_conf_t *conf = NULL;
 
     local = frame->local;
     this = frame->this;
+    conf = this->private;
 
     local->selfheal.force_mkdir = force;
     local->selfheal.hole_cnt = 0;
@@ -1372,15 +1374,44 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
         return 0;
     }
 
-    if (local->hashed_subvol == NULL)
-        local->hashed_subvol = dht_subvol_get_hashed(this, loc);
+    /* MDS xattr is populated only while DHT is having more than one
+     subvol.In case of graph switch while adding more dht subvols need to
+     consider hash subvol as a MDS to avoid MDS check failure at the time
+     of running fop on directory
+    */
+    if (!dict_get(local->xattr, conf->mds_xattr_key) &&
+        (conf->subvolume_cnt > 1)) {
+        if (local->hashed_subvol == NULL) {
+            local->hashed_subvol = dht_subvol_get_hashed(this, loc);
+            if (local->hashed_subvol == NULL) {
+                local->op_errno = EINVAL;
+                gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED, "gfid=%s",
+                        loc->pargfid, "name=%s", loc->name, "path=%s",
+                        loc->path, NULL);
+                goto err;
+            }
+        }
+        ret = dht_inode_ctx_mdsvol_set(local->inode, this,
+                                       local->hashed_subvol);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SET_INODE_CTX_FAILED,
+                   "Failed to set hashed subvol for %s on inode vol is %s",
+                   local->loc.path,
+                   local->hashed_subvol ? local->hashed_subvol->name : "NULL");
+            goto err;
+        }
+    }
 
     if (local->hashed_subvol == NULL) {
-        local->op_errno = EINVAL;
-        gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
-                DHT_MSG_HASHED_SUBVOL_GET_FAILED, "gfid=%s", loc->pargfid,
-                "name=%s", loc->name, "path=%s", loc->path, NULL);
-        goto err;
+        local->hashed_subvol = dht_subvol_get_hashed(this, loc);
+        if (local->hashed_subvol == NULL) {
+            local->op_errno = EINVAL;
+            gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
+                    DHT_MSG_HASHED_SUBVOL_GET_FAILED, "gfid=%s", loc->pargfid,
+                    "name=%s", loc->name, "path=%s", loc->path, NULL);
+            goto err;
+        }
     }
 
     local->current = &local->lock[0];

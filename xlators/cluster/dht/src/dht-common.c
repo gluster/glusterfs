@@ -382,7 +382,7 @@ out:
 
 /* Code to save hashed subvol on inode ctx as a mds subvol
  */
-static int
+int
 dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol)
 {
     dht_inode_ctx_t *ctx = NULL;
