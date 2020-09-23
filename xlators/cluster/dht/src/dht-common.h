@@ -1482,4 +1482,6 @@ dht_set_parent_layout_in_dict(loc_t *loc, xlator_t *this, dht_local_t *local);
 int
 dht_dir_layout_error_check(xlator_t *this, inode_t *inode);
 
+int
+dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol);
 #endif /* _DHT_H */
