@@ -1100,6 +1100,11 @@ pub_glfs_read(struct glfs_fd *glfd, void *buf, size_t count, int flags)
     };
     ssize_t ret = 0;
 
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     iov.iov_base = buf;
     iov.iov_len = count;
 
@@ -1150,6 +1155,11 @@ pub_glfs_readv(struct glfs_fd *glfd, const struct iovec *iov, int count,
                int flags)
 {
     ssize_t ret = 0;
+
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     ret = pub_glfs_preadv(glfd, iov, count, glfd->offset, flags);
 
@@ -1387,6 +1397,11 @@ pub_glfs_read_async34(struct glfs_fd *glfd, void *buf, size_t count, int flags,
     };
     ssize_t ret = 0;
 
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     iov.iov_base = buf;
     iov.iov_len = count;
 
@@ -1405,6 +1420,11 @@ pub_glfs_read_async(struct glfs_fd *glfd, void *buf, size_t count, int flags,
         0,
     };
     ssize_t ret = 0;
+
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     iov.iov_base = buf;
     iov.iov_len = count;
@@ -1460,6 +1480,11 @@ pub_glfs_readv_async34(struct glfs_fd *glfd, const struct iovec *iov, int count,
 {
     ssize_t ret = 0;
 
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     ret = glfs_preadv_async_common(glfd, iov, count, glfd->offset, flags,
                                    _gf_true, (void *)fn, data);
     return ret;
@@ -1471,6 +1496,11 @@ pub_glfs_readv_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
                      int flags, glfs_io_cbk fn, void *data)
 {
     ssize_t ret = 0;
+
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     ret = glfs_preadv_async_common(glfd, iov, count, glfd->offset, flags,
                                    _gf_false, fn, data);
@@ -1733,6 +1763,11 @@ pub_glfs_write(struct glfs_fd *glfd, const void *buf, size_t count, int flags)
     };
     ssize_t ret = 0;
 
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     iov.iov_base = (void *)buf;
     iov.iov_len = count;
 
@@ -1747,6 +1782,11 @@ pub_glfs_writev(struct glfs_fd *glfd, const struct iovec *iov, int count,
                 int flags)
 {
     ssize_t ret = 0;
+
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     ret = pub_glfs_pwritev(glfd, iov, count, glfd->offset, flags);
 
@@ -1938,6 +1978,11 @@ pub_glfs_write_async34(struct glfs_fd *glfd, const void *buf, size_t count,
     };
     ssize_t ret = 0;
 
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     iov.iov_base = (void *)buf;
     iov.iov_len = count;
 
@@ -1956,6 +2001,11 @@ pub_glfs_write_async(struct glfs_fd *glfd, const void *buf, size_t count,
         0,
     };
     ssize_t ret = 0;
+
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     iov.iov_base = (void *)buf;
     iov.iov_len = count;
@@ -2011,6 +2061,11 @@ pub_glfs_writev_async34(struct glfs_fd *glfd, const struct iovec *iov,
 {
     ssize_t ret = 0;
 
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     ret = glfs_pwritev_async_common(glfd, iov, count, glfd->offset, flags,
                                     _gf_true, (void *)fn, data);
     return ret;
@@ -2022,6 +2077,11 @@ pub_glfs_writev_async(struct glfs_fd *glfd, const struct iovec *iov, int count,
                       int flags, glfs_io_cbk fn, void *data)
 {
     ssize_t ret = 0;
+
+    if (glfd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     ret = glfs_pwritev_async_common(glfd, iov, count, glfd->offset, flags,
                                     _gf_false, fn, data);
@@ -3334,6 +3394,11 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_telldir, 3.4.0)
 long
 pub_glfs_telldir(struct glfs_fd *fd)
 {
+    if (fd == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
     return fd->offset;
 }
 
@@ -3343,6 +3408,11 @@ pub_glfs_seekdir(struct glfs_fd *fd, long offset)
 {
     gf_dirent_t *entry = NULL;
     gf_dirent_t *tmp = NULL;
+
+    if (fd == NULL) {
+        errno = EBADF;
+        return;
+    }
 
     if (fd->offset == offset)
         return;

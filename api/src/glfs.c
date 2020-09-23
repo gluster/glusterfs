@@ -650,6 +650,11 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_from_glfd, 3.4.0)
 struct glfs *
 pub_glfs_from_glfd(struct glfs_fd *glfd)
 {
+    if (glfd == NULL) {
+        errno = EBADF;
+        return NULL;
+    }
+
     return glfd->fs;
 }
 
