@@ -14818,6 +14818,10 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     i = 0;
     ai_list_tmp1 = cds_list_entry(ai_list->list.next, addrinfo_list_t, list);
 
+    if (*brick_count < sub_count) {
+        sub_count = *brick_count;
+    }
+
     /* Check for bad brick order */
     while (i < *brick_count) {
         ++i;

@@ -37,4 +37,25 @@ EXPECT '3 x 3 = 9' volinfo_field $V0 'Number of Bricks'
 TEST $CLI_1 volume add-brick $V0 $H1:$L1/${V0}_3 $H1:$L1/${V0}_4 $H1:$L1/${V0}_5 force
 EXPECT '4 x 3 = 12' volinfo_field $V0 'Number of Bricks'
 
+TEST $CLI_1 volume stop $V0
+TEST $CLI_1 volume delete $V0
+
+TEST $CLI_1 volume create $V0 replica 2 $H1:$L1/${V0}1 $H2:$L2/${V0}1
+EXPECT '1 x 2 = 2' volinfo_field $V0 'Number of Bricks'
+EXPECT 'Created' volinfo_field $V0 'Status'
+
+TEST $CLI_1 volume start $V0
+EXPECT 'Started' volinfo_field $V0 'Status'
+
+#Add-brick with Increasing replica count
+TEST $CLI_1 volume add-brick $V0 replica 3 $H3:$L3/${V0}1
+EXPECT '1 x 3 = 3' volinfo_field $V0 'Number of Bricks'
+
+#Add-brick with Increasing replica count from same host should fail
+TEST ! $CLI_1 volume add-brick $V0 replica 5 $H1:$L1/${V0}2 $H1:$L1/${V0}3
+
+#adding multiple bricks from same host should fail the brick order check
+TEST ! $CLI_1 volume add-brick $V0 replica 3 $H1:$L1/${V0}{4..6} $H2:$L2/${V0}{7..9}
+EXPECT '1 x 3 = 3' volinfo_field $V0 'Number of Bricks'
+
 cleanup
