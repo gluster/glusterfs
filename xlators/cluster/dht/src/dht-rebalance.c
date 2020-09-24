@@ -3278,6 +3278,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     int throttle_up = 0;
     struct dir_dfmeta *dir_dfmeta = NULL;
     int should_commit_hash = 1;
+    xlator_t *old_THIS = NULL;
 
     gf_log(this->name, GF_LOG_INFO, "migrate data called on %s", loc->path);
     gettimeofday(&dir_start, NULL);
@@ -3289,6 +3290,9 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         ret = 0;
         goto out;
     }
+
+    old_THIS = THIS;
+    THIS = this;
 
     dir_dfmeta = GF_CALLOC(1, sizeof(*dir_dfmeta), gf_common_mt_pointer);
     if (!dir_dfmeta) {
@@ -3505,7 +3509,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
            loc->path, elapsed / 1e6);
     ret = 0;
 out:
-
+    THIS = old_THIS;
     gf_defrag_free_dir_dfmeta(dir_dfmeta, local_subvols_cnt);
 
     if (xattr_req)
@@ -3522,6 +3526,7 @@ out:
     defrag->num_dirs_processed++;
     return ret;
 }
+
 int
 gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                       dict_t *fix_layout)
