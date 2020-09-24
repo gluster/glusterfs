@@ -1534,6 +1534,14 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 
     GF_REF_GET(glfd);
 
+    if (iovec->iov_len >= GF_UNIT_GB) {
+        ret = -1;
+        errno = EINVAL;
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
+                "size >= %llu is not allowed", GF_UNIT_GB, NULL);
+        goto out;
+    }
+
     subvol = glfs_active_subvol(glfd->fs);
     if (!subvol) {
         ret = -1;
