@@ -53,7 +53,7 @@ General Project Architects
 --------------------------
 M: Amar Tumballi <amarts@gmail.com>
 M: Xavier Hernandez  <xhernandez@redhat.com>
-P: Pranith Karampuri <pkarampu@redhat.com>
+P: Pranith Karampuri <pranith.karampuri@phonepe.com>
 P: Atin Mukherjee <amukherj@redhat.com>
 
 xlators:
@@ -66,12 +66,12 @@ F: xlators/system/posix-acl/
 
 Arbiter
 M: Ravishankar N <ravishankar@redhat.com>
-P: Pranith Karampuri <pkarampu@redhat.com>
+P: Pranith Karampuri <pranith.karampuri@phonepe.com>
 S: Maintained
 F: xlators/features/arbiter/
 
 Automatic File Replication (AFR)
-M: Pranith Karampuri <pkarampu@redhat.com>
+M: Pranith Karampuri <pranith.karampuri@phonepe.com>
 M: Ravishankar N <ravishankar@redhat.com>
 P: Karthik US <ksubrahm@redhat.com>
 S: Maintained
@@ -101,7 +101,7 @@ S: Maintained
 F: xlators/cluster/dht/
 
 Erasure Coding
-M: Pranith Karampuri <pkarampu@redhat.com>
+M: Pranith Karampuri <pranith.karampuri@phonepe.com>
 M: Xavier Hernandez  <xhernandez@redhat.com>
 P: Ashish Pandey <aspandey@redhat.com>
 S: Maintained
@@ -119,7 +119,7 @@ S: Maintained
 F: xlators/mount/
 
 Index
-M: Pranith Karampuri <pkarampu@redhat.com>
+M: Pranith Karampuri <pranith.karampuri@phonepe.com>
 P: Ravishankar N <ravishankar@redhat.com>
 S: Maintained
 F: xlators/features/index/
@@ -136,7 +136,7 @@ S: Maintained
 F: xlators/debug/io-stats/
 
 IO threads
-M: Pranith Karampuri <pkarampu@redhat.com>
+M: Pranith Karampuri <pranith.karampuri@phonepe.com>
 P: Ravishankar N <ravishankar@redhat.com>
 S: Maintained
 F: xlators/performance/io-threads/
@@ -172,7 +172,7 @@ F: xlators/performance/md-cache/
 
 Negative-lookup Cache
 M: Poornima G <pgurusid@redhat.com>
-P: Pranith Karampuri <pkarampu@redhat.com>
+P: Pranith Karampuri <pranith.karampuri@phonepe.com>
 S: Maintained
 F: xlators/performance/nl-cache/
 
@@ -282,7 +282,7 @@ M: Xavier Hernandez  <xhernandez@redhat.com>
 M: Jeff Darcy <jeff@pl.atyp.us>
 P: Kaleb Keithley <kkeithle@redhat.com>
 P: Niels de Vos <ndevos@redhat.com>
-P: Pranith Karampuri <pkarampu@redhat.com>
+P: Pranith Karampuri <pranith.karampuri@phonepe.com>
 P: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: libglusterfs/
