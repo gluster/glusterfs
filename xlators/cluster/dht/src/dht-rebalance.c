@@ -4252,7 +4252,7 @@ gf_defrag_estimates_init(xlator_t *this, loc_t *loc, pthread_t *filecnt_thread)
         goto out;
     }
 
-    ret = gf_thread_create(filecnt_thread, NULL, &dht_file_counter_thread,
+    ret = gf_thread_create(filecnt_thread, NULL, dht_file_counter_thread,
                            (void *)defrag, "dhtfcnt");
 
     if (ret) {
@@ -4309,7 +4309,7 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
 
     /*Spawn Threads Here*/
     while (index < thread_spawn_count) {
-        ret = gf_thread_create(&(tid[index]), NULL, &gf_defrag_task,
+        ret = gf_thread_create(&(tid[index]), NULL, gf_defrag_task,
                                (void *)defrag, "dhtmig%d", (index + 1) & 0x3ff);
         if (ret != 0) {
             gf_msg("DHT", GF_LOG_ERROR, ret, 0, "Thread[%d] creation failed. ",
