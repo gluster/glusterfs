@@ -537,6 +537,8 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
     pattern_str = strtok_r(data, ",", &tmp_str);
     while (pattern_str) {
         dup_str = gf_strdup(pattern_str);
+        if (!dup_str)
+            goto out;
         pattern_list = GF_CALLOC(1, sizeof(gf_defrag_pattern_list_t), 1);
         if (!pattern_list) {
             goto out;
