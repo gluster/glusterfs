@@ -4314,6 +4314,8 @@ dht_find_local_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         index = conf->local_subvols_cnt;
 
         uuid_list_copy = gf_strdup(uuid_list);
+        if (!uuid_list_copy)
+            goto unlock;
 
         for (uuid_str = strtok_r(uuid_list, " ", &saveptr); uuid_str;
              uuid_str = next_uuid_str) {
