@@ -6106,7 +6106,6 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     GF_ATOMIC_INC(conf->blockers);
     ret = rpc_clnt_submit(rpc, &gd_brick_prog, op, cbkfn, &iov, 1, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
-    return ret;
 
 free_iobref:
     iobref_unref(iobref);
@@ -6115,7 +6114,7 @@ maybe_free_iobuf:
         iobuf_unref(iobuf);
     }
 err:
-    return -1;
+    return ret;
 }
 
 extern size_t
