@@ -74,7 +74,7 @@ glusterd_replace_slash_with_hyphen(char *str)
 
     while (ptr) {
         *ptr = '-';
-        ptr = strchr(str, '/');
+        ptr = strchr(ptr, '/');
     }
 }
 
