@@ -251,6 +251,11 @@ glfs_volumes_init(struct glfs *fs)
     if (!vol_assigned(cmd_args))
         return -1;
 
+    if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
+        fs->ctx->secure_mgmt = 1;
+        fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+    }
+
     if (cmd_args->volfile_server) {
         ret = glfs_mgmt_init(fs);
         goto out;
