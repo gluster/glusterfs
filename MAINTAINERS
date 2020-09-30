@@ -125,7 +125,7 @@ S: Maintained
 F: xlators/features/index/
 
 IO Cache
-P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Mohammed Rafi KC <rafi.kavungal@iternity.com>
 S: Maintained
 F: xlators/performance/io-cache/
 
@@ -160,7 +160,7 @@ S: Maintained
 F: xlators/features/marker/
 
 Meta
-M: Mohammed Rafi KC <rkavunga@redhat.com>
+M: Mohammed Rafi KC <rafi.kavungal@iternity.com>
 S: Maintained
 F: xlators/features/meta/
 
@@ -305,7 +305,7 @@ F: xlators/mgmt/glusterd/
 
 Protocol
 M: Niels de Vos <ndevos@redhat.com>
-P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Mohammed Rafi KC <rafi.kavungal@iternity.com>
 S: Maintained
 F: xlators/protocol/
 
@@ -317,7 +317,7 @@ F: rpc/xdr/
 
 Snapshot
 M: Raghavendra Bhat <raghavendra@redhat.com>
-P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Mohammed Rafi KC <rafi.kavungal@iternity.com>
 P: Sunny Kumar <sunkumar@redhat.com>
 S: Maintained
 F: xlators/mgmt/glusterd/src/glusterd-snap*
@@ -326,7 +326,7 @@ F: extras/snap-scheduler.py
 Socket subsystem
 P: Krutika Dhananjay <kdhananj@redhat.com>
 P: Milind Changire <mchangir@redhat.com>
-P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Mohammed Rafi KC <rafi.kavungal@iternity.com>
 P: Mohit Agrawal <moagrawa@redhat.com>
 S: Maintained
 F: rpc/rpc-transport/socket/
