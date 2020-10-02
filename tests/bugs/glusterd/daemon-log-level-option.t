@@ -61,8 +61,8 @@ rm -f /var/log/glusterfs/glustershd.log
 TEST $CLI volume set all cluster.daemon-log-level WARNING
 TEST $CLI volume start $V0
 
-# log should not have any info messages
-EXPECT 0 Info_messages_count "/var/log/glusterfs/glustershd.log"
+# log does have 1 info message specific to configure ios_sample_buf_size in io-stats xlator
+EXPECT 1 Info_messages_count "/var/log/glusterfs/glustershd.log"
 
 # log should not have any debug messages
 EXPECT 0 Debug_messages_count "/var/log/glusterfs/glustershd.log"
@@ -78,8 +78,8 @@ rm -f /var/log/glusterfs/glustershd.log
 TEST $CLI volume set all cluster.daemon-log-level ERROR
 TEST $CLI volume start $V0
 
-# log should not have any info messages
-EXPECT 0 Info_messages_count "/var/log/glusterfs/glustershd.log"
+# log does have 1 info message specific to configure ios_sample_buf_size in io-stats xlator
+EXPECT 1 Info_messages_count "/var/log/glusterfs/glustershd.log"
 
 # log should not have any warning messages
 EXPECT 0 Warning_messages_count "/var/log/glusterfs/glustershd.log"
