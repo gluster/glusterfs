@@ -2246,6 +2246,9 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("trash", priv->state, options, bool, out);
 
     if (priv->state) {
+        if (!priv->trash_itable)
+            priv->trash_itable = inode_table_new(0, this);
+
         ret = create_or_rename_trash_directory(this);
 
         if (tmp)
@@ -2501,7 +2504,8 @@ init(xlator_t *this)
         goto out;
     }
 
-    priv->trash_itable = inode_table_new(0, this);
+    if (priv->state)
+        priv->trash_itable = inode_table_new(0, this);
     gf_log(this->name, GF_LOG_DEBUG, "brick path is%s", priv->brick_path);
 
     this->private = (void *)priv;
