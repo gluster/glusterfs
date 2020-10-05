@@ -5899,7 +5899,9 @@ fuse_graph_sync(xlator_t *this)
         new_graph_id = priv->next_graph->id;
         priv->next_graph = NULL;
         need_first_lookup = 1;
-        priv->handle_graph_switch = _gf_true;
+        if (old_subvol) {
+            priv->handle_graph_switch = _gf_true;
+        }
 
         while (!priv->event_recvd) {
             ret = pthread_cond_wait(&priv->sync_cond, &priv->sync_mutex);
@@ -5935,13 +5937,6 @@ unlock:
         if (winds_on_old_subvol == 0) {
             xlator_notify(old_subvol, GF_EVENT_PARENT_DOWN, old_subvol, NULL);
         }
-    } else {
-        pthread_mutex_lock(&priv->sync_mutex);
-        {
-            priv->handle_graph_switch = _gf_false;
-            pthread_cond_broadcast(&priv->migrate_cond);
-        }
-        pthread_mutex_unlock(&priv->sync_mutex);
     }
 
     return 0;
