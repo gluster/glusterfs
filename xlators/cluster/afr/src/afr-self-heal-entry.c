@@ -17,6 +17,25 @@
 #include <glusterfs/events.h>
 
 int
+afr_set_heal_outcast(dict_t *xdata, int *outcast, afr_transaction_type type,
+                     int val)
+{
+    int ret = -1;
+    int idx = 0;
+
+    GF_VALIDATE_OR_GOTO("heal-outcast", xdata, out);
+    GF_VALIDATE_OR_GOTO("heal-outcast", outcast, out);
+
+    idx = afr_index_for_transaction_type(type);
+    outcast[idx] = hton32(val);
+    ret = dict_set_static_bin(xdata, AFR_OUTCAST_DEFAULT, outcast,
+                              sizeof(int) * AFR_NUM_CHANGE_LOGS);
+
+out:
+    return ret;
+}
+
+int
 afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
                               inode_t *inode, int child,
                               struct afr_reply *replies,
@@ -207,6 +226,9 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
     unsigned char *newentry = NULL;
     char iatt_uuid_str[64] = {0};
     char dir_uuid_str[64] = {0};
+    int outcast[AFR_NUM_CHANGE_LOGS] = {
+        0,
+    };
 
     priv = this->private;
     iatt = &replies[source].poststat;
@@ -262,6 +284,10 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
     }
 
     mode = st_mode_from_ia(iatt->ia_prot, iatt->ia_type);
+
+    ret = afr_set_heal_outcast(xdata, outcast, AFR_METADATA_TRANSACTION, 1);
+    if (ret)
+        goto out;
 
     switch (iatt->ia_type) {
         case IA_IFDIR:

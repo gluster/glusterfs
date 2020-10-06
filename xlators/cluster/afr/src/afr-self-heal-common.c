@@ -161,7 +161,8 @@ afr_gfid_sbrain_source_from_src_brick(xlator_t *this, struct afr_reply *replies,
 
     priv = this->private;
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret == -1)
+        if (!replies[i].valid || replies[i].op_ret == -1 ||
+            afr_is_any_outcast_set(replies[i].xdata))
             continue;
         if (strcmp(priv->children[i]->name, src_brick) == 0)
             return i;
@@ -178,7 +179,8 @@ afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
     int votes;
 
     for (i = 0; i < child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret == -1)
+        if (!replies[i].valid || replies[i].op_ret == -1 ||
+            afr_is_any_outcast_set(replies[i].xdata))
             continue;
 
         votes = 1;
@@ -203,7 +205,8 @@ afr_gfid_sbrain_source_from_bigger_file(struct afr_reply *replies,
     uint64_t size = 0;
 
     for (i = 0; i < child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret == -1)
+        if (!replies[i].valid || replies[i].op_ret == -1 ||
+            afr_is_any_outcast_set(replies[i].xdata))
             continue;
         if (size < replies[i].poststat.ia_size) {
             src = i;
@@ -225,7 +228,8 @@ afr_gfid_sbrain_source_from_latest_mtime(struct afr_reply *replies,
     uint32_t mtime_nsec = 0;
 
     for (i = 0; i < child_count; i++) {
-        if (!replies[i].valid || replies[i].op_ret != 0)
+        if (!replies[i].valid || replies[i].op_ret != 0 ||
+            afr_is_any_outcast_set(replies[i].xdata))
             continue;
         if ((mtime < replies[i].poststat.ia_mtime) ||
             ((mtime == replies[i].poststat.ia_mtime) &&
@@ -1072,7 +1076,8 @@ afr_sh_fav_by_majority(xlator_t *this, struct afr_reply *replies,
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (replies[i].valid == 1) {
+        if (replies[i].valid == 1 &&
+            !afr_is_any_outcast_set(replies[i].xdata)) {
             gf_msg_debug(this->name, 0,
                          "Child:%s mtime_sec = %" PRId64 ", size = %" PRIu64
                          " for gfid %s",
@@ -1111,7 +1116,8 @@ afr_sh_fav_by_mtime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (replies[i].valid == 1) {
+        if (replies[i].valid == 1 &&
+            !afr_is_any_outcast_set(replies[i].xdata)) {
             gf_msg_debug(this->name, 0,
                          "Child:%s mtime = %" PRId64
                          ", mtime_nsec = %d for "
@@ -1149,7 +1155,8 @@ afr_sh_fav_by_ctime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (replies[i].valid == 1) {
+        if (replies[i].valid == 1 &&
+            !afr_is_any_outcast_set(replies[i].xdata)) {
             gf_msg_debug(this->name, 0,
                          "Child:%s ctime = %" PRId64
                          ", ctime_nsec = %d for "
@@ -1186,7 +1193,7 @@ afr_sh_fav_by_size(xlator_t *this, struct afr_reply *replies, inode_t *inode)
 
     priv = this->private;
     for (i = 0; i < priv->child_count; i++) {
-        if (!replies[i].valid) {
+        if (!replies[i].valid || afr_is_any_outcast_set(replies[i].xdata)) {
             continue;
         }
         gf_msg_debug(this->name, 0,
@@ -1366,7 +1373,7 @@ mark:
     /* data/metadata is same on all bricks. Pick one of them as source. Rest
      * are sinks.*/
     for (i = 0; i < priv->child_count; i++) {
-        if (source == -1) {
+        if (source == -1 && !afr_is_outcast_set(replies[i].xdata, type)) {
             source = i;
             sources[i] = 1;
             sinks[i] = 0;
@@ -1624,7 +1631,8 @@ afr_selfheal_find_direction(call_frame_t *frame, xlator_t *this,
 
     /* Short list all non-accused as sources */
     for (i = 0; i < priv->child_count; i++) {
-        if (!accused[i] && locked_on[i])
+        if (!accused[i] && locked_on[i] &&
+            !afr_is_outcast_set(replies[i].xdata, type))
             sources[i] = 1;
         else
             sources[i] = 0;

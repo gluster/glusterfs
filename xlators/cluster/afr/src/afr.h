@@ -28,6 +28,7 @@
 #define AFR_SH_DATA_DOMAIN_FMT "%s:self-heal"
 #define AFR_DIRTY_DEFAULT AFR_XATTR_PREFIX ".dirty"
 #define AFR_DIRTY (((afr_private_t *)(THIS->private))->afr_dirty)
+#define AFR_OUTCAST_DEFAULT AFR_XATTR_PREFIX ".outcast"
 
 #define AFR_LOCKEE_COUNT_MAX 3
 #define AFR_DOM_COUNT_MAX 3
@@ -1420,4 +1421,9 @@ afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
 gf_boolean_t
 afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
                          pid_t pid);
+gf_boolean_t
+afr_is_outcast_set(dict_t *xdata, int type);
+
+gf_boolean_t
+afr_is_any_outcast_set(dict_t *xdata);
 #endif /* __AFR_H__ */

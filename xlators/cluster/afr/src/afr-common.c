@@ -7876,3 +7876,49 @@ afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv, int child)
 
     return _gf_false;
 }
+
+gf_boolean_t
+afr_is_outcast_set(dict_t *xdata, int type)
+{
+    int idx = -1;
+    void *pending_raw = NULL;
+    int *pending_int = NULL;
+
+    idx = afr_index_for_transaction_type(type);
+
+    if (dict_get_ptr(xdata, AFR_OUTCAST_DEFAULT, &pending_raw) == 0) {
+        if (pending_raw) {
+            pending_int = pending_raw;
+
+            if (ntoh32(pending_int[idx]))
+                return _gf_true;
+        }
+    }
+    return _gf_false;
+}
+
+gf_boolean_t
+afr_is_any_outcast_set(dict_t *xdata)
+{
+    int idx = -1;
+    void *pending_raw = NULL;
+    int *pending_int = NULL;
+    afr_transaction_type type;
+
+    type = AFR_METADATA_TRANSACTION;
+    idx = afr_index_for_transaction_type(type);
+
+    if (dict_get_ptr(xdata, AFR_OUTCAST_DEFAULT, &pending_raw) == 0) {
+        if (pending_raw) {
+            pending_int = pending_raw;
+
+            if (ntoh32(pending_int[idx]))
+                return _gf_true;
+        }
+    }
+    /*
+     * At the moment, outcast for AFR_METADATA_TRANSACTION is
+     * implemented
+     */
+    return _gf_false;
+}

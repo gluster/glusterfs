@@ -42,6 +42,9 @@ __afr_selfheal_metadata_do(call_frame_t *frame, xlator_t *this, inode_t *inode,
     dict_t *old_xattr = NULL;
     afr_private_t *priv = NULL;
     int i = 0;
+    int outcast[AFR_NUM_CHANGE_LOGS] = {
+        0,
+    };
 
     priv = this->private;
 
@@ -85,6 +88,9 @@ __afr_selfheal_metadata_do(call_frame_t *frame, xlator_t *this, inode_t *inode,
                 healed_sinks[i] = 0;
         }
 
+        ret = afr_set_heal_outcast(xattr, outcast, AFR_METADATA_TRANSACTION, 0);
+        if (ret)
+            goto out;
         ret = syncop_setxattr(priv->children[i], &loc, xattr, 0, NULL, NULL);
         if (ret)
             healed_sinks[i] = 0;
