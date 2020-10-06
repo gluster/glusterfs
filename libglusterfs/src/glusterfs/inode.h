@@ -35,11 +35,12 @@ typedef struct _dentry dentry_t;
 
 struct _inode_table {
     pthread_mutex_t lock;
-    size_t hashsize;    /* bucket size of inode hash and dentry hash */
-    char *name;         /* name of the inode table, just for gf_log() */
-    inode_t *root;      /* root directory inode, with number 1 */
-    xlator_t *xl;       /* xlator to be called to do purge */
-    uint32_t lru_limit; /* maximum LRU cache size */
+    size_t dentry_hashsize; /* Number of buckets for dentry hash*/
+    size_t inode_hashsize;  /* Size of inode hash table */
+    char *name;             /* name of the inode table, just for gf_log() */
+    inode_t *root;          /* root directory inode, with number 1 */
+    xlator_t *xl;           /* xlator to be called to do purge */
+    uint32_t lru_limit;     /* maximum LRU cache size */
     struct list_head *inode_hash; /* buckets for inode hash table */
     struct list_head *name_hash;  /* buckets for dentry hash table */
     struct list_head active; /* list of inodes currently active (in an fop) */
@@ -120,12 +121,14 @@ struct _inode {
 #define GFID_STR_PFX_LEN (sizeof(GFID_STR_PFX) - 1)
 
 inode_table_t *
-inode_table_new(uint32_t lru_limit, xlator_t *xl);
+inode_table_new(uint32_t lru_limit, xlator_t *xl, uint32_t dhash_size,
+                uint32_t inodehash_size);
 
 inode_table_t *
 inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              int32_t (*invalidator_fn)(xlator_t *, inode_t *),
-                             xlator_t *invalidator_xl);
+                             xlator_t *invalidator_xl, uint32_t dentry_hashsize,
+                             uint32_t inode_hashsize);
 
 void
 inode_table_destroy_all(glusterfs_ctx_t *ctx);
