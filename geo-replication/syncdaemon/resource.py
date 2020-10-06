@@ -1482,7 +1482,13 @@ class SSH(object):
 
         log_rsync_performance = gconf.getr("log-rsync-performance", False)
 
-        if log_rsync_performance:
+        rsync_verbose = False
+        for item in argv:
+            if item == "--verbose" or item.startswith("-v"):
+                rsync_verbose = True
+                break
+
+        if log_rsync_performance or rsync_verbose:
             # use stdout=PIPE only when log_rsync_performance enabled
             # Else rsync will write to stdout and nobody is there
             # to consume. If PIPE is full rsync hangs.
@@ -1519,6 +1525,9 @@ class SSH(object):
                     rsync_msg.append(line)
             logging.info(lf("rsync performance",
                             data=", ".join(rsync_msg)))
+
+        if rsync_verbose:
+            logging.info(lf("rsync verbose", data=repr(stdout)))
 
         return po
 
