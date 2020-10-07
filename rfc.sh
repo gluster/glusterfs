@@ -5,19 +5,19 @@
 # we have to run the command in an if-statement.
 
 UPSTREAM=${GLUSTER_UPSTREAM}
-if [ "x$UPSTREAM" -eq "x" ]; then
+if [ "x$UPSTREAM" = "x" ]; then
     for rmt in $(git remote); do
 	rmt_repo=$(git remote show $rmt -n | grep Fetch | awk '{ print $3 }');
-	if [ $rmt_repo -eq "git@github:gluster/glusterfs" ]; then
+	if [ $rmt_repo = "git@github.com:gluster/glusterfs" ]; then
 	    UPSTREAM=$rmt
-	    echo "Picked $rmt as upstream remote"
+	    echo "Picked ${UPSTREAM} as upstream remote"
 	    break
 	fi
     done
 fi
 
 USER_REPO=${GLUSTER_USER_REPO:-origin}
-if [ "x${USER_REPO}" -eq "x${UPSTREAM}" ] ; then
+if [ "x${USER_REPO}" = "x${UPSTREAM}" ] ; then
     echo "When you submit patches, it should get submitted to your fork, not to upstream directly"
     echo "If you are not sure, check `for rmt in $(git remote); do git remote show $rmt -n; done`"
     echo "And pick the correct remote you would like to push to and do `export GLUSTER_USER_REPO=$rmt`"
@@ -26,13 +26,18 @@ if [ "x${USER_REPO}" -eq "x${UPSTREAM}" ] ; then
     exit 1
 fi
 
+echo "Picked ${USER_REPO} as user's remote";
 
-
-while getopts "v" opt; do
+FORCE="";
+while getopts "vf" opt; do
     case $opt in
         v)
             # Verbose mode
             git () { >&2 echo "git $@" && `which git` $@; }
+            ;;
+        f)
+            # Use force to git push
+	    FORCE="--force";
             ;;
     esac
 done
@@ -110,7 +115,7 @@ check_backport()
     else
         # Search 'devel' for the same change ID (rebase_changes has run, so we
         # should never not find a Change-Id)
-        mchangeid=$(git log $UPSTREAM/devel --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
+        mchangeid=$(git log ${UPSTREAM}/devel --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
 
         # Check if we found the change ID on 'devel', else throw a message to
         # decide if we should continue.
@@ -321,9 +326,9 @@ main()
     fi
 
     if [ -z "${reference}" ]; then
-        $drier git push $USER_REPO HEAD:temp_${branch}/$(date +%Y-%m-%d_%s);
+        $drier git push $USER_REPO HEAD:temp_${branch}/$(date +%Y-%m-%d_%s) $FORCE;
     else
-        $drier git push $USER_REPO HEAD:issue${reference}_${branch};
+        $drier git push $USER_REPO HEAD:issue${reference}_${branch} $FORCE;
     fi
 }
 
