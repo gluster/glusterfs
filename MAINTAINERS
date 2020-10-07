@@ -96,7 +96,10 @@ S: Maintained
 F: xlators/features/changelog/
 
 Distributed Hashing Table (DHT)
-P: Susant Palai <spalai@redhat.com>
+M: Mohit Agrawal <moagrawa@redhat.com>
+M: Barak Sason Rofman <bsasonro@redhat.com>
+M: Tamar Shacked <tshacked@redhat.com>
+P: Csaba Henk <chenk@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/
 
@@ -508,3 +511,4 @@ M: Ira Cooper
 M: Shwetha Panduranga
 M: Nithya Balachandran
 M: Raghavendra Gowdappa
+M: Susant Palai
