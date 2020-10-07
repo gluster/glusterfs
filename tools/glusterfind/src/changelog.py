@@ -104,12 +104,11 @@ def populate_pgfid_and_inodegfid(brick, changelog_data):
             try:
                 # INODE and GFID to inodegfid table
                 changelog_data.inodegfid_add(os.stat(p).st_ino, gfid)
-                file_xattrs = xattr.list(p)
+                file_xattrs = xattr.listxattr(p)
                 for x in file_xattrs:
-                    x_str = bytearray_to_str(x)
-                    if x_str.startswith("trusted.pgfid."):
+                    if x.startswith("trusted.pgfid."):
                         # PGFID in pgfid table
-                        changelog_data.pgfid_add(x_str.split(".")[-1])
+                        changelog_data.pgfid_add(x.split(".")[-1])
             except (IOError, OSError):
                 # All OS Errors ignored, since failures will be logged
                 # in End. All GFIDs present in gfidpath table
@@ -122,12 +121,11 @@ def enum_hard_links_using_gfid2path(brick, gfid, args):
     if not os.path.isdir(p):
         # we have a symlink or a normal file
         try:
-            file_xattrs = xattr.list(p)
+            file_xattrs = xattr.listxattr(p)
             for x in file_xattrs:
-                x_str = bytearray_to_str(x)
-                if x_str.startswith("trusted.gfid2path."):
+                if x.startswith("trusted.gfid2path."):
                     # get the value for the xattr i.e. <PGFID>/<BN>
-                    v = xattr.getxattr(p, x_str)
+                    v = xattr.getxattr(p, x)
                     v_str = bytearray_to_str(v)
                     pgfid, bn = v_str.split(os.sep)
                     try:
