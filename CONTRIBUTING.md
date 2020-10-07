@@ -36,11 +36,11 @@ About two tasks are one time for the life time. You can continue to use the same
 
 2. Keep up-to-date
    - GlusterFS is a large project with many developers, so there would be one or the other patch everyday.
-   - It is critical for developer to be up-to-date with master repo to be Conflict-Free when PR is opened.
+   - It is critical for developer to be up-to-date with `devel` repo to be Conflict-Free when PR is opened.
    - Git provides many options to keep up-to-date, below is one of them
 ```
    git fetch upstream
-   git rebase upstream/master
+   git rebase upstream/devel
 ```
    - It is recommended you keep pushing to your repo every day, so you don't loose any work.
      - It can be done by `./rfc.sh` (or `git push origin HEAD:issueNNN`)
@@ -59,7 +59,8 @@ About two tasks are one time for the life time. You can continue to use the same
 3. Tests:
    - All the required smoke tests would be auto-triggered.
      - Developers get a chance to retrigger the smoke tests using **"/recheck smoke"** as comment.
-   - The "regression" tests would be triggered by a comment **"/run regression"** from anyone in the [@gluster-all](https://github.com/orgs/gluster/teams/gluster-all) group.
+   - The "regression" tests would be triggered by a comment **"/run regression"** from developers in the [@gluster-maintainers](https://github.com/orgs/gluster/teams/gluster-maintainers) group.
+     - Ask for help as comment in PR if you have any questions about the process!
 
 4. Review Process:
    - `+2` : is equivalent to "Approve" from the people in the maintainer's group.
