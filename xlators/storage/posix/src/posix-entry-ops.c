@@ -177,6 +177,11 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     posix_inode_ctx_t *ctx = NULL;
     int ret = 0;
     int dfd = -1;
+    uint32_t lookup_unlink_dir = 0;
+    char *unlink_path = NULL;
+    struct stat lstatbuf = {
+        0,
+    };
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -215,6 +220,32 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     op_ret = -1;
     if (gf_uuid_is_null(loc->pargfid) || (loc->name == NULL)) {
         /* nameless lookup */
+        op_ret = op_errno = 0;
+        /* The gfid will be renamed to ".glusterfs/unlink" in case
+         * there are any open fds on the file in posix_unlink path.
+         * So client can request server to do nameless lookup with
+         * xdata = GF_UNLINKED_LOOKUP in ".glusterfs/unlink"
+         * dir if a client wants to know the status of the all open fds
+         * on the unlinked file. If the file still present in the
+         * ".glusterfs/unlink" dir then it indicates there still
+         * open fds present on the file and the file is still under
+         * unlink process */
+        ret = dict_get_uint32(xdata, GF_UNLINKED_LOOKUP, &lookup_unlink_dir);
+        if (!ret && lookup_unlink_dir) {
+            POSIX_GET_FILE_UNLINK_PATH(priv->base_path, loc->gfid, unlink_path);
+            ret = sys_lstat(unlink_path, &lstatbuf);
+            if (ret) {
+                op_ret = -1;
+                op_errno = ret;
+                if (ret == ENOENT)
+                    buf.ia_nlink = 0;
+            } else {
+                iatt_from_stat(&buf, &lstatbuf);
+            }
+            goto nameless_lookup_unlink_dir_out;
+        }
+        /* If you are here means the call is for regular nameless
+         * lookup of a file */
         MAKE_INODE_HANDLE(real_path, this, loc, &buf);
     } else {
         MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &buf);
@@ -335,6 +366,8 @@ out:
 
     if (op_ret == 0)
         op_errno = 0;
+
+nameless_lookup_unlink_dir_out:
     STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno,
                         (loc) ? loc->inode : NULL, &buf, xattr, &postparent);
 

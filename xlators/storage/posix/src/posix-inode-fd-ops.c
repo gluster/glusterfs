@@ -1903,7 +1903,7 @@ _fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
 
     if (dict_get(xdata, GLUSTERFS_ACTIVE_FD_COUNT)) {
         ret = dict_set_uint32(rsp_xdata, GLUSTERFS_ACTIVE_FD_COUNT,
-                              fd->inode->active_fd_count);
+                              fd->inode->fd_count);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
                    "%s: Failed to set "
@@ -2524,6 +2524,45 @@ out:
     return 0;
 }
 
+static int
+posix_unlink_renamed_file_and_free_ctx(xlator_t *this, inode_t *inode)
+{
+    int ret = 0;
+    char *unlink_path = NULL;
+    uint64_t ctx_uint1 = 0;
+    uint64_t ctx_uint2 = 0;
+    posix_inode_ctx_t *ctx = NULL;
+    struct posix_private *priv = this->private;
+
+    ret = inode_ctx_del2(inode, this, &ctx_uint1, &ctx_uint2);
+
+    if (ctx_uint2)
+        GF_FREE((posix_mdata_t *)(uintptr_t)ctx_uint2);
+
+    if (!ctx_uint1)
+        return 0;
+
+    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
+
+    if (ctx->unlink_flag == GF_UNLINK_TRUE) {
+        POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
+        if (!unlink_path) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
+                   "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
+            ret = -1;
+        } else {
+            ret = sys_unlink(unlink_path);
+        }
+    }
+
+    pthread_mutex_destroy(&ctx->xattrop_lock);
+    pthread_mutex_destroy(&ctx->write_atomic_lock);
+    pthread_mutex_destroy(&ctx->pgfid_lock);
+    GF_FREE(ctx);
+
+    return ret;
+}
+
 int32_t
 posix_release(xlator_t *this, fd_t *fd)
 {
@@ -2533,6 +2572,9 @@ posix_release(xlator_t *this, fd_t *fd)
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
+
+    if (fd->inode->fd_count == 0)
+        posix_unlink_renamed_file_and_free_ctx(this, fd->inode);
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
@@ -5974,46 +6016,5 @@ out:
 int
 posix_forget(xlator_t *this, inode_t *inode)
 {
-    int ret = 0;
-    char *unlink_path = NULL;
-    uint64_t ctx_uint1 = 0;
-    uint64_t ctx_uint2 = 0;
-    posix_inode_ctx_t *ctx = NULL;
-    posix_mdata_t *mdata = NULL;
-    struct posix_private *priv_posix = NULL;
-
-    priv_posix = (struct posix_private *)this->private;
-    if (!priv_posix)
-        return 0;
-
-    ret = inode_ctx_del2(inode, this, &ctx_uint1, &ctx_uint2);
-    if (!ctx_uint1)
-        goto check_ctx2;
-
-    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
-
-    if (ctx->unlink_flag == GF_UNLINK_TRUE) {
-        POSIX_GET_FILE_UNLINK_PATH(priv_posix->base_path, inode->gfid,
-                                   unlink_path);
-        if (!unlink_path) {
-            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
-                   "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
-            ret = -1;
-            goto ctx_free;
-        }
-        ret = sys_unlink(unlink_path);
-    }
-ctx_free:
-    pthread_mutex_destroy(&ctx->xattrop_lock);
-    pthread_mutex_destroy(&ctx->write_atomic_lock);
-    pthread_mutex_destroy(&ctx->pgfid_lock);
-    GF_FREE(ctx);
-
-check_ctx2:
-    if (ctx_uint2) {
-        mdata = (posix_mdata_t *)(uintptr_t)ctx_uint2;
-    }
-
-    GF_FREE(mdata);
-    return ret;
+    return posix_unlink_renamed_file_and_free_ctx(this, inode);
 }

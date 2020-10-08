@@ -257,6 +257,7 @@ enum gf_internal_fop_indicator {
 #define GF_XATTROP_PURGE_INDEX "glusterfs.xattrop-purge-index"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
+#define GF_UNLINKED_LOOKUP "unlinked-lookup"
 /* replace-brick and pump related internal xattrs */
 #define RB_PUMP_CMD_START "glusterfs.pump.start"
 #define RB_PUMP_CMD_PAUSE "glusterfs.pump.pause"

@@ -103,7 +103,6 @@ struct _inode {
     gf_lock_t lock;
     gf_atomic_t nlookup;
     uint32_t fd_count;            /* Open fd count */
-    uint32_t active_fd_count;     /* Active open fd count */
     uint32_t ref;                 /* reference count on this inode */
     ia_type_t ia_type;            /* what kind of file */
     struct list_head fd_list;     /* list of open files on this inode */
