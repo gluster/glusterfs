@@ -478,8 +478,8 @@ struct glusterd_volinfo_ {
     auth_t auth;
     char *logdir;
 
-    dict_t *gsync_slaves;
-    dict_t *gsync_active_slaves;
+    dict_t *gsync_secondaries;
+    dict_t *gsync_active_secondaries;
 
     xlator_t *xl;
     int decommission_in_progress;
@@ -1268,8 +1268,8 @@ glusterd_op_statedump_volume_args_get(dict_t *dict, char **volname,
                                       char **options, int *option_cnt);
 
 int
-glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **master,
-                           char **slave, char **host_uuid);
+glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **primary,
+                           char **secondary, char **host_uuid);
 
 int
 glusterd_op_get_max_opversion(char **op_errstr, dict_t *rsp_dict);

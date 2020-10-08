@@ -191,7 +191,7 @@ out:
  *
  * @return 0 on success and -1 on failure
  *
- * TODO: Duplicate all members of volinfo, e.g. geo-rep sync slaves
+ * TODO: Duplicate all members of volinfo, e.g. geo-rep sync secondaries
  */
 int32_t
 glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
@@ -3637,9 +3637,9 @@ out:
 }
 
 int32_t
-glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
-                             dict_t *gsync_slaves_dict, char *session,
-                             char *slave)
+glusterd_get_geo_rep_session(char *secondary_key, char *origin_volname,
+                             dict_t *gsync_secondaries_dict, char *session,
+                             char *secondary)
 {
     int32_t ret = -1;
     int32_t len = 0;
@@ -3651,22 +3651,22 @@ glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
     char *ip_temp = NULL;
     char *buffer = NULL;
     xlator_t *this = NULL;
-    char *slave_temp = NULL;
+    char *secondary_temp = NULL;
     char *save_ptr = NULL;
 
     this = THIS;
     GF_ASSERT(this);
 
-    GF_ASSERT(slave_key);
+    GF_ASSERT(secondary_key);
     GF_ASSERT(origin_volname);
-    GF_ASSERT(gsync_slaves_dict);
+    GF_ASSERT(gsync_secondaries_dict);
 
-    ret = dict_get_str(gsync_slaves_dict, slave_key, &buffer);
+    ret = dict_get_str(gsync_secondaries_dict, secondary_key, &buffer);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to "
                "get value for key %s",
-               slave_key);
+               secondary_key);
         goto out;
     }
 
@@ -3677,7 +3677,7 @@ glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
     }
 
     /* geo-rep session string format being parsed:
-     * "master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid"
+     * "primary_node_uuid:ssh://secondary_host::secondary_vol:secondary_voluuid"
      */
     token = strtok_r(temp, "/", &save_ptr);
 
@@ -3701,13 +3701,13 @@ glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
         goto out;
     }
 
-    slave_temp = gf_strdup(token);
-    if (!slave) {
+    secondary_temp = gf_strdup(token);
+    if (!secondary) {
         ret = -1;
         goto out;
     }
 
-    /* If 'ip' has 'root@slavehost', point to 'slavehost' as
+    /* If 'ip' has 'root@secondaryhost', point to 'secondaryhost' as
      * working directory for root users are created without
      * 'root@' */
     ip_temp = gf_strdup(ip);
@@ -3718,11 +3718,11 @@ glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
         ip_i = ip + len + 1;
 
     ret = snprintf(session, PATH_MAX, "%s_%s_%s", origin_volname, ip_i,
-                   slave_temp);
+                   secondary_temp);
     if (ret < 0) /* Negative value is an error */
         goto out;
 
-    ret = snprintf(slave, PATH_MAX, "%s::%s", ip, slave_temp);
+    ret = snprintf(secondary, PATH_MAX, "%s::%s", ip, secondary_temp);
     if (ret < 0) {
         goto out;
     }
@@ -3739,8 +3739,8 @@ out:
     if (ip_temp)
         GF_FREE(ip_temp);
 
-    if (slave_temp)
-        GF_FREE(slave_temp);
+    if (secondary_temp)
+        GF_FREE(secondary_temp);
 
     return ret;
 }
@@ -3988,7 +3988,7 @@ glusterd_restore_geo_rep_files(glusterd_volinfo_t *snap_vol)
     int i = 0;
     char key[32] = "";
     char session[PATH_MAX] = "";
-    char slave[PATH_MAX] = "";
+    char secondary[PATH_MAX] = "";
     char snapgeo_dir[PATH_MAX] = "";
     glusterd_conf_t *priv = NULL;
 
@@ -4014,23 +4014,24 @@ glusterd_restore_geo_rep_files(glusterd_volinfo_t *snap_vol)
         goto out;
     }
 
-    for (i = 1; i <= snap_vol->gsync_slaves->count; i++) {
-        ret = snprintf(key, sizeof(key), "slave%d", i);
+    for (i = 1; i <= snap_vol->gsync_secondaries->count; i++) {
+        ret = snprintf(key, sizeof(key), "secondary%d", i);
         if (ret < 0) {
             goto out;
         }
 
         /* "origin_vol" is used here because geo-replication saves
-         * the session in the form of master_ip_slave.
-         * As we need the master volume to be same even after
+         * the session in the form of primary_ip_secondary.
+         * As we need the primary volume to be same even after
          * restore, we are passing the origin volume name.
          *
-         * "snap_vol->gsync_slaves" contain the slave information
+         * "snap_vol->gsync_secondaries" contain the secondary information
          * when the snapshot was taken, hence we have to restore all
-         * those slaves information when we do snapshot restore.
+         * those secondaries information when we do snapshot restore.
          */
-        ret = glusterd_get_geo_rep_session(
-            key, origin_vol->volname, snap_vol->gsync_slaves, session, slave);
+        ret = glusterd_get_geo_rep_session(key, origin_vol->volname,
+                                           snap_vol->gsync_secondaries, session,
+                                           secondary);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GEOREP_GET_FAILED,
                    "Failed to get geo-rep session");

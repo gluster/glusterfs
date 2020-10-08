@@ -176,7 +176,7 @@ TEST ! $GEOREP_CLI  $master $slave1 resume
 
 ##-----------------glusterd slave key/value upgrade testcase Begin ---------##
 #Upgrade test of slave key stored in glusterd info file
-src=$(grep slave2 /var/lib/glusterd/vols/$master/info)
+src=$(grep secondary2 /var/lib/glusterd/vols/$master/info)
 #Remove slave uuuid (last part after divided by : )
 dst=${src%:*}
 

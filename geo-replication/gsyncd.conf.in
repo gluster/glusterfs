@@ -220,17 +220,17 @@ template=true
 configurable=false
 
 [slave-log-file]
-value=${gluster_logdir}/geo-replication-slaves/${master}_${primary_slave_host}_${slavevol}/gsyncd.log
+value=${gluster_logdir}/geo-replication-secondaries/${master}_${primary_slave_host}_${slavevol}/gsyncd.log
 template=true
 configurable=false
 
 [slave-gluster-log-file]
-value=${gluster_logdir}/geo-replication-slaves/${master}_${primary_slave_host}_${slavevol}/mnt-${master_node}-${master_brick_id}.log
+value=${gluster_logdir}/geo-replication-secondaries/${master}_${primary_slave_host}_${slavevol}/mnt-${master_node}-${master_brick_id}.log
 template=true
 configurable=false
 
 [slave-gluster-log-file-mbr]
-value=${gluster_logdir}/geo-replication-slaves/${master}_${primary_slave_host}_${slavevol}/mnt-mbr-${master_node}-${master_brick_id}.log
+value=${gluster_logdir}/geo-replication-secondaries/${master}_${primary_slave_host}_${slavevol}/mnt-mbr-${master_node}-${master_brick_id}.log
 template=true
 configurable=false
 

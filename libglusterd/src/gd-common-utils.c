@@ -28,15 +28,15 @@ get_struct_variable(int mem_num, gf_gsync_status_t *sts_val)
         case 0:
             return (sts_val->node);
         case 1:
-            return (sts_val->master);
+            return (sts_val->primary);
         case 2:
             return (sts_val->brick);
         case 3:
-            return (sts_val->slave_user);
+            return (sts_val->secondary_user);
         case 4:
-            return (sts_val->slave);
+            return (sts_val->secondary);
         case 5:
-            return (sts_val->slave_node);
+            return (sts_val->secondary_node);
         case 6:
             return (sts_val->worker_status);
         case 7:
@@ -66,9 +66,9 @@ get_struct_variable(int mem_num, gf_gsync_status_t *sts_val)
         case 19:
             return (sts_val->checkpoint_completion_time_utc);
         case 20:
-            return (sts_val->slavekey);
+            return (sts_val->secondarykey);
         case 21:
-            return (sts_val->session_slave);
+            return (sts_val->session_secondary);
         default:
             goto out;
     }

@@ -2293,16 +2293,16 @@ out:
                 gf_asprintf_append(&events_str, "%sreset_sync_time=%d;",
                                    events_str, tmpi);
             }
-            /* Capture Master and Slave Info */
-            ret1 = dict_get_str(options, "master", &tmp);
+            /* Capture Primary and Secondary Info */
+            ret1 = dict_get_str(options, "primary", &tmp);
             if (ret1)
                 tmp = "";
-            gf_asprintf_append(&events_str, "%smaster=%s;", events_str, tmp);
+            gf_asprintf_append(&events_str, "%sprimary=%s;", events_str, tmp);
 
-            ret1 = dict_get_str(options, "slave", &tmp);
+            ret1 = dict_get_str(options, "secondary", &tmp);
             if (ret1)
                 tmp = "";
-            gf_asprintf_append(&events_str, "%sslave=%s", events_str, tmp);
+            gf_asprintf_append(&events_str, "%ssecondary=%s", events_str, tmp);
 
             gf_event(event_type, "%s", events_str);
         }
@@ -3099,7 +3099,8 @@ struct cli_cmd volume_cmds[] = {
      "reset all the reconfigured options"},
 
 #if (SYNCDAEMON_COMPILE)
-    {"volume " GEOREP " [<MASTER-VOLNAME>] [<SLAVE-IP>]::[<SLAVE-VOLNAME>] {"
+    {"volume " GEOREP
+     " [<PRIMARY-VOLNAME>] [<SECONDARY-IP>]::[<SECONDARY-VOLNAME>] {"
      "\\\n create [[ssh-port n] [[no-verify] \\\n | [push-pem]]] [force] \\\n"
      " | start [force] \\\n | stop [force] \\\n | pause [force] \\\n | resume "
      "[force] \\\n"
