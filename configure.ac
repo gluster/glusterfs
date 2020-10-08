@@ -1192,6 +1192,12 @@ if test "x$with_ipv6_default" = "xyes" ; then
    GF_CFLAGS="$GF_CFLAGS -DIPV6_DEFAULT"
 fi
 
+USE_BRICKMUX="no"
+if test "x$enable_brickmux" = "xyes" ; then
+   USE_BRICKMUX="yes"
+   AC_DEFINE(GF_ENABLE_BRICKMUX, 1, [Enable Brick Mux.])
+fi
+
 dnl check for gcc -Werror=format-security
 saved_CFLAGS=$CFLAGS
 CFLAGS="-Wformat -Werror=format-security"
@@ -1706,6 +1712,7 @@ echo "With Python          : ${PYTHON_VERSION}"
 echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
+echo "Enable Brick Mux     : $USE_BRICKMUX"
 echo
 
 # dnl Note: ${X^^} capitalization assumes bash >= 4.x
