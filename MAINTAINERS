@@ -90,7 +90,7 @@ S: Maintained
 F: xlators/features/bit-rot/
 
 Changelog
-M: Aravinda V K <avishwan@redhat.com>
+M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 P: Kotresh HR <khiremat@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
@@ -257,14 +257,14 @@ S: Maintained
 F: doc/
 
 Geo Replication
-M: Aravinda V K <avishwan@redhat.com>
+M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 M: Kotresh HR <khiremat@redhat.com>
 M: Sunny Kumar <sunkumar@redhat.com>
 S: Maintained
 F: geo-replication/
 
 Glusterfind
-M: Aravinda VK <avishwan@redhat.com>
+M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 S: Maintained
 F: tools/glusterfind/
 
@@ -288,7 +288,7 @@ S: Maintained
 F: libglusterfs/
 
 xxhash
-M: Aravinda VK <avishwan@redhat.com>
+M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 M: Kotresh HR <khiremat@redhat.com>
 P: Yaniv Kaul <ykaul@redhat.com>
 S: Maintained
@@ -337,7 +337,7 @@ S: Maintained
 F: tests/
 
 Utilities
-M: Aravinda VK <avishwan@redhat.com>
+M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 P: Niels de Vos <ndevos@redhat.com>
 P: Raghavendra Talur <rtalur@redhat.com>
 P: Sachidanda Urs <surs@redhat.com>
@@ -345,7 +345,7 @@ S: Maintained
 F: extras/
 
 Events APIs
-M: Aravinda VK <avishwan@redhat.com>
+M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 S: Maintained
 F: events/
 F: libglusterfs/src/events*
