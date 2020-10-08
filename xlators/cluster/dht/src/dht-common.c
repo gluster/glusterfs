@@ -5872,8 +5872,6 @@ dht_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr,
         if (local->rebalance.target_node) {
             local->flags = forced_rebalance;
 
-            frame->root->pid = GF_CLIENT_PID_DEFRAG;
-
             ret = dht_start_rebalance_task(this, frame);
             if (!ret)
                 return 0;
