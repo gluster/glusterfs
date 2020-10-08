@@ -4588,9 +4588,9 @@ gf_cli_gsync_config_command(dict_t *dict)
     };
     char *subop = NULL;
     char *gwd = NULL;
-    char *slave = NULL;
+    char *secondary = NULL;
     char *confpath = NULL;
-    char *master = NULL;
+    char *primary = NULL;
     char *op_name = NULL;
     int ret = -1;
     char conf_path[PATH_MAX] = "";
@@ -4604,11 +4604,11 @@ gf_cli_gsync_config_command(dict_t *dict)
     }
 
     if (dict_get_str_sizen(dict, "glusterd_workdir", &gwd) != 0 ||
-        dict_get_str_sizen(dict, "slave", &slave) != 0)
+        dict_get_str_sizen(dict, "secondary", &secondary) != 0)
         return -1;
 
-    if (dict_get_str_sizen(dict, "master", &master) != 0)
-        master = NULL;
+    if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+        primary = NULL;
     if (dict_get_str_sizen(dict, "op_name", &op_name) != 0)
         op_name = NULL;
 
@@ -4624,9 +4624,9 @@ gf_cli_gsync_config_command(dict_t *dict)
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", "-c", NULL);
     runner_argprintf(&runner, "%s", confpath);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
-    if (master)
-        runner_argprintf(&runner, ":%s", master);
-    runner_add_arg(&runner, slave);
+    if (primary)
+        runner_argprintf(&runner, ":%s", primary);
+    runner_add_arg(&runner, secondary);
     runner_argprintf(&runner, "--config-%s", subop);
     if (op_name)
         runner_add_arg(&runner, op_name);
@@ -4680,7 +4680,7 @@ gf_cli_print_status(char **title_values, gf_gsync_status_t **sts_vals,
 
     cli_out(" ");
 
-    /* setting the title "NODE", "MASTER", etc. from title_values[]
+    /* setting the title "NODE", "PRIMARY", etc. from title_values[]
        and printing the same */
     for (j = 0; j < number_of_fields; j++) {
         if ((!is_detail) && (j > status_fields)) {
@@ -4757,17 +4757,17 @@ out:
 int
 gf_gsync_status_t_comparator(const void *p, const void *q)
 {
-    char *slavekey1 = NULL;
-    char *slavekey2 = NULL;
+    char *secondaryKey1 = NULL;
+    char *secondaryKey2 = NULL;
 
-    slavekey1 = get_struct_variable(20, (*(gf_gsync_status_t **)p));
-    slavekey2 = get_struct_variable(20, (*(gf_gsync_status_t **)q));
-    if (!slavekey1 || !slavekey2) {
+    secondaryKey1 = get_struct_variable(20, (*(gf_gsync_status_t **)p));
+    secondaryKey2 = get_struct_variable(20, (*(gf_gsync_status_t **)q));
+    if (!secondaryKey1 || !secondaryKey2) {
         gf_log("cli", GF_LOG_ERROR, "struct member empty.");
         return 0;
     }
 
-    return strcmp(slavekey1, slavekey2);
+    return strcmp(secondaryKey1, secondaryKey2);
 }
 
 static int
@@ -4802,7 +4802,7 @@ gf_cli_read_status_data(dict_t *dict, gf_gsync_status_t **sts_vals,
         }
     }
 
-    /* Sort based on Session Slave */
+    /* Sort based on Session Secondary */
     qsort(sts_vals, gsync_count, sizeof(gf_gsync_status_t *),
           gf_gsync_status_t_comparator);
 
@@ -4819,14 +4819,14 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
     int spacing[16] = {0};
     int num_of_fields = 16;
     char errmsg[1024] = "";
-    char *master = NULL;
-    char *slave = NULL;
-    static char *title_values[] = {"MASTER NODE",
-                                   "MASTER VOL",
-                                   "MASTER BRICK",
-                                   "SLAVE USER",
-                                   "SLAVE",
-                                   "SLAVE NODE",
+    char *primary = NULL;
+    char *secondary = NULL;
+    static char *title_values[] = {"PRIMARY NODE",
+                                   "PRIMARY VOL",
+                                   "PRIMARY BRICK",
+                                   "SECONDARY USER",
+                                   "SECONDARY",
+                                   "SECONDARY NODE",
                                    "STATUS",
                                    "CRAWL STATUS",
                                    "LAST_SYNCED",
@@ -4842,19 +4842,19 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
     /* Checks if any session is active or not */
     ret = dict_get_int32_sizen(dict, "gsync-count", &gsync_count);
     if (ret) {
-        ret = dict_get_str_sizen(dict, "master", &master);
+        ret = dict_get_str_sizen(dict, "primary", &primary);
 
-        ret = dict_get_str_sizen(dict, "slave", &slave);
+        ret = dict_get_str_sizen(dict, "secondary", &secondary);
 
-        if (master) {
-            if (slave)
+        if (primary) {
+            if (secondary)
                 snprintf(errmsg, sizeof(errmsg),
                          "No active geo-replication sessions between %s"
                          " and %s",
-                         master, slave);
+                         primary, secondary);
             else
                 snprintf(errmsg, sizeof(errmsg),
-                         "No active geo-replication sessions for %s", master);
+                         "No active geo-replication sessions for %s", primary);
         } else
             snprintf(errmsg, sizeof(errmsg),
                      "No active geo-replication sessions");
@@ -5115,8 +5115,8 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     dict_t *dict = NULL;
     char *gsync_status = NULL;
-    char *master = NULL;
-    char *slave = NULL;
+    char *primary = NULL;
+    char *secondary = NULL;
     int32_t type = 0;
     gf_boolean_t status_detail = _gf_false;
 
@@ -5174,27 +5174,27 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
         case GF_GSYNC_OPTION_TYPE_STOP:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
 
             cli_out(
                 "%s " GEOREP " session between %s & %s has been successful",
                 type == GF_GSYNC_OPTION_TYPE_START ? "Starting" : "Stopping",
-                master, slave);
+                primary, secondary);
             break;
 
         case GF_GSYNC_OPTION_TYPE_PAUSE:
         case GF_GSYNC_OPTION_TYPE_RESUME:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
 
             cli_out("%s " GEOREP " session between %s & %s has been successful",
                     type == GF_GSYNC_OPTION_TYPE_PAUSE ? "Pausing" : "Resuming",
-                    master, slave);
+                    primary, secondary);
             break;
 
         case GF_GSYNC_OPTION_TYPE_CONFIG:
@@ -5208,23 +5208,23 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
             break;
 
         case GF_GSYNC_OPTION_TYPE_DELETE:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
             cli_out("Deleting " GEOREP
                     " session between %s & %s has been successful",
-                    master, slave);
+                    primary, secondary);
             break;
 
         case GF_GSYNC_OPTION_TYPE_CREATE:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
             cli_out("Creating " GEOREP
                     " session between %s & %s has been successful",
-                    master, slave);
+                    primary, secondary);
             break;
 
         default:

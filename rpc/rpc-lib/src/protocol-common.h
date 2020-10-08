@@ -280,11 +280,11 @@ typedef enum {
 
 struct gf_gsync_detailed_status_ {
     char node[NAME_MAX];
-    char master[NAME_MAX];
+    char primary[NAME_MAX];
     char brick[PATH_MAX];
-    char slave_user[NAME_MAX];
-    char slave[NAME_MAX];
-    char slave_node[NAME_MAX];
+    char secondary_user[NAME_MAX];
+    char secondary[NAME_MAX];
+    char secondary_node[NAME_MAX];
     char worker_status[NAME_MAX];
     char crawl_status[NAME_MAX];
     char last_synced[NAME_MAX];
@@ -299,8 +299,8 @@ struct gf_gsync_detailed_status_ {
     char checkpoint_completion_time[NAME_MAX];
     char checkpoint_completion_time_utc[NAME_MAX];
     char brick_host_uuid[NAME_MAX];
-    char slavekey[NAME_MAX];
-    char session_slave[NAME_MAX];
+    char secondarykey[NAME_MAX];
+    char session_secondary[NAME_MAX];
 };
 
 enum glusterd_mgmt_v3_procnum {

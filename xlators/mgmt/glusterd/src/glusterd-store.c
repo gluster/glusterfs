@@ -1035,7 +1035,7 @@ glusterd_store_volinfo_write(int fd, glusterd_volinfo_t *volinfo)
     dict_foreach(volinfo->dict, _storeopts, (void *)dict_data);
 
     dict_data->key_check = 0;
-    dict_foreach(volinfo->gsync_slaves, _storeopts, (void *)dict_data);
+    dict_foreach(volinfo->gsync_secondaries, _storeopts, (void *)dict_data);
 
     if (dict_data->buffer_len > 0) {
         ret = gf_store_save_items(fd, dict_data->buffer);
@@ -3014,6 +3014,29 @@ out:
     return ret;
 }
 
+/* change slave$i to secondary$i, where i = 1,2,3,...*/
+static void
+glusterd_chk_update_geo_rep_key_name(char **key)
+{
+    char *new_key = NULL;
+    int slen_slave = 5;      // strlen("slave")
+    int slen_secondary = 9;  // strlen("secondary")
+
+    if (strncmp(*key, "slave", slen_slave) != 0)
+        return;
+
+    int new_key_len = slen_secondary + (strlen(*key) - slen_slave);
+
+    new_key = GF_MALLOC(new_key_len + 1, gf_common_mt_char);
+    if (!new_key)
+        return;
+
+    strcpy(new_key, "secondary");
+    strcat(new_key, *key + slen_slave);
+    GF_FREE(*key);
+    *key = new_key;
+}
+
 int
 glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
 {
@@ -3123,8 +3146,10 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
                             SLEN(GLUSTERD_STORE_KEY_PASSWORD))) {
             glusterd_auth_set_password(volinfo, value);
 
-        } else if (strstr(key, "slave")) {
-            ret = dict_set_dynstr(volinfo->gsync_slaves, key, gf_strdup(value));
+        } else if (strstr(key, "secondary") || strstr(key, "slave")) {
+            glusterd_chk_update_geo_rep_key_name(&key);  // Old node upgrade.
+            ret = dict_set_dynstr(volinfo->gsync_secondaries, key,
+                                  gf_strdup(value));
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Error in "
@@ -3134,7 +3159,7 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
             gf_msg_debug(this->name, 0,
                          "Parsed as " GEOREP
                          " "
-                         " slave:key=%s,value:%s",
+                         " secondary:key=%s,value:%s",
                          key, value);
 
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_OP_VERSION,

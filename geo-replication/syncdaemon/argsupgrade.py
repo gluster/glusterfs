@@ -188,14 +188,14 @@ def upgrade():
     elif "--verify" in sys.argv and "spawning" in sys.argv:
         # Just checks that able to spawn gsyncd or not
         sys.exit(0)
-    elif "--slavevoluuid-get" in sys.argv:
-        # --slavevoluuid-get f241::gv2
+    elif "--secondaryvoluuid-get" in sys.argv:
+        # --secondaryvoluuid-get f241::gv2
         p = ArgumentParser()
-        p.add_argument("--slavevoluuid-get")
+        p.add_argument("--secondaryvoluuid-get")
         p.add_argument("-c")
         p.add_argument("--iprefix")
         pargs = p.parse_known_args(sys.argv[1:])[0]
-        host, vol = pargs.slavevoluuid_get.split("::")
+        host, vol = pargs.secondaryvoluuid_get.split("::")
 
         # Modified sys.argv
         sys.argv = [

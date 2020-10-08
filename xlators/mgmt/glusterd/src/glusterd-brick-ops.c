@@ -903,12 +903,12 @@ static int
 _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
                                 void *data)
 {
-    char *slave = NULL;
-    char *slave_buf = NULL;
+    char *secondary = NULL;
+    char *secondary_buf = NULL;
     char *path_list = NULL;
-    char *slave_vol = NULL;
-    char *slave_host = NULL;
-    char *slave_url = NULL;
+    char *secondary_vol = NULL;
+    char *secondary_host = NULL;
+    char *secondary_url = NULL;
     char *conf_path = NULL;
     char **errmsg = NULL;
     int ret = -1;
@@ -920,11 +920,11 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
     GF_ASSERT(param);
     GF_ASSERT(param->volinfo);
 
-    slave = strchr(value->data, ':');
-    if (slave) {
-        slave++;
-        slave_buf = gf_strdup(slave);
-        if (!slave_buf) {
+    secondary = strchr(value->data, ':');
+    if (secondary) {
+        secondary++;
+        secondary_buf = gf_strdup(secondary);
+        if (!secondary_buf) {
             gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                    "Failed to gf_strdup");
             ret = -1;
@@ -933,32 +933,33 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
     } else
         return 0;
 
-    ret = dict_set_dynstrn(param->rsp_dict, "slave", SLEN("slave"), slave_buf);
+    ret = dict_set_dynstrn(param->rsp_dict, "secondary", SLEN("secondary"),
+                           secondary_buf);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
-               "Unable to store slave");
-        if (slave_buf)
-            GF_FREE(slave_buf);
+               "Unable to store secondary");
+        if (secondary_buf)
+            GF_FREE(secondary_buf);
         goto out;
     }
 
-    ret = glusterd_get_slave_details_confpath(param->volinfo, param->rsp_dict,
-                                              &slave_url, &slave_host,
-                                              &slave_vol, &conf_path, errmsg);
+    ret = glusterd_get_secondary_details_confpath(
+        param->volinfo, param->rsp_dict, &secondary_url, &secondary_host,
+        &secondary_vol, &conf_path, errmsg);
     if (ret) {
         if (errmsg && *errmsg)
             gf_msg("glusterd", GF_LOG_ERROR, 0,
-                   GD_MSG_SLAVE_CONFPATH_DETAILS_FETCH_FAIL, "%s", *errmsg);
+                   GD_MSG_SECONDARY_CONFPATH_DETAILS_FETCH_FAIL, "%s", *errmsg);
         else
             gf_msg("glusterd", GF_LOG_ERROR, 0,
-                   GD_MSG_SLAVE_CONFPATH_DETAILS_FETCH_FAIL,
-                   "Unable to fetch slave or confpath details.");
+                   GD_MSG_SECONDARY_CONFPATH_DETAILS_FETCH_FAIL,
+                   "Unable to fetch secondary or confpath details.");
         goto out;
     }
 
     /* In cases that gsyncd is not running, we will not invoke it
      * because of add-brick. */
-    ret = glusterd_check_gsync_running_local(param->volinfo->volname, slave,
+    ret = glusterd_check_gsync_running_local(param->volinfo->volname, secondary,
                                              conf_path, &is_running);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_GSYNC_VALIDATION_FAIL,
@@ -969,7 +970,7 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
         gf_msg_debug("glusterd", 0,
                      "gsync session for %s and %s is"
                      " not running on this node. Hence not restarting.",
-                     param->volinfo->volname, slave);
+                     param->volinfo->volname, secondary);
         ret = 0;
         goto out;
     }
@@ -985,7 +986,7 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
     }
 
     ret = glusterd_check_restart_gsync_session(
-        param->volinfo, slave, param->rsp_dict, path_list, conf_path, 0);
+        param->volinfo, secondary, param->rsp_dict, path_list, conf_path, 0);
     if (ret)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_GSYNC_RESTART_FAIL,
                "Unable to restart gsync session.");
@@ -1240,12 +1241,12 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     }
 
     /* If the restart_needed flag is set, restart gsyncd sessions for that
-     * particular master with all the slaves. */
+     * particular primary with all the secondaries. */
     if (restart_needed) {
         param.rsp_dict = dict;
         param.volinfo = volinfo;
-        dict_foreach(volinfo->gsync_slaves, _glusterd_restart_gsync_session,
-                     &param);
+        dict_foreach(volinfo->gsync_secondaries,
+                     _glusterd_restart_gsync_session, &param);
     }
 
 generate_volfiles:

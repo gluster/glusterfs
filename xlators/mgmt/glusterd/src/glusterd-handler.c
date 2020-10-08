@@ -5183,19 +5183,19 @@ glusterd_print_gsync_status(FILE *fp, dict_t *gsync_dict)
         if (ret)
             goto out;
 
-        fprintf(fp, "Volume%d.pair%d.session_slave: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.session_secondary: %s\n", volcount, i + 1,
                 get_struct_variable(21, status_vals));
-        fprintf(fp, "Volume%d.pair%d.master_node: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.primary_node: %s\n", volcount, i + 1,
                 get_struct_variable(0, status_vals));
-        fprintf(fp, "Volume%d.pair%d.master_volume: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.primary_volume: %s\n", volcount, i + 1,
                 get_struct_variable(1, status_vals));
-        fprintf(fp, "Volume%d.pair%d.master_brick: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.primary_brick: %s\n", volcount, i + 1,
                 get_struct_variable(2, status_vals));
-        fprintf(fp, "Volume%d.pair%d.slave_user: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.secondary_user: %s\n", volcount, i + 1,
                 get_struct_variable(3, status_vals));
-        fprintf(fp, "Volume%d.pair%d.slave: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.secondary: %s\n", volcount, i + 1,
                 get_struct_variable(4, status_vals));
-        fprintf(fp, "Volume%d.pair%d.slave_node: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.secondary_node: %s\n", volcount, i + 1,
                 get_struct_variable(5, status_vals));
         fprintf(fp, "Volume%d.pair%d.status: %s\n", volcount, i + 1,
                 get_struct_variable(6, status_vals));
@@ -6674,7 +6674,7 @@ struct rpcsvc_program gd_svc_cli_prog = {
 /**
  * This set of RPC progs are deemed to be trusted. Most of the actors support
  * read only queries, the only exception being MOUNT/UMOUNT which is required
- * by geo-replication to support unprivileged master -> slave sessions.
+ * by geo-replication to support unprivileged primary -> secondary sessions.
  */
 static rpcsvc_actor_t gd_svc_cli_trusted_actors[GLUSTER_CLI_MAXVALUE] = {
     [GLUSTER_CLI_LIST_FRIENDS] = {"LIST_FRIENDS",
