@@ -2803,7 +2803,7 @@ afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode)
     }
 
     frame = afr_frame_create(this, &op_errno);
-    if (op_errno) {
+    if (!frame) {
         goto out;
     }
     local = frame->local;
