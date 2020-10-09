@@ -8,7 +8,7 @@ UPSTREAM=${GLUSTER_UPSTREAM}
 if [ "x$UPSTREAM" = "x" ]; then
     for rmt in $(git remote); do
 	rmt_repo=$(git remote show $rmt -n | grep Fetch | awk '{ print $3 }');
-	if [ $rmt_repo = "git@github.com:gluster/glusterfs" ]; then
+	if [ "${rmt_repo%.git}" = "git@github.com:gluster/glusterfs" ]; then
 	    UPSTREAM=$rmt
 	    echo "Picked ${UPSTREAM} as upstream remote"
 	    break
