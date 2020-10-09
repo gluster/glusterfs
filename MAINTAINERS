@@ -107,6 +107,7 @@ Erasure Coding
 M: Pranith Karampuri <pranith.karampuri@phonepe.com>
 M: Xavier Hernandez  <xhernandez@redhat.com>
 P: Ashish Pandey <aspandey@redhat.com>
+P: Sheetal Pamecha <spamecha@redhat.com>
 S: Maintained
 F: xlators/cluster/ec/
 
