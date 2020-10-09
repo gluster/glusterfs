@@ -109,7 +109,8 @@ enum gf_aggregator_procnum {
 enum gf_pmap_port_type {
     GF_PMAP_PORT_FREE = 0,
     GF_PMAP_PORT_FOREIGN, /* it actually means, not sure who is using it, but it
-                             is in-use */
+                             is in-use  with release-9 onwards, we will not use
+                             this type*/
     GF_PMAP_PORT_LEASED,
     GF_PMAP_PORT_ANY,
     GF_PMAP_PORT_BRICKSERVER, /* port used by brick process */

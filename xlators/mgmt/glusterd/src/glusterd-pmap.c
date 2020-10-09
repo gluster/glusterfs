@@ -51,7 +51,6 @@ static struct pmap_registry *
 pmap_registry_new(xlator_t *this)
 {
     struct pmap_registry *pmap = NULL;
-    int i = 0;
 
     pmap = CALLOC(sizeof(*pmap), 1);
     if (!pmap)
@@ -60,12 +59,6 @@ pmap_registry_new(xlator_t *this)
     pmap->base_port = pmap->last_alloc = ((glusterd_conf_t *)(this->private))
                                              ->base_port;
     pmap->max_port = ((glusterd_conf_t *)(this->private))->max_port;
-    for (i = pmap->base_port; i <= pmap->max_port; i++) {
-        if (pmap_port_isfree(i))
-            pmap->ports[i].type = GF_PMAP_PORT_FREE;
-        else
-            pmap->ports[i].type = GF_PMAP_PORT_FOREIGN;
-    }
 
     return pmap;
 }
@@ -205,10 +198,19 @@ pmap_registry_alloc(xlator_t *this)
 
     pmap = pmap_registry_get(this);
 
-    for (p = pmap->base_port; p <= pmap->max_port; p++) {
-        /* GF_PMAP_PORT_FOREIGN may be freed up ? */
-        if ((pmap->ports[p].type == GF_PMAP_PORT_FREE) ||
-            (pmap->ports[p].type == GF_PMAP_PORT_FOREIGN)) {
+    for (p = (pmap->last_alloc) + 1; p <= pmap->max_port; p++) {
+        if (pmap_port_isfree(p)) {
+            pmap->ports[p].type = GF_PMAP_PORT_LEASED;
+            port = p;
+            break;
+        }
+    }
+
+    /* If port value is 0, that means we don't have any free port between
+     * last_alloc to max_port. We have to check from base_port to last_alloc
+     */
+    if (port == 0) {
+        for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
             if (pmap_port_isfree(p)) {
                 pmap->ports[p].type = GF_PMAP_PORT_LEASED;
                 port = p;
@@ -261,7 +263,7 @@ pmap_registry_bind(xlator_t *this, int port, const char *brickname,
         goto out;
 
     p = port;
-    if (pmap->ports[p].type == GF_PMAP_PORT_FREE) {
+    if (pmap_port_isfree(p)) {
         /* Because of some crazy race in volume start code path because
          * of friend handshaking with volumes with quorum enabled we
          * might end up into a situation where glusterd would start a
