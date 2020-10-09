@@ -19,6 +19,6 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/rpc/xdr/src \
 	-I$(top_builddir)/rpc/xdr/src
 
-AM_CFLAGS = -Wall $(GF_CFLAGS)
+AM_CFLAGS = -Wall -Wno-address-of-packed-member $(GF_CFLAGS)
 
 CLEANFILES = *~
