@@ -6358,10 +6358,10 @@ fuse_graph_setup(xlator_t *this, glusterfs_graph_t *graph)
         }
 
 #if FUSE_KERNEL_MINOR_VERSION >= 11
-        itable = inode_table_with_invalidator(priv->lru_limit, graph->top,
-                                              fuse_inode_invalidate_fn, this);
+        itable = inode_table_with_invalidator(
+            priv->lru_limit, graph->top, fuse_inode_invalidate_fn, this, 0, 0);
 #else
-        itable = inode_table_new(0, graph->top);
+        itable = inode_table_new(0, graph->top, 0, 0);
 #endif
         if (!itable) {
             ret = -1;

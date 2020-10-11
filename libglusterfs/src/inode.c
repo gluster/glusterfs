@@ -792,7 +792,7 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
         return NULL;
     }
 
-    int hash = hash_dentry(parent, name, table->hashsize);
+    int hash = hash_dentry(parent, name, table->dentry_hashsize);
 
     pthread_mutex_lock(&table->lock);
     {
@@ -868,7 +868,7 @@ inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
         return ret;
     }
 
-    int hash = hash_dentry(parent, name, table->hashsize);
+    int hash = hash_dentry(parent, name, table->dentry_hashsize);
 
     pthread_mutex_lock(&table->lock);
     {
@@ -932,7 +932,7 @@ inode_find(inode_table_t *table, uuid_t gfid)
         return NULL;
     }
 
-    int hash = hash_gfid(gfid, 65536);
+    int hash = hash_gfid(gfid, table->inode_hashsize);
 
     pthread_mutex_lock(&table->lock);
     {
@@ -994,7 +994,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             return NULL;
         }
 
-        int ihash = hash_gfid(iatt->ia_gfid, 65536);
+        int ihash = hash_gfid(iatt->ia_gfid, table->inode_hashsize);
 
         old_inode = __inode_find(table, iatt->ia_gfid, ihash);
 
@@ -1074,7 +1074,7 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
     table = inode->table;
 
     if (parent && name) {
-        hash = hash_dentry(parent, name, table->hashsize);
+        hash = hash_dentry(parent, name, table->dentry_hashsize);
     }
 
     if (name && strchr(name, '/')) {
@@ -1293,7 +1293,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
     }
 
     if (dstdir && dstname) {
-        hash = hash_dentry(dstdir, dstname, table->hashsize);
+        hash = hash_dentry(dstdir, dstname, table->dentry_hashsize);
     }
 
     pthread_mutex_lock(&table->lock);
@@ -1658,7 +1658,8 @@ __inode_table_init_root(inode_table_t *table)
 inode_table_t *
 inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              int32_t (*invalidator_fn)(xlator_t *, inode_t *),
-                             xlator_t *invalidator_xl)
+                             xlator_t *invalidator_xl, uint32_t dentry_hashsize,
+                             uint32_t inode_hashsize)
 {
     inode_table_t *new = NULL;
     uint32_t mem_pool_size = lru_limit;
@@ -1676,7 +1677,19 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     new->invalidator_fn = invalidator_fn;
     new->invalidator_xl = invalidator_xl;
 
-    new->hashsize = 14057; /* TODO: Random Number?? */
+    if (dentry_hashsize == 0) {
+        /* Prime number for uniform distribution */
+        new->dentry_hashsize = 14057;
+    } else {
+        new->dentry_hashsize = dentry_hashsize;
+    }
+
+    if (inode_hashsize == 0) {
+        /* The size of hash table always should be power of 2 */
+        new->inode_hashsize = 65536;
+    } else {
+        new->inode_hashsize = inode_hashsize;
+    }
 
     /* In case FUSE is initing the inode table. */
     if (!mem_pool_size || (mem_pool_size > DEFAULT_INODE_MEMPOOL_ENTRIES))
@@ -1690,12 +1703,14 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     if (!new->dentry_pool)
         goto out;
 
-    new->inode_hash = (void *)GF_CALLOC(65536, sizeof(struct list_head),
+    new->inode_hash = (void *)GF_CALLOC(new->inode_hashsize,
+                                        sizeof(struct list_head),
                                         gf_common_mt_list_head);
     if (!new->inode_hash)
         goto out;
 
-    new->name_hash = (void *)GF_CALLOC(new->hashsize, sizeof(struct list_head),
+    new->name_hash = (void *)GF_CALLOC(new->dentry_hashsize,
+                                       sizeof(struct list_head),
                                        gf_common_mt_list_head);
     if (!new->name_hash)
         goto out;
@@ -1707,11 +1722,11 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     if (!new->fd_mem_pool)
         goto out;
 
-    for (i = 0; i < 65536; i++) {
+    for (i = 0; i < new->inode_hashsize; i++) {
         INIT_LIST_HEAD(&new->inode_hash[i]);
     }
 
-    for (i = 0; i < new->hashsize; i++) {
+    for (i = 0; i < new->dentry_hashsize; i++) {
         INIT_LIST_HEAD(&new->name_hash[i]);
     }
 
@@ -1751,10 +1766,12 @@ out:
 }
 
 inode_table_t *
-inode_table_new(uint32_t lru_limit, xlator_t *xl)
+inode_table_new(uint32_t lru_limit, xlator_t *xl, uint32_t dentry_hashsize,
+                uint32_t inode_hashsize)
 {
     /* Only fuse for now requires the inode table with invalidator */
-    return inode_table_with_invalidator(lru_limit, xl, NULL, NULL);
+    return inode_table_with_invalidator(lru_limit, xl, NULL, NULL,
+                                        dentry_hashsize, inode_hashsize);
 }
 
 int
@@ -2474,8 +2491,10 @@ inode_table_dump(inode_table_t *itable, char *prefix)
         return;
     }
 
-    gf_proc_dump_build_key(key, prefix, "hashsize");
-    gf_proc_dump_write(key, "%" GF_PRI_SIZET, itable->hashsize);
+    gf_proc_dump_build_key(key, prefix, "dentry_hashsize");
+    gf_proc_dump_write(key, "%" GF_PRI_SIZET, itable->dentry_hashsize);
+    gf_proc_dump_build_key(key, prefix, "inode_hashsize");
+    gf_proc_dump_write(key, "%" GF_PRI_SIZET, itable->inode_hashsize);
     gf_proc_dump_build_key(key, prefix, "name");
     gf_proc_dump_write(key, "%s", itable->name);
 
