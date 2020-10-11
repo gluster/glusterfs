@@ -719,7 +719,7 @@ posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
        option behaviour
     */
     if (priv->disk_reserve)
-        posix_disk_space_check(this);
+        posix_disk_space_check(priv);
 
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, ret, ret, unlock);
 
