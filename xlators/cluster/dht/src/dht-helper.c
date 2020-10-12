@@ -956,6 +956,44 @@ out:
     return subvol;
 }
 
+/* Get the layout of the root dir.
+ * This method does not unref the layout - this needs to be done externally */
+xlator_t *
+dht_subvol_get_hashed_root_layout(xlator_t *this, loc_t *loc,
+                                  dht_layout_t *root_layout)
+{
+    xlator_t *subvol = NULL;
+    dht_conf_t *conf = NULL;
+    dht_methods_t *methods = NULL;
+
+    GF_VALIDATE_OR_GOTO("dht", this, out);
+    GF_VALIDATE_OR_GOTO(this->name, loc, out);
+
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+
+    methods = &(conf->methods);
+
+    if (__is_root_gfid(loc->gfid)) {
+        subvol = dht_first_up_subvol(this);
+        goto out;
+    }
+
+    GF_VALIDATE_OR_GOTO(this->name, loc->parent, out);
+    GF_VALIDATE_OR_GOTO(this->name, loc->name, out);
+
+    subvol = methods->layout_search(this, root_layout, loc->name);
+
+    if (!subvol) {
+        gf_msg_debug(this->name, 0, "No hashed subvolume for path=%s",
+                     loc->path);
+        goto out;
+    }
+
+out:
+    return subvol;
+}
+
 xlator_t *
 dht_subvol_get_cached(xlator_t *this, inode_t *inode)
 {
