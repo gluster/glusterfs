@@ -51,7 +51,7 @@ Descriptions of section entries:
 
 General Project Architects
 --------------------------
-M: Amar Tumballi <amarts@gmail.com>
+M: Amar Tumballi <amar@kadalu.io>
 M: Xavier Hernandez  <xhernandez@redhat.com>
 P: Pranith Karampuri <pranith.karampuri@phonepe.com>
 P: Atin Mukherjee <amukherj@redhat.com>
@@ -183,7 +183,7 @@ F: xlators/performance/nl-cache/
 gNFS
 M: Jiffin Tony Thottan <jthottan@redhat.com>
 P: Xie Changlong <xiechanglong@cmss.chinamobile.com>
-P: Amar Tumballi <amarts@gmail.com>
+P: Amar Tumballi <amar@kadalu.io>
 S: Odd Fixes
 F: xlators/nfs/server/
 
@@ -281,7 +281,7 @@ S: Maintained
 F: api/
 
 libglusterfs
-M: Amar Tumballi <amarts@gmail.com>
+M: Amar Tumballi <amar@kadalu.io>
 M: Xavier Hernandez  <xhernandez@redhat.com>
 M: Jeff Darcy <jeff@pl.atyp.us>
 P: Kaleb Keithley <kkeithle@redhat.com>
@@ -465,8 +465,8 @@ Infrastructure
 
 Platform
 M: Michael Scherer <misc@redhat.com>
-P: Shyamsundar Ranganathan <srangana@redhat.com>
-P: Amar Tumballi <amarts@gmail.com>
+P: Deepshika Khandelwal <dkhandel@redhat.com>
+P: Amar Tumballi <amar@kadalu.io>
 
 Continuous Integration
 M: Michael Scherer <misc@redhat.com>
