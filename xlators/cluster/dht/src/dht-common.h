@@ -19,6 +19,7 @@
 #include <glusterfs/timer.h>
 #include "protocol-common.h"
 #include <glusterfs/glusterfs-acl.h>
+#include <semaphore.h>
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -450,11 +451,16 @@ typedef struct subvol_nodeuuids_info {
     int count;
 } subvol_nodeuuids_info_t;
 
+typedef struct rebalance_dir_container {
+    loc_t *dir_entry;
+    struct list_head list;
+} rebalance_dir_container;
+
 struct gf_defrag_info_ {
     uint64_t total_files;
     uint64_t total_data;
     uint64_t num_files_lookedup;
-    uint64_t total_failures;
+    gf_atomic_t total_failures;
     uint64_t skipped;
     uint64_t num_dirs_processed;
     uint64_t size_processed;
@@ -501,6 +507,13 @@ struct gf_defrag_info_ {
     gf_boolean_t lock_migration_enabled;
 
     dht_layout_t *root_layout;
+
+    /* Used in rebelance */
+    pthread_mutex_t list_lock;
+    sem_t rebelance_sem_workers_empty;
+    int waiting_workers_empty;
+    bool is_rebelance_terminate;
+    rebalance_dir_container rebalance_dirs;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;

@@ -2412,6 +2412,22 @@ dht_build_root_inode(xlator_t *this, inode_t **inode)
     *inode = inode_find(itable, root_gfid);
 }
 
+static int
+dht_allocate_root_loc(inode_t *inode, loc_t *loc)
+{
+    gf_asprintf((char **)&loc->path, "/");
+    if (loc->path == NULL) {
+        return -1;
+    }
+
+    loc->inode = inode;
+    loc->inode->ia_type = IA_IFDIR;
+    memset(loc->gfid, 0, 16);
+    loc->gfid[15] = 1;
+
+    return 0;
+}
+
 void
 dht_build_root_loc(inode_t *inode, loc_t *loc)
 {
@@ -2624,7 +2640,6 @@ gf_defrag_migrate_single_file(void *opaque)
     xlator_t *hashed_subvol = NULL;
     xlator_t *cached_subvol = NULL;
     call_frame_t *statfs_frame = NULL;
-    xlator_t *old_THIS = NULL;
     data_t *tmp = NULL;
     int fop_errno = 0;
     gf_dht_migrate_data_type_t rebal_type = GF_DHT_MIGRATE_DATA;
@@ -2676,11 +2691,7 @@ gf_defrag_migrate_single_file(void *opaque)
 
     ret = dht_build_child_loc(this, &entry_loc, loc, entry->d_name);
     if (ret) {
-        LOCK(&defrag->lock);
-        {
-            defrag->total_failures += 1;
-        }
-        UNLOCK(&defrag->lock);
+        GF_ATOMIC_INC(defrag->total_failures);
 
         ret = 0;
 
@@ -2721,11 +2732,7 @@ gf_defrag_migrate_single_file(void *opaque)
          * unmigrated
          */
         if (conf->decommission_subvols_cnt) {
-            LOCK(&defrag->lock);
-            {
-                defrag->total_failures += 1;
-            }
-            UNLOCK(&defrag->lock);
+            GF_ATOMIC_INC(defrag->total_failures);
         }
 
         ret = 0;
@@ -2762,8 +2769,6 @@ gf_defrag_migrate_single_file(void *opaque)
     /* use the inode returned by inode_link */
     entry_loc.inode = inode;
 
-    old_THIS = THIS;
-    THIS = this;
     statfs_frame = create_frame(this, this->ctx->pool);
     if (!statfs_frame) {
         gf_msg(this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY, ENOMEM,
@@ -2774,7 +2779,6 @@ gf_defrag_migrate_single_file(void *opaque)
 
     /* async statfs information for honoring min-free-disk */
     dht_get_du_info(statfs_frame, this, loc);
-    THIS = old_THIS;
 
     tmp = dict_get(migrate_data, GF_XATTR_FILE_MIGRATE_KEY);
     if (tmp) {
@@ -2800,12 +2804,7 @@ gf_defrag_migrate_single_file(void *opaque)
             if (conf->decommission_subvols_cnt) {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                     if (conf->decommissioned_bricks[i] == cached_subvol) {
-                        LOCK(&defrag->lock);
-                        {
-                            defrag->total_failures += 1;
-                            update_skippedcount = _gf_false;
-                        }
-                        UNLOCK(&defrag->lock);
+                        GF_ATOMIC_INC(defrag->total_failures);
 
                         break;
                     }
@@ -2846,11 +2845,7 @@ gf_defrag_migrate_single_file(void *opaque)
                    DHT_MSG_MIGRATE_FILE_FAILED, "migrate-data failed for %s",
                    entry_loc.path);
 
-            LOCK(&defrag->lock);
-            {
-                defrag->total_failures += 1;
-            }
-            UNLOCK(&defrag->lock);
+            GF_ATOMIC_INC(defrag->total_failures);
         }
 
         ret = gf_defrag_handle_migrate_error(fop_errno, defrag);
@@ -2909,6 +2904,7 @@ gf_defrag_task(void *opaque)
     gf_defrag_info_t *defrag = NULL;
     int ret = 0;
     pid_t pid = GF_CLIENT_PID_DEFRAG;
+    xlator_t *old_THIS = NULL;
 
     defrag = (gf_defrag_info_t *)opaque;
     if (!defrag) {
@@ -2919,6 +2915,9 @@ gf_defrag_task(void *opaque)
     syncopctx_setfspid(&pid);
 
     q_head = &(defrag->queue[0].list);
+
+    old_THIS = THIS;
+    THIS = defrag->this;
 
     /* The following while loop will dequeue one entry from the defrag->queue
        under lock. We will update the defrag->global_error only when there
@@ -3046,6 +3045,7 @@ gf_defrag_task(void *opaque)
         break;
     }
 out:
+    THIS = old_THIS;
     return NULL;
 }
 
@@ -3258,7 +3258,6 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     int dfc_index = 0;
     int throttle_up = 0;
     struct dir_dfmeta *dir_dfmeta = NULL;
-    xlator_t *old_THIS = NULL;
 
     gf_log(this->name, GF_LOG_INFO, "migrate data called on %s", loc->path);
     gettimeofday(&dir_start, NULL);
@@ -3270,9 +3269,6 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         ret = 0;
         goto out;
     }
-
-    old_THIS = THIS;
-    THIS = this;
 
     dir_dfmeta = GF_CALLOC(1, sizeof(*dir_dfmeta), gf_common_mt_pointer);
     if (!dir_dfmeta) {
@@ -3489,7 +3485,6 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
            loc->path, elapsed / 1e6);
     ret = 0;
 out:
-    THIS = old_THIS;
     gf_defrag_free_dir_dfmeta(dir_dfmeta, local_subvols_cnt);
 
     if (xattr_req)
@@ -3562,14 +3557,17 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     return 0;
 }
 
+/* This method performs a readdir operation on the dir specified by loc.
+ * All dirs that are found are added to a queue to be processed by other
+ * worker threads.
+ * Entries are taken of of the qeue by worker threads in gf_worker_defrag.
+ */
 int
 gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                    dict_t *rebal_dict, dict_t *migrate_data)
 {
     int ret = -1;
-    loc_t entry_loc = {
-        0,
-    };
+    loc_t *entry_loc = NULL;
     fd_t *fd = NULL;
     gf_dirent_t entries;
     gf_dirent_t *tmp = NULL;
@@ -3582,12 +3580,9 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     inode_t *linked_inode = NULL, *inode = NULL;
     dht_conf_t *conf = NULL;
     int perrno = 0;
+    rebalance_dir_container *dir_container = NULL;
 
     conf = this->private;
-    if (!conf) {
-        ret = -1;
-        goto out;
-    }
 
     ret = syncop_lookup(this, loc, &iatt, NULL, NULL, NULL);
     if (ret) {
@@ -3595,7 +3590,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
                    "lookup failed for:%s", loc->path);
 
-            defrag->total_failures++;
+            GF_ATOMIC_INC(defrag->total_failures);
             ret = -1;
             goto out;
         }
@@ -3604,7 +3599,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
                    "Dir:%s renamed or removed. Skipping", loc->path);
             if (conf->decommission_subvols_cnt) {
-                defrag->total_failures++;
+                GF_ATOMIC_INC(defrag->total_failures);
             }
             ret = 0;
             goto out;
@@ -3612,7 +3607,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
                    "lookup failed for:%s", loc->path);
 
-            defrag->total_failures++;
+            GF_ATOMIC_INC(defrag->total_failures);
             goto out;
         }
     }
@@ -3628,7 +3623,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     if (ret) {
         if (-ret == ENOENT || -ret == ESTALE) {
             if (conf->decommission_subvols_cnt) {
-                defrag->total_failures++;
+                GF_ATOMIC_INC(defrag->total_failures);
             }
             ret = 0;
             goto out;
@@ -3651,7 +3646,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         if (ret < 0) {
             if (-ret == ENOENT || -ret == ESTALE) {
                 if (conf->decommission_subvols_cnt) {
-                    defrag->total_failures++;
+                    GF_ATOMIC_INC(defrag->total_failures);
                 }
                 ret = 0;
                 goto out;
@@ -3673,6 +3668,18 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
         list_for_each_entry_safe(entry, tmp, &entries.list, list)
         {
+            /* If en error occurred which lead to "continue" of this
+             * loop, deallocate resources, if they were allocated */
+
+            if (entry_loc != NULL) {
+                loc_wipe(loc);
+                GF_FREE(loc);
+            }
+
+            if (dir_container != NULL) {
+                GF_FREE(dir_container);
+            }
+
             if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 ret = 1;
                 goto out;
@@ -3685,9 +3692,26 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             if (!IA_ISDIR(entry->d_stat.ia_type)) {
                 continue;
             }
-            loc_wipe(&entry_loc);
 
-            ret = dht_build_child_loc(this, &entry_loc, loc, entry->d_name);
+            /* Allocate a container struct and loc_t struct in order to add them
+             * to the queue to be processed by worker threads. Deallocation will
+             * be performed by worker threads once they are done using them. */
+            dir_container = GF_CALLOC(1, sizeof(*dir_container),
+                                      gf_dht_rebalance_dirs_list_t);
+            if (dir_container == NULL) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
+                       "dirs_list allocation failed");
+                return -1;
+            }
+
+            entry_loc = GF_CALLOC(1, sizeof(*entry_loc), gf_dht_mt_loc_t);
+            if (entry_loc == NULL) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
+                       "entry_loc allocation failed");
+                return -1;
+            }
+
+            ret = dht_build_child_loc(this, entry_loc, loc, entry->d_name);
             if (ret) {
                 gf_log(this->name, GF_LOG_ERROR,
                        "Child loc"
@@ -3711,7 +3735,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 continue;
             }
 
-            gf_uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
+            gf_uuid_copy(entry_loc->gfid, entry->d_stat.ia_gfid);
 
             /*In case the gfid stored in the inode by inode_link
              * and the gfid obtained in the lookup differs, then
@@ -3719,11 +3743,11 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
              * error will be captured
              */
 
-            linked_inode = inode_link(entry_loc.inode, loc->inode,
+            linked_inode = inode_link(entry_loc->inode, loc->inode,
                                       entry->d_name, &entry->d_stat);
 
-            inode = entry_loc.inode;
-            entry_loc.inode = linked_inode;
+            inode = entry_loc->inode;
+            entry_loc->inode = linked_inode;
             inode_unref(inode);
 
             if (gf_uuid_is_null(loc->gfid)) {
@@ -3734,9 +3758,9 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 continue;
             }
 
-            gf_uuid_copy(entry_loc.pargfid, loc->gfid);
+            gf_uuid_copy(entry_loc->pargfid, loc->gfid);
 
-            ret = syncop_lookup(this, &entry_loc, &iatt, NULL, NULL, NULL);
+            ret = syncop_lookup(this, entry_loc, &iatt, NULL, NULL, NULL);
             if (ret) {
                 if (-ret == ENOENT || -ret == ESTALE) {
                     gf_msg(this->name, GF_LOG_INFO, -ret,
@@ -3746,15 +3770,15 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                            loc->path);
                     ret = 0;
                     if (conf->decommission_subvols_cnt) {
-                        defrag->total_failures++;
+                        GF_ATOMIC_INC(defrag->total_failures);
                     }
                     continue;
                 } else {
                     gf_msg(this->name, GF_LOG_ERROR, -ret,
                            DHT_MSG_DIR_LOOKUP_FAILED, "lookup failed for:%s",
-                           entry_loc.path);
+                           entry_loc->path);
 
-                    defrag->total_failures++;
+                    GF_ATOMIC_INC(defrag->total_failures);
 
                     if (conf->decommission_in_progress) {
                         defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
@@ -3766,34 +3790,23 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 }
             }
 
-            /* A return value of 2 means, either process_dir or
-             * lookup of a dir failed. Hence, don't commit hash
-             * for the current directory*/
+            dir_container->dir_entry = entry_loc;
 
-            ret = gf_defrag_scan_dir(this, defrag, &entry_loc, rebal_dict,
-                                     migrate_data);
+            pthread_mutex_lock(&defrag->list_lock); /* Lock */
+            {
+                /* Add an entry to the queue */
+                list_add_tail(&(dir_container->list),
+                              &(defrag->rebalance_dirs.list));
 
-            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED ||
-                defrag->defrag_status == GF_DEFRAG_STATUS_FAILED) {
-                goto out;
-            }
-
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LAYOUT_FIX_FAILED,
-                       "Fix layout failed for %s", entry_loc.path);
-
-                defrag->total_failures++;
-
-                if (conf->decommission_in_progress) {
-                    defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-
-                    goto out;
-                } else {
-                    /* Let's not commit-hash if
-                     * gf_defrag_scan_dir failed*/
-                    continue;
+                if (defrag->waiting_workers_empty > 0) {
+                    sem_post(&defrag->rebelance_sem_workers_empty);
+                    --defrag->waiting_workers_empty;
                 }
             }
+            pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+
+            entry_loc = NULL;
+            dir_container = NULL;
         }
 
         gf_dirent_free(&entries);
@@ -3809,7 +3822,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 ret = 0;
                 goto out;
             } else {
-                defrag->total_failures++;
+                GF_ATOMIC_INC(defrag->total_failures);
 
                 gf_msg(this->name, GF_LOG_ERROR, 0,
                        DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
@@ -3829,12 +3842,230 @@ out:
     if (free_entries)
         gf_dirent_free(&entries);
 
-    loc_wipe(&entry_loc);
-
     if (fd)
         fd_unref(fd);
 
+    /* If en error occurred which lead to "goto out",
+     * deallocate resources, if they were allocated */
+    if (entry_loc != NULL) {
+        loc_wipe(loc);
+        GF_FREE(loc);
+    }
+
+    if (dir_container != NULL) {
+        GF_FREE(dir_container);
+    }
+
     return ret;
+}
+
+typedef struct {
+    xlator_t *this;
+    gf_defrag_info_t *defrag;
+    dict_t *fix_layout;
+    dict_t *migrate_data;
+    int rebalance_scanner_threads;
+} rebalance_info;
+
+/* This method is performed by rebalance worker threads which scan the FS.
+ * A thread will try to take out a dir entry from a queue, and if successful
+ * it will execute 'gf_defrag_scan_dir' on the dir specified by the entry.
+ * Termination mechanism is based on the assumption that once the entire FS
+ * has been processed, all worker threads (except the last) will be in "waiting"
+ * state. The last thread will identify this situation (using a counter which is
+ * updated every time a worker thread sleeps or wakes up) and signal for the
+ * termination of the worker threads
+ */
+void *
+gf_worker_defrag(void *info)
+{
+    rebalance_info *rebalance_info_ptr = NULL;
+    xlator_t *this = NULL;
+    gf_defrag_info_t *defrag = NULL;
+    dict_t *fix_layout = NULL;
+    dict_t *migrate_data = NULL;
+    rebalance_dir_container *dir_container = NULL;
+    loc_t *loc = NULL;
+    dht_conf_t *conf = NULL;
+    xlator_t *old_THIS = NULL;
+    int ret = 0;
+    int i = 0;
+    int rebalance_scanner_threads = 0;
+
+    rebalance_info_ptr = (rebalance_info *)info;
+
+    this = rebalance_info_ptr->this;
+    defrag = rebalance_info_ptr->defrag;
+    fix_layout = rebalance_info_ptr->fix_layout;
+    migrate_data = rebalance_info_ptr->migrate_data;
+    rebalance_scanner_threads = rebalance_info_ptr->rebalance_scanner_threads;
+
+    conf = this->private;
+
+    old_THIS = THIS;
+    THIS = this;
+
+    while (true) {
+        pthread_mutex_lock(&defrag->list_lock); /* Lock */
+
+        /* Try to get and entry from the list */
+        if (!list_empty(&defrag->rebalance_dirs.list)) {
+            /* Managed to get an entry - process the dir referenced by loc */
+            dir_container = list_first_entry(&defrag->rebalance_dirs.list,
+                                             rebalance_dir_container, list);
+            loc = dir_container->dir_entry;
+            list_del(&dir_container->list);
+
+            pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+
+            ret = gf_defrag_scan_dir(this, defrag, loc, fix_layout,
+                                     migrate_data);
+
+            if (ret) {
+                pthread_mutex_lock(&defrag->list_lock); /* Lock */
+                {
+                    gf_msg(this->name, GF_LOG_ERROR, 0,
+                           DHT_MSG_LAYOUT_FIX_FAILED, "Rebalance failed for %s",
+                           loc->path);
+
+                    GF_ATOMIC_INC(defrag->total_failures);
+
+                    if (conf->decommission_in_progress)
+                        defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                }
+                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+            }
+
+            /* Wipe the loc_t struct and deallocate it and the container struct
+             */
+            loc_wipe(loc);
+            GF_FREE(loc);
+            GF_FREE(dir_container);
+        } else {
+            /* Didn't manage to get an entry */
+            if (defrag->is_rebelance_terminate == false) {
+                /* Rebalance is still in progress */
+                ++defrag->waiting_workers_empty;
+
+                if (defrag->waiting_workers_empty ==
+                        rebalance_scanner_threads ||
+                    defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED ||
+                    defrag->defrag_status == GF_DEFRAG_STATUS_FAILED) {
+                    /* Rebalance is done - Signal main thread it's time to
+                     * terminate */
+                    defrag->is_rebelance_terminate = true;
+                    /* Release all the threads that are waiting on an empty list
+                     */
+                    for (; i < defrag->waiting_workers_empty; ++i) {
+                        sem_post(&defrag->rebelance_sem_workers_empty);
+                    }
+                    pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+                    break;
+                }
+
+                /* Rebalance is still in progress - Wait */
+                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+                sem_wait(&defrag->rebelance_sem_workers_empty);
+            } else {
+                /* Another thread notified that rebalance is done - Exit */
+                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+                break;
+            }
+        }
+    }
+
+    THIS = old_THIS;
+
+    return NULL;
+}
+
+/* This method is performed by renalance's main thread.
+ * The main thread will add the root dir to the dir queue so worker
+ * threads have some data to work with.
+ * Once the root dir is added to the queue, the main thread will spawn
+ * worker threads which will process the FS. The main thread will join
+ * this effort as well.
+ * Once the FS has been processed, a worker thread will identify that the
+ * entire FS had been processed and signal for the termination of the
+ * worker threads.
+ */
+int
+gf_defrag_crawl_fs(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
+                   dict_t *fix_layout, dict_t *migrate_data)
+{
+    pthread_t *rebalance_threads = NULL;
+    rebalance_info *info = NULL;
+    int i = 0;
+    rebalance_dir_container *dir_container = NULL;
+    int ret = 0;
+    int rebalance_scanner_threads = MAX(MAX_REBAL_THREADS, 8);
+
+    if (!this->private) {
+        return -1;
+    }
+
+    info = GF_CALLOC(1, sizeof(*info), gf_dht_rebalance_info_t);
+    if (info == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LAYOUT_FIX_FAILED,
+               "Rebalance info allocation failed");
+        return -1;
+    }
+
+    info->this = this;
+    info->defrag = defrag;
+    info->fix_layout = fix_layout;
+    info->migrate_data = migrate_data;
+    info->rebalance_scanner_threads = rebalance_scanner_threads;
+
+    dir_container = GF_CALLOC(1, sizeof(*dir_container),
+                              gf_dht_rebalance_dirs_list_t);
+    if (dir_container == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
+               "dirs_list allocation failed");
+        return -1;
+    }
+
+    /* Add root dir to the queue so worker threads will have something to start
+     * working with */
+    dir_container->dir_entry = loc;
+    list_add_tail(&(dir_container->list), &(defrag->rebalance_dirs.list));
+
+    /* Allocate an array of workers */
+    rebalance_threads = GF_CALLOC(rebalance_scanner_threads,
+                                  sizeof(*rebalance_threads),
+                                  gf_common_mt_pthread_t);
+    if (rebalance_threads == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
+               "Rebalance workers allocation failed");
+        return -1;
+    }
+
+    /* Spawn worker threads */
+    for (i = 0; i < rebalance_scanner_threads; ++i) {
+        ret = gf_thread_create(&(rebalance_threads[i]), NULL, gf_worker_defrag,
+                               (void *)info, "dhtscnr%d", i);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, ret, 0,
+                   "Rebalance worker thread[%d] creation failed. ", i);
+            return -1;
+        } else {
+            gf_log(this->name, GF_LOG_INFO,
+                   "Rebalance worker thread[[%d] creation successful", i);
+        }
+    }
+
+    /* Join the fun and scan the FS */
+    gf_worker_defrag(info);
+
+    /* Wait for all workers to join */
+    for (i = 0; i < rebalance_scanner_threads; ++i) {
+        pthread_join(rebalance_threads[i], NULL);
+    }
+
+    GF_FREE(rebalance_threads);
+    GF_FREE(info);
+
+    return GF_ATOMIC_GET(defrag->total_failures) == 0 ? 0 : -1;
 }
 
 int
@@ -4056,7 +4287,7 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
                                   pthread_t **tid_array, int *thread_index)
 {
     int ret = -1;
-    int thread_spawn_count = 0;
+    int rebalance_migrator_threads = 0;
     int index = 0;
     pthread_t *tid = NULL;
 
@@ -4076,11 +4307,12 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
 
     INIT_LIST_HEAD(&(defrag->queue[0].list));
 
-    thread_spawn_count = MAX(MAX_REBAL_THREADS, 4);
+    rebalance_migrator_threads = MAX(MAX_REBAL_THREADS, 8);
 
-    gf_msg_debug(this->name, 0, "thread_spawn_count: %d", thread_spawn_count);
+    gf_msg_debug(this->name, 0, "thread_spawn_count: %d",
+                 rebalance_migrator_threads);
 
-    tid = GF_CALLOC(thread_spawn_count, sizeof(pthread_t),
+    tid = GF_CALLOC(rebalance_migrator_threads, sizeof(pthread_t),
                     gf_common_mt_pthread_t);
     if (!tid) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, 0,
@@ -4088,10 +4320,10 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
         ret = -1;
         goto out;
     }
-    defrag->current_thread_count = thread_spawn_count;
+    defrag->current_thread_count = rebalance_migrator_threads;
 
     /*Spawn Threads Here*/
-    while (index < thread_spawn_count) {
+    while (index < rebalance_migrator_threads) {
         ret = gf_thread_create(&(tid[index]), NULL, gf_defrag_task,
                                (void *)defrag, "dhtmig%d", (index + 1) & 0x3ff);
         if (ret != 0) {
@@ -4172,7 +4404,8 @@ gf_defrag_start_crawl(void *data)
     call_frame_t *statfs_frame = NULL;
     xlator_t *old_THIS = NULL;
     int ret = -1;
-    loc_t loc = {
+    loc_t *loc = NULL;
+    loc_t loc_local = {
         0,
     };
     struct iatt iatt = {
@@ -4211,11 +4444,30 @@ gf_defrag_start_crawl(void *data)
     if (!defrag->root_inode)
         goto out;
 
-    dht_build_root_loc(defrag->root_inode, &loc);
+    loc = GF_CALLOC(1, sizeof(*loc), gf_dht_mt_loc_t);
+    if (loc == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
+               "loc allocation failed");
+        return -1;
+    }
+
+    ret = dht_allocate_root_loc(defrag->root_inode, loc);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
+               "loc root path allocation failed");
+        ret = -1;
+        goto out;
+    }
+
+    /* This local copy is needed as loc which is dynamically allocated
+     * above will be wiped and freed once a worker thread is done scanning
+     * the root dir, but this struct is needed further down this method
+     * at the call to gf_defrag_settle_hash */
+    dht_build_root_loc(defrag->root_inode, &loc_local);
 
     /* fix-layout on '/' first */
 
-    ret = syncop_lookup(this, &loc, &iatt, &parent, NULL, NULL);
+    ret = syncop_lookup(this, loc, &iatt, &parent, NULL, NULL);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_REBALANCE_START_FAILED,
@@ -4236,7 +4488,7 @@ gf_defrag_start_crawl(void *data)
     }
 
     /* async statfs update for honoring min-free-disk */
-    dht_get_du_info(statfs_frame, this, &loc);
+    dht_get_du_info(statfs_frame, this, loc);
     THIS = old_THIS;
 
     rebal_dict = dict_new();
@@ -4259,18 +4511,16 @@ gf_defrag_start_crawl(void *data)
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR, "Failed to set %s",
                conf->commithash_xattr_name);
-        defrag->total_failures++;
+        GF_ATOMIC_INC(defrag->total_failures);
         ret = -1;
         goto out;
     }
 
-    ret = syncop_setxattr(this, &loc, rebal_dict, 0, NULL, NULL);
+    ret = syncop_setxattr(this, loc, rebal_dict, 0, NULL, NULL);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,
-               "Failed to set commit hash on %s. "
-               "Rebalance cannot proceed.",
-               loc.path);
-        defrag->total_failures++;
+               "Failed to set commit hash on /. Rebalance cannot proceed.");
+        GF_ATOMIC_INC(defrag->total_failures);
         ret = -1;
         goto out;
     }
@@ -4283,18 +4533,18 @@ gf_defrag_start_crawl(void *data)
                "Failed to start rebalance:"
                "Failed to set dictionary value: key = %s",
                GF_XATTR_FIX_LAYOUT_KEY);
-        defrag->total_failures++;
+        GF_ATOMIC_INC(defrag->total_failures);
         ret = -1;
         goto out;
     }
 
     defrag->new_commit_hash = conf->vol_commit_hash;
 
-    ret = syncop_setxattr(this, &loc, rebal_dict, 0, NULL, NULL);
+    ret = syncop_setxattr(this, loc, rebal_dict, 0, NULL, NULL);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_REBALANCE_FAILED,
-               "fix layout on %s failed", loc.path);
-        defrag->total_failures++;
+               "fix layout on / failed");
+        GF_ATOMIC_INC(defrag->total_failures);
         ret = -1;
         goto out;
     }
@@ -4304,7 +4554,7 @@ gf_defrag_start_crawl(void *data)
 
         migrate_data = dict_new();
         if (!migrate_data) {
-            defrag->total_failures++;
+            GF_ATOMIC_INC(defrag->total_failures);
             ret = -1;
             goto out;
         }
@@ -4312,12 +4562,12 @@ gf_defrag_start_crawl(void *data)
             migrate_data, GF_XATTR_FILE_MIGRATE_KEY,
             (defrag->cmd == GF_DEFRAG_CMD_START_FORCE) ? "force" : "non-force");
         if (ret) {
-            defrag->total_failures++;
+            GF_ATOMIC_INC(defrag->total_failures);
             ret = -1;
             goto out;
         }
 
-        ret = dht_init_local_subvols_and_nodeuuids(this, conf, &loc);
+        ret = dht_init_local_subvols_and_nodeuuids(this, conf, loc);
         if (ret) {
             ret = -1;
             goto out;
@@ -4329,7 +4579,7 @@ gf_defrag_start_crawl(void *data)
         if (!defrag->root_layout) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_REBALANCE_FAILED,
                    "dailed to get layout of root dir");
-            defrag->total_failures++;
+            GF_ATOMIC_INC(defrag->total_failures);
             ret = -1;
             goto out;
         }
@@ -4351,15 +4601,15 @@ gf_defrag_start_crawl(void *data)
         //        }
     }
 
-    ret = gf_defrag_scan_dir(this, defrag, &loc, rebal_dict, migrate_data);
+    ret = gf_defrag_crawl_fs(this, defrag, loc, rebal_dict, migrate_data);
     if (ret) {
-        defrag->total_failures++;
+        GF_ATOMIC_INC(defrag->total_failures);
         ret = -1;
         goto out;
     }
 
-    if (gf_defrag_settle_hash(this, defrag, &loc, rebal_dict) != 0) {
-        defrag->total_failures++;
+    if (gf_defrag_settle_hash(this, defrag, &loc_local, rebal_dict) != 0) {
+        GF_ATOMIC_INC(defrag->total_failures);
         ret = -1;
         goto out;
     }
@@ -4546,7 +4796,7 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
     files = defrag->total_files;
     size = defrag->total_data;
     lookup = defrag->num_files_lookedup;
-    failures = defrag->total_failures;
+    failures = GF_ATOMIC_GET(defrag->total_failures);
     skipped = defrag->skipped;
 
     elapsed = gf_time() - defrag->start_time;

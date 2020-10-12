@@ -679,26 +679,27 @@ dht_init(xlator_t *this)
         }
 
         defrag->cmd = cmd;
-
         defrag->stats = _gf_false;
-
         defrag->queue = NULL;
-
         defrag->crawl_done = 0;
-
         defrag->global_error = 0;
-
         defrag->q_entry_count = 0;
-
         defrag->wakeup_crawler = 0;
+        defrag->waiting_workers_empty = 0;
+        defrag->is_rebelance_terminate = false;
+        GF_ATOMIC_INIT(defrag->total_failures, 0);
 
         pthread_mutex_init(&defrag->dfq_mutex, 0);
+        pthread_mutex_init(&defrag->list_lock, NULL);
         pthread_cond_init(&defrag->parallel_migration_cond, 0);
         pthread_cond_init(&defrag->rebalance_crawler_alarm, 0);
         pthread_cond_init(&defrag->df_wakeup_thread, 0);
 
         pthread_mutex_init(&defrag->fc_mutex, 0);
         pthread_cond_init(&defrag->fc_wakeup_cond, 0);
+
+        sem_init(&defrag->rebelance_sem_workers_empty, 0, 0);
+        INIT_LIST_HEAD(&defrag->rebalance_dirs.list);
 
         defrag->global_error = 0;
     }

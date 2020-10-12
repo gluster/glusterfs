@@ -33,6 +33,9 @@ enum gf_dht_mem_types_ {
     gf_dht_mt_fd_ctx_t,
     gf_dht_ret_cache_t,
     gf_dht_nodeuuids_t,
+    gf_dht_rebalance_info_t,
+    gf_dht_rebalance_dirs_list_t,
+    gf_dht_rebalance_root_path,
     gf_dht_mt_end
 };
 #endif
