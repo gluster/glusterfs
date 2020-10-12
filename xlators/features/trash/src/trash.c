@@ -2235,6 +2235,7 @@ reconfigure(xlator_t *this, dict_t *options)
     char trash_dir[PATH_MAX] = {
         0,
     };
+    gf_boolean_t active_earlier = _gf_false;
 
     priv = this->private;
 
@@ -2243,9 +2244,19 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("trash-internal-op", priv->internal, options, bool, out);
     GF_OPTION_RECONF("trash-dir", tmp, options, str, out);
 
+    active_earlier = priv->state;
     GF_OPTION_RECONF("trash", priv->state, options, bool, out);
+    if (active_earlier && !priv->state) {
+        if (priv->trash_itable) {
+            inode_table_destroy(priv->trash_itable);
+            priv->trash_itable = NULL;
+        }
+    }
 
     if (priv->state) {
+        if (!priv->trash_itable)
+            priv->trash_itable = inode_table_new(0, this, 0, 0);
+
         ret = create_or_rename_trash_directory(this);
 
         if (tmp)
@@ -2501,7 +2512,8 @@ init(xlator_t *this)
         goto out;
     }
 
-    priv->trash_itable = inode_table_new(0, this, 0, 0);
+    if (priv->state)
+        priv->trash_itable = inode_table_new(0, this, 0, 0);
     gf_log(this->name, GF_LOG_DEBUG, "brick path is%s", priv->brick_path);
 
     this->private = (void *)priv;
