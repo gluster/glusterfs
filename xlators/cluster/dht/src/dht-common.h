@@ -499,6 +499,8 @@ struct gf_defrag_info_ {
     gf_boolean_t stats;
     /* lock migration flag */
     gf_boolean_t lock_migration_enabled;
+
+    dht_layout_t *root_layout;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -818,6 +820,9 @@ xlator_t *
 dht_subvol_get_hashed(xlator_t *this, loc_t *loc);
 xlator_t *
 dht_subvol_get_cached(xlator_t *this, inode_t *inode);
+xlator_t *
+dht_subvol_get_hashed_root_layout(xlator_t *this, loc_t *loc,
+                                  dht_layout_t *root_layout);
 xlator_t *
 dht_subvol_next(xlator_t *this, xlator_t *prev);
 xlator_t *
