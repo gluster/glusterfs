@@ -33,6 +33,10 @@ slave_url=$usr@$slave
 slave_vol=$GSV0
 ssh_url=$usr@$SH0
 
+#Cleanup stale keys
+sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' /home/$usr/.ssh/authorized_keys
+sed -i '/^command=.*gsyncd.*/d' /home/$usr/.ssh/authorized_keys
+
 ############################################################
 #SETUP VOLUMES AND VARIABLES
 
