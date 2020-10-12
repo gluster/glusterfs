@@ -1693,6 +1693,7 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
     int32_t ret = -1;
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
+    uint32_t hash = 0;
 
     GF_ASSERT(volname);
     this = THIS;
@@ -1701,9 +1702,10 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
     priv = this->private;
     GF_ASSERT(priv);
 
+    hash = gf_dm_hashfn(volname, strlen(volname));
     cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list)
     {
-        if (!strcmp(tmp_volinfo->volname, volname)) {
+        if (tmp_volinfo->volname_hash == hash) {
             gf_msg_debug(this->name, 0, "Volume %s found", volname);
             ret = 0;
             *volinfo = tmp_volinfo;
@@ -1722,6 +1724,7 @@ glusterd_volume_exists(const char *volname)
     gf_boolean_t volume_found = _gf_false;
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
+    uint32_t hash = 0;
 
     GF_ASSERT(volname);
     this = THIS;
@@ -1730,9 +1733,10 @@ glusterd_volume_exists(const char *volname)
     priv = this->private;
     GF_ASSERT(priv);
 
+    hash = gf_dm_hashfn(volname, strlen(volname));
     cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list)
     {
-        if (!strcmp(tmp_volinfo->volname, volname)) {
+        if (tmp_volinfo->volname_hash == hash) {
             gf_msg_debug(this->name, 0, "Volume %s found", volname);
             volume_found = _gf_true;
             break;
@@ -5107,6 +5111,8 @@ glusterd_import_friend_volume(dict_t *peer_data, int count)
     if (ret)
         goto out;
 
+    new_volinfo->volname_hash = gf_dm_hashfn(new_volinfo->volname,
+                                             strlen(new_volinfo->volname));
     glusterd_list_add_order(&new_volinfo->vol_list, &priv->volumes,
                             glusterd_compare_volume_name);
 

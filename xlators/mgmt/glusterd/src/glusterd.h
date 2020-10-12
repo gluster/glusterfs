@@ -517,6 +517,7 @@ struct glusterd_volinfo_ {
     /* Flag to check about volume has received updates
        from peer
     */
+    uint32_t volname_hash;
 };
 
 typedef enum gd_snap_status_ {

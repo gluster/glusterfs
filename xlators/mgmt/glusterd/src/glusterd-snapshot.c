@@ -6802,6 +6802,8 @@ glusterd_snapshot_clone_commit(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
+    snap_vol->volname_hash = gf_dm_hashfn(snap_vol->volname,
+                                          strlen(snap_vol->volname));
     glusterd_list_add_order(&snap_vol->vol_list, &priv->volumes,
                             glusterd_compare_volume_name);
 

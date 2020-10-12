@@ -18,6 +18,7 @@
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/byte-order.h>
+#include <glusterfs/hashfn.h>
 #include "glusterd.h"
 #include "rpc-clnt.h"
 #include "protocol-common.h"

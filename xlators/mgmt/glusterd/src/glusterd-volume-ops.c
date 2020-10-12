@@ -2272,6 +2272,8 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     }
 
     volinfo->rebal.defrag_status = 0;
+    volinfo->volname_hash = gf_dm_hashfn(volinfo->volname,
+                                         strlen(volinfo->volname));
     glusterd_list_add_order(&volinfo->vol_list, &priv->volumes,
                             glusterd_compare_volume_name);
     vol_added = _gf_true;

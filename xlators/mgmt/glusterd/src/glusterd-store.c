@@ -3342,6 +3342,8 @@ glusterd_store_retrieve_volume(char *volname, glusterd_snap_t *snap)
         goto out;
 
     if (!snap) {
+        volinfo->volname_hash = gf_dm_hashfn(volinfo->volname,
+                                             strlen(volinfo->volname));
         glusterd_list_add_order(&volinfo->vol_list, &priv->volumes,
                                 glusterd_compare_volume_name);
 
