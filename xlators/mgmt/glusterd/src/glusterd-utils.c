@@ -139,16 +139,16 @@ is_brick_mx_enabled(void)
     if (!ret)
         ret = gf_string2boolean(value, &enabled);
 
-    /* GF_ENABLE_BRICKMUX set as a compile time build option, if the
-       option is set and brick_mux key is not configured then consider
-       brick_mux option is enabled
-    */
-    #if defined(GF_ENABLE_BRICKMUX)
-        if (ret) {
-            ret = _gf_false;
-            enabled = _gf_true;
-        }
-    #endif
+/* GF_ENABLE_BRICKMUX set as a compile time build option, if the
+   option is set and brick_mux key is not configured then consider
+   brick_mux option is enabled
+*/
+#if defined(GF_ENABLE_BRICKMUX)
+    if (ret) {
+        ret = _gf_false;
+        enabled = _gf_true;
+    }
+#endif
 
     return ret ? _gf_false : enabled;
 }
