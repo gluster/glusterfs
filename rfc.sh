@@ -4,13 +4,40 @@
 # i.e. where we are interested in the result of a command,
 # we have to run the command in an if-statement.
 
-ORIGIN=${GLUSTER_ORIGIN:-origin}
+UPSTREAM=${GLUSTER_UPSTREAM}
+if [ "x$UPSTREAM" = "x" ]; then
+    for rmt in $(git remote); do
+	rmt_repo=$(git remote show $rmt -n | grep Fetch | awk '{ print $3 }');
+	if [ "${rmt_repo%.git}" = "git@github.com:gluster/glusterfs" ]; then
+	    UPSTREAM=$rmt
+	    echo "Picked ${UPSTREAM} as upstream remote"
+	    break
+	fi
+    done
+fi
 
-while getopts "v" opt; do
+USER_REPO=${GLUSTER_USER_REPO:-origin}
+if [ "x${USER_REPO}" = "x${UPSTREAM}" ] ; then
+    echo "When you submit patches, it should get submitted to your fork, not to upstream directly"
+    echo "If you are not sure, check `for rmt in $(git remote); do git remote show $rmt -n; done`"
+    echo "And pick the correct remote you would like to push to and do `export GLUSTER_USER_REPO=$rmt`"
+    echo ""
+    echo "Exiting..."
+    exit 1
+fi
+
+echo "Picked ${USER_REPO} as user's remote";
+
+FORCE="";
+while getopts "vf" opt; do
     case $opt in
         v)
             # Verbose mode
             git () { >&2 echo "git $@" && `which git` $@; }
+            ;;
+        f)
+            # Use force to git push
+	    FORCE="--force";
             ;;
     esac
 done
@@ -50,21 +77,21 @@ is_num()
 backport_id_message()
 {
     echo ""
-    echo "This commit is to a non-master branch, and hence is treated as a backport."
+    echo "This commit is to a non-devel branch, and hence is treated as a backport."
     echo ""
     echo "For backports we would like to retain the same gerrit Change-Id across"
     echo "branches. On auto inspection it is found that a gerrit Change-Id is"
-    echo "missing, or the Change-Id is not found on your local master"
+    echo "missing, or the Change-Id is not found on your local devel branch"
     echo ""
     echo "This could mean a few things:"
     echo "    1. This is not a backport, hence choose Y on the prompt to proceed"
-    echo "    2. Your $ORIGIN master is not up to date, hence the script is unable"
-    echo "       to find the corresponding Change-Id on master. Either choose N,"
+    echo "    2. Your $USER_REPO/devel is not up to date, hence the script is unable"
+    echo "       to find the corresponding Change-Id on devel. Either choose N,"
     echo "       'git fetch', and try again, OR if you are sure you used the"
     echo "       same Change-Id, choose Y at the prompt to proceed"
     echo "    3. You commented or removed the Change-Id in your commit message after"
     echo "       cherry picking the commit. Choose N, fix the commit message to"
-    echo "       use the same Change-Id as master (git commit --amend), resubmit"
+    echo "       use the same Change-Id as 'devel' (git commit --amend), resubmit"
     echo ""
 }
 
@@ -72,8 +99,8 @@ check_backport()
 {
     moveon='N'
 
-    # Backports are never made to master
-    if [ $branch = "master" ]; then
+    # Backports are never made to 'devel'
+    if [ $branch = "devel" ]; then
         return;
     fi
 
@@ -86,22 +113,22 @@ check_backport()
         echo -n "Did not find a Change-Id for a possible backport. Continue (y/N): "
         read moveon
     else
-        # Search master for the same change ID (rebase_changes has run, so we
+        # Search 'devel' for the same change ID (rebase_changes has run, so we
         # should never not find a Change-Id)
-        mchangeid=$(git log $ORIGIN/master --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
+        mchangeid=$(git log ${UPSTREAM}/devel --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
 
-        # Check if we found the change ID on master, else throw a message to
+        # Check if we found the change ID on 'devel', else throw a message to
         # decide if we should continue.
-        # NOTE: If master was not rebased, we will not find the Change-ID and
+        # NOTE: If 'devel' was not rebased, we will not find the Change-ID and
         # could hit a false positive case here (or if someone checks out some
-        # other branch as master).
+        # other branch as 'devel').
         if [ "${mchangeid}" = "${changeid}" ]; then
             moveon="Y"
         else
             backport_id_message;
             echo "Change-Id of commit: $changeid"
-            echo "Change-Id on master: $mchangeid"
-            echo -n "Did not find mentioned Change-Id on master for a possible backport. Continue (y/N): "
+            echo "Change-Id on devel: $mchangeid"
+            echo -n "Did not find mentioned Change-Id on 'devel' for a possible backport. Continue (y/N): "
             read moveon
         fi
     fi
@@ -116,9 +143,50 @@ check_backport()
 
 rebase_changes()
 {
-    GIT_EDITOR=$0 git rebase -i $ORIGIN/$branch;
+    GIT_EDITOR=$0 git rebase -i $UPSTREAM/$branch;
 }
 
+
+# Regex elaborated:
+#   grep options:
+#     -w -> --word-regexp (from the man page)
+#        Select only those lines containing matches that form whole words.
+#        The test is that the matching substring must either be at the
+#        beginning of the line, or preceded by a  non-word  constituent
+#        character.  Similarly, it must be either at the end of the line or
+#        followed by a non-word constituent character.  Word-constituent
+#        characters are letters, digits, and the underscore.
+#
+#        IOW, the above helps us find the pattern with leading or training
+#        spaces or non word consituents like , or ;
+#
+#     -i -> --ignore-case (case insensitive search)
+#
+#     -o -> --only-matching (only print matching portion of the line)
+#
+#     -E -> --extended-regexp (use extended regular expression)
+#
+#   ^
+#      The search begins at the start of each line
+#
+#   [[:space:]]*
+#      Any number of spaces is accepted
+#
+#   (Fixes|Updates)
+#      Finds 'Fixes' OR 'Updates' in any case combination
+#
+#   (:)?
+#      Followed by an optional : (colon)
+#
+#   [[:space:]]+
+#      Followed by 1 or more spaces
+#
+#   #
+#      Followed by #
+#
+#   [[:digit:]]+
+#      Followed by 1 or more digits
+REFRE="^[[:space:]]*(Fixes|Updates)(:)?[[:space:]]+#[[:digit:]]+"
 
 editor_mode()
 {
@@ -130,42 +198,32 @@ editor_mode()
     if [ $(basename "$1") = "COMMIT_EDITMSG" ]; then
         # see note above function warn_reference_missing for regex elaboration
         # Lets first check for github issues
-        ref=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+" | awk -F '#' '{print $2}');
-        if [ "x${ref}" = "x" ]; then
-            # if not found, check for bugs
-            ref=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+bz#[[:digit:]]+" | awk -F '#' '{print $2}');
-        fi
-
+        ref=$(git log -n1 --format='%b' | grep -iow -E "${REFRE}" | awk -F '#' '{print $2}');
         if [ "x${ref}" != "x" ]; then
             return;
         fi
 
         while true; do
             echo Commit: "\"$(head -n 1 $1)\""
-            echo -n "Reference (Bugzilla ID or Github Issue ID): "
-            read bug
-            if [ -z "$bug" ]; then
+            echo -n "Github Issue ID: "
+            read issue
+            if [ -z "$issue" ]; then
                 return;
             fi
-            if ! is_num "$bug"; then
-                echo "Invalid reference ID ($bug)!!!";
+            if ! is_num "$issue"; then
+                echo "Invalid Github Issue ID!!!";
                 continue;
             fi
 
-            bz_string="bz"
-            if [ $bug -lt 742000 ]; then
-                bz_string=""
-            fi
-
-            echo "Select yes '(y)' if this patch fixes the bug/feature completely,"
+            echo "Select yes '(y)' if this patch fixes the issue/feature completely,"
             echo -n "or is the last of the patchset which brings feature (Y/n): "
             read fixes
-            fixes_string="fixes"
+            fixes_string="Fixes"
             if [ "${fixes}" = 'N' ] || [ "${fixes}" = 'n' ]; then
-                fixes_string="updates"
+                fixes_string="Updates"
             fi
 
-            sed "/^Change-Id:/{p; s/^.*$/${fixes_string}: ${bz_string}#${bug}/;}" $1 > $1.new && \
+            sed "/^Change-Id:/{p; s/^.*$/${fixes_string}: #${issue}/;}" $1 > $1.new && \
                 mv $1.new $1;
             return;
         done
@@ -181,72 +239,33 @@ EOF
 
 assert_diverge()
 {
-    git diff $ORIGIN/$branch..HEAD | grep -q .;
+    git diff $UPSTREAM/$branch..HEAD | grep -q .;
 }
 
 
-
-# Regex elaborated:
-#   grep -w -> --word-regexp (from the man page)
-#      Select only those lines containing matches that form whole words.
-#      The test is that the matching substring must either be at the
-#      beginning of the line, or preceded by a  non-word  constituent
-#      character.  Similarly, it must be either at the end of the line or
-#      followed by a non-word constituent character.  Word-constituent
-#      characters are letters, digits, and the underscore.
-#   IOW, the above helps us find the pattern with leading or training spaces
-#   or non word consituents like , or ;
-#
-#   [fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])
-#      Finds 'fixes' OR 'updates' in any case combination
-#
-#   (:)?
-#      Followed by an optional : (colon)
-#
-#   [[:space:]]+
-#      followed by 1 or more spaces
-#
-#   (gluster\/glusterfs)?
-#      Followed by 0 or more gluster/glusterfs
-#
-#   #
-#      Followed by #
-#
-#   [[:digit:]]+
-#      Followed by 1 or more digits
 warn_reference_missing()
 {
     echo ""
     echo "=== Missing a reference in commit! ==="
     echo ""
-    echo "Gluster commits are made with a reference to a bug or a github issue"
+    echo "Gluster commits are made with a reference to a github issue"
     echo ""
-    echo "Submissions that are enhancements (IOW, not functional"
-    echo "bug fixes, but improvements of any nature to the code) are tracked"
-    echo "using github issues [1]."
+    echo "A check on the commit message, reveals that there is no "
+    echo "github issue referenced in the commit message."
     echo ""
-    echo "Submissions that are bug fixes are tracked using Bugzilla [2]."
+    echo "https://github.com/gluster/glusterfs/issues/new"
     echo ""
-    echo "A check on the commit message, reveals that there is no bug or"
-    echo "github issue referenced in the commit message"
+    echo "Please open an issue and reference the same in the commit message "
+    echo "using the following tags:"
     echo ""
-    echo "[1] https://github.com/gluster/glusterfs/issues/new"
-    echo "[2] https://bugzilla.redhat.com/enter_bug.cgi?product=GlusterFS"
-    echo ""
-    echo "Please file an issue or a bug report and reference the same in the"
-    echo "commit message using the following tags:"
-    echo "GitHub Issues:"
-    echo "\"Fixes: gluster/glusterfs#n\" OR \"Updates: gluster/glusterfs#n\","
-    echo "\"Fixes: #n\" OR \"Updates: #n\","
-    echo "Bugzilla ID:"
-    echo "\"Fixes: bz#n\" OR \"Updates: bz#n\","
-    echo "where n is the issue or bug number"
+    echo "\"Fixes: #NNNN\" OR \"Updates: #NNNN\","
+    echo "where NNNN is the issue id"
     echo ""
     echo "You may abort the submission choosing 'N' below and use"
     echo "'git commit --amend' to add the issue reference before posting"
     echo "to gerrit."
     echo ""
-    echo -n "Missing reference to a bug or a github issue. Continue (y/N): "
+    echo -n "Missing reference to a github issue. Continue (y/N): "
     read moveon
     if [ "${moveon}" = 'Y' ] || [ "${moveon}" = 'y' ]; then
         return;
@@ -266,7 +285,7 @@ main()
         return;
     fi
 
-    git fetch $ORIGIN;
+    git fetch $UPSTREAM;
 
     rebase_changes;
 
@@ -274,12 +293,12 @@ main()
 
     assert_diverge;
 
-    # see note above function warn_reference_missing for regex elaboration
-    reference=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?(bz)?#[[:digit:]]+" | awk -F '#' '{print $2}');
+    # see note above variable REFRE for regex elaboration
+    reference=$(git log -n1 --format='%b' | grep -iow -E "${REFRE}" | awk -F '#' '{print $2}');
 
-    # If this is a commit against master and does not have a bug ID or a github
+    # If this is a commit against 'devel' and does not have a github
     # issue reference. Warn the contributor that one of the 2 is required
-    if [ -z "${reference}" ] && [ $branch = "master" ]; then
+    if [ -z "${reference}" ] && [ $branch = "devel" ]; then
         warn_reference_missing;
     fi
 
@@ -307,9 +326,9 @@ main()
     fi
 
     if [ -z "${reference}" ]; then
-        $drier git push $ORIGIN HEAD:refs/for/$branch/rfc;
+        $drier git push $USER_REPO HEAD:temp_${branch}/$(date +%Y-%m-%d_%s) $FORCE;
     else
-        $drier git push $ORIGIN HEAD:refs/for/$branch/ref-${reference};
+        $drier git push $USER_REPO HEAD:issue${reference}_${branch} $FORCE;
     fi
 }
 
