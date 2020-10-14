@@ -445,7 +445,7 @@ generics or templates in other languages), or that use other preprocessor
 features such as `#` for stringification or `##` for token pasting.  In general,
 "static inline" is the preferred form.
 
-Avoid copypasta
+Avoid copypaste
 ---------------
 
 Code that is copied and then pasted into multiple functions often creates
