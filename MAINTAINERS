@@ -299,6 +299,7 @@ Management Daemon - glusterd
 M: Atin Mukherjee <amukherj@redhat.com>
 M: Mohit Agrawal <moagrawa@redhat.com>
 M: Sanju Rakonde <srakonde@redhat.com>
+P: Srijan Sivakumar <ssivakum@redhat.com>
 S: Maintained
 F: cli/
 F: xlators/mgmt/glusterd/
