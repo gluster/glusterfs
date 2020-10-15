@@ -367,6 +367,7 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     struct statvfs brickstat = {
         0,
     };
+    int len = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -405,8 +406,15 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     if (ret)
         goto out;
 
-    (void)snprintf(new_brickinfo->brick_id, sizeof(new_brickinfo->brick_id),
+    /*(void)snprintf(new_brickinfo->brick_id, sizeof(new_brickinfo->brick_id),
                    "%s", old_brickinfo->brick_id);
+    */
+    memmove(new_brickinfo->brick_id, old_brickinfo->brick_id,
+            sizeof(new_brickinfo->brick_id) - 1);
+
+    len = strlen(new_brickinfo->brick_id);
+    new_brickinfo->brick_id[len + 1] = '\0';
+
     new_brickinfo->port = old_brickinfo->port;
 
     /* A bricks mount dir is required only by snapshots which were

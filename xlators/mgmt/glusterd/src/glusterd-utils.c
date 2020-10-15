@@ -1163,6 +1163,7 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
     glusterd_brickinfo_t *new_brickinfo = NULL;
     xlator_t *this = NULL;
     char abspath[PATH_MAX] = "";
+    int len = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1186,18 +1187,15 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
     ret = gf_canonicalize_path(path);
     if (ret)
         goto out;
-    ret = snprintf(new_brickinfo->hostname, sizeof(new_brickinfo->hostname),
-                   "%s", hostname);
-    if (ret < 0 || ret >= sizeof(new_brickinfo->hostname)) {
-        ret = -1;
-        goto out;
-    }
-    ret = snprintf(new_brickinfo->path, sizeof(new_brickinfo->path), "%s",
-                   path);
-    if (ret < 0 || ret >= sizeof(new_brickinfo->path)) {
-        ret = -1;
-        goto out;
-    }
+
+    memmove(new_brickinfo->hostname, hostname,
+            sizeof(new_brickinfo->hostname) - 1);
+    len = strlen(new_brickinfo->hostname);
+    new_brickinfo->hostname[len + 1] = '\0';
+
+    memmove(new_brickinfo->path, path, sizeof(new_brickinfo->path) - 1);
+    len = strlen(new_brickinfo->path);
+    new_brickinfo->path[len + 1] = '\0';
 
     if (construct_real_path) {
         ret = glusterd_hostname_to_uuid(new_brickinfo->hostname,
