@@ -1460,6 +1460,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "performance/md-cache",
      .option = "pass-through",
      .op_version = GD_OP_VERSION_4_1_0},
+    {
+        .key = "performance.write-behind-pass-through",
+        .voltype = "performance/write-behind",
+        .option = "pass-through",
+        .op_version = GD_OP_VERSION_9_0
+    },
     {.key = "performance.md-cache-timeout",
      .voltype = "performance/md-cache",
      .option = "md-cache-timeout",
