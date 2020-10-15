@@ -46,7 +46,11 @@ extern char **environ;
  */
 #if defined(RUN_STANDALONE) || defined(RUN_DO_DEMO)
 int
-close_fds_except(int *fdv, size_t count);
+closer_posix_spawnp(int fd, void *prm);
+
+int
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm));
 #define sys_read(f, b, c) read(f, b, c)
 #define sys_write(f, b, c) write(f, b, c)
 #define sys_close(f) close(f)
@@ -64,7 +68,8 @@ close_fds_except(int *fdv, size_t count);
 #include <stdbool.h>
 #include <sys/resource.h>
 int
-close_fds_except(int *fdv, size_t count)
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm))
 {
     int i = 0;
     size_t j = 0;
@@ -85,7 +90,7 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
     return 0;
 }
@@ -100,6 +105,14 @@ close_fds_except(int *fdv, size_t count)
 #endif
 
 #include "glusterfs/run.h"
+void
+closer_posix_spawnp(int fd, void *prm)
+{
+    int fakeFd = 0;
+    posix_spawn_file_actions_t *file_actionsp = prm;
+    posix_spawn_file_actions_adddup2(file_actionsp, fakeFd, fd);
+    posix_spawn_file_actions_addclose(file_actionsp, fd);
+}
 void
 runinit(runner_t *runner)
 {
@@ -328,6 +341,13 @@ runner_start(runner_t *runner)
         }
     }
 
+    if (ret != -1) {
+        int fdv[4] = {0, 1, 2, xpi[1]};
+
+        ret = close_fds_except_custom(fdv, sizeof(fdv) / sizeof(*fdv),
+                                      &file_actions, closer_posix_spawnp);
+    }
+
     file_actionsp = &file_actions;
 
     ret = posix_spawnattr_init(&attr);
@@ -372,11 +392,13 @@ runner_start(runner_t *runner)
     }
 
     ret = sys_write(xpi[1], &errno, sizeof(errno));
-
     errno_priv = errno;
+
     for (i = 0; i < 3; i++)
         sys_close(pi[i][i ? 1 : 0]);
+
     sys_close(xpi[1]);
+
     if (ret == -1) {
         for (i = 0; i < 3; i++) {
             if (runner->chio[i]) {
@@ -384,7 +406,14 @@ runner_start(runner_t *runner)
                 runner->chio[i] = NULL;
             }
         }
+    } else {
+        ret = sys_read(xpi[0], (char *)&errno_priv, sizeof(errno_priv));
+        sys_close(xpi[0]);
+        if (ret <= 0)
+            return 0;
+        GF_ASSERT(ret == sizeof(errno_priv));
     }
+    errno = errno_priv;
 
     return status;
 }
