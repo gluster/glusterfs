@@ -40,36 +40,6 @@
 #include <glusterfs/syncop.h>
 #include <glusterfs/gidcache.h>
 
-#if defined(GF_LINUX_HOST_OS) || defined(__FreeBSD__) || defined(__NetBSD__)
-
-/*
- * TODO:
- * So, with the addition of copy_file_range support, it might
- * require a bump up of fuse kernel minor version (like it was
- * done when support for lseek fop was added. But, as of now,
- * the copy_file_range support has just landed in upstream
- * kernel fuse module. So, until, there is a release of that
- * fuse as part of a kernel, the FUSE_KERNEL_MINOR_VERSION
- * from fuse_kernel.h in the contrib might not be changed.
- * If so, then the highest op available should be based on
- * the current minor version (which is 24). So, selectively
- * determine. When, the minor version is changed to 28 in
- * fuse_kernel.h from contrib (because in upstream linux
- * kernel source tree, the kernel minor version which
- * contains support for copy_file_range is 28), then remove
- * the reference to FUSE_LSEEK below and just determine
- * FUSE_OP_HIGH based on copy_file_range.
- */
-#if FUSE_KERNEL_MINOR_VERSION >= 28
-#define FUSE_OP_HIGH (FUSE_COPY_FILE_RANGE + 1)
-#else
-#define FUSE_OP_HIGH (FUSE_LSEEK + 1)
-#endif
-
-#endif
-#ifdef GF_DARWIN_HOST_OS
-#define FUSE_OP_HIGH (FUSE_DESTROY + 1)
-#endif
 #define GLUSTERFS_XATTR_LEN_MAX 65536
 
 #define MAX_FUSE_PROC_DELAY 1

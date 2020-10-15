@@ -5959,6 +5959,72 @@ fuse_get_mount_status(xlator_t *this)
     return kid_status;
 }
 
+static fuse_handler_t *fuse_std_ops[] = {
+    [FUSE_LOOKUP] = fuse_lookup,
+    [FUSE_FORGET] = fuse_forget,
+    [FUSE_GETATTR] = fuse_getattr,
+    [FUSE_SETATTR] = fuse_setattr,
+    [FUSE_READLINK] = fuse_readlink,
+    [FUSE_SYMLINK] = fuse_symlink,
+    [FUSE_MKNOD] = fuse_mknod,
+    [FUSE_MKDIR] = fuse_mkdir,
+    [FUSE_UNLINK] = fuse_unlink,
+    [FUSE_RMDIR] = fuse_rmdir,
+    [FUSE_RENAME] = fuse_rename,
+    [FUSE_LINK] = fuse_link,
+    [FUSE_OPEN] = fuse_open,
+    [FUSE_READ] = fuse_readv,
+    [FUSE_WRITE] = fuse_write,
+    [FUSE_STATFS] = fuse_statfs,
+    [FUSE_RELEASE] = fuse_release,
+    [FUSE_FSYNC] = fuse_fsync,
+    [FUSE_SETXATTR] = fuse_setxattr,
+    [FUSE_GETXATTR] = fuse_getxattr,
+    [FUSE_LISTXATTR] = fuse_listxattr,
+    [FUSE_REMOVEXATTR] = fuse_removexattr,
+    [FUSE_FLUSH] = fuse_flush,
+    [FUSE_INIT] = fuse_init,
+    [FUSE_OPENDIR] = fuse_opendir,
+    [FUSE_READDIR] = fuse_readdir,
+    [FUSE_RELEASEDIR] = fuse_releasedir,
+    [FUSE_FSYNCDIR] = fuse_fsyncdir,
+    [FUSE_GETLK] = fuse_getlk,
+    [FUSE_SETLK] = fuse_setlk,
+    [FUSE_SETLKW] = fuse_setlk,
+    [FUSE_ACCESS] = fuse_access,
+    [FUSE_CREATE] = fuse_create,
+    [FUSE_INTERRUPT] = fuse_interrupt,
+    /* [FUSE_BMAP] */
+    [FUSE_DESTROY] = fuse_destroy,
+/* [FUSE_IOCTL] */
+/* [FUSE_POLL] */
+/* [FUSE_NOTIFY_REPLY] */
+
+#if FUSE_KERNEL_MINOR_VERSION >= 16
+    [FUSE_BATCH_FORGET] = fuse_batch_forget,
+#endif
+
+#if FUSE_KERNEL_MINOR_VERSION >= 19
+#ifdef FALLOC_FL_KEEP_SIZE
+    [FUSE_FALLOCATE] = fuse_fallocate,
+#endif /* FALLOC_FL_KEEP_SIZE */
+#endif
+
+#if FUSE_KERNEL_MINOR_VERSION >= 21
+    [FUSE_READDIRPLUS] = fuse_readdirp,
+#endif
+
+#if FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE
+    [FUSE_LSEEK] = fuse_lseek,
+#endif
+
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+    [FUSE_COPY_FILE_RANGE] = fuse_copy_file_range,
+#endif
+};
+
+#define FUSE_OP_HIGH (sizeof(fuse_std_ops) / sizeof(*fuse_std_ops))
+
 static void
 fuse_dispatch(xlator_t *xl, gf_async_t *async)
 {
@@ -5972,7 +6038,10 @@ fuse_dispatch(xlator_t *xl, gf_async_t *async)
     finh = fasync->finh;
     iobuf = fasync->iobuf;
 
-    priv->fuse_ops[finh->opcode](xl, finh, fasync->msg, iobuf);
+    if (finh->opcode >= FUSE_OP_HIGH)
+        fuse_enosys(xl, finh, NULL, NULL);
+    else
+        priv->fuse_ops[finh->opcode](xl, finh, fasync->msg, iobuf);
 
     iobuf_unref(iobuf);
 }
@@ -6535,70 +6604,6 @@ mem_acct_init(xlator_t *this)
 
     return ret;
 }
-
-static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
-    [FUSE_LOOKUP] = fuse_lookup,
-    [FUSE_FORGET] = fuse_forget,
-    [FUSE_GETATTR] = fuse_getattr,
-    [FUSE_SETATTR] = fuse_setattr,
-    [FUSE_READLINK] = fuse_readlink,
-    [FUSE_SYMLINK] = fuse_symlink,
-    [FUSE_MKNOD] = fuse_mknod,
-    [FUSE_MKDIR] = fuse_mkdir,
-    [FUSE_UNLINK] = fuse_unlink,
-    [FUSE_RMDIR] = fuse_rmdir,
-    [FUSE_RENAME] = fuse_rename,
-    [FUSE_LINK] = fuse_link,
-    [FUSE_OPEN] = fuse_open,
-    [FUSE_READ] = fuse_readv,
-    [FUSE_WRITE] = fuse_write,
-    [FUSE_STATFS] = fuse_statfs,
-    [FUSE_RELEASE] = fuse_release,
-    [FUSE_FSYNC] = fuse_fsync,
-    [FUSE_SETXATTR] = fuse_setxattr,
-    [FUSE_GETXATTR] = fuse_getxattr,
-    [FUSE_LISTXATTR] = fuse_listxattr,
-    [FUSE_REMOVEXATTR] = fuse_removexattr,
-    [FUSE_FLUSH] = fuse_flush,
-    [FUSE_INIT] = fuse_init,
-    [FUSE_OPENDIR] = fuse_opendir,
-    [FUSE_READDIR] = fuse_readdir,
-    [FUSE_RELEASEDIR] = fuse_releasedir,
-    [FUSE_FSYNCDIR] = fuse_fsyncdir,
-    [FUSE_GETLK] = fuse_getlk,
-    [FUSE_SETLK] = fuse_setlk,
-    [FUSE_SETLKW] = fuse_setlk,
-    [FUSE_ACCESS] = fuse_access,
-    [FUSE_CREATE] = fuse_create,
-    [FUSE_INTERRUPT] = fuse_interrupt,
-    /* [FUSE_BMAP] */
-    [FUSE_DESTROY] = fuse_destroy,
-/* [FUSE_IOCTL] */
-/* [FUSE_POLL] */
-/* [FUSE_NOTIFY_REPLY] */
-
-#if FUSE_KERNEL_MINOR_VERSION >= 16
-    [FUSE_BATCH_FORGET] = fuse_batch_forget,
-#endif
-
-#if FUSE_KERNEL_MINOR_VERSION >= 19
-#ifdef FALLOC_FL_KEEP_SIZE
-    [FUSE_FALLOCATE] = fuse_fallocate,
-#endif /* FALLOC_FL_KEEP_SIZE */
-#endif
-
-#if FUSE_KERNEL_MINOR_VERSION >= 21
-    [FUSE_READDIRPLUS] = fuse_readdirp,
-#endif
-
-#if FUSE_KERNEL_MINOR_VERSION >= 24 && HAVE_SEEK_HOLE
-    [FUSE_LSEEK] = fuse_lseek,
-#endif
-
-#if FUSE_KERNEL_MINOR_VERSION >= 28
-    [FUSE_COPY_FILE_RANGE] = fuse_copy_file_range,
-#endif
-};
 
 static fuse_handler_t *fuse_dump_ops[FUSE_OP_HIGH];
 
