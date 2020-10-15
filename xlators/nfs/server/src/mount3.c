@@ -59,8 +59,8 @@ const char *netgroups_file_path = GLUSTERD_DEFAULT_WORKDIR "/nfs/netgroups";
 
 typedef ssize_t (*mnt3_serializer)(struct iovec outmsg, void *args);
 
-extern void *
-mount3udp_thread(void *argv);
+extern int32_t
+mount3udp_register(xlator_t *nfsx);
 
 static void
 mnt3_export_free(struct mnt3_export *exp)
@@ -3684,6 +3684,7 @@ static rpcsvc_program_t mnt3prog = {
     .numactors = MOUNT3_PROC_COUNT,
     .min_auth = AUTH_NULL,
     .synctask = _gf_true,
+    .needs_server = false
 };
 
 /**
@@ -4013,7 +4014,6 @@ mnt3svc_init(xlator_t *nfsx)
     dict_t *options = NULL;
     char *portstr = NULL;
     int ret = -1;
-    pthread_t udp_thread;
 
     if (!nfsx || !nfsx->private)
         return NULL;
@@ -4106,11 +4106,11 @@ mnt3svc_init(xlator_t *nfsx)
     }
 
     if (nfs->mount_udp) {
-        ret = gf_thread_create(&udp_thread, NULL, mount3udp_thread, nfsx,
-                               "nfsudp");
-        if (ret) {
-            gf_msg_debug(GF_MNT, GF_LOG_DEBUG, "Thread creation failed");
+        ret = mount3udp_register(nfsx);
+        if (ret < 0) {
+            goto err;
         }
+        mnt3prog.needs_server = true;
     }
     if (options)
         dict_unref(options);

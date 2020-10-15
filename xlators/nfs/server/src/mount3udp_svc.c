@@ -208,31 +208,25 @@ mountudp_program_3(struct svc_req *rqstp, register SVCXPRT *transp)
     return;
 }
 
-void *
-mount3udp_thread(void *argv)
+int32_t
+mount3udp_register(xlator_t *nfsx)
 {
-    xlator_t *nfsx = argv;
     register SVCXPRT *transp = NULL;
 
     GF_ASSERT(nfsx);
-
-    THIS = nfsx;
 
     transp = svcudp_create(RPC_ANYSOCK);
     if (transp == NULL) {
         gf_msg(GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_ERROR,
                "svcudp_create error");
-        return NULL;
+        return -1;
     }
     if (!svc_register(transp, MOUNT_PROGRAM, MOUNT_V3, mountudp_program_3,
                       IPPROTO_UDP)) {
         gf_msg(GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_ERROR,
                "svc_register error");
-        return NULL;
+        return -1;
     }
 
-    svc_run();
-    gf_msg(GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
-           "svc_run returned");
-    return NULL;
+    return 0;
 }

@@ -460,6 +460,7 @@ struct rpcsvc_program {
     gf_boolean_t alive;
 
     gf_boolean_t synctask;
+    bool needs_server; /* Used for NFS services when svc_run() is needed. */
     unsigned long request_queue_status[EVENT_MAX_THREADS / __BITS_PER_LONG];
 };
 

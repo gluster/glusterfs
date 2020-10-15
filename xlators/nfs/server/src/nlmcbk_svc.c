@@ -81,54 +81,47 @@ nlmcbk_program_0(struct svc_req *rqstp, register SVCXPRT *transp)
     return;
 }
 
-void *
-nsm_thread(void *argv)
+int32_t
+nsm_register(xlator_t *nfsx)
 {
-    xlator_t *nfsx = argv;
     register SVCXPRT *transp;
     int ret = 0;
 
     GF_ASSERT(nfsx);
 
-    THIS = nfsx;
-
     ret = pmap_unset(NLMCBK_PROGRAM, NLMCBK_V1);
     if (ret == 0) {
         gf_msg(GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_PMAP_UNSET_FAIL,
                "pmap_unset failed");
-        return NULL;
+        return -1;
     }
     transp = svcudp_create(RPC_ANYSOCK);
     if (transp == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UDP_SERV_FAIL,
                "cannot create udp service.");
-        return NULL;
+        return -1;
     }
     if (!svc_register(transp, NLMCBK_PROGRAM, NLMCBK_V1, nlmcbk_program_0,
                       IPPROTO_UDP)) {
         gf_msg(GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_REG_NLMCBK_FAIL,
                "unable to register (NLMCBK_PROGRAM, "
                "NLMCBK_V0, udp).");
-        return NULL;
+        return -1;
     }
 
     transp = svctcp_create(RPC_ANYSOCK, 0, 0);
     if (transp == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_TCP_SERV_FAIL,
                "cannot create tcp service.");
-        return NULL;
+        return -1;
     }
     if (!svc_register(transp, NLMCBK_PROGRAM, NLMCBK_V1, nlmcbk_program_0,
                       IPPROTO_TCP)) {
         gf_msg(GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_REG_NLMCBK_FAIL,
                "unable to register (NLMCBK_PROGRAM, "
                "NLMCBK_V0, tcp).");
-        return NULL;
+        return -1;
     }
 
-    svc_run();
-    gf_msg(GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
-           "svc_run returned");
-    return NULL;
-    /* NOTREACHED */
+    return 0;
 }

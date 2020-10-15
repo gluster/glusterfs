@@ -32,6 +32,7 @@
 #include "rpcsvc.h"
 #include "nfs-messages.h"
 #include "glusterfs/statedump.h"
+#include <glusterfs/common-utils.h>
 
 #define OPT_SERVER_AUX_GIDS "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT "nfs.server.aux-gid-timeout"
@@ -45,6 +46,41 @@
 static int
 nfs_add_initer(struct list_head *list, nfs_version_initer_t init,
                gf_boolean_t required);
+
+static void *
+nfs_server_thread(void *arg)
+{
+    THIS = arg;
+
+    svc_run();
+
+    gf_msg(GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
+           "svc_run returned");
+
+    return NULL;
+}
+
+static int32_t
+nfs_start_server(xlator_t *xl, struct nfs_state *nfs)
+{
+    int32_t ret = 0;
+
+    /* TODO: Probably this mutex is not necessary to update 'server_running',
+     *       but until this can be 100% determined, it's safer to keep it. */
+    pthread_mutex_lock(&nfs->server_lock);
+
+    if (!nfs->server_running) {
+        ret = gf_thread_create(&nfs->server_thread, NULL, nfs_server_thread,
+                               xl, "nfssvc");
+        if (ret >= 0) {
+            nfs->server_running = true;
+        }
+    }
+
+    pthread_mutex_unlock(&nfs->server_lock);
+
+    return ret;
+}
 
 static int
 nfs_init_version(xlator_t *this, nfs_version_initer_t init,
@@ -80,6 +116,10 @@ nfs_init_version(xlator_t *this, nfs_version_initer_t init,
                 ret = -1;
                 goto err;
             }
+            if (prog->needs_server) {
+                nfs->server_count++;
+            }
+
             version->program = prog;
             found = _gf_true;
             break;
@@ -116,6 +156,11 @@ nfs_init_version(xlator_t *this, nfs_version_initer_t init,
                "Program  %s registration failed", prog->progname);
         goto err;
     }
+
+    if (nfs->server_count > 0) {
+        ret = nfs_start_server(this, nfs);
+    }
+
     ret = 0; /* All well */
 err:
     return ret;
@@ -138,6 +183,9 @@ nfs_deinit_version(struct nfs_state *nfs, nfs_version_initer_t init)
     {
         prog = version->program;
         if (version->init == init) {
+            if (prog->needs_server) {
+                nfs->server_count--;
+            }
             prog = version->program;
             ret = rpcsvc_program_unregister(nfs->rpcsvc, prog);
             if (ret != 0)
@@ -306,6 +354,8 @@ nfs_init_versions(struct nfs_state *nfs, xlator_t *this)
     if ((!nfs) || (!this))
         return -1;
 
+    nfs->server_count = 0;
+
     gf_msg_debug(GF_NFS, 0, "Initing protocol versions");
     versions = &nfs->versions;
     list_for_each_entry_safe(version, tmp, versions, list)
@@ -319,6 +369,10 @@ nfs_init_versions(struct nfs_state *nfs, xlator_t *this)
         if (!prog) {
             ret = -1;
             goto err;
+        }
+
+        if (prog->needs_server) {
+            nfs->server_count++;
         }
 
         version->program = prog;
@@ -353,6 +407,10 @@ nfs_init_versions(struct nfs_state *nfs, xlator_t *this)
             }
 #endif
         }
+    }
+
+    if (nfs->server_count > 0) {
+        ret = nfs_start_server(this, nfs);
     }
 
     ret = 0;
@@ -1054,6 +1112,8 @@ nfs_init_state(xlator_t *this)
             goto free_foppool;
         }
     }
+
+    pthread_mutex_init(&nfs->server_lock, NULL);
 
     GF_OPTION_INIT("nfs.rdirplus", nfs->rdirplus, bool, free_foppool);
 

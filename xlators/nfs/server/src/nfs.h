@@ -11,6 +11,8 @@
 #ifndef __NFS_H__
 #define __NFS_H__
 
+#include <pthread.h>
+
 #include "rpcsvc.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
@@ -101,6 +103,11 @@ struct nfs_state {
     char *rpc_statd_pid_file;
     gf_boolean_t rdirplus;
     uint32_t event_threads;
+
+    pthread_mutex_t server_lock;
+    pthread_t server_thread;
+    uint32_t server_count;
+    bool server_running;
 };
 
 struct nfs_inode_ctx {

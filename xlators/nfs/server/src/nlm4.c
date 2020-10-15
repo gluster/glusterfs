@@ -2552,6 +2552,7 @@ static rpcsvc_program_t nlm4prog = {
     .actors = nlm4svc_actors,
     .numactors = NLM4_PROC_COUNT,
     .min_auth = AUTH_NULL,
+    .needs_server = false
 };
 
 int
@@ -2560,8 +2561,8 @@ nlm4_init_state(xlator_t *nfsx)
     return 0;
 }
 
-extern void *
-nsm_thread(void *argv);
+extern int32_t
+nsm_register(xlator_t *nfsx);
 
 void
 nlm_grace_period_over(void *arg)
@@ -2577,7 +2578,6 @@ nlm4svc_init(xlator_t *nfsx)
     dict_t *options = NULL;
     int ret = -1;
     char *portstr = NULL;
-    pthread_t thr;
     struct timespec timeout = {
         0,
     };
@@ -2715,7 +2715,12 @@ nlm4svc_init(xlator_t *nfsx)
         goto err;
     }
 
-    (void)gf_thread_create(&thr, NULL, nsm_thread, nfsx, "nfsnsm");
+    ret = nsm_register(nfsx);
+    if (ret < 0) {
+        goto err;
+    }
+
+    nlm4prog.needs_server = true;
 
     timeout.tv_sec = nlm_grace_period;
     timeout.tv_nsec = 0;
