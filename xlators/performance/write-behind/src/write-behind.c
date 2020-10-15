@@ -3029,6 +3029,7 @@ reconfigure(xlator_t *this, dict_t *options)
 {
     wb_conf_t *conf = NULL;
     int ret = -1;
+    bool pass_through;
 
     conf = this->private;
 
@@ -3047,6 +3048,14 @@ reconfigure(xlator_t *this, dict_t *options)
                      options, bool, out);
     GF_OPTION_RECONF("resync-failed-syncs-after-fsync",
                      conf->resync_after_fsync, options, bool, out);
+
+    GF_OPTION_RECONF("pass-through", pass_through, options, bool, out);
+    if (pass_through != this->pass_through) {
+        gf_msg(this->name, GF_LOG_WARNING, ENOTSUP,
+               WRITE_BEHIND_MSG_PASSTHROUGH,
+               "pass-through option cannot be changed online. The new value "
+               "will be used on next mount");
+    }
 
     ret = 0;
 out:
@@ -3115,6 +3124,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("resync-failed-syncs-after-fsync", conf->resync_after_fsync,
                    bool, out);
 
+    GF_OPTION_INIT("pass-through", this->pass_through, bool, out);
+
     this->private = conf;
     ret = 0;
 
@@ -3179,6 +3190,15 @@ struct volume_options options[] = {
         .description = "enable/disable write-behind",
         .op_version = {GD_OP_VERSION_6_0},
         .flags = OPT_FLAG_SETTABLE,
+    },
+    {
+        .key = {"pass-through"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "false",
+        .op_version = {GD_OP_VERSION_9_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+        .tags = {"write-behind"},
+        .description = "Enable/disable write-behind pass-through"
     },
     {.key = {"flush-behind"},
      .type = GF_OPTION_TYPE_BOOL,
