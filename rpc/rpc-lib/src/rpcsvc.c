@@ -362,11 +362,12 @@ err:
 /* this procedure can only pass 4 arguments to registered notifyfn. To send more
  * arguments call wrapper->notify directly.
  */
-static void
+static int
 rpcsvc_program_notify(rpcsvc_listener_t *listener, rpcsvc_event_t event,
                       void *data)
 {
     rpcsvc_notify_wrapper_t *wrapper = NULL;
+    int ret = 0;
 
     if (!listener) {
         goto out;
@@ -375,12 +376,12 @@ rpcsvc_program_notify(rpcsvc_listener_t *listener, rpcsvc_event_t event,
     list_for_each_entry(wrapper, &listener->svc->notify, list)
     {
         if (wrapper->notify) {
-            wrapper->notify(listener->svc, wrapper->data, event, data);
+            ret = wrapper->notify(listener->svc, wrapper->data, event, data);
         }
     }
 
 out:
-    return;
+    return ret;
 }
 
 static int
@@ -395,8 +396,7 @@ rpcsvc_accept(rpcsvc_t *svc, rpc_transport_t *listen_trans,
         goto out;
     }
 
-    rpcsvc_program_notify(listener, RPCSVC_EVENT_ACCEPT, new_trans);
-    ret = 0;
+    ret = rpcsvc_program_notify(listener, RPCSVC_EVENT_ACCEPT, new_trans);
 out:
     return ret;
 }

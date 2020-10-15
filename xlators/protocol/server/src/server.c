@@ -565,9 +565,10 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
         default:
             break;
     }
-
+    ret = 0;
 out:
-    return 0;
+    /* Only case when ret == -1 is the initial validation */
+    return ret;
 }
 
 void *
