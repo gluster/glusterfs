@@ -5,7 +5,7 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
-SCRIPT_TIMEOUT=600
+SCRIPT_TIMEOUT=900
 
 ### Basic Non-root geo-rep setup test with Distribute Replicate volumes
 
