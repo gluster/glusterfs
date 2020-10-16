@@ -107,9 +107,14 @@ ioc_update_pages(call_frame_t *frame, ioc_inode_t *ioc_inode,
 
                 if ((trav_offset + ioc_inode->table->page_size) >=
                     rounded_end) {
-                    page_end = trav->size - (rounded_end - (offset + size));
+                    page_end = offset + size - trav_offset;
                 } else {
-                    page_end = trav->size;
+                    page_end = ioc_inode->table->page_size;
+                }
+                if ((size_t)page_end > trav->size) {  //this trav is the last one caching file tail
+                    trav->ready = 0;
+                    ioc_inode->table->cache_used -= __ioc_page_destroy(trav);
+                    break;
                 }
 
                 iov_range_copy(trav->vector, trav->count, page_offset, vector,
