@@ -434,6 +434,7 @@ gf_openlog(const char *ident, int option, int facility)
 {
     int _option = option;
     int _facility = facility;
+    char *language = NULL;
 
     if (-1 == _option) {
         _option = LOG_PID | LOG_NDELAY;
@@ -443,7 +444,10 @@ gf_openlog(const char *ident, int option, int facility)
     }
 
     /* TODO: Should check for errors here and return appropriately */
-    setlocale(LC_ALL, "");
+    language = setlocale(LC_ALL, "en_US.UTF-8");
+    if (!language)
+        setlocale(LC_ALL, "");
+
     setlocale(LC_NUMERIC, "C"); /* C-locale for strtod, ... */
     /* close the previous syslog if open as we are changing settings */
     closelog();
