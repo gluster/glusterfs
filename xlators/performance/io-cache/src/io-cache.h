@@ -223,9 +223,9 @@ ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset, size_t size,
 
 #define ioc_inode_unlock(ioc_inode)                                            \
     do {                                                                       \
+        pthread_mutex_unlock(&ioc_inode->inode_lock);                          \
         gf_msg_trace(ioc_inode->table->xl->name, 0, "unlocked inode(%p)",      \
                      ioc_inode);                                               \
-        pthread_mutex_unlock(&ioc_inode->inode_lock);                          \
     } while (0)
 
 #define ioc_table_lock(table)                                                  \
@@ -236,8 +236,8 @@ ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset, size_t size,
 
 #define ioc_table_unlock(table)                                                \
     do {                                                                       \
-        gf_msg_trace(table->xl->name, 0, "unlocked table(%p)", table);         \
         pthread_mutex_unlock(&table->table_lock);                              \
+        gf_msg_trace(table->xl->name, 0, "unlocked table(%p)", table);         \
     } while (0)
 
 #define ioc_local_lock(local)                                                  \
@@ -249,23 +249,9 @@ ioc_frame_fill(ioc_page_t *page, call_frame_t *frame, off_t offset, size_t size,
 
 #define ioc_local_unlock(local)                                                \
     do {                                                                       \
+        pthread_mutex_unlock(&local->local_lock);                              \
         gf_msg_trace(local->inode->table->xl->name, 0, "unlocked local(%p)",   \
                      local);                                                   \
-        pthread_mutex_unlock(&local->local_lock);                              \
-    } while (0)
-
-#define ioc_page_lock(page)                                                    \
-    do {                                                                       \
-        gf_msg_trace(page->inode->table->xl->name, 0, "locked page(%p)",       \
-                     page);                                                    \
-        pthread_mutex_lock(&page->page_lock);                                  \
-    } while (0)
-
-#define ioc_page_unlock(page)                                                  \
-    do {                                                                       \
-        gf_msg_trace(page->inode->table->xl->name, 0, "unlocked page(%p)",     \
-                     page);                                                    \
-        pthread_mutex_unlock(&page->page_lock);                                \
     } while (0)
 
 ioc_inode_t *
