@@ -514,6 +514,7 @@ struct gf_defrag_info_ {
     int waiting_workers_empty;
     bool is_rebelance_terminate;
     rebalance_dir_container rebalance_dirs;
+    gf_atomic_t free_scanner_threads;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;

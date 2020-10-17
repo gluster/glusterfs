@@ -3557,10 +3557,14 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     return 0;
 }
 
+__thread pthread_t scanner_tid;
+
 /* This method performs a readdir operation on the dir specified by loc.
- * All dirs that are found are added to a queue to be processed by other
- * worker threads.
- * Entries are taken of of the qeue by worker threads in gf_worker_defrag.
+ * When finding a dir entry, the thread will check if there are other worker
+ * thread who are available to process this dir, if yes - the dir entry will
+ * be added to a dirs queue, if not - the worker thread will process the next
+ * dir by himself, recursively.
+ * Entries are taken of of the queue by worker threads in gf_worker_defrag.
  */
 int
 gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
@@ -3581,6 +3585,7 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     dht_conf_t *conf = NULL;
     int perrno = 0;
     rebalance_dir_container *dir_container = NULL;
+    int free_scanner_threads = 0;
 
     conf = this->private;
 
@@ -3793,8 +3798,12 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             dir_container->dir_entry = entry_loc;
 
             pthread_mutex_lock(&defrag->list_lock); /* Lock */
-            {
-                /* Add an entry to the queue */
+
+            /* Check the number of available workers */
+            free_scanner_threads = GF_ATOMIC_GET(defrag->free_scanner_threads);
+
+            if (free_scanner_threads > 0) {
+                /* There's an available worker - Add an entry to the queue */
                 list_add_tail(&(dir_container->list),
                               &(defrag->rebalance_dirs.list));
 
@@ -3802,8 +3811,37 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                     sem_post(&defrag->rebelance_sem_workers_empty);
                     --defrag->waiting_workers_empty;
                 }
+
+                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+            } else {
+                /* There's no available worker - process the dir yourself */
+                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_REBALANCE_SCANNER_MSG,
+                       "Scanner thread %lu is starting processing of dir %s "
+                       "recursively",
+                       scanner_tid, loc->path);
+
+                ret = gf_defrag_scan_dir(this, defrag, entry_loc, rebal_dict,
+                                         migrate_data);
+
+                if (ret) {
+                    pthread_mutex_lock(&defrag->list_lock); /* Lock */
+                    {
+                        GF_ATOMIC_INC(defrag->total_failures);
+
+                        if (conf->decommission_in_progress)
+                            defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                    }
+                    pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
+                }
+
+                /* Wipe and deallocate allocated resources */
+                loc_wipe(entry_loc);
+                GF_FREE(entry_loc);
+                GF_FREE(dir_container);
             }
-            pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
 
             entry_loc = NULL;
             dir_container = NULL;
@@ -3862,7 +3900,7 @@ out:
 typedef struct {
     xlator_t *this;
     gf_defrag_info_t *defrag;
-    dict_t *fix_layout;
+    dict_t *rebal_dict;
     dict_t *migrate_data;
     int rebalance_scanner_threads;
 } rebalance_info;
@@ -3882,7 +3920,7 @@ gf_worker_defrag(void *info)
     rebalance_info *rebalance_info_ptr = NULL;
     xlator_t *this = NULL;
     gf_defrag_info_t *defrag = NULL;
-    dict_t *fix_layout = NULL;
+    dict_t *rebal_dict = NULL;
     dict_t *migrate_data = NULL;
     rebalance_dir_container *dir_container = NULL;
     loc_t *loc = NULL;
@@ -3896,14 +3934,19 @@ gf_worker_defrag(void *info)
 
     this = rebalance_info_ptr->this;
     defrag = rebalance_info_ptr->defrag;
-    fix_layout = rebalance_info_ptr->fix_layout;
+    rebal_dict = rebalance_info_ptr->rebal_dict;
     migrate_data = rebalance_info_ptr->migrate_data;
     rebalance_scanner_threads = rebalance_info_ptr->rebalance_scanner_threads;
 
     conf = this->private;
 
+    scanner_tid = pthread_self();
+
     old_THIS = THIS;
     THIS = this;
+
+    /* Mark all workers as available before starting main loop */
+    GF_ATOMIC_INC(defrag->free_scanner_threads);
 
     while (true) {
         pthread_mutex_lock(&defrag->list_lock); /* Lock */
@@ -3916,10 +3959,23 @@ gf_worker_defrag(void *info)
             loc = dir_container->dir_entry;
             list_del(&dir_container->list);
 
+            /* Worker is about to start processing a dir -Reduce the number of
+             * available workers */
+            GF_ATOMIC_DEC(defrag->free_scanner_threads);
+
             pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
 
-            ret = gf_defrag_scan_dir(this, defrag, loc, fix_layout,
+            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_REBALANCE_SCANNER_MSG,
+                   "Scanner thread %lu is starting processing of dir %s "
+                   "iteratively",
+                   scanner_tid, loc->path);
+
+            ret = gf_defrag_scan_dir(this, defrag, loc, rebal_dict,
                                      migrate_data);
+
+            /* Worker is done processing a dir -Increase the number of
+             * available workers */
+            GF_ATOMIC_INC(defrag->free_scanner_threads);
 
             if (ret) {
                 pthread_mutex_lock(&defrag->list_lock); /* Lock */
@@ -3936,8 +3992,7 @@ gf_worker_defrag(void *info)
                 pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
             }
 
-            /* Wipe the loc_t struct and deallocate it and the container struct
-             */
+            /* Wipe and deallocate allocated resources */
             loc_wipe(loc);
             GF_FREE(loc);
             GF_FREE(dir_container);
@@ -3991,7 +4046,7 @@ gf_worker_defrag(void *info)
  */
 int
 gf_defrag_crawl_fs(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
-                   dict_t *fix_layout, dict_t *migrate_data)
+                   dict_t *rebal_dict, dict_t *migrate_data)
 {
     pthread_t *rebalance_threads = NULL;
     rebalance_info *info = NULL;
@@ -4013,7 +4068,7 @@ gf_defrag_crawl_fs(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
     info->this = this;
     info->defrag = defrag;
-    info->fix_layout = fix_layout;
+    info->rebal_dict = rebal_dict;
     info->migrate_data = migrate_data;
     info->rebalance_scanner_threads = rebalance_scanner_threads;
 
@@ -4046,16 +4101,13 @@ gf_defrag_crawl_fs(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                (void *)info, "dhtscnr%d", i);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, ret, 0,
-                   "Rebalance worker thread[%d] creation failed. ", i);
+                   "Rebalance scanner thread[%d] creation failed. ", i);
             return -1;
         } else {
             gf_log(this->name, GF_LOG_INFO,
-                   "Rebalance worker thread[[%d] creation successful", i);
+                   "Rebalance scanner thread[[%d] creation successful", i);
         }
     }
-
-    /* Join the fun and scan the FS */
-    gf_worker_defrag(info);
 
     /* Wait for all workers to join */
     for (i = 0; i < rebalance_scanner_threads; ++i) {

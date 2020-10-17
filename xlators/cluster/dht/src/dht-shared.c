@@ -688,6 +688,7 @@ dht_init(xlator_t *this)
         defrag->waiting_workers_empty = 0;
         defrag->is_rebelance_terminate = false;
         GF_ATOMIC_INIT(defrag->total_failures, 0);
+        GF_ATOMIC_INIT(defrag->free_scanner_threads, 0);
 
         pthread_mutex_init(&defrag->dfq_mutex, 0);
         pthread_mutex_init(&defrag->list_lock, NULL);
