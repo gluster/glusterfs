@@ -25,6 +25,9 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 #------------------------------------------------------------
 
+#Run lookup to create a layout
+TEST ls $M0/
+
 # Test case 1 - Subvolume down + Healing
 #------------------------------------------------------------
 # Kill 2nd brick process
