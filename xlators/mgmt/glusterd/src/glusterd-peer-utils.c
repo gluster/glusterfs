@@ -249,14 +249,14 @@ glusterd_hostname_to_uuid(char *hostname, uuid_t uuid)
     priv = this->private;
     GF_ASSERT(priv);
 
-    peerinfo = glusterd_peerinfo_find_by_hostname(hostname);
-    if (peerinfo) {
+    if (glusterd_gf_is_local_addr(hostname)) {
+        gf_uuid_copy(uuid, MY_UUID);
         ret = 0;
-        gf_uuid_copy(uuid, peerinfo->uuid);
     } else {
-        if (gf_is_local_addr(hostname)) {
-            gf_uuid_copy(uuid, MY_UUID);
+        peerinfo = glusterd_peerinfo_find_by_hostname(hostname);
+        if (peerinfo) {
             ret = 0;
+            gf_uuid_copy(uuid, peerinfo->uuid);
         } else {
             ret = -1;
         }

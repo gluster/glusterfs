@@ -405,7 +405,7 @@ check_host_list(void)
     /* Hostlist is a comma separated list now */
     hostname = strtok(hostlist, ",");
     while (hostname != NULL) {
-        ret = gf_is_local_addr(hostname);
+        ret = glusterd_gf_is_local_addr(hostname);
         if (ret) {
             gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_NFS_GNS_HOST_FOUND,
                    "ganesha host found "

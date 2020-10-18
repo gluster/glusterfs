@@ -86,6 +86,11 @@ typedef struct glusterd_dict_ctx_ {
     char *prefix;
 } glusterd_dict_ctx_t;
 
+typedef struct glusterd_hostname_ {
+    char *hostname;
+    struct cds_list_head hostname_list;
+} glusterd_hostname_t;
+
 gf_boolean_t
 is_brick_mx_enabled(void);
 
@@ -861,5 +866,6 @@ int32_t
 glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
                            char **volname, char **bricks, int32_t *brick_count,
                            int32_t sub_count);
-
+gf_boolean_t
+glusterd_gf_is_local_addr(char *hostname);
 #endif
