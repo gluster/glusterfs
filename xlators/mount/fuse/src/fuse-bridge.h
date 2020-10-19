@@ -25,6 +25,7 @@
 #include <glusterfs/defaults.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/statedump.h>
+#include <liburing.h>
 
 #ifdef GF_DARWIN_HOST_OS
 #include "fuse_kernel_macfuse.h"
@@ -211,6 +212,10 @@ struct fuse_private {
     /* counters for fusdev errnos */
     uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
     pthread_mutex_t fusedev_errno_cnt_mutex;
+    /* io_uring */
+    struct io_uring ring;
+    pthread_mutex_t sq_mutex;
+    pthread_mutex_t cq_mutex;
 };
 typedef struct fuse_private fuse_private_t;
 

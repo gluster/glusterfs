@@ -23,12 +23,22 @@
 #ifdef __NetBSD__
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
 #endif
+
 typedef struct _fuse_async {
     struct iobuf *iobuf;
     fuse_in_header_t *finh;
     void *msg;
     gf_async_t async;
 } fuse_async_t;
+
+typedef struct fuse_uring_ctx {
+    int count;
+    int free_count;
+    int op;
+    int finh_op;
+    struct iovec *iovec;
+    struct iobuf *iobuf;
+} fuse_uring_ctx_t;
 
 static int gf_fuse_xattr_enotsup_log;
 
@@ -351,11 +361,12 @@ check_and_dump_fuse_W(fuse_private_t *priv, struct iovec *iov_out, int count,
  */
 static int
 send_fuse_iov(xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
-              int count)
+              int count, gf_boolean_t sync)
 {
     fuse_private_t *priv = NULL;
     struct fuse_out_header *fouh = NULL;
     int res, i;
+    fuse_uring_ctx_t *ctx = NULL;
 
     if (!this || !finh || !iov_out) {
         gf_log("send_fuse_iov", GF_LOG_ERROR, "Invalid arguments");
@@ -370,33 +381,108 @@ send_fuse_iov(xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
         fouh->len += iov_out[i].iov_len;
     fouh->unique = finh->unique;
 
-    res = sys_writev(priv->fd, iov_out, count);
-    gf_log("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s", res,
-           fouh->len, res == -1 ? strerror(errno) : "");
+    if (sync) {
+        res = sys_writev(priv->fd, iov_out, count);
+        gf_log("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s", res,
+               fouh->len, res == -1 ? strerror(errno) : "");
+    } else {
+        struct io_uring_sqe *sqe = NULL;
 
+        ctx = GF_MALLOC(sizeof(*ctx), gf_fuse_mt_uring_ctx);
+        if (!ctx) {
+            res = -ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Failed to allocate memory, %d",
+                   res);
+            goto err;
+        }
+
+        pthread_mutex_lock(&priv->sq_mutex);
+        {
+            sqe = io_uring_get_sqe(&priv->ring);
+            if (!sqe) {
+                pthread_mutex_unlock(&priv->sq_mutex);
+                gf_log("this->name", GF_LOG_ERROR,
+                       "Failed to get the submission queue for ring. Increase "
+                       "queue "
+                       "depth");
+                res = -1;
+                goto err;
+            }
+
+            io_uring_prep_writev(sqe, priv->fd, iov_out, count, /* offset */ 0);
+
+            sqe->flags |= IOSQE_ASYNC;
+            ctx->iovec = iov_out;
+            ctx->count = count;
+            ctx->op = FUSE_WRITE;
+            ctx->finh_op = finh->opcode;
+            if (finh->opcode == FUSE_READ)
+                ctx->free_count = count - 1;
+            else
+                ctx->free_count = count;
+
+            io_uring_sqe_set_data(sqe, ctx);
+
+            res = io_uring_submit(&priv->ring);
+            if (res < 0) {
+                pthread_mutex_unlock(&priv->sq_mutex);
+                gf_log("this->name", GF_LOG_ERROR,
+                       "Failed to submit the request to wr_ring, ret = %d",
+                       res);
+                goto err;
+            }
+        }
+        pthread_mutex_unlock(&priv->sq_mutex);
+        return 0;
+    }
+
+err:
+    if (ctx)
+        GF_FREE(ctx);
     return check_and_dump_fuse_W(priv, iov_out, count, res, NULL);
 }
 
 static int
 send_fuse_data(xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
 {
-    struct fuse_out_header fouh = {
-        0,
-    };
-    struct iovec iov_out[2];
     int ret = 0;
+    struct iovec *iov_out = NULL;
 
-    fouh.error = 0;
-    iov_out[0].iov_base = &fouh;
+    struct fuse_out_header *fouh = GF_MALLOC(sizeof(*fouh),
+                                             gf_fuse_mt_out_header_t);
+    if (!fouh) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    iov_out = GF_MALLOC(sizeof(*iov_out) * 2, gf_fuse_mt_iovec);
+    if (!iov_out) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    fouh->error = 0;
+    iov_out[0].iov_base = fouh;
     iov_out[1].iov_base = data;
     iov_out[1].iov_len = size;
 
-    ret = send_fuse_iov(this, finh, iov_out, 2);
-    if (ret != 0)
+    ret = send_fuse_iov(this, finh, iov_out, 2, false);
+    if (ret != 0) {
         gf_log("glusterfs-fuse", GF_LOG_ERROR,
                "send_fuse_iov() "
                "failed: %s",
                strerror(ret));
+        goto out;
+    }
+
+out:
+    if (ret) {
+        if (fouh)
+            GF_FREE(fouh);
+        if (data)
+            GF_FREE(data);
+        if (iov_out)
+            GF_FREE(iov_out);
+    }
 
     return ret;
 }
@@ -981,7 +1067,7 @@ send_fuse_err(xlator_t *this, fuse_in_header_t *finh, int error)
     if (inode)
         inode_unref(inode);
 
-    return send_fuse_iov(this, finh, &iov_out, 1);
+    return send_fuse_iov(this, finh, &iov_out, 1, true);
 }
 
 static int
@@ -991,9 +1077,6 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
-    struct fuse_entry_out feo = {
-        0,
-    };
     fuse_private_t *priv = NULL;
     inode_t *linked_inode = NULL;
     uint64_t ctx_value = LOOKUP_NOT_NEEDED;
@@ -1001,6 +1084,16 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     priv = this->private;
     state = frame->root->state;
     finh = state->finh;
+
+    struct fuse_entry_out *feo = GF_MALLOC(sizeof(*feo),
+                                           gf_fuse_mt_entry_out_t);
+    if (!feo) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+        send_fuse_err(this, finh, op_errno);
+        goto out;
+    }
 
     if (op_ret == 0) {
         if (__is_root_gfid(state->loc.inode->gfid))
@@ -1034,7 +1127,7 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op], state->loc.path, buf->ia_ino);
 
         buf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(buf, &feo.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(buf, &feo->attr, priv->enable_ino32);
 
         if (!buf->ia_ino) {
             gf_log("glusterfs-fuse", GF_LOG_WARNING,
@@ -1052,21 +1145,21 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode_lookup(linked_inode);
 
-        feo.nodeid = inode_to_fuse_nodeid(linked_inode);
+        feo->nodeid = inode_to_fuse_nodeid(linked_inode);
 
         inode_unref(linked_inode);
 
-        feo.entry_valid = calc_timeout_sec(priv->entry_timeout);
-        feo.entry_valid_nsec = calc_timeout_nsec(priv->entry_timeout);
-        feo.attr_valid = calc_timeout_sec(priv->attribute_timeout);
-        feo.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
+        feo->entry_valid = calc_timeout_sec(priv->entry_timeout);
+        feo->entry_valid_nsec = calc_timeout_nsec(priv->entry_timeout);
+        feo->attr_valid = calc_timeout_sec(priv->attribute_timeout);
+        feo->attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
 
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         priv->proto_minor >= 9
-            ? send_fuse_obj(this, finh, &feo)
-            : send_fuse_data(this, finh, &feo, FUSE_COMPAT_ENTRY_OUT_SIZE);
+            ? send_fuse_obj(this, finh, feo)
+            : send_fuse_data(this, finh, feo, FUSE_COMPAT_ENTRY_OUT_SIZE);
 #else
-        send_fuse_obj(this, finh, &feo);
+        send_fuse_obj(this, finh, feo);
 #endif
     } else {
         gf_log("glusterfs-fuse",
@@ -1076,14 +1169,16 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                strerror(op_errno));
 
         if ((op_errno == ENOENT) && (priv->negative_timeout != 0)) {
-            feo.entry_valid = calc_timeout_sec(priv->negative_timeout);
-            feo.entry_valid_nsec = calc_timeout_nsec(priv->negative_timeout);
-            send_fuse_obj(this, finh, &feo);
+            feo->entry_valid = calc_timeout_sec(priv->negative_timeout);
+            feo->entry_valid_nsec = calc_timeout_nsec(priv->negative_timeout);
+            send_fuse_obj(this, finh, feo);
         } else {
+            GF_FREE(feo);
             send_fuse_err(this, state->finh, op_errno);
         }
     }
 
+out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
     return 0;
@@ -1271,7 +1366,6 @@ fuse_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state;
     fuse_in_header_t *finh;
     fuse_private_t *priv = NULL;
-    struct fuse_attr_out fao;
 
     priv = this->private;
     state = frame->root->state;
@@ -1280,23 +1374,32 @@ fuse_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
     if (op_ret == 0) {
+        struct fuse_attr_out *fao = GF_MALLOC(sizeof(*fao),
+                                              gf_fuse_mt_attr_out_t);
+        if (!fao) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+            send_fuse_err(this, finh, op_errno);
+            goto out;
+        }
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "%" PRIu64 ": %s() %s => %" PRIu64, frame->root->unique,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", prebuf->ia_ino);
 
         postbuf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(postbuf, &fao.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(postbuf, &fao->attr, priv->enable_ino32);
 
-        fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
-        fao.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
+        fao->attr_valid = calc_timeout_sec(priv->attribute_timeout);
+        fao->attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
 
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         priv->proto_minor >= 9
-            ? send_fuse_obj(this, finh, &fao)
-            : send_fuse_data(this, finh, &fao, FUSE_COMPAT_ATTR_OUT_SIZE);
+            ? send_fuse_obj(this, finh, fao)
+            : send_fuse_data(this, finh, fao, FUSE_COMPAT_ATTR_OUT_SIZE);
 #else
-        send_fuse_obj(this, finh, &fao);
+        send_fuse_obj(this, finh, fao);
 #endif
     } else {
         gf_log("glusterfs-fuse", GF_LOG_WARNING,
@@ -1311,6 +1414,7 @@ fuse_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         send_fuse_err(this, finh, op_errno);
     }
 
+out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -1330,7 +1434,6 @@ fuse_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     fuse_state_t *state;
     fuse_in_header_t *finh;
     fuse_private_t *priv = NULL;
-    struct fuse_attr_out fao;
 
     priv = this->private;
     state = frame->root->state;
@@ -1344,23 +1447,33 @@ fuse_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 gf_fop_list[frame->root->op], state->loc.path,
                 state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : "");
     if (op_ret == 0) {
+        struct fuse_attr_out *fao = GF_MALLOC(sizeof(*fao),
+                                              gf_fuse_mt_attr_out_t);
+        if (!fao) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Failed to allocate memory, %d",
+                   op_errno);
+            send_fuse_err(this, finh, op_errno);
+            goto out;
+        }
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "%" PRIu64 ": %s() %s => %" PRIu64, frame->root->unique,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", buf->ia_ino);
 
         buf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(buf, &fao.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(buf, &fao->attr, priv->enable_ino32);
 
-        fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
-        fao.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
+        fao->attr_valid = calc_timeout_sec(priv->attribute_timeout);
+        fao->attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
 
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         priv->proto_minor >= 9
-            ? send_fuse_obj(this, finh, &fao)
-            : send_fuse_data(this, finh, &fao, FUSE_COMPAT_ATTR_OUT_SIZE);
+            ? send_fuse_obj(this, finh, fao)
+            : send_fuse_data(this, finh, fao, FUSE_COMPAT_ATTR_OUT_SIZE);
 #else
-        send_fuse_obj(this, finh, &fao);
+        send_fuse_obj(this, finh, fao);
 #endif
     } else {
         /* This is moved here from fuse_getattr(). It makes sense as
@@ -1405,6 +1518,7 @@ fuse_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         send_fuse_err(this, finh, op_errno);
     }
 
+out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -1561,9 +1675,6 @@ fuse_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     fuse_in_header_t *finh = NULL;
     fuse_private_t *priv = NULL;
     int32_t ret = 0;
-    struct fuse_open_out foo = {
-        0,
-    };
 
     priv = this->private;
     state = frame->root->state;
@@ -1572,14 +1683,22 @@ fuse_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
     if (op_ret >= 0) {
-        foo.fh = (uintptr_t)fd;
-        foo.open_flags = 0;
+        struct fuse_open_out *foo = GF_MALLOC(sizeof(*foo),
+                                              gf_fuse_mt_open_out_t);
+        if (!foo) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of Memory");
+            goto err;
+        }
+        foo->fh = (uintptr_t)fd;
+        foo->open_flags = 0;
 
         if (!IA_ISDIR(fd->inode->ia_type)) {
             if (((priv->direct_io_mode == 2) &&
                  ((state->flags & O_ACCMODE) != O_RDONLY)) ||
                 (priv->direct_io_mode == 1) || (direct_io_mode(xdata)))
-                foo.open_flags |= FOPEN_DIRECT_IO;
+                foo->open_flags |= FOPEN_DIRECT_IO;
 #ifdef GF_DARWIN_HOST_OS
             /* In Linux: by default, buffer cache
              * is purged upon open, setting
@@ -1592,7 +1711,7 @@ fuse_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              * [[Interesting...]]
              */
             if (!priv->fopen_keep_cache)
-                foo.open_flags |= FOPEN_PURGE_UBC;
+                foo->open_flags |= FOPEN_PURGE_UBC;
 #else
             /*
              * If fopen-keep-cache is enabled, we set the associated
@@ -1601,7 +1720,7 @@ fuse_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              * when the cache is set invalid on the inode.
              */
             if (priv->fopen_keep_cache)
-                foo.open_flags |= FOPEN_KEEP_CACHE;
+                foo->open_flags |= FOPEN_KEEP_CACHE;
 #endif
         }
 
@@ -1609,7 +1728,7 @@ fuse_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                frame->root->unique, gf_fop_list[frame->root->op],
                state->loc.path, fd);
 
-        ret = fuse_fd_inherit_directio(this, fd, &foo);
+        ret = fuse_fd_inherit_directio(this, fd, foo);
         if (ret < 0) {
             op_errno = -ret;
             gf_log("glusterfs-fuse", GF_LOG_WARNING,
@@ -1617,13 +1736,15 @@ fuse_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                    "(ptr:%p inode-gfid:%s) from fds already "
                    "opened",
                    fd, uuid_utoa(fd->inode->gfid));
+            GF_FREE(foo);
             goto err;
         }
 
-        if (send_fuse_obj(this, finh, &foo) == ENOENT) {
+        if (send_fuse_obj(this, finh, foo) == ENOENT) {
             gf_log("glusterfs-fuse", GF_LOG_DEBUG, "open(%s) got EINTR",
                    state->loc.path);
             gf_fd_put(priv->fdtable, state->fd_no);
+            GF_FREE(foo);
             goto out;
         }
 
@@ -1673,7 +1794,6 @@ fuse_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state;
     fuse_in_header_t *finh;
     fuse_private_t *priv = NULL;
-    struct fuse_attr_out fao;
 
     int op_done = 0;
 
@@ -1690,29 +1810,40 @@ fuse_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 state->loc.inode ? uuid_utoa(state->loc.inode->gfid) : "");
 
     if (op_ret == 0) {
-        gf_log("glusterfs-fuse", GF_LOG_TRACE,
-               "%" PRIu64 ": %s() %s => %" PRIu64, frame->root->unique,
-               gf_fop_list[frame->root->op],
-               state->loc.path ? state->loc.path : "ERR", statpost->ia_ino);
-
-        statpost->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(statpost, &fao.attr, priv->enable_ino32);
-
-        fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
-        fao.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
-
         if (state->truncate_needed) {
             fuse_do_truncate(state);
         } else {
+            struct fuse_attr_out *fao = GF_MALLOC(sizeof(*fao),
+                                                  gf_fuse_mt_attr_out_t);
+            if (!fao) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                gf_log("this->name", GF_LOG_ERROR,
+                       "Failed to allocate memory, %d", op_errno);
+                send_fuse_err(this, finh, op_errno);
+                goto out;
+            }
+            gf_log("glusterfs-fuse", GF_LOG_TRACE,
+                   "%" PRIu64 ": %s() %s => %" PRIu64, frame->root->unique,
+                   gf_fop_list[frame->root->op],
+                   state->loc.path ? state->loc.path : "ERR", statpost->ia_ino);
+
+            statpost->ia_blksize = this->ctx->page_size;
+            gf_fuse_stat2attr(statpost, &fao->attr, priv->enable_ino32);
+
+            fao->attr_valid = calc_timeout_sec(priv->attribute_timeout);
+            fao->attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
+
 #if FUSE_KERNEL_MINOR_VERSION >= 9
             priv->proto_minor >= 9
-                ? send_fuse_obj(this, finh, &fao)
-                : send_fuse_data(this, finh, &fao, FUSE_COMPAT_ATTR_OUT_SIZE);
+                ? send_fuse_obj(this, finh, fao)
+                : send_fuse_data(this, finh, fao, FUSE_COMPAT_ATTR_OUT_SIZE);
 #else
-            send_fuse_obj(this, finh, &fao);
+            send_fuse_obj(this, finh, fao);
 #endif
             op_done = 1;
         }
+
     } else {
         gf_log("glusterfs-fuse", GF_LOG_WARNING,
                "%" PRIu64 ": %s() %s => -1 (%s)", frame->root->unique,
@@ -1731,6 +1862,7 @@ fuse_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         free_fuse_state(state);
     }
 
+out:
     STACK_DESTROY(frame->root);
 
     return 0;
@@ -2652,33 +2784,58 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
     fuse_private_t *priv = NULL;
-    struct fuse_out_header fouh = {
-        0,
-    };
-    struct fuse_entry_out feo = {
-        0,
-    };
-    struct fuse_open_out foo = {
-        0,
-    };
-    struct iovec iov_out[3];
     inode_t *linked_inode = NULL;
     uint64_t ctx_value = LOOKUP_NOT_NEEDED;
+    struct fuse_out_header *fouh = NULL;
+    struct fuse_open_out *foo = NULL;
+    struct fuse_entry_out *feo = NULL;
 
     state = frame->root->state;
     priv = this->private;
     finh = state->finh;
-    foo.open_flags = 0;
 
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
     if (op_ret >= 0) {
-        foo.fh = (uintptr_t)fd;
+        fouh = GF_MALLOC(sizeof(*fouh), gf_fuse_mt_out_header_t);
+        if (!fouh) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+            goto out;
+        }
+
+        foo = GF_MALLOC(sizeof(*foo), gf_fuse_mt_open_out_t);
+        if (!foo) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+            goto out;
+        }
+        foo->open_flags = 0;
+
+        feo = GF_MALLOC(sizeof(*feo), gf_fuse_mt_entry_out_t);
+        if (!feo) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+            goto out;
+        }
+
+        struct iovec *iov_out = GF_MALLOC(sizeof(*iov_out) * 3,
+                                          gf_fuse_mt_iovec);
+        if (!iov_out) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+            goto out;
+        }
+        foo->fh = (uintptr_t)fd;
 
         if (((priv->direct_io_mode == 2) &&
              ((state->flags & O_ACCMODE) != O_RDONLY)) ||
             (priv->direct_io_mode == 1) || direct_io_mode(xdata))
-            foo.open_flags |= FOPEN_DIRECT_IO;
+            foo->open_flags |= FOPEN_DIRECT_IO;
 
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "%" PRIu64 ": %s() %s => %p (ino=%" PRIu64 ")",
@@ -2686,7 +2843,7 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                state->loc.path, fd, buf->ia_ino);
 
         buf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(buf, &feo.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(buf, &feo->attr, priv->enable_ino32);
 
         linked_inode = inode_link(inode, state->loc.parent, state->loc.name,
                                   buf);
@@ -2706,31 +2863,33 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode_unref(linked_inode);
 
-        feo.nodeid = inode_to_fuse_nodeid(linked_inode);
+        feo->nodeid = inode_to_fuse_nodeid(linked_inode);
 
-        feo.entry_valid = calc_timeout_sec(priv->entry_timeout);
-        feo.entry_valid_nsec = calc_timeout_nsec(priv->entry_timeout);
-        feo.attr_valid = calc_timeout_sec(priv->attribute_timeout);
-        feo.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
+        feo->entry_valid = calc_timeout_sec(priv->entry_timeout);
+        feo->entry_valid_nsec = calc_timeout_nsec(priv->entry_timeout);
+        feo->attr_valid = calc_timeout_sec(priv->attribute_timeout);
+        feo->attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
 
-        fouh.error = 0;
-        iov_out[0].iov_base = &fouh;
-        iov_out[1].iov_base = &feo;
+        fouh->error = 0;
+        iov_out[0].iov_base = fouh;
+        iov_out[1].iov_base = feo;
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         iov_out[1].iov_len = priv->proto_minor >= 9
-                                 ? sizeof(feo)
+                                 ? sizeof(*feo)
                                  : FUSE_COMPAT_ENTRY_OUT_SIZE;
 #else
-        iov_out[1].iov_len = sizeof(feo);
+        iov_out[1].iov_len = sizeof(*feo);
 #endif
-        iov_out[2].iov_base = &foo;
-        iov_out[2].iov_len = sizeof(foo);
+        iov_out[2].iov_base = foo;
+        iov_out[2].iov_len = sizeof(*foo);
 
-        if (send_fuse_iov(this, finh, iov_out, 3) == ENOENT) {
+        if (send_fuse_iov(this, finh, iov_out, 3, false) == ENOENT) {
             gf_log("glusterfs-fuse", GF_LOG_DEBUG, "create(%s) got EINTR",
                    state->loc.path);
             inode_forget(inode, 1);
             gf_fd_put(priv->fdtable, state->fd_no);
+            op_ret = -1;
+            op_errno = ENOENT;
             goto out;
         }
 
@@ -2747,6 +2906,14 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         gf_fd_put(priv->fdtable, state->fd_no);
     }
 out:
+    if (op_ret < 0) {
+        if (fouh)
+            GF_FREE(fouh);
+        if (foo)
+            GF_FREE(foo);
+        if (feo)
+            GF_FREE(feo);
+    }
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -2939,9 +3106,6 @@ fuse_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
-    struct fuse_out_header fouh = {
-        0,
-    };
     struct iovec *iov_out = NULL;
 
     state = frame->root->state;
@@ -2950,6 +3114,15 @@ fuse_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
     if (op_ret >= 0) {
+        struct fuse_out_header *fouh = GF_MALLOC(sizeof(*fouh),
+                                                 gf_fuse_mt_out_header_t);
+        if (!fouh) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of memory");
+            send_fuse_err(this, finh, ENOMEM);
+            goto out;
+        }
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "%" PRIu64 ": READ => %d/%" GF_PRI_SIZET ",%" PRId64 "/%" PRIu64,
                frame->root->unique, op_ret, state->size, state->off,
@@ -2957,13 +3130,17 @@ fuse_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         iov_out = GF_CALLOC(count + 1, sizeof(*iov_out), gf_fuse_mt_iovec);
         if (iov_out) {
-            fouh.error = 0;
-            iov_out[0].iov_base = &fouh;
+            fouh->error = 0;
+            iov_out[0].iov_base = fouh;
             memcpy(iov_out + 1, vector, count * sizeof(*iov_out));
-            send_fuse_iov(this, finh, iov_out, count + 1);
-            GF_FREE(iov_out);
-        } else
+            send_fuse_iov(this, finh, iov_out, count + 1, false);
+        } else {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            GF_FREE(fouh);
             send_fuse_err(this, finh, ENOMEM);
+            goto out;
+        }
     } else {
         gf_log("glusterfs-fuse", GF_LOG_WARNING,
                "%" PRIu64 ": READ => %d gfid=%s fd=%p (%s)",
@@ -2976,6 +3153,7 @@ fuse_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         send_fuse_err(this, finh, op_errno);
     }
 
+out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -3035,12 +3213,20 @@ fuse_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
-    struct fuse_write_out fwo = {
-        0,
-    };
 
     state = frame->root->state;
     finh = state->finh;
+
+    struct fuse_write_out *fwo = GF_MALLOC(sizeof(*fwo),
+                                           gf_fuse_mt_write_out_t);
+    if (!fwo) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        gf_log("this->name", GF_LOG_ERROR, "Failed to allocate memory, %d",
+               op_errno);
+        send_fuse_err(this, finh, op_errno);
+        goto out;
+    }
 
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
@@ -3051,8 +3237,8 @@ fuse_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                frame->root->unique, op_ret, state->size, state->off,
                stbuf->ia_size);
 
-        fwo.size = op_ret;
-        send_fuse_obj(this, finh, &fwo);
+        fwo->size = op_ret;
+        send_fuse_obj(this, finh, fwo);
     } else {
         gf_log(
             "glusterfs-fuse", GF_LOG_WARNING,
@@ -3064,6 +3250,11 @@ fuse_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         send_fuse_err(this, finh, op_errno);
     }
 
+out:
+    if (op_ret < 0) {
+        if (fwo)
+            GF_FREE(fwo);
+    }
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -3166,15 +3357,23 @@ fuse_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * for the fop. So, just use the fuse_write_out to send the
      * response back to the kernel.
      */
-    struct fuse_write_out fcfro = {
-        0,
-    };
 
     char src_gfid[GF_UUID_BUF_SIZE] = {0};
     char dst_gfid[GF_UUID_BUF_SIZE] = {0};
 
     state = frame->root->state;
     finh = state->finh;
+
+    struct fuse_write_out *fcfro = GF_MALLOC(sizeof(*fcfro),
+                                             gf_fuse_mt_write_out_t);
+    if (!fcfro) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        gf_log("this->name", GF_LOG_ERROR, "Failed to allocate memory, %d",
+               op_errno);
+        send_fuse_err(this, finh, op_errno);
+        goto out;
+    }
 
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
@@ -3185,8 +3384,8 @@ fuse_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                frame->root->unique, op_ret, state->size, state->off_in,
                state->off_out, stbuf->ia_size, postbuf_dst->ia_size);
 
-        fcfro.size = op_ret;
-        send_fuse_obj(this, finh, &fcfro);
+        fcfro->size = op_ret;
+        send_fuse_obj(this, finh, fcfro);
     } else {
         if (state->fd && state->fd->inode)
             uuid_utoa_r(state->fd->inode->gfid, src_gfid);
@@ -3206,6 +3405,12 @@ fuse_copy_file_range_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                state->fd_dst, strerror(op_errno));
 
         send_fuse_err(this, finh, op_errno);
+    }
+
+out:
+    if (op_ret < 0) {
+        if (fcfro)
+            GF_FREE(fcfro);
     }
 
     free_fuse_state(state);
@@ -3270,19 +3475,32 @@ fuse_lseek_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     fuse_state_t *state = frame->root->state;
     fuse_in_header_t *finh = state->finh;
-    struct fuse_lseek_out flo = {
-        0,
-    };
+
+    struct fuse_lseek_out *flo = GF_MALLOC(sizeof(*flo),
+                                           gf_fuse_mt_lseek_out_t);
+    if (!flo) {
+        op_ret = -1;
+        op_errno = ENOMEM;
+        gf_log("this->name", GF_LOG_ERROR, "Failed to allocate memory, %d",
+               op_errno);
+        send_fuse_err(this, finh, op_errno);
+        goto out;
+    }
 
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
     if (op_ret >= 0) {
-        flo.offset = offset;
-        send_fuse_obj(this, finh, &flo);
+        flo->offset = offset;
+        send_fuse_obj(this, finh, flo);
     } else {
         send_fuse_err(this, finh, op_errno);
     }
 
+out:
+    if (op_ret < 0) {
+        if (flo)
+            GF_FREE(flo);
+    }
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -3655,7 +3873,6 @@ fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
-    GF_FREE(buf);
     return 0;
 }
 
@@ -3813,7 +4030,6 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
-    GF_FREE(buf);
     return 0;
 }
 
@@ -3926,6 +4142,7 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
     state->fd = NULL;
 
 out:
+
     send_fuse_err(this, finh, 0);
 
     free_fuse_state(state);
@@ -3970,11 +4187,6 @@ fuse_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
     fuse_private_t *priv = NULL;
-    struct fuse_statfs_out fso = {
-        {
-            0,
-        },
-    };
 
     state = frame->root->state;
     priv = this->private;
@@ -3984,18 +4196,28 @@ fuse_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno, frame->root->unique, gf_fop_list[frame->root->op]);
 
     if (op_ret == 0) {
-        fso.st.bsize = buf->f_bsize;
-        fso.st.frsize = buf->f_frsize;
-        fso.st.blocks = buf->f_blocks;
-        fso.st.bfree = buf->f_bfree;
-        fso.st.bavail = buf->f_bavail;
-        fso.st.files = buf->f_files;
-        fso.st.ffree = buf->f_ffree;
-        fso.st.namelen = buf->f_namemax;
+        struct fuse_statfs_out *fso = GF_MALLOC(sizeof(*fso),
+                                                gf_fuse_mt_statfs_out_t);
+        if (!fso) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Failed to allocate memory, %d",
+                   op_errno);
+            send_fuse_err(this, finh, op_errno);
+            goto out;
+        }
+        fso->st.bsize = buf->f_bsize;
+        fso->st.frsize = buf->f_frsize;
+        fso->st.blocks = buf->f_blocks;
+        fso->st.bfree = buf->f_bfree;
+        fso->st.bavail = buf->f_bavail;
+        fso->st.files = buf->f_files;
+        fso->st.ffree = buf->f_ffree;
+        fso->st.namelen = buf->f_namemax;
 
         priv->proto_minor >= 4
-            ? send_fuse_obj(this, finh, &fso)
-            : send_fuse_data(this, finh, &fso, FUSE_COMPAT_STATFS_SIZE);
+            ? send_fuse_obj(this, finh, fso)
+            : send_fuse_data(this, finh, fso, FUSE_COMPAT_STATFS_SIZE);
     } else {
         /* facilitate retry from VFS */
         if (op_errno == ENOENT)
@@ -4007,6 +4229,7 @@ fuse_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         send_fuse_err(this, finh, op_errno);
     }
 
+out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -4225,22 +4448,42 @@ static void
 send_fuse_xattr(xlator_t *this, fuse_in_header_t *finh, const char *value,
                 size_t size, size_t expected)
 {
-    struct fuse_getxattr_out fgxo;
+    struct fuse_getxattr_out *fgxo = GF_MALLOC(sizeof(*fgxo),
+                                               gf_fuse_mt_getxattr_out_t);
+    if (!fgxo) {
+        gf_log("this->name", GF_LOG_ERROR,
+               "Failed to allocate memory, -ENOMEM");
+        send_fuse_err(this, finh, -ENOMEM);
+        return;
+    }
 
     /* linux kernel limits the size of xattr value to 64k */
-    if (size > GLUSTERFS_XATTR_LEN_MAX)
+    if (size > GLUSTERFS_XATTR_LEN_MAX) {
+        if (fgxo)
+            GF_FREE(fgxo);
+        if (value)
+            GF_FREE((void *)value);
         send_fuse_err(this, finh, E2BIG);
-    else if (expected) {
+    } else if (expected) {
         /* if callback for getxattr and asks for value */
-        if (size > expected)
+        if (size > expected) {
             /* reply would be bigger than
              * what was asked by kernel */
+            if (fgxo)
+                GF_FREE(fgxo);
+            if (value)
+                GF_FREE((void *)value);
             send_fuse_err(this, finh, ERANGE);
-        else
+        } else {
+            if (fgxo)
+                GF_FREE(fgxo);
             send_fuse_data(this, finh, (void *)value, size);
+        }
     } else {
-        fgxo.size = size;
-        send_fuse_obj(this, finh, &fgxo);
+        if (value)
+            GF_FREE((void *)value);
+        fgxo->size = size;
+        send_fuse_obj(this, finh, fgxo);
     }
 }
 
@@ -4266,7 +4509,7 @@ static int
 fuse_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
-    char *value = "";
+    char *value = NULL;
     fuse_state_t *state = NULL;
     fuse_in_header_t *finh = NULL;
     data_t *value_data = NULL;
@@ -4290,7 +4533,10 @@ fuse_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             value_data = dict_get(dict, state->name);
             if (value_data) {
                 ret = value_data->len; /* Don't return the value for '\0' */
-                value = value_data->data;
+                value = GF_MALLOC(value_data->len + 1, gf_fuse_mt_char);
+                if (!value)
+                    goto out;
+                strncpy(value, value_data->data, value_data->len);
 
                 send_fuse_xattr(this, finh, value, ret, state->size);
                 /* if(ret >...)...else if...else */
@@ -4306,7 +4552,7 @@ fuse_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             if (len < 0)
                 goto out;
 
-            value = alloca(len + 1);
+            value = GF_MALLOC(len + 1, gf_fuse_mt_char);
             if (!value)
                 goto out;
 
@@ -4314,7 +4560,6 @@ fuse_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             if (len_next != len)
                 gf_log(THIS->name, GF_LOG_ERROR, "sizes not equal %d != %d",
                        len, len_next);
-
             send_fuse_xattr(this, finh, value, len, state->size);
         } /* if(state->name)...else */
     } else {
@@ -4392,7 +4637,6 @@ fuse_getxattr_resume(fuse_state_t *state)
         value[16] = '\0';
 
         send_fuse_xattr(THIS, state->finh, value, 16, state->size);
-        GF_FREE(value);
     internal_out:
         free_fuse_state(state);
         return;
@@ -4411,7 +4655,6 @@ fuse_getxattr_resume(fuse_state_t *state)
 
         send_fuse_xattr(THIS, state->finh, value, UUID_CANONICAL_FORM_LEN,
                         state->size);
-        GF_FREE(value);
     internal_out1:
         free_fuse_state(state);
         return;
@@ -4650,27 +4893,30 @@ fuse_getlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state = NULL;
 
     state = frame->root->state;
-    struct fuse_lk_out flo = {
-        {
-            0,
-        },
-    };
 
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
     if (op_ret == 0) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": ERR => 0",
                frame->root->unique);
-        flo.lk.type = lock->l_type;
-        flo.lk.pid = lock->l_pid;
-        if (lock->l_type == F_UNLCK)
-            flo.lk.start = flo.lk.end = 0;
-        else {
-            flo.lk.start = lock->l_start;
-            flo.lk.end = lock->l_len ? (lock->l_start + lock->l_len - 1)
-                                     : OFFSET_MAX;
+        struct fuse_lk_out *flo = GF_MALLOC(sizeof(*flo), gf_fuse_mt_lk_out_t);
+        if (!flo) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_log("this->name", GF_LOG_ERROR, "Out of Memory");
+            send_fuse_err(this, state->finh, op_errno);
+            goto out;
         }
-        send_fuse_obj(this, state->finh, &flo);
+        flo->lk.type = lock->l_type;
+        flo->lk.pid = lock->l_pid;
+        if (lock->l_type == F_UNLCK)
+            flo->lk.start = flo->lk.end = 0;
+        else {
+            flo->lk.start = lock->l_start;
+            flo->lk.end = lock->l_len ? (lock->l_start + lock->l_len - 1)
+                                      : OFFSET_MAX;
+        }
+        send_fuse_obj(this, state->finh, flo);
     } else {
         if (op_errno == ENOSYS) {
             gf_fuse_lk_enosys_log++;
@@ -4688,6 +4934,7 @@ fuse_getlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         send_fuse_err(this, state->finh, op_errno);
     }
 
+out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
 
@@ -5102,9 +5349,6 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
           struct iobuf *iobuf)
 {
     struct fuse_init_in *fini = msg;
-    struct fuse_init_out fino = {
-        0,
-    };
     fuse_private_t *priv = NULL;
     size_t size = 0;
     int ret = 0;
@@ -5114,6 +5358,15 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     pthread_t delayer;
 
     priv = this->private;
+
+    struct fuse_init_out *fino = GF_MALLOC(sizeof(*fino),
+                                           gf_fuse_mt_init_out_t);
+    if (!fino) {
+        gf_log("this->name", GF_LOG_ERROR,
+               "Failed to allocate memory, -ENOMEM");
+        send_fuse_err(this, finh, -ENOMEM);
+        goto out;
+    }
 
     if (priv->init_recvd) {
         gf_log("glusterfs-fuse", GF_LOG_ERROR, "got INIT after first message");
@@ -5134,20 +5387,20 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     }
     priv->proto_minor = fini->minor;
 
-    fino.major = FUSE_KERNEL_VERSION;
-    fino.minor = FUSE_KERNEL_MINOR_VERSION;
-    fino.max_readahead = 1 << 17;
-    fino.max_write = 1 << 17;
-    fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+    fino->major = FUSE_KERNEL_VERSION;
+    fino->minor = FUSE_KERNEL_MINOR_VERSION;
+    fino->max_readahead = 1 << 17;
+    fino->max_write = 1 << 17;
+    fino->flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
 #if FUSE_KERNEL_MINOR_VERSION >= 17
     if (fini->minor >= 17)
-        fino.flags |= FUSE_FLOCK_LOCKS;
+        fino->flags |= FUSE_FLOCK_LOCKS;
 #endif
 #if FUSE_KERNEL_MINOR_VERSION >= 12
     if (fini->minor >= 12) {
         /* let fuse leave the umask processing to us, so that it does not
          * break extended POSIX ACL defaults on server */
-        fino.flags |= FUSE_DONT_MASK;
+        fino->flags |= FUSE_DONT_MASK;
     }
 #endif
 #if FUSE_KERNEL_MINOR_VERSION >= 9
@@ -5156,7 +5409,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
         /* no need for direct I/O mode by default if big writes are supported */
         if (priv->direct_io_mode == 2)
             priv->direct_io_mode = 0;
-        fino.flags |= FUSE_BIG_WRITES;
+        fino->flags |= FUSE_BIG_WRITES;
     }
 
     /* Start the thread processing timed responses */
@@ -5203,15 +5456,15 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     }
 
     if (fini->minor >= 13) {
-        fino.max_background = priv->background_qlen;
-        fino.congestion_threshold = priv->congestion_threshold;
+        fino->max_background = priv->background_qlen;
+        fino->congestion_threshold = priv->congestion_threshold;
     }
     if (fini->minor < 9)
         *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
 
     if (priv->use_readdirp) {
         if (fini->flags & FUSE_DO_READDIRPLUS)
-            fino.flags |= FUSE_DO_READDIRPLUS;
+            fino->flags |= FUSE_DO_READDIRPLUS;
     }
 #endif
     if (priv->fopen_keep_cache == 2) {
@@ -5231,7 +5484,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
                    "fopen_keep_cache automatically.");
 
             if (priv->fuse_auto_inval)
-                fino.flags |= FUSE_AUTO_INVAL_DATA;
+                fino->flags |= FUSE_AUTO_INVAL_DATA;
         } else
 #endif
         {
@@ -5252,7 +5505,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
             gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                    "fopen_keep_cache "
                    "is explicitly set. Enabling FUSE_AUTO_INVAL_DATA");
-            fino.flags |= FUSE_AUTO_INVAL_DATA;
+            fino->flags |= FUSE_AUTO_INVAL_DATA;
         } else
 #endif
         {
@@ -5265,10 +5518,10 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
 #if FUSE_KERNEL_MINOR_VERSION >= 22
     if (fini->flags & FUSE_ASYNC_DIO)
-        fino.flags |= FUSE_ASYNC_DIO;
+        fino->flags |= FUSE_ASYNC_DIO;
 #endif
 
-    size = sizeof(fino);
+    size = sizeof(*fino);
 #if FUSE_KERNEL_MINOR_VERSION >= 23
     /* FUSE 7.23 and newer added attributes to the fuse_init_out struct */
     if (fini->minor < 23) {
@@ -5279,12 +5532,12 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     /* Writeback cache support */
     if (fini->minor >= 23) {
         if (priv->kernel_writeback_cache)
-            fino.flags |= FUSE_WRITEBACK_CACHE;
-        fino.time_gran = priv->attr_times_granularity;
+            fino->flags |= FUSE_WRITEBACK_CACHE;
+        fino->time_gran = priv->attr_times_granularity;
     }
 #endif
 
-    ret = send_fuse_data(this, finh, &fino, size);
+    ret = send_fuse_data(this, finh, fino, size);
     if (ret == 0)
         gf_log("glusterfs-fuse", GF_LOG_INFO,
                "FUSE inited with protocol versions:"
@@ -5987,15 +6240,9 @@ fuse_thread_proc(void *data)
     char *mount_point = NULL;
     xlator_t *this = NULL;
     fuse_private_t *priv = NULL;
-    ssize_t res = 0;
     struct iobuf *iobuf = NULL;
+    struct iobuf *iobuf_in = NULL;
     fuse_in_header_t *finh = NULL;
-    struct iovec iov_in[2] = {
-        {
-            0,
-        },
-    };
-
     void *msg = NULL;
     size_t msg0_size = sizeof(*finh) + sizeof(struct fuse_write_in);
     fuse_async_t *fasync;
@@ -6003,11 +6250,28 @@ fuse_thread_proc(void *data)
         0,
     }};
     uint32_t psize;
+    struct io_uring_sqe *sqe = NULL;
+    struct io_uring_cqe *cqe = NULL;
+    int ret = 0;
+    struct iovec *iov_in = NULL;
 
     this = data;
     priv = this->private;
 
     THIS = this;
+
+    struct iovec *iovec_in = GF_MALLOC(sizeof(*iovec_in) * 2, gf_fuse_mt_iovec);
+    if (!iovec_in) {
+        gf_log(this->name, GF_LOG_ERROR, "Out of memory");
+        goto out;
+    }
+
+    fuse_uring_ctx_t *setctx = GF_MALLOC(sizeof(*setctx), gf_fuse_mt_uring_ctx);
+    if (!setctx) {
+        gf_log(this->name, GF_LOG_ERROR, "Out of memory");
+        GF_FREE(setctx);
+        goto out;
+    }
 
     psize = ((struct iobuf_pool *)this->ctx->iobuf_pool)->default_page_size;
     priv->msg0_len_p = &msg0_size;
@@ -6065,7 +6329,7 @@ fuse_thread_proc(void *data)
            size from 'fuse', which is as of today 128KB. If we bring in
            support for higher block sizes support, then we should be
            changing this one too */
-        iobuf = iobuf_get(this->ctx->iobuf_pool);
+        iobuf_in = iobuf_get(this->ctx->iobuf_pool);
 
         /* Add extra 512 byte to the first iov so that it can
          * accommodate "ordinary" non-write requests. It's not
@@ -6073,47 +6337,113 @@ fuse_thread_proc(void *data)
          * operations with very long names may grow behind it,
          * but it's good enough in most cases (and we can handle
          * rest via realloc). */
-        iov_in[0].iov_base = GF_MALLOC(
+        iovec_in[0].iov_base = GF_MALLOC(
             sizeof(fuse_async_t) + msg0_size + FUSE_EXTRA_ALLOC,
             gf_fuse_mt_iov_base);
 
-        if (!iobuf || !iov_in[0].iov_base) {
+        if (!iobuf_in || !iovec_in[0].iov_base) {
             gf_log(this->name, GF_LOG_ERROR, "Out of memory");
-            if (iobuf)
-                iobuf_unref(iobuf);
-            GF_FREE(iov_in[0].iov_base);
+            if (iobuf_in)
+                iobuf_unref(iobuf_in);
+            GF_FREE(iovec_in[0].iov_base);
             sleep(10);
             continue;
         }
 
-        iov_in[1].iov_base = iobuf->ptr;
+        iovec_in[1].iov_base = iobuf_in->ptr;
 
-        iov_in[0].iov_len = msg0_size;
-        iov_in[1].iov_len = psize;
+        iovec_in[0].iov_len = msg0_size;
+        iovec_in[1].iov_len = psize;
 
-        res = sys_readv(priv->fd, iov_in, 2);
+        pthread_mutex_lock(&priv->sq_mutex);
+        {
+            sqe = io_uring_get_sqe(&priv->ring);
+            if (!sqe) {
+                gf_log("this->name", GF_LOG_ERROR,
+                       "Failed to get the submission queue, %s",
+                       strerror(errno));
 
-        if (res == -1) {
-            if (errno == ENODEV || errno == EBADF) {
+                iobuf_unref(iobuf_in);
+                GF_FREE(iovec_in[0].iov_base);
+                sleep(10);
+                continue;
+            }
+            io_uring_prep_readv(sqe, priv->fd, iovec_in, 2, /* offset */ 0);
+
+            sqe->flags |= IOSQE_ASYNC;
+            //            sqe->flags |= IOSQE_FIXED_FILE;
+
+            setctx->op = FUSE_READ;
+            setctx->count = 2;
+            setctx->iovec = iovec_in;
+            setctx->iobuf = iobuf_in;
+
+            io_uring_sqe_set_data(sqe, setctx);
+
+        resubmit:
+            ret = io_uring_submit(&priv->ring);
+            if (ret < 0) {
+                gf_log("this->name", GF_LOG_ERROR,
+                       "Failed to submit the request, ret = %d", ret);
+                sleep(10);
+                goto resubmit;
+            }
+        }
+        pthread_mutex_unlock(&priv->sq_mutex);
+
+    wait_cqe:
+        ret = io_uring_wait_cqe(&priv->ring, &cqe);
+        if (ret < 0) {
+            if (ret == -EINTR || ret == -EINVAL) {
+                gf_log("this->name", GF_LOG_WARNING,
+                       "No requests pending, ret = %d", ret);
+                continue;
+            }
+            gf_log("this->name", GF_LOG_ERROR,
+                   "Failed to reap completion queue, ret = %d", ret);
+
+            iobuf_unref(iobuf_in);
+            GF_FREE(iovec_in[0].iov_base);
+            break;
+        }
+
+        fuse_uring_ctx_t *getctx = (fuse_uring_ctx_t *)io_uring_cqe_get_data(
+            cqe);
+
+        iobuf = getctx->iobuf;
+        iov_in = getctx->iovec;
+        int count = getctx->count;
+        int free_count = getctx->free_count;
+        int res = cqe->res;
+
+        io_uring_cqe_seen(&priv->ring, cqe);
+
+        if (res < 0) {
+            gf_log("this->name", GF_LOG_WARNING,
+                   "got res = %d from the completion queue", res);
+            if (res == -ENODEV || res == -EBADF) {
                 gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                        "terminating upon getting %s when "
                        "reading /dev/fuse",
-                       errno == ENODEV ? "ENODEV" : "EBADF");
+                       res == -ENODEV ? "ENODEV" : "EBADF");
                 fuse_log_eh(this,
                             "glusterfs-fuse: terminating"
                             " upon getting %s when "
                             "reading /dev/fuse",
-                            errno == ENODEV ? "ENODEV" : "EBADF");
+                            res == -ENODEV ? "ENODEV" : "EBADF");
+                iobuf_unref(iobuf_in);
+                GF_FREE(iovec_in[0].iov_base);
                 break;
             }
-            if (errno != EINTR) {
+
+            if (res != -EINTR) {
                 gf_log("glusterfs-fuse", GF_LOG_WARNING,
                        "read from /dev/fuse returned -1 (%s)", strerror(errno));
                 fuse_log_eh(this,
                             "glusterfs-fuse: read from "
                             "/dev/fuse returned -1 (%s)",
                             strerror(errno));
-                if (errno == EPERM) {
+                if (res == -EPERM) {
                     /*
                      * sleep a while to avoid busy looping
                      * on EPERM condition
@@ -6124,88 +6454,115 @@ fuse_thread_proc(void *data)
                         NULL);
                 }
             }
-
-            goto cont_err;
-        }
-        if (res < sizeof(*finh)) {
-            gf_log("glusterfs-fuse", GF_LOG_WARNING, "short read on /dev/fuse");
-            fuse_log_eh(this,
-                        "glusterfs-fuse: short read on "
-                        "/dev/fuse");
-            break;
+            continue;
         }
 
-        finh = (fuse_in_header_t *)iov_in[0].iov_base;
+        if (getctx->op == FUSE_WRITE) {
+            check_and_dump_fuse_W(priv, iov_in, count, res, NULL);
 
-        if (res != finh->len
+            for (int i = 0; i < free_count; i++) {
+                if (iov_in[i].iov_base)
+                    GF_FREE(iov_in[i].iov_base);
+            }
+
+            if (getctx) {
+                GF_FREE(getctx);
+                getctx = NULL;
+            }
+
+            if (iov_in) {
+                GF_FREE(iov_in);
+                iov_in = NULL;
+            }
+            goto wait_cqe;
+        }
+
+        if (getctx->op == FUSE_READ) {
+            if (res < sizeof(*finh)) {
+                gf_log("glusterfs-fuse", GF_LOG_WARNING,
+                       "short read on /dev/fuse");
+                fuse_log_eh(this,
+                            "glusterfs-fuse: short read on "
+                            "/dev/fuse");
+                break;
+            }
+
+            finh = (fuse_in_header_t *)iov_in[0].iov_base;
+
+            if (res != finh->len
 #ifdef GF_DARWIN_HOST_OS
-            /* work around fuse4bsd/MacFUSE msg size miscalculation bug,
-             * that is, payload size is not taken into account for
-             * buffered writes
-             */
-            && !(finh->opcode == FUSE_WRITE &&
-                 finh->len == sizeof(*finh) + sizeof(struct fuse_write_in) &&
-                 res == finh->len + ((struct fuse_write_in *)(finh + 1))->size)
+                /* work around fuse4bsd/MacFUSE msg size miscalculation bug,
+                 * that is, payload size is not taken into account for
+                 * buffered writes
+                 */
+                &&
+                !(finh->opcode == FUSE_WRITE &&
+                  finh->len == sizeof(*finh) + sizeof(struct fuse_write_in) &&
+                  res == finh->len + ((struct fuse_write_in *)(finh + 1))->size)
 #endif
-        ) {
-            gf_log("glusterfs-fuse", GF_LOG_WARNING,
-                   "inconsistent read on /dev/fuse");
-            fuse_log_eh(this,
-                        "glusterfs-fuse: inconsistent read "
-                        "on /dev/fuse");
-            break;
-        }
+            ) {
+                gf_log("glusterfs-fuse", GF_LOG_WARNING,
+                       "inconsistent read on /dev/fuse");
+                fuse_log_eh(this,
+                            "glusterfs-fuse: inconsistent read "
+                            "on /dev/fuse");
+                break;
+            }
 
-        /*
-         * This can be moved around a bit, but it's important to do it
-         * *after* the readv.  Otherwise, a graph switch could occur
-         * while we're in readv and we'll process the next request on
-         * the old graph before we come to the part of the loop above
-         * readv and check again.  That would be wrong.
-         */
-        if (priv->init_recvd)
-            fuse_graph_sync(this);
+            /*
+             * This can be moved around a bit, but it's important to do it
+             * *after* the readv.  Otherwise, a graph switch could occur
+             * while we're in readv and we'll process the next request on
+             * the old graph before we come to the part of the loop above
+             * readv and check again.  That would be wrong.
+             */
+            if (priv->init_recvd)
+                fuse_graph_sync(this);
 
-        if (finh->opcode == FUSE_WRITE)
-            msg = iov_in[1].iov_base;
-        else {
-            if (res > msg0_size + FUSE_EXTRA_ALLOC) {
-                void *b = GF_REALLOC(iov_in[0].iov_base,
-                                     sizeof(fuse_async_t) + res);
-                if (b) {
-                    iov_in[0].iov_base = b;
-                    finh = (fuse_in_header_t *)iov_in[0].iov_base;
-                } else {
-                    gf_log("glusterfs-fuse", GF_LOG_ERROR, "Out of memory");
-                    send_fuse_err(this, finh, ENOMEM);
+            if (finh->opcode == FUSE_WRITE) {
+                msg = iov_in[1].iov_base;
+            } else {
+                if (res > msg0_size + FUSE_EXTRA_ALLOC) {
+                    void *b = GF_REALLOC(iov_in[0].iov_base,
+                                         sizeof(fuse_async_t) + res);
+                    if (b) {
+                        iov_in[0].iov_base = b;
+                        finh = (fuse_in_header_t *)iov_in[0].iov_base;
+                    } else {
+                        gf_log("glusterfs-fuse", GF_LOG_ERROR, "Out of memory");
+                        send_fuse_err(this, finh, ENOMEM);
 
-                    goto cont_err;
+                        goto cont_err;
+                    }
                 }
+
+                if (res > iov_in[0].iov_len) {
+                    memcpy(iov_in[0].iov_base + iov_in[0].iov_len,
+                           iov_in[1].iov_base, res - iov_in[0].iov_len);
+                    iov_in[0].iov_len = res;
+                }
+
+                msg = finh + 1;
             }
+            if (priv->uid_map_root && finh->uid == priv->uid_map_root)
+                finh->uid = 0;
 
-            if (res > iov_in[0].iov_len) {
-                memcpy(iov_in[0].iov_base + iov_in[0].iov_len,
-                       iov_in[1].iov_base, res - iov_in[0].iov_len);
-                iov_in[0].iov_len = res;
+            if (finh->opcode >= FUSE_OP_HIGH) {
+                /* turn down MacFUSE specific messages */
+                fuse_enosys(this, finh, msg, NULL);
+                iobuf_unref(iobuf);
+            } else {
+                fasync = iov_in[0].iov_base + iov_in[0].iov_len;
+                fasync->finh = finh;
+                fasync->msg = msg;
+                fasync->iobuf = iobuf;
+                gf_async(&fasync->async, this, fuse_dispatch);
             }
-
-            msg = finh + 1;
-        }
-        if (priv->uid_map_root && finh->uid == priv->uid_map_root)
-            finh->uid = 0;
-
-        if (finh->opcode >= FUSE_OP_HIGH) {
-            /* turn down MacFUSE specific messages */
-            fuse_enosys(this, finh, msg, NULL);
-            iobuf_unref(iobuf);
-        } else {
-            fasync = iov_in[0].iov_base + iov_in[0].iov_len;
-            fasync->finh = finh;
-            fasync->msg = msg;
-            fasync->iobuf = iobuf;
-            gf_async(&fasync->async, this, fuse_dispatch);
+            continue;
         }
 
+        gf_log("glusterfs_fuse", GF_LOG_WARNING, "Received bad op = %d",
+               getctx->op);
         continue;
 
     cont_err:
@@ -6214,9 +6571,14 @@ fuse_thread_proc(void *data)
         iov_in[0].iov_base = NULL;
     }
 
-    if (iov_in[0].iov_base)
-        GF_FREE(iov_in[0].iov_base);
+    io_uring_queue_exit(&priv->ring);
 
+    if (iovec_in)
+        GF_FREE(iovec_in);
+    if (setctx)
+        GF_FREE(setctx);
+
+out:
     /*
      * We could be in all sorts of states with respect to iobuf and iov_in
      * by the time we get here, and it's just not worth untangling them if
@@ -6644,6 +7006,35 @@ fuse_dumper(xlator_t *this, fuse_in_header_t *finh, void *msg,
     priv->fuse_ops0[finh->opcode](this, finh, msg, NULL);
 }
 
+#define FUSE_URING_MAX_ENTRIES 512
+
+static int
+fuse_uring_init(fuse_private_t *priv)
+{
+    int ret = -1;
+    unsigned flags = 0;
+
+    // TODO:Try-out flags |= IORING_SETUP_IOPOLL;
+    ret = io_uring_queue_init(FUSE_URING_MAX_ENTRIES, &priv->ring, flags);
+    if (ret == -1) {
+        gf_log("fuse_uring_init", GF_LOG_ERROR,
+               "io_uring failed to init ring, ret = %d", ret);
+        goto out;
+    }
+
+    ret = io_uring_register_files(&priv->ring, &priv->fd, 1);
+    if (ret < 0) {
+        gf_log("fuse_uring_init", GF_LOG_ERROR, "register files %d\n", ret);
+        goto out;
+    }
+
+    pthread_mutex_init(&priv->sq_mutex, NULL);
+    pthread_mutex_init(&priv->cq_mutex, NULL);
+
+out:
+    return ret;
+}
+
 int
 init(xlator_t *this_xl)
 {
@@ -6977,6 +7368,8 @@ init(xlator_t *this_xl)
         if (ret == -1)
             goto cleanup_exit;
     }
+
+    fuse_uring_init(priv);
 
     if (priv->event_history) {
         event = eh_new(FUSE_EVENT_HISTORY_SIZE, _gf_false, NULL);
