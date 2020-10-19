@@ -7890,8 +7890,12 @@ afr_is_outcast_set(dict_t *xdata, int type)
         if (pending_raw) {
             pending_int = pending_raw;
 
-            if (ntoh32(pending_int[idx]))
+            if (pending_int[idx]) {
+                /* We are not using ntoh32 here since it is just a non-zero
+                 * check
+                 */
                 return _gf_true;
+            }
         }
     }
     return _gf_false;
@@ -7908,12 +7912,21 @@ afr_is_any_outcast_set(dict_t *xdata)
     type = AFR_METADATA_TRANSACTION;
     idx = afr_index_for_transaction_type(type);
 
+    /* TODO
+     * Currently outcast logic is only implemeted for meta-data transactions,
+     * When we do the outcase for all the fop this has to be changed to a loop
+     * to check for all types of fops.
+     */
     if (dict_get_ptr(xdata, AFR_OUTCAST_DEFAULT, &pending_raw) == 0) {
         if (pending_raw) {
             pending_int = pending_raw;
 
-            if (ntoh32(pending_int[idx]))
+            if (pending_int[idx]) {
+                /* We are not using ntoh32 here since it is just a non-zero
+                 * check
+                 */
                 return _gf_true;
+            }
         }
     }
     /*

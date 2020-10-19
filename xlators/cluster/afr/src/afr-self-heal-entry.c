@@ -285,6 +285,10 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
 
     mode = st_mode_from_ia(iatt->ia_prot, iatt->ia_type);
 
+    /*
+     * The entry is created with this fop, Hence no need to take metadata lock
+     * to perform this operation
+     */
     ret = afr_set_heal_outcast(xdata, outcast, AFR_METADATA_TRANSACTION, 1);
     if (ret)
         goto out;
