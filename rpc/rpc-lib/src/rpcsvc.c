@@ -376,7 +376,10 @@ rpcsvc_program_notify(rpcsvc_listener_t *listener, rpcsvc_event_t event,
     list_for_each_entry(wrapper, &listener->svc->notify, list)
     {
         if (wrapper->notify) {
-            ret = wrapper->notify(listener->svc, wrapper->data, event, data);
+            if (wrapper->notify(listener->svc, wrapper->data, event, data) <
+                    0 &&
+                ret == 0)
+                ret = -1;
         }
     }
 
