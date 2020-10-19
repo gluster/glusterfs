@@ -121,6 +121,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_server_cmdline_t,     /* used only in one location */
     gf_common_mt_latency_t,
     gf_common_mt_end,
-    gf_common_mt_pmap_reg_t;      /* used only in one location */
+    gf_common_mt_pmap_reg_t,      /* used only in one location */
 };
 #endif

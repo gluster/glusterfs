@@ -99,8 +99,6 @@ pmap_port_alloc(xlator_t *this)
     int p = 0;
     int port = 0;
 
-    priv = this->private;
-
     pmap = pmap_registry_get(this);
 
     while (true) {
