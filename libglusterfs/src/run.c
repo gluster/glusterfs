@@ -45,7 +45,7 @@ extern char **environ;
  * $ cc -DRUN_DO_DEMO -DRUN_STANDALONE -orun run.c
  */
 #if defined(RUN_STANDALONE) || defined(RUN_DO_DEMO)
-int
+void
 closer_posix_spawnp(int fd, void *prm);
 
 int
@@ -105,12 +105,17 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
 #endif
 
 #include "glusterfs/run.h"
+/* Using a fake/temporary fd i.e, 0, to safely close the
+   open fds within 3 to MAX_FD by remapping the
+   target fd. Otherwise, it leads to undefined reference
+   in memory while closing them.
+*/
+
 void
 closer_posix_spawnp(int fd, void *prm)
 {
-    int fakeFd = 0;
     posix_spawn_file_actions_t *file_actionsp = prm;
-    posix_spawn_file_actions_adddup2(file_actionsp, fakeFd, fd);
+    posix_spawn_file_actions_adddup2(file_actionsp, 0, fd);
     posix_spawn_file_actions_addclose(file_actionsp, fd);
 }
 void
