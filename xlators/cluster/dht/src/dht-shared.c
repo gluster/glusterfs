@@ -689,17 +689,18 @@ dht_init(xlator_t *this)
         defrag->is_rebelance_terminate = false;
         GF_ATOMIC_INIT(defrag->total_failures, 0);
         GF_ATOMIC_INIT(defrag->free_scanner_threads, 0);
+        GF_ATOMIC_INIT(defrag->num_files_lookedup, 0);
 
         pthread_mutex_init(&defrag->dfq_mutex, 0);
         pthread_mutex_init(&defrag->list_lock, NULL);
         pthread_cond_init(&defrag->parallel_migration_cond, 0);
         pthread_cond_init(&defrag->rebalance_crawler_alarm, 0);
         pthread_cond_init(&defrag->df_wakeup_thread, 0);
+        pthread_cond_init(&defrag->rebelance_cond_workers_empty, NULL);
 
         pthread_mutex_init(&defrag->fc_mutex, 0);
         pthread_cond_init(&defrag->fc_wakeup_cond, 0);
 
-        sem_init(&defrag->rebelance_sem_workers_empty, 0, 0);
         INIT_LIST_HEAD(&defrag->rebalance_dirs.list);
 
         defrag->global_error = 0;

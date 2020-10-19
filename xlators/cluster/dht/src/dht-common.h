@@ -19,7 +19,6 @@
 #include <glusterfs/timer.h>
 #include "protocol-common.h"
 #include <glusterfs/glusterfs-acl.h>
-#include <semaphore.h>
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -459,7 +458,7 @@ typedef struct rebalance_dir_container {
 struct gf_defrag_info_ {
     uint64_t total_files;
     uint64_t total_data;
-    uint64_t num_files_lookedup;
+    gf_atomic_t num_files_lookedup;
     gf_atomic_t total_failures;
     uint64_t skipped;
     uint64_t num_dirs_processed;
@@ -510,11 +509,11 @@ struct gf_defrag_info_ {
 
     /* Used in rebelance */
     pthread_mutex_t list_lock;
-    sem_t rebelance_sem_workers_empty;
     int waiting_workers_empty;
     bool is_rebelance_terminate;
     rebalance_dir_container rebalance_dirs;
     gf_atomic_t free_scanner_threads;
+    pthread_cond_t rebelance_cond_workers_empty;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;

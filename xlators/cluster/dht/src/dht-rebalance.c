@@ -3137,7 +3137,7 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
             continue;
         }
 
-        defrag->num_files_lookedup++;
+        GF_ATOMIC_INC(defrag->num_files_lookedup);
 
         if (defrag->defrag_pattern &&
             (gf_defrag_pattern_match(defrag, df_entry->d_name,
@@ -3804,13 +3804,14 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
             if (free_scanner_threads > 0) {
                 /* There's an available worker - Add an entry to the queue */
-                list_add_tail(&(dir_container->list),
+                list_add(&(dir_container->list),
                               &(defrag->rebalance_dirs.list));
 
                 if (defrag->waiting_workers_empty > 0) {
-                    sem_post(&defrag->rebelance_sem_workers_empty);
+                	pthread_cond_signal(&defrag->rebelance_cond_workers_empty);
                     --defrag->waiting_workers_empty;
                 }
+
 
                 pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
             } else {
@@ -3827,9 +3828,10 @@ gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                          migrate_data);
 
                 if (ret) {
+                    GF_ATOMIC_INC(defrag->total_failures);
+
                     pthread_mutex_lock(&defrag->list_lock); /* Lock */
                     {
-                        GF_ATOMIC_INC(defrag->total_failures);
 
                         if (conf->decommission_in_progress)
                             defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
@@ -3927,7 +3929,6 @@ gf_worker_defrag(void *info)
     dht_conf_t *conf = NULL;
     xlator_t *old_THIS = NULL;
     int ret = 0;
-    int i = 0;
     int rebalance_scanner_threads = 0;
 
     rebalance_info_ptr = (rebalance_info *)info;
@@ -3948,9 +3949,9 @@ gf_worker_defrag(void *info)
     /* Mark all workers as available before starting main loop */
     GF_ATOMIC_INC(defrag->free_scanner_threads);
 
-    while (true) {
-        pthread_mutex_lock(&defrag->list_lock); /* Lock */
+    pthread_mutex_lock(&defrag->list_lock); /* Lock */
 
+    while (true) {
         /* Try to get and entry from the list */
         if (!list_empty(&defrag->rebalance_dirs.list)) {
             /* Managed to get an entry - process the dir referenced by loc */
@@ -3977,19 +3978,18 @@ gf_worker_defrag(void *info)
              * available workers */
             GF_ATOMIC_INC(defrag->free_scanner_threads);
 
-            if (ret) {
-                pthread_mutex_lock(&defrag->list_lock); /* Lock */
-                {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           DHT_MSG_LAYOUT_FIX_FAILED, "Rebalance failed for %s",
-                           loc->path);
+            pthread_mutex_lock(&defrag->list_lock); /* Lock */
 
-                    GF_ATOMIC_INC(defrag->total_failures);
+            if (ret) {
+            	gf_msg(this->name, GF_LOG_ERROR, 0,
+            	                           DHT_MSG_LAYOUT_FIX_FAILED, "Rebalance failed for %s",
+            	                           loc->path);
+
+            	GF_ATOMIC_INC(defrag->total_failures);
+
 
                     if (conf->decommission_in_progress)
                         defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                }
-                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
             }
 
             /* Wipe and deallocate allocated resources */
@@ -4011,16 +4011,13 @@ gf_worker_defrag(void *info)
                     defrag->is_rebelance_terminate = true;
                     /* Release all the threads that are waiting on an empty list
                      */
-                    for (; i < defrag->waiting_workers_empty; ++i) {
-                        sem_post(&defrag->rebelance_sem_workers_empty);
-                    }
+                    pthread_cond_broadcast(&defrag->rebelance_cond_workers_empty);
                     pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
                     break;
                 }
 
                 /* Rebalance is still in progress - Wait */
-                pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
-                sem_wait(&defrag->rebelance_sem_workers_empty);
+                pthread_cond_wait(&defrag->rebelance_cond_workers_empty, &defrag->list_lock);
             } else {
                 /* Another thread notified that rebalance is done - Exit */
                 pthread_mutex_unlock(&defrag->list_lock); /* Unlock */
@@ -4847,7 +4844,7 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
 
     files = defrag->total_files;
     size = defrag->total_data;
-    lookup = defrag->num_files_lookedup;
+    lookup = GF_ATOMIC_GET(defrag->num_files_lookedup);
     failures = GF_ATOMIC_GET(defrag->total_failures);
     skipped = defrag->skipped;
 
