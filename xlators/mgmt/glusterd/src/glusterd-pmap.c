@@ -56,7 +56,7 @@ pmap_registry_new(glusterd_conf_t *priv)
 {
     struct pmap_registry *pmap = NULL;
 
-    pmap = MALLOC(sizeof(*pmap));
+    pmap = GF_MALLOC(sizeof(*pmap), gf_common_mt_pmap_reg_t);
     if (!pmap)
         return NULL;
 
