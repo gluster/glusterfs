@@ -2141,7 +2141,7 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
         rpc_clnt_unref(rpc);
     }
 
-    port = pmap_assign_port(THIS, brickinfo->port, brickinfo->path);
+    port = pmap_port_alloc(THIS);
     if (!port) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
                "All the ports in the range are exhausted, can't start "
@@ -2239,8 +2239,7 @@ retry:
             ret = -1;
             goto out;
         }
-        rdma_port = pmap_assign_port(THIS, brickinfo->rdma_port,
-                                     rdma_brick_path);
+        rdma_port = pmap_port_alloc(THIS);
         if (!rdma_port) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
                    "All rdma ports in the "
@@ -2316,7 +2315,7 @@ retry:
                    GD_MSG_SRC_BRICK_PORT_UNAVAIL,
                    "Port %d is used by other process", port);
 
-            port = pmap_registry_alloc(this);
+            port = pmap_port_alloc(this);
             if (!port) {
                 gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_NO_FREE_PORTS,
                        "Couldn't allocate a port");
@@ -2667,15 +2666,6 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
 
             if (op_errstr) {
                 GF_FREE(op_errstr);
-            }
-            if (is_brick_mx_enabled()) {
-                /* In case of brick multiplexing we need to make
-                 * sure the port is cleaned up from here as the
-                 * RPC connection may not have been originated
-                 * for the same brick instance
-                 */
-                pmap_registry_remove(THIS, brickinfo->port, brickinfo->path,
-                                     GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);
             }
         }
 
@@ -6206,13 +6196,6 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
                                   GLUSTERD_BRICK_ATTACH, _gf_false);
             rpc_clnt_unref(rpc);
             if (!ret) {
-                ret = pmap_registry_extend(this, other_brick->port,
-                                           brickinfo->path);
-                if (ret != 0) {
-                    gf_log(this->name, GF_LOG_ERROR,
-                           "adding brick to process failed");
-                    goto out;
-                }
                 brickinfo->port = other_brick->port;
                 ret = glusterd_brick_process_add_brick(brickinfo, other_brick);
                 if (ret) {
@@ -6795,8 +6778,6 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
             brickinfo->status != GF_BRICK_STARTED) {
             gf_log(this->name, GF_LOG_INFO,
                    "discovered already-running brick %s", brickinfo->path);
-            (void)pmap_registry_bind(this, brickinfo->port, brickinfo->path,
-                                     GF_PMAP_PORT_BRICKSERVER, NULL);
             brickinfo->port_registered = _gf_true;
             /*
              * This will unfortunately result in a separate RPC
@@ -7288,7 +7269,7 @@ glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
         {
             if (gf_uuid_compare(tmpbrkinfo->uuid, MY_UUID))
                 continue;
-            if (!strcmp(tmpbrkinfo->path, brickname) &&
+            if (!strcmp(tmpbrkinfo->path, brickname) ||
                 (tmpbrkinfo->port == port)) {
                 *brickinfo = tmpbrkinfo;
                 return 0;

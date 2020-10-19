@@ -20,37 +20,13 @@
 #include <glusterfs/byte-order.h>
 #include "rpcsvc.h"
 
-struct pmap_port_status {
-    char *brickname;
-    void *xprt;
-    gf_pmap_port_type_t type;
-};
-
 struct pmap_registry {
-    struct pmap_port_status ports[GF_PORT_MAX + 1];
     int base_port;
     int max_port;
-    int last_alloc;
 };
 
 int
-pmap_assign_port(xlator_t *this, int port, const char *path);
-int
-pmap_mark_port_leased(xlator_t *this, int port);
-int
-pmap_registry_alloc(xlator_t *this);
-int
-pmap_registry_bind(xlator_t *this, int port, const char *brickname,
-                   gf_pmap_port_type_t type, void *xprt);
-int
-pmap_registry_extend(xlator_t *this, int port, const char *brickname);
-int
-pmap_registry_remove(xlator_t *this, int port, const char *brickname,
-                     gf_pmap_port_type_t type, void *xprt,
-                     gf_boolean_t brick_disconnect);
-int
-pmap_registry_search(xlator_t *this, const char *brickname,
-                     gf_pmap_port_type_t type, gf_boolean_t destroy);
+pmap_port_alloc(xlator_t *this);
 struct pmap_registry *
 pmap_registry_get(xlator_t *this);
 

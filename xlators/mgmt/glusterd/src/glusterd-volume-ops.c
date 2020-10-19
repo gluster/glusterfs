@@ -2795,8 +2795,7 @@ glusterd_clearlocks_get_local_client_ports(glusterd_volinfo_t *volinfo,
             goto out;
         }
 
-        port = pmap_registry_search(THIS, brickname, GF_PMAP_PORT_BRICKSERVER,
-                                    _gf_false);
+        port = brickinfo->port;
         if (!port) {
             ret = -1;
             gf_msg_debug(THIS->name, 0,

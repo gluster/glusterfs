@@ -26,6 +26,8 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
+/* Check if the provided port is free */
+
 static int
 pmap_port_isfree(int port)
 {
@@ -47,6 +49,8 @@ pmap_port_isfree(int port)
     return (ret == 0) ? 1 : 0;
 }
 
+/* Create a new pmap registry */
+
 static struct pmap_registry *
 pmap_registry_new(xlator_t *this)
 {
@@ -56,12 +60,14 @@ pmap_registry_new(xlator_t *this)
     if (!pmap)
         return NULL;
 
-    pmap->base_port = pmap->last_alloc = ((glusterd_conf_t *)(this->private))
+    pmap->base_port = ((glusterd_conf_t *)(this->private))
                                              ->base_port;
     pmap->max_port = ((glusterd_conf_t *)(this->private))->max_port;
 
     return pmap;
 }
+
+/* Fetch the already created pamp struct or create new one */
 
 struct pmap_registry *
 pmap_registry_get(xlator_t *this)
@@ -82,72 +88,13 @@ pmap_registry_get(xlator_t *this)
     return pmap;
 }
 
-/*
- * The "destroy" argument avoids a double search in pmap_registry_remove - one
- * to find the entry in the table, and the other to find the particular
- * brickname within that entry (which might cover multiple bricks).  We do the
- * actual deletion here by "whiting out" the brick name with spaces.  It's up
- * to pmap_registry_remove to figure out what to do from there.
- */
+/* Randomly selecting a port number between base_port and max_port,
+   then checking if the port is free or not using pmap_port_isfree().
+   If the port is free, return the port number
+*/
+
 int
-pmap_registry_search(xlator_t *this, const char *brickname,
-                     gf_pmap_port_type_t type, gf_boolean_t destroy)
-{
-    struct pmap_registry *pmap = NULL;
-    int p = 0;
-    char *brck = NULL;
-    size_t i;
-
-    pmap = pmap_registry_get(this);
-
-    for (p = pmap->last_alloc; p >= pmap->base_port; p--) {
-        if (!pmap->ports[p].brickname || pmap->ports[p].type != type)
-            continue;
-
-        brck = pmap->ports[p].brickname;
-        for (;;) {
-            for (i = 0; brck[i] && !isspace(brck[i]); ++i)
-                ;
-            if (i == 0 && brck[i] == '\0')
-                break;
-
-            if (strncmp(brck, brickname, i) == 0) {
-                /*
-                 * Without this check, we'd break when brck
-                 * is merely a substring of brickname.
-                 */
-                if (brickname[i] == '\0') {
-                    if (destroy)
-                        do {
-                            *(brck++) = ' ';
-                        } while (--i);
-                    return p;
-                }
-            }
-
-            brck += i;
-
-            /*
-             * Skip over *any* amount of whitespace, including
-             * none (if we're already at the end of the string).
-             */
-            while (isspace(*brck))
-                ++brck;
-            /*
-             * We're either at the end of the string (which will be
-             * handled above strncmp on the next iteration) or at
-             * the next non-whitespace substring (which will be
-             * handled by strncmp itself).
-             */
-        }
-    }
-
-    return 0;
-}
-
-static int
-pmap_registry_search_by_xprt(xlator_t *this, void *xprt,
-                             gf_pmap_port_type_t type)
+pmap_port_alloc(xlator_t *this)
 {
     struct pmap_registry *pmap = NULL;
     int p = 0;
@@ -155,273 +102,18 @@ pmap_registry_search_by_xprt(xlator_t *this, void *xprt,
 
     pmap = pmap_registry_get(this);
 
-    for (p = pmap->last_alloc; p >= pmap->base_port; p--) {
-        if (!pmap->ports[p].xprt)
-            continue;
-        if (pmap->ports[p].xprt == xprt) {
-            if (pmap->ports[p].type == type || type == GF_PMAP_PORT_ANY) {
-                port = p;
-                break;
-            }
-        }
-    }
-
-    return port;
-}
-
-static char *
-pmap_registry_search_by_port(xlator_t *this, int port)
-{
-    struct pmap_registry *pmap = NULL;
-    char *brickname = NULL;
-    int max_port = 0;
-
-    max_port = ((glusterd_conf_t *)(this->private))->max_port;
-    if (port > max_port)
-        goto out;
-
-    pmap = pmap_registry_get(this);
-
-    if (pmap->ports[port].type == GF_PMAP_PORT_BRICKSERVER)
-        brickname = pmap->ports[port].brickname;
-
-out:
-    return brickname;
-}
-
-int
-pmap_registry_alloc(xlator_t *this)
-{
-    struct pmap_registry *pmap = NULL;
-    int p = 0;
-    int port = 0;
-
-    pmap = pmap_registry_get(this);
-
-    for (p = (pmap->last_alloc) + 1; p <= pmap->max_port; p++) {
+    while(true){
+        p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
         if (pmap_port_isfree(p)) {
-            pmap->ports[p].type = GF_PMAP_PORT_LEASED;
             port = p;
             break;
         }
     }
 
-    /* If port value is 0, that means we don't have any free port between
-     * last_alloc to max_port. We have to check from base_port to last_alloc
-     */
-    if (port == 0) {
-        for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
-            if (pmap_port_isfree(p)) {
-                pmap->ports[p].type = GF_PMAP_PORT_LEASED;
-                port = p;
-                break;
-            }
-        }
-    }
-
-    if (port > pmap->last_alloc)
-        pmap->last_alloc = port;
-
     return port;
 }
 
-/* pmap_assign_port does a pmap_registry_remove followed by pmap_registry_alloc,
- * the reason for the former is to ensure we don't end up with stale ports
- */
-int
-pmap_assign_port(xlator_t *this, int old_port, const char *path)
-{
-    int ret = -1;
-    int new_port = 0;
-
-    if (old_port) {
-        ret = pmap_registry_remove(this, 0, path, GF_PMAP_PORT_BRICKSERVER,
-                                   NULL, _gf_false);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, GD_MSG_PMAP_REGISTRY_REMOVE_FAIL,
-                   0,
-                   "Failed to"
-                   "remove pmap registry for older signin for path"
-                   " %s",
-                   path);
-        }
-    }
-    new_port = pmap_registry_alloc(this);
-    return new_port;
-}
-
-int
-pmap_registry_bind(xlator_t *this, int port, const char *brickname,
-                   gf_pmap_port_type_t type, void *xprt)
-{
-    struct pmap_registry *pmap = NULL;
-    int p = 0;
-
-    pmap = pmap_registry_get(this);
-
-    if (port > pmap->max_port)
-        goto out;
-
-    p = port;
-    if (pmap_port_isfree(p)) {
-        /* Because of some crazy race in volume start code path because
-         * of friend handshaking with volumes with quorum enabled we
-         * might end up into a situation where glusterd would start a
-         * brick and get a disconnect and then immediately try to start
-         * the same brick instance based on another friend update
-         * request. And then if for the very first brick even if the
-         * process doesn't come up at the end sign in event gets sent
-         * and we end up having two duplicate portmap entries for the
-         * same brick. Since in brick start we mark the previous port as
-         * free, its better to consider a sign in request as no op if
-         * the corresponding port type is marked as free
-         */
-        goto out;
-    }
-    if (pmap->ports[p].brickname) {
-        char *tmp = pmap->ports[p].brickname;
-        asprintf(&pmap->ports[p].brickname, "%s %s", tmp, brickname);
-        free(tmp);
-    } else {
-        pmap->ports[p].brickname = strdup(brickname);
-    }
-    pmap->ports[p].type = type;
-    pmap->ports[p].xprt = xprt;
-
-    gf_msg("pmap", GF_LOG_INFO, 0, GD_MSG_BRICK_ADD,
-           "adding brick %s on port %d", brickname, port);
-
-    if (pmap->last_alloc < p)
-        pmap->last_alloc = p;
-out:
-    return 0;
-}
-
-int
-pmap_registry_extend(xlator_t *this, int port, const char *brickname)
-{
-    struct pmap_registry *pmap = NULL;
-    char *old_bn;
-    char *new_bn;
-    size_t bn_len;
-    char *entry;
-    int found = 0;
-
-    pmap = pmap_registry_get(this);
-
-    if (port > pmap->max_port) {
-        return -1;
-    }
-
-    switch (pmap->ports[port].type) {
-        case GF_PMAP_PORT_LEASED:
-        case GF_PMAP_PORT_BRICKSERVER:
-            break;
-        default:
-            return -1;
-    }
-
-    old_bn = pmap->ports[port].brickname;
-    if (old_bn) {
-        bn_len = strlen(brickname);
-        entry = strstr(old_bn, brickname);
-        while (entry) {
-            found = 1;
-            if ((entry != old_bn) && (entry[-1] != ' ')) {
-                found = 0;
-            }
-            if ((entry[bn_len] != ' ') && (entry[bn_len] != '\0')) {
-                found = 0;
-            }
-            if (found) {
-                return 0;
-            }
-            entry = strstr(entry + bn_len, brickname);
-        }
-        asprintf(&new_bn, "%s %s", old_bn, brickname);
-    } else {
-        new_bn = strdup(brickname);
-    }
-
-    if (!new_bn) {
-        return -1;
-    }
-
-    pmap->ports[port].brickname = new_bn;
-    free(old_bn);
-
-    return 0;
-}
-
-int
-pmap_registry_remove(xlator_t *this, int port, const char *brickname,
-                     gf_pmap_port_type_t type, void *xprt,
-                     gf_boolean_t brick_disconnect)
-{
-    struct pmap_registry *pmap = NULL;
-    int p = 0;
-    glusterd_conf_t *priv = NULL;
-    char *brick_str;
-
-    priv = this->private;
-    pmap = priv->pmap;
-    if (!pmap)
-        goto out;
-
-    if (port) {
-        if (port > pmap->max_port)
-            goto out;
-    }
-
-    if (brickname) {
-        p = pmap_registry_search(this, brickname, type, _gf_true);
-        if (p)
-            goto remove;
-    }
-
-    if (xprt) {
-        p = pmap_registry_search_by_xprt(this, xprt, type);
-        if (p)
-            goto remove;
-    }
-
-    goto out;
-remove:
-    gf_msg("pmap", GF_LOG_INFO, 0, GD_MSG_BRICK_REMOVE,
-           "removing brick %s on port %d", brickname, p);
-
-    if (xprt && (xprt == pmap->ports[p].xprt)) {
-        pmap->ports[p].xprt = NULL;
-    }
-
-    /*
-     * This is where we garbage-collect.  If all of the brick names have
-     * been "whited out" by pmap_registry_search(...,destroy=_gf_true) and
-     * there's no xprt either, then we have nothing left worth saving and
-     * can delete the entire entry.
-     */
-    if (brick_disconnect || !pmap->ports[p].xprt) {
-        /* If the signout call is being triggered by brick disconnect
-         * then clean up all the bricks (in case of brick mux)
-         */
-        if (!brick_disconnect) {
-            brick_str = pmap->ports[p].brickname;
-            if (brick_str) {
-                while (*brick_str != '\0') {
-                    if (*(brick_str++) != ' ') {
-                        goto out;
-                    }
-                }
-            }
-        }
-        free(pmap->ports[p].brickname);
-        pmap->ports[p].brickname = NULL;
-        pmap->ports[p].type = GF_PMAP_PORT_FREE;
-    }
-
-out:
-    return 0;
-}
+/* Get port number using brickname */
 
 int
 __gluster_pmap_portbybrick(rpcsvc_request_t *req)
@@ -435,6 +127,7 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
     char *brick = NULL;
     int port = 0;
     int ret = -1;
+    glusterd_brickinfo_t *brickinfo = NULL;
     xlator_t *this = THIS;
 
     ret = xdr_to_generic(req->msg[0], &args,
@@ -445,15 +138,15 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
         goto fail;
     }
 
-    brick = args.brick;
+    ret = glusterd_get_brickinfo(THIS, args.brick, 0, &brickinfo);
+    /* get the port number from the brickinfo struct */
+    if (brickinfo) {
+        port = brickinfo->port;
+        if (!port)
+            rsp.op_ret = -1;
 
-    port = pmap_registry_search(this, brick, GF_PMAP_PORT_BRICKSERVER,
-                                _gf_false);
-
-    if (!port)
-        rsp.op_ret = -1;
-
-    rsp.port = port;
+        rsp.port = port;
+    }
 
 fail:
     glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
@@ -468,6 +161,8 @@ gluster_pmap_portbybrick(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __gluster_pmap_portbybrick);
 }
+
+/* Get brickname using the port number */
 
 int
 __gluster_pmap_brickbyport(rpcsvc_request_t *req)
@@ -488,10 +183,14 @@ __gluster_pmap_brickbyport(rpcsvc_request_t *req)
         goto fail;
     }
 
-    rsp.brick = pmap_registry_search_by_port(THIS, args.port);
-    if (!rsp.brick) {
-        rsp.op_ret = -1;
-        rsp.brick = "";
+    ret = glusterd_get_brickinfo(THIS, NULL, args.port, &brickinfo);
+    /* get the brickname from the brickinfo struct */
+    if (brickinfo) {
+        strncpy(rsp.brick, brickinfo->path, sizeof(rsp.brick));
+        if (!rsp.brick) {
+            rsp.op_ret = -1;
+            rsp.brick = "";
+        }
     }
 fail:
 
@@ -526,8 +225,7 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
         goto fail;
     }
 
-    rsp.op_ret = pmap_registry_bind(THIS, args.port, args.brick,
-                                    GF_PMAP_PORT_BRICKSERVER, req->trans);
+    rsp.op_ret = 0;
 
     ret = glusterd_get_brickinfo(THIS, args.brick, args.port, &brickinfo);
     /* Update portmap status in brickinfo */
@@ -576,17 +274,6 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
         req->rpc_err = GARBAGE_ARGS;
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
-    }
-    rsp.op_ret = pmap_registry_remove(this, args.port, args.brick,
-                                      GF_PMAP_PORT_BRICKSERVER, req->trans,
-                                      _gf_false);
-
-    ret = glusterd_get_brickinfo(THIS, args.brick, args.port, &brickinfo);
-    if (args.rdma_port) {
-        snprintf(brick_path, PATH_MAX, "%s.rdma", args.brick);
-        rsp.op_ret = pmap_registry_remove(this, args.rdma_port, brick_path,
-                                          GF_PMAP_PORT_BRICKSERVER, req->trans,
-                                          _gf_false);
     }
     /* Update portmap status on brickinfo */
     if (brickinfo)

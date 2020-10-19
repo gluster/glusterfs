@@ -2431,12 +2431,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                     /* This is required to adhere to the
                        IANA standards */
                     brickinfo->port = 0;
-                } else {
-                    /* This is required to have proper ports
-                       assigned to bricks after restart */
-                    pmap = pmap_registry_get(THIS);
-                    if (pmap->last_alloc <= brickinfo->port)
-                        pmap->last_alloc = brickinfo->port + 1;
                 }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
                                 SLEN(GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
@@ -2452,12 +2446,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                     /* This is required to adhere to the
                        IANA standards */
                     brickinfo->rdma_port = 0;
-                } else {
-                    /* This is required to have proper ports
-                       assigned to bricks after restart */
-                    pmap = pmap_registry_get(THIS);
-                    if (pmap->last_alloc <= brickinfo->rdma_port)
-                        pmap->last_alloc = brickinfo->rdma_port + 1;
                 }
 
             } else if (!strncmp(
