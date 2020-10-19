@@ -264,11 +264,13 @@ Geo Replication
 M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 M: Kotresh HR <khiremat@redhat.com>
 M: Sunny Kumar <sunkumar@redhat.com>
+P: Shwetha Acharya <sacharya@redhat.com>
 S: Maintained
 F: geo-replication/
 
 Glusterfind
 M: Aravinda Vishwanathapura <aravinda@kadalu.io>
+P: Shwetha Acharya <sacharya@redhat.com>
 S: Maintained
 F: tools/glusterfind/
 
