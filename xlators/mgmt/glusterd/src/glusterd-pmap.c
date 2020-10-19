@@ -96,7 +96,6 @@ int
 pmap_port_alloc(xlator_t *this)
 {
     struct pmap_registry *pmap = NULL;
-    glusterd_conf_t *priv = NULL;
     int p = 0;
     int port = 0;
 
