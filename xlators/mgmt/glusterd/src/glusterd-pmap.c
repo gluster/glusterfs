@@ -60,8 +60,7 @@ pmap_registry_new(xlator_t *this)
     if (!pmap)
         return NULL;
 
-    pmap->base_port = ((glusterd_conf_t *)(this->private))
-                                             ->base_port;
+    pmap->base_port = ((glusterd_conf_t *)(this->private))->base_port;
     pmap->max_port = ((glusterd_conf_t *)(this->private))->max_port;
 
     return pmap;
@@ -102,7 +101,7 @@ pmap_port_alloc(xlator_t *this)
 
     pmap = pmap_registry_get(this);
 
-    while(true){
+    while (true) {
         p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
         if (pmap_port_isfree(p)) {
             port = p;
