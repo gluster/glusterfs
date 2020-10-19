@@ -168,6 +168,8 @@ int
 glusterd_dump_priv(xlator_t *this)
 {
     glusterd_conf_t *priv = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_brickinfo_t *tmpbrkinfo = NULL;
     char key[GF_DUMP_MAX_BUF_LEN] = "";
 
     priv = this->private;
@@ -211,6 +213,18 @@ glusterd_dump_priv(xlator_t *this)
 
         /* Dump peer details */
         GLUSTERD_DUMP_PEERS(&priv->peers, uuid_list, _gf_false);
+
+        /* Dump brick name and port associated with it */
+        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
+        {
+            cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
+            {
+                gf_proc_dump_build_key(key, "glusterd", "brick_port");
+                gf_proc_dump_write(key, "%d", tmpbrkinfo->port);
+                gf_proc_dump_build_key(key, "glusterd", "brickname");
+                gf_proc_dump_write(key, "%s", tmpbrkinfo->path);
+            }
+        }
 
         /* Dump client details */
         glusterd_dump_client_details(priv);

@@ -2767,7 +2767,6 @@ glusterd_clearlocks_get_local_client_ports(glusterd_volinfo_t *volinfo,
     int index = 0;
     int ret = -1;
     int i = 0;
-    int port = 0;
     int32_t len = 0;
 
     GF_ASSERT(xl_opts);
@@ -2795,18 +2794,8 @@ glusterd_clearlocks_get_local_client_ports(glusterd_volinfo_t *volinfo,
             goto out;
         }
 
-        port = brickinfo->port;
-        if (!port) {
-            ret = -1;
-            gf_msg_debug(THIS->name, 0,
-                         "Couldn't get port "
-                         " for brick %s:%s",
-                         brickinfo->hostname, brickinfo->path);
-            goto out;
-        }
-
         ret = gf_asprintf(&xl_opts[i], "%s-client-%d.remote-port=%d",
-                          volinfo->volname, index, port);
+                          volinfo->volname, index, brickinfo->port);
         if (ret == -1) {
             xl_opts[i] = NULL;
             goto out;

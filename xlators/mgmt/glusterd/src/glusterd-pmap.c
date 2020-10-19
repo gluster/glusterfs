@@ -52,16 +52,16 @@ pmap_port_isfree(int port)
 /* Create a new pmap registry */
 
 static struct pmap_registry *
-pmap_registry_new(xlator_t *this)
+pmap_registry_new(glusterd_conf_t *priv)
 {
     struct pmap_registry *pmap = NULL;
 
-    pmap = CALLOC(sizeof(*pmap), 1);
+    pmap = MALLOC(sizeof(*pmap));
     if (!pmap)
         return NULL;
 
-    pmap->base_port = ((glusterd_conf_t *)(this->private))->base_port;
-    pmap->max_port = ((glusterd_conf_t *)(this->private))->max_port;
+    pmap->base_port = priv->base_port;
+    pmap->max_port = priv->max_port;
 
     return pmap;
 }
@@ -71,14 +71,14 @@ pmap_registry_new(xlator_t *this)
 struct pmap_registry *
 pmap_registry_get(xlator_t *this)
 {
-    glusterd_conf_t *priv = NULL;
     struct pmap_registry *pmap = NULL;
+    glusterd_conf_t *priv = NULL;
 
     priv = this->private;
 
     pmap = priv->pmap;
     if (!pmap) {
-        pmap = pmap_registry_new(this);
+        pmap = pmap_registry_new(priv);
         if (!pmap)
             return NULL;
         priv->pmap = pmap;
@@ -96,8 +96,11 @@ int
 pmap_port_alloc(xlator_t *this)
 {
     struct pmap_registry *pmap = NULL;
+    glusterd_conf_t *priv = NULL;
     int p = 0;
     int port = 0;
+
+    priv = this->private;
 
     pmap = pmap_registry_get(this);
 
@@ -138,7 +141,7 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
 
     ret = glusterd_get_brickinfo(THIS, args.brick, 0, &brickinfo);
     /* get the port number from the brickinfo struct */
-    if (brickinfo) {
+    if (!ret) {
         port = brickinfo->port;
         if (!port)
             rsp.op_ret = -1;
@@ -181,9 +184,9 @@ __gluster_pmap_brickbyport(rpcsvc_request_t *req)
         goto fail;
     }
 
-    ret = glusterd_get_brickinfo(THIS, NULL, args.port, &brickinfo);
+    ret = glusterd_get_brickinfo(this, NULL, args.port, &brickinfo);
     /* get the brickname from the brickinfo struct */
-    if (brickinfo) {
+    if (!ret) {
         gf_strncpy(rsp.brick, brickinfo->path, sizeof(rsp.brick));
         if (!rsp.brick) {
             rsp.op_ret = -1;
@@ -225,7 +228,7 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
 
     rsp.op_ret = 0;
 
-    ret = glusterd_get_brickinfo(THIS, args.brick, args.port, &brickinfo);
+    ret = glusterd_get_brickinfo(this, args.brick, args.port, &brickinfo);
     /* Update portmap status in brickinfo */
     if (brickinfo)
         brickinfo->port_registered = _gf_true;
@@ -259,9 +262,6 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     char pidfile[PATH_MAX] = {0};
-    char brick_path[PATH_MAX] = {
-        0,
-    };
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, fail);
@@ -273,8 +273,10 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
+
+    ret = glusterd_get_brickinfo(THIS, args.brick, args.port, &brickinfo);
     /* Update portmap status on brickinfo */
-    if (brickinfo)
+    if (!ret)
         brickinfo->port_registered = _gf_false;
 
     /* Clean up the pidfile for this brick given glusterfsd doesn't clean it

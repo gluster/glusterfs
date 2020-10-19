@@ -2141,7 +2141,7 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
         rpc_clnt_unref(rpc);
     }
 
-    port = pmap_port_alloc(THIS);
+    port = pmap_port_alloc(this);
     if (!port) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
                "All the ports in the range are exhausted, can't start "
@@ -2239,7 +2239,7 @@ retry:
             ret = -1;
             goto out;
         }
-        rdma_port = pmap_port_alloc(THIS);
+        rdma_port = pmap_port_alloc(this);
         if (!rdma_port) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
                    "All rdma ports in the "
@@ -7269,8 +7269,8 @@ glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
         {
             if (gf_uuid_compare(tmpbrkinfo->uuid, MY_UUID))
                 continue;
-            if (!strcmp(tmpbrkinfo->path, brickname) ||
-                (tmpbrkinfo->port == port)) {
+            if ((tmpbrkinfo->port == port) ||
+                !strcmp(tmpbrkinfo->path, brickname)) {
                 *brickinfo = tmpbrkinfo;
                 return 0;
             }
