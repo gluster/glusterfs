@@ -123,7 +123,6 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
     pmap_port_by_brick_rsp rsp = {
         0,
     };
-    char *brick = NULL;
     int port = 0;
     int ret = -1;
     glusterd_brickinfo_t *brickinfo = NULL;
@@ -185,7 +184,7 @@ __gluster_pmap_brickbyport(rpcsvc_request_t *req)
     ret = glusterd_get_brickinfo(THIS, NULL, args.port, &brickinfo);
     /* get the brickname from the brickinfo struct */
     if (brickinfo) {
-        strncpy(rsp.brick, brickinfo->path, sizeof(rsp.brick));
+        gf_strncpy(rsp.brick, brickinfo->path, sizeof(rsp.brick));
         if (!rsp.brick) {
             rsp.op_ret = -1;
             rsp.brick = "";

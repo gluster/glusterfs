@@ -6004,9 +6004,6 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
     int32_t pid = -1;
     glusterd_brickinfo_t *brickinfo_tmp = NULL;
     glusterd_brick_proc_t *brick_proc = NULL;
-    char pidfile[PATH_MAX] = {0};
-    char *brickpath = NULL;
-    gf_boolean_t is_service_running = _gf_true;
 
     brickid = mydata;
     if (!brickid)
