@@ -54,6 +54,10 @@
 extern glusterd_op_info_t opinfo;
 static int volcount;
 
+static int
+glusterd_deprobe_begin(xlator_t *this, rpcsvc_request_t *req,
+                       const char *hoststr, int port, uuid_t uuid, dict_t *dict,
+                       int *op_errno);
 int
 glusterd_big_locked_notify(struct rpc_clnt *rpc, void *mydata,
                            rpc_clnt_event_t event, void *data,
@@ -76,7 +80,11 @@ glusterd_big_locked_handler(rpcsvc_request_t *req, rpcsvc_actor actor_fn)
     int ret = -1;
 
     synclock_lock(&priv->big_lock);
+    /* If flag is set it means got terminate signal */
+    if (priv->call_fini)
+        goto out;
     ret = actor_fn(req);
+out:
     synclock_unlock(&priv->big_lock);
 
     return ret;
@@ -92,7 +100,9 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     glusterd_friend_req_ctx_t *ctx = NULL;
     char rhost[UNIX_PATH_MAX + 1] = {0};
     dict_t *dict = NULL;
+    xlator_t *this = THIS;
 
+    GF_ASSERT(this);
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
 
@@ -201,6 +211,8 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_friend_req_ctx_t *ctx = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
@@ -1355,10 +1367,10 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
     }
 
     if (!gf_uuid_is_null(uuid)) {
-        ret = glusterd_deprobe_begin(req, hostname, port, uuid, dict,
+        ret = glusterd_deprobe_begin(this, req, hostname, port, uuid, dict,
                                      &op_errno);
     } else {
-        ret = glusterd_deprobe_begin(req, hostname, port, NULL, dict,
+        ret = glusterd_deprobe_begin(this, req, hostname, port, NULL, dict,
                                      &op_errno);
     }
 
@@ -3362,6 +3374,8 @@ glusterd_friend_remove(uuid_t uuid, char *hostname)
 {
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     RCU_READ_LOCK;
 
@@ -3702,6 +3716,8 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_peerctx_args_t args = {0};
     glusterd_friend_sm_event_t *event = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(hoststr);
 
@@ -3755,9 +3771,10 @@ out:
     return ret;
 }
 
-int
-glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
-                       uuid_t uuid, dict_t *dict, int *op_errno)
+static int
+glusterd_deprobe_begin(xlator_t *this, rpcsvc_request_t *req,
+                       const char *hoststr, int port, uuid_t uuid, dict_t *dict,
+                       int *op_errno)
 {
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
@@ -6272,6 +6289,8 @@ glusterd_friend_remove_notify(glusterd_peerctx_t *peerctx, int32_t op_errno)
     rpcsvc_request_t *req = NULL;
     char *errstr = NULL;
     dict_t *dict = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(peerctx);
 

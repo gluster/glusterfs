@@ -422,8 +422,10 @@ glusterd_chk_peers_connected_befriended(uuid_t skip_uuid)
     gf_boolean_t ret = _gf_true;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_conf_t *priv = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
-    priv = THIS->private;
+    priv = this->private;
     GF_ASSERT(priv);
 
     RCU_READ_LOCK;
@@ -454,8 +456,10 @@ glusterd_uuid_to_hostname(uuid_t uuid)
     char *hostname = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_peerinfo_t *entry = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
-    priv = THIS->private;
+    priv = this->private;
     GF_ASSERT(priv);
 
     if (!gf_uuid_compare(MY_UUID, uuid)) {
@@ -526,6 +530,8 @@ glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     gf_boolean_t ret = _gf_false;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {

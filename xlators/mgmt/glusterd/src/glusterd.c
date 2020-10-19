@@ -1050,7 +1050,6 @@ out:
 static int
 _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
 {
-    glusterd_conf_t *priv = THIS->private;
     char *label = NULL;
     gf_boolean_t georep = _gf_false;
     char *pdesc = value->data;
@@ -1059,8 +1058,10 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
     gf_mount_spec_t *mspec = NULL;
     char *user = NULL;
     xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
     GF_ASSERT(this);
 
+    priv = this->private;
     label = strtail(key, "mountbroker.");
 
     /* check for presence of geo-rep label */
@@ -2110,9 +2111,20 @@ out:
 void
 fini(xlator_t *this)
 {
+    glusterd_conf_t *priv = NULL;
+
     if (!this || !this->private)
         goto out;
 
+    priv = this->private;
+    /* Set call_fini flag to true to avoid RPC actor function
+       calling after got a terminate signal
+    */
+    synclock_lock(&priv->big_lock);
+    {
+        priv->call_fini = _gf_true;
+    }
+    synclock_unlock(&priv->big_lock);
     glusterd_stop_uds_listener(this); /*stop unix socket rpc*/
     glusterd_stop_listener(this);     /*stop tcp/ip socket rpc*/
 

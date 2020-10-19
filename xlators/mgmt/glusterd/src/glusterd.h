@@ -236,6 +236,7 @@ typedef struct {
     char workdir[VALID_GLUSTERD_PATHMAX];
     char rundir[VALID_GLUSTERD_PATHMAX];
     char logdir[VALID_GLUSTERD_PATHMAX];
+    gf_boolean_t call_fini; /*Flag is use to sync between fini and actor function */
 } glusterd_conf_t;
 
 typedef struct glusterd_add_dict_args {
@@ -764,18 +765,14 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
     } while (0)
 
 #define RCU_READ_LOCK                                                          \
-    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
     {                                                                          \
         rcu_read_lock();                                                       \
-    }                                                                          \
-    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+    }
 
 #define RCU_READ_UNLOCK                                                        \
-    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
     {                                                                          \
         rcu_read_unlock();                                                     \
-    }                                                                          \
-    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+    }
 
 #define GLUSTERD_DUMP_PEERS(head, member, xpeers)                              \
     do {                                                                       \
@@ -922,10 +919,6 @@ glusterd_op_commit_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
 int
 glusterd_xfer_friend_remove_resp(rpcsvc_request_t *req, char *hostname,
                                  int port);
-
-int
-glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
-                       uuid_t uuid, dict_t *dict, int *op_errno);
 
 int
 glusterd_handle_cli_deprobe(rpcsvc_request_t *req);
