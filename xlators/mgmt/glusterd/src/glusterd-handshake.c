@@ -1887,7 +1887,7 @@ static rpc_clnt_prog_t gd_clnt_mgmt_hndsk_prog = {
 };
 
 static int
-glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
+glusterd_event_connected_inject(xlator_t *this, glusterd_peerctx_t *peerctx)
 {
     GF_ASSERT(peerctx);
 
@@ -2084,7 +2084,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
     ret = default_notify(this, GF_EVENT_CHILD_UP, NULL);
 
     if (GD_MODE_ON == peerctx->args.mode) {
-        (void)glusterd_event_connected_inject(peerctx);
+        (void)glusterd_event_connected_inject(this, peerctx);
         peerctx->args.req = NULL;
     } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
         peerctx->args.mode = GD_MODE_ON;
@@ -2486,7 +2486,7 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
     ret = default_notify(this, GF_EVENT_CHILD_UP, NULL);
 
     if (GD_MODE_ON == peerctx->args.mode) {
-        (void)glusterd_event_connected_inject(peerctx);
+        (void)glusterd_event_connected_inject(this, peerctx);
         peerctx->args.req = NULL;
     } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
         peerctx->args.mode = GD_MODE_ON;
