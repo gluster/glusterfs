@@ -1185,9 +1185,6 @@ int
 close_fds_except_custom(int *fdv, size_t count, void *prm,
                         void closer(int fd, void *prm));
 
-void
-closer_close(int fd, void *prm);
-
 int
 close_fds_except(int *fdv, size_t count);
 

@@ -5223,7 +5223,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
     return 0;
 }
 
-void
+static void
 closer_close(int fd, void *prm)
 {
     sys_close(fd);

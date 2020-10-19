@@ -45,9 +45,6 @@ extern char **environ;
  * $ cc -DRUN_DO_DEMO -DRUN_STANDALONE -orun run.c
  */
 #if defined(RUN_STANDALONE) || defined(RUN_DO_DEMO)
-void
-closer_posix_spawnp(int fd, void *prm);
-
 int
 close_fds_except_custom(int *fdv, size_t count, void *prm,
                         void closer(int fd, void *prm));
@@ -111,7 +108,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
    in memory while closing them.
 */
 
-void
+static void
 closer_posix_spawnp(int fd, void *prm)
 {
     posix_spawn_file_actions_t *file_actionsp = prm;
