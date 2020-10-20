@@ -10,6 +10,7 @@
 
 import sqlite3
 import os
+import pandas as pd
 
 from utils import RecordType, unquote_plus_space_newline
 from utils import output_path_prepare
@@ -91,6 +92,12 @@ class ChangelogData(object):
         self._create_table_inodegfid()
         self.args = args
         self.path_sep = "/"
+        self.changelog_df = pd.DataFrame()
+        self.mkdir_df = pd.DataFrame()
+        self.meta_df = pd.DataFrame()
+        self.symlink_df = pd.DataFrame()
+        self.rename_df = pd.DataFrame()
+        self.unlink_df = pd.DataFrame()
 
     def _create_table_gfidpath(self):
         drop_table = "DROP TABLE IF EXISTS gfidpath"
@@ -435,6 +442,137 @@ class ChangelogData(object):
         query1 = """UPDATE gfidpath SET path2 = ? || '{0}' || bn1
         WHERE pgfid2 = ? AND path2 != ''""".format(self.path_sep)
         self.cursor.execute(query1, (deleted_path, data[1]))
+
+    def collect_changelog_dump(self, filename):
+        """
+        The changelog file contents are completely dumped into a
+        pandas dataframe.
+        """
+        name_list = ['0', 'gfid', '2', '3', '4', '5', '6']
+        temporary_df = pd.read_csv(filename, encoding='utf-8', sep=" ",
+                                   names=name_list, engine='python')
+        temporary_df['ts'] = os.path.basename(filename).split(".")[-1]
+        self.changelog_df = self.changelog_df.append(temporary_df)
+        del(temporary_df)
+
+    def df_to_db_ops(self, args):
+        """
+        The data is to be manipulated according to the underlying operation
+        in changelog before pushing it into db. The operations for mkdir and
+        symlink related ops are pretty straightforward. The DB related ops
+        increae with metadata and unlink or rmdir related ops.
+        """
+        # Splitting th emain dataframe into sub frames.
+        self.df_split_ops(args)
+
+        # DB operations for mkdir, create and mknod.
+        self.df_mknod_ops(args)
+
+        # DB operations for symlink and link.
+        self.df_symlink_ops(args)
+
+    def df_split_ops(self, args):
+        """
+        The dataframe is split only different ops according to the type
+        in the generic dataframe.
+        """
+        # Creating df for mkdir, mknod and create operations.
+        self.mkdir_df = self.changelog_df[(self.changelog_df['0'] == "E") &
+                                          ((self.changelog_df['2'] == "MKNOD")|
+                                           (self.changelog_df['2'] == "MKDIR")|
+                                           (self.changelog_df['2'] ==\
+                                            "CREATE"))]
+
+        # Creating df for link and symlink operations.
+        self.symlink_df = self.changelog_df[(self.changelog_df['0'] == "E") &
+                                            ((self.changelog_df['2'] ==\
+                                              "LINK") |
+                                             (self.changelog_df['2'] ==\
+                                              "SYMLINK"))]
+
+        # Creating df for rename operations.
+        self.rename_df = self.changelog_df[(self.changelog_df['0'] == "E") &
+                                           (self.changelog_df['2'] ==\
+                                            "RENAME")]
+
+        # Creating df for unlink and rmdir operations.
+        self.unlink_df = self.changelog_df[(self.changelog_df['0'] == "E") &
+                                           ((self.changelog_df['2'] ==\
+                                             "UNLINK") |
+                                            (self.changelog_df['2'] ==\
+                                             "RMDIR"))]
+
+        # Creating df for meta data operations.
+        if not args.only_namespace_changes:
+            self.meta_df = self.changelog_df[(self.changelog_df['0'] == "D") |
+                                             (self.changelog_df['0'] == "M")]
+
+        # Drop the main changelog df as it's not required now.
+        del(self.changelog_df)
+
+    def df_mknod_ops(self, args):
+        """
+        Further operations on data is done for ops related to mknod, mkdir
+        and create, then pushed to DB.
+        """
+        self.mkdir_df['pgfid1'] = self.mkdir_df['6']\
+                                     .apply(lambda x: x.split("/", 1)[0])
+        self.mkdir_df['bn1'] = self.mkdir_df['6']\
+                                   .apply(lambda x: x.split("/", 1)[1])
+
+        # Dropping columns which aren;t required.
+        self.mndir_df = self.mkdir_df.drop(['0', '2', '3', '4', '5',
+                                            '6'], axis=1)
+
+        if self.args.no_encode:
+            self.mkdir_df['bn1'] = self.mkdir_df['bn1']\
+                                       .apply(unquote_plus_space_newline_split)
+
+        # Creating columns which would be required in futher ops.
+        self.mkdir_df['type'] = RecordType.NEW
+        self.mkdir_df['pgfid2'] = ""
+        self.mkdir_df['bn2'] = ""
+        self.mkdir_df['path1'] = ""
+        self.mkdir_df['path2'] = ""
+
+        # Push data into db
+        self.mkdir_df.to_sql('gfidpath', self.conn, if_exists='append',
+                             index=False)
+    def df_symlink_ops(self):
+        """
+        Further operations on data is done for ops related to link and symlink
+        and then pushed into db.
+        """
+        self.symlink_df['pgfid1'] = self.symlink_df['3']\
+                                       .apply(lambda x: x.split("/", 1)[0])
+        self.symlink_df['bn1'] = self.symlink_df['3']\
+                                     .apply(lambda x: x.spit("/", 1)[1])
+
+        # Dropping the columns which aren't required.
+        self.symlink_df = self.symlink_df.drop(['0', '2', '3', '4', '5',
+                                                '6'], axis=1)
+
+        # No encoding condition
+        if self.args.no_encode:
+            self.symlink_df['bn1'] = self.symlink_df['bn1']\
+                                     .apply(unquote_plus_space_newline_split)
+
+        # Creating columns which would be required for further ops.
+        self.symlink_df['type'] = RecordType.NEW
+        self.symlink_df['pgfid2'] = ""
+        self.symlink_df['bn2'] = ""
+        self.symlink_df['path1'] = ""
+        self.symlink_df['path2'] = ""
+
+        # Push data into db
+        self.symlink_df.to_sql('gfidpath', self.conn, if_exists='append',
+                               index=False)
+
+    def dump_pandas_into_excel(self):
+        """
+        This is an experimental file for debugging.
+        """
+        self.mkdir_df.to_csv("/home/mkdir_result.csv")
 
     def commit(self):
         self.conn.commit()

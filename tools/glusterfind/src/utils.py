@@ -260,6 +260,11 @@ def unquote_plus_space_newline(s):
             .replace(NEWLINE_ESCAPE_CHAR, "\n")\
             .replace(PERCENTAGE_ESCAPE_CHAR, "%")
 
+def unquote_plus_space_newline_split(s):
+    return s.replace(SPACE_ESCAPE_CHAR, " ")\
+            .replace(NEWLINE_ESCAPE_CHAR, "\n")\
+            .replace(PERCENTAGE_ESCAPE_CHAR, "%")\
+            .split()
 
 def quote_plus_space_newline(s):
     return s.replace("%", PERCENTAGE_ESCAPE_CHAR)\

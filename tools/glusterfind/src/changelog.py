@@ -259,9 +259,9 @@ def parse_changelog_to_db(changelog_data, filename, args):
         changelogfile = os.path.basename(filename)
         for line in f:
             data = line.strip().split(" ")
-            if data[0] == "E" and data[2] in ["CREATE", "MKNOD", "MKDIR"]:
+            """if data[0] == "E" and data[2] in ["CREATE", "MKNOD", "MKDIR"]:
                 # CREATE/MKDIR/MKNOD
-                changelog_data.when_create_mknod_mkdir(changelogfile, data)
+                changelog_data.when_create_mknod_mkdir(changelogfile, data)"""
             elif data[0] in ["D", "M"]:
                 # DATA/META
                 if not args.only_namespace_changes:
@@ -334,6 +334,7 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
                 # again in list
                 if change.endswith(".%s" % start):
                     continue
+                changelog_data.collect_changelog_dump(change)
                 try:
                     parse_changelog_to_db(changelog_data, change, args)
                     libgfchangelog.cl_history_done(change)
@@ -346,6 +347,7 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
         fail("%s Error during Changelog Crawl: %s" % (brick, e),
              logger=logger)
 
+    changelog_data.dump_pandas_into_excel()
     logger.info("[1/4] Finished changelog parsing.")
 
     # Convert all pgfid available from Changelogs
