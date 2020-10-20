@@ -2924,6 +2924,7 @@ gf_defrag_task(void *opaque)
     gf_defrag_info_t *defrag = NULL;
     int ret = 0;
     pid_t pid = GF_CLIENT_PID_DEFRAG;
+    gf_lkowner_t lkowner;
 
     defrag = (gf_defrag_info_t *)opaque;
     if (!defrag) {
@@ -2932,6 +2933,11 @@ gf_defrag_task(void *opaque)
     }
 
     syncopctx_setfspid(&pid);
+    /* setting lkowner stack memory address as lkowner
+     * which will be unique per thread*/
+    set_lk_owner_from_ptr(&lkowner, &lkowner);
+    syncopctx_setfslkowner(&lkowner);
+
 
     q_head = &(defrag->queue[0].list);
 
