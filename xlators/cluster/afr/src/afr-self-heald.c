@@ -1024,10 +1024,16 @@ afr_shd_index_healer(void *data)
     loc_t loc = {
         0,
     };
+    gf_lkowner_t lkowner;
+    pid_t pid = GF_CLIENT_PID_SELF_HEALD;
 
     healer = data;
     THIS = this = healer->this;
     priv = this->private;
+
+    syncopctx_setfspid(&pid);
+    set_lk_owner_from_ptr(&lkowner, &lkowner);
+    syncopctx_setfslkowner(&lkowner);
 
     for (;;) {
         afr_shd_healer_wait(healer);
