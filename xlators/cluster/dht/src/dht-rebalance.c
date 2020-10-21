@@ -4183,11 +4183,8 @@ gf_defrag_start_crawl(void *data)
     };
     int thread_index = 0;
     pthread_t *tid = NULL;
-    /* All Commenting-out in the method are not part of the patch and are
-     * due to the issue mentioned at:
-     * https://github.com/gluster/glusterfs/issues/1507 */
-    //    pthread_t filecnt_thread;
-    //    gf_boolean_t fc_thread_started = _gf_false;
+    pthread_t filecnt_thread;
+    gf_boolean_t fc_thread_started = _gf_false;
 
     this = data;
     if (!this)
@@ -4342,13 +4339,13 @@ gf_defrag_start_crawl(void *data)
             goto out;
         }
 
-        //        ret = gf_defrag_estimates_init(this, &loc, &filecnt_thread);
-        //        if (ret) {
-        //            /* Not a fatal error. Allow the rebalance to proceed*/
-        //            ret = 0;
-        //        } else {
-        //            fc_thread_started = _gf_true;
-        //        }
+        ret = gf_defrag_estimates_init(this, &loc, &filecnt_thread);
+        if (ret) {
+            /* Not a fatal error. Allow the rebalance to proceed*/
+            ret = 0;
+        } else {
+            fc_thread_started = _gf_true;
+        }
     }
 
     ret = gf_defrag_scan_dir(this, defrag, &loc, rebal_dict, migrate_data);
@@ -4382,9 +4379,9 @@ out:
         defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
     }
 
-    //    if (fc_thread_started) {
-    //        gf_defrag_estimates_cleanup(this, defrag, filecnt_thread);
-    //    }
+    if (fc_thread_started) {
+        gf_defrag_estimates_cleanup(this, defrag, filecnt_thread);
+    }
 
     dht_send_rebalance_event(this, defrag->cmd, defrag->defrag_status);
 
