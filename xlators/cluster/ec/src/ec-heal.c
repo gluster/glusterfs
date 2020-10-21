@@ -2698,6 +2698,8 @@ ec_heal_done(int ret, call_frame_t *heal, void *opaque)
 {
     if (opaque)
         ec_fop_data_release(opaque);
+    if (heal)
+        STACK_DESTROY(heal->root);
     return 0;
 }
 
@@ -2759,10 +2761,9 @@ out:
     if (ret < 0) {
         ec_fop_set_error(fop, ENOMEM);
         ec_heal_fail(ec, fop);
+        if (frame)
+            STACK_DESTROY(frame->root);
     }
-
-    if (frame)
-        STACK_DESTROY(frame->root);
 }
 
 void
