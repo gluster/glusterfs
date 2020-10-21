@@ -35,6 +35,11 @@ struct event_slot_epoll {
     struct list_head poller_death;
 };
 
+/* Check __event_slot_alloc() to see why. */
+GF_STATIC_ASSERT((offsetof(struct event_slot_epoll, lock) +
+		  sizeof(gf_lock_t) + sizeof(struct list_head))
+		 == sizeof(struct event_slot_epoll));
+
 struct event_thread_data {
     struct event_pool *event_pool;
     int event_index;
@@ -114,9 +119,10 @@ retry:
 
     for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
         if (table[j].fd == -1) {
-            /* wipe everything except bump the generation */
+            /* Bump the generation and wipe everything except lock and
+               list because they need an explicit initialization anyway. */
             gen = table[j].gen;
-            memset(&table[j], 0, sizeof(table[j]));
+            memset(&table[j], 0, offsetof(struct event_slot_epoll, lock));
             table[j].gen = gen + 1;
 
             LOCK_INIT(&table[j].lock);
@@ -184,6 +190,7 @@ __event_slot_dealloc(struct event_pool *event_pool, int idx)
     slot->fd = -1;
     slot->handled_error = 0;
     slot->in_handler = 0;
+    LOCK_DESTROY(&slot->lock);
     list_del_init(&slot->poller_death);
     if (fd != -1)
         event_pool->slots_used[table_idx]--;
