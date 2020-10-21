@@ -2750,7 +2750,8 @@ gf_defrag_migrate_single_file(void *opaque)
 
     iatt_ptr = &iatt;
 
-    hashed_subvol = dht_subvol_get_hashed(this, &entry_loc);
+    hashed_subvol = dht_subvol_get_hashed_root_layout(this, &entry_loc,
+                                                      defrag->root_layout);
     if (!hashed_subvol) {
         gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_HASHED_SUBVOL_GET_FAILED,
                "Failed to get hashed subvol for %s", entry_loc.path);
@@ -3524,7 +3525,7 @@ out:
 
 int
 gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
-                      dict_t *fix_layout)
+                      dict_t *rebal_dict)
 {
     int ret;
     dht_conf_t *conf = NULL;
@@ -3555,14 +3556,14 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         return 0;
     }
 
-    ret = dict_set_uint32(fix_layout, "new-commit-hash",
+    ret = dict_set_uint32(rebal_dict, "new-commit-hash",
                           defrag->new_commit_hash);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR, "Failed to set new-commit-hash");
         return -1;
     }
 
-    ret = syncop_setxattr(this, loc, fix_layout, 0, NULL, NULL);
+    ret = syncop_setxattr(this, loc, rebal_dict, 0, NULL, NULL);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_LAYOUT_FIX_FAILED,
                "fix layout on %s failed", loc->path);
@@ -3576,14 +3577,14 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     }
 
     /* TBD: find more efficient solution than adding/deleting every time */
-    dict_del(fix_layout, "new-commit-hash");
+    dict_del(rebal_dict, "new-commit-hash");
 
     return 0;
 }
 
 int
-gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
-                     dict_t *fix_layout, dict_t *migrate_data)
+gf_defrag_scan_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
+                   dict_t *rebal_dict, dict_t *migrate_data)
 {
     int ret = -1;
     loc_t entry_loc = {
@@ -3678,7 +3679,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
             gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_READDIR_ERROR,
                    "readdirp failed for "
-                   "path %s. Aborting fix-layout",
+                   "path %s. Aborting dir scan",
                    loc->path);
 
             ret = -1;
@@ -3789,8 +3790,8 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
              * lookup of a dir failed. Hence, don't commit hash
              * for the current directory*/
 
-            ret = gf_defrag_fix_layout(this, defrag, &entry_loc, fix_layout,
-                                       migrate_data);
+            ret = gf_defrag_scan_dir(this, defrag, &entry_loc, rebal_dict,
+                                     migrate_data);
 
             if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 goto out;
@@ -3808,7 +3809,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                     goto out;
                 } else {
                     /* Let's not commit-hash if
-                     * gf_defrag_fix_layout failed*/
+                     * gf_defrag_scan_dir failed*/
                     continue;
                 }
             }
@@ -3817,50 +3818,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         gf_dirent_free(&entries);
         free_entries = _gf_false;
         INIT_LIST_HEAD(&entries.list);
-    }
-
-    /* A directory layout is fixed only after its subdirs are healed to
-     * any newly added bricks. If the layout is fixed before subdirs are
-     * healed, the newly added brick will get a non-null layout.
-     * Any subdirs which hash to that layout will no longer show up
-     * in a directory listing until they are healed.
-     */
-
-    ret = syncop_setxattr(this, loc, fix_layout, 0, NULL, NULL);
-
-    /* In case of a race where the directory is deleted just before
-     * layout setxattr, the errors are updated in the layout structure.
-     * We can use this information to make a decision whether the directory
-     * is deleted entirely.
-     */
-    if (ret == 0) {
-        ret = dht_dir_layout_error_check(this, loc->inode);
-        ret = -ret;
-    }
-
-    if (ret) {
-        if (-ret == ENOENT || -ret == ESTALE) {
-            gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_LAYOUT_FIX_FAILED,
-                   "Setxattr failed. Dir %s "
-                   "renamed or removed",
-                   loc->path);
-            if (conf->decommission_subvols_cnt) {
-                defrag->total_failures++;
-            }
-            ret = 0;
-            goto out;
-        } else {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_LAYOUT_FIX_FAILED,
-                   "Setxattr failed for %s", loc->path);
-
-            defrag->total_failures++;
-
-            if (conf->decommission_in_progress) {
-                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                ret = -1;
-                goto out;
-            }
-        }
     }
 
     if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
@@ -3887,22 +3844,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                     goto out;
                 }
             }
-        }
-    }
-
-    gf_msg_trace(this->name, 0, "fix layout called on %s", loc->path);
-
-    if (gf_defrag_settle_hash(this, defrag, loc, fix_layout) != 0) {
-        defrag->total_failures++;
-
-        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_SETTLE_HASH_FAILED,
-               "Settle hash failed for %s", loc->path);
-
-        ret = -1;
-
-        if (conf->decommission_in_progress) {
-            defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-            goto out;
         }
     }
 
@@ -4199,7 +4140,7 @@ out:
 }
 
 int
-gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
+gf_defrag_parallel_migration_cleanup(xlator_t *this, gf_defrag_info_t *defrag,
                                      pthread_t *tid_array, int thread_index)
 {
     int ret = -1;
@@ -4233,6 +4174,9 @@ gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
 
     GF_FREE(defrag->queue);
 
+    /* Unref root layout after 'refing' it during init stage */
+    dht_layout_unref(this, defrag->root_layout);
+
     ret = 0;
 out:
     return ret;
@@ -4244,7 +4188,7 @@ gf_defrag_start_crawl(void *data)
     xlator_t *this = NULL;
     dht_conf_t *conf = NULL;
     gf_defrag_info_t *defrag = NULL;
-    dict_t *fix_layout = NULL;
+    dict_t *rebal_dict = NULL;
     dict_t *migrate_data = NULL;
     dict_t *status = NULL;
     glusterfs_ctx_t *ctx = NULL;
@@ -4315,8 +4259,8 @@ gf_defrag_start_crawl(void *data)
     dht_get_du_info(statfs_frame, this, &loc);
     THIS = old_THIS;
 
-    fix_layout = dict_new();
-    if (!fix_layout) {
+    rebal_dict = dict_new();
+    if (!rebal_dict) {
         ret = -1;
         goto out;
     }
@@ -4330,7 +4274,7 @@ gf_defrag_start_crawl(void *data)
     gf_log(this->name, GF_LOG_INFO, "%s using commit hash %u", __func__,
            conf->vol_commit_hash);
 
-    ret = dict_set_uint32(fix_layout, conf->commithash_xattr_name,
+    ret = dict_set_uint32(rebal_dict, conf->commithash_xattr_name,
                           conf->vol_commit_hash);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR, "Failed to set %s",
@@ -4340,7 +4284,7 @@ gf_defrag_start_crawl(void *data)
         goto out;
     }
 
-    ret = syncop_setxattr(this, &loc, fix_layout, 0, NULL, NULL);
+    ret = syncop_setxattr(this, &loc, rebal_dict, 0, NULL, NULL);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,
                "Failed to set commit hash on %s. "
@@ -4353,7 +4297,7 @@ gf_defrag_start_crawl(void *data)
 
     /* We now return to our regularly scheduled program. */
 
-    ret = dict_set_str(fix_layout, GF_XATTR_FIX_LAYOUT_KEY, "yes");
+    ret = dict_set_str(rebal_dict, GF_XATTR_FIX_LAYOUT_KEY, "yes");
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_REBALANCE_START_FAILED,
                "Failed to start rebalance:"
@@ -4366,7 +4310,7 @@ gf_defrag_start_crawl(void *data)
 
     defrag->new_commit_hash = conf->vol_commit_hash;
 
-    ret = syncop_setxattr(this, &loc, fix_layout, 0, NULL, NULL);
+    ret = syncop_setxattr(this, &loc, rebal_dict, 0, NULL, NULL);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_REBALANCE_FAILED,
                "fix layout on %s failed", loc.path);
@@ -4399,6 +4343,17 @@ gf_defrag_start_crawl(void *data)
             goto out;
         }
 
+        /* Get the layout of the root dir and decide whether or not to migrate
+         * file by comparing file's current location with it */
+        defrag->root_layout = dht_layout_get(this, defrag->root_inode);
+        if (!defrag->root_layout) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_REBALANCE_FAILED,
+                   "dailed to get layout of root dir");
+            defrag->total_failures++;
+            ret = -1;
+            goto out;
+        }
+
         /* Initialise the structures required for parallel migration */
         ret = gf_defrag_parallel_migration_init(this, defrag, &tid,
                                                 &thread_index);
@@ -4416,14 +4371,14 @@ gf_defrag_start_crawl(void *data)
         }
     }
 
-    ret = gf_defrag_fix_layout(this, defrag, &loc, fix_layout, migrate_data);
+    ret = gf_defrag_scan_dir(this, defrag, &loc, rebal_dict, migrate_data);
     if (ret) {
         defrag->total_failures++;
         ret = -1;
         goto out;
     }
 
-    if (gf_defrag_settle_hash(this, defrag, &loc, fix_layout) != 0) {
+    if (gf_defrag_settle_hash(this, defrag, &loc, rebal_dict) != 0) {
         defrag->total_failures++;
         ret = -1;
         goto out;
@@ -4440,7 +4395,7 @@ out:
         defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
     }
 
-    gf_defrag_parallel_migration_cleanup(defrag, tid, thread_index);
+    gf_defrag_parallel_migration_cleanup(this, defrag, tid, thread_index);
 
     if ((defrag->defrag_status != GF_DEFRAG_STATUS_STOPPED) &&
         (defrag->defrag_status != GF_DEFRAG_STATUS_FAILED)) {
