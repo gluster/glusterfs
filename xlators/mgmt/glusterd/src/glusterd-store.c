@@ -4020,8 +4020,9 @@ glusterd_store_retrieve_missed_snaps_list(xlator_t *this)
     }
 
     do {
+        char buf[8192];
         ret = gf_store_read_and_tokenize(fp, &missed_node_info, &value,
-                                         &store_errno);
+                                         &store_errno, buf, 8192);
         if (ret) {
             if (store_errno == GD_STORE_EOF) {
                 gf_msg_debug(this->name, 0, "EOF for missed_snap_list");

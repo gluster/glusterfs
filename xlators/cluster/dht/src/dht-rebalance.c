@@ -2405,7 +2405,7 @@ dht_build_root_inode(xlator_t *this, inode_t **inode)
     inode_table_t *itable = NULL;
     static uuid_t root_gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-    itable = inode_table_new(0, this);
+    itable = inode_table_new(0, this, 0, 0);
     if (!itable)
         return;
 
@@ -4020,7 +4020,7 @@ dht_file_counter_thread(void *args)
     dht_build_root_loc(defrag->root_inode, &root_loc);
 
     while (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED) {
-        timespec_now(&time_to_wait);
+        timespec_now_realtime(&time_to_wait);
         time_to_wait.tv_sec += 600;
 
         pthread_mutex_lock(&defrag->fc_mutex);

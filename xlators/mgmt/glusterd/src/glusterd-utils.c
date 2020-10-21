@@ -139,6 +139,17 @@ is_brick_mx_enabled(void)
     if (!ret)
         ret = gf_string2boolean(value, &enabled);
 
+/* GF_ENABLE_BRICKMUX set as a compile time build option, if the
+   option is set and brick_mux key is not configured then consider
+   brick_mux option is enabled
+*/
+#if defined(GF_ENABLE_BRICKMUX)
+    if (ret) {
+        ret = _gf_false;
+        enabled = _gf_true;
+    }
+#endif
+
     return ret ? _gf_false : enabled;
 }
 
@@ -6706,14 +6717,14 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    if (strncmp(uuid_utoa(volinfo->volume_id), uuid_utoa(volid),
-                GF_UUID_BUF_SIZE)) {
+    if (gf_uuid_compare(volinfo->volume_id, volid)) {
         gf_log(this->name, GF_LOG_ERROR,
                "Mismatching %s extended attribute on brick root (%s),"
                " brick is deemed not to be a part of the volume (%s)",
                GF_XATTR_VOL_ID_KEY, brickinfo->path, volinfo->volname);
         goto out;
     }
+
     is_service_running = gf_is_service_running(pidfile, &pid);
     if (is_service_running) {
         if (is_brick_mx_enabled()) {

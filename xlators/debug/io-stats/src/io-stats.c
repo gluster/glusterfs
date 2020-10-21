@@ -3699,6 +3699,15 @@ xlator_set_loglevel(xlator_t *this, int log_level)
     }
 }
 
+void
+ios_sample_buf_size_configure(char *name, struct ios_conf *conf)
+{
+    conf->ios_sample_buf_size = 1024;
+    gf_log(name, GF_LOG_INFO,
+           "Configure ios_sample_buf "
+           " size is 1024 because ios_sample_interval is 0");
+}
+
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
@@ -3755,8 +3764,13 @@ reconfigure(xlator_t *this, dict_t *options)
                      int32, out);
     GF_OPTION_RECONF("ios-dump-format", dump_format_str, options, str, out);
     ios_set_log_format_code(conf, dump_format_str);
-    GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size, options,
-                     int32, out);
+    if (conf->ios_sample_interval) {
+        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size, options,
+                         int32, out);
+    } else {
+        ios_sample_buf_size_configure (this->name, conf);
+    }
+
     GF_OPTION_RECONF("sys-log-level", sys_log_str, options, str, out);
     if (sys_log_str) {
         sys_log_level = glusterd_check_log_level(sys_log_str);
@@ -3933,8 +3947,12 @@ init(xlator_t *this)
     GF_OPTION_INIT("ios-dump-format", dump_format_str, str, out);
     ios_set_log_format_code(conf, dump_format_str);
 
-    GF_OPTION_INIT("ios-sample-buf-size", conf->ios_sample_buf_size, int32,
-                   out);
+    if (conf->ios_sample_interval) {
+        GF_OPTION_INIT("ios-sample-buf-size", conf->ios_sample_buf_size, int32,
+                       out);
+    } else {
+        ios_sample_buf_size_configure (this->name, conf);
+    }
 
     ret = ios_init_sample_buf(conf);
     if (ret) {

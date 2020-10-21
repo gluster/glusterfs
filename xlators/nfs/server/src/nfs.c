@@ -565,7 +565,7 @@ nfs_init_subvolume(struct nfs_state *nfs, xlator_t *xl)
         return -1;
 
     lrusize = nfs->memfactor * GF_NFS_INODE_LRU_MULT;
-    xl->itable = inode_table_new(lrusize, xl);
+    xl->itable = inode_table_new(lrusize, xl, 0, 0);
     if (!xl->itable) {
         gf_msg(GF_NFS, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to allocate inode table");

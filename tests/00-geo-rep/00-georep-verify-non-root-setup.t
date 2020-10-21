@@ -5,7 +5,7 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
-SCRIPT_TIMEOUT=600
+SCRIPT_TIMEOUT=900
 
 ### Basic Non-root geo-rep setup test with Distribute Replicate volumes
 
@@ -32,6 +32,10 @@ grp="ggroup"
 slave_url=$usr@$slave
 slave_vol=$GSV0
 ssh_url=$usr@$SH0
+
+#Cleanup stale keys
+sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' /home/$usr/.ssh/authorized_keys
+sed -i '/^command=.*gsyncd.*/d' /home/$usr/.ssh/authorized_keys
 
 ############################################################
 #SETUP VOLUMES AND VARIABLES
