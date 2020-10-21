@@ -184,7 +184,8 @@ out:
 
 int
 gf_store_read_and_tokenize(FILE *file, char **iter_key, char **iter_val,
-                           gf_store_op_errno_t *store_errno)
+                           gf_store_op_errno_t *store_errno, char *str,
+                           size_t buf_size)
 {
     int32_t ret = -1;
     char *savetok = NULL;
@@ -192,7 +193,6 @@ gf_store_read_and_tokenize(FILE *file, char **iter_key, char **iter_val,
     char *value = NULL;
     char *temp = NULL;
     size_t str_len = 0;
-    char str[8192];
 
     GF_ASSERT(file);
     GF_ASSERT(iter_key);
@@ -200,7 +200,7 @@ gf_store_read_and_tokenize(FILE *file, char **iter_key, char **iter_val,
     GF_ASSERT(store_errno);
 
 retry:
-    temp = fgets(str, 8192, file);
+    temp = fgets(str, buf_size, file);
     if (temp == NULL || feof(file)) {
         ret = -1;
         *store_errno = GD_STORE_EOF;
@@ -274,8 +274,9 @@ gf_store_retrieve_value(gf_store_handle_t *handle, char *key, char **value)
         fseek(handle->read, 0, SEEK_SET);
     }
     do {
+        char buf[8192];
         ret = gf_store_read_and_tokenize(handle->read, &iter_key, &iter_val,
-                                         &store_errno);
+                                         &store_errno, buf, 8192);
         if (ret < 0) {
             gf_msg_trace("", 0,
                          "error while reading key '%s': "
@@ -579,6 +580,8 @@ gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
     int32_t ret = -1;
     char *iter_key = NULL;
     char *iter_val = NULL;
+    char buf[8192];
+
     gf_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
     GF_ASSERT(iter);
@@ -586,7 +589,7 @@ gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
     GF_ASSERT(value);
 
     ret = gf_store_read_and_tokenize(iter->file, &iter_key, &iter_val,
-                                     &store_errno);
+                                     &store_errno, buf, 8192);
     if (ret < 0) {
         goto out;
     }

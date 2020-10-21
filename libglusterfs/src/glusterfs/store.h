@@ -60,7 +60,8 @@ gf_store_unlink_tmppath(gf_store_handle_t *shandle);
 
 int
 gf_store_read_and_tokenize(FILE *file, char **iter_key, char **iter_val,
-                           gf_store_op_errno_t *store_errno);
+                           gf_store_op_errno_t *store_errno, char *str,
+                           size_t buf_size);
 
 int32_t
 gf_store_retrieve_value(gf_store_handle_t *handle, char *key, char **value);
