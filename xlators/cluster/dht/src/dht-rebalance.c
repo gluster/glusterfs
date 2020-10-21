@@ -4020,7 +4020,7 @@ dht_file_counter_thread(void *args)
     dht_build_root_loc(defrag->root_inode, &root_loc);
 
     while (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED) {
-        timespec_now(&time_to_wait);
+        timespec_now_realtime(&time_to_wait);
         time_to_wait.tv_sec += 600;
 
         pthread_mutex_lock(&defrag->fc_mutex);
