@@ -60,19 +60,23 @@ struct nfs_initer_list {
 };
 
 struct nfs_state {
-    rpcsvc_t *rpcsvc;
     struct list_head versions;
+    gid_cache_t gid_cache;
+    gf_lock_t svinitlock;
+    rpcsvc_t *rpcsvc;
     struct mount3_state *mstate;
     struct nfs3_state *nfs3state;
     struct nlm4_state *nlm4state;
     struct mem_pool *foppool;
-    unsigned int memfactor;
     xlator_list_t *subvols;
-
-    gf_lock_t svinitlock;
+    xlator_t **initedxl;
+    char *rmtab;
+    struct rpc_clnt *rpc_clnt;
+    char *rpc_statd;
+    char *rpc_statd_pid_file;
+    unsigned int memfactor;
     int allsubvols;
     int upsubvols;
-    xlator_t **initedxl;
     int subvols_started;
     int dynamicvolumes;
     int enable_ino32;
@@ -90,17 +94,13 @@ struct nfs_state {
     unsigned int auth_refresh_time_secs;
     unsigned int auth_cache_ttl_sec;
 
-    char *rmtab;
-    struct rpc_clnt *rpc_clnt;
-    gf_boolean_t server_aux_gids;
     uint32_t server_aux_gids_max_age;
-    gid_cache_t gid_cache;
     uint32_t generation;
-    gf_boolean_t register_portmap;
-    char *rpc_statd;
-    char *rpc_statd_pid_file;
-    gf_boolean_t rdirplus;
     uint32_t event_threads;
+
+    gf_boolean_t server_aux_gids;
+    gf_boolean_t register_portmap;
+    gf_boolean_t rdirplus;
 
 #ifdef HAVE_LIBTIRPC
     bool svc_running;
