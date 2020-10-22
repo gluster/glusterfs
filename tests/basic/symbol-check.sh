@@ -17,6 +17,9 @@ glibccalls=$'tmpfile'
 
 exclude_files=$'/libglusterfs/src/.libs/libglusterfs_la-syscall.o\n\
 /libglusterfs/src/.libs/libglusterfs_la-gen_uuid.o\n\
+/contrib/fuse-lib/mount-common.o\n
+/contrib/fuse-lib/.libs/mount.o\n
+/contrib/fuse-lib/.libs/mount-common.o\n
 /contrib/fuse-util/fusermount.o\n\
 /contrib/fuse-util/mount_util.o\n\
 /contrib/fuse-util/mount-common.o\n\
