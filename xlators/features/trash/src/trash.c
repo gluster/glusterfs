@@ -2235,15 +2235,46 @@ reconfigure(xlator_t *this, dict_t *options)
     char trash_dir[PATH_MAX] = {
         0,
     };
+    gf_boolean_t active_earlier = _gf_false;
+    gf_boolean_t active_now = _gf_false;
 
     priv = this->private;
 
     GF_VALIDATE_OR_GOTO("trash", priv, out);
 
+    active_earlier = priv->state;
+    GF_OPTION_RECONF("trash", active_now, options, bool, out);
+
+    /* Disable of trash feature is not allowed at this point until
+       we are not able to find an approach to cleanup resource
+       gracefully. Here to disable the feature need to destroy inode
+       table and currently it is difficult to ensure inode is not
+       being used
+    */
+    if (active_earlier && !active_now) {
+        gf_log(this->name, GF_LOG_INFO,
+               "Disable of trash feature is not allowed "
+               "during graph reconfigure");
+        ret = 0;
+        goto out;
+    }
+
+    if (!active_earlier && active_now) {
+        if (!priv->trash_itable) {
+            priv->trash_itable = inode_table_new(0, this, 0, 0);
+            if (!priv->trash_itable) {
+                ret = -ENOMEM;
+                gf_log(this->name, GF_LOG_ERROR,
+                       "failed to create trash inode_table"
+                       "  during graph reconfigure");
+                goto out;
+            }
+        }
+        priv->state = active_now;
+    }
+
     GF_OPTION_RECONF("trash-internal-op", priv->internal, options, bool, out);
     GF_OPTION_RECONF("trash-dir", tmp, options, str, out);
-
-    GF_OPTION_RECONF("trash", priv->state, options, bool, out);
 
     if (priv->state) {
         ret = create_or_rename_trash_directory(this);
@@ -2501,7 +2532,17 @@ init(xlator_t *this)
         goto out;
     }
 
-    priv->trash_itable = inode_table_new(0, this, 0, 0);
+    if (priv->state) {
+        priv->trash_itable = inode_table_new(0, this, 0, 0);
+        if (!priv->trash_itable) {
+            ret = -ENOMEM;
+            priv->state = _gf_false;
+            gf_log(this->name, GF_LOG_ERROR,
+                   "failed to create trash inode_table disable trash");
+            goto out;
+        }
+    }
+
     gf_log(this->name, GF_LOG_DEBUG, "brick path is%s", priv->brick_path);
 
     this->private = (void *)priv;
