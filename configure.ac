@@ -462,7 +462,7 @@ AC_ARG_WITH(systemddir,
             [systemddir=$withval],
             [systemddir='${prefix}/lib/systemd/system'])
 AC_SUBST(systemddir)
-AM_CONDITIONAL([USE_SYSTEMD], test [ -d '/usr/lib/systemd/system' ])
+AM_CONDITIONAL([USE_SYSTEMD], test [ -d '/usr/lib/systemd/'])
 
 AC_ARG_WITH(initdir,
             [  --with-initdir=DIR init.d scripts in DIR @<:@/etc/init.d@:>@],
