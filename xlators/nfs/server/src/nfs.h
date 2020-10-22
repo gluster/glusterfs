@@ -101,6 +101,11 @@ struct nfs_state {
     char *rpc_statd_pid_file;
     gf_boolean_t rdirplus;
     uint32_t event_threads;
+
+#ifdef HAVE_LIBTIRPC
+    pthread_mutex_t svc_mutex;
+    bool svc_running;
+#endif
 };
 
 struct nfs_inode_ctx {
@@ -151,4 +156,8 @@ nfs_subvolume_started(struct nfs_state *nfs, xlator_t *xl);
 
 extern void
 nfs_fix_groups(xlator_t *this, call_stack_t *root);
+
+void
+nfs_start_rpc_poller(struct nfs_state *state);
+
 #endif

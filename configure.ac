@@ -1173,6 +1173,10 @@ if test "x${with_libtirpc}" = "xyes" || test "x${with_ipv6_default}" = "xyes" ; 
        [with_libtirpc="missing"; with_ipv6_default="no"])
 fi
 
+if test "x${with_libtirpc}" = "xyes" ; then
+    AC_DEFINE(HAVE_LIBTIRPC, 1, [Using libtirpc])
+fi
+
 if test "x${with_libtirpc}" = "xmissing" ; then
     AC_CHECK_HEADERS([rpc/rpc.h],[
         AC_MSG_WARN([
