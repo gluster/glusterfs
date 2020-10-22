@@ -103,7 +103,6 @@ struct nfs_state {
     uint32_t event_threads;
 
 #ifdef HAVE_LIBTIRPC
-    pthread_mutex_t svc_mutex;
     bool svc_running;
 #endif
 };

@@ -1055,10 +1055,6 @@ nfs_init_state(xlator_t *this)
         }
     }
 
-#ifdef HAVE_LIBTIRPC
-    pthread_mutex_init(&nfs->svc_mutex, NULL);
-#endif
-
     GF_OPTION_INIT("nfs.rdirplus", nfs->rdirplus, bool, free_foppool);
 
     GF_OPTION_INIT(OPT_SERVER_RPC_STATD, nfs->rpc_statd, path, free_foppool);
@@ -1543,11 +1539,6 @@ fini(xlator_t *this)
     nfs = (struct nfs_state *)this->private;
     gf_msg_debug(GF_NFS, 0, "NFS service going down");
     nfs_deinit_versions(&nfs->versions, this);
-
-#ifdef HAVE_LIBTIRPC
-    pthread_mutex_destroy(&nfs->svc_mutex);
-#endif
-
     GF_FREE(this->instance_name);
     return;
 }
@@ -1691,17 +1682,9 @@ nfs_start_rpc_poller(struct nfs_state *state)
  *     all registered services, from any thread.
  */
 #ifdef HAVE_LIBTIRPC
-    pthread_mutex_lock(&state->svc_mutex);
-
-    if (state->svc_running) {
-        pthread_mutex_unlock(&state->svc_mutex);
-
+    if (uatomic_xchg(&state->svc_running, true)) {
         return;
     }
-
-    state->svc_running = true;
-
-    pthread_mutex_unlock(&state->svc_mutex);
 #endif
 
     svc_run();
