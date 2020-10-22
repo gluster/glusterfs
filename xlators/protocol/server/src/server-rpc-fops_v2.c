@@ -115,8 +115,6 @@ server4_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret) {
         if (state->is_revalidate && op_errno == ENOENT) {
             if (!__is_root_gfid(state->resolve.gfid)) {
-                inode_unlink(state->loc.inode, state->loc.parent,
-                             state->loc.name);
                 /**
                  * If the entry is not present, then just
                  * unlinking the associated dentry is not
@@ -133,7 +131,8 @@ server4_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  * lookups will be successful, if the lookup
                  * is a soft lookup)
                  */
-                forget_inode_if_no_dentry(state->loc.inode);
+                inode_unlink2(state->loc.inode, state->loc.parent,
+                              state->loc.name, false, true, 0, true);
             }
         }
         goto out;

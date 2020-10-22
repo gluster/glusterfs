@@ -1530,8 +1530,7 @@ pub_glfs_h_close(struct glfs_object *object)
 {
     /* since glfs_h_* objects hold a reference to inode
      * it is safe to keep lookup count to '0' */
-    inode_forget(object->inode, 0);
-    inode_unref(object->inode);
+    inode_forget_with_unref(object->inode, 0);
     GF_FREE(object);
 
     return 0;

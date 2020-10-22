@@ -1261,8 +1261,22 @@ __inode_unlink(inode_t *inode, inode_t *parent, const char *name)
     return dentry;
 }
 
+/*
+ * Please pass args (4th to 7th) to inode_unlink depending on the requirement
+ * i_unref:     if "true" invokes inode_unref() and if "false" skips the same
+ * nref:        if nref == 0, calls the __inode_unref, which decrements the
+                ref count by 1
+                if nref > 0, calls __inode_ref_reduce_by_n(), which reduces
+                ref count by nref times
+ * i_forget &
+ * dlist_check: if i_forget == true and dlist_check == true, verify dentry
+                in inode and do inode_forget()
+                if i_forget == true and dlist_check == false, don't verify
+                dentry in inode and just call inode_forget()
+ */
 void
-inode_unlink(inode_t *inode, inode_t *parent, const char *name)
+inode_unlink2(inode_t *inode, inode_t *parent, const char *name, bool i_unref,
+              bool i_forget, uint64_t nref, bool dlist_check)
 {
     inode_table_t *table;
     dentry_t *dentry;
@@ -1275,12 +1289,32 @@ inode_unlink(inode_t *inode, inode_t *parent, const char *name)
     pthread_mutex_lock(&table->lock);
     {
         dentry = __inode_unlink(inode, parent, name);
+
+        if (i_unref) {
+            if (nref)
+                inode = __inode_ref_reduce_by_n(inode, nref);
+            else
+                inode = __inode_unref(inode, false);
+        }
     }
     pthread_mutex_unlock(&table->lock);
 
     dentry_destroy(dentry);
 
+    if (i_forget && dlist_check)
+        if (!inode_has_dentry(inode))
+            inode_forget_atomic(inode, 0);
+
+    if (i_forget && !dlist_check)
+        inode_forget_atomic(inode, 0);
+
     inode_table_prune(table);
+}
+
+void
+inode_unlink(inode_t *inode, inode_t *parent, const char *name)
+{
+    inode_unlink2(inode, parent, name, false, false, 0, false);
 }
 
 int

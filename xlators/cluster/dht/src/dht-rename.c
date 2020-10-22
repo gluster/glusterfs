@@ -1475,9 +1475,8 @@ dht_rename_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             if ((local->loc2.inode == NULL) ||
                 gf_uuid_compare(stbuf->ia_gfid, local->loc2.inode->gfid)) {
                 if (local->loc2.inode != NULL) {
-                    inode_unlink(local->loc2.inode, local->loc2.parent,
-                                 local->loc2.name);
-                    inode_unref(local->loc2.inode);
+                    inode_unlink2(local->loc2.inode, local->loc2.parent,
+                                  local->loc2.name, true, false, 0, false);
                 }
 
                 local->loc2.inode = inode_link(local->loc2_copy.inode,

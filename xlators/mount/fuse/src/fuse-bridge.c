@@ -1124,8 +1124,11 @@ fuse_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          * removed from another client.
          */
         if (op_errno == ENOENT)
-            inode_unlink(state->loc.inode, state->loc.parent, state->loc.name);
-        inode_unref(state->loc.inode);
+            inode_unlink2(state->loc.inode, state->loc.parent, state->loc.name,
+                          true, false, 0, false);
+        else
+            inode_unref(state->loc.inode);
+
         state->loc.inode = inode_new(itable);
         state->is_revalidate = 2;
         if (gf_uuid_is_null(state->gfid))

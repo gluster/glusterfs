@@ -743,9 +743,8 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
                 /* The following unref corresponds to the ref held at
                  * the time the shard was added to the lru list.
                  */
-                inode_unref(lru_inode);
-                inode_unlink(lru_inode, priv->dot_shard_inode, block_bname);
-                inode_forget(lru_inode, 0);
+                inode_unlink2(lru_inode, priv->dot_shard_inode, block_bname,
+                              true, true, 0, false);
             } else {
                 /* The following unref corresponds to the ref
                  * held when the shard was added to fsync list.
@@ -962,13 +961,12 @@ shard_evicted_inode_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((list_empty(&ctx->to_fsync_list)) && (list_empty(&ctx->ilist))) {
             shard_make_block_bname(ctx->block_num, shard_inode->gfid,
                                    block_bname, sizeof(block_bname));
-            inode_unlink(shard_inode, priv->dot_shard_inode, block_bname);
             /* The following unref corresponds to the ref held by
              * inode_link() at the time the shard was created or
              * looked up
              */
-            inode_unref(shard_inode);
-            inode_forget(shard_inode, 0);
+            inode_unlink2(shard_inode, priv->dot_shard_inode, block_bname, true,
+                          true, 0, false);
         }
     }
     UNLOCK(&shard_inode->lock);
@@ -3114,9 +3112,8 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
     if (base_inode)
         UNLOCK(&base_inode->lock);
 
-    inode_unlink(inode, priv->dot_shard_inode, block_bname);
-    inode_ref_reduce_by_n(inode, unref_shard_inode);
-    inode_forget(inode, 0);
+    inode_unlink2(inode, priv->dot_shard_inode, block_bname, true, true,
+                  unref_shard_inode, false);
 
     if (base_inode && unref_base_inode)
         inode_ref_reduce_by_n(base_inode, unref_base_inode);
@@ -3798,8 +3795,8 @@ shard_delete_shards(void *opaque)
                              entry->d_name);
                 ret = shard_delete_shards_of_entry(cleanup_frame, this, entry,
                                                    link_inode);
-                inode_unlink(link_inode, local->fd->inode, entry->d_name);
-                inode_unref(link_inode);
+                inode_unlink2(link_inode, local->fd->inode, entry->d_name, true,
+                              false, 0, false);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, -ret,
                            SHARD_MSG_SHARDS_DELETION_FAILED,

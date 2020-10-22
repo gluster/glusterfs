@@ -74,9 +74,8 @@ void
 server_post_unlink(server_state_t *state, gfs3_unlink_rsp *rsp,
                    struct iatt *preparent, struct iatt *postparent)
 {
-    inode_unlink(state->loc.inode, state->loc.parent, state->loc.name);
-
-    forget_inode_if_no_dentry(state->loc.inode);
+    inode_unlink2(state->loc.inode, state->loc.parent, state->loc.name, false,
+                  true, 0, true);
 
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
@@ -86,12 +85,12 @@ void
 server_post_rmdir(server_state_t *state, gfs3_rmdir_rsp *rsp,
                   struct iatt *preparent, struct iatt *postparent)
 {
-    inode_unlink(state->loc.inode, state->loc.parent, state->loc.name);
     /* parent should not be found for directories after
      * inode_unlink, since directories cannot have
      * hardlinks.
      */
-    forget_inode_if_no_dentry(state->loc.inode);
+    inode_unlink2(state->loc.inode, state->loc.parent, state->loc.name, false,
+                  true, 0, true);
 
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
@@ -312,11 +311,9 @@ server_post_rename(call_frame_t *frame, server_state_t *state,
      */
     tmp_inode = inode_grep(state->loc.inode->table, state->loc2.parent,
                            state->loc2.name);
-    if (tmp_inode) {
-        inode_unlink(tmp_inode, state->loc2.parent, state->loc2.name);
-        forget_inode_if_no_dentry(tmp_inode);
-        inode_unref(tmp_inode);
-    }
+    if (tmp_inode)
+        inode_unlink2(tmp_inode, state->loc2.parent, state->loc2.name, true,
+                      true, 0, true);
 
     inode_rename(state->itable, state->loc.parent, state->loc.name,
                  state->loc2.parent, state->loc2.name, state->loc.inode, stbuf);
@@ -550,12 +547,12 @@ void
 server4_post_entry_remove(server_state_t *state, gfx_common_2iatt_rsp *rsp,
                           struct iatt *prebuf, struct iatt *postbuf)
 {
-    inode_unlink(state->loc.inode, state->loc.parent, state->loc.name);
     /* parent should not be found for directories after
      * inode_unlink, since directories cannot have
      * hardlinks.
      */
-    forget_inode_if_no_dentry(state->loc.inode);
+    inode_unlink2(state->loc.inode, state->loc.parent, state->loc.name, false,
+                  true, 0, true);
 
     gfx_stat_from_iattx(&rsp->prestat, prebuf);
     gfx_stat_from_iattx(&rsp->poststat, postbuf);
@@ -675,11 +672,9 @@ server4_post_rename(call_frame_t *frame, server_state_t *state,
      */
     tmp_inode = inode_grep(state->loc.inode->table, state->loc2.parent,
                            state->loc2.name);
-    if (tmp_inode) {
-        inode_unlink(tmp_inode, state->loc2.parent, state->loc2.name);
-        forget_inode_if_no_dentry(tmp_inode);
-        inode_unref(tmp_inode);
-    }
+    if (tmp_inode)
+        inode_unlink2(tmp_inode, state->loc2.parent, state->loc2.name, true,
+                      true, 0, true);
 
     inode_rename(state->itable, state->loc.parent, state->loc.name,
                  state->loc2.parent, state->loc2.name, state->loc.inode, stbuf);

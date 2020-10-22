@@ -147,6 +147,10 @@ inode_link(inode_t *inode, inode_t *parent, const char *name,
 void
 inode_unlink(inode_t *inode, inode_t *parent, const char *name);
 
+void
+inode_unlink2(inode_t *inode, inode_t *parent, const char *name, bool i_unref,
+              bool i_forget, uint64_t nref, bool dlist_check);
+
 inode_t *
 inode_parent(inode_t *inode, uuid_t pargfid, const char *name);
 
