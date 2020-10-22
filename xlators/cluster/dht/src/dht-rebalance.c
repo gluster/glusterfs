@@ -3590,18 +3590,11 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
     ret = syncop_lookup(this, loc, &iatt, NULL, NULL, NULL);
     if (ret) {
-        if (strcmp(loc->path, "/") == 0) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
-                   "lookup failed for:%s", loc->path);
-
-            defrag->total_failures++;
-            ret = -1;
-            goto out;
-        }
-
         if (-ret == ENOENT || -ret == ESTALE) {
             gf_msg(this->name, GF_LOG_INFO, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
-                   "Dir:%s renamed or removed. Skipping", loc->path);
+                   "Dir:%s renamed or removed. "
+                   "Skipping",
+                   loc->path);
             if (conf->decommission_subvols_cnt) {
                 defrag->total_failures++;
             }
@@ -3612,13 +3605,20 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                    "lookup failed for:%s", loc->path);
 
             defrag->total_failures++;
-            goto out;
+
+            if (conf->decommission_in_progress) {
+                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                ret = -1;
+                goto out;
+            }
         }
     }
 
     fd = fd_create(loc->inode, defrag->pid);
     if (!fd) {
         gf_log(this->name, GF_LOG_ERROR, "Failed to create fd");
+
+        defrag->total_failures++;
         ret = -1;
         goto out;
     }
@@ -3638,6 +3638,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                "err:%d",
                loc->path, -ret);
 
+        defrag->total_failures++;
         ret = -1;
         goto out;
     }
@@ -3661,6 +3662,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                    "path %s. Aborting fix-layout",
                    loc->path);
 
+            defrag->total_failures++;
             ret = -1;
             goto out;
         }
@@ -3692,6 +3694,8 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                        "Child loc"
                        " build failed for entry: %s",
                        entry->d_name);
+
+                defrag->total_failures++;
 
                 if (conf->decommission_in_progress) {
                     defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
@@ -3730,40 +3734,11 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                        "%s/%s"
                        " gfid not present",
                        loc->path, entry->d_name);
+                defrag->total_failures++;
                 continue;
             }
 
             gf_uuid_copy(entry_loc.pargfid, loc->gfid);
-
-            ret = syncop_lookup(this, &entry_loc, &iatt, NULL, NULL, NULL);
-            if (ret) {
-                if (-ret == ENOENT || -ret == ESTALE) {
-                    gf_msg(this->name, GF_LOG_INFO, -ret,
-                           DHT_MSG_DIR_LOOKUP_FAILED,
-                           "Dir:%s renamed or removed. "
-                           "Skipping",
-                           loc->path);
-                    ret = 0;
-                    if (conf->decommission_subvols_cnt) {
-                        defrag->total_failures++;
-                    }
-                    continue;
-                } else {
-                    gf_msg(this->name, GF_LOG_ERROR, -ret,
-                           DHT_MSG_DIR_LOOKUP_FAILED, "lookup failed for:%s",
-                           entry_loc.path);
-
-                    defrag->total_failures++;
-
-                    if (conf->decommission_in_progress) {
-                        defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                        ret = -1;
-                        goto out;
-                    } else {
-                        continue;
-                    }
-                }
-            }
 
             /* A return value of 2 means, either process_dir or
              * lookup of a dir failed. Hence, don't commit hash
@@ -3780,8 +3755,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_LAYOUT_FIX_FAILED,
                        "Fix layout failed for %s", entry_loc.path);
-
-                defrag->total_failures++;
 
                 if (conf->decommission_in_progress) {
                     defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
@@ -4395,7 +4368,6 @@ gf_defrag_start_crawl(void *data)
 
     ret = gf_defrag_fix_layout(this, defrag, &loc, fix_layout, migrate_data);
     if (ret) {
-        defrag->total_failures++;
         ret = -1;
         goto out;
     }
