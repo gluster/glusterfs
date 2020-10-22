@@ -6453,7 +6453,7 @@ find_compatible_brick(glusterd_conf_t *conf, glusterd_volinfo_t *volinfo,
    check if passed pid is match with running  glusterfs process
 */
 
-int
+static int
 glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
 {
     char buf[1024] = "";
@@ -6542,7 +6542,17 @@ glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
 
     if (tmpsockpath[0]) {
         strncpy(sockpath, tmpsockpath, i);
-        ret = 0;
+        /*
+         * Condition to check if the brick socket file is present
+         * in the stated path or not. This helps in preventing
+         * constant re-connect triggered in the RPC layer and also
+         * a log message would help out the user.
+         */
+        ret = sys_access(sockpath, F_OK);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_NOT_FOUND,
+                    "%s not found", sockpath, NULL);
+        }
     }
 
     return ret;
@@ -6780,7 +6790,20 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
             if (!is_brick_mx_enabled()) {
                 glusterd_set_brick_socket_filepath(
                     volinfo, brickinfo, socketpath, sizeof(socketpath));
+                /*
+                 * Condition to check if the brick socket file is present
+                 * in the stated path or not. This helps in preventing
+                 * constant re-connect triggered in the RPC layer and also
+                 * a log message would help out the user.
+                 */
+                ret = sys_access(socketpath, F_OK);
+                if (ret) {
+                    gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_NOT_FOUND,
+                            "%s not found", socketpath, NULL);
+                    goto out;
+                }
             }
+
             gf_log(this->name, GF_LOG_DEBUG,
                    "Using %s as sockfile for brick %s of volume %s ",
                    socketpath, brickinfo->path, volinfo->volname);
