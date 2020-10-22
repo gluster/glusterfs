@@ -12,6 +12,7 @@ TEST $CLI volume info;
 # Create a 1X2 replica
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}-{0,1}
 EXPECT 'Created' volinfo_field $V0 'Status';
+TEST $CLI volume set $V0 cluster.granular-entry-heal off
 
 # Disable self-heal daemon
 TEST gluster volume set $V0 self-heal-daemon off
@@ -59,7 +60,7 @@ TEST stat $M0/one
 sleep 1
 
 # Check pending xattrs
-EXPECT "00000001" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 data
+EXPECT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 data
 EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 entry
 EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 metadata
 

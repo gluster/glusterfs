@@ -339,8 +339,11 @@ __afr_selfheal_heal_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
                                             replies);
         } else {
             if (!gf_uuid_compare(replies[i].poststat.ia_gfid,
-                                 replies[source].poststat.ia_gfid))
+                                 replies[source].poststat.ia_gfid)) {
+                gf_msg_debug(this->name, 0, "skipping %s, no heal needed.",
+                             name);
                 continue;
+            }
 
             ret = afr_selfheal_recreate_entry(frame, i, source, sources,
                                               fd->inode, name, inode, replies);
@@ -973,7 +976,7 @@ afr_selfheal_entry_granular_dirent(xlator_t *subvol, gf_dirent_t *entry,
 
 out:
     loc_wipe(&loc);
-    return 0;
+    return ret;
 }
 
 static int

@@ -490,9 +490,7 @@ syncop_dir_scan(xlator_t *subvol, loc_t *loc, int pid, void *data,
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
 
-            ret = fn(subvol, entry, loc, data);
-            if (ret)
-                break;
+            ret |= fn(subvol, entry, loc, data);
         }
         gf_dirent_free(&entries);
         if (ret)

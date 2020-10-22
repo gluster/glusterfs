@@ -6,6 +6,7 @@ cleanup;
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+TEST $CLI volume set $V0 cluster.granular-entry-heal off
 TEST $CLI volume start $V0
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
@@ -30,7 +31,7 @@ TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}1_new commit forc
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000001 $B0/${V0}1_new/
 
 # Check if pending xattr and dirty-xattr are set for replaced-brick
-EXPECT "000000010000000100000001" get_hex_xattr trusted.afr.$V0-client-1 $B0/${V0}0
+EXPECT "000000000000000100000001" get_hex_xattr trusted.afr.$V0-client-1 $B0/${V0}0
 EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.dirty $B0/${V0}1_new
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0

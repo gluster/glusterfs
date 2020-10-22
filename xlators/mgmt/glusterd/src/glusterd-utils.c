@@ -13141,6 +13141,19 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
             goto out;
         }
     }
+
+    if ((conf->op_version >= GD_OP_VERSION_9_0) &&
+        (volinfo->status == GLUSTERD_STATUS_NONE)) {
+        ret = dict_set_dynstr_with_alloc(volinfo->dict,
+                                         "cluster.granular-entry-heal", "on");
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set option 'cluster.granular-entry-heal' "
+                   "on volume %s",
+                   volinfo->volname);
+            goto out;
+        }
+    }
 out:
     return ret;
 }
