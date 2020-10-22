@@ -199,6 +199,19 @@ shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
         }                                                                      \
     } while (0)
 
+#define SHARD_BUILD_BASE_PATH(path, gfid, prefix_len)                          \
+    do {                                                                       \
+        strcpy(path, "/" GF_SHARD_DIR "/");                                    \
+        uuid_utoa_r(gfid, path + sizeof(GF_SHARD_DIR) + 1);                    \
+        prefix_len = sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE;                  \
+    } while (0)
+
+#define SHARD_BUILD_ABS_PATH(path, prefix_len, shard_idx_iter)                 \
+    do {                                                                       \
+        snprintf(path + prefix_len, sizeof(path) - prefix_len, ".%d",          \
+                 shard_idx_iter);                                              \
+    } while (0)
+
 typedef enum {
     SHARD_BG_DELETION_NONE = 0,
     SHARD_BG_DELETION_LAUNCHING,
