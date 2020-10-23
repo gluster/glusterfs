@@ -8,18 +8,18 @@ import datetime
 import hashlib
 import logging
 
-def size_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+def size_fmt(num):
+    for unit in ['B','KiB','MiB','GiB','TiB','PiB','EiB','ZiB']:
         if abs(num) < 1024.0:
-            return "{:3.1f} {}{}".format(num, unit, suffix)
+            return f"{num:4.2f} {unit}"
         num /= 1024.0
-    return "{:.2f} {}{}".format(num, 'Yi', suffix)
+    return "{num:.2f} YiB"
 
 def time_fmt(fr_sec):
     return str(datetime.timedelta(microseconds=fr_sec * 1000000))
 
 def crawl_progress(count, size):
-    sys.stdout.write('Building index of {} files with cumulative size {} to rebalance.\r'.format(count, size))
+    sys.stdout.write(f'Building index of {count} files with cumulative size {size} to attempt rebalance.\r')
     sys.stdout.flush()
 
 #https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
@@ -30,7 +30,7 @@ def progress(count, total, status=''):
     percents = round(100.0 * count / float(total), 1)
     bar = '=' * filled_len + '-' * (bar_len - filled_len)
 
-    sys.stdout.write('[{}] {}% ...{}\r'.format(bar, percents, status))
+    sys.stdout.write(f'[{bar}] {percents}% ...{status}\r')
     sys.stdout.flush()
 
 def progress_done():
@@ -49,6 +49,10 @@ class Rebalancer:
         self.migrated_size = 0 #Cumulative size of files migrated
         self.index = self.get_file_name('index')
         self.init_logging()
+        self.rebalance_start = 0 #Start time to be updated in run
+
+    def __enter__(self):
+        return self
 
     #Generate a unique name for the given path. format of the path will be
     #rebalance-<hiphenated-path>-<first-8-hex-chars-of-md5-digest>.suffix
@@ -90,16 +94,18 @@ class Rebalancer:
 
         if err is not None:
             if err.errno == errno.EEXIST:
-                logging.info("{} - Not needed".format(f))
+                logging.info(f"{f} - Not needed")
             elif err.errno == errno.ENOENT:
-                logging.info("{} - file not present anymore".format(f))
+                logging.info("{f} - file not present anymore")
             else:
-                logging.critical("{} - {} - exiting.".format(f, err))
-                self.exit()
-                sys.exit(1)
+                logging.critical("{f} - {err} - exiting.")
+                raise err
 
-        if result and duration != 0:
-            logging.info("{} - {} [{}] - {}/s".format(f, size_fmt(size), size, size_fmt(size/duration)))
+        if result:
+            if size != 0 and duration != 0.0:
+                logging.info("{f} - {size_fmt(size)} [{size}] - {size_fmt(size/duration)}/s")
+            else:
+                logging.info("{f} - {size_fmt(size)} [{size}]")
 
         self.total_files += 1
         self.total_size += size
@@ -131,9 +137,7 @@ class Rebalancer:
                         speed = self.migrated_size/duration
                         migration_fraction = self.migrated_size/self.total_size
                         eta = ((self.expected_total_size - self.total_size)/speed)*migration_fraction
-                        progress(self.total_size, self.expected_total_size, "ETA: {}".format(time_fmt(eta)))
-
-        self.exit()
+                        progress(self.total_size, self.expected_total_size, f"ETA: {time_fmt(eta)}")
 
     #For each file in the directory recursively, writes <file-path>-<size> to index file
     def generate_rebalance_file_index(self):
@@ -150,29 +154,30 @@ class Rebalancer:
                         crawl_progress(self.expected_total_files, size_fmt(self.expected_total_size))
                     except OSError as err:
                         progress_done()
-                        print("OS error: {}".format(err))
+                        print(f"OS error: {err}")
         progress_done()
 
     #Stops the progress printing and prints stats collected so far
-    def exit(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         progress_done()
-        rebalance_end = time.perf_counter()
-        self.duration = rebalance_end - self.rebalance_start
+        if self.rebalance_start != 0:
+            rebalance_end = time.perf_counter()
+            self.duration = rebalance_end - self.rebalance_start
 
-        if self.total_files != 0:
-            print("Migrated {} / {} files [{:.2%}]".format(self.migrated_files, self.total_files, self.migrated_files/self.total_files))
-            if self.total_size != 0:
-                print("Migrated {} / {} data [{:.2%}]".format(size_fmt(self.migrated_size), size_fmt(self.total_size), self.migrated_size/self.total_size))
-        print("Run time: {}".format(time_fmt(self.duration)))
-        print("Time spent in migration: {} [{:.2%}]".format(time_fmt(self.migration_duration), self.migration_duration/self.duration))
-        print("Time spent in skipping: {} [{:.2%}]".format(time_fmt(self.skipped_migration_duration), self.skipped_migration_duration/self.duration))
+            if self.total_files != 0:
+                print(f"Migrated {self.migrated_files} / {self.total_files} files [{self.migrated_files/self.total_files:.2%}]")
+                if self.total_size != 0:
+                    print(f"Migrated {size_fmt(self.migrated_size)} / {size_fmt(self.total_size)} data [{self.migrated_size/self.total_size:.2%}]")
+            print(f"Run time: {time_fmt(self.duration)}")
+            print(f"Time spent in migration: {time_fmt(self.migration_duration)} [{self.migration_duration/self.duration:.2%}]")
+            print(f"Time spent in skipping: {time_fmt(self.skipped_migration_duration)} [{self.skipped_migration_duration/self.duration:.2%}]")
 
 #/proc/mounts has active mount information. It checks that the given path is
 #mounted on glusterfs
 def check_glusterfs_supported_path(p):
-    abs_path = os.path.abspath(p)
-    if os.path.isdir(abs_path) is False:
-        raise argparse.ArgumentTypeError("{} is not a valid directory".format(abs_path))
+    real_path = os.path.realpath(p)
+    if not os.path.isdir(real_path):
+        raise argparse.ArgumentTypeError(f"{real_path} is not a valid directory")
 
     glusterfs_mounts = {}
     with open("/proc/mounts") as f:
@@ -183,21 +188,21 @@ def check_glusterfs_supported_path(p):
             if words[2] == 'fuse.glusterfs':
                 glusterfs_mounts[words[1]] = 1
 
-    p = abs_path
+    p = real_path
     while p != '':
         if p in glusterfs_mounts:
-            return abs_path
+            return real_path
         elif os.path.ismount(p):
-            raise argparse.ArgumentTypeError("{} is not a valid glusterfs path".format(abs_path))
+            raise argparse.ArgumentTypeError(f"{real_path} is not a valid glusterfs path")
         else:
             p, _, _ = p.rpartition('/')
 
-    raise argparse.ArgumentTypeError("{} is not a valid glusterfs path".format(abs_path))
+    raise argparse.ArgumentTypeError(f"{real_path} is not a valid glusterfs path")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=check_glusterfs_supported_path)
     args = parser.parse_args()
-    r = Rebalancer(args.path)
-    r.generate_rebalance_file_index()
-    r.run()
+    with Rebalancer(args.path) as r:
+        r.generate_rebalance_file_index()
+        r.run()
