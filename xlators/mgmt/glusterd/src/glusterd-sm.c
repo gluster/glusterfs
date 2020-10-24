@@ -235,6 +235,8 @@ glusterd_ac_reverse_probe_begin(glusterd_friend_sm_event_t *event, void *ctx)
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_friend_sm_event_t *new_event = NULL;
     glusterd_probe_ctx_t *new_ev_ctx = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(event);
     GF_ASSERT(ctx);
@@ -247,7 +249,7 @@ glusterd_ac_reverse_probe_begin(glusterd_friend_sm_event_t *event, void *ctx)
     if (!peerinfo) {
         RCU_READ_UNLOCK;
         ret = -1;
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer %s(%s)", event->peername,
                uuid_utoa(event->peerid));
         goto out;
@@ -850,11 +852,13 @@ glusterd_ac_handle_friend_remove_req(glusterd_friend_sm_event_t *event,
     glusterd_friend_req_ctx_t *ev_ctx = NULL;
     glusterd_friend_sm_event_t *new_event = NULL;
     glusterd_conf_t *priv = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(ctx);
     ev_ctx = ctx;
 
-    priv = THIS->private;
+    priv = this->private;
     GF_ASSERT(priv);
 
     ret = glusterd_xfer_friend_remove_resp(ev_ctx->req, ev_ctx->hostname,
@@ -898,6 +902,8 @@ glusterd_ac_friend_remove(glusterd_friend_sm_event_t *event, void *ctx)
 {
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(event);
 
@@ -906,7 +912,7 @@ glusterd_ac_friend_remove(glusterd_friend_sm_event_t *event, void *ctx)
     peerinfo = glusterd_peerinfo_find(event->peerid, event->peername);
     if (!peerinfo) {
         RCU_READ_UNLOCK;
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
                "Could not find peer %s(%s)", event->peername,
                uuid_utoa(event->peerid));
         goto out;
@@ -914,7 +920,7 @@ glusterd_ac_friend_remove(glusterd_friend_sm_event_t *event, void *ctx)
     ret = glusterd_friend_remove_cleanup_vols(peerinfo->uuid);
     RCU_READ_UNLOCK;
     if (ret)
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOL_CLEANUP_FAIL,
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_CLEANUP_FAIL,
                "Volumes cleanup failed");
 
     /* Exiting read critical section as glusterd_peerinfo_cleanup calls
@@ -923,7 +929,7 @@ glusterd_ac_friend_remove(glusterd_friend_sm_event_t *event, void *ctx)
 
     ret = glusterd_peerinfo_cleanup(peerinfo);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_PEER_DETACH_CLEANUP_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_DETACH_CLEANUP_FAIL,
                "Cleanup returned: %d", ret);
     }
 out:
@@ -1102,6 +1108,8 @@ glusterd_friend_sm_transition_state(uuid_t peerid, char *peername,
 {
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     GF_ASSERT(state);
     GF_ASSERT(peername);
@@ -1109,7 +1117,7 @@ glusterd_friend_sm_transition_state(uuid_t peerid, char *peername,
     RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(peerid, peername);
     if (!peerinfo) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_PEER_NOT_FOUND, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_PEER_NOT_FOUND, NULL);
         goto out;
     }
 

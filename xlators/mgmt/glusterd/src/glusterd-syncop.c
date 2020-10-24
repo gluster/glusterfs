@@ -47,6 +47,8 @@ gd_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     int len = -1;
     char *peer_str = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     if (op_ret) {
         args->op_ret = op_ret;

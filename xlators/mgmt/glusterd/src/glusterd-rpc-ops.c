@@ -449,6 +449,8 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int32_t op_errno = EINVAL;
     glusterd_probe_ctx_t *ctx = NULL;
     glusterd_friend_update_ctx_t *ev_ctx = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
     if (-1 == req->rpc_status) {
         rsp.op_ret = -1;
@@ -560,8 +562,10 @@ __glusterd_friend_remove_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int32_t op_errno = 0;
     glusterd_probe_ctx_t *ctx = NULL;
     gf_boolean_t move_sm_now = _gf_true;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
 
-    conf = THIS->private;
+    conf = this->private;
     GF_ASSERT(conf);
 
     ctx = ((call_frame_t *)myframe)->local;

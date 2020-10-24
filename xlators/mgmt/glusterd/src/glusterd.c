@@ -1050,7 +1050,6 @@ out:
 static int
 _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
 {
-    glusterd_conf_t *priv = THIS->private;
     char *label = NULL;
     gf_boolean_t georep = _gf_false;
     char *pdesc = value->data;
@@ -1059,8 +1058,10 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
     gf_mount_spec_t *mspec = NULL;
     char *user = NULL;
     xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
     GF_ASSERT(this);
 
+    priv = this->private;
     label = strtail(key, "mountbroker.");
 
     /* check for presence of geo-rep label */
