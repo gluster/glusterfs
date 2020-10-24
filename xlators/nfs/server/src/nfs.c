@@ -1668,6 +1668,30 @@ out:
     return ret;
 }
 
+void
+nfs_start_rpc_poller(struct nfs_state *state)
+{
+/* RPC implementation in glibc uses per-thread global variables, while
+ * libtirpc uses global shared variables. This causes a big difference
+ * in svc_run():
+ *
+ *   - In glibc, svc_run() needs to be called in the same thread that
+ *     registered the service.
+ *
+ *   - In libtirpc, only one thread can call svc_run() and will serve
+ *     all registered services, from any thread.
+ */
+#ifdef HAVE_LIBTIRPC
+    if (uatomic_xchg(&state->svc_running, true)) {
+        return;
+    }
+#endif
+
+    svc_run();
+    gf_msg(GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
+           "svc_run returned");
+}
+
 int32_t
 nfs_itable_dump(xlator_t *this)
 {

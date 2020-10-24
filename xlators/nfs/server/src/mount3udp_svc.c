@@ -231,8 +231,7 @@ mount3udp_thread(void *argv)
         return NULL;
     }
 
-    svc_run();
-    gf_msg(GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SVC_RUN_RETURNED,
-           "svc_run returned");
+    nfs_start_rpc_poller(nfsx->private);
+
     return NULL;
 }
