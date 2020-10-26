@@ -9,7 +9,7 @@ to be CC'd when submitting a patch to obtain appropriate review.
 In general, if you have a question about inclusion of a patch, you should
 consult gluster-devel@gluster.org and not any specific individual privately.
 
-### Descriptions of section entries:
+## Descriptions of section entries:
 
 	M: Main contact that knows and takes care of this area
 	L: Mailing list that is relevant to this area
