@@ -1503,7 +1503,6 @@ client_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     if (!conf || !conf->fops)
         goto out;
 
-    GF_ASSERT(!is_lk_owner_null(&frame->root->lk_owner));
     proc = &conf->fops->proctable[GF_FOP_LK];
     if (proc->fn) {
         args.fd = fd;
