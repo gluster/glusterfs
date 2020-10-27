@@ -1640,8 +1640,9 @@ afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv,
                  * need is a low probability that multiple clients
                  * won't converge on the same subvolume.
                  */
+                gf_uuid_copy(gfid_copy, args->gfid);
                 pid = getpid();
-                memcpy(gfid_copy, &pid, sizeof(pid));
+                *(pid_t *)gfid_copy ^= pid;
             }
             child = SuperFastHash((char *)gfid_copy, sizeof(gfid_copy)) %
                     priv->child_count;
