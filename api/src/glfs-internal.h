@@ -440,7 +440,7 @@ glfs_process_upcall_event(struct glfs *fs, void *data)
             goto label;                                                        \
         }                                                                      \
         old_THIS = THIS;                                                       \
-        THIS = fs->ctx->master;                                                \
+        THIS = fs->ctx->primary;                                               \
     } while (0)
 
 #define __GLFS_EXIT_FS                                                         \
@@ -456,7 +456,7 @@ glfs_process_upcall_event(struct glfs *fs, void *data)
             goto label;                                                        \
         }                                                                      \
         old_THIS = THIS;                                                       \
-        THIS = glfd->fd->inode->table->xl->ctx->master;                        \
+        THIS = glfd->fd->inode->table->xl->ctx->primary;                       \
     } while (0)
 
 #define __GLFS_LOCK_WAIT(fs)                                                   \

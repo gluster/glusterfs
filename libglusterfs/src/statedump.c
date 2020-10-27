@@ -902,9 +902,9 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     gf_proc_dump_add_section("dict");
     gf_proc_dump_dict_info(ctx);
 
-    if (ctx->master) {
+    if (ctx->primary) {
         gf_proc_dump_add_section("fuse");
-        gf_proc_dump_single_xlator_info(ctx->master);
+        gf_proc_dump_single_xlator_info(ctx->primary);
     }
 
     if (ctx->active) {

@@ -59,7 +59,7 @@ afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
     }
 
     if (pid == GF_CLIENT_PID_GSYNCD) {
-        /*geo-rep needs to create/sync private directory on slave because
+        /*geo-rep needs to create/sync private directory on secondary because
          * it appears in changelog*/
         return _gf_false;
     }

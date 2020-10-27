@@ -229,7 +229,7 @@ glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
 {
     xlator_t *ixl = NULL;
 
-    if (!ctx->master) {
+    if (!ctx->primary) {
         gf_msg("glusterfs", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
                "volume \"%s\" can be added from command line only "
                "on client side",
@@ -308,7 +308,7 @@ glusterfs_graph_meta(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
 
-    if (!ctx->master)
+    if (!ctx->primary)
         return 0;
 
     ret = glusterfs_graph_insert(graph, ctx, "meta", "meta-autoload", 1);
@@ -792,14 +792,14 @@ glusterfs_graph_activate(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     ctx->active = graph;
 
     /* XXX: attach to master and set active pointer */
-    if (ctx->master) {
-        ret = xlator_notify(ctx->master, GF_EVENT_GRAPH_NEW, graph);
+    if (ctx->primary) {
+        ret = xlator_notify(ctx->primary, GF_EVENT_GRAPH_NEW, graph);
         if (ret) {
             gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
                    "graph new notification failed");
             return ret;
         }
-        ((xlator_t *)ctx->master)->next = graph->top;
+        ((xlator_t *)ctx->primary)->next = graph->top;
     }
 
     /* XXX: perform parent up */

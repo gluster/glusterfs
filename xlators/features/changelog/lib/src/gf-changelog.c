@@ -43,7 +43,7 @@
  *
  * TODO: do away with the global..
  */
-xlator_t *master = NULL;
+xlator_t *primary = NULL;
 
 static inline gf_private_t *
 gf_changelog_alloc_priv()
@@ -233,7 +233,7 @@ error_return:
 }
 
 static int
-gf_changelog_init_master()
+gf_changelog_init_primary()
 {
     int ret = 0;
 
@@ -457,7 +457,7 @@ gf_changelog_setup_logging(xlator_t *this, char *logfile, int loglevel)
 }
 
 static int
-gf_changelog_set_master(xlator_t *master, void *xl)
+gf_changelog_set_primary(xlator_t *primary, void *xl)
 {
     int32_t ret = 0;
     xlator_t *this = NULL;
@@ -466,15 +466,15 @@ gf_changelog_set_master(xlator_t *master, void *xl)
 
     this = xl;
     if (!this || !this->ctx) {
-        ret = gf_changelog_init_master();
+        ret = gf_changelog_init_primary();
         if (ret)
             return -1;
         this = THIS;
     }
 
-    master->ctx = this->ctx;
+    primary->ctx = this->ctx;
 
-    INIT_LIST_HEAD(&master->volume_options);
+    INIT_LIST_HEAD(&primary->volume_options);
     SAVE_THIS(THIS);
 
     ret = xlator_mem_acct_init(THIS, gf_changelog_mt_end);
@@ -493,14 +493,14 @@ gf_changelog_set_master(xlator_t *master, void *xl)
                                "clogpoll");
         if (ret != 0) {
             GF_FREE(priv);
-            gf_msg(master->name, GF_LOG_ERROR, 0,
+            gf_msg(primary->name, GF_LOG_ERROR, 0,
                    CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED,
                    "failed to spawn poller thread");
             goto restore_this;
         }
     }
 
-    master->private = priv;
+    primary->private = priv;
 
 restore_this:
     RESTORE_THIS();
@@ -514,24 +514,24 @@ gf_changelog_init(void *xl)
     int ret = 0;
     gf_private_t *priv = NULL;
 
-    if (master)
+    if (primary)
         return 0;
 
-    master = calloc(1, sizeof(*master));
-    if (!master)
+    primary = calloc(1, sizeof(*primary));
+    if (!primary)
         goto error_return;
 
-    master->name = strdup("gfchangelog");
-    if (!master->name)
-        goto dealloc_master;
+    primary->name = strdup("gfchangelog");
+    if (!primary->name)
+        goto dealloc_primary;
 
-    ret = gf_changelog_set_master(master, xl);
+    ret = gf_changelog_set_primary(primary, xl);
     if (ret)
         goto dealloc_name;
 
-    priv = master->private;
+    priv = primary->private;
     ret = gf_thread_create(&priv->connectionjanitor, NULL,
-                           gf_changelog_connection_janitor, master, "clogjan");
+                           gf_changelog_connection_janitor, primary, "clogjan");
     if (ret != 0) {
         /* TODO: cleanup priv, mutex (poller thread for !xl) */
         goto dealloc_name;
@@ -540,10 +540,10 @@ gf_changelog_init(void *xl)
     return 0;
 
 dealloc_name:
-    free(master->name);
-dealloc_master:
-    free(master);
-    master = NULL;
+    free(primary->name);
+dealloc_primary:
+    free(primary);
+    primary = NULL;
 error_return:
     return -1;
 }
@@ -631,8 +631,8 @@ gf_changelog_register(char *brick_path, char *scratch_dir, char *log_file,
         0,
     };
 
-    if (master)
-        THIS = master;
+    if (primary)
+        THIS = primary;
     else
         return -1;
 

@@ -405,7 +405,7 @@ __afr_selfheal_truncate_sinks(call_frame_t *frame, xlator_t *this, fd_t *fd,
     /* This will send truncate on the arbiter brick as well if it is marked as
      * sink. If changelog is enabled on the volume it captures truncate as a
      * data transactions on the arbiter brick. This will help geo-rep to
-     * properly sync the data from master to slave if arbiter is the ACTIVE
+     * properly sync the data from primary to secondary if arbiter is the ACTIVE
      * brick during syncing and which had got some entries healed for data as
      * part of self heal.
      */

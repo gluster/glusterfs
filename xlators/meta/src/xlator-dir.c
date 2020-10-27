@@ -86,10 +86,10 @@ meta_xlator_dir_hook(call_frame_t *frame, xlator_t *this, loc_t *loc,
 }
 
 int
-meta_master_dir_hook(call_frame_t *frame, xlator_t *this, loc_t *loc,
-                     dict_t *xdata)
+meta_primary_dir_hook(call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      dict_t *xdata)
 {
-    meta_ctx_set(loc->inode, this, this->ctx->master);
+    meta_ctx_set(loc->inode, this, this->ctx->primary);
 
     meta_ops_set(loc->inode, this, &xlator_dir_ops);
 
