@@ -1,4 +1,15 @@
 #!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2020 PhonePe. <http://www.phonepe.com>
+#  This file is part of GlusterFS.
+#
+#  This file is licensed to you under your choice of the GNU Lesser
+#  General Public License, version 3 or any later version (LGPLv3 or
+#  later), or the GNU General Public License, version 2 (GPLv2), in all
+#  cases as published by the Free Software Foundation.
+#
+
 import argparse
 import os
 import errno
@@ -11,9 +22,9 @@ import logging
 def size_fmt(num):
     for unit in ['B','KiB','MiB','GiB','TiB','PiB','EiB','ZiB']:
         if abs(num) < 1024.0:
-            return f"{num:4.2f} {unit}"
+            return f"{num:7.2f} {unit}"
         num /= 1024.0
-    return "{num:.2f} YiB"
+    return "f{num:.2f} YiB"
 
 def time_fmt(fr_sec):
     return str(datetime.timedelta(microseconds=fr_sec * 1000000))
@@ -77,35 +88,45 @@ class Rebalancer:
 
     #Executes the setxattr syscall to trigger migration
     def migrate_data(self, f):
+        size_now = 0
         try:
+            size_now = os.stat(f).st_size
             os.setxattr(f, "trusted.distribute.migrate-data", b"1",
                         follow_symlinks=False)
-            return True, None #Indicate that migration happened
+            return True, size_now, None #Indicate that migration happened
 
         except OSError as e:
-            return False, e
+            return False, size_now, e
 
     #Updates the total,migrated,skipped files/size and durations of the migrations
     def migrate_with_stats(self, f, size):
         migration_start = time.perf_counter()
-        result, err = self.migrate_data(f)
+        result, size_now, err = self.migrate_data(f)
         migration_end = time.perf_counter()
         duration = migration_end - migration_start
 
+        size_diff = size_now - size
         if err is not None:
             if err.errno == errno.EEXIST:
                 logging.info(f"{f} - Not needed")
             elif err.errno == errno.ENOENT:
-                logging.info("{f} - file not present anymore")
+                #Account for file deletion
+                #File could be deleted just after stat, so update size_diff again
+                size_diff = -size
+                self.expected_total_files -= 1
+                logging.info(f"{f} - file not present anymore")
             else:
-                logging.critical("{f} - {err} - exiting.")
+                logging.critical(f"{f} - {err} - exiting.")
                 raise err
 
+        #Account for size changes between indexing and rebalancing
+        self.expected_total_size += size_diff
+        size = size_now
         if result:
             if size != 0 and duration != 0.0:
-                logging.info("{f} - {size_fmt(size)} [{size}] - {size_fmt(size/duration)}/s")
+                logging.info(f"{f} - {size_fmt(size)} [{size}] - {size_fmt(size/duration)}/s")
             else:
-                logging.info("{f} - {size_fmt(size)} [{size}]")
+                logging.info(f"{f} - {size_fmt(size)} [{size}]")
 
         self.total_files += 1
         self.total_size += size
