@@ -1200,7 +1200,7 @@ inode_invalidate(inode_t *inode)
      * The master xlator is not in the graph but it can define an invalidate
      * handler.
      */
-    xl = inode->table->xl->ctx->master;
+    xl = inode->table->xl->ctx->primary;
     if (xl && xl->cbks->invalidate) {
         old_THIS = THIS;
         THIS = xl;
@@ -1703,15 +1703,13 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     if (!new->dentry_pool)
         goto out;
 
-    new->inode_hash = (void *)GF_CALLOC(new->inode_hashsize,
-                                        sizeof(struct list_head),
-                                        gf_common_mt_list_head);
+    new->inode_hash = (void *)GF_CALLOC(
+        new->inode_hashsize, sizeof(struct list_head), gf_common_mt_list_head);
     if (!new->inode_hash)
         goto out;
 
-    new->name_hash = (void *)GF_CALLOC(new->dentry_hashsize,
-                                       sizeof(struct list_head),
-                                       gf_common_mt_list_head);
+    new->name_hash = (void *)GF_CALLOC(
+        new->dentry_hashsize, sizeof(struct list_head), gf_common_mt_list_head);
     if (!new->name_hash)
         goto out;
 

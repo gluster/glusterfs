@@ -275,7 +275,7 @@ mgmt_get_volinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    fs = ((xlator_t *)ctx->master)->private;
+    fs = ((xlator_t *)ctx->primary)->private;
 
     if (-1 == req->rpc_status) {
         gf_smsg(frame->this->name, GF_LOG_ERROR, EINVAL,
@@ -566,7 +566,7 @@ glfs_mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    fs = ((xlator_t *)ctx->master)->private;
+    fs = ((xlator_t *)ctx->primary)->private;
 
     if (-1 == req->rpc_status) {
         ret = -1;
@@ -828,7 +828,7 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     if (!ctx)
         goto out;
 
-    fs = ((xlator_t *)ctx->master)->private;
+    fs = ((xlator_t *)ctx->primary)->private;
 
     switch (event) {
         case RPC_CLNT_DISCONNECT:
