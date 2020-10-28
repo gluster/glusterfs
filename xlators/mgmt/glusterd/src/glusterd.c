@@ -1392,11 +1392,12 @@ void
 glusterd_destroy_hostname_list(glusterd_conf_t *priv)
 {
     glusterd_hostname_t *hostname_obj = NULL;
+    glusterd_hostname_t *tmp = NULL;
 
-    list_for_each_entry(hostname_obj, &priv->hostnames, hostname_list)
+    list_for_each_entry_safe(hostname_obj, tmp, &priv->hostnames, hostname_list)
     {
-        GF_FREE(hostname_obj->hostname);
         list_del_init(&hostname_obj->hostname_list);
+        GF_FREE(hostname_obj->hostname);
         GF_FREE(hostname_obj);
     }
 }
