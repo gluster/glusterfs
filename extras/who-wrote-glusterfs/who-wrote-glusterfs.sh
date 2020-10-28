@@ -15,7 +15,7 @@ DIRNAME=$(dirname $0)
 
 GITDM_REPO=git://git.lwn.net/gitdm.git
 GITDM_DIR=${DIRNAME}/gitdm
-GITDM_CMD="python ${GITDM_DIR}/gitdm"
+GITDM_CMD="python3 ${GITDM_DIR}/gitdm"
 
 error()
 {
