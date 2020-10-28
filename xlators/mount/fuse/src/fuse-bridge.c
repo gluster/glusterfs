@@ -6641,7 +6641,7 @@ fuse_dumper(xlator_t *this, fuse_in_header_t *finh, void *msg,
         gf_log("glusterfs-fuse", GF_LOG_ERROR,
                "failed to dump fuse message (R): %s", strerror(errno));
 
-    priv->fuse_ops0[finh->opcode](this, finh, msg, NULL);
+    priv->fuse_ops0[finh->opcode](this, finh, msg, iobuf);
 }
 
 int
