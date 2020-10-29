@@ -1533,6 +1533,7 @@ client_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
     if (!conf || !conf->fops)
         goto out;
 
+    GF_ASSERT(!is_lk_owner_null(&frame->root->lk_owner));
     proc = &conf->fops->proctable[GF_FOP_INODELK];
     if (proc->fn) {
         args.loc = loc;
@@ -1564,6 +1565,7 @@ client_finodelk(call_frame_t *frame, xlator_t *this, const char *volume,
     if (!conf || !conf->fops)
         goto out;
 
+    GF_ASSERT(!is_lk_owner_null(&frame->root->lk_owner));
     proc = &conf->fops->proctable[GF_FOP_FINODELK];
     if (proc->fn) {
         args.fd = fd;
@@ -1596,6 +1598,7 @@ client_entrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     if (!conf || !conf->fops)
         goto out;
 
+    GF_ASSERT(!is_lk_owner_null(&frame->root->lk_owner));
     proc = &conf->fops->proctable[GF_FOP_ENTRYLK];
     if (proc->fn) {
         args.loc = loc;
@@ -1629,6 +1632,7 @@ client_fentrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     if (!conf || !conf->fops)
         goto out;
 
+    GF_ASSERT(!is_lk_owner_null(&frame->root->lk_owner));
     proc = &conf->fops->proctable[GF_FOP_FENTRYLK];
     if (proc->fn) {
         args.fd = fd;

@@ -358,7 +358,7 @@ synctask_destroy(struct synctask *task)
 
     GF_FREE(task->stack);
 
-    if (task->opframe)
+    if (task->opframe && (task->opframe != task->frame))
         STACK_DESTROY(task->opframe->root);
 
     if (task->synccbk == NULL) {
@@ -441,7 +441,7 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
         set_lk_owner_from_ptr(&newtask->opframe->root->lk_owner,
                               newtask->opframe->root);
     } else {
-        newtask->opframe = copy_frame(frame);
+        newtask->opframe = frame;
     }
     if (!newtask->opframe)
         goto err;
@@ -503,7 +503,7 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
 err:
     if (newtask) {
         GF_FREE(newtask->stack);
-        if (newtask->opframe)
+        if (newtask->opframe && (newtask->opframe != newtask->frame))
             STACK_DESTROY(newtask->opframe->root);
         GF_FREE(newtask);
     }

@@ -101,6 +101,13 @@ acquire_mandatory_lock(glfs_t *fs, char *fname)
 
     pause();
 
+    ret = glfs_fd_set_lkowner(fd, fd, sizeof(fd));
+    if (ret) {
+        LOG_ERR("glfs_fd_set_lkowner", errno);
+        ret = -1;
+        goto out;
+    }
+
     /* take a write mandatory lock */
     ret = glfs_file_lock(fd, F_SETLKW, &lock, GLFS_LK_MANDATORY);
     if (ret) {

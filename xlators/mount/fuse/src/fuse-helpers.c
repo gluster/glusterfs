@@ -383,7 +383,8 @@ get_call_frame_for_req(fuse_state_t *state)
         frame->root->uid = finh->uid;
         frame->root->gid = finh->gid;
         frame->root->pid = finh->pid;
-        set_lk_owner_from_uint64(&frame->root->lk_owner, state->lk_owner);
+        if (state->lk_owner)
+            set_lk_owner_from_uint64(&frame->root->lk_owner, state->lk_owner);
     }
 
     get_groups(priv, frame);
