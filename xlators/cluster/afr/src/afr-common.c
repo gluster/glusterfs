@@ -4109,62 +4109,17 @@ afr_release(xlator_t *this, fd_t *fd)
     return 0;
 }
 
-afr_fd_ctx_t *
-__afr_fd_ctx_get(fd_t *fd, xlator_t *this)
-{
-    uint64_t ctx = 0;
-    int ret = 0;
-    afr_fd_ctx_t *fd_ctx = NULL;
-
-    ret = __fd_ctx_get(fd, this, &ctx);
-
-    if (ret < 0) {
-        ret = __afr_fd_ctx_set(this, fd);
-        if (ret < 0)
-            goto out;
-
-        ret = __fd_ctx_get(fd, this, &ctx);
-        if (ret < 0)
-            goto out;
-    }
-
-    fd_ctx = (afr_fd_ctx_t *)(long)ctx;
-out:
-    return fd_ctx;
-}
-
-afr_fd_ctx_t *
-afr_fd_ctx_get(fd_t *fd, xlator_t *this)
-{
-    afr_fd_ctx_t *fd_ctx = NULL;
-
-    LOCK(&fd->lock);
-    {
-        fd_ctx = __afr_fd_ctx_get(fd, this);
-    }
-    UNLOCK(&fd->lock);
-
-    return fd_ctx;
-}
-
-int
+static afr_fd_ctx_t *
 __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
 {
     afr_private_t *priv = NULL;
     int ret = -1;
-    uint64_t ctx = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
     int i = 0;
 
     VALIDATE_OR_GOTO(this->private, out);
-    VALIDATE_OR_GOTO(fd, out);
 
     priv = this->private;
-
-    ret = __fd_ctx_get(fd, this, &ctx);
-
-    if (ret == 0)
-        goto out;
 
     fd_ctx = GF_CALLOC(1, sizeof(afr_fd_ctx_t), gf_afr_mt_afr_fd_ctx_t);
     if (!fd_ctx) {
@@ -4195,7 +4150,38 @@ __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
 out:
     if (ret && fd_ctx)
         _afr_cleanup_fd_ctx(this, fd_ctx);
-    return ret;
+    return fd_ctx;
+}
+
+afr_fd_ctx_t *
+__afr_fd_ctx_get(fd_t *fd, xlator_t *this)
+{
+    uint64_t ctx = 0;
+    int ret = 0;
+    afr_fd_ctx_t *fd_ctx = NULL;
+
+    ret = __fd_ctx_get(fd, this, &ctx);
+
+    if (ret < 0) {
+        fd_ctx = __afr_fd_ctx_set(this, fd);
+    } else {
+        fd_ctx = (afr_fd_ctx_t *)(long)ctx;
+    }
+    return fd_ctx;
+}
+
+afr_fd_ctx_t *
+afr_fd_ctx_get(fd_t *fd, xlator_t *this)
+{
+    afr_fd_ctx_t *fd_ctx = NULL;
+
+    LOCK(&fd->lock);
+    {
+        fd_ctx = __afr_fd_ctx_get(fd, this);
+    }
+    UNLOCK(&fd->lock);
+
+    return fd_ctx;
 }
 
 /* {{{ flush */
