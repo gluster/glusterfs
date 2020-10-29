@@ -27,7 +27,7 @@ def size_fmt(num):
     return "f{num:.2f} YiB"
 
 def time_fmt(fr_sec):
-    return str(datetime.timedelta(microseconds=fr_sec * 1000000))
+    return str(datetime.timedelta(seconds=int(fr_sec)))
 
 def crawl_progress(count, size):
     sys.stdout.write(f'Building index of {count} files with cumulative size {size} to attempt rebalance.\r')
