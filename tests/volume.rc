@@ -71,6 +71,10 @@ function volume_option()
         $CLI volume info $vol | egrep "^$key: " | cut -f2 -d' ';
 }
 
+function rebalanced_size_field {
+        $CLI volume rebalance $1 status | awk '{print $3}' | sed -n 3p
+}
+
 function rebalance_status_field {
         $CLI volume rebalance $1 status | awk '{print $7}' | sed -n 3p
 }
