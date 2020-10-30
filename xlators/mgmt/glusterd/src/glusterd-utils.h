@@ -874,4 +874,13 @@ glusterd_defrag_ref(glusterd_defrag_info_t *defrag);
 
 int
 glusterd_defrag_unref(glusterd_defrag_info_t *defrag);
+
+int32_t
+glusterd_add_volume_to_hashtable(xlator_t *this, char *volname,
+                                 glusterd_volinfo_t *volinfo);
+void
+glusterd_remove_volume_from_hashtable(glusterd_volinfo_t *volinfo,
+                                      char *volname);
+void
+glusterd_destroy_volinfo_node(struct rcu_head *head);
 #endif

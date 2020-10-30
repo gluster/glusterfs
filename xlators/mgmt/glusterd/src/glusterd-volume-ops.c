@@ -2231,6 +2231,12 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     volinfo->rebal.defrag_status = 0;
     glusterd_list_add_order(&volinfo->vol_list, &priv->volumes,
                             glusterd_compare_volume_name);
+    ret = glusterd_add_volume_to_hashtable(this, volname, volinfo);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno,
+                GD_MSG_ADD_VOLUME_TO_HASH_TABLE_FAILED, NULL);
+        goto out;
+    }
     vol_added = _gf_true;
 
 out:

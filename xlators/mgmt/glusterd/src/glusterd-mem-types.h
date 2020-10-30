@@ -54,6 +54,7 @@ typedef enum gf_gld_mem_types_ {
     gf_gld_mt_glusterd_brick_proc_t,
     gf_gld_mt_glusterd_svc_proc_t,
     gf_gld_mt_hostname_t,
+    gf_gld_mt_hash_node,
     gf_gld_mt_end,
 } gf_gld_mem_types_t;
 #endif

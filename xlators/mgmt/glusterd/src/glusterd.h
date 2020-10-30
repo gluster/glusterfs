@@ -238,7 +238,15 @@ typedef struct {
     char rundir[VALID_GLUSTERD_PATHMAX];
     char logdir[VALID_GLUSTERD_PATHMAX];
     struct list_head hostnames;
+    struct cds_lfht *ht;
 } glusterd_conf_t;
+
+typedef struct glusterd_volinfo_node_ {
+    char volname[NAME_MAX + 1];
+    glusterd_volinfo_t *volinfo;
+    struct cds_lfht_node next; /* Required for chaining in hash table */
+    struct rcu_head head; /* Required for cleaning the nodes in hash table */
+} glusterd_volinfo_node;
 
 typedef struct glusterd_add_dict_args {
     xlator_t *this;

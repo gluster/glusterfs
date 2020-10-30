@@ -12,6 +12,7 @@
 #define _GLUSTERD_RCU_H
 
 #include <urcu-bp.h>
+#include <urcu/rculfhash.h>
 #include <urcu/rculist.h>
 #include <urcu/compiler.h>
 #include <urcu/uatomic.h>
