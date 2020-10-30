@@ -76,7 +76,7 @@
 #include <ifaddrs.h>
 
 #define XXH_INLINE_ALL
-#include "contrib/xxhash/xxhash.h"
+#include "xxhash.h"
 
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
