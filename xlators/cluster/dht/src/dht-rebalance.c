@@ -3083,12 +3083,10 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
     struct dht_container *tmp_container = NULL;
 
     if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
-        ret = -1;
         goto out;
     }
 
     if (dir_dfmeta->offset_var[i].readdir_done == 1) {
-        ret = 0;
         goto out;
     }
 
@@ -3105,7 +3103,6 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
                               &(dir_dfmeta->equeue[i]), xattr_req, NULL);
         if (ret == 0) {
             dir_dfmeta->offset_var[i].readdir_done = 1;
-            ret = 0;
             goto out;
         }
 
@@ -3131,7 +3128,6 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
 
     while (1) {
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
-            ret = -1;
             goto out;
         }
 
@@ -3243,12 +3239,14 @@ int static gf_defrag_get_entry(xlator_t *this, int i,
     }
 
 out:
-    if (ret == 0) {
-        *container = tmp_container;
-    } else {
-        if (tmp_container) {
+    if (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED) {
+        if (ret == 0) {
+            *container = tmp_container;
+        } else {
             gf_defrag_free_container(tmp_container);
         }
+    } else {
+        gf_defrag_free_container(tmp_container);
     }
 
     return ret;
@@ -3461,7 +3459,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                       migrate_data, dir_dfmeta, xattr_req,
                                       perrno);
 
-            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED) {
+            if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 goto out;
             }
 
@@ -3794,8 +3792,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             ret = gf_defrag_fix_layout(this, defrag, &entry_loc, fix_layout,
                                        migrate_data);
 
-            if (defrag->defrag_status == GF_DEFRAG_STATUS_STOPPED ||
-                defrag->defrag_status == GF_DEFRAG_STATUS_FAILED) {
+            if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 goto out;
             }
 
@@ -3868,6 +3865,10 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
     if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
         ret = gf_defrag_process_dir(this, defrag, loc, migrate_data, &perrno);
+
+        if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
+            goto out;
+        }
 
         if (ret) {
             if (perrno == ENOENT || perrno == ESTALE) {
