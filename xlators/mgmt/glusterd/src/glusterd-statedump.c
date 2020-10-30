@@ -168,13 +168,15 @@ int
 glusterd_dump_priv(xlator_t *this)
 {
     glusterd_conf_t *priv = NULL;
-    glusterd_volinfo_t *volinfo = NULL;
-    glusterd_brickinfo_t *tmpbrkinfo = NULL;
+    struct pmap_registry *pmap = NULL;
+    struct pmap_ports *tmp_port = NULL;
     char key[GF_DUMP_MAX_BUF_LEN] = "";
 
     priv = this->private;
     if (!priv)
         return 0;
+
+    pmap = priv->pmap;
 
     gf_proc_dump_build_key(key, "xlator.glusterd", "priv");
     gf_proc_dump_add_section("%s", key);
@@ -214,15 +216,14 @@ glusterd_dump_priv(xlator_t *this)
         /* Dump peer details */
         GLUSTERD_DUMP_PEERS(&priv->peers, uuid_list, _gf_false);
 
-        /* Dump brick name and port associated with it */
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
-        {
-            cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
+        if (pmap) {
+            /* Dump brick name and port associated with it */
+            cds_list_for_each_entry(tmp_port, &pmap->ports, port_list)
             {
                 gf_proc_dump_build_key(key, "glusterd", "brick_port");
-                gf_proc_dump_write(key, "%d", tmpbrkinfo->port);
+                gf_proc_dump_write(key, "%d", tmp_port->port);
                 gf_proc_dump_build_key(key, "glusterd", "brickname");
-                gf_proc_dump_write(key, "%s", tmpbrkinfo->path);
+                gf_proc_dump_write(key, "%s", tmp_port->brickname);
             }
         }
 

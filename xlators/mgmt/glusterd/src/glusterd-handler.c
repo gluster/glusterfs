@@ -6004,6 +6004,9 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
     int32_t pid = -1;
     glusterd_brickinfo_t *brickinfo_tmp = NULL;
     glusterd_brick_proc_t *brick_proc = NULL;
+    char pidfile[PATH_MAX] = {0};
+    char *brickpath = NULL;
+    gf_boolean_t is_service_running = _gf_true;
 
     brickid = mydata;
     if (!brickid)
@@ -6092,7 +6095,35 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                 gf_event(EVENT_BRICK_DISCONNECTED, "peer=%s;volume=%s;brick=%s",
                          brickinfo->hostname, volinfo->volname,
                          brickinfo->path);
+                /* In case of an abrupt shutdown of a brick PMAP_SIGNOUT
+                 * event is not received by glusterd which can lead to a
+                 * stale port entry in glusterd, so forcibly clean up
+                 * the same if the process is not running sometime
+                 * gf_is_service_running true so to ensure about brick instance
+                 * call search_brick_path_from_proc
+                 */
+                GLUSTERD_GET_BRICK_PIDFILE(pidfile, volinfo, brickinfo, conf);
+                is_service_running = gf_is_service_running(pidfile, &pid);
+                if (pid > 0)
+                    brickpath = search_brick_path_from_proc(pid,
+                                                            brickinfo->path);
+                if (!is_service_running || !brickpath) {
+                    ret = pmap_port_remove(this, brickinfo->port,
+                                           brickinfo->path, NULL, _gf_true);
+                    if (ret) {
+                        gf_msg(this->name, GF_LOG_WARNING,
+                               GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0,
+                               "Failed to remove pmap "
+                               "registry for port %d for "
+                               "brick %s",
+                               brickinfo->port, brickinfo->path);
+                        ret = 0;
+                    }
+                }
             }
+
+            if (brickpath)
+                GF_FREE(brickpath);
 
             if (is_brick_mx_enabled() && glusterd_is_brick_started(brickinfo)) {
                 brick_proc = brickinfo->brick_proc;
@@ -6103,6 +6134,11 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                 {
                     glusterd_set_brick_status(brickinfo_tmp, GF_BRICK_STOPPED);
                     brickinfo_tmp->start_triggered = _gf_false;
+                    /* When bricks are stopped, ports also need to
+                     * be cleaned up
+                     */
+                    pmap_port_remove(this, brickinfo_tmp->port,
+                                     brickinfo_tmp->path, NULL, _gf_true);
                 }
             } else {
                 glusterd_set_brick_status(brickinfo, GF_BRICK_STOPPED);

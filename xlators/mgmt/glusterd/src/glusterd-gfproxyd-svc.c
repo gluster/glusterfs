@@ -328,7 +328,7 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
             runner_add_arg(&runner, "--localtime-logging");
     }
 
-    gfproxyd_port = pmap_port_alloc(this);
+    gfproxyd_port = pmap_assign_port(this, volinfo->gfproxyd.port, gfproxyd_id);
     volinfo->gfproxyd.port = gfproxyd_port;
 
     runner_add_arg(&runner, "--brick-port");

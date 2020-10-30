@@ -2768,6 +2768,7 @@ glusterd_clearlocks_get_local_client_ports(glusterd_volinfo_t *volinfo,
     int ret = -1;
     int i = 0;
     int32_t len = 0;
+    int port = 0;
 
     GF_ASSERT(xl_opts);
     if (!xl_opts) {
@@ -2793,9 +2794,18 @@ glusterd_clearlocks_get_local_client_ports(glusterd_volinfo_t *volinfo,
             ret = -1;
             goto out;
         }
+        port = pmap_registry_search(THIS, brickname, _gf_false);
+        if (!port) {
+            ret = -1;
+            gf_msg_debug(THIS->name, 0,
+                         "Couldn't get port "
+                         " for brick %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+            goto out;
+        }
 
         ret = gf_asprintf(&xl_opts[i], "%s-client-%d.remote-port=%d",
-                          volinfo->volname, index, brickinfo->port);
+                          volinfo->volname, index, port);
         if (ret == -1) {
             xl_opts[i] = NULL;
             goto out;

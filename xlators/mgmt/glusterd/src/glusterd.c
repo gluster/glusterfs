@@ -409,6 +409,7 @@ glusterd_rpcsvc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
             pthread_mutex_lock(&priv->xprt_lock);
             list_del(&xprt->list);
             pthread_mutex_unlock(&priv->xprt_lock);
+            pmap_port_remove(this, 0, NULL, xprt, _gf_false);
             break;
         }
 
