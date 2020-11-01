@@ -3391,7 +3391,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
         goto out;
     }
 
-    list = alloca(size);
+    list = GF_MALLOC(size, gf_posix_mt_char);
     if (!list) {
         *op_errno = errno;
         goto out;
@@ -3470,6 +3470,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     op_ret = 0;
 
 out:
+    GF_FREE(list);
     return op_ret;
 }
 
@@ -3899,7 +3900,8 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (size == 0)
             goto done;
     }
-    list = alloca(size);
+
+    list = GF_MALLOC(size, gf_posix_mt_char);
     if (!list) {
         op_errno = errno;
         goto out;
@@ -4026,6 +4028,7 @@ out:
         dict_unref(dict);
     }
 
+    GF_FREE(list);
     return 0;
 }
 
@@ -4225,7 +4228,8 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         if (size == 0)
             goto done;
     }
-    list = alloca(size + 1);
+
+    list = GF_MALLOC(size, gf_posix_mt_char);
     if (!list) {
         op_ret = -1;
         op_errno = ENOMEM;
@@ -4326,6 +4330,8 @@ out:
 
     if (dict)
         dict_unref(dict);
+
+    GF_FREE(list);
 
     return 0;
 }
