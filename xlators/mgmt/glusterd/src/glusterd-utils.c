@@ -14827,14 +14827,14 @@ glusterd_compare_addrinfo(struct addrinfo *first, struct addrinfo *next)
     return GF_AI_COMPARE_NO_MATCH;
 }
 
-/* Check for non optimal brick order for Replicate/Disperse :
+/* Check for non optimal brick order for Replicate/Disperse:
  * Checks if bricks belonging to a replicate or disperse
  * volume are present on the same server
  */
 int32_t
 glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
                            char **volname, char **brick_list,
-                           int32_t *brick_count, int32_t sub_count)
+                           int32_t *brick_count, int32_t sub_count, int flag)
 {
     int ret = -1;
     int i = 0;
@@ -14853,6 +14853,11 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         0,
     };
     int addrlen = 0;
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_brickinfo_t *brickinfo = NULL;
+    addrinfo_list_t *pre_list = NULL;
+    addrinfo_list_t *pre_list_tmp1 = NULL;
+    int count = 0;
 
     const char failed_string[2048] =
         "Failed to perform brick order "
@@ -14875,12 +14880,54 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     ai_list->info = NULL;
     CDS_INIT_LIST_HEAD(&ai_list->list);
 
+    pre_list = MALLOC(sizeof(addrinfo_list_t));
+    pre_list->info = NULL;
+    CDS_INIT_LIST_HEAD(&pre_list->list);
+
     if (!(*volname)) {
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &(*volname));
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "Unable to get volume name");
             goto out;
+        }
+    }
+
+    /* This flag is set to test hostnames with existing bricks in the
+     * volume when when replica count is changes and brick(s) are added
+     * to same replica set.
+     */
+    if (flag) {
+        ret = glusterd_volinfo_find(*volname, &volinfo);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+                   "Unable to find volume: %s", *volname);
+            goto out;
+        }
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+        {
+            ret = getaddrinfo(brickinfo->hostname, NULL, NULL, &ai_info);
+            if (ret != 0) {
+                ret = 0;
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_HOSTNAME_RESOLVE_FAIL,
+                       "unable to resolve host name for addr %s",
+                       brickinfo->hostname);
+                goto out;
+            }
+            pre_list_tmp1 = MALLOC(sizeof(addrinfo_list_t));
+            if (pre_list_tmp1 == NULL) {
+                ret = 0;
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                       "failed to allocate "
+                       "memory");
+                freeaddrinfo(ai_info);
+                goto out;
+            }
+            pre_list_tmp1->info = ai_info;
+            cds_list_add_tail(&pre_list_tmp1->list, &pre_list->list);
+            pre_list_tmp1 = NULL;
+            count++;
         }
     }
 
@@ -14945,8 +14992,12 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     if (*brick_count < sub_count) {
         sub_count = *brick_count;
     }
-
-    /* Check for bad brick order */
+    /* Check for bad brick order for brick list provided in add-brick command
+     * List1 = [hn1, hn2, hn3, hn4] -> Passed brick order check
+     * List2 = [hn1, hn2, hn1]  -> Failed brick order check
+     * Comparison to check all hostnames in List are unique or not for replica
+     * and disperse subvol set.
+     * */
     while (i < *brick_count) {
         ++i;
         ai_info = ai_list_tmp1->info;
@@ -14970,6 +15021,35 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         }
         ++j;
     }
+
+    /* Check for bad brick order for brick list present already in the volume
+     * with the bricks provided in add-brick command.
+     * pre_list = [pn1, pn2, pn3]
+     * ai_list = [pn4, pn1]
+     * Failed as pn1 is present in new_list for replica subvols
+     */
+    ai_list_tmp2 = NULL;
+    if (flag) {
+        i = 0;
+        j = 0;
+        ai_list_tmp2 = cds_list_first_entry(ai_list->list.next, addrinfo_list_t,
+                                            list);
+        while (i < count) {
+            cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
+            {
+                ret = glusterd_compare_addrinfo(ai_list_tmp2->info,
+                                                pre_list_tmp1->info);
+                if (GF_AI_COMPARE_ERROR == ret)
+                    goto check_failed;
+                if (GF_AI_COMPARE_MATCH == ret)
+                    goto found_bad_brick_order;
+            }
+            ai_list_tmp2 = cds_list_entry(ai_list_tmp2->list.next,
+                                          addrinfo_list_t, list);
+            ++i;
+        }
+    }
+
     gf_msg_debug(this->name, 0, "Brick order okay");
     ret = 0;
     goto out;
