@@ -44,7 +44,6 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(args);
     GF_ASSERT(uuid);
 
@@ -136,7 +135,6 @@ gd_mgmt_v3_pre_validate_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -253,7 +251,6 @@ gd_mgmt_v3_brick_op_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -299,7 +296,6 @@ gd_mgmt_v3_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -417,7 +413,6 @@ gd_mgmt_v3_post_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -460,7 +455,6 @@ gd_mgmt_v3_post_validate_fn(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     glusterd_volinfo_t *volinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -570,7 +564,6 @@ gd_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -640,7 +633,6 @@ gd_mgmt_v3_lock(glusterd_op_t op, dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -689,7 +681,6 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
     uint32_t timeout = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -787,7 +778,6 @@ glusterd_pre_validate_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(aggr);
     GF_ASSERT(rsp);
 
@@ -865,7 +855,6 @@ gd_mgmt_v3_pre_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -962,7 +951,6 @@ gd_mgmt_v3_pre_validate_req(glusterd_op_t op, dict_t *op_ctx,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1010,7 +998,6 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1137,7 +1124,6 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
     char *volname = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(op_errstr);
     GF_ASSERT(dict);
@@ -1225,7 +1211,6 @@ gd_mgmt_v3_brick_op_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -1330,7 +1315,6 @@ gd_mgmt_v3_brick_op_req(glusterd_op_t op, dict_t *op_ctx,
     };
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1377,7 +1361,6 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1496,7 +1479,6 @@ gd_mgmt_v3_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -1593,7 +1575,6 @@ gd_mgmt_v3_commit_req(glusterd_op_t op, dict_t *op_ctx,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1641,7 +1622,6 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1782,7 +1762,6 @@ gd_mgmt_v3_post_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -1880,7 +1859,6 @@ gd_mgmt_v3_post_commit_req(glusterd_op_t op, dict_t *op_ctx,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1928,7 +1906,6 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2049,7 +2026,6 @@ gd_mgmt_v3_post_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -2116,7 +2092,6 @@ gd_mgmt_v3_post_validate_req(glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -2165,7 +2140,6 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2276,7 +2250,6 @@ gd_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -2338,7 +2311,6 @@ gd_mgmt_v3_unlock(glusterd_op_t op, dict_t *op_ctx,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -2386,7 +2358,6 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2468,7 +2439,6 @@ glusterd_mgmt_v3_initiate_all_phases_with_brickop_phase(rpcsvc_request_t *req,
     uint32_t op_errno = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;
@@ -2634,7 +2604,6 @@ glusterd_mgmt_v3_initiate_all_phases(rpcsvc_request_t *req, glusterd_op_t op,
     uint32_t op_errno = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;
@@ -2793,7 +2762,6 @@ glusterd_set_barrier_value(dict_t *dict, char *option)
     char *volname = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(dict);
     GF_ASSERT(option);
@@ -2868,7 +2836,6 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
     uint32_t op_errno = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;

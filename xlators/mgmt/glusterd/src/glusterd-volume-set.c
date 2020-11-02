@@ -26,7 +26,6 @@ validate_cache_max_min_size(glusterd_volinfo_t *volinfo, dict_t *dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -79,7 +78,6 @@ validate_defrag_throttle_option(glusterd_volinfo_t *volinfo, dict_t *dict,
     long int cores_available = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     cores_available = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -132,7 +130,6 @@ validate_quota(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -170,7 +167,6 @@ validate_uss(glusterd_volinfo_t *volinfo, dict_t *dict, char *key, char *value,
     gf_boolean_t b = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = gf_string2boolean(value, &b);
     if (ret) {
@@ -198,7 +194,6 @@ validate_uss_dir(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     i = strlen(value);
     if (i > NAME_MAX) {
@@ -257,7 +252,6 @@ validate_server_options(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     int origin_val = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (volinfo->status == GLUSTERD_STATUS_STARTED) {
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_VOL_SET_VALIDATION_INFO,
@@ -307,7 +301,6 @@ validate_disperse(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
         snprintf(errstr, sizeof(errstr),
@@ -335,7 +328,6 @@ validate_replica(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (volinfo->replica_count == 1) {
         snprintf(errstr, sizeof(errstr),
@@ -362,7 +354,6 @@ validate_quorum_count(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     int q_count = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = gf_string2int(value, &q_count);
     if (ret) {
@@ -400,7 +391,6 @@ validate_subvols_per_directory(glusterd_volinfo_t *volinfo, dict_t *dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -450,7 +440,6 @@ validate_mandatory_locking(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (strcmp(value, "off") != 0 && strcmp(value, "file") != 0 &&
         strcmp(value, "forced") != 0 && strcmp(value, "optimal") != 0) {
@@ -495,7 +484,6 @@ validate_lock_migration_option(glusterd_volinfo_t *volinfo, dict_t *dict,
     gf_boolean_t b = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (volinfo->replica_count > 1 || volinfo->disperse_count) {
         snprintf(errstr, sizeof(errstr),
@@ -541,7 +529,6 @@ validate_mux_limit(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     int ret = -1;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!is_brick_mx_enabled()) {
         gf_asprintf(op_errstr,
@@ -586,7 +573,6 @@ validate_volume_per_thread_limit(glusterd_volinfo_t *volinfo, dict_t *dict,
     int ret = -1;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!is_brick_mx_enabled()) {
         gf_asprintf(op_errstr,
@@ -631,7 +617,6 @@ validate_boolean(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     int ret = -1;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     ret = gf_string2boolean(value, &b);
     if (ret) {
         gf_asprintf(op_errstr,
@@ -641,7 +626,6 @@ validate_boolean(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
-out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
 
     return ret;
@@ -745,7 +729,6 @@ validate_worm_period(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     int ret = -1;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     ret = gf_string2uint64(value, &period);
     if (ret) {
         gf_asprintf(op_errstr,
@@ -755,7 +738,6 @@ validate_worm_period(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
-out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
 
     return ret;
@@ -769,7 +751,6 @@ validate_reten_mode(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     int ret = -1;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     if ((strcmp(value, "relax") && strcmp(value, "enterprise"))) {
         gf_asprintf(op_errstr,
                     "The value of retention mode should be "
@@ -801,7 +782,6 @@ validate_statedump_path(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     xlator_t *this = NULL;
     this = THIS;
-    GF_ASSERT(this);
 
     int ret = 0;
     if (!is_directory(value)) {

@@ -69,7 +69,6 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
     int32_t len = 0;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -156,7 +155,6 @@ glusterd_shdsvc_create_volfile(glusterd_volinfo_t *volinfo)
     int ret = -1;
     dict_t *mod_dict = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     glusterd_svc_build_shd_volfile_path(volinfo, filepath, PATH_MAX);
     if (!glusterd_is_shd_compatible_volume(volinfo)) {
@@ -363,7 +361,6 @@ glusterd_new_shd_svc_start(glusterd_svc_t *svc, int flags)
     char client_pid[32] = {0};
     dict_t *cmdline = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     cmdline = dict_new();
     if (!cmdline)
@@ -547,7 +544,6 @@ glusterd_shdsvc_reconfigure(glusterd_volinfo_t *volinfo)
     glusterd_svc_t *svc = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!volinfo) {
         /* reconfigure will be called separately*/
@@ -673,8 +669,6 @@ glusterd_shdsvc_restart()
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);

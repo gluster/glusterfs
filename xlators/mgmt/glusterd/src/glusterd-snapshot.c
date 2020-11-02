@@ -122,7 +122,6 @@ glusterd_build_snap_device_path(char *device, char *snapname,
     int ret = -1;
 
     this = THIS;
-    GF_ASSERT(this);
     if (!device) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
                "device is NULL");
@@ -187,7 +186,6 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
     glusterd_brickinfo_t *brickinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(peers);
     GF_ASSERT(vol);
@@ -260,7 +258,6 @@ snap_max_limits_display_commit(dict_t *rsp_dict, char *volname, char *op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(op_errstr);
 
@@ -504,7 +501,6 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -625,7 +621,6 @@ glusterd_snapshot_backup_vol(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volinfo);
@@ -724,7 +719,6 @@ glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -799,7 +793,6 @@ glusterd_snapshot_restore(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -950,7 +943,6 @@ glusterd_snapshot_restore_prevalidate(dict_t *dict, char **op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -1160,7 +1152,6 @@ snap_max_hard_limits_validate(dict_t *dict, char *volname, uint64_t value,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
@@ -1247,7 +1238,6 @@ glusterd_snapshot_config_prevalidate(dict_t *dict, char **op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -1413,7 +1403,6 @@ glusterd_handle_snapshot_config(rpcsvc_request_t *req, glusterd_op_t op,
     int config_command = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, req, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
@@ -1497,7 +1486,6 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
     int32_t brick_online = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dst);
     GF_ASSERT(src);
 
@@ -1648,7 +1636,6 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!dst || !src) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
@@ -1760,7 +1747,6 @@ glusterd_snap_pre_validate_use_rsp_dict(dict_t *dst, dict_t *src)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!dst || !src) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
@@ -1824,7 +1810,6 @@ glusterd_add_brick_status_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo,
     GF_ASSERT(brickinfo);
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1874,7 +1859,6 @@ glusterd_is_thinp_brick(char *device, uint32_t *op_errno)
 
     this = THIS;
 
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, device, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
@@ -2607,7 +2591,6 @@ glusterd_do_lvm_snapshot_remove(glusterd_volinfo_t *snap_vol,
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -2736,7 +2719,6 @@ glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
     };
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap_vol);
 
     if ((snap_vol->is_snap_volume == _gf_false) &&
@@ -2933,7 +2915,6 @@ glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap_vol);
 
@@ -3024,7 +3005,6 @@ glusterd_snap_remove(dict_t *rsp_dict, glusterd_snap_t *snap,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap);
 
@@ -3598,7 +3578,6 @@ glusterd_handle_snapshot_info(rpcsvc_request_t *req, glusterd_op_t op,
     int32_t cmd = GF_SNAP_INFO_TYPE_ALL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, req, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
@@ -3896,7 +3875,6 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
     char gmt_snaptime[GLUSTERD_MAX_SNAP_NAME] = "";
     time_t snap_time;
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
@@ -4079,7 +4057,6 @@ glusterd_handle_snapshot_status(rpcsvc_request_t *req, glusterd_op_t op,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
     GF_ASSERT(dict);
@@ -4129,7 +4106,6 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
     char snap_volname[GD_VOLUME_NAME_MAX] = "";
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
@@ -4277,7 +4253,6 @@ glusterd_handle_snapshot_restore(rpcsvc_request_t *req, glusterd_op_t op,
     int keylen;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
 
     GF_ASSERT(conf);
@@ -4480,7 +4455,6 @@ glusterd_add_missed_snaps_to_dict(dict_t *rsp_dict,
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap_vol);
     GF_ASSERT(brickinfo);
@@ -4562,7 +4536,6 @@ glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brickinfo);
     GF_ASSERT(origin_brick_path);
 
@@ -4741,7 +4714,6 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap_vol);
@@ -4950,7 +4922,6 @@ glusterd_update_fs_label(glusterd_brickinfo_t *brickinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brickinfo);
 
     /* Generate a new UUID */
@@ -5036,7 +5007,6 @@ glusterd_take_brick_snapshot(dict_t *dict, glusterd_volinfo_t *snap_vol,
 
     this = THIS;
     priv = this->private;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(snap_vol);
     GF_ASSERT(brickinfo);
@@ -5196,7 +5166,6 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         {.key = NULL, .value = NULL}};
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5489,7 +5458,6 @@ glusterd_snapshot_activate_deactivate_prevalidate(dict_t *dict,
     int flags = 0;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
     if (!dict || !op_errstr) {
@@ -5591,7 +5559,6 @@ glusterd_handle_snapshot_delete_vol(dict_t *dict, char *err_str,
     char *volname = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
@@ -5638,7 +5605,6 @@ glusterd_handle_snapshot_delete_all(dict_t *dict)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5695,7 +5661,6 @@ glusterd_handle_snapshot_delete_type_snap(rpcsvc_request_t *req,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
     GF_ASSERT(dict);
@@ -5785,8 +5750,6 @@ glusterd_handle_snapshot_delete(rpcsvc_request_t *req, glusterd_op_t op,
 
     this = THIS;
 
-    GF_ASSERT(this);
-
     GF_ASSERT(req);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
@@ -5865,7 +5828,6 @@ glusterd_snapshot_remove_prevalidate(dict_t *dict, char **op_errstr,
     glusterd_snap_t *snap = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
     if (!dict || !op_errstr) {
@@ -5919,7 +5881,6 @@ glusterd_snapshot_status_prevalidate(dict_t *dict, char **op_errstr,
     char *volname = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
     GF_ASSERT(op_errstr);
@@ -6021,7 +5982,6 @@ glusterd_snapshot_activate_commit(dict_t *dict, char **op_errstr,
     int brick_count = -1;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(op_errstr);
@@ -6120,7 +6080,6 @@ glusterd_snapshot_deactivate_commit(dict_t *dict, char **op_errstr,
     char snap_path[PATH_MAX] = "";
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(op_errstr);
@@ -6215,7 +6174,6 @@ glusterd_snapshot_remove_commit(dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(op_errstr);
@@ -6335,7 +6293,6 @@ glusterd_do_snap_cleanup(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_snap_t *snap = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -6404,7 +6361,6 @@ glusterd_snapshot_update_snaps_post_validate(dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(op_errstr);
@@ -6527,7 +6483,6 @@ glusterd_schedule_brick_snapshot(dict_t *dict, dict_t *rsp_dict,
     snap_create_args_t *snap_args = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(snap);
 
@@ -6695,7 +6650,6 @@ glusterd_snapshot_clone_commit(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -6839,7 +6793,6 @@ glusterd_snapshot_create_commit(dict_t *dict, char **op_errstr,
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -7018,7 +6971,6 @@ snap_max_hard_limit_set_commit(dict_t *dict, uint64_t value, char *volname,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
@@ -7108,7 +7060,6 @@ glusterd_snapshot_config_commit(dict_t *dict, char **op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
@@ -7251,7 +7202,6 @@ glusterd_get_brick_lvm_details(dict_t *rsp_dict,
     GF_ASSERT(brickinfo);
     GF_ASSERT(volname);
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -7398,7 +7348,6 @@ glusterd_get_single_brick_status(char **op_errstr, dict_t *rsp_dict,
     pid_t pid = -1;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -7576,7 +7525,6 @@ glusterd_get_single_snap_status(char **op_errstr, dict_t *rsp_dict,
     int brickcount = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -7656,7 +7604,6 @@ glusterd_get_each_snap_object_status(char **op_errstr, dict_t *rsp_dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap);
@@ -7750,7 +7697,6 @@ glusterd_get_snap_status_of_volume(char **op_errstr, dict_t *rsp_dict,
     int i = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -7814,7 +7760,6 @@ glusterd_get_all_snapshot_status(dict_t *dict, char **op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -7867,7 +7812,6 @@ glusterd_snapshot_status_commit(dict_t *dict, char **op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
@@ -7989,7 +7933,6 @@ glusterd_handle_snap_limit(dict_t *dict, dict_t *rsp_dict)
     uint64_t opt_max_soft = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -8107,7 +8050,6 @@ glusterd_snapshot_clone_postvalidate(dict_t *dict, int32_t op_ret,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -8192,7 +8134,6 @@ glusterd_snapshot_create_postvalidate(dict_t *dict, int32_t op_ret,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -8355,7 +8296,6 @@ glusterd_snapshot(dict_t *dict, char **op_errstr, uint32_t *op_errno,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -8505,7 +8445,6 @@ glusterd_snapshot_brickop(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -8607,7 +8546,6 @@ glusterd_snapshot_prevalidate(dict_t *dict, char **op_errstr, dict_t *rsp_dict,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -8744,7 +8682,6 @@ glusterd_remove_trashpath(char *volname)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
 
     GF_ASSERT(volname);
@@ -8806,7 +8743,6 @@ glusterd_snapshot_restore_cleanup(dict_t *rsp_dict, char *volname,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(volname);
@@ -8858,7 +8794,6 @@ glusterd_snapshot_revert_partial_restored_vol(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volinfo);
@@ -8966,7 +8901,6 @@ glusterd_snapshot_revert_restore_from_snap(glusterd_snap_t *snap)
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(snap);
 
     /* TODO : As of now there is only one volume in snapshot.
@@ -9023,7 +8957,6 @@ glusterd_snapshot_restore_postop(dict_t *dict, int32_t op_ret, char **op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -9146,7 +9079,6 @@ glusterd_snapshot_postvalidate(dict_t *dict, int32_t op_ret, char **op_errstr,
 
     this = THIS;
 
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -9306,7 +9238,6 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
     GF_ASSERT(req);
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -9546,7 +9477,6 @@ glusterd_update_missed_snap_entry(glusterd_missed_snap_info *missed_snapinfo,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(missed_snapinfo);
     GF_ASSERT(missed_snap_op);
 
@@ -9633,7 +9563,6 @@ glusterd_add_new_entry_to_list(char *missed_info, char *snap_vol_id,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(missed_info);
     GF_ASSERT(snap_vol_id);
     GF_ASSERT(brick_path);
@@ -9762,7 +9691,6 @@ glusterd_add_missed_snaps_to_list(dict_t *dict, int32_t missed_snap_count)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
 
     priv = this->private;
@@ -9860,7 +9788,6 @@ gd_restore_snap_volume(dict_t *dict, dict_t *rsp_dict,
     gf_boolean_t conf_present = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
     conf = this->private;
@@ -10004,7 +9931,6 @@ glusterd_snapshot_get_volnames_uuids(dict_t *dict, char *volname,
     int op_errno = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(volname);
     GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, dict, out, op_errno, EINVAL);
     GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, volname, out, op_errno, EINVAL);

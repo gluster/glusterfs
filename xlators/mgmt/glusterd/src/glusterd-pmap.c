@@ -434,7 +434,6 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
     int port = 0;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_port_by_brick_req);
@@ -479,7 +478,6 @@ __gluster_pmap_brickbyport(rpcsvc_request_t *req)
     };
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_brick_by_port_req);
@@ -520,7 +518,6 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
     int ret = -1;
     glusterd_brickinfo_t *brickinfo = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_pmap_signin_req);
     if (ret < 0) {
@@ -571,7 +568,6 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
     };
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, fail);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, fail);
 

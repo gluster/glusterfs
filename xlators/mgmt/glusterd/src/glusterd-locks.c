@@ -62,7 +62,6 @@ glusterd_mgmt_v3_lock_init()
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -84,7 +83,6 @@ glusterd_mgmt_v3_lock_fini()
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -102,7 +100,6 @@ glusterd_mgmt_v3_lock_timer_init()
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -125,7 +122,6 @@ glusterd_mgmt_v3_lock_timer_fini()
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -145,7 +141,6 @@ glusterd_get_mgmt_v3_lock_owner(char *key, uuid_t *uuid)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -180,7 +175,6 @@ glusterd_release_multiple_locks_per_entity(dict_t *dict, uuid_t uuid,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -235,7 +229,6 @@ glusterd_acquire_multiple_locks_per_entity(dict_t *dict, uuid_t uuid,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -299,7 +292,6 @@ glusterd_mgmt_v3_unlock_entity(dict_t *dict, uuid_t uuid, char *type,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -369,7 +361,6 @@ glusterd_mgmt_v3_lock_entity(dict_t *dict, uuid_t uuid, uint32_t *op_errno,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -433,7 +424,6 @@ glusterd_multiple_mgmt_v3_unlock(dict_t *dict, uuid_t uuid)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!dict) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY, "dict is null.");
@@ -469,7 +459,6 @@ glusterd_multiple_mgmt_v3_lock(dict_t *dict, uuid_t uuid, uint32_t *op_errno)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!dict) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY, "dict is null.");
@@ -532,7 +521,6 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     xlator_t *mgmt_lock_timer_xl = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -682,7 +670,6 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     gf_timer_t *timer = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -752,7 +739,6 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
     gf_timer_t *timer = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);

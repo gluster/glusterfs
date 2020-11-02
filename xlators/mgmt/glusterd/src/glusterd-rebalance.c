@@ -63,7 +63,6 @@ glusterd_defrag_start_validate(glusterd_volinfo_t *volinfo, char *op_errstr,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     /* Check only if operation is not remove-brick */
     if ((GD_OP_REMOVE_BRICK != op) && !gd_is_remove_brick_committed(volinfo)) {
@@ -106,8 +105,6 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
     int pid = -1;
 
     this = THIS;
-    if (!this)
-        return 0;
 
     priv = this->private;
     if (!priv)
@@ -226,7 +223,6 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     char *localtime_logging = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
@@ -393,7 +389,6 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -502,7 +497,6 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -597,7 +591,6 @@ glusterd_brick_validation(dict_t *dict, char *key, data_t *value, void *data)
     glusterd_brickinfo_t *brickinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_volume_brickinfo_get_by_brick(value->data, volinfo,
                                                  &brickinfo, _gf_false);
@@ -633,7 +626,6 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(req_dict);
@@ -725,7 +717,6 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
     xlator_t *this = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -874,7 +865,6 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     int32_t is_force = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1035,7 +1025,6 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
     xlator_t *this = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1193,7 +1182,6 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     int32_t is_force = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1379,7 +1367,6 @@ glusterd_defrag_event_notify_handle(dict_t *dict)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);

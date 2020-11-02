@@ -373,8 +373,6 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
 
     this = THIS;
 
-    GF_ASSERT(this);
-
     conf = this->private;
 
     GF_ASSERT(conf);
@@ -960,7 +958,6 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
     char *hostname = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(ctx);
     ev_ctx = ctx;
@@ -1465,7 +1462,6 @@ glusterd_friend_sm()
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

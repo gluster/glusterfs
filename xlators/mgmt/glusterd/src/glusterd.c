@@ -145,7 +145,6 @@ glusterd_uuid_init()
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
 
     ret = glusterd_retrieve_uuid();
@@ -174,7 +173,6 @@ glusterd_uuid_generate_save()
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -244,7 +242,6 @@ glusterd_client_statedump_submit_req(char *volname, char *target_ip, char *pid)
     };
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -451,7 +448,6 @@ glusterd_rpcsvc_options_build(dict_t *options)
     int ret = 0;
     uint32_t backlog = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_uint32(options, "transport.listen-backlog", &backlog);
 
@@ -1059,7 +1055,6 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
     gf_mount_spec_t *mspec = NULL;
     char *user = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     label = strtail(key, "mountbroker.");
 

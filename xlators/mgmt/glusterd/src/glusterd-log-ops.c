@@ -37,7 +37,6 @@ __glusterd_handle_log_rotate(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -186,7 +185,6 @@ glusterd_op_log_rotate(dict_t *dict)
     glusterd_brickinfo_t *tmpbrkinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

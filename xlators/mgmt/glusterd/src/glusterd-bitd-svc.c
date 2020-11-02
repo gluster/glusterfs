@@ -67,7 +67,6 @@ glusterd_bitdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!svc->inited) {
         ret = glusterd_bitdsvc_init(svc);
@@ -148,9 +147,6 @@ glusterd_bitdsvc_reconfigure()
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t identical = _gf_false;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);

@@ -75,7 +75,6 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_ASSERT(conf);

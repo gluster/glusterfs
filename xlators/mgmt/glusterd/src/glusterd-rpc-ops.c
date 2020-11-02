@@ -56,7 +56,6 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
 
     GF_ASSERT(conf);
@@ -237,7 +236,6 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -715,7 +713,6 @@ __glusterd_cluster_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *err_str = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -830,7 +827,6 @@ glusterd_mgmt_v3_lock_peers_cbk_fn(struct rpc_req *req, struct iovec *iov,
     char *err_str = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     frame = myframe;
@@ -938,7 +934,6 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn(struct rpc_req *req, struct iovec *iov,
     char *err_str = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     frame = myframe;
@@ -1047,7 +1042,6 @@ __glusterd_cluster_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *err_str = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -1150,7 +1144,6 @@ __glusterd_stage_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     priv = this->private;
     GF_ASSERT(priv);
@@ -1295,7 +1288,6 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     priv = this->private;
     GF_ASSERT(priv);
@@ -2128,7 +2120,6 @@ __glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);

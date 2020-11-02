@@ -58,7 +58,6 @@ __glusterd_handle_bitrot(rpcsvc_request_t *req)
     GF_ASSERT(req);
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -198,7 +197,6 @@ glusterd_bitrot_scrub_throttle(glusterd_volinfo_t *volinfo, dict_t *dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_str(dict, "scrub-throttle-value", &scrub_throttle);
     if (ret) {
@@ -238,7 +236,6 @@ glusterd_bitrot_scrub_freq(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     char *option = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_str(dict, "scrub-frequency-value", &scrub_freq);
     if (ret) {
@@ -278,7 +275,6 @@ glusterd_bitrot_scrub(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     char *option = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_str(dict, "scrub-value", &scrub_value);
     if (ret) {
@@ -325,7 +321,6 @@ glusterd_bitrot_expiry_time(glusterd_volinfo_t *volinfo, dict_t *dict,
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_uint32(dict, "expiry-time", &expiry_time);
     if (ret) {
@@ -392,7 +387,6 @@ glusterd_bitrot_signer_threads(glusterd_volinfo_t *volinfo, dict_t *dict,
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -437,7 +431,6 @@ glusterd_bitrot_enable(glusterd_volinfo_t *volinfo, char **op_errstr)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errstr, out);
@@ -490,7 +483,6 @@ glusterd_bitrot_disable(glusterd_volinfo_t *volinfo, char **op_errstr)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errstr, out);
@@ -533,7 +525,6 @@ glusterd_should_i_stop_bitd()
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
     {
@@ -568,7 +559,6 @@ glusterd_manage_bitrot(int opcode)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -605,7 +595,6 @@ glusterd_op_bitrot(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     GF_ASSERT(op_errstr);
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -732,7 +721,6 @@ glusterd_op_stage_bitrot(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_volinfo_t *volinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

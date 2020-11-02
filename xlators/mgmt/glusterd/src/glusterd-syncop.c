@@ -224,7 +224,6 @@ glusterd_syncop_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     switch (op) {
         case GD_OP_CREATE_VOLUME:
@@ -342,7 +341,6 @@ gd_syncop_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -446,7 +444,6 @@ gd_syncop_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -550,7 +547,6 @@ _gd_syncop_mgmt_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -651,7 +647,6 @@ _gd_syncop_mgmt_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -751,7 +746,6 @@ _gd_syncop_stage_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -889,7 +883,6 @@ _gd_syncop_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -1062,7 +1055,6 @@ _gd_syncop_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     uuid_t *peerid = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -1210,7 +1202,6 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
     struct syncargs args = {0};
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     ret = synctask_barrier_init((&args));
     if (ret)
@@ -1294,7 +1285,6 @@ gd_stage_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     dict_t *aggr_dict = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1425,7 +1415,6 @@ gd_commit_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     gf_boolean_t origin_glusterd = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1568,7 +1557,6 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
     char *type = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     /* If the lock has not been held during this
      * transaction, do not send unlock requests */
@@ -1832,7 +1820,6 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     uint32_t timeout = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

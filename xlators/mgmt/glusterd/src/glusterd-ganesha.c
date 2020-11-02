@@ -161,7 +161,6 @@ glusterd_is_ganesha_cluster()
     gf_boolean_t ret_bool = _gf_false;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("ganesha", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
@@ -258,7 +257,6 @@ glusterd_op_stage_set_ganesha(dict_t *dict, char **op_errstr)
 
     GF_ASSERT(dict);
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -316,7 +314,6 @@ glusterd_op_set_ganesha(dict_t *dict, char **errstr)
     char *next_version = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
 
     priv = this->private;
@@ -485,7 +482,6 @@ ganesha_manage_export(dict_t *dict, char *value,
     gf_boolean_t option = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
 
     GF_ASSERT(value);

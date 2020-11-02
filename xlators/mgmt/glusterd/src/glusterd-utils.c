@@ -253,7 +253,6 @@ get_mux_limit_per_process(int *mux_limit)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -292,7 +291,6 @@ get_gd_vol_thread_limit(int *thread_limit)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -436,7 +434,6 @@ glusterd_lock(uuid_t uuid)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(uuid);
 
@@ -473,7 +470,6 @@ glusterd_unlock(uuid_t uuid)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(uuid);
 
@@ -820,7 +816,6 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     glusterd_volinfo_t *new_volinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, dup_volinfo, out);
 
@@ -883,7 +878,6 @@ glusterd_brickinfo_dup(glusterd_brickinfo_t *brickinfo,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, brickinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, dup_brickinfo, out);
@@ -1168,7 +1162,6 @@ glusterd_resolve_brick(glusterd_brickinfo_t *brickinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(brickinfo);
     if (!gf_uuid_compare(brickinfo->uuid, MY_UUID) ||
@@ -1196,7 +1189,6 @@ glusterd_get_brick_mount_dir(char *brickpath, char *hostname, char *mount_dir)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brickpath);
     GF_ASSERT(hostname);
     GF_ASSERT(mount_dir);
@@ -1255,7 +1247,6 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
     char abspath[PATH_MAX] = "";
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brick);
     GF_ASSERT(brickinfo);
 
@@ -1786,7 +1777,6 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
 
     GF_ASSERT(volname);
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1815,7 +1805,6 @@ glusterd_volume_exists(const char *volname)
 
     GF_ASSERT(volname);
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1841,7 +1830,6 @@ glusterd_service_stop(const char *service, char *pidfile, int sig,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     if (!gf_is_service_running(pidfile, &pid)) {
         ret = 0;
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_ALREADY_STOPPED,
@@ -1897,7 +1885,6 @@ glusterd_service_stop_nolock(const char *service, char *pidfile, int sig,
     FILE *file = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     file = fopen(pidfile, "r+");
     if (file) {
@@ -1993,7 +1980,6 @@ glusterd_set_brick_socket_filepath(glusterd_volinfo_t *volinfo,
                         SHA256_DIGEST_LENGTH * 2 + SLEN(".socket") + 1;
     GF_ASSERT(len >= expected_file_len);
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
 
@@ -2116,7 +2102,6 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
     GF_ASSERT(brickinfo);
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -2402,7 +2387,6 @@ glusterd_brick_unlink_socket_file(glusterd_volinfo_t *volinfo,
     GF_ASSERT(brickinfo);
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv);
@@ -2517,7 +2501,6 @@ glusterd_brick_process_remove_brick(glusterd_brickinfo_t *brickinfo,
     glusterd_brick_proc_t *brick_proc = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -2564,7 +2547,6 @@ glusterd_brick_process_add_brick(glusterd_brickinfo_t *brickinfo,
     glusterd_brick_proc_t *brick_proc = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -2609,7 +2591,6 @@ glusterd_brick_proc_for_port(int port, glusterd_brick_proc_t **brickprocess)
     glusterd_brick_proc_t *brick_proc = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -2643,7 +2624,6 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
     GF_ASSERT(brickinfo);
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -2957,7 +2937,6 @@ glusterd_compute_cksum(glusterd_volinfo_t *volinfo, gf_boolean_t is_quota_conf)
     int32_t len2 = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -3084,7 +3063,6 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
     GF_ASSERT(prefix);
@@ -3402,7 +3380,6 @@ glusterd_vol_add_quota_conf_to_dict(glusterd_volinfo_t *volinfo, dict_t *load,
     float version = 0.0f;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(prefix);
 
     ret = glusterd_store_create_quota_conf_sh_on_absence(volinfo);
@@ -3673,7 +3650,6 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
     int i = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -3804,7 +3780,6 @@ glusterd_compare_friend_volume(dict_t *peer_data,
     GF_ASSERT(status);
 
     this = THIS;
-    GF_ASSERT(this);
 
     snprintf(key_prefix, sizeof(key_prefix), "volume%d", count);
     keylen = snprintf(key, sizeof(key), "%s.name", key_prefix);
@@ -4345,7 +4320,6 @@ glusterd_import_quota_conf(dict_t *peer_data, int vol_idx,
     int8_t gfid_type = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_data);
     GF_ASSERT(prefix);
 
@@ -4464,7 +4438,6 @@ gd_import_friend_volume_rebal_dict(dict_t *dict, int count,
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     snprintf(key_prefix, sizeof(key_prefix), "volume%d", count);
     ret = snprintf(key, sizeof(key), "%s.rebal-dict-count", key_prefix);
@@ -4869,7 +4842,6 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
     GF_ASSERT(new_volinfo);
     GF_ASSERT(old_volinfo);
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5008,7 +4980,6 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
     GF_ASSERT(stale_volinfo);
     GF_ASSERT(valid_volinfo);
     this = THIS;
-    GF_ASSERT(this);
 
     /* Copy snap_volumes list from stale_volinfo to valid_volinfo */
     valid_volinfo->snap_count = 0;
@@ -5141,7 +5112,6 @@ glusterd_import_friend_volume(dict_t *peer_data, int count,
     GF_ASSERT(peer_data);
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5261,7 +5231,6 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     uint64_t mask = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -5353,7 +5322,6 @@ glusterd_get_global_server_quorum_ratio(dict_t *opts, double *quorum)
     int ret = -1;
     char *quorum_str = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(opts, GLUSTERD_QUORUM_RATIO_KEY,
                         SLEN(GLUSTERD_QUORUM_RATIO_KEY), &quorum_str);
@@ -5377,7 +5345,6 @@ glusterd_get_global_opt_version(dict_t *opts, uint32_t *version)
     int ret = -1;
     char *version_str = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(opts, GLUSTERD_GLOBAL_OPT_VERSION,
                         SLEN(GLUSTERD_GLOBAL_OPT_VERSION), &version_str);
@@ -5501,7 +5468,6 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
     glusterd_friend_synctask_args_t *arg = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_data);
     GF_ASSERT(status);
 
@@ -5734,7 +5700,6 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5897,7 +5862,6 @@ glusterd_are_all_volumes_stopped()
     glusterd_volinfo_t *voliter = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5918,7 +5882,6 @@ glusterd_all_shd_compatible_volumes_stopped()
     glusterd_volinfo_t *voliter = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5941,7 +5904,6 @@ glusterd_all_volumes_with_quota_stopped()
     glusterd_volinfo_t *voliter = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5964,7 +5926,6 @@ glusterd_have_volumes()
     gf_boolean_t volumes_exist = _gf_false;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", (this != NULL), out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (priv != NULL), out);
@@ -5983,7 +5944,6 @@ glusterd_volume_count_get(void)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
 
@@ -6005,7 +5965,6 @@ glusterd_brickinfo_get(uuid_t uuid, char *hostname, char *path,
     GF_ASSERT(path);
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
 
@@ -6606,7 +6565,6 @@ glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
     int ret = -1;
 
     this = THIS;
-    GF_ASSERT(this);
 
 #ifdef __FreeBSD__
     blen = sizeof(buf);
@@ -6808,7 +6766,6 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
     ssize_t size = -1;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
 
     if ((!brickinfo) || (!volinfo)) {
@@ -7047,7 +7004,6 @@ glusterd_restart_bricks(void *opaque)
     gf_boolean_t node_quorum = _gf_false;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, return_block);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, return_block);
@@ -7517,7 +7473,6 @@ glusterd_get_brick_root(char *path, char **mount_point)
     struct stat brickstat = {0};
     struct stat buf = {0};
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!path) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -7614,7 +7569,6 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
     struct fs_info *fs = NULL;
     static dict_t *cached_fs = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = snprintf(key, sizeof(key), "brick%d.device", count);
     ret = dict_get_strn(dict, key, ret, &device);
@@ -7784,7 +7738,6 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
     char *mnt_pt = NULL;
     struct mntent *entry = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     snprintf(base_key, sizeof(base_key), "brick%d", count);
 
@@ -7850,7 +7803,6 @@ glusterd_get_brick_mount_device(char *brick_path)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brick_path);
 
     ret = glusterd_get_brick_root(brick_path, &mnt_pt);
@@ -8003,7 +7955,6 @@ glusterd_add_brick_to_dict(glusterd_volinfo_t *volinfo,
     GF_ASSERT(dict);
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
 
@@ -8157,7 +8108,6 @@ glusterd_brick_stop(glusterd_volinfo_t *volinfo,
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -8217,7 +8167,6 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -8457,7 +8406,6 @@ glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
     gf_boolean_t in_use = _gf_false;
     int flags = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     /* Check for xattr support in backend fs */
     ret = sys_lsetxattr(path, "trusted.glusterfs.test", "working", 8, 0);
@@ -8649,7 +8597,6 @@ glusterd_sm_tr_log_transition_add(glusterd_sm_tr_log_t *log, int old_state,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(log);
     if (!log)
@@ -8871,7 +8818,6 @@ glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
     gf_boolean_t is_template_in_use = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -9062,7 +9008,6 @@ glusterd_set_dump_options(char *dumpoptions_path, char *options, int option_cnt)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -9121,7 +9066,6 @@ glusterd_brick_signal(glusterd_volinfo_t *volinfo,
     pid_t pid = -1;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -9227,7 +9171,6 @@ glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr)
     char msg[256] = "";
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -9367,7 +9310,6 @@ glusterd_quotad_statedump(char *options, int option_cnt, char **op_errstr)
     char msg[256] = "";
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -9702,7 +9644,6 @@ glusterd_volume_defrag_restart(glusterd_volinfo_t *volinfo, char *op_errstr,
     pid_t pid = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     if (!priv)
@@ -9898,7 +9839,6 @@ glusterd_validate_volume_id(dict_t *op_dict, glusterd_volinfo_t *volinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(op_dict, "vol-id", SLEN("vol-id"), &volid_str);
     if (ret) {
@@ -10100,7 +10040,6 @@ glusterd_check_files_identical(char *filename1, char *filename2,
     GF_ASSERT(identical);
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
@@ -10208,7 +10147,6 @@ glusterd_to_cli(rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     op_ret = arg->op_ret;
     op_errstr = arg->op_errstr;
@@ -10339,7 +10277,6 @@ glusterd_aggr_brick_mount_dirs(dict_t *aggr, dict_t *rsp_dict)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(aggr);
     GF_ASSERT(rsp_dict);
 
@@ -10436,7 +10373,6 @@ glusterd_rb_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (aggr) {
         ctx = aggr;
@@ -10501,7 +10437,6 @@ glusterd_sync_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
 
     GF_ASSERT(rsp_dict);
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!rsp_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
@@ -10548,7 +10483,6 @@ glusterd_profile_volume_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
 
     GF_ASSERT(rsp_dict);
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_int32n(rsp_dict, "count", SLEN("count"), &brick_count);
     if (ret) {
@@ -10668,7 +10602,6 @@ glusterd_volume_status_aggregate_tasks_status(dict_t *ctx_dict,
     GF_ASSERT(rsp_dict);
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_int32n(rsp_dict, "tasks", SLEN("tasks"), &remote_count);
     if (ret) {
@@ -10834,7 +10767,6 @@ glusterd_volume_status_copy_to_op_ctx_dict(dict_t *aggr, dict_t *rsp_dict)
 
     GF_ASSERT(rsp_dict);
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (aggr) {
         ctx_dict = aggr;
@@ -11063,7 +10995,6 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     int8_t scrub_running = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -11290,7 +11221,6 @@ glusterd_bitrot_volume_node_rsp(dict_t *aggr, dict_t *rsp_dict)
     int8_t scrub_running = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -11518,7 +11448,6 @@ glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
 
     GF_ASSERT(rsp_dict);
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
 
     if (conf->op_version < GD_OP_VERSION_6_0)
@@ -11843,7 +11772,6 @@ glusterd_volume_quota_copy_to_op_ctx_dict(dict_t *dict, dict_t *rsp_dict)
     int type = GF_QUOTA_OPTION_TYPE_NONE;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
     if (ret) {
@@ -11941,7 +11869,6 @@ glusterd_profile_volume_brick_rsp(void *pending_entry, dict_t *rsp_dict,
     GF_ASSERT(pending_entry);
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -12613,7 +12540,6 @@ glusterd_generate_and_set_task_id(dict_t *dict, char *key, const int keylen)
     GF_ASSERT(dict);
 
     this = THIS;
-    GF_ASSERT(this);
 
     gf_uuid_generate(task_id);
     uuid_str = gf_strdup(uuid_utoa(task_id));
@@ -12905,7 +12831,6 @@ glusterd_validate_and_set_gfid(dict_t *op_ctx, dict_t *req_dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_int32n(op_ctx, "type", SLEN("type"), &op_code);
     if (ret) {
@@ -13030,7 +12955,6 @@ glusterd_clean_up_quota_store(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -13063,7 +12987,6 @@ glusterd_remove_auxiliary_mount(char *volname)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH(mountdir, volname, "/");
     ret = gf_umount_lazy(this->name, mountdir, 1);
@@ -13094,7 +13017,6 @@ gd_stop_rebalance_process(glusterd_volinfo_t *volinfo)
     GF_ASSERT(volinfo);
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -13191,7 +13113,6 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
 #endif
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
 
@@ -13356,7 +13277,6 @@ glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brick_path);
     GF_ASSERT(brickinfo);
 
@@ -13412,7 +13332,6 @@ glusterd_get_value_for_vme_entry(struct volopt_map_entry *vme, char **def_val)
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     CDS_INIT_LIST_HEAD(&vol_opt_handle.list);
 
@@ -13532,7 +13451,6 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
     gf_boolean_t need_free = _gf_false;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -13691,7 +13609,6 @@ glusterd_get_default_val_for_volopt(dict_t *ctx, gf_boolean_t all_opts,
     dict_t *vol_dict = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -13953,7 +13870,6 @@ glusterd_check_client_op_version_support(char *volname, uint32_t op_version,
     rpc_transport_t *xprt = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -13999,7 +13915,6 @@ glusterd_have_peers()
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -14215,7 +14130,6 @@ glusterd_count_connected_peers(int32_t *count)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
     GF_VALIDATE_OR_GOTO(this->name, count, out);
@@ -14275,7 +14189,6 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
     char *volfileserver = NULL;
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
@@ -14483,7 +14396,6 @@ glusterd_brick_op_prerequisites(dict_t *dict, char **op, glusterd_op_t *gd_op,
     glusterd_brickinfo_t *b = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -14616,7 +14528,6 @@ glusterd_get_dst_brick_info(char **dst_brick, char *volname, char **op_errstr,
     int ret = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -14692,7 +14603,6 @@ glusterd_get_volinfo_from_brick(char *brick, glusterd_volinfo_t **volinfo)
     glusterd_snap_t *snap = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -14793,7 +14703,6 @@ glusterd_add_shd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     char *uuid_str = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
@@ -14937,8 +14846,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         "behavior. ";
 
     this = THIS;
-
-    GF_ASSERT(this);
 
     ai_list = MALLOC(sizeof(addrinfo_list_t));
     ai_list->info = NULL;
@@ -15189,7 +15096,6 @@ glusterd_add_peers_to_auth_list(char *volname)
     char *new_auth_allow_list = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -15274,7 +15180,6 @@ glusterd_replace_old_auth_allow_list(char *volname)
     char *old_auth_allow_list = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, volname, out);
 

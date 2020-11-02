@@ -77,7 +77,6 @@ glusterd_gfproxydsvc_init(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -141,7 +140,6 @@ glusterd_gfproxydsvc_create_volfile(glusterd_volinfo_t *volinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     ret = glusterd_generate_gfproxyd_volfile(volinfo);
     if (ret) {
@@ -164,7 +162,6 @@ glusterd_gfproxydsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     volinfo = data;
     GF_VALIDATE_OR_GOTO(this->name, data, out);
@@ -286,7 +283,6 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
     int32_t len = 0;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -381,8 +377,6 @@ glusterd_gfproxydsvc_restart()
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
 
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -418,7 +412,6 @@ glusterd_gfproxydsvc_reconfigure(void *data)
     volinfo = data;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!volinfo->gfproxyd.svc.inited)
         goto manager;

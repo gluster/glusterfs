@@ -91,7 +91,6 @@ xlator_instantiate_va(const char *type, const char *format, va_list arg)
     char *volname = NULL;
     int ret = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = gf_vasprintf(&volname, format, arg);
     if (ret < 0) {
@@ -875,7 +874,6 @@ _xl_link_children(xlator_t *parent, xlator_t *children, size_t child_count)
     size_t seek = 0;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (child_count == 0)
         goto out;
@@ -1489,7 +1487,6 @@ volgen_graph_set_xl_options(volgen_graph_t *graph, dict_t *dict)
     char *loglevel = NULL;
     xlator_t *trav = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_str_sizen(dict, "xlator", &xlator);
     if (ret) {
@@ -1604,7 +1601,6 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     /*int             rclusters       = 0;*/
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
     /* We are a trusted client */
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret != 0) {
@@ -1751,7 +1747,6 @@ brick_graph_add_selinux(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -1862,7 +1857,6 @@ brick_graph_add_changelog(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     int32_t len = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict || !brickinfo) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -1911,7 +1905,6 @@ brick_graph_add_acl(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -1947,7 +1940,6 @@ brick_graph_add_locks(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -1970,7 +1962,6 @@ brick_graph_add_iot(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2014,7 +2005,6 @@ brick_graph_add_sdfs(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2048,7 +2038,6 @@ brick_graph_add_namespace(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2107,7 +2096,6 @@ brick_graph_add_index(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     int32_t len = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !brickinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2169,7 +2157,6 @@ brick_graph_add_marker(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         0,
     };
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2206,7 +2193,6 @@ brick_graph_add_quota(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     char *value = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2238,7 +2224,6 @@ brick_graph_add_ro(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     xlator_t *xl = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2274,7 +2259,6 @@ brick_graph_add_worm(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     xlator_t *xl = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2307,7 +2291,6 @@ brick_graph_add_cdc(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     xlator_t *xl = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2374,7 +2357,6 @@ brick_graph_add_upcall(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2400,7 +2382,6 @@ brick_graph_add_leases(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2436,7 +2417,6 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *address_family_data = NULL;
     int32_t len = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict || !brickinfo) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2551,7 +2531,6 @@ brick_graph_add_pump(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *ptranst = NULL;
     char *address_family_data = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     if (!graph || !volinfo || !set_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -2827,7 +2806,6 @@ perfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     GF_VALIDATE_OR_GOTO("glusterd", param, out);
     volinfo = param;
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
 
@@ -3722,7 +3700,6 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     int subvol_index = 0;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -3820,7 +3797,6 @@ set_volfile_id_option(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -4212,7 +4188,6 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *xl_id = NULL;
     gf_boolean_t gfproxy_clnt = _gf_false;
 
-    GF_ASSERT(this);
     GF_ASSERT(conf);
 
     ret = dict_get_str_boolean(set_dict, "gfproxy-client", 0);
@@ -4986,7 +4961,6 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
     data_t *data = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5203,7 +5177,6 @@ glusterd_is_valid_volfpath(char *volname, char *brick)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_brickinfo_new_from_brick(brick, &brickinfo, _gf_false, NULL);
     if (ret) {
@@ -5310,7 +5283,6 @@ build_quotad_graph(volgen_graph_t *graph, dict_t *mod_dict)
     char *skey = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5415,7 +5387,6 @@ get_parent_vol_tstamp_file(char *filename, glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5439,7 +5410,6 @@ generate_brick_volfiles(glusterd_volinfo_t *volinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_volinfo_get_boolean(volinfo, VKEY_MARKER_XTIME);
     if (ret == -1)
@@ -5539,7 +5509,6 @@ glusterd_generate_client_per_brick_volfile(glusterd_volinfo_t *volinfo)
     char *ssl_str = NULL;
     gf_boolean_t ssl_bool = _gf_false;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     dict = dict_new();
     if (!dict) {
@@ -5882,7 +5851,6 @@ prepare_bitrot_scrub_volume_options(glusterd_volinfo_t *volinfo,
 {
     int ret = 0;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret) {
@@ -5950,7 +5918,6 @@ build_bitd_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -6027,7 +5994,6 @@ build_bitd_graph(volgen_graph_t *graph, dict_t *mod_dict)
     unsigned int numbricks = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -6110,7 +6076,6 @@ build_scrub_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     glusterd_brickinfo_t *brickinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -6182,7 +6147,6 @@ build_scrub_graph(volgen_graph_t *graph, dict_t *mod_dict)
     xlator_t *iostxl = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -6398,8 +6362,6 @@ validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
         0,
     };
     xlator_t *this = THIS;
-
-    GF_ASSERT(this);
 
     graph.errstr = op_errstr;
 

@@ -54,7 +54,6 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
     char *dup_dstbrick = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -235,7 +234,6 @@ glusterd_op_reset_brick(dict_t *dict, dict_t *rsp_dict)
     glusterd_brickinfo_t *dst_brickinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);

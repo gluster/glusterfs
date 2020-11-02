@@ -107,7 +107,6 @@ glusterd_svc_check_tier_volfile_identical(char *svc_name,
 
     this = THIS;
 
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
     GF_VALIDATE_OR_GOTO(this->name, identical, out);
 
     glusterd_svc_build_tierd_volfile_path(volinfo, orgvol, sizeof(orgvol));
@@ -165,7 +164,7 @@ glusterd_svc_check_tier_topology_identical(char *svc_name,
     int tmpclean = 0;
     int tmpfd = -1;
 
-    if ((!identical) || (!this) || (!this->private))
+    if ((!identical) || (!this->private))
         goto out;
 
     conf = this->private;

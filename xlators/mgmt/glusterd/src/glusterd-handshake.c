@@ -56,7 +56,6 @@ get_snap_volname_and_volinfo(const char *volpath, char **volname,
     char *volfile_token = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(volpath);
     GF_ASSERT(volinfo);
 
@@ -228,7 +227,6 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volume_id);
@@ -537,7 +535,6 @@ glusterd_get_args_from_dict(gf_getspec_req *args, peer_info_t *peerinfo,
     char *name = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(args);
     GF_ASSERT(peerinfo);
 
@@ -622,7 +619,6 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
     char *mnt_device = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(missed_snapinfo);
@@ -795,7 +791,6 @@ glusterd_take_missing_brick_snapshots(char *brick_name)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(brick_name);
@@ -942,7 +937,6 @@ __server_getspec(rpcsvc_request_t *req)
     int len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
@@ -1303,7 +1297,6 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!glusterd_have_peers() && !glusterd_have_volumes())
         return _gf_true;
@@ -1565,7 +1558,6 @@ __server_get_volume_info(rpcsvc_request_t *req)
     int32_t flags = 0;
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &vol_info_req,
                          (xdrproc_t)xdr_gf_get_volume_info_req);

@@ -184,7 +184,6 @@ glusterd_store_is_valid_brickpath(char *volname, char *brick)
     char *brickpath_ptr = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_brickinfo_new_from_brick(brick, &brickinfo, _gf_false, NULL);
     if (ret) {
@@ -328,7 +327,6 @@ gd_store_brick_snap_details_write(int fd, glusterd_brickinfo_t *brickinfo)
     uint total_len = 0;
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -468,7 +466,6 @@ glusterd_store_snapd_write(int fd, glusterd_volinfo_t *volinfo)
     GF_ASSERT(fd > 0);
 
     this = THIS;
-    GF_ASSERT(this);
 
     snprintf(value, sizeof(value), "%d", volinfo->snapd.port);
     ret = gf_store_save_value(fd, GLUSTERD_STORE_KEY_SNAPD_PORT, value);
@@ -516,7 +513,6 @@ glusterd_store_perform_snapd_store(glusterd_volinfo_t *volinfo)
     GF_ASSERT(volinfo);
 
     this = THIS;
-    GF_ASSERT(this);
 
     fd = gf_store_mkstemp(volinfo->snapd.handle);
     if (fd <= 0) {
@@ -580,7 +576,6 @@ glusterd_store_snapd_info(glusterd_volinfo_t *volinfo)
     GF_ASSERT(volinfo);
 
     this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_store_create_snapd_shandle_on_absence(volinfo);
     if (ret) {
@@ -619,7 +614,6 @@ glusterd_store_delete_brick(glusterd_brickinfo_t *brickinfo, char *delete_path)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brickinfo);
 
     priv = this->private;
@@ -670,7 +664,6 @@ _storeopts(dict_t *dict_value, char *key, data_t *value, void *data)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     dict_data = (glusterd_volinfo_data_store_t *)data;
     shandle = dict_data->shandle;
@@ -745,7 +738,6 @@ glusterd_volume_write_snap_details(int fd, glusterd_volinfo_t *volinfo)
     };
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -793,7 +785,6 @@ glusterd_volume_exclude_options_write(int fd, glusterd_volinfo_t *volinfo)
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    GF_ASSERT(this);
     GF_ASSERT(fd > 0);
     GF_ASSERT(volinfo);
     conf = this->private;
@@ -1012,7 +1003,6 @@ glusterd_store_volinfo_write(int fd, glusterd_volinfo_t *volinfo)
     glusterd_volinfo_data_store_t *dict_data = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     shandle = volinfo->shandle;
 
@@ -1230,7 +1220,6 @@ glusterd_store_create_missed_snaps_list_shandle_on_absence()
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1301,7 +1290,6 @@ glusterd_store_node_state_write(int fd, glusterd_volinfo_t *volinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(fd > 0);
     GF_ASSERT(volinfo);
@@ -1606,7 +1594,6 @@ glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     ctx = this->ctx;
     GF_ASSERT(ctx);
     GF_ASSERT(volinfo);
@@ -1679,7 +1666,6 @@ glusterd_store_delete_volume(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(volinfo);
     priv = this->private;
@@ -2267,7 +2253,6 @@ glusterd_store_retrieve_snapd(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = THIS->private;
     GF_ASSERT(volinfo);
 
@@ -2893,7 +2878,6 @@ glusterd_store_retrieve_node_state(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volinfo);
@@ -3034,7 +3018,6 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = THIS->private;
     GF_ASSERT(volinfo);
 
@@ -3289,7 +3272,6 @@ glusterd_store_retrieve_volume(char *volname, glusterd_snap_t *snap)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volname);
@@ -3585,7 +3567,6 @@ glusterd_find_brick_mount_path(char *brick_path, char **brick_mount_path)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brick_path);
     GF_ASSERT(brick_mount_path);
 
@@ -3652,7 +3633,6 @@ glusterd_mount_brick_paths(char *brick_mount_path,
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brick_mount_path);
     GF_ASSERT(brickinfo);
 
@@ -4155,7 +4135,6 @@ glusterd_store_write_missed_snapinfo(int32_t fd)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -4200,7 +4179,6 @@ glusterd_store_update_missed_snaps()
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -4946,7 +4924,6 @@ glusterd_store_retrieve_quota_version(glusterd_volinfo_t *volinfo)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -5057,7 +5034,6 @@ glusterd_quota_conf_write_header(int fd)
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("quota", this, out);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -5094,7 +5070,6 @@ glusterd_quota_conf_write_gfid(int fd, void *buf, char type)
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("quota", this, out);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);

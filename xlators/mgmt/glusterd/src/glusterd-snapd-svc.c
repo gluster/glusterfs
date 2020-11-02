@@ -77,7 +77,6 @@ glusterd_snapdsvc_init(void *data)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -253,7 +252,6 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -382,8 +380,6 @@ glusterd_snapdsvc_restart()
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
 
-    GF_ASSERT(this);
-
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -418,7 +414,6 @@ glusterd_snapdsvc_rpc_notify(glusterd_conn_t *conn, rpc_clnt_event_t event)
     glusterd_snapdsvc_t *snapd = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     svc = cds_list_entry(conn, glusterd_svc_t, conn);
     if (!svc) {

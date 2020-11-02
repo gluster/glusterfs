@@ -89,7 +89,6 @@ glusterd_hooks_create_hooks_directory(char *basedir)
 
     xlator_t *this = NULL;
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
 
     snprintf(path, sizeof(path), "%s/hooks", basedir);
@@ -183,7 +182,6 @@ glusterd_hooks_add_custom_args(dict_t *dict, runner_t *runner)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
     GF_VALIDATE_OR_GOTO(this->name, runner, out);
 
@@ -215,7 +213,6 @@ glusterd_hooks_set_volume_args(dict_t *dict, runner_t *runner)
     char *inet_family = NULL;
     xlator_t *this = NULL;
     this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_int32(dict, "count", &count);
     if (ret) {
@@ -498,7 +495,6 @@ glusterd_hooks_stub_init(glusterd_hooks_stub_t **stub, char *scriptdir,
 
     xlator_t *this = NULL;
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(stub);
     if (!stub)
         goto out;
@@ -593,7 +589,6 @@ glusterd_hooks_priv_init(glusterd_hooks_private_t **new)
 
     xlator_t *this = NULL;
     this = THIS;
-    GF_ASSERT(this);
 
     if (!new) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);

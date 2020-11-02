@@ -301,7 +301,6 @@ _build_option_key(dict_t *d, char *k, data_t *v, void *tmp)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -629,7 +628,6 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
     GF_ASSERT(NULL != ctx);
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -779,7 +777,6 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -878,7 +875,6 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     gf_uuid_unparse(uuid, str);
     gf_msg_debug(this->name, 0, "Received op from uuid %s", str);
@@ -936,7 +932,6 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -1034,7 +1029,6 @@ __glusterd_handle_commit_op(rpcsvc_request_t *req)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -1246,7 +1240,6 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
     gf_boolean_t need_free = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -1853,7 +1846,6 @@ __glusterd_handle_ganesha_cmd(rpcsvc_request_t *req)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
 
@@ -1933,7 +1925,6 @@ __glusterd_handle_reset_volume(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
 
     gf_msg(this->name, GF_LOG_INFO, 0, 0, "Received reset vol req");
 
@@ -2019,7 +2010,6 @@ __glusterd_handle_set_volume(rpcsvc_request_t *req)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
 
@@ -2138,7 +2128,6 @@ __glusterd_handle_sync_volume(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -2273,7 +2262,6 @@ __glusterd_handle_fsm_log(rpcsvc_request_t *req)
     GF_ASSERT(req);
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("xlator", (this != NULL), out);
 
     ret = xdr_to_generic(req->msg[0], &cli_req,
                          (xdrproc_t)xdr_gf1_cli_fsm_log_req);
@@ -2432,7 +2420,6 @@ __glusterd_handle_cluster_unlock(rpcsvc_request_t *req)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -2502,7 +2489,6 @@ glusterd_op_stage_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -2541,7 +2527,6 @@ glusterd_op_commit_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -2748,7 +2733,6 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
     GF_ASSERT(req);
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -2935,7 +2919,6 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
     GF_ASSERT(req);
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("xlator", (this != NULL), out);
 
     ret = xdr_to_generic(req->msg[0], &probe_req,
                          (xdrproc_t)xdr_gd1_mgmt_probe_req);
@@ -3052,7 +3035,6 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -3272,7 +3254,6 @@ __glusterd_handle_umount(rpcsvc_request_t *req)
     glusterd_conf_t *priv = NULL;
 
     GF_ASSERT(req);
-    GF_ASSERT(this);
     priv = this->private;
 
     ret = xdr_to_generic(req->msg[0], &umnt_req,
@@ -3400,7 +3381,6 @@ glusterd_rpc_create(struct rpc_clnt **rpc, dict_t *options,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(options);
     GF_VALIDATE_OR_GOTO(this->name, rpc, out);
@@ -3443,7 +3423,6 @@ glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
     int ret = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(hostname);
 
@@ -3844,13 +3823,10 @@ glusterd_xfer_friend_remove_resp(rpcsvc_request_t *req, char *hostname,
         {0},
     };
     int32_t ret = -1;
-    xlator_t *this = NULL;
 
     GF_ASSERT(hostname);
 
     rsp.op_ret = 0;
-    this = THIS;
-    GF_ASSERT(this);
 
     gf_uuid_copy(rsp.uuid, MY_UUID);
     rsp.hostname = hostname;
@@ -3872,12 +3848,8 @@ glusterd_xfer_friend_add_resp(rpcsvc_request_t *req, char *myhostname,
         {0},
     };
     int32_t ret = -1;
-    xlator_t *this = NULL;
 
     GF_ASSERT(myhostname);
-
-    this = THIS;
-    GF_ASSERT(this);
 
     gf_uuid_copy(rsp.uuid, MY_UUID);
     rsp.op_ret = op_ret;
@@ -4024,7 +3996,6 @@ glusterd_xfer_cli_probe_resp(rpcsvc_request_t *req, int32_t op_ret,
     xlator_t *this = THIS;
 
     GF_ASSERT(req);
-    GF_ASSERT(this);
 
     (void)set_probe_error_str(op_ret, op_errno, op_errstr, errstr,
                               sizeof(errstr), hostname, port);
@@ -4189,7 +4160,6 @@ glusterd_list_friends(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
     int keylen;
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -4407,7 +4377,6 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -4549,7 +4518,6 @@ __glusterd_handle_cli_clearlocks_volume(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
 
     ret = -1;
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -4629,7 +4597,6 @@ get_volinfo_from_brickid(char *brickid, glusterd_volinfo_t **volinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brickid);
 
     brickid_dup = gf_strdup(brickid);
@@ -4677,7 +4644,6 @@ __glusterd_handle_barrier(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -4783,7 +4749,6 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5068,7 +5033,6 @@ __glusterd_handle_get_vol_opt(rpcsvc_request_t *req)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
 
@@ -5232,7 +5196,6 @@ glusterd_print_gsync_status_by_vol(FILE *fp, glusterd_volinfo_t *volinfo)
     };
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(THIS->name, fp, out);
@@ -5339,7 +5302,6 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
     gd1_mgmt_brick_op_req *brick_req = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
@@ -5557,7 +5519,6 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
     this = THIS;
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
     priv = THIS->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -5976,7 +5937,6 @@ __glusterd_handle_get_state(rpcsvc_request_t *req)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
     GF_VALIDATE_OR_GOTO(this->name, req, out);
 
     gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DAEMON_STATE_REQ_RCVD,
@@ -6043,7 +6003,6 @@ get_brickinfo_from_brickid(char *brickid, glusterd_brickinfo_t **brickinfo)
     int ret = -1;
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     brickid_dup = gf_strdup(brickid);
     if (!brickid_dup) {
@@ -6114,7 +6073,6 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
         return 0;
 
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

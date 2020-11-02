@@ -76,7 +76,6 @@ glusterd_cleanup_snaps_for_volume(glusterd_volinfo_t *volinfo)
     glusterd_snap_t *snap = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     cds_list_for_each_entry_safe(snap_vol, dummy_snap_vol,
                                  &volinfo->snap_volumes, snapvol_list)
@@ -142,7 +141,6 @@ glusterd_snap_geo_rep_restore(glusterd_volinfo_t *snap_volinfo,
     int ret = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap_volinfo);
     GF_ASSERT(new_volinfo);
 
@@ -208,7 +206,6 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
     glusterd_brickinfo_t *new_brickinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(rsp_dict);
 
@@ -460,7 +457,6 @@ gd_add_brick_snap_details_to_dict(dict_t *dict, char *prefix,
     };
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -537,7 +533,6 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
     };
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -609,7 +604,6 @@ glusterd_add_missed_snaps_to_export_dict(dict_t *peer_data)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_data);
 
     priv = this->private;
@@ -666,7 +660,6 @@ glusterd_add_snap_to_dict(glusterd_snap_t *snap, dict_t *peer_data,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap);
     GF_ASSERT(peer_data);
 
@@ -786,7 +779,6 @@ glusterd_add_snapshots_to_export_dict(dict_t *peer_data)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(peer_data);
@@ -836,7 +828,6 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
     char *mount_dir = NULL;
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -917,7 +908,6 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
     char *restored_snap = NULL;
 
     this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -980,7 +970,6 @@ glusterd_perform_missed_op(glusterd_snap_t *snap, int32_t op)
     char *parent_volname = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1112,7 +1101,6 @@ glusterd_perform_missed_snap_ops()
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1184,7 +1172,6 @@ glusterd_import_friend_missed_snap_list(dict_t *peer_data)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_data);
 
     priv = this->private;
@@ -1247,7 +1234,6 @@ glusterd_check_peer_has_higher_snap_version(dict_t *peer_data,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap);
     GF_ASSERT(peer_data);
 
@@ -1312,7 +1298,6 @@ glusterd_is_peer_snap_conflicting(char *peer_snap_name, char *peer_snap_id,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_snap_name);
     GF_ASSERT(peer_snap_id);
     GF_ASSERT(conflict);
@@ -1360,7 +1345,6 @@ glusterd_are_snap_bricks_local(glusterd_snap_t *snap)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap);
 
     cds_list_for_each_entry(volinfo, &snap->volumes, vol_list)
@@ -1393,7 +1377,6 @@ glusterd_peer_has_missed_snap_delete(uuid_t peerid, char *peer_snap_id)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(peer_snap_id);
@@ -1438,7 +1421,6 @@ glusterd_gen_snap_volfiles(glusterd_volinfo_t *snap_vol, char *peer_snap_name)
     glusterd_volinfo_t *parent_volinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap_vol);
     GF_ASSERT(peer_snap_name);
 
@@ -1519,7 +1501,6 @@ glusterd_import_friend_snap(dict_t *peer_data, int32_t snap_count,
     int64_t time_stamp;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(peer_data);
@@ -1757,7 +1738,6 @@ glusterd_compare_snap(dict_t *peer_data, int32_t snap_count, char *peername,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_data);
     GF_ASSERT(peername);
 
@@ -1948,7 +1928,6 @@ glusterd_update_snaps_synctask(void *opaque)
     glusterd_conf_t *conf = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -2086,7 +2065,6 @@ glusterd_compare_friend_snapshots(dict_t *peer_data, char *peername,
     dict_t *peer_data_copy = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(peer_data);
     GF_ASSERT(peername);
 
@@ -2142,7 +2120,6 @@ glusterd_add_snapd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     GF_ASSERT(dict);
 
     this = THIS;
-    GF_ASSERT(this);
 
     snprintf(base_key, sizeof(base_key), "brick%d", count);
     snprintf(key, sizeof(key), "%s.hostname", base_key);
@@ -2367,7 +2344,6 @@ glusterd_merge_brick_status(dict_t *dst, dict_t *src)
     int32_t snap_command = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!dst || !src) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY,
@@ -2477,7 +2453,6 @@ glusterd_snap_create_use_rsp_dict(dict_t *dst, dict_t *src)
     int8_t soft_limit_flag = -1;
 
     this = THIS;
-    GF_ASSERT(this);
 
     if (!dst || !src) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY,
@@ -2676,7 +2651,6 @@ glusterd_missed_snapinfo_new(glusterd_missed_snap_info **missed_snapinfo)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(missed_snapinfo);
 
     new_missed_snapinfo = GF_CALLOC(1, sizeof(*new_missed_snapinfo),
@@ -2707,7 +2681,6 @@ glusterd_missed_snap_op_new(glusterd_snap_op_t **snap_op)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(snap_op);
 
     new_snap_op = GF_CALLOC(1, sizeof(*new_snap_op),
@@ -2776,7 +2749,6 @@ glusterd_mount_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
     int32_t len = 0;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(brick_mount_path);
     GF_ASSERT(brickinfo);
 
@@ -2840,7 +2812,6 @@ glusterd_volume_quorum_calculate(glusterd_volinfo_t *volinfo, dict_t *dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
     if (!volinfo || !dict) {
@@ -2892,7 +2863,6 @@ glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
     const char err_str[] = "quorum is not met";
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -2985,7 +2955,6 @@ glusterd_snap_common_quorum_calculate(glusterd_volinfo_t *volinfo, dict_t *dict,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
 
@@ -3086,7 +3055,6 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
     if (!dict) {
@@ -3207,7 +3175,6 @@ glusterd_snap_quorum_check_for_create(dict_t *dict, gf_boolean_t snap_volume,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
     if (!dict) {
@@ -3318,7 +3285,6 @@ glusterd_snap_quorum_check(dict_t *dict, gf_boolean_t snap_volume,
     const char err_str[] = "glusterds are not in quorum";
 
     this = THIS;
-    GF_ASSERT(this);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
     if (!dict) {
@@ -3469,7 +3435,6 @@ glusterd_umount(const char *path)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(path);
 
     if (!glusterd_is_path_mounted(path)) {
@@ -3504,7 +3469,6 @@ glusterd_copy_file(const char *source, const char *destination)
     mode_t dest_mode = 0;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(source);
     GF_ASSERT(destination);
@@ -3586,7 +3550,6 @@ glusterd_copy_folder(const char *source, const char *destination)
     };
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(source);
     GF_ASSERT(destination);
@@ -3655,7 +3618,6 @@ glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
     char *save_ptr = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(slave_key);
     GF_ASSERT(origin_volname);
@@ -3762,7 +3724,6 @@ glusterd_copy_quota_files(glusterd_volinfo_t *src_vol,
     };
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -3870,7 +3831,6 @@ glusterd_copy_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
     FILE *dest = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("snapshot", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
@@ -3993,7 +3953,6 @@ glusterd_restore_geo_rep_files(glusterd_volinfo_t *snap_vol)
     glusterd_conf_t *priv = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -4079,7 +4038,6 @@ glusterd_restore_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
     };
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("snapshot", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
@@ -4163,7 +4121,6 @@ glusterd_is_snap_soft_limit_reached(glusterd_volinfo_t *volinfo, dict_t *dict)
     GF_ASSERT(dict);
 
     this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -4225,7 +4182,6 @@ gd_get_snap_conf_values_if_present(dict_t *dict, uint64_t *sys_hard_limit,
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(dict);
 

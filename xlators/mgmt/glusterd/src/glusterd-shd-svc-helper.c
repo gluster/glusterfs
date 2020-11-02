@@ -135,7 +135,6 @@ glusterd_svc_set_shd_pidfile(glusterd_volinfo_t *volinfo, dict_t *dict)
     xlator_t *this = NULL;
 
     this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 

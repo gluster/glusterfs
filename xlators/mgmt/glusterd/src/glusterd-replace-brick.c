@@ -52,7 +52,6 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
 
     GF_ASSERT(req);
     this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -191,7 +190,6 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
     char *dup_dstbrick = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -369,7 +367,6 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     };
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
 
@@ -475,7 +472,6 @@ glusterd_op_replace_brick(dict_t *dict, dict_t *rsp_dict)
     glusterd_brickinfo_t *dst_brickinfo = NULL;
 
     this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -609,7 +605,6 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases(rpcsvc_request_t *req,
     gf_boolean_t is_acquired = _gf_false;
 
     this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;
