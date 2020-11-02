@@ -8197,8 +8197,10 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
         }
 
     } else {
+        RCU_READ_LOCK;
         peerinfo = glusterd_peerinfo_find_by_uuid(newbrickinfo->uuid);
         if (peerinfo == NULL) {
+            RCU_READ_UNLOCK;
             ret = -1;
             snprintf(op_errstr, len, "Failed to find host %s",
                      newbrickinfo->hostname);
@@ -8206,6 +8208,7 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
         }
 
         if ((!peerinfo->connected)) {
+            RCU_READ_UNLOCK;
             snprintf(op_errstr, len, "Host %s not connected",
                      newbrickinfo->hostname);
             ret = -1;
@@ -8213,6 +8216,7 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
         }
 
         if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) {
+            RCU_READ_UNLOCK;
             snprintf(op_errstr, len,
                      "Host %s is not in \'Peer "
                      "in Cluster\' state",
@@ -8220,6 +8224,7 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
             ret = -1;
             goto out;
         }
+        RCU_READ_UNLOCK;
     }
 
     ret = 0;
