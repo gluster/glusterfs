@@ -3765,10 +3765,10 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("ios-dump-format", dump_format_str, options, str, out);
     ios_set_log_format_code(conf, dump_format_str);
     if (conf->ios_sample_interval) {
-        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size, options,
-                         int32, out);
+        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size,
+                         options, int32, out);
     } else {
-        ios_sample_buf_size_configure (this->name, conf);
+        ios_sample_buf_size_configure(this->name, conf);
     }
 
     GF_OPTION_RECONF("sys-log-level", sys_log_str, options, str, out);
@@ -3917,8 +3917,9 @@ init(xlator_t *this)
     ret = dict_get_strn(this->options, "volume-id", SLEN("volume-id"),
                         &volume_id);
     if (!ret) {
-        strncpy(this->graph->volume_id, volume_id, GF_UUID_BUF_SIZE);
+        snprintf(this->graph->volume_id, GF_UUID_BUF_SIZE, "%s", volume_id);
     }
+
     /*
      * Init it just after calloc, so that we are sure the lock is inited
      * in case of error paths.
@@ -3951,7 +3952,7 @@ init(xlator_t *this)
         GF_OPTION_INIT("ios-sample-buf-size", conf->ios_sample_buf_size, int32,
                        out);
     } else {
-        ios_sample_buf_size_configure (this->name, conf);
+        ios_sample_buf_size_configure(this->name, conf);
     }
 
     ret = ios_init_sample_buf(conf);

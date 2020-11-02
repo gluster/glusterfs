@@ -1343,8 +1343,8 @@ afr_is_inode_refresh_reqd(inode_t *inode, xlator_t *this, int event_gen1,
 
 int
 afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
-                                    char *buf, const char *default_str,
-                                    int32_t *serz_len, char delimiter);
+                                    char *buf, int32_t bufsize,
+                                    const char *default_str, char delimiter);
 gf_boolean_t
 afr_is_symmetric_error(call_frame_t *frame, xlator_t *this);
 

@@ -14915,7 +14915,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         if (tmpptr == NULL)
             goto check_failed;
         addrlen = strlen(brick) - strlen(tmpptr);
-        strncpy(brick_addr, brick, addrlen);
+        strncpy(brick_addr, brick, sizeof(brick_addr));
         brick_addr[addrlen] = '\0';
         ret = getaddrinfo(brick_addr, NULL, NULL, &ai_info);
         if (ret != 0) {
@@ -15030,6 +15030,7 @@ glusterd_add_peers_to_auth_list(char *volname)
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int32_t len = 0;
+    char *p;
     char *auth_allow_list = NULL;
     char *new_auth_allow_list = NULL;
 
@@ -15055,24 +15056,21 @@ glusterd_add_peers_to_auth_list(char *volname)
     }
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
-        len += strlen(peerinfo->hostname);
+        len += strlen(peerinfo->hostname) + 1;
     }
     len += strlen(auth_allow_list) + 1;
 
     new_auth_allow_list = GF_CALLOC(1, len, gf_common_mt_char);
+    p = stpcpy(new_auth_allow_list, auth_allow_list);
 
-    new_auth_allow_list = strncat(new_auth_allow_list, auth_allow_list,
-                                  strlen(auth_allow_list));
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
         ret = search_peer_in_auth_list(peerinfo->hostname, new_auth_allow_list);
         if (!ret) {
             gf_log(this->name, GF_LOG_DEBUG,
                    "peer %s not found in auth.allow list", peerinfo->hostname);
-            new_auth_allow_list = strcat(new_auth_allow_list, ",");
-            new_auth_allow_list = strncat(new_auth_allow_list,
-                                          peerinfo->hostname,
-                                          strlen(peerinfo->hostname));
+            p += snprintf(p, len - (p - new_auth_allow_list), ",%s",
+                          peerinfo->hostname);
         }
     }
     if (strcmp(new_auth_allow_list, auth_allow_list) != 0) {
