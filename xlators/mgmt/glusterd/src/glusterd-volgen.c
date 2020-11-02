@@ -3712,7 +3712,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     glusterd_conf_t *conf = NULL;
     glusterd_brickinfo_t *brick = NULL;
     glusterd_brickinfo_t *ta_brick = NULL;
-    char *ptr = NULL;
+    char *ptr = NULL, *curr = NULL;
     int i = 0;
     int index = -1;
     int ret = 0;
@@ -3751,12 +3751,14 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
 
     i = 1;
     index = 0;
+    curr = ptr;
 
     cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
     {
         if (index == clusters)
             break;
-        strncat(ptr, brick->brick_id, strlen(brick->brick_id));
+        strncpy(curr, brick->brick_id, list_size - (curr - ptr));
+        curr += strlen(brick->brick_id);
         if (i == volinfo->replica_count) {
             /* add ta client xlator in afr-pending-xattrs before making entries
              * for client xlators in volfile.
@@ -3767,7 +3769,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
              */
             ta_brick_index = 0;
             if (volinfo->thin_arbiter_count == 1) {
-                ptr[strlen(brick->brick_id)] = ',';
+                *curr++ = ',';
                 cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks,
                                         brick_list)
                 {
@@ -3777,14 +3779,15 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                     ta_brick_index++;
                 }
                 if (conf->op_version < GD_OP_VERSION_7_3) {
-                    strncat(ptr, ta_brick->brick_id,
-                            strlen(ta_brick->brick_id));
+                    strncpy(curr, ta_brick->brick_id, list_size - (curr - ptr));
+                    curr += strlen(ta_brick->brick_id);
                 } else {
                     char ta_volname[PATH_MAX] = "";
                     int len = snprintf(ta_volname, PATH_MAX, "%s.%s",
                                        ta_brick->brick_id,
                                        uuid_utoa(volinfo->volume_id));
-                    strncat(ptr, ta_volname, len);
+                    strncpy(curr, ta_volname, list_size - (curr - ptr));
+                    curr += len;
                 }
             }
 
@@ -3794,12 +3797,12 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                 goto out;
             memset(afr_xattrs_list, 0, list_size);
             ptr = afr_xattrs_list;
+            curr = ptr;
             i = 1;
             subvol_index++;
             continue;
         }
-        ptr[strlen(brick->brick_id)] = ',';
-        ptr += strlen(brick->brick_id) + 1;
+        *curr++ = ',';
         i++;
     }
 

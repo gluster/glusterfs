@@ -808,9 +808,8 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 op_ret = -1;
                 goto out;
             }
-        } else {
-            strncpy(ctx->volume_id, volume_id, GF_UUID_BUF_SIZE);
-        }
+        } else
+            snprintf(ctx->volume_id, GF_UUID_BUF_SIZE, "%s", volume_id);
     }
 
     uint32_t child_up_int;

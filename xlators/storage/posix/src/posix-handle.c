@@ -380,7 +380,7 @@ posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
     memmove(buf + base_len + blen, buf + base_len,
             (strlen(buf) - base_len) + 1);
 
-    strncpy(base_str + pfx_len, linkname + 6, 42);
+    strncpy(base_str + pfx_len, linkname + 6, base_len - pfx_len);
 
     strncpy(buf + pfx_len, linkname + 6, link_len - 6);
 out:
