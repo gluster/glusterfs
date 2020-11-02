@@ -793,7 +793,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
            just debug message */
         gf_msg_debug(this->name, EINVAL,
                      "failed to get 'volume-id' from reply dict");
-    } else if (ctx->master && strncmp("snapd", remote_subvol, 5)) {
+    } else if (ctx->primary && strncmp("snapd", remote_subvol, 5)) {
         /* TODO: if it is a fuse mount or a snapshot enabled client, don't
            bother */
         /* If any value is set, the first element will be non-0.

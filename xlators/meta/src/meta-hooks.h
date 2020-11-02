@@ -40,7 +40,7 @@ DECLARE_HOOK(name_file);
 DECLARE_HOOK(private_file);
 DECLARE_HOOK(mallinfo_file);
 DECLARE_HOOK(history_file);
-DECLARE_HOOK(master_dir);
+DECLARE_HOOK(primary_dir);
 DECLARE_HOOK(meminfo_file);
 DECLARE_HOOK(measure_file);
 DECLARE_HOOK(profile_file);

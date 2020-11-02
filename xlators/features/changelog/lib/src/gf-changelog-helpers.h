@@ -191,7 +191,7 @@ typedef struct gf_private {
 #define SAVE_THIS(xl)                                                          \
     do {                                                                       \
         old_this = xl;                                                         \
-        THIS = master;                                                         \
+        THIS = primary;                                                        \
     } while (0)
 
 #define RESTORE_THIS()                                                         \

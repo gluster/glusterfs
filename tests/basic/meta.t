@@ -31,10 +31,10 @@ TEST json_verify < $M0/.meta/version;
 TEST grep -q 7 $M0/.meta/logging/loglevel;
 
 # check for attribute_timeout exposed through state dump
-TEST grep -q attribute_timeout $M0/.meta/master/private;
+TEST grep -q attribute_timeout $M0/.meta/primary/private;
 
 # check for mount point specified as an option
-TEST grep -q $M0 $M0/.meta/master/options/mountpoint;
+TEST grep -q $M0 $M0/.meta/primary/options/mountpoint;
 
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';

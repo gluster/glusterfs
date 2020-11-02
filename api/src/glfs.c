@@ -207,7 +207,7 @@ create_master(struct glfs *fs)
         goto err;
     }
 
-    fs->ctx->master = master;
+    fs->ctx->primary = master;
     THIS = master;
 
     return 0;
@@ -1252,7 +1252,7 @@ pub_glfs_fini(struct glfs *fs)
         goto free_fs;
     }
 
-    THIS = fs->ctx->master;
+    THIS = fs->ctx->primary;
 
     if (ctx->mgmt) {
         rpc_clnt_disable(ctx->mgmt);

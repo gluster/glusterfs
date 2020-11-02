@@ -252,7 +252,7 @@ marker_error_handler(xlator_t *this, marker_local_t *local, int32_t op_errno)
 
     gf_log(this->name, GF_LOG_CRITICAL,
            "Indexing gone corrupt at %s (reason: %s)."
-           " Geo-replication slave content needs to be revalidated",
+           " Geo-replication secondary content needs to be revalidated",
            path, strerror(op_errno));
     sys_unlink(priv->timestamp_file);
 }

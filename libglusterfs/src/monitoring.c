@@ -87,7 +87,7 @@ dump_latency_and_count(xlator_t *xl, int fd)
     }
 
     /* Need 'fuse' data, and don't need all the old graph info */
-    if ((xl != xl->ctx->master) && (xl->ctx->active != xl->graph))
+    if ((xl != xl->ctx->primary) && (xl->ctx->active != xl->graph))
         return;
 
     count = GF_ATOMIC_GET(xl->stats.total.count);
@@ -211,8 +211,8 @@ dump_xl_metrics(glusterfs_ctx_t *ctx, int fd)
         xl = xl->next;
     }
 
-    if (ctx->master) {
-        xl = ctx->master;
+    if (ctx->primary) {
+        xl = ctx->primary;
 
         dump_latency_and_count(xl, fd);
         dump_mem_acct_details(xl, fd);

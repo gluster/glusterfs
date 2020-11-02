@@ -603,7 +603,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ctx->master = master;
+    ctx->primary = master;
 
     return 0;
 
@@ -1465,7 +1465,7 @@ cleanup_and_exit(int signum)
         /* Call fini() of FUSE xlator first:
          * so there are no more requests coming and
          * 'umount' of mount point is done properly */
-        trav = ctx->master;
+        trav = ctx->primary;
         if (trav && trav->fini) {
             THIS = trav;
             trav->fini(trav);
