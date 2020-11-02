@@ -843,9 +843,18 @@ main(int argc, char *argv[])
     if (!global_rpc)
         goto out;
 
-    global_quotad_rpc = cli_quotad_clnt_rpc_init();
-    if (!global_quotad_rpc)
-        goto out;
+    /*
+     * Now, one doesn't need to initialize global rpc
+     * for quota unless and until quota is enabled.
+     * So why not put a check to save all the rpc related
+     * ops here.
+     */
+    ret = sys_access(QUOTAD_PID_PATH, F_OK);
+    if (!ret) {
+        global_quotad_rpc = cli_quotad_clnt_rpc_init();
+        if (!global_quotad_rpc)
+            goto out;
+    }
 
     ret = cli_cmds_register(&state);
     if (ret)
