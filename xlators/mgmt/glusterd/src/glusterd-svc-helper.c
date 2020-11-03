@@ -886,8 +886,16 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     ret = rpc_clnt_submit(rpc, &gd_brick_prog, op, cbkfn, &iov, 1, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
 
+    /* Checking if the rpc_clnt_submit() failed beacuse of memory allocation,
+     * which implies the frame is not destroyed there. So, it needs to be
+     * destroyed here */
     if (ret != -2)
         frame = NULL;
+
+    /* Changing ret back to -1 so as to avoid -2 being passed to caller,
+     * considering that its not the usual error number used in the code */
+    if (ret == -2)
+        ret = -1;
 err:
     if (iobuf) {
         iobuf_unref(iobuf);
