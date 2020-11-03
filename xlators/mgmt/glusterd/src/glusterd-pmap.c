@@ -253,6 +253,9 @@ pmap_registry_bind(xlator_t *this, int port, const char *brickname,
                    gf_pmap_port_type_t type, void *xprt)
 {
     struct pmap_registry *pmap = NULL;
+    char *entry;
+    size_t bn_len;
+    int found = 0;
     int p = 0;
 
     pmap = pmap_registry_get(this);
@@ -278,8 +281,25 @@ pmap_registry_bind(xlator_t *this, int port, const char *brickname,
     }
     if (pmap->ports[p].brickname) {
         char *tmp = pmap->ports[p].brickname;
-        asprintf(&pmap->ports[p].brickname, "%s %s", tmp, brickname);
-        free(tmp);
+        bn_len = strlen(brickname);
+        entry = strstr(tmp, brickname);
+        while (entry) {
+            found = 1;
+            if ((entry != tmp) && (entry[-1] != ' ')) {
+                found = 0;
+            }
+            if ((entry[bn_len] != ' ') && (entry[bn_len] != '\0')) {
+                found = 0;
+            }
+            if (found) {
+                break;
+            }
+            entry = strstr(entry + bn_len, brickname);
+        }
+        if (!found) {
+            asprintf(&pmap->ports[p].brickname, "%s %s", tmp, brickname);
+            free(tmp);
+        }
     } else {
         pmap->ports[p].brickname = strdup(brickname);
     }
