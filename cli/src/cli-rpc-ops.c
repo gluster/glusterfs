@@ -3822,7 +3822,10 @@ gf_cli_get_next_volume(call_frame_t *frame, xlator_t *this, void *data)
         if ((global_state->mode & GLUSTER_MODE_XML))
             goto end_xml;
 
-        cli_err("No volumes present");
+        if (ret)
+            cli_err("Failed to get volume info");
+        else
+            cli_err("No volumes present");
         goto out;
     }
 
