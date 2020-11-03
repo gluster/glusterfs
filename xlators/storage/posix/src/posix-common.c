@@ -129,8 +129,8 @@ posix_inode(xlator_t *this)
     return 0;
 }
 
-static
-void delete_posix_diskxl(xlator_t *this)
+static void
+delete_posix_diskxl(xlator_t *this)
 {
     struct posix_private *priv = this->private;
     struct posix_diskxl *pxl = priv->pxl;
@@ -150,7 +150,8 @@ void delete_posix_diskxl(xlator_t *this)
                 pthread_cond_signal(&ctx->xl_cond);
         }
         pthread_mutex_unlock(&ctx->xl_lock);
-        free(pxl);
+        pthread_cond_destroy(&pxl->cond);
+        GF_FREE(pxl);
         if (count == 0) {
             pthread_join(ctx->disk_space_check, NULL);
             ctx->disk_space_check = 0;
@@ -1271,7 +1272,7 @@ posix_fini(xlator_t *this)
     struct posix_private *priv = this->private;
     gf_boolean_t health_check = _gf_false;
     glusterfs_ctx_t *ctx = this->ctx;
-    uint32_t count = 1;
+    uint32_t count;
     int ret = 0;
     int i = 0;
 
@@ -1323,7 +1324,6 @@ posix_fini(xlator_t *this)
 
     if (count == 0) {
         pthread_join(ctx->janitor, NULL);
-        count = 1;
     }
 
     pthread_mutex_lock(&ctx->xl_lock);

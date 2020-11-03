@@ -2349,7 +2349,6 @@ posix_ctx_disk_thread_proc(void *data)
     glusterfs_ctx_t *ctx = NULL;
     uint32_t interval = 0;
     struct posix_diskxl *pthis = NULL;
-    struct posix_diskxl *tmp = NULL;
     xlator_t *this = NULL;
     struct timespec sleep_till = {
         0,
@@ -2366,7 +2365,7 @@ posix_ctx_disk_thread_proc(void *data)
     pthread_mutex_lock(&ctx->xl_lock);
     {
         while (ctx->diskxl_count > 0) {
-            list_for_each_entry_safe(pthis, tmp, &ctx->diskth_xl, list)
+            list_for_each_entry(pthis, &ctx->diskth_xl, list)
             {
                 pthis->is_use = _gf_true;
                 pthread_mutex_unlock(&ctx->xl_lock);
@@ -2377,12 +2376,10 @@ posix_ctx_disk_thread_proc(void *data)
                 posix_disk_space_check(priv);
 
                 pthread_mutex_lock(&ctx->xl_lock);
-                {
-                    pthis->is_use = _gf_false;
-                    /* Send a signal to posix_notify function */
-                    if (pthis->detach_notify)
-                        pthread_cond_signal(&pthis->cond);
-                }
+                pthis->is_use = _gf_false;
+                /* Send a signal to posix_notify function */
+                if (pthis->detach_notify)
+                    pthread_cond_signal(&pthis->cond);
             }
 
             timespec_now_realtime(&sleep_till);
@@ -2404,7 +2401,7 @@ posix_spawn_disk_space_check_thread(xlator_t *this)
     struct posix_diskxl *pxl = NULL;
     struct posix_private *priv = this->private;
 
-    pxl = calloc(1, sizeof(*pxl));
+    pxl = GF_CALLOC(1, sizeof(struct posix_diskxl), gf_posix_diskxl_t);
     if (!pxl) {
         ret = -ENOMEM;
         gf_log(this->name, GF_LOG_ERROR,
@@ -2439,7 +2436,7 @@ out:
     if (ret) {
         if (pxl) {
             pthread_cond_destroy(&pxl->cond);
-            free(pxl);
+            GF_FREE(pxl);
         }
     }
     return ret;
