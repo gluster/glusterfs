@@ -1881,6 +1881,7 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     uuid_t victim = {0};
     int was_dir = 0;
     int nlink = 0;
+    int64_t blocks = 0;
     char *pgfid_xattr_key = NULL;
     int32_t nlink_samepgfid = 0;
     char *gfid_path = NULL;
@@ -1949,6 +1950,7 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         if (IA_ISDIR(stbuf.ia_type))
             was_dir = 1;
         nlink = stbuf.ia_nlink;
+        blocks = stbuf.ia_blocks;
         if (IA_ISDIR(stbuf.ia_type)) {
             if (!newloc->inode) {
                 gf_msg(this->name, GF_LOG_WARNING, EEXIST, P_MSG_DIR_FOUND,
@@ -2127,8 +2129,14 @@ unlock:
     posix_set_parent_ctime(frame, this, par_newpath, -1, newloc->parent,
                            &postnewparent);
 
-    if (was_present)
+    if (was_present) {
         unwind_dict = posix_dict_set_nlink(xdata, unwind_dict, nlink);
+        int ret = dict_set_int64(unwind_dict, GF_GET_FILE_BLOCK_COUNT, blocks);
+        if (IS_ERROR(ret)) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_DICT_SET_FAILED,
+                   "%s: dict set of Block size failed", par_newpath);
+        }
+    }
     op_ret = 0;
 out:
 

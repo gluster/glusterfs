@@ -1540,6 +1540,7 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/simple-quota.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/selinux.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so

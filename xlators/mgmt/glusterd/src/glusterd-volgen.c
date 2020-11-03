@@ -2200,6 +2200,35 @@ out:
 }
 
 static int
+brick_graph_add_simple_quota(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                             dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+    xlator_t *xl = NULL;
+    xlator_t *this = THIS;
+    GF_ASSERT(this);
+
+    if (!graph || !volinfo || !set_dict) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        goto out;
+    }
+
+    xl = volgen_graph_add(graph, "features/simple-quota", volinfo->volname);
+    if (!xl)
+        goto out;
+
+    /* set no-distribute option in valid cases */
+    int dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
+    if (dist_count > 1)
+        goto out;
+
+    int ret = xlator_set_fixed_option(xl, "no-distribute", "true");
+    if (ret)
+        return -1;
+out:
+    return 0;
+}
+
+static int
 brick_graph_add_ro(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                    dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2510,6 +2539,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_leases, "leases"},
     {brick_graph_add_ro, "read-only"},
     {brick_graph_add_worm, "worm"},
+    {brick_graph_add_simple_quota, "simple-quota"},
     {brick_graph_add_locks, "locks"},
     {brick_graph_add_acl, "access-control"},
     {brick_graph_add_bitrot_stub, "bitrot-stub"},
