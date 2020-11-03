@@ -1612,7 +1612,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     };
     struct rpc_req *rpcreq = NULL;
     rpc_transport_req_t req;
-    int ret = -1;
+    int ret = -2;
     int proglen = 0;
     char new_iobref = 0;
     uint64_t callid = 0;
@@ -1636,6 +1636,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     if (!iobref) {
         iobref = iobref_new();
         if (!iobref) {
+            ret = -1;
             goto out;
         }
 

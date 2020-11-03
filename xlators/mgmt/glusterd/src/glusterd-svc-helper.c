@@ -886,7 +886,8 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     ret = rpc_clnt_submit(rpc, &gd_brick_prog, op, cbkfn, &iov, 1, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
 
-    frame = NULL;
+    if (ret != -2)
+        frame = NULL;
 err:
     if (iobuf) {
         iobuf_unref(iobuf);
