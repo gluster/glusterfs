@@ -783,7 +783,8 @@ out:
 /*TODO: Handle revalidate path */
 void
 server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
-                    server_state_t *state, inode_t *inode, struct iatt *stbuf)
+                    server_state_t *state, inode_t *inode, struct iatt *stbuf,
+                    dict_t *xdata)
 {
     inode_t *root_inode = NULL;
     inode_t *link_inode = NULL;
@@ -795,6 +796,10 @@ server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
         link_inode = inode_link(inode, state->loc.parent, state->loc.name,
                                 stbuf);
         if (link_inode) {
+            if (dict_get_sizen(xdata, GF_NAMESPACE_KEY)) {
+                inode_set_namespace_inode(link_inode, link_inode);
+            }
+
             inode_lookup(link_inode);
             inode_unref(link_inode);
         }

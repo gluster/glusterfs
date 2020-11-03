@@ -363,11 +363,22 @@ parent:
 out:
     if (!op_ret && !gfidless && gf_uuid_is_null(buf.ia_gfid)) {
         gf_msg(this->name, GF_LOG_ERROR, ENODATA, P_MSG_NULL_GFID,
-               "buf->ia_gfid is null for "
-               "%s",
-               (real_path) ? real_path : "");
+               "buf->ia_gfid is null for %s",
+               (real_path) ? real_path : "(null)");
         op_ret = -1;
         op_errno = ENODATA;
+    }
+
+    /* TODO: get the path */
+    /* In the full run of regression, I was not able to hit this case, hence
+       leaving it as TODO. Good to have logic of resolving GFID only access
+       to a path for many other features too. But initial version can just
+       be knowning that we are hitting the scenario in certain usecases */
+    if ((op_ret == 0) && (dict_get_sizen(xdata, "get-full-path"))) {
+        /* Get the path */
+        gf_log(this->name, GF_LOG_INFO,
+               "%s: inode path not completely resolved. Asking for full path",
+               loc->path);
     }
 
     if (op_ret == 0)

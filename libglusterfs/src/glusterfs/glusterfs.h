@@ -129,6 +129,9 @@
 
 #define XATTR_IS_BD(x) (strncmp(x, BD_XATTR_KEY, SLEN(BD_XATTR_KEY)) == 0)
 
+/* required for namespace */
+#define GF_NAMESPACE_KEY "trusted.glusterfs.namespace"
+
 #define GF_XATTR_LINKINFO_KEY "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
 #define PGFID_XATTR_KEY_PREFIX "trusted.pgfid."
