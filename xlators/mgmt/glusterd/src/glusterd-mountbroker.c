@@ -260,11 +260,10 @@ make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user,
     int vc = 0;
     int i = 0;
     int ret = 0;
-    xlator_t *this = THIS;
 
     vols = gf_strdup((char *)volnames);
     if (!vols) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
                 "Volume name=%s", volnames, NULL);
         goto out;
     }
@@ -276,7 +275,7 @@ make_georep_mountspec(gf_mount_spec_t *mspec, const char *volnames, char *user,
     siz = strlen(volnames) + vc * SLEN("volfile-id=");
     meetspec = GF_CALLOC(1, siz + 1, gf_gld_mt_georep_meet_spec);
     if (!meetspec) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
