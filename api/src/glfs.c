@@ -175,46 +175,46 @@ err:
 }
 
 static int
-create_master(struct glfs *fs)
+create_primary(struct glfs *fs)
 {
     int ret = 0;
-    xlator_t *master = NULL;
+    xlator_t *primary = NULL;
 
-    master = GF_CALLOC(1, sizeof(*master), glfs_mt_xlator_t);
-    if (!master)
+    primary = GF_CALLOC(1, sizeof(*primary), glfs_mt_xlator_t);
+    if (!primary)
         goto err;
 
-    master->name = gf_strdup("gfapi");
-    if (!master->name)
+    primary->name = gf_strdup("gfapi");
+    if (!primary->name)
         goto err;
 
-    if (xlator_set_type(master, "mount/api") == -1) {
-        gf_smsg("glfs", GF_LOG_ERROR, 0, API_MSG_MASTER_XLATOR_INIT_FAILED,
+    if (xlator_set_type(primary, "mount/api") == -1) {
+        gf_smsg("glfs", GF_LOG_ERROR, 0, API_MSG_PRIMARY_XLATOR_INIT_FAILED,
                 "name=%s", fs->volname, NULL);
         goto err;
     }
 
-    master->ctx = fs->ctx;
-    master->private = fs;
-    master->options = dict_new();
-    if (!master->options)
+    primary->ctx = fs->ctx;
+    primary->private = fs;
+    primary->options = dict_new();
+    if (!primary->options)
         goto err;
 
-    ret = xlator_init(master);
+    ret = xlator_init(primary);
     if (ret) {
         gf_smsg("glfs", GF_LOG_ERROR, 0, API_MSG_GFAPI_XLATOR_INIT_FAILED,
                 NULL);
         goto err;
     }
 
-    fs->ctx->primary = master;
-    THIS = master;
+    fs->ctx->primary = primary;
+    THIS = primary;
 
     return 0;
 
 err:
-    if (master) {
-        xlator_destroy(master);
+    if (primary) {
+        xlator_destroy(primary);
     }
 
     return -1;
@@ -1082,7 +1082,7 @@ glfs_init_common(struct glfs *fs)
 {
     int ret = -1;
 
-    ret = create_master(fs);
+    ret = create_primary(fs);
     if (ret)
         return ret;
 

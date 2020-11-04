@@ -30,7 +30,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
 install_xlatorLTLIBRARIES = install-xlatorLTLIBRARIES
 $(install_xlatorLTLIBRARIES): install-libLTLIBRARIES
 
-api_la_SOURCES = glfs-master.c
+api_la_SOURCES = glfs-primary.c
 api_la_DEPENDENCIES = libgfapi.la
 api_la_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src \
