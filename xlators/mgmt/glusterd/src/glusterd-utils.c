@@ -2614,7 +2614,6 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
-    char *op_errstr = NULL;
     char pidfile[PATH_MAX] = "";
     int last_brick = -1;
 
@@ -2648,49 +2647,18 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
          * attaching and detaching bricks).  Therefore, we have to send
          * an actual signal instead.
          */
-        if (is_brick_mx_enabled() && last_brick != 1) {
-            ret = send_attach_req(this, brickinfo->rpc, brickinfo->path, NULL,
-                                  NULL, GLUSTERD_BRICK_TERMINATE);
-            if (ret && brickinfo->status == GF_BRICK_STARTED) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_STOP_FAIL,
-                       "Failed to send"
-                       " detach request for brick %s",
-                       brickinfo->path);
-                goto out;
-            }
-            gf_log(this->name, GF_LOG_INFO,
-                   "Detach request for "
-                   "brick %s:%s is sent successfully",
-                   brickinfo->hostname, brickinfo->path);
-
-        } else {
-            gf_msg_debug(this->name, 0,
-                         "About to stop glusterfsd"
-                         " for brick %s:%s",
-                         brickinfo->hostname, brickinfo->path);
-            ret = glusterd_brick_terminate(volinfo, brickinfo, NULL, 0,
-                                           &op_errstr);
-            if (ret && brickinfo->status == GF_BRICK_STARTED) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_STOP_FAIL,
-                       "Failed to kill"
-                       " the brick %s",
-                       brickinfo->path);
-                goto out;
-            }
-
-            if (op_errstr) {
-                GF_FREE(op_errstr);
-            }
-            if (is_brick_mx_enabled()) {
-                /* In case of brick multiplexing we need to make
-                 * sure the port is cleaned up from here as the
-                 * RPC connection may not have been originated
-                 * for the same brick instance
-                 */
-                pmap_registry_remove(THIS, brickinfo->port, brickinfo->path,
-                                     GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);
-            }
+        ret = send_attach_req(this, brickinfo->rpc, brickinfo->path, NULL, NULL,
+                              GLUSTERD_BRICK_TERMINATE);
+        if (ret && brickinfo->status == GF_BRICK_STARTED) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_STOP_FAIL,
+                   "Failed to send detach request for brick %s",
+                   brickinfo->path);
+            goto out;
         }
+        gf_log(this->name, GF_LOG_INFO,
+               "Detach request for "
+               "brick %s:%s is sent successfully",
+               brickinfo->hostname, brickinfo->path);
 
         (void)glusterd_brick_disconnect(brickinfo);
         ret = 0;

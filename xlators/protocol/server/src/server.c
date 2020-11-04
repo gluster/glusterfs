@@ -19,6 +19,7 @@
 #include <glusterfs/defaults.h>
 #include "authenticate.h"
 #include <glusterfs/gf-event.h>
+#include <glusterfs/syncop.h>
 #include <glusterfs/events.h>
 #include "server-messages.h"
 #include "rpc-clnt.h"
@@ -571,6 +572,57 @@ out:
     return ret;
 }
 
+int
+glusterfs_ctx_pool_destroy(glusterfs_ctx_t *ctx)
+{
+    call_pool_t *pool = NULL;
+    int ret = 0;
+
+    if (ctx == NULL)
+        return 0;
+
+    /* Free the memory pool */
+    if (ctx->stub_mem_pool)
+        mem_pool_destroy(ctx->stub_mem_pool);
+    if (ctx->dict_pool)
+        mem_pool_destroy(ctx->dict_pool);
+    if (ctx->dict_data_pool)
+        mem_pool_destroy(ctx->dict_data_pool);
+    if (ctx->dict_pair_pool)
+        mem_pool_destroy(ctx->dict_pair_pool);
+    if (ctx->logbuf_pool)
+        mem_pool_destroy(ctx->logbuf_pool);
+
+    pool = ctx->pool;
+    if (pool) {
+        if (pool->frame_mem_pool)
+            mem_pool_destroy(pool->frame_mem_pool);
+        if (pool->stack_mem_pool)
+            mem_pool_destroy(pool->stack_mem_pool);
+        LOCK_DESTROY(&pool->lock);
+        GF_FREE(pool);
+    }
+
+    /* Free the event pool */
+    ret = gf_event_pool_destroy(ctx->event_pool);
+
+    /* Free the iobuf pool */
+    iobuf_pool_destroy(ctx->iobuf_pool);
+
+    GF_FREE(ctx->process_uuid);
+    GF_FREE(ctx->cmd_args.volfile_id);
+    GF_FREE(ctx->cmd_args.process_name);
+
+    LOCK_DESTROY(&ctx->lock);
+    pthread_mutex_destroy(&ctx->notify_lock);
+    pthread_cond_destroy(&ctx->notify_cond);
+
+    GF_FREE(ctx->statedump_path);
+    FREE(ctx);
+
+    return ret;
+}
+
 void *
 server_graph_janitor_threads(void *data)
 {
@@ -581,9 +633,12 @@ server_graph_janitor_threads(void *data)
     char *victim_name = NULL;
     server_cleanup_xprt_arg_t *arg = NULL;
     gf_boolean_t victim_found = _gf_false;
+    gf_boolean_t destroy_ctx = _gf_false;
     xlator_list_t **trav_p = NULL;
     xlator_t *top = NULL;
     uint32_t parent_down = 0;
+    uint32_t totchildcount = 1;
+    struct rpc_clnt *rpc = NULL;
 
     GF_ASSERT(data);
 
@@ -627,12 +682,40 @@ server_graph_janitor_threads(void *data)
                " %s stack",
                victim->name);
         xlator_mem_cleanup(victim);
+        LOCK(&ctx->volfile_lock);
+        {
+            totchildcount = 0;
+            for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+                totchildcount++;
+            }
+            if (!totchildcount && !ctx->destroy_ctx) {
+                ctx->destroy_ctx = _gf_true;
+                destroy_ctx = _gf_true;
+            }
+        }
+        UNLOCK(&ctx->volfile_lock);
         rpcsvc_autoscale_threads(ctx, conf->rpc, -1);
     }
 
 out:
     free(arg->victim_name);
     free(arg);
+    if (!totchildcount && destroy_ctx) {
+        gf_log(THIS->name, GF_LOG_INFO,
+               "Going to Cleanup ctx pool memory and exit the process %s",
+               ctx->cmdlinestr);
+        syncenv_destroy(ctx->env);
+        ctx->env = NULL;
+        gf_event_dispatch_destroy(ctx->event_pool);
+        if (ctx->mgmt) {
+            rpc = ctx->mgmt;
+            rpc_clnt_connection_cleanup(&rpc->conn);
+            rpc_clnt_unref(rpc);
+        }
+        server_cleanup(this, conf);
+        glusterfs_ctx_pool_destroy(ctx);
+        exit(0);
+    }
     return NULL;
 }
 

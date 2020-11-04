@@ -312,10 +312,10 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     glusterfs_ctx_t *ctx = NULL;
     xlator_t *top = NULL;
     xlator_t *victim = NULL;
-    xlator_t *tvictim = NULL;
+    xlator_t *tmp = NULL;
     xlator_list_t **trav_p = NULL;
     gf_boolean_t lockflag = _gf_false;
-    gf_boolean_t still_bricks_attached = _gf_false;
+    int totchild = 0;
 
     ret = xdr_to_generic(req->msg[0], &xlator_req,
                          (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
@@ -331,10 +331,11 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         if (glusterfsd_ctx->active) {
             top = glusterfsd_ctx->active->first;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-                victim = (*trav_p)->xlator;
-                if (!victim->cleanup_starting &&
-                    strcmp(victim->name, xlator_req.name) == 0) {
-                    break;
+                tmp = (*trav_p)->xlator;
+                totchild++;
+                if (!tmp->cleanup_starting &&
+                    strcmp(tmp->name, xlator_req.name) == 0) {
+                    victim = tmp;
                 }
             }
         }
@@ -342,7 +343,7 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         if (!top)
             goto err;
     }
-    if (!*trav_p) {
+    if (!victim) {
         gf_log(THIS->name, GF_LOG_ERROR, "can't terminate %s - not found",
                xlator_req.name);
         /*
@@ -355,41 +356,20 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     }
 
     glusterfs_terminate_response_send(req, 0);
-    for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-        tvictim = (*trav_p)->xlator;
-        if (!tvictim->cleanup_starting &&
-            !strcmp(tvictim->name, xlator_req.name)) {
-            continue;
-        }
-        if (!tvictim->cleanup_starting) {
-            still_bricks_attached = _gf_true;
-            break;
-        }
-    }
-    if (!still_bricks_attached) {
-        gf_log(THIS->name, GF_LOG_INFO,
-               "terminating after loss of last child %s", xlator_req.name);
-        rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
-        kill(getpid(), SIGTERM);
-    } else {
-        /* TODO cleanup sequence needs to be done properly for
-           Quota and Changelog
-        */
-        if (victim->cleanup_starting)
-            goto err;
+    if (victim->cleanup_starting)
+        goto err;
 
-        rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
-        victim->cleanup_starting = 1;
+    rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
+    victim->cleanup_starting = 1;
+    if (totchild == 1)
+        ctx->cleanup_starting = _gf_true;
+    UNLOCK(&ctx->volfile_lock);
+    lockflag = _gf_true;
 
-        UNLOCK(&ctx->volfile_lock);
-        lockflag = _gf_true;
-
-        gf_log(THIS->name, GF_LOG_INFO,
-               "detaching not-only"
-               " child %s",
-               xlator_req.name);
-        top->notify(top, GF_EVENT_CLEANUP, victim);
-    }
+    gf_log(THIS->name, GF_LOG_INFO,
+           "detaching not-only child %s totchild is %d", xlator_req.name,
+           totchild);
+    top->notify(top, GF_EVENT_CLEANUP, victim);
 err:
     if (!lockflag)
         UNLOCK(&ctx->volfile_lock);
