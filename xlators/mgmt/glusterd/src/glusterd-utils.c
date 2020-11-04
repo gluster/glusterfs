@@ -13217,7 +13217,8 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
     }
 
     if ((conf->op_version >= GD_OP_VERSION_9_0) &&
-        (volinfo->status == GLUSTERD_STATUS_NONE)) {
+        (volinfo->status == GLUSTERD_STATUS_NONE) &&
+        (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
         ret = dict_set_dynstr_with_alloc(volinfo->dict,
                                          "cluster.granular-entry-heal", "on");
         if (ret) {

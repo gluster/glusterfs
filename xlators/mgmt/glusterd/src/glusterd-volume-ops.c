@@ -597,7 +597,7 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
 
     if (((heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE) ||
          (heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE)) &&
-        (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)) {
+        (volinfo->type != GF_CLUSTER_TYPE_REPLICATE)) {
         ret = -1;
         goto out;
     }
