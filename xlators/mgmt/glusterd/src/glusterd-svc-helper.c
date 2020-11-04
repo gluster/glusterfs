@@ -346,7 +346,7 @@ glusterd_volume_svc_check_topology_identical(
     int tmpfd = -1;
 
     if ((!identical) || (!this->private)) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
