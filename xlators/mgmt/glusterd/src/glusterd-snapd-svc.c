@@ -72,11 +72,9 @@ glusterd_snapdsvc_init(void *data)
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_conn_notify_t notify = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volfileserver = NULL;
     int32_t len = 0;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -147,14 +145,14 @@ glusterd_snapdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     if (!svc->inited) {
         ret = glusterd_snapdsvc_init(volinfo);
         if (ret) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SNAPD_INIT_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAPD_INIT_FAIL,
                    "Failed to initialize "
                    "snapd service for volume %s",
                    volinfo->volname);
             goto out;
         } else {
             svc->inited = _gf_true;
-            gf_msg_debug(THIS->name, 0,
+            gf_msg_debug(this->name, 0,
                          "snapd service "
                          "initialized");
         }
@@ -224,7 +222,7 @@ out:
         gf_event(EVENT_SVC_MANAGER_FAILED, "volume=%s;svc_name=%s",
                  volinfo->volname, svc->name);
     }
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
 
     return ret;
 }
@@ -237,7 +235,7 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char valgrind_logfile[PATH_MAX] = {0};
     int snapd_port = 0;
     char msg[1024] = {
@@ -250,8 +248,6 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
     glusterd_snapdsvc_t *snapd = NULL;
     char *localtime_logging = NULL;
     int32_t len = 0;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -409,11 +405,9 @@ glusterd_snapdsvc_rpc_notify(glusterd_conn_t *conn, rpc_clnt_event_t event)
 {
     int ret = 0;
     glusterd_svc_t *svc = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_snapdsvc_t *snapd = NULL;
-
-    this = THIS;
 
     svc = cds_list_entry(conn, glusterd_svc_t, conn);
     if (!svc) {

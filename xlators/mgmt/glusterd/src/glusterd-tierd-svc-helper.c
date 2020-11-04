@@ -100,12 +100,10 @@ glusterd_svc_check_tier_volfile_identical(char *svc_name,
         0,
     };
     char *tmpvol = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
     int need_unlink = 0;
     int tmp_fd = -1;
-
-    this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, identical, out);
 

@@ -26,12 +26,6 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
     xlator_t *this = THIS;
     glusterd_svc_t *svc = NULL;
 
-    if (!this) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_XLATOR_NOT_DEFINED,
-                NULL);
-        goto out;
-    }
-
     options = dict_new();
     if (!options) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);

@@ -146,9 +146,7 @@ glusterd_is_quorum_changed(dict_t *options, char *option, char *value)
     char *newquorum = NULL;
     char *oldratio = NULL;
     char *newratio = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     if ((strcmp("all", option) != 0) && !glusterd_is_quorum_option(option))
         goto out;
@@ -427,7 +425,7 @@ out:
 int
 glusterd_do_quorum_action()
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     int ret = 0;
@@ -435,7 +433,6 @@ glusterd_do_quorum_action()
     int quorum_count = 0;
     gf_boolean_t meets = _gf_false;
 
-    this = THIS;
     conf = this->private;
 
     conf->pending_quorum_action = _gf_true;

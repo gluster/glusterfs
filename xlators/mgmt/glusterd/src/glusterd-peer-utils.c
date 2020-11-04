@@ -238,13 +238,7 @@ glusterd_hostname_to_uuid(char *hostname, uuid_t uuid)
     GF_ASSERT(uuid);
 
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     peerinfo = glusterd_peerinfo_find_by_hostname(hostname);
     if (peerinfo) {
@@ -259,7 +253,7 @@ glusterd_hostname_to_uuid(char *hostname, uuid_t uuid)
         }
     }
 
-    gf_msg_debug(this->name, 0, "returning %d", ret);
+    gf_msg_debug(THIS->name, 0, "returning %d", ret);
     return ret;
 }
 
@@ -351,10 +345,9 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
 {
     glusterd_peerinfo_t *new_peer = NULL;
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -485,11 +478,9 @@ gf_boolean_t
 glusterd_are_all_peers_up()
 {
     glusterd_peerinfo_t *peerinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     gf_boolean_t peers_up = _gf_false;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -557,13 +548,12 @@ glusterd_peer_hostname_new(const char *hostname,
 
     GF_ASSERT(hostname);
     GF_ASSERT(name);
-    xlator_t *this = THIS;
 
     peer_hostname = GF_CALLOC(1, sizeof(*peer_hostname),
                               gf_gld_mt_peer_hostname_t);
 
     if (!peer_hostname) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
@@ -649,15 +639,13 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
                       const char *prefix)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char key[100] = {
         0,
     };
     glusterd_peer_hostname_t *address = NULL;
     int count = 0;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -714,7 +702,7 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
                "Failed to set key %s in dict", key);
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -727,7 +715,7 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                              const char *prefix)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char key[100] = {
         0,
@@ -735,8 +723,6 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
     char *hostname = NULL;
     int count = 0;
     int i = 0;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -814,15 +800,13 @@ glusterd_peerinfo_t *
 gd_peerinfo_from_dict(dict_t *dict, const char *prefix)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_peerinfo_t *new_peer = NULL;
     char key[64] = {
         0,
     };
     char *uuid_str = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -866,15 +850,13 @@ gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                               const char *prefix)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char key[64] = {
         0,
     };
     glusterd_peer_hostname_t *addr = NULL;
     int count = 0;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -1022,11 +1004,9 @@ int
 glusterd_get_peers_count()
 {
     int count = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_peerinfo_t *peer = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);

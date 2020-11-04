@@ -64,11 +64,9 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_muxsvc_conn_notify_t notify = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volfileserver = NULL;
     int32_t len = 0;
-
-    this = THIS;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -141,7 +139,7 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
         goto out;
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -538,12 +536,10 @@ int
 glusterd_shdsvc_reconfigure(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t identical = _gf_false;
     dict_t *mod_dict = NULL;
     glusterd_svc_t *svc = NULL;
-
-    this = THIS;
 
     if (!volinfo) {
         /* reconfigure will be called separately*/
@@ -656,7 +652,7 @@ out:
         glusterd_volinfo_unref(volinfo);
     if (mod_dict)
         dict_unref(mod_dict);
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -711,8 +707,9 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     gf_boolean_t empty = _gf_false;
     glusterd_conf_t *conf = NULL;
     int pid = -1;
+    xlator_t *this = THIS;
 
-    conf = THIS->private;
+    conf = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", conf, out);
     GF_VALIDATE_OR_GOTO("glusterd", svc, out);
     svc_proc = svc->svc_proc;
@@ -748,7 +745,7 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     pthread_mutex_lock(&conf->attach_lock);
     {
         if (!gf_is_service_running(svc->proc.pidfile, &pid)) {
-            gf_msg_debug(THIS->name, 0, "shd isn't running");
+            gf_msg_debug(this->name, 0, "shd isn't running");
         }
         cds_list_del_init(&svc->mux_svc);
         empty = cds_list_empty(&svc_proc->svcs);
@@ -771,11 +768,11 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     if (!empty && pid != -1) {
         ret = glusterd_detach_svc(svc, volinfo, sig);
         if (ret)
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
                    "shd service is failed to detach volume %s from pid %d",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
         else
-            gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
+            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
                    "Shd service is detached for volume %s from pid %d",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
     }
@@ -785,6 +782,6 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     ret = 0;
     glusterd_volinfo_unref(volinfo);
 out:
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }

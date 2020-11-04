@@ -118,7 +118,7 @@ xlator_instantiate_va(const char *type, const char *format, va_list arg)
     xl->name = volname;
     CDS_INIT_LIST_HEAD(&xl->volume_options);
 
-    xl->ctx = THIS->ctx;
+    xl->ctx = this->ctx;
 
     return xl;
 
@@ -763,7 +763,6 @@ glusterd_check_option_exists(char *key, char **completion)
     };
     struct volopt_map_entry *vmep = NULL;
     int ret = 0;
-    xlator_t *this = THIS;
 
     (void)vme;
     (void)vmep;
@@ -772,7 +771,7 @@ glusterd_check_option_exists(char *key, char **completion)
         if (completion) {
             ret = option_complete(key, completion);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                        "Out of memory");
                 return -1;
             }
@@ -799,7 +798,7 @@ glusterd_check_option_exists(char *key, char **completion)
 trie:
     ret = volopt_trie(key, completion);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_ERROR_ENCOUNTERED,
+        gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_ERROR_ENCOUNTERED,
                "Some error occurred during keyword hinting");
     }
 
@@ -812,10 +811,9 @@ glusterd_volopt_validate(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     struct volopt_map_entry *vme = NULL;
     int ret = 0;
-    xlator_t *this = THIS;
 
     if (!dict || !key || !value) {
-        gf_msg_callingfn(this->name, GF_LOG_WARNING, EINVAL,
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL,
                          GD_MSG_INVALID_ENTRY,
                          "Invalid "
                          "Arguments (dict=%p, key=%s, value=%s)",
@@ -828,7 +826,7 @@ glusterd_volopt_validate(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                                    (!strcmp(key, strchr(vme->key, '.') + 1)))) {
             if ((vme->type != GLOBAL_DOC && vme->type != GLOBAL_NO_DOC) &&
                 !volinfo) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+                gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
                        "%s is not"
                        " a global option",
                        vme->key);
@@ -988,9 +986,7 @@ volgen_write_volfile(volgen_graph_t *graph, char *filename)
     char *ftmp = NULL;
     FILE *f = NULL;
     int fd = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     if (gf_asprintf(&ftmp, "%s.tmp", filename) == -1) {
         ftmp = NULL;
@@ -1014,7 +1010,7 @@ volgen_write_volfile(volgen_graph_t *graph, char *filename)
         goto error;
 
     if (fclose(f) != 0) {
-        gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
                "fclose on the file %s "
                "failed",
                ftmp);
@@ -1486,18 +1482,17 @@ volgen_graph_set_xl_options(volgen_graph_t *graph, dict_t *dict)
     }; /* for posix* -> *posix* */
     char *loglevel = NULL;
     xlator_t *trav = NULL;
-    xlator_t *this = THIS;
 
     ret = dict_get_str_sizen(dict, "xlator", &xlator);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                 "Key=xlator", NULL);
         goto out;
     }
 
     ret = dict_get_str_sizen(dict, "loglevel", &loglevel);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                 "Key=loglevel", NULL);
         goto out;
     }
@@ -1600,18 +1595,17 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *password = NULL;
     /*int             rclusters       = 0;*/
 
-    xlator_t *this = THIS;
     /* We are a trusted client */
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret != 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto out;
     }
 
     ret = dict_set_int32_sizen(set_dict, "gfproxy-server", 1);
     if (ret != 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=gfproxy-server", NULL);
         goto out;
     }
@@ -1672,10 +1666,8 @@ brick_graph_add_posix(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     gf_boolean_t pgfid_feat = _gf_false;
     char *value = NULL;
     xlator_t *xl = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
-
-    this = THIS;
 
     if (!graph || !volinfo || !set_dict || !brickinfo) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -1746,10 +1738,9 @@ brick_graph_add_selinux(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -1816,10 +1807,9 @@ brick_graph_add_bitrot_stub(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     xlator_t *xl = NULL;
     int ret = -1;
     char *value = NULL;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict || !brickinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -1829,7 +1819,7 @@ brick_graph_add_bitrot_stub(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     ret = xlator_set_fixed_option(xl, "export", brickinfo->path);
     if (ret) {
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_log(THIS->name, GF_LOG_WARNING,
                "failed to set the export "
                "option in bit-rot-stub");
         goto out;
@@ -1838,7 +1828,7 @@ brick_graph_add_bitrot_stub(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     ret = glusterd_volinfo_get(volinfo, VKEY_FEATURES_BITROT, &value);
     ret = xlator_set_fixed_option(xl, "bitrot", value);
     if (ret)
-        gf_log(this->name, GF_LOG_WARNING,
+        gf_log(THIS->name, GF_LOG_WARNING,
                "failed to set bitrot "
                "enable option in bit-rot-stub");
 
@@ -1856,10 +1846,9 @@ brick_graph_add_changelog(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     };
     int ret = -1;
     int32_t len = 0;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict || !brickinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -1874,7 +1863,7 @@ brick_graph_add_changelog(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     len = snprintf(changelog_basepath, sizeof(changelog_basepath), "%s/%s",
                    brickinfo->path, ".glusterfs/changelogs");
     if ((len < 0) || (len >= sizeof(changelog_basepath))) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
@@ -1904,10 +1893,9 @@ brick_graph_add_acl(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -1939,10 +1927,9 @@ brick_graph_add_locks(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -1961,10 +1948,9 @@ brick_graph_add_iot(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -1982,10 +1968,9 @@ brick_graph_add_barrier(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2004,10 +1989,9 @@ brick_graph_add_sdfs(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2037,10 +2021,9 @@ brick_graph_add_namespace(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2095,10 +2078,9 @@ brick_graph_add_index(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char index_basepath[PATH_MAX] = {0};
     int ret = -1;
     int32_t len = 0;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !brickinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2109,7 +2091,7 @@ brick_graph_add_index(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     len = snprintf(index_basepath, sizeof(index_basepath), "%s/%s",
                    brickinfo->path, ".glusterfs/indices");
     if ((len < 0) || (len >= sizeof(index_basepath))) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         goto out;
     }
 
@@ -2156,10 +2138,9 @@ brick_graph_add_marker(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char buf[32] = {
         0,
     };
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2192,10 +2173,9 @@ brick_graph_add_quota(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = -1;
     xlator_t *xl = NULL;
     char *value = NULL;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2223,10 +2203,9 @@ brick_graph_add_ro(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     xlator_t *xl = NULL;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2258,10 +2237,9 @@ brick_graph_add_worm(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     xlator_t *xl = NULL;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2290,10 +2268,9 @@ brick_graph_add_cdc(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     xlator_t *xl = NULL;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2322,11 +2299,10 @@ brick_graph_add_io_stats(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     xlator_t *xl = NULL;
-    xlator_t *this = THIS;
-    glusterd_conf_t *priv = this->private;
+    glusterd_conf_t *priv = THIS->private;
 
     if (!graph || !set_dict || !brickinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2356,10 +2332,9 @@ brick_graph_add_upcall(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2381,10 +2356,9 @@ brick_graph_add_leases(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2416,10 +2390,9 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *volname = NULL;
     char *address_family_data = NULL;
     int32_t len = 0;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict || !brickinfo) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -2530,16 +2503,15 @@ brick_graph_add_pump(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *password = NULL;
     char *ptranst = NULL;
     char *address_family_data = NULL;
-    xlator_t *this = THIS;
 
     if (!graph || !volinfo || !set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
     ret = dict_get_int32(volinfo->dict, "enable-pump", &pump);
     if (ret == -ENOENT) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                 "Key=enable-pump", NULL);
         ret = pump = 0;
     }
@@ -2800,13 +2772,11 @@ perfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
 {
     gf_boolean_t enabled = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
     GF_VALIDATE_OR_GOTO("glusterd", param, out);
     volinfo = param;
-    this = THIS;
-    priv = this->private;
+    priv = THIS->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
 
     if (strcmp(vme->option, "!perf") != 0)
@@ -3686,7 +3656,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
 {
     xlator_t *xlator = NULL;
     xlator_t **afr_xlators_list = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_brickinfo_t *brick = NULL;
     glusterd_brickinfo_t *ta_brick = NULL;
@@ -3699,7 +3669,6 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     int ta_brick_index = 0;
     int subvol_index = 0;
 
-    this = THIS;
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -3794,9 +3763,8 @@ set_volfile_id_option(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int i = 0;
     int ret = -1;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -4177,7 +4145,6 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = 0;
     xlator_t *xl = NULL;
     char *volname = NULL;
-    glusterd_conf_t *conf = THIS->private;
     char *tmp = NULL;
     gf_boolean_t var = _gf_false;
     gf_boolean_t ob = _gf_false;
@@ -4187,6 +4154,7 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     size_t namelen = 0;
     char *xl_id = NULL;
     gf_boolean_t gfproxy_clnt = _gf_false;
+    glusterd_conf_t *conf = this->private;
 
     GF_ASSERT(conf);
 
@@ -4783,10 +4751,7 @@ build_rebalance_volfile(glusterd_volinfo_t *volinfo, char *filepath,
     };
     xlator_t *xl = NULL;
     int ret = -1;
-    xlator_t *this = NULL;
     dict_t *set_dict = NULL;
-
-    this = THIS;
 
     graph.type = GF_REBALANCED;
 
@@ -4827,7 +4792,7 @@ build_rebalance_volfile(glusterd_volinfo_t *volinfo, char *filepath,
         goto out;
     }
 
-    ret = graph_set_generic_options(this, &graph, set_dict, "rebalance-daemon");
+    ret = graph_set_generic_options(THIS, &graph, set_dict, "rebalance-daemon");
     if (ret)
         goto out;
 
@@ -4889,17 +4854,14 @@ int
 build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
                 dict_t *mod_dict)
 {
-    xlator_t *this = NULL;
     dict_t *set_dict = NULL;
     int ret = 0;
     xlator_t *iostxl = NULL;
     gf_boolean_t graph_check = _gf_false;
 
-    this = THIS;
-
     set_dict = dict_new();
     if (!set_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         ret = -ENOMEM;
         goto out;
     }
@@ -4912,7 +4874,7 @@ build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
         goto out;
     }
 
-    ret = build_shd_volume_graph(this, graph, volinfo, mod_dict, set_dict,
+    ret = build_shd_volume_graph(THIS, graph, volinfo, mod_dict, set_dict,
                                  graph_check);
 
 out:
@@ -4948,7 +4910,6 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
         0,
     };
     glusterd_volinfo_t *voliter = NULL;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     dict_t *set_dict = NULL;
     xlator_t *nfsxl = NULL;
@@ -4960,8 +4921,7 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
     char *volname = NULL;
     data_t *data = NULL;
 
-    this = THIS;
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     set_dict = dict_new();
@@ -5146,10 +5106,8 @@ get_brick_filepath(char *filename, glusterd_volinfo_t *volinfo,
     char brick[PATH_MAX] = {
         0,
     };
-    glusterd_conf_t *priv = NULL;
     int32_t len = 0;
-
-    priv = THIS->private;
+    glusterd_conf_t *priv = THIS->private;
 
     GLUSTERD_REMOVE_SLASH_FROM_PATH(brickinfo->path, brick);
     GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv);
@@ -5174,13 +5132,10 @@ glusterd_is_valid_volfpath(char *volname, char *brick)
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     int32_t ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     ret = glusterd_brickinfo_new_from_brick(brick, &brickinfo, _gf_false, NULL);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_BRICKINFO_CREATE_FAIL,
+        gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_BRICKINFO_CREATE_FAIL,
                "Failed to create brickinfo"
                " for brick %s",
                brick);
@@ -5189,7 +5144,7 @@ glusterd_is_valid_volfpath(char *volname, char *brick)
     }
     ret = glusterd_volinfo_new(&volinfo);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_STORE_FAIL,
+        gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_STORE_FAIL,
                "Failed to create volinfo");
         ret = 0;
         goto out;
@@ -5275,16 +5230,13 @@ build_quotad_graph(volgen_graph_t *graph, dict_t *mod_dict)
 {
     volgen_graph_t cgraph = {0};
     glusterd_volinfo_t *voliter = NULL;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     dict_t *set_dict = NULL;
     int ret = 0;
     xlator_t *quotad_xl = NULL;
     char *skey = NULL;
 
-    this = THIS;
-
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     graph->type = GF_QUOTAD;
@@ -5311,7 +5263,7 @@ build_quotad_graph(volgen_graph_t *graph, dict_t *mod_dict)
 
         ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
@@ -5371,10 +5323,7 @@ out:
 static void
 get_vol_tstamp_file(char *filename, glusterd_volinfo_t *volinfo)
 {
-    glusterd_conf_t *priv = NULL;
-
-    priv = THIS->private;
-
+    glusterd_conf_t *priv = THIS->private;
     GLUSTERD_GET_VOLUME_DIR(filename, volinfo, priv);
     strncat(filename, "/marker.tstamp", PATH_MAX - strlen(filename) - 1);
 }
@@ -5383,11 +5332,9 @@ static void
 get_parent_vol_tstamp_file(char *filename, glusterd_volinfo_t *volinfo)
 {
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
     int32_t len = 0;
 
-    this = THIS;
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     len = snprintf(filename, PATH_MAX, "%s/vols/%s/marker.tstamp",
@@ -5407,9 +5354,7 @@ generate_brick_volfiles(glusterd_volinfo_t *volinfo)
         0,
     };
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = glusterd_volinfo_get_boolean(volinfo, VKEY_MARKER_XTIME);
     if (ret == -1)
@@ -5508,17 +5453,16 @@ glusterd_generate_client_per_brick_volfile(glusterd_volinfo_t *volinfo)
     int ret = -1;
     char *ssl_str = NULL;
     gf_boolean_t ssl_bool = _gf_false;
-    xlator_t *this = THIS;
 
     dict = dict_new();
     if (!dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
     }
 
     ret = dict_set_uint32(dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto free_dict;
     }
@@ -5596,21 +5540,18 @@ generate_dummy_client_volfiles(glusterd_volinfo_t *volinfo)
     };
     char *types[] = {NULL, NULL, NULL};
     dict_t *dict = NULL;
-    xlator_t *this = NULL;
     gf_transport_type type = GF_TRANSPORT_TCP;
-
-    this = THIS;
 
     enumerate_transport_reqs(volinfo->transport_type, types);
     dict = dict_new();
     if (!dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
     }
     for (i = 0; types[i]; i++) {
         ret = dict_set_str(dict, "client-transport-type", types[i]);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=client-transport-type", NULL);
             goto out;
         }
@@ -5618,14 +5559,14 @@ generate_dummy_client_volfiles(glusterd_volinfo_t *volinfo)
 
         ret = dict_set_uint32(dict, "trusted-client", GF_CLIENT_OTHER);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
 
         ret = glusterd_get_dummy_client_filepath(filepath, volinfo, type);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
+            gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
                    "Received invalid transport-type.");
             goto out;
         }
@@ -5655,10 +5596,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
     char *volname = NULL;
     char *types[] = {NULL, NULL, NULL};
     dict_t *dict = NULL;
-    xlator_t *this = NULL;
     gf_transport_type type = GF_TRANSPORT_TCP;
-
-    this = THIS;
 
     volname = volinfo->is_snap_volume ? volinfo->parent_volname
                                       : volinfo->volname;
@@ -5683,13 +5621,13 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
     enumerate_transport_reqs(volinfo->transport_type, types);
     dict = dict_new();
     if (!dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
     }
     for (i = 0; types[i]; i++) {
         ret = dict_set_str(dict, "client-transport-type", types[i]);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=client-transport-type", NULL);
             goto out;
         }
@@ -5697,7 +5635,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
 
         ret = dict_set_uint32(dict, "trusted-client", client_type);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
@@ -5711,7 +5649,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
             ret = glusterd_get_client_filepath(filepath, volinfo, type);
         }
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
+            gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
                    "Received invalid transport-type");
             goto out;
         }
@@ -5726,7 +5664,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
     ret = build_rebalance_volfile(volinfo, filepath, dict);
 
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Failed to create rebalance volfile for %s", volinfo->volname);
         goto out;
     }
@@ -5850,11 +5788,10 @@ prepare_bitrot_scrub_volume_options(glusterd_volinfo_t *volinfo,
                                     dict_t *mod_dict, dict_t *set_dict)
 {
     int ret = 0;
-    xlator_t *this = THIS;
 
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto out;
     }
@@ -5905,7 +5842,7 @@ build_bitd_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *mod_dict, unsigned int numbricks)
 {
     volgen_graph_t cgraph = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     xlator_t *xl = NULL;
     dict_t *set_dict = NULL;
     glusterd_conf_t *priv = NULL;
@@ -5916,8 +5853,6 @@ build_bitd_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char transt[16] = {
         0,
     };
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5986,14 +5921,13 @@ int
 build_bitd_graph(volgen_graph_t *graph, dict_t *mod_dict)
 {
     glusterd_volinfo_t *voliter = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     int ret = 0;
     xlator_t *iostxl = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     unsigned int numbricks = 0;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -6064,7 +5998,7 @@ build_scrub_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
     volgen_graph_t cgraph = {0};
     dict_t *set_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     xlator_t *xl = NULL;
     glusterd_conf_t *priv = NULL;
     int ret = 0;
@@ -6074,8 +6008,6 @@ build_scrub_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         0,
     };
     glusterd_brickinfo_t *brickinfo = NULL;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -6141,13 +6073,11 @@ int
 build_scrub_graph(volgen_graph_t *graph, dict_t *mod_dict)
 {
     glusterd_volinfo_t *voliter = NULL;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     int ret = 0;
     xlator_t *iostxl = NULL;
 
-    this = THIS;
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     iostxl = volgen_graph_add_as(graph, "debug/io-stats", "scrub");
@@ -6212,43 +6142,40 @@ int
 glusterd_create_volfiles(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     ret = generate_brick_volfiles(volinfo);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Could not generate volfiles for bricks");
         goto out;
     }
 
     ret = generate_client_volfiles(volinfo, GF_CLIENT_TRUSTED);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Could not generate trusted client volfiles");
         goto out;
     }
 
     ret = generate_client_volfiles(volinfo, GF_CLIENT_TRUSTED_PROXY);
     if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(THIS->name, GF_LOG_ERROR,
                "Could not generate gfproxy client volfiles");
         goto out;
     }
 
     ret = generate_client_volfiles(volinfo, GF_CLIENT_OTHER);
     if (ret)
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Could not generate client volfiles");
 
     ret = glusterd_generate_gfproxyd_volfile(volinfo);
     if (ret)
-        gf_log(this->name, GF_LOG_ERROR, "Could not generate gfproxy volfiles");
+        gf_log(THIS->name, GF_LOG_ERROR, "Could not generate gfproxy volfiles");
 
     ret = glusterd_shdsvc_create_volfile(volinfo);
     if (ret)
-        gf_log(this->name, GF_LOG_ERROR, "Could not generate shd volfiles");
+        gf_log(THIS->name, GF_LOG_ERROR, "Could not generate shd volfiles");
 
     dict_del_sizen(volinfo->dict, "skip-CLIOT");
 
@@ -6260,15 +6187,12 @@ int
 glusterd_create_volfiles_and_notify_services(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     ret = glusterd_create_volfiles(volinfo);
     if (ret)
         goto out;
 
-    ret = glusterd_fetchspec_notify(this);
+    ret = glusterd_fetchspec_notify(THIS);
 
 out:
     return ret;

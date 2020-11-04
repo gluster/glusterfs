@@ -265,15 +265,13 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
         0,
     };
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int total_bricks = 0;
     int32_t replica_count = 0;
     int32_t arbiter_count = 0;
     int32_t stripe_count = 0;
     int type = 0;
     glusterd_conf_t *conf = NULL;
-
-    this = THIS;
 
     GF_ASSERT(req);
 
@@ -564,8 +562,7 @@ glusterd_remove_brick_validate_arbiters(glusterd_volinfo_t *volinfo,
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_brickinfo_t *last = NULL;
     char *arbiter_array = NULL;
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
 
     if (volinfo->type != GF_CLUSTER_TYPE_REPLICATE)
         goto out;
@@ -648,11 +645,10 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     char vol_type[256] = "";
     int32_t replica_count = 0;
     char *volname = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int cmd = -1;
 
     GF_ASSERT(req);
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1015,7 +1011,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     int brickid = 0;
     char key[64] = "";
     char *brick_mount_dir = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     gf_boolean_t is_valid_add_brick = _gf_false;
     gf_boolean_t restart_shd = _gf_false;
@@ -1023,7 +1019,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         0,
     };
 
-    this = THIS;
     GF_ASSERT(volinfo);
 
     conf = this->private;
@@ -1041,22 +1036,22 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         ret = dict_get_int32n(dict, "stripe-count", SLEN("stripe-count"),
                               &stripe_count);
         if (!ret)
-            gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
+            gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "stripe-count is set %d", stripe_count);
 
         ret = dict_get_int32n(dict, "replica-count", SLEN("replica-count"),
                               &replica_count);
         if (!ret)
-            gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
+            gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "replica-count is set %d", replica_count);
         ret = dict_get_int32n(dict, "arbiter-count", SLEN("arbiter-count"),
                               &arbiter_count);
         if (!ret)
-            gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
+            gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "arbiter-count is set %d", arbiter_count);
         ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
         if (!ret)
-            gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
+            gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "type is set %d, need to change it", type);
     }
 
@@ -1177,7 +1172,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
             if (volinfo->status == GLUSTERD_STATUS_STARTED) {
                 ret = volinfo->shd.svc.stop(&(volinfo->shd.svc), SIGTERM);
                 if (ret) {
-                    gf_msg("glusterd", GF_LOG_ERROR, 0,
+                    gf_msg(this->name, GF_LOG_ERROR, 0,
                            GD_MSG_GLUSTER_SERVICES_STOP_FAIL,
                            "Failed to stop shd for %s.", volinfo->volname);
                 }
@@ -1185,7 +1180,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
             }
             ret = generate_dummy_client_volfiles(volinfo);
             if (ret) {
-                gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                        "Failed to create volfile.");
                 goto out;
             }
@@ -1201,7 +1196,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         if (gf_uuid_is_null(brickinfo->uuid)) {
             ret = glusterd_resolve_brick(brickinfo);
             if (ret) {
-                gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RESOLVE_BRICK_FAIL,
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RESOLVE_BRICK_FAIL,
                        FMTSTR_RESOLVE_BRICK, brickinfo->hostname,
                        brickinfo->path);
                 goto out;
@@ -1227,7 +1222,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
          * the restart_needed flag. */
         if ((!gf_uuid_compare(brickinfo->uuid, MY_UUID)) && !restart_needed) {
             restart_needed = 1;
-            gf_msg_debug("glusterd", 0,
+            gf_msg_debug(this->name, 0,
                          "Restart gsyncd session, if it's already "
                          "running.");
         }
@@ -1260,13 +1255,13 @@ out:
     if (restart_shd) {
         if (volinfo->shd.svc.manager(&(volinfo->shd.svc), volinfo,
                                      PROC_START_NO_WAIT)) {
-            gf_msg("glusterd", GF_LOG_CRITICAL, 0,
+            gf_msg(this->name, GF_LOG_CRITICAL, 0,
                    GD_MSG_GLUSTER_SERVICE_START_FAIL,
                    "Failed to start shd for %s.", volinfo->volname);
         }
     }
 
-    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1276,13 +1271,9 @@ glusterd_op_perform_remove_brick(glusterd_volinfo_t *volinfo, char *brick,
 {
     glusterd_brickinfo_t *brickinfo = NULL;
     int32_t ret = -1;
-    glusterd_conf_t *priv = NULL;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brick);
-
-    priv = THIS->private;
-    GF_ASSERT(priv);
 
     ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo, &brickinfo,
                                                  _gf_false);
@@ -1336,7 +1327,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char *brick = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char msg[4096] = "";
     char key[64] = "";
     gf_boolean_t brick_alloc = _gf_false;
@@ -1346,7 +1337,6 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_conf_t *conf = NULL;
     int32_t len = 0;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1679,9 +1669,9 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
     char pidfile[PATH_MAX + 1] = {
         0,
     };
-    glusterd_conf_t *priv = THIS->private;
-    int pid = -1;
     xlator_t *this = THIS;
+    glusterd_conf_t *priv = this->private;
+    int pid = -1;
 
     /* Check whether all the nodes of the bricks to be removed are
      * up, if not fail the operation */
@@ -1815,12 +1805,10 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
     int32_t flag = 0;
     gf1_op_commands cmd = GF_OP_CMD_NONE;
     char *task_id_str = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gsync_status_param_t param = {
         0,
     };
-
-    this = THIS;
 
     ret = op_version_check(this, GD_OP_VER_PERSISTENT_AFR_XATTRS, msg,
                            sizeof(msg));
@@ -2155,16 +2143,10 @@ glusterd_op_add_brick(dict_t *dict, char **op_errstr)
 {
     int ret = 0;
     char *volname = NULL;
-    glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
     char *bricks = NULL;
     int32_t count = 0;
-
-    this = THIS;
-
-    priv = this->private;
-    GF_ASSERT(priv);
+    glusterd_conf_t *priv = THIS->private;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
 
@@ -2267,10 +2249,8 @@ glusterd_set_rebalance_id_for_remove_brick(dict_t *req_dict, dict_t *rsp_dict)
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
     char *task_id_str = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t cmd = 0;
-
-    this = THIS;
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(req_dict);
@@ -2352,7 +2332,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     gf1_op_commands cmd = 0;
     int32_t replica_count = 0;
     char *task_id_str = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     dict_t *bricks_dict = NULL;
     char *brick_tmpstr = NULL;
     int start_remove = 0;
@@ -2360,7 +2340,6 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     int defrag_cmd = 0;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -2656,13 +2635,12 @@ int
 glusterd_op_stage_barrier(dict_t *dict, char **op_errstr)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volname = NULL;
     glusterd_volinfo_t *vol = NULL;
     char *barrier_op = NULL;
 
     GF_ASSERT(dict);
-    this = THIS;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -2706,13 +2684,12 @@ int
 glusterd_op_barrier(dict_t *dict, char **op_errstr)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volname = NULL;
     glusterd_volinfo_t *vol = NULL;
     char *barrier_op = NULL;
 
     GF_ASSERT(dict);
-    this = THIS;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {

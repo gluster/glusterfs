@@ -47,11 +47,10 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
     char msg[256] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-    this = THIS;
     conf = this->private;
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -185,11 +184,9 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
     glusterd_brickinfo_t *dst_brickinfo = NULL;
     glusterd_conf_t *priv = NULL;
     char pidfile[PATH_MAX] = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_force = _gf_false;
     char *dup_dstbrick = NULL;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -360,13 +357,12 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     glusterd_brickinfo_t *old_brickinfo = NULL;
     glusterd_brickinfo_t *new_brickinfo = NULL;
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     struct statvfs brickstat = {
         0,
     };
 
-    this = THIS;
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
 
@@ -464,14 +460,12 @@ glusterd_op_replace_brick(dict_t *dict, dict_t *rsp_dict)
     char *replace_op = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char *volname = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     char *src_brick = NULL;
     char *dst_brick = NULL;
     glusterd_brickinfo_t *src_brickinfo = NULL;
     glusterd_brickinfo_t *dst_brickinfo = NULL;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -600,11 +594,10 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases(rpcsvc_request_t *req,
     dict_t *req_dict = NULL;
     dict_t *tmp_dict = NULL;
     uuid_t *originator_uuid = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     gf_boolean_t is_acquired = _gf_false;
 
-    this = THIS;
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;

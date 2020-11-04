@@ -79,12 +79,10 @@ static char *gsync_no_restart_opts[] = {"checkpoint", "log_rsync_performance",
 void
 set_gsyncd_inet6_arg(runner_t *runner)
 {
-    xlator_t *this = NULL;
     char *af;
     int ret;
 
-    this = THIS;
-    ret = dict_get_str(this->options, "transport.address-family", &af);
+    ret = dict_get_str(THIS->options, "transport.address-family", &af);
     if (ret == 0)
         runner_argprintf(runner, "--%s", af);
 }
@@ -103,11 +101,10 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(req);
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -185,11 +182,10 @@ __glusterd_handle_copy_file(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(req);
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -270,11 +266,10 @@ __glusterd_handle_gsync_set(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(req);
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -433,10 +428,8 @@ static int32_t
 parse_slave_url(char *slv_url, char **slave)
 {
     char *tmp = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t ret = -1;
-
-    this = THIS;
 
     /* slave format:
      * master_node_uuid:ssh://slave_host::slave_vol:slave_voluuid */
@@ -471,10 +464,8 @@ _glusterd_urltransform_add_iter(dict_t *dict, char *key, data_t *value,
     runner_t *runner = (runner_t *)data;
     char slv_url[VOLINFO_SLAVE_URL_MAX] = {0};
     char *slave = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t ret = -1;
-
-    this = THIS;
 
     gf_msg_debug(this->name, 0, "value->data %s", value->data);
 
@@ -517,9 +508,7 @@ glusterd_urltransform(runner_t *runner, char ***linearrp)
     unsigned arr_len = 32;
     unsigned arr_idx = 0;
     gf_boolean_t error = _gf_false;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     linearr = GF_CALLOC(arr_len, sizeof(char *), gf_gld_mt_linearr);
     if (!linearr) {
@@ -694,9 +683,7 @@ glusterd_query_extutil_generic(char *resbuf, size_t blen, runner_t *runner,
                                            void *data))
 {
     int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     runner_redir(runner, STDOUT_FILENO, RUN_PIPE);
     if (runner_start(runner) != 0) {
@@ -746,10 +733,8 @@ glusterd_get_slave_voluuid(char *slave_host, char *slave_vol, char *vol_uuid)
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
-
-    this = THIS;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -991,10 +976,8 @@ gsyncd_getpidfile(char *master, char *slave, char *pidfile, char *conf_path,
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t len = 0;
-
-    this = THIS;
 
     GF_ASSERT(this->private);
     GF_ASSERT(conf_path);
@@ -1103,9 +1086,7 @@ glusterd_gsync_volinfo_dict_set(glusterd_volinfo_t *volinfo, char *key,
 {
     int32_t ret = -1;
     char *gsync_status = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     gsync_status = gf_strdup(value);
     if (!gsync_status) {
@@ -1133,9 +1114,7 @@ glusterd_verify_gsyncd_spawn(char *master, char *slave)
     runner_t runner = {
         0,
     };
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     runinit(&runner);
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", "--verify", "spawning",
@@ -1175,9 +1154,7 @@ gsync_verify_config_options(dict_t *dict, char **op_errstr, char *volname)
     gf_boolean_t op_match = _gf_true;
     gf_boolean_t val_match = _gf_true;
     struct gsync_config_opt_vals_ *conf_vals = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     if (dict_get_str(dict, "subop", &subop) != 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
@@ -1324,18 +1301,15 @@ _get_status_mst_slv(dict_t *dict, char *key, data_t *value, void *data)
     char conf_path[PATH_MAX] = "";
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char slv_url[VOLINFO_SLAVE_URL_MAX] = {0};
-
-    this = THIS;
 
     param = (glusterd_gsync_status_temp_t *)data;
 
     GF_VALIDATE_OR_GOTO(this->name, param, out);
     GF_VALIDATE_OR_GOTO(this->name, param->volinfo, out);
 
-    if (this)
-        priv = this->private;
+    priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
     if (snprintf(slv_url, sizeof(slv_url), "%s", value->data) >=
@@ -1389,7 +1363,7 @@ out:
     if (slave_host)
         GF_FREE(slave_host);
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d.", ret);
+    gf_msg_debug(this->name, 0, "Returning %d.", ret);
     return ret;
 }
 
@@ -1410,13 +1384,11 @@ static int
 _get_slave_idx_slave_voluuid(dict_t *dict, char *key, data_t *value, void *data)
 {
     char *slave_info = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     struct slave_vol_config *slave_cfg = NULL;
     int i = 0;
     int ret = -1;
     unsigned tmp_slvnum = 0;
-
-    this = THIS;
 
     slave_cfg = data;
 
@@ -1472,9 +1444,6 @@ glusterd_remove_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
     int zero_slave_entries = _gf_true;
     int ret = 0;
     char *slavekey = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(slave);
@@ -1497,7 +1466,7 @@ glusterd_remove_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
         goto out;
     }
 out:
-    gf_msg_debug(this->name, 0, "returning %d", ret);
+    gf_msg_debug(THIS->name, 0, "returning %d", ret);
     return ret;
 }
 
@@ -1508,9 +1477,6 @@ glusterd_gsync_get_uuid(char *slave, glusterd_volinfo_t *vol, uuid_t uuid)
     char *slavekey = NULL;
     char *slaveentry = NULL;
     char *t = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     GF_ASSERT(vol);
     GF_ASSERT(slave);
@@ -1537,7 +1503,7 @@ glusterd_gsync_get_uuid(char *slave, glusterd_volinfo_t *vol, uuid_t uuid)
     *t = ':';
 
 out:
-    gf_msg_debug(this->name, 0, "Returning %d", ret);
+    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1549,7 +1515,7 @@ update_slave_voluuid(dict_t *dict, char *key, data_t *value, void *data)
     char *slave_vol = NULL;
     char *slave_host = NULL;
     char *errmsg = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
     char slv_url[VOLINFO_SLAVE_URL_MAX] = {0};
     char slave_voluuid[GF_UUID_BUF_SIZE] = {0};
@@ -1558,8 +1524,6 @@ update_slave_voluuid(dict_t *dict, char *key, data_t *value, void *data)
     char *same_key = NULL;
     int cnt = 0;
     gf_boolean_t *voluuid_updated = NULL;
-
-    this = THIS;
 
     voluuid_updated = data;
     slave_info = value->data;
@@ -1663,10 +1627,9 @@ static int
 glusterd_update_slave_voluuid_slaveinfo(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t voluuid_updated = _gf_false;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
 
     ret = dict_foreach(volinfo->gsync_slaves, update_slave_voluuid,
@@ -1691,7 +1654,7 @@ glusterd_update_slave_voluuid_slaveinfo(glusterd_volinfo_t *volinfo)
 
     ret = 0;
 out:
-    gf_msg_debug((this ? this->name : "glusterd"), 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1702,9 +1665,7 @@ glusterd_check_gsync_running_local(char *master, char *slave, char *conf_path,
     int ret = -1;
     int ret_status = 0;
     gf_boolean_t is_template_in_use = _gf_false;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(master);
     GF_ASSERT(slave);
@@ -1742,12 +1703,10 @@ glusterd_store_slave_in_info(glusterd_volinfo_t *volinfo, char *slave,
     };
     int keylen;
     char *t = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     struct slave_vol_config slave1 = {
         {0},
     };
-
-    this = THIS;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(slave);
@@ -1868,7 +1827,7 @@ glusterd_op_verify_gsync_start_options(glusterd_volinfo_t *volinfo, char *slave,
     gf_boolean_t is_template_in_use = _gf_false;
     char msg[2048] = {0};
     uuid_t uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     struct stat stbuf = {
         0,
     };
@@ -1877,13 +1836,11 @@ glusterd_op_verify_gsync_start_options(glusterd_volinfo_t *volinfo, char *slave,
     };
     char *statedir = NULL;
 
-    this = THIS;
-
     GF_ASSERT(volinfo);
     GF_ASSERT(slave);
     GF_ASSERT(op_errstr);
     GF_ASSERT(conf_path);
-    GF_ASSERT(this && this->private);
+    GF_ASSERT(this->private);
 
     if (GLUSTERD_STATUS_STARTED != volinfo->status) {
         snprintf(msg, sizeof(msg),
@@ -2010,9 +1967,7 @@ is_geo_rep_active(glusterd_volinfo_t *volinfo, char *slave, char *conf_path,
     char *master = NULL;
     char monitor_status[PATH_MAX] = "";
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     master = volinfo->volname;
 
@@ -2091,7 +2046,7 @@ _get_slave_status(dict_t *dict, char *key, data_t *value, void *data)
     char conf_path[PATH_MAX] = "";
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     param = (gsync_status_param_t *)data;
 
@@ -2101,8 +2056,6 @@ _get_slave_status(dict_t *dict, char *key, data_t *value, void *data)
         ret = 0;
         goto out;
     }
-
-    this = THIS;
 
     priv = this->private;
     if (priv == NULL) {
@@ -2179,9 +2132,7 @@ glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr)
     };
     gf_boolean_t enabled = _gf_false;
     int ret = 0;
-    xlator_t *this = NULL;
 
-    this = THIS;
     GF_ASSERT(param);
     GF_ASSERT(param->volinfo);
     GF_ASSERT(op_errstr);
@@ -2192,7 +2143,7 @@ glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr)
         ret = dict_foreach(param->volinfo->gsync_slaves, _get_slave_status,
                            param);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SLAVEINFO_FETCH_ERROR,
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SLAVEINFO_FETCH_ERROR,
                    "_get_slave_satus failed");
             snprintf(msg, sizeof(msg),
                      GEOREP
@@ -2237,11 +2188,8 @@ glusterd_op_verify_gsync_running(glusterd_volinfo_t *volinfo, char *slave,
         0,
     };
     gf_boolean_t is_template_in_use = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-
-    GF_ASSERT(THIS && THIS->private);
     GF_ASSERT(volinfo);
     GF_ASSERT(slave);
     GF_ASSERT(conf_path);
@@ -2318,12 +2266,9 @@ glusterd_verify_gsync_status_opts(dict_t *dict, char **op_errstr)
     char *slave_host = NULL;
     char *slave_vol = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-
-    if (THIS)
-        priv = THIS->private;
+    priv = this->private;
     if (priv == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
                "priv of glusterd not present");
@@ -2375,9 +2320,8 @@ glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **master,
                            char **slave, char **host_uuid)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
@@ -2428,9 +2372,8 @@ glusterd_op_stage_sys_exec(dict_t *dict, char **op_errstr)
     };
     int ret = -1;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2502,7 +2445,7 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char workdir[PATH_MAX] = {
         0,
     };
@@ -2514,10 +2457,7 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
     };
     int32_t len = 0;
 
-    this = THIS;
-
-    if (THIS)
-        priv = THIS->private;
+    priv = this->private;
     if (priv == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
                "priv of glusterd not present");
@@ -2661,10 +2601,8 @@ glusterd_get_statefile_name(glusterd_volinfo_t *volinfo, char *slave,
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t len = 0;
-
-    this = THIS;
 
     GF_ASSERT(this->private);
     GF_ASSERT(volinfo);
@@ -2776,12 +2714,9 @@ glusterd_create_status_file(char *master, char *slave, char *slave_host,
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-
-    if (THIS)
-        priv = THIS->private;
+    priv = this->private;
     if (priv == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
                "priv of glusterd not present");
@@ -2835,10 +2770,9 @@ glusterd_verify_slave(char *volname, char *slave_url, char *slave_vol,
     char *slave_user = NULL;
     char *slave_ip = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *af = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volname);
@@ -2947,9 +2881,7 @@ glusterd_geo_rep_parse_slave(char *slave_url, char **hostname, char **op_errstr)
     char *host = NULL;
     char errmsg[PATH_MAX] = "";
     char *saved_url = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(slave_url);
     GF_ASSERT(*slave_url);
@@ -3019,12 +2951,10 @@ get_slavehost_from_voluuid(dict_t *dict, char *key, data_t *value, void *data)
     char *slave_info = NULL;
     char *tmp = NULL;
     char *slave_host = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     struct slave_vol_config *slave_vol = NULL;
     int i = 0;
     int ret = -1;
-
-    this = THIS;
 
     slave_vol = data;
     slave_info = value->data;
@@ -3113,11 +3043,8 @@ glusterd_get_slavehost_from_voluuid(glusterd_volinfo_t *volinfo,
                                     struct slave_vol_config *slave1)
 {
     int ret = -1;
-    xlator_t *this = NULL;
 
-    this = THIS;
-
-    GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
 
     ret = dict_foreach(volinfo->gsync_slaves, get_slavehost_from_voluuid,
                        slave1);
@@ -3153,7 +3080,7 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     struct slave_vol_config slave1 = {
         {0},
     };
@@ -3171,7 +3098,6 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
     char *slave_url_buf = NULL;
     int32_t len = 0;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -3633,13 +3559,12 @@ glusterd_op_stage_gsync_set(dict_t *dict, char **op_errstr)
     uuid_t uuid = {0};
     char uuid_str[64] = {0};
     char *host_uuid = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     struct stat stbuf = {
         0,
     };
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -3973,9 +3898,8 @@ gd_pause_or_resume_gsync(dict_t *dict, char *master, char *slave,
         0,
     };
     char *statefile = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_ASSERT(dict);
     GF_ASSERT(master);
     GF_ASSERT(slave);
@@ -4129,11 +4053,7 @@ stop_gsync(char *master, char *slave, char **msg, char *conf_path,
     };
     int i = 0;
     gf_boolean_t is_template_in_use = _gf_false;
-    xlator_t *this = NULL;
-
-    this = THIS;
-
-    GF_ASSERT(this->private);
+    xlator_t *this = THIS;
 
     pfd = gsyncd_getpidfile(master, slave, pidfile, conf_path,
                             &is_template_in_use);
@@ -4211,9 +4131,7 @@ glusterd_gsync_op_already_set(char *master, char *slave, char *conf_path,
     int32_t op_val_cli = 0;
     int32_t ret = -1;
     gf_boolean_t is_bool = _gf_true;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     confd = dict_new();
     if (!confd) {
@@ -4303,9 +4221,7 @@ glusterd_gsync_configure(glusterd_volinfo_t *volinfo, char *slave,
     gf_boolean_t restart_required = _gf_true;
     char **resopt = NULL;
     gf_boolean_t op_already_set = _gf_false;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(slave);
     GF_ASSERT(op_errstr);
@@ -4460,9 +4376,7 @@ glusterd_gsync_read_frm_status(char *path, char *buf, size_t blen)
 {
     int ret = 0;
     int status_fd = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(path);
     GF_ASSERT(buf);
@@ -4532,9 +4446,7 @@ glusterd_fetch_values_from_config(char *master, char *slave, char *confpath,
                                   char **socketfile)
 {
     int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = glusterd_gsync_get_config(master, slave, confpath, confd);
     if (ret) {
@@ -4621,9 +4533,8 @@ glusterd_read_status_file(glusterd_volinfo_t *volinfo, char *slave,
     xlator_t *this = NULL;
     int32_t len = 0;
 
-    this = THIS;
-
-    GF_ASSERT(this->private);
+    priv = this->private;
+    GF_ASSERT(priv);
     GF_ASSERT(volinfo);
     GF_ASSERT(conf_path);
 
@@ -4635,8 +4546,6 @@ glusterd_read_status_file(glusterd_volinfo_t *volinfo, char *slave,
                "Not able to create dict.");
         return -1;
     }
-
-    priv = THIS->private;
 
     len = snprintf(temp_conf_path, sizeof(temp_conf_path),
                    "%s/" GSYNC_CONF_TEMPLATE, priv->workdir);
@@ -4856,18 +4765,14 @@ glusterd_check_restart_gsync_session(glusterd_volinfo_t *volinfo, char *slave,
                                      char *conf_path, gf_boolean_t is_force)
 {
     int ret = 0;
-    glusterd_conf_t *priv = NULL;
     char *status_msg = NULL;
     gf_boolean_t is_running = _gf_false;
     char *op_errstr = NULL;
     char *key = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(slave);
-    this = THIS;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     key = slave;
 
@@ -4912,13 +4817,10 @@ static int32_t
 glusterd_marker_changelog_create_volfile(glusterd_volinfo_t *volinfo)
 {
     int32_t ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     ret = glusterd_create_volfiles_and_notify_services(volinfo);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Unable to create volfile for setting of marker "
                "while '" GEOREP " start'");
         ret = -1;
@@ -4943,11 +4845,7 @@ glusterd_set_gsync_knob(glusterd_volinfo_t *volinfo, char *key, int *vc)
 {
     int ret = -1;
     int conf_enabled = _gf_false;
-    xlator_t *this = NULL;
-
-    this = THIS;
-
-    GF_ASSERT(this->private);
+    xlator_t *this = THIS;
 
     conf_enabled = glusterd_volinfo_get_boolean(volinfo, key);
     if (conf_enabled == -1) {
@@ -5010,13 +4908,10 @@ glusterd_get_gsync_status_mst_slv(glusterd_volinfo_t *volinfo, char *slave,
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(slave);
-    GF_ASSERT(this->private);
 
     ret = glusterd_gsync_get_uuid(slave, volinfo, uuid);
     if (ret) {
@@ -5081,9 +4976,7 @@ glusterd_get_gsync_status_all(dict_t *rsp_dict, char *node)
     int32_t ret = 0;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     priv = this->private;
 
@@ -5115,9 +5008,7 @@ glusterd_get_gsync_status(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char my_hostname[256] = {
         0,
     };
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = gethostname(my_hostname, 256);
     if (ret) {
@@ -5178,10 +5069,8 @@ glusterd_gsync_delete(glusterd_volinfo_t *volinfo, char *slave,
     char *gl_workdir = NULL;
     char geo_rep_dir[PATH_MAX] = "";
     char *conf_path = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uint32_t reset_sync_time = _gf_false;
-
-    this = THIS;
 
     GF_ASSERT(slave);
     GF_ASSERT(slave_host);
@@ -5190,8 +5079,7 @@ glusterd_gsync_delete(glusterd_volinfo_t *volinfo, char *slave,
     GF_ASSERT(dict);
     GF_ASSERT(resp_dict);
 
-    if (THIS)
-        priv = THIS->private;
+    priv = this->private;
     if (priv == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
                "priv of glusterd not present");
@@ -5289,16 +5177,13 @@ glusterd_op_sys_exec(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     runner_t runner = {
         0,
     };
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
 
-    if (THIS)
-        priv = THIS->private;
+    priv = this->private;
     if (priv == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
                "priv of glusterd not present");
@@ -5435,13 +5320,10 @@ glusterd_op_copy_file(dict_t *dict, char **op_errstr)
         0,
     };
     gf_boolean_t free_contents = _gf_true;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t len = 0;
 
-    this = THIS;
-
-    if (THIS)
-        priv = THIS->private;
+    priv = this->private;
     if (priv == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_PRIV_NOT_FOUND,
                "priv of glusterd not present");
@@ -5661,9 +5543,8 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t is_running = _gf_false;
     char *conf_path = NULL;
     char *key = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(dict);
@@ -5880,9 +5761,7 @@ glusterd_get_slave_details_confpath(glusterd_volinfo_t *volinfo, dict_t *dict,
     char confpath[PATH_MAX] = "";
     glusterd_conf_t *priv = NULL;
     char *slave = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5958,9 +5837,7 @@ glusterd_get_slave_info(char *slave, char **slave_url, char **hostname,
     char **linearr = NULL;
     int32_t ret = -1;
     char errmsg[PATH_MAX] = "";
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = glusterd_urltransform_single(slave, "normalize", &linearr);
     if ((ret == -1) || (linearr[0] == NULL)) {
@@ -6339,10 +6216,8 @@ glusterd_create_essential_dir_files(glusterd_volinfo_t *volinfo, dict_t *dict,
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t len = 0;
-
-    this = THIS;
 
     conf = this->private;
 
@@ -6475,7 +6350,7 @@ glusterd_op_gsync_create(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t is_force = -1;
     glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char old_working_dir[PATH_MAX] = {0};
     char new_working_dir[PATH_MAX] = {0};
     char *slave_voluuid = NULL;
@@ -6483,7 +6358,6 @@ glusterd_op_gsync_create(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t is_existing_session = _gf_false;
     int32_t len = 0;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
     GF_ASSERT(dict);

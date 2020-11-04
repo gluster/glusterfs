@@ -40,9 +40,8 @@ glusterd_scrubsvc_create_volfile()
     };
     int ret = -1;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -66,17 +65,18 @@ int
 glusterd_scrubsvc_manager(glusterd_svc_t *svc, void *data, int flags)
 {
     int ret = -EINVAL;
+    xlator_t *this = THIS;
 
     if (!svc->inited) {
         ret = glusterd_scrubsvc_init(svc);
         if (ret) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SCRUB_INIT_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SCRUB_INIT_FAIL,
                    "Failed to init "
                    "scrub service");
             goto out;
         } else {
             svc->inited = _gf_true;
-            gf_msg_debug(THIS->name, 0,
+            gf_msg_debug(this->name, 0,
                          "scrub service "
                          "initialized");
         }
@@ -105,7 +105,7 @@ glusterd_scrubsvc_manager(glusterd_svc_t *svc, void *data, int flags)
 out:
     if (ret)
         gf_event(EVENT_SVC_MANAGER_FAILED, "svc_name=%s", svc->name);
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
 
     return ret;
 }
@@ -144,11 +144,9 @@ int
 glusterd_scrubsvc_reconfigure()
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t identical = _gf_false;
-
-    this = THIS;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -201,6 +199,6 @@ manager:
     ret = priv->scrub_svc.manager(&(priv->scrub_svc), NULL, PROC_START_NO_WAIT);
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }

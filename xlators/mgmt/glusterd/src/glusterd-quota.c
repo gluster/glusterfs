@@ -104,11 +104,9 @@ const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
 gf_boolean_t
 glusterd_is_quota_supported(int32_t type, char **op_errstr)
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     gf_boolean_t supported = _gf_false;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -171,11 +169,10 @@ __glusterd_handle_quota(rpcsvc_request_t *req)
     char msg[2048] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -302,13 +299,12 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
     char *volfileserver = NULL;
     FILE *pidfp = NULL;
     int32_t len = 0;
-
-    GF_VALIDATE_OR_GOTO("glusterd", THIS, out);
+    xlator_t *this = THIS;
 
     GLUSTERD_GET_TMP_PATH(mountdir, "/");
     ret = sys_mkdir(mountdir, 0755);
     if (ret && errno != EEXIST) {
-        gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_MOUNT_REQ_FAIL,
+        gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_MOUNT_REQ_FAIL,
                "failed to create temporary "
                "directory %s",
                mountdir);
@@ -318,7 +314,7 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
 
     strcat(mountdir, "mntXXXXXX");
     if (mkdtemp(mountdir) == NULL) {
-        gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_MOUNT_REQ_FAIL,
+        gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_MOUNT_REQ_FAIL,
                "failed to create a temporary "
                "mount directory: %s",
                mountdir);
@@ -334,7 +330,7 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
         goto out;
     }
 
-    if (dict_get_strn(THIS->options, "transport.socket.bind-address",
+    if (dict_get_strn(this->options, "transport.socket.bind-address",
                       SLEN("transport.socket.bind-address"),
                       &volfileserver) != 0)
         volfileserver = "localhost";
@@ -371,7 +367,7 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
     runner_end(&runner);
 
     if ((pid = fork()) < 0) {
-        gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_FORK_FAIL,
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_FORK_FAIL,
                "fork from parent failed");
         gf_umount_lazy("glusterd", mountdir, 1);
         ret = -1;
@@ -390,7 +386,7 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
 
         ret = chdir(mountdir);
         if (ret == -1) {
-            gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_DIR_OP_FAILED,
+            gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_DIR_OP_FAILED,
                    "chdir %s failed", mountdir);
             gf_umount_lazy("glusterd", mountdir, 1);
             exit(EXIT_FAILURE);
@@ -500,8 +496,6 @@ glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
         0,
     };
 
-    GF_VALIDATE_OR_GOTO("glusterd", THIS, out);
-
     ret = glusterd_generate_client_per_brick_volfile(volinfo);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_OP_FAILED,
@@ -559,17 +553,11 @@ glusterd_quota_get_default_soft_limit(glusterd_volinfo_t *volinfo,
                                       dict_t *rsp_dict)
 {
     int32_t ret = 0;
-    xlator_t *this = NULL;
-    glusterd_conf_t *conf = NULL;
     char *default_limit = NULL;
     char *val = NULL;
 
     if (rsp_dict == NULL)
         return -1;
-
-    this = THIS;
-    conf = this->private;
-    GF_ASSERT(conf);
 
     ret = glusterd_volinfo_get(volinfo, "features.default-soft-limit",
                                &default_limit);
@@ -580,7 +568,7 @@ glusterd_quota_get_default_soft_limit(glusterd_volinfo_t *volinfo,
 
     ret = dict_set_dynstr_sizen(rsp_dict, "default-soft-limit", val);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set default "
                "soft-limit into dict");
         goto out;
@@ -596,9 +584,7 @@ glusterd_inode_quota_enable(glusterd_volinfo_t *volinfo, char **op_errstr,
                             gf_boolean_t *crawl)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, crawl, out);
@@ -655,9 +641,7 @@ glusterd_quota_enable(glusterd_volinfo_t *volinfo, char **op_errstr,
                       gf_boolean_t *crawl)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, crawl, out);
@@ -724,7 +708,7 @@ glusterd_quota_disable(glusterd_volinfo_t *volinfo, char **op_errstr,
     int32_t ret = -1;
     int i = 0;
     char *value = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char *quota_options[] = {"features.soft-timeout",
                              "features.hard-timeout",
@@ -734,7 +718,6 @@ glusterd_quota_disable(glusterd_volinfo_t *volinfo, char **op_errstr,
                              "features.quota-timeout",
                              NULL};
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -793,11 +776,9 @@ glusterd_set_quota_limit(char *volname, char *path, char *hard_limit,
                          char *soft_limit, char *key, char **op_errstr)
 {
     int ret = -1;
-    xlator_t *this = NULL;
     char abspath[PATH_MAX] = {
         0,
     };
-    glusterd_conf_t *priv = NULL;
     quota_limits_t existing_limit = {
         0,
     };
@@ -806,10 +787,6 @@ glusterd_set_quota_limit(char *volname, char *path, char *hard_limit,
     };
     double soft_limit_double = 0;
     int64_t local_hl = 0;
-
-    this = THIS;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH(abspath, volname, path);
     ret = gf_lstat_dir(abspath, NULL);
@@ -945,10 +922,8 @@ glusterd_find_gfid_match(uuid_t gfid, char gfid_type, unsigned char *buf,
         0,
     };
     char type = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -994,11 +969,10 @@ glusterd_copy_to_tmp_file(int src_fd, int dst_fd, int qconf_line_sz)
 {
     int ret = 0;
     ssize_t bytes_read = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     unsigned char *buf = 0;
     int buf_sz = qconf_line_sz * 1000;
 
-    this = THIS;
     GF_ASSERT(buf_sz > 0);
 
     buf = GF_CALLOC(buf_sz, 1, gf_common_mt_char);
@@ -1040,10 +1014,8 @@ glusterd_store_quota_conf_upgrade(glusterd_volinfo_t *volinfo)
     unsigned char gfid[17] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char type = 0;
-
-    this = THIS;
 
     fd = gf_store_mkstemp(volinfo->quota_conf_shandle);
     if (fd < 0) {
@@ -1124,7 +1096,7 @@ glusterd_store_quota_config(glusterd_volinfo_t *volinfo, char *path,
     uuid_t gfid = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t found = _gf_false;
     gf_boolean_t modified = _gf_false;
     gf_boolean_t is_file_empty = _gf_false;
@@ -1136,7 +1108,6 @@ glusterd_store_quota_config(glusterd_volinfo_t *volinfo, char *path,
     unsigned char *buf = 0;
     int buf_sz = 0;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1373,9 +1344,7 @@ glusterd_quota_limit_usage(glusterd_volinfo_t *volinfo, dict_t *dict,
     char *hard_limit = NULL;
     char *soft_limit = NULL;
     char *gfid_str = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
@@ -1461,15 +1430,9 @@ glusterd_remove_quota_limit(char *volname, char *path, char **op_errstr,
                             int type)
 {
     int ret = -1;
-    xlator_t *this = NULL;
     char abspath[PATH_MAX] = {
         0,
     };
-    glusterd_conf_t *priv = NULL;
-
-    this = THIS;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH(abspath, volname, path);
     ret = gf_lstat_dir(abspath, NULL);
@@ -1515,9 +1478,7 @@ glusterd_quota_remove_limits(glusterd_volinfo_t *volinfo, dict_t *dict,
     int32_t ret = -1;
     char *path = NULL;
     char *gfid_str = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
@@ -1575,10 +1536,8 @@ glusterd_set_quota_option(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     int ret = 0;
     char *value = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *option = NULL;
-
-    this = THIS;
 
     ret = glusterd_check_if_quota_trans_enabled(volinfo);
     if (ret == -1) {
@@ -1611,12 +1570,9 @@ static int
 glusterd_quotad_op(int opcode)
 {
     int ret = -1;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     switch (opcode) {
@@ -1646,12 +1602,11 @@ glusterd_op_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     int type = -1;
     gf_boolean_t start_crawl = _gf_false;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -1831,7 +1786,7 @@ glusterd_get_gfid_from_brick(dict_t *dict, glusterd_volinfo_t *volinfo,
     char backend_path[PATH_MAX] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     char key[64] = {
@@ -1841,7 +1796,6 @@ glusterd_get_gfid_from_brick(dict_t *dict, glusterd_volinfo_t *volinfo,
     char *gfid_str = NULL;
     uuid_t gfid;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -2075,14 +2029,13 @@ glusterd_op_stage_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     int ret = 0;
     char *volname = NULL;
     int type = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char *hard_limit_str = NULL;
     int64_t hard_limit = 0;
     gf_boolean_t get_gfid = _gf_false;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 

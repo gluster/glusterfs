@@ -71,10 +71,8 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
 
     int32_t ret = -1;
     pid_t pid = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_ASSERT(conf);

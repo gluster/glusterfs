@@ -141,11 +141,11 @@ int
 glusterd_uuid_init()
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
     priv = this->private;
+    GF_ASSERT(priv);
 
     ret = glusterd_retrieve_uuid();
     if (ret == 0) {
@@ -170,9 +170,8 @@ glusterd_uuid_generate_save()
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -236,12 +235,11 @@ glusterd_client_statedump_submit_req(char *volname, char *target_ip, char *pid)
     char *end_ptr = NULL;
     rpc_transport_t *trans = NULL;
     char *ip_addr = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char tmp[UNIX_PATH_MAX] = {
         0,
     };
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -447,7 +445,6 @@ glusterd_rpcsvc_options_build(dict_t *options)
 {
     int ret = 0;
     uint32_t backlog = 0;
-    xlator_t *this = THIS;
 
     ret = dict_get_uint32(options, "transport.listen-backlog", &backlog);
 
@@ -455,7 +452,7 @@ glusterd_rpcsvc_options_build(dict_t *options)
         backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
         ret = dict_set_uint32(options, "transport.listen-backlog", backlog);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=transport.listen-backlog", NULL);
             goto out;
         }
@@ -1054,7 +1051,6 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
     int rv = 0;
     gf_mount_spec_t *mspec = NULL;
     char *user = NULL;
-    xlator_t *this = THIS;
 
     label = strtail(key, "mountbroker.");
 
@@ -1070,7 +1066,7 @@ _install_mount_spec(dict_t *opts, char *key, data_t *value, void *data)
 
     mspec = GF_CALLOC(1, sizeof(*mspec), gf_gld_mt_mount_spec);
     if (!mspec) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto err;
     }
     mspec->label = label;

@@ -72,11 +72,9 @@ glusterd_gfproxydsvc_init(glusterd_volinfo_t *volinfo)
     glusterd_svc_t *svc = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_conn_notify_t notify = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volfileserver = NULL;
     int32_t len = 0;
-
-    this = THIS;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -125,11 +123,9 @@ glusterd_gfproxydsvc_init(glusterd_volinfo_t *volinfo)
     }
     ret = glusterd_proc_init(&(svc->proc), gfproxyd_svc_name, pidfile, logdir,
                              logfile, volfile, volfileid, volfileserver);
-    if (ret)
-        goto out;
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -137,19 +133,15 @@ static int
 glusterd_gfproxydsvc_create_volfile(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = glusterd_generate_gfproxyd_volfile(volinfo);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Failed to create volfile");
-        goto out;
     }
 
-out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
 
     return ret;
 }
@@ -159,9 +151,7 @@ glusterd_gfproxydsvc_manager(glusterd_svc_t *svc, void *data, int flags)
 {
     int ret = -1;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     volinfo = data;
     GF_VALIDATE_OR_GOTO(this->name, data, out);
@@ -269,7 +259,7 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char valgrind_logfile[PATH_MAX] = {0};
     int gfproxyd_port = 0;
     char msg[1024] = {
@@ -281,8 +271,6 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
     glusterd_volinfo_t *volinfo = NULL;
     char *localtime_logging = NULL;
     int32_t len = 0;
-
-    this = THIS;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -405,13 +393,10 @@ int
 glusterd_gfproxydsvc_reconfigure(void *data)
 {
     int ret = -1;
-    xlator_t *this = NULL;
     gf_boolean_t identical = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
 
     volinfo = data;
-
-    this = THIS;
 
     if (!volinfo->gfproxyd.svc.inited)
         goto manager;
@@ -453,7 +438,7 @@ glusterd_gfproxydsvc_reconfigure(void *data)
     if (identical) {
         ret = glusterd_gfproxydsvc_create_volfile(volinfo);
         if (ret == 0) { /* Only if above PASSES */
-            ret = glusterd_fetchspec_notify(this);
+            ret = glusterd_fetchspec_notify(THIS);
         }
         goto out;
     }

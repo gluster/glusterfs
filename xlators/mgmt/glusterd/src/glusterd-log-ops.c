@@ -33,10 +33,9 @@ __glusterd_handle_log_rotate(rpcsvc_request_t *req)
     char msg[64] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(req);
-    this = THIS;
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -169,7 +168,6 @@ glusterd_op_log_rotate(dict_t *dict)
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = NULL;
     char *volname = NULL;
     char *brick = NULL;
     char logfile[PATH_MAX] = {
@@ -184,8 +182,7 @@ glusterd_op_log_rotate(dict_t *dict)
     int valid_brick = 0;
     glusterd_brickinfo_t *tmpbrkinfo = NULL;
 
-    this = THIS;
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     ret = dict_get_str(dict, "volname", &volname);

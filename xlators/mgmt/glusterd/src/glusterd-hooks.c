@@ -87,8 +87,7 @@ glusterd_hooks_create_hooks_directory(char *basedir)
     glusterd_conf_t *priv = NULL;
     int32_t len = 0;
 
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
     priv = this->private;
 
     snprintf(path, sizeof(path), "%s/hooks", basedir);
@@ -179,9 +178,8 @@ glusterd_hooks_add_custom_args(dict_t *dict, runner_t *runner)
 {
     char *hooks_args = NULL;
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
     GF_VALIDATE_OR_GOTO(this->name, runner, out);
 
@@ -211,8 +209,7 @@ glusterd_hooks_set_volume_args(dict_t *dict, runner_t *runner)
     char *key = NULL;
     char *value = NULL;
     char *inet_family = NULL;
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = dict_get_int32(dict, "count", &count);
     if (ret) {
@@ -347,7 +344,7 @@ int
 glusterd_hooks_run_hooks(char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                          glusterd_commit_hook_type_t type)
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     runner_t runner = {
         0,
     };
@@ -364,8 +361,6 @@ glusterd_hooks_run_hooks(char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
     int lineno = 0;
     int line_count = 0;
     int ret = -1;
-
-    this = THIS;
 
     ret = dict_get_str(op_ctx, "volname", &volname);
     if (ret) {
@@ -493,8 +488,7 @@ glusterd_hooks_stub_init(glusterd_hooks_stub_t **stub, char *scriptdir,
     int ret = -1;
     glusterd_hooks_stub_t *hooks_stub = NULL;
 
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
     GF_ASSERT(stub);
     if (!stub)
         goto out;
@@ -587,8 +581,7 @@ glusterd_hooks_priv_init(glusterd_hooks_private_t **new)
     int ret = -1;
     glusterd_hooks_private_t *hooks_priv = NULL;
 
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
 
     if (!new) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);

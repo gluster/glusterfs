@@ -154,11 +154,9 @@ int
 glusterd_quotadsvc_reconfigure()
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t identical = _gf_false;
-
-    this = THIS;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -211,6 +209,6 @@ manager:
                                    PROC_START_NO_WAIT);
 
 out:
-    gf_msg_debug(this ? this->name : "Quotad", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }

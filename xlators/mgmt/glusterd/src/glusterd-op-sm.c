@@ -97,10 +97,9 @@ int32_t
 glusterd_txn_opinfo_dict_init()
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -121,11 +120,9 @@ out:
 void
 glusterd_txn_opinfo_dict_fini()
 {
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     if (priv->glusterd_txn_opinfo)
@@ -169,9 +166,8 @@ glusterd_generate_txn_id(dict_t *dict, uuid_t **txn_id)
 {
     int32_t ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(dict);
@@ -210,9 +206,8 @@ glusterd_get_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo)
     int32_t ret = -1;
     glusterd_txn_opinfo_obj *opinfo_obj = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -246,9 +241,8 @@ glusterd_set_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo)
     int32_t ret = -1;
     glusterd_txn_opinfo_obj *opinfo_obj = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -304,9 +298,8 @@ glusterd_clear_txn_opinfo(uuid_t *txn_id)
         {0},
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -524,10 +517,8 @@ glusterd_brick_op_build_payload(glusterd_op_t op,
         0,
     };
     gf_xl_afr_op_t heal_op = GF_SHD_OP_INVALID;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_t *volinfo = NULL;
-
-    this = THIS;
 
     GF_ASSERT(op < GD_OP_MAX);
     GF_ASSERT(op > GD_OP_NONE);
@@ -679,8 +670,7 @@ glusterd_node_op_build_payload(glusterd_op_t op, gd1_mgmt_brick_op_req **req,
     GF_ASSERT(op < GD_OP_MAX);
     GF_ASSERT(op > GD_OP_NONE);
     GF_ASSERT(req);
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
 
     switch (op) {
         case GD_OP_PROFILE_VOLUME:
@@ -803,12 +793,10 @@ glusterd_validate_shared_storage(char *value, char *errstr)
     int32_t count = -1;
     char *op = NULL;
     char hook_script[PATH_MAX] = "";
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     int32_t len = 0;
     glusterd_volinfo_t *volinfo = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -904,11 +892,9 @@ static int
 glusterd_validate_localtime_logging(char *value, char *errstr)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     int already_enabled = 0;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -946,10 +932,8 @@ static int
 glusterd_validate_daemon_log_level(char *value, char *errstr)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -1005,7 +989,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
     gf_boolean_t key_matched = _gf_false; /* if a key was processed or not*/
     glusterd_volinfo_t *voliter = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uint32_t new_op_version = GD_OP_VERSION_MIN;
     uint32_t local_new_op_version = GD_OP_VERSION_MIN;
     uint32_t local_new_client_op_version = GD_OP_VERSION_MIN;
@@ -1018,7 +1002,6 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
     struct volopt_map_entry *vmep = NULL;
 
     GF_ASSERT(dict);
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -1554,10 +1537,8 @@ glusterd_op_stage_reset_volume(dict_t *dict, char **op_errstr)
     char *key = NULL;
     char *key_fixed = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1672,8 +1653,7 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
         0,
     };
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
-    this = THIS;
+    xlator_t *this = THIS;
 
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
     if (ret) {
@@ -1747,7 +1727,7 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
     };
     char *volname = NULL;
     char *brick = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_volinfo_t *volinfo = NULL;
@@ -1758,7 +1738,6 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
     gf_boolean_t shd_enabled = _gf_false;
 
     GF_ASSERT(dict);
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -2088,10 +2067,9 @@ glusterd_options_reset(glusterd_volinfo_t *volinfo, char *key,
     int ret = 0;
     data_t *value = NULL;
     char *key_fixed = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_svc_t *svc = NULL;
 
-    this = THIS;
     GF_ASSERT(volinfo->dict);
     GF_ASSERT(key);
 
@@ -2274,9 +2252,8 @@ glusterd_op_reset_volume(dict_t *dict, char **op_rspstr)
     char *key_fixed = NULL;
     int32_t is_force = 0;
     gf_boolean_t quorum_action = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -2415,11 +2392,9 @@ static int
 glusterd_update_volumes_dict(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char *address_family_str = NULL;
-
-    this = THIS;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -2474,10 +2449,9 @@ glusterd_set_brick_mx_opts(dict_t *dict, char *key, char *value,
                            char **op_errstr)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
     GF_VALIDATE_OR_GOTO(this->name, key, out);
     GF_VALIDATE_OR_GOTO(this->name, value, out);
@@ -2775,10 +2749,9 @@ glusterd_set_shared_storage(dict_t *dict, char *key, char *value,
     char errstr[PATH_MAX] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t len = 0;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
     GF_VALIDATE_OR_GOTO(this->name, key, out);
     GF_VALIDATE_OR_GOTO(this->name, value, out);
@@ -2854,7 +2827,7 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
     int ret = 0;
     glusterd_volinfo_t *volinfo = NULL;
     char *volname = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     int count = 1;
     char *key = NULL;
@@ -2872,8 +2845,6 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
     uint32_t new_op_version = 0;
     gf_boolean_t quorum_action = _gf_false;
     glusterd_svc_t *svc = NULL;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -3149,9 +3120,8 @@ glusterd_op_sync_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     int vol_count = 0;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -3356,13 +3326,11 @@ _add_remove_bricks_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo,
     };
     int keylen;
     char *brick = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
     GF_ASSERT(prefix);
-
-    this = THIS;
 
     ret = dict_get_int32n(volinfo->rebal.dict, "count", SLEN("count"), &count);
     if (ret) {
@@ -3421,12 +3389,10 @@ _add_task_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
     int keylen;
     char *uuid_str = NULL;
     int status = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
-
-    this = THIS;
 
     switch (op) {
         case GD_OP_REMOVE_BRICK:
@@ -3491,9 +3457,7 @@ glusterd_aggregate_task_status(dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     int tasks = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
         ret = _add_task_to_dict(rsp_dict, volinfo, volinfo->rebal.op, tasks);
@@ -3526,7 +3490,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     uint32_t cmd = 0;
     char *volname = NULL;
     char *brick = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_conf_t *priv = NULL;
@@ -3538,7 +3502,6 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t origin_glusterd = _gf_false;
     int snapd_enabled, bitrot_enabled, volume_quota_enabled;
 
-    this = THIS;
     priv = this->private;
 
     GF_ASSERT(priv);
@@ -3819,12 +3782,11 @@ glusterd_op_ac_send_lock(glusterd_op_sm_event_t *event, void *ctx)
     int ret = 0;
     rpc_clnt_procedure_t *proc = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_peerinfo_t *peerinfo = NULL;
     uint32_t pending_count = 0;
     dict_t *dict = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -3922,12 +3884,11 @@ glusterd_op_ac_send_unlock(glusterd_op_sm_event_t *event, void *ctx)
     int ret = 0;
     rpc_clnt_procedure_t *proc = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_peerinfo_t *peerinfo = NULL;
     uint32_t pending_count = 0;
     dict_t *dict = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -4056,7 +4017,7 @@ glusterd_op_ac_lock(glusterd_op_sm_event_t *event, void *ctx)
     char *volname = NULL;
     char *globalname = NULL;
     glusterd_op_lock_ctx_t *lock_ctx = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uint32_t op_errno = 0;
     glusterd_conf_t *conf = NULL;
     uint32_t timeout = 0;
@@ -4064,7 +4025,6 @@ glusterd_op_ac_lock(glusterd_op_sm_event_t *event, void *ctx)
     GF_ASSERT(event);
     GF_ASSERT(ctx);
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -4126,12 +4086,11 @@ glusterd_op_ac_unlock(glusterd_op_sm_event_t *event, void *ctx)
     char *globalname = NULL;
     glusterd_op_lock_ctx_t *lock_ctx = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(event);
     GF_ASSERT(ctx);
 
-    this = THIS;
     priv = this->private;
 
     lock_ctx = (glusterd_op_lock_ctx_t *)ctx;
@@ -4233,9 +4192,7 @@ glusterd_dict_set_volid(dict_t *dict, char *volname, char **op_errstr)
     char msg[1024] = {
         0,
     };
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     if (!dict || !volname) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -4309,12 +4266,10 @@ glusterd_op_build_payload(dict_t **req, char **op_errstr, dict_t *op_ctx)
     glusterd_op_t op = GD_OP_NONE;
     char *volname = NULL;
     uint32_t status_cmd = GF_CLI_STATUS_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t do_common = _gf_false;
 
     GF_ASSERT(req);
-
-    this = THIS;
 
     req_dict = dict_new();
     if (!req_dict)
@@ -4500,7 +4455,7 @@ glusterd_op_ac_send_stage_op(glusterd_op_sm_event_t *event, void *ctx)
     int ret1 = 0;
     rpc_clnt_procedure_t *proc = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_peerinfo_t *peerinfo = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
@@ -4508,7 +4463,6 @@ glusterd_op_ac_send_stage_op(glusterd_op_sm_event_t *event, void *ctx)
     glusterd_op_t op = GD_OP_NONE;
     uint32_t pending_count = 0;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -4643,9 +4597,7 @@ glusterd_op_volume_dict_uuid_to_hostname(dict_t *dict, const char *key_fmt,
         0,
     };
     char *hostname = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
     GF_ASSERT(key_fmt);
@@ -4860,7 +4812,7 @@ glusterd_op_modify_op_ctx(glusterd_op_t op, void *ctx)
     int other_count = 0;
     int count = 0;
     uint32_t cmd = GF_CLI_STATUS_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
@@ -4871,7 +4823,6 @@ glusterd_op_modify_op_ctx(glusterd_op_t op, void *ctx)
     };
     int keylen;
 
-    this = THIS;
     conf = this->private;
 
     if (ctx)
@@ -5137,14 +5088,13 @@ glusterd_op_ac_send_commit_op(glusterd_op_sm_event_t *event, void *ctx)
     int ret1 = 0;
     rpc_clnt_procedure_t *proc = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     dict_t *dict = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     char *op_errstr = NULL;
     glusterd_op_t op = GD_OP_NONE;
     uint32_t pending_count = 0;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -5226,7 +5176,7 @@ out:
 
     ret1 = glusterd_set_txn_opinfo(&event->txn_id, &opinfo);
     if (ret1)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -5341,9 +5291,7 @@ glusterd_op_ac_brick_op_failed(glusterd_op_sm_event_t *event, void *ctx)
     int ret = 0;
     glusterd_op_brick_rsp_ctx_t *ev_ctx = NULL;
     gf_boolean_t free_errstr = _gf_false;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     GF_ASSERT(event);
     GF_ASSERT(ctx);
@@ -5397,9 +5345,8 @@ glusterd_op_ac_rcvd_commit_op_acc(glusterd_op_sm_event_t *event, void *ctx)
     int ret = 0;
     gf_boolean_t commit_ack_inject = _gf_true;
     glusterd_op_t op = GD_OP_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     op = glusterd_op_get_op();
     GF_ASSERT(event);
 
@@ -5408,7 +5355,7 @@ glusterd_op_ac_rcvd_commit_op_acc(glusterd_op_sm_event_t *event, void *ctx)
 
     ret = glusterd_set_txn_opinfo(&event->txn_id, &opinfo);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -5507,9 +5454,7 @@ glusterd_op_txn_complete(uuid_t *txn_id)
     void *ctx = NULL;
     char *op_errstr = NULL;
     char *volname = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5603,14 +5548,12 @@ glusterd_op_ac_stage_op(glusterd_op_sm_event_t *event, void *ctx)
     dict_t *rsp_dict = NULL;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
         {0},
     };
     glusterd_conf_t *priv = NULL;
-
-    this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -5733,14 +5676,13 @@ glusterd_op_ac_commit_op(glusterd_op_sm_event_t *event, void *ctx)
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
         {0},
     };
     gf_boolean_t need_cleanup = _gf_true;
 
-    this = THIS;
     GF_ASSERT(ctx);
 
     req_ctx = ctx;
@@ -6280,7 +6222,7 @@ glusterd_bricks_select_profile_volume(dict_t *dict, char **op_errstr,
     };
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t stats_op = GF_CLI_STATS_NONE;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_pending_node_t *pending_node = NULL;
@@ -6288,7 +6230,6 @@ glusterd_bricks_select_profile_volume(dict_t *dict, char **op_errstr,
     int32_t pid = -1;
     char pidfile[PATH_MAX] = {0};
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -6693,17 +6634,12 @@ glusterd_bricks_select_snap(dict_t *dict, char **op_errstr,
                             struct cds_list_head *selected)
 {
     int ret = -1;
-    glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_pending_node_t *pending_node = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char *volname = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     int brick_index = -1;
-
-    this = THIS;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -6739,7 +6675,7 @@ glusterd_bricks_select_snap(dict_t *dict, char **op_errstr,
     ret = 0;
 
 out:
-    gf_msg_debug(THIS->name, 0, "Returning ret %d", ret);
+    gf_msg_debug(this->name, 0, "Returning ret %d", ret);
     return ret;
 }
 
@@ -6758,16 +6694,14 @@ fill_shd_status_for_local_bricks(dict_t *dict, glusterd_volinfo_t *volinfo,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int cmd_replica_index = -1;
-
-    this = THIS;
 
     if (type == PER_HEAL_XL) {
         cmd_replica_index = get_replica_index_for_per_replica_cmd(volinfo,
                                                                   req_dict);
         if (cmd_replica_index == -1) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_REPLICA_INDEX_GET_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REPLICA_INDEX_GET_FAIL,
                    "Could not find the "
                    "replica index for per replica type command");
             ret = -1;
@@ -6822,10 +6756,9 @@ glusterd_shd_select_brick_xlator(dict_t *dict, gf_xl_afr_op_t heal_op,
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_svc_t *svc = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
     svc = &(volinfo->shd.svc);
@@ -6905,7 +6838,7 @@ glusterd_bricks_select_heal_volume(dict_t *dict, char **op_errstr,
     char *volname = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char msg[2048] = {
         0,
     };
@@ -6914,7 +6847,6 @@ glusterd_bricks_select_heal_volume(dict_t *dict, char **op_errstr,
     int hxlator_count = 0;
     int index = 0;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -6973,7 +6905,7 @@ glusterd_bricks_select_heal_volume(dict_t *dict, char **op_errstr,
     }
 
 out:
-    gf_msg_debug(THIS->name, 0, "Returning ret %d", ret);
+    gf_msg_debug(this->name, 0, "Returning ret %d", ret);
     return ret;
 }
 
@@ -7032,13 +6964,12 @@ glusterd_bricks_select_status_volume(dict_t *dict, char **op_errstr,
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_pending_node_t *pending_node = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_svc_t *svc = NULL;
 
     GF_ASSERT(dict);
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -7245,7 +7176,7 @@ glusterd_bricks_select_status_volume(dict_t *dict, char **op_errstr,
                                      gf_gld_mt_pending_node_t);
             if (!pending_node) {
                 ret = -1;
-                gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                        "Unable to allocate memory");
                 goto out;
             }
@@ -7269,12 +7200,11 @@ glusterd_bricks_select_scrub(dict_t *dict, char **op_errstr,
     char msg[2048] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_pending_node_t *pending_node = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -7379,13 +7309,12 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
     int ret = 0;
     rpc_clnt_procedure_t *proc = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_op_t op = GD_OP_NONE;
     glusterd_req_ctx_t *req_ctx = NULL;
     char *op_errstr = NULL;
     gf_boolean_t free_req_ctx = _gf_false;
 
-    this = THIS;
     priv = this->private;
 
     if (ctx) {
@@ -7442,9 +7371,8 @@ glusterd_op_ac_rcvd_brick_op_acc(glusterd_op_sm_event_t *event, void *ctx)
     dict_t *op_ctx = NULL;
     glusterd_req_ctx_t *req_ctx = NULL;
     void *pending_entry = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     GF_VALIDATE_OR_GOTO(this->name, event, out);
     GF_VALIDATE_OR_GOTO(this->name, ctx, out);
     ev_ctx = ctx;
@@ -7488,7 +7416,7 @@ out:
     if (ev_ctx && ev_ctx->rsp_dict)
         dict_unref(ev_ctx->rsp_dict);
     GF_FREE(ev_ctx);
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -7967,11 +7895,10 @@ glusterd_op_sm()
     glusterd_op_sm_ac_fn handler = NULL;
     glusterd_op_sm_t *state = NULL;
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_op_info_t txn_op_info;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
     priv = this->private;
     GF_ASSERT(priv);
 
