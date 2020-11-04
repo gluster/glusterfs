@@ -117,7 +117,8 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
             if (size == 0)
                 goto done;
         }
-        list = alloca(size);
+
+        list = GF_MALLOC(size, gf_posix_mt_char);
         if (!list) {
             *op_errno = errno;
             goto err;
@@ -231,6 +232,7 @@ done:
             GF_FREE(paths[j]);
     }
     ret = 0;
+    GF_FREE(list);
     return ret;
 err:
     if (path)
@@ -239,5 +241,6 @@ err:
         if (paths[j])
             GF_FREE(paths[j]);
     }
+    GF_FREE(list);
     return ret;
 }
