@@ -2401,7 +2401,7 @@ posix_spawn_disk_space_check_thread(xlator_t *this)
     struct posix_diskxl *pxl = NULL;
     struct posix_private *priv = this->private;
 
-    pxl = GF_CALLOC(1, sizeof(struct posix_diskxl), gf_posix_diskxl_t);
+    pxl = GF_CALLOC(1, sizeof(struct posix_diskxl), gf_posix_mt_diskxl_t);
     if (!pxl) {
         ret = -ENOMEM;
         gf_log(this->name, GF_LOG_ERROR,
