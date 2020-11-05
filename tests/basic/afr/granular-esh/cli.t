@@ -11,23 +11,38 @@ TESTS_EXPECTED_IN_LOOP=4
 TEST glusterd
 TEST pidof glusterd
 
-TEST   $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
-# Test that enabling the option should work on a newly created volume
-TEST   $CLI volume set $V0 cluster.granular-entry-heal on
-TEST   $CLI volume set $V0 cluster.granular-entry-heal off
-
 #########################
 ##### DISPERSE TEST #####
 #########################
 # Execute the same command on a disperse volume and make sure it fails.
 TEST $CLI volume create $V1 disperse 3 redundancy 1 $H0:$B0/${V1}{0,1,2}
+EXPECT "no" volume_get_field $V1 cluster.granular-entry-heal
 TEST $CLI volume start $V1
 TEST ! $CLI volume heal $V1 granular-entry-heal enable
 TEST ! $CLI volume heal $V1 granular-entry-heal disable
+TEST $CLI volume stop $V1
+TEST $CLI volume delete $V1
+
+#########################
+##### PLAIN DISTRIBUTE TEST #####
+#########################
+# Execute the same command on a distribute volume and make sure it fails.
+TEST $CLI volume create $V1 $H0:$B0/${V1}{0,1,2}
+EXPECT "no" volume_get_field $V1 cluster.granular-entry-heal
+TEST $CLI volume start $V1
+TEST ! $CLI volume heal $V1 granular-entry-heal enable
+TEST ! $CLI volume heal $V1 granular-entry-heal disable
+TEST $CLI volume stop $V1
+TEST $CLI volume delete $V1
 
 ######################
 ### REPLICATE TEST ###
 ######################
+TEST   $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
+EXPECT "on" volume_get_field $V0 cluster.granular-entry-heal
+# Test that enabling the option should work on a newly created volume
+TEST   $CLI volume set $V0 cluster.granular-entry-heal on
+TEST   $CLI volume set $V0 cluster.granular-entry-heal off
 TEST   $CLI volume start $V0
 TEST   $CLI volume set $V0 cluster.data-self-heal off
 TEST   $CLI volume set $V0 cluster.metadata-self-heal off
