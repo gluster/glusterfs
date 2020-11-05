@@ -182,8 +182,6 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     int replica_nodes = 0;
-    xlator_t *this = NULL;
-    this = THIS;
 
     switch (volinfo->type) {
         case GF_CLUSTER_TYPE_NONE:
@@ -192,7 +190,7 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                      "replica count (%d) option given for non replicate "
                      "volume %s",
                      replica_count, volinfo->volname);
-            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, GD_MSG_INVALID_ARGUMENT,
+            gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL, GD_MSG_INVALID_ARGUMENT,
                     err_str, NULL);
             goto out;
 
@@ -204,7 +202,7 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                          "than volume %s's replica count (%d)",
                          replica_count, volinfo->volname,
                          volinfo->replica_count);
-                gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL,
                         GD_MSG_INVALID_ARGUMENT, err_str, NULL);
                 goto out;
             }
@@ -219,7 +217,7 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                              "(or %dxN)",
                              brick_count, volinfo->dist_leaf_count,
                              volinfo->dist_leaf_count);
-                    gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                    gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL,
                             GD_MSG_INVALID_ARGUMENT, err_str, NULL);
                     goto out;
                 }
@@ -235,7 +233,7 @@ gd_rmbr_validate_replica_count(glusterd_volinfo_t *volinfo,
                          "need %d(xN) bricks for reducing replica "
                          "count of the volume from %d to %d",
                          replica_nodes, volinfo->replica_count, replica_count);
-                gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
+                gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL,
                         GD_MSG_INVALID_ARGUMENT, err_str, NULL);
                 goto out;
             }

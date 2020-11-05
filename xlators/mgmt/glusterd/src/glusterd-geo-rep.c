@@ -4530,7 +4530,7 @@ glusterd_read_status_file(glusterd_volinfo_t *volinfo, char *slave,
     struct stat stbuf = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int32_t len = 0;
 
     priv = this->private;
