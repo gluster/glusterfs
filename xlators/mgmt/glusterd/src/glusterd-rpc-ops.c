@@ -1500,7 +1500,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_friend_sm_event_t *event = NULL;
     dict_t *peer_data = NULL;
 
-    if (!frame | !data) {
+    if (!frame || !data) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
