@@ -59,7 +59,7 @@ About two tasks are one time for the life time. You can continue to use the same
 3. Tests:
    - All the required smoke tests would be auto-triggered.
      - Developers get a chance to retrigger the smoke tests using **"/recheck smoke"** as comment.
-   - The "regression" tests would be triggered by a comment **"/run regression"** from developers in the [@gluster-maintainers](https://github.com/orgs/gluster/teams/gluster-maintainers) group.
+   - The "regression" tests would be triggered by a comment **"/run regression"** from developers in the [@gluster](https://github.com/orgs/gluster/people) organization.
      - Ask for help as comment in PR if you have any questions about the process!
 
 4. Review Process:
