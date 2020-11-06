@@ -948,18 +948,18 @@ status()
     # check if the VIP and port block/unblock RAs are on the expected nodes
     for n in ${nodes[*]}; do
 
-        grep -E -x "${n}-nfs_block \(ocf::heartbeat:portblock\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        grep -E -x "${n}-nfs_block +\(ocf::heartbeat:portblock\): +Started ${n}" > /dev/null 2>&1 ${scratch}
         result=$?
         ((healthy+=${result}))
-        grep -E -x "${n}-cluster_ip-1 \(ocf::heartbeat:IPaddr\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        grep -E -x "${n}-cluster_ip-1 +\(ocf::heartbeat:IPaddr\): +Started ${n}" > /dev/null 2>&1 ${scratch}
         result=$?
         ((healthy+=${result}))
-        grep -E -x "${n}-nfs_unblock \(ocf::heartbeat:portblock\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        grep -E -x "${n}-nfs_unblock +\(ocf::heartbeat:portblock\): +Started ${n}" > /dev/null 2>&1 ${scratch}
         result=$?
         ((healthy+=${result}))
     done
 
-    grep -E "\):\ Stopped|FAILED" > /dev/null 2>&1 ${scratch}
+    grep -E "\): +Stopped|FAILED" > /dev/null 2>&1 ${scratch}
     result=$?
 
     if [ ${result} -eq 0 ]; then
