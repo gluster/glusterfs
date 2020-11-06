@@ -39,6 +39,10 @@ do
 done
 TEST useradd -o -M -u ${NEW_UID} -g ${NEW_GID} -G ${NEW_USER}-${NEW_GIDS} ${NEW_USER}
 
+# It's not guaranteed that the latest added group will be returned as the last
+# group for the user. To be sure, we take the latest group returned by 'id'
+LAST_GID="$(id -G ${NEW_USER} | tr ' ' '\n' | tail -1)"
+
 # preparation done, start the tests
 
 TEST glusterd

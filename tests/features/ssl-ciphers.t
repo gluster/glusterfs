@@ -110,15 +110,28 @@ EXPECT "N" openssl_connect -ssl2 -connect $H0:$BRICK_PORT
 # Test SSLv3 protocol fails
 EXPECT "N" openssl_connect -ssl3 -connect $H0:$BRICK_PORT
 
-# Test TLSv1 protocol based on openssl version
-cmd="openssl version"
-ver=$(eval $cmd | awk -F " " '{print $2}' | grep "^1.1")
-if [ "x${ver}" = "x" ]; then
-    supp="N"
+TLS10="$(openssl_connect -tls1 -connect $H0:$BRICK_PORT)"
+TLS11="$(openssl_connect -tls1_1 -connect $H0:$BRICK_PORT)"
+TLS12="$(openssl_connect -tls1_2 -connect $H0:$BRICK_PORT)"
+TLS13="$(openssl_connect -tls1_3 -connect $H0:$BRICK_PORT)"
+
+# TLS support depends on openssl version.
+#
+#   TLS v1.0 requires openssl v0.9.6 or higher
+#   TLS v1.1 requires openssl v1.0.1 or higher
+#   TLS v1.2 requires openssl v1.0.1 or higher
+#   TLS v1.3 requires openssl v1.1.1 or higher
+#
+# If TLS is supported by the current version of openssl, at least one of the
+# protocols should connect successfully. Otherwise all connections should fail.
+
+if [[ "$(openssl version | awk '{ print $2; }')" < "0.9.6" ]]; then
+    supp="^NNNN$"
 else
     supp="Y"
 fi
-EXPECT "${supp}" openssl_connect -tls1 -connect $H0:$BRICK_PORT
+
+EXPECT "${supp}" echo "${TLS10}${TLS11}${TLS12}${TLS13}"
 
 # Test a HIGH CBC cipher
 cph=`check_cipher -cipher AES256-SHA -connect $H0:$BRICK_PORT`
