@@ -9,22 +9,28 @@
 **The full output of the command that failed**:
 <details>
 
-
-
-</details>
-
 **Expected results:**
+<details>
+
+
+**Mandatory info:**
+**- The output of the `gluster volume info` command**:
+
+**- The output of the `gluster volume status` command**:
+
+**- The output of the `gluster volume heal` command**:
+
+**- Provide logs present on following locations of client and server nodes -
+/var/log/glusterfs/
+
+**- Is there any crash ? Provide the backtrace and coredump
 
 
 **Additional info:**
 
-
-**- The output of the `gluster volume info` command**:
-<details>
-
-
-
 </details>
 
 **- The operating system / glusterfs version**:
+
+**Note: Please hide any confidential data which you don't want to share in public like IP address, file name, hostname or any other configuration**
 
