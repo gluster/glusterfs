@@ -1628,7 +1628,9 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
     rpcreq = mem_get(rpc->reqpool);
     if (rpcreq == NULL) {
-        memset(&rpcreq_static, 0, sizeof(rpcreq_static));
+        memset(&rpcreq_static, 0,
+               sizeof(rpcreq_static)); /* To handle frame destroy in mem_get
+                                          failure */
         rpcreq = &rpcreq_static;
         goto out;
     }
