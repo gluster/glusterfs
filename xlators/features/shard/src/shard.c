@@ -1595,8 +1595,7 @@ shard_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * and store them in the stbuf appropriately.
      */
 
-    if (dict_get(xdata, GF_XATTR_SHARD_FILE_SIZE) &&
-        frame->root->pid != GF_CLIENT_PID_GSYNCD)
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
         shard_modify_size_and_block_count(buf, xdata);
 
     /* If this was a fresh lookup, there are two possibilities:
@@ -6157,8 +6156,8 @@ shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (dict_get(entry->dict, GF_XATTR_SHARD_FILE_SIZE))
-            shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
+        shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
+
         if (!entry->inode)
             continue;
 
@@ -6215,8 +6214,7 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (dict_get(entry->dict, GF_XATTR_SHARD_FILE_SIZE) &&
-            frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
             shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
 
         if (!entry->inode)
