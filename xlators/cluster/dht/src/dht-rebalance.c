@@ -3599,7 +3599,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 defrag->total_failures++;
             }
             ret = 0;
-            goto out;
         } else {
             gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_DIR_LOOKUP_FAILED,
                    "lookup failed for:%s", loc->path);
@@ -3609,9 +3608,9 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             if (conf->decommission_in_progress) {
                 defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
                 ret = -1;
-                goto out;
             }
         }
+        goto out;
     }
 
     fd = fd_create(loc->inode, defrag->pid);
