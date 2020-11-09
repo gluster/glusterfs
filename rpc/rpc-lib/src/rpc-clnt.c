@@ -1611,10 +1611,9 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
         0,
     };
     struct rpc_req *rpcreq = NULL;
+    struct rpc_req rpcreq_static;
     rpc_transport_req_t req;
-    int ret = -2; /* ret = -2 is done here so as to destroy the frame in the
-                   __glusterd_send_svc_configure_req() in case of memory alloc
-                   failure */
+    int ret = -1;
     int proglen = 0;
     char new_iobref = 0;
     uint64_t callid = 0;
@@ -1629,6 +1628,8 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
     rpcreq = mem_get(rpc->reqpool);
     if (rpcreq == NULL) {
+        memset(&rpcreq_static, 0, sizeof(rpcreq_static));
+        rpcreq = &rpcreq_static;
         goto out;
     }
 
@@ -1756,7 +1757,9 @@ out:
         if (rpcreq) {
             rpcreq->rpc_status = -1;
             cbkfn(rpcreq, NULL, 0, frame);
-            mem_put(rpcreq);
+            if (rpcreq != &rpcreq_static) {
+                mem_put(rpcreq);
+            }
         }
     }
     return ret;
