@@ -129,6 +129,36 @@ posix_inode(xlator_t *this)
     return 0;
 }
 
+static void
+delete_posix_diskxl(xlator_t *this)
+{
+    struct posix_private *priv = this->private;
+    struct posix_diskxl *pxl = priv->pxl;
+    glusterfs_ctx_t *ctx = this->ctx;
+    uint32_t count = 1;
+
+    if (pxl) {
+        pthread_mutex_lock(&ctx->xl_lock);
+        {
+            pxl->detach_notify = _gf_true;
+            while (pxl->is_use)
+                pthread_cond_wait(&pxl->cond, &ctx->xl_lock);
+            list_del_init(&pxl->list);
+            priv->pxl = NULL;
+            count = --ctx->diskxl_count;
+            if (count == 0)
+                pthread_cond_signal(&ctx->xl_cond);
+        }
+        pthread_mutex_unlock(&ctx->xl_lock);
+        pthread_cond_destroy(&pxl->cond);
+        GF_FREE(pxl);
+        if (count == 0) {
+            pthread_join(ctx->disk_space_check, NULL);
+            ctx->disk_space_check = 0;
+        }
+    }
+}
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -184,6 +214,8 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                 }
             }
             pthread_mutex_unlock(&ctx->fd_lock);
+
+            delete_posix_diskxl(this);
 
             gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
                    victim->name);
@@ -309,6 +341,7 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     int32_t force_directory_mode = -1;
     int32_t create_mask = -1;
     int32_t create_directory_mask = -1;
+    double old_disk_reserve = 0.0;
 
     priv = this->private;
 
@@ -382,6 +415,7 @@ posix_reconfigure(xlator_t *this, dict_t *options)
                " fallback to <hostname>:<export>");
     }
 
+    old_disk_reserve = priv->disk_reserve;
     GF_OPTION_RECONF("reserve", priv->disk_reserve, options, percent_or_size,
                      out);
     /* option can be any one of percent or bytes */
@@ -389,11 +423,19 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     if (priv->disk_reserve < 100.0)
         priv->disk_unit = 'p';
 
-    if (priv->disk_reserve) {
+    /* Delete a pxl object from a list of disk_reserve while something
+       is changed for reserve option during graph reconfigure
+    */
+    if (old_disk_reserve != priv->disk_reserve) {
+        delete_posix_diskxl(this);
+        old_disk_reserve = 0;
+    }
+
+    if (!old_disk_reserve && priv->disk_reserve) {
         ret = posix_spawn_disk_space_check_thread(this);
         if (ret) {
             gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_DISK_SPACE_CHECK_FAILED,
-                   "Getting disk space check from thread failed");
+                   "Getting disk space check from thread failed ");
             goto out;
         }
     }
@@ -1075,13 +1117,13 @@ posix_init(xlator_t *this)
                " fallback to <hostname>:<export>");
     }
 
-    _private->disk_space_check_active = _gf_false;
     _private->disk_space_full = 0;
 
     GF_OPTION_INIT("reserve", _private->disk_reserve, percent_or_size, out);
 
     /* option can be any one of percent or bytes */
     _private->disk_unit = 0;
+    pthread_cond_init(&_private->fd_cond, NULL);
     if (_private->disk_reserve < 100.0)
         _private->disk_unit = 'p';
 
@@ -1260,12 +1302,6 @@ posix_fini(xlator_t *this)
         priv->health_check = 0;
     }
 
-    if (priv->disk_space_check) {
-        priv->disk_space_check_active = _gf_false;
-        (void)gf_thread_cleanup_xint(priv->disk_space_check);
-        priv->disk_space_check = 0;
-    }
-
     if (priv->janitor) {
         /*TODO: Make sure the synctask is also complete */
         ret = gf_tw_del_timer(this->ctx->tw->timer_wheel, priv->janitor);
@@ -1290,10 +1326,24 @@ posix_fini(xlator_t *this)
         pthread_join(ctx->janitor, NULL);
     }
 
+    pthread_mutex_lock(&ctx->xl_lock);
+    {
+        count = --ctx->diskxl_count;
+        if (count == 0)
+            pthread_cond_signal(&ctx->xl_cond);
+    }
+    pthread_mutex_unlock(&ctx->xl_lock);
+
+    if (count == 0) {
+        pthread_join(ctx->disk_space_check, NULL);
+        ctx->disk_space_check = 0;
+    }
+
     if (priv->fsyncer) {
         (void)gf_thread_cleanup_xint(priv->fsyncer);
         priv->fsyncer = 0;
     }
+
     /*unlock brick dir*/
     if (priv->mount_lock >= 0) {
         (void)sys_close(priv->mount_lock);

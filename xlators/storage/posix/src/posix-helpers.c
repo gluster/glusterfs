@@ -2302,9 +2302,8 @@ unlock:
 }
 
 void
-posix_disk_space_check(xlator_t *this)
+posix_disk_space_check(struct posix_private *priv)
 {
-    struct posix_private *priv = NULL;
     char *subvol_path = NULL;
     int op_ret = 0;
     double size = 0;
@@ -2313,16 +2312,14 @@ posix_disk_space_check(xlator_t *this)
     double totsz = 0;
     double freesz = 0;
 
-    GF_VALIDATE_OR_GOTO("posix-helpers", this, out);
-    priv = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, priv, out);
+    GF_VALIDATE_OR_GOTO("posix-helpers", priv, out);
 
     subvol_path = priv->base_path;
 
     op_ret = sys_statvfs(subvol_path, &buf);
 
     if (op_ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
+        gf_msg("posix-disk", GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
                "statvfs failed on %s", subvol_path);
         goto out;
     }
@@ -2346,78 +2343,102 @@ out:
 }
 
 static void *
-posix_disk_space_check_thread_proc(void *data)
+posix_ctx_disk_thread_proc(void *data)
 {
-    xlator_t *this = NULL;
     struct posix_private *priv = NULL;
+    glusterfs_ctx_t *ctx = NULL;
     uint32_t interval = 0;
-    int ret = -1;
+    struct posix_diskxl *pthis = NULL;
+    xlator_t *this = NULL;
+    struct timespec sleep_till = {
+        0,
+    };
 
-    this = data;
-    priv = this->private;
-
+    ctx = data;
     interval = 5;
-    gf_msg_debug(this->name, 0,
-                 "disk-space thread started, "
+
+    gf_msg_debug("glusterfs_ctx", 0,
+                 "Ctx disk-space thread started, "
                  "interval = %d seconds",
                  interval);
-    while (1) {
-        /* aborting sleep() is a request to exit this thread, sleep()
-         * will normally not return when cancelled */
-        ret = sleep(interval);
-        if (ret > 0)
-            break;
-        /* prevent thread errors while doing the health-check(s) */
-        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-        /* Do the disk-check.*/
-        posix_disk_space_check(this);
-        if (!priv->disk_space_check_active)
-            goto out;
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    }
-
-out:
-    gf_msg_debug(this->name, 0, "disk space check thread exiting");
-    LOCK(&priv->lock);
+    pthread_mutex_lock(&ctx->xl_lock);
     {
-        priv->disk_space_check_active = _gf_false;
+        while (ctx->diskxl_count > 0) {
+            list_for_each_entry(pthis, &ctx->diskth_xl, list)
+            {
+                pthis->is_use = _gf_true;
+                pthread_mutex_unlock(&ctx->xl_lock);
+
+                THIS = this = pthis->xl;
+                priv = this->private;
+
+                posix_disk_space_check(priv);
+
+                pthread_mutex_lock(&ctx->xl_lock);
+                pthis->is_use = _gf_false;
+                /* Send a signal to posix_notify function */
+                if (pthis->detach_notify)
+                    pthread_cond_signal(&pthis->cond);
+            }
+
+            timespec_now_realtime(&sleep_till);
+            sleep_till.tv_sec += 5;
+            (void)pthread_cond_timedwait(&ctx->xl_cond, &ctx->xl_lock,
+                                         &sleep_till);
+        }
     }
-    UNLOCK(&priv->lock);
+    pthread_mutex_unlock(&ctx->xl_lock);
 
     return NULL;
 }
 
 int
-posix_spawn_disk_space_check_thread(xlator_t *xl)
+posix_spawn_disk_space_check_thread(xlator_t *this)
 {
-    struct posix_private *priv = NULL;
-    int ret = -1;
+    int ret = 0;
+    glusterfs_ctx_t *ctx = this->ctx;
+    struct posix_diskxl *pxl = NULL;
+    struct posix_private *priv = this->private;
 
-    priv = xl->private;
-
-    LOCK(&priv->lock);
-    {
-        /* cancel the running thread  */
-        if (priv->disk_space_check_active == _gf_true) {
-            pthread_cancel(priv->disk_space_check);
-            priv->disk_space_check_active = _gf_false;
-        }
-
-        ret = gf_thread_create(&priv->disk_space_check, NULL,
-                               posix_disk_space_check_thread_proc, xl,
-                               "posixrsv");
-        if (ret) {
-            priv->disk_space_check_active = _gf_false;
-            gf_msg(xl->name, GF_LOG_ERROR, errno, P_MSG_DISK_SPACE_CHECK_FAILED,
-                   "unable to setup disk space check thread");
-            goto unlock;
-        }
-
-        priv->disk_space_check_active = _gf_true;
+    pxl = GF_CALLOC(1, sizeof(struct posix_diskxl), gf_posix_mt_diskxl_t);
+    if (!pxl) {
+        ret = -ENOMEM;
+        gf_log(this->name, GF_LOG_ERROR,
+               "Calloc is failed to allocate "
+               "memory for diskxl object");
+        goto out;
     }
-unlock:
-    UNLOCK(&priv->lock);
+    pthread_cond_init(&pxl->cond, NULL);
+
+    pthread_mutex_lock(&ctx->xl_lock);
+    {
+        if (ctx->diskxl_count++ == 0) {
+            ret = gf_thread_create(&ctx->disk_space_check, NULL,
+                                   posix_ctx_disk_thread_proc, ctx,
+                                   "posixctxres");
+
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
+                       "spawning disk space check thread failed");
+                ctx->diskxl_count--;
+                pthread_mutex_unlock(&ctx->xl_lock);
+                goto out;
+            }
+        }
+        pxl->xl = this;
+        priv->pxl = (void *)pxl;
+        list_add_tail(&pxl->list, &ctx->diskth_xl);
+    }
+    pthread_mutex_unlock(&ctx->xl_lock);
+
+out:
+    if (ret) {
+        if (pxl) {
+            pthread_cond_destroy(&pxl->cond);
+            GF_FREE(pxl);
+        }
+    }
     return ret;
 }
 

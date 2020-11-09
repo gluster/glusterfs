@@ -21,6 +21,7 @@ enum gf_posix_mem_types_ {
     gf_posix_mt_inode_ctx_t,
     gf_posix_mt_mdata_attr,
     gf_posix_mt_uring_ctx,
+    gf_posix_mt_diskxl_t,
     gf_posix_mt_end
 };
 #endif

@@ -134,6 +134,14 @@ struct posix_fd {
     char _pad[4]; /* manual padding */
 };
 
+struct posix_diskxl {
+    pthread_cond_t cond;
+    struct list_head list;
+    xlator_t *xl;
+    gf_boolean_t detach_notify;
+    gf_boolean_t is_use;
+};
+
 struct posix_private {
     char *base_path;
     int32_t base_path_length;
@@ -172,6 +180,7 @@ struct posix_private {
     pthread_mutex_t janitor_mutex;
     pthread_cond_t janitor_cond;
     pthread_cond_t fd_cond;
+    pthread_cond_t disk_cond;
     int fsync_queue_count;
     int32_t janitor_sleep_duration;
 
@@ -226,7 +235,6 @@ struct posix_private {
     gf_boolean_t ctime;
     gf_boolean_t janitor_task_stop;
 
-    gf_boolean_t disk_space_check_active;
     char disk_unit;
     gf_boolean_t health_check_active;
     gf_boolean_t update_pgfid_nlinks;
@@ -269,6 +277,7 @@ struct posix_private {
     pthread_mutex_t sq_mutex;
     pthread_mutex_t cq_mutex;
 #endif
+    void *pxl;
 };
 
 typedef struct {
