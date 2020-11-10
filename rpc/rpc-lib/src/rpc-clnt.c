@@ -1756,12 +1756,10 @@ out:
     }
 
     if (frame && (ret == -1)) {
-        if (rpcreq) {
-            rpcreq->rpc_status = -1;
-            cbkfn(rpcreq, NULL, 0, frame);
-            if (rpcreq != &rpcreq_static) {
-                mem_put(rpcreq);
-            }
+        rpcreq->rpc_status = -1;
+        cbkfn(rpcreq, NULL, 0, frame);
+        if (rpcreq != &rpcreq_static) {
+            mem_put(rpcreq);
         }
     }
     return ret;
