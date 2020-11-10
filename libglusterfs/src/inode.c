@@ -405,6 +405,7 @@ __inode_activate(inode_t *inode)
 {
     list_move(&inode->list, &inode->table->active);
     inode->table->active_size++;
+    inode->in_lru_list = _gf_false;
 }
 
 static void
@@ -413,8 +414,10 @@ __inode_passivate(inode_t *inode)
     dentry_t *dentry = NULL;
     dentry_t *t = NULL;
 
+    GF_ASSERT(!inode->in_lru_list);
     list_move_tail(&inode->list, &inode->table->lru);
     inode->table->lru_size++;
+    inode->in_lru_list = _gf_true;
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
@@ -431,6 +434,7 @@ __inode_retire(inode_t *inode)
 
     list_move_tail(&inode->list, &inode->table->purge);
     inode->table->purge_size++;
+    inode->in_lru_list = _gf_false;
 
     __inode_unhash(inode);
 
@@ -562,12 +566,14 @@ __inode_ref(inode_t *inode, bool is_invalidate)
             inode->in_invalidate_list = false;
             inode->table->invalidate_size--;
         } else {
+            GF_ASSERT(inode->in_lru_list);
             inode->table->lru_size--;
         }
         if (is_invalidate) {
             inode->in_invalidate_list = true;
             inode->table->invalidate_size++;
             list_move_tail(&inode->list, &inode->table->invalidate);
+            inode->in_lru_list = _gf_false;
         } else {
             __inode_activate(inode);
         }
@@ -701,6 +707,7 @@ inode_new(inode_table_t *table)
         {
             list_add(&inode->list, &table->lru);
             table->lru_size++;
+            inode->in_lru_list = _gf_true;
             __inode_ref(inode, false);
         }
         pthread_mutex_unlock(&table->lock);
@@ -1564,6 +1571,7 @@ inode_table_prune(inode_table_t *table)
         lru_size = table->lru_size;
         while (lru_size > (table->lru_limit)) {
             if (list_empty(&table->lru)) {
+                GF_ASSERT(0);
                 gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
                                  LG_MSG_INVALID_INODE_LIST,
                                  "Empty inode lru list found"
@@ -1581,7 +1589,10 @@ inode_table_prune(inode_table_t *table)
                 nlookup = GF_ATOMIC_GET(entry->nlookup);
                 if (nlookup) {
                     if (entry->invalidate_sent) {
+                        GF_ASSERT(!entry->in_lru_list);
                         list_move_tail(&entry->list, &table->lru);
+                        entry->in_lru_list = _gf_true;
+                        table->lru_size++;
                         continue;
                     }
                     __inode_ref(entry, true);
@@ -1646,6 +1657,7 @@ __inode_table_init_root(inode_table_t *table)
 
     list_add(&root->list, &table->lru);
     table->lru_size++;
+    root->in_lru_list = _gf_true;
 
     iatt.ia_gfid[15] = 1;
     iatt.ia_ino = 1;

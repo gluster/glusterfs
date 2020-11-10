@@ -114,6 +114,7 @@ struct _inode {
     struct _inode_ctx *_ctx; /* replacement for dict_t *(inode->ctx) */
     bool in_invalidate_list; /* Set if inode is in table invalidate list */
     bool invalidate_sent;    /* Set it if invalidator_fn is called for inode */
+    bool in_lru_list;        /* Set if inode is in table lru list */
 };
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"
