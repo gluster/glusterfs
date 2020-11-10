@@ -64,7 +64,6 @@ TEST $GEOREP_CLI $master $slave config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir
 TEST $GEOREP_CLI $master $slave config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
-
 #Enable_metavolume
 TEST $GEOREP_CLI $master $slave config use_meta_volume true
 

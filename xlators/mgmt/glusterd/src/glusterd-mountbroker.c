@@ -22,6 +22,7 @@
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/run.h>
+#include <sys/capability.h>
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-utils.h"
@@ -519,6 +520,8 @@ glusterd_do_mount(char *label, dict_t *argdict, char **path, int *op_errno)
     xlator_t *this = THIS;
     mode_t orig_umask = 0;
     gf_boolean_t found_label = _gf_false;
+    pid_t pid;
+    cap_t cap;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -681,6 +684,23 @@ glusterd_do_mount(char *label, dict_t *argdict, char **path, int *op_errno)
 
     runinit(&runner);
     runner_add_arg(&runner, SBIN_DIR "/glusterfs");
+
+    pid = getpid();
+    cap = cap_get_pid(pid);
+       if (cap == NULL) {
+             perror("cap_get_pid");
+            exit(-1);
+       }
+
+    /* inheritable cap_ */
+    cap_value_t cap_list[1];
+    cap_list[0] = CAP_FOWNER;
+       if (cap_set_flag(cap, CAP_INHERITABLE, 1, cap_list, CAP_SET) == -1) {
+           perror("cap_set_flag failed for CAP_DAC_OVERRIDE");
+           cap_free(cap);
+           exit(-1);
+       }
+
     seq_dict_foreach(argdict, _runner_add, &runner);
     runner_add_arg(&runner, mtptemp);
     ret = runner_run_reuse(&runner);
