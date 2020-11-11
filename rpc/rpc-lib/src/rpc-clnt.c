@@ -1621,10 +1621,6 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     call_frame_t *cframe = frame;
 
     if (!rpc || !prog || !frame) {
-        memset(&rpcreq_static, 0,
-               sizeof(rpcreq_static)); /* To handle frame destroy in case any of
-                                          the above is not defined */
-        rpcreq = &rpcreq_static;
         goto out;
     }
 
@@ -1632,10 +1628,6 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
     rpcreq = mem_get(rpc->reqpool);
     if (rpcreq == NULL) {
-        memset(&rpcreq_static, 0,
-               sizeof(rpcreq_static)); /* To handle frame destroy in mem_get
-                                          failure */
-        rpcreq = &rpcreq_static;
         goto out;
     }
 
@@ -1760,6 +1752,12 @@ out:
     }
 
     if (frame && (ret == -1)) {
+        if (!rpcreq) {
+            memset(&rpcreq_static, 0,
+                   sizeof(rpcreq_static)); /* To handle frame destroy in case
+                                              any of the above is not defined */
+            rpcreq = &rpcreq_static;
+        }
         rpcreq->rpc_status = -1;
         cbkfn(rpcreq, NULL, 0, frame);
         if (rpcreq != &rpcreq_static) {
