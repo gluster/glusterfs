@@ -1621,6 +1621,10 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     call_frame_t *cframe = frame;
 
     if (!rpc || !prog || !frame) {
+        memset(&rpcreq_static, 0,
+               sizeof(rpcreq_static)); /* To handle frame destroy in case any of
+                                          the above is not defined */
+        rpcreq = &rpcreq_static;
         goto out;
     }
 
