@@ -1755,7 +1755,7 @@ out:
         if (!rpcreq) {
             memset(&rpcreq_static, 0,
                    sizeof(rpcreq_static)); /* To handle frame destroy in case
-                                              any of the above is not defined */
+                                              rpcreq was not defined */
             rpcreq = &rpcreq_static;
         }
         rpcreq->rpc_status = -1;
