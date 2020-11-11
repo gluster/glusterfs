@@ -1,3 +1,4 @@
+// clang-format off
 GEO_REP_TIMEOUT=120
 CHECK_MOUNT_TIMEOUT=50
 #check for mount point
@@ -8,19 +9,19 @@ function check_mounted () {
 function check_status_num_rows()
 {
     local search_key=$1
-    $GEOREP_CLI $master $slave status | grep -F "$search_key" | wc -l
+    $GEOREP_CLI $primary $secondary status | grep -F "$search_key" | wc -l
 }
 
 function check_fanout_status_num_rows()
 {
     local search_key=$1
-    $GEOREP_CLI $master status | grep -F "$search_key" | wc -l
+    $GEOREP_CLI $primary status | grep -F "$search_key" | wc -l
 }
 
 function check_fanout_status_detail_num_rows()
 {
     local search_key=$1
-    $GEOREP_CLI $master status detail | grep -F "$search_key" | wc -l
+    $GEOREP_CLI $primary status detail | grep -F "$search_key" | wc -l
 }
 
 function check_all_status_num_rows()
@@ -37,28 +38,28 @@ function check_all_status_detail_num_rows()
 
 function verify_checkpoint_met()
 {
-    local master=$1
-    local slave=$2
-    $GEOREP_CLI $master $slave status detail| grep -F "Yes" | wc -l
+    local primary=$1
+    local secondary=$2
+    $GEOREP_CLI $primary $secondary status detail| grep -F "Yes" | wc -l
 }
 
 function check_keys_distributed()
 {
-    local search_key=$(cat /var/lib/glusterd/geo-replication/master_slave_common_secret.pem.pub)
+    local search_key=$(cat /var/lib/glusterd/geo-replication/primary_secondary_common_secret.pem.pub)
     grep -F "$search_key" ~/.ssh/authorized_keys > /dev/null
     echo $?
 }
 
 function check_common_secret_file()
 {
-    stat /var/lib/glusterd/geo-replication/master_slave_common_secret.pem.pub
+    stat /var/lib/glusterd/geo-replication/primary_secondary_common_secret.pem.pub
     echo $?
 }
 
 function create_rename_symlink_case()
 {
-    mkdir ${mastermnt}/MUL_REN_SYMLINK
-    cd ${mastermnt}/MUL_REN_SYMLINK
+    mkdir ${primarymnt}/MUL_REN_SYMLINK
+    cd ${primarymnt}/MUL_REN_SYMLINK
     mkdir sym_dir1
     ln -s "sym_dir1" sym1
     mv sym1 sym2
@@ -84,68 +85,68 @@ function create_data()
     # GF_FOP_SETATTR
 
     # Regular file + data
-    echo "HelloWorld!" > ${master_mnt}/${prefix}_f1
-    touch ${master_mnt}/${prefix}_f2
-    touch ${master_mnt}/${prefix}_f3
+    echo "HelloWorld!" > ${primary_mnt}/${prefix}_f1
+    touch ${primary_mnt}/${prefix}_f2
+    touch ${primary_mnt}/${prefix}_f3
 
     # non-ascii filename test
-    echo "Hello non-ascii" > ${master_mnt}/${prefix}_f1_ಸಂತಸ
-    touch ${master_mnt}/${prefix}_f2_ಸಂತಸ
-    touch ${master_mnt}/${prefix}_f3_ಸಂತಸ
+    echo "Hello non-ascii" > ${primary_mnt}/${prefix}_f1_ಸಂತಸ
+    touch ${primary_mnt}/${prefix}_f2_ಸಂತಸ
+    touch ${primary_mnt}/${prefix}_f3_ಸಂತಸ
 
     # dir
-    mkdir ${master_mnt}/${prefix}_d1
-    mkdir ${master_mnt}/${prefix}_d2
-    mkdir ${master_mnt}/${prefix}_d3
+    mkdir ${primary_mnt}/${prefix}_d1
+    mkdir ${primary_mnt}/${prefix}_d2
+    mkdir ${primary_mnt}/${prefix}_d3
 
     # non-ascii dir and filename test
-    mkdir ${master_mnt}/${prefix}_d1_ನನ್ನ
-    mkdir ${master_mnt}/${prefix}_d2_ಸಂತಸ
-    mkdir ${master_mnt}/${prefix}_d3_ಸಂತಸ
-    echo "Hello non-ascii" >  ${master_mnt}/${prefix}_d1_ನನ್ನ/ಸಂತಸ
+    mkdir ${primary_mnt}/${prefix}_d1_ನನ್ನ
+    mkdir ${primary_mnt}/${prefix}_d2_ಸಂತಸ
+    mkdir ${primary_mnt}/${prefix}_d3_ಸಂತಸ
+    echo "Hello non-ascii" >  ${primary_mnt}/${prefix}_d1_ನನ್ನ/ಸಂತಸ
 
     # Hardlink + non-ascii name
-    ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1
-    ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1_ಸಂತಸ
+    ln ${primary_mnt}/${prefix}_f1 ${primary_mnt}/${prefix}_hl1
+    ln ${primary_mnt}/${prefix}_f1 ${primary_mnt}/${prefix}_hl1_ಸಂತಸ
 
     # Symlink
-    cd ${master_mnt}
+    cd ${primary_mnt}
     ln -s ${prefix}_f1 ${prefix}_sl1
     ln -s ${prefix}_f1 ${prefix}_sl1_ಸಂತಸ
     cd -
 
     # UNLINK
-    rm ${master_mnt}/${prefix}_f2
-    rm ${master_mnt}/${prefix}_f2_ಸಂತಸ
+    rm ${primary_mnt}/${prefix}_f2
+    rm ${primary_mnt}/${prefix}_f2_ಸಂತಸ
 
     # RMDIR
-    rmdir ${master_mnt}/${prefix}_d2
-    rmdir ${master_mnt}/${prefix}_d2_ಸಂತಸ
+    rmdir ${primary_mnt}/${prefix}_d2
+    rmdir ${primary_mnt}/${prefix}_d2_ಸಂತಸ
 
     # Rename - File
-    mv ${master_mnt}/${prefix}_f3 ${master_mnt}/${prefix}_f4
-    mv ${master_mnt}/${prefix}_f3_ಸಂತಸ  ${master_mnt}/${prefix}_f4_ಸಂತಸ
+    mv ${primary_mnt}/${prefix}_f3 ${primary_mnt}/${prefix}_f4
+    mv ${primary_mnt}/${prefix}_f3_ಸಂತಸ  ${primary_mnt}/${prefix}_f4_ಸಂತಸ
 
     # Rename - Dir
-    mv ${master_mnt}/${prefix}_d3 ${master_mnt}/${prefix}_d4
-    mv ${master_mnt}/${prefix}_d3_ಸಂತಸ  ${master_mnt}/${prefix}_d4_ಸಂತಸ
+    mv ${primary_mnt}/${prefix}_d3 ${primary_mnt}/${prefix}_d4
+    mv ${primary_mnt}/${prefix}_d3_ಸಂತಸ  ${primary_mnt}/${prefix}_d4_ಸಂತಸ
 
     # chown
-    touch ${master_mnt}/${prefix}_chown_f1
-    chown 1000:1000 ${master_mnt}/${prefix}_chown_f1
-    touch ${master_mnt}/${prefix}_chown_f1_ಸಂತಸ
-    chown 1000:1000 ${master_mnt}/${prefix}_chown_f1_ಸಂತಸ
+    touch ${primary_mnt}/${prefix}_chown_f1
+    chown 1000:1000 ${primary_mnt}/${prefix}_chown_f1
+    touch ${primary_mnt}/${prefix}_chown_f1_ಸಂತಸ
+    chown 1000:1000 ${primary_mnt}/${prefix}_chown_f1_ಸಂತಸ
 }
 
 function create_data_hang()
 {
     prefix=$1
-    mkdir ${master_mnt}/${prefix}
-    cd ${master_mnt}/${prefix}
+    mkdir ${primary_mnt}/${prefix}
+    cd ${primary_mnt}/${prefix}
     # ~1k files is required with 1 sync-job and hang happens if
     # stderr buffer of tar/ssh executed with Popen is full (i.e., 64k).
     # 64k is hit when ~800 files were  not found while syncing data
-    # from master. So around 1k files is required to hit the condition.
+    # from primary. So around 1k files is required to hit the condition.
     for i in {1..1000}
     do
         echo "test data" > file$i
@@ -219,9 +220,9 @@ function data_ok()
 
 function arequal_checksum()
 {
-    master=$1
-    slave=$2
-    ret=$(diff <(arequal-checksum -p $master) <(arequal-checksum -p $slave) | wc -l)
+    primary=$1
+    secondary=$2
+    ret=$(diff <(arequal-checksum -p $primary) <(arequal-checksum -p $secondary) | wc -l)
     echo x$ret
 }
 
@@ -279,7 +280,7 @@ function create_georep_session()
     if test $rc != 0; then
         echo $rc
     else
-        $CLI volume geo-rep $master $slave create push-pem
+        $CLI volume geo-rep $primary $secondary create push-pem
         rc=$?
         if test $rc != 0; then
             echo $rc
@@ -312,8 +313,8 @@ function logrotate_simulate()
     # logrotate causes gfid to be rellocated to a new file created
     # after an unlink and a blind rename later causes georep session
     # to go Faulty
-    # this should not happen if source basename on slave is tested
-    # to be linked with its own gfid as on master, before invoking
+    # this should not happen if source basename on secondary is tested
+    # to be linked with its own gfid as on primary, before invoking
     # the rename syscall
     touch $file_name
     rotate_count=$2
@@ -333,7 +334,7 @@ function create_rename_ok()
     file_name=$1
     # after a log replay, we don't expect the original file
     # to be recreated i.e. a dangling entry without a corresponding
-    # back-end gfid link should not exist on the slave
+    # back-end gfid link should not exist on the secondary
     if [ -f "$file_name" ]; then
         echo 1
     else
@@ -352,7 +353,7 @@ function hardlink_rename()
 function hardlink_rename_ok()
 {
     file_name=$1
-    # the hardlink file should not exist on the slave after renaming
+    # the hardlink file should not exist on the secondary after renaming
     # to one of its links on changelog reprocessing
     if [ ! -f "$file_name" ]; then
         echo 1
@@ -367,11 +368,11 @@ function hardlink_rename_ok()
 
 function create_symlink_rename_mkdir_data()
 {
-    mkdir ${master_mnt}/symlink_test1
-    touch ${master_mnt}/symlink_test1/file1
-    ln -s "./file1" ${master_mnt}/symlink_test1/sym_link
-    mv ${master_mnt}/symlink_test1/sym_link ${master_mnt}/symlink_test1/rn_sym_link
-    mkdir ${master_mnt}/symlink_test1/sym_link
+    mkdir ${primary_mnt}/symlink_test1
+    touch ${primary_mnt}/symlink_test1/file1
+    ln -s "./file1" ${primary_mnt}/symlink_test1/sym_link
+    mv ${primary_mnt}/symlink_test1/sym_link ${primary_mnt}/symlink_test1/rn_sym_link
+    mkdir ${primary_mnt}/symlink_test1/sym_link
 }
 function verify_symlink_rename_mkdir_data()
 {
@@ -392,11 +393,11 @@ function create_rsnapshot_data()
     rm -rf /tmp/rsnapshot_symlinkbug
     mkdir /tmp/rsnapshot_symlinkbug
     ln -f -s /does/not/exist /tmp/rsnapshot_symlinkbug/a_symlink
-    rsync -a /tmp/rsnapshot_symlinkbug ${master_mnt}/
-    cp -al ${master_mnt}/rsnapshot_symlinkbug ${master_mnt}/rsnapshot_symlinkbug.0
+    rsync -a /tmp/rsnapshot_symlinkbug ${primary_mnt}/
+    cp -al ${primary_mnt}/rsnapshot_symlinkbug ${primary_mnt}/rsnapshot_symlinkbug.0
     ln -f -s /does/not/exist2 /tmp/rsnapshot_symlinkbug/a_symlink
-    rsync -a /tmp/rsnapshot_symlinkbug ${master_mnt}/
-    cp -al ${master_mnt}/rsnapshot_symlinkbug ${master_mnt}/rsnapshot_symlinkbug.1
+    rsync -a /tmp/rsnapshot_symlinkbug ${primary_mnt}/
+    cp -al ${primary_mnt}/rsnapshot_symlinkbug ${primary_mnt}/rsnapshot_symlinkbug.1
 }
 
 function verify_rsnapshot_data()
@@ -425,7 +426,7 @@ function verify_rsnapshot_data()
 
 function create_hardlink_rename_data()
 {
-    dir=${master_mnt}/hardlink_rename_issue
+    dir=${primary_mnt}/hardlink_rename_issue
     mkdir $dir
     echo "test_data" > $dir/f1
     ln $dir/f1 $dir/f2
@@ -451,7 +452,7 @@ function verify_hardlink_rename_data()
     fi
 }
 
-function check_slave_read_only()
+function check_secondary_read_only()
 {
     volum=$1
     gluster volume info $1 | grep 'features.read-only: on'
