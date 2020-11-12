@@ -1611,6 +1611,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
         0,
     };
     struct rpc_req *rpcreq = NULL;
+    struct rpc_req rpcreq_static;
     rpc_transport_req_t req;
     int ret = -1;
     int proglen = 0;
@@ -1636,6 +1637,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     if (!iobref) {
         iobref = iobref_new();
         if (!iobref) {
+            ret = -1;
             goto out;
         }
 
@@ -1750,9 +1752,15 @@ out:
     }
 
     if (frame && (ret == -1)) {
-        if (rpcreq) {
-            rpcreq->rpc_status = -1;
-            cbkfn(rpcreq, NULL, 0, frame);
+        if (!rpcreq) {
+            memset(&rpcreq_static, 0,
+                   sizeof(rpcreq_static)); /* To handle frame destroy in case
+                                              rpcreq was not defined */
+            rpcreq = &rpcreq_static;
+        }
+        rpcreq->rpc_status = -1;
+        cbkfn(rpcreq, NULL, 0, frame);
+        if (rpcreq != &rpcreq_static) {
             mem_put(rpcreq);
         }
     }
