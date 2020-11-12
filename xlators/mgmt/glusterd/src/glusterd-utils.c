@@ -1781,8 +1781,8 @@ match(struct cds_lfht_node *tmp_node, const void *_key)
                                                    glusterd_volinfo_node, next);
     char key[NAME_MAX] = "";
 
-    gf_strncpy(key, _key, strlen(key));
-    if (strncmp(key, node->volname, strlen(key)))
+    gf_strncpy(key, _key, strlen(_key) + 1);
+    if (strcmp(key, node->volname))
         return 0;
 
     return 1;
