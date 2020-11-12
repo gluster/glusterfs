@@ -1779,9 +1779,9 @@ match(struct cds_lfht_node *tmp_node, const void *_key)
 {
     glusterd_volinfo_node *node = caa_container_of(tmp_node,
                                                    glusterd_volinfo_node, next);
-    char key[NAME_MAX + 1] = "";
+    char key[NAME_MAX] = "";
 
-    gf_strncpy(key, _key, sizeof(key));
+    gf_strncpy(key, _key, strlen(key));
     if (strncmp(key, node->volname, strlen(key)))
         return 0;
 
@@ -15126,7 +15126,7 @@ glusterd_add_volume_to_hashtable(xlator_t *this, char *volname,
 
     tmp_node = GF_MALLOC(sizeof(glusterd_volinfo_node), gf_gld_mt_hash_node);
     if (!tmp_node) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto out;
     }
 
