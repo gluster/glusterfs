@@ -2673,7 +2673,6 @@ gf_defrag_migrate_single_file(void *opaque)
     iatt_ptr = &entry->d_stat;
 
     if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
-        ret = -1;
         goto out;
     }
 
@@ -2937,7 +2936,6 @@ gf_defrag_task(void *opaque)
      * which will be unique per thread*/
     set_lk_owner_from_ptr(&lkowner, &lkowner);
     syncopctx_setfslkowner(&lkowner);
-
 
     q_head = &(defrag->queue[0].list);
 
@@ -3693,7 +3691,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         list_for_each_entry_safe(entry, tmp, &entries.list, list)
         {
             if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
-                ret = 1;
                 goto out;
             }
 
@@ -4451,12 +4448,10 @@ out:
         gf_defrag_estimates_cleanup(this, defrag, filecnt_thread);
     }
 
-    dht_send_rebalance_event(this, defrag->cmd, defrag->defrag_status);
-
     status = dict_new();
     LOCK(&defrag->lock);
     {
-        gf_defrag_status_get(conf, status);
+        gf_defrag_status_get(conf, status, true);
         if (ctx && ctx->notify)
             ctx->notify(GF_EN_DEFRAG_STATUS, status);
         if (status)
@@ -4464,6 +4459,8 @@ out:
         defrag->is_exiting = 1;
     }
     UNLOCK(&defrag->lock);
+
+    dht_send_rebalance_event(this, defrag->cmd, defrag->defrag_status);
 
     GF_FREE(defrag);
     conf->defrag = NULL;
@@ -4587,7 +4584,7 @@ out:
 }
 
 int
-gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
+gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
 {
     int ret = 0;
     uint64_t files = 0;
@@ -4666,40 +4663,42 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict)
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set time-left");
 
 log:
-    switch (defrag->defrag_status) {
-        case GF_DEFRAG_STATUS_NOT_STARTED:
-            status = "not started";
-            break;
-        case GF_DEFRAG_STATUS_STARTED:
-            status = "in progress";
-            break;
-        case GF_DEFRAG_STATUS_STOPPED:
-            status = "stopped";
-            break;
-        case GF_DEFRAG_STATUS_COMPLETE:
-            status = "completed";
-            break;
-        case GF_DEFRAG_STATUS_FAILED:
-            status = "failed";
-            break;
-        default:
-            break;
-    }
+    if (log_status) {
+        switch (defrag->defrag_status) {
+            case GF_DEFRAG_STATUS_NOT_STARTED:
+                status = "not started";
+                break;
+            case GF_DEFRAG_STATUS_STARTED:
+                status = "in progress";
+                break;
+            case GF_DEFRAG_STATUS_STOPPED:
+                status = "stopped";
+                break;
+            case GF_DEFRAG_STATUS_COMPLETE:
+                status = "completed";
+                break;
+            case GF_DEFRAG_STATUS_FAILED:
+                status = "failed";
+                break;
+            default:
+                break;
+        }
 
-    gf_msg(THIS->name, GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STATUS,
-           "Rebalance is %s. Time taken is %.2f secs", status, elapsed);
-    gf_msg(THIS->name, GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STATUS,
-           "Files migrated: %" PRIu64 ", size: %" PRIu64 ", lookups: %" PRIu64
-           ", failures: %" PRIu64
-           ", skipped: "
-           "%" PRIu64,
-           files, size, lookup, failures, skipped);
+        gf_msg("DHT", GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STATUS,
+               "Rebalance is %s. Time taken is %.2f secs "
+               "Files migrated: %" PRIu64 ", size: %" PRIu64
+               ", lookups: %" PRIu64 ", failures: %" PRIu64
+               ", skipped: "
+               "%" PRIu64,
+               status, elapsed, files, size, lookup, failures, skipped);
+    }
 out:
     return 0;
 }
 
 int
-gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output)
+gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output,
+               gf_boolean_t log_status)
 {
     /* TODO: set a variable 'stop_defrag' here, it should be checked
        in defrag loop */
@@ -4717,7 +4716,7 @@ gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output)
     defrag->defrag_status = status;
 
     if (output)
-        gf_defrag_status_get(conf, output);
+        gf_defrag_status_get(conf, output, log_status);
     ret = 0;
 out:
     gf_msg_debug("", 0, "Returning %d", ret);
