@@ -93,9 +93,14 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
             dict_unref(__unref);                                               \
     } while (0)
 
+#define IS_BIT_SET(byte, bit_number) (byte & (1 << bit_number))
+
+#define SET_BIT(byte, bit_number) (byte = (byte | (1 << bit_number)))
+
 #define PL_LOCAL_GET_REQUESTS(frame, this, xdata, __fd, __loc, __newloc)       \
     do {                                                                       \
-        if (pl_has_xdata_requests(xdata)) {                                    \
+        uint32_t bitfield = pl_has_xdata_requests(xdata);                      \
+        if (bitfield > 0) {                                                    \
             if (!frame->local)                                                 \
                 frame->local = mem_get0(this->local_pool);                     \
             pl_local_t *__local = frame->local;                                \
@@ -110,7 +115,7 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
                         loc_copy(&__local->loc[1], __newloc);                  \
                     __local->inode = inode_ref(__local->loc[0].inode);         \
                 }                                                              \
-                pl_get_xdata_requests(__local, xdata);                         \
+                pl_get_xdata_requests(__local, xdata, bitfield);               \
             }                                                                  \
         }                                                                      \
     } while (0)
@@ -171,7 +176,7 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
         __error;                                                               \
     })
 
-gf_boolean_t
+static uint32_t
 pl_has_xdata_requests(dict_t *xdata)
 {
     static char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT,
@@ -189,15 +194,31 @@ pl_has_xdata_requests(dict_t *xdata)
                               SLEN(GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS),
                               0};
     int i = 0;
+    uint32_t bitfield = 0;
 
     if (!xdata)
         return _gf_false;
 
-    for (i = 0; reqs[i]; i++)
-        if (dict_getn(xdata, reqs[i], reqs_size[i]))
-            return _gf_true;
+    if (dict_del_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT))
+        SET_BIT(bitfield, GLUSTERFS_ENTRYLK_COUNT_BIT);
 
-    return _gf_false;
+    if (dict_del_sizen(xdata, GLUSTERFS_INODELK_COUNT))
+        SET_BIT(bitfield, GLUSTERFS_INODELK_COUNT_BIT);
+
+    if (dict_del_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS))
+        SET_BIT(bitfield, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT);
+
+    if (dict_del_sizen(xdata, GLUSTERFS_INODELK_DOM_COUNT))
+        SET_BIT(bitfield, GLUSTERFS_INODELK_DOM_COUNT_BIT);
+
+    if (dict_getn(xdata, GLUSTERFS_POSIXLK_COUNT,
+                  SLEN(GLUSTERFS_POSIXLK_COUNT)))
+        SET_BIT(bitfield, GLUSTERFS_POSIXLK_COUNT_BIT);
+
+    if (dict_del_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK))
+        SET_BIT(bitfield, GLUSTERFS_PARENT_ENTRYLK_BIT);
+
+    return bitfield;
 }
 
 static int
@@ -207,8 +228,8 @@ dict_delete_domain_key(dict_t *dict, char *key, data_t *value, void *data)
     return 0;
 }
 
-void
-pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
+static void
+pl_get_xdata_requests(pl_local_t *local, dict_t *xdata, uint32_t bitfield)
 {
     if (!local || !xdata)
         return;
@@ -216,17 +237,7 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
     GF_ASSERT(local->xdata == NULL);
     local->xdata = dict_copy_with_ref(xdata, NULL);
 
-    if (dict_get_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT)) {
-        local->entrylk_count_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT);
-    }
-    if (dict_get_sizen(xdata, GLUSTERFS_INODELK_COUNT)) {
-        local->inodelk_count_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_INODELK_COUNT);
-    }
-    if (dict_get_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS)) {
-        local->multiple_dom_lk_requests = 1;
-        dict_del_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS);
+    if (IS_BIT_SET(bitfield, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT)) {
         dict_foreach_fnmatch(xdata, GLUSTERFS_INODELK_DOM_PREFIX "*",
                              dict_delete_domain_key, NULL);
     }
@@ -235,17 +246,6 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
                                                   GLUSTERFS_INODELK_DOM_COUNT);
     if (local->inodelk_dom_count_req) {
         data_ref(local->inodelk_dom_count_req);
-        dict_del_sizen(xdata, GLUSTERFS_INODELK_DOM_COUNT);
-    }
-
-    if (dict_get_sizen(xdata, GLUSTERFS_POSIXLK_COUNT)) {
-        local->posixlk_count_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_POSIXLK_COUNT);
-    }
-
-    if (dict_get_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK)) {
-        local->parent_entrylk_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK);
     }
 }
 
@@ -255,9 +255,7 @@ pl_needs_xdata_response(pl_local_t *local)
     if (!local)
         return _gf_false;
 
-    if (local->parent_entrylk_req || local->entrylk_count_req ||
-        local->inodelk_dom_count_req || local->inodelk_count_req ||
-        local->posixlk_count_req || local->multiple_dom_lk_requests)
+    if (local->bitfield)
         return _gf_true;
 
     return _gf_false;
@@ -538,13 +536,14 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
     if (!xdata || !local)
         return;
 
-    if (local->parent_entrylk_req && parent && name && name[0] != '\0')
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_PARENT_ENTRYLK_BIT) && parent &&
+        name && name[0] != '\0')
         pl_parent_entrylk_xattr_fill(this, parent, name, xdata, max_lock);
 
     if (!inode)
         return;
 
-    if (local->entrylk_count_req)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_ENTRYLK_COUNT_BIT))
         pl_entrylk_xattr_fill(this, inode, xdata, max_lock);
 
     if (local->inodelk_dom_count_req)
@@ -552,13 +551,13 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
                               data_to_str(local->inodelk_dom_count_req),
                               max_lock);
 
-    if (local->inodelk_count_req)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_INODELK_COUNT_BIT))
         pl_inodelk_xattr_fill(this, inode, xdata, NULL, max_lock);
 
-    if (local->posixlk_count_req)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_POSIXLK_COUNT_BIT))
         pl_posixlk_xattr_fill(this, inode, xdata, max_lock);
 
-    if (local->multiple_dom_lk_requests)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT))
         pl_fill_multiple_dom_lk_requests(this, local, inode, xdata, max_lock);
 }
 

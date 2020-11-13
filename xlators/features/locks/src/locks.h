@@ -245,11 +245,7 @@ typedef struct {
     inode_t *inode;
     off_t offset;
     glusterfs_fop_t op;
-    gf_boolean_t entrylk_count_req;
-    gf_boolean_t inodelk_count_req;
-    gf_boolean_t posixlk_count_req;
-    gf_boolean_t parent_entrylk_req;
-    gf_boolean_t multiple_dom_lk_requests;
+    uint32_t bitfield;
     int update_mlock_enforced_flag;
 } pl_local_t;
 

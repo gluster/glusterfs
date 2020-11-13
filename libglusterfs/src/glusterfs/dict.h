@@ -149,7 +149,7 @@ data_t *
 dict_getn(dict_t *this, char *key, const int keylen);
 void
 dict_del(dict_t *this, char *key);
-void
+gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen);
 int
 dict_reset(dict_t *dict);

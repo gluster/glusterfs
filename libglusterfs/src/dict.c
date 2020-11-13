@@ -619,11 +619,12 @@ dict_del(dict_t *this, char *key)
     return dict_deln(this, key, strlen(key));
 }
 
-void
+gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen)
 {
     int hashval = 0;
     uint32_t hash;
+    gf_boolean_t rc = _gf_false;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -670,6 +671,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
                 mem_put(pair);
             }
             this->count--;
+            rc = _gf_true;
             break;
         }
 
@@ -679,7 +681,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
 
     UNLOCK(&this->lock);
 
-    return;
+    return rc;
 }
 
 void
