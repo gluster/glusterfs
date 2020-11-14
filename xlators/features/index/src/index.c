@@ -11,6 +11,7 @@
 #include <glusterfs/options.h>
 #include "glusterfs3-xdr.h"
 #include <glusterfs/syscall.h>
+#include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/common-utils.h>
 #include "index-messages.h"
@@ -422,15 +423,26 @@ index_get_link_count(index_priv_t *priv, int64_t *count,
 }
 
 static void
-index_dec_link_count(index_priv_t *priv, index_xattrop_type_t type)
+index_update_link_count(index_priv_t *priv, index_xattrop_type_t type,
+                        int count)
 {
     switch (type) {
         case XATTROP:
             LOCK(&priv->lock);
             {
-                priv->pending_count--;
-                if (priv->pending_count == 0)
+                if (count == 1) {
+                    /*If this is the first xattrop, then pending_count needs to
+                     * be updated for the next lstat/lookup with link-count
+                     * xdata*/
+                    if (priv->pending_count == 0) {
+                        priv->pending_count = -1;
+                    }
+                } else {
                     priv->pending_count--;
+                    if (priv->pending_count == 0) {
+                        priv->pending_count--;
+                    }
+                }
             }
             UNLOCK(&priv->lock);
             break;
@@ -664,6 +676,9 @@ index_add(xlator_t *this, uuid_t gfid, const char *subdir,
     if (!ret)
         goto out;
     ret = index_link_to_base(this, gfid_path, subdir);
+    if (ret == 0) {
+        index_update_link_count(priv, type, 1);
+    }
 out:
     return ret;
 }
@@ -717,7 +732,10 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
         goto out;
     }
 
-    index_dec_link_count(priv, type);
+    /* If errno is ENOENT then ret won't be zero */
+    if (ret == 0) {
+        index_update_link_count(priv, type, -1);
+    }
     ret = 0;
 out:
     return ret;
@@ -777,7 +795,11 @@ index_fill_zero_array(dict_t *d, char *k, data_t *v, void *adata)
     idx = index_find_xattr_type(d, k, v);
     if (idx == -1)
         return 0;
-    zfilled[idx] = 0;
+    /* If an xattr value is all-zero leave zfilled[idx] as -1 so that xattrop
+     * index add/del won't happen */
+    if (!memeqzero((const char *)v->data, v->len)) {
+        zfilled[idx] = 0;
+    }
     return 0;
 }
 
@@ -2311,6 +2333,22 @@ out:
     return ret;
 }
 
+int
+index_priv_dump(xlator_t *this)
+{
+    index_priv_t *priv = NULL;
+    char key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+    priv = this->private;
+
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
+    gf_proc_dump_add_section("%s", key_prefix);
+    gf_proc_dump_write("xattrop-pending-count", "%" PRId64,
+                       priv->pending_count);
+
+    return 0;
+}
+
 int32_t
 mem_acct_init(xlator_t *this)
 {
@@ -2641,7 +2679,9 @@ struct xlator_fops fops = {
     .fstat = index_fstat,
 };
 
-struct xlator_dumpops dumpops;
+struct xlator_dumpops dumpops = {
+    .priv = index_priv_dump,
+};
 
 struct xlator_cbks cbks = {.forget = index_forget,
                            .release = index_release,
