@@ -1351,6 +1351,13 @@ case $host_os in
         ;;
 esac
 
+CC_VER=`"$CC" -dumpversion 2>/dev/null`
+AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
+  	GF_CFLAGS="${GF_CFLAGS} -flto"
+	GF_LDFLAGS="${GF_LDFLAGS} -flto"
+	AC_MSG_NOTICE([building with LTO])
+])
+
 # Default value for sbindir
 prefix_temp=$prefix
 exec_prefix_temp=$exec_prefix
