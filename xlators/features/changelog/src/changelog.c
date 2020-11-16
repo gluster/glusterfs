@@ -2447,9 +2447,7 @@ reconfigure(xlator_t *this, dict_t *options)
     char csnap_dir[PATH_MAX] = {
         0,
     };
-    struct timeval tv = {
-        0,
-    };
+    time_t tv;
     uint32_t timeout = 0;
 
     priv = this->private;
@@ -2559,9 +2557,10 @@ reconfigure(xlator_t *this, dict_t *options)
                 gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_RECONFIGURE,
                         NULL);
 
+                tv = gf_time();
                 char tm_string[40];
                 snprintf(tm_string, sizeof(tm_string), "Current time : %ld",
-                         tv.tv_sec);
+                         tv);
                 ret = (setxattr(priv->changelog_brick, "CHANGELOG-ENABLE-TIME",
                                 &tm_string, sizeof(tm_string), 0));
                 if (ret < 0) {
