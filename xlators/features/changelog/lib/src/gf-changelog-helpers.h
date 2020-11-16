@@ -220,9 +220,9 @@ gf_ftruncate(int fd, off_t length);
 off_t
 gf_lseek(int fd, off_t offset, int whence);
 
-int
-gf_changelog_consume(xlator_t *this, gf_changelog_journal_t *jnl,
-                     char *from_path, gf_boolean_t no_publish);
+void *
+gf_changelog_consume(void *data);
+
 int
 gf_changelog_publish(xlator_t *this, gf_changelog_journal_t *jnl,
                      char *from_path);

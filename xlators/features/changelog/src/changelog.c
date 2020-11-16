@@ -2277,11 +2277,6 @@ changelog_init(xlator_t *this, changelog_priv_t *priv)
      */
     changelog_fill_rollover_data(&cld, _gf_false);
 
-    ret = htime_open(this, priv, cld.cld_roll_time);
-    /* call htime open with cld's rollover_time */
-    if (ret)
-        goto out;
-
     LOCK(&priv->lock);
     {
         ret = changelog_inject_single_event(this, priv, &cld);
@@ -2291,7 +2286,6 @@ changelog_init(xlator_t *this, changelog_priv_t *priv)
     /* ... and finally spawn the helpers threads */
     ret = changelog_spawn_helper_threads(this, priv);
 
-out:
     return ret;
 }
 
@@ -2450,12 +2444,10 @@ reconfigure(xlator_t *this, dict_t *options)
     changelog_log_data_t cld = {
         0,
     };
-    char htime_dir[PATH_MAX] = {
-        0,
-    };
     char csnap_dir[PATH_MAX] = {
         0,
     };
+    time_t tv;
     uint32_t timeout = 0;
 
     priv = this->private;
@@ -2485,8 +2477,6 @@ reconfigure(xlator_t *this, dict_t *options)
 
     if (ret)
         goto out;
-    CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
-    ret = mkdir_p(htime_dir, 0600, _gf_true);
 
     if (ret)
         goto out;
@@ -2566,7 +2556,17 @@ reconfigure(xlator_t *this, dict_t *options)
             if (!active_earlier) {
                 gf_smsg(this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_RECONFIGURE,
                         NULL);
-                htime_create(this, priv, gf_time());
+
+                char tm_string[40];
+                tv = gf_time();
+                snprintf(tm_string, sizeof(tm_string), "Current time : %ld",
+                         tv);
+                ret = (setxattr(priv->changelog_brick, "CHANGELOG-ENABLE-TIME",
+                                &tm_string, sizeof(tm_string), 0));
+                if (ret < 0) {
+                    gf_smsg(this->name, GF_LOG_ERROR, 0,
+                            CHANGELOG_MSG_XATTR_CREATE_FAILED, NULL);
+                }
             }
             ret = changelog_spawn_helper_threads(this, priv);
         }
@@ -2602,9 +2602,6 @@ changelog_init_options(xlator_t *this, changelog_priv_t *priv)
     int ret = 0;
     char *tmp = NULL;
     uint32_t timeout = 0;
-    char htime_dir[PATH_MAX] = {
-        0,
-    };
     char csnap_dir[PATH_MAX] = {
         0,
     };
@@ -2629,11 +2626,6 @@ changelog_init_options(xlator_t *this, changelog_priv_t *priv)
      */
     ret = mkdir_p(priv->changelog_dir, 0600, _gf_true);
 
-    if (ret)
-        goto dealloc_2;
-
-    CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
-    ret = mkdir_p(htime_dir, 0600, _gf_true);
     if (ret)
         goto dealloc_2;
 
@@ -2750,7 +2742,6 @@ init(xlator_t *this)
     GF_ATOMIC_INIT(priv->clntcnt, 0);
     GF_ATOMIC_INIT(priv->xprtcnt, 0);
     INIT_LIST_HEAD(&priv->xprt_list);
-    priv->htime_fd = -1;
 
     ret = changelog_init_options(this, priv);
     if (ret)
@@ -2845,14 +2836,9 @@ fini(xlator_t *this)
         /* deallocate mempool */
         mem_pool_destroy(this->local_pool);
 
-        if (priv->htime_fd != -1) {
-            sys_close(priv->htime_fd);
-        }
-
         /* finally, dealloac private variable */
         GF_FREE(priv);
     }
-
     this->private = NULL;
     this->local_pool = NULL;
 
