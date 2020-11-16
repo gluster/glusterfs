@@ -1519,18 +1519,8 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
     gf_boolean_t target_changed = _gf_false;
     xlator_t *new_target = NULL;
     xlator_t *old_target = NULL;
-    xlator_t *hashed_subvol = NULL;
     fd_t *linkto_fd = NULL;
     dict_t *xdata = NULL;
-
-    if (from == to) {
-        gf_msg_debug(this->name, 0,
-                     "destination and source are same. file %s"
-                     " might have migrated already",
-                     loc->path);
-        ret = 0;
-        goto out;
-    }
 
     gf_log(this->name, log_level, "%s: attempting to move from %s to %s",
            loc->path, from->name, to->name);
@@ -1590,17 +1580,6 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         goto out;
     }
 
-    hashed_subvol = dht_subvol_get_hashed(this, loc);
-    if (hashed_subvol == NULL) {
-        ret = -1;
-        gf_msg(this->name, GF_LOG_WARNING, EINVAL, DHT_MSG_MIGRATE_FILE_FAILED,
-               "%s: cannot find hashed subvol which is needed to "
-               "synchronize with renames on this path. "
-               "Skipping migration",
-               loc->path);
-        goto out;
-    }
-
     flock.l_type = F_WRLCK;
 
     tmp_loc.inode = inode_ref(loc->inode);
@@ -1632,7 +1611,7 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
      * synchronization. So, rebalance too has to acquire an entrylk on
      * hashed subvol.
      */
-    ret = syncop_entrylk(hashed_subvol, DHT_ENTRY_SYNC_DOMAIN, &parent_loc,
+    ret = syncop_entrylk(to, DHT_ENTRY_SYNC_DOMAIN, &parent_loc,
                          loc->name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL, NULL);
     if (ret < 0) {
         *fop_errno = -ret;
@@ -1640,7 +1619,7 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_msg(this->name, GF_LOG_WARNING, *fop_errno,
                DHT_MSG_MIGRATE_FILE_FAILED,
                "%s: failed to acquire entrylk on subvol %s", loc->path,
-               hashed_subvol->name);
+               to->name);
         goto out;
     }
 
@@ -2259,14 +2238,13 @@ out:
     }
 
     if (entrylk_locked) {
-        lk_ret = syncop_entrylk(hashed_subvol, DHT_ENTRY_SYNC_DOMAIN,
-                                &parent_loc, loc->name, ENTRYLK_UNLOCK,
-                                ENTRYLK_UNLOCK, NULL, NULL);
+        lk_ret = syncop_entrylk(to, DHT_ENTRY_SYNC_DOMAIN, &parent_loc,
+                                loc->name, ENTRYLK_UNLOCK, ENTRYLK_UNLOCK, NULL,
+                                NULL);
         if (lk_ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, -lk_ret,
                    DHT_MSG_MIGRATE_FILE_FAILED,
-                   "%s: failed to unlock entrylk on %s", loc->path,
-                   hashed_subvol->name);
+                   "%s: failed to unlock entrylk on %s", loc->path, to->name);
         }
     }
 
@@ -2321,6 +2299,8 @@ rebalance_task(void *data)
     dht_local_t *local = NULL;
     call_frame_t *frame = NULL;
     int fop_errno = 0;
+    xlator_t *hashed_subvol;
+    xlator_t *cached_subvol;
 
     frame = data;
 
@@ -2328,10 +2308,23 @@ rebalance_task(void *data)
 
     /* This function is 'synchrounous', hence if it returns,
        we are done with the task */
-    ret = dht_migrate_file(THIS, &local->loc, local->rebalance.from_subvol,
-                           local->rebalance.target_node, local->flags,
-                           &fop_errno);
 
+    hashed_subvol = local->rebalance.target_node;
+    cached_subvol = local->rebalance.from_subvol;
+
+    if (cached_subvol == hashed_subvol) {
+        gf_msg_debug("DHT", 0,
+                     "destination and source are same. file %s"
+                     " might have migrated already",
+                     local->loc.path);
+        ret = 0;
+        goto out;
+    }
+
+    ret = dht_migrate_file(THIS, &local->loc, cached_subvol, hashed_subvol,
+                           local->flags, &fop_errno);
+
+out:
     return ret;
 }
 
