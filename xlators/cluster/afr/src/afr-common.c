@@ -5279,17 +5279,17 @@ afr_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     local->cont.lk.cmd = cmd;
     local->cont.lk.user_flock = *flock;
     local->cont.lk.ret_flock = *flock;
-    if (xdata)
+    if (xdata) {
         local->xdata_req = dict_ref(xdata);
-
-    if (afr_is_lock_mode_mandatory(xdata)) {
-        ret = synctask_new(this->ctx->env, afr_lk_transaction,
-                           afr_lk_transaction_cbk, frame, frame);
-        if (ret) {
-            op_errno = ENOMEM;
-            goto out;
+        if (afr_is_lock_mode_mandatory(xdata)) {
+            ret = synctask_new(this->ctx->env, afr_lk_transaction,
+                               afr_lk_transaction_cbk, frame, frame);
+            if (ret) {
+                op_errno = ENOMEM;
+                goto out;
+            }
+            return 0;
         }
-        return 0;
     }
 
     STACK_WIND_COOKIE(frame, afr_lk_cbk, (void *)(long)0, priv->children[i],
