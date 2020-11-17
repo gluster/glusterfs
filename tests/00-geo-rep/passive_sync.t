@@ -85,15 +85,16 @@ until [ $i -gt "2" ]
 do
         res=$(check_master3_active_status)
         if [ $res -eq 1 ]; then
-                break
-        fi
-        #kill other two workers to make brick3 active
-        worker1=$(ps aux | grep feedback | grep master1 | awk '{print $2}')
-        worker2=$(ps aux | grep feedback | grep master2 | awk '{print $2}')
-        worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
-        kill $worker1
-        kill $worker2
-
+            # Condition is satisfied hence not killing the workers.    
+			i=3
+        else
+        	#kill other two workers to make brick3 active
+        	worker1=$(ps aux | grep feedback | grep master1 | awk '{print $2}')
+        	worker2=$(ps aux | grep feedback | grep master2 | awk '{print $2}')
+        	worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
+        	kill $worker1
+        	kill $worker2
+		fi
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_active_brick_status "master3"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 2 check_status_num_rows "Passive"
@@ -113,12 +114,13 @@ until [ $i -gt "2" ]
 do
         res=$(check_master3_passive_status)
         if [ $res -eq 1 ]; then
-                break
-        fi
-        #kill other two workers to make brick3 active
-        worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
-        kill $worker3
-
+                # Condition is satisfied hence not killing the workers.
+				i=3
+        else
+        	#kill other two workers to make brick3 active
+        	worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
+        	kill $worker3
+		fi
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_passive_brick_status "master3"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 2 check_status_num_rows "Passive"
