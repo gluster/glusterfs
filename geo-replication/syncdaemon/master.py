@@ -1053,10 +1053,10 @@ class GMasterChangelogMixin(GMasterCommon):
                 continue
 
             # Passive syncs the MKNOD operation alone.
-            if is_passive:
+            if is_passive and et == self.TYPE_ENTRY:
                 ty = ec[self.POS_TYPE]
 
-                if et == self.TYPE_ENTRY and ty in ['MKNOD']:
+                if ty in ['MKNOD']:
                     self.update_fop_batch_stats(ec[self.POS_TYPE])
 
                     # PARGFID/BNAME

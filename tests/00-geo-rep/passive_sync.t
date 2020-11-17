@@ -97,7 +97,7 @@ do
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_active_brick_status "master3"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 2 check_status_num_rows "Passive"
-        ((i++))
+        i=$(($i+ 1))
         echo tries for making brick3 active: $i
 done
 $GEOREP_CLI $master $slave status
@@ -122,9 +122,10 @@ do
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_passive_brick_status "master3"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 2 check_status_num_rows "Passive"
-        ((i++))
+        i=$(($i + 1))
         echo tries for making brick3 active: $i
 done
+
 $GEOREP_CLI $master $slave status
 
 for i in {1..20}; do echo "bye"  >> $M0/dir/b3passive$i; done
