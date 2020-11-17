@@ -4,6 +4,8 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../geo-rep.rc
 
+SCRIPT_TIMEOUT=500
+
 cleanup
 TEST glusterd
 TEST pidof glusterd
