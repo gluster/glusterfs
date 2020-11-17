@@ -139,15 +139,14 @@ TEST $GEOREP_CLI $master $slave stop
 #Delete Geo-rep
 TEST $GEOREP_CLI $master $slave delete
 
-#remove stale files
-rm -rf $M0/
-
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 
+# Stop and delete the primary volume 
 TEST $CLI volume stop $GMV0;
 TEST $CLI volume delete $GMV0;
 
+# Stop and delete the secndary volume
 TEST $CLI volume stop $GSV0;
 TEST $CLI volume delete $GSV0;
 
