@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <fnmatch.h>
 #include <uuid/uuid.h>
+#include <urcu/compiler.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG
@@ -443,14 +444,19 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
+void gf_assert(void);
+
 #ifdef DEBUG
 #define GF_ASSERT(x) assert(x);
 #else
 #define GF_ASSERT(x)                                                           \
     do {                                                                       \
-        if (!(x)) {                                                            \
+        if (caa_unlikely(!(x))) {                                              \
+            gf_assert();                                                       \
             gf_msg_callingfn("", GF_LOG_ERROR, 0, LG_MSG_ASSERTION_FAILED,     \
-                             "Assertion failed: " #x);                         \
+                             "Assertion failed: To attach gdb and coredump,"   \
+                             " Run the script under "                          \
+                             "\"glusterfs/extras/debug/gfcore.py\"");          \
         }                                                                      \
     } while (0)
 #endif
