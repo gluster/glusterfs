@@ -606,10 +606,13 @@ posix_io_uring_on(xlator_t *this)
 int
 posix_io_uring_off(xlator_t *this)
 {
+    struct posix_private *priv = this->private;
+
     this->fops->readv = posix_readv;
     this->fops->writev = posix_writev;
     this->fops->fsync = posix_fsync;
-    posix_io_uring_fini(this);
+    if (priv->io_uring_capable)
+        posix_io_uring_fini(this);
 
     return 0;
 }
