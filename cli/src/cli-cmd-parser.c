@@ -1863,6 +1863,8 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
     int wc = wordcount;
     gf_answer_t answer = GF_ANSWER_NO;
     const char *question = NULL;
+    int thin_arbiter_count = 0;
+    char *ta_brick = NULL;
 
     GF_ASSERT(words);
     GF_ASSERT(options);
@@ -1923,10 +1925,24 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
                 goto out;
             }
             ret = dict_set_int32(dict, "arbiter-count", arbiter_count);
-            if (ret)
+            index = 7;
+        } else if (words[index] && !strcmp(words[index], "thin-arbiter")) {
+            thin_arbiter_count = strtol(words[6], NULL, 0);
+            if (thin_arbiter_count != 1 || count != 3) {
+                cli_err(
+                    "For thin-arbiter configuration, replica "
+                    "count must be 3 and thin-arbiter count "
+                    "must be 1. The 3rd brick of the "
+                    "replica will be the thin-arbiter brick");
+                ret = -1;
                 goto out;
+            }
+            ret = dict_set_int32(dict, "thin-arbiter-count",
+                                 thin_arbiter_count);
             index = 7;
         }
+        if (ret)
+            goto out;
 
         if (count == 2) {
             if (strcmp(words[wordcount - 1], "force")) {
@@ -1965,16 +1981,25 @@ parse_bricks:
         wc = wordcount - 1;
     }
 
-    ret = cli_cmd_bricks_parse(words, wc, brick_index, &bricks, &brick_count);
+    if (thin_arbiter_count == 1) {
+        ret = cli_cmd_ta_brick_parse(words, wc, &ta_brick);
+        brick_count = 1;
+    } else {
+        ret = cli_cmd_bricks_parse(words, wc, brick_index, &bricks,
+                                   &brick_count);
+    }
     if (ret)
         goto out;
 
-    ret = dict_set_dynstr(dict, "bricks", bricks);
+    if (thin_arbiter_count == 1) {
+        ret = dict_set_dynstr(dict, "ta-brick", ta_brick);
+    } else {
+        ret = dict_set_dynstr(dict, "bricks", bricks);
+    }
     if (ret)
         goto out;
 
     ret = dict_set_int32(dict, "count", brick_count);
-
     if (ret)
         goto out;
 
