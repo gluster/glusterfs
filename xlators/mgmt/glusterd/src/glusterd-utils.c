@@ -15031,7 +15031,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     ai_list_tmp2 = NULL;
     if (flag) {
         i = 0;
-        j = 0;
         ai_list_tmp2 = cds_list_first_entry(ai_list->list.next, addrinfo_list_t,
                                             list);
         while (i < count) {
