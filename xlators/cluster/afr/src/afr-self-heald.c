@@ -295,7 +295,7 @@ afr_shd_selfheal_name(struct subvol_healer *healer, int child, uuid_t parent,
 {
     int ret = -1;
 
-    ret = afr_selfheal_name(THIS, parent, bname, NULL, NULL);
+    ret = afr_selfheal_name(THIS, parent, bname, NULL, NULL, NULL);
 
     return ret;
 }

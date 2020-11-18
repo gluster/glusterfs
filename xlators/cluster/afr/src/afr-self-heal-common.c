@@ -245,7 +245,8 @@ int
 afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                             inode_t *inode, uuid_t pargfid, const char *bname,
                             int src_idx, int child_idx,
-                            unsigned char *locked_on, int *src, dict_t *xdata)
+                            unsigned char *locked_on, int *src, dict_t *req,
+                            dict_t *rsp)
 {
     afr_private_t *priv = NULL;
     char g1[64] = {
@@ -266,8 +267,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                "All the bricks should be up to resolve the gfid split "
                "barin");
-        if (xdata) {
-            ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+        if (rsp) {
+            ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                            SALL_BRICKS_UP_TO_RESOLVE);
             if (ret)
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
@@ -277,8 +278,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
         goto out;
     }
 
-    if (xdata) {
-        ret = dict_get_int32_sizen(xdata, "heal-op", &heal_op);
+    if (req) {
+        ret = dict_get_int32_sizen(req, "heal-op", &heal_op);
         if (ret)
             goto fav_child;
     } else {
@@ -292,8 +293,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        SNO_BIGGER_FILE);
-                if (xdata) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                if (rsp) {
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    SNO_BIGGER_FILE);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -310,8 +311,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        SNO_DIFF_IN_MTIME);
-                if (xdata) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                if (rsp) {
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    SNO_DIFF_IN_MTIME);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -323,7 +324,7 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             break;
 
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
-            ret = dict_get_str_sizen(xdata, "child-name", &src_brick);
+            ret = dict_get_str_sizen(req, "child-name", &src_brick);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        "Error getting the source "
@@ -335,8 +336,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        SERROR_GETTING_SRC_BRICK);
-                if (xdata) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                if (rsp) {
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    SERROR_GETTING_SRC_BRICK);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -400,7 +401,7 @@ out:
                  uuid_utoa_r(replies[child_idx].poststat.ia_gfid, g1), src_idx,
                  priv->children[src_idx]->name, src_idx,
                  uuid_utoa_r(replies[src_idx].poststat.ia_gfid, g2));
-        return -1;
+        return -EIO;
     }
     return 0;
 }
