@@ -1038,7 +1038,6 @@ cli_cmd_volume_add_brick_cbk(struct cli_state *state, struct cli_cmd_word *word,
     dict_t *options = NULL;
     int sent = 0;
     int parse_error = 0;
-    gf_answer_t answer = GF_ANSWER_NO;
     cli_local_t *local = NULL;
 
 #if (USE_EVENTS)
@@ -1047,29 +1046,11 @@ cli_cmd_volume_add_brick_cbk(struct cli_state *state, struct cli_cmd_word *word,
     const char *eventstrformat = "volume=%s;bricks=%s";
 #endif
 
-    const char *question =
-        "Changing the 'stripe count' of the volume is "
-        "not a supported feature. In some cases it may result in data "
-        "loss on the volume. Also there may be issues with regular "
-        "filesystem operations on the volume after the change. Do you "
-        "really want to continue with 'stripe' count option ? ";
-
     ret = cli_cmd_volume_add_brick_parse(state, words, wordcount, &options, 0);
     if (ret) {
         cli_usage_out(word->pattern);
         parse_error = 1;
         goto out;
-    }
-
-    /* TODO: there are challenges in supporting changing of
-       stripe-count, until it is properly supported give warning to user */
-    if (dict_get(options, "stripe-count")) {
-        answer = cli_cmd_get_confirmation(state, question);
-
-        if (GF_ANSWER_NO == answer) {
-            ret = 0;
-            goto out;
-        }
     }
 
 #if (USE_EVENTS)
@@ -3039,7 +3020,7 @@ struct cli_cmd volume_cmds[] = {
     {"volume info [all|<VOLNAME>]", cli_cmd_volume_info_cbk,
      "list information of all volumes"},
 
-    {"volume create <NEW-VOLNAME> [stripe <COUNT>] "
+    {"volume create <NEW-VOLNAME> "
      "[[replica <COUNT> [arbiter <COUNT>]]|[replica 2 thin-arbiter 1]] "
      "[disperse [<COUNT>]] [disperse-data <COUNT>] [redundancy <COUNT>] "
      "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> <TA-BRICK>"
@@ -3061,7 +3042,7 @@ struct cli_cmd volume_cmds[] = {
       cli_cmd_volume_rename_cbk,
       "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
-    {"volume add-brick <VOLNAME> [<stripe|replica> <COUNT> "
+    {"volume add-brick <VOLNAME> [<replica> <COUNT> "
      "[arbiter <COUNT>]] <NEW-BRICK> ... [force]",
      cli_cmd_volume_add_brick_cbk, "add brick to volume <VOLNAME>"},
 

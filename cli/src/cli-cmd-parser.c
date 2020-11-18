@@ -567,16 +567,15 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
     char *bricks = NULL;
     char *ta_brick = NULL;
     int32_t brick_count = 0;
-    static char *opwords[] = {"replica",  "stripe",       "transport",
-                              "disperse", "redundancy",   "disperse-data",
-                              "arbiter",  "thin-arbiter", NULL};
+    static char *opwords[] = {
+        "replica",       "transport", "disperse",     "redundancy",
+        "disperse-data", "arbiter",   "thin-arbiter", NULL};
 
     char *w = NULL;
     int op_count = 0;
     int32_t replica_count = 1;
     int32_t arbiter_count = 0;
     int32_t thin_arbiter_count = 0;
-    int32_t stripe_count = 1;
     int32_t disperse_count = -1;
     int32_t redundancy_count = -1;
     int32_t disperse_data_count = -1;
@@ -619,16 +618,12 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             break;
         } else if ((strcmp(w, "replica")) == 0) {
             switch (type) {
-                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 case GF_CLUSTER_TYPE_REPLICATE:
                     cli_err("replica option given twice");
                     goto out;
                 case GF_CLUSTER_TYPE_NONE:
                     type = GF_CLUSTER_TYPE_REPLICATE;
                     break;
-                case GF_CLUSTER_TYPE_STRIPE:
-                    cli_err("stripe option not supported");
-                    goto out;
                 case GF_CLUSTER_TYPE_DISPERSE:
                     cli_err(
                         "replicated-dispersed volume is not "
@@ -727,9 +722,6 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             if (ret)
                 goto out;
 
-        } else if ((strcmp(w, "stripe")) == 0) {
-            cli_err("stripe option not supported");
-            goto out;
         } else if ((strcmp(w, "transport")) == 0) {
             if (trans_type) {
                 cli_err(
@@ -827,15 +819,9 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             goto out;
 
         sub_count = disperse_count;
-    } else
-        sub_count = stripe_count * replica_count;
-
+    }
     if (brick_count % sub_count) {
-        if (type == GF_CLUSTER_TYPE_STRIPE)
-            cli_err(
-                "number of bricks is not a multiple of "
-                "stripe count");
-        else if (type == GF_CLUSTER_TYPE_REPLICATE)
+        if (type == GF_CLUSTER_TYPE_REPLICATE)
             cli_err(
                 "number of bricks is not a multiple of "
                 "replica count");
@@ -1853,7 +1839,7 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
     int ret = -1;
     int brick_count = 0, brick_index = 0;
     char *bricks = NULL;
-    static char *opwords_cl[] = {"replica", "stripe", NULL};
+    static char *opwords_cl[] = {"replica", NULL};
     gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
     int count = 1;
     int arbiter_count = 0;
@@ -1947,9 +1933,6 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
                 }
             }
         }
-    } else if ((strcmp(w, "stripe")) == 0) {
-        cli_err("stripe option not supported");
-        goto out;
     } else {
         GF_ASSERT(!"opword mismatch");
         ret = -1;
