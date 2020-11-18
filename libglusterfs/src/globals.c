@@ -308,7 +308,7 @@ glusterfs_leaseid_exist()
 }
 
 static void
-glusterfs_cleanup(void *ptr)
+glusterfs_cleanup(void *ptr __attribute__((unused)))
 {
     if (thread_syncopctx.groups != NULL) {
         GF_FREE(thread_syncopctx.groups);

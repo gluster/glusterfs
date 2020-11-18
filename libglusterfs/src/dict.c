@@ -213,7 +213,7 @@ is_data_equal(data_t *one, data_t *two)
 }
 
 static int
-key_value_cmp(dict_t *one, char *key1, data_t *value1, void *data)
+key_value_cmp(dict_t *one __attribute__((unused)), char *key1, data_t *value1, void *data)
 {
     struct dict_cmp *cmp = data;
     dict_t *two = cmp->dict;
@@ -1299,7 +1299,7 @@ dict_null_foreach_fn(dict_t *d, char *k, data_t *v, void *tmp)
 }
 
 int
-dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *_tmp)
+dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *_tmp __attribute__((unused)))
 {
     if (!d || !k) {
         gf_smsg("glusterfs", GF_LOG_WARNING, EINVAL, LG_MSG_KEY_OR_VALUE_NULL,
