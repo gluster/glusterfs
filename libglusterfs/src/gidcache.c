@@ -110,7 +110,7 @@ gid_cache_lookup(gid_cache_t *cache, uint64_t id, uint64_t uid, uint64_t gid)
  * Release an entry found via lookup.
  */
 void
-gid_cache_release(gid_cache_t *cache, const gid_list_t *agl __attribute__((unused)) )
+gid_cache_release(gid_cache_t *cache, const gid_list_t *agl GF_UNUSED)
 {
     UNLOCK(&cache->gc_lock);
 }

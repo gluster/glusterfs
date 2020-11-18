@@ -33,7 +33,7 @@ struct event_slot_poll {
 static int
 event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
-                    int poll_out, char notify_poller_death __attribute__((unused)) );
+                    int poll_out, char notify_poller_death GF_UNUSED );
 
 static void
 __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
@@ -171,7 +171,7 @@ event_pool_new_poll(int count, int eventthreadcount)
 static int
 event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
-                    int poll_out, char notify_poller_death __attribute__((unused)) )
+                    int poll_out, char notify_poller_death GF_UNUSED)
 {
     int idx = -1;
 
@@ -470,7 +470,7 @@ out:
 }
 
 int
-event_reconfigure_threads_poll(struct event_pool *event_pool __attribute__((unused)), int value)
+event_reconfigure_threads_poll(struct event_pool *event_pool GF_UNUSED, int value)
 {
     /* No-op for poll */
 
