@@ -1779,13 +1779,8 @@ match(struct cds_lfht_node *tmp_node, const void *_key)
 {
     glusterd_volinfo_node *node = caa_container_of(tmp_node,
                                                    glusterd_volinfo_node, next);
-    char key[NAME_MAX] = "";
 
-    gf_strncpy(key, _key, strlen(_key) + 1);
-    if (strcmp(key, node->volname))
-        return 0;
-
-    return 1;
+    return strncmp((const char *)_key, node->volname, strlen((const char *)_key)) == 0;
 }
 
 int32_t
