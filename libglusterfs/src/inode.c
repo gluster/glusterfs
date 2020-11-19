@@ -405,7 +405,6 @@ __inode_activate(inode_t *inode)
 {
     list_move(&inode->list, &inode->table->active);
     inode->table->active_size++;
-    inode->in_lru_list = _gf_false;
 }
 
 static void
@@ -434,7 +433,6 @@ __inode_retire(inode_t *inode)
 
     list_move_tail(&inode->list, &inode->table->purge);
     inode->table->purge_size++;
-    inode->in_lru_list = _gf_false;
 
     __inode_unhash(inode);
 
@@ -566,8 +564,10 @@ __inode_ref(inode_t *inode, bool is_invalidate)
             inode->in_invalidate_list = false;
             inode->table->invalidate_size--;
         } else {
+            GF_ASSERT(inode->table->lru_size > 0);
             GF_ASSERT(inode->in_lru_list);
             inode->table->lru_size--;
+            inode->in_lru_list = _gf_false;
         }
         if (is_invalidate) {
             inode->in_invalidate_list = true;
@@ -707,6 +707,7 @@ inode_new(inode_table_t *table)
         {
             list_add(&inode->list, &table->lru);
             table->lru_size++;
+            GF_ASSERT(!inode->in_lru_list);
             inode->in_lru_list = _gf_true;
             __inode_ref(inode, false);
         }
@@ -1602,6 +1603,7 @@ inode_table_prune(inode_table_t *table)
             }
 
             table->lru_size--;
+            entry->in_lru_list = _gf_false;
             __inode_retire(entry);
             ret++;
         }
@@ -1921,6 +1923,7 @@ inode_table_destroy(inode_table_t *inode_table)
             inode_forget_atomic(trav, 0);
             __inode_retire(trav);
             inode_table->lru_size--;
+            trav->in_lru_list = _gf_false;
         }
 
         /* Same logic for invalidate list */
