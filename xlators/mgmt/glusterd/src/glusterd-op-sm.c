@@ -1113,7 +1113,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
             }
         } else if (len_strcmp(key, keylen, "ganesha.enable")) {
             key_matched = _gf_true;
-            if (!strcmp(value, "off") == 0) {
+            if (strcmp(value, "off") == 0) {
                 ret = ganesha_manage_export(dict, "off", _gf_true, op_errstr);
                 if (ret)
                     goto out;
