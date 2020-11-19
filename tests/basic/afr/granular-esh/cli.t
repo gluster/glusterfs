@@ -4,6 +4,8 @@
 . $(dirname $0)/../../../volume.rc
 . $(dirname $0)/../../../afr.rc
 
+SCRIPT_TIMEOUT=500
+
 cleanup
 
 TESTS_EXPECTED_IN_LOOP=4

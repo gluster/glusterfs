@@ -1043,9 +1043,10 @@ out:
 int
 glusterd_volinfo_remove(glusterd_volinfo_t *volinfo)
 {
+    int ret = -1;
     cds_list_del_init(&volinfo->vol_list);
-    glusterd_remove_volume_from_hashtable(volinfo, volinfo->volname);
-    return 0;
+    ret = glusterd_remove_volume_from_hashtable(volinfo, volinfo->volname);
+    return ret;
 }
 
 int32_t
@@ -1780,7 +1781,9 @@ match(struct cds_lfht_node *tmp_node, const void *_key)
     glusterd_volinfo_node *node = caa_container_of(tmp_node,
                                                    glusterd_volinfo_node, next);
 
-    return strncmp((const char *)_key, node->volname, strlen((const char *)_key)) == 0;
+    gf_log("glusterd", GF_LOG_INFO, "Comp: %d",
+           strcmp((const char *)_key, node->volname) == 0);
+    return strcmp((const char *)_key, node->volname) == 0;
 }
 
 int32_t
@@ -1789,6 +1792,7 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
     int32_t ret = -1;
     uint32_t hash = 0;
     xlator_t *this = THIS;
+    int len = 0;
     glusterd_conf_t *priv = NULL;
     struct cds_lfht *tmp_ht = NULL;
     struct cds_lfht_iter iter;
@@ -1805,6 +1809,10 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
         goto out;
 
     hash = (uint32_t)XXH64(volname, strlen(volname), 0);
+    len = strlen(volname);
+    gf_log(this->name, GF_LOG_INFO,
+           "find hash: %d, volname: %s, addr: %d, vol len: %d", hash, volname,
+           *volname, len);
 
     RCU_READ_LOCK;
     cds_lfht_lookup(tmp_ht, hash, match, volname, &iter);
@@ -1818,6 +1826,8 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
         *volinfo = tmp_volinfo_node->volinfo;
     }
     RCU_READ_UNLOCK;
+    gf_log(this->name, GF_LOG_INFO, "volname: %s, addr: %d",
+           (*volinfo)->volname, *((*volinfo)->volname));
 
     ret = 0;
 
@@ -8614,7 +8624,7 @@ glusterd_delete_volume(glusterd_volinfo_t *volinfo)
     if (ret)
         goto out;
 
-    glusterd_volinfo_remove(volinfo);
+    ret = glusterd_volinfo_remove(volinfo);
 out:
     gf_msg_debug(THIS->name, 0, "returning %d", ret);
     return ret;
@@ -15110,6 +15120,7 @@ glusterd_add_volume_to_hashtable(xlator_t *this, char *volname,
 {
     int32_t ret = -1;
     uint32_t hash = 0;
+    int len = 0;
     struct cds_lfht *tmp_ht = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_node *tmp_node = NULL;
@@ -15141,6 +15152,10 @@ glusterd_add_volume_to_hashtable(xlator_t *this, char *volname,
                 "Key = %s", volname, NULL);
         goto out;
     }
+    len = strlen(volname);
+    gf_log(this->name, GF_LOG_INFO,
+           "add hash: %d, volname: %s, addr: %d, vol len: %d", hash, volname,
+           *volname, len);
 
     cds_lfht_node_init(&tmp_node->next);
 
@@ -15163,12 +15178,14 @@ out:
 /* Removing the node from the hashtable having key as the hash computed from the
  * volname passed to the function */
 
-void
+int
 glusterd_remove_volume_from_hashtable(glusterd_volinfo_t *volinfo,
                                       char *volname)
 {
-    int32_t ret = -1;
+    int ret = -1;
     uint32_t hash = 0;
+    int len = 0;
+    char *tmp_volname = NULL;
     xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     struct cds_lfht *tmp_ht = NULL;
@@ -15185,22 +15202,34 @@ glusterd_remove_volume_from_hashtable(glusterd_volinfo_t *volinfo,
 
     tmp_ht = priv->ht;
 
+    tmp_volname = gf_strdup(volname);
+
+    gf_log(this->name, GF_LOG_INFO, "volname: %s, addr: %d", volinfo->volname,
+           *(volinfo->volname));
+
     /* Freeing up and deleting the data in the volinfo struct */
     glusterd_volinfo_unref(volinfo);
 
-    hash = (uint32_t)XXH64(volname, strlen(volname), 0);
+    hash = (uint32_t)XXH64(tmp_volname, strlen(tmp_volname), 0);
+    len = strlen(tmp_volname);
+    gf_log(this->name, GF_LOG_INFO,
+           "add hash: %d, volname: %s, addr: %d, vol len: %d", hash,
+           tmp_volname, *tmp_volname, len);
 
     RCU_READ_LOCK;
-    cds_lfht_lookup(tmp_ht, hash, match, volname, &iter);
+    cds_lfht_lookup(tmp_ht, hash, match, tmp_volname, &iter);
     tmp_nd = cds_lfht_iter_get_node(&iter);
     if (!tmp_nd) {
-        gf_msg_debug(this->name, 0, "Volume not found in hash table");
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_DELETE_FAIL,
+               "Volume not found in hash table");
         RCU_READ_UNLOCK;
     } else {
         ret = cds_lfht_del(tmp_ht, tmp_nd);
         if (!ret) {
             tmp_volinfo_node = caa_container_of(tmp_nd, glusterd_volinfo_node,
                                                 next);
+            gf_log(this->name, GF_LOG_INFO, "Deleting volume:%s",
+                   tmp_volinfo_node->volname);
 
             /* using call_rcu() to provide a grace period betwenn deletion and
              * freeing the deleted node. */
@@ -15208,6 +15237,8 @@ glusterd_remove_volume_from_hashtable(glusterd_volinfo_t *volinfo,
         }
         RCU_READ_UNLOCK;
     }
+
+    return ret;
 }
 
 void
@@ -15217,6 +15248,9 @@ glusterd_destroy_volinfo_node(struct rcu_head *head)
 
     tmp_node = caa_container_of(head, glusterd_volinfo_node, head);
 
-    GF_FREE(tmp_node->volinfo);
-    GF_FREE(tmp_node);
+    if (tmp_node) {
+        // GF_FREE(tmp_node->volinfo);
+        GF_FREE(tmp_node);
+        gf_log("glusterd", GF_LOG_INFO, "Node deleted");
+    }
 }
