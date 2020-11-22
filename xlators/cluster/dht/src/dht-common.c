@@ -10884,7 +10884,7 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                 gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_CHILD_DOWN,
                        "Received CHILD_DOWN. Exiting");
                 if (conf->defrag) {
-                    gf_defrag_stop(conf, GF_DEFRAG_STATUS_FAILED, NULL, true);
+                    gf_defrag_stop(conf, GF_DEFRAG_STATUS_FAILED, NULL, _gf_true);
                 } else {
                     kill(getpid(), SIGTERM);
                 }
@@ -10964,12 +10964,12 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                     goto unlock;
                 if ((cmd == GF_DEFRAG_CMD_STATUS) ||
                     (cmd == GF_DEFRAG_CMD_DETACH_STATUS))
-                    gf_defrag_status_get(conf, output, false);
+                    gf_defrag_status_get(conf, output, _gf_false);
                 else if (cmd == GF_DEFRAG_CMD_DETACH_START)
                     defrag->cmd = GF_DEFRAG_CMD_DETACH_START;
                 else if (cmd == GF_DEFRAG_CMD_STOP ||
                          cmd == GF_DEFRAG_CMD_DETACH_STOP)
-                    gf_defrag_stop(conf, GF_DEFRAG_STATUS_STOPPED, output, false);
+                    gf_defrag_stop(conf, GF_DEFRAG_STATUS_STOPPED, output, _gf_false);
             }
         unlock:
             UNLOCK(&defrag->lock);

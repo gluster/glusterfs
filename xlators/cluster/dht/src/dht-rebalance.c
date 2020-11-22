@@ -4451,7 +4451,7 @@ out:
     status = dict_new();
     LOCK(&defrag->lock);
     {
-        gf_defrag_status_get(conf, status, true);
+        gf_defrag_status_get(conf, status, _gf_true);
         if (ctx && ctx->notify)
             ctx->notify(GF_EN_DEFRAG_STATUS, status);
         if (status)
