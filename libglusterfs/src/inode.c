@@ -1583,6 +1583,7 @@ inode_table_prune(inode_table_t *table)
 
             lru_size--;
             entry = list_entry(table->lru.next, inode_t, list);
+            GF_ASSERT(entry->in_lru_list);
             /* The logic of invalidation is required only if invalidator_fn
                is present */
             if (table->invalidator_fn) {
@@ -1590,10 +1591,7 @@ inode_table_prune(inode_table_t *table)
                 nlookup = GF_ATOMIC_GET(entry->nlookup);
                 if (nlookup) {
                     if (entry->invalidate_sent) {
-                        GF_ASSERT(!entry->in_lru_list);
                         list_move_tail(&entry->list, &table->lru);
-                        entry->in_lru_list = _gf_true;
-                        table->lru_size++;
                         continue;
                     }
                     __inode_ref(entry, true);
@@ -1921,6 +1919,8 @@ inode_table_destroy(inode_table_t *inode_table)
         while (!list_empty(&inode_table->lru)) {
             trav = list_first_entry(&inode_table->lru, inode_t, list);
             inode_forget_atomic(trav, 0);
+            GF_ASSERT(inode_table->lru_size > 0);
+            GF_ASSERT(trav->in_lru_list);
             __inode_retire(trav);
             inode_table->lru_size--;
             trav->in_lru_list = _gf_false;
