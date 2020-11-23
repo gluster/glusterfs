@@ -573,7 +573,6 @@ __inode_ref(inode_t *inode, bool is_invalidate)
             inode->in_invalidate_list = true;
             inode->table->invalidate_size++;
             list_move_tail(&inode->list, &inode->table->invalidate);
-            inode->in_lru_list = _gf_false;
         } else {
             __inode_activate(inode);
         }
