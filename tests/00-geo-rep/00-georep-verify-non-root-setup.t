@@ -202,7 +202,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 4 check_status_non_root "Created"
 TEST $GEOREP_CLI $primary $secondary_url config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $primary $secondary_url config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary_url config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 ## Test for key distribution
 

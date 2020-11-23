@@ -64,7 +64,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Created"
 TEST $GEOREP_CLI $primary $secondary config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $primary $secondary config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Set changelog roll-over time to 45 secs
 TEST $CLI volume set $GMV0 changelog.rollover-time 45

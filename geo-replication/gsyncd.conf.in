@@ -1,29 +1,29 @@
 [__meta__]
 version = 4.0
 
-[master-bricks]
+[primary-bricks]
 configurable=false
 
-[slave-bricks]
+[secondary-bricks]
 configurable=false
 
-[master-volume-id]
+[primary-volume-id]
 configurable=false
 
-[slave-volume-id]
+[secondary-volume-id]
 configurable=false
 
-[master-replica-count]
-configurable=false
-type=int
-value=1
-
-[master-disperse-count]
+[primary-replica-count]
 configurable=false
 type=int
 value=1
 
-[master-distribution-count]
+[primary-disperse-count]
+configurable=false
+type=int
+value=1
+
+[primary-distribution-count]
 configurable=false
 type=int
 value=1
@@ -54,19 +54,19 @@ value=
 help=Gluster CLI Options
 
 [pid-file]
-value=${gluster_rundir}/gsyncd-${master}-${primary_slave_host}-${slavevol}.pid
+value=${gluster_rundir}/gsyncd-${primary}-${primary_secondary_host}-${secondaryvol}.pid
 configurable=false
 template = true
 help=PID file path
 
 [state-file]
-value=${glusterd_workdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/monitor.status
+value=${glusterd_workdir}/geo-replication/${primary}_${primary_secondary_host}_${secondaryvol}/monitor.status
 configurable=false
 template=true
 help=Status File path
 
 [georep-session-working-dir]
-value=${glusterd_workdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/
+value=${glusterd_workdir}/geo-replication/${primary}_${primary_secondary_host}_${secondaryvol}/
 template=true
 help=Session Working directory
 configurable=false
@@ -75,17 +75,17 @@ configurable=false
 value=false
 type=bool
 validation=bool
-help=Do not lazy unmount the master volume. This allows admin to access the mount for debugging.
+help=Do not lazy unmount the primary volume. This allows admin to access the mount for debugging.
 
-[slave-access-mount]
+[secondary-access-mount]
 value=false
 type=bool
 validation=bool
-help=Do not lazy unmount the slave volume. This allows admin to access the mount for debugging.
+help=Do not lazy unmount the secondary volume. This allows admin to access the mount for debugging.
 
-[isolated-slaves]
+[isolated-secondarys]
 value=
-help=List of Slave nodes which are isolated
+help=List of Secondary nodes which are isolated
 
 [changelog-batch-size]
 # Max size of Changelogs to process per batch, Changelogs Processing is
@@ -98,10 +98,10 @@ value=727040
 help=Max size of Changelogs to process per batch.
 type=int
 
-[slave-timeout]
+[secondary-timeout]
 value=120
 type=int
-help=Timeout in seconds for Slave Gsyncd. If no activity from master for this timeout, Slave gsyncd will be disconnected. Set Timeout to zero to skip this check.
+help=Timeout in seconds for Secondary Gsyncd. If no activity from primary for this timeout, Secondary gsyncd will be disconnected. Set Timeout to zero to skip this check.
 
 [connection-timeout]
 value=60
@@ -145,24 +145,24 @@ help=If SSH keys are not secured with gsyncd prefix then use this configuration 
 
 [gluster-command-dir]
 value=@SBIN_DIR@
-help=Directory where Gluster binaries exist on master
+help=Directory where Gluster binaries exist on primary
 
-[slave-gluster-command-dir]
+[secondary-gluster-command-dir]
 value=@SBIN_DIR@
-help=Directory where Gluster binaries exist on slave
+help=Directory where Gluster binaries exist on secondary
 
 [gluster-params]
 value = aux-gfid-mount acl
-help=Parameters for Gluster Geo-rep mount in Master
+help=Parameters for Gluster Geo-rep mount in Primary
 
-[slave-gluster-params]
+[secondary-gluster-params]
 value = aux-gfid-mount acl
-help=Parameters for Gluster Geo-rep mount in Slave
+help=Parameters for Gluster Geo-rep mount in Secondary
 
 [ignore-deletes]
 value = false
 type=bool
-help=Do not sync deletes in Slave
+help=Do not sync deletes in Secondary
 
 [special-sync-mode]
 # tunables for failover/failback mechanism:
@@ -182,7 +182,7 @@ type=bool
 help=Disables automatic gfid conflict resolution while syncing
 
 [working-dir]
-value = ${gsyncd_miscdir}/${master}_${primary_slave_host}_${slavevol}/
+value = ${gsyncd_miscdir}/${primary}_${primary_secondary_host}_${secondaryvol}/
 template=true
 configurable=false
 help=Working directory for storing Changelogs
@@ -205,32 +205,32 @@ validation=choice
 allowed_values=ERROR,INFO,WARNING,DEBUG
 
 [log-file]
-value=${gluster_logdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/gsyncd.log
+value=${gluster_logdir}/geo-replication/${primary}_${primary_secondary_host}_${secondaryvol}/gsyncd.log
 configurable=false
 template=true
 
 [changelog-log-file]
-value=${gluster_logdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/changes-${local_id}.log
+value=${gluster_logdir}/geo-replication/${primary}_${primary_secondary_host}_${secondaryvol}/changes-${local_id}.log
 configurable=false
 template=true
 
 [gluster-log-file]
-value=${gluster_logdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/mnt-${local_id}.log
+value=${gluster_logdir}/geo-replication/${primary}_${primary_secondary_host}_${secondaryvol}/mnt-${local_id}.log
 template=true
 configurable=false
 
-[slave-log-file]
-value=${gluster_logdir}/geo-replication-secondaries/${master}_${primary_slave_host}_${slavevol}/gsyncd.log
+[secondary-log-file]
+value=${gluster_logdir}/geo-replication-secondaries/${primary}_${primary_secondary_host}_${secondaryvol}/gsyncd.log
 template=true
 configurable=false
 
-[slave-gluster-log-file]
-value=${gluster_logdir}/geo-replication-secondaries/${master}_${primary_slave_host}_${slavevol}/mnt-${master_node}-${master_brick_id}.log
+[secondary-gluster-log-file]
+value=${gluster_logdir}/geo-replication-secondaries/${primary}_${primary_secondary_host}_${secondaryvol}/mnt-${primary_node}-${primary_brick_id}.log
 template=true
 configurable=false
 
-[slave-gluster-log-file-mbr]
-value=${gluster_logdir}/geo-replication-secondaries/${master}_${primary_slave_host}_${slavevol}/mnt-mbr-${master_node}-${master_brick_id}.log
+[secondary-gluster-log-file-mbr]
+value=${gluster_logdir}/geo-replication-secondaries/${primary}_${primary_secondary_host}_${secondaryvol}/mnt-mbr-${primary_node}-${primary_brick_id}.log
 template=true
 configurable=false
 
@@ -252,15 +252,15 @@ help=Set Changelog Log Level
 validation=choice
 allowed_values=ERROR,INFO,WARNING,DEBUG
 
-[slave-log-level]
+[secondary-log-level]
 value=INFO
-help=Set Slave Gsyncd Log Level
+help=Set Secondary Gsyncd Log Level
 validation=choice
 allowed_values=ERROR,INFO,WARNING,DEBUG
 
-[slave-gluster-log-level]
+[secondary-gluster-log-level]
 value=INFO
-help=Set Slave Gluster mount Log Level
+help=Set Secondary Gluster mount Log Level
 validation=choice
 allowed_values=ERROR,INFO,WARNING,DEBUG
 
