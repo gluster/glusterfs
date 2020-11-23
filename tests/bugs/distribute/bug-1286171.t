@@ -68,7 +68,7 @@ sleep 5
 
 # Examine the logfile for errors
 cd /var/log/glusterfs;
-failures=`grep "failures:" ${volname}-rebalance.log | tail -1 | awk '{ print $25 }' | tr -d ,`;
+failures=`grep "failures:" ${volname}-rebalance.log | tail -1 | sed 's/.*failures: //; s/,.*//'`;
 
 TEST [ $failures == 0 ];
 

@@ -4697,8 +4697,7 @@ out:
 }
 
 int
-gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output,
-               gf_boolean_t log_status)
+gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output)
 {
     /* TODO: set a variable 'stop_defrag' here, it should be checked
        in defrag loop */
@@ -4716,7 +4715,7 @@ gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output,
     defrag->defrag_status = status;
 
     if (output)
-        gf_defrag_status_get(conf, output, log_status);
+        gf_defrag_status_get(conf, output, _gf_false);
     ret = 0;
 out:
     gf_msg_debug("", 0, "Returning %d", ret);

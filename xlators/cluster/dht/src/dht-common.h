@@ -1137,7 +1137,7 @@ int
 gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status);
 
 int
-gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output, gf_boolean_t log_status);
+gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output);
 
 void *
 gf_defrag_start(void *this);
