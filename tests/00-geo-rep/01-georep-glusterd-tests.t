@@ -78,7 +78,7 @@ TEST create_georep_session $primary $secondary
 TEST $GEOREP_CLI $primary $secondary config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $primary $secondary config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Enable_metavolume
 TEST $GEOREP_CLI $primary $secondary config use_meta_volume true
@@ -92,7 +92,7 @@ TEST $GEOREP_CLI $primary $secondary1 create ssh-port 22 no-verify
 TEST $GEOREP_CLI $primary $secondary1 config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir for session2
-TEST $GEOREP_CLI $primary $secondary1 config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary1 config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Enable_metavolume for session2
 TEST $GEOREP_CLI $primary $secondary1 config use_meta_volume true

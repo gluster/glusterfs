@@ -172,7 +172,7 @@ def setup_ssh_ctl(ctld, remote_addr, resource_url):
     Setup GConf ssh control path parameters
     """
     rconf.ssh_ctl_dir = ctld
-    content = "SLAVE_HOST=%s\nSLAVE_RESOURCE_URL=%s" % (remote_addr,
+    content = "SECONDARY_HOST=%s\nSECONDARY_RESOURCE_URL=%s" % (remote_addr,
                                                         resource_url)
     encoded_content = content.encode()
     content_sha256 = sha256hex(encoded_content)
@@ -330,13 +330,13 @@ def log_raise_exception(excont):
                                   "errors is most likely due to "
                                   "MISCONFIGURATION, please remove all "
                                   "the public keys added by geo-replication "
-                                  "from authorized_keys file in slave nodes "
+                                  "from authorized_keys file in secondary nodes "
                                   "and run Geo-replication create "
                                   "command again.")
                     logging.error("If `gsec_create container` was used, then "
                                   "run `gluster volume geo-replication "
-                                  "<MASTERVOL> [<SLAVEUSER>@]<SLAVEHOST>::"
-                                  "<SLAVEVOL> config remote-gsyncd "
+                                  "<PRIMARYVOL> [<SECONDARYUSER>@]<SECONDARYHOST>::"
+                                  "<SECONDARYVOL> config remote-gsyncd "
                                   "<GSYNCD_PATH> (Example GSYNCD_PATH: "
                                   "`/usr/libexec/glusterfs/gsyncd`)")
                 rconf.transport.terminate_geterr()
@@ -644,16 +644,16 @@ def get_changelog_log_level(lvl):
     return getattr(GlusterLogLevel, lvl, GlusterLogLevel.INFO)
 
 
-def get_master_and_slave_data_from_args(args):
-    master_name = None
-    slave_data = None
+def get_primary_and_secondary_data_from_args(args):
+    primary_name = None
+    secondary_data = None
     for arg in args:
         if arg.startswith(":"):
-            master_name = arg.replace(":", "")
+            primary_name = arg.replace(":", "")
         if "::" in arg:
-            slave_data = arg.replace("ssh://", "")
+            secondary_data = arg.replace("ssh://", "")
 
-    return (master_name, slave_data)
+    return (primary_name, secondary_data)
 
 def unshare_propagation_supported():
     global unshare_mnt_propagation
@@ -697,7 +697,7 @@ def get_slv_dir_path(slv_host, slv_volume, gfid):
     pfx = gauxpfx()
 
     if not slv_bricks:
-        slv_info = Volinfo(slv_volume, slv_host, master=False)
+        slv_info = Volinfo(slv_volume, slv_host, primary=False)
         slv_bricks = slv_info.bricks
     # Result of readlink would be of format as below.
     # readlink = "../../pgfid[0:2]/pgfid[2:4]/pgfid/basename"
@@ -909,11 +909,11 @@ def host_brick_split(value):
 
 class Volinfo(object):
 
-    def __init__(self, vol, host='localhost', prelude=[], master=True):
-        if master:
+    def __init__(self, vol, host='localhost', prelude=[], primary=True):
+        if primary:
             gluster_cmd_dir = gconf.get("gluster-command-dir")
         else:
-            gluster_cmd_dir = gconf.get("slave-gluster-command-dir")
+            gluster_cmd_dir = gconf.get("secondary-gluster-command-dir")
 
         gluster_cmd = os.path.join(gluster_cmd_dir, 'gluster')
         po = Popen(prelude + [gluster_cmd, '--xml', '--remote-host=' + host,
@@ -1007,17 +1007,17 @@ class VolinfoFromGconf(object):
     # Volinfo object API/interface kept as is so that caller need not
     # change anything except calling this instead of Volinfo()
     #
-    # master-bricks=
-    # master-bricks=NODEID:HOSTNAME:PATH,..
-    # slave-bricks=NODEID:HOSTNAME,..
-    # master-volume-id=
-    # slave-volume-id=
-    # master-replica-count=
-    # master-disperse_count=
-    def __init__(self, vol, host='localhost', master=True):
+    # primary-bricks=
+    # primary-bricks=NODEID:HOSTNAME:PATH,..
+    # secondary-bricks=NODEID:HOSTNAME,..
+    # primary-volume-id=
+    # secondary-volume-id=
+    # primary-replica-count=
+    # primary-disperse_count=
+    def __init__(self, vol, host='localhost', primary=True):
         self.volume = vol
         self.host = host
-        self.master = master
+        self.primary = primary
 
     def is_tier(self):
         return False
@@ -1038,7 +1038,7 @@ class VolinfoFromGconf(object):
     @property
     @memoize
     def bricks(self):
-        pfx = "master-" if self.master else "slave-"
+        pfx = "primary-" if self.primary else "secondary-"
         bricks_data = gconf.get(pfx + "bricks")
         if bricks_data is None:
             return []
@@ -1070,19 +1070,19 @@ class VolinfoFromGconf(object):
     @property
     @memoize
     def uuid(self):
-        if self.master:
-            return gconf.get("master-volume-id")
+        if self.primary:
+            return gconf.get("primary-volume-id")
         else:
-            return gconf.get("slave-volume-id")
+            return gconf.get("secondary-volume-id")
 
     def replica_count(self, tier, hot):
-        return gconf.get("master-replica-count")
+        return gconf.get("primary-replica-count")
 
     def disperse_count(self, tier, hot):
-        return gconf.get("master-disperse-count")
+        return gconf.get("primary-disperse-count")
 
     def distribution_count(self, tier, hot):
-        return gconf.get("master-distribution-count")
+        return gconf.get("primary-distribution-count")
 
     @property
     @memoize

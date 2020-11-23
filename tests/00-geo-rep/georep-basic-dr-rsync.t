@@ -88,7 +88,7 @@ TEST ! $GEOREP_CLI $primary $secondary config ssh-port 22a
 TEST $GEOREP_CLI $primary $secondary config ssh-port 22
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $primary $secondary config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Enable_metavolume
 TEST $GEOREP_CLI $primary $secondary config use_meta_volume true
@@ -240,7 +240,7 @@ TEST $GEOREP_CLI $primary $secondary start
 #verify that the config file is updated
 EXPECT "1" echo $(grep -Fc "vars" $config_file)
 EXPECT "1" echo $(grep -Fc "sync-method = tarssh" $config_file)
-EXPECT "1" echo $(grep -Fc "slave-timeout = 1" $config_file)
+EXPECT "1" echo $(grep -Fc "secondary-timeout = 1" $config_file)
 #Stop Geo-rep
 TEST $GEOREP_CLI $primary $secondary stop
 

@@ -63,7 +63,7 @@ TEST create_georep_session $primary $secondary
 TEST $GEOREP_CLI $primary $secondary config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $primary $secondary config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Enable_metavolume
 TEST $GEOREP_CLI $primary $secondary config use_meta_volume true
