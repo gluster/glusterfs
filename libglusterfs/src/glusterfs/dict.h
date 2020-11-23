@@ -264,7 +264,7 @@ dict_foreach_match(dict_t *dict,
 int
 dict_null_foreach_fn(dict_t *d, char *k, data_t *v, void *tmp);
 int
-dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *tmp);
+dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *tmp GF_UNUSED );
 dict_t *
 dict_copy(dict_t *this, dict_t *new);
 int
