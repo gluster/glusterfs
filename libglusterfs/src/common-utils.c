@@ -76,6 +76,8 @@ char *vol_type_str[] = {
     "Distributed-Disperse",
 };
 
+gf_boolean_t gf_signal_on_assert = false;
+
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 
@@ -87,6 +89,14 @@ char *xattrs_to_heal[] = {"user.",
                           GF_SELINUX_XATTR_KEY,
                           GF_XATTR_MDATA_KEY,
                           NULL};
+
+void gf_assert(void)
+{
+    if (gf_signal_on_assert) {
+        raise(SIGCONT);
+    }
+
+}
 
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
@@ -4069,6 +4079,7 @@ gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
     sigdelset(&set, SIGSYS);
     sigdelset(&set, SIGFPE);
     sigdelset(&set, SIGABRT);
+    sigdelset(&set, SIGCONT);
 
     pthread_sigmask(SIG_BLOCK, &set, &old);
 

@@ -1191,3 +1191,4 @@ gf_latency_new
 gf_latency_reset
 gf_latency_update
 gf_frame_latency_update
+gf_assert
