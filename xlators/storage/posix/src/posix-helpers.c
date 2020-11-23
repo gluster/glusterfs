@@ -1693,7 +1693,7 @@ is_fresh_file(struct timespec *ts)
     int64_t elapsed;
 
     timespec_now_realtime(&now);
-    elapsed = (int64_t)gf_tsdiff(ts, &now);
+    elapsed = gf_tsdiff(ts, &now);
 
     if (elapsed < 0) {
         /* The file has been modified in the future !!!
@@ -1703,7 +1703,7 @@ is_fresh_file(struct timespec *ts)
     }
 
     /* If the file is newer than a second, we consider it fresh. */
-    return elapsed < 1000000;
+    return elapsed < 1000000000;
 }
 
 int
