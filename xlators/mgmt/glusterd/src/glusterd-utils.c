@@ -14883,6 +14883,11 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     pre_list = MALLOC(sizeof(addrinfo_list_t));
     pre_list->info = NULL;
     CDS_INIT_LIST_HEAD(&pre_list->list);
+    if (pre_list == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+               "failed to allocate memory");
+	goto out;
+    }
 
     if (!(*volname)) {
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &(*volname));
@@ -14894,7 +14899,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     }
 
     /* This flag is set to test hostnames with existing bricks in the
-     * volume when when replica count is changes and brick(s) are added
+     * volume when replica count is changed and brick(s) are added
      * to same replica set.
      */
     if (flag) {
@@ -14908,7 +14913,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         {
             ret = getaddrinfo(brickinfo->hostname, NULL, NULL, &ai_info);
             if (ret != 0) {
-                ret = 0;
                 gf_msg(this->name, GF_LOG_ERROR, 0,
                        GD_MSG_HOSTNAME_RESOLVE_FAIL,
                        "unable to resolve host name for addr %s",
@@ -14917,7 +14921,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
             }
             pre_list_tmp1 = MALLOC(sizeof(addrinfo_list_t));
             if (pre_list_tmp1 == NULL) {
-                ret = 0;
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                        "failed to allocate "
                        "memory");
@@ -15073,6 +15076,14 @@ found_bad_brick_order:
 out:
     ai_list_tmp2 = NULL;
     GF_FREE(brick_list_ptr);
+    cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
+    {
+        if (pre_list_tmp1->info)
+            freeaddrinfo(pre_list_tmp1->info);
+        free(ai_list_tmp2);
+        ai_list_tmp2 = pre_list_tmp1;
+    }
+    free(pre_list);
     cds_list_for_each_entry(ai_list_tmp1, &ai_list->list, list)
     {
         if (ai_list_tmp1->info)
