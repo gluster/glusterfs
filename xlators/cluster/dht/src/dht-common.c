@@ -10964,7 +10964,7 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                     goto unlock;
                 if ((cmd == GF_DEFRAG_CMD_STATUS) ||
                     (cmd == GF_DEFRAG_CMD_DETACH_STATUS))
-                    gf_defrag_status_get(conf, output);
+                    gf_defrag_status_get(conf, output, _gf_false);
                 else if (cmd == GF_DEFRAG_CMD_DETACH_START)
                     defrag->cmd = GF_DEFRAG_CMD_DETACH_START;
                 else if (cmd == GF_DEFRAG_CMD_STOP ||
