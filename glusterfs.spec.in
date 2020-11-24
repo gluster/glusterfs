@@ -282,7 +282,6 @@ BuildRequires:    firewalld
 
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
-Obsoletes:        %{name}-ganesha
 Obsoletes:        %{name}-rdma < %{version}-%{release}
 %if ( 0%{!?_with_gnfs:1} )
 Obsoletes:        %{name}-gnfs < %{version}-%{release}
@@ -1621,6 +1620,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Nov 20 2020 Shwetha K Acharya <sacharya@redhat.com>
+- remove ganesha from Obsoletes
+
 * Thu May 14 2020 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - refactor, common practice, Issue #1126
 
