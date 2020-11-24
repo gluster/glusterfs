@@ -341,7 +341,7 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
         goto out;
     }
 
-    list = alloca(size);
+    list = GF_MALLOC(size, gf_posix_mt_char);
     if (!list) {
         goto out;
     }
@@ -371,6 +371,7 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
     ret = 0;
 
 out:
+    GF_FREE(list);
     return ret;
 }
 
