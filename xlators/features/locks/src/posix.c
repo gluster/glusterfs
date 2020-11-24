@@ -239,6 +239,7 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
                                                   GLUSTERFS_INODELK_DOM_COUNT);
     if (local->inodelk_dom_count_req) {
         data_ref(local->inodelk_dom_count_req);
+        dict_del_sizen(xdata, GLUSTERFS_INODELK_DOM_COUNT);
     }
 }
 
