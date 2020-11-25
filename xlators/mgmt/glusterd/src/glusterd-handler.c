@@ -82,8 +82,8 @@ glusterd_big_locked_handler(rpcsvc_request_t *req, rpcsvc_actor actor_fn)
     return ret;
 }
 
-static char *specific_key_suffix[] = {".quota-cksum", ".cksum",
-                                      ".version", ".quota-version", ".name", NULL};
+static char *specific_key_suffix[] = {".quota-cksum", ".cksum", ".version",
+                                      ".quota-version", ".name"};
 
 static int
 glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
@@ -96,6 +96,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     char rhost[UNIX_PATH_MAX + 1] = {0};
     dict_t *dict = NULL;
     dict_t *peer_ver = NULL;
+    int totcount = 5;  // Total count of specific keys in array
 
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
@@ -105,6 +106,11 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
     dict = dict_new();
     peer_ver = dict_new();
+    if (!dict || !peer_ver) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        ret = -1;
+        goto out;
+    }
 
     RCU_READ_LOCK;
 
@@ -144,16 +150,9 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         ctx->hostname = gf_strdup(hostname);
     ctx->req = req;
 
-    if (!dict) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
-        ret = -1;
-        goto out;
-    }
-
-    ret = dict_unserialize_specific_keys(friend_req->vols.vols_val,
-                                         friend_req->vols.vols_len, &dict,
-                                         specific_key_suffix,
-                                         &peer_ver);
+    ret = dict_unserialize_specific_keys(
+        friend_req->vols.vols_val, friend_req->vols.vols_len, &dict,
+        specific_key_suffix, &peer_ver, totcount);
 
     if (ret) {
         gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,

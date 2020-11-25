@@ -3759,8 +3759,9 @@ out:
 }
 
 static int32_t
-glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
-                               int32_t *status, char *hostname)
+glusterd_compare_friend_volume(dict_t *peer_data,
+                               glusterd_friend_synctask_args_t *arg,
+                               int32_t count, int32_t *status, char *hostname)
 {
     int32_t ret = -1;
     char key[64] = "";
@@ -3776,6 +3777,7 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
     xlator_t *this = NULL;
 
     GF_ASSERT(peer_data);
+    GF_ASSERT(arg);
     GF_ASSERT(status);
 
     this = THIS;
@@ -3783,10 +3785,10 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
 
     snprintf(key_prefix, sizeof(key_prefix), "volume%d", count);
     keylen = snprintf(key, sizeof(key), "%s.name", key_prefix);
-    ret = dict_get_strn(peer_data, key, keylen, &volname);
+    ret = dict_get_strn(arg->peer_ver_data, key, keylen, &volname);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
-                "Key=%s", key, NULL);
+                "Key=%s is NULL in peer_ver_data", key, NULL);
         goto out;
     }
 
@@ -3804,10 +3806,10 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
     }
 
     keylen = snprintf(key, sizeof(key), "%s.version", key_prefix);
-    ret = dict_get_int32n(peer_data, key, keylen, &version);
+    ret = dict_get_int32n(arg->peer_ver_data, key, keylen, &version);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
-                "Key=%s", key, NULL);
+                "Key=%s is NULL in peer_ver_data", key, NULL);
         goto out;
     }
 
@@ -3828,10 +3830,10 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
     // Now, versions are same, compare cksums.
     //
     snprintf(key, sizeof(key), "%s.ckusm", key_prefix);
-    ret = dict_get_uint32(peer_data, key, &cksum);
+    ret = dict_get_uint32(arg->peer_ver_data, key, &cksum);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
-                "Key=%s", key, NULL);
+                "Key=%s is NULL in peer_ver_data", key, NULL);
         goto out;
     }
 
@@ -3848,7 +3850,7 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
         goto skip_quota;
 
     snprintf(key, sizeof(key), "%s.quota-version", key_prefix);
-    ret = dict_get_uint32(peer_data, key, &quota_version);
+    ret = dict_get_uint32(arg->peer_ver_data, key, &quota_version);
     if (ret) {
         gf_msg_debug(this->name, 0,
                      "quota-version key absent for"
@@ -3864,6 +3866,7 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
                    "%d on peer %s",
                    volinfo->volname, volinfo->quota_conf_version, quota_version,
                    hostname);
+            GF_ATOMIC_INIT(volinfo->volpeerupdate, 1);
             *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
             goto out;
         } else if (quota_version < volinfo->quota_conf_version) {
@@ -3875,7 +3878,7 @@ glusterd_compare_friend_volume(dict_t *peer_data, int32_t count,
     // Now, versions are same, compare cksums.
     //
     snprintf(key, sizeof(key), "%s.quota-cksum", key_prefix);
-    ret = dict_get_uint32(peer_data, key, &quota_cksum);
+    ret = dict_get_uint32(arg->peer_ver_data, key, &quota_cksum);
     if (ret) {
         gf_msg_debug(this->name, 0,
                      "quota checksum absent for "
@@ -3899,13 +3902,12 @@ skip_quota:
     *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
-    keylen = snprintf(key, sizeof(key), "%s.update", key_prefix);
-
     if (*status == GLUSTERD_VOL_COMP_UPDATE_REQ) {
-        ret = dict_set_int32n(peer_data, key, keylen, 1);
-    } else {
-        ret = dict_set_int32n(peer_data, key, keylen, 0);
+        /*Set the status to ensure volume is updated on the peer
+         */
+        arg->status_arr[(count / 64)] ^= 1UL << (count % 64);
     }
+
     if (*status == GLUSTERD_VOL_COMP_RJT) {
         gf_event(EVENT_COMPARE_FRIEND_VOLUME_FAILED, "volume=%s",
                  volinfo->volname);
@@ -5101,7 +5103,8 @@ out:
 }
 
 static int32_t
-glusterd_import_friend_volume(dict_t *peer_data, int count)
+glusterd_import_friend_volume(dict_t *peer_data, int count,
+                              glusterd_friend_synctask_args_t *arg)
 {
     int32_t ret = -1;
     glusterd_conf_t *priv = NULL;
@@ -5119,17 +5122,27 @@ glusterd_import_friend_volume(dict_t *peer_data, int count)
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = snprintf(key, sizeof(key), "volume%d.update", count);
-    ret = dict_get_int32n(peer_data, key, ret, &update);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
-                "Key=%s", key, NULL);
-        goto out;
+    if (arg) {
+        /*Check if the volume options are updated on the other peers
+         */
+        update = (1UL & (arg->status_arr[(count / 64)] >> (count % 64)));
+    } else {
+        ret = snprintf(key, sizeof(key), "volume%d.update", count);
+        ret = dict_get_int32n(peer_data, key, ret, &update);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                    "Key=%s", key, NULL);
+            goto out;
+        }
     }
 
     if (!update) {
         /* if update is 0 that means the volume is not imported */
-        gf_smsg(this->name, GF_LOG_INFO, 0, GD_MSG_VOLUME_NOT_IMPORTED, NULL);
+        gf_log(this->name, GF_LOG_DEBUG,
+               "The volume%d does"
+               " not have any peer change",
+               count);
+        ret = 0;
         goto out;
     }
 
@@ -5221,6 +5234,7 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     glusterd_conf_t *conf = NULL;
     dict_t *peer_data = NULL;
     glusterd_friend_synctask_args_t *arg = NULL;
+    int32_t update = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -5232,20 +5246,7 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     if (!arg)
         goto out;
 
-    peer_data = dict_new();
-    if (!peer_data) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
-        goto out;
-    }
-
-    ret = dict_unserialize(arg->dict_buf, arg->dictlen, &peer_data);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_UNSERIALIZE_FAIL,
-                NULL);
-        errno = ENOMEM;
-        goto out;
-    }
-
+    peer_data = arg->peer_data;
     ret = dict_get_int32n(peer_data, "count", SLEN("count"), &count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
@@ -5265,9 +5266,12 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     conf->restart_bricks = _gf_true;
 
     while (i <= count) {
-        ret = glusterd_import_friend_volume(peer_data, i);
-        if (ret) {
-            break;
+        /*Check if volume has any peer update */
+        update = (1UL & (arg->status_arr[(i / 64)] >> (i % 64)));
+        if (update) {
+            ret = glusterd_import_friend_volume(peer_data, i, arg);
+            if (ret)
+                break;
         }
         i++;
     }
@@ -5277,11 +5281,10 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     conf->restart_bricks = _gf_false;
     synccond_broadcast(&conf->cond_restart_bricks);
 out:
-    if (peer_data)
-        dict_unref(peer_data);
     if (arg) {
-        if (arg->dict_buf)
-            GF_FREE(arg->dict_buf);
+        dict_unref(arg->peer_data);
+        dict_unref(arg->peer_ver_data);
+        GF_FREE(arg->status_arr);
         GF_FREE(arg);
     }
 
@@ -5306,7 +5309,7 @@ glusterd_import_friend_volumes(dict_t *peer_data)
     }
 
     while (i <= count) {
-        ret = glusterd_import_friend_volume(peer_data, i);
+        ret = glusterd_import_friend_volume(peer_data, i, NULL);
         if (ret)
             goto out;
         i++;
@@ -5459,7 +5462,8 @@ out:
 }
 
 int32_t
-glusterd_compare_friend_data(dict_t *peer_data, int32_t *status, char *hostname)
+glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
+                             char *hostname)
 {
     int32_t ret = -1;
     int32_t count = 0;
@@ -5491,8 +5495,25 @@ glusterd_compare_friend_data(dict_t *peer_data, int32_t *status, char *hostname)
         goto out;
     }
 
+    arg = GF_CALLOC(1, sizeof(*arg), gf_common_mt_char);
+    if (!arg) {
+        ret = -1;
+        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+               "Out Of Memory");
+        goto out;
+    }
+    arg->status_arr = GF_CALLOC(count, sizeof(uint32_t), gf_common_mt_int);
+    if (!arg->status_arr) {
+        ret = -1;
+        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+               "Out Of Memory");
+        goto out;
+    }
+    arg->peer_data = dict_ref(peer_data);
+    arg->peer_ver_data = dict_ref(cmp);
     while (i <= count) {
-        ret = glusterd_compare_friend_volume(peer_data, i, status, hostname);
+        ret = glusterd_compare_friend_volume(peer_data, arg, i, status,
+                                             hostname);
         if (ret)
             goto out;
 
@@ -5512,21 +5533,14 @@ glusterd_compare_friend_data(dict_t *peer_data, int32_t *status, char *hostname)
          * first brick to come up before attaching the subsequent bricks
          * in case brick multiplexing is enabled
          */
-        arg = GF_CALLOC(1, sizeof(*arg), gf_common_mt_char);
-        ret = dict_allocate_and_serialize(peer_data, &arg->dict_buf,
-                                          &arg->dictlen);
-        if (ret < 0) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "dict_serialize failed while handling "
-                   " import friend volume request");
-            goto out;
-        }
-
         glusterd_launch_synctask(glusterd_import_friend_volumes_synctask, arg);
     }
 
 out:
     if (ret && arg) {
+        dict_unref(arg->peer_data);
+        dict_unref(arg->peer_ver_data);
+        GF_FREE(arg->status_arr);
         GF_FREE(arg);
     }
     gf_msg_debug(this->name, 0, "Returning with ret: %d, status: %d", ret,
@@ -6527,7 +6541,7 @@ find_compatible_brick(glusterd_conf_t *conf, glusterd_volinfo_t *volinfo,
    check if passed pid is match with running  glusterfs process
 */
 
-int
+static int
 glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
 {
     char buf[1024] = "";
@@ -6616,7 +6630,17 @@ glusterd_get_sock_from_brick_pid(int pid, char *sockpath, size_t len)
 
     if (tmpsockpath[0]) {
         strncpy(sockpath, tmpsockpath, i);
-        ret = 0;
+        /*
+         * Condition to check if the brick socket file is present
+         * in the stated path or not. This helps in preventing
+         * constant re-connect triggered in the RPC layer and also
+         * a log message would help out the user.
+         */
+        ret = sys_access(sockpath, F_OK);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_NOT_FOUND,
+                    "%s not found", sockpath, NULL);
+        }
     }
 
     return ret;
@@ -6791,14 +6815,14 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    if (strncmp(uuid_utoa(volinfo->volume_id), uuid_utoa(volid),
-                GF_UUID_BUF_SIZE)) {
+    if (gf_uuid_compare(volinfo->volume_id, volid)) {
         gf_log(this->name, GF_LOG_ERROR,
                "Mismatching %s extended attribute on brick root (%s),"
                " brick is deemed not to be a part of the volume (%s)",
                GF_XATTR_VOL_ID_KEY, brickinfo->path, volinfo->volname);
         goto out;
     }
+
     is_service_running = gf_is_service_running(pidfile, &pid);
     if (is_service_running) {
         if (is_brick_mx_enabled()) {
@@ -6854,7 +6878,20 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
             if (!is_brick_mx_enabled()) {
                 glusterd_set_brick_socket_filepath(
                     volinfo, brickinfo, socketpath, sizeof(socketpath));
+                /*
+                 * Condition to check if the brick socket file is present
+                 * in the stated path or not. This helps in preventing
+                 * constant re-connect triggered in the RPC layer and also
+                 * a log message would help out the user.
+                 */
+                ret = sys_access(socketpath, F_OK);
+                if (ret) {
+                    gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_FILE_NOT_FOUND,
+                            "%s not found", socketpath, NULL);
+                    goto out;
+                }
             }
+
             gf_log(this->name, GF_LOG_DEBUG,
                    "Using %s as sockfile for brick %s of volume %s ",
                    socketpath, brickinfo->path, volinfo->volname);
@@ -13192,6 +13229,19 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
             goto out;
         }
     }
+
+    if ((conf->op_version >= GD_OP_VERSION_9_0) &&
+        (volinfo->status == GLUSTERD_STATUS_NONE)) {
+        ret = dict_set_dynstr_with_alloc(volinfo->dict,
+                                         "cluster.granular-entry-heal", "on");
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set option 'cluster.granular-entry-heal' "
+                   "on volume %s",
+                   volinfo->volname);
+            goto out;
+        }
+    }
 out:
     return ret;
 }
@@ -14336,7 +14386,7 @@ rb_update_dstbrick_port(glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
     if (!dict_ret)
         dst_brickinfo->port = dst_port;
 
-    if (gf_is_local_addr(dst_brickinfo->hostname)) {
+    if (glusterd_gf_is_local_addr(dst_brickinfo->hostname)) {
         gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_BRK_PORT_NO_ADD_INDO,
                "adding dst-brick port no %d", dst_port);
 
@@ -14480,7 +14530,7 @@ glusterd_brick_op_prerequisites(dict_t *dict, char **op, glusterd_op_t *gd_op,
         goto out;
     }
 
-    if (gf_is_local_addr((*src_brickinfo)->hostname)) {
+    if (glusterd_gf_is_local_addr((*src_brickinfo)->hostname)) {
         gf_msg_debug(this->name, 0, "I AM THE SOURCE HOST");
         if ((*src_brickinfo)->port && rsp_dict) {
             ret = dict_set_int32n(rsp_dict, "src-brick-port",

@@ -154,9 +154,6 @@ dict_deln(dict_t *this, char *key, const int keylen);
 int
 dict_reset(dict_t *dict);
 
-data_t *
-get_new_data_from_pool(glusterfs_ctx_t *ctx);
-
 int
 dict_key_count(dict_t *this);
 
@@ -423,5 +420,6 @@ dict_serialized_length_lk(dict_t *this);
 
 int32_t
 dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
-                               char **specific_key_arr, dict_t **specific_dict);
+                               char **specific_key_arr, dict_t **specific_dict,
+                               int totkeycount);
 #endif

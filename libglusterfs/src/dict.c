@@ -47,24 +47,18 @@ struct dict_cmp {
         }                                                                      \
     } while (0)
 
+static glusterfs_ctx_t *global_ctx = NULL;
+
 static data_t *
 get_new_data()
 {
-    data_t *data = mem_get(THIS->ctx->dict_data_pool);
+    data_t *data = NULL;
 
-    if (!data)
-        return NULL;
-
-    GF_ATOMIC_INIT(data->refcount, 0);
-    data->is_static = _gf_false;
-
-    return data;
-}
-
-data_t *
-get_new_data_from_pool(glusterfs_ctx_t *ctx)
-{
-    data_t *data = mem_get(ctx->dict_data_pool);
+    if (global_ctx) {
+        data = mem_get(global_ctx->dict_data_pool);
+    } else {
+        data = mem_get(THIS->ctx->dict_data_pool);
+    }
 
     if (!data)
         return NULL;
@@ -3507,7 +3501,8 @@ unlock:
 */
 int32_t
 dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
-                               char **specific_key_arr, dict_t **specific_dict)
+                               char **suffix_key_arr, dict_t **specific_dict,
+                               int totkeycount)
 {
     char *buf = orig_buf;
     int ret = -1;
@@ -3521,9 +3516,11 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     int32_t vallen = 0;
     int32_t hostord = 0;
     xlator_t *this = NULL;
+    int *keylenarr = NULL;
 
     this = THIS;
     GF_ASSERT(this);
+    global_ctx = this->ctx;
 
     if (!buf) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -3570,6 +3567,12 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     /* count will be set by the dict_set's below */
     (*fill)->count = 0;
     (*specific_dict)->count = 0;
+
+    /* Compute specific key length and save in array */
+    keylenarr = GF_MALLOC(totkeycount, gf_common_mt_int);
+    for (i = 0; i < totkeycount; i++) {
+        keylenarr[i] = strlen(suffix_key_arr[i]);
+    }
 
     for (i = 0; i < count; i++) {
         if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
@@ -3622,7 +3625,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
                              (long)(orig_buf + size), (long)(buf + vallen));
             goto out;
         }
-        value = get_new_data_from_pool(this->ctx);
+        value = get_new_data();
 
         if (!value) {
             ret = -1;
@@ -3635,26 +3638,26 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
         buf += vallen;
 
         ret = dict_addn(*fill, key, keylen, value);
-        for (j = 0; specific_key_arr[j]; j++) {
-            if (strstr(key, specific_key_arr[j])) {
-                value = get_new_data_from_pool(this->ctx);
-                 if (!value) {
-                     ret = -1;
-                     goto out;
-                 }
-                 value->len = vallen;
-                 value->data = gf_memdup(buf, vallen);
-                 value->data_type = GF_DATA_TYPE_STR_OLD;
-                 value->is_static = _gf_false;
-                 ret = dict_addn(*specific_dict, key, keylen, value);
-                 break;
+        if (ret < 0) {
+            data_destroy(value);
+            goto out;
+        }
+        for (j = 0; j < totkeycount; j++) {
+            if (keylen > keylenarr[j]) {
+                if (!strcmp(key + keylen - keylenarr[j], suffix_key_arr[j])) {
+                    ret = dict_addn(*specific_dict, key, keylen, value);
+                    break;
+                }
             }
         }
+
         if (ret < 0)
             goto out;
     }
 
     ret = 0;
 out:
+    if (keylenarr)
+        GF_FREE(keylenarr);
     return ret;
 }
