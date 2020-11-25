@@ -1645,6 +1645,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     if (!iobref) {
         iobref = iobref_new();
         if (!iobref) {
+            ret = -1;
             goto out;
         }
 
