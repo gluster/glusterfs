@@ -9,9 +9,9 @@
 ##  cases as published by the Free Software Foundation.
 
 BRICKPATH=    #Brick path of gluster volume
-SLAVEHOST=    #Slave hostname
-SLAVEVOL=     #Slave volume
-SLAVEMNT=     #Slave gluster volume mount point
+SECONDARYHOST=    #Secondary hostname
+SECONDARYVOL=     #Secondary volume
+SECONDARYMNT=     #Secondary gluster volume mount point
 WORKERS=4     #Default number of worker threads
 
 out()
@@ -39,39 +39,39 @@ ping_host ()
     } 1>&2 2>/dev/null
 }
 
-mount_slave()
+mount_secondary()
 {
     local i; # inode number
     SSH_PORT=22
 
-    SLAVEMNT=`mktemp -d`
-    [ "x$SLAVEMNT" = "x" ] && fatal "Could not mktemp directory";
-    [ -d "$SLAVEMNT" ] || fatal "$SLAVEMNT not a directory";
+    SECONDARYMNT=`mktemp -d`
+    [ "x$SECONDARYMNT" = "x" ] && fatal "Could not mktemp directory";
+    [ -d "$SECONDARYMNT" ] || fatal "$SECONDARYMNT not a directory";
 
-    ping_host ${SLAVEHOST} $SSH_PORT
+    ping_host ${SECONDARYHOST} $SSH_PORT
     if [ $? -ne 0 ]; then
-        echo "$SLAVEHOST not reachable.";
+        echo "$SECONDARYHOST not reachable.";
         exit 1;
     fi;
 
-    glusterfs --volfile-id=$SLAVEVOL --aux-gfid-mount --volfile-server=$SLAVEHOST $SLAVEMNT;
-    i=$(stat -c '%i' $SLAVEMNT);
-    [ "x$i" = "x1" ] || fatal "Could not mount volume $2 on $SLAVEMNT Please check host and volume exists";
+    glusterfs --volfile-id=$SECONDARYVOL --aux-gfid-mount --volfile-server=$SECONDARYHOST $SECONDARYMNT;
+    i=$(stat -c '%i' $SECONDARYMNT);
+    [ "x$i" = "x1" ] || fatal "Could not mount volume $2 on $SECONDARYMNT Please check host and volume exists";
 }
 
 parse_cli()
 {
     if [ "$#" -ne 4 ]; then
-        echo "Usage: gfind_missing_files <brick-path> <slave-host> <slave-vol> <OUTFILE>"
+        echo "Usage: gfind_missing_files <brick-path> <secondary-host> <secondary-vol> <OUTFILE>"
         exit 1
     else
         BRICKPATH=$1;
-        SLAVEHOST=$2;
-        SLAVEVOL=$3;
+        SECONDARYHOST=$2;
+        SECONDARYVOL=$3;
         OUTFILE=$4;
 
-        mount_slave;
-        echo "Slave volume is mounted at ${SLAVEMNT}"
+        mount_secondary;
+        echo "Secondary volume is mounted at ${SECONDARYMNT}"
         echo
     fi
 }
@@ -82,11 +82,11 @@ main()
 
     echo "Calling crawler...";
     path=$(readlink -e $0)
-    $(dirname $path)/gcrawler ${BRICKPATH} ${SLAVEMNT} ${WORKERS} > ${OUTFILE}
+    $(dirname $path)/gcrawler ${BRICKPATH} ${SECONDARYMNT} ${WORKERS} > ${OUTFILE}
 
     #Clean up the mount
-    umount $SLAVEMNT;
-    rmdir $SLAVEMNT;
+    umount $SECONDARYMNT;
+    rmdir $SECONDARYMNT;
 
     echo "Crawl Complete."
     num_files_missing=$(wc -l ${OUTFILE} | awk '{print $1}')

@@ -186,31 +186,31 @@ Display help for volume quota commands
 NOTE: valid units of time and their symbols are : hours(h/hr), minutes(m/min), seconds(s/sec), weeks(w/wk), Days(d/days).
 .SS "Geo-replication Commands"
 .TP
-\fI\ Note\fR: password-less ssh, from the master node (where these commands are executed) to the slave node <SLAVE_HOST>, is a prerequisite for the geo-replication commands.
+\fI\ Note\fR: password-less ssh, from the primary node (where these commands are executed) to the secondary node <SECONDARY_HOST>, is a prerequisite for the geo-replication commands.
 .TP
 \fB\ system:: execute gsec_create\fR
 Generates pem keys which are required for push-pem
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> create [[ssh-port n][[no-verify]|[push-pem]]] [force]\fR
-Create a new geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
-Use ssh-port n if custom SSH port is configured in slave nodes.
-Use no-verify if the rsa-keys of nodes in master volume is distributed to slave nodes through an external agent.
+\fB\ volume geo-replication <PRIMARY_VOL> <SECONDARY_HOST>::<SECONDARY_VOL> create [[ssh-port n][[no-verify]|[push-pem]]] [force]\fR
+Create a new geo-replication session from <PRIMARY_VOL> to <SECONDARY_HOST> host machine having <SECONDARY_VOL>.
+Use ssh-port n if custom SSH port is configured in secondary nodes.
+Use no-verify if the rsa-keys of nodes in primary volume is distributed to secondary nodes through an external agent.
 Use push-pem to push the keys automatically.
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> {start|stop} [force] \fR
-Start/stop the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+\fB\ volume geo-replication <PRIMARY_VOL> <SECONDARY_HOST>::<SECONDARY_VOL> {start|stop} [force] \fR
+Start/stop the geo-replication session from <PRIMARY_VOL> to <SECONDARY_HOST> host machine having <SECONDARY_VOL>.
 .TP
-\fB\ volume geo-replication [<MASTER_VOL> [<SLAVE_HOST>::<SLAVE_VOL>]] status [detail] \fR
-Query status of the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+\fB\ volume geo-replication [<PRIMARY_VOL> [<SECONDARY_HOST>::<SECONDARY_VOL>]] status [detail] \fR
+Query status of the geo-replication session from <PRIMARY_VOL> to <SECONDARY_HOST> host machine having <SECONDARY_VOL>.
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> {pause|resume} [force] \fR
-Pause/resume the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+\fB\ volume geo-replication <PRIMARY_VOL> <SECONDARY_HOST>::<SECONDARY_VOL> {pause|resume} [force] \fR
+Pause/resume the geo-replication session from <PRIMARY_VOL> to <SECONDARY_HOST> host machine having <SECONDARY_VOL>.
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> delete [reset-sync-time]\fR
-Delete the geo-replication session from <MASTER_VOL> to <SLAVE_HOST> host machine having <SLAVE_VOL>.
+\fB\ volume geo-replication <PRIMARY_VOL> <SECONDARY_HOST>::<SECONDARY_VOL> delete [reset-sync-time]\fR
+Delete the geo-replication session from <PRIMARY_VOL> to <SECONDARY_HOST> host machine having <SECONDARY_VOL>.
 Optionally you can also reset the sync time in case you need to resync the entire volume on session recreate.
 .TP
-\fB\ volume geo-replication <MASTER_VOL> <SLAVE_HOST>::<SLAVE_VOL> config [[!]<options> [<value>]] \fR
+\fB\ volume geo-replication <PRIMARY_VOL> <SECONDARY_HOST>::<SECONDARY_VOL> config [[!]<options> [<value>]] \fR
 View (when no option provided) or set configuration for this geo-replication session.
 Use "!<OPTION>" to reset option <OPTION> to default value.
 .SS "Bitrot Commands"
