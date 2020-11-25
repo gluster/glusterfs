@@ -86,7 +86,7 @@ GLUSTER_GEO_REPLICATION_SUBOPTIONS="
 "
 GLUSTER_GEO_REPLICATION_OPTIONS="
         {__VOLNAME [
-                {__SLAVEURL [
+                {__SECONDARYURL [
                         {create [
                                 {push-pem
                                         {force}
@@ -224,7 +224,7 @@ __SIZE ()
         return 0
 }
 
-__SLAVEURL ()
+__SECONDARYURL ()
 {
         return 0
 }

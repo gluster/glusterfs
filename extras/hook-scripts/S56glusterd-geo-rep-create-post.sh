@@ -12,8 +12,8 @@ key_val_pair4=`echo $2 | cut -d ',' -f 4`
 key_val_pair5=`echo $2 | cut -d ',' -f 5`
 key_val_pair6=`echo $2 | cut -d ',' -f 6`
 
-mastervol=`echo $1 | cut -d '=' -f 2`
-if [ "$mastervol" == "" ]; then
+primaryvol=`echo $1 | cut -d '=' -f 2`
+if [ "$primaryvol" == "" ]; then
     exit;
 fi
 
@@ -68,7 +68,7 @@ fi
 if [ "$val" == "" ]; then
     exit;
 fi
-slavevol=`echo $val`
+secondaryvol=`echo $val`
 
 key=`echo $key_val_pair6 | cut -d '=' -f 1`
 val=`echo $key_val_pair6 | cut -d '=' -f 2`
@@ -87,20 +87,20 @@ if [ -f $pub_file ]; then
     if [ "$secondary_user" != "root" ]; then
         secondary_user_home_dir=`ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_user@$secondary_ip "getent passwd $secondary_user | cut -d ':' -f 6"`
         scp -P ${SSH_PORT} ${SSH_OPT} $pub_file $secondary_user@$secondary_ip:$secondary_user_home_dir/common_secret.pem.pub_tmp
-        ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_user@$secondary_ip "mv $secondary_user_home_dir/common_secret.pem.pub_tmp $secondary_user_home_dir/${mastervol}_${slavevol}_common_secret.pem.pub"
+        ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_user@$secondary_ip "mv $secondary_user_home_dir/common_secret.pem.pub_tmp $secondary_user_home_dir/${primaryvol}_${secondaryvol}_common_secret.pem.pub"
     else
         if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
             scp -P ${SSH_PORT} ${SSH_OPT} $pub_file $secondary_ip:$pub_file_tmp
-            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "mv $pub_file_tmp ${pub_file_dname}/${mastervol}_${slavevol}_${pub_file_bname}"
-            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "gluster system:: copy file /geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
-            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "gluster system:: execute add_secret_pub root geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
-            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "gluster vol set ${slavevol} features.read-only on"
+            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "mv $pub_file_tmp ${pub_file_dname}/${primaryvol}_${secondaryvol}_${pub_file_bname}"
+            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "gluster system:: copy file /geo-replication/${primaryvol}_${secondaryvol}_common_secret.pem.pub > /dev/null"
+            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "gluster system:: execute add_secret_pub root geo-replication/${primaryvol}_${secondaryvol}_common_secret.pem.pub > /dev/null"
+            ssh -p ${SSH_PORT} ${SSH_OPT} $secondary_ip "gluster vol set ${secondaryvol} features.read-only on"
         else
             scp -P ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $pub_file $secondary_ip:$pub_file_tmp
-            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "mv $pub_file_tmp ${pub_file_dname}/${mastervol}_${slavevol}_${pub_file_bname}"
-            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "gluster system:: copy file /geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
-            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "gluster system:: execute add_secret_pub root geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
-            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "gluster vol set ${slavevol} features.read-only on"
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "mv $pub_file_tmp ${pub_file_dname}/${primaryvol}_${secondaryvol}_${pub_file_bname}"
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "gluster system:: copy file /geo-replication/${primaryvol}_${secondaryvol}_common_secret.pem.pub > /dev/null"
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "gluster system:: execute add_secret_pub root geo-replication/${primaryvol}_${secondaryvol}_common_secret.pem.pub > /dev/null"
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} ${SSH_OPT} $secondary_ip "gluster vol set ${secondaryvol} features.read-only on"
         fi
     fi
 fi

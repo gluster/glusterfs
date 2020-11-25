@@ -1,11 +1,11 @@
 #!/bin/bash
-#usage: slave-upgrade.sh <volfile-server:volname> <gfid-file>
+#usage: secondary-upgrade.sh <volfile-server:volname> <gfid-file>
 #                        <path-to-gsync-sync-gfid>
-#<slave-volfile-server>: a machine on which gluster cli can fetch slave volume info.
-#                        slave-volfile-server defaults to localhost.
+#<secondary-volfile-server>: a machine on which gluster cli can fetch secondary volume info.
+#                        secondary-volfile-server defaults to localhost.
 #
 #<gfid-file>: a file containing paths and their associated gfids
-#            on master. The paths are relative to master mount point
+#            on primary. The paths are relative to primary mount point
 #            (not absolute). An example extract of <gfid-file> can be,
 #
 #            <extract>
@@ -29,7 +29,7 @@ function cleanup_brick()
     ssh $HOST "rm -rf $BRICK/.glusterfs/* && find $BRICK -exec setfattr -x trusted.gfid {} \; 2>/dev/null"
 }
 
-function cleanup_slave()
+function cleanup_secondary()
 {
     VOLUME_NAME=`echo $1 | sed -e 's/.*:\(.*\)/\1/'`
 
@@ -67,36 +67,36 @@ function mount_client()
 
     cd -;
 
-    umount $T || fatal "could not umount $MASTER from $T";
+    umount $T || fatal "could not umount $PRIMARY from $T";
 
     rmdir $T || warn "rmdir of $T failed";
 }
 
 function sync_gfids()
 {
-    SLAVE=$1
+    SECONDARY=$1
     GFID_FILE=$2
     SYNC_CMD=$3
 
-    SLAVE_VOLFILE_SERVER=`echo $SLAVE | sed -e 's/\(.*\):.*/\1/'`
-    SLAVE_VOLUME_NAME=`echo $SLAVE | sed -e 's/.*:\(.*\)/\1/'`
+    SECONDARY_VOLFILE_SERVER=`echo $SECONDARY | sed -e 's/\(.*\):.*/\1/'`
+    SECONDARY_VOLUME_NAME=`echo $SECONDARY | sed -e 's/.*:\(.*\)/\1/'`
 
-    if [ "x$SLAVE_VOLFILE_SERVER" = "x" ]; then
-        SLAVE_VOLFILE_SERVER="localhost"
+    if [ "x$SECONDARY_VOLFILE_SERVER" = "x" ]; then
+        SECONDARY_VOLFILE_SERVER="localhost"
     fi
 
-    mount_client $SLAVE_VOLFILE_SERVER $SLAVE_VOLUME_NAME $GFID_FILE $SYNC_CMD
+    mount_client $SECONDARY_VOLFILE_SERVER $SECONDARY_VOLUME_NAME $GFID_FILE $SYNC_CMD
 }
 
 function upgrade()
 {
-    SLAVE=$1
+    SECONDARY=$1
     GFID_FILE=$2
     SYNC_CMD=$3
 
-    cleanup_slave $SLAVE
+    cleanup_secondary $SECONDARY
 
-    sync_gfids $SLAVE $GFID_FILE $SYNC_CMD
+    sync_gfids $SECONDARY $GFID_FILE $SYNC_CMD
 }
 
 upgrade "$@"

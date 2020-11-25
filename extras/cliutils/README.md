@@ -9,7 +9,7 @@ Example use cases:
   config based on version.
 - Copy a file present in GLUSTERD_WORKDIR from one peer node to all
   other peer nodes.(Geo-replication create push-pem is using this to
-  distribute the SSH public keys from all master nodes to all slave
+  distribute the SSH public keys from all primary nodes to all secondary
   nodes)
 - Generate pem keys in all peer nodes and collect all the public keys
   to one place(Geo-replication gsec_create is doing this)

@@ -1,11 +1,11 @@
 #!/bin/bash
-#usage: gsync-upgrade.sh <slave-volfile-server:slave-volume> <gfid-file>
+#usage: gsync-upgrade.sh <secondary-volfile-server:secondary-volume> <gfid-file>
 #                        <path-to-gsync-sync-gfid> <ssh-identity-file>
-#<slave-volfile-server>: a machine on which gluster cli can fetch slave volume info.
-#                        slave-volfile-server defaults to localhost.
+#<secondary-volfile-server>: a machine on which gluster cli can fetch secondary volume info.
+#                        secondary-volfile-server defaults to localhost.
 #
 #<gfid-file>: a file containing paths and their associated gfids
-#            on master. The paths are relative to master mount point
+#            on primary. The paths are relative to primary mount point
 #            (not absolute). An example extract of <gfid-file> can be,
 #
 #            <extract>
@@ -15,7 +15,7 @@
 #
 #<ssh-identity-file>: file from which the identity (private key) for public key authentication is read.
 
-SLAVE_MOUNT='/tmp/glfs_slave'
+SECONDARY_MOUNT='/tmp/glfs_secondary'
 
 function SSH()
 {
@@ -49,7 +49,7 @@ function cleanup_brick()
     SSH -i $SSHKEY $HOST  "rm -rf $BRICK/.glusterfs/* && find $BRICK -exec setfattr -x trusted.gfid {} \;"
 }
 
-function cleanup_slave()
+function cleanup_secondary()
 {
     SSHKEY=$2
 
@@ -81,7 +81,7 @@ function mount_client()
 
     i=$(stat -c '%i' $T);
 
-    [ "x$i" = "x1" ] || fatal "could not mount volume $MASTER on $T";
+    [ "x$i" = "x1" ] || fatal "could not mount volume $PRIMARY on $T";
 
     cd $T;
 
@@ -89,35 +89,35 @@ function mount_client()
 
     cd -;
 
-    umount -l $T || fatal "could not umount $MASTER from $T";
+    umount -l $T || fatal "could not umount $PRIMARY from $T";
 
     rmdir $T || warn "rmdir of $T failed";
 }
 
 function sync_gfids()
 {
-    SLAVE=$1
+    SECONDARY=$1
     GFID_FILE=$2
 
-    SLAVE_VOLFILE_SERVER=`echo $SLAVE | sed -e 's/\(.*\):.*/\1/'`
-    SLAVE_VOLUME_NAME=`echo $SLAVE | sed -e 's/.*:\(.*\)/\1/'`
+    SECONDARY_VOLFILE_SERVER=`echo $SECONDARY | sed -e 's/\(.*\):.*/\1/'`
+    SECONDARY_VOLUME_NAME=`echo $SECONDARY | sed -e 's/.*:\(.*\)/\1/'`
 
-    if [ "x$SLAVE_VOLFILE_SERVER" = "x" ]; then
-        SLAVE_VOLFILE_SERVER="localhost"
+    if [ "x$SECONDARY_VOLFILE_SERVER" = "x" ]; then
+        SECONDARY_VOLFILE_SERVER="localhost"
     fi
 
-    mount_client $SLAVE_VOLFILE_SERVER $SLAVE_VOLUME_NAME $GFID_FILE $3
+    mount_client $SECONDARY_VOLFILE_SERVER $SECONDARY_VOLUME_NAME $GFID_FILE $3
 }
 
 function upgrade()
 {
-    SLAVE=$1
+    SECONDARY=$1
     GFID_FILE=$2
     SYNC_CMD=$3
     SSHKEY=$4
 
-    cleanup_slave $SLAVE $SSHKEY
-    sync_gfids $SLAVE $GFID_FILE $SYNC_CMD
+    cleanup_secondary $SECONDARY $SSHKEY
+    sync_gfids $SECONDARY $GFID_FILE $SYNC_CMD
 }
 
 upgrade "$@"
