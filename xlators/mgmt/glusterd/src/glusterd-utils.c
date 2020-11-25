@@ -134,6 +134,80 @@ is_brick_mx_enabled(void)
     return ret ? _gf_false : enabled;
 }
 
+static gf_boolean_t
+gd_has_local_address(glusterd_conf_t *priv, const char *hostname)
+{
+    glusterd_hostname_t *hostname_obj = NULL;
+
+    list_for_each_entry(hostname_obj, &priv->hostnames, hostname_list)
+    {
+        if (strcmp(hostname_obj->hostname, hostname) == 0) {
+            return _gf_true;
+        }
+    }
+
+    return _gf_false;
+}
+
+static int
+glusterd_hostname_new(xlator_t *this, const char *hostname,
+                      glusterd_hostname_t **name)
+{
+    glusterd_hostname_t *hostname_obj = NULL;
+    int32_t ret = -1;
+
+    GF_ASSERT(hostname);
+    GF_ASSERT(name);
+
+    hostname_obj = GF_MALLOC(sizeof(*hostname_obj), gf_gld_mt_hostname_t);
+
+    if (!hostname_obj) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
+        goto out;
+    }
+
+    hostname_obj->hostname = gf_strdup(hostname);
+    CDS_INIT_LIST_HEAD(&hostname_obj->hostname_list);
+
+    *name = hostname_obj;
+    ret = 0;
+
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+gf_boolean_t
+glusterd_gf_is_local_addr(char *hostname)
+{
+    xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
+    glusterd_hostname_t *hostname_obj = NULL;
+    gf_boolean_t found = _gf_false;
+    int ret = 1;
+
+    this = THIS;
+    priv = this->private;
+
+    if (gd_has_local_address(priv, hostname)) {
+        found = _gf_true;
+        goto out;
+    }
+
+    if (gf_is_local_addr(hostname)) {
+        ret = glusterd_hostname_new(this, hostname, &hostname_obj);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY, NULL);
+            goto out;
+        }
+        found = _gf_true;
+        list_add_tail(&hostname_obj->hostname_list, &priv->hostnames);
+    }
+
+out:
+    return found;
+}
+
 int
 get_mux_limit_per_process(int *mux_limit)
 {
@@ -13915,7 +13989,7 @@ rb_update_dstbrick_port(glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
     if (!dict_ret)
         dst_brickinfo->port = dst_port;
 
-    if (gf_is_local_addr(dst_brickinfo->hostname)) {
+    if (glusterd_gf_is_local_addr(dst_brickinfo->hostname)) {
         gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_BRK_PORT_NO_ADD_INDO,
                "adding dst-brick port no %d", dst_port);
 
@@ -14057,7 +14131,7 @@ glusterd_brick_op_prerequisites(dict_t *dict, char **op, glusterd_op_t *gd_op,
         goto out;
     }
 
-    if (gf_is_local_addr((*src_brickinfo)->hostname)) {
+    if (glusterd_gf_is_local_addr((*src_brickinfo)->hostname)) {
         gf_msg_debug(this->name, 0, "I AM THE SOURCE HOST");
         if ((*src_brickinfo)->port && rsp_dict) {
             ret = dict_set_int32n(rsp_dict, "src-brick-port",

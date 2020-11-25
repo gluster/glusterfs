@@ -1000,7 +1000,7 @@ __server_getspec(rpcsvc_request_t *req)
      * meant for external users.
      * For unix domain socket, address will be empty.
      */
-    if (strlen(addrstr) == 0 || gf_is_local_addr(addrstr)) {
+    if (strlen(addrstr) == 0 || glusterd_gf_is_local_addr(addrstr)) {
         ret = build_volfile_path(volume, filename, sizeof(filename),
                                  TRUSTED_PREFIX, dict);
     } else {

@@ -145,7 +145,7 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
     ret = dict_get_int32n(dict, "ignore-partition", SLEN("ignore-partition"),
                           &ignore_partition);
     ret = 0;
-    if (gf_is_local_addr(host)) {
+    if (glusterd_gf_is_local_addr(host)) {
         ret = glusterd_validate_and_create_brickpath(
             dst_brickinfo, volinfo->volume_id, volinfo->volname, op_errstr,
             is_force, ignore_partition);
