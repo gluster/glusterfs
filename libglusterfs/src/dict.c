@@ -30,6 +30,8 @@ struct dict_cmp {
     gf_boolean_t (*value_ignore)(char *k);
 };
 
+static glusterfs_ctx_t *global_ctx = NULL;
+
 #define VALIDATE_DATA_AND_LOG(data, type, key, ret_val)                        \
     do {                                                                       \
         if (!data || !data->data) {                                            \
@@ -46,8 +48,6 @@ struct dict_cmp {
                              data_type_name[data->data_type]);                 \
         }                                                                      \
     } while (0)
-
-static glusterfs_ctx_t *global_ctx = NULL;
 
 static data_t *
 get_new_data()
@@ -108,6 +108,7 @@ get_new_dict_full(int size_hint)
     dict->free_pair.key = NULL;
     dict->totkvlen = 0;
     LOCK_INIT(&dict->lock);
+    global_ctx = THIS->ctx;
 
     return dict;
 }
@@ -3516,11 +3517,10 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     int32_t vallen = 0;
     int32_t hostord = 0;
     xlator_t *this = NULL;
-    int *keylenarr = NULL;
+    int32_t keylenarr[totkeycount];
 
     this = THIS;
     GF_ASSERT(this);
-    global_ctx = this->ctx;
 
     if (!buf) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -3564,12 +3564,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
         goto out;
     }
 
-    /* count will be set by the dict_set's below */
-    (*fill)->count = 0;
-    (*specific_dict)->count = 0;
-
     /* Compute specific key length and save in array */
-    keylenarr = GF_MALLOC(totkeycount, gf_common_mt_int);
     for (i = 0; i < totkeycount; i++) {
         keylenarr[i] = strlen(suffix_key_arr[i]);
     }
@@ -3657,7 +3652,5 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
 
     ret = 0;
 out:
-    if (keylenarr)
-        GF_FREE(keylenarr);
     return ret;
 }

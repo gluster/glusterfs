@@ -5229,12 +5229,13 @@ glusterd_import_friend_volumes_synctask(void *opaque)
 {
     int32_t ret = -1;
     int32_t count = 0;
-    int i = 1;
+    int i = 0; /* Always start from 0 to access correct bitmap */
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     dict_t *peer_data = NULL;
     glusterd_friend_synctask_args_t *arg = NULL;
-    int32_t update = 0;
+    uint64_t bm = 0;
+    uint64_t mask = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -5266,14 +5267,18 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     conf->restart_bricks = _gf_true;
 
     while (i <= count) {
-        /*Check if volume has any peer update */
-        update = (1UL & (arg->status_arr[(i / 64)] >> (i % 64)));
-        if (update) {
-            ret = glusterd_import_friend_volume(peer_data, i, arg);
-            if (ret)
+        bm = arg->status_arr[i / 64];
+        while (bm != 0) {
+            mask = bm &
+                   (-bm); /* mask will contain the lowest bit set from bm. */
+            bm ^= mask;
+            ret = glusterd_import_friend_volume(peer_data, 0 + ffsll(mask) - 1,
+                                                arg);
+            if (ret < 0) {
                 break;
+            }
         }
-        i++;
+        i += 64;
     }
     if (i > count) {
         glusterd_svcs_manager(NULL);
@@ -5284,7 +5289,6 @@ out:
     if (arg) {
         dict_unref(arg->peer_data);
         dict_unref(arg->peer_ver_data);
-        GF_FREE(arg->status_arr);
         GF_FREE(arg);
     }
 
@@ -5495,15 +5499,9 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
         goto out;
     }
 
-    arg = GF_CALLOC(1, sizeof(*arg), gf_common_mt_char);
+    arg = GF_CALLOC(1, sizeof(*arg) + sizeof(uint64_t) * (count / 64),
+                    gf_common_mt_char);
     if (!arg) {
-        ret = -1;
-        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
-               "Out Of Memory");
-        goto out;
-    }
-    arg->status_arr = GF_CALLOC(count, sizeof(uint32_t), gf_common_mt_int);
-    if (!arg->status_arr) {
         ret = -1;
         gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Out Of Memory");
@@ -5540,7 +5538,6 @@ out:
     if (ret && arg) {
         dict_unref(arg->peer_data);
         dict_unref(arg->peer_ver_data);
-        GF_FREE(arg->status_arr);
         GF_FREE(arg);
     }
     gf_msg_debug(this->name, 0, "Returning with ret: %d, status: %d", ret,
@@ -13231,7 +13228,8 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
     }
 
     if ((conf->op_version >= GD_OP_VERSION_9_0) &&
-        (volinfo->status == GLUSTERD_STATUS_NONE)) {
+        (volinfo->status == GLUSTERD_STATUS_NONE) &&
+        (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)) {
         ret = dict_set_dynstr_with_alloc(volinfo->dict,
                                          "cluster.granular-entry-heal", "on");
         if (ret) {

@@ -96,7 +96,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     char rhost[UNIX_PATH_MAX + 1] = {0};
     dict_t *dict = NULL;
     dict_t *peer_ver = NULL;
-    int totcount = 5;  // Total count of specific keys in array
+    int totcount = sizeof(specific_key_suffix) / sizeof(specific_key_suffix[0]);
 
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
@@ -106,13 +106,15 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_friend_req_ctx_t);
     dict = dict_new();
     peer_ver = dict_new();
-    if (!dict || !peer_ver) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+
+    RCU_READ_LOCK;
+
+    if (!ctx || !dict || !peer_ver) {
+        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+               "Unable to allocate memory");
         ret = -1;
         goto out;
     }
-
-    RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(uuid, rhost);
 
@@ -137,13 +139,6 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     event->peername = gf_strdup(peerinfo->hostname);
     gf_uuid_copy(event->peerid, peerinfo->uuid);
-
-    if (!ctx) {
-        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
-               "Unable to allocate memory");
-        ret = -1;
-        goto out;
-    }
 
     gf_uuid_copy(ctx->uuid, uuid);
     if (hostname)
