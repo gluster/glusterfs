@@ -3039,7 +3039,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         /* If we were called from glfsheal and there is still a gfid
          * mismatch, succeed the lookup and let glfsheal print the
          * response via gfid-heal-msg.*/
-        if (!dict_get_str_sizen(local->xattr_req, "gfid-heal-msg",
+        if (!dict_get_str_sizen(local->xattr_rsp, "gfid-heal-msg",
                                 &gfid_heal_msg))
             goto cant_interpret;
 
@@ -3094,7 +3094,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         goto error;
     }
 
-    ret = dict_get_str_sizen(local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
+    ret = dict_get_str_sizen(local->xattr_rsp, "gfid-heal-msg", &gfid_heal_msg);
     if (!ret) {
         ret = dict_set_str_sizen(local->replies[read_subvol].xdata,
                                  "gfid-heal-msg", gfid_heal_msg);
@@ -3441,9 +3441,12 @@ afr_lookup_selfheal_wrap(void *opaque)
     local = frame->local;
     this = frame->this;
     loc_pargfid(&local->loc, pargfid);
+    if (!local->xattr_rsp)
+        local->xattr_rsp = dict_new();
 
     ret = afr_selfheal_name(frame->this, pargfid, local->loc.name,
-                            &local->cont.lookup.gfid_req, local->xattr_req);
+                            &local->cont.lookup.gfid_req, local->xattr_req,
+                            local->xattr_rsp);
     if (ret == -EIO)
         goto unwind;
 
@@ -3459,7 +3462,8 @@ afr_lookup_selfheal_wrap(void *opaque)
     return 0;
 
 unwind:
-    AFR_STACK_UNWIND(lookup, frame, -1, EIO, NULL, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(lookup, frame, -1, EIO, NULL, NULL, local->xattr_rsp,
+                     NULL);
     return 0;
 }
 

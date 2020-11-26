@@ -217,7 +217,8 @@ afr_selfheal_name_gfid_mismatch_check(xlator_t *this, struct afr_reply *replies,
                                       int source, unsigned char *sources,
                                       int *gfid_idx, uuid_t pargfid,
                                       const char *bname, inode_t *inode,
-                                      unsigned char *locked_on, dict_t *xdata)
+                                      unsigned char *locked_on, dict_t *req,
+                                      dict_t *rsp)
 {
     int i = 0;
     int gfid_idx_iter = -1;
@@ -245,11 +246,11 @@ afr_selfheal_name_gfid_mismatch_check(xlator_t *this, struct afr_reply *replies,
         if (sources[i] || source == -1) {
             if ((sources[gfid_idx_iter] || source == -1) &&
                 gf_uuid_compare(gfid, gfid1)) {
-                ret = afr_gfid_split_brain_source(this, replies, inode, pargfid,
-                                                  bname, gfid_idx_iter, i,
-                                                  locked_on, gfid_idx, xdata);
+                ret = afr_gfid_split_brain_source(
+                    this, replies, inode, pargfid, bname, gfid_idx_iter, i,
+                    locked_on, gfid_idx, req, rsp);
                 if (!ret && *gfid_idx >= 0) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    "GFID split-brain resolved");
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -303,7 +304,7 @@ __afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
                        unsigned char *sources, unsigned char *sinks,
                        unsigned char *healed_sinks, int source,
                        unsigned char *locked_on, struct afr_reply *replies,
-                       void *gfid_req, dict_t *xdata)
+                       void *gfid_req, dict_t *req, dict_t *rsp)
 {
     int gfid_idx = -1;
     int ret = -1;
@@ -333,7 +334,7 @@ __afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
 
     ret = afr_selfheal_name_gfid_mismatch_check(this, replies, source, sources,
                                                 &gfid_idx, pargfid, bname,
-                                                inode, locked_on, xdata);
+                                                inode, locked_on, req, rsp);
     if (ret)
         return ret;
 
@@ -450,7 +451,7 @@ out:
 int
 afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
                      uuid_t pargfid, const char *bname, void *gfid_req,
-                     dict_t *xdata)
+                     dict_t *req, dict_t *rsp)
 {
     afr_private_t *priv = NULL;
     unsigned char *sources = NULL;
@@ -505,7 +506,7 @@ afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
 
         ret = __afr_selfheal_name_do(frame, this, parent, pargfid, bname, inode,
                                      sources, sinks, healed_sinks, source,
-                                     locked_on, replies, gfid_req, xdata);
+                                     locked_on, replies, gfid_req, req, rsp);
     }
 unlock:
     afr_selfheal_unentrylk(frame, this, parent, this->name, bname, locked_on,
@@ -578,7 +579,7 @@ afr_selfheal_name_unlocked_inspect(call_frame_t *frame, xlator_t *this,
 
 int
 afr_selfheal_name(xlator_t *this, uuid_t pargfid, const char *bname,
-                  void *gfid_req, dict_t *xdata)
+                  void *gfid_req, dict_t *req, dict_t *rsp)
 {
     inode_t *parent = NULL;
     call_frame_t *frame = NULL;
@@ -600,7 +601,7 @@ afr_selfheal_name(xlator_t *this, uuid_t pargfid, const char *bname,
 
     if (need_heal) {
         ret = afr_selfheal_name_do(frame, this, parent, pargfid, bname,
-                                   gfid_req, xdata);
+                                   gfid_req, req, rsp);
         if (ret)
             goto out;
     }
