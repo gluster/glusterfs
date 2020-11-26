@@ -791,7 +791,7 @@ glusterfs_graph_activate(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     list_add(&graph->list, &ctx->graphs);
     ctx->active = graph;
 
-    /* XXX: attach to master and set active pointer */
+    /* XXX: attach to primary and set active pointer */
     if (ctx->primary) {
         ret = xlator_notify(ctx->primary, GF_EVENT_GRAPH_NEW, graph);
         if (ret) {
@@ -1154,11 +1154,11 @@ glusterfs_graph_destroy_residual(glusterfs_graph_t *graph)
 /* This function destroys all the xlator members except for the
  * xlator strcuture and its mem accounting field.
  *
- * If otherwise, it would destroy the master xlator object as well
+ * If otherwise, it would destroy the primary xlator object as well
  * its mem accounting, which would mean after calling glusterfs_graph_destroy()
- * there cannot be any reference to GF_FREE() from the master xlator, this is
+ * there cannot be any reference to GF_FREE() from the primary xlator, this is
  * not possible because of the following dependencies:
- * - glusterfs_ctx_t will have mem pools allocated by the master xlators
+ * - glusterfs_ctx_t will have mem pools allocated by the primary xlators
  * - xlator objects will have references to those mem pools(g: dict)
  *
  * Ordering the freeing in any of the order will also not solve the dependency:

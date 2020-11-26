@@ -31,7 +31,7 @@ each brick does not make sense. But io-thread translator is loaded in
 the graph, and the position of io-thread translator decides from when
 the fops will be parallelised across threads. We cannot entirely move
 the io-threads to libglusterfs and say the multiplexing happens from
-the master translator or so. Hence, the io-thread orchestrator code
+the primary translator or so. Hence, the io-thread orchestrator code
 is moved to libglusterfs, which ensures there is only one set of
 io-threads that is shared among the io-threads translator in each brick.
 This poses performance issues due to lock-contention in the io-threds
