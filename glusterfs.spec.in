@@ -427,6 +427,9 @@ Requires:         python%{_pythonver}-gluster = %{version}-%{release}
 
 Requires:         rsync
 Requires:         util-linux
+%if ( 0%{?rhel} && ( ( 0%{?rhel} == 8 && 0%{?rhel_minor_version} >= 3 ) || 0%{?rhel} >= 9 ) )
+Requires:         tar
+%endif
 # required for setting selinux bools
 %if ( 0%{?rhel} && 0%{?rhel} >= 8 )
 Requires(post):      policycoreutils-python-utils
@@ -1620,6 +1623,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Nov 26 2020 Shwetha K Acharya <sacharya@redhat.com>
+- Add tar as dependency to georeplication rpm for RHEL version >= 8.3
+
 * Fri Nov 20 2020 Shwetha K Acharya <sacharya@redhat.com>
 - remove ganesha from Obsoletes
 
