@@ -14888,11 +14888,6 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     }
     pre_list->info = NULL;
     CDS_INIT_LIST_HEAD(&pre_list->list);
-    if (pre_list == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
-               "failed to allocate memory");
-	goto out;
-    }
 
     if (!(*volname)) {
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &(*volname));
