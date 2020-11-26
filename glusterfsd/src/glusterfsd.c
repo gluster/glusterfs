@@ -550,7 +550,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
-    xlator_t *master = NULL;
+    xlator_t *primary = NULL;
 
     cmd_args = &ctx->cmd_args;
     if (!cmd_args->mount_point) {
@@ -564,31 +564,31 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         return -1;
     }
 
-    master = GF_CALLOC(1, sizeof(*master), gfd_mt_xlator_t);
-    if (!master)
+    primary = GF_CALLOC(1, sizeof(*primary), gfd_mt_xlator_t);
+    if (!primary)
         goto err;
 
-    master->name = gf_strdup("fuse");
-    if (!master->name)
+    primary->name = gf_strdup("fuse");
+    if (!primary->name)
         goto err;
 
-    if (xlator_set_type(master, "mount/fuse") == -1) {
+    if (xlator_set_type(primary, "mount/fuse") == -1) {
         gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_8,
                 "MOUNT-POINT=%s", cmd_args->mount_point, NULL);
         goto err;
     }
 
-    master->ctx = ctx;
-    master->options = dict_new();
-    if (!master->options)
+    primary->ctx = ctx;
+    primary->options = dict_new();
+    if (!primary->options)
         goto err;
 
-    ret = set_fuse_mount_options(ctx, master->options);
+    ret = set_fuse_mount_options(ctx, primary->options);
     if (ret)
         goto err;
 
     if (cmd_args->fuse_mountopts) {
-        ret = dict_set_static_ptr(master->options, ZR_FUSE_MOUNTOPTS,
+        ret = dict_set_static_ptr(primary->options, ZR_FUSE_MOUNTOPTS,
                                   cmd_args->fuse_mountopts);
         if (ret < 0) {
             gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_3,
@@ -597,19 +597,19 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         }
     }
 
-    ret = xlator_init(master);
+    ret = xlator_init(primary);
     if (ret) {
         gf_msg_debug("glusterfsd", 0, "failed to initialize fuse translator");
         goto err;
     }
 
-    ctx->primary = master;
+    ctx->primary = primary;
 
     return 0;
 
 err:
-    if (master) {
-        xlator_destroy(master);
+    if (primary) {
+        xlator_destroy(primary);
     }
 
     return 1;

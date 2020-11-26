@@ -1204,7 +1204,7 @@ inode_invalidate(inode_t *inode)
     }
 
     /*
-     * The master xlator is not in the graph but it can define an invalidate
+     * The primary xlator is not in the graph but it can define an invalidate
      * handler.
      */
     xl = inode->table->xl->ctx->primary;
