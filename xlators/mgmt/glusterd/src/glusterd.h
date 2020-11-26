@@ -861,30 +861,21 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         }                                                                      \
     } while (0)
 
-#define GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(path, volinfo, priv)                 \
-    do {                                                                       \
-        char defrag_path[PATH_MAX];                                            \
-        int32_t _sockfile_old_len;                                             \
-        GLUSTERD_GET_DEFRAG_DIR(defrag_path, volinfo, priv);                   \
-        _sockfile_old_len = snprintf(path, PATH_MAX, "%s/%s.sock",             \
-                                     defrag_path, uuid_utoa(MY_UUID));         \
-        if ((_sockfile_old_len < 0) || (_sockfile_old_len >= PATH_MAX)) {      \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
 #define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo)                           \
     do {                                                                       \
-        char operation[NAME_MAX];                                              \
         int32_t _defrag_sockfile_len;                                          \
-        GLUSTERD_GET_DEFRAG_PROCESS(operation, volinfo);                       \
+        char tmppath[PATH_MAX] = {                                             \
+            0,                                                                 \
+        };                                                                     \
         _defrag_sockfile_len = snprintf(                                       \
-            path, UNIX_PATH_MAX,                                               \
-            DEFAULT_VAR_RUN_DIRECTORY "/gluster-%s-%s.sock", operation,        \
-            uuid_utoa(volinfo->volume_id));                                    \
+            tmppath, PATH_MAX,                                                 \
+            DEFAULT_VAR_RUN_DIRECTORY "/gluster-%s-%s-%s.sock", "rebalance",   \
+            volinfo->volname, uuid_utoa(MY_UUID));                             \
         if ((_defrag_sockfile_len < 0) ||                                      \
             (_defrag_sockfile_len >= PATH_MAX)) {                              \
             path[0] = 0;                                                       \
+        } else {                                                               \
+            glusterd_set_socket_filepath(tmppath, path, sizeof(path));         \
         }                                                                      \
     } while (0)
 
