@@ -248,8 +248,11 @@ typedef struct glusterd_add_dict_args {
 
 typedef struct glusterd_friend_synctask_args {
     dict_t *peer_data;
-    dict_t *peer_ver_data;   // Dictionary to save peer version data
-    uint64_t status_arr[1];  // Array to save volume update status
+    dict_t *peer_ver_data;  // Dictionary to save peer version data
+    /* This status_arr[1] is not a real size, real size of the array
+       is dynamically allocated
+    */
+    uint64_t status_arr[1];
 } glusterd_friend_synctask_args_t;
 
 typedef enum gf_brick_status {

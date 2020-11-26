@@ -82,7 +82,7 @@ glusterd_big_locked_handler(rpcsvc_request_t *req, rpcsvc_actor actor_fn)
     return ret;
 }
 
-static char *specific_key_suffix[] = {".quota-cksum", ".cksum", ".version",
+static char *specific_key_suffix[] = {".quota-cksum", ".ckusm", ".version",
                                       ".quota-version", ".name"};
 
 static int

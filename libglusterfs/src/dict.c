@@ -30,8 +30,6 @@ struct dict_cmp {
     gf_boolean_t (*value_ignore)(char *k);
 };
 
-static glusterfs_ctx_t *global_ctx = NULL;
-
 #define VALIDATE_DATA_AND_LOG(data, type, key, ret_val)                        \
     do {                                                                       \
         if (!data || !data->data) {                                            \
@@ -108,7 +106,6 @@ get_new_dict_full(int size_hint)
     dict->free_pair.key = NULL;
     dict->totkvlen = 0;
     LOCK_INIT(&dict->lock);
-    global_ctx = THIS->ctx;
 
     return dict;
 }

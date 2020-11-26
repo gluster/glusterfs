@@ -5229,7 +5229,7 @@ glusterd_import_friend_volumes_synctask(void *opaque)
 {
     int32_t ret = -1;
     int32_t count = 0;
-    int i = 0; /* Always start from 0 to access correct bitmap */
+    int i = 1;
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     dict_t *peer_data = NULL;
@@ -5269,10 +5269,10 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     while (i <= count) {
         bm = arg->status_arr[i / 64];
         while (bm != 0) {
-            mask = bm &
-                   (-bm); /* mask will contain the lowest bit set from bm. */
+            /* mask will contain the lowest bit set from bm. */
+            mask = bm & (-bm);
             bm ^= mask;
-            ret = glusterd_import_friend_volume(peer_data, 0 + ffsll(mask) - 1,
+            ret = glusterd_import_friend_volume(peer_data, i + ffsll(mask) - 2,
                                                 arg);
             if (ret < 0) {
                 break;
