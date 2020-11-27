@@ -1922,16 +1922,22 @@ shard_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         return 0;
     }
 
-    ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size from inode ctx of %s",
-               uuid_utoa(loc->inode->gfid));
-        goto err;
-    }
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size from inode ctx of %s",
+                   uuid_utoa(loc->inode->gfid));
+            goto err;
+        }
 
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        if (!block_size) {
+            STACK_WIND(frame, default_stat_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->stat, loc, xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_stat_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->stat, loc, xdata);
         return 0;
@@ -1973,16 +1979,21 @@ shard_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         return 0;
     }
 
-    ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size from inode ctx of %s",
-               uuid_utoa(fd->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size from inode ctx of %s",
+                   uuid_utoa(fd->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_fstat_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->fstat, fd, xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_fstat_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
         return 0;
@@ -2763,16 +2774,21 @@ shard_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
-    ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size from inode ctx of %s",
-               uuid_utoa(loc->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size from inode ctx of %s",
+                   uuid_utoa(loc->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_truncate_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_truncate_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
@@ -2817,16 +2833,21 @@ shard_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
-    ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size from inode ctx of %s",
-               uuid_utoa(fd->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size from inode ctx of %s",
+                   uuid_utoa(fd->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_ftruncate_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_ftruncate_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
@@ -4483,16 +4504,21 @@ shard_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
-    ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
-    if ((ret) && (!IA_ISLNK(loc->inode->ia_type))) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size from inode ctx of %s",
-               uuid_utoa(loc->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
+        if ((ret) && (!IA_ISLNK(loc->inode->ia_type))) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size from inode ctx of %s",
+                   uuid_utoa(loc->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_unlink_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_unlink_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
@@ -5277,19 +5303,22 @@ shard_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
-    ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size for %s from its inode ctx",
-               uuid_utoa(fd->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
-        /* block_size = 0 means that the file was created before
-         * sharding was enabled on the volume.
-         */
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size for %s from its inode ctx",
+                   uuid_utoa(fd->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_readv_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
+                       xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_readv_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
                    xdata);
@@ -6089,16 +6118,21 @@ shard_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
-    ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size for %s from its inode ctx",
-               uuid_utoa(fd->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size for %s from its inode ctx",
+                   uuid_utoa(fd->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_fsync_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->fsync, fd, datasync, xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_fsync_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fsync, fd, datasync, xdata);
         return 0;
@@ -6452,22 +6486,33 @@ shard_common_remove_xattr(call_frame_t *frame, xlator_t *this,
         dict_del(xdata, GF_XATTR_SHARD_FILE_SIZE);
     }
 
-    ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block size from inode ctx of %s",
-               uuid_utoa(inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block size from inode ctx of %s",
+                   uuid_utoa(inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            if (loc)
+                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                FIRST_CHILD(this)->fops->removexattr, loc, name,
+                                xdata);
+            else
+                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                FIRST_CHILD(this)->fops->fremovexattr, fd, name,
+                                xdata);
+            return 0;
+        }
+    } else {
         if (loc)
             STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->removexattr, loc, name,
                             xdata);
         else
             STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fremovexattr, fd, name,
+                            FIRST_CHILD(this)->fops->removexattr, loc, name,
                             xdata);
         return 0;
     }
@@ -6691,15 +6736,26 @@ shard_common_set_xattr(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
         GF_IF_INTERNAL_XATTR_GOTO(SHARD_XATTR_PREFIX "*", dict, op_errno, err);
     }
 
-    ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block size from inode ctx of %s",
-               uuid_utoa(inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block size from inode ctx of %s",
+                   uuid_utoa(inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            if (loc)
+                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                FIRST_CHILD(this)->fops->setxattr, loc, dict,
+                                flags, xdata);
+            else
+                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                FIRST_CHILD(this)->fops->fsetxattr, fd, dict,
+                                flags, xdata);
+            return 0;
+        }
+    } else {
         if (loc)
             STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
@@ -6832,15 +6888,21 @@ shard_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
     }
 
-    ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block size from inode ctx of %s",
-               uuid_utoa(loc->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block size from inode ctx of %s",
+                   uuid_utoa(loc->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_setattr_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid,
+                       xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_setattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid, xdata);
         return 0;
@@ -6885,15 +6947,21 @@ shard_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
     }
 
-    ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block size from inode ctx of %s",
-               uuid_utoa(fd->inode->gfid));
-        goto err;
-    }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block size from inode ctx of %s",
+                   uuid_utoa(fd->inode->gfid));
+            goto err;
+        }
+        if (!block_size) {
+            STACK_WIND(frame, default_fsetattr_cbk, FIRST_CHILD(this),
+                       FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid,
+                       xdata);
+            return 0;
+        }
+    } else {
         STACK_WIND(frame, default_fsetattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
         return 0;
@@ -6939,19 +7007,46 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
-    ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
-               "Failed to get block "
-               "size for %s from its inode ctx",
-               uuid_utoa(fd->inode->gfid));
-        goto out;
-    }
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
+        ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
+                   "Failed to get block "
+                   "size for %s from its inode ctx",
+                   uuid_utoa(fd->inode->gfid));
+            goto out;
+        }
 
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
-        /* block_size = 0 means that the file was created before
-         * sharding was enabled on the volume.
-         */
+        if (!block_size) {
+            switch (fop) {
+                case GF_FOP_WRITE:
+                    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->writev, fd, vector,
+                                    count, offset, flags, iobref, xdata);
+                    break;
+                case GF_FOP_FALLOCATE:
+                    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->fallocate, fd,
+                                    flags, offset, len, xdata);
+                    break;
+                case GF_FOP_ZEROFILL:
+                    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->zerofill, fd,
+                                    offset, len, xdata);
+                    break;
+                case GF_FOP_DISCARD:
+                    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->discard, fd,
+                                    offset, len, xdata);
+                    break;
+                default:
+                    gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
+                           "Invalid fop id = %d", fop);
+                    break;
+            }
+            return 0;
+        }
+    } else {
         switch (fop) {
             case GF_FOP_WRITE:
                 STACK_WIND_TAIL(frame, FIRST_CHILD(this),
