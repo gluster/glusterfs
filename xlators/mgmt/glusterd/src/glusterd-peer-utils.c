@@ -254,7 +254,7 @@ glusterd_hostname_to_uuid(char *hostname, uuid_t uuid)
         ret = 0;
         gf_uuid_copy(uuid, peerinfo->uuid);
     } else {
-        if (gf_is_local_addr(hostname)) {
+        if (glusterd_gf_is_local_addr(hostname)) {
             gf_uuid_copy(uuid, MY_UUID);
             ret = 0;
         } else {

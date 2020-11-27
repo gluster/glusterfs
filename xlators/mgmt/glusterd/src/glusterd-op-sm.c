@@ -1613,7 +1613,7 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    if (gf_is_local_addr(hostname)) {
+    if (glusterd_gf_is_local_addr(hostname)) {
         // volname is not present in case of sync all
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
         if (!ret) {
@@ -3006,7 +3006,7 @@ glusterd_op_sync_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    if (!gf_is_local_addr(hostname)) {
+    if (!glusterd_gf_is_local_addr(hostname)) {
         ret = 0;
         goto out;
     }
