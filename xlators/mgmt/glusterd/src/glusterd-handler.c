@@ -1090,7 +1090,7 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
                      "only checking probe address vs. bind address");
         ret = gf_is_same_address(bind_name, hostname);
     } else {
-        ret = gf_is_local_addr(hostname);
+        ret = glusterd_gf_is_local_addr(hostname);
     }
     if (ret) {
         glusterd_xfer_cli_probe_resp(req, 0, GF_PROBE_LOCALHOST, NULL, hostname,
@@ -2109,7 +2109,7 @@ __glusterd_handle_sync_volume(rpcsvc_request_t *req)
            "for volume %s",
            (flags & GF_CLI_SYNC_ALL) ? "all" : volname);
 
-    if (gf_is_local_addr(hostname)) {
+    if (glusterd_gf_is_local_addr(hostname)) {
         ret = -1;
         snprintf(msg, sizeof(msg),
                  "sync from localhost"

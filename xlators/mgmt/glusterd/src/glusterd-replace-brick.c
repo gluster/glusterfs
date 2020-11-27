@@ -270,7 +270,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
         goto out;
     }
 
-    if (gf_is_local_addr(host)) {
+    if (glusterd_gf_is_local_addr(host)) {
         ret = glusterd_validate_and_create_brickpath(
             dst_brickinfo, volinfo->volume_id, volinfo->volname, op_errstr,
             is_force, _gf_false);
@@ -278,7 +278,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
             goto out;
     }
 
-    if (!gf_is_local_addr(host)) {
+    if (!glusterd_gf_is_local_addr(host)) {
         RCU_READ_LOCK;
 
         peerinfo = glusterd_peerinfo_find(NULL, host);
