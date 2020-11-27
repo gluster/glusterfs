@@ -760,7 +760,6 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     gd1_mgmt_brick_op_req brick_req;
     dict_t *dict = NULL;
     void *req = &brick_req;
-    void *errlbl = &&err;
     struct rpc_clnt_connection *conn;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = THIS->private;
@@ -789,14 +788,14 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        goto *errlbl;
+        goto err;
     }
 
     if (op == GLUSTERD_SVC_ATTACH) {
         dict = dict_new();
         if (!dict) {
             ret = -ENOMEM;
-            goto *errlbl;
+            goto err;
         }
 
         (void)build_volfile_path(volfile_id, path, sizeof(path), NULL, dict);
@@ -806,21 +805,21 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_ATTACH_FAIL,
                    "Unable to stat %s (%s)", path, strerror(errno));
             ret = -EINVAL;
-            goto *errlbl;
+            goto err;
         }
 
         file_len = stbuf.st_size;
         volfile_content = GF_MALLOC(file_len + 1, gf_common_mt_char);
         if (!volfile_content) {
             ret = -ENOMEM;
-            goto *errlbl;
+            goto err;
         }
         spec_fd = open(path, O_RDONLY);
         if (spec_fd < 0) {
             gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_SVC_ATTACH_FAIL,
                    "failed to read volfile %s", path);
             ret = -EIO;
-            goto *errlbl;
+            goto err;
         }
         ret = sys_read(spec_fd, volfile_content, file_len);
         if (ret == file_len) {
@@ -832,7 +831,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
                    "read size=%d",
                    path, file_len, ret);
             ret = -EIO;
-            goto *errlbl;
+            goto err;
         }
         if (dict->count > 0) {
             ret = dict_allocate_and_serialize(dict, &brick_req.dict.dict_val,
@@ -842,7 +841,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
                        GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
                        "Failed to serialize dict "
                        "to request buffer");
-                goto *errlbl;
+                goto err;
             }
         }
 
@@ -855,33 +854,23 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
     iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
     if (!iobuf) {
-        goto *errlbl;
+        goto err;
     }
-    errlbl = &&maybe_free_iobuf;
 
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);
 
     iobref = iobref_new();
     if (!iobref) {
-        goto *errlbl;
+        goto err;
     }
-    errlbl = &&free_iobref;
 
     iobref_add(iobref, iobuf);
-    /*
-     * Drop our reference to the iobuf.  The iobref should already have
-     * one after iobref_add, so when we unref that we'll free the iobuf as
-     * well.  This allows us to pass just the iobref as frame->local.
-     */
-    iobuf_unref(iobuf);
-    /* Set the pointer to null so we don't free it on a later error. */
-    iobuf = NULL;
 
     /* Create the xdr payload */
     ret = xdr_serialize_generic(iov, req, (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
     if (ret == -1) {
-        goto *errlbl;
+        goto err;
     }
     iov.iov_len = ret;
 
@@ -889,31 +878,25 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     GF_ATOMIC_INC(conf->blockers);
     ret = rpc_clnt_submit(rpc, &gd_brick_prog, op, cbkfn, &iov, 1, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
-    if (dict)
-        dict_unref(dict);
-    GF_FREE(volfile_content);
-    if (spec_fd >= 0)
-        sys_close(spec_fd);
-    return ret;
-
-free_iobref:
-    iobref_unref(iobref);
-maybe_free_iobuf:
+    frame = NULL;
+err:
     if (iobuf) {
         iobuf_unref(iobuf);
     }
-err:
+    if (iobref) {
+        iobref_unref(iobref);
+    }
     if (dict)
         dict_unref(dict);
-    if (brick_req.dict.dict_val)
+    if (ret && brick_req.dict.dict_val)
         GF_FREE(brick_req.dict.dict_val);
 
     GF_FREE(volfile_content);
     if (spec_fd >= 0)
         sys_close(spec_fd);
-    if (frame)
+    if (frame && ret)
         STACK_DESTROY(frame->root);
-    return -1;
+    return ret;
 }
 
 int
