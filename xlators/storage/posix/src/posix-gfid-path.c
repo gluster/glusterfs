@@ -120,6 +120,7 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
 
         list = GF_MALLOC(size, gf_posix_mt_char);
         if (!list) {
+            ret = -1;
             *op_errno = errno;
             goto err;
         }
