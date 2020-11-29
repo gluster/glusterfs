@@ -7322,7 +7322,7 @@ glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo)
     else if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)
         return volinfo->replica_count;
 
-    return 0;
+    return 1;
 }
 
 int
