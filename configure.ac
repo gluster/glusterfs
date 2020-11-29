@@ -1351,11 +1351,22 @@ case $host_os in
         ;;
 esac
 
-CC_VER=`"$CC" -dumpversion 2>/dev/null`
-AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
-  	GF_CFLAGS="${GF_CFLAGS} -flto"
-	GF_LDFLAGS="${GF_LDFLAGS} -flto"
-	AC_MSG_NOTICE([building with LTO])
+# LTO section
+AC_ARG_ENABLE([lto],
+              AC_HELP_STRING([--disable-lto],
+                             [Disable buidling with LTO]))
+
+LTO_BUILD=no
+AS_IF([ test "x$enable_lto" != "xno" ], [
+    CC_VER=`"$CC" -dumpversion 2>/dev/null`
+    AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
+        GF_CFLAGS="${GF_CFLAGS} -flto"
+        GF_LDFLAGS="${GF_LDFLAGS} -flto"
+        LTO_BUILD=yes
+        AC_MSG_NOTICE([building with LTO])],
+        [AC_MSG_NOTICE([not using LTO for gcc_ver=$CC_VER]) ]) 
+    ], [
+    AC_MSG_NOTICE([LTO is disabled])
 ])
 
 # Default value for sbindir
@@ -1735,6 +1746,7 @@ echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo "Enable Brick Mux     : $USE_BRICKMUX"
+echo "Building with LTO    : $LTO_BUILD"
 echo
 
 # dnl Note: ${X^^} capitalization assumes bash >= 4.x
