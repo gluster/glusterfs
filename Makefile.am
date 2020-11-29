@@ -44,7 +44,9 @@ clang-check:
 	@$(top_srcdir)/extras/clang-checker.sh
 
 gen-ChangeLog:
-	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
+	if test -d $(srcdir)/.git; then            	\
+	  (cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog; \
+	fi
 
 .PHONY : gen-VERSION
 gen-VERSION:
