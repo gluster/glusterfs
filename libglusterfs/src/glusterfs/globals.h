@@ -185,4 +185,6 @@ int
 gf_global_mem_acct_enable_get(void);
 int
 gf_global_mem_acct_enable_set(int val);
+
+extern glusterfs_ctx_t *global_ctx;
 #endif /* !_GLOBALS_H */

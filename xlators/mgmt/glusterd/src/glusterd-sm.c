@@ -106,6 +106,8 @@ glusterd_destroy_friend_req_ctx(glusterd_friend_req_ctx_t *ctx)
 
     if (ctx->vols)
         dict_unref(ctx->vols);
+    if (ctx->peer_ver)
+        dict_unref(ctx->peer_ver);
     GF_FREE(ctx->hostname);
     GF_FREE(ctx);
 }
@@ -995,8 +997,8 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
     // Build comparison logic here.
     pthread_mutex_lock(&conf->import_volumes);
     {
-        ret = glusterd_compare_friend_data(ev_ctx->vols, &status,
-                                           event->peername);
+        ret = glusterd_compare_friend_data(ev_ctx->vols, ev_ctx->peer_ver,
+                                           &status, event->peername);
         if (ret) {
             pthread_mutex_unlock(&conf->import_volumes);
             goto out;

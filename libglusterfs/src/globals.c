@@ -91,7 +91,6 @@ const char *gf_upcall_list[GF_UPCALL_FLAGS_MAXVALUE] = {
 /* This global ctx is a bad hack to prevent some of the libgfapi crashes.
  * This should be removed once the patch on resource pool is accepted
  */
-glusterfs_ctx_t *global_ctx = NULL;
 pthread_mutex_t global_ctx_mutex = PTHREAD_MUTEX_INITIALIZER;
 xlator_t global_xlator;
 static int gf_global_mem_acct_enable = 1;
@@ -231,7 +230,6 @@ __glusterfs_this_location()
     if (*this_location == NULL) {
         thread_xlator = &global_xlator;
     }
-
     return this_location;
 }
 

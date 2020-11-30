@@ -14,6 +14,7 @@
 #include "glusterfs/glusterfs.h"
 #include "timer-wheel.h"
 
+glusterfs_ctx_t *global_ctx = NULL;
 glusterfs_ctx_t *
 glusterfs_ctx_new()
 {
@@ -55,6 +56,9 @@ glusterfs_ctx_new()
     GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, 0);
     GF_ATOMIC_INIT(ctx->stats.total_pairs_used, 0);
     GF_ATOMIC_INIT(ctx->stats.total_dicts_used, 0);
+
+    if (!global_ctx)
+        global_ctx = ctx;
 out:
     return ctx;
 }
