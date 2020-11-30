@@ -227,7 +227,7 @@ gf_proc_dump_xl_latency_info(xlator_t *xl)
     for (i = 0; i < GF_FOP_MAXVALUE; i++) {
         gf_proc_dump_build_key(key, key_prefix, "%s", (char *)gf_fop_list[i]);
 
-        gf_latency_t *lat = &xl->stats.interval.latencies[i];
+        gf_latency_t *lat = &xl->stats[i].latencies;
 
         gf_latency_statedump_and_reset(key, lat);
     }
