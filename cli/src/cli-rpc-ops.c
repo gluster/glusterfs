@@ -67,6 +67,8 @@ char *cli_vol_task_status_str[] = {"not started",
                                    "fix-layout stopped",
                                    "fix-layout completed",
                                    "fix-layout failed",
+                                   "reset due to replace-brick",
+                                   "reset due to reset-brick",
                                    "unknown"};
 
 static int32_t
