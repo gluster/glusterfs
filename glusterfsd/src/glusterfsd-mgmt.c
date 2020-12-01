@@ -315,7 +315,7 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     xlator_t *tmp = NULL;
     xlator_list_t **trav_p = NULL;
     gf_boolean_t lockflag = _gf_false;
-    int totchild = 0;
+    int totactivechild = 0;
 
     ret = xdr_to_generic(req->msg[0], &xlator_req,
                          (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
@@ -332,7 +332,8 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
             top = glusterfsd_ctx->active->first;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 tmp = (*trav_p)->xlator;
-                totchild++;
+                if (!tmp->cleanup_starting)
+                    totactivechild++;
                 if (!tmp->cleanup_starting &&
                     strcmp(tmp->name, xlator_req.name) == 0) {
                     victim = tmp;
@@ -361,14 +362,14 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
 
     rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
     victim->cleanup_starting = 1;
-    if (totchild == 1)
+    if (totactivechild == 1)
         ctx->cleanup_starting = _gf_true;
     UNLOCK(&ctx->volfile_lock);
     lockflag = _gf_true;
 
     gf_log(THIS->name, GF_LOG_INFO,
            "detaching not-only child %s totchild is %d", xlator_req.name,
-           totchild);
+           totactivechild);
     top->notify(top, GF_EVENT_CLEANUP, victim);
 err:
     if (!lockflag)

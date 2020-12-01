@@ -687,6 +687,7 @@ server_graph_janitor_threads(void *data)
             totchildcount = 0;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 totchildcount++;
+                break;
             }
             if (!totchildcount && !ctx->destroy_ctx) {
                 ctx->destroy_ctx = _gf_true;
