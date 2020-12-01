@@ -77,10 +77,11 @@ static void
 dump_latency_and_count(xlator_t *xl, int fd)
 {
     int32_t index = 0;
-    uint64_t fop;
-    uint64_t cbk;
-    uint64_t total_fop_count;
-    uint64_t interval_fop_count;
+    uint64_t fop = 0;
+    uint64_t cbk = 0;
+    uint64_t total_fop_count = 0;
+    uint64_t total_fop_cbk = 0;
+    uint64_t interval_fop_count = 0;
 
     if (xl->winds) {
         dprintf(fd, "%s.total.pending-winds.count %" PRIu64 "\n", xl->name,
@@ -98,16 +99,19 @@ dump_latency_and_count(xlator_t *xl, int fd)
                     gf_fop_list[index], fop);
             total_fop_count += fop;
         }
-        fop = GF_ATOMIC_GET(xl->stats[index].interval_fop);
+        GF_ATOMIC_SWAP(xl->stats[index].interval_fop, fop);
         if (fop) {
             dprintf(fd, "%s.interval.%s.count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], fop);
             interval_fop_count += fop;
+            fop = 0;
         }
-        cbk = GF_ATOMIC_GET(xl->stats[index].interval_fop_cbk);
+        GF_ATOMIC_SWAP(xl->stats[index].interval_fop_cbk, cbk);
         if (cbk) {
             dprintf(fd, "%s.interval.%s.fail_count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], cbk);
+            total_fop_cbk += cbk;
+            cbk = 0;
         }
         if (xl->stats[index].latencies.count != 0) {
             dprintf(fd, "%s.interval.%s.latency %lf\n", xl->name,
@@ -115,20 +119,19 @@ dump_latency_and_count(xlator_t *xl, int fd)
                     (((double)xl->stats[index].latencies.total) /
                      xl->stats[index].latencies.count));
             dprintf(fd, "%s.interval.%s.max %" PRIu64 "\n", xl->name,
-                    gf_fop_list[index],
-                    xl->stats[index].latencies.max);
+                    gf_fop_list[index], xl->stats[index].latencies.max);
             dprintf(fd, "%s.interval.%s.min %" PRIu64 "\n", xl->name,
-                    gf_fop_list[index],
-                    xl->stats[index].latencies.min);
+                    gf_fop_list[index], xl->stats[index].latencies.min);
         }
         GF_ATOMIC_INIT(xl->stats[index].interval_fop_cbk, 0);
         GF_ATOMIC_INIT(xl->stats[index].interval_fop, 0);
         memset(&xl->stats[index].latencies, 0,
-           sizeof(xl->stats[index].latencies));
+               sizeof(xl->stats[index].latencies));
     }
 
     dprintf(fd, "%s.total.fop-count %" PRIu64 "\n", xl->name, total_fop_count);
-    dprintf(fd, "%s.interval.fop-count %" PRIu64 "\n", xl->name, interval_fop_count);
+    dprintf(fd, "%s.interval.fop-count %" PRIu64 "\n", xl->name,
+            interval_fop_count);
 }
 
 static inline void

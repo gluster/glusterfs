@@ -42,6 +42,10 @@
 #define gf_attr_atime_set(mode) ((mode)&GF_SET_ATTR_ATIME)
 #define gf_attr_mtime_set(mode) ((mode)&GF_SET_ATTR_MTIME)
 
+#ifndef CAA_CACHE_LINE_SIZE
+#define CAA_CACHE_LINE_SIZE 128
+#endif
+
 struct _xlator;
 typedef struct _xlator xlator_t;
 struct _dir_entry;
@@ -801,7 +805,7 @@ struct _xlator {
         gf_atomic_t total_fop_cbk;
         gf_atomic_t interval_fop_cbk;
         gf_latency_t latencies;
-    } stats[GF_FOP_MAXVALUE];
+    } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
 
     /* Misc */
     eh_t *history; /* event history context */
