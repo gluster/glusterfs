@@ -1204,10 +1204,10 @@ inode_invalidate(inode_t *inode)
     }
 
     /*
-     * The primary xlator is not in the graph but it can define an invalidate
+     * The root xlator is not in the graph but it can define an invalidate
      * handler.
      */
-    xl = inode->table->xl->ctx->primary;
+    xl = inode->table->xl->ctx->root;
     if (xl && xl->cbks->invalidate) {
         old_THIS = THIS;
         THIS = xl;

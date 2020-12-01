@@ -847,11 +847,11 @@ xlator_members_free(xlator_t *xl)
 /* This function destroys all the xlator members except for the
  * xlator strcuture and its mem accounting field.
  *
- * If otherwise, it would destroy the primary xlator object as well
+ * If otherwise, it would destroy the root xlator object as well
  * its mem accounting, which would mean after calling glusterfs_graph_destroy()
- * there cannot be any reference to GF_FREE() from the primary xlator, this is
+ * there cannot be any reference to GF_FREE() from the root xlator, this is
  * not possible because of the following dependencies:
- * - glusterfs_ctx_t will have mem pools allocated by the primary xlators
+ * - glusterfs_ctx_t will have mem pools allocated by the root xlators
  * - xlator objects will have references to those mem pools(g: dict)
  *
  * Ordering the freeing in any of the order will also not solve the dependency:

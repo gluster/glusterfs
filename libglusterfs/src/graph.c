@@ -229,7 +229,7 @@ glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
 {
     xlator_t *ixl = NULL;
 
-    if (!ctx->primary) {
+    if (!ctx->root) {
         gf_msg("glusterfs", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
                "volume \"%s\" can be added from command line only "
                "on client side",
@@ -308,7 +308,7 @@ glusterfs_graph_meta(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
 
-    if (!ctx->primary)
+    if (!ctx->root)
         return 0;
 
     ret = glusterfs_graph_insert(graph, ctx, "meta", "meta-autoload", 1);
@@ -791,15 +791,15 @@ glusterfs_graph_activate(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     list_add(&graph->list, &ctx->graphs);
     ctx->active = graph;
 
-    /* XXX: attach to primary and set active pointer */
-    if (ctx->primary) {
-        ret = xlator_notify(ctx->primary, GF_EVENT_GRAPH_NEW, graph);
+    /* XXX: attach to root and set active pointer */
+    if (ctx->root) {
+        ret = xlator_notify(ctx->root, GF_EVENT_GRAPH_NEW, graph);
         if (ret) {
             gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
                    "graph new notification failed");
             return ret;
         }
-        ((xlator_t *)ctx->primary)->next = graph->top;
+        ((xlator_t *)ctx->root)->next = graph->top;
     }
 
     /* XXX: perform parent up */
@@ -1154,11 +1154,11 @@ glusterfs_graph_destroy_residual(glusterfs_graph_t *graph)
 /* This function destroys all the xlator members except for the
  * xlator strcuture and its mem accounting field.
  *
- * If otherwise, it would destroy the primary xlator object as well
+ * If otherwise, it would destroy the root xlator object as well
  * its mem accounting, which would mean after calling glusterfs_graph_destroy()
- * there cannot be any reference to GF_FREE() from the primary xlator, this is
+ * there cannot be any reference to GF_FREE() from the root xlator, this is
  * not possible because of the following dependencies:
- * - glusterfs_ctx_t will have mem pools allocated by the primary xlators
+ * - glusterfs_ctx_t will have mem pools allocated by the root xlators
  * - xlator objects will have references to those mem pools(g: dict)
  *
  * Ordering the freeing in any of the order will also not solve the dependency:

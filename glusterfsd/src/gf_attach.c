@@ -221,7 +221,7 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    rpc = rpc_clnt_new(options, fs->ctx->primary, "gf-attach-rpc", 0);
+    rpc = rpc_clnt_new(options, fs->ctx->root, "gf-attach-rpc", 0);
     if (!rpc) {
         fprintf(stderr, "rpc_clnt_new failed\n");
         return EXIT_FAILURE;
@@ -237,5 +237,5 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    return send_brick_req(fs->ctx->primary, rpc, argv[optind + 1], op);
+    return send_brick_req(fs->ctx->root, rpc, argv[optind + 1], op);
 }

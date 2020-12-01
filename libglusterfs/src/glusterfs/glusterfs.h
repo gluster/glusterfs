@@ -645,7 +645,7 @@ struct _glusterfs_ctx {
     glusterfs_graph_t *active;
 
     /* fuse or nfs (but not protocol/server) */
-    void *primary;
+    void *root;
 
     /* xlator implementing MOPs for centralized logging, volfile server */
     void *mgmt;
