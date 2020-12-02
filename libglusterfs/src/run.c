@@ -23,8 +23,10 @@
 #include <assert.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <spawn.h>
 #include "glusterfs/syscall.h"
 
+extern char **environ;
 /*
  * Following defines are available for helping development:
  * RUN_STANDALONE and RUN_DO_DEMO.
@@ -44,7 +46,8 @@
  */
 #if defined(RUN_STANDALONE) || defined(RUN_DO_DEMO)
 int
-close_fds_except(int *fdv, size_t count);
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm));
 #define sys_read(f, b, c) read(f, b, c)
 #define sys_write(f, b, c) write(f, b, c)
 #define sys_close(f) close(f)
@@ -62,7 +65,8 @@ close_fds_except(int *fdv, size_t count);
 #include <stdbool.h>
 #include <sys/resource.h>
 int
-close_fds_except(int *fdv, size_t count)
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm))
 {
     int i = 0;
     size_t j = 0;
@@ -83,7 +87,7 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
     return 0;
 }
@@ -98,6 +102,19 @@ close_fds_except(int *fdv, size_t count)
 #endif
 
 #include "glusterfs/run.h"
+/* Using a fake/temporary fd i.e, 0, to safely close the
+   open fds within 3 to MAX_FD by remapping the
+   target fd. Otherwise, it leads to undefined reference
+   in memory while closing them.
+*/
+
+static void
+closer_posix_spawnp(int fd, void *prm)
+{
+    posix_spawn_file_actions_t *file_actionsp = prm;
+    posix_spawn_file_actions_adddup2(file_actionsp, 0, fd);
+    posix_spawn_file_actions_addclose(file_actionsp, fd);
+}
 void
 runinit(runner_t *runner)
 {
@@ -261,7 +278,13 @@ runner_start(runner_t *runner)
     int ret = 0;
     int errno_priv = 0;
     int i = 0;
+    int status = 0;
     sigset_t set;
+
+    posix_spawnattr_t attr;
+    posix_spawnattr_t *attrp = NULL;
+    posix_spawn_file_actions_t file_actions;
+    posix_spawn_file_actions_t *file_actionsp = NULL;
 
     if (runner->runerr || !runner->argv) {
         errno = (runner->runerr) ? runner->runerr : EINVAL;
@@ -288,63 +311,96 @@ runner_start(runner_t *runner)
         }
     }
 
-    if (ret != -1)
-        runner->chpid = fork();
-    switch (runner->chpid) {
-        case -1:
-            errno_priv = errno;
-            sys_close(xpi[0]);
-            sys_close(xpi[1]);
-            for (i = 0; i < 3; i++) {
-                sys_close(pi[i][0]);
-                sys_close(pi[i][1]);
-            }
-            errno = errno_priv;
-            return -1;
-        case 0:
-            for (i = 0; i < 3; i++)
-                sys_close(pi[i][i ? 0 : 1]);
-            sys_close(xpi[0]);
-            ret = 0;
+    ret = posix_spawn_file_actions_init(&file_actions);
+    if (ret != 0)
+        return -1;
 
-            for (i = 0; i < 3; i++) {
-                if (ret == -1)
-                    break;
-                switch (runner->chfd[i]) {
-                    case -1:
-                        /* no redir */
-                        break;
-                    case -2:
-                        /* redir to pipe */
-                        ret = dup2(pi[i][i ? 1 : 0], i);
-                        break;
-                    default:
-                        /* redir to file */
-                        ret = dup2(runner->chfd[i], i);
-                }
-            }
+    for (i = 0; i < 3; i++)
+        posix_spawn_file_actions_addclose(&file_actions, pi[i][i ? 0 : 1]);
 
-            if (ret != -1) {
-                int fdv[4] = {0, 1, 2, xpi[1]};
-
-                ret = close_fds_except(fdv, sizeof(fdv) / sizeof(*fdv));
-            }
-
-            if (ret != -1) {
-                /* save child from inheriting our signal handling */
-                sigemptyset(&set);
-                sigprocmask(SIG_SETMASK, &set, NULL);
-
-                execvp(runner->argv[0], runner->argv);
-            }
-            ret = sys_write(xpi[1], &errno, sizeof(errno));
-            _exit(1);
+    posix_spawn_file_actions_addclose(&file_actions, xpi[0]);
+    ret = 0;
+    for (i = 0; i < 3; i++) {
+        if (ret == -1)
+            break;
+        switch (runner->chfd[i]) {
+            case -1:
+                // no redir
+                break;
+            case -2:
+                // redir to pipe
+                ret = posix_spawn_file_actions_adddup2(&file_actions,
+                                                       pi[i][i ? 1 : 0], i);
+                if (ret)
+                    return -1;
+                break;
+            default:
+                // redir to file
+                ret = posix_spawn_file_actions_adddup2(&file_actions,
+                                                       runner->chfd[i], i);
+                if (ret)
+                    return -1;
+        }
     }
 
+    if (ret != -1) {
+        int fdv[4] = {0, 1, 2, xpi[1]};
+
+        ret = close_fds_except_custom(fdv, sizeof(fdv) / sizeof(*fdv),
+                                      &file_actions, closer_posix_spawnp);
+    }
+
+    file_actionsp = &file_actions;
+
+    ret = posix_spawnattr_init(&attr);
+    if (ret != 0)
+        return -1;
+    ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK);
+    if (ret != 0)
+        return -1;
+    sigemptyset(&set);
+    ret = posix_spawnattr_setsigmask(&attr, &set);
+    if (ret != 0)
+        return -1;
+
+    attrp = &attr;
+
+    status = posix_spawnp(&runner->chpid, runner->argv[0], file_actionsp, attrp,
+                          runner->argv, environ);
+    if (status != 0) {
+        errno_priv = errno;
+        sys_close(xpi[0]);
+        sys_close(xpi[1]);
+        for (i = 0; i < 3; i++) {
+            sys_close(pi[i][0]);
+            sys_close(pi[i][1]);
+        }
+        errno = errno_priv;
+        return -1;
+    }
+
+    /* Destroy any objects that we created earlier */
+
+    if (attrp != NULL) {
+        ret = posix_spawnattr_destroy(attrp);
+        if (ret != 0)
+            return -1;
+    }
+
+    if (file_actionsp != NULL) {
+        ret = posix_spawn_file_actions_destroy(file_actionsp);
+        if (ret != 0)
+            return -1;
+    }
+
+    ret = sys_write(xpi[1], &errno, sizeof(errno));
     errno_priv = errno;
+
     for (i = 0; i < 3; i++)
         sys_close(pi[i][i ? 1 : 0]);
+
     sys_close(xpi[1]);
+
     if (ret == -1) {
         for (i = 0; i < 3; i++) {
             if (runner->chio[i]) {
@@ -360,7 +416,8 @@ runner_start(runner_t *runner)
         GF_ASSERT(ret == sizeof(errno_priv));
     }
     errno = errno_priv;
-    return -1;
+
+    return status;
 }
 
 int
