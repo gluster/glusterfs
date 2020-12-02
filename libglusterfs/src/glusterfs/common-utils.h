@@ -1188,6 +1188,10 @@ char *
 get_ip_from_addrinfo(struct addrinfo *addr, char **ip);
 
 int
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm));
+
+int
 close_fds_except(int *fdv, size_t count);
 
 int
