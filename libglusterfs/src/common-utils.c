@@ -5170,7 +5170,8 @@ gf_fop_int(char *fop)
 }
 
 int
-close_fds_except(int *fdv, size_t count)
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm))
 {
     int i = 0;
     size_t j = 0;
@@ -5207,7 +5208,7 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
     sys_closedir(d);
 #else  /* !GF_LINUX_HOST_OS */
@@ -5227,10 +5228,22 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
 #endif /* !GF_LINUX_HOST_OS */
     return 0;
+}
+
+static void
+closer_close(int fd, void *prm)
+{
+    sys_close(fd);
+}
+
+int
+close_fds_except(int *fdv, size_t count)
+{
+    return close_fds_except_custom(fdv, count, NULL, closer_close);
 }
 
 /**
