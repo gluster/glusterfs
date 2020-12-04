@@ -359,7 +359,7 @@ xlator_dynload_apis(xlator_t *xl)
            sizeof(uint32_t) * GF_MAX_RELEASES);
 
     for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-        gf_latency_reset(&xl->stats.interval.latencies[i]);
+        gf_latency_reset(&xl->stats[i].latencies);
     }
 
     ret = 0;
@@ -600,14 +600,12 @@ __xlator_init(xlator_t *xl)
 
     /* initialize the metrics related locks */
     for (fop_idx = 0; fop_idx < GF_FOP_MAXVALUE; fop_idx++) {
-        GF_ATOMIC_INIT(xl->stats.total.metrics[fop_idx].fop, 0);
-        GF_ATOMIC_INIT(xl->stats.total.metrics[fop_idx].cbk, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].total_fop, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].total_fop_cbk, 0);
 
-        GF_ATOMIC_INIT(xl->stats.interval.metrics[fop_idx].fop, 0);
-        GF_ATOMIC_INIT(xl->stats.interval.metrics[fop_idx].cbk, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].interval_fop, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].interval_fop_cbk, 0);
     }
-    GF_ATOMIC_INIT(xl->stats.total.count, 0);
-    GF_ATOMIC_INIT(xl->stats.interval.count, 0);
 
     xlator_init_lock();
     handle_default_options(xl, xl->options);

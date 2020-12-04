@@ -79,6 +79,6 @@ gf_frame_latency_update(call_frame_t *frame)
         return;
     }
 
-    lat = &frame->this->stats.interval.latencies[frame->op];
+    lat = &frame->this->stats[frame->op].latencies;
     gf_latency_update(lat, &frame->begin, &frame->end);
 }
