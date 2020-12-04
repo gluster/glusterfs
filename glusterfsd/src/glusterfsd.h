@@ -34,6 +34,7 @@
 /* Considering 4 key/value pairs in a dictionary on an average */
 #define GF_MEMPOOL_COUNT_OF_DATA_T (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 #define GF_MEMPOOL_COUNT_OF_DATA_PAIR_T (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
+#define GLUSTER_BRICK_GRACEFUL_CLEANUP "cluster.brick-graceful-cleanup"
 
 #define GF_MEMPOOL_COUNT_OF_LRU_BUF_T 256
 

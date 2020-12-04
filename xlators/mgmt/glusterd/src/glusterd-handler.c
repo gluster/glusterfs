@@ -4748,7 +4748,7 @@ gd_is_global_option(char *opt_key)
             strcmp(opt_key, GLUSTERD_LOCALTIME_LOGGING_KEY) == 0 ||
             strcmp(opt_key, GLUSTERD_DAEMON_LOG_LEVEL_KEY) == 0 ||
             strcmp(opt_key, GLUSTERD_MAX_OP_VERSION_KEY) == 0 ||
-            strcmp(opt_key, GLUSTERD_BRICK_GRACEFUL_CLEANUP) == 0);
+            strcmp(opt_key, GLUSTER_BRICK_GRACEFUL_CLEANUP) == 0);
 
 out:
     return _gf_false;

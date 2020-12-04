@@ -715,7 +715,6 @@ out:
         }
         server_cleanup(this, conf);
         glusterfs_ctx_pool_destroy(ctx);
-        exit(0);
     }
     return NULL;
 }

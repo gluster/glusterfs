@@ -319,7 +319,7 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     dict_t *dict = NULL;
     xlator_t *this = NULL;
     char *value = NULL;
-    gf_boolean_t enabled = _gf_false;
+    gf_boolean_t graceful_cleanup = _gf_false;
 
     this = THIS;
     ret = xdr_to_generic(req->msg[0], &xlator_req,
@@ -331,6 +331,9 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     ctx = glusterfsd_ctx;
 
     dict = dict_new();
+    if (!dict) {
+        return -1;
+    }
     if (xlator_req.dict.dict_len) {
         ret = dict_unserialize(xlator_req.dict.dict_val,
                                xlator_req.dict.dict_len, &dict);
@@ -342,9 +345,12 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_str(dict, "cluster.brick-graceful-cleanup", &value);
-    if (!ret)
-        ret = gf_string2boolean(value, &enabled);
+    ret = dict_get_str(dict, GLUSTER_BRICK_GRACEFUL_CLEANUP, &value);
+    if (!ret) {
+        ret = gf_string2boolean(value, &graceful_cleanup);
+        if (ret)
+            graceful_cleanup = _gf_false;
+    }
 
     LOCK(&ctx->volfile_lock);
     {
@@ -388,14 +394,14 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         }
     }
     /* Cleanup brick resource gracefully if enabled is true */
-    if (!still_bricks_attached && !enabled) {
+    if (!still_bricks_attached && !graceful_cleanup) {
         gf_log(this->name, GF_LOG_INFO,
                "terminating after loss of last child %s", xlator_req.name);
         rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
         kill(getpid(), SIGTERM);
     } else {
         /* Check if detach brick is a last brick */
-        if (!still_bricks_attached && enabled)
+        if (!still_bricks_attached && graceful_cleanup)
             ctx->cleanup_starting = 1;
         /* TODO cleanup sequence needs to be done properly for
            Quota and Changelog
@@ -412,7 +418,7 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         gf_log(this->name, GF_LOG_INFO,
                "detaching not-only child %s "
                " graceful_cleanup %d",
-               xlator_req.name, enabled);
+               xlator_req.name, graceful_cleanup);
         top->notify(top, GF_EVENT_CLEANUP, victim);
     }
 err:

@@ -154,20 +154,14 @@ is_brick_mx_enabled(void)
 }
 
 gf_boolean_t
-is_brick_graceful_cleanup_enabled(void)
+is_brick_graceful_cleanup_enabled(dict_t *opts)
 {
     char *value = NULL;
     int ret = 0;
     gf_boolean_t enabled = _gf_false;
-    xlator_t *this = NULL;
-    glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-
-    priv = this->private;
-
-    ret = dict_get_strn(priv->opts, GLUSTERD_BRICK_GRACEFUL_CLEANUP,
-                        SLEN(GLUSTERD_BRICK_GRACEFUL_CLEANUP), &value);
+    ret = dict_get_strn(opts, GLUSTER_BRICK_GRACEFUL_CLEANUP,
+                        SLEN(GLUSTER_BRICK_GRACEFUL_CLEANUP), &value);
 
     if (!ret)
         ret = gf_string2boolean(value, &enabled);
@@ -2671,7 +2665,7 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
          * attaching and detaching bricks).  Therefore, we have to send
          * an actual signal instead.
          */
-        graceful_enabled = is_brick_graceful_cleanup_enabled();
+        graceful_enabled = is_brick_graceful_cleanup_enabled(conf->opts);
         if ((is_brick_mx_enabled() && last_brick != 1) || graceful_enabled) {
             ret = send_attach_req(this, brickinfo->rpc, brickinfo->path, NULL,
                                   NULL, GLUSTERD_BRICK_TERMINATE,
@@ -6143,7 +6137,8 @@ out:
 int
 send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
                 glusterd_brickinfo_t *brickinfo,
-                glusterd_brickinfo_t *other_brick, int op, int graceful_cleanup)
+                glusterd_brickinfo_t *other_brick, int op,
+                gf_boolean_t graceful_cleanup)
 {
     int ret = -1;
     struct iobuf *iobuf = NULL;
@@ -6155,7 +6150,6 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     call_frame_t *frame = NULL;
     gd1_mgmt_brick_op_req brick_req;
     void *req = &brick_req;
-    void *errlbl = &&err;
     struct rpc_clnt_connection *conn;
     glusterd_conf_t *conf = this->private;
     extern struct rpc_clnt_program gd_brick_prog;
@@ -6189,30 +6183,29 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
             gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
                     NULL);
             ret = -ENOMEM;
-            goto *errlbl;
+            goto err;
         }
-        ret = dict_set_strn(dict, GLUSTERD_BRICK_GRACEFUL_CLEANUP,
-                            SLEN(GLUSTERD_BRICK_GRACEFUL_CLEANUP), "enable");
+        ret = dict_set_strn(dict, GLUSTER_BRICK_GRACEFUL_CLEANUP,
+                            SLEN(GLUSTER_BRICK_GRACEFUL_CLEANUP), "enable");
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                    "Unable to set cluster.brick-graceful-cleanup key");
-            goto *errlbl;
+            goto err;
         }
         ret = dict_allocate_and_serialize(dict, &brick_req.dict.dict_val,
                                           &brick_req.dict.dict_len);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, errno,
                     GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
-            goto *errlbl;
+            goto err;
         }
     }
 
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
     iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
     if (!iobuf) {
-        goto *errlbl;
+        goto err;
     }
-    errlbl = &&maybe_free_iobuf;
 
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);
@@ -6220,15 +6213,14 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     iobref = iobref_new();
     if (!iobref) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
-        goto *errlbl;
+        goto free_iobref;
     }
-    errlbl = &&free_iobref;
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
                 NULL);
-        goto *errlbl;
+        goto free_iobref;
     }
 
     iobref_add(iobref, iobuf);
@@ -6244,7 +6236,7 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     /* Create the xdr payload */
     ret = xdr_serialize_generic(iov, req, (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
     if (ret == -1) {
-        goto *errlbl;
+        goto free_iobref;
     }
 
     iov.iov_len = ret;
@@ -6260,15 +6252,15 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
 
 free_iobref:
-    iobref_unref(iobref);
-maybe_free_iobuf:
+    if (iobref)
+        iobref_unref(iobref);
     if (iobuf) {
         iobuf_unref(iobuf);
     }
 err:
     if (dict)
         dict_unref(dict);
-    if (ret && brick_req.dict.dict_val)
+    if (brick_req.dict.dict_val)
         GF_FREE(brick_req.dict.dict_val);
     return ret;
 }
@@ -6321,7 +6313,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
         rpc = rpc_clnt_ref(other_brick->rpc);
         if (rpc) {
             ret = send_attach_req(this, rpc, path, brickinfo, other_brick,
-                                  GLUSTERD_BRICK_ATTACH, 0);
+                                  GLUSTERD_BRICK_ATTACH, _gf_false);
             rpc_clnt_unref(rpc);
             if (!ret) {
                 ret = pmap_registry_extend(this, other_brick->port,
@@ -14952,7 +14944,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     if (pre_list == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "failed to allocate memory");
-	goto out;
+        goto out;
     }
     pre_list->info = NULL;
     CDS_INIT_LIST_HEAD(&pre_list->list);

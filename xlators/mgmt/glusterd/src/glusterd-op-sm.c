@@ -83,7 +83,7 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
     {GLUSTERD_VOL_CNT_PER_THRD, GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE},
     {GLUSTERD_LOCALTIME_LOGGING_KEY, "disable"},
     {GLUSTERD_DAEMON_LOG_LEVEL_KEY, "INFO"},
-    {GLUSTERD_BRICK_GRACEFUL_CLEANUP, "disable"},
+    {GLUSTER_BRICK_GRACEFUL_CLEANUP, "disable"},
     {NULL},
 };
 
@@ -2517,27 +2517,19 @@ out:
 
 static int
 glusterd_set_brick_graceful_cleanup(dict_t *dict, char *key, char *value,
-                                    char **op_errstr)
+                                    glusterd_conf_t *priv)
 {
-    int32_t ret = -1;
-    xlator_t *this = NULL;
-    glusterd_conf_t *priv = NULL;
+    int ret = 0;
+    char *dup_value = NULL;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, dict, out);
-    GF_VALIDATE_OR_GOTO(this->name, key, out);
-    GF_VALIDATE_OR_GOTO(this->name, value, out);
-    GF_VALIDATE_OR_GOTO(this->name, op_errstr, out);
-
-    ret = 0;
-
-    priv = this->private;
-
-    if (!strcmp(key, GLUSTERD_BRICK_GRACEFUL_CLEANUP)) {
-        ret = dict_set_dynstrn(priv->opts, GLUSTERD_BRICK_GRACEFUL_CLEANUP,
-                               SLEN(GLUSTERD_BRICK_GRACEFUL_CLEANUP),
-                               gf_strdup(value));
+    if (!strcmp(key, GLUSTER_BRICK_GRACEFUL_CLEANUP)) {
+        dup_value = gf_strdup(value);
+        if (!dup_value) {
+            ret = -1;
+            goto out;
+        }
+        ret = dict_set_dynstrn(priv->opts, GLUSTER_BRICK_GRACEFUL_CLEANUP,
+                               SLEN(GLUSTER_BRICK_GRACEFUL_CLEANUP), dup_value);
     }
 
 out:
@@ -2611,7 +2603,7 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
         goto out;
     }
 
-    ret = glusterd_set_brick_graceful_cleanup(dict, key, value, op_errstr);
+    ret = glusterd_set_brick_graceful_cleanup(dict, key, value, conf);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GRACEFUL_CLEANUP_SET_FAIL,
                "Failed to set brick graceful option");
