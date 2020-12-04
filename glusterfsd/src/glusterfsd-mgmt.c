@@ -312,11 +312,16 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     glusterfs_ctx_t *ctx = NULL;
     xlator_t *top = NULL;
     xlator_t *victim = NULL;
-    xlator_t *tmp = NULL;
+    xlator_t *tvictim = NULL;
     xlator_list_t **trav_p = NULL;
     gf_boolean_t lockflag = _gf_false;
-    int totactivechild = 0;
+    gf_boolean_t still_bricks_attached = _gf_false;
+    dict_t *dict = NULL;
+    xlator_t *this = NULL;
+    char *value = NULL;
+    gf_boolean_t enabled = _gf_false;
 
+    this = THIS;
     ret = xdr_to_generic(req->msg[0], &xlator_req,
                          (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
     if (ret < 0) {
@@ -325,18 +330,32 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     }
     ctx = glusterfsd_ctx;
 
+    dict = dict_new();
+    if (xlator_req.dict.dict_len) {
+        ret = dict_unserialize(xlator_req.dict.dict_val,
+                               xlator_req.dict.dict_len, &dict);
+        if (ret < 0) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "Failed to unserialize "
+                   "req-buffer to dictionary");
+            goto err;
+        }
+    }
+
+    ret = dict_get_str(dict, "cluster.brick-graceful-cleanup", &value);
+    if (!ret)
+        ret = gf_string2boolean(value, &enabled);
+
     LOCK(&ctx->volfile_lock);
     {
         /* Find the xlator_list_t that points to our victim. */
         if (glusterfsd_ctx->active) {
             top = glusterfsd_ctx->active->first;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-                tmp = (*trav_p)->xlator;
-                if (!tmp->cleanup_starting)
-                    totactivechild++;
-                if (!tmp->cleanup_starting &&
-                    strcmp(tmp->name, xlator_req.name) == 0) {
-                    victim = tmp;
+                victim = (*trav_p)->xlator;
+                if (!victim->cleanup_starting &&
+                    strcmp(victim->name, xlator_req.name) == 0) {
+                    break;
                 }
             }
         }
@@ -344,8 +363,8 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         if (!top)
             goto err;
     }
-    if (!victim) {
-        gf_log(THIS->name, GF_LOG_ERROR, "can't terminate %s - not found",
+    if (!*trav_p) {
+        gf_log(this->name, GF_LOG_ERROR, "can't terminate %s - not found",
                xlator_req.name);
         /*
          * Used to be -ENOENT.  However, the caller asked us to
@@ -357,27 +376,54 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     }
 
     glusterfs_terminate_response_send(req, 0);
-    if (victim->cleanup_starting)
-        goto err;
+    for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+        tvictim = (*trav_p)->xlator;
+        if (!tvictim->cleanup_starting &&
+            !strcmp(tvictim->name, xlator_req.name)) {
+            continue;
+        }
+        if (!tvictim->cleanup_starting) {
+            still_bricks_attached = _gf_true;
+            break;
+        }
+    }
+    /* Cleanup brick resource gracefully if enabled is true */
+    if (!still_bricks_attached && !enabled) {
+        gf_log(this->name, GF_LOG_INFO,
+               "terminating after loss of last child %s", xlator_req.name);
+        rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
+        kill(getpid(), SIGTERM);
+    } else {
+        /* Check if detach brick is a last brick */
+        if (!still_bricks_attached && enabled)
+            ctx->cleanup_starting = 1;
+        /* TODO cleanup sequence needs to be done properly for
+           Quota and Changelog
+        */
+        if (victim->cleanup_starting)
+            goto err;
 
-    rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
-    victim->cleanup_starting = 1;
-    if (totactivechild == 1)
-        ctx->cleanup_starting = _gf_true;
-    UNLOCK(&ctx->volfile_lock);
-    lockflag = _gf_true;
+        rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
+        victim->cleanup_starting = 1;
 
-    gf_log(THIS->name, GF_LOG_INFO,
-           "detaching not-only child %s totchild is %d", xlator_req.name,
-           totactivechild);
-    top->notify(top, GF_EVENT_CLEANUP, victim);
+        UNLOCK(&ctx->volfile_lock);
+        lockflag = _gf_true;
+
+        gf_log(this->name, GF_LOG_INFO,
+               "detaching not-only child %s "
+               " graceful_cleanup %d",
+               xlator_req.name, enabled);
+        top->notify(top, GF_EVENT_CLEANUP, victim);
+    }
 err:
     if (!lockflag)
         UNLOCK(&ctx->volfile_lock);
-    if (xlator_req.input.input_val)
-        free(xlator_req.input.input_val);
     if (xlator_req.dict.dict_val)
         free(xlator_req.dict.dict_val);
+    if (xlator_req.input.input_val)
+        free(xlator_req.input.input_val);
+    if (dict)
+        dict_unref(dict);
     free(xlator_req.name);
     xlator_req.name = NULL;
     return 0;

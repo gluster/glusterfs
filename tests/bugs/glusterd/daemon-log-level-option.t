@@ -1,7 +1,6 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
-. $(dirname $0)/../../volume.rc
 
 function Info_messages_count() {
         local shd_log=$1
@@ -57,12 +56,10 @@ EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
 # stop the volume and remove glustershd log
 TEST $CLI volume stop $V0
 rm -f /var/log/glusterfs/glustershd.log
-EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "0" online_brick_count
 
 # set cluster.daemon-log-level option to WARNING and start the volume
 TEST $CLI volume set all cluster.daemon-log-level WARNING
 TEST $CLI volume start $V0
-EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "6" online_brick_count
 
 # log does have 1 info message specific to configure ios_sample_buf_size in io-stats xlator
 EXPECT 1 Info_messages_count "/var/log/glusterfs/glustershd.log"
@@ -76,12 +73,10 @@ EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
 # stop the volume and remove glustershd log
 TEST $CLI volume stop $V0
 rm -f /var/log/glusterfs/glustershd.log
-EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "0" online_brick_count
 
 # set cluster.daemon-log-level option to ERROR and start the volume
 TEST $CLI volume set all cluster.daemon-log-level ERROR
 TEST $CLI volume start $V0
-EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "6" online_brick_count
 
 # log does have 1 info message specific to configure ios_sample_buf_size in io-stats xlator
 EXPECT 1 Info_messages_count "/var/log/glusterfs/glustershd.log"

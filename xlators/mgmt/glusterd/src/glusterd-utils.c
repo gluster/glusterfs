@@ -153,6 +153,28 @@ is_brick_mx_enabled(void)
     return ret ? _gf_false : enabled;
 }
 
+gf_boolean_t
+is_brick_graceful_cleanup_enabled(void)
+{
+    char *value = NULL;
+    int ret = 0;
+    gf_boolean_t enabled = _gf_false;
+    xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
+
+    this = THIS;
+
+    priv = this->private;
+
+    ret = dict_get_strn(priv->opts, GLUSTERD_BRICK_GRACEFUL_CLEANUP,
+                        SLEN(GLUSTERD_BRICK_GRACEFUL_CLEANUP), &value);
+
+    if (!ret)
+        ret = gf_string2boolean(value, &enabled);
+
+    return ret ? _gf_false : enabled;
+}
+
 static gf_boolean_t
 gd_has_local_address(glusterd_conf_t *priv, const char *hostname)
 {
@@ -2614,8 +2636,10 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
     xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
+    char *op_errstr = NULL;
     char pidfile[PATH_MAX] = "";
     int last_brick = -1;
+    gf_boolean_t graceful_enabled = _gf_false;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
@@ -2647,18 +2671,51 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
          * attaching and detaching bricks).  Therefore, we have to send
          * an actual signal instead.
          */
-        ret = send_attach_req(this, brickinfo->rpc, brickinfo->path, NULL, NULL,
-                              GLUSTERD_BRICK_TERMINATE);
-        if (ret && brickinfo->status == GF_BRICK_STARTED) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_STOP_FAIL,
-                   "Failed to send detach request for brick %s",
-                   brickinfo->path);
-            goto out;
+        graceful_enabled = is_brick_graceful_cleanup_enabled();
+        if ((is_brick_mx_enabled() && last_brick != 1) || graceful_enabled) {
+            ret = send_attach_req(this, brickinfo->rpc, brickinfo->path, NULL,
+                                  NULL, GLUSTERD_BRICK_TERMINATE,
+                                  graceful_enabled);
+            if (ret && brickinfo->status == GF_BRICK_STARTED) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_STOP_FAIL,
+                       "Failed to send"
+                       " detach request for brick %s",
+                       brickinfo->path);
+                goto out;
+            }
+            gf_log(this->name, GF_LOG_INFO,
+                   "Detach request for "
+                   "brick %s:%s is sent successfully with graceful cleanup %d",
+                   brickinfo->hostname, brickinfo->path, graceful_enabled);
+
+        } else {
+            gf_msg_debug(this->name, 0,
+                         "About to stop glusterfsd"
+                         " for brick %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+            ret = glusterd_brick_terminate(volinfo, brickinfo, NULL, 0,
+                                           &op_errstr);
+            if (ret && brickinfo->status == GF_BRICK_STARTED) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_STOP_FAIL,
+                       "Failed to kill"
+                       " the brick %s",
+                       brickinfo->path);
+                goto out;
+            }
+
+            if (op_errstr) {
+                GF_FREE(op_errstr);
+            }
+            if (is_brick_mx_enabled()) {
+                /* In case of brick multiplexing we need to make
+                 * sure the port is cleaned up from here as the
+                 * RPC connection may not have been originated
+                 * for the same brick instance
+                 */
+                pmap_registry_remove(THIS, brickinfo->port, brickinfo->path,
+                                     GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);
+            }
         }
-        gf_log(this->name, GF_LOG_INFO,
-               "Detach request for "
-               "brick %s:%s is sent successfully",
-               brickinfo->hostname, brickinfo->path);
 
         (void)glusterd_brick_disconnect(brickinfo);
         ret = 0;
@@ -6086,7 +6143,7 @@ out:
 int
 send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
                 glusterd_brickinfo_t *brickinfo,
-                glusterd_brickinfo_t *other_brick, int op)
+                glusterd_brickinfo_t *other_brick, int op, int graceful_cleanup)
 {
     int ret = -1;
     struct iobuf *iobuf = NULL;
@@ -6103,6 +6160,7 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     glusterd_conf_t *conf = this->private;
     extern struct rpc_clnt_program gd_brick_prog;
     fop_cbk_fn_t cbkfn = my_callback;
+    dict_t *dict = NULL;
 
     if (!rpc) {
         gf_log(this->name, GF_LOG_ERROR, "called with null rpc");
@@ -6121,6 +6179,33 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     brick_req.input.input_len = 0;
     brick_req.dict.dict_val = NULL;
     brick_req.dict.dict_len = 0;
+
+    /* Set graceful_cleanup key in dicitonary to check the key value at the time
+       of handling a detach rpc request at brick side
+    */
+    if (graceful_cleanup) {
+        dict = dict_new();
+        if (!dict) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                    NULL);
+            ret = -ENOMEM;
+            goto *errlbl;
+        }
+        ret = dict_set_strn(dict, GLUSTERD_BRICK_GRACEFUL_CLEANUP,
+                            SLEN(GLUSTERD_BRICK_GRACEFUL_CLEANUP), "enable");
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set cluster.brick-graceful-cleanup key");
+            goto *errlbl;
+        }
+        ret = dict_allocate_and_serialize(dict, &brick_req.dict.dict_val,
+                                          &brick_req.dict.dict_len);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
+                    GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
+            goto *errlbl;
+        }
+    }
 
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
     iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
@@ -6181,6 +6266,10 @@ maybe_free_iobuf:
         iobuf_unref(iobuf);
     }
 err:
+    if (dict)
+        dict_unref(dict);
+    if (ret && brick_req.dict.dict_val)
+        GF_FREE(brick_req.dict.dict_val);
     return ret;
 }
 
@@ -6232,7 +6321,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
         rpc = rpc_clnt_ref(other_brick->rpc);
         if (rpc) {
             ret = send_attach_req(this, rpc, path, brickinfo, other_brick,
-                                  GLUSTERD_BRICK_ATTACH);
+                                  GLUSTERD_BRICK_ATTACH, 0);
             rpc_clnt_unref(rpc);
             if (!ret) {
                 ret = pmap_registry_extend(this, other_brick->port,
