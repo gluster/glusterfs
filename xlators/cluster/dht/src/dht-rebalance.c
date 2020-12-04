@@ -456,8 +456,8 @@ out:
 
 static int
 __check_file_has_hardlink(xlator_t *this, loc_t *loc, struct iatt *stbuf,
-                          dict_t *xattrs, int flags, gf_defrag_info_t *defrag,
-                          dht_conf_t *conf, int *fop_errno)
+                          dict_t *xattrs, int flags, dht_conf_t *conf,
+                          int *fop_errno)
 {
     int ret = 0;
 
@@ -505,8 +505,8 @@ __check_file_has_hardlink(xlator_t *this, loc_t *loc, struct iatt *stbuf,
 */
 static int
 __is_file_migratable(xlator_t *this, loc_t *loc, struct iatt *stbuf,
-                     dict_t *xattrs, int flags, gf_defrag_info_t *defrag,
-                     dht_conf_t *conf, int *fop_errno)
+                     dict_t *xattrs, int flags, dht_conf_t *conf,
+                     int *fop_errno)
 {
     int ret = -1;
     int lock_count = 0;
@@ -545,8 +545,8 @@ __is_file_migratable(xlator_t *this, loc_t *loc, struct iatt *stbuf,
     }
 
     /* Check if file has hardlink*/
-    ret = __check_file_has_hardlink(this, loc, stbuf, xattrs, flags, defrag,
-                                    conf, fop_errno);
+    ret = __check_file_has_hardlink(this, loc, stbuf, xattrs, flags, conf,
+                                    fop_errno);
 out:
     return ret;
 }
@@ -991,9 +991,9 @@ out:
 }
 
 static int
-__dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
-                             xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
-                             uint64_t ia_size, int hole_exists, int *fop_errno)
+__dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
+                             fd_t *src, fd_t *dst, uint64_t ia_size,
+                             int hole_exists, int *fop_errno)
 {
     int ret = 0;
     int count = 0;
@@ -1509,7 +1509,6 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
     gf_boolean_t entrylk_locked = _gf_false;
     gf_boolean_t p_locked = _gf_false;
     int lk_ret = -1;
-    gf_defrag_info_t *defrag = NULL;
     gf_boolean_t clean_src = _gf_false;
     gf_boolean_t clean_dst = _gf_false;
     int log_level = GF_LOG_INFO;
@@ -1664,7 +1663,7 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
     src_ia_prot = stbuf.ia_prot;
 
     /* Check if file can be migrated */
-    ret = __is_file_migratable(this, loc, &stbuf, xattr_rsp, flag, defrag, conf,
+    ret = __is_file_migratable(this, loc, &stbuf, xattr_rsp, flag, conf,
                                fop_errno);
     if (ret) {
         if (ret == HARDLINK_MIG_INPROGRESS)
@@ -1810,15 +1809,15 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
     }
 
     /* Check again if file has hardlink */
-    ret = __check_file_has_hardlink(this, loc, &stbuf, xattr_rsp, flag, defrag,
-                                    conf, fop_errno);
+    ret = __check_file_has_hardlink(this, loc, &stbuf, xattr_rsp, flag, conf,
+                                    fop_errno);
     if (ret) {
         if (ret == HARDLINK_MIG_INPROGRESS)
             ret = 0;
         goto out;
     }
 
-    ret = __dht_rebalance_migrate_data(this, defrag, from, to, src_fd, dst_fd,
+    ret = __dht_rebalance_migrate_data(this, from, to, src_fd, dst_fd,
                                        stbuf.ia_size, file_has_holes,
                                        fop_errno);
     if (ret) {
