@@ -73,8 +73,8 @@ int32_t is_xml;
     "Usage: %s <VOLNAME> [bigger-file <FILE> | "                               \
     "latest-mtime <FILE> | "                                                   \
     "source-brick <HOSTNAME:BRICKNAME> [<FILE>] | "                            \
-    "split-brain-info | info-summary] [glusterd-sock <FILE>"                   \
-    "]\n"
+    "split-brain-info | info-summary] "                                        \
+    "[glusterd-sock <FILE> | volfile-path <FILE>]\n"
 
 typedef enum {
     GLFSH_MODE_CONTINUE_ON_ERROR = 1,
@@ -1550,6 +1550,7 @@ main(int argc, char **argv)
     char *file = NULL;
     char *op_errstr = NULL;
     char *socket_filepath = NULL;
+    char *volfile_path = NULL;
     gf_xl_afr_op_t heal_op = -1;
     gf_loglevel_t log_level = GF_LOG_INFO;
     int flags = 0;
@@ -1561,6 +1562,10 @@ main(int argc, char **argv)
     } else if (argc >= 4) {
         if (!strcmp(argv[argc - 2], "glusterd-sock")) {
             socket_filepath = argv[argc - 1];
+            argc = argc - 2;
+        }
+        if (!strcmp(argv[argc - 2], "volfile-path")) {
+            volfile_path = argv[argc - 1];
             argc = argc - 2;
         }
     }
@@ -1656,20 +1661,23 @@ main(int argc, char **argv)
         goto out;
     }
 
-    if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
-        fs->ctx->secure_mgmt = 1;
-        fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
-    }
-    if (socket_filepath != NULL) {
-        ret = glfs_set_volfile_server(fs, "unix", socket_filepath, 0);
+    if (!volfile_path) {
+        if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
+            fs->ctx->secure_mgmt = 1;
+            fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+        }
+        if (socket_filepath != NULL) {
+            ret = glfs_set_volfile_server(fs, "unix", socket_filepath, 0);
+        } else {
+            ret = glfs_set_volfile_server(fs, "unix", DEFAULT_GLUSTERD_SOCKFILE,
+                                          0);
+        }
     } else {
-        ret = glfs_set_volfile_server(fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);
+        ret = glfs_set_volfile(fs, volfile_path);
     }
     if (ret) {
         ret = -errno;
-        gf_asprintf(&op_errstr,
-                    "Setting the volfile server failed, "
-                    "%s",
+        gf_asprintf(&op_errstr, "Setting the volfile config failed: %s",
                     strerror(errno));
         goto out;
     }
