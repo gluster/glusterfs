@@ -353,6 +353,7 @@ F: extras/
 
 Events APIs
 M: Aravinda Vishwanathapura <aravinda@kadalu.io>
+P: Srijan Sivakumar <ssivakum@redhat.com>
 S: Maintained
 F: events/
 F: libglusterfs/src/events*
