@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 function Info_messages_count() {
         local shd_log=$1
@@ -41,6 +42,7 @@ EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
 
 # stop the volume and remove glustershd log
 TEST $CLI volume stop $V0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 online_brick_count
 rm -f /var/log/glusterfs/glustershd.log
 
 # set cluster.daemon-log-level option to INFO and start the volume
@@ -55,6 +57,7 @@ EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
 
 # stop the volume and remove glustershd log
 TEST $CLI volume stop $V0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 online_brick_count
 rm -f /var/log/glusterfs/glustershd.log
 
 # set cluster.daemon-log-level option to WARNING and start the volume
@@ -72,6 +75,7 @@ EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
 
 # stop the volume and remove glustershd log
 TEST $CLI volume stop $V0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 online_brick_count
 rm -f /var/log/glusterfs/glustershd.log
 
 # set cluster.daemon-log-level option to ERROR and start the volume
