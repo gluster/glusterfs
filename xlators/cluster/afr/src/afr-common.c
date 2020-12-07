@@ -4152,8 +4152,10 @@ __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
     if (ret)
         gf_msg_debug(this->name, 0, "failed to set fd ctx (%p)", fd);
 out:
-    if (ret && fd_ctx)
+    if (ret && fd_ctx) {
         _afr_cleanup_fd_ctx(this, fd_ctx);
+        fd_ctx = NULL;
+    }
     return fd_ctx;
 }
 
