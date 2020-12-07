@@ -1457,21 +1457,21 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             gf_msg_debug(this->name, 0,
                          "Replicate cluster type "
                          "found. Checking brick order.");
-            if (replica_count)
+            if (replica_count && (replica_count != volinfo->replica_count))
                 ret = glusterd_check_brick_order(dict, msg, volinfo->type,
                                                  &volname, &bricks, &count,
-                                                 replica_count);
+                                                 replica_count, 1);
             else
                 ret = glusterd_check_brick_order(dict, msg, volinfo->type,
                                                  &volname, &bricks, &count,
-                                                 volinfo->replica_count);
+                                                 volinfo->replica_count, 0);
         } else if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
             gf_msg_debug(this->name, 0,
                          "Disperse cluster type"
                          " found. Checking brick order.");
             ret = glusterd_check_brick_order(dict, msg, volinfo->type, &volname,
                                              &bricks, &count,
-                                             volinfo->disperse_count);
+                                             volinfo->disperse_count, 0);
         }
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BAD_BRKORDER,
