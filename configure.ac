@@ -493,7 +493,7 @@ AC_SUBST(OCF_SUBDIR)
 
 AC_ARG_WITH([server],
             [AS_HELP_STRING([--without-server], [do not build server components])],
-            [with_server='no'],
+            [with_server=$withval],
             [with_server='yes'],
             )
 AM_CONDITIONAL([WITH_SERVER], [test x$with_server = xyes])
