@@ -102,7 +102,7 @@ def cache_output_with_args(func):
     """
     def wrapper(*args, **kwargs):
         global cache_data
-        key = "_".join([func.func_name] + list(args))
+        key = "_".join([func.__name__] + list(args))
         if cache_data.get(key, None) is None:
             cache_data[key] = func(*args, **kwargs)
 
