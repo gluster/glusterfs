@@ -219,4 +219,7 @@ server_graph_janitor_threads(void *);
 
 server_ctx_t *
 server_ctx_get(client_t *client, xlator_t *xlator);
+
+void
+server_cleanup(xlator_t *this, server_conf_t *conf);
 #endif /* !_SERVER_H */

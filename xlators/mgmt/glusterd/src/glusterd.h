@@ -58,6 +58,7 @@
 #define GLUSTER_SHARED_STORAGE "gluster_shared_storage"
 #define GLUSTERD_SHARED_STORAGE_KEY "cluster.enable-shared-storage"
 #define GLUSTERD_BRICK_MULTIPLEX_KEY "cluster.brick-multiplex"
+#define GLUSTERD_BRICK_GRACEFUL_CLEANUP "cluster.brick-graceful-cleanup"
 #define GLUSTERD_VOL_CNT_PER_THRD "glusterd.vol_count_per_thread"
 #define GLUSTERD_BRICKMUX_LIMIT_KEY "cluster.max-bricks-per-process"
 #define GLUSTERD_BRICKMUX_LIMIT_DFLT_VALUE "250"

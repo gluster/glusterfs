@@ -305,9 +305,14 @@ server_setvolume(rpcsvc_request_t *req)
             xlator_in_graph = _gf_false;
             xl = this;
         }
+        if (ctx->cleanup_starting) {
+            cleanup_starting = _gf_true;
+            op_ret = -1;
+            op_errno = ENOENT;
+        }
     }
     UNLOCK(&ctx->volfile_lock);
-    if (xl == NULL) {
+    if (!xl || cleanup_starting) {
         ret = gf_asprintf(&msg, "remote-subvolume \"%s\" is not found", name);
         if (-1 == ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, PS_MSG_ASPRINTF_FAILED,
