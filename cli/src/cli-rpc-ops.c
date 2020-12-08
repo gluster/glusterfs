@@ -67,6 +67,8 @@ char *cli_vol_task_status_str[] = {"not started",
                                    "fix-layout stopped",
                                    "fix-layout completed",
                                    "fix-layout failed",
+                                   "reset due to replace-brick",
+                                   "reset due to reset-brick",
                                    "unknown"};
 
 static int32_t
@@ -7114,12 +7116,21 @@ cli_print_volume_status_tasks(dict_t *dict)
         ret = dict_get_str(dict, key, &task_id_str);
         if (ret)
             return;
-        cli_out("%-20s : %-20s", "ID", task_id_str);
 
         snprintf(key, sizeof(key), "task%d.status", i);
         ret = dict_get_int32(dict, key, &status);
-        if (ret)
+        if (ret) {
+            cli_out("%-20s : %-20s", "ID", task_id_str);
             return;
+        }
+
+        if (!strcmp(op, "Rebalance") &&
+            (status == GF_DEFRAG_STATUS_RESET_DUE_REPLACE_BRC ||
+             status == GF_DEFRAG_STATUS_RESET_DUE_RESET_BRC)) {
+            task_id_str = "None";
+        }
+
+        cli_out("%-20s : %-20s", "ID", task_id_str);
 
         snprintf(task, sizeof(task), "task%d", i);
 

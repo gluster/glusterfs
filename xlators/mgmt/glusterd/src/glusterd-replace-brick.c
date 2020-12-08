@@ -564,8 +564,8 @@ glusterd_op_replace_brick(dict_t *dict, dict_t *rsp_dict)
         (void)glusterd_svcs_manager(volinfo);
         goto out;
     }
-
-    volinfo->rebal.defrag_status = 0;
+    if (volinfo->rebal.defrag_status != GF_DEFRAG_STATUS_NOT_STARTED)
+        volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_RESET_DUE_REPLACE_BRC;
 
     ret = glusterd_svcs_manager(volinfo);
     if (ret) {
