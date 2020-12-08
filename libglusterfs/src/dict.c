@@ -607,13 +607,13 @@ dict_key_count(dict_t *this)
     return ret;
 }
 
-void
+gf_boolean_t
 dict_del(dict_t *this, char *key)
 {
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", key);
-        return;
+        return _gf_false;
     }
 
     return dict_deln(this, key, strlen(key));
@@ -629,7 +629,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", key);
-        return;
+        return rc;
     }
 
     hash = (uint32_t)XXH64(key, keylen, 0);
