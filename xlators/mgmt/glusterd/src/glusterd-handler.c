@@ -5837,6 +5837,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
 
         fprintf(fp, "Volume%d.snap_count: %" PRIu64 "\n", count,
                 volinfo->snap_count);
+        fprintf(fp, "Volume%d.stripe_count: %d\n", count, STRIPE_COUNT);
         fprintf(fp, "Volume%d.replica_count: %d\n", count,
                 volinfo->replica_count);
         fprintf(fp, "Volume%d.subvol_count: %d\n", count,
