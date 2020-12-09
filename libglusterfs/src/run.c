@@ -311,6 +311,9 @@ runner_start(runner_t *runner)
         }
     }
 
+    if (ret == -1)
+        return -1;
+
     ret = posix_spawn_file_actions_init(&file_actions);
     if (ret != 0)
         return -1;
@@ -322,7 +325,7 @@ runner_start(runner_t *runner)
     ret = 0;
     for (i = 0; i < 3; i++) {
         if (ret == -1)
-            break;
+            return -1;
         switch (runner->chfd[i]) {
             case -1:
                 // no redir
@@ -331,15 +334,11 @@ runner_start(runner_t *runner)
                 // redir to pipe
                 ret = posix_spawn_file_actions_adddup2(&file_actions,
                                                        pi[i][i ? 1 : 0], i);
-                if (ret)
-                    return -1;
                 break;
             default:
                 // redir to file
                 ret = posix_spawn_file_actions_adddup2(&file_actions,
                                                        runner->chfd[i], i);
-                if (ret)
-                    return -1;
         }
     }
 
@@ -349,6 +348,9 @@ runner_start(runner_t *runner)
         ret = close_fds_except_custom(fdv, sizeof(fdv) / sizeof(*fdv),
                                       &file_actions, closer_posix_spawnp);
     }
+
+    if (ret == -1)
+        return -1;
 
     file_actionsp = &file_actions;
 
