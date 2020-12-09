@@ -1479,7 +1479,8 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
     uint64_t size = 0;
     void *bsize = NULL;
 
-    if (shard_inode_ctx_get_block_size(inode, this, &size)) {
+    LOCK(&inode->lock);
+    if (__shard_inode_ctx_get_block_size(inode, this, &size)) {
         /* Fresh lookup */
         ret = dict_get_ptr(xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
         if (!ret)
@@ -1488,15 +1489,16 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
          * set 0.
          */
 
-        shard_inode_ctx_set(inode, this, buf, size, SHARD_MASK_BLOCK_SIZE);
+        __shard_inode_ctx_set(inode, this, buf, size, SHARD_MASK_BLOCK_SIZE);
     }
     /* If the file is sharded, also set the remaining attributes,
      * except for ia_size and ia_blocks.
      */
     if (size) {
-        shard_inode_ctx_set(inode, this, buf, 0, SHARD_LOOKUP_MASK);
-        (void)shard_inode_ctx_invalidate(inode, this, buf);
+        __shard_inode_ctx_set(inode, this, buf, 0, SHARD_LOOKUP_MASK);
+        (void)__shard_inode_ctx_invalidate(inode, this, buf);
     }
+    UNLOCK(&inode->lock);
 }
 
 int
