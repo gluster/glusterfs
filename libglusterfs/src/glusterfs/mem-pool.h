@@ -158,6 +158,18 @@ __gf_default_realloc(void *oldptr, size_t size)
 
 #define GF_FREE(free_ptr) __gf_free(free_ptr)
 
+#if defined(GF_DISABLE_MEMPOOL)
+#define mem_get(mem_pool)                                                      \
+    GF_MALLOC((unsigned long)mem_pool, gf_common_mt_mem_pool);
+#define mem_get0(mem_pool)                                                     \
+    GF_CALLOC(1, (unsigned long)mem_pool, gf_common_mt_mem_pool);
+#define mem_put(mem_pool) GF_FREE(mem_pool);
+#else
+#define mem_get(mem_pool) mem_get_malloc(mem_pool);
+#define mem_get0(mem_pool) mem_get_calloc(mem_pool);
+#define mem_put(mem_pool) mem_put_pool(mem_pool);
+#endif
+
 static inline char *
 gf_strndup(const char *src, size_t len)
 {
@@ -321,11 +333,11 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
     mem_pool_new_fn(ctx, sizeof(type), count, #type)
 
 void
-mem_put(void *ptr);
+mem_put_pool(void *ptr);
 void *
-mem_get(struct mem_pool *pool);
+mem_get_malloc(struct mem_pool *pool);
 void *
-mem_get0(struct mem_pool *pool);
+mem_get_calloc(struct mem_pool *pool);
 
 void
 mem_pool_destroy(struct mem_pool *pool);

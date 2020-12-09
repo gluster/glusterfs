@@ -872,13 +872,13 @@ loc_wipe
 log_base2
 _mask_cancellation
 mask_match
-mem_get
-mem_get0
+mem_get_malloc
+mem_get_calloc
 mem_pool_destroy
 mem_pool_new_fn
 mem_pools_fini
 mem_pools_init
-mem_put
+mem_put_pool
 mkdir_p
 next_token
 nwstrtail
