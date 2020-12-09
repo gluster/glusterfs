@@ -316,7 +316,12 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     xlator_list_t **trav_p = NULL;
     gf_boolean_t lockflag = _gf_false;
     gf_boolean_t still_bricks_attached = _gf_false;
+    dict_t *dict = NULL;
+    xlator_t *this = NULL;
+    char *value = NULL;
+    gf_boolean_t graceful_cleanup = _gf_false;
 
+    this = THIS;
     ret = xdr_to_generic(req->msg[0], &xlator_req,
                          (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
     if (ret < 0) {
@@ -324,6 +329,28 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         return -1;
     }
     ctx = glusterfsd_ctx;
+
+    dict = dict_new();
+    if (!dict) {
+        return -1;
+    }
+    if (xlator_req.dict.dict_len) {
+        ret = dict_unserialize(xlator_req.dict.dict_val,
+                               xlator_req.dict.dict_len, &dict);
+        if (ret < 0) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "Failed to unserialize "
+                   "req-buffer to dictionary");
+            goto err;
+        }
+    }
+
+    ret = dict_get_str(dict, GLUSTER_BRICK_GRACEFUL_CLEANUP, &value);
+    if (!ret) {
+        ret = gf_string2boolean(value, &graceful_cleanup);
+        if (ret)
+            graceful_cleanup = _gf_false;
+    }
 
     LOCK(&ctx->volfile_lock);
     {
@@ -343,7 +370,7 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
             goto err;
     }
     if (!*trav_p) {
-        gf_log(THIS->name, GF_LOG_ERROR, "can't terminate %s - not found",
+        gf_log(this->name, GF_LOG_ERROR, "can't terminate %s - not found",
                xlator_req.name);
         /*
          * Used to be -ENOENT.  However, the caller asked us to
@@ -366,12 +393,16 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
             break;
         }
     }
-    if (!still_bricks_attached) {
-        gf_log(THIS->name, GF_LOG_INFO,
+    /* Cleanup brick resource gracefully if enabled is true */
+    if (!still_bricks_attached && !graceful_cleanup) {
+        gf_log(this->name, GF_LOG_INFO,
                "terminating after loss of last child %s", xlator_req.name);
         rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
         kill(getpid(), SIGTERM);
     } else {
+        /* Check if detach brick is a last brick */
+        if (!still_bricks_attached && graceful_cleanup)
+            ctx->cleanup_starting = 1;
         /* TODO cleanup sequence needs to be done properly for
            Quota and Changelog
         */
@@ -384,19 +415,21 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         UNLOCK(&ctx->volfile_lock);
         lockflag = _gf_true;
 
-        gf_log(THIS->name, GF_LOG_INFO,
-               "detaching not-only"
-               " child %s",
-               xlator_req.name);
+        gf_log(this->name, GF_LOG_INFO,
+               "detaching not-only child %s "
+               " graceful_cleanup %d",
+               xlator_req.name, graceful_cleanup);
         top->notify(top, GF_EVENT_CLEANUP, victim);
     }
 err:
     if (!lockflag)
         UNLOCK(&ctx->volfile_lock);
-    if (xlator_req.input.input_val)
-        free(xlator_req.input.input_val);
     if (xlator_req.dict.dict_val)
         free(xlator_req.dict.dict_val);
+    if (xlator_req.input.input_val)
+        free(xlator_req.input.input_val);
+    if (dict)
+        dict_unref(dict);
     free(xlator_req.name);
     xlator_req.name = NULL;
     return 0;

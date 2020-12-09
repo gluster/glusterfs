@@ -24,6 +24,7 @@ TEST [ $ret -eq 0 ]
 
 # Re-create the file when a brick is down.
 TEST kill_brick $V0 $H0 $B0/brick1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 2 online_brick_count
 TEST rm $M0/FILE
 echo "New Data">$M0/FILE
 ret=$?

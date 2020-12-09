@@ -69,6 +69,7 @@ for i in $(seq 1 3); do
    TEST $CLI volume stop ${V0}_ec$i
 done
 
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 6 online_brick_count
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
 
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
