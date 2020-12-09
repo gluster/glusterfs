@@ -2512,12 +2512,12 @@ wb_mark_readdirp_end(xlator_t *this, inode_t *directory)
     if (!wb_directory_inode)
         return;
 
+    readdirps = GF_ATOMIC_DEC(wb_directory_inode->readdirps);
+    if (readdirps)
+        return;
+
     LOCK(&wb_directory_inode->lock);
     {
-        readdirps = GF_ATOMIC_DEC(wb_directory_inode->readdirps);
-        if (readdirps)
-            goto unlock;
-
         list_for_each_entry_safe(wb_inode, tmp,
                                  &wb_directory_inode->invalidate_list,
                                  invalidate_list)
@@ -2527,7 +2527,6 @@ wb_mark_readdirp_end(xlator_t *this, inode_t *directory)
             inode_unref(wb_inode->inode);
         }
     }
-unlock:
     UNLOCK(&wb_directory_inode->lock);
 
     return;
@@ -3191,15 +3190,13 @@ struct volume_options options[] = {
         .op_version = {GD_OP_VERSION_6_0},
         .flags = OPT_FLAG_SETTABLE,
     },
-    {
-        .key = {"pass-through"},
-        .type = GF_OPTION_TYPE_BOOL,
-        .default_value = "false",
-        .op_version = {GD_OP_VERSION_9_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
-        .tags = {"write-behind"},
-        .description = "Enable/disable write-behind pass-through"
-    },
+    {.key = {"pass-through"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "false",
+     .op_version = {GD_OP_VERSION_9_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .tags = {"write-behind"},
+     .description = "Enable/disable write-behind pass-through"},
     {.key = {"flush-behind"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",
