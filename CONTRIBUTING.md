@@ -94,13 +94,13 @@ The member list is reviewed by the current maintainers along with infra team tim
 Words 'MUST', 'SHOULD' etc to be referred from [RFC2119](https://tools.ietf.org/html/rfc2119)
 
 * MUST have enabled [two-factor authentication](https://help.github.com/articles/about-two-factor-authentication) on their GitHub account
+* MUST have read the [contributor guide](#)
 * SHOULD have made multiple contributions to the project or community. Contribution may include, but is not limited to:
   - Authoring or reviewing PRs on GitHub
   - Filing or commenting on issues on GitHub
   - Contributing to subproject, or community discussions (e.g. meetings, Slack, email discussion forums, Stack Overflow)
-* MUST be subscribed to [gluster-users](https://lists.gluster.org/mailman/listinfo/gluster-users)/[gluster-devel](https://lists.gluster.org/mailman/listinfo/gluster-devel) mailing lists
-* MUST have read the [contributor guide](.)
-* SHOULD Actively contributing to 1 or more subprojects for 30 days.
+* SHOULD be subscribed to [gluster-users](https://lists.gluster.org/mailman/listinfo/gluster-users), [gluster-devel](https://lists.gluster.org/mailman/listinfo/gluster-devel) mailing lists.
+* SHOULD be actively contributing to 1 or more subprojects for 30 days.
 * Sponsored by 2 gluster-maintainers. Note the following requirements for sponsors:
   - Sponsors must have close interactions with the prospective member - e.g. code/design/proposal review, coordinating on issues, etc.
   - Sponsors must be the maintainer of an active repo in the Gluster org
