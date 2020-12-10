@@ -2914,9 +2914,11 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         goto out;
     }
 
-    ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
-    if (ret) {
-        gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+    if (xdata) {
+        ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
+        if (ret) {
+            gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+        }
     }
 
     if (sync_backend_xattrs) {
@@ -5749,7 +5751,7 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     /* When READDIR_FILTER option is set to on, we can filter out
      * directory's entry from the entry->list.
      */
-    ret = dict_get_int32(dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
+    ret = dict_get_int32_sizen(dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
 
     LOCK(&fd->lock);
     {
