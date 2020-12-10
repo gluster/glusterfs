@@ -2533,6 +2533,8 @@ glusterd_set_brick_graceful_cleanup(dict_t *dict, char *key, char *value,
     }
 
 out:
+    if (ret && dup_value)
+        GF_FREE(dup_value);
     return ret;
 }
 
