@@ -539,20 +539,17 @@ fd_unref(fd_t *fd)
         return;
     }
 
-    LOCK(&fd->inode->lock);
-    {
-        refcount = GF_ATOMIC_DEC(fd->refcount);
-        if (refcount == 0) {
+    refcount = GF_ATOMIC_DEC(fd->refcount);
+    if (refcount == 0) {
+        LOCK(&fd->inode->lock);
+        {
             if (!list_empty(&fd->inode_list)) {
                 list_del_init(&fd->inode_list);
                 fd->inode->active_fd_count--;
                 bound = _gf_true;
             }
         }
-    }
-    UNLOCK(&fd->inode->lock);
-
-    if (refcount == 0) {
+        UNLOCK(&fd->inode->lock);
         fd_destroy(fd, bound);
     }
 
