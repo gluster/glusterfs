@@ -310,13 +310,13 @@ __gf_free(void *free_ptr)
     struct mem_header *header = NULL;
     bool last_ref = false;
 
+    if (!free_ptr)
+        return;
+
     if (!gf_mem_acct_enabled()) {
         FREE(free_ptr);
         return;
     }
-
-    if (!free_ptr)
-        return;
 
     gf_free_sanitize(free_ptr);
     ptr = free_ptr - GF_MEM_HEADER_SIZE;

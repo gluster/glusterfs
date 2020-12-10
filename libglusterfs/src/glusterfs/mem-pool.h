@@ -158,16 +158,21 @@ __gf_default_realloc(void *oldptr, size_t size)
 
 #define GF_FREE(free_ptr) __gf_free(free_ptr)
 
+/* If mempool is disabled, mem_pool represents a object size.The object size
+   type cast((struct mem_pool *) at the time of calling mem_pool_new_fn and at
+   the time access original mem_pool value uncast same object type.If mempool is
+   enabled it is a mem_pool object created by a mem_pool_new_fn.
+*/
 #if defined(GF_DISABLE_MEMPOOL)
 #define mem_get(mem_pool)                                                      \
     GF_MALLOC((unsigned long)mem_pool, gf_common_mt_mem_pool);
 #define mem_get0(mem_pool)                                                     \
     GF_CALLOC(1, (unsigned long)mem_pool, gf_common_mt_mem_pool);
-#define mem_put(mem_pool) GF_FREE(mem_pool);
+#define mem_put(ptr) GF_FREE(ptr);
 #else
 #define mem_get(mem_pool) mem_get_malloc(mem_pool);
 #define mem_get0(mem_pool) mem_get_calloc(mem_pool);
-#define mem_put(mem_pool) mem_put_pool(mem_pool);
+#define mem_put(ptr) mem_put_pool(ptr);
 #endif
 
 static inline char *
