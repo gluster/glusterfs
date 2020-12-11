@@ -2492,11 +2492,7 @@ wb_mark_readdirp_start(xlator_t *this, inode_t *directory)
     if (!wb_directory_inode)
         return;
 
-    LOCK(&wb_directory_inode->lock);
-    {
-        GF_ATOMIC_INC(wb_directory_inode->readdirps);
-    }
-    UNLOCK(&wb_directory_inode->lock);
+    GF_ATOMIC_INC(wb_directory_inode->readdirps);
 
     return;
 }
