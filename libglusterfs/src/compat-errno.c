@@ -928,6 +928,9 @@ init_errno_arrays()
 int32_t
 gf_errno_to_error(int32_t op_errno)
 {
+    if (op_errno == 0)
+        return op_errno;
+
     if (!gf_compat_errno_init_done) {
         init_errno_arrays();
         gf_compat_errno_init_done = 1;
@@ -943,6 +946,9 @@ gf_errno_to_error(int32_t op_errno)
 int32_t
 gf_error_to_errno(int32_t error)
 {
+    if (error == 0)
+        return error;
+
     if (!gf_compat_errno_init_done) {
         init_errno_arrays();
         gf_compat_errno_init_done = 1;
