@@ -1105,6 +1105,43 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
     return linked_inode;
 }
 
+void
+inode_link_lookup(inode_t *inode, inode_t *parent, const char *name,
+                  struct iatt *iatt)
+{
+    int hash = 0;
+    inode_table_t *table = NULL;
+    inode_t *linked_inode = NULL;
+
+    if (!inode) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+                         "inode not found");
+        return;
+    }
+
+    table = inode->table;
+
+    if (parent && name) {
+        hash = hash_dentry(parent, name, table->dentry_hashsize);
+    }
+
+    if (name && strchr(name, '/')) {
+        GF_ASSERT(!"inode link attempted with '/' in name");
+        return;
+    }
+
+    pthread_mutex_lock(&table->lock);
+    linked_inode = __inode_link(inode, parent, name, iatt, hash);
+    pthread_mutex_unlock(&table->lock);
+
+    if (linked_inode)
+        GF_ATOMIC_INC(linked_inode->nlookup);
+
+    inode_table_prune(table);
+
+    return;
+}
+
 int
 inode_lookup(inode_t *inode)
 {

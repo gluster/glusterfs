@@ -43,15 +43,11 @@ server_post_mknod(server_state_t *state, gfs3_mknod_rsp *rsp,
                   struct iatt *stbuf, struct iatt *preparent,
                   struct iatt *postparent, inode_t *inode)
 {
-    inode_t *link_inode = NULL;
-
     gf_stat_from_iatt(&rsp->stat, stbuf);
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
-    inode_unref(link_inode);
+    inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
 }
 
 void
@@ -59,15 +55,11 @@ server_post_mkdir(server_state_t *state, gfs3_mkdir_rsp *rsp, inode_t *inode,
                   struct iatt *stbuf, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
 {
-    inode_t *link_inode = NULL;
-
     gf_stat_from_iatt(&rsp->stat, stbuf);
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
-    inode_unref(link_inode);
+    inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
 }
 
 void
@@ -102,15 +94,11 @@ server_post_symlink(server_state_t *state, gfs3_symlink_rsp *rsp,
                     inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
 {
-    inode_t *link_inode = NULL;
-
     gf_stat_from_iatt(&rsp->stat, stbuf);
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
-    inode_unref(link_inode);
+    inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
 }
 
 void
@@ -118,15 +106,11 @@ server_post_link(server_state_t *state, gfs3_link_rsp *rsp, inode_t *inode,
                  struct iatt *stbuf, struct iatt *preparent,
                  struct iatt *postparent, dict_t *xdata)
 {
-    inode_t *link_inode = NULL;
-
     gf_stat_from_iatt(&rsp->stat, stbuf);
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc2.parent, state->loc2.name, stbuf);
-    inode_lookup(link_inode);
-    inode_unref(link_inode);
+    inode_link_lookup(inode, state->loc2.parent, state->loc2.name, stbuf);
 }
 
 void
@@ -447,18 +431,12 @@ server_post_lookup(gfs3_lookup_rsp *rsp, call_frame_t *frame,
                    struct iatt *postparent)
 {
     inode_t *root_inode = NULL;
-    inode_t *link_inode = NULL;
     static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     root_inode = frame->root->client->bound_xl->itable->root;
 
     if (!__is_root_gfid(inode->gfid)) {
-        link_inode = inode_link(inode, state->loc.parent, state->loc.name,
-                                stbuf);
-        if (link_inode) {
-            inode_lookup(link_inode);
-            inode_unref(link_inode);
-        }
+        inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
     }
 
     if ((inode == root_inode) || (state->client->subdir_mount &&
@@ -501,8 +479,6 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
                           inode_t *inode, struct iatt *stbuf,
                           struct iatt *preparent, struct iatt *postparent)
 {
-    inode_t *link_inode = NULL;
-
     gfx_stat_from_iattx(&rsp->stat, stbuf);
     if (state->client->subdir_mount &&
         !gf_uuid_compare(preparent->ia_gfid, state->client->subdir_gfid)) {
@@ -523,9 +499,7 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
     gfx_stat_from_iattx(&rsp->preparent, preparent);
     gfx_stat_from_iattx(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
-    inode_unref(link_inode);
+    inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
 }
 
 void
@@ -786,18 +760,12 @@ server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
                     server_state_t *state, inode_t *inode, struct iatt *stbuf)
 {
     inode_t *root_inode = NULL;
-    inode_t *link_inode = NULL;
     static uuid_t rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     root_inode = frame->root->client->bound_xl->itable->root;
 
     if (!__is_root_gfid(inode->gfid)) {
-        link_inode = inode_link(inode, state->loc.parent, state->loc.name,
-                                stbuf);
-        if (link_inode) {
-            inode_lookup(link_inode);
-            inode_unref(link_inode);
-        }
+        inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
     }
 
     if ((inode == root_inode) || (state->client->subdir_mount &&
@@ -830,13 +798,9 @@ server4_post_link(server_state_t *state, gfx_common_3iatt_rsp *rsp,
                   inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
                   struct iatt *postparent)
 {
-    inode_t *link_inode = NULL;
-
     gfx_stat_from_iattx(&rsp->stat, stbuf);
     gfx_stat_from_iattx(&rsp->preparent, preparent);
     gfx_stat_from_iattx(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc2.parent, state->loc2.name, stbuf);
-    inode_lookup(link_inode);
-    inode_unref(link_inode);
+    inode_link_lookup(inode, state->loc2.parent, state->loc2.name, stbuf);
 }

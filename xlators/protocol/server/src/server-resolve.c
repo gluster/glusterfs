@@ -46,7 +46,6 @@ resolve_gfid_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     server_state_t *state = NULL;
     server_resolve_t *resolve = NULL;
-    inode_t *link_inode = NULL;
     loc_t *resolve_loc = NULL;
 
     state = CALL_STATE(frame);
@@ -85,14 +84,7 @@ resolve_gfid_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    link_inode = inode_link(inode, resolve_loc->parent, resolve_loc->name, buf);
-
-    if (!link_inode)
-        goto out;
-
-    inode_lookup(link_inode);
-
-    inode_unref(link_inode);
+    inode_link_lookup(inode, resolve_loc->parent, resolve_loc->name, buf);
 
 out:
     loc_wipe(resolve_loc);

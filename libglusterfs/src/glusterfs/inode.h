@@ -145,6 +145,10 @@ inode_link(inode_t *inode, inode_t *parent, const char *name,
            struct iatt *stbuf);
 
 void
+inode_link_lookup(inode_t *inode, inode_t *parent, const char *name,
+                  struct iatt *stbuf);
+
+void
 inode_unlink(inode_t *inode, inode_t *parent, const char *name);
 
 inode_t *
