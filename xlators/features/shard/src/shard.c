@@ -4960,6 +4960,15 @@ shard_common_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     shard_link_block_inode(local, shard_block_num, inode, buf);
 
+    if (local->on_going_call_count && local->fop == GF_FOP_FALLOCATE) {
+        pthread_mutex_lock(&local->mutex);
+        {
+            if (!(--local->on_going_call_count))
+                pthread_cond_signal(&local->cond);
+        }
+        pthread_mutex_unlock(&local->mutex);
+    }
+
 done:
     call_count = shard_call_count_return(frame);
     if (call_count == 0) {
@@ -4972,14 +4981,14 @@ done:
 }
 
 int
-shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
+shard_common_resume_mknod(call_frame_t *frame, xlator_t *this, uint now,
+                          uint shard_idx_iter,
                           shard_post_mknod_fop_handler_t post_mknod_handler)
 {
     int i = 0;
-    int shard_idx_iter = 0;
-    int last_block = 0;
+    uint last_block = 0;
     int ret = 0;
-    int call_count = 0;
+    uint call_count = 0;
     char path[PATH_MAX] = {
         0,
     };
@@ -5000,9 +5009,16 @@ shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
     local = frame->local;
     priv = this->private;
     fd = local->fd;
-    shard_idx_iter = local->first_block;
-    last_block = local->last_block;
-    call_count = local->call_count = local->create_count;
+
+    if (local->fop == GF_FOP_FALLOCATE) {
+        last_block = shard_idx_iter + now - 1;
+        call_count = now;
+        i = shard_idx_iter;
+    } else {
+        last_block = now;
+        call_count = local->call_count;
+    }
+
     local->post_mknod_handler = post_mknod_handler;
 
     SHARD_SET_ROOT_FS_ID(frame, local);
@@ -5023,6 +5039,8 @@ shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
         if (local->inode_list[i]) {
             shard_idx_iter++;
             i++;
+            if (local->fop == GF_FOP_FALLOCATE)
+                local->on_going_call_count--;
             continue;
         }
 
@@ -5110,7 +5128,10 @@ shard_post_lookup_shards_readv_handler(call_frame_t *frame, xlator_t *this)
     }
 
     if (local->create_count) {
-        shard_common_resume_mknod(frame, this, shard_post_mknod_readv_handler);
+        local->call_count = local->create_count;
+        shard_common_resume_mknod(frame, this, local->last_block + 1,
+                                  local->first_block,
+                                  shard_post_mknod_readv_handler);
     } else {
         shard_readv_do(frame, this);
     }
@@ -5624,6 +5645,9 @@ shard_common_inode_write_post_lookup_shards_handler(call_frame_t *frame,
                                                     xlator_t *this)
 {
     shard_local_t *local = NULL;
+    uint shard_count;
+    int ret = 0;
+    uint now, start_block;
 
     local = frame->local;
 
@@ -5633,14 +5657,57 @@ shard_common_inode_write_post_lookup_shards_handler(call_frame_t *frame,
         return 0;
     }
 
+    start_block = local->first_block;
+
     if (local->create_count) {
-        shard_common_resume_mknod(frame, this,
-                                  shard_common_inode_write_post_mknod_handler);
+        local->call_count = local->create_count;
+        shard_count = local->last_block;
+        start_block = local->first_block;
+
+        if (local->fop == GF_FOP_FALLOCATE) {
+            while (shard_count) {
+                if (shard_count <= local->creation_rate) {
+                    now = shard_count + 1;
+                    local->on_going_call_count = now;
+                    shard_count = 0;
+                } else {
+                    now = local->creation_rate;
+                    local->on_going_call_count = now;
+                    shard_count -= local->creation_rate;
+                }
+
+                gf_msg_debug(this->name, 0,
+                             "creating %u shards starting from block %u", now,
+                             start_block);
+                ret = shard_common_resume_mknod(
+                    frame, this, now, start_block,
+                    shard_common_inode_write_post_mknod_handler);
+                if (ret)
+                    goto err;
+
+                start_block += now;
+
+                if (local->on_going_call_count) {
+                    pthread_mutex_lock(&local->mutex);
+                    {
+                        while (local->on_going_call_count)
+                            pthread_cond_wait(&local->cond, &local->mutex);
+                    }
+                    pthread_mutex_unlock(&local->mutex);
+                }
+            }
+        } else {
+            now = local->last_block;
+            shard_common_resume_mknod(
+                frame, this, now, start_block,
+                shard_common_inode_write_post_mknod_handler);
+        }
     } else {
         shard_common_inode_write_do(frame, this);
     }
 
-    return 0;
+err:
+    return ret;
 }
 
 int
@@ -6938,6 +7005,7 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     int i = 0;
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
+    shard_priv_t *priv = this->private;
 
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
@@ -7020,6 +7088,18 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
 
     local->loc.inode = inode_ref(fd->inode);
     gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+
+    /* Set the shard creatiion rate limit here and can be used
+     * that is referred to send the shard n/w calls in batches.
+     */
+    local->creation_rate = priv->creation_rate;
+    ret = pthread_cond_init(&local->cond, NULL);
+    if (ret < 0)
+        goto out;
+
+    ret = pthread_mutex_init(&local->mutex, NULL);
+    if (ret < 0)
+        goto out;
 
     shard_refresh_base_file(frame, this, NULL, fd,
                             shard_common_inode_write_post_lookup_handler);
@@ -7137,6 +7217,8 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("shard-deletion-rate", priv->deletion_rate, uint32, out);
 
+    GF_OPTION_INIT("shard-creation-rate", priv->creation_rate, uint32, out);
+
     GF_OPTION_INIT("shard-lru-limit", priv->lru_limit, uint64, out);
 
     this->local_pool = mem_pool_new(shard_local_t, 128);
@@ -7196,6 +7278,9 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("shard-block-size", priv->block_size, options, size, out);
 
     GF_OPTION_RECONF("shard-deletion-rate", priv->deletion_rate, options,
+                     uint32, out);
+
+    GF_OPTION_RECONF("shard-creation-rate", priv->creation_rate, options,
                      uint32, out);
     ret = 0;
 
@@ -7344,6 +7429,17 @@ struct volume_options options[] = {
         .tags = {"shard"},
         .default_value = "100",
         .min = 100,
+        .max = INT_MAX,
+        .description = "The number of shards to be sent to create at a time",
+    },
+    {
+        .key = {"shard-creation-rate"},
+        .type = GF_OPTION_TYPE_INT,
+        .op_version = {GD_OP_VERSION_5_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .tags = {"shard"},
+        .default_value = "160",
+        .min = 2,
         .max = INT_MAX,
         .description = "The number of shards to send deletes on at a time",
     },

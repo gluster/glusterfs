@@ -217,6 +217,7 @@ typedef struct shard_priv {
     int inode_count;
     struct list_head ilist_head;
     uint32_t deletion_rate;
+    uint32_t creation_rate;
     shard_bg_deletion_state_t bg_del_state;
     gf_boolean_t first_lookup_done;
     uint64_t lru_limit;
@@ -258,6 +259,9 @@ typedef struct shard_local {
     uint64_t last_block;
     uint64_t num_blocks;
     int call_count;
+    uint on_going_call_count;
+    pthread_cond_t cond;
+    pthread_mutex_t mutex;
     int eexist_count;
     int create_count;
     int xflag;
@@ -316,6 +320,7 @@ typedef struct shard_local {
     call_frame_t *inodelk_frame;
     call_frame_t *entrylk_frame;
     uint32_t deletion_rate;
+    uint32_t creation_rate;
     gf_boolean_t cleanup_required;
     uuid_t base_gfid;
     char *name;
