@@ -3062,7 +3062,7 @@ struct cli_cmd volume_cmds[] = {
       "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
     {"volume add-brick <VOLNAME> [<stripe|replica> <COUNT> "
-     "[arbiter <COUNT>]] <NEW-BRICK> ... [force]",
+     "[<arbiter|thin-arbiter> <COUNT>]] <NEW-BRICK> ... [force]",
      cli_cmd_volume_add_brick_cbk, "add brick to volume <VOLNAME>"},
 
     {"volume remove-brick <VOLNAME> [replica <COUNT>] <BRICK> ..."

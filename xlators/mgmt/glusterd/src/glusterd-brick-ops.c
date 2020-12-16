@@ -89,7 +89,8 @@ insert_brick:
 
 static int
 gd_addbr_validate_replica_count(glusterd_volinfo_t *volinfo, int replica_count,
-                                int arbiter_count, int total_bricks, int *type,
+                                int arbiter_count, int thin_arbiter_count,
+                                int total_bricks, int *type,
                                 char *err_str, int err_len)
 {
     int ret = -1;
@@ -133,6 +134,13 @@ gd_addbr_validate_replica_count(glusterd_volinfo_t *volinfo, int replica_count,
                     snprintf(err_str, err_len,
                              "Cannot convert replica 3 volume "
                              "to arbiter volume.");
+                    gf_msg(THIS->name, GF_LOG_ERROR, EINVAL,
+                           GD_MSG_INVALID_ENTRY, "%s", err_str);
+                    goto out;
+                } else if (thin_arbiter_count && !volinfo->thin_arbiter_count) {
+                    snprintf(err_str, err_len,
+                             "Cannot convert replica 3 volume "
+                             "to thin_arbiter volume.");
                     gf_msg(THIS->name, GF_LOG_ERROR, EINVAL,
                            GD_MSG_INVALID_ENTRY, "%s", err_str);
                     goto out;
@@ -273,6 +281,7 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     int32_t stripe_count = 0;
     int type = 0;
     glusterd_conf_t *conf = NULL;
+    int32_t thin_arbiter_count = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -358,6 +367,13 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
                "arbiter-count is %d", arbiter_count);
     }
 
+    ret = dict_get_int32n(dict, "thin-arbiter-count",
+                          SLEN("thin-arbiter-count"), &thin_arbiter_count);
+    if (!ret) {
+        gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
+               "thin-arbiter-count is %d", thin_arbiter_count);
+    }
+
     ret = dict_get_int32n(dict, "stripe-count", SLEN("stripe-count"),
                           &stripe_count);
     if (!ret) {
@@ -372,7 +388,6 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     }
 
     total_bricks = volinfo->brick_count + brick_count;
-
     if (!stripe_count && !replica_count) {
         if (volinfo->type == GF_CLUSTER_TYPE_NONE)
             goto brick_val;
@@ -397,8 +412,8 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     }
 
     ret = gd_addbr_validate_replica_count(volinfo, replica_count, arbiter_count,
-                                          total_bricks, &type, err_str,
-                                          sizeof(err_str));
+                                          thin_arbiter_count, total_bricks,
+                                          &type, err_str, sizeof(err_str));
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COUNT_VALIDATE_FAILED, "%s",
                err_str);
@@ -418,14 +433,25 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     }
 
 brick_val:
-    ret = dict_get_strn(dict, "bricks", SLEN("bricks"), &bricks);
-    if (ret) {
-        snprintf(err_str, sizeof(err_str),
-                 "Unable to get volume "
-                 "bricks");
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED, "%s",
-               err_str);
-        goto out;
+    if (thin_arbiter_count) {
+        ret = dict_get_strn(dict, "ta-brick", SLEN("ta-brick"), &bricks);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                   "Unable to get thin arbiter brick for "
+                   "volume %s",
+                   volname);
+            goto out;
+        }
+    } else {
+        ret = dict_get_strn(dict, "bricks", SLEN("bricks"), &bricks);
+        if (ret) {
+            snprintf(err_str, sizeof(err_str),
+                     "Unable to get volume "
+                     "bricks");
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+                   "%s", err_str);
+            goto out;
+        }
     }
 
     if (type != volinfo->type) {
@@ -1011,6 +1037,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     int32_t stripe_count = 0;
     int32_t replica_count = 0;
     int32_t arbiter_count = 0;
+    int32_t thin_arbiter_count = 0;
     int32_t type = 0;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_gsync_status_temp_t param = {
@@ -1027,6 +1054,8 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     struct statvfs brickstat = {
         0,
     };
+    char *ta_bricks = NULL;
+    glusterd_brickinfo_t *ta_brickinfo = NULL;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1055,15 +1084,45 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         if (!ret)
             gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "replica-count is set %d", replica_count);
+
         ret = dict_get_int32n(dict, "arbiter-count", SLEN("arbiter-count"),
                               &arbiter_count);
         if (!ret)
             gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "arbiter-count is set %d", arbiter_count);
+
+        ret = dict_get_int32n(dict, "thin-arbiter-count",
+                          SLEN("thin-arbiter-count"), &thin_arbiter_count);
+        if (!ret) {
+            gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
+                   "thin-arbiter-count is %d", thin_arbiter_count);
+        }
+        if (thin_arbiter_count) {
+            ret = dict_get_strn(dict, "ta-brick", SLEN("ta-brick"), &ta_bricks);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                       "Unable to get thin arbiter brick for "
+                       "volume %s",
+                       volinfo->volname);
+                goto out;
+            }
+        }
+
         ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
         if (!ret)
             gf_msg(THIS->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
                    "type is set %d, need to change it", type);
+    }
+
+    if (ta_bricks) {
+        brickid = replica_count;
+        ret = glusterd_brickinfo_new_from_brick(ta_bricks, &ta_brickinfo,
+                                                _gf_false, NULL);
+        if (ret)
+            goto out;
+
+        GLUSTERD_ASSIGN_BRICKID_TO_TA_BRICKINFO(ta_brickinfo, volinfo, brickid);
+        cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
     }
 
     brickid = glusterd_get_next_available_brickid(volinfo);
@@ -1149,6 +1208,9 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     }
     if (arbiter_count) {
         volinfo->arbiter_count = arbiter_count;
+    }
+    if (thin_arbiter_count) {
+        volinfo->thin_arbiter_count = thin_arbiter_count;
     }
     if (stripe_count) {
         volinfo->stripe_count = stripe_count;
@@ -1351,6 +1413,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t is_force = _gf_false;
     glusterd_conf_t *conf = NULL;
     int32_t len = 0;
+    int thin_arbiter_count = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -1430,13 +1493,34 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 *op_errstr = gf_strdup(msg);
                 goto out;
             }
+        } else if ((replica_count == 2) &&
+                   (conf->op_version < GD_OP_VERSION_4_1_0)) {
+            ret = dict_get_int32n(dict, "thin-arbiter-count",
+                                  SLEN("thin-arbiter-count"),
+                                  &thin_arbiter_count);
+            if (ret) {
+                gf_msg_debug(this->name, 0,
+                             "No thin-arbiter count present in the dict");
+            } else if (thin_arbiter_count == 1) {
+                ret = -1;
+                snprintf(msg, sizeof(msg),
+                         "Cluster op-version must "
+                         "be >= 40100 to add thin-arbiter brick to a "
+                         "replica 2 volume.");
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_ADD_FAIL, "%s",
+                       msg);
+                *op_errstr = gf_strdup(msg);
+                goto out;
+            }
         }
-        /* Do not allow increasing replica count for arbiter volumes. */
-        if (volinfo->arbiter_count) {
+
+        /* Do not allow increasing replica count for arbiter and thin-arbiter
+           volumes. */
+        if (volinfo->arbiter_count || volinfo->thin_arbiter_count) {
             ret = -1;
             snprintf(msg, sizeof(msg),
                      "Increasing replica count "
-                     "for arbiter volumes is not supported.");
+                     "for arbiter or thin-arbiter volumes is not supported.");
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_ADD_FAIL, "%s",
                    msg);
             *op_errstr = gf_strdup(msg);
@@ -1559,7 +1643,11 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     }
 
     if (!bricks) {
-        ret = dict_get_strn(dict, "bricks", SLEN("bricks"), &bricks);
+        if (thin_arbiter_count) {
+            ret = dict_get_strn(dict, "ta-brick", SLEN("ta-brick"), &bricks);
+        } else {
+            ret = dict_get_strn(dict, "bricks", SLEN("bricks"), &bricks);
+        }
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                    "Unable to get bricks");
