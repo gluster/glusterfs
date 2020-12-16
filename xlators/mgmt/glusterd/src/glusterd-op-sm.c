@@ -83,6 +83,7 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
     {GLUSTERD_VOL_CNT_PER_THRD, GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE},
     {GLUSTERD_LOCALTIME_LOGGING_KEY, "disable"},
     {GLUSTERD_DAEMON_LOG_LEVEL_KEY, "INFO"},
+    {GLUSTER_BRICK_GRACEFUL_CLEANUP, "disable"},
     {NULL},
 };
 
@@ -2514,6 +2515,29 @@ out:
     return ret;
 }
 
+static int
+glusterd_set_brick_graceful_cleanup(dict_t *dict, char *key, char *value,
+                                    glusterd_conf_t *priv)
+{
+    int ret = 0;
+    char *dup_value = NULL;
+
+    if (!strcmp(key, GLUSTER_BRICK_GRACEFUL_CLEANUP)) {
+        dup_value = gf_strdup(value);
+        if (!dup_value) {
+            ret = -1;
+            goto out;
+        }
+        ret = dict_set_dynstrn(priv->opts, GLUSTER_BRICK_GRACEFUL_CLEANUP,
+                               SLEN(GLUSTER_BRICK_GRACEFUL_CLEANUP), dup_value);
+    }
+
+out:
+    if (ret && dup_value)
+        GF_FREE(dup_value);
+    return ret;
+}
+
 /* This is a hack to prevent client-io-threads from being loaded in the graph
  * when the cluster-op-version is bumped up from 3.8.x to 3.13.x. The key is
  * deleted subsequently in glusterd_create_volfiles(). */
@@ -2578,6 +2602,13 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_MX_SET_FAIL,
                "Failed to set brick multiplexing option");
+        goto out;
+    }
+
+    ret = glusterd_set_brick_graceful_cleanup(dict, key, value, conf);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GRACEFUL_CLEANUP_SET_FAIL,
+               "Failed to set brick graceful option");
         goto out;
     }
 

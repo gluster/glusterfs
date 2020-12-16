@@ -1460,12 +1460,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "performance/md-cache",
      .option = "pass-through",
      .op_version = GD_OP_VERSION_4_1_0},
-    {
-        .key = "performance.write-behind-pass-through",
-        .voltype = "performance/write-behind",
-        .option = "pass-through",
-        .op_version = GD_OP_VERSION_9_0
-    },
+    {.key = "performance.write-behind-pass-through",
+     .voltype = "performance/write-behind",
+     .option = "pass-through",
+     .op_version = GD_OP_VERSION_9_0},
     {.key = "performance.md-cache-timeout",
      .voltype = "performance/md-cache",
      .option = "md-cache-timeout",
@@ -2931,6 +2929,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .description = "This global option can be used to enable/disable "
                     "brick multiplexing. Brick multiplexing ensures that "
                     "compatible brick instances can share one single "
+                    "brick process."},
+    {.key = GLUSTER_BRICK_GRACEFUL_CLEANUP,
+     .voltype = "mgmt/glusterd",
+     .value = "disable",
+     .op_version = GD_OP_VERSION_9_0,
+     .validate_fn = validate_boolean,
+     .type = GLOBAL_NO_DOC,
+     .description = "This global option can be used to enable/disable "
+                    "graceful cleanup, after enable graceful cleanup "
+                    "glusterd always sends a detach rpc request to stop a "
                     "brick process."},
     {.key = GLUSTERD_VOL_CNT_PER_THRD,
      .voltype = "mgmt/glusterd",
