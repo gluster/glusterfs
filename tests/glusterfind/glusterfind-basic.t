@@ -17,6 +17,7 @@ mkdir -p /var/lib/glusterd/glusterfind/.keys
 #create_and_start test_volume
 TEST $CLI volume create test-vol $H0:$B0/b1 $H0:$B0/b2 $H0:$B0/b3
 TEST gluster volume start test-vol
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 3 online_brick_count
 
 ##Mount test-vol
 TEST glusterfs -s $H0 --volfile-id test-vol $M0

@@ -56,7 +56,9 @@ TEST ls -l $M0
 
 ## kill 2 bricks to bring down available subvol < spread count
 kill_brick $V0 $H0 $B0/${V0}2
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 3 online_brick_count
 kill_brick $V0 $H0 $B0/${V0}3
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 2 online_brick_count
 
 mkdir $M0/dir1 2>/dev/null
 

@@ -158,7 +158,7 @@ is_brick_graceful_cleanup_enabled(dict_t *opts)
 {
     char *value = NULL;
     int ret = 0;
-    gf_boolean_t enabled = _gf_false;
+    gf_boolean_t enabled = _gf_true;
 
     ret = dict_get_strn(opts, GLUSTER_BRICK_GRACEFUL_CLEANUP,
                         SLEN(GLUSTER_BRICK_GRACEFUL_CLEANUP), &value);
@@ -166,7 +166,7 @@ is_brick_graceful_cleanup_enabled(dict_t *opts)
     if (!ret)
         ret = gf_string2boolean(value, &enabled);
 
-    return ret ? _gf_false : enabled;
+    return enabled;
 }
 
 static gf_boolean_t

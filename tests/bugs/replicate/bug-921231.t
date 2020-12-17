@@ -25,7 +25,7 @@ write_to_file &
 write_to_file &
 wait
 #Test if the MAX [F]INODELK fop latency is of the order of seconds.
-inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
+inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{9,}")
 TEST [ -z $inodelk_max_latency ]
 
 cleanup;

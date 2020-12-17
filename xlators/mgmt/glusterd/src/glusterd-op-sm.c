@@ -83,7 +83,7 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
     {GLUSTERD_VOL_CNT_PER_THRD, GLUSTERD_VOL_CNT_PER_THRD_DEFAULT_VALUE},
     {GLUSTERD_LOCALTIME_LOGGING_KEY, "disable"},
     {GLUSTERD_DAEMON_LOG_LEVEL_KEY, "INFO"},
-    {GLUSTER_BRICK_GRACEFUL_CLEANUP, "disable"},
+    {GLUSTER_BRICK_GRACEFUL_CLEANUP, "enable"},
     {NULL},
 };
 

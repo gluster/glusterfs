@@ -2932,10 +2932,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                     "brick process."},
     {.key = GLUSTER_BRICK_GRACEFUL_CLEANUP,
      .voltype = "mgmt/glusterd",
-     .value = "disable",
+     .value = "enable",
      .op_version = GD_OP_VERSION_9_0,
      .validate_fn = validate_boolean,
-     .type = GLOBAL_NO_DOC,
+     .type = GLOBAL_DOC,
      .description = "This global option can be used to enable/disable "
                     "graceful cleanup, after enable graceful cleanup "
                     "glusterd always sends a detach rpc request to stop a "

@@ -1711,6 +1711,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
              * still traversing, which will cause us to crash unless we use
              * list_for_each_entry_safe.
              */
+            victim_name = gf_strdup(victim->name);
             list_for_each_entry_safe(xprt, xp_next, &conf->xprt_list, list)
             {
                 if (!xprt->xl_private) {
