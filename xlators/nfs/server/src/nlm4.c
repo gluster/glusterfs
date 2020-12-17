@@ -1424,8 +1424,10 @@ err:
         ncf = nlm4_notify_init(cs);
         if (ncf) {
             ncf->frame = copy_frame(frame);
-            ncf->frame->local = ncf;
-            nlm4svc_send_granted(ncf);
+            if(ncf->frame){
+            	ncf->frame->local = ncf;
+            	nlm4svc_send_granted(ncf);
+            }
         }
     } else {
         nlm4_generic_reply(cs->req, cs->args.nlm4_lockargs.cookie, stat);
