@@ -444,7 +444,8 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-void gf_assert(void);
+void
+gf_assert(void);
 
 #ifdef DEBUG
 #define GF_ASSERT(x) assert(x);
@@ -1249,18 +1250,11 @@ gf_tvdiff(struct timeval *start, struct timeval *end)
 
 /* Return delta value in nanoseconds. */
 
-static inline double
+static inline int64_t
 gf_tsdiff(struct timespec *start, struct timespec *end)
 {
-    struct timespec t;
-
-    if (start->tv_nsec > end->tv_nsec)
-        t.tv_sec = end->tv_sec - 1, t.tv_nsec = end->tv_nsec + 1000000000;
-    else
-        t.tv_sec = end->tv_sec, t.tv_nsec = end->tv_nsec;
-
-    return (double)(t.tv_sec - start->tv_sec) * 1e9 +
-           (double)(t.tv_nsec - start->tv_nsec);
+    return (int64_t)(end->tv_sec - start->tv_sec) * GF_SEC_IN_NS +
+           (int64_t)(end->tv_nsec - start->tv_nsec);
 }
 
 #endif /* _COMMON_UTILS_H */
