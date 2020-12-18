@@ -2267,6 +2267,10 @@ retry:
         }
     }
 
+    if (this->ctx->cmd_args.logger == gf_logger_syslog) {
+        runner_argprintf(&runner, "--logger=syslog");
+    }
+
     runner_add_arg(&runner, "--xlator-option");
     runner_argprintf(&runner, "%s-server.listen-port=%d", volinfo->volname,
                      port);
@@ -14895,7 +14899,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     if (pre_list == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "failed to allocate memory");
-	goto out;
+        goto out;
     }
     pre_list->info = NULL;
     CDS_INIT_LIST_HEAD(&pre_list->list);
