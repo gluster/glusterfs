@@ -11405,8 +11405,32 @@ int
 dht_pt_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *key, dict_t *xdata)
 {
+    int op_errno = -1;
+    dht_local_t *local = NULL;
+
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(this, err);
+    VALIDATE_OR_GOTO(loc, err);
+    VALIDATE_OR_GOTO(loc->inode, err);
+    VALIDATE_OR_GOTO(this->private, err);
+
+    local = dht_local_init(frame, loc, NULL, GF_FOP_GETXATTR);
+    if (!local) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    if (key &&
+        strncmp(key, DHT_SUBVOL_STATUS_KEY, SLEN(DHT_SUBVOL_STATUS_KEY)) == 0) {
+        dht_vgetxattr_subvol_status(frame, this, key);
+        return 0;
+    }
+
     STACK_WIND(frame, dht_pt_getxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->getxattr, loc, key, xdata);
+    return 0;
+err:
+    DHT_STACK_UNWIND(getxattr, frame, -1, op_errno, NULL, NULL);
     return 0;
 }
 
