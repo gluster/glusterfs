@@ -1424,9 +1424,9 @@ err:
         ncf = nlm4_notify_init(cs);
         if (ncf) {
             ncf->frame = copy_frame(frame);
-            if(ncf->frame){
-            	ncf->frame->local = ncf;
-            	nlm4svc_send_granted(ncf);
+            if (ncf->frame) {
+                ncf->frame->local = ncf;
+                nlm4svc_send_granted(ncf);
             }
         }
     } else {
