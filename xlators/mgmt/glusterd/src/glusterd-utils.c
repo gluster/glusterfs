@@ -2283,6 +2283,10 @@ retry:
         }
     }
 
+    if (this->ctx->cmd_args.logger == gf_logger_syslog) {
+        runner_argprintf(&runner, "--logger=syslog");
+    }
+
     runner_add_arg(&runner, "--xlator-option");
     runner_argprintf(&runner, "%s-server.listen-port=%d", volinfo->volname,
                      port);
