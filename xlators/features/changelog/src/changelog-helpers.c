@@ -1970,7 +1970,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t pgfid, char **path,
     if (bname) {
         len = gf_asprintf(path, "%s%s", result, bname);
         if ((len < 0) || (len >= PATH_MAX)) {
-            free(*path);
+            GF_FREE(*path);
             ret = -1;
             goto out;
         }

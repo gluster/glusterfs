@@ -15061,8 +15061,7 @@ glusterd_add_peers_to_auth_list(char *volname)
     len += strlen(auth_allow_list) + 1;
 
     new_auth_allow_list = GF_CALLOC(1, len, gf_common_mt_char);
-    strcpy(new_auth_allow_list, auth_allow_list);
-    p = new_auth_allow_list + strlen(auth_allow_list);
+    p = stpcpy(new_auth_allow_list, auth_allow_list);
 
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {

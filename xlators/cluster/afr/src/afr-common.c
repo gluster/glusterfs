@@ -7504,9 +7504,9 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
 
     keylen = strlen(local->cont.getxattr.name);
     for (i = 0; i < priv->child_count; i++) {
-        if (!local->replies[i].valid || local->replies[i].op_ret)
+        if (!local->replies[i].valid || local->replies[i].op_ret) {
             data = (char *)default_str;
-        else {
+        } else {
             ret = dict_get_strn(local->replies[i].xattr,
                                 local->cont.getxattr.name, keylen, &data);
             if (ret) {
@@ -7515,17 +7515,15 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
                 goto out;
             }
         }
-        str_len = strlen(data);
-        if (p + str_len + 2 < buf + bufsize) {
-            /* Have space for string and delimeter. */
-            memcpy(p, data, str_len);
-            p += str_len;
-            *p = delimiter;
-            *++p = '\0';
-        } else {
+
+        p = stpncpy(p, data, (buf + bufsize - 1) - p);
+        if (p >= buf + bufsize - 1) {
+            /* Not enough space for string and delimeter. */
             ret = -1;
             goto out;
         }
+        *p = delimiter;
+        *++p = '\0';
     }
     /* Remove the last delimeter. */
     *--p = '\0';

@@ -3757,8 +3757,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     {
         if (index == clusters)
             break;
-        strncpy(curr, brick->brick_id, list_size - (curr - ptr));
-        curr += strlen(brick->brick_id);
+        curr = stpncpy(curr, brick->brick_id, (ptr + list_size) - curr);
         if (i == volinfo->replica_count) {
             /* add ta client xlator in afr-pending-xattrs before making entries
              * for client xlators in volfile.
@@ -3769,6 +3768,10 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
              */
             ta_brick_index = 0;
             if (volinfo->thin_arbiter_count == 1) {
+                if (curr >= ptr + list_size - 1) {
+                    ret = -1;
+                    goto out;
+                }
                 *curr++ = ',';
                 cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks,
                                         brick_list)
@@ -3779,15 +3782,12 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                     ta_brick_index++;
                 }
                 if (conf->op_version < GD_OP_VERSION_7_3) {
-                    strncpy(curr, ta_brick->brick_id, list_size - (curr - ptr));
-                    curr += strlen(ta_brick->brick_id);
+                    curr = stpncpy(curr, ta_brick->brick_id,
+                                   (ptr + list_size) - curr);
                 } else {
-                    char ta_volname[PATH_MAX] = "";
-                    int len = snprintf(ta_volname, PATH_MAX, "%s.%s",
-                                       ta_brick->brick_id,
-                                       uuid_utoa(volinfo->volume_id));
-                    strncpy(curr, ta_volname, list_size - (curr - ptr));
-                    curr += len;
+                    curr += snprintf(curr, (ptr + list_size) - curr, "%s.%s",
+                                     ta_brick->brick_id,
+                                     uuid_utoa(volinfo->volume_id));
                 }
             }
 
@@ -3801,6 +3801,10 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
             i = 1;
             subvol_index++;
             continue;
+        }
+        if (curr >= ptr + list_size - 1) {
+            ret = -1;
+            goto out;
         }
         *curr++ = ',';
         i++;
