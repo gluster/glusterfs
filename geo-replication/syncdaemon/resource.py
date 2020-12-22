@@ -251,7 +251,7 @@ class Server(object):
     @classmethod
     @_pathguard
     def stime_mnt(cls, path, uuid):
-        """query xtime extended attribute
+        """query stime extended attribute
 
         Return xtime of @path for @uuid as a pair of integers.
         "Normal" errors due to non-existent @path or extended attribute
@@ -274,9 +274,9 @@ class Server(object):
     @classmethod
     @_pathguard
     def stime(cls, path, uuid):
-        """query xtime extended attribute
+        """query stime extended attribute
 
-        Return xtime of @path for @uuid as a pair of integers.
+        Return stime of @path for @uuid as a pair of integers.
         "Normal" errors due to non-existent @path or extended attribute
         are tolerated and errno is returned in such a case.
         """
@@ -284,6 +284,29 @@ class Server(object):
         try:
             val = Xattr.lgetxattr(path,
                                   '.'.join([cls.GX_NSPACE, uuid, 'stime']),
+                                  8)
+            val = str_to_bytearray(val)
+            return struct.unpack('!II', val)
+        except OSError:
+            ex = sys.exc_info()[1]
+            if ex.errno in (ENOENT, ENODATA, ENOTDIR):
+                return ex.errno
+            else:
+                raise
+
+    @classmethod
+    @_pathguard
+    def cluster_stime(cls, path, uuid):
+        """query clusterstime extended attribute
+
+        Return clusterstime of @path for @uuid as a pair of integers.
+        "Normal" errors due to non-existent @path or extended attribute
+        are tolerated and errno is returned in such a case.
+        """
+
+        try:
+            val = Xattr.lgetxattr(path,
+                                  '.'.join([cls.GX_NSPACE, uuid, 'clusterstime']),
                                   8)
             val = str_to_bytearray(val)
             return struct.unpack('!II', val)
@@ -334,6 +357,17 @@ class Server(object):
         errno_wrap(Xattr.lsetxattr,
                    [path,
                     '.'.join([cls.GX_NSPACE, uuid, 'stime']),
+                    struct.pack('!II', *mark)],
+                   [ENOENT],
+                   [ESTALE, EINVAL])
+
+    @classmethod
+    @_pathguard
+    def set_clusterstime(cls, path, uuid, mark):
+        """set @mark as clusterstime for @uuid on @path"""
+        errno_wrap(Xattr.lsetxattr,
+                   [path,
+                    '.'.join([cls.GX_NSPACE, uuid, 'clusterstime']),
                     struct.pack('!II', *mark)],
                    [ENOENT],
                    [ESTALE, EINVAL])
