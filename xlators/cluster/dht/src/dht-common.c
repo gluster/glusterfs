@@ -11337,7 +11337,7 @@ int
 dht_pt_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *key, dict_t *xdata)
 {
-    int op_errno = -1;
+    int op_errno = EINVAL;
     dht_local_t *local = NULL;
 
     VALIDATE_OR_GOTO(frame, err);
