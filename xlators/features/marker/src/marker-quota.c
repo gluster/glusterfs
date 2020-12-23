@@ -644,7 +644,7 @@ out:
     return ret;
 }
 
-int32_t
+static void
 mq_mark_dirty(xlator_t *this, loc_t *loc, int32_t dirty)
 {
     int32_t ret = -1;
@@ -660,13 +660,11 @@ mq_mark_dirty(xlator_t *this, loc_t *loc, int32_t dirty)
                "failed to get inode ctx for "
                "%s",
                loc->path);
-        ret = 0;
         goto out;
     }
 
     dict = dict_new();
     if (!dict) {
-        ret = -1;
         gf_log(this->name, GF_LOG_ERROR, "dict_new failed");
         goto out;
     }
@@ -697,8 +695,6 @@ mq_mark_dirty(xlator_t *this, loc_t *loc, int32_t dirty)
 out:
     if (dict)
         dict_unref(dict);
-
-    return ret;
 }
 
 int32_t
@@ -1431,7 +1427,7 @@ out:
             if (ret == 0)
                 mq_set_ctx_dirty_status(parent_ctx, _gf_false);
         } else {
-            ret = mq_mark_dirty(this, &parent_loc, 0);
+            mq_mark_dirty(this, &parent_loc, 0);
         }
     }
 
@@ -1686,7 +1682,7 @@ mq_initiate_quota_task(void *opaque)
         }
 
         if (prev_dirty == 0) {
-            ret = mq_mark_dirty(this, &parent_loc, 0);
+            mq_mark_dirty(this, &parent_loc, 0);
         } else {
             ret = mq_inode_ctx_get(parent_loc.inode, this, &parent_ctx);
             if (ret == 0)
