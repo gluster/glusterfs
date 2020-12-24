@@ -1089,7 +1089,7 @@ posix_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 #ifndef FALLOC_FL_KEEP_SIZE
     ret = EOPNOTSUPP;
 
-#else  /* FALLOC_FL_KEEP_SIZE */
+#else /* FALLOC_FL_KEEP_SIZE */
     int32_t flags = FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE;
     struct iatt statpre = {
         0,
@@ -3435,8 +3435,8 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
 
         nlink_samepgfid = ntoh32(nlink_samepgfid);
 
-        snprintf(pgfidstr, sizeof(pgfidstr), "%s",
-                 key + SLEN(PGFID_XATTR_KEY_PREFIX));
+        gf_snprintf(pgfidstr, sizeof(pgfidstr), "%s",
+                    key + SLEN(PGFID_XATTR_KEY_PREFIX));
         gf_uuid_parse(pgfidstr, pgfid);
 
         handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);

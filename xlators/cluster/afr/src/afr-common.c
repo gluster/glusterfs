@@ -7482,17 +7482,13 @@ afr_fav_child_reset_sink_xattrs(void *opaque)
  */
 int
 afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
-                                    char *buf, const char *default_str,
-                                    int32_t *serz_len, char delimiter)
+                                    char *buf, int32_t bufsize,
+                                    const char *default_str, char delimiter)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
-    char *xattr = NULL;
-    int i = 0;
-    int len = 0;
-    int keylen = 0;
-    size_t str_len = 0;
-    int ret = -1;
+    char *p = buf, *data = NULL;
+    int i = 0, keylen = 0, ret = -1;
 
     priv = this->private;
     local = frame->local;
@@ -7500,31 +7496,28 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
     keylen = strlen(local->cont.getxattr.name);
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid || local->replies[i].op_ret) {
-            str_len = strlen(default_str);
-            buf = strncat(buf, default_str, str_len);
-            len += str_len;
-            buf[len++] = delimiter;
-            buf[len] = '\0';
+            data = (char *)default_str;
         } else {
             ret = dict_get_strn(local->replies[i].xattr,
-                                local->cont.getxattr.name, keylen, &xattr);
+                                local->cont.getxattr.name, keylen, &data);
             if (ret) {
                 gf_msg("TEST", GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
-                       "Failed to get the node_uuid of brick "
-                       "%d",
-                       i);
+                       "Failed to get the node_uuid of brick %d", i);
                 goto out;
             }
-            str_len = strlen(xattr);
-            buf = strncat(buf, xattr, str_len);
-            len += str_len;
-            buf[len++] = delimiter;
-            buf[len] = '\0';
         }
+
+        p = stpncpy(p, data, (buf + bufsize - 1) - p);
+        if (p >= buf + bufsize - 1) {
+            /* Not enough space for string and delimeter. */
+            ret = -1;
+            goto out;
+        }
+        *p = delimiter;
+        *++p = '\0';
     }
-    buf[--len] = '\0'; /*remove the last delimiter*/
-    if (serz_len)
-        *serz_len = ++len;
+    /* Remove the last delimeter. */
+    *--p = '\0';
     ret = 0;
 
 out:
