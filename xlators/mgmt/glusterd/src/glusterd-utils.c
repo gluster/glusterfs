@@ -15140,14 +15140,16 @@ found_bad_brick_order:
 out:
     ai_list_tmp2 = NULL;
     GF_FREE(brick_list_ptr);
-    cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
-    {
-        if (pre_list_tmp1->info)
-            freeaddrinfo(pre_list_tmp1->info);
-        free(ai_list_tmp2);
-        ai_list_tmp2 = pre_list_tmp1;
+    if (pre_list != NULL) {
+        cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
+        {
+            if (pre_list_tmp1->info)
+                freeaddrinfo(pre_list_tmp1->info);
+            free(ai_list_tmp2);
+            ai_list_tmp2 = pre_list_tmp1;
+        }
+        free(pre_list);
     }
-    free(pre_list);
     cds_list_for_each_entry(ai_list_tmp1, &ai_list->list, list)
     {
         if (ai_list_tmp1->info)
