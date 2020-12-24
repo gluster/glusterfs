@@ -14941,6 +14941,11 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     GF_ASSERT(this);
 
     ai_list = MALLOC(sizeof(addrinfo_list_t));
+    if (ai_list == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+               "failed to allocate memory");
+        goto out;
+    }
     ai_list->info = NULL;
     CDS_INIT_LIST_HEAD(&ai_list->list);
 
@@ -15140,23 +15145,30 @@ found_bad_brick_order:
 out:
     ai_list_tmp2 = NULL;
     GF_FREE(brick_list_ptr);
-    cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
-    {
-        if (pre_list_tmp1->info)
-            freeaddrinfo(pre_list_tmp1->info);
+    if (pre_list != NULL) {
+        cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
+        {
+            if (pre_list_tmp1->info)
+                freeaddrinfo(pre_list_tmp1->info);
+            free(ai_list_tmp2);
+            ai_list_tmp2 = pre_list_tmp1;
+        }
+        free(pre_list);
         free(ai_list_tmp2);
-        ai_list_tmp2 = pre_list_tmp1;
     }
-    free(pre_list);
-    cds_list_for_each_entry(ai_list_tmp1, &ai_list->list, list)
-    {
-        if (ai_list_tmp1->info)
-            freeaddrinfo(ai_list_tmp1->info);
+
+    if (ai_list != NULL) {
+        cds_list_for_each_entry(ai_list_tmp1, &ai_list->list, list)
+        {
+            if (ai_list_tmp1->info)
+                freeaddrinfo(ai_list_tmp1->info);
+            free(ai_list_tmp2);
+            ai_list_tmp2 = ai_list_tmp1;
+        }
+        free(ai_list);
         free(ai_list_tmp2);
-        ai_list_tmp2 = ai_list_tmp1;
     }
-    free(ai_list);
-    free(ai_list_tmp2);
+
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
 }
