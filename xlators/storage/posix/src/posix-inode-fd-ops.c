@@ -2573,9 +2573,6 @@ posix_release(xlator_t *this, fd_t *fd)
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
 
-    if (fd->inode->fd_count == 0)
-        posix_unlink_renamed_file_and_free_ctx(this, fd->inode);
-
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_PFD_NULL,
