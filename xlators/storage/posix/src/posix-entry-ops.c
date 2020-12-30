@@ -233,6 +233,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
          * open fds present on the file and the file is still under
          * unlink process */
         if (op_ret < 0 && errno == ENOENT) {
+            op_ret = op_errno = 0;
             ret = dict_get_uint32(xdata, GF_UNLINKED_LOOKUP,
                                   &lookup_unlink_dir);
             if (!ret && lookup_unlink_dir) {

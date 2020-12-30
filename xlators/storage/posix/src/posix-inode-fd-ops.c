@@ -2525,24 +2525,20 @@ out:
 }
 
 static int
-posix_unlink_renamed_file_and_free_ctx(xlator_t *this, inode_t *inode)
+posix_unlink_renamed_file(xlator_t *this, inode_t *inode)
 {
     int ret = 0;
     char *unlink_path = NULL;
-    uint64_t ctx_uint1 = 0;
-    uint64_t ctx_uint2 = 0;
+    uint64_t ctx_uint = 0;
     posix_inode_ctx_t *ctx = NULL;
     struct posix_private *priv = this->private;
 
-    ret = inode_ctx_del2(inode, this, &ctx_uint1, &ctx_uint2);
+    ret = inode_ctx_get(inode, this, &ctx_uint);
 
-    if (ctx_uint2)
-        GF_FREE((posix_mdata_t *)(uintptr_t)ctx_uint2);
+    if (ret < 0)
+        goto out;
 
-    if (!ctx_uint1)
-        return 0;
-
-    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
+    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     if (ctx->unlink_flag == GF_UNLINK_TRUE) {
         POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
@@ -2555,11 +2551,7 @@ posix_unlink_renamed_file_and_free_ctx(xlator_t *this, inode_t *inode)
         }
     }
 
-    pthread_mutex_destroy(&ctx->xattrop_lock);
-    pthread_mutex_destroy(&ctx->write_atomic_lock);
-    pthread_mutex_destroy(&ctx->pgfid_lock);
-    GF_FREE(ctx);
-
+out:
     return ret;
 }
 
@@ -2572,6 +2564,9 @@ posix_release(xlator_t *this, fd_t *fd)
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
+
+    if (fd->inode->fd_count == 0)
+        posix_unlink_renamed_file(this, fd->inode);
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
@@ -6013,5 +6008,25 @@ out:
 int
 posix_forget(xlator_t *this, inode_t *inode)
 {
-    return posix_unlink_renamed_file_and_free_ctx(this, inode);
+    int ret = 0;
+    uint64_t ctx_uint1 = 0;
+    uint64_t ctx_uint2 = 0;
+    posix_inode_ctx_t *ctx = NULL;
+
+    ret = inode_ctx_del2(inode, this, &ctx_uint1, &ctx_uint2);
+
+    if (ctx_uint2)
+        GF_FREE((posix_mdata_t *)(uintptr_t)ctx_uint2);
+
+    if (!ctx_uint1)
+        return 0;
+
+    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
+
+    pthread_mutex_destroy(&ctx->xattrop_lock);
+    pthread_mutex_destroy(&ctx->write_atomic_lock);
+    pthread_mutex_destroy(&ctx->pgfid_lock);
+    GF_FREE(ctx);
+
+    return ret;
 }
