@@ -708,9 +708,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                         " to split-brain. Use "
                         "Arbiter or Replica 3 to "
                         "avoid this. See: "
-                        "http://docs.gluster.org/en/latest/"
-                        "Administrator%20Guide/"
-                        "Split%20brain%20and%20ways%20to%20deal%20with%20it/."
+                        "http://docs.gluster.org/en/latest/Administrator-Guide/"
+                        "Split-brain-and-ways-to-deal-with-it/."
                         "\nDo you still want to "
                         "continue?\n";
                     answer = cli_cmd_get_confirmation(state, question);
