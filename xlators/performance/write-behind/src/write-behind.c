@@ -237,17 +237,15 @@ wb_set_invalidate(wb_inode_t *wb_inode)
         wb_parent_inode = wb_inode_ctx_get(wb_inode->this, parent_inode);
 
     if (wb_parent_inode) {
-        LOCK(&wb_parent_inode->lock);
-        {
-            readdirps = GF_ATOMIC_GET(wb_parent_inode->readdirps);
-            if (readdirps && list_empty(&wb_inode->invalidate_list)) {
-                inode_ref(wb_inode->inode);
-                GF_ATOMIC_INIT(wb_inode->invalidate, 1);
-                list_add(&wb_inode->invalidate_list,
-                         &wb_parent_inode->invalidate_list);
-            }
+        readdirps = GF_ATOMIC_GET(wb_parent_inode->readdirps);
+        if (readdirps && list_empty(&wb_inode->invalidate_list)) {
+            inode_ref(wb_inode->inode);
+            GF_ATOMIC_INIT(wb_inode->invalidate, 1);
+            LOCK(&wb_parent_inode->lock);
+            list_add(&wb_inode->invalidate_list,
+                     &wb_parent_inode->invalidate_list);
+            UNLOCK(&wb_parent_inode->lock);
         }
-        UNLOCK(&wb_parent_inode->lock);
     } else {
         GF_ATOMIC_INIT(wb_inode->invalidate, 0);
     }
