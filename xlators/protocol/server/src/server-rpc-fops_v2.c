@@ -2086,6 +2086,7 @@ server4_icreate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *stbuf, dict_t *xdata)
 {
     server_state_t *state = NULL;
+    inode_t *link_inode = NULL;
     rpcsvc_request_t *req = NULL;
     gfx_common_iatt_rsp rsp = {
         0,
@@ -2108,7 +2109,16 @@ server4_icreate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  "ICREATE [%s]",
                  frame->root->unique, uuid_utoa(stbuf->ia_gfid));
 
-    inode_link_lookup(inode, state->loc.parent, state->loc.name, stbuf);
+    link_inode = inode_link_lookup(inode, state->loc.parent, state->loc.name,
+                                   stbuf);
+
+    if (!link_inode) {
+        op_ret = -1;
+        op_errno = ENOENT;
+        goto out;
+    }
+
+    inode_unref(link_inode);
 
     gfx_stat_from_iattx(&rsp.stat, stbuf);
 
