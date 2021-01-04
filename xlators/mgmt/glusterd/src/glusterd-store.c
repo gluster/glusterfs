@@ -3301,6 +3301,8 @@ out:
         ret = -1;
     }
 
+    if (key)
+        GF_FREE(key);
     return ret;
 }
 
