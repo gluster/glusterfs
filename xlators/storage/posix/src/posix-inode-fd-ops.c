@@ -2548,6 +2548,8 @@ posix_unlink_renamed_file(xlator_t *this, inode_t *inode)
             ret = -1;
         } else {
             ret = sys_unlink(unlink_path);
+            if (!ret)
+                ctx->unlink_flag = GF_UNLINK_FALSE;
         }
     }
 
@@ -6009,9 +6011,11 @@ int
 posix_forget(xlator_t *this, inode_t *inode)
 {
     int ret = 0;
+    char *unlink_path = NULL;
     uint64_t ctx_uint1 = 0;
     uint64_t ctx_uint2 = 0;
     posix_inode_ctx_t *ctx = NULL;
+    struct posix_private *priv = this->private;
 
     ret = inode_ctx_del2(inode, this, &ctx_uint1, &ctx_uint2);
 
@@ -6022,6 +6026,17 @@ posix_forget(xlator_t *this, inode_t *inode)
         return 0;
 
     ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
+
+    if (ctx->unlink_flag == GF_UNLINK_TRUE) {
+        POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
+        if (!unlink_path) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
+                   "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
+            ret = -1;
+        } else {
+            ret = sys_unlink(unlink_path);
+        }
+    }
 
     pthread_mutex_destroy(&ctx->xattrop_lock);
     pthread_mutex_destroy(&ctx->write_atomic_lock);
