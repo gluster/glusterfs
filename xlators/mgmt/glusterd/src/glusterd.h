@@ -74,7 +74,7 @@
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
 #define GLUSTERD_SERVER_QUORUM "server"
 #define STATUS_STRLEN 128
-
+#define STRIPE_COUNT 1
 #define FMTSTR_CHECK_VOL_EXISTS "Volume %s does not exist"
 #define FMTSTR_RESOLVE_BRICK "Could not find peer on which brick %s:%s resides"
 
@@ -443,7 +443,6 @@ struct glusterd_volinfo_ {
      */
     glusterd_volume_status status;
     int sub_count; /* backward compatibility */
-    int stripe_count;
     int replica_count;
     int arbiter_count;
     int thin_arbiter_count;

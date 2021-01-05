@@ -836,7 +836,6 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     new_volinfo->type = volinfo->type;
     new_volinfo->replica_count = volinfo->replica_count;
     new_volinfo->arbiter_count = volinfo->arbiter_count;
-    new_volinfo->stripe_count = volinfo->stripe_count;
     new_volinfo->disperse_count = volinfo->disperse_count;
     new_volinfo->redundancy_count = volinfo->redundancy_count;
     new_volinfo->dist_leaf_count = volinfo->dist_leaf_count;
@@ -3132,11 +3131,6 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s.stripe_count", pfx);
-    ret = dict_set_int32n(dict, key, keylen, volinfo->stripe_count);
-    if (ret)
-        goto out;
-
     keylen = snprintf(key, sizeof(key), "%s.replica_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->replica_count);
     if (ret)
@@ -4615,14 +4609,6 @@ glusterd_import_volinfo(dict_t *peer_data, int count,
                  volname);
         goto out;
     }
-
-    /* not having a 'stripe_count' key is not a error
-       (as peer may be of old version) */
-    keylen = snprintf(key, sizeof(key), "%s.stripe_count", key_prefix);
-    ret = dict_get_int32n(peer_data, key, keylen, &new_volinfo->stripe_count);
-    if (ret)
-        gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
-               "peer is possibly old version");
 
     /* not having a 'replica_count' key is not a error
        (as peer may be of old version) */
@@ -7386,21 +7372,14 @@ glusterd_restart_gsyncds(glusterd_conf_t *conf)
 }
 
 int
-glusterd_calc_dist_leaf_count(int rcount, int scount)
-{
-    return (rcount ? rcount : 1) * (scount ? scount : 1);
-}
-
-int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo)
 {
-    int rcount = volinfo->replica_count;
-    int scount = volinfo->stripe_count;
-
     if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)
         return volinfo->disperse_count;
+    else if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)
+        return volinfo->replica_count;
 
-    return glusterd_calc_dist_leaf_count(rcount, scount);
+    return 1;
 }
 
 int

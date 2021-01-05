@@ -431,14 +431,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         goto out;
     }
 
-    keylen = snprintf(key, sizeof(key), "volume%d.stripe_count", count);
-    ret = dict_set_int32n(volumes, key, keylen, volinfo->stripe_count);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
-                "Key=%s", key, NULL);
-        goto out;
-    }
-
     keylen = snprintf(key, sizeof(key), "volume%d.replica_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->replica_count);
     if (ret) {
@@ -5846,8 +5838,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
 
         fprintf(fp, "Volume%d.snap_count: %" PRIu64 "\n", count,
                 volinfo->snap_count);
-        fprintf(fp, "Volume%d.stripe_count: %d\n", count,
-                volinfo->stripe_count);
+        fprintf(fp, "Volume%d.stripe_count: %d\n", count, STRIPE_COUNT);
         fprintf(fp, "Volume%d.replica_count: %d\n", count,
                 volinfo->replica_count);
         fprintf(fp, "Volume%d.subvol_count: %d\n", count,
