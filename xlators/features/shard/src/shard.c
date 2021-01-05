@@ -16,7 +16,7 @@
 #include <glusterfs/defaults.h>
 #include <glusterfs/statedump.h>
 
-#define SHARD_PATH_MAX sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE + 16
+#define SHARD_PATH_MAX (sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE + 16)
 
 static gf_boolean_t
 __is_shard_dir(uuid_t gfid)
@@ -59,7 +59,7 @@ shard_make_base_path(char *path, uuid_t gfid)
     return (sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE);
 }
 
-static void
+static inline void
 shard_append_index(char *path, int path_size, int prefix_len,
                    int shard_idx_iter)
 {
