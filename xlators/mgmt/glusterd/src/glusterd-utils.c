@@ -15155,6 +15155,7 @@ out:
         }
         free(pre_list);
         free(ai_list_tmp2);
+        ai_list_tmp2 = NULL;
     }
 
     if (ai_list != NULL) {
