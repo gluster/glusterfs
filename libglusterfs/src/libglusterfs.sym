@@ -114,6 +114,7 @@ cluster_fxattrop
 cluster_getxattr
 cluster_inodelk
 cluster_link
+cluster_rename
 cluster_lookup
 cluster_mkdir
 cluster_mknod

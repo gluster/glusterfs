@@ -23,6 +23,35 @@
 
 #define EC_INVALID_INDEX UINT32_MAX
 
+gf_boolean_t
+ec_is_private_directory(ec_t *ec, uuid_t pargfid, const char *name, pid_t pid)
+{
+    if (!__is_root_gfid(pargfid)) {
+        return _gf_false;
+    }
+
+    if (pid == GF_CLIENT_PID_GSYNCD) {
+        /*geo-rep needs to create/sync private directory on slave because
+         * it appears in changelog*/
+        return _gf_false;
+    }
+
+    if (pid == GF_CLIENT_PID_GLFS_HEAL || pid == GF_CLIENT_PID_SELF_HEALD) {
+        if (strcmp(name, ec->anon_inode.name) == 0) {
+            /* anonymous-inode dir is private*/
+            return _gf_true;
+        }
+    } else {
+        if (strncmp(name, EC_ANON_DIR_PREFIX, strlen(EC_ANON_DIR_PREFIX)) ==
+            0) {
+            /* anonymous-inode dir prefix is private for geo-rep to work*/
+            return _gf_true;
+        }
+    }
+
+    return _gf_false;
+}
+
 void
 ec_update_fd_status(fd_t *fd, xlator_t *xl, int idx, int32_t ret_status)
 {

@@ -140,6 +140,12 @@ cluster_link(xlator_t **subvols, unsigned char *on, int numsubvols,
              call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
              dict_t *xdata);
 
+int32_t
+cluster_rename(xlator_t **subvols, unsigned char *on, int numsubvols,
+               default_args_cbk_t *replies, unsigned char *output,
+               call_frame_t *frame, xlator_t *this, loc_t *oldloc,
+               loc_t *newloc, dict_t *xdata);
+
 int
 cluster_mknod(xlator_t **subvols, unsigned char *on, int numsubvols,
               default_args_cbk_t *replies, unsigned char *output,

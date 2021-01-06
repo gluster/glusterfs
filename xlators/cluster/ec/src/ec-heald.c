@@ -13,10 +13,13 @@
 #include "ec.h"
 #include "ec-messages.h"
 #include "ec-heald.h"
+#include "ec-common.h"
+#include "ec-helpers.h"
 #include "ec-mem-types.h"
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include "protocol-common.h"
+#include <glusterfs/cluster-syncop.h>
 
 #define NTH_INDEX_HEALER(this, n)                                              \
     (&((((ec_t *)this->private))->shd.index_healers[n]))
@@ -386,6 +389,199 @@ ec_shd_full_sweep(struct subvol_healer *healer, inode_t *inode)
     return ret;
 }
 
+int
+ec_check_quorum_and_cleanup(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                            void *data)
+{
+    struct subvol_healer *healer = data;
+    ec_t *ec = NULL;
+    call_frame_t *frame = NULL;
+    loc_t loc = {0};
+    unsigned char *lookup_on = NULL;
+    unsigned char *output = NULL;
+    unsigned char *gfid_present = NULL;
+    unsigned char *entry_present = NULL;
+    default_args_cbk_t *replies = NULL;
+    struct iatt *ia = NULL;
+    int i = 0;
+    int ret = 0;
+    int quorum_count = 0;
+    char *type = NULL;
+
+    frame = create_frame(healer->this, healer->this->ctx->pool);
+    if (!frame) {
+        ret = -1;
+        goto out;
+    }
+    ec_owner_set(frame, frame->root);
+    frame->root->uid = 0;
+    frame->root->gid = 0;
+    frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
+
+    ec = healer->this->private;
+    lookup_on = alloca(ec->nodes);
+    memset(lookup_on, 1, ec->nodes);
+    output = alloca0(ec->nodes);
+    gfid_present = alloca0(ec->nodes);
+    entry_present = alloca0(ec->nodes);
+    EC_REPLIES_ALLOC(replies, ec->nodes);
+
+    if (ec->xl_up_count != ec->nodes) {
+        gf_msg_debug(healer->this->name, 0,
+                     "Not all bricks are up. Skipping "
+                     "cleanup of %s on %s",
+                     entry->d_name, subvol->name);
+        ret = 0;
+        goto out;
+    }
+
+    gf_msg_debug(healer->this->name, 0, "Cleaning up entry: %s", entry->d_name);
+
+    loc.inode = inode_new(parent->inode->table);
+    if (!loc.inode) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    ret = gf_uuid_parse(entry->d_name, loc.gfid);
+    if (ret) {
+        goto out;
+    }
+
+    /* First gfid lookup on all bricks to get the quorum */
+    ret = cluster_lookup(ec->xl_list, lookup_on, ec->nodes, replies, output,
+                         frame, ec->xl, &loc, NULL);
+    for (i = 0; i < ec->nodes; i++) {
+        if (replies[i].op_ret == 0) {
+            quorum_count++;
+            gfid_present[i] = 1;
+            if (!ia) {
+                ia = &replies[i].stat;
+                type = (ia->ia_type == IA_IFDIR) ? "dir" : "file";
+            }
+            if (i == healer->subvol) {
+                gf_msg(healer->this->name, GF_LOG_ERROR, 0,
+                       EC_MSG_CLEANUP_FILE_OR_DIR,
+                       "Number of links for file %s = %d", entry->d_name,
+                       replies[i].stat.ia_nlink);
+            }
+        } else if (replies[i].op_errno != ENOENT &&
+                   replies[i].op_errno != ESTALE) {
+            /*We don't have complete view. Skip the entry*/
+            gf_msg_debug(healer->this->name, replies[i].op_errno,
+                         "Skipping cleanup of %s on %s", entry->d_name,
+                         subvol->name);
+            ret = 0;
+            goto out;
+        }
+    }
+
+    gf_msg(healer->this->name, GF_LOG_WARNING, 0, EC_MSG_CLEANUP_FILE_OR_DIR,
+           "Removing %s %s/%s on %s", type, ec->anon_inode.gfid, entry->d_name,
+           subvol->name);
+
+    if (quorum_count < ec->fragments) {
+        if (IA_ISDIR(ia->ia_type)) {
+            ret = cluster_rmdir(ec->xl_list, gfid_present, ec->nodes, replies,
+                                output, frame, ec->xl, &loc, 1, NULL);
+        } else {
+            ret = cluster_unlink(ec->xl_list, gfid_present, ec->nodes, replies,
+                                 output, frame, ec->xl, &loc, 0, NULL);
+        }
+    } else {
+        loc_wipe(&loc);
+        loc.parent = inode_ref(parent->inode);
+        gf_uuid_copy(loc.pargfid, loc.parent->gfid);
+        loc.name = entry->d_name;
+        loc.inode = inode_new(parent->inode->table);
+        if (!loc.inode) {
+            ret = -ENOMEM;
+            goto out;
+        }
+
+        ret = cluster_lookup(ec->xl_list, lookup_on, ec->nodes, replies, output,
+                             frame, ec->xl, &loc, NULL);
+        for (i = 0; i < ec->nodes; i++) {
+            if (replies[i].op_ret == 0) {
+                entry_present[i] = 1;
+                if (!ia) {
+                    ia = &replies[i].stat;
+                }
+            }
+        }
+
+        for (i = 0; i < ec->nodes; i++) {
+            if (gfid_present[i] && !entry_present[i]) {
+                /*Entry is not anonymous on at least one subvol*/
+                gf_msg_debug(healer->this->name, 0,
+                             "Valid entry present."
+                             "Skipping cleanup of %s on %s",
+                             entry->d_name, subvol->name);
+                ret = 0;
+                goto out;
+            }
+        }
+        if (IA_ISDIR(ia->ia_type)) {
+            ret = cluster_rmdir(ec->xl_list, entry_present, ec->nodes, replies,
+                                output, frame, ec->xl, &loc, 1, NULL);
+        } else {
+            ret = cluster_unlink(ec->xl_list, entry_present, ec->nodes, replies,
+                                 output, frame, ec->xl, &loc, 0, NULL);
+        }
+    }
+out:
+    if (frame) {
+        STACK_DESTROY(frame->root);
+    }
+
+    loc_wipe(&loc);
+    return ret;
+}
+
+int
+ec_cleanup_anon_inode_dir(struct subvol_healer *healer)
+{
+    ec_t *ec = NULL;
+    loc_t hidden_loc = {0};
+    int ret = 0;
+    xlator_t *subvol = NULL;
+    call_frame_t *frame = NULL;
+
+    ec = healer->this->private;
+    subvol = ec->xl_list[healer->subvol];
+
+    frame = create_frame(healer->this, healer->this->ctx->pool);
+    if (!frame) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    ec_owner_set(frame, frame->root);
+    frame->root->uid = 0;
+    frame->root->gid = 0;
+    frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
+
+    ret = ec_create_anon_inode_dir(frame, frame->this, ec, &hidden_loc.inode);
+    if (ret <= 0) {
+        gf_msg_debug(healer->this->name, 0,
+                     "Anon Inode directory not present, skipping cleanup");
+        goto out;
+    }
+
+    _mask_cancellation();
+    ret = syncop_mt_dir_scan(NULL, subvol, &hidden_loc,
+                             GF_CLIENT_PID_SELF_HEALD, healer,
+                             ec_check_quorum_and_cleanup, NULL,
+                             ec->shd.max_threads, ec->shd.wait_qlength);
+    _unmask_cancellation();
+
+out:
+    if (frame) {
+        STACK_DESTROY(frame->root);
+    }
+    loc_wipe(&hidden_loc);
+    return ret;
+}
+
 void *
 ec_shd_index_healer(void *data)
 {
@@ -409,6 +605,10 @@ ec_shd_index_healer(void *data)
         }
         gf_msg_debug(this->name, 0, "finished index sweep on subvol %s",
                      ec_subvol_name(this, healer->subvol));
+
+        if (ec->anon_inode.enabled) {
+            ec_cleanup_anon_inode_dir(healer);
+        }
     }
 
     return NULL;

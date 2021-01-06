@@ -52,13 +52,6 @@
     })
 #define IA_EQUAL(f, s, field)                                                  \
     (memcmp(&(f.ia_##field), &(s.ia_##field), sizeof(s.ia_##field)) == 0)
-#define EC_REPLIES_ALLOC(replies, numsubvols)                                  \
-    do {                                                                       \
-        int __i = 0;                                                           \
-        replies = alloca0(numsubvols * sizeof(*replies));                      \
-        for (__i = 0; __i < numsubvols; __i++)                                 \
-            INIT_LIST_HEAD(&replies[__i].entries.list);                        \
-    } while (0)
 
 struct ec_name_data {
     call_frame_t *frame;
@@ -1006,12 +999,158 @@ out:
 
 /*Name heal*/
 int
+ec_create_anon_inode_dir(call_frame_t *frame, xlator_t *this, ec_t *ec,
+                         inode_t **inode)
+{
+    loc_t hidden_loc = {0};
+    struct iatt *ia = NULL;
+    default_args_cbk_t *replies = NULL;
+    unsigned char *output = NULL;
+    unsigned char *lookup_on = NULL;
+    unsigned char *mkdir_on = NULL;
+    int ret = 0;
+    int i = 0;
+    dict_t *xdata = NULL;
+    uuid_t gfid = {0};
+
+    EC_REPLIES_ALLOC(replies, ec->nodes);
+    output = alloca0(ec->nodes);
+    lookup_on = alloca0(ec->nodes);
+    mkdir_on = alloca0(ec->nodes);
+
+    gf_uuid_parse(ec->anon_inode.gfid, gfid);
+    for (i = 0; i < ec->nodes; i++) {
+        if (!(ec->anon_inode.mask & (1ULL << i))) {
+            mkdir_on[i] = 1;
+        }
+    }
+
+    *inode = inode_find(this->itable, gfid);
+    if (*inode) {
+        ret = ec->nodes;
+        gf_msg_debug("ec", 0, "Found %s Skipping mkdir", ec->anon_inode.name);
+        gf_msg(this->name, GF_LOG_ERROR, 0, EC_MSG_GFID_MISMATCH,
+               "going to out %d", ret);
+        goto out;
+    }
+
+    hidden_loc.parent = inode_ref(this->itable->root);
+    hidden_loc.name = ec->anon_inode.name;
+    hidden_loc.inode = inode_new(this->itable);
+    if (!hidden_loc.inode) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    xdata = dict_new();
+    if (!xdata) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    ret = dict_set_gfuuid(xdata, "gfid-req", gfid, _gf_true);
+    if (ret) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+    if (EC_COUNT(mkdir_on, ec->nodes) == 0) {
+        memset(lookup_on, 1, ec->nodes);
+        goto lookup;
+    }
+
+    ret = cluster_mkdir(ec->xl_list, mkdir_on, ec->nodes, replies, output,
+                        frame, ec->xl, &hidden_loc, 0755, 0, xdata);
+
+    if (ret) {
+        gf_msg_debug(ec->xl->name, 0,
+                     "cluster mkdir succeeded on %d "
+                     "nodes",
+                     ret);
+    }
+
+    for (i = 0; i < ec->nodes; i++) {
+        if (!mkdir_on[i]) {
+            continue;
+        }
+        if (replies[i].valid && replies[i].op_ret == 0) {
+            if (!ia) {
+                ia = &replies[i].stat;
+            }
+            ec->anon_inode.mask |= (1ULL << i);
+        } else if (replies[i].op_ret < 0 && replies[i].op_errno == EEXIST) {
+            lookup_on[i] = 1;
+        }
+    }
+
+    if (EC_COUNT(lookup_on, ec->nodes) == 0) {
+        goto link;
+    }
+
+lookup:
+    ret = cluster_lookup(ec->xl_list, lookup_on, ec->nodes, replies, output,
+                         frame, ec->xl, &hidden_loc, NULL);
+    for (i = 0; i < ec->nodes; i++) {
+        if (!lookup_on[i]) {
+            continue;
+        }
+        if (replies[i].op_ret == 0) {
+            if (gf_uuid_compare(hidden_loc.gfid, replies[i].stat.ia_gfid) ==
+                0) {
+                if (!ia) {
+                    ia = &replies[i].stat;
+                }
+                ec->anon_inode.mask |= (1ULL << i);
+            } else {
+                gf_msg(this->name, GF_LOG_ERROR, 0, EC_MSG_GFID_MISMATCH,
+                       "%s has gfid: %s", ec->anon_inode.name,
+                       uuid_utoa(replies[i].stat.ia_gfid));
+            }
+        }
+    }
+
+link:
+    if (ia && !gf_uuid_is_null(ia->ia_gfid)) {
+        *inode = inode_link(hidden_loc.inode, hidden_loc.parent,
+                            hidden_loc.name, ia);
+        if (*inode) {
+            inode_lookup(*inode);
+        } else {
+            ret = -ENOMEM;
+        }
+    }
+
+out:
+    if (xdata)
+        dict_unref(xdata);
+
+    loc_wipe(&hidden_loc);
+
+    if (ret <= 0 && *inode) {
+        if (ret == 0) {
+            ret = -ENOTCONN;
+            for (i = 0; i < ec->nodes; i++) {
+                if (replies[i].op_ret < 0) {
+                    ret = -replies[i].op_errno;
+                    break;
+                }
+            }
+        }
+        inode_unref(*inode);
+        *inode = NULL;
+    }
+
+    return ret;
+}
+
+int
 ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
 {
     struct ec_name_data *name_data = data;
     struct iatt *ia = NULL;
     ec_t *ec = NULL;
     loc_t loc = {0};
+    loc_t hidden_loc = {0};
     unsigned char *same = data_to_bin(d);
     default_args_cbk_t *replies = NULL;
     unsigned char *output = NULL;
@@ -1019,7 +1158,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
     int estale_count = 0;
     int i = 0;
     call_frame_t *frame = name_data->frame;
-    uuid_t gfid;
+    char gfid[64] = {0};
 
     ec = name_data->frame->this->private;
     EC_REPLIES_ALLOC(replies, ec->nodes);
@@ -1035,9 +1174,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
         goto out;
     }
 
-    gf_uuid_parse(key, gfid);
-    gf_uuid_copy(loc.pargfid, name_data->parent->gfid);
-    loc.name = name_data->name;
+    gf_uuid_parse(key, loc.gfid);
     output = alloca0(ec->nodes);
     ret = cluster_lookup(ec->xl_list, name_data->participants, ec->nodes,
                          replies, output, name_data->frame, ec->xl, &loc, NULL);
@@ -1050,26 +1187,41 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
                 estale_count++;
             else
                 name_data->participants[i] = 0;
-        } else if (gf_uuid_compare(gfid, replies[i].stat.ia_gfid)) {
-            estale_count++;
-            gf_msg_debug(ec->xl->name, 0, "%s/%s: different gfid as %s",
-                         uuid_utoa(name_data->parent->gfid), name_data->name,
-                         key);
+        } else {
+            uuid_utoa_r(replies[i].stat.ia_gfid, gfid);
         }
     }
 
-    if (estale_count <= ec->redundancy) {
-        /* We have at least ec->fragments number of fragments, so the
-         * file is recoverable, so don't delete it*/
-
+    if (ret >= ec->fragments) {
+        goto rename;
+    } else if (estale_count > ec->redundancy) {
+        // Cannot recover, delete the file
+        goto unlink;
+    } else {
         /* Please note that the lookup call above could fail with
-         * ENOTCONN on all subvoumes and still this branch will be
+         * ENOTCONN on all subvolumes and still this branch will be
          * true, but in those cases conservatively we decide to not
          * delete the file until we are sure*/
-        ret = 0;
+        ret = -1;
         goto out;
     }
 
+rename:
+    if (ec->anon_inode.enabled) {
+        ret = ec_create_anon_inode_dir(frame, frame->this, ec,
+                                       &hidden_loc.parent);
+        if (ret < 0) {
+            goto out;
+        }
+
+        hidden_loc.name = gfid;
+        loc.name = name_data->name;
+        ret = cluster_rename(ec->xl_list, same, ec->nodes, replies, output,
+                             frame, ec->xl, &loc, &hidden_loc, NULL);
+
+        goto cleanup;
+    }
+unlink:
     /*Noway to recover, delete the name*/
     loc_wipe(&loc);
     loc.parent = inode_ref(name_data->parent);
@@ -1103,6 +1255,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
                      ret);
     }
 
+cleanup:
     for (i = 0; i < ec->nodes; i++) {
         if (output[i]) {
             same[i] = 0;
@@ -1113,6 +1266,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
                 name_data->participants[i] = 0;
         }
     }
+
     ret = 0;
     /*This will help in making decisions about creating names*/
     dict_del(gfid_db, key);
@@ -1124,6 +1278,7 @@ out:
     }
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
+    loc_wipe(&hidden_loc);
     return ret;
 }
 
@@ -1168,12 +1323,15 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     unsigned char *on = NULL;
     default_args_cbk_t *replies = NULL;
     loc_t loc = {0};
+    loc_t rename_loc = {0};
     loc_t srcloc = {0};
     unsigned char *link = NULL;
     unsigned char *create = NULL;
     dict_t *xdata = NULL;
     char *linkname = NULL;
     ec_config_t config;
+    loc_t anon_loc = {0};
+    unsigned char *rename = NULL;
 
     /* There should be just one gfid key */
     EC_REPLIES_ALLOC(replies, ec->nodes);
@@ -1182,6 +1340,7 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         goto out;
     }
 
+    char iatt_uuid_str[64] = {0};
     ret = dict_foreach(gfid_db, _assign_same, &name_data);
     if (ret < 0)
         goto out;
@@ -1199,6 +1358,8 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     xdata = dict_new();
     loc.parent = inode_ref(parent);
     gf_uuid_copy(loc.pargfid, parent->gfid);
+    rename_loc.parent = inode_ref(parent);
+    gf_uuid_copy(rename_loc.pargfid, parent->gfid);
     loc.inode = inode_new(parent->table);
     if (loc.inode)
         srcloc.inode = inode_ref(loc.inode);
@@ -1209,12 +1370,17 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         ret = -ENOMEM;
         goto out;
     }
+
+    uuid_utoa_r(ia->ia_gfid, iatt_uuid_str);
     loc.name = name;
+    rename_loc.name = name;
+
     link = alloca0(ec->nodes);
     create = alloca0(ec->nodes);
     on = alloca0(ec->nodes);
     output = alloca0(ec->nodes);
     output1 = alloca0(ec->nodes);
+    rename = alloca0(ec->nodes);
 
     for (i = 0; i < ec->nodes; i++) {
         if (!lookup_replies[i].valid)
@@ -1226,9 +1392,47 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     switch (ia->ia_type) {
         case IA_IFDIR:
             ec_set_new_entry_dirty(ec, &loc, ia, frame, ec->xl, on);
-            (void)cluster_mkdir(
-                ec->xl_list, enoent, ec->nodes, replies, output, frame, ec->xl,
-                &loc, st_mode_from_ia(ia->ia_prot, ia->ia_type), 0, xdata);
+
+            ret = cluster_lookup(ec->xl_list, enoent, ec->nodes, replies,
+                                 output, frame, ec->xl, &srcloc, NULL);
+
+            for (i = 0; i < ec->nodes; i++) {
+                if (enoent[i]) {
+                    if (output[i]) {
+                        rename[i] = 1;
+                    } else {
+                        if (replies[i].op_errno == ENOENT ||
+                            replies[i].op_errno == ESTALE) {
+                            create[i] = 1;
+                        }
+                    }
+                }
+            }
+
+            if (EC_COUNT(rename, ec->nodes) && ec->anon_inode.enabled) {
+                ret = ec_create_anon_inode_dir(frame, frame->this, ec,
+                                               &anon_loc.parent);
+                if (ret > 0) {
+                    anon_loc.name = iatt_uuid_str;
+
+                    ret = cluster_rename(ec->xl_list, rename, ec->nodes,
+                                         replies, output1, frame, ec->xl,
+                                         &anon_loc, &rename_loc, NULL);
+                }
+            }
+
+            if (EC_COUNT(create, ec->nodes)) {
+                (void)cluster_mkdir(ec->xl_list, create, ec->nodes, replies,
+                                    output, frame, ec->xl, &loc,
+                                    st_mode_from_ia(ia->ia_prot, ia->ia_type),
+                                    0, xdata);
+            }
+
+            for (i = 0; i < ec->nodes; i++) {
+                if (output1[i]) {
+                    output[i] = 1;
+                }
+            }
             break;
 
         case IA_IFLNK:
@@ -1315,6 +1519,8 @@ out:
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
     loc_wipe(&srcloc);
+    loc_wipe(&rename_loc);
+    loc_wipe(&anon_loc);
     if (xdata)
         dict_unref(xdata);
     return ret;
@@ -1449,6 +1655,13 @@ ec_heal_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     loc.inode = inode_new(parent->table);
     if (!loc.inode) {
         ret = -ENOMEM;
+        goto out;
+    }
+
+    if (ec_is_private_directory(ec, parent->gfid, name,
+                                GF_CLIENT_PID_SELF_HEALD)) {
+        /*Skip anon-inode directory*/
+        ret = -EPERM;
         goto out;
     }
 
