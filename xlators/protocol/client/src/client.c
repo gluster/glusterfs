@@ -779,9 +779,11 @@ static int32_t
 client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
             fd_t *fd, dict_t *xdata)
 {
-    int ret = -1;
+    int ret = 0;
+    int op_errno = ENOTCONN;
     clnt_conf_t *conf = NULL;
     rpc_clnt_procedure_t *proc = NULL;
+    clnt_fd_ctx_t *fdctx = NULL;
     clnt_args_t args = {
         0,
     };
@@ -789,6 +791,21 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     conf = this->private;
     if (!conf || !conf->fops)
         goto out;
+
+    if (conf->strict_locks) {
+        pthread_spin_lock(&conf->fd_lock);
+        {
+            fdctx = this_fd_get_ctx(fd, this);
+            if (fdctx && !list_empty(&fdctx->lock_list)) {
+                ret = -1;
+                op_errno = EBADFD;
+            }
+        }
+        pthread_spin_unlock(&conf->fd_lock);
+
+        if (ret)
+            goto out;
+    }
 
     proc = &conf->fops->proctable[GF_FOP_OPEN];
     if (proc->fn) {
@@ -801,7 +818,7 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(open, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(open, frame, -1, op_errno, NULL, NULL);
 
     return 0;
 }

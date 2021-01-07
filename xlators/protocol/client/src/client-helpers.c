@@ -400,11 +400,12 @@ clnt_readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp)
 }
 
 int
-client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
+client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd,
+                     enum gf_fop_procnum fop)
 {
     clnt_fd_ctx_t *fdctx = NULL;
     clnt_conf_t *conf = NULL;
-    gf_boolean_t locks_held = _gf_false;
+    gf_boolean_t locks_involved = _gf_false;
 
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, remote_fd, out);
@@ -417,23 +418,32 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
             if (fd->anonymous) {
                 *remote_fd = GF_ANON_FD_NO;
             } else {
+                if (conf->strict_locks &&
+                    (fop == GFS3_OP_WRITE || fop == GFS3_OP_FTRUNCATE ||
+                     fop == GFS3_OP_FALLOCATE || fop == GFS3_OP_ZEROFILL ||
+                     fop == GFS3_OP_DISCARD)) {
+                    locks_involved = _gf_true;
+                }
                 *remote_fd = -1;
                 gf_msg_debug(this->name, EBADF, "not a valid fd for gfid: %s",
                              uuid_utoa(fd->inode->gfid));
             }
         } else {
-            if (__is_fd_reopen_in_progress(fdctx))
+            if (__is_fd_reopen_in_progress(fdctx)) {
                 *remote_fd = -1;
-            else
+            } else {
                 *remote_fd = fdctx->remote_fd;
+            }
 
-            locks_held = !list_empty(&fdctx->lock_list);
+            locks_involved = !list_empty(&fdctx->lock_list);
         }
     }
     pthread_spin_unlock(&conf->fd_lock);
 
-    if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1) && (!locks_held))
+    if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1) &&
+        (!locks_involved)) {
         *remote_fd = GF_ANON_FD_NO;
+    }
 
     return 0;
 out:

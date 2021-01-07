@@ -315,6 +315,12 @@ enum glusterd_mgmt_v3_procnum {
     GLUSTERD_MGMT_V3_MAXVALUE,
 };
 
+enum gf_fd_reopen_status {
+    FD_REOPEN_ALLOWED = 0,
+    FD_REOPEN_NOT_ALLOWED,
+    FD_BAD,
+};
+
 typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
 
 enum gf_get_volume_info_type {
