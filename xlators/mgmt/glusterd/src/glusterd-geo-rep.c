@@ -1673,6 +1673,8 @@ out:
     if (secondary_host)
         GF_FREE(secondary_host);
 
+    if (same_key)
+        GF_FREE(same_key);
     gf_msg_debug(this->name, 0, "Returning %d.", ret);
     return ret;
 }

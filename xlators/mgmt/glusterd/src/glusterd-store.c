@@ -3286,6 +3286,10 @@ out:
         ret = -1;
     }
 
+    if (key)
+        GF_FREE(key);
+    if (value)
+        GF_FREE(value);
     return ret;
 }
 
