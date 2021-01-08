@@ -90,12 +90,12 @@ char *xattrs_to_heal[] = {"user.",
                           GF_XATTR_MDATA_KEY,
                           NULL};
 
-void gf_assert(void)
+void
+gf_assert(void)
 {
     if (gf_signal_on_assert) {
         raise(SIGCONT);
     }
-
 }
 
 void
@@ -897,16 +897,7 @@ gf_dump_config_flags()
 
 /* Define to the full name and version of this package. */
 #ifdef PACKAGE_STRING
-    {
-        char *msg = NULL;
-        int ret = -1;
-
-        ret = gf_asprintf(&msg, "package-string: %s", PACKAGE_STRING);
-        if (ret >= 0) {
-            gf_msg_plain_nomem(GF_LOG_ALERT, msg);
-            GF_FREE(msg);
-        }
-    }
+    gf_msg_plain_nomem(GF_LOG_ALERT, "package-string: " PACKAGE_STRING);
 #endif
 
     return;
