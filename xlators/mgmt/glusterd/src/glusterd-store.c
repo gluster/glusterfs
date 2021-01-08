@@ -3303,6 +3303,8 @@ out:
 
     if (key)
         GF_FREE(key);
+    if (value)
+        GF_FREE(value);
     return ret;
 }
 
