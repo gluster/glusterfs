@@ -625,9 +625,15 @@ function cleanup()
         # till the stale mount in /tmp is found.
         umount $flag /tmp/mnt* 2>/dev/null
 
-
-        # Send SIGTERM to all gluster processes and rpc.statd that are still running
-        terminate_pids $(process_pids glusterfs glusterfsd glusterd rpc.statd)
+        pid=`pgrep glusterd`
+        if [ ! -z "$pid" ];
+        then 
+            for vol in `gluster v list`; do gluster v stop $vol --mode=script; done
+            sleep 2
+            for vol in `gluster v list`; do gluster v status $vol --mode=script; done
+        fi 
+        # Send SIGTERM to all brick processes and rpc.statd that are still running
+        terminate_pids $(process_pids glusterfs glusterd rpc.statd)
 
         test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused || true
 

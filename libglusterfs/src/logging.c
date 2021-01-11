@@ -2148,6 +2148,7 @@ _gf_log_eh(const char *function, const char *fmt, ...)
         goto out;
     }
 
+    /*logline is freed by cb_buffer_destroy */
     ret = gf_asprintf(&logline, "[%d] %s: %s",
                       ((this->graph) ? this->graph->id : 0), function, msg);
     if (-1 == ret) {
@@ -2157,7 +2158,6 @@ _gf_log_eh(const char *function, const char *fmt, ...)
     ret = eh_save_history(this->history, logline);
 
 out:
-    GF_FREE(logline);
 
     FREE(msg);
 

@@ -28,6 +28,7 @@ TEST ! $CLI volume replace-brick $V0 $H0:$B0/${V0}2 $H0:$B0/${V0}3 abort
 
 ## replace-brick commit force command should success
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}2 $H0:$B0/${V0}3 commit force
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 online_brick_count
 
 #bug-1242543-replace-brick validation
 
@@ -39,6 +40,7 @@ TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}1_new commit forc
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 TEST kill_brick $V0 $H0 $B0/${V0}1_new
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 online_brick_count
 
 # Replace brick1 after killing the brick
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}1_new $H0:$B0/${V0}1_newer commit force

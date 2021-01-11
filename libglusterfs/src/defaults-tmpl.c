@@ -161,8 +161,14 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
             }
 
             while (parent) {
-                if (parent->xlator->init_succeeded)
-                    xlator_notify(parent->xlator, event, this, NULL);
+                if (parent->xlator->init_succeeded) {
+                    if ((this->ctx->process_mode == GF_SERVER_PROCESS) &&
+                        (event == GF_EVENT_CHILD_DOWN)) {
+                        xlator_notify(parent->xlator, event, victim, NULL);
+                    } else {
+                        xlator_notify(parent->xlator, event, this, NULL);
+                    }
+                }
                 parent = parent->next;
             }
 

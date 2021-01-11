@@ -28,6 +28,7 @@ TEST mkdir $M0/dir
 TEST touch $M0/dir/file
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 online_brick_count
 TEST `echo 'abc' > $M0/dir/file`
 
 TEST $CLI volume start $V0 force

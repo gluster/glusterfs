@@ -6,6 +6,11 @@
 
 cleanup;
 
+function count_up_bricks {
+        vol=$1;
+        $CLI_1 volume status $vol | egrep "^Brick [0-9]+" -A 1 | grep "Y" | wc -l
+}
+
 TEST verify_lvm_version;
 #Create cluster with 3 nodes
 TEST launch_cluster 3 -NO_DEBUG -NO_FORCE
@@ -38,6 +43,7 @@ TEST $CLI_1 volume add-brick $V0 $H1:$L1/${V0}_3 $H1:$L1/${V0}_4 $H1:$L1/${V0}_5
 EXPECT '4 x 3 = 12' volinfo_field $V0 'Number of Bricks'
 
 TEST $CLI_1 volume stop $V0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 count_up_bricks $V0
 TEST $CLI_1 volume delete $V0
 
 TEST $CLI_1 volume create $V0 replica 2 $H1:$L1/${V0}1 $H2:$L2/${V0}1
@@ -45,11 +51,11 @@ EXPECT '1 x 2 = 2' volinfo_field $V0 'Number of Bricks'
 EXPECT 'Created' volinfo_field $V0 'Status'
 
 TEST $CLI_1 volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks $V0
 
 #Add-brick with Increasing replica count from different host should success
 TEST $CLI_1 volume add-brick $V0 replica 3 $H3:$L3/${V0}1
-EXPECT '1 x 3 = 3' volinfo_field $V0 'Number of Bricks'
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_up_bricks $V0
 
 #Add-brick with Increasing replica count from same host should fail
 TEST ! $CLI_1 volume add-brick $V0 replica 4 $H1:$L1/${V0}2
