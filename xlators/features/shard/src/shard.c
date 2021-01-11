@@ -553,7 +553,7 @@ shard_local_wipe(shard_local_t *local)
         SHARD_STACK_DESTROY(local->entrylk_frame);
 }
 
-int
+static int
 shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
                                   gf_boolean_t logerror)
 {
@@ -564,11 +564,10 @@ shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
     ret = dict_get_ptr(dict, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
     if (ret) {
         if (logerror)
-            gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0,
-                             SHARD_MSG_INTERNAL_XATTR_MISSING,
-                             "Failed to "
-                             "get " GF_XATTR_SHARD_FILE_SIZE " for %s",
-                             uuid_utoa(stbuf->ia_gfid));
+            gf_msg_callingfn(
+                THIS->name, GF_LOG_ERROR, 0, SHARD_MSG_INTERNAL_XATTR_MISSING,
+                "Failed to get " GF_XATTR_SHARD_FILE_SIZE " for %s",
+                uuid_utoa(stbuf->ia_gfid));
         return ret;
     }
 
