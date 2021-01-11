@@ -575,6 +575,7 @@ struct _cmd_args {
     char *subdir_mount;
 
     char *process_name;
+    char *fs_display_name;
     char *event_history;
     int thin_client;
     uint32_t reader_thread_count;

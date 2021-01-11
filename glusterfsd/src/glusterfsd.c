@@ -276,6 +276,8 @@ static struct argp_option gf_options[] = {
     {"fuse-dev-eperm-ratelimit-ns", ARGP_FUSE_DEV_EPERM_RATELIMIT_NS_KEY,
      "OPTIONS", OPTION_HIDDEN,
      "rate limit reading from fuse device upon EPERM failure"},
+    {"filesystem-name", ARGP_FUSE_FSNAME_KEY, "OPTIONS", OPTION_HIDDEN,
+     "Filesystem name, displayed with mount point (as source)."},
     {"brick-mux", ARGP_BRICK_MUX_KEY, 0, 0, "Enable brick mux. "},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
@@ -1377,6 +1379,9 @@ parse_opts(int key, char *arg, struct argp_state *state)
                              arg);
             }
 
+            break;
+        case ARGP_FUSE_FSNAME_KEY:
+            cmd_args->fs_display_name = gf_strdup(arg);
             break;
     }
     return 0;
