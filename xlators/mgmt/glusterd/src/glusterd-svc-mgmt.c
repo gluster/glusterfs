@@ -218,6 +218,10 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
         if (this->ctx->cmd_args.global_threading) {
             runner_add_arg(&runner, "--global-threading");
         }
+        if (this->ctx->log.logger == gf_logger_syslog) {
+            runner_add_arg(&runner, "--logger");
+            runner_argprintf(&runner, "syslog");
+        }
 
         if (cmdline)
             dict_foreach(cmdline, svc_add_args, (void *)&runner);

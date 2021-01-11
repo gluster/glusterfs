@@ -327,6 +327,10 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
         if (strcmp(localtime_logging, "enable") == 0)
             runner_add_arg(&runner, "--localtime-logging");
     }
+    if (this->ctx->log.logger == gf_logger_syslog) {
+        runner_add_arg(&runner, "--logger");
+        runner_argprintf(&runner, "syslog");
+    }
 
     gfproxyd_port = pmap_assign_port(this, volinfo->gfproxyd.port, gfproxyd_id);
     volinfo->gfproxyd.port = gfproxyd_port;

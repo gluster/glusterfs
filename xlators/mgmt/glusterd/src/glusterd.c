@@ -1621,11 +1621,39 @@ init(xlator_t *this)
         exit(1);
     }
 
-    snprintf(cmd_log_filename, PATH_MAX, "%s/cmd_history.log", logdir);
+    char *cmd_history_file = NULL;
+    ret = dict_get_str_sizen(this->options, "command-history-file",
+                             &cmd_history_file);
+    if (!cmd_history_file) {
+        snprintf(cmd_log_filename, PATH_MAX, "%s/cmd_history.log", logdir);
+    } else {
+        if (cmd_history_file[0] != '/') {
+            gf_msg(
+                this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+                "Expects an absolute file for 'command-history-file', got %s",
+                cmd_history_file);
+            exit(1);
+        }
+        ret = sys_stat(cmd_history_file, &buf);
+        if ((ret == -1) && (errno != ENOENT)) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+                   "'command-history-file'(%s): failed for perform stat() %s",
+                   cmd_history_file, strerror(errno));
+            exit(1);
+        }
+        if (!ret && !S_ISREG(buf.st_mode)) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+                   "'command-history-file'(%s): not a regular file",
+                   cmd_history_file);
+            exit(1);
+        }
+        snprintf(cmd_log_filename, PATH_MAX, "%s", cmd_history_file);
+    }
+
     ret = gf_cmd_log_init(cmd_log_filename);
 
     if (ret == -1) {
-        gf_msg("this->name", GF_LOG_CRITICAL, errno, GD_MSG_FILE_OP_FAILED,
+        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_FILE_OP_FAILED,
                "Unable to create cmd log file %s", cmd_log_filename);
         exit(1);
     }

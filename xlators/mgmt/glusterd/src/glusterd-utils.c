@@ -2264,8 +2264,9 @@ retry:
         }
     }
 
-    if (this->ctx->cmd_args.logger == gf_logger_syslog) {
-        runner_argprintf(&runner, "--logger=syslog");
+    if (this->ctx->log.logger == gf_logger_syslog) {
+        runner_add_arg(&runner, "--logger");
+        runner_argprintf(&runner, "syslog");
     }
 
     runner_add_arg(&runner, "--xlator-option");
@@ -14062,6 +14063,11 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
                               &volfileserver) != 0)
                 volfileserver = "localhost";
 
+            if (this->ctx->log.logger == gf_logger_syslog) {
+                runner_add_arg(&runner, "--logger");
+                runner_argprintf(&runner, "syslog");
+            }
+
             snprintf(logfile, sizeof(logfile), "%s/%s-replace-brick-mount.log",
                      priv->logdir, volinfo->volname);
             if (!*logfile) {
@@ -14075,6 +14081,11 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
             break;
 
         case GD_OP_ADD_BRICK:
+            if (this->ctx->log.logger == gf_logger_syslog) {
+                runner_add_arg(&runner, "--logger");
+                runner_argprintf(&runner, "syslog");
+            }
+
             snprintf(logfile, sizeof(logfile), "%s/%s-add-brick-mount.log",
                      priv->logdir, volinfo->volname);
             if (!*logfile) {

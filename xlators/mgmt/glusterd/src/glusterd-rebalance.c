@@ -294,6 +294,11 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
         "*dht.assert-no-child-down=yes", "--xlator-option",
         "*dht.readdir-optimize=on", "--process-name", "rebalance", NULL);
 
+    if (this->ctx->log.logger == gf_logger_syslog) {
+        runner_add_arg(&runner, "--logger");
+        runner_argprintf(&runner, "syslog");
+    }
+
     runner_add_arg(&runner, "--xlator-option");
     runner_argprintf(&runner, "*dht.rebalance-cmd=%d", cmd);
     runner_add_arg(&runner, "--xlator-option");

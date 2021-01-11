@@ -681,6 +681,12 @@ glusterd_do_mount(char *label, dict_t *argdict, char **path, int *op_errno)
 
     runinit(&runner);
     runner_add_arg(&runner, SBIN_DIR "/glusterfs");
+
+    if (this->ctx->log.logger == gf_logger_syslog) {
+        runner_add_arg(&runner, "--logger");
+        runner_argprintf(&runner, "syslog");
+    }
+
     seq_dict_foreach(argdict, _runner_add, &runner);
     runner_add_arg(&runner, mtptemp);
     ret = runner_run_reuse(&runner);
