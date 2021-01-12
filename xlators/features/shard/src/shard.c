@@ -6937,6 +6937,7 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     int i = 0;
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
+    shard_priv_t *priv = this->private;
 
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
@@ -7014,6 +7015,12 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
         local->iobref = iobref_ref(iobref);
     local->fd = fd_ref(fd);
     local->block_size = block_size;
+
+    uint64_t total_shards = local->total_size / block_size;
+    if (fop == GF_FOP_FALLOCATE && total_shards > priv->lru_limit) {
+        uint factor = ((total_shards - 1) / priv->lru_limit) + 1;
+        local->block_size = block_size * factor;
+    }
     local->resolver_base_inode = local->fd->inode;
     GF_ATOMIC_INIT(local->delta_blocks, 0);
 
