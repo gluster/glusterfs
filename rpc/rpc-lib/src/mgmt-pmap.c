@@ -65,7 +65,7 @@ out:
 }
 
 int
-rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brickname)
+rpc_clnt_mgmt_pmap_signout(char *brickname)
 {
     int ret = 0;
     pmap_signout_req req = {
@@ -83,8 +83,8 @@ rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brickname)
     struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
 
-    frame = create_frame(THIS, ctx->pool);
-    cmd_args = &ctx->cmd_args;
+    frame = create_frame(THIS, global_ctx->pool);
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->brick_port && (!cmd_args->brick_name || !brickname)) {
         gf_log("fsd-mgmt", GF_LOG_DEBUG,
@@ -116,7 +116,7 @@ rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brickname)
     }
 
     xdr_size = xdr_sizeof((xdrproc_t)xdr_pmap_signout_req, &req);
-    iobuf = iobuf_get2(ctx->iobuf_pool, xdr_size);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
     if (!iobuf) {
         goto out;
     };
@@ -134,9 +134,9 @@ rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brickname)
     }
     iov.iov_len = ret;
 
-    ret = rpc_clnt_submit(ctx->mgmt, &clnt_pmap_signout_prog, GF_PMAP_SIGNOUT,
-                          mgmt_pmap_signout_cbk, &iov, 1, NULL, 0, iobref,
-                          frame, NULL, 0, NULL, 0, NULL);
+    ret = rpc_clnt_submit(global_ctx->mgmt, &clnt_pmap_signout_prog,
+                          GF_PMAP_SIGNOUT, mgmt_pmap_signout_cbk, &iov, 1, NULL,
+                          0, iobref, frame, NULL, 0, NULL, 0, NULL);
 out:
     if (iobref)
         iobref_unref(iobref);

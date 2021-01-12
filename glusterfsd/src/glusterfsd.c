@@ -285,13 +285,13 @@ static struct argp_option gf_options[] = {
 static struct argp argp = {gf_options, parse_opts, argp_doc, gf_doc};
 
 int
-glusterfs_pidfile_cleanup(glusterfs_ctx_t *ctx);
+glusterfs_pidfile_cleanup();
 int
-glusterfs_volumes_init(glusterfs_ctx_t *ctx);
+glusterfs_volumes_init();
 int
-glusterfs_mgmt_init(glusterfs_ctx_t *ctx);
+glusterfs_mgmt_init();
 int
-glusterfs_listener_init(glusterfs_ctx_t *ctx);
+glusterfs_listener_init();
 
 #define DICT_SET_VAL(method, dict, key, val, msgid)                            \
     if (method(dict, key, val)) {                                              \
@@ -300,7 +300,7 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx);
     }
 
 static int
-set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
+set_fuse_mount_options(dict_t *options)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
@@ -309,7 +309,7 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
         0,
     };
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     /* Check if mount-point is absolute path,
      * if not convert to absolute path by concatenating with CWD
@@ -546,20 +546,20 @@ err:
 }
 
 int
-create_fuse_mount(glusterfs_ctx_t *ctx)
+create_fuse_mount()
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
     xlator_t *root = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
     if (!cmd_args->mount_point) {
         gf_msg_trace("glusterfsd", 0,
                      "mount point not found, not a client process");
         return 0;
     }
 
-    if (ctx->process_mode != GF_CLIENT_PROCESS) {
+    if (global_ctx->process_mode != GF_CLIENT_PROCESS) {
         gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_7, NULL);
         return -1;
     }
@@ -582,7 +582,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
     if (!root->options)
         goto err;
 
-    ret = set_fuse_mount_options(ctx, root->options);
+    ret = set_fuse_mount_options(root->options);
     if (ret)
         goto err;
 
@@ -602,7 +602,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ctx->root = root;
+    global_ctx->root = root;
 
     return 0;
 
@@ -615,12 +615,12 @@ err:
 }
 
 static FILE *
-get_volfp(glusterfs_ctx_t *ctx)
+get_volfp(void)
 {
     cmd_args_t *cmd_args = NULL;
     FILE *specfp = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
         gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
@@ -1075,7 +1075,7 @@ parse_opts(int key, char *arg, struct argp_state *state)
 
         case ARGP_MEM_ACCOUNTING_KEY:
             /* TODO: it should have got handled much earlier */
-            // gf_mem_acct_enable_set (THIS->ctx);
+            // gf_mem_acct_enable_set ();
             break;
 
         case ARGP_FOPEN_KEEP_CACHE_KEY:
@@ -1376,7 +1376,7 @@ parse_opts(int key, char *arg, struct argp_state *state)
 }
 
 gf_boolean_t
-should_call_fini(glusterfs_ctx_t *ctx, xlator_t *trav)
+should_call_fini(xlator_t *trav)
 {
     /* There's nothing to call, so the other checks don't matter. */
     if (!trav->fini) {
@@ -1384,7 +1384,7 @@ should_call_fini(glusterfs_ctx_t *ctx, xlator_t *trav)
     }
 
     /* This preserves previous behavior in glusterd. */
-    if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
+    if (global_ctx->process_mode == GF_GLUSTERD_PROCESS) {
         return _gf_true;
     }
 
@@ -1417,7 +1417,7 @@ cleanup_and_exit(int signum)
      * cascade of SIGSEGVs and other re-entrancy issues.
      */
 
-    gf_log_disable_suppression_before_exit(global_ctx);
+    gf_log_disable_suppression_before_exit();
 
     gf_msg_callingfn("", GF_LOG_WARNING, 0, glusterfsd_msg_32,
                      "received signum (%d), shutting down", signum);
@@ -1435,10 +1435,10 @@ cleanup_and_exit(int signum)
             top = global_ctx->active->first;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 victim = (*trav_p)->xlator;
-                rpc_clnt_mgmt_pmap_signout(global_ctx, victim->name);
+                rpc_clnt_mgmt_pmap_signout(victim->name);
             }
         } else {
-            rpc_clnt_mgmt_pmap_signout(global_ctx, NULL);
+            rpc_clnt_mgmt_pmap_signout(NULL);
         }
 
         /* below part is a racy code where the rpcsvc object is freed.
@@ -1461,7 +1461,7 @@ cleanup_and_exit(int signum)
             trav->fini(trav);
         }
 
-        glusterfs_pidfile_cleanup(global_ctx);
+        glusterfs_pidfile_cleanup();
 
 #if 0
         /* TODO: Properly do cleanup_and_exit(), with synchronization */
@@ -1501,7 +1501,7 @@ reincarnate(int signum)
 
     if (cmd_args->volfile_server) {
         gf_smsg("glusterfsd", GF_LOG_INFO, 0, glusterfsd_msg_11, NULL);
-        ret = glusterfs_volfile_fetch(global_ctx);
+        ret = glusterfs_volfile_fetch();
     }
 
     /* Also, SIGHUP should do logrotate */
@@ -1514,13 +1514,13 @@ reincarnate(int signum)
 }
 
 void
-emancipate(glusterfs_ctx_t *ctx, int ret)
+emancipate(int ret)
 {
     /* break free from the parent */
-    if (ctx->daemon_pipe[1] != -1) {
-        sys_write(ctx->daemon_pipe[1], (void *)&ret, sizeof(ret));
-        sys_close(ctx->daemon_pipe[1]);
-        ctx->daemon_pipe[1] = -1;
+    if (global_ctx->daemon_pipe[1] != -1) {
+        sys_write(global_ctx->daemon_pipe[1], (void *)&ret, sizeof(ret));
+        sys_close(global_ctx->daemon_pipe[1]);
+        global_ctx->daemon_pipe[1] = -1;
     }
 }
 
@@ -1547,16 +1547,13 @@ gf_get_process_mode(char *exec_name)
 }
 
 static int
-glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
+glusterfs_ctx_defaults_init(void)
 {
     cmd_args_t *cmd_args = NULL;
     struct rlimit lim = {
         0,
     };
     int ret = -1;
-
-    if (!ctx)
-        return ret;
 
     ret = xlator_mem_acct_init(THIS, gfd_mt_end);
     if (ret != 0) {
@@ -1570,83 +1567,85 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     ret = -1;
 
     /* monitoring should be enabled by default */
-    ctx->measure_latency = true;
+    global_ctx->measure_latency = true;
 
-    ctx->process_uuid = generate_glusterfs_ctx_id();
-    if (!ctx->process_uuid) {
+    global_ctx->process_uuid = generate_glusterfs_ctx_id();
+    if (!global_ctx->process_uuid) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_13, NULL);
         goto out;
     }
 
-    ctx->page_size = 128 * GF_UNIT_KB;
+    global_ctx->page_size = 128 * GF_UNIT_KB;
 
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
+    global_ctx->iobuf_pool = iobuf_pool_new();
+    if (!global_ctx->iobuf_pool) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "iobuf", NULL);
         goto out;
     }
 
-    ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
-                                        STARTING_EVENT_THREADS);
-    if (!ctx->event_pool) {
+    global_ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
+                                               STARTING_EVENT_THREADS);
+    if (!global_ctx->event_pool) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "event", NULL);
         goto out;
     }
 
-    ctx->pool = GF_CALLOC(1, sizeof(call_pool_t), gfd_mt_call_pool_t);
-    if (!ctx->pool) {
+    global_ctx->pool = GF_CALLOC(1, sizeof(call_pool_t), gfd_mt_call_pool_t);
+    if (!global_ctx->pool) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "call", NULL);
         goto out;
     }
 
-    INIT_LIST_HEAD(&ctx->pool->all_frames);
-    LOCK_INIT(&ctx->pool->lock);
+    INIT_LIST_HEAD(&global_ctx->pool->all_frames);
+    LOCK_INIT(&global_ctx->pool->lock);
 
     /* frame_mem_pool size 112 * 4k */
-    ctx->pool->frame_mem_pool = mem_pool_new(call_frame_t, 4096);
-    if (!ctx->pool->frame_mem_pool) {
+    global_ctx->pool->frame_mem_pool = mem_pool_new(call_frame_t, 4096);
+    if (!global_ctx->pool->frame_mem_pool) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "frame", NULL);
         goto out;
     }
     /* stack_mem_pool size 256 * 1024 */
-    ctx->pool->stack_mem_pool = mem_pool_new(call_stack_t, 1024);
-    if (!ctx->pool->stack_mem_pool) {
+    global_ctx->pool->stack_mem_pool = mem_pool_new(call_stack_t, 1024);
+    if (!global_ctx->pool->stack_mem_pool) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "stack", NULL);
         goto out;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
-    if (!ctx->stub_mem_pool) {
+    global_ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
+    if (!global_ctx->stub_mem_pool) {
         gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "stub", NULL);
         goto out;
     }
 
-    ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
-    if (!ctx->dict_pool)
+    global_ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
+    if (!global_ctx->dict_pool)
         goto out;
 
-    ctx->dict_pair_pool = mem_pool_new(data_pair_t,
-                                       GF_MEMPOOL_COUNT_OF_DATA_PAIR_T);
-    if (!ctx->dict_pair_pool)
+    global_ctx->dict_pair_pool = mem_pool_new(data_pair_t,
+                                              GF_MEMPOOL_COUNT_OF_DATA_PAIR_T);
+    if (!global_ctx->dict_pair_pool)
         goto out;
 
-    ctx->dict_data_pool = mem_pool_new(data_t, GF_MEMPOOL_COUNT_OF_DATA_T);
-    if (!ctx->dict_data_pool)
+    global_ctx->dict_data_pool = mem_pool_new(data_t,
+                                              GF_MEMPOOL_COUNT_OF_DATA_T);
+    if (!global_ctx->dict_data_pool)
         goto out;
 
-    ctx->logbuf_pool = mem_pool_new(log_buf_t, GF_MEMPOOL_COUNT_OF_LRU_BUF_T);
-    if (!ctx->logbuf_pool)
+    global_ctx->logbuf_pool = mem_pool_new(log_buf_t,
+                                           GF_MEMPOOL_COUNT_OF_LRU_BUF_T);
+    if (!global_ctx->logbuf_pool)
         goto out;
 
-    pthread_mutex_init(&ctx->notify_lock, NULL);
-    pthread_mutex_init(&ctx->cleanup_lock, NULL);
-    pthread_cond_init(&ctx->notify_cond, NULL);
+    pthread_mutex_init(&global_ctx->notify_lock, NULL);
+    pthread_mutex_init(&global_ctx->cleanup_lock, NULL);
+    pthread_cond_init(&global_ctx->notify_cond, NULL);
 
-    ctx->clienttable = gf_clienttable_alloc();
-    if (!ctx->clienttable)
+    global_ctx->clienttable = gf_clienttable_alloc();
+    if (!global_ctx->clienttable)
         goto out;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     /* parsing command line arguments */
     cmd_args->log_level = DEFAULT_LOG_LEVEL;
@@ -1670,19 +1669,19 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     cmd_args->kernel_writeback_cache = GF_OPTION_DEFERRED;
     cmd_args->fuse_flush_handle_interrupt = GF_OPTION_DEFERRED;
 
-    if (ctx->mem_acct_enable)
+    if (global_ctx->mem_acct_enable)
         cmd_args->mem_acct = 1;
 
     INIT_LIST_HEAD(&cmd_args->xlator_options);
     INIT_LIST_HEAD(&cmd_args->volfile_servers);
-    ctx->pxl_count = 0;
-    ctx->diskxl_count = 0;
-    pthread_mutex_init(&ctx->fd_lock, NULL);
-    pthread_cond_init(&ctx->fd_cond, NULL);
-    INIT_LIST_HEAD(&ctx->janitor_fds);
-    pthread_mutex_init(&ctx->xl_lock, NULL);
-    pthread_cond_init(&ctx->xl_cond, NULL);
-    INIT_LIST_HEAD(&ctx->diskth_xl);
+    global_ctx->pxl_count = 0;
+    global_ctx->diskxl_count = 0;
+    pthread_mutex_init(&global_ctx->fd_lock, NULL);
+    pthread_cond_init(&global_ctx->fd_cond, NULL);
+    INIT_LIST_HEAD(&global_ctx->janitor_fds);
+    pthread_mutex_init(&global_ctx->xl_lock, NULL);
+    pthread_cond_init(&global_ctx->xl_cond, NULL);
+    INIT_LIST_HEAD(&global_ctx->diskth_xl);
 
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;
@@ -1692,31 +1691,31 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 out:
 
     if (ret) {
-        if (ctx->pool) {
-            mem_pool_destroy(ctx->pool->frame_mem_pool);
-            mem_pool_destroy(ctx->pool->stack_mem_pool);
+        if (global_ctx->pool) {
+            mem_pool_destroy(global_ctx->pool->frame_mem_pool);
+            mem_pool_destroy(global_ctx->pool->stack_mem_pool);
         }
-        GF_FREE(ctx->pool);
-        mem_pool_destroy(ctx->stub_mem_pool);
-        mem_pool_destroy(ctx->dict_pool);
-        mem_pool_destroy(ctx->dict_data_pool);
-        mem_pool_destroy(ctx->dict_pair_pool);
-        mem_pool_destroy(ctx->logbuf_pool);
+        GF_FREE(global_ctx->pool);
+        mem_pool_destroy(global_ctx->stub_mem_pool);
+        mem_pool_destroy(global_ctx->dict_pool);
+        mem_pool_destroy(global_ctx->dict_data_pool);
+        mem_pool_destroy(global_ctx->dict_pair_pool);
+        mem_pool_destroy(global_ctx->logbuf_pool);
     }
 
     return ret;
 }
 
 static int
-logging_init(glusterfs_ctx_t *ctx, const char *progpath)
+logging_init(const char *progpath)
 {
     cmd_args_t *cmd_args = NULL;
     int ret = 0;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (cmd_args->log_file == NULL) {
-        ret = gf_set_log_file_path(cmd_args, ctx);
+        ret = gf_set_log_file_path(cmd_args);
         if (ret == -1) {
             fprintf(stderr,
                     "ERROR: failed to set the log file "
@@ -1736,7 +1735,7 @@ logging_init(glusterfs_ctx_t *ctx, const char *progpath)
     }
 
     /* finish log set parameters before init */
-    gf_log_set_loglevel(ctx, cmd_args->log_level);
+    gf_log_set_loglevel(cmd_args->log_level);
 
     gf_log_set_localtime(cmd_args->localtime_logging);
 
@@ -1748,7 +1747,7 @@ logging_init(glusterfs_ctx_t *ctx, const char *progpath)
 
     gf_log_set_log_flush_timeout(cmd_args->log_flush_timeout);
 
-    if (gf_log_init(ctx, cmd_args->log_file, cmd_args->log_ident) == -1) {
+    if (gf_log_init(cmd_args->log_file, cmd_args->log_ident) == -1) {
         fprintf(stderr, "ERROR: failed to open logfile %s\n",
                 cmd_args->log_file);
         return -1;
@@ -1964,7 +1963,7 @@ out:
 }
 
 int
-parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
+parse_cmdline(int argc, char *argv[])
 {
     int process_mode = 0;
     int ret = 0;
@@ -1979,12 +1978,12 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
     int len = 0;
     char *thin_volfileid = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     /* Do this before argp_parse so it can be overridden. */
     if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
         cmd_args->secure_mgmt = 1;
-        ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+        global_ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
 
     /* Need to set lru_limit to below 0 to indicate there was nothing
@@ -2016,7 +2015,7 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->secure_mgmt = cmd_args->secure_mgmt;
+    global_ctx->secure_mgmt = cmd_args->secure_mgmt;
 
     if (ENABLE_DEBUG_MODE == cmd_args->debug_mode) {
         cmd_args->log_level = GF_LOG_DEBUG;
@@ -2025,10 +2024,10 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
     }
 
     process_mode = gf_get_process_mode(argv[0]);
-    ctx->process_mode = process_mode;
+    global_ctx->process_mode = process_mode;
 
     if (cmd_args->process_name) {
-        ctx->cmd_args.process_name = cmd_args->process_name;
+        global_ctx->cmd_args.process_name = cmd_args->process_name;
     }
     /* Make sure after the parsing cli, if '--volfile-server' option is
        given, then '--volfile-id' is mandatory */
@@ -2117,13 +2116,13 @@ out:
 }
 
 int
-glusterfs_pidfile_setup(glusterfs_ctx_t *ctx)
+glusterfs_pidfile_setup()
 {
     cmd_args_t *cmd_args = NULL;
     int ret = -1;
     FILE *pidfp = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->pid_file)
         return 0;
@@ -2135,7 +2134,7 @@ glusterfs_pidfile_setup(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->pidfp = pidfp;
+    global_ctx->pidfp = pidfp;
 
     ret = 0;
 out:
@@ -2144,39 +2143,39 @@ out:
 }
 
 int
-glusterfs_pidfile_cleanup(glusterfs_ctx_t *ctx)
+glusterfs_pidfile_cleanup()
 {
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
-    if (!ctx->pidfp)
+    if (!global_ctx->pidfp)
         return 0;
 
     gf_msg_trace("glusterfsd", 0, "pidfile %s cleanup", cmd_args->pid_file);
 
-    if (ctx->cmd_args.pid_file) {
-        GF_FREE(ctx->cmd_args.pid_file);
-        ctx->cmd_args.pid_file = NULL;
+    if (global_ctx->cmd_args.pid_file) {
+        GF_FREE(global_ctx->cmd_args.pid_file);
+        global_ctx->cmd_args.pid_file = NULL;
     }
 
-    lockf(fileno(ctx->pidfp), F_ULOCK, 0);
-    fclose(ctx->pidfp);
-    ctx->pidfp = NULL;
+    lockf(fileno(global_ctx->pidfp), F_ULOCK, 0);
+    fclose(global_ctx->pidfp);
+    global_ctx->pidfp = NULL;
 
     return 0;
 }
 
 int
-glusterfs_pidfile_update(glusterfs_ctx_t *ctx, pid_t pid)
+glusterfs_pidfile_update(pid_t pid)
 {
     cmd_args_t *cmd_args = NULL;
     int ret = 0;
     FILE *pidfp = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
-    pidfp = ctx->pidfp;
+    pidfp = global_ctx->pidfp;
     if (!pidfp)
         return 0;
 
@@ -2243,10 +2242,10 @@ glusterfs_sigwaiter(void *arg)
                 reincarnate(sig);
                 break;
             case SIGUSR1:
-                gf_proc_dump_info(sig, glusterfsd_ctx);
+                gf_proc_dump_info(sig);
                 break;
             case SIGUSR2:
-                file = gf_monitor_metrics(glusterfsd_ctx);
+                file = gf_monitor_metrics();
 
                 /* Nothing needed to be done here */
                 GF_FREE(file);
@@ -2264,11 +2263,11 @@ glusterfs_sigwaiter(void *arg)
 void
 glusterfsd_print_trace(int signum)
 {
-    gf_print_trace(signum, glusterfsd_ctx);
+    gf_print_trace(signum);
 }
 
 int
-glusterfs_signals_setup(glusterfs_ctx_t *ctx)
+glusterfs_signals_setup()
 {
     sigset_t set;
     int ret = 0;
@@ -2301,7 +2300,7 @@ glusterfs_signals_setup(glusterfs_ctx_t *ctx)
         return ret;
     }
 
-    ret = gf_thread_create(&ctx->sigwaiter, NULL, glusterfs_sigwaiter,
+    ret = gf_thread_create(&global_ctx->sigwaiter, NULL, glusterfs_sigwaiter,
                            (void *)&set, "sigwait");
     if (ret) {
         /*
@@ -2317,7 +2316,7 @@ glusterfs_signals_setup(glusterfs_ctx_t *ctx)
 }
 
 int
-daemonize(glusterfs_ctx_t *ctx)
+daemonize()
 {
     int ret = -1;
     cmd_args_t *cmd_args = NULL;
@@ -2325,9 +2324,9 @@ daemonize(glusterfs_ctx_t *ctx)
     int err = 1;
     int child_pid = 0;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
-    ret = glusterfs_pidfile_setup(ctx);
+    ret = glusterfs_pidfile_setup();
     if (ret)
         goto out;
 
@@ -2338,21 +2337,21 @@ daemonize(glusterfs_ctx_t *ctx)
     if (cmd_args->debug_mode)
         goto postfork;
 
-    ret = pipe(ctx->daemon_pipe);
+    ret = pipe(global_ctx->daemon_pipe);
     if (ret) {
         /* If pipe() fails, retain daemon_pipe[] = {-1, -1}
            and parent will just not wait for child status
         */
-        ctx->daemon_pipe[0] = -1;
-        ctx->daemon_pipe[1] = -1;
+        global_ctx->daemon_pipe[0] = -1;
+        global_ctx->daemon_pipe[1] = -1;
     }
 
     ret = os_daemon_return(0, 0);
     switch (ret) {
         case -1:
-            if (ctx->daemon_pipe[0] != -1) {
-                sys_close(ctx->daemon_pipe[0]);
-                sys_close(ctx->daemon_pipe[1]);
+            if (global_ctx->daemon_pipe[0] != -1) {
+                sys_close(global_ctx->daemon_pipe[0]);
+                sys_close(global_ctx->daemon_pipe[1]);
             }
 
             gf_smsg("daemonize", GF_LOG_ERROR, errno, glusterfsd_msg_24, NULL);
@@ -2360,17 +2359,17 @@ daemonize(glusterfs_ctx_t *ctx)
         case 0:
             /* child */
             /* close read */
-            sys_close(ctx->daemon_pipe[0]);
+            sys_close(global_ctx->daemon_pipe[0]);
             break;
         default:
             /* parent */
             /* close write */
             child_pid = ret;
-            sys_close(ctx->daemon_pipe[1]);
+            sys_close(global_ctx->daemon_pipe[1]);
 
-            if (ctx->mnt_pid > 0) {
-                ret = waitpid(ctx->mnt_pid, &cstatus, 0);
-                if (!(ret == ctx->mnt_pid)) {
+            if (global_ctx->mnt_pid > 0) {
+                ret = waitpid(global_ctx->mnt_pid, &cstatus, 0);
+                if (!(ret == global_ctx->mnt_pid)) {
                     if (WIFEXITED(cstatus)) {
                         err = WEXITSTATUS(cstatus);
                     } else {
@@ -2381,15 +2380,15 @@ daemonize(glusterfs_ctx_t *ctx)
                     exit(err);
                 }
             }
-            sys_read(ctx->daemon_pipe[0], (void *)&err, sizeof(err));
+            sys_read(global_ctx->daemon_pipe[0], (void *)&err, sizeof(err));
             /* NOTE: Only the least significant 8 bits i.e (err & 255)
                will be available to parent process on calling exit() */
             if (err)
                 _exit(abs(err));
 
             /* Update pid in parent only for glusterd process */
-            if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
-                ret = glusterfs_pidfile_update(ctx, child_pid);
+            if (global_ctx->process_mode == GF_GLUSTERD_PROCESS) {
+                ret = glusterfs_pidfile_update(child_pid);
                 if (ret)
                     exit(1);
             }
@@ -2400,24 +2399,24 @@ postfork:
     /* Update pid in child either process_mode is not belong to glusterd
        or process is spawned in no daemon mode
     */
-    if ((ctx->process_mode != GF_GLUSTERD_PROCESS) ||
+    if ((global_ctx->process_mode != GF_GLUSTERD_PROCESS) ||
         (cmd_args->no_daemon_mode)) {
-        ret = glusterfs_pidfile_update(ctx, getpid());
+        ret = glusterfs_pidfile_update(getpid());
         if (ret)
             goto out;
     }
     gf_log("glusterfs", GF_LOG_INFO, "Pid of current running process is %d",
            getpid());
-    ret = gf_log_inject_timer_event(ctx);
+    ret = gf_log_inject_timer_event();
 
-    glusterfs_signals_setup(ctx);
+    glusterfs_signals_setup();
 out:
     return ret;
 }
 
 #ifdef GF_LINUX_HOST_OS
 static int
-set_oom_score_adj(glusterfs_ctx_t *ctx)
+set_oom_score_adj()
 {
     int ret = -1;
     cmd_args_t *cmd_args = NULL;
@@ -2425,7 +2424,7 @@ set_oom_score_adj(glusterfs_ctx_t *ctx)
     size_t oom_score_len = 0;
     struct oom_api_info *api = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->oom_score_adj)
         goto success;
@@ -2457,14 +2456,11 @@ out:
 #endif
 
 int
-glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
+glusterfs_process_volfp(FILE *fp)
 {
     glusterfs_graph_t *graph = NULL;
     int ret = -1;
     xlator_t *trav = NULL;
-
-    if (!ctx)
-        return -1;
 
     graph = glusterfs_graph_construct(fp);
     if (!graph) {
@@ -2484,12 +2480,12 @@ glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
         (void)copy_opts_to_child(xl, FIRST_CHILD(xl), "*auth*");
     }
 
-    ret = glusterfs_graph_prepare(graph, ctx, ctx->cmd_args.volume_name);
+    ret = glusterfs_graph_prepare(graph, global_ctx->cmd_args.volume_name);
     if (ret) {
         goto out;
     }
 
-    ret = glusterfs_graph_activate(graph, ctx);
+    ret = glusterfs_graph_activate(graph);
 
     if (ret) {
         goto out;
@@ -2511,7 +2507,7 @@ out:
         */
         if (graph) {
             xl = graph->first;
-            if ((ctx->active != graph) &&
+            if ((global_ctx->active != graph) &&
                 (xl && !strcmp(xl->type, "protocol/server"))) {
                 /* Take dict ref for every graph xlator to avoid dict leak
                    at the time of graph destroying
@@ -2522,8 +2518,8 @@ out:
         }
 
         /* there is some error in setting up the first graph itself */
-        if (!ctx->active) {
-            emancipate(ctx, ret);
+        if (!global_ctx->active) {
+            emancipate(ret);
             cleanup_and_exit(ret);
         }
     }
@@ -2532,27 +2528,27 @@ out:
 }
 
 int
-glusterfs_volumes_init(glusterfs_ctx_t *ctx)
+glusterfs_volumes_init()
 {
     FILE *fp = NULL;
     cmd_args_t *cmd_args = NULL;
     int ret = 0;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (cmd_args->sock_file) {
-        ret = glusterfs_listener_init(ctx);
+        ret = glusterfs_listener_init();
         if (ret)
             goto out;
     }
 
     if (cmd_args->volfile_server) {
-        ret = glusterfs_mgmt_init(ctx);
+        ret = glusterfs_mgmt_init();
         /* return, do not emancipate() yet */
         return ret;
     }
 
-    fp = get_volfp(ctx);
+    fp = get_volfp();
 
     if (!fp) {
         gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_28, NULL);
@@ -2560,12 +2556,12 @@ glusterfs_volumes_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ret = glusterfs_process_volfp(ctx, fp);
+    ret = glusterfs_process_volfp(fp);
     if (ret)
         goto out;
 
 out:
-    emancipate(ctx, ret);
+    emancipate(ret);
     return ret;
 }
 
@@ -2575,7 +2571,6 @@ glusterfs_ctx_t *glusterfsd_ctx;
 int
 main(int argc, char *argv[])
 {
-    glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     char cmdlinestr[PATH_MAX] = {
         0,
@@ -2584,25 +2579,24 @@ main(int argc, char *argv[])
 
     gf_check_and_set_mem_acct(argc, argv);
 
-    ctx = glusterfs_ctx_new();
-    if (!ctx) {
+    if (!glusterfs_ctx_new()) {
         gf_smsg("glusterfs", GF_LOG_CRITICAL, 0, glusterfsd_msg_29, NULL);
         return ENOMEM;
     }
-    glusterfsd_ctx = ctx;
+    glusterfsd_ctx = global_ctx;
 
-    ret = glusterfs_globals_init(ctx);
+    ret = glusterfs_globals_init();
     if (ret)
         return ret;
 
-    ret = glusterfs_ctx_defaults_init(ctx);
+    ret = glusterfs_ctx_defaults_init();
     if (ret)
         goto out;
 
-    ret = parse_cmdline(argc, argv, ctx);
+    ret = parse_cmdline(argc, argv);
     if (ret)
         goto out;
-    cmd = &ctx->cmd_args;
+    cmd = &global_ctx->cmd_args;
 
     if (cmd->print_xlatordir) {
         /* XLATORDIR passed through a -D flag to GCC */
@@ -2642,12 +2636,12 @@ main(int argc, char *argv[])
         goto out;
     }
 
-    ret = logging_init(ctx, argv[0]);
+    ret = logging_init(argv[0]);
     if (ret)
         goto out;
 
     /* set brick_mux mode only for server process */
-    if ((ctx->process_mode != GF_SERVER_PROCESS) && cmd->brick_mux) {
+    if ((global_ctx->process_mode != GF_SERVER_PROCESS) && cmd->brick_mux) {
         gf_smsg("glusterfs", GF_LOG_CRITICAL, 0, glusterfsd_msg_43, NULL);
         goto out;
     }
@@ -2672,16 +2666,16 @@ main(int argc, char *argv[])
                 "version=%s", PACKAGE_VERSION, "cmdlinestr=%s", cmdlinestr,
                 NULL);
 
-        ctx->cmdlinestr = gf_strdup(cmdlinestr);
+        global_ctx->cmdlinestr = gf_strdup(cmdlinestr);
     }
 
     gf_proc_dump_init();
 
-    ret = create_fuse_mount(ctx);
+    ret = create_fuse_mount();
     if (ret)
         goto out;
 
-    ret = daemonize(ctx);
+    ret = daemonize();
     if (ret)
         goto out;
 
@@ -2692,37 +2686,37 @@ main(int argc, char *argv[])
      */
     mem_pools_init();
 
-    ret = gf_async_init(ctx);
+    ret = gf_async_init();
     if (ret < 0) {
         goto out;
     }
 
 #ifdef GF_LINUX_HOST_OS
-    ret = set_oom_score_adj(ctx);
+    ret = set_oom_score_adj();
     if (ret)
         goto out;
 #endif
 
-    ctx->env = syncenv_new(0, 0, 0);
-    if (!ctx->env) {
+    global_ctx->env = syncenv_new(0, 0, 0);
+    if (!global_ctx->env) {
         gf_smsg("", GF_LOG_ERROR, 0, glusterfsd_msg_31, NULL);
         goto out;
     }
 
     /* do this _after_ daemonize() */
-    if (!glusterfs_ctx_tw_get(ctx)) {
+    if (!glusterfs_ctx_tw_get()) {
         ret = -1;
         goto out;
     }
 
-    ret = glusterfs_volumes_init(ctx);
+    ret = glusterfs_volumes_init();
     if (ret)
         goto out;
 
-    ret = gf_event_dispatch(ctx->event_pool);
+    ret = gf_event_dispatch(global_ctx->event_pool);
 
 out:
-    //    glusterfs_ctx_destroy (ctx);
+    //    glusterfs_ctx_destroy ();
     gf_async_fini();
     return ret;
 }

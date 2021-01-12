@@ -165,8 +165,8 @@ global_xl_init(xlator_t *this)
     GF_OPTION_INIT("measure-latency", bool_opt, bool, out);
     global_ctx->measure_latency = bool_opt;
 
-    GF_OPTION_INIT("metrics-dump-path", global_ctx->config.metrics_dumppath, str,
-                   out);
+    GF_OPTION_INIT("metrics-dump-path", global_ctx->config.metrics_dumppath,
+                   str, out);
 
     ret = 0;
 
@@ -348,11 +348,11 @@ gf_globals_init_once()
 }
 
 int
-glusterfs_globals_init(glusterfs_ctx_t *ctx)
+glusterfs_globals_init()
 {
     int ret = 0;
 
-    gf_log_globals_init(ctx, GF_LOG_INFO);
+    gf_log_globals_init(GF_LOG_INFO);
 
     ret = pthread_once(&globals_inited, gf_globals_init_once);
 

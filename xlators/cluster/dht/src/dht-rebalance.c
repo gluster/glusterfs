@@ -4423,7 +4423,7 @@ out:
     LOCK(&defrag->lock);
     {
         gf_defrag_status_get(conf, status, _gf_true);
-        if (global_ctx && global_ctx->notify)
+        if (global_ctx->notify)
             global_ctx->notify(GF_EN_DEFRAG_STATUS, status);
         if (status)
             dict_unref(status);

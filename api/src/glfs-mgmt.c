@@ -57,13 +57,13 @@ glfs_process_volfp(struct glfs *fs, FILE *fp)
         }
     }
 
-    ret = glusterfs_graph_prepare(graph, global_ctx, fs->volname);
+    ret = glusterfs_graph_prepare(graph, fs->volname);
     if (ret) {
         glusterfs_graph_destroy(graph);
         goto out;
     }
 
-    ret = glusterfs_graph_activate(graph, global_ctx);
+    ret = glusterfs_graph_activate(graph);
 
     if (ret) {
         glusterfs_graph_destroy(graph);
@@ -188,9 +188,8 @@ static rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 int
-mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
-                    rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
-                    xdrproc_t xdrproc)
+mgmt_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
+                    int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
     int count = 0;
@@ -209,7 +208,7 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
-        iobuf = iobuf_get2(ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         };
@@ -231,8 +230,8 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     }
 
     /* Send the msg */
-    ret = rpc_clnt_submit(ctx->mgmt, prog, procnum, cbkfn, &iov, count, NULL, 0,
-                          iobref, frame, NULL, 0, NULL, 0, NULL);
+    ret = rpc_clnt_submit(global_ctx->mgmt, prog, procnum, cbkfn, &iov, count,
+                          NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
 
 out:
     if (iobref)
@@ -479,7 +478,7 @@ glfs_get_volume_info_rpc(call_frame_t *frame, xlator_t *this, struct glfs *fs)
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
 
-    ret = mgmt_submit_request(&req, frame, global_ctx, &clnt_handshake_prog,
+    ret = mgmt_submit_request(&req, frame, &clnt_handshake_prog,
                               GF_HNDSK_GET_VOLUME_INFO, mgmt_get_volinfo_cbk,
                               (xdrproc_t)xdr_gf_get_volume_info_req);
 out:
@@ -650,7 +649,7 @@ volfile:
      */
 
     pthread_mutex_lock(&fs->mutex);
-    ret = gf_volfile_reconfigure(fs->oldvollen, tmpfp, global_ctx, fs->oldvolfile);
+    ret = gf_volfile_reconfigure(fs->oldvollen, tmpfp, fs->oldvolfile);
     pthread_mutex_unlock(&fs->mutex);
 
     if (ret == 0) {
@@ -690,7 +689,7 @@ out:
         glfs_init_done(fs, -1);
     }
 
-    if (ret && global_ctx && !global_ctx->active) {
+    if (ret && !global_ctx->active) {
         /* Do it only for the first time */
         /* Failed to get the volume file, something wrong,
            restart the process */
@@ -767,7 +766,7 @@ glfs_volfile_fetch(struct glfs *fs)
         goto out;
     }
 
-    ret = mgmt_submit_request(&req, frame, global_ctx, &clnt_handshake_prog,
+    ret = mgmt_submit_request(&req, frame, &clnt_handshake_prog,
                               GF_HNDSK_GETSPEC, glfs_mgmt_getspec_cbk,
                               (xdrproc_t)xdr_gf_getspec_req);
 out:
@@ -816,7 +815,8 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                     }
                 }
                 server = global_ctx->cmd_args.curr_server;
-                if (server->list.next == &global_ctx->cmd_args.volfile_servers) {
+                if (server->list.next ==
+                    &global_ctx->cmd_args.volfile_servers) {
                     errno = ENOTCONN;
                     gf_smsg("glfs-mgmt", GF_LOG_INFO, ENOTCONN,
                             API_MSG_VOLFILE_SERVER_EXHAUST, NULL);
@@ -827,7 +827,8 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 global_ctx->cmd_args.curr_server = server;
                 global_ctx->cmd_args.volfile_server_port = server->port;
                 global_ctx->cmd_args.volfile_server = server->volfile_server;
-                global_ctx->cmd_args.volfile_server_transport = server->transport;
+                global_ctx->cmd_args.volfile_server_transport = server
+                                                                    ->transport;
 
                 ret = dict_set_str(rpc_trans->options, "transport-type",
                                    server->transport);

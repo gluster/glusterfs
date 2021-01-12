@@ -808,7 +808,7 @@ struct _xlator {
     } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
 
     /* Misc */
-    eh_t *history; /* event history context */
+    eh_t *history;            /* event history context */
     glusterfs_graph_t *graph; /* not set for fuse */
     inode_table_t *itable;
     char init_succeeded;
@@ -971,7 +971,7 @@ int32_t
 xlator_dynload(xlator_t *xl);
 
 xlator_t *
-file_to_xlator_tree(glusterfs_ctx_t *ctx, FILE *fp);
+file_to_xlator_tree(FILE *fp);
 
 int
 xlator_notify(xlator_t *this, int32_t event, void *data, ...);
@@ -1050,10 +1050,10 @@ enum gf_hdsk_event_notify_op {
 gf_boolean_t
 is_graph_topology_equal(glusterfs_graph_t *graph1, glusterfs_graph_t *graph2);
 int
-glusterfs_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx);
+glusterfs_volfile_reconfigure(FILE *newvolfile_fp);
 
 int
-gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp,
                        const char *oldvolfile);
 
 int
@@ -1076,7 +1076,7 @@ int
 copy_opts_to_child(xlator_t *src, xlator_t *dst, char *glob);
 
 int
-glusterfs_delete_volfile_checksum(glusterfs_ctx_t *ctx, const char *volfile_id);
+glusterfs_delete_volfile_checksum(const char *volfile_id);
 int
 xlator_memrec_free(xlator_t *xl);
 

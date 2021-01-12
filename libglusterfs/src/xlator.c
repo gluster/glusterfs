@@ -724,9 +724,6 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     if (!xl)
         return -1;
 
-    if (!global_ctx)
-        return -1;
-
     if (!global_ctx->mem_acct_enable)
         return 0;
 
@@ -824,7 +821,7 @@ xlator_members_free(xlator_t *xl)
 
     GF_FREE(xl->name);
     GF_FREE(xl->type);
-    if (!(global_ctx && global_ctx->cmd_args.vgtool != _gf_none) && xl->dlhandle)
+    if (!(global_ctx->cmd_args.vgtool != _gf_none) && xl->dlhandle)
         dlclose(xl->dlhandle);
     if (xl->options)
         dict_unref(xl->options);
@@ -957,7 +954,7 @@ xlator_mem_cleanup(xlator_t *this)
     glusterfs_graph_t *graph = NULL;
     gf_boolean_t graph_cleanup = _gf_false;
 
-    if (this->call_cleanup || !global_ctx)
+    if (this->call_cleanup)
         return;
 
     this->call_cleanup = 1;
@@ -1366,7 +1363,7 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         gf_smsg("glusterfs", gf_log_get_loglevel(), 0, LG_MSG_SET_LOG_LEVEL,
                 "new-value=%d", log_level, "old-value=%d",
                 gf_log_get_loglevel(), NULL);
-        gf_log_set_loglevel(global_ctx, log_level);
+        gf_log_set_loglevel(log_level);
         ret = 0;
         goto out;
     }
@@ -1456,12 +1453,12 @@ copy_opts_to_child(xlator_t *src, xlator_t *dst, char *glob)
 }
 
 int
-glusterfs_delete_volfile_checksum(glusterfs_ctx_t *ctx, const char *volfile_id)
+glusterfs_delete_volfile_checksum(const char *volfile_id)
 {
     gf_volfile_t *volfile_tmp = NULL;
     gf_volfile_t *volfile_obj = NULL;
 
-    list_for_each_entry(volfile_tmp, &ctx->volfile_list, volfile_list)
+    list_for_each_entry(volfile_tmp, &global_ctx->volfile_list, volfile_list)
     {
         if (!strcmp(volfile_id, volfile_tmp->vol_id)) {
             list_del_init(&volfile_tmp->volfile_list);

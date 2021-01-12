@@ -138,9 +138,9 @@ typedef struct log_buf_ {
 } log_buf_t;
 
 void
-gf_log_globals_init(void *ctx, gf_loglevel_t level);
+gf_log_globals_init(gf_loglevel_t level);
 int
-gf_log_init(void *data, const char *filename, const char *ident);
+gf_log_init(const char *filename, const char *ident);
 
 void
 gf_log_logrotate(int signum);
@@ -313,7 +313,7 @@ gf_log_enable_syslog(void);
 gf_loglevel_t
 gf_log_get_loglevel(void);
 void
-gf_log_set_loglevel(struct _glusterfs_ctx *ctx, gf_loglevel_t level);
+gf_log_set_loglevel(gf_loglevel_t level);
 int
 gf_log_get_localtime(void);
 void
@@ -351,13 +351,13 @@ void
 gf_log_set_log_flush_timeout(uint32_t timeout);
 
 void
-gf_log_flush_msgs(struct _glusterfs_ctx *ctx);
+gf_log_flush_msgs();
 
 int
-gf_log_inject_timer_event(struct _glusterfs_ctx *ctx);
+gf_log_inject_timer_event();
 
 void
-gf_log_disable_suppression_before_exit(struct _glusterfs_ctx *ctx);
+gf_log_disable_suppression_before_exit();
 
 #define GF_DEBUG(xl, format, args...)                                          \
     gf_log((xl)->name, GF_LOG_DEBUG, format, ##args)

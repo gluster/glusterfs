@@ -50,8 +50,8 @@ __gf_quiesce_start_timer(xlator_t *this, quiesce_priv_t *priv)
         timeout.tv_sec = priv->timeout;
         timeout.tv_nsec = 0;
 
-        priv->timer = gf_timer_call_after(global_ctx, timeout,
-                                          gf_quiesce_timeout, (void *)this);
+        priv->timer = gf_timer_call_after(timeout, gf_quiesce_timeout,
+                                          (void *)this);
         if (priv->timer == NULL) {
             gf_log(this->name, GF_LOG_ERROR, "Cannot create timer");
         }

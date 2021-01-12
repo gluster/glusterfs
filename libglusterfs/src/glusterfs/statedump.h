@@ -78,7 +78,7 @@ void
 gf_proc_dump_cleanup(void);
 
 void
-gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx);
+gf_proc_dump_info(int signum);
 
 int
 gf_proc_dump_add_section(char *key, ...)
@@ -107,7 +107,7 @@ void
 gf_proc_dump_mem_info_to_dict(dict_t *dict);
 
 void
-gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict);
+gf_proc_dump_mempool_info_to_dict(dict_t *dict);
 
 void
 glusterd_init(int sig);

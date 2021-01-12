@@ -582,7 +582,7 @@ glusterd_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
      * be serialized.
      */
     rsp_size = xdr_sizeof(xdrproc, arg);
-    iob = iobuf_get2(req->svc->ctx->iobuf_pool, rsp_size);
+    iob = iobuf_get2(global_ctx->iobuf_pool, rsp_size);
     if (!iob) {
         gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Failed to get iobuf");
@@ -2096,7 +2096,7 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
         conn = &rpc->conn;
         pthread_mutex_lock(&conn->lock);
         if (conn->reconnect) {
-            (void)gf_timer_call_cancel(global_ctx, conn->reconnect);
+            (void)gf_timer_call_cancel(conn->reconnect);
             conn->reconnect = NULL;
         }
         pthread_mutex_unlock(&conn->lock);

@@ -130,7 +130,6 @@ get_fuse_state(xlator_t *this, fuse_in_header_t *finh)
     state->active_subvol = active_subvol;
     state->itable = active_subvol->itable;
 
-    state->pool = global_ctx->pool;
     state->finh = finh;
     state->this = this;
 
@@ -370,7 +369,7 @@ get_call_frame_for_req(fuse_state_t *state)
     xlator_t *this = NULL;
     fuse_private_t *priv = NULL;
 
-    pool = state->pool;
+    pool = global_ctx->pool;
     finh = state->finh;
     this = state->this;
     priv = this->private;

@@ -159,9 +159,8 @@ out:
 }
 
 int
-svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
-                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
-                        xdrproc_t xdrproc)
+svs_mgmt_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
+                        int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
     int count = 0;
@@ -174,7 +173,6 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
 
     GF_VALIDATE_OR_GOTO("snapview-server", frame, out);
     GF_VALIDATE_OR_GOTO("snapview-server", req, out);
-    GF_VALIDATE_OR_GOTO("snapview-server", ctx, out);
     GF_VALIDATE_OR_GOTO("snapview-server", prog, out);
 
     GF_ASSERT(frame->this);
@@ -190,7 +188,7 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
-        iobuf = iobuf_get2(ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         }
@@ -211,8 +209,8 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
         count = 1;
     }
 
-    ret = rpc_clnt_submit(ctx->mgmt, prog, procnum, cbkfn, &iov, count, NULL, 0,
-                          iobref, frame, NULL, 0, NULL, 0, NULL);
+    ret = rpc_clnt_submit(global_ctx->mgmt, prog, procnum, cbkfn, &iov, count,
+                          NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
 
 out:
     if (iobref)
@@ -476,7 +474,7 @@ svs_get_snapshot_list(xlator_t *this)
     }
 
     ret = svs_mgmt_submit_request(
-        &req, frame, global_ctx, &svs_clnt_handshake_prog, GF_HNDSK_GET_SNAPSHOT_INFO,
+        &req, frame, &svs_clnt_handshake_prog, GF_HNDSK_GET_SNAPSHOT_INFO,
         mgmt_get_snapinfo_cbk, (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
 
     if (ret) {

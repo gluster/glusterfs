@@ -36,8 +36,6 @@ get_quotad_aggregator_state(xlator_t *this, rpcsvc_request_t *req)
 
     state->itable = active_subvol->itable;
 
-    state->pool = global_ctx->pool;
-
     return state;
 }
 
@@ -63,11 +61,10 @@ quotad_aggregator_alloc_frame(rpcsvc_request_t *req)
     GF_VALIDATE_OR_GOTO("server", req, out);
     GF_VALIDATE_OR_GOTO("server", req->trans, out);
     GF_VALIDATE_OR_GOTO("server", req->svc, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
 
     this = req->svc->xl;
 
-    frame = create_frame(this, req->svc->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         goto out;
 

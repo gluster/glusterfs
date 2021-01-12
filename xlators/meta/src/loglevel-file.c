@@ -30,7 +30,7 @@ loglevel_file_write(xlator_t *this, fd_t *fd, struct iovec *iov, int count)
 
     level = strtol(iov[0].iov_base, NULL, 0);
     if (level >= GF_LOG_NONE && level <= GF_LOG_TRACE)
-        gf_log_set_loglevel(global_ctx, level);
+        gf_log_set_loglevel(level);
 
     return iov_length(iov, count);
 }

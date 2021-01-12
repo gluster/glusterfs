@@ -900,7 +900,7 @@ gf_dump_config_flags()
 
 /* Obtain a backtrace and print it to the log */
 void
-gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
+gf_print_trace(int32_t signum)
 {
     char msg[1024] = {
         0,
@@ -919,13 +919,13 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
      */
     gf_log_flush();
 
-    gf_log_disable_suppression_before_exit(ctx);
+    gf_log_disable_suppression_before_exit(global_ctx);
 
     /* Pending frames, (if any), list them in order */
     gf_msg_plain_nomem(GF_LOG_ALERT, "pending frames:");
     {
         /* FIXME: traversing stacks outside pool->lock */
-        list_for_each_entry(stack, &ctx->pool->all_frames, all_frames)
+        list_for_each_entry(stack, &global_ctx->pool->all_frames, all_frames)
         {
             if (stack->type == GF_OP_TYPE_FOP)
                 sprintf(msg, "frame : type(%d) op(%s)", stack->type,
@@ -3858,7 +3858,7 @@ out:
 
 /* Sets log file path from user provided arguments */
 int
-gf_set_log_file_path(cmd_args_t *cmd_args, glusterfs_ctx_t *ctx)
+gf_set_log_file_path(cmd_args_t *cmd_args)
 {
     int i = 0;
     int j = 0;
@@ -3889,7 +3889,7 @@ gf_set_log_file_path(cmd_args_t *cmd_args, glusterfs_ctx_t *ctx)
         goto done;
     }
 
-    if (ctx && GF_GLUSTERD_PROCESS == ctx->process_mode) {
+    if (GF_GLUSTERD_PROCESS == global_ctx->process_mode) {
         ret = gf_asprintf(&cmd_args->log_file,
                           DEFAULT_LOG_FILE_DIRECTORY "/%s.log", GLUSTERD_NAME);
         if (ret > 0)

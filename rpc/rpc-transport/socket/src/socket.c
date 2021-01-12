@@ -2531,7 +2531,8 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
     }
 
     if (notify_handled && (ret >= 0))
-        gf_event_handled(global_ctx->event_pool, priv->sock, priv->idx, priv->gen);
+        gf_event_handled(global_ctx->event_pool, priv->sock, priv->idx,
+                         priv->gen);
 
     if (pollin) {
         rpc_transport_ref(this);
@@ -3098,7 +3099,6 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
          */
         if (new_sockaddr.ss_family != AF_UNIX)
             new_trans->options = dict_ref(this->options);
-        new_trans->ctx = global_ctx;
 
         ret = socket_init(new_trans);
 
@@ -3121,7 +3121,6 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_trans->ops = this->ops;
         new_trans->init = this->init;
         new_trans->fini = this->fini;
-        new_trans->ctx = global_ctx;
         new_trans->xl = this->xl;
         new_trans->mydata = this->mydata;
         new_trans->notify = this->notify;
@@ -3177,8 +3176,8 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
             if (ret >= 0) {
                 new_priv->idx = gf_event_register(
-                    global_ctx->event_pool, new_sock, socket_event_handler, new_trans,
-                    1, 0, new_trans->notify_poller_death);
+                    global_ctx->event_pool, new_sock, socket_event_handler,
+                    new_trans, 1, 0, new_trans->notify_poller_death);
                 if (new_priv->idx == -1) {
                     ret = -1;
                     gf_log(this->name, GF_LOG_ERROR,

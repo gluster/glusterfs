@@ -2611,7 +2611,7 @@ afr_changelog_post_op(call_frame_t *frame, xlator_t *this)
 
         GF_ASSERT(lock->delay_timer == NULL);
         lock->delay_timer = gf_timer_call_after(
-            global_ctx, delta, afr_delayed_changelog_wake_up_cbk, local);
+            delta, afr_delayed_changelog_wake_up_cbk, local);
         if (!lock->delay_timer) {
             lock->release = _gf_true;
         } else {
@@ -2700,7 +2700,7 @@ __afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
             lock->release = _gf_true;
         } else if (lock->delay_timer) {
             lock->release = _gf_true;
-            if (gf_timer_call_cancel(global_ctx, lock->delay_timer)) {
+            if (gf_timer_call_cancel(lock->delay_timer)) {
                 /* It will be put in frozen list
                  * in the code flow below*/
             } else {
@@ -2719,7 +2719,7 @@ __afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
 
     if (lock->delay_timer) {
         *take_lock = _gf_false;
-        if (gf_timer_call_cancel(global_ctx, lock->delay_timer)) {
+        if (gf_timer_call_cancel(lock->delay_timer)) {
             list_add_tail(&local->transaction.wait_list, &lock->frozen);
         } else {
             *timer_local = list_entry(lock->post_op.next, afr_local_t,

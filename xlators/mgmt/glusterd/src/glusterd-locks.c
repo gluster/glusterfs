@@ -500,7 +500,6 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     char *bt = NULL;
     struct timespec delay = {0};
     char *key_dup = NULL;
-    glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
 
     priv = this->private;
@@ -588,18 +587,12 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
         goto out;
     }
 
-    mgmt_lock_timer_ctx = global_ctx;
-    if (!mgmt_lock_timer_ctx) {
-        GF_FREE(mgmt_lock_timer);
-        goto out;
-    }
-
     key_dup = gf_strdup(key);
     delay.tv_sec = priv->mgmt_v3_lock_timeout;
     delay.tv_nsec = 0;
 
     mgmt_lock_timer->timer = gf_timer_call_after(
-        mgmt_lock_timer_ctx, delay, gd_mgmt_v3_unlock_timer_cbk, key_dup);
+        delay, gd_mgmt_v3_unlock_timer_cbk, key_dup);
 
     ret = dict_set_bin(priv->mgmt_v3_lock_timer, key, mgmt_lock_timer,
                        sizeof(glusterd_mgmt_v3_lock_timer));
@@ -646,7 +639,6 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     char bt_key[PATH_MAX] = "";
     int bt_key_len = 0;
     int32_t ret = -1;
-    glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
     gf_timer_t *timer = NULL;
 
@@ -681,12 +673,9 @@ out:
         mgmt_lock_timer_xl = mgmt_lock_timer->xl;
         GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_xl, ret_function);
 
-        mgmt_lock_timer_ctx = global_ctx;
-        GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_ctx, ret_function);
-
         timer = mgmt_lock_timer->timer;
         GF_FREE(timer->data);
-        gf_timer_call_cancel(mgmt_lock_timer_ctx, mgmt_lock_timer->timer);
+        gf_timer_call_cancel(mgmt_lock_timer->timer);
         dict_deln(conf->mgmt_v3_lock_timer, bt_key, bt_key_len);
         mgmt_lock_timer->timer = NULL;
         gf_log(this->name, GF_LOG_INFO,
@@ -713,7 +702,6 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
     glusterd_mgmt_v3_lock_timer *mgmt_lock_timer = NULL;
     uuid_t owner = {0};
     xlator_t *this = THIS;
-    glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
     gf_timer_t *timer = NULL;
 
@@ -803,14 +791,11 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         ret = -1;
         mgmt_lock_timer_xl = mgmt_lock_timer->xl;
         GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_xl, out);
-
-        mgmt_lock_timer_ctx = global_ctx;
-        GF_VALIDATE_OR_GOTO(this->name, mgmt_lock_timer_ctx, out);
         ret = 0;
 
         timer = mgmt_lock_timer->timer;
         GF_FREE(timer->data);
-        gf_timer_call_cancel(mgmt_lock_timer_ctx, mgmt_lock_timer->timer);
+        gf_timer_call_cancel(mgmt_lock_timer->timer);
         dict_deln(priv->mgmt_v3_lock_timer, key_dup, keylen);
     }
     ret = glusterd_volinfo_find(name, &volinfo);

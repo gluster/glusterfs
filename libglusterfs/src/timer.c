@@ -17,25 +17,23 @@
 
 /* fwd decl */
 static gf_timer_registry_t *
-gf_timer_registry_init(glusterfs_ctx_t *);
+gf_timer_registry_init();
 
 gf_timer_t *
-gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
-                    gf_timer_cbk_t callbk, void *data)
+gf_timer_call_after(struct timespec delta, gf_timer_cbk_t callbk, void *data)
 {
     gf_timer_registry_t *reg = NULL;
     gf_timer_t *event = NULL;
     gf_timer_t *trav = NULL;
     uint64_t at = 0;
 
-    if ((ctx == NULL) || (ctx->cleanup_started)) {
+    if (global_ctx->cleanup_started) {
         gf_msg_callingfn("timer", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-                         "Either ctx is NULL or"
-                         " ctx cleanup started");
+                         " global ctx cleanup started");
         return NULL;
     }
 
-    reg = gf_timer_registry_init(ctx);
+    reg = gf_timer_registry_init();
 
     if (!reg) {
         gf_msg_callingfn("timer", GF_LOG_ERROR, 0, LG_MSG_TIMER_REGISTER_ERROR,
@@ -70,28 +68,28 @@ gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
 }
 
 int32_t
-gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
+gf_timer_call_cancel(gf_timer_t *event)
 {
     gf_timer_registry_t *reg = NULL;
     gf_boolean_t fired = _gf_false;
 
-    if (ctx == NULL || event == NULL) {
+    if (event == NULL) {
         gf_msg_callingfn("timer", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid argument");
         return -1;
     }
 
-    if (ctx->cleanup_started) {
+    if (global_ctx->cleanup_started) {
         gf_msg_callingfn("timer", GF_LOG_INFO, 0, LG_MSG_CTX_CLEANUP_STARTED,
                          "ctx cleanup started");
         return -1;
     }
 
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
-        reg = ctx->timer;
+        reg = global_ctx->timer;
     }
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
 
     if (!reg) {
         /* This can happen when cleanup may have just started and
@@ -183,32 +181,32 @@ gf_timer_proc(void *data)
 }
 
 static gf_timer_registry_t *
-gf_timer_registry_init(glusterfs_ctx_t *ctx)
+gf_timer_registry_init()
 {
     gf_timer_registry_t *reg = NULL;
     int ret = -1;
     pthread_condattr_t attr;
 
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
-        reg = ctx->timer;
+        reg = global_ctx->timer;
         if (reg) {
-            UNLOCK(&ctx->lock);
+            UNLOCK(&global_ctx->lock);
             goto out;
         }
         reg = GF_CALLOC(1, sizeof(*reg), gf_common_mt_gf_timer_registry_t);
         if (!reg) {
-            UNLOCK(&ctx->lock);
+            UNLOCK(&global_ctx->lock);
             goto out;
         }
-        ctx->timer = reg;
+        global_ctx->timer = reg;
         pthread_mutex_init(&reg->lock, NULL);
         pthread_condattr_init(&attr);
         pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
         pthread_cond_init(&reg->cond, &attr);
         INIT_LIST_HEAD(&reg->active);
     }
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
     ret = gf_thread_create(&reg->th, NULL, gf_timer_proc, reg, "timer");
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, ret, LG_MSG_PTHREAD_FAILED,
@@ -220,20 +218,17 @@ out:
 }
 
 void
-gf_timer_registry_destroy(glusterfs_ctx_t *ctx)
+gf_timer_registry_destroy(void)
 {
     pthread_t thr_id;
     gf_timer_registry_t *reg = NULL;
 
-    if (ctx == NULL)
-        return;
-
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
-        reg = ctx->timer;
-        ctx->timer = NULL;
+        reg = global_ctx->timer;
+        global_ctx->timer = NULL;
     }
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
 
     if (!reg)
         return;

@@ -381,7 +381,7 @@ gf_proc_dump_mem_info_to_dict(dict_t *dict)
 }
 
 void
-gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
+gf_proc_dump_mempool_info()
 {
 #ifdef GF_DISABLE_MEMPOOL
     gf_proc_dump_write("built with --disable-mempool", " so no memory pools");
@@ -390,9 +390,9 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
 
     gf_proc_dump_add_section("mempool");
 
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
-        list_for_each_entry(pool, &ctx->mempool_list, owner)
+        list_for_each_entry(pool, &global_ctx->mempool_list, owner)
         {
             int64_t active = GF_ATOMIC_GET(pool->active);
 
@@ -408,12 +408,12 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
             gf_proc_dump_write("shared-pool", "%p", pool->pool);
         }
     }
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
 #endif /* GF_DISABLE_MEMPOOL */
 }
 
 void
-gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
+gf_proc_dump_mempool_info_to_dict(dict_t *dict)
 {
 #ifndef GF_DISABLE_MEMPOOL
     struct mem_pool *pool = NULL;
@@ -423,12 +423,12 @@ gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
     int count = 0;
     int ret = -1;
 
-    if (!ctx || !dict)
+    if (!dict)
         return;
 
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
-        list_for_each_entry(pool, &ctx->mempool_list, owner)
+        list_for_each_entry(pool, &global_ctx->mempool_list, owner)
         {
             int64_t active = GF_ATOMIC_GET(pool->active);
 
@@ -465,7 +465,7 @@ gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
         }
     }
 out:
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
 #endif /* !GF_DISABLE_MEMPOOL */
 }
 
@@ -473,16 +473,16 @@ void
 gf_proc_dump_latency_info(xlator_t *xl);
 
 void
-gf_proc_dump_dict_info(glusterfs_ctx_t *ctx)
+gf_proc_dump_dict_info()
 {
     int64_t total_dicts = 0;
     int64_t total_pairs = 0;
 
-    total_dicts = GF_ATOMIC_GET(ctx->stats.total_dicts_used);
-    total_pairs = GF_ATOMIC_GET(ctx->stats.total_pairs_used);
+    total_dicts = GF_ATOMIC_GET(global_ctx->stats.total_dicts_used);
+    total_pairs = GF_ATOMIC_GET(global_ctx->stats.total_pairs_used);
 
     gf_proc_dump_write("max-pairs-per-dict", "%" GF_PRI_ATOMIC,
-                       GF_ATOMIC_GET(ctx->stats.max_dict_pairs));
+                       GF_ATOMIC_GET(global_ctx->stats.max_dict_pairs));
     gf_proc_dump_write("total-pairs-used", "%" PRId64, total_pairs);
     gf_proc_dump_write("total-dicts-used", "%" PRId64, total_dicts);
     gf_proc_dump_write("average-pairs-per-dict", "%" PRId64,
@@ -505,8 +505,8 @@ gf_proc_dump_single_xlator_info(xlator_t *trav)
     gf_proc_dump_xlator_mem_info(trav);
 
     if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED(inode) && (trav->itable)) {
-        snprintf(itable_key, sizeof(itable_key), "%d.%s.itable", global_ctx->graph_id,
-                 trav->name);
+        snprintf(itable_key, sizeof(itable_key), "%d.%s.itable",
+                 global_ctx->graph_id, trav->name);
     }
 
     if (!trav->dumpops) {
@@ -789,7 +789,7 @@ gf_proc_dump_options_init()
 }
 
 void
-gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
+gf_proc_dump_info(int signum)
 {
     int i = 0;
     int ret = -1;
@@ -820,20 +820,16 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     gf_msg_trace("dump", 0, "received statedump request (sig:USR1)");
 
-    if (!ctx)
-        goto out;
-
     /*
      * Multiplexed daemons can change the active graph when attach/detach
      * is called. So this has to be protected with the cleanup lock.
      */
-    if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name))
-        pthread_mutex_lock(&ctx->cleanup_lock);
+    if (mgmt_is_multiplexed_daemon(global_ctx->cmd_args.process_name))
+        pthread_mutex_lock(&global_ctx->cleanup_lock);
     gf_proc_dump_lock();
 
-    if (!mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name) &&
-        (ctx && ctx->active)) {
-        top = ctx->active->first;
+    if (!mgmt_is_multiplexed_daemon(global_ctx->cmd_args.process_name)) {
+        top = global_ctx->active->first;
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             brick_count++;
         }
@@ -842,8 +838,8 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
             is_brick_mux = _gf_true;
     }
 
-    if (ctx->cmd_args.brick_name) {
-        GF_REMOVE_SLASH_FROM_PATH(ctx->cmd_args.brick_name, brick_name);
+    if (global_ctx->cmd_args.brick_name) {
+        GF_REMOVE_SLASH_FROM_PATH(global_ctx->cmd_args.brick_name, brick_name);
     } else
         snprintf(brick_name, sizeof(brick_name), "glusterdump");
 
@@ -851,23 +847,23 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     if (ret < 0)
         goto out;
 
-    ret = snprintf(
-        path, sizeof(path), "%s/%s.%d.dump.%" PRIu64,
-        ((dump_options.dump_path != NULL)
-             ? dump_options.dump_path
-             : ((ctx->statedump_path != NULL) ? ctx->statedump_path
-                                              : DEFAULT_VAR_RUN_DIRECTORY)),
-        brick_name, getpid(), (uint64_t)gf_time());
+    ret = snprintf(path, sizeof(path), "%s/%s.%d.dump.%" PRIu64,
+                   ((dump_options.dump_path != NULL)
+                        ? dump_options.dump_path
+                        : ((global_ctx->statedump_path != NULL)
+                               ? global_ctx->statedump_path
+                               : DEFAULT_VAR_RUN_DIRECTORY)),
+                   brick_name, getpid(), (uint64_t)gf_time());
     if ((ret < 0) || (ret >= sizeof(path))) {
         goto out;
     }
 
-    snprintf(
-        tmp_dump_name, PATH_MAX, "%s/dumpXXXXXX",
-        ((dump_options.dump_path != NULL)
-             ? dump_options.dump_path
-             : ((ctx->statedump_path != NULL) ? ctx->statedump_path
-                                              : DEFAULT_VAR_RUN_DIRECTORY)));
+    snprintf(tmp_dump_name, PATH_MAX, "%s/dumpXXXXXX",
+             ((dump_options.dump_path != NULL)
+                  ? dump_options.dump_path
+                  : ((global_ctx->statedump_path != NULL)
+                         ? global_ctx->statedump_path
+                         : DEFAULT_VAR_RUN_DIRECTORY)));
 
     ret = gf_proc_dump_open(tmp_dump_name);
     if (ret < 0)
@@ -889,32 +885,32 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     if (GF_PROC_DUMP_IS_OPTION_ENABLED(mem)) {
         gf_proc_dump_mem_info();
-        gf_proc_dump_mempool_info(ctx);
+        gf_proc_dump_mempool_info();
     }
 
     if (GF_PROC_DUMP_IS_OPTION_ENABLED(iobuf))
-        iobuf_stats_dump(ctx->iobuf_pool);
+        iobuf_stats_dump(global_ctx->iobuf_pool);
     if (GF_PROC_DUMP_IS_OPTION_ENABLED(callpool))
-        gf_proc_dump_pending_frames(ctx->pool);
+        gf_proc_dump_pending_frames(global_ctx->pool);
 
     /* dictionary stats */
     gf_proc_dump_add_section("dict");
-    gf_proc_dump_dict_info(ctx);
+    gf_proc_dump_dict_info();
 
-    if (ctx->root) {
+    if (global_ctx->root) {
         gf_proc_dump_add_section("fuse");
-        gf_proc_dump_single_xlator_info(ctx->root);
+        gf_proc_dump_single_xlator_info(global_ctx->root);
     }
 
-    if (ctx->active) {
-        gf_proc_dump_add_section("active graph - %d", ctx->graph_id);
-        gf_proc_dump_xlator_info(ctx->active->top, is_brick_mux);
+    if (global_ctx->active) {
+        gf_proc_dump_add_section("active graph - %d", global_ctx->graph_id);
+        gf_proc_dump_xlator_info(global_ctx->active->top, is_brick_mux);
     }
 
     i = 0;
-    list_for_each_entry(trav, &ctx->graphs, list)
+    list_for_each_entry(trav, &global_ctx->graphs, list)
     {
-        if (trav == ctx->active)
+        if (trav == global_ctx->active)
             continue;
 
         gf_proc_dump_add_section("oldgraph[%d]", i);
@@ -938,11 +934,9 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 out:
     GF_FREE(dump_options.dump_path);
     dump_options.dump_path = NULL;
-    if (ctx) {
-        gf_proc_dump_unlock();
-        if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name))
-            pthread_mutex_unlock(&ctx->cleanup_lock);
-    }
+    gf_proc_dump_unlock();
+    if (mgmt_is_multiplexed_daemon(global_ctx->cmd_args.process_name))
+        pthread_mutex_unlock(&global_ctx->cleanup_lock);
 
     return;
 }

@@ -429,12 +429,11 @@ server_alloc_frame(rpcsvc_request_t *req)
     GF_VALIDATE_OR_GOTO("server", req, out);
     GF_VALIDATE_OR_GOTO("server", req->trans, out);
     GF_VALIDATE_OR_GOTO("server", req->svc, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
 
     client = req->trans->xl_private;
     GF_VALIDATE_OR_GOTO("server", client, out);
 
-    frame = create_frame(client->this, req->svc->ctx->pool);
+    frame = create_frame(client->this, global_ctx->pool);
     if (!frame)
         goto out;
 

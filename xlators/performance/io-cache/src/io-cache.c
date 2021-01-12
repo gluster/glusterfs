@@ -1146,7 +1146,7 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     {
         if (!ioc_inode->cache.page_table) {
             ioc_inode->cache.page_table = rbthash_table_init(
-                global_ctx, IOC_PAGE_TABLE_BUCKET_COUNT, ioc_hashfn, NULL, 0,
+                IOC_PAGE_TABLE_BUCKET_COUNT, ioc_hashfn, NULL, 0,
                 table->mem_pool);
 
             if (ioc_inode->cache.page_table == NULL) {

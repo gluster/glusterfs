@@ -327,14 +327,12 @@ mem_pool_thread_destructor(per_thread_pool_list_t *pool_list);
 #endif /* GF_DISABLE_MEMPOOL */
 
 struct mem_pool *
-mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
-                unsigned long count, char *name);
+mem_pool_new_fn(unsigned long sizeof_type, unsigned long count, char *name);
 
-#define mem_pool_new(type, count)                                              \
-    mem_pool_new_fn(global_ctx, sizeof(type), count, #type)
+#define mem_pool_new(type, count) mem_pool_new_fn(sizeof(type), count, #type)
 
-#define mem_pool_new_ctx(ctx, type, count)                                     \
-    mem_pool_new_fn(ctx, sizeof(type), count, #type)
+#define mem_pool_new_ctx(type, count)                                          \
+    mem_pool_new_fn(sizeof(type), count, #type)
 
 void
 mem_put_pool(void *ptr);
@@ -347,6 +345,6 @@ void
 mem_pool_destroy(struct mem_pool *pool);
 
 void
-gf_mem_acct_enable_set(void *ctx);
+gf_mem_acct_enable_set(void);
 
 #endif /* _MEM_POOL_H */

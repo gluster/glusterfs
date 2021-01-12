@@ -254,6 +254,6 @@ int
 rpc_clnt_disable(struct rpc_clnt *rpc);
 
 int
-rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brick_name);
+rpc_clnt_mgmt_pmap_signout(char *brick_name);
 
 #endif /* !_RPC_CLNT_H */

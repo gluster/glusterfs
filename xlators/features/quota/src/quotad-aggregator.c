@@ -37,7 +37,7 @@ quotad_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
      */
     if (arg && xdrproc) {
         xdr_size = xdr_sizeof(xdrproc, arg);
-        iob = iobuf_get2(req->svc->ctx->iobuf_pool, xdr_size);
+        iob = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iob) {
             gf_log_callingfn(THIS->name, GF_LOG_ERROR, "Failed to get iobuf");
             goto ret;
@@ -437,7 +437,7 @@ quotad_aggregator_init(xlator_t *this)
         goto out;
 
     /* RPC related */
-    priv->rpcsvc = rpcsvc_init(this, global_ctx, this->options, 0);
+    priv->rpcsvc = rpcsvc_init(this, this->options, 0);
     if (priv->rpcsvc == NULL) {
         gf_msg(this->name, GF_LOG_WARNING, 0, Q_MSG_RPCSVC_INIT_FAILED,
                "creation of rpcsvc failed");

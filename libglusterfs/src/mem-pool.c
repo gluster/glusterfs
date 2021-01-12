@@ -18,19 +18,11 @@
 #include "glusterfs/libglusterfs-messages.h"
 
 void
-gf_mem_acct_enable_set(void *data)
+gf_mem_acct_enable_set(void)
 {
-    glusterfs_ctx_t *ctx = NULL;
+    global_ctx->mem_acct_enable = 1;
 
-    REQUIRE(data != NULL);
-
-    ctx = data;
-
-    GF_ASSERT(ctx != NULL);
-
-    ctx->mem_acct_enable = 1;
-
-    ENSURE(1 == ctx->mem_acct_enable);
+    ENSURE(1 == global_ctx->mem_acct_enable);
 
     return;
 }
@@ -126,10 +118,7 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 static bool
 gf_mem_acct_enabled(void)
 {
-    xlator_t *x = THIS;
-    /* Low-level __gf_xxx() may be called
-       before ctx is initialized. */
-    return global_ctx && global_ctx->mem_acct_enable;
+    return global_ctx->mem_acct_enable;
 }
 
 void *
@@ -365,8 +354,7 @@ free:
 #if defined(GF_DISABLE_MEMPOOL)
 
 struct mem_pool *
-mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
-                unsigned long count, char *name)
+mem_pool_new_fn(unsigned long sizeof_type, unsigned long count, char *name)
 {
     return (struct mem_pool *)(sizeof_type);
 }
@@ -657,8 +645,7 @@ mem_pool_destroy(struct mem_pool *pool)
 }
 
 struct mem_pool *
-mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
-                unsigned long count, char *name)
+mem_pool_new_fn(unsigned long sizeof_type, unsigned long count, char *name)
 {
     unsigned long extra_size, size;
     unsigned int power;
@@ -715,7 +702,7 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
 
     LOCK(&global_ctx->lock);
     {
-        list_add(&new->owner, &ctx->mempool_list);
+        list_add(&new->owner, &global_ctx->mempool_list);
     }
     UNLOCK(&global_ctx->lock);
 

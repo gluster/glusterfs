@@ -1088,7 +1088,7 @@ nfs_init_state(xlator_t *this)
         nfs->enable_nlm = _gf_false;
     }
 
-    nfs->rpcsvc = rpcsvc_init(this, global_ctx, this->options, fopspoolsize);
+    nfs->rpcsvc = rpcsvc_init(this, this->options, fopspoolsize);
     if (!nfs->rpcsvc) {
         ret = -1;
         gf_msg(GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RPC_INIT_FAIL,

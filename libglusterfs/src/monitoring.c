@@ -129,24 +129,24 @@ dump_latency_and_count(xlator_t *xl, int fd)
 }
 
 static inline void
-dump_call_stack_details(glusterfs_ctx_t *ctx, int fd)
+dump_call_stack_details(int fd)
 {
     dprintf(fd, "total.stack.count %" PRIu64 "\n",
-            GF_ATOMIC_GET(ctx->pool->total_count));
-    dprintf(fd, "total.stack.in-flight %" PRIu64 "\n", ctx->pool->cnt);
+            GF_ATOMIC_GET(global_ctx->pool->total_count));
+    dprintf(fd, "total.stack.in-flight %" PRIu64 "\n", global_ctx->pool->cnt);
 }
 
 static inline void
-dump_dict_details(glusterfs_ctx_t *ctx, int fd)
+dump_dict_details(int fd)
 {
     uint64_t total_dicts = 0;
     uint64_t total_pairs = 0;
 
-    total_dicts = GF_ATOMIC_GET(ctx->stats.total_dicts_used);
-    total_pairs = GF_ATOMIC_GET(ctx->stats.total_pairs_used);
+    total_dicts = GF_ATOMIC_GET(global_ctx->stats.total_dicts_used);
+    total_pairs = GF_ATOMIC_GET(global_ctx->stats.total_pairs_used);
 
     dprintf(fd, "total.dict.max-pairs-per %" PRIu64 "\n",
-            GF_ATOMIC_GET(ctx->stats.max_dict_pairs));
+            GF_ATOMIC_GET(global_ctx->stats.max_dict_pairs));
     dprintf(fd, "total.dict.pairs-used %" PRIu64 "\n", total_pairs);
     dprintf(fd, "total.dict.used %" PRIu64 "\n", total_dicts);
     dprintf(fd, "total.dict.average-pairs %" PRIu64 "\n",
@@ -154,12 +154,12 @@ dump_dict_details(glusterfs_ctx_t *ctx, int fd)
 }
 
 static void
-dump_inode_stats(glusterfs_ctx_t *ctx, int fd)
+dump_inode_stats(int fd)
 {
 }
 
 static void
-dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
+dump_global_metrics(int fd)
 {
     struct timeval tv;
     time_t nowtime;
@@ -174,30 +174,30 @@ dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
     strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
 
     /* Let every file have information on which process dumped info */
-    dprintf(fd, "## %s\n", ctx->cmdlinestr);
+    dprintf(fd, "## %s\n", global_ctx->cmdlinestr);
     dprintf(fd, "### %s\n", tmbuf);
-    dprintf(fd, "### BrickName: %s\n", ctx->cmd_args.brick_name);
-    dprintf(fd, "### MountName: %s\n", ctx->cmd_args.mount_point);
-    dprintf(fd, "### VolumeName: %s\n", ctx->cmd_args.volume_name);
+    dprintf(fd, "### BrickName: %s\n", global_ctx->cmd_args.brick_name);
+    dprintf(fd, "### MountName: %s\n", global_ctx->cmd_args.mount_point);
+    dprintf(fd, "### VolumeName: %s\n", global_ctx->cmd_args.volume_name);
 
     /* Dump memory accounting */
     dump_global_memory_accounting(fd);
     dprintf(fd, "# -----\n");
 
-    dump_call_stack_details(ctx, fd);
-    dump_dict_details(ctx, fd);
+    dump_call_stack_details(fd);
+    dump_dict_details(fd);
     dprintf(fd, "# -----\n");
 
-    dump_inode_stats(ctx, fd);
+    dump_inode_stats(fd);
     dprintf(fd, "# -----\n");
 }
 
 static void
-dump_xl_metrics(glusterfs_ctx_t *ctx, int fd)
+dump_xl_metrics(int fd)
 {
     xlator_t *xl;
 
-    xl = ctx->active->top;
+    xl = global_ctx->active->top;
 
     while (xl) {
         dump_latency_and_count(xl, fd);
@@ -207,8 +207,8 @@ dump_xl_metrics(glusterfs_ctx_t *ctx, int fd)
         xl = xl->next;
     }
 
-    if (ctx->root) {
-        xl = ctx->root;
+    if (global_ctx->root) {
+        xl = global_ctx->root;
 
         dump_latency_and_count(xl, fd);
         dump_mem_acct_details(xl, fd);
@@ -220,7 +220,7 @@ dump_xl_metrics(glusterfs_ctx_t *ctx, int fd)
 }
 
 char *
-gf_monitor_metrics(glusterfs_ctx_t *ctx)
+gf_monitor_metrics()
 {
     int ret = -1;
     int fd = 0;
@@ -228,7 +228,7 @@ gf_monitor_metrics(glusterfs_ctx_t *ctx)
 
     gf_msg_trace("monitoring", 0, "received monitoring request (sig:USR2)");
 
-    dumppath = ctx->config.metrics_dumppath;
+    dumppath = global_ctx->config.metrics_dumppath;
     if (dumppath == NULL) {
         dumppath = GLUSTER_METRICS_DIR;
     }
@@ -255,9 +255,9 @@ gf_monitor_metrics(glusterfs_ctx_t *ctx)
         return NULL;
     }
 
-    dump_global_metrics(ctx, fd);
+    dump_global_metrics(fd);
 
-    dump_xl_metrics(ctx, fd);
+    dump_xl_metrics(fd);
 
     /* This below line is used just to capture any errors with dprintf() */
     ret = dprintf(fd, "\n# End of metrics\n");

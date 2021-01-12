@@ -82,7 +82,7 @@ int cli_default_conn_timeout = 120;
 int cli_ten_minutes_timeout = 600;
 
 static int
-glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
+glusterfs_ctx_defaults_init(void)
 {
     cmd_args_t *cmd_args = NULL;
     struct rlimit lim = {
@@ -90,9 +90,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     };
     call_pool_t *pool = NULL;
     int ret = -1;
-
-    if (!ctx)
-        return ret;
 
     ret = xlator_mem_acct_init(THIS, cli_mt_end);
     if (ret != 0) {
@@ -105,23 +102,23 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
      */
     ret = -1;
 
-    ctx->process_uuid = generate_glusterfs_ctx_id();
-    if (!ctx->process_uuid) {
+    global_ctx->process_uuid = generate_glusterfs_ctx_id();
+    if (!global_ctx->process_uuid) {
         gf_log("cli", GF_LOG_ERROR, "Failed to generate uuid.");
         goto out;
     }
 
-    ctx->page_size = 128 * GF_UNIT_KB;
+    global_ctx->page_size = 128 * GF_UNIT_KB;
 
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
+    global_ctx->iobuf_pool = iobuf_pool_new();
+    if (!global_ctx->iobuf_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
         goto out;
     }
 
-    ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
-                                        STARTING_EVENT_THREADS);
-    if (!ctx->event_pool) {
+    global_ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
+                                               STARTING_EVENT_THREADS);
+    if (!global_ctx->event_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create event pool.");
         goto out;
     }
@@ -147,41 +144,41 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool) {
+    global_ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
+    if (!global_ctx->stub_mem_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to stub mem pool.");
         goto out;
     }
 
-    ctx->dict_pool = mem_pool_new(dict_t, 32);
-    if (!ctx->dict_pool) {
+    global_ctx->dict_pool = mem_pool_new(dict_t, 32);
+    if (!global_ctx->dict_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create dict pool.");
         goto out;
     }
 
-    ctx->dict_pair_pool = mem_pool_new(data_pair_t, 512);
-    if (!ctx->dict_pair_pool) {
+    global_ctx->dict_pair_pool = mem_pool_new(data_pair_t, 512);
+    if (!global_ctx->dict_pair_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create dict pair pool.");
         goto out;
     }
 
-    ctx->dict_data_pool = mem_pool_new(data_t, 512);
-    if (!ctx->dict_data_pool) {
+    global_ctx->dict_data_pool = mem_pool_new(data_t, 512);
+    if (!global_ctx->dict_data_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create dict data pool.");
         goto out;
     }
 
-    ctx->logbuf_pool = mem_pool_new(log_buf_t, 256);
-    if (!ctx->logbuf_pool) {
+    global_ctx->logbuf_pool = mem_pool_new(log_buf_t, 256);
+    if (!global_ctx->logbuf_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create logbuf pool.");
         goto out;
     }
 
     INIT_LIST_HEAD(&pool->all_frames);
     LOCK_INIT(&pool->lock);
-    ctx->pool = pool;
+    global_ctx->pool = pool;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     INIT_LIST_HEAD(&cmd_args->xlator_options);
 
@@ -199,34 +196,33 @@ out:
         }
         GF_FREE(pool);
         pool = NULL;
-        GF_FREE(ctx->process_uuid);
-        mem_pool_destroy(ctx->stub_mem_pool);
-        mem_pool_destroy(ctx->dict_pool);
-        mem_pool_destroy(ctx->dict_pair_pool);
-        mem_pool_destroy(ctx->dict_data_pool);
-        mem_pool_destroy(ctx->logbuf_pool);
+        GF_FREE(global_ctx->process_uuid);
+        mem_pool_destroy(global_ctx->stub_mem_pool);
+        mem_pool_destroy(global_ctx->dict_pool);
+        mem_pool_destroy(global_ctx->dict_pair_pool);
+        mem_pool_destroy(global_ctx->dict_data_pool);
+        mem_pool_destroy(global_ctx->logbuf_pool);
     }
 
     return ret;
 }
 
 static int
-logging_init(glusterfs_ctx_t *ctx, struct cli_state *state)
+logging_init(struct cli_state *state)
 {
     char *log_file = state->log_file ? state->log_file
                                      : DEFAULT_CLI_LOG_FILE_DIRECTORY
                          "/cli.log";
 
     /* passing ident as NULL means to use default ident for syslog */
-    if (gf_log_init(ctx, log_file, NULL) == -1) {
+    if (gf_log_init(log_file, NULL) == -1) {
         fprintf(stderr, "ERROR: failed to open logfile %s\n", log_file);
     }
 
     /* CLI should not have something to DEBUG after the release,
        hence defaulting to INFO loglevel */
-    gf_log_set_loglevel(ctx, (state->log_level == GF_LOG_NONE)
-                                 ? GF_LOG_INFO
-                                 : state->log_level);
+    gf_log_set_loglevel((state->log_level == GF_LOG_NONE) ? GF_LOG_INFO
+                                                          : state->log_level);
 
     return 0;
 }
@@ -478,7 +474,7 @@ cli_opt_parse(char *opt, struct cli_state *state)
         if (gf_string2boolean(oarg, &secure_mgmt_tmp) == 0) {
             if (secure_mgmt_tmp) {
                 /* See declaration for why this is an int. */
-                state->ctx->secure_mgmt = 1;
+                global_ctx->secure_mgmt = 1;
             }
         } else {
             cli_err("invalid secure-mgmt value (ignored)");
@@ -502,8 +498,8 @@ parse_cmdline(int argc, char *argv[], struct cli_state *state)
 
     /* Do this first so that an option can override. */
     if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
-        state->ctx->secure_mgmt = 1;
-        state->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+        global_ctx->secure_mgmt = 1;
+        global_ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
 
     if (state->argc > GEO_REP_CMD_CONFIG_INDEX &&
@@ -796,23 +792,21 @@ main(int argc, char *argv[])
         0,
     };
     int ret = -1;
-    glusterfs_ctx_t *ctx = NULL;
 
     mem_pools_init();
 
-    ctx = glusterfs_ctx_new();
-    if (!ctx)
+    if (!glusterfs_ctx_new())
         return ENOMEM;
 
 #ifdef DEBUG
-    gf_mem_acct_enable_set(ctx);
+    gf_mem_acct_enable_set();
 #endif
 
-    ret = glusterfs_globals_init(ctx);
+    ret = glusterfs_globals_init();
     if (ret)
         return ret;
 
-    ret = glusterfs_ctx_defaults_init(ctx);
+    ret = glusterfs_ctx_defaults_init();
     if (ret)
         goto out;
 
@@ -823,14 +817,13 @@ main(int argc, char *argv[])
     if (ret)
         goto out;
 
-    state.ctx = ctx;
     global_state = &state;
 
     ret = parse_cmdline(argc, argv, &state);
     if (ret)
         goto out;
 
-    ret = logging_init(ctx, &state);
+    ret = logging_init(&state);
     if (ret)
         goto out;
 
@@ -862,10 +855,10 @@ main(int argc, char *argv[])
     if (ret)
         goto out;
 
-    ret = gf_event_dispatch(ctx->event_pool);
+    ret = gf_event_dispatch(global_ctx->event_pool);
 
 out:
-    //        glusterfs_ctx_destroy (ctx);
+    //        glusterfs_ctx_destroy ();
 
     mem_pools_fini();
 

@@ -1414,13 +1414,10 @@ rpcsvc_record_build_record(rpcsvc_request_t *req, size_t payload, size_t hdrlen,
     };
     size_t pagesize = 0;
     size_t xdr_size = 0;
-    rpcsvc_t *svc = NULL;
     int ret = -1;
 
     if ((!req) || (!req->trans) || (!req->svc) || (!recbuf))
         return NULL;
-
-    svc = req->svc;
 
     /* Fill the rpc structure and XDR it into the buffer got above. */
     ret = rpcsvc_fill_reply(req, &reply);
@@ -1431,7 +1428,7 @@ rpcsvc_record_build_record(rpcsvc_request_t *req, size_t payload, size_t hdrlen,
 
     /* Payload would include 'readv' size etc too, where as
        that comes as another payload iobuf */
-    replyiob = iobuf_get2(svc->ctx->iobuf_pool, (xdr_size + hdrlen));
+    replyiob = iobuf_get2(global_ctx->iobuf_pool, (xdr_size + hdrlen));
     if (!replyiob) {
         goto err_exit;
     }
@@ -1980,7 +1977,7 @@ rpcsvc_create_listener(rpcsvc_t *svc, dict_t *options, char *name)
         goto out;
     }
 
-    trans = rpc_transport_load(svc->ctx, options, name);
+    trans = rpc_transport_load(options, name);
     if (!trans) {
         gf_log(GF_RPCSVC, GF_LOG_WARNING,
                "cannot create listener, "
@@ -2325,7 +2322,7 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
         newprog->ownthread = _gf_false;
 
     if (newprog->ownthread) {
-        struct event_pool *ep = svc->ctx->event_pool;
+        struct event_pool *ep = global_ctx->event_pool;
         newprog->eventthreadcount = ep->eventthreadcount;
 
         pthread_key_create(&newprog->req_queue_key, NULL);
@@ -2787,13 +2784,12 @@ rpcsvc_destroy(rpcsvc_t *svc)
 /* The global RPC service initializer.
  */
 rpcsvc_t *
-rpcsvc_init(xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
-            uint32_t poolcount)
+rpcsvc_init(xlator_t *xl, dict_t *options, uint32_t poolcount)
 {
     rpcsvc_t *svc = NULL;
     int ret = -1;
 
-    if ((!xl) || (!ctx) || (!options))
+    if ((!xl) || (!global_ctx) || (!options))
         return NULL;
 
     svc = GF_CALLOC(1, sizeof(*svc), gf_common_mt_rpcsvc_t);
@@ -2833,7 +2829,6 @@ rpcsvc_init(xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
 
     ret = -1;
     svc->options = options;
-    svc->ctx = ctx;
     svc->xl = xl;
     gf_log(GF_RPCSVC, GF_LOG_DEBUG, "RPC service inited.");
 

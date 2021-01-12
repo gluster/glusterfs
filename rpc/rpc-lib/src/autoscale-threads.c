@@ -12,9 +12,9 @@
 #include "rpcsvc.h"
 
 void
-rpcsvc_autoscale_threads(glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr)
+rpcsvc_autoscale_threads(rpcsvc_t *rpc, int incr)
 {
-    struct event_pool *pool = ctx->event_pool;
+    struct event_pool *pool = global_ctx->event_pool;
     int thread_count = pool->eventthreadcount;
 
     pool->auto_thread_count += incr;

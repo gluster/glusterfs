@@ -512,8 +512,7 @@ rpcsvc_register_portmap_enabled(rpcsvc_t *svc);
  * Called in main.
  */
 extern rpcsvc_t *
-rpcsvc_init(xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
-            uint32_t poolcount);
+rpcsvc_init(xlator_t *xl, dict_t *options, uint32_t poolcount);
 
 extern int
 rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options);
@@ -685,7 +684,7 @@ rpcsvc_vector_sizer
 rpcsvc_get_program_vector_sizer(rpcsvc_t *svc, uint32_t prognum,
                                 uint32_t progver, int procnum);
 void
-rpcsvc_autoscale_threads(glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr);
+rpcsvc_autoscale_threads(rpcsvc_t *rpc, int incr);
 
 extern int
 rpcsvc_destroy(rpcsvc_t *svc);

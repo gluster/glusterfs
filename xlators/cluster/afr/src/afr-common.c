@@ -640,8 +640,8 @@ __afr_lock_heal_synctask(xlator_t *this, afr_private_t *priv, int child)
     if (!frame)
         return -1;
 
-    ret = synctask_new(global_ctx->env, afr_lock_heal, afr_lock_heal_done, frame,
-                       frame);
+    ret = synctask_new(global_ctx->env, afr_lock_heal, afr_lock_heal_done,
+                       frame, frame);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_LK_HEAL_DOM,
                "Failed to launch lock heal synctask");
@@ -1399,7 +1399,7 @@ afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
         }
         ctx->spb_choice = -1;
         if (ctx->timer) {
-            gf_timer_call_cancel(global_ctx, ctx->timer);
+            gf_timer_call_cancel(ctx->timer);
             ctx->timer = NULL;
         }
         ret = 0;
@@ -1502,7 +1502,7 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
          */
         if (ctx->timer) {
             if (ctx->spb_choice == -1) {
-                if (!gf_timer_call_cancel(global_ctx, ctx->timer)) {
+                if (!gf_timer_call_cancel(ctx->timer)) {
                     ctx->timer = NULL;
                     timer_cancelled = _gf_true;
                 }
@@ -1522,7 +1522,7 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
         }
 
     reset_timer:
-        ret = gf_timer_call_cancel(global_ctx, ctx->timer);
+        ret = gf_timer_call_cancel(ctx->timer);
         if (ret != 0) {
             /* We need to bail out now instead of launching a new
              * timer. Otherwise the cbk of the previous timer event
@@ -1537,8 +1537,8 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
         timer_reset = _gf_true;
 
     set_timer:
-        ctx->timer = gf_timer_call_after(global_ctx, delta,
-                                         afr_set_split_brain_choice_cbk, inode);
+        ctx->timer = gf_timer_call_after(delta, afr_set_split_brain_choice_cbk,
+                                         inode);
         if (!ctx->timer) {
             ctx->spb_choice = old_spb_choice;
             ret = -1;
@@ -4248,7 +4248,7 @@ afr_wakeup_same_fd_delayed_op(xlator_t *this, afr_lock_t *lock, fd_t *fd)
         local = list_entry(lock->post_op.next, afr_local_t,
                            transaction.owner_list);
         if (fd == local->fd) {
-            if (gf_timer_call_cancel(global_ctx, lock->delay_timer)) {
+            if (gf_timer_call_cancel(lock->delay_timer)) {
                 local = NULL;
             } else {
                 lock->delay_timer = NULL;
@@ -5827,7 +5827,7 @@ __afr_launch_notify_timer(xlator_t *this, afr_private_t *priv)
     gf_msg_debug(this->name, 0, "Initiating child-down timer");
     delay.tv_sec = 10;
     delay.tv_nsec = 0;
-    priv->timer = gf_timer_call_after(global_ctx, delay, afr_notify_cbk, this);
+    priv->timer = gf_timer_call_after(delay, afr_notify_cbk, this);
     if (priv->timer == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_TIMER_CREATE_FAIL,
                "Cannot create timer for delayed initialization");
@@ -6389,7 +6389,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
         have_heard_from_all = __get_heard_from_all_status(this);
         if (!had_heard_from_all && have_heard_from_all) {
             if (priv->timer) {
-                gf_timer_call_cancel(global_ctx, priv->timer);
+                gf_timer_call_cancel(priv->timer);
                 priv->timer = NULL;
             }
             /* This is the first event which completes aggregation

@@ -40,7 +40,6 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     struct addrinfo hints;
     struct addrinfo *result = NULL;
     struct addrinfo *iter_result_ptr = NULL;
-    xlator_t *this = THIS;
     char *volfile_server_transport = NULL;
 
     if (event < 0 || event >= EVENT_LAST) {
@@ -48,15 +47,13 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
         goto out;
     }
 
-    if (global_ctx) {
-        volfile_server_transport = global_ctx->cmd_args.volfile_server_transport;
-    }
+    volfile_server_transport = global_ctx->cmd_args.volfile_server_transport;
     if (!volfile_server_transport) {
         volfile_server_transport = "tcp";
     }
 
     /* host = NULL returns localhost */
-    if (global_ctx && global_ctx->cmd_args.volfile_server &&
+    if (global_ctx->cmd_args.volfile_server &&
         (strcmp(volfile_server_transport, "unix"))) {
         /* If it is client code then volfile_server is set
            use that information to push the events. */

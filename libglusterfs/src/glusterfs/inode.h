@@ -132,7 +132,7 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              uint32_t inode_hashsize);
 
 void
-inode_table_destroy_all(glusterfs_ctx_t *ctx);
+inode_table_destroy_all();
 
 void
 inode_table_destroy(inode_table_t *inode_table);

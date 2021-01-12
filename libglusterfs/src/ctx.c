@@ -73,29 +73,29 @@ glusterfs_ctx_tw_destroy(struct gf_ctx_tw *ctx_tw)
 }
 
 struct tvec_base *
-glusterfs_ctx_tw_get(glusterfs_ctx_t *ctx)
+glusterfs_ctx_tw_get()
 {
     struct gf_ctx_tw *ctx_tw = NULL;
 
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
-        if (ctx->tw) {
-            ctx_tw = GF_REF_GET(ctx->tw);
+        if (global_ctx->tw) {
+            ctx_tw = GF_REF_GET(global_ctx->tw);
         } else {
             ctx_tw = GF_CALLOC(1, sizeof(struct gf_ctx_tw),
                                gf_common_mt_tw_ctx);
             ctx_tw->timer_wheel = gf_tw_init_timers();
             GF_REF_INIT(ctx_tw, glusterfs_ctx_tw_destroy);
-            ctx->tw = ctx_tw;
+            global_ctx->tw = ctx_tw;
         }
     }
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
 
     return ctx_tw->timer_wheel;
 }
 
 void
-glusterfs_ctx_tw_put(glusterfs_ctx_t *ctx)
+glusterfs_ctx_tw_put()
 {
-    GF_REF_PUT(ctx->tw);
+    GF_REF_PUT(global_ctx->tw);
 }

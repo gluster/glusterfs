@@ -119,11 +119,6 @@ typedef struct nfs3_state {
      */
     xlator_t *nfsx;
 
-    /* The iob pool from which memory allocations are made for receiving
-     * and sending network messages.
-     */
-    struct iobuf_pool *iobpool;
-
     /* List of child subvolumes for the NFSv3 protocol.
      * Right now, is simply referring to the list of children in nfsx above.
      */

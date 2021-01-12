@@ -64,7 +64,7 @@ helper_xlator_init(uint32_t num_types)
     assert_non_null(xl->mem_acct);
 
     xl->ctx = test_calloc(1, sizeof(glusterfs_ctx_t));
-    assert_non_null(xl->ctx);
+    assert_non_null(global_ctx);
 
     for (i = 0; i < num_types; i++) {
         ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
@@ -119,7 +119,7 @@ test_gf_mem_acct_enable_set(void **state)
 
     memset(&test_ctx, 0, sizeof(test_ctx));
     assert_true(NULL == test_ctx.process_uuid);
-    gf_mem_acct_enable_set((void *)&test_ctx);
+    gf_mem_acct_enable_set();
     assert_true(1 == test_ctx.mem_acct_enable);
     assert_true(NULL == test_ctx.process_uuid);
 }

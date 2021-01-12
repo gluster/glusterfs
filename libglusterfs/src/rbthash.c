@@ -79,9 +79,8 @@ err:
  */
 
 rbthash_table_t *
-rbthash_table_init(glusterfs_ctx_t *ctx, int buckets, rbt_hasher_t hfunc,
-                   rbt_data_destroyer_t dfunc, unsigned long expected_entries,
-                   struct mem_pool *entrypool)
+rbthash_table_init(int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
+                   unsigned long expected_entries, struct mem_pool *entrypool)
 {
     rbthash_table_t *newtab = NULL;
     int ret = -1;
@@ -112,8 +111,7 @@ rbthash_table_init(glusterfs_ctx_t *ctx, int buckets, rbt_hasher_t hfunc,
     }
 
     if (expected_entries) {
-        newtab->entrypool = mem_pool_new_ctx(ctx, rbthash_entry_t,
-                                             expected_entries);
+        newtab->entrypool = mem_pool_new_ctx(rbthash_entry_t, expected_entries);
         if (!newtab->entrypool) {
             goto free_buckets;
         }

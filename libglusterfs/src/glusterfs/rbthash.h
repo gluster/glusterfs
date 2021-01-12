@@ -50,9 +50,8 @@ typedef struct rbthash_table {
 } rbthash_table_t;
 
 extern rbthash_table_t *
-rbthash_table_init(glusterfs_ctx_t *ctx, int buckets, rbt_hasher_t hfunc,
-                   rbt_data_destroyer_t dfunc, unsigned long expected_entries,
-                   struct mem_pool *entrypool);
+rbthash_table_init(int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
+                   unsigned long expected_entries, struct mem_pool *entrypool);
 
 extern int
 rbthash_insert(rbthash_table_t *tbl, void *data, void *key, int keylen);

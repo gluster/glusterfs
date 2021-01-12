@@ -58,14 +58,10 @@ vol_assigned(cmd_args_t *args)
 }
 
 static int
-glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
+glusterfs_ctx_defaults_init(void)
 {
     call_pool_t *pool = NULL;
     int ret = -1;
-
-    if (!ctx) {
-        goto err;
-    }
 
     ret = xlator_mem_acct_init(THIS, glfs_mt_end + 1);
     if (ret != 0) {
@@ -80,26 +76,26 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 
     ret = -1;
 
-    ctx->process_uuid = generate_glusterfs_ctx_id();
-    if (!ctx->process_uuid) {
+    global_ctx->process_uuid = generate_glusterfs_ctx_id();
+    if (!global_ctx->process_uuid) {
         goto err;
     }
 
-    ctx->page_size = 128 * GF_UNIT_KB;
+    global_ctx->page_size = 128 * GF_UNIT_KB;
 
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
+    global_ctx->iobuf_pool = iobuf_pool_new();
+    if (!global_ctx->iobuf_pool) {
         goto err;
     }
 
-    ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
-                                        STARTING_EVENT_THREADS);
-    if (!ctx->event_pool) {
+    global_ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
+                                               STARTING_EVENT_THREADS);
+    if (!global_ctx->event_pool) {
         goto err;
     }
 
-    ctx->env = syncenv_new(0, 0, 0);
-    if (!ctx->env) {
+    global_ctx->env = syncenv_new(0, 0, 0);
+    if (!global_ctx->env) {
         goto err;
     }
 
@@ -119,34 +115,36 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
-    if (!ctx->stub_mem_pool) {
+    global_ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
+    if (!global_ctx->stub_mem_pool) {
         goto err;
     }
 
-    ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
-    if (!ctx->dict_pool)
+    global_ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
+    if (!global_ctx->dict_pool)
         goto err;
 
-    ctx->dict_pair_pool = mem_pool_new(data_pair_t,
-                                       GF_MEMPOOL_COUNT_OF_DATA_PAIR_T);
-    if (!ctx->dict_pair_pool)
+    global_ctx->dict_pair_pool = mem_pool_new(data_pair_t,
+                                              GF_MEMPOOL_COUNT_OF_DATA_PAIR_T);
+    if (!global_ctx->dict_pair_pool)
         goto err;
 
-    ctx->dict_data_pool = mem_pool_new(data_t, GF_MEMPOOL_COUNT_OF_DATA_T);
-    if (!ctx->dict_data_pool)
+    global_ctx->dict_data_pool = mem_pool_new(data_t,
+                                              GF_MEMPOOL_COUNT_OF_DATA_T);
+    if (!global_ctx->dict_data_pool)
         goto err;
 
-    ctx->logbuf_pool = mem_pool_new(log_buf_t, GF_MEMPOOL_COUNT_OF_LRU_BUF_T);
-    if (!ctx->logbuf_pool)
+    global_ctx->logbuf_pool = mem_pool_new(log_buf_t,
+                                           GF_MEMPOOL_COUNT_OF_LRU_BUF_T);
+    if (!global_ctx->logbuf_pool)
         goto err;
 
     INIT_LIST_HEAD(&pool->all_frames);
-    INIT_LIST_HEAD(&ctx->cmd_args.xlator_options);
-    INIT_LIST_HEAD(&ctx->cmd_args.volfile_servers);
+    INIT_LIST_HEAD(&global_ctx->cmd_args.xlator_options);
+    INIT_LIST_HEAD(&global_ctx->cmd_args.volfile_servers);
 
     LOCK_INIT(&pool->lock);
-    ctx->pool = pool;
+    global_ctx->pool = pool;
 
     ret = 0;
 err:
@@ -158,17 +156,17 @@ err:
         GF_FREE(pool);
     }
 
-    if (ret && ctx) {
-        if (ctx->stub_mem_pool)
-            mem_pool_destroy(ctx->stub_mem_pool);
-        if (ctx->dict_pool)
-            mem_pool_destroy(ctx->dict_pool);
-        if (ctx->dict_data_pool)
-            mem_pool_destroy(ctx->dict_data_pool);
-        if (ctx->dict_pair_pool)
-            mem_pool_destroy(ctx->dict_pair_pool);
-        if (ctx->logbuf_pool)
-            mem_pool_destroy(ctx->logbuf_pool);
+    if (ret && global_ctx) {
+        if (global_ctx->stub_mem_pool)
+            mem_pool_destroy(global_ctx->stub_mem_pool);
+        if (global_ctx->dict_pool)
+            mem_pool_destroy(global_ctx->dict_pool);
+        if (global_ctx->dict_data_pool)
+            mem_pool_destroy(global_ctx->dict_data_pool);
+        if (global_ctx->dict_pair_pool)
+            mem_pool_destroy(global_ctx->dict_pair_pool);
+        if (global_ctx->logbuf_pool)
+            mem_pool_destroy(global_ctx->logbuf_pool);
     }
 
     return ret;
@@ -772,30 +770,25 @@ static int
 glfs_init_global_ctx()
 {
     int ret = 0;
-    glusterfs_ctx_t *ctx = NULL;
 
     pthread_mutex_lock(&global_ctx_mutex);
     {
-        ctx = glusterfs_ctx_new();
-        if (!ctx) {
+        if (!glusterfs_ctx_new()) {
             ret = -1;
             goto unlock;
         }
 
-        gf_log_globals_init(ctx, GF_LOG_NONE);
+        gf_log_globals_init(GF_LOG_NONE);
 
-        global_ctx = ctx;
-        ret = glusterfs_ctx_defaults_init(ctx);
+        ret = glusterfs_ctx_defaults_init();
         if (ret) {
+            FREE(global_ctx);
             global_ctx = NULL;
             goto unlock;
         }
     }
 unlock:
     pthread_mutex_unlock(&global_ctx_mutex);
-
-    if (ret)
-        FREE(ctx);
 
     return ret;
 }
@@ -812,7 +805,6 @@ pub_glfs_new(const char *volname)
     struct glfs *fs = NULL;
     int i = 0;
     int ret = -1;
-    glusterfs_ctx_t *ctx = NULL;
     xlator_t *old_THIS = NULL;
     char pname[16] = "";
     char msg[32] = "";
@@ -844,13 +836,12 @@ label:
     if (!fs)
         goto out;
 
-    ctx = glusterfs_ctx_new();
-    if (!ctx)
+    if (!glusterfs_ctx_new())
         goto out;
 
     /* first globals init, for gf_mem_acct_enable_set () */
 
-    ret = glusterfs_globals_init(ctx);
+    ret = glusterfs_globals_init();
     if (ret)
         goto out;
 
@@ -861,7 +852,7 @@ label:
 
     /* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
 
-    ret = glusterfs_ctx_defaults_init(ctx);
+    ret = glusterfs_ctx_defaults_init();
     if (ret)
         goto out;
 
@@ -918,8 +909,6 @@ priv_glfs_new_from_ctx(glusterfs_ctx_t *ctx)
     fs = glfs_new_fs("");
     if (!fs)
         goto out;
-
-    global_ctx = ctx;
 
 out:
     return fs;
@@ -989,7 +978,7 @@ pub_glfs_set_logging(struct glfs *fs, const char *logfile, int loglevel)
     __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
 
     if (!logfile) {
-        ret = gf_set_log_file_path(&global_ctx->cmd_args, global_ctx);
+        ret = gf_set_log_file_path(&global_ctx->cmd_args);
         if (ret)
             goto out;
         tmplog = global_ctx->cmd_args.log_file;
@@ -999,9 +988,9 @@ pub_glfs_set_logging(struct glfs *fs, const char *logfile, int loglevel)
 
     /* finish log set parameters before init */
     if (loglevel >= 0)
-        gf_log_set_loglevel(global_ctx, loglevel);
+        gf_log_set_loglevel(loglevel);
 
-    ret = gf_log_init(global_ctx, tmplog, NULL);
+    ret = gf_log_init(tmplog, NULL);
     if (ret)
         goto out;
 
@@ -1091,7 +1080,7 @@ glfs_init_async(struct glfs *fs, glfs_init_cbk cbk)
 {
     int ret = -1;
 
-    if (!fs || !global_ctx) {
+    if (!fs) {
         gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_FS_NOT_INIT, NULL);
         errno = EINVAL;
         return ret;
@@ -1112,7 +1101,7 @@ pub_glfs_init(struct glfs *fs)
 
     DECLARE_OLD_THIS;
 
-    if (!fs || !global_ctx) {
+    if (!fs) {
         gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_FS_NOT_INIT, NULL);
         errno = EINVAL;
         return ret;
@@ -1138,43 +1127,43 @@ invalid_fs:
 }
 
 static int
-glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
+glusterfs_ctx_destroy(void)
 {
     call_pool_t *pool = NULL;
     int ret = 0;
     glusterfs_graph_t *trav_graph = NULL;
     glusterfs_graph_t *tmp = NULL;
 
-    if (ctx == NULL)
+    if (global_ctx == NULL)
         return 0;
 
-    if (ctx->cmd_args.curr_server)
-        glfs_free_volfile_servers(&ctx->cmd_args);
+    if (global_ctx->cmd_args.curr_server)
+        glfs_free_volfile_servers(&global_ctx->cmd_args);
 
-    glfs_free_xlator_options(&ctx->cmd_args);
+    glfs_free_xlator_options(&global_ctx->cmd_args);
 
     /* For all the graphs, crawl through the xlator_t structs and free
      * all its members except for the mem_acct member,
      * as GF_FREE will be referencing it.
      */
-    list_for_each_entry_safe(trav_graph, tmp, &ctx->graphs, list)
+    list_for_each_entry_safe(trav_graph, tmp, &global_ctx->graphs, list)
     {
         xlator_tree_free_members(trav_graph->first);
     }
 
     /* Free the memory pool */
-    if (ctx->stub_mem_pool)
-        mem_pool_destroy(ctx->stub_mem_pool);
-    if (ctx->dict_pool)
-        mem_pool_destroy(ctx->dict_pool);
-    if (ctx->dict_data_pool)
-        mem_pool_destroy(ctx->dict_data_pool);
-    if (ctx->dict_pair_pool)
-        mem_pool_destroy(ctx->dict_pair_pool);
-    if (ctx->logbuf_pool)
-        mem_pool_destroy(ctx->logbuf_pool);
+    if (global_ctx->stub_mem_pool)
+        mem_pool_destroy(global_ctx->stub_mem_pool);
+    if (global_ctx->dict_pool)
+        mem_pool_destroy(global_ctx->dict_pool);
+    if (global_ctx->dict_data_pool)
+        mem_pool_destroy(global_ctx->dict_data_pool);
+    if (global_ctx->dict_pair_pool)
+        mem_pool_destroy(global_ctx->dict_pair_pool);
+    if (global_ctx->logbuf_pool)
+        mem_pool_destroy(global_ctx->logbuf_pool);
 
-    pool = ctx->pool;
+    pool = global_ctx->pool;
     if (pool) {
         if (pool->frame_mem_pool)
             mem_pool_destroy(pool->frame_mem_pool);
@@ -1185,31 +1174,31 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     /* Free the event pool */
-    ret = gf_event_pool_destroy(ctx->event_pool);
+    ret = gf_event_pool_destroy(global_ctx->event_pool);
 
     /* Free the iobuf pool */
-    iobuf_pool_destroy(ctx->iobuf_pool);
+    iobuf_pool_destroy(global_ctx->iobuf_pool);
 
-    GF_FREE(ctx->process_uuid);
-    GF_FREE(ctx->cmd_args.volfile_id);
-    GF_FREE(ctx->cmd_args.process_name);
+    GF_FREE(global_ctx->process_uuid);
+    GF_FREE(global_ctx->cmd_args.volfile_id);
+    GF_FREE(global_ctx->cmd_args.process_name);
 
-    LOCK_DESTROY(&ctx->lock);
-    pthread_mutex_destroy(&ctx->notify_lock);
-    pthread_cond_destroy(&ctx->notify_cond);
+    LOCK_DESTROY(&global_ctx->lock);
+    pthread_mutex_destroy(&global_ctx->notify_lock);
+    pthread_cond_destroy(&global_ctx->notify_cond);
 
     /* Free all the graph structs and its containing xlator_t structs
      * from this point there should be no reference to GF_FREE/GF_CALLOC
      * as it will try to access mem_acct and the below function would
      * have freed the same.
      */
-    list_for_each_entry_safe(trav_graph, tmp, &ctx->graphs, list)
+    list_for_each_entry_safe(trav_graph, tmp, &global_ctx->graphs, list)
     {
         glusterfs_graph_destroy_residual(trav_graph);
     }
 
-    GF_FREE(ctx->statedump_path);
-    FREE(ctx);
+    GF_FREE(global_ctx->statedump_path);
+    FREE(global_ctx);
 
     return ret;
 }
@@ -1376,7 +1365,7 @@ pub_glfs_fini(struct glfs *fs)
     }
 
     /* Destroy the context and the global pools */
-    if (glusterfs_ctx_destroy(global_ctx) != 0)
+    if (glusterfs_ctx_destroy() != 0)
         ret = -1;
 
     glfs_free_from_ctx(fs);
@@ -1582,7 +1571,7 @@ pub_glfs_sysrq(struct glfs *fs, char sysrq)
         0,
     }; /* should not exceed 1024 chars */
 
-    if (!fs || !global_ctx) {
+    if (!fs) {
         ret = -1;
         errno = EINVAL;
         goto out;
@@ -1606,7 +1595,7 @@ pub_glfs_sysrq(struct glfs *fs, char sysrq)
             break;
         }
         case GLFS_SYSRQ_STATEDUMP:
-            gf_proc_dump_info(SIGUSR1, global_ctx);
+            gf_proc_dump_info(SIGUSR1);
             break;
         default:
             gf_smsg("glfs", GF_LOG_ERROR, ENOTSUP, API_MSG_INVALID_SYSRQ,

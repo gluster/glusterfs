@@ -210,8 +210,8 @@ out:
 
             retry_delay.tv_sec = 5;
             retry_delay.tv_nsec = 0;
-            timer = gf_timer_call_after(global_ctx, retry_delay,
-                                        _quota_enforcer_lookup, (void *)frame);
+            timer = gf_timer_call_after(retry_delay, _quota_enforcer_lookup,
+                                        (void *)frame);
             if (timer == NULL) {
                 gf_log(this->name, GF_LOG_WARNING,
                        "failed to "

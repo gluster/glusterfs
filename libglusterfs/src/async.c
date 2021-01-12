@@ -621,7 +621,7 @@ gf_async_adjust_threads(int32_t threads)
 }
 
 int32_t
-gf_async_init(glusterfs_ctx_t *ctx)
+gf_async_init()
 {
     sigset_t set;
     gf_async_worker_t *worker;
@@ -631,8 +631,8 @@ gf_async_init(glusterfs_ctx_t *ctx)
 
     gf_async_cleanup();
 
-    if (!ctx->cmd_args.global_threading ||
-        (ctx->process_mode == GF_GLUSTERD_PROCESS)) {
+    if (!global_ctx->cmd_args.global_threading ||
+        (global_ctx->process_mode == GF_GLUSTERD_PROCESS)) {
         return 0;
     }
 

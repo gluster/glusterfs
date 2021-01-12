@@ -56,7 +56,7 @@ __rpc_clnt_rearm_ping_timer(struct rpc_clnt *rpc, gf_timer_cbk_t cbk)
     timeout.tv_nsec = 0;
 
     rpc_clnt_ref(rpc);
-    timer = gf_timer_call_after(global_ctx, timeout, cbk, (void *)rpc);
+    timer = gf_timer_call_after(timeout, cbk, (void *)rpc);
     if (timer == NULL) {
         gf_log(trans->name, GF_LOG_WARNING, "unable to setup ping timer");
 
@@ -82,7 +82,7 @@ rpc_clnt_remove_ping_timer_locked(struct rpc_clnt *rpc)
     if (conn->ping_timer) {
         timer = conn->ping_timer;
         conn->ping_timer = NULL;
-        gf_timer_call_cancel(global_ctx, timer);
+        gf_timer_call_cancel(timer);
         conn->ping_started = 0;
         return 1;
     }

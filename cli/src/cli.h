@@ -111,9 +111,6 @@ struct cli_state {
 
     char debug;
 
-    /* for events dispatching */
-    glusterfs_ctx_t *ctx;
-
     /* registry of known commands */
     struct cli_cmd_tree tree;
 

@@ -2381,8 +2381,8 @@ posix_ctx_disk_thread_proc(void *data)
 
             timespec_now_realtime(&sleep_till);
             sleep_till.tv_sec += 5;
-            (void)pthread_cond_timedwait(&global_ctx->xl_cond, &global_ctx->xl_lock,
-                                         &sleep_till);
+            (void)pthread_cond_timedwait(&global_ctx->xl_cond,
+                                         &global_ctx->xl_lock, &sleep_till);
         }
     }
     pthread_mutex_unlock(&global_ctx->xl_lock);

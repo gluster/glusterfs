@@ -45,12 +45,11 @@ typedef struct _gf_timer gf_timer_t;
 typedef struct _gf_timer_registry gf_timer_registry_t;
 
 gf_timer_t *
-gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
-                    gf_timer_cbk_t cbk, void *data);
+gf_timer_call_after(struct timespec delta, gf_timer_cbk_t cbk, void *data);
 
 int32_t
-gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event);
+gf_timer_call_cancel(gf_timer_t *event);
 
 void
-gf_timer_registry_destroy(glusterfs_ctx_t *ctx);
+gf_timer_registry_destroy();
 #endif /* _TIMER_H */

@@ -10,11 +10,11 @@
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/param.h> /* for PATH_MAX */
+#include <unistd.h>
 
 /* NOTE (USE_LIBGLUSTERFS):
  * ------------------------
@@ -24,14 +24,14 @@
  * We unconditionally pass then while building gsyncd binary.
  */
 #ifdef USE_LIBGLUSTERFS
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/globals.h>
 #include <glusterfs/defaults.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/glusterfs.h>
 #endif
 
+#include "procdiggy.h"
 #include <glusterfs/common-utils.h>
 #include <glusterfs/run.h>
-#include "procdiggy.h"
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"
 #define _GSYNCD_DISPATCHED_ "_GSYNCD_DISPATCHED_"
@@ -327,13 +327,10 @@ main(int argc, char **argv)
     int j = 0;
 
 #ifdef USE_LIBGLUSTERFS
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = glusterfs_ctx_new();
-    if (!ctx)
+    if (!glusterfs_ctx_new())
         return ENOMEM;
 
-    if (glusterfs_globals_init(ctx))
+    if (glusterfs_globals_init())
         return 1;
 
     ret = default_mem_acct_init(THIS);

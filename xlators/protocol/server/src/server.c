@@ -45,7 +45,7 @@ gfs_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
      */
     if (arg && xdrproc) {
         xdr_size = xdr_sizeof(xdrproc, arg);
-        iob = iobuf_get2(req->svc->ctx->iobuf_pool, xdr_size);
+        iob = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iob) {
             gf_msg_callingfn(THIS->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
                              "Failed to get iobuf");
@@ -661,7 +661,7 @@ server_graph_janitor_threads(void *data)
         }
     }
     if (victim_found)
-        glusterfs_delete_volfile_checksum(global_ctx, victim->volfile_id);
+        glusterfs_delete_volfile_checksum(victim->volfile_id);
     UNLOCK(&global_ctx->volfile_lock);
     if (!victim_found) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -691,7 +691,7 @@ server_graph_janitor_threads(void *data)
             }
         }
         UNLOCK(&global_ctx->volfile_lock);
-        rpcsvc_autoscale_threads(global_ctx, conf->rpc, -1);
+        rpcsvc_autoscale_threads(conf->rpc, -1);
     }
 
 out:
@@ -1214,7 +1214,7 @@ server_init(xlator_t *this)
         conf->dync_auth = ret;
 
     /* RPC related */
-    conf->rpc = rpcsvc_init(this, global_ctx, this->options, 0);
+    conf->rpc = rpcsvc_init(this, this->options, 0);
     if (conf->rpc == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPCSVC_CREATE_FAILED, NULL);
         ret = -1;
@@ -1740,10 +1740,10 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                     }
                 }
                 if (victim_found)
-                    glusterfs_delete_volfile_checksum(global_ctx, victim->volfile_id);
+                    glusterfs_delete_volfile_checksum(victim->volfile_id);
                 UNLOCK(&global_ctx->volfile_lock);
 
-                rpc_clnt_mgmt_pmap_signout(global_ctx, victim_name);
+                rpc_clnt_mgmt_pmap_signout(victim_name);
 
                 if (!xprt_found && victim_found) {
                     server_call_xlator_mem_cleanup(this, victim_name);

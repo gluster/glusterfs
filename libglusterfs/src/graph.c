@@ -223,13 +223,12 @@ glusterfs_graph_set_first(glusterfs_graph_t *graph, xlator_t *xl)
 }
 
 int
-glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
-                       const char *type, const char *name,
-                       gf_boolean_t autoload)
+glusterfs_graph_insert(glusterfs_graph_t *graph, const char *type,
+                       const char *name, gf_boolean_t autoload)
 {
     xlator_t *ixl = NULL;
 
-    if (!ctx->root) {
+    if (!global_ctx->root) {
         gf_msg("glusterfs", GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
                "volume \"%s\" can be added from command line only "
                "on client side",
@@ -271,78 +270,77 @@ err:
 }
 
 int
-glusterfs_graph_acl(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_acl(glusterfs_graph_t *graph)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->acl)
         return 0;
 
-    ret = glusterfs_graph_insert(graph, ctx, "system/posix-acl",
+    ret = glusterfs_graph_insert(graph, "system/posix-acl",
                                  "posix-acl-autoload", 1);
     return ret;
 }
 
 int
-glusterfs_graph_worm(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_worm(glusterfs_graph_t *graph)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->worm)
         return 0;
 
-    ret = glusterfs_graph_insert(graph, ctx, "features/worm", "worm-autoload",
-                                 1);
+    ret = glusterfs_graph_insert(graph, "features/worm", "worm-autoload", 1);
     return ret;
 }
 
 int
-glusterfs_graph_meta(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_meta(glusterfs_graph_t *graph)
 {
     int ret = 0;
 
-    if (!ctx->root)
+    if (!global_ctx->root)
         return 0;
 
-    ret = glusterfs_graph_insert(graph, ctx, "meta", "meta-autoload", 1);
+    ret = glusterfs_graph_insert(graph, "meta", "meta-autoload", 1);
     return ret;
 }
 
 int
-glusterfs_graph_mac_compat(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_mac_compat(glusterfs_graph_t *graph)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (cmd_args->mac_compat == GF_OPTION_DISABLE)
         return 0;
 
-    ret = glusterfs_graph_insert(graph, ctx, "features/mac-compat",
+    ret = glusterfs_graph_insert(graph, "features/mac-compat",
                                  "mac-compat-autoload", 1);
 
     return ret;
 }
 
 int
-glusterfs_graph_gfid_access(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_gfid_access(glusterfs_graph_t *graph)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->aux_gfid_mount)
         return 0;
 
-    ret = glusterfs_graph_insert(graph, ctx, "features/gfid-access",
+    ret = glusterfs_graph_insert(graph, "features/gfid-access",
                                  "gfid-access-autoload", 1);
     return ret;
 }
@@ -541,10 +539,8 @@ glusterfs_graph_parent_up(glusterfs_graph_t *graph)
 }
 
 int
-glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
-                        char *volume_name)
+glusterfs_graph_prepare(glusterfs_graph_t *graph, char *volume_name)
 {
-    xlator_t *trav = NULL;
     int ret = 0;
 
     /* XXX: CHECKSUM */
@@ -575,13 +571,13 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     }
 
     /* XXX: WORM VOLUME */
-    ret = glusterfs_graph_worm(graph, ctx);
+    ret = glusterfs_graph_worm(graph);
     if (ret) {
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs graph worm failed");
         return -1;
     }
-    ret = glusterfs_graph_acl(graph, ctx);
+    ret = glusterfs_graph_acl(graph);
     if (ret) {
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs graph ACL failed");
@@ -589,7 +585,7 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     }
 
     /* XXX: MAC COMPAT */
-    ret = glusterfs_graph_mac_compat(graph, ctx);
+    ret = glusterfs_graph_mac_compat(graph);
     if (ret) {
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs graph mac compat failed");
@@ -597,7 +593,7 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     }
 
     /* XXX: gfid-access */
-    ret = glusterfs_graph_gfid_access(graph, ctx);
+    ret = glusterfs_graph_gfid_access(graph);
     if (ret) {
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs graph 'gfid-access' failed");
@@ -605,7 +601,7 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     }
 
     /* XXX: topmost xlator */
-    ret = glusterfs_graph_meta(graph, ctx);
+    ret = glusterfs_graph_meta(graph);
     if (ret) {
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs graph meta failed");
@@ -617,10 +613,10 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
 
     fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
 
-    graph->id = ctx->graph_id++;
+    graph->id = global_ctx->graph_id++;
 
     /* XXX: --xlator-option additions */
-    gf_add_cmdline_options(graph, &ctx->cmd_args);
+    gf_add_cmdline_options(graph, &global_ctx->cmd_args);
 
     return 0;
 }
@@ -747,7 +743,7 @@ glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves)
 }
 
 int
-glusterfs_graph_activate(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_activate(glusterfs_graph_t *graph)
 {
     int ret = 0;
     xlator_t *root = NULL;
@@ -782,18 +778,18 @@ glusterfs_graph_activate(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
     /* XXX: log full graph (_gf_dump_details) */
 
-    list_add(&graph->list, &ctx->graphs);
-    ctx->active = graph;
+    list_add(&graph->list, &global_ctx->graphs);
+    global_ctx->active = graph;
 
     /* XXX: attach to root and set active pointer */
-    if (ctx->root) {
-        ret = xlator_notify(ctx->root, GF_EVENT_GRAPH_NEW, graph);
+    if (global_ctx->root) {
+        ret = xlator_notify(global_ctx->root, GF_EVENT_GRAPH_NEW, graph);
         if (ret) {
             gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_EVENT_NOTIFY_FAILED,
                    "graph new notification failed");
             return ret;
         }
-        ((xlator_t *)ctx->root)->next = graph->top;
+        ((xlator_t *)global_ctx->root)->next = graph->top;
     }
 
     /* XXX: perform parent up */
@@ -903,20 +899,14 @@ out:
  * occurred during the operation
  */
 int
-glusterfs_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx)
+glusterfs_volfile_reconfigure(FILE *newvolfile_fp)
 {
     glusterfs_graph_t *oldvolfile_graph = NULL;
     glusterfs_graph_t *newvolfile_graph = NULL;
 
     int ret = -1;
 
-    if (!ctx) {
-        gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
-               "ctx is NULL");
-        goto out;
-    }
-
-    oldvolfile_graph = ctx->active;
+    oldvolfile_graph = global_ctx->active;
     if (!oldvolfile_graph) {
         ret = 1;
         goto out;
@@ -928,7 +918,7 @@ glusterfs_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    glusterfs_graph_prepare(newvolfile_graph, ctx, ctx->cmd_args.volume_name);
+    glusterfs_graph_prepare(newvolfile_graph, global_ctx->cmd_args.volume_name);
 
     if (!is_graph_topology_equal(oldvolfile_graph, newvolfile_graph)) {
         ret = 1;
@@ -964,7 +954,7 @@ out:
  */
 
 int
-gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp,
                        const char *oldvolfile)
 {
     glusterfs_graph_t *oldvolfile_graph = NULL;
@@ -985,13 +975,7 @@ gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
         goto out;
     }
 
-    if (!ctx) {
-        gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
-               "ctx is NULL");
-        goto out;
-    }
-
-    oldvolfile_graph = ctx->active;
+    oldvolfile_graph = global_ctx->active;
     if (!oldvolfile_graph) {
         active_graph_found = _gf_false;
         gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_ACTIVE_GRAPH_NULL,
@@ -1041,7 +1025,7 @@ gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
         goto out;
     }
 
-    glusterfs_graph_prepare(newvolfile_graph, ctx, ctx->cmd_args.volume_name);
+    glusterfs_graph_prepare(newvolfile_graph, global_ctx->cmd_args.volume_name);
 
     if (!is_graph_topology_equal(oldvolfile_graph, newvolfile_graph)) {
         ret = 1;
@@ -1301,7 +1285,7 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
     }
 
     /* TODO memory leaks everywhere need to free graph in case of error */
-    if (glusterfs_graph_prepare(graph, global_ctx, xl->name)) {
+    if (glusterfs_graph_prepare(graph, xl->name)) {
         gf_log(this->name, GF_LOG_WARNING,
                "failed to prepare graph for xlator %s", xl->name);
         return -EIO;
@@ -1332,14 +1316,13 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
     return 0;
 }
 int
-glusterfs_muxsvc_cleanup_parent(glusterfs_ctx_t *ctx,
-                                glusterfs_graph_t *parent_graph)
+glusterfs_muxsvc_cleanup_parent(glusterfs_graph_t *parent_graph)
 {
     if (parent_graph) {
         if (parent_graph->first) {
             xlator_destroy(parent_graph->first);
         }
-        ctx->active = NULL;
+        global_ctx->active = NULL;
         GF_FREE(parent_graph);
         parent_graph = NULL;
     }
@@ -1394,7 +1377,8 @@ glusterfs_graph_cleanup(void *arg)
     pthread_mutex_lock(&global_ctx->notify_lock);
     {
         while (global_ctx->notifying)
-            pthread_cond_wait(&global_ctx->notify_cond, &global_ctx->notify_lock);
+            pthread_cond_wait(&global_ctx->notify_cond,
+                              &global_ctx->notify_lock);
     }
     pthread_mutex_unlock(&global_ctx->notify_lock);
 
@@ -1409,8 +1393,7 @@ out:
 }
 
 glusterfs_graph_t *
-glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
-                                    char *type)
+glusterfs_muxsvc_setup_parent_graph(char *name, char *type)
 {
     glusterfs_graph_t *parent_graph = NULL;
     xlator_t *ixl = NULL;
@@ -1422,7 +1405,7 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
 
     INIT_LIST_HEAD(&parent_graph->list);
 
-    ctx->active = parent_graph;
+    global_ctx->active = parent_graph;
     ixl = GF_CALLOC(1, sizeof(*ixl), gf_common_mt_xlator_t);
     if (!ixl)
         goto out;
@@ -1450,14 +1433,14 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
 
     gettimeofday(&parent_graph->dob, NULL);
     fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
-    parent_graph->id = ctx->graph_id++;
+    parent_graph->id = global_ctx->graph_id++;
     ret = 0;
 out:
     if (ixl)
         xlator_destroy(ixl);
 
     if (ret) {
-        glusterfs_muxsvc_cleanup_parent(ctx, parent_graph);
+        glusterfs_muxsvc_cleanup_parent(parent_graph);
         parent_graph = NULL;
     }
     return parent_graph;
@@ -1479,7 +1462,7 @@ glusterfs_svc_mux_pidfile_cleanup(gf_volfile_t *volfile_obj)
 }
 
 int
-glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
+glusterfs_process_svc_detach(gf_volfile_t *volfile_obj)
 {
     xlator_t *last_xl = NULL;
     glusterfs_graph_t *graph = NULL;
@@ -1490,12 +1473,12 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
     int ret = -1;
     xlator_t *xl = NULL;
 
-    if (!ctx || !ctx->active || !volfile_obj)
+    if (!global_ctx || !global_ctx->active || !volfile_obj)
         goto out;
 
-    pthread_mutex_lock(&ctx->cleanup_lock);
+    pthread_mutex_lock(&global_ctx->cleanup_lock);
     {
-        parent_graph = ctx->active;
+        parent_graph = global_ctx->active;
         graph = volfile_obj->graph;
         if (!graph)
             goto unlock;
@@ -1522,7 +1505,7 @@ glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj)
         ret = 0;
     }
 unlock:
-    pthread_mutex_unlock(&ctx->cleanup_lock);
+    pthread_mutex_unlock(&global_ctx->cleanup_lock);
 out:
     if (!ret) {
         list_del_init(&volfile_obj->volfile_list);
@@ -1661,8 +1644,7 @@ out:
     return ret;
 }
 int
-glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum,
+glusterfs_process_svc_attach_volfp(FILE *fp, char *volfile_id, char *checksum,
                                    dict_t *dict)
 {
     glusterfs_graph_t *graph = NULL;
@@ -1676,9 +1658,7 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
         0,
     };
 
-    if (!ctx)
-        goto out;
-    parent_graph = ctx->active;
+    parent_graph = global_ctx->active;
     graph = glusterfs_graph_construct(fp);
     if (!graph) {
         gf_msg("glusterfsd", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_ATTACH_FAILED,
@@ -1700,7 +1680,7 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
     graph->leaf_count = glusterfs_count_leaves(glusterfs_root(graph));
     xl = graph->first;
     /* TODO memory leaks everywhere need to free graph in case of error */
-    if (glusterfs_graph_prepare(graph, ctx, xl->name)) {
+    if (glusterfs_graph_prepare(graph, xl->name)) {
         gf_msg("glusterfsd", GF_LOG_WARNING, EINVAL, LG_MSG_GRAPH_ATTACH_FAILED,
                "failed to prepare graph for xlator %s", xl->name);
         ret = -1;
@@ -1718,7 +1698,7 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
     }
 
     if (!parent_graph) {
-        parent_graph = glusterfs_muxsvc_setup_parent_graph(ctx, "glustershd",
+        parent_graph = glusterfs_muxsvc_setup_parent_graph("glustershd",
                                                            "debug/io-stats");
         if (!parent_graph)
             goto out;
@@ -1751,7 +1731,7 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
     snprintf(volfile_obj->vol_id, sizeof(volfile_obj->vol_id), "%s",
              volfile_id);
 
-    if (strcmp(ctx->cmd_args.process_name, "glustershd") == 0) {
+    if (strcmp(global_ctx->cmd_args.process_name, "glustershd") == 0) {
         ret = glusterfs_update_mux_pid(dict, volfile_obj);
         if (ret == -1) {
             GF_FREE(volfile_obj);
@@ -1761,12 +1741,12 @@ glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
 
     graph->used = 1;
     parent_graph->id++;
-    list_add(&graph->list, &ctx->graphs);
+    list_add(&graph->list, &global_ctx->graphs);
     INIT_LIST_HEAD(&volfile_obj->volfile_list);
     volfile_obj->graph = graph;
     memcpy(volfile_obj->volfile_checksum, checksum,
            sizeof(volfile_obj->volfile_checksum));
-    list_add_tail(&volfile_obj->volfile_list, &ctx->volfile_list);
+    list_add_tail(&volfile_obj->volfile_list, &global_ctx->volfile_list);
     gf_log_dump_graph(fp, graph);
     graph = NULL;
 
@@ -1787,13 +1767,13 @@ out:
             }
         }
         if (clean_graph)
-            glusterfs_muxsvc_cleanup_parent(ctx, clean_graph);
+            glusterfs_muxsvc_cleanup_parent(clean_graph);
     }
     return ret;
 }
 
 int
-glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp,
                                   gf_volfile_t *volfile_obj, char *checksum,
                                   dict_t *dict)
 {
@@ -1802,12 +1782,6 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
     char vol_id[NAME_MAX + 1];
 
     int ret = -1;
-
-    if (!ctx) {
-        gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
-               "ctx is NULL");
-        goto out;
-    }
 
     /* Change the message id */
     if (!volfile_obj) {
@@ -1828,13 +1802,13 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
     }
     newvolfile_graph->last_xl = glusterfs_get_last_xlator(newvolfile_graph);
 
-    glusterfs_graph_prepare(newvolfile_graph, ctx, newvolfile_graph->first);
+    glusterfs_graph_prepare(newvolfile_graph, newvolfile_graph->first);
 
     if (!is_graph_topology_equal(oldvolfile_graph, newvolfile_graph)) {
         ret = snprintf(vol_id, sizeof(vol_id), "%s", volfile_obj->vol_id);
         if (ret < 0)
             goto out;
-        ret = glusterfs_process_svc_detach(ctx, volfile_obj);
+        ret = glusterfs_process_svc_detach(volfile_obj);
         if (ret) {
             gf_msg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL,
                    LG_MSG_GRAPH_CLEANUP_FAILED,
@@ -1843,7 +1817,7 @@ glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
             goto out;
         }
         volfile_obj = NULL;
-        ret = glusterfs_process_svc_attach_volfp(ctx, newvolfile_fp, vol_id,
+        ret = glusterfs_process_svc_attach_volfp(newvolfile_fp, vol_id,
                                                  checksum, dict);
         goto out;
     }

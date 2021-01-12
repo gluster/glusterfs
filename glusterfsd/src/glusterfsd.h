@@ -130,9 +130,9 @@ struct _gfd_vol_top_priv {
 typedef struct _gfd_vol_top_priv gfd_vol_top_priv_t;
 
 int
-glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx);
+glusterfs_mgmt_pmap_signin(void);
 int
-glusterfs_volfile_fetch(glusterfs_ctx_t *ctx);
+glusterfs_volfile_fetch(void);
 void
 cleanup_and_exit(int signum);
 

@@ -428,10 +428,10 @@ static int
 gf_changelog_setup_logging(xlator_t *this, char *logfile, int loglevel)
 {
     /* passing ident as NULL means to use default ident for syslog */
-    if (gf_log_init(global_ctx, logfile, NULL))
+    if (gf_log_init(logfile, NULL))
         return -1;
 
-    gf_log_set_loglevel(global_ctx, (loglevel == -1) ? GF_LOG_INFO : loglevel);
+    gf_log_set_loglevel((loglevel == -1) ? GF_LOG_INFO : loglevel);
     return 0;
 }
 
