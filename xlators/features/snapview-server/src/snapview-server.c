@@ -2560,7 +2560,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_svs_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_svs_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, SVS_MSG_MEM_ACNT_FAILED,

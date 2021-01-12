@@ -2316,7 +2316,7 @@ mem_acct_init(xlator_t *this)
 {
     int ret = -1;
 
-    ret = xlator_mem_acct_init(this, gf_index_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_index_mt_end);
 
     return ret;
 }

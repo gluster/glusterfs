@@ -16,7 +16,7 @@ mem_acct_init(xlator_t *this)
 {
     int ret = -1;
 
-    ret = xlator_mem_acct_init(this, gf_read_only_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_read_only_mt_end);
     if (ret)
         gf_log(this->name, GF_LOG_ERROR,
                "Memory accounting "

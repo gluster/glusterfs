@@ -3672,7 +3672,7 @@ out:
 int32_t
 mdc_mem_acct_init(xlator_t *this)
 {
-    return xlator_mem_acct_init(this, gf_mdc_mt_end + 1);
+    return xlator_mem_acct_init(this, gf_mdc_mt_end);
 }
 
 int

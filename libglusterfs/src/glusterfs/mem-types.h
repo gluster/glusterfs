@@ -20,7 +20,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_fdtable_t, /* used only in one location */
     gf_common_mt_fd_ctx,    /* used only in one location */
     gf_common_mt_gf_dirent_t,
-    gf_common_mt_inode_t,   /* used only in one location */
     gf_common_mt_inode_ctx, /* used only in one location */
     gf_common_mt_list_head,
     gf_common_mt_inode_table_t, /* used only in one location */
@@ -55,16 +54,8 @@ enum gf_common_mem_types_ {
     gf_common_mt_rpc_trans_pollin_t,  /* used only in one location */
     gf_common_mt_rpc_trans_reqinfo_t, /* used only in one location */
     gf_common_mt_glusterfs_graph_t,
-    gf_common_mt_rdma_private_t,       /* used only in one location */
-    gf_common_mt_rpc_transport_t,      /* used only in one location */
-    gf_common_mt_rdma_post_t,          /* used only in one location */
-    gf_common_mt_qpent,                /* used only in one location */
-    gf_common_mt_rdma_device_t,        /* used only in one location */
-    gf_common_mt_rdma_arena_mr,        /* used only in one location */
-    gf_common_mt_sge,                  /* used only in one location */
     gf_common_mt_rpcclnt_cb_program_t, /* used only in one location */
     gf_common_mt_libxl_marker_local,   /* used only in one location */
-    gf_common_mt_graph_buf,            /* used only in one location */
     gf_common_mt_trie_trie,            /* used only in one location */
     gf_common_mt_trie_data,            /* used only in one location */
     gf_common_mt_trie_node,            /* used only in one location */
@@ -96,7 +87,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_strfd_data_t,       /* used only in one location */
     gf_common_mt_regex_t,            /* used only in one location */
     gf_common_mt_ereg,               /* used only in one location */
-    gf_common_mt_wr,                 /* used only in one location */
     gf_common_mt_dnscache,           /* used only in one location */
     gf_common_mt_dnscache_entry,     /* used only in one location */
     gf_common_mt_parser_t,           /* used only in one location */
@@ -115,12 +105,8 @@ enum gf_common_mem_types_ {
     gf_common_mt_syncenv,   /* used only in one location */
     gf_common_mt_scan_data, /* used only in one location */
     gf_common_list_node,
-    gf_mt_default_args_t,     /* used only in one location */
-    gf_mt_default_args_cbk_t, /* used only in one location */
     /*used for compound fops*/
-    gf_mt_compound_req_t, /* used only in one location */
-    gf_mt_compound_rsp_t, /* used only in one location */
-    gf_common_mt_tw_ctx,  /* used only in one location */
+    gf_common_mt_tw_ctx, /* used only in one location */
     gf_common_mt_tw_timer_list,
     /*lock migration*/
     gf_common_mt_lock_mig,
