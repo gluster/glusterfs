@@ -126,7 +126,7 @@ gf_utime_priv(xlator_t *this)
 int32_t
 mem_acct_init(xlator_t *this)
 {
-    if (xlator_mem_acct_init(this, utime_mt_end + 1) != 0) {
+    if (xlator_mem_acct_init(this, utime_mt_end) != 0) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, UTIME_MSG_NO_MEMORY,
                "Memory accounting initialization failed.");
         return -1;

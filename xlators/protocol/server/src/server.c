@@ -726,7 +726,7 @@ server_mem_acct_init(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO("server", this, out);
 
-    ret = xlator_mem_acct_init(this, gf_server_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_server_mt_end);
 
     if (ret != 0) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY, NULL);

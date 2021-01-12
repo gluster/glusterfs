@@ -2117,7 +2117,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_upcall_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_upcall_mt_end);
 
     if (ret != 0) {
         gf_msg("upcall", GF_LOG_WARNING, 0, UPCALL_MSG_NO_MEMORY,
