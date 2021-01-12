@@ -182,6 +182,9 @@ struct fuse_private {
     /* counters for fusdev errnos */
     uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
     pthread_mutex_t fusedev_errno_cnt_mutex;
+
+    /* how big write payload can be expected from kernel */
+    size_t fuse_max_write;
 };
 typedef struct fuse_private fuse_private_t;
 
