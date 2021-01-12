@@ -2133,8 +2133,20 @@ out:
 void
 fini(xlator_t *this)
 {
+    glusterd_conf_t *priv = NULL;
+
     if (!this || !this->private)
         goto out;
+
+    priv = this->private;
+    /* Set call_fini flag to true to avoid RPC actor function
+       calling after got a terminate signal
+    */
+    synclock_lock(&priv->big_lock);
+    {
+        priv->call_fini = _gf_true;
+    }
+    synclock_unlock(&priv->big_lock);
 
     glusterd_stop_uds_listener(this);              /*stop unix socket rpc*/
     glusterd_stop_listener(this);                  /*stop tcp/ip socket rpc*/

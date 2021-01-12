@@ -238,6 +238,8 @@ typedef struct {
     char rundir[VALID_GLUSTERD_PATHMAX];
     char logdir[VALID_GLUSTERD_PATHMAX];
     struct list_head hostnames;
+    gf_boolean_t
+        call_fini; /*Flag is use to sync between fini and actor function */
 } glusterd_conf_t;
 
 typedef struct glusterd_add_dict_args {
@@ -769,18 +771,14 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
     } while (0)
 
 #define RCU_READ_LOCK                                                          \
-    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
     {                                                                          \
         rcu_read_lock();                                                       \
-    }                                                                          \
-    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+    }
 
 #define RCU_READ_UNLOCK                                                        \
-    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
     {                                                                          \
         rcu_read_unlock();                                                     \
-    }                                                                          \
-    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+    }
 
 #define GLUSTERD_DUMP_PEERS(head, member, xpeers)                              \
     do {                                                                       \
