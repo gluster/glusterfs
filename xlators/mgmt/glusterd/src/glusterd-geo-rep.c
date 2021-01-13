@@ -5114,7 +5114,6 @@ glusterd_gsync_delete(glusterd_volinfo_t *volinfo, char *secondary,
     xlator_t *this = THIS;
     uint32_t reset_sync_time = _gf_false;
 
-
     GF_ASSERT(secondary);
     GF_ASSERT(secondary_host);
     GF_ASSERT(secondary_vol);
