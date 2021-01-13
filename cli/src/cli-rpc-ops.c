@@ -5477,7 +5477,7 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
         }
         if (profile_info[i].fop_hits) {
             cli_out(
-                "%10.2lf %10.2lf us %10.2lf us %10.2lf us"
+                "%10.2lf %10.2lf ns %10.2lf ns %10.2lf ns"
                 " %14" PRId64 " %11s",
                 profile_info[i].percentage_avg_latency,
                 profile_info[i].avg_latency, profile_info[i].min_latency,
