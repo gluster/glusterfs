@@ -1468,7 +1468,31 @@ dict_reset(dict_t *dict)
                          "dict is NULL");
         goto out;
     }
-    dict_foreach(dict, dict_remove_foreach_fn, NULL);
+
+    LOCK(&dict->lock);
+    data_pair_t *curr = dict->members_list;
+    data_pair_t *next = NULL;
+
+    while (curr != NULL) {
+        next = curr->next;
+        data_unref(curr->value);
+        GF_FREE(curr->key);
+        if (curr == &dict->free_pair) {
+            dict->free_pair.key = NULL;
+        } else {
+            mem_put(curr);
+        }
+        curr = next;
+    }
+
+    for (int i = 0; i < dict->hash_size; i++)
+        dict->members[i] = NULL;
+
+    dict->members_list = NULL;
+    dict->count = 0;
+    dict->totkvlen = 0;
+
+    UNLOCK(&dict->lock);
     ret = 0;
 out:
     return ret;
