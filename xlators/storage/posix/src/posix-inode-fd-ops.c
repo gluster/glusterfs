@@ -825,17 +825,19 @@ out:
     return ret;
 }
 
-char *
-_page_aligned_alloc(size_t size, char **aligned_buf)
+static char *
+_page_aligned_alloc(size_t size, char **aligned_buf, gf_boolean_t calloc)
 {
     char *alloc_buf = NULL;
     char *buf = NULL;
 
-    alloc_buf = GF_CALLOC(1, (size + ALIGN_SIZE), gf_posix_mt_char);
+    alloc_buf = GF_MALLOC((size + ALIGN_SIZE), gf_posix_mt_char);
     if (!alloc_buf)
         goto out;
     /* page aligned buffer */
     buf = GF_ALIGN_BUF(alloc_buf, ALIGN_SIZE);
+    if (calloc)
+        memset(buf, 0, size);
     *aligned_buf = buf;
 out:
     return alloc_buf;
@@ -872,7 +874,7 @@ _posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
     if (!vector)
         return -1;
     if (o_direct) {
-        alloc_buf = _page_aligned_alloc(vect_size, &iov_base);
+        alloc_buf = _page_aligned_alloc(vect_size, &iov_base, _gf_true);
         if (!alloc_buf) {
             GF_FREE(vector);
             return -1;
@@ -1811,7 +1813,7 @@ err:
     return op_ret;
 }
 
-int32_t
+static int32_t
 __posix_writev(int fd, struct iovec *vector, int count, off_t startoff,
                int odirect)
 {
@@ -1832,7 +1834,7 @@ __posix_writev(int fd, struct iovec *vector, int count, off_t startoff,
             max_buf_size = vector[idx].iov_len;
     }
 
-    alloc_buf = _page_aligned_alloc(max_buf_size, &buf);
+    alloc_buf = _page_aligned_alloc(max_buf_size, &buf, _gf_false);
     if (!alloc_buf) {
         op_ret = -errno;
         goto err;
@@ -5860,7 +5862,7 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     priv = this->private;
 
-    alloc_buf = _page_aligned_alloc(len, &buf);
+    alloc_buf = _page_aligned_alloc(len, &buf, _gf_false);
     if (!alloc_buf) {
         op_errno = ENOMEM;
         goto out;
@@ -5931,7 +5933,8 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             goto out;
         }
     }
-    weak_checksum = gf_rsync_weak_checksum((unsigned char *)buf, (size_t)ret);
+    weak_checksum = gf_rsync_weak_checksum((unsigned char *)buf,
+                                           (size_t)bytes_read);
 
     if (priv->fips_mode_rchecksum) {
         ret = dict_set_int32(rsp_xdata, "fips-mode-rchecksum", 1);
