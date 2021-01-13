@@ -343,7 +343,8 @@ __inode_ctx_free(inode_t *inode)
         if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
             if (xl && !xl->call_cleanup && xl->cbks->forget) {
-                old_THIS = THIS;
+                if (!old_THIS)
+                    old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->forget(xl, inode);
                 THIS = old_THIS;
@@ -391,11 +392,13 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode)
         if (inode->_ctx[index].xl_key) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
 
-            old_THIS = THIS;
-            THIS = xl;
-            if (xl->cbks->ictxmerge)
+            if (xl->cbks->ictxmerge) {
+                if (!old_THIS)
+                    old_THIS = THIS;
+                THIS = xl;
                 xl->cbks->ictxmerge(xl, fd, inode, linked_inode);
-            THIS = old_THIS;
+                THIS = old_THIS;
+            }
         }
     }
 }
@@ -1219,11 +1222,13 @@ inode_invalidate(inode_t *inode)
 
     xl = inode->table->xl->graph->first;
     while (xl) {
-        old_THIS = THIS;
-        THIS = xl;
-        if (xl->cbks->invalidate)
+        if (xl->cbks->invalidate) {
+            if (!old_THIS)
+                old_THIS = THIS;
+            THIS = xl;
             ret = xl->cbks->invalidate(xl, inode);
-        THIS = old_THIS;
+            THIS = old_THIS;
+        }
 
         if (ret)
             break;
@@ -2654,22 +2659,21 @@ inode_ctx_size(inode_t *inode)
                 continue;
 
             xl = (xlator_t *)(long)inode->_ctx[i].xl_key;
-            old_THIS = THIS;
-            THIS = xl;
 
             /* If inode ref is taken when THIS is global xlator,
              * the ctx xl_key is set, but the value is NULL.
              * For global xlator the cbks can be NULL, hence check
              * for the same */
-            if (!xl->cbks) {
-                THIS = old_THIS;
+            if (!xl->cbks)
                 continue;
-            }
 
-            if (xl->cbks->ictxsize)
+            if (xl->cbks->ictxsize) {
+                if (!old_THIS)
+                    old_THIS = THIS;
+                THIS = xl;
                 size += xl->cbks->ictxsize(xl, inode);
-
-            THIS = old_THIS;
+                THIS = old_THIS;
+            }
         }
     }
     UNLOCK(&inode->lock);
