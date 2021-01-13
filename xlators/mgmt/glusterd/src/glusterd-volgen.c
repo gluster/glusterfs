@@ -2755,11 +2755,11 @@ out:
     return ret;
 }
 
-gf_boolean_t
+static gf_boolean_t
 check_user_xlator_position(dict_t *dict, char *key, data_t *value,
                            void *prev_xlname)
 {
-    if (strncmp(key, "user.xlator.", strlen("user.xlator.")) != 0) {
+    if (strncmp(key, "user.xlator.", SLEN("user.xlator.")) != 0) {
         return false;
     }
 
@@ -2781,7 +2781,7 @@ check_user_xlator_position(dict_t *dict, char *key, data_t *value,
     return false;
 }
 
-int
+static int
 set_user_xlator_option(dict_t *set_dict, char *key, data_t *value, void *data)
 {
     xlator_t *xl = data;
@@ -2793,7 +2793,7 @@ set_user_xlator_option(dict_t *set_dict, char *key, data_t *value, void *data)
     return xlator_set_option(xl, optname, strlen(optname), data_to_str(value));
 }
 
-int
+static int
 insert_user_xlator_to_graph(dict_t *set_dict, char *key, data_t *value,
                             void *action_data)
 {
@@ -2810,7 +2810,7 @@ insert_user_xlator_to_graph(dict_t *set_dict, char *key, data_t *value,
     xlator_t *xl = NULL;
 
     // convert optkey to xlator type
-    if (gf_asprintf(&type, "user/%s", xlator_name) == -1) {
+    if (gf_asprintf(&type, "user/%s", xlator_name) < 0) {
         gf_log("glusterd", GF_LOG_ERROR, "failed to generate user-xlator type");
         goto out;
     }
@@ -2823,7 +2823,7 @@ insert_user_xlator_to_graph(dict_t *set_dict, char *key, data_t *value,
     }
 
     ret = gf_asprintf(&xlator_option_matcher, "user.xlator.%s.*", xlator_name);
-    if (ret == -1) {
+    if (ret < 0) {
         gf_log("glusterd", GF_LOG_ERROR,
                "failed to generate user-xlator option matcher");
         goto out;
@@ -2839,7 +2839,7 @@ out:
     return ret;
 }
 
-int
+static int
 check_and_add_user_xl(volgen_graph_t *graph, dict_t *set_dict, char *volname,
                       char *prev_xlname)
 {
