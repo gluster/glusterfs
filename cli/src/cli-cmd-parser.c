@@ -567,16 +567,15 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
     char *bricks = NULL;
     char *ta_brick = NULL;
     int32_t brick_count = 0;
-    static char *opwords[] = {"replica",  "stripe",       "transport",
-                              "disperse", "redundancy",   "disperse-data",
-                              "arbiter",  "thin-arbiter", NULL};
+    static char *opwords[] = {
+        "replica",       "transport", "disperse",     "redundancy",
+        "disperse-data", "arbiter",   "thin-arbiter", NULL};
 
     char *w = NULL;
     int op_count = 0;
     int32_t replica_count = 1;
     int32_t arbiter_count = 0;
     int32_t thin_arbiter_count = 0;
-    int32_t stripe_count = 1;
     int32_t disperse_count = -1;
     int32_t redundancy_count = -1;
     int32_t disperse_data_count = -1;
@@ -619,16 +618,12 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             break;
         } else if ((strcmp(w, "replica")) == 0) {
             switch (type) {
-                case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
                 case GF_CLUSTER_TYPE_REPLICATE:
                     cli_err("replica option given twice");
                     goto out;
                 case GF_CLUSTER_TYPE_NONE:
                     type = GF_CLUSTER_TYPE_REPLICATE;
                     break;
-                case GF_CLUSTER_TYPE_STRIPE:
-                    cli_err("stripe option not supported");
-                    goto out;
                 case GF_CLUSTER_TYPE_DISPERSE:
                     cli_err(
                         "replicated-dispersed volume is not "
@@ -708,9 +703,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
                         " to split-brain. Use "
                         "Arbiter or Replica 3 to "
                         "avoid this. See: "
-                        "http://docs.gluster.org/en/latest/"
-                        "Administrator%20Guide/"
-                        "Split%20brain%20and%20ways%20to%20deal%20with%20it/."
+                        "http://docs.gluster.org/en/latest/Administrator-Guide/"
+                        "Split-brain-and-ways-to-deal-with-it/."
                         "\nDo you still want to "
                         "continue?\n";
                     answer = cli_cmd_get_confirmation(state, question);
@@ -727,9 +721,6 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             if (ret)
                 goto out;
 
-        } else if ((strcmp(w, "stripe")) == 0) {
-            cli_err("stripe option not supported");
-            goto out;
         } else if ((strcmp(w, "transport")) == 0) {
             if (trans_type) {
                 cli_err(
@@ -827,15 +818,9 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             goto out;
 
         sub_count = disperse_count;
-    } else
-        sub_count = stripe_count * replica_count;
-
+    }
     if (brick_count % sub_count) {
-        if (type == GF_CLUSTER_TYPE_STRIPE)
-            cli_err(
-                "number of bricks is not a multiple of "
-                "stripe count");
-        else if (type == GF_CLUSTER_TYPE_REPLICATE)
+        if (type == GF_CLUSTER_TYPE_REPLICATE)
             cli_err(
                 "number of bricks is not a multiple of "
                 "replica count");
@@ -1853,7 +1838,7 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
     int ret = -1;
     int brick_count = 0, brick_index = 0;
     char *bricks = NULL;
-    static char *opwords_cl[] = {"replica", "stripe", NULL};
+    static char *opwords_cl[] = {"replica", NULL};
     gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
     int count = 1;
     int arbiter_count = 0;
@@ -1934,8 +1919,8 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
                     "Replica 2 volumes are prone to "
                     "split-brain. Use Arbiter or "
                     "Replica 3 to avoid this. See: "
-                    "http://docs.gluster.org/en/latest/Administrator%20Guide/"
-                    "Split%20brain%20and%20ways%20to%20deal%20with%20it/."
+                    "http://docs.gluster.org/en/latest/Administrator-Guide/"
+                    "Split-brain-and-ways-to-deal-with-it/."
                     "\nDo you still want to continue?\n";
                 answer = cli_cmd_get_confirmation(state, question);
                 if (GF_ANSWER_NO == answer) {
@@ -1947,9 +1932,6 @@ cli_cmd_volume_add_brick_parse(struct cli_state *state, const char **words,
                 }
             }
         }
-    } else if ((strcmp(w, "stripe")) == 0) {
-        cli_err("stripe option not supported");
-        goto out;
     } else {
         GF_ASSERT(!"opword mismatch");
         ret = -1;
@@ -2062,8 +2044,8 @@ cli_cmd_volume_remove_brick_parse(struct cli_state *state, const char **words,
                     "Replica 2 volumes are prone to "
                     "split-brain. Use Arbiter or Replica 3 "
                     "to avoid this. See: "
-                    "http://docs.gluster.org/en/latest/Administrator%20Guide/"
-                    "Split%20brain%20and%20ways%20to%20deal%20with%20it/."
+                    "http://docs.gluster.org/en/latest/Administrator-Guide/"
+                    "Split-brain-and-ways-to-deal-with-it/."
                     "\nDo you still want to continue?\n";
                 answer = cli_cmd_get_confirmation(state, ques);
                 if (GF_ANSWER_NO == answer) {
@@ -2628,7 +2610,7 @@ gsyncd_url_check(const char *w)
 }
 
 static gf_boolean_t
-valid_slave_gsyncd_url(const char *w)
+valid_secondary_gsyncd_url(const char *w)
 {
     if (strstr(w, ":::"))
         return _gf_false;
@@ -2868,8 +2850,8 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
     dict_t *dict = NULL;
     gf1_cli_gsync_set type = GF_GSYNC_OPTION_TYPE_NONE;
     int i = 0;
-    unsigned masteri = 0;
-    unsigned slavei = 0;
+    unsigned primary_idx = 0;
+    unsigned secondary_idx = 0;
     unsigned glob = 0;
     unsigned cmdi = 0;
     static char *opwords[] = {"create",    "status",   "start",  "stop",
@@ -2878,7 +2860,7 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
                               "resume",    NULL};
     char *w = NULL;
     char *save_ptr = NULL;
-    char *slave_temp = NULL;
+    char *secondary_temp = NULL;
     char *token = NULL;
     gf_answer_t answer = GF_ANSWER_NO;
     const char *question = NULL;
@@ -2908,31 +2890,31 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
         if (gsyncd_glob_check(words[i]))
             glob = i;
         if (gsyncd_url_check(words[i])) {
-            slavei = i;
+            secondary_idx = i;
             break;
         }
     }
 
-    if (glob && !slavei)
+    if (glob && !secondary_idx)
         /* glob is allowed only for config, thus it implies there is a
-         * slave argument; but that might have not been recognized on
+         * secondary argument; but that might have not been recognized on
          * the first scan as it's url characteristics has been covered
          * by the glob syntax.
          *
-         * In this case, the slave is perforce the last glob-word -- the
+         * In this case, the secondary is perforce the last glob-word -- the
          * upcoming one is neither glob, nor url, so it's definitely not
-         * the slave.
+         * the secondary.
          */
-        slavei = glob;
-    if (slavei) {
-        cmdi = slavei + 1;
-        if (slavei == 3)
-            masteri = 2;
+        secondary_idx = glob;
+    if (secondary_idx) {
+        cmdi = secondary_idx + 1;
+        if (secondary_idx == 3)
+            primary_idx = 2;
     } else if (i <= 4) {
         if (strtail("detail", (char *)words[wordcount - 1])) {
             cmdi = wordcount - 2;
             if (i == 4)
-                masteri = 2;
+                primary_idx = 2;
         } else {
             /* no $s, can only be status cmd
              * (with either a single $m before it or nothing)
@@ -2942,7 +2924,7 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
              */
             cmdi = i;
             if (i == 3)
-                masteri = 2;
+                primary_idx = 2;
         }
     } else
         goto out;
@@ -2952,11 +2934,12 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
      * transparent soundness)
      */
 
-    if (masteri && gsyncd_url_check(words[masteri]))
+    if (primary_idx && gsyncd_url_check(words[primary_idx]))
         goto out;
 
-    if (slavei && !glob && !valid_slave_gsyncd_url(words[slavei])) {
-        gf_asprintf(errstr, "Invalid slave url: %s", words[slavei]);
+    if (secondary_idx && !glob &&
+        !valid_secondary_gsyncd_url(words[secondary_idx])) {
+        gf_asprintf(errstr, "Invalid secondary url: %s", words[secondary_idx]);
         goto out;
     }
 
@@ -2967,42 +2950,42 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
     if (strcmp(w, "create") == 0) {
         type = GF_GSYNC_OPTION_TYPE_CREATE;
 
-        if (!masteri || !slavei)
+        if (!primary_idx || !secondary_idx)
             goto out;
     } else if (strcmp(w, "status") == 0) {
         type = GF_GSYNC_OPTION_TYPE_STATUS;
 
-        if (slavei && !masteri)
+        if (secondary_idx && !primary_idx)
             goto out;
     } else if (strcmp(w, "config") == 0) {
         type = GF_GSYNC_OPTION_TYPE_CONFIG;
 
-        if (!slavei)
+        if (!secondary_idx)
             goto out;
     } else if (strcmp(w, "start") == 0) {
         type = GF_GSYNC_OPTION_TYPE_START;
 
-        if (!masteri || !slavei)
+        if (!primary_idx || !secondary_idx)
             goto out;
     } else if (strcmp(w, "stop") == 0) {
         type = GF_GSYNC_OPTION_TYPE_STOP;
 
-        if (!masteri || !slavei)
+        if (!primary_idx || !secondary_idx)
             goto out;
     } else if (strcmp(w, "delete") == 0) {
         type = GF_GSYNC_OPTION_TYPE_DELETE;
 
-        if (!masteri || !slavei)
+        if (!primary_idx || !secondary_idx)
             goto out;
     } else if (strcmp(w, "pause") == 0) {
         type = GF_GSYNC_OPTION_TYPE_PAUSE;
 
-        if (!masteri || !slavei)
+        if (!primary_idx || !secondary_idx)
             goto out;
     } else if (strcmp(w, "resume") == 0) {
         type = GF_GSYNC_OPTION_TYPE_RESUME;
 
-        if (!masteri || !slavei)
+        if (!primary_idx || !secondary_idx)
             goto out;
     } else
         GF_ASSERT(!"opword mismatch");
@@ -3044,26 +3027,27 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
 
     ret = 0;
 
-    if (masteri) {
-        ret = dict_set_str(dict, "master", (char *)words[masteri]);
+    if (primary_idx) {
+        ret = dict_set_str(dict, "primary", (char *)words[primary_idx]);
         if (!ret)
-            ret = dict_set_str(dict, "volname", (char *)words[masteri]);
+            ret = dict_set_str(dict, "volname", (char *)words[primary_idx]);
     }
-    if (!ret && slavei) {
+    if (!ret && secondary_idx) {
         /* If geo-rep is created with root user using the syntax
-         * gluster vol geo-rep <mastervol> root@<slavehost> ...
-         * pass down only <slavehost> else pass as it is.
+         * gluster vol geo-rep <primaryvol> root@<secondaryhost> ...
+         * pass down only <secondaryhost> else pass as it is.
          */
-        slave_temp = gf_strdup(words[slavei]);
-        if (slave_temp == NULL) {
+        secondary_temp = gf_strdup(words[secondary_idx]);
+        if (secondary_temp == NULL) {
             ret = -1;
             goto out;
         }
-        token = strtok_r(slave_temp, "@", &save_ptr);
+        token = strtok_r(secondary_temp, "@", &save_ptr);
         if (token && !strcmp(token, "root")) {
-            ret = dict_set_str(dict, "slave", (char *)words[slavei] + 5);
+            ret = dict_set_str(dict, "secondary",
+                               (char *)words[secondary_idx] + 5);
         } else {
-            ret = dict_set_str(dict, "slave", (char *)words[slavei]);
+            ret = dict_set_str(dict, "secondary", (char *)words[secondary_idx]);
         }
     }
     if (!ret)
@@ -3093,8 +3077,8 @@ cli_cmd_gsync_set_parse(struct cli_state *state, const char **words,
     }
 
 out:
-    if (slave_temp)
-        GF_FREE(slave_temp);
+    if (secondary_temp)
+        GF_FREE(secondary_temp);
     if (ret && dict)
         dict_unref(dict);
     else

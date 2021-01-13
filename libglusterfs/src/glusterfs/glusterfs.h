@@ -213,6 +213,13 @@ enum gf_internal_fop_indicator {
 #define GF_XATTR_XTIME_PATTERN "trusted.glusterfs.*.xtime"
 #define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
 
+#define GLUSTERFS_ENTRYLK_COUNT_BIT 0
+#define GLUSTERFS_INODELK_COUNT_BIT 1
+#define GLUSTERFS_INODELK_DOM_COUNT_BIT 2
+#define GLUSTERFS_POSIXLK_COUNT_BIT 3
+#define GLUSTERFS_PARENT_ENTRYLK_BIT 4
+#define GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT 5
+
 /* quota xattrs */
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"

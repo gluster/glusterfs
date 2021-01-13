@@ -621,16 +621,16 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         gr_ret = group_write_allow(logdir, gr->gr_gid);
     }
 
-    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP "-slaves")) >= PATH_MAX) {
+    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP "-secondaries")) >= PATH_MAX) {
         ret = -1;
         gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
                "directory path  %s/" GEOREP
-               "-slaves"
+               "-secondaries"
                " is longer than PATH_MAX",
                conf->logdir);
         goto out;
     }
-    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-slaves", conf->logdir);
+    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-secondaries", conf->logdir);
     if ((len < 0) || (len >= PATH_MAX)) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
@@ -639,7 +639,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
     ret = mkdir_p(logdir, 0755, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create " GEOREP " slave log directory");
+               "Unable to create " GEOREP " secondary log directory");
         goto out;
     }
     if (gr && !gr_ret) {
@@ -647,17 +647,19 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
     }
 
     /* MountBroker log file directory */
-    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP "-slaves/mbr")) >= PATH_MAX) {
+    if ((strlen(conf->logdir) + 2 + SLEN(GEOREP "-secondaries/mbr")) >=
+        PATH_MAX) {
         ret = -1;
         gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_DIRPATH_TOO_LONG,
                "directory path  %s/" GEOREP
-               "-slaves/mbr"
+               "-secondaries/mbr"
                " is longer than PATH_MAX",
                conf->logdir);
         goto out;
     }
 
-    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-slaves/mbr", conf->logdir);
+    len = snprintf(logdir, PATH_MAX, "%s/" GEOREP "-secondaries/mbr",
+                   conf->logdir);
     if ((len < 0) || (len >= PATH_MAX)) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
@@ -667,7 +669,8 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
     ret = mkdir_p(logdir, 0755, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create " GEOREP " mountbroker slave log directory");
+               "Unable to create " GEOREP
+               " mountbroker secondary log directory");
         goto out;
     }
     if (gr && !gr_ret) {
@@ -730,7 +733,7 @@ configure_syncdaemon(glusterd_conf_t *conf)
     }
 
     /************
-     * master pre-configuration
+     * primary pre-configuration
      ************/
 
     /* remote-gsyncd */
@@ -781,16 +784,16 @@ configure_syncdaemon(glusterd_conf_t *conf)
     /* pid-file */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "pid-file");
-    runner_argprintf(&runner,
-                     "%s/${mastervol}_${remotehost}_${slavevol}/monitor.pid",
-                     georepdir);
+    runner_argprintf(
+        &runner, "%s/${primaryvol}_${remotehost}_${secondaryvol}/monitor.pid",
+        georepdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* geo-rep working dir */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "georep-session-working-dir");
-    runner_argprintf(&runner, "%s/${mastervol}_${remotehost}_${slavevol}/",
+    runner_argprintf(&runner, "%s/${primaryvol}_${remotehost}_${secondaryvol}/",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
@@ -798,8 +801,19 @@ configure_syncdaemon(glusterd_conf_t *conf)
     /* state-file */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "state-file");
+    runner_argprintf(
+        &runner,
+        "%s/${primaryvol}_${remotehost}_${secondaryvol}/monitor.status",
+        georepdir);
+    runner_add_args(&runner, ".", ".", NULL);
+    RUN_GSYNCD_CMD;
+
+    /* state-detail-file */
+    runinit_gsyncd_setrx(&runner, conf);
+    runner_add_arg(&runner, "state-detail-file");
     runner_argprintf(&runner,
-                     "%s/${mastervol}_${remotehost}_${slavevol}/monitor.status",
+                     "%s/${primaryvol}_${remotehost}_${secondaryvol}/"
+                     "${eSecondary}-detail.status",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
@@ -807,27 +821,18 @@ configure_syncdaemon(glusterd_conf_t *conf)
     /* state-detail-file */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "state-detail-file");
-    runner_argprintf(
-        &runner,
-        "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}-detail.status",
-        georepdir);
-    runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
-
-    /* state-detail-file */
-    runinit_gsyncd_setrx(&runner, conf);
-    runner_add_arg(&runner, "state-detail-file");
-    runner_argprintf(
-        &runner,
-        "%s/${mastervol}_${remotehost}_${slavevol}/${eSlave}-detail.status",
-        georepdir);
+    runner_argprintf(&runner,
+                     "%s/${primaryvol}_${remotehost}_${secondaryvol}/"
+                     "${eSecondary}-detail.status",
+                     georepdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /* state-socket */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "state-socket-unencoded");
-    runner_argprintf(&runner, "%s/${mastervol}/${eSlave}.socket", georepdir);
+    runner_argprintf(&runner, "%s/${primaryvol}/${eSecondary}.socket",
+                     georepdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
@@ -839,7 +844,7 @@ configure_syncdaemon(glusterd_conf_t *conf)
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "log-file");
-    runner_argprintf(&runner, "%s/" GEOREP "/${mastervol}/${eSlave}.log",
+    runner_argprintf(&runner, "%s/" GEOREP "/${primaryvol}/${eSecondary}.log",
                      conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
@@ -847,9 +852,10 @@ configure_syncdaemon(glusterd_conf_t *conf)
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "gluster-log-file");
-    runner_argprintf(
-        &runner, "%s/" GEOREP "/${mastervol}/${eSlave}${local_id}.gluster.log",
-        conf->logdir);
+    runner_argprintf(&runner,
+                     "%s/" GEOREP
+                     "/${primaryvol}/${eSecondary}${local_id}.gluster.log",
+                     conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
@@ -870,18 +876,18 @@ configure_syncdaemon(glusterd_conf_t *conf)
 
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "working-dir");
-    runner_argprintf(&runner, "%s/${mastervol}/${eSlave}",
+    runner_argprintf(&runner, "%s/${primaryvol}/${eSecondary}",
                      DEFAULT_VAR_RUN_DIRECTORY);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
 
     /************
-     * slave pre-configuration
+     * secondary pre-configuration
      ************/
 
-    /* slave-gluster-command-dir */
+    /* secondary-gluster-command-dir */
     runinit_gsyncd_setrx(&runner, conf);
-    runner_add_args(&runner, "slave-gluster-command-dir", SBIN_DIR "/", ".",
+    runner_add_args(&runner, "secondary-gluster-command-dir", SBIN_DIR "/", ".",
                     NULL);
     RUN_GSYNCD_CMD;
 
@@ -896,7 +902,8 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runner_argprintf(
         &runner,
         "%s/" GEOREP
-        "-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.log",
+        "-secondaries/"
+        "${session_owner}:${local_node}${local_id}.${secondaryvol}.log",
         conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
@@ -907,7 +914,8 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runner_argprintf(
         &runner,
         "%s/" GEOREP
-        "-slaves/mbr/${session_owner}:${local_node}${local_id}.${slavevol}.log",
+        "-secondaries/mbr/"
+        "${session_owner}:${local_node}${local_id}.${secondaryvol}.log",
         conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;
@@ -918,8 +926,8 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runner_argprintf(
         &runner,
         "%s/" GEOREP
-        "-slaves/"
-        "${session_owner}:${local_node}${local_id}.${slavevol}.gluster.log",
+        "-secondaries/"
+        "${session_owner}:${local_node}${local_id}.${secondaryvol}.gluster.log",
         conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
     RUN_GSYNCD_CMD;

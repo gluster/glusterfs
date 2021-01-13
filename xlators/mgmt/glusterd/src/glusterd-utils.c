@@ -737,19 +737,19 @@ glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
         goto out;
     }
 
-    new_volinfo->gsync_slaves = dict_new();
-    if (!new_volinfo->gsync_slaves) {
+    new_volinfo->gsync_secondaries = dict_new();
+    if (!new_volinfo->gsync_secondaries) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         dict_unref(new_volinfo->dict);
         GF_FREE(new_volinfo);
         goto out;
     }
 
-    new_volinfo->gsync_active_slaves = dict_new();
-    if (!new_volinfo->gsync_active_slaves) {
+    new_volinfo->gsync_active_secondaries = dict_new();
+    if (!new_volinfo->gsync_active_secondaries) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         dict_unref(new_volinfo->dict);
-        dict_unref(new_volinfo->gsync_slaves);
+        dict_unref(new_volinfo->gsync_secondaries);
         GF_FREE(new_volinfo);
         goto out;
     }
@@ -809,7 +809,6 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     new_volinfo->type = volinfo->type;
     new_volinfo->replica_count = volinfo->replica_count;
     new_volinfo->arbiter_count = volinfo->arbiter_count;
-    new_volinfo->stripe_count = volinfo->stripe_count;
     new_volinfo->disperse_count = volinfo->disperse_count;
     new_volinfo->redundancy_count = volinfo->redundancy_count;
     new_volinfo->dist_leaf_count = volinfo->dist_leaf_count;
@@ -823,8 +822,9 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     new_volinfo->quota_conf_cksum = volinfo->quota_conf_cksum;
 
     dict_copy(volinfo->dict, new_volinfo->dict);
-    dict_copy(volinfo->gsync_slaves, new_volinfo->gsync_slaves);
-    dict_copy(volinfo->gsync_active_slaves, new_volinfo->gsync_active_slaves);
+    dict_copy(volinfo->gsync_secondaries, new_volinfo->gsync_secondaries);
+    dict_copy(volinfo->gsync_active_secondaries,
+              new_volinfo->gsync_active_secondaries);
     gd_update_volume_op_versions(new_volinfo);
 
     if (set_userauth) {
@@ -907,7 +907,8 @@ gd_vol_is_geo_rep_active(glusterd_volinfo_t *volinfo)
 
     GF_ASSERT(volinfo);
 
-    if (volinfo->gsync_active_slaves && volinfo->gsync_active_slaves->count > 0)
+    if (volinfo->gsync_active_secondaries &&
+        volinfo->gsync_active_secondaries->count > 0)
         active = _gf_true;
 
     return active;
@@ -1022,10 +1023,10 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
         goto out;
     if (volinfo->dict)
         dict_unref(volinfo->dict);
-    if (volinfo->gsync_slaves)
-        dict_unref(volinfo->gsync_slaves);
-    if (volinfo->gsync_active_slaves)
-        dict_unref(volinfo->gsync_active_slaves);
+    if (volinfo->gsync_secondaries)
+        dict_unref(volinfo->gsync_secondaries);
+    if (volinfo->gsync_active_secondaries)
+        dict_unref(volinfo->gsync_active_secondaries);
     GF_FREE(volinfo->logdir);
     if (volinfo->rebal.dict)
         dict_unref(volinfo->rebal.dict);
@@ -3051,11 +3052,6 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s.stripe_count", pfx);
-    ret = dict_set_int32n(dict, key, keylen, volinfo->stripe_count);
-    if (ret)
-        goto out;
-
     keylen = snprintf(key, sizeof(key), "%s.replica_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->replica_count);
     if (ret)
@@ -3192,11 +3188,11 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     ctx.dict = dict;
     ctx.prefix = pfx;
     ctx.opt_count = 1;
-    ctx.key_name = "slave-num";
-    ctx.val_name = "slave-val";
-    GF_ASSERT(volinfo->gsync_slaves);
+    ctx.key_name = "secondary-num";
+    ctx.val_name = "secondary-val";
+    GF_ASSERT(volinfo->gsync_secondaries);
 
-    dict_foreach(volinfo->gsync_slaves, _add_dict_to_prdict, &ctx);
+    dict_foreach(volinfo->gsync_secondaries, _add_dict_to_prdict, &ctx);
     ctx.opt_count--;
 
     keylen = snprintf(key, sizeof(key), "%s.gsync-count", pfx);
@@ -3971,8 +3967,9 @@ glusterd_import_friend_volume_opts(dict_t *peer_data, int count,
         goto out;
     }
 
-    ret = import_prdict_dict(peer_data, volinfo->gsync_slaves, "slave-num",
-                             "slave-val", opt_count, volume_prefix);
+    ret = import_prdict_dict(peer_data, volinfo->gsync_secondaries,
+                             "secondary-num", "secondary-val", opt_count,
+                             volume_prefix);
     if (ret) {
         snprintf(msg, sizeof(msg),
                  "Unable to import gsync sessions "
@@ -4524,14 +4521,6 @@ glusterd_import_volinfo(dict_t *peer_data, int count,
                  volname);
         goto out;
     }
-
-    /* not having a 'stripe_count' key is not a error
-       (as peer may be of old version) */
-    keylen = snprintf(key, sizeof(key), "%s.stripe_count", key_prefix);
-    ret = dict_get_int32n(peer_data, key, keylen, &new_volinfo->stripe_count);
-    if (ret)
-        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
-               "peer is possibly old version");
 
     /* not having a 'replica_count' key is not a error
        (as peer may be of old version) */
@@ -7041,10 +7030,10 @@ int
 _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
 {
     char *path_list = NULL;
-    char *slave = NULL;
-    char *slave_url = NULL;
-    char *slave_vol = NULL;
-    char *slave_host = NULL;
+    char *secondary = NULL;
+    char *secondary_url = NULL;
+    char *secondary_vol = NULL;
+    char *secondary_host = NULL;
     char *statefile = NULL;
     char buf[1024] = "faulty";
     int ret = 0;
@@ -7065,9 +7054,9 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     GF_ASSERT(data);
 
     volinfo = data;
-    slave = strchr(value->data, ':');
-    if (slave)
-        slave++;
+    secondary = strchr(value->data, ':');
+    if (secondary)
+        secondary++;
     else
         return 0;
 
@@ -7077,27 +7066,27 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     ret = glusterd_get_local_brickpaths(volinfo, &path_list);
 
     /*Generating the conf file path needed by gsyncd */
-    ret = glusterd_get_slave_info(slave, &slave_url, &slave_host, &slave_vol,
-                                  &op_errstr);
+    ret = glusterd_get_secondary_info(
+        secondary, &secondary_url, &secondary_host, &secondary_vol, &op_errstr);
     if (ret) {
-        gf_msg(this1->name, GF_LOG_ERROR, 0, GD_MSG_SLAVEINFO_FETCH_ERROR,
-               "Unable to fetch slave details.");
+        gf_msg(this1->name, GF_LOG_ERROR, 0, GD_MSG_SECONDARYINFO_FETCH_ERROR,
+               "Unable to fetch secondary details.");
         ret = -1;
         goto out;
     }
 
     ret = snprintf(confpath, sizeof(confpath) - 1,
                    "%s/" GEOREP "/%s_%s_%s/gsyncd.conf", priv->workdir,
-                   volinfo->volname, slave_host, slave_vol);
+                   volinfo->volname, secondary_host, secondary_vol);
     confpath[ret] = '\0';
 
     /* Fetching the last status of the node */
-    ret = glusterd_get_statefile_name(volinfo, slave, confpath, &statefile,
+    ret = glusterd_get_statefile_name(volinfo, secondary, confpath, &statefile,
                                       &is_template_in_use);
     if (ret) {
-        if (!strstr(slave, "::"))
-            gf_msg(this1->name, GF_LOG_INFO, 0, GD_MSG_SLAVE_URL_INVALID,
-                   "%s is not a valid slave url.", slave);
+        if (!strstr(secondary, "::"))
+            gf_msg(this1->name, GF_LOG_INFO, 0, GD_MSG_SECONDARY_URL_INVALID,
+                   "%s is not a valid secondary url.", secondary);
         else
             gf_msg(this1->name, GF_LOG_INFO, 0,
                    GD_MSG_GET_STATEFILE_NAME_FAILED,
@@ -7117,7 +7106,7 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
 
     is_template_in_use = _gf_false;
 
-    ret = gsync_status(volinfo->volname, slave, confpath, &ret_status,
+    ret = gsync_status(volinfo->volname, secondary, confpath, &ret_status,
                        &is_template_in_use);
     if (ret == -1) {
         gf_msg(this1->name, GF_LOG_INFO, 0, GD_MSG_GSYNC_VALIDATION_FAIL,
@@ -7141,8 +7130,8 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
         goto out;
     }
 
-    /* Form key1 which is "<user@><slave_host>::<slavevol>" */
-    snprintf(key1, sizeof(key1), "%s::%s", slave_url, slave_vol);
+    /* Form key1 which is "<user@><secondary_host>::<secondaryvol>" */
+    snprintf(key1, sizeof(key1), "%s::%s", secondary_url, secondary_vol);
 
     /* Looks for the last status, to find if the session was running
      * when the node went down. If the session was just created or
@@ -7151,7 +7140,7 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
         gf_msg(this1->name, GF_LOG_INFO, 0, GD_MSG_GEO_REP_START_FAILED,
                "Geo-Rep Session was not started between "
                "%s and %s::%s. Not Restarting",
-               volinfo->volname, slave_url, slave_vol);
+               volinfo->volname, secondary_url, secondary_vol);
         goto out;
     } else if (strstr(buf, "Paused")) {
         is_paused = _gf_true;
@@ -7160,17 +7149,17 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
                "Recovering from a corrupted config. "
                "Not Restarting. Use start (force) to "
                "start the session between %s and %s::%s.",
-               volinfo->volname, slave_url, slave_vol);
+               volinfo->volname, secondary_url, secondary_vol);
         goto out;
     }
 
     if (is_paused) {
-        glusterd_start_gsync(volinfo, slave, path_list, confpath, uuid_str,
+        glusterd_start_gsync(volinfo, secondary, path_list, confpath, uuid_str,
                              NULL, _gf_true);
     } else {
-        /* Add slave to the dict indicating geo-rep session is running*/
-        ret = dict_set_dynstr_with_alloc(volinfo->gsync_active_slaves, key1,
-                                         "running");
+        /* Add secondary to the dict indicating geo-rep session is running*/
+        ret = dict_set_dynstr_with_alloc(volinfo->gsync_active_secondaries,
+                                         key1, "running");
         if (ret) {
             gf_msg(this1->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set key:%s"
@@ -7178,21 +7167,22 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
                    key1);
             goto out;
         }
-        ret = glusterd_start_gsync(volinfo, slave, path_list, confpath,
+        ret = glusterd_start_gsync(volinfo, secondary, path_list, confpath,
                                    uuid_str, NULL, _gf_false);
         if (ret)
-            dict_del(volinfo->gsync_active_slaves, key1);
+            dict_del(volinfo->gsync_active_secondaries, key1);
     }
 
 out:
     if (statefile)
         GF_FREE(statefile);
-    if (slave_url)
-        GF_FREE(slave_url);
+    if (secondary_url)
+        GF_FREE(secondary_url);
 
     if (is_template_in_use) {
-        op_ret = glusterd_create_status_file(
-            volinfo->volname, slave, slave_host, slave_vol, "Config Corrupted");
+        op_ret = glusterd_create_status_file(volinfo->volname, secondary,
+                                             secondary_host, secondary_vol,
+                                             "Config Corrupted");
         if (op_ret) {
             gf_msg(this1->name, GF_LOG_ERROR, 0,
                    GD_MSG_STATUSFILE_CREATE_FAILED,
@@ -7202,8 +7192,8 @@ out:
             ret = op_ret;
         }
     }
-    if (slave_vol)
-        GF_FREE(slave_vol);
+    if (secondary_vol)
+        GF_FREE(secondary_vol);
     GF_FREE(path_list);
     GF_FREE(op_errstr);
 
@@ -7215,7 +7205,7 @@ glusterd_volume_restart_gsyncds(glusterd_volinfo_t *volinfo)
 {
     GF_ASSERT(volinfo);
 
-    dict_foreach(volinfo->gsync_slaves, _local_gsyncd_start, volinfo);
+    dict_foreach(volinfo->gsync_secondaries, _local_gsyncd_start, volinfo);
     return 0;
 }
 
@@ -7233,21 +7223,14 @@ glusterd_restart_gsyncds(glusterd_conf_t *conf)
 }
 
 int
-glusterd_calc_dist_leaf_count(int rcount, int scount)
-{
-    return (rcount ? rcount : 1) * (scount ? scount : 1);
-}
-
-int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo)
 {
-    int rcount = volinfo->replica_count;
-    int scount = volinfo->stripe_count;
-
     if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)
         return volinfo->disperse_count;
+    else if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)
+        return volinfo->replica_count;
 
-    return glusterd_calc_dist_leaf_count(rcount, scount);
+    return 1;
 }
 
 int
@@ -8685,7 +8668,7 @@ out:
 }
 
 int
-glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
+glusterd_start_gsync(glusterd_volinfo_t *primary_vol, char *secondary,
                      char *path_list, char *conf_path, char *glusterd_uuid_str,
                      char **op_errstr, gf_boolean_t is_pause)
 {
@@ -8712,7 +8695,7 @@ glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
         goto out;
     }
 
-    ret = gsync_status(master_vol->volname, slave, conf_path, &status,
+    ret = gsync_status(primary_vol->volname, secondary, conf_path, &status,
                        &is_template_in_use);
     if (status == 0)
         goto out;
@@ -8722,17 +8705,17 @@ glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
                     GEOREP
                     " start failed for %s %s : "
                     "pid-file entry missing in config file",
-                    master_vol->volname, slave);
+                    primary_vol->volname, secondary);
         ret = -1;
         goto out;
     }
 
-    uuid_utoa_r(master_vol->volume_id, uuid_str);
+    uuid_utoa_r(primary_vol->volume_id, uuid_str);
     runinit(&runner);
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", path_list, "-c", NULL);
     runner_argprintf(&runner, "%s", conf_path);
-    runner_argprintf(&runner, ":%s", master_vol->volname);
-    runner_add_args(&runner, slave, "--config-set", "session-owner", NULL);
+    runner_argprintf(&runner, ":%s", primary_vol->volname);
+    runner_add_args(&runner, secondary, "--config-set", "session-owner", NULL);
     runner_argprintf(&runner, "--value=%s", uuid_str);
     synclock_unlock(&priv->big_lock);
     ret = runner_run(&runner);
@@ -8747,9 +8730,9 @@ glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
                     "-c", NULL);
     runner_argprintf(&runner, "%s", conf_path);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
-    runner_argprintf(&runner, ":%s", master_vol->volname);
+    runner_argprintf(&runner, ":%s", primary_vol->volname);
     runner_argprintf(&runner, "--glusterd-uuid=%s", uuid_utoa(priv->uuid));
-    runner_add_arg(&runner, slave);
+    runner_add_arg(&runner, secondary);
     if (is_pause)
         runner_add_arg(&runner, "--pause-on-start");
     synclock_unlock(&priv->big_lock);
@@ -8757,7 +8740,7 @@ glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
     synclock_lock(&priv->big_lock);
     if (ret == -1) {
         gf_asprintf(op_errstr, GEOREP " start failed for %s %s",
-                    master_vol->volname, slave);
+                    primary_vol->volname, secondary);
         goto out;
     }
 

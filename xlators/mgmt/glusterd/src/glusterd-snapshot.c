@@ -708,7 +708,7 @@ glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
     xlator_t *this = THIS;
     char key[32] = "";
     char session[PATH_MAX] = "";
-    char slave[PATH_MAX] = "";
+    char secondary[PATH_MAX] = "";
     char snapgeo_dir[PATH_MAX] = "";
     glusterd_conf_t *priv = NULL;
 
@@ -720,10 +720,11 @@ glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
     GF_ASSERT(rsp_dict);
 
     /* This condition is not satisfied if the volume
-     * is slave volume.
+     * is secondary volume.
      */
-    if (!origin_vol->gsync_slaves) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_SLAVE, NULL);
+    if (!origin_vol->gsync_secondaries) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_SECONDARY,
+                NULL);
         ret = 0;
         goto out;
     }
@@ -737,13 +738,14 @@ glusterd_copy_geo_rep_files(glusterd_volinfo_t *origin_vol,
         goto out;
     }
 
-    for (i = 1; i <= origin_vol->gsync_slaves->count; i++) {
-        ret = snprintf(key, sizeof(key), "slave%d", i);
+    for (i = 1; i <= origin_vol->gsync_secondaries->count; i++) {
+        ret = snprintf(key, sizeof(key), "secondary%d", i);
         if (ret < 0) /* Negative value is an error */
             goto out;
 
-        ret = glusterd_get_geo_rep_session(
-            key, origin_vol->volname, origin_vol->gsync_slaves, session, slave);
+        ret = glusterd_get_geo_rep_session(key, origin_vol->volname,
+                                           origin_vol->gsync_secondaries,
+                                           session, secondary);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GEOREP_GET_FAILED,
                    "Failed to get geo-rep session");
@@ -9741,7 +9743,7 @@ gd_restore_snap_volume(dict_t *dict, dict_t *rsp_dict,
      * missing geo-rep files in the new node, and proceeding with
      * snapshot restore. Once the restore is successful, the missing
      * geo-rep files can be generated with "gluster volume geo-rep
-     * <master-vol> <slave-vol> create push-pem force"
+     * <primary-vol> <secondary-vol> create push-pem force"
      */
     ret = glusterd_restore_geo_rep_files(snap_vol);
     if (ret) {

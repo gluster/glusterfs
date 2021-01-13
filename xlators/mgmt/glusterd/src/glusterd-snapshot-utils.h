@@ -104,9 +104,9 @@ int32_t
 glusterd_copy_folder(const char *source, const char *destination);
 
 int32_t
-glusterd_get_geo_rep_session(char *slave_key, char *origin_volname,
-                             dict_t *gsync_slaves_dict, char *session,
-                             char *slave);
+glusterd_get_geo_rep_session(char *secondary_key, char *origin_volname,
+                             dict_t *gsync_secondaries_dict, char *session,
+                             char *secondary);
 
 int32_t
 glusterd_restore_geo_rep_files(glusterd_volinfo_t *snap_vol);

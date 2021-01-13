@@ -33,7 +33,7 @@
 int
 add_brick_at_right_order(glusterd_brickinfo_t *brickinfo,
                          glusterd_volinfo_t *volinfo, int count,
-                         int32_t stripe_cnt, int32_t replica_cnt)
+                         int32_t replica_cnt)
 {
     int idx = 0;
     int i = 0;
@@ -44,21 +44,6 @@ add_brick_at_right_order(glusterd_brickinfo_t *brickinfo,
        to add new brick. Even though it can be defined with a complex
        single formula for all volume, it is separated out to make it
        more readable */
-    if (stripe_cnt) {
-        /* common formula when 'stripe_count' is set */
-        /* idx = ((count / ((stripe_cnt * volinfo->replica_count) -
-           volinfo->dist_leaf_count)) * volinfo->dist_leaf_count) +
-           (count + volinfo->dist_leaf_count);
-        */
-
-        sub_cnt = volinfo->dist_leaf_count;
-
-        idx = ((count / ((stripe_cnt * volinfo->replica_count) - sub_cnt)) *
-               sub_cnt) +
-              (count + sub_cnt);
-
-        goto insert_brick;
-    }
 
     /* replica count is set */
     /* common formula when 'replica_count' is set */
@@ -70,7 +55,6 @@ add_brick_at_right_order(glusterd_brickinfo_t *brickinfo,
     sub_cnt = volinfo->replica_count;
     idx = (count / (replica_cnt - sub_cnt) * sub_cnt) + (count + sub_cnt);
 
-insert_brick:
     i = 0;
     cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
     {
@@ -147,8 +131,7 @@ gd_addbr_validate_replica_count(glusterd_volinfo_t *volinfo, int replica_count,
                    the number or subvolumes for distribute will remain
                    same, when replica count is given */
                 if ((total_bricks * volinfo->dist_leaf_count) ==
-                    (volinfo->brick_count *
-                     (replica_count * volinfo->stripe_count))) {
+                    (volinfo->brick_count * replica_count)) {
                     /* Change the dist_leaf_count */
                     gf_msg(THIS->name, GF_LOG_INFO, 0,
                            GD_MSG_REPLICA_COUNT_CHANGE_INFO,
@@ -267,7 +250,6 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     int total_bricks = 0;
     int32_t replica_count = 0;
     int32_t arbiter_count = 0;
-    int32_t stripe_count = 0;
     int type = 0;
     glusterd_conf_t *conf = NULL;
 
@@ -352,13 +334,6 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
                "arbiter-count is %d", arbiter_count);
     }
 
-    ret = dict_get_int32n(dict, "stripe-count", SLEN("stripe-count"),
-                          &stripe_count);
-    if (!ret) {
-        gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
-               "stripe-count is %d", stripe_count);
-    }
-
     if (!dict_getn(dict, "force", SLEN("force"))) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                "Failed to get flag");
@@ -367,7 +342,7 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
 
     total_bricks = volinfo->brick_count + brick_count;
 
-    if (!stripe_count && !replica_count) {
+    if (!replica_count) {
         if (volinfo->type == GF_CLUSTER_TYPE_NONE)
             goto brick_val;
 
@@ -386,7 +361,7 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
             goto out;
         }
         goto brick_val;
-        /* done with validation.. below section is if stripe|replica
+        /* done with validation.. below section is if replica
            count is given */
     }
 
@@ -768,7 +743,7 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     }
 
     /* Do not allow remove-brick if the bricks given is less than
-       the replica count or stripe count */
+       the replica count */
     if (!replica_count && (volinfo->type != GF_CLUSTER_TYPE_NONE)) {
         if (volinfo->dist_leaf_count && (count % volinfo->dist_leaf_count)) {
             snprintf(err_str, sizeof(err_str),
@@ -892,12 +867,12 @@ static int
 _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
                                 void *data)
 {
-    char *slave = NULL;
-    char *slave_buf = NULL;
+    char *secondary = NULL;
+    char *secondary_buf = NULL;
     char *path_list = NULL;
-    char *slave_vol = NULL;
-    char *slave_host = NULL;
-    char *slave_url = NULL;
+    char *secondary_vol = NULL;
+    char *secondary_host = NULL;
+    char *secondary_url = NULL;
     char *conf_path = NULL;
     char **errmsg = NULL;
     int ret = -1;
@@ -909,11 +884,11 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
     GF_ASSERT(param);
     GF_ASSERT(param->volinfo);
 
-    slave = strchr(value->data, ':');
-    if (slave) {
-        slave++;
-        slave_buf = gf_strdup(slave);
-        if (!slave_buf) {
+    secondary = strchr(value->data, ':');
+    if (secondary) {
+        secondary++;
+        secondary_buf = gf_strdup(secondary);
+        if (!secondary_buf) {
             gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                    "Failed to gf_strdup");
             ret = -1;
@@ -922,32 +897,33 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
     } else
         return 0;
 
-    ret = dict_set_dynstrn(param->rsp_dict, "slave", SLEN("slave"), slave_buf);
+    ret = dict_set_dynstrn(param->rsp_dict, "secondary", SLEN("secondary"),
+                           secondary_buf);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
-               "Unable to store slave");
-        if (slave_buf)
-            GF_FREE(slave_buf);
+               "Unable to store secondary");
+        if (secondary_buf)
+            GF_FREE(secondary_buf);
         goto out;
     }
 
-    ret = glusterd_get_slave_details_confpath(param->volinfo, param->rsp_dict,
-                                              &slave_url, &slave_host,
-                                              &slave_vol, &conf_path, errmsg);
+    ret = glusterd_get_secondary_details_confpath(
+        param->volinfo, param->rsp_dict, &secondary_url, &secondary_host,
+        &secondary_vol, &conf_path, errmsg);
     if (ret) {
         if (errmsg && *errmsg)
             gf_msg("glusterd", GF_LOG_ERROR, 0,
-                   GD_MSG_SLAVE_CONFPATH_DETAILS_FETCH_FAIL, "%s", *errmsg);
+                   GD_MSG_SECONDARY_CONFPATH_DETAILS_FETCH_FAIL, "%s", *errmsg);
         else
             gf_msg("glusterd", GF_LOG_ERROR, 0,
-                   GD_MSG_SLAVE_CONFPATH_DETAILS_FETCH_FAIL,
-                   "Unable to fetch slave or confpath details.");
+                   GD_MSG_SECONDARY_CONFPATH_DETAILS_FETCH_FAIL,
+                   "Unable to fetch secondary or confpath details.");
         goto out;
     }
 
     /* In cases that gsyncd is not running, we will not invoke it
      * because of add-brick. */
-    ret = glusterd_check_gsync_running_local(param->volinfo->volname, slave,
+    ret = glusterd_check_gsync_running_local(param->volinfo->volname, secondary,
                                              conf_path, &is_running);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_GSYNC_VALIDATION_FAIL,
@@ -958,7 +934,7 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
         gf_msg_debug("glusterd", 0,
                      "gsync session for %s and %s is"
                      " not running on this node. Hence not restarting.",
-                     param->volinfo->volname, slave);
+                     param->volinfo->volname, secondary);
         ret = 0;
         goto out;
     }
@@ -974,7 +950,7 @@ _glusterd_restart_gsync_session(dict_t *this, char *key, data_t *value,
     }
 
     ret = glusterd_check_restart_gsync_session(
-        param->volinfo, slave, param->rsp_dict, path_list, conf_path, 0);
+        param->volinfo, secondary, param->rsp_dict, path_list, conf_path, 0);
     if (ret)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_GSYNC_RESTART_FAIL,
                "Unable to restart gsync session.");
@@ -997,7 +973,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     char *free_ptr2 = NULL;
     char *saveptr = NULL;
     int32_t ret = -1;
-    int32_t stripe_count = 0;
     int32_t replica_count = 0;
     int32_t arbiter_count = 0;
     int32_t type = 0;
@@ -1031,12 +1006,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         brick = strtok_r(brick_list + 1, " \n", &saveptr);
 
     if (dict) {
-        ret = dict_get_int32n(dict, "stripe-count", SLEN("stripe-count"),
-                              &stripe_count);
-        if (!ret)
-            gf_msg(this->name, GF_LOG_INFO, errno, GD_MSG_DICT_GET_SUCCESS,
-                   "stripe-count is set %d", stripe_count);
-
         ret = dict_get_int32n(dict, "replica-count", SLEN("replica-count"),
                               &replica_count);
         if (!ret)
@@ -1098,8 +1067,8 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
             }
             brickinfo->statfs_fsid = brickstat.f_fsid;
         }
-        if (stripe_count || replica_count) {
-            add_brick_at_right_order(brickinfo, volinfo, (i - 1), stripe_count,
+        if (replica_count) {
+            add_brick_at_right_order(brickinfo, volinfo, (i - 1),
                                      replica_count);
         } else {
             cds_list_add_tail(&brickinfo->brick_list, &volinfo->bricks);
@@ -1136,9 +1105,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     }
     if (arbiter_count) {
         volinfo->arbiter_count = arbiter_count;
-    }
-    if (stripe_count) {
-        volinfo->stripe_count = stripe_count;
     }
     volinfo->dist_leaf_count = glusterd_get_dist_leaf_count(volinfo);
 
@@ -1227,12 +1193,12 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     }
 
     /* If the restart_needed flag is set, restart gsyncd sessions for that
-     * particular master with all the slaves. */
+     * particular primary with all the secondaries. */
     if (restart_needed) {
         param.rsp_dict = dict;
         param.volinfo = volinfo;
-        dict_foreach(volinfo->gsync_slaves, _glusterd_restart_gsync_session,
-                     &param);
+        dict_foreach(volinfo->gsync_secondaries,
+                     _glusterd_restart_gsync_session, &param);
     }
 
 generate_volfiles:

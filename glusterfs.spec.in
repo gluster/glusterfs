@@ -1367,7 +1367,7 @@ exit 0
      %{_libexecdir}/glusterfs/python/syncdaemon/*
 %dir %{_libexecdir}/glusterfs/scripts
      %{_libexecdir}/glusterfs/scripts/get-gfid.sh
-     %{_libexecdir}/glusterfs/scripts/slave-upgrade.sh
+     %{_libexecdir}/glusterfs/scripts/secondary-upgrade.sh
      %{_libexecdir}/glusterfs/scripts/gsync-upgrade.sh
      %{_libexecdir}/glusterfs/scripts/generate-gfid-file.sh
      %{_libexecdir}/glusterfs/scripts/gsync-sync-gfid

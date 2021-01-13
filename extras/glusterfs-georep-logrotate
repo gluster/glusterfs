@@ -19,7 +19,7 @@
 }
 
 
-/var/log/glusterfs/geo-replication-slaves/*.log {
+/var/log/glusterfs/geo-replication-secondaries/*.log {
     sharedscripts
     weekly
     maxsize 10M
@@ -40,7 +40,7 @@
 }
 
 
-/var/log/glusterfs/geo-replication-slaves/*/*.log {
+/var/log/glusterfs/geo-replication-secondaries/*/*.log {
     sharedscripts
     weekly
     maxsize 10M

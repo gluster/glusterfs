@@ -1,14 +1,14 @@
 
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <limits.h>
-#include <sys/types.h>
-#include <libgen.h>
 #include <ctype.h>
-#include <stdlib.h>
+#include <errno.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/syscall.h>
+#include <libgen.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 
 #ifndef UUID_CANONICAL_FORM_LEN
 #define UUID_CANONICAL_FORM_LEN 36
@@ -42,7 +42,7 @@ main(int argc, char *argv[])
     if (argc != 2) {
         /* each line in the file has the following format
          * uuid-in-canonical-form path-relative-to-gluster-mount.
-         * Both uuid and relative path are from master mount.
+         * Both uuid and relative path are from primary mount.
          */
         fprintf(stderr, "usage: %s <file-of-paths-to-be-synced>\n", argv[0]);
         goto out;

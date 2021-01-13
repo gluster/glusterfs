@@ -74,7 +74,7 @@
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
 #define GLUSTERD_SERVER_QUORUM "server"
 #define STATUS_STRLEN 128
-
+#define STRIPE_COUNT 1
 #define FMTSTR_CHECK_VOL_EXISTS "Volume %s does not exist"
 #define FMTSTR_RESOLVE_BRICK "Could not find peer on which brick %s:%s resides"
 
@@ -443,7 +443,6 @@ struct glusterd_volinfo_ {
      */
     glusterd_volume_status status;
     int sub_count; /* backward compatibility */
-    int stripe_count;
     int replica_count;
     int arbiter_count;
     int thin_arbiter_count;
@@ -478,8 +477,8 @@ struct glusterd_volinfo_ {
     auth_t auth;
     char *logdir;
 
-    dict_t *gsync_slaves;
-    dict_t *gsync_active_slaves;
+    dict_t *gsync_secondaries;
+    dict_t *gsync_active_secondaries;
 
     xlator_t *xl;
     int decommission_in_progress;
@@ -1268,8 +1267,8 @@ glusterd_op_statedump_volume_args_get(dict_t *dict, char **volname,
                                       char **options, int *option_cnt);
 
 int
-glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **master,
-                           char **slave, char **host_uuid);
+glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **primary,
+                           char **secondary, char **host_uuid);
 
 int
 glusterd_op_get_max_opversion(char **op_errstr, dict_t *rsp_dict);

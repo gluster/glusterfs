@@ -1608,6 +1608,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
     gf_boolean_t xprt_found = _gf_false;
     uint64_t totxprt = 0;
     uint64_t totdisconnect = 0;
+    char *victim_name = NULL;
 
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
     conf = this->private;
@@ -1669,6 +1670,13 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
 
         case GF_EVENT_CLEANUP:
             conf = this->private;
+            victim_name = gf_strdup(victim->name);
+            if (!victim_name) {
+                gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+                        NULL);
+                goto out;
+            }
+
             pthread_mutex_lock(&conf->mutex);
             /* Calculate total no. of xprt available in list for this
                brick xlator
@@ -1690,7 +1698,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
             list_for_each_entry(tmp, &conf->child_status->status_list,
                                 status_list)
             {
-                if (strcmp(tmp->name, victim->name) == 0) {
+                if (strcmp(tmp->name, victim_name) == 0) {
                     tmp->child_up = _gf_false;
                     GF_ATOMIC_INIT(victim->xprtrefcnt, totxprt);
                     break;
@@ -1732,7 +1740,7 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                      trav_p = &(*trav_p)->next) {
                     travxl = (*trav_p)->xlator;
                     if (!travxl->call_cleanup &&
-                        strcmp(travxl->name, victim->name) == 0) {
+                        strcmp(travxl->name, victim_name) == 0) {
                         victim_found = _gf_true;
                         break;
                     }
@@ -1741,12 +1749,13 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                     glusterfs_delete_volfile_checksum(ctx, victim->volfile_id);
                 UNLOCK(&ctx->volfile_lock);
 
-                rpc_clnt_mgmt_pmap_signout(ctx, victim->name);
+                rpc_clnt_mgmt_pmap_signout(ctx, victim_name);
 
                 if (!xprt_found && victim_found) {
-                    server_call_xlator_mem_cleanup(this, victim->name);
+                    server_call_xlator_mem_cleanup(this, victim_name);
                 }
             }
+            GF_FREE(victim_name);
             break;
 
         default:

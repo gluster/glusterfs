@@ -427,14 +427,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         goto out;
     }
 
-    keylen = snprintf(key, sizeof(key), "volume%d.stripe_count", count);
-    ret = dict_set_int32n(volumes, key, keylen, volinfo->stripe_count);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
-                "Key=%s", key, NULL);
-        goto out;
-    }
-
     keylen = snprintf(key, sizeof(key), "volume%d.replica_count", count);
     ret = dict_set_int32n(volumes, key, keylen, volinfo->replica_count);
     if (ret) {
@@ -5105,19 +5097,19 @@ glusterd_print_gsync_status(FILE *fp, dict_t *gsync_dict)
         if (ret)
             goto out;
 
-        fprintf(fp, "Volume%d.pair%d.session_slave: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.session_secondary: %s\n", volcount, i + 1,
                 get_struct_variable(21, status_vals));
-        fprintf(fp, "Volume%d.pair%d.master_node: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.primary_node: %s\n", volcount, i + 1,
                 get_struct_variable(0, status_vals));
-        fprintf(fp, "Volume%d.pair%d.master_volume: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.primary_volume: %s\n", volcount, i + 1,
                 get_struct_variable(1, status_vals));
-        fprintf(fp, "Volume%d.pair%d.master_brick: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.primary_brick: %s\n", volcount, i + 1,
                 get_struct_variable(2, status_vals));
-        fprintf(fp, "Volume%d.pair%d.slave_user: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.secondary_user: %s\n", volcount, i + 1,
                 get_struct_variable(3, status_vals));
-        fprintf(fp, "Volume%d.pair%d.slave: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.secondary: %s\n", volcount, i + 1,
                 get_struct_variable(4, status_vals));
-        fprintf(fp, "Volume%d.pair%d.slave_node: %s\n", volcount, i + 1,
+        fprintf(fp, "Volume%d.pair%d.secondary_node: %s\n", volcount, i + 1,
                 get_struct_variable(5, status_vals));
         fprintf(fp, "Volume%d.pair%d.status: %s\n", volcount, i + 1,
                 get_struct_variable(6, status_vals));
@@ -5762,8 +5754,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
 
         fprintf(fp, "Volume%d.snap_count: %" PRIu64 "\n", count,
                 volinfo->snap_count);
-        fprintf(fp, "Volume%d.stripe_count: %d\n", count,
-                volinfo->stripe_count);
+        fprintf(fp, "Volume%d.stripe_count: %d\n", count, STRIPE_COUNT);
         fprintf(fp, "Volume%d.replica_count: %d\n", count,
                 volinfo->replica_count);
         fprintf(fp, "Volume%d.subvol_count: %d\n", count,
@@ -6584,7 +6575,7 @@ struct rpcsvc_program gd_svc_cli_prog = {
 /**
  * This set of RPC progs are deemed to be trusted. Most of the actors support
  * read only queries, the only exception being MOUNT/UMOUNT which is required
- * by geo-replication to support unprivileged master -> slave sessions.
+ * by geo-replication to support unprivileged primary -> secondary sessions.
  */
 static rpcsvc_actor_t gd_svc_cli_trusted_actors[GLUSTER_CLI_MAXVALUE] = {
     [GLUSTER_CLI_LIST_FRIENDS] = {"LIST_FRIENDS",

@@ -39,7 +39,7 @@ def get_subvol_num(brick_idx, vol, hot):
     disperse_count = vol.disperse_count(tier, hot)
     replica_count = vol.replica_count(tier, hot)
     distribute_count = vol.distribution_count(tier, hot)
-    gconf.setconfig("master-distribution-count", distribute_count)
+    gconf.setconfig("primary-distribution-count", distribute_count)
 
     if (tier and not hot):
         brick_idx = brick_idx - vol.get_hot_bricks_count(tier)
@@ -82,8 +82,8 @@ class Monitor(object):
         # give a chance to graceful exit
         errno_wrap(os.kill, [-os.getpid(), signal.SIGTERM], [ESRCH])
 
-    def monitor(self, w, argv, cpids, slave_vol, slave_host, master,
-                suuid, slavenodes):
+    def monitor(self, w, argv, cpids, secondary_vol, secondary_host, primary,
+                suuid, secondarynodes):
         """the monitor loop
 
         Basic logic is a blantantly simple blunt heuristics:
@@ -107,9 +107,9 @@ class Monitor(object):
                                                     w[0]['host'],
                                                     w[0]['dir'],
                                                     w[0]['uuid'],
-                                                    master,
-                                                    "%s::%s" % (slave_host,
-                                                                slave_vol))
+                                                    primary,
+                                                    "%s::%s" % (secondary_host,
+                                                                secondary_vol))
         ret = 0
 
         def nwait(p, o=0):
@@ -139,15 +139,15 @@ class Monitor(object):
         while ret in (0, 1):
             remote_user, remote_host = w[1][0].split("@")
             remote_id = w[1][1]
-            # Check the status of the connected slave node
-            # If the connected slave node is down then try to connect to
+            # Check the status of the connected secondary node
+            # If the connected secondary node is down then try to connect to
             # different up node.
-            current_slave_host = remote_host
-            slave_up_hosts = get_up_nodes(slavenodes, gconf.get("ssh-port"))
+            current_secondary_host = remote_host
+            secondary_up_hosts = get_up_nodes(secondarynodes, gconf.get("ssh-port"))
 
-            if (current_slave_host, remote_id) not in slave_up_hosts:
-                if len(slave_up_hosts) > 0:
-                    remote_new = random.choice(slave_up_hosts)
+            if (current_secondary_host, remote_id) not in secondary_up_hosts:
+                if len(secondary_up_hosts) > 0:
+                    remote_new = random.choice(secondary_up_hosts)
                     remote_host = "%s@%s" % (remote_user, remote_new[0])
                     remote_id = remote_new[1]
 
@@ -157,7 +157,7 @@ class Monitor(object):
             self.status[w[0]['dir']].set_worker_status(self.ST_INIT)
             logging.info(lf('starting gsyncd worker',
                             brick=w[0]['dir'],
-                            slave_node=remote_host))
+                            secondary_node=remote_host))
 
             pr, pw = pipe()
             cpid = os.fork()
@@ -166,13 +166,13 @@ class Monitor(object):
 
                 args_to_worker = argv + [
                     'worker',
-                    rconf.args.master,
-                    rconf.args.slave,
+                    rconf.args.primary,
+                    rconf.args.secondary,
                     '--feedback-fd', str(pw),
                     '--local-path', w[0]['dir'],
                     '--local-node', w[0]['host'],
                     '--local-node-id', w[0]['uuid'],
-                    '--slave-id', suuid,
+                    '--secondary-id', suuid,
                     '--subvol-num', str(w[2]),
                     '--resource-remote', remote_host,
                     '--resource-remote-id', remote_id
@@ -232,11 +232,11 @@ class Monitor(object):
             else:
                 logging.info(
                     lf("Worker not confirmed after wait, aborting it. "
-                       "Gsyncd invocation on remote slave via SSH or "
-                       "gluster master mount might have hung. Please "
+                       "Gsyncd invocation on remote secondary via SSH or "
+                       "gluster primary mount might have hung. Please "
                        "check the above logs for exact issue and check "
-                       "master or slave volume for errors. Restarting "
-                       "master/slave volume accordingly might help.",
+                       "primary or secondary volume for errors. Restarting "
+                       "primary/secondary volume accordingly might help.",
                        brick=w[0]['dir'],
                        timeout=conn_timeout))
                 errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
@@ -250,26 +250,26 @@ class Monitor(object):
                 if ret in (0, 1):
                     self.status[w[0]['dir']].set_worker_status(self.ST_FAULTY)
                     gf_event(EVENT_GEOREP_FAULTY,
-                             master_volume=master.volume,
-                             master_node=w[0]['host'],
-                             master_node_id=w[0]['uuid'],
-                             slave_host=slave_host,
-                             slave_volume=slave_vol,
-                             current_slave_host=current_slave_host,
+                             primary_volume=primary.volume,
+                             primary_node=w[0]['host'],
+                             primary_node_id=w[0]['uuid'],
+                             secondary_host=secondary_host,
+                             secondary_volume=secondary_vol,
+                             current_secondary_host=current_secondary_host,
                              brick_path=w[0]['dir'])
             time.sleep(10)
         self.status[w[0]['dir']].set_worker_status(self.ST_INCON)
         return ret
 
-    def multiplex(self, wspx, suuid, slave_vol, slave_host, master, slavenodes):
+    def multiplex(self, wspx, suuid, secondary_vol, secondary_host, primary, secondarynodes):
         argv = [os.path.basename(sys.executable), sys.argv[0]]
 
         cpids = set()
         ta = []
         for wx in wspx:
             def wmon(w):
-                cpid, _ = self.monitor(w, argv, cpids, slave_vol,
-                                       slave_host, master, suuid, slavenodes)
+                cpid, _ = self.monitor(w, argv, cpids, secondary_vol,
+                                       secondary_host, primary, suuid, secondarynodes)
                 time.sleep(1)
                 self.lock.acquire()
                 for cpid in cpids:
@@ -296,32 +296,32 @@ class Monitor(object):
             t.join()
 
 
-def distribute(master, slave):
+def distribute(primary, secondary):
     if rconf.args.use_gconf_volinfo:
-        mvol = VolinfoFromGconf(master.volume, master=True)
+        mvol = VolinfoFromGconf(primary.volume, primary=True)
     else:
-        mvol = Volinfo(master.volume, master.host, master=True)
-    logging.debug('master bricks: ' + repr(mvol.bricks))
+        mvol = Volinfo(primary.volume, primary.host, primary=True)
+    logging.debug('primary bricks: ' + repr(mvol.bricks))
     prelude = []
-    slave_host = None
-    slave_vol = None
+    secondary_host = None
+    secondary_vol = None
 
     prelude = [gconf.get("ssh-command")] + \
         gconf.get("ssh-options").split() + \
         ["-p", str(gconf.get("ssh-port"))] + \
-        [slave.remote_addr]
+        [secondary.remote_addr]
 
-    logging.debug('slave SSH gateway: ' + slave.remote_addr)
+    logging.debug('secondary SSH gateway: ' + secondary.remote_addr)
 
     if rconf.args.use_gconf_volinfo:
-        svol = VolinfoFromGconf(slave.volume, master=False)
+        svol = VolinfoFromGconf(secondary.volume, primary=False)
     else:
-        svol = Volinfo(slave.volume, "localhost", prelude, master=False)
+        svol = Volinfo(secondary.volume, "localhost", prelude, primary=False)
 
     sbricks = svol.bricks
     suuid = svol.uuid
-    slave_host = slave.remote_addr.split('@')[-1]
-    slave_vol = slave.volume
+    secondary_host = secondary.remote_addr.split('@')[-1]
+    secondary_vol = secondary.volume
 
     # save this xattr for the session delete command
     old_stime_xattr_prefix = gconf.get("stime-xattr-prefix", None)
@@ -331,22 +331,22 @@ def distribute(master, slave):
        old_stime_xattr_prefix != new_stime_xattr_prefix:
         gconf.setconfig("stime-xattr-prefix", new_stime_xattr_prefix)
 
-    logging.debug('slave bricks: ' + repr(sbricks))
+    logging.debug('secondary bricks: ' + repr(sbricks))
 
-    slavenodes = set((b['host'], b["uuid"]) for b in sbricks)
-    rap = SSH.parse_ssh_address(slave)
-    slaves = [(rap['user'] + '@' + h[0], h[1]) for h in slavenodes]
+    secondarynodes = set((b['host'], b["uuid"]) for b in sbricks)
+    rap = SSH.parse_ssh_address(secondary)
+    secondarys = [(rap['user'] + '@' + h[0], h[1]) for h in secondarynodes]
 
     workerspex = []
     for idx, brick in enumerate(mvol.bricks):
         if rconf.args.local_node_id == brick['uuid']:
             is_hot = mvol.is_hot(":".join([brick['host'], brick['dir']]))
             workerspex.append((brick,
-                               slaves[idx % len(slaves)],
+                               secondarys[idx % len(secondarys)],
                                get_subvol_num(idx, mvol, is_hot),
                                is_hot))
     logging.debug('worker specs: ' + repr(workerspex))
-    return workerspex, suuid, slave_vol, slave_host, master, slavenodes
+    return workerspex, suuid, secondary_vol, secondary_host, primary, secondarynodes
 
 
 def monitor(local, remote):
