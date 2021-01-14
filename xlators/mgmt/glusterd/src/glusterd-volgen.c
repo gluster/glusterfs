@@ -2835,6 +2835,8 @@ insert_user_xlator_to_graph(dict_t *set_dict, char *key, data_t *value,
 out:
     if (type)
         GF_FREE(type);
+    if (xlator_option_matcher)
+        GF_FREE(xlator_option_matcher);
 
     return ret;
 }
