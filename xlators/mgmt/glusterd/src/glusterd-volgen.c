@@ -2777,7 +2777,7 @@ check_user_xlator_position(dict_t *dict, char *key, data_t *value,
         return false;
     }
 
-    if (strcmp(data_to_str(value), prev_xlname) == 0) {
+    if (strcmp(value_str, prev_xlname) == 0) {
         gf_log("glusterd", GF_LOG_INFO,
                "found insert position of user-xlator(%s)", key);
         return true;
