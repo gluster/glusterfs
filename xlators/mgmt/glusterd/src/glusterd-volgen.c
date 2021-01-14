@@ -46,6 +46,11 @@ struct gd_validate_reconf_opts {
 
 extern struct volopt_map_entry glusterd_volopt_map[];
 
+struct check_and_add_user_xlator_t {
+    volgen_graph_t *graph;
+    char *volname;
+};
+
 #define RPC_SET_OPT(XL, CLI_OPT, XLATOR_OPT, ERROR_CMD)                        \
     do {                                                                       \
         char *_value = NULL;                                                   \
@@ -2799,10 +2804,7 @@ insert_user_xlator_to_graph(dict_t *set_dict, char *key, data_t *value,
 {
     int ret = -1;
 
-    struct {
-        volgen_graph_t *graph;
-        char *volname;
-    } *data = action_data;
+    struct check_and_add_user_xlator_t *data = action_data;
 
     char *xlator_name = strrchr(key, '.') + 1;  // user.xlator.<xlator_name>
     char *xlator_option_matcher = NULL;
@@ -2848,13 +2850,10 @@ check_and_add_user_xl(volgen_graph_t *graph, dict_t *set_dict, char *volname,
     if (!prev_xlname)
         goto out;
 
-    struct {
-        volgen_graph_t *graph;
-        char *volname;
-    } data;
-
-    data.graph = graph;
-    data.volname = volname;
+    struct check_and_add_user_xlator_t data = {
+        .graph = graph,
+        .volname = volname
+    };
 
     if (dict_foreach_match(set_dict, check_user_xlator_position, prev_xlname,
                            insert_user_xlator_to_graph, &data) < 0) {
