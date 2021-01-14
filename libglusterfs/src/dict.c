@@ -684,7 +684,28 @@ dict_deln(dict_t *this, char *key, const int keylen)
     return rc;
 }
 
-void
+/* removes and free all data_pair_t elements.
+ * has to be called with this->lock held */
+static void
+dict_clear_data(dict_t *this)
+{
+    data_pair_t *curr = this->members_list;
+    data_pair_t *next = NULL;
+
+    while (curr != NULL) {
+        next = curr->next;
+        data_unref(curr->value);
+        GF_FREE(curr->key);
+        if (curr == &this->free_pair) {
+            this->free_pair.key = NULL;
+        } else {
+            mem_put(curr);
+        }
+        curr = next;
+    }
+}
+
+static void
 dict_destroy(dict_t *this)
 {
     if (!this) {
@@ -693,26 +714,12 @@ dict_destroy(dict_t *this)
         return;
     }
 
-    data_pair_t *pair = this->members_list;
-    data_pair_t *prev = this->members_list;
     glusterfs_ctx_t *ctx = NULL;
     uint64_t current_max = 0;
-    uint32_t total_pairs = 0;
 
     LOCK_DESTROY(&this->lock);
 
-    while (prev) {
-        pair = pair->next;
-        data_unref(prev->value);
-        GF_FREE(prev->key);
-        if (prev != &this->free_pair) {
-            mem_put(prev);
-        } else {
-            this->free_pair.key = NULL;
-        }
-        total_pairs++;
-        prev = pair;
-    }
+    dict_clear_data(this);
 
     this->totkvlen = 0;
     if (this->members != &this->members_internal) {
@@ -736,7 +743,7 @@ dict_destroy(dict_t *this)
     if (current_max < this->max_count)
         GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, this->max_count);
 
-    GF_ATOMIC_ADD(ctx->stats.total_pairs_used, total_pairs);
+    GF_ATOMIC_ADD(ctx->stats.total_pairs_used, this->count);
     GF_ATOMIC_INC(ctx->stats.total_dicts_used);
 
     mem_put(this);
@@ -1469,28 +1476,14 @@ dict_reset(dict_t *dict)
         goto out;
     }
 
+    int i = 0;
     LOCK(&dict->lock);
-    data_pair_t *curr = dict->members_list;
-    data_pair_t *next = NULL;
 
-    while (curr != NULL) {
-        next = curr->next;
-        data_unref(curr->value);
-        GF_FREE(curr->key);
-        if (curr == &dict->free_pair) {
-            dict->free_pair.key = NULL;
-        } else {
-            mem_put(curr);
-        }
-        curr = next;
-    }
-
-    for (int i = 0; i < dict->hash_size; i++)
+    dict_clear_data(dict);
+    for (; i < dict->hash_size; i++)
         dict->members[i] = NULL;
-
     dict->members_list = NULL;
-    dict->count = 0;
-    dict->totkvlen = 0;
+    dict->count = dict->totkvlen = 0;
 
     UNLOCK(&dict->lock);
     ret = 0;
