@@ -1576,7 +1576,6 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
     int i = 0;
     int idx = afr_index_for_transaction_type(type);
     void *pending_raw = NULL;
-    int pending[3];
     int ret = 0;
 
     priv = this->private;
@@ -1585,9 +1584,8 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
         ret = dict_get_ptr(xdata, priv->pending_key[i], &pending_raw);
         if (ret) /* no pending flags */
             continue;
-        memcpy(pending, pending_raw, sizeof(pending));
 
-        if (ntoh32(pending[idx]))
+        if (*((int *)pending_raw + idx))
             accused[i] = 1;
     }
 
@@ -3303,7 +3301,6 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
     int idx = -1;
     afr_private_t *priv = NULL;
     void *pending_raw = NULL;
-    int *pending_int = NULL;
     int i = 0;
 
     priv = this->private;
@@ -3311,9 +3308,7 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
 
     if (dict_get_ptr(xdata, AFR_DIRTY, &pending_raw) == 0) {
         if (pending_raw) {
-            pending_int = pending_raw;
-
-            if (ntoh32(pending_int[idx]))
+            if (*((int *)pending_raw + idx))
                 return _gf_true;
         }
     }
@@ -3323,9 +3318,7 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
             continue;
         if (!pending_raw)
             continue;
-        pending_int = pending_raw;
-
-        if (ntoh32(pending_int[idx]))
+        if (*((int *)pending_raw + idx))
             return _gf_true;
     }
 
@@ -7870,8 +7863,6 @@ afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv, int child)
     ret = dict_get_ptr(dict, priv->pending_key[child], (void *)&pending);
     if (ret == 0) {
         for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
-            /* Not doing a ntoh32(pending) as we just want to check
-             * if it is non-zero or not. */
             if (pending[i]) {
                 return _gf_true;
             }

@@ -673,9 +673,6 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
     gf_boolean_t need_xattrop = _gf_false;
     void *pending_raw = NULL;
     int *raw = NULL;
-    int pending[AFR_NUM_CHANGE_LOGS] = {
-        0,
-    };
     int i = 0;
     int j = 0;
     int val = 0;
@@ -704,9 +701,8 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
             goto out;
         }
 
-        memcpy(pending, pending_raw, sizeof(pending));
         for (j = 0; j < AFR_NUM_CHANGE_LOGS; j++) {
-            val = ntoh32(pending[j]);
+            val = ntoh32(*((int *)pending_raw + j));
             if (val) {
                 if (i == healer) {
                     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_THIN_ARB,
