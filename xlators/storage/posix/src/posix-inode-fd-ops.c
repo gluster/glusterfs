@@ -1241,7 +1241,8 @@ posix_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
         if (ret == -1) {
             ret = -errno;
@@ -1615,7 +1616,8 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     pfd->flags = flags;
     pfd->fd = _fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
         if (op_ret == -1) {
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
@@ -1712,7 +1714,8 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     _fd = pfd->fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, _fd, &preop);
         if (op_ret == -1) {
             op_errno = errno;
@@ -1728,9 +1731,9 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             op_errno = EIO;
             goto out;
         }
+        posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     }
 
-    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     op_ret = sys_pread(_fd, iobuf->ptr, size, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -5883,7 +5886,8 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     _fd = pfd->fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, _fd, &preop);
         if (op_ret == -1) {
             op_errno = errno;
