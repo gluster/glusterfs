@@ -163,7 +163,7 @@ ec_heal_check(ec_fop_data_t *fop, uintptr_t *pgood)
 }
 
 void
-ec_heal_update(ec_fop_data_t *fop, int32_t is_open)
+ec_heal_update(ec_fop_data_t *fop)
 {
     ec_heal_t *heal = fop->data;
     uintptr_t good, bad;
@@ -173,9 +173,6 @@ ec_heal_update(ec_fop_data_t *fop, int32_t is_open)
     LOCK(&heal->lock);
 
     heal->bad &= ~bad;
-    if (is_open) {
-        heal->open |= good;
-    }
 
     UNLOCK(&heal->lock);
 
@@ -309,7 +306,7 @@ ec_heal_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  uuid_utoa(heal->fd->inode->gfid), op_ret, strerror(op_errno),
                  heal->offset);
 
-    ec_heal_update(cookie, 0);
+    ec_heal_update(cookie);
 
     return 0;
 }
@@ -355,8 +352,7 @@ ec_heal_data_block(ec_heal_t *heal)
 {
     ec_trace("DATA", heal->fop, "good=%lX, bad=%lX", heal->good, heal->bad);
 
-    if ((heal->good != 0) && (heal->bad != 0) &&
-        (heal->iatt.ia_type == IA_IFREG)) {
+    if ((heal->good != 0) && (heal->bad != 0)) {
         ec_readv(heal->fop->frame, heal->xl, heal->good, EC_MINIMUM_MIN,
                  ec_heal_readv_cbk, heal, heal->fd, heal->size, heal->offset, 0,
                  NULL);
@@ -2080,7 +2076,6 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     heal->size -= heal->size % ec->stripe_size;
     heal->bad = ec_char_array_to_mask(healed_sinks, ec->nodes);
     heal->good = ec_char_array_to_mask(sources, ec->nodes);
-    heal->iatt.ia_type = IA_IFREG;
     LOCK_INIT(&heal->lock);
 
     for (heal->offset = 0; (heal->offset < size) && !heal->done;
