@@ -1152,7 +1152,8 @@ glfsh_gather_heal_info(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
             !strstr(xl->name, "-ta-")) {
             heal_xl = _get_ancestor(xl, heal_op);
             if (heal_xl) {
-                old_THIS = THIS;
+                if (!old_THIS)
+                    old_THIS = THIS;
                 THIS = heal_xl;
                 ret = glfsh_print_pending_heals(
                     fs, top_subvol, rootloc, xl, heal_op,
