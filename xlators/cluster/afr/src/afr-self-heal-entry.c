@@ -397,9 +397,6 @@ static gf_boolean_t
 is_full_heal_marker_present(xlator_t *this, dict_t *xdata, int idx)
 {
     int i = 0;
-    int pending[3] = {
-        0,
-    };
     void *pending_raw = NULL;
     afr_private_t *priv = NULL;
 
@@ -419,8 +416,7 @@ is_full_heal_marker_present(xlator_t *this, dict_t *xdata, int idx)
         if (!pending_raw)
             continue;
 
-        memcpy(pending, pending_raw, sizeof(pending));
-        if (ntoh32(pending[idx]))
+        if (*((int *)pending_raw + idx))
             return _gf_true;
     }
 
