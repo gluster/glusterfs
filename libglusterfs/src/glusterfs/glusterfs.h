@@ -584,6 +584,7 @@ struct _cmd_args {
     uint32_t attr_times_granularity;
 
     int fuse_flush_handle_interrupt;
+    int fuse_handle_copy_file_range;
     int fuse_auto_inval;
 
     bool global_threading;

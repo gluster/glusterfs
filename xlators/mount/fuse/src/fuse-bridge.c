@@ -6021,7 +6021,11 @@ static fuse_handler_t *fuse_std_ops[] = {
 #endif
 
 #if FUSE_KERNEL_MINOR_VERSION >= 28
-    [FUSE_COPY_FILE_RANGE] = fuse_copy_file_range,
+    /* We add a dummy entry to reserve space.
+     * Optionally a proper handler shall be inserted
+     * in fuse_init().
+     */
+    [FUSE_COPY_FILE_RANGE] = fuse_enosys,
 #endif
 };
 
@@ -6362,6 +6366,10 @@ fuse_priv_dump(xlator_t *this)
     gf_proc_dump_write("invalidate_queue_length", "%" PRIu64,
                        private->invalidate_count);
     gf_proc_dump_write("use_readdirp", "%d", private->use_readdirp);
+    gf_proc_dump_write("flush_handle_interrupt", "%d",
+                       private->flush_handle_interrupt);
+    gf_proc_dump_write("handle_copy_file_range", "%d",
+                       private->handle_copy_file_range);
 
     return 0;
 }
@@ -6885,6 +6893,9 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("flush-handle-interrupt", priv->flush_handle_interrupt, bool,
                    cleanup_exit);
 
+    GF_OPTION_INIT("handle-copy_file_range", priv->handle_copy_file_range, bool,
+                   cleanup_exit);
+
     GF_OPTION_INIT("fuse-dev-eperm-ratelimit-ns",
                    priv->fuse_dev_eperm_ratelimit_ns, uint32, cleanup_exit);
 
@@ -7002,6 +7013,13 @@ init(xlator_t *this_xl)
     pthread_mutex_init(&priv->sync_mutex, NULL);
     priv->event_recvd = 0;
 
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+    /* For testing purposes; the copy_file_range fop is not
+     * yet ready for prime time.
+     */
+    if (priv->handle_copy_file_range)
+        fuse_std_ops[FUSE_COPY_FILE_RANGE] = fuse_copy_file_range;
+#endif
     for (i = 0; i < FUSE_OP_HIGH; i++) {
         if (!fuse_std_ops[i])
             fuse_std_ops[i] = fuse_enosys;
@@ -7201,6 +7219,13 @@ struct volume_options options[] = {
         .default_value = "false",
         .description =
             "Handle iterrupts in FLUSH handler (for testing purposes).",
+    },
+    {
+        .key = {"handle-copy_file_range"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "false",
+        .description =
+            "Handle FUSE_COPY_FILE_RANGE message (for testing purposes).",
     },
     {
         .key = {"lru-limit"},

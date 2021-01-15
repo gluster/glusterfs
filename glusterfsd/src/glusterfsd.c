@@ -277,6 +277,9 @@ static struct argp_option gf_options[] = {
      "OPTIONS", OPTION_HIDDEN,
      "rate limit reading from fuse device upon EPERM failure"},
     {"brick-mux", ARGP_BRICK_MUX_KEY, 0, 0, "Enable brick mux. "},
+    {"fuse-handle-copy_file_range", ARGP_FUSE_HANDLE_COPY_FILE_RANGE, "BOOL",
+     OPTION_ARG_OPTIONAL | OPTION_HIDDEN,
+     "enable the handler of the FUSE_COPY_FILE_RANGE message"},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
         0,
@@ -538,6 +541,20 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
     if (cmd_args->fuse_dev_eperm_ratelimit_ns) {
         DICT_SET_VAL(dict_set_uint32, options, "fuse-dev-eperm-ratelimit-ns",
                      cmd_args->fuse_dev_eperm_ratelimit_ns, glusterfsd_msg_3);
+    }
+    switch (cmd_args->fuse_handle_copy_file_range) {
+        case GF_OPTION_ENABLE:
+            DICT_SET_VAL(dict_set_static_ptr, options, "handle-copy_file_range",
+                         "on", glusterfsd_msg_3);
+            break;
+        case GF_OPTION_DISABLE:
+            DICT_SET_VAL(dict_set_static_ptr, options, "handle-copy_file_range",
+                         "off", glusterfsd_msg_3);
+            break;
+        default:
+            gf_msg_debug("glusterfsd", 0, "fuse-handle-copy_file_range mode %d",
+                         cmd_args->fuse_handle_copy_file_range);
+            break;
     }
 
     ret = 0;
@@ -1377,6 +1394,21 @@ parse_opts(int key, char *arg, struct argp_state *state)
                              arg);
             }
 
+            break;
+
+        case ARGP_FUSE_HANDLE_COPY_FILE_RANGE:
+            if (!arg)
+                arg = "yes";
+
+            if (gf_string2boolean(arg, &b) == 0) {
+                cmd_args->fuse_handle_copy_file_range = b;
+
+                break;
+            }
+
+            argp_failure(state, -1, 0,
+                         "unknown fuse handle copy_file_range setting \"%s\"",
+                         arg);
             break;
     }
     return 0;

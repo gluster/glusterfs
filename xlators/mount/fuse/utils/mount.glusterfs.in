@@ -302,6 +302,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --fuse-flush-handle-interrupt=$fuse_flush_handle_interrupt");
     fi
 
+    if [ -n "$fuse_handle_copy_file_range" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-handle-copy_file_range=$fuse_handle_copy_file_range");
+    fi
+
     if [ -n "$process_name" ]; then
         cmd_line=$(echo "$cmd_line --process-name fuse.$process_name");
     else
@@ -582,6 +586,9 @@ with_options()
             ;;
         "fuse-flush-handle-interrupt")
             fuse_flush_handle_interrupt=$value
+            ;;
+        "fuse-handle-copy_file_range")
+            fuse_handle_copy_file_range=$value
             ;;
         "fuse-dev-eperm-ratelimit-ns")
             fuse_dev_eperm_ratelimit_ns=$value
