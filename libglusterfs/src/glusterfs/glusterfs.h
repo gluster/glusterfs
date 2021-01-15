@@ -588,6 +588,7 @@ struct _cmd_args {
 
     int fuse_flush_handle_interrupt;
     int fuse_setlk_handle_interrupt;
+    int fuse_handle_copy_file_range;
     int fuse_auto_inval;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;

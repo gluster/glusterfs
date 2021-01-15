@@ -168,6 +168,7 @@ struct fuse_private {
 
     gf_boolean_t flush_handle_interrupt;
     gf_boolean_t setlk_handle_interrupt;
+    gf_boolean_t handle_copy_file_range;
     gf_boolean_t fuse_auto_inval;
 
     /* LRU Limit, if not set, default is 64k for now */
