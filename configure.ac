@@ -1357,7 +1357,7 @@ AC_ARG_ENABLE([lto],
                              [Disable buidling with LTO]))
 
 LTO_BUILD=no
-AS_IF([ test "x$enable_lto" != "xno" ], [
+AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
     CC_VER=`"$CC" -dumpversion 2>/dev/null`
     AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
         GF_CFLAGS="${GF_CFLAGS} -flto"
