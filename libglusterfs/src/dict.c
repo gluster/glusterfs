@@ -703,6 +703,7 @@ dict_clear_data(dict_t *this)
         }
         curr = next;
     }
+    this->count = this->totkvlen = 0;
 }
 
 static void
@@ -716,12 +717,11 @@ dict_destroy(dict_t *this)
 
     glusterfs_ctx_t *ctx = NULL;
     uint64_t current_max = 0;
+    uint32_t total_pairs = this->count;
 
     LOCK_DESTROY(&this->lock);
 
     dict_clear_data(this);
-
-    this->totkvlen = 0;
     if (this->members != &this->members_internal) {
         mem_put(this->members);
     }
@@ -743,7 +743,7 @@ dict_destroy(dict_t *this)
     if (current_max < this->max_count)
         GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, this->max_count);
 
-    GF_ATOMIC_ADD(ctx->stats.total_pairs_used, this->count);
+    GF_ATOMIC_ADD(ctx->stats.total_pairs_used, total_pairs);
     GF_ATOMIC_INC(ctx->stats.total_dicts_used);
 
     mem_put(this);
@@ -1476,14 +1476,13 @@ dict_reset(dict_t *dict)
         goto out;
     }
 
-    int i = 0;
+    int i;
     LOCK(&dict->lock);
 
     dict_clear_data(dict);
-    for (; i < dict->hash_size; i++)
+    for (i = 0; i < dict->hash_size; i++)
         dict->members[i] = NULL;
     dict->members_list = NULL;
-    dict->count = dict->totkvlen = 0;
 
     UNLOCK(&dict->lock);
     ret = 0;
