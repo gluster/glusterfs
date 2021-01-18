@@ -553,8 +553,9 @@ shard_local_wipe(shard_local_t *local)
         SHARD_STACK_DESTROY(local->entrylk_frame);
 }
 
-int
-shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict)
+static int
+shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
+                                  gf_boolean_t logerror)
 {
     int ret = -1;
     void *size_attr = NULL;
@@ -562,11 +563,11 @@ shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict)
 
     ret = dict_get_ptr(dict, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
     if (ret) {
-        gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0,
-                         SHARD_MSG_INTERNAL_XATTR_MISSING,
-                         "Failed to "
-                         "get " GF_XATTR_SHARD_FILE_SIZE " for %s",
-                         uuid_utoa(stbuf->ia_gfid));
+        if (logerror)
+            gf_msg_callingfn(
+                THIS->name, GF_LOG_ERROR, 0, SHARD_MSG_INTERNAL_XATTR_MISSING,
+                "Failed to get " GF_XATTR_SHARD_FILE_SIZE " for %s",
+                uuid_utoa(stbuf->ia_gfid));
         return ret;
     }
 
@@ -1138,7 +1139,7 @@ shard_update_file_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto err;
     }
 
-    if (shard_modify_size_and_block_count(&local->postbuf, dict)) {
+    if (shard_modify_size_and_block_count(&local->postbuf, dict, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = ENOMEM;
         goto err;
@@ -1595,9 +1596,8 @@ shard_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * and store them in the stbuf appropriately.
      */
 
-    if (dict_get(xdata, GF_XATTR_SHARD_FILE_SIZE) &&
-        frame->root->pid != GF_CLIENT_PID_GSYNCD)
-        shard_modify_size_and_block_count(buf, xdata);
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        shard_modify_size_and_block_count(buf, xdata, _gf_false);
 
     /* If this was a fresh lookup, there are two possibilities:
      * 1) If the file is sharded (indicated by the presence of block size
@@ -1721,7 +1721,7 @@ shard_set_iattr_invoke_post_handler(call_frame_t *frame, xlator_t *this,
     }
 
     local->prebuf = *buf;
-    if (shard_modify_size_and_block_count(&local->prebuf, xdata)) {
+    if (shard_modify_size_and_block_count(&local->prebuf, xdata, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto unwind;
@@ -1890,7 +1890,7 @@ shard_common_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     local->prebuf = *buf;
-    if (shard_modify_size_and_block_count(&local->prebuf, xdata)) {
+    if (shard_modify_size_and_block_count(&local->prebuf, xdata, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto unwind;
@@ -6157,8 +6157,9 @@ shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (dict_get(entry->dict, GF_XATTR_SHARD_FILE_SIZE))
-            shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
+        shard_modify_size_and_block_count(&entry->d_stat, entry->dict,
+                                          _gf_false);
+
         if (!entry->inode)
             continue;
 
@@ -6215,9 +6216,9 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (dict_get(entry->dict, GF_XATTR_SHARD_FILE_SIZE) &&
-            frame->root->pid != GF_CLIENT_PID_GSYNCD)
-            shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+            shard_modify_size_and_block_count(&entry->d_stat, entry->dict,
+                                              _gf_false);
 
         if (!entry->inode)
             continue;
@@ -6801,7 +6802,7 @@ shard_common_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     local->prebuf = *prebuf;
-    if (shard_modify_size_and_block_count(&local->prebuf, xdata)) {
+    if (shard_modify_size_and_block_count(&local->prebuf, xdata, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto unwind;
