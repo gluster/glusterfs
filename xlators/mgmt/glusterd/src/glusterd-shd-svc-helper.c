@@ -82,13 +82,13 @@ glusterd_shd_svcproc_cleanup(glusterd_shdsvc_t *shd)
     glusterd_conf_t *conf = NULL;
     gf_boolean_t need_unref = _gf_false;
     rpc_clnt_t *rpc = NULL;
-
-    conf = THIS->private;
+    xlator_t *this = THIS;
+    conf = this->private;
     if (!conf)
         return;
 
-    GF_VALIDATE_OR_GOTO(THIS->name, conf, out);
-    GF_VALIDATE_OR_GOTO(THIS->name, shd, out);
+    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+    GF_VALIDATE_OR_GOTO(this->name, shd, out);
 
     svc = &shd->svc;
     shd->attached = _gf_false;
@@ -132,10 +132,8 @@ glusterd_svc_set_shd_pidfile(glusterd_volinfo_t *volinfo, dict_t *dict)
 {
     int ret = -1;
     glusterd_svc_t *svc = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 

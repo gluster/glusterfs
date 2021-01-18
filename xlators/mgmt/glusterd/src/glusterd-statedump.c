@@ -172,8 +172,6 @@ glusterd_dump_priv(xlator_t *this)
     int port = 0;
     struct pmap_registry *pmap = NULL;
 
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-
     priv = this->private;
     if (!priv)
         return 0;
@@ -238,6 +236,5 @@ glusterd_dump_priv(xlator_t *this)
     }
     pthread_mutex_unlock(&priv->mutex);
 
-out:
     return 0;
 }

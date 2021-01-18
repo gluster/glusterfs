@@ -44,7 +44,7 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
     glusterd_brickinfo_t *dst_brickinfo = NULL;
     glusterd_conf_t *priv = NULL;
     char pidfile[PATH_MAX] = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_force = _gf_false;
     int32_t ignore_partition = 0;
     pid_t pid = -1;
@@ -52,9 +52,6 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
         0,
     };
     char *dup_dstbrick = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -227,15 +224,12 @@ glusterd_op_reset_brick(dict_t *dict, dict_t *rsp_dict)
     char *op = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char *volname = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     char *src_brick = NULL;
     char *dst_brick = NULL;
     glusterd_brickinfo_t *src_brickinfo = NULL;
     glusterd_brickinfo_t *dst_brickinfo = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);

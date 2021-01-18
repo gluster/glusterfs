@@ -51,12 +51,10 @@ get_snap_volname_and_volinfo(const char *volpath, char **volname,
     char *volname_token = NULL;
     char *vol = NULL;
     glusterd_snap_t *snap = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *tmp_str_token = NULL;
     char *volfile_token = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(volpath);
     GF_ASSERT(volinfo);
 
@@ -189,7 +187,6 @@ glusterd_get_client_per_brick_volfile(glusterd_volinfo_t *volinfo,
     glusterd_conf_t *priv = NULL;
     int32_t ret = -1;
 
-    GF_VALIDATE_OR_GOTO("glusterd", THIS, out);
     priv = THIS->private;
     GF_VALIDATE_OR_GOTO(THIS->name, priv, out);
 
@@ -222,13 +219,11 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     char path_prefix[PATH_MAX] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     int32_t len = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volume_id);
@@ -533,11 +528,9 @@ glusterd_get_args_from_dict(gf_getspec_req *args, peer_info_t *peerinfo,
     int client_max_op_version = 1;
     int client_min_op_version = 1;
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *name = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(args);
     GF_ASSERT(peerinfo);
 
@@ -618,11 +611,9 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
     uuid_t snap_uuid = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *mnt_device = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(missed_snapinfo);
@@ -792,10 +783,8 @@ glusterd_take_missing_brick_snapshots(char *brick_name)
     glusterd_snap_op_t *snap_opinfo = NULL;
     int32_t ret = -1;
     gf_boolean_t update_list = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(brick_name);
@@ -929,7 +918,7 @@ __server_getspec(rpcsvc_request_t *req)
     };
     char addrstr[RPCSVC_PEER_STRLEN] = {0};
     peer_info_t *peerinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     dict_t *dict = NULL;
     glusterd_peerinfo_t *peer = NULL;
     glusterd_conf_t *conf = NULL;
@@ -940,9 +929,6 @@ __server_getspec(rpcsvc_request_t *req)
         0,
     };
     int len = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
@@ -1296,14 +1282,11 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
     glusterd_peerinfo_t *peer = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *uuid_str = NULL;
     uuid_t peer_uuid = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!glusterd_have_peers() && !glusterd_have_volumes())
         return _gf_true;
@@ -1367,7 +1350,7 @@ int
 __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
 {
     dict_t *dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
     int op_errno = EINVAL;
@@ -1381,7 +1364,6 @@ __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
     };
     dict_t *args_dict = NULL;
 
-    this = THIS;
     conf = this->private;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_mgmt_hndsk_req);
@@ -1470,7 +1452,7 @@ int
 __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
 {
     dict_t *clnt_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
     int op_errno = EINVAL;
@@ -1484,7 +1466,6 @@ __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
         0,
     };
 
-    this = THIS;
     conf = this->private;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_mgmt_hndsk_req);
@@ -1565,7 +1546,6 @@ __server_get_volume_info(rpcsvc_request_t *req)
     int32_t flags = 0;
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &vol_info_req,
                          (xdrproc_t)xdr_gf_get_volume_info_req);
@@ -2014,8 +1994,8 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     ret = 0;
 out:
     if (peerinfo)
-        gf_msg_debug((this ? this->name : "glusterd"), 0, "Peer %s %s",
-                     peerinfo->hostname, ((ret < 0) ? "rejected" : "accepted"));
+        gf_msg_debug(this->name, 0, "Peer %s %s", peerinfo->hostname,
+                     ((ret < 0) ? "rejected" : "accepted"));
     return ret;
 }
 
@@ -2027,7 +2007,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
     gf_mgmt_hndsk_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     call_frame_t *frame = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_peerctx_t *peerctx = NULL;
@@ -2035,7 +2015,6 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
         0,
     };
 
-    this = THIS;
     frame = myframe;
     peerctx = frame->local;
 
@@ -2132,7 +2111,7 @@ __glusterd_mgmt_hndsk_version_cbk(struct rpc_req *req, struct iovec *iov,
     gf_mgmt_hndsk_req arg = {{
         0,
     }};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     call_frame_t *frame = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_peerctx_t *peerctx = NULL;
@@ -2143,7 +2122,6 @@ __glusterd_mgmt_hndsk_version_cbk(struct rpc_req *req, struct iovec *iov,
         0,
     };
 
-    this = THIS;
     conf = this->private;
     frame = myframe;
     peerctx = frame->local;
@@ -2409,7 +2387,7 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
     gf_dump_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_prog_detail *trav = NULL;
     gf_prog_detail *next = NULL;
     call_frame_t *frame = NULL;
@@ -2420,7 +2398,6 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
         0,
     };
 
-    this = THIS;
     conf = this->private;
     frame = myframe;
     peerctx = frame->local;

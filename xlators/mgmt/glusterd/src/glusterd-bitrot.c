@@ -52,13 +52,10 @@ __glusterd_handle_bitrot(rpcsvc_request_t *req)
     char msg[256] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-
-    this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -195,10 +192,7 @@ glusterd_bitrot_scrub_throttle(glusterd_volinfo_t *volinfo, dict_t *dict,
     int32_t ret = -1;
     char *scrub_throttle = NULL;
     char *option = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     ret = dict_get_str(dict, "scrub-throttle-value", &scrub_throttle);
     if (ret) {
@@ -234,11 +228,8 @@ glusterd_bitrot_scrub_freq(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     int32_t ret = -1;
     char *scrub_freq = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *option = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_str(dict, "scrub-frequency-value", &scrub_freq);
     if (ret) {
@@ -274,11 +265,8 @@ glusterd_bitrot_scrub(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     int32_t ret = -1;
     char *scrub_value = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *option = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_str(dict, "scrub-value", &scrub_value);
     if (ret) {
@@ -319,13 +307,10 @@ glusterd_bitrot_expiry_time(glusterd_volinfo_t *volinfo, dict_t *dict,
 {
     int32_t ret = -1;
     uint32_t expiry_time = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char dkey[32] = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_uint32(dict, "expiry-time", &expiry_time);
     if (ret) {
@@ -385,14 +370,11 @@ glusterd_bitrot_signer_threads(glusterd_volinfo_t *volinfo, dict_t *dict,
     int32_t ret = -1;
     uint32_t signer_th_count = 0;
     uint32_t existing_th_count = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     char dkey[32] = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -434,10 +416,7 @@ static int
 glusterd_bitrot_enable(glusterd_volinfo_t *volinfo, char **op_errstr)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errstr, out);
@@ -487,10 +466,7 @@ static int
 glusterd_bitrot_disable(glusterd_volinfo_t *volinfo, char **op_errstr)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+    xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errstr, out);
@@ -526,14 +502,11 @@ out:
 gf_boolean_t
 glusterd_should_i_stop_bitd()
 {
-    glusterd_conf_t *conf = THIS->private;
+    xlator_t *this = THIS;
+    glusterd_conf_t *conf = this->private;
     glusterd_volinfo_t *volinfo = NULL;
     gf_boolean_t stopped = _gf_true;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
     {
@@ -564,11 +537,8 @@ static int
 glusterd_manage_bitrot(int opcode)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -599,13 +569,11 @@ glusterd_op_bitrot(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char *volname = NULL;
     int type = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -727,12 +695,10 @@ glusterd_op_stage_bitrot(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         0,
     };
     int type = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

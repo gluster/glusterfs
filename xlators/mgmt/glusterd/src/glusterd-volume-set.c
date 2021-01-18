@@ -23,10 +23,8 @@ validate_cache_max_min_size(glusterd_volinfo_t *volinfo, dict_t *dict,
     int ret = 0;
     uint64_t max_value = 0;
     uint64_t min_value = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -74,12 +72,9 @@ validate_defrag_throttle_option(glusterd_volinfo_t *volinfo, dict_t *dict,
 {
     char errstr[2048] = "";
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int thread_count = 0;
     long int cores_available = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     cores_available = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -129,10 +124,8 @@ validate_quota(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     char errstr[2048] = "";
     glusterd_conf_t *priv = NULL;
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -166,11 +159,8 @@ validate_uss(glusterd_volinfo_t *volinfo, dict_t *dict, char *key, char *value,
 {
     char errstr[2048] = "";
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t b = _gf_false;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = gf_string2boolean(value, &b);
     if (ret) {
@@ -195,10 +185,7 @@ validate_uss_dir(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     char errstr[2048] = "";
     int ret = -1;
     int i = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     i = strlen(value);
     if (i > NAME_MAX) {
@@ -252,12 +239,9 @@ validate_server_options(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                         char *value, char **op_errstr)
 {
     char errstr[2048] = "";
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
     int origin_val = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (volinfo->status == GLUSTERD_STATUS_STARTED) {
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_VOL_SET_VALIDATION_INFO,
@@ -304,15 +288,11 @@ validate_disperse(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     char errstr[2048] = "";
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
         snprintf(errstr, sizeof(errstr),
                  "Cannot set %s for a non-disperse volume.", key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_DISPERSE, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_DISPERSE, "%s",
                errstr);
         *op_errstr = gf_strdup(errstr);
         ret = -1;
@@ -321,7 +301,7 @@ validate_disperse(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     ret = 0;
 
 out:
-    gf_msg_debug(ret == 0 ? THIS->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
 
     return ret;
 }
@@ -332,10 +312,7 @@ validate_replica(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     char errstr[2048] = "";
     int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     if (volinfo->replica_count == 1) {
         snprintf(errstr, sizeof(errstr),
@@ -358,11 +335,8 @@ validate_quorum_count(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                       char *value, char **op_errstr)
 {
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int q_count = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = gf_string2int(value, &q_count);
     if (ret) {
@@ -397,10 +371,8 @@ validate_subvols_per_directory(glusterd_volinfo_t *volinfo, dict_t *dict,
     glusterd_conf_t *priv = NULL;
     int ret = 0;
     int subvols = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -447,10 +419,7 @@ validate_mandatory_locking(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 {
     char errstr[2048] = "";
     int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     if (strcmp(value, "off") != 0 && strcmp(value, "file") != 0 &&
         strcmp(value, "forced") != 0 && strcmp(value, "optimal") != 0) {
@@ -491,11 +460,8 @@ validate_lock_migration_option(glusterd_volinfo_t *volinfo, dict_t *dict,
 {
     char errstr[2048] = "";
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t b = _gf_false;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (volinfo->replica_count > 1 || volinfo->disperse_count) {
         snprintf(errstr, sizeof(errstr),
@@ -536,19 +502,15 @@ static int
 validate_mux_limit(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                    char *value, char **op_errstr)
 {
-    xlator_t *this = NULL;
     uint val = 0;
     int ret = -1;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!is_brick_mx_enabled()) {
         gf_asprintf(op_errstr,
                     "Brick-multiplexing is not enabled. "
                     "Please enable brick multiplexing before trying "
                     "to set this option.");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING, "%s",
                *op_errstr);
         goto out;
     }
@@ -559,7 +521,7 @@ validate_mux_limit(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                     "%s is not a valid count. "
                     "%s expects an unsigned integer.",
                     value, key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
 
@@ -581,19 +543,15 @@ static int
 validate_volume_per_thread_limit(glusterd_volinfo_t *volinfo, dict_t *dict,
                                  char *key, char *value, char **op_errstr)
 {
-    xlator_t *this = NULL;
     uint val = 0;
     int ret = -1;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!is_brick_mx_enabled()) {
         gf_asprintf(op_errstr,
                     "Brick-multiplexing is not enabled. "
                     "Please enable brick multiplexing before trying "
                     "to set this option.");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING, "%s",
                *op_errstr);
         goto out;
     }
@@ -604,7 +562,7 @@ validate_volume_per_thread_limit(glusterd_volinfo_t *volinfo, dict_t *dict,
                     "%s is not a valid count. "
                     "%s expects an unsigned integer.",
                     value, key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
 
@@ -626,22 +584,18 @@ static int
 validate_boolean(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                  char *value, char **op_errstr)
 {
-    xlator_t *this = NULL;
     gf_boolean_t b = _gf_false;
     int ret = -1;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     ret = gf_string2boolean(value, &b);
     if (ret) {
         gf_asprintf(op_errstr,
                     "%s is not a valid boolean value. %s "
                     "expects a valid boolean value.",
                     value, key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
-out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
 
     return ret;
@@ -740,22 +694,18 @@ static int
 validate_worm_period(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                      char *value, char **op_errstr)
 {
-    xlator_t *this = NULL;
     uint64_t period = -1;
     int ret = -1;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     ret = gf_string2uint64(value, &period);
     if (ret) {
         gf_asprintf(op_errstr,
                     "%s is not a valid uint64_t value."
                     " %s expects a valid uint64_t value.",
                     value, key);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
-out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
 
     return ret;
@@ -765,18 +715,15 @@ static int
 validate_reten_mode(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                     char *value, char **op_errstr)
 {
-    xlator_t *this = NULL;
     int ret = -1;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     if ((strcmp(value, "relax") && strcmp(value, "enterprise"))) {
         gf_asprintf(op_errstr,
                     "The value of retention mode should be "
                     "either relax or enterprise. But the value"
                     " of %s is %s",
                     key, value);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
         ret = -1;
         goto out;
@@ -799,15 +746,11 @@ static int
 validate_statedump_path(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                         char *value, char **op_errstr)
 {
-    xlator_t *this = NULL;
-    this = THIS;
-    GF_ASSERT(this);
-
     int ret = 0;
     if (!is_directory(value)) {
         gf_asprintf(op_errstr, "Failed: %s is not a directory", value);
         ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
                *op_errstr);
     }
 

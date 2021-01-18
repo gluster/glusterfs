@@ -56,7 +56,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
     gf_cli_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char *free_ptr = NULL;
     char *trans_type = NULL;
@@ -76,9 +76,6 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
     glusterd_volinfo_t *volinfo = NULL;
 
     GF_ASSERT(req);
-
-    this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -308,11 +305,9 @@ __glusterd_handle_cli_start_volume(rpcsvc_request_t *req)
     char errstr[2048] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     conf = this->private;
@@ -397,14 +392,12 @@ __glusterd_handle_cli_stop_volume(rpcsvc_request_t *req)
     char *dup_volname = NULL;
     dict_t *dict = NULL;
     glusterd_op_t cli_op = GD_OP_STOP_VOLUME;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char err_str[64] = {
         0,
     };
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     conf = this->private;
     GF_ASSERT(conf);
@@ -497,10 +490,6 @@ __glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
 
@@ -509,7 +498,7 @@ __glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
         snprintf(err_str, sizeof(err_str),
                  "Failed to decode request "
                  "received from cli");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL, "%s",
                err_str);
         req->rpc_err = GARBAGE_ARGS;
         goto out;
@@ -522,7 +511,7 @@ __glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "failed to "
                    "unserialize req-buffer to dictionary");
             snprintf(err_str, sizeof(err_str),
@@ -537,13 +526,13 @@ __glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
         snprintf(err_str, sizeof(err_str),
                  "Failed to get volume "
                  "name");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
                err_str);
         req->rpc_err = GARBAGE_ARGS;
         goto out;
     }
 
-    gf_msg_debug(this->name, 0,
+    gf_msg_debug(THIS->name, 0,
                  "Received delete vol req"
                  "for volume %s",
                  volname);
@@ -575,13 +564,11 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
     int ret = 0;
     char *key = NULL;
     char *value = NULL;
-    xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_int32n(dict, "heal-op", SLEN("heal-op"),
                           (int32_t *)&heal_op);
     if (ret || (heal_op == GF_SHD_OP_INVALID)) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
                 "Key=heal-op", NULL);
         ret = -1;
         goto out;
@@ -621,7 +608,7 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
         key = "cluster.granular-entry-heal";
         ret = dict_set_int8(dict, "is-special-key", 1);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                     "Key=is-special-key", NULL);
             goto out;
         }
@@ -629,21 +616,21 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
 
     ret = dict_set_strn(dict, "key1", SLEN("key1"), key);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=key1", NULL);
         goto out;
     }
 
     ret = dict_set_strn(dict, "value1", SLEN("value1"), value);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=value1", NULL);
         goto out;
     }
 
     ret = dict_set_int32n(dict, "count", SLEN("count"), 1);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -665,13 +652,10 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
     glusterd_op_t cli_op = GD_OP_HEAL_VOLUME;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char op_errstr[2048] = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(req);
 
@@ -755,8 +739,8 @@ out:
     if (ret) {
         if (op_errstr[0] == '\0')
             snprintf(op_errstr, sizeof(op_errstr), "operation failed");
-        gf_msg((this ? this->name : "glusterd"), GF_LOG_ERROR, 0,
-               GD_MSG_GLUSTERD_OP_FAILED, "%s", op_errstr);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_OP_FAILED, "%s",
+               op_errstr);
         ret = glusterd_op_send_cli_response(cli_op, ret, 0, req, dict,
                                             op_errstr);
     }
@@ -785,12 +769,9 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
     char err_str[128] = {
         0,
     };
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     GF_ASSERT(req);
@@ -799,7 +780,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto out;
     }
     if (cli_req.dict.dict_len) {
@@ -809,7 +790,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "failed to "
                    "unserialize req-buffer to dictionary");
             snprintf(err_str, sizeof(err_str),
@@ -821,7 +802,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
         snprintf(err_str, sizeof(err_str), "Unable to get the volume name");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
                err_str);
         goto out;
     }
@@ -829,7 +810,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
     ret = dict_get_strn(dict, "options", SLEN("options"), &options);
     if (ret) {
         snprintf(err_str, sizeof(err_str), "Unable to get options");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
                err_str);
         goto out;
     }
@@ -839,7 +820,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
         snprintf(err_str, sizeof(err_str),
                  "Unable to get option "
                  "count");
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
                err_str);
         goto out;
     }
@@ -853,7 +834,7 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_STATEDUMP_VOL_REQ_RCVD,
+    gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_STATEDUMP_VOL_REQ_RCVD,
            "Received statedump request for "
            "volume %s with options %s",
            volname, options);
@@ -898,7 +879,7 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
     int32_t disperse_count = 0;
     char *brick = NULL;
     char *tmpptr = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     char msg[2048] = {0};
     uuid_t volume_uuid;
@@ -906,8 +887,6 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
     gf_boolean_t is_force = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(rsp_dict);
@@ -1137,36 +1116,32 @@ int
 glusterd_op_stop_volume_args_get(dict_t *dict, char **volname, int *flags)
 {
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
     if (!volname) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
     if (!flags) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), volname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                 "Key=volname", NULL);
         goto out;
     }
 
     ret = dict_get_int32n(dict, "flags", SLEN("flags"), flags);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                 "Key=flags", NULL);
         goto out;
     }
@@ -1225,7 +1200,7 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t volume_id = {
         0,
     };
@@ -1237,8 +1212,6 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     };
     int32_t len = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(rsp_dict);
@@ -1420,13 +1393,10 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     int flags = 0;
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gsync_status_param_t param = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_op_stop_volume_args_get(dict, &volname, &flags);
     if (ret) {
@@ -1474,7 +1444,7 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     if (ret) {
         ret = ganesha_manage_export(dict, "off", _gf_false, op_errstr);
         if (ret) {
-            gf_msg(THIS->name, GF_LOG_WARNING, 0,
+            gf_msg(this->name, GF_LOG_WARNING, 0,
                    GD_MSG_NFS_GNS_UNEXPRT_VOL_FAIL,
                    "Could not "
                    "unexport volume via NFS-Ganesha");
@@ -1507,10 +1477,7 @@ glusterd_op_stage_delete_volume(dict_t *dict, char **op_errstr)
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1682,10 +1649,7 @@ glusterd_op_stage_heal_volume(dict_t *dict, char **op_errstr)
     char msg[2048];
     glusterd_conf_t *priv = NULL;
     dict_t *opt_dict = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     priv = this->private;
     if (!priv) {
@@ -1765,11 +1729,9 @@ glusterd_op_stage_statedump_volume(dict_t *dict, char **op_errstr)
     char msg[2408] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -1904,7 +1866,7 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     gf_boolean_t vol_added = _gf_false;
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_brickinfo_t *ta_brickinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *brick = NULL;
     char *ta_brick = NULL;
     int32_t count = 0;
@@ -1931,9 +1893,6 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
     struct statvfs brickstat = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -2288,11 +2247,9 @@ glusterd_start_volume(glusterd_volinfo_t *volinfo, int flags, gf_boolean_t wait)
 {
     int ret = 0;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_ver_ac_t verincrement = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(volinfo);
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
@@ -2356,14 +2313,12 @@ glusterd_op_start_volume(dict_t *dict, char **op_errstr)
     int flags = 0;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
     char *str = NULL;
     gf_boolean_t option = _gf_false;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2469,11 +2424,8 @@ glusterd_stop_volume(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_svc_t *svc = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
 
@@ -2528,10 +2480,7 @@ glusterd_op_stop_volume(dict_t *dict)
     int flags = 0;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     ret = glusterd_op_stop_volume_args_get(dict, &volname, &flags);
     if (ret)
@@ -2561,10 +2510,7 @@ glusterd_op_delete_volume(dict_t *dict)
     int ret = 0;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -2896,7 +2842,6 @@ glusterd_op_clearlocks_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char **xl_opts = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
