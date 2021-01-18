@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#if defined(HAVE_SPINLOCK)
 /* None of this matters otherwise. */
 
 #include <pthread.h>
@@ -17,4 +16,3 @@
 #define LOCKING_IMPL
 #include "glusterfs/locking.h"
 
-#endif

@@ -865,11 +865,6 @@ gf_dump_config_flags()
     gf_msg_plain_nomem(GF_LOG_ALERT, "setfsid 1");
 #endif
 
-/* define if found spinlock */
-#ifdef HAVE_SPINLOCK
-    gf_msg_plain_nomem(GF_LOG_ALERT, "spinlock 1");
-#endif
-
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #ifdef HAVE_SYS_EPOLL_H
     gf_msg_plain_nomem(GF_LOG_ALERT, "epoll.h 1");
