@@ -35,7 +35,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
-	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c locking.c \
+	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c \
 	$(CONTRIBDIR)/xxhash/xxhash.c \
 	throttle-tbf.c monitoring.c async.c
 
