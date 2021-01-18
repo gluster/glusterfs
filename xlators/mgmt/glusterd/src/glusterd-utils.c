@@ -15143,19 +15143,15 @@ found_bad_brick_order:
 
     ret = -1;
 out:
-    ai_list_tmp2 = NULL;
     GF_FREE(brick_list_ptr);
     if (pre_list != NULL) {
         cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
         {
             if (pre_list_tmp1->info)
                 freeaddrinfo(pre_list_tmp1->info);
-            free(ai_list_tmp2);
-            ai_list_tmp2 = pre_list_tmp1;
+            free(pre_list_tmp1);
         }
         free(pre_list);
-        free(ai_list_tmp2);
-        ai_list_tmp2 = NULL;
     }
 
     if (ai_list != NULL) {
@@ -15163,11 +15159,9 @@ out:
         {
             if (ai_list_tmp1->info)
                 freeaddrinfo(ai_list_tmp1->info);
-            free(ai_list_tmp2);
-            ai_list_tmp2 = ai_list_tmp1;
+            free(ai_list_tmp1);
         }
         free(ai_list);
-        free(ai_list_tmp2);
     }
 
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
