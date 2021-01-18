@@ -684,7 +684,29 @@ dict_deln(dict_t *this, char *key, const int keylen)
     return rc;
 }
 
-void
+/* removes and free all data_pair_t elements.
+ * has to be called with this->lock held */
+static void
+dict_clear_data(dict_t *this)
+{
+    data_pair_t *curr = this->members_list;
+    data_pair_t *next = NULL;
+
+    while (curr != NULL) {
+        next = curr->next;
+        data_unref(curr->value);
+        GF_FREE(curr->key);
+        if (curr == &this->free_pair) {
+            this->free_pair.key = NULL;
+        } else {
+            mem_put(curr);
+        }
+        curr = next;
+    }
+    this->count = this->totkvlen = 0;
+}
+
+static void
 dict_destroy(dict_t *this)
 {
     if (!this) {
@@ -693,28 +715,13 @@ dict_destroy(dict_t *this)
         return;
     }
 
-    data_pair_t *pair = this->members_list;
-    data_pair_t *prev = this->members_list;
     glusterfs_ctx_t *ctx = NULL;
     uint64_t current_max = 0;
-    uint32_t total_pairs = 0;
+    uint32_t total_pairs = this->count;
 
     LOCK_DESTROY(&this->lock);
 
-    while (prev) {
-        pair = pair->next;
-        data_unref(prev->value);
-        GF_FREE(prev->key);
-        if (prev != &this->free_pair) {
-            mem_put(prev);
-        } else {
-            this->free_pair.key = NULL;
-        }
-        total_pairs++;
-        prev = pair;
-    }
-
-    this->totkvlen = 0;
+    dict_clear_data(this);
     if (this->members != &this->members_internal) {
         mem_put(this->members);
     }
@@ -1468,7 +1475,16 @@ dict_reset(dict_t *dict)
                          "dict is NULL");
         goto out;
     }
-    dict_foreach(dict, dict_remove_foreach_fn, NULL);
+
+    int i;
+    LOCK(&dict->lock);
+
+    dict_clear_data(dict);
+    for (i = 0; i < dict->hash_size; i++)
+        dict->members[i] = NULL;
+    dict->members_list = NULL;
+
+    UNLOCK(&dict->lock);
     ret = 0;
 out:
     return ret;
