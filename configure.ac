@@ -639,13 +639,6 @@ AC_CHECK_HEADERS([linux/falloc.h])
 
 AC_CHECK_HEADERS([linux/oom.h], AC_DEFINE(HAVE_LINUX_OOM_H, 1, [have linux/oom.h]))
 
-dnl Mac OS X does not have spinlocks
-AC_CHECK_FUNC([pthread_spin_init], [have_spinlock=yes])
-if test "x${have_spinlock}" = "xyes"; then
-   AC_DEFINE(HAVE_SPINLOCK, 1, [define if found spinlock])
-fi
-AC_SUBST(HAVE_SPINLOCK)
-
 dnl some os may not have GNU defined strnlen function
 AC_CHECK_FUNC([strnlen], [have_strnlen=yes])
 if test "x${have_strnlen}" = "xyes"; then
