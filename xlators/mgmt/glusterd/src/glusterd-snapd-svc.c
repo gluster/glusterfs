@@ -329,7 +329,7 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
             runner_add_arg(&runner, "--localtime-logging");
     }
 
-    if (this->ctx->log.logger == gf_logger_syslog) {
+    if (global_ctx->log.logger == gf_logger_syslog) {
         runner_add_arg(&runner, "--logger");
         runner_argprintf(&runner, "syslog");
     }

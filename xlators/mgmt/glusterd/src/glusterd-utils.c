@@ -2264,7 +2264,7 @@ retry:
         }
     }
 
-    if (this->ctx->log.logger == gf_logger_syslog) {
+    if (global_ctx->log.logger == gf_logger_syslog) {
         runner_add_arg(&runner, "--logger");
         runner_argprintf(&runner, "syslog");
     }
@@ -14063,7 +14063,7 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
                               &volfileserver) != 0)
                 volfileserver = "localhost";
 
-            if (this->ctx->log.logger == gf_logger_syslog) {
+            if (global_ctx->log.logger == gf_logger_syslog) {
                 runner_add_arg(&runner, "--logger");
                 runner_argprintf(&runner, "syslog");
             }
@@ -14081,7 +14081,7 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
             break;
 
         case GD_OP_ADD_BRICK:
-            if (this->ctx->log.logger == gf_logger_syslog) {
+            if (global_ctx->log.logger == gf_logger_syslog) {
                 runner_add_arg(&runner, "--logger");
                 runner_argprintf(&runner, "syslog");
             }
