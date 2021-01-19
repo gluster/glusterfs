@@ -543,10 +543,7 @@ fd_unref(fd_t *fd)
                 fd->inode->fd_count--;
             }
         }
-    }
-    UNLOCK(&fd->inode->lock);
-
-    if (refcount == 0) {
+        UNLOCK(&fd->inode->lock);
         fd_destroy(fd);
     }
 
