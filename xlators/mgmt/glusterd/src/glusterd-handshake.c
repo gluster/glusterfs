@@ -1948,7 +1948,7 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     if (!this) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_XLATOR_NOT_DEFINED,
                 NULL);
-        goto out;
+        return ret;
     }
 
     if (!peerinfo) {
