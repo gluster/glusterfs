@@ -5269,7 +5269,7 @@ dht_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 
         if (!ret && key && local->mds_subvol && dht_match_xattr(key)) {
             STACK_WIND(frame, dht_mds_getxattr_cbk, local->mds_subvol,
-                       local->mds_subvol->fops->fgetxattr, fd, key, NULL);
+                       local->mds_subvol->fops->fgetxattr, fd, key, xdata);
 
             return 0;
         }
@@ -5281,7 +5281,7 @@ dht_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
     for (i = 0; i < cnt; i++) {
         subvol = layout->list[i].xlator;
         STACK_WIND(frame, dht_getxattr_cbk, subvol, subvol->fops->fgetxattr, fd,
-                   key, NULL);
+                   key, xdata);
     }
     return 0;
 
