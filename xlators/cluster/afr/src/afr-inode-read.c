@@ -1581,7 +1581,6 @@ afr_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
      * Heal daemons don't have IO threads ... and as a result they
      * send this getxattr down and eventually crash :(
      */
-    op_errno = -1;
     GF_CHECK_XATTR_KEY_AND_GOTO(name, IO_THREADS_QUEUE_SIZE_KEY, op_errno, out);
 
     /*
@@ -1609,6 +1608,7 @@ no_name:
 out:
     if (ret < 0)
         AFR_STACK_UNWIND(getxattr, frame, -1, op_errno, NULL, NULL);
+
     return 0;
 }
 

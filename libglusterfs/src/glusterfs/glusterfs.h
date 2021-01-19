@@ -360,7 +360,7 @@ enum gf_internal_fop_indicator {
 #define GF_CHECK_XATTR_KEY_AND_GOTO(key, cmpkey, errval, lbl)                  \
     do {                                                                       \
         if (key && strcmp(key, cmpkey) == 0) {                                 \
-            errval = -EINVAL;                                                  \
+            errval = EINVAL;                                                   \
             goto lbl;                                                          \
         }                                                                      \
     } while (0)
