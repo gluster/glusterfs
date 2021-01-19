@@ -242,7 +242,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 ret = sys_lstat(unlink_path, &lstatbuf);
                 if (ret) {
                     op_ret = -1;
-                    op_errno = ret;
+                    op_errno = errno;
                 } else {
                     iatt_from_stat(&buf, &lstatbuf);
                     buf.ia_nlink = 0;
