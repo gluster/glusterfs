@@ -1971,6 +1971,59 @@ out:
 }
 
 static char *
+added_user_xlator(void* myframe)
+{
+    call_frame_t *frame = NULL;
+    cli_local_t *local = NULL;
+    char **words = NULL;
+    char *key = NULL;
+    char *value = NULL;
+    char *added_xlator = NULL;
+
+    /*
+     * HACK:
+     *  The server xlator list is also defined here, but it should
+     *  have a common definition with glusterd. However, we are hesitant
+     *  to include the internal header of glusterd.  If want to use the
+     *  shared definition, we need to make a big modification.
+     */
+    static char* server_xlators[] = {
+        "posix", "arbiter", "trash", "changelog", "bitrot-stub",
+        "acl", "locks", "leases", "upcall", "io-threads", "selinux", "marker",
+        "index", "quota", "namespace", "sdfs"
+    };
+
+    frame = myframe;
+    local = frame->local;
+    words = (char **)local->words;
+
+    while(*words != NULL) {
+        if (fnmatch("user.xlator.*", *words, 0) == 0 &&
+            fnmatch("user.xlator.*.*"/* user xlator option key*/, *words, 0) == FNM_NOMATCH) {
+            key = *words;
+            words++;
+            value = *words;
+
+            if (value == NULL)
+                break;
+
+            int size = sizeof(server_xlators) / sizeof(server_xlators[0]);
+
+            for (int i = 0; i < size; i++) {
+                if (strcmp(value, server_xlators[i]) == 0) {
+                    added_xlator = gf_strdup(key);
+                    break;
+                }
+            }
+        }
+
+        words++;
+    }
+
+    return added_xlator;
+}
+
+static char *
 is_server_debug_xlator(void *myframe)
 {
     call_frame_t *frame = NULL;
@@ -2015,6 +2068,18 @@ is_server_debug_xlator(void *myframe)
     return debug_xlator;
 }
 
+static char *
+added_server_xlator(void *myframe)
+{
+    char *xlator = NULL;
+
+    xlator = is_server_debug_xlator(myframe);
+    if (xlator)
+        return xlator;
+
+    return added_user_xlator(myframe);
+}
+
 static int
 gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe)
@@ -2028,7 +2093,7 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char msg[1024] = {
         0,
     };
-    char *debug_xlator = NULL;
+    char *added_xlator = NULL;
     char tmp_str[512] = {
         0,
     };
@@ -2063,20 +2128,21 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     /* For brick processes graph change does not happen on the fly.
      * The process has to be restarted. So this is a check from the
-     * volume set option such that if debug xlators such as trace/errorgen
-     * are provided in the set command, warn the user.
+     * volume set option such that if user custom xlators or debug
+     * xlators such as trace/errorgen are provided in the set command,
+     * warn the user.
      */
-    debug_xlator = is_server_debug_xlator(myframe);
+    added_xlator = added_server_xlator(myframe);
 
     if (dict_get_str_sizen(dict, "help-str", &help_str) && !msg[0])
         snprintf(msg, sizeof(msg), "Set volume %s",
                  (rsp.op_ret) ? "unsuccessful" : "successful");
-    if (rsp.op_ret == 0 && debug_xlator) {
+    if (rsp.op_ret == 0 && added_xlator) {
         snprintf(tmp_str, sizeof(tmp_str),
                  "\n%s translator has been "
                  "added to the server volume file. Please restart the"
                  " volume for enabling the translator",
-                 debug_xlator);
+                 added_xlator);
     }
 
     if ((global_state->mode & GLUSTER_MODE_XML) && (help_str == NULL)) {
@@ -2094,7 +2160,7 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
             cli_err("volume set: failed");
     } else {
         if (help_str == NULL) {
-            if (debug_xlator == NULL)
+            if (added_xlator == NULL)
                 cli_out("volume set: success");
             else
                 cli_out("volume set: success%s", tmp_str);
@@ -2108,7 +2174,7 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (dict)
         dict_unref(dict);
-    GF_FREE(debug_xlator);
+    GF_FREE(added_xlator);
     cli_cmd_broadcast_response(ret);
     gf_free_xdr_cli_rsp(rsp);
     return ret;
