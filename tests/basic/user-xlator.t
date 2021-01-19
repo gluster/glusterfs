@@ -21,8 +21,6 @@ TEST $CLI volume create $V0 replica 3  $H0:$B0/${V0}{1,2,3,4,5,6};
 TEST $CLI volume set $V0 user.xlator.hoge posix
 TEST grep -q 'user/hoge' ${SERVER_VOLFILE}
 
-TEST $CLI volume start $V0
-
 TEST $CLI volume set $V0 user.xlator.hoge.opt1 10
 TEST grep -q '"option opt1 10"' ${SERVER_VOLFILE}
 TEST $CLI volume set $V0 user.xlator.hoge.opt2 hogehoge
@@ -30,8 +28,13 @@ TEST grep -q '"option opt2 hogehoge"' ${SERVER_VOLFILE}
 TEST $CLI volume set $V0 user.xlator.hoge.opt3 true
 TEST grep -q '"option opt3 true"' ${SERVER_VOLFILE}
 
+TEST $CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+
 TEST $CLI volume set $V0 user.xlator.hoge trash
 TEST grep -q 'user/hoge' ${SERVER_VOLFILE}
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 
 TEST $CLI volume set $V0 user.xlator.hoge unknown  ## currently, prev xlname is not validated
 TEST ! grep -q 'user/hoge' ${SERVER_VOLFILE}
