@@ -1971,7 +1971,7 @@ out:
 }
 
 static char *
-added_user_xlator(void* myframe)
+added_user_xlator(void *myframe)
 {
     call_frame_t *frame = NULL;
     cli_local_t *local = NULL;
@@ -1987,19 +1987,19 @@ added_user_xlator(void* myframe)
      *  to include the internal header of glusterd.  If want to use the
      *  shared definition, we need to make a big modification.
      */
-    static char* server_xlators[] = {
-        "posix", "arbiter", "trash", "changelog", "bitrot-stub",
-        "acl", "locks", "leases", "upcall", "io-threads", "selinux", "marker",
-        "index", "quota", "namespace", "sdfs"
-    };
+    static char *server_xlators[] = {
+        "posix", "arbiter", "trash",     "changelog",  "bitrot-stub", "acl",
+        "locks", "leases",  "upcall",    "io-threads", "selinux",     "marker",
+        "index", "quota",   "namespace", "sdfs"};
 
     frame = myframe;
     local = frame->local;
     words = (char **)local->words;
 
-    while(*words != NULL) {
+    while (*words != NULL) {
         if (fnmatch("user.xlator.*", *words, 0) == 0 &&
-            fnmatch("user.xlator.*.*"/* user xlator option key*/, *words, 0) == FNM_NOMATCH) {
+            fnmatch("user.xlator.*.*" /* user xlator option key*/, *words, 0) ==
+                FNM_NOMATCH) {
             key = *words;
             words++;
             value = *words;
