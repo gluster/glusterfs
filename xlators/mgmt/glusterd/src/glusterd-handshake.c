@@ -1945,12 +1945,6 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
         goto out;
     }
 
-    if (!this) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_XLATOR_NOT_DEFINED,
-                NULL);
-        return ret;
-    }
-
     if (!peerinfo) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
