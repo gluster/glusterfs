@@ -6,6 +6,53 @@
 
 #G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
 
+function create_files() {
+    local first="${1}"
+    local last="${2}"
+    local prefix="${3}"
+    local gid
+    local file
+
+    for gid in $(seq ${first} ${last}); do
+        file="${prefix}${gid}"
+        if ! echo 'Hello World!' >"${file}"; then
+            return 1
+        fi
+        if ! chgrp ${gid} "${file}"; then
+            return 1
+        fi
+        if ! chmod 0640 "${file}"; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+function access_files() {
+    local first="${1}"
+    local last="${2}"
+    local prefix="${3}"
+    local user="${4}"
+    local gid
+    local file
+    local good
+    local bad
+
+    good="0"
+    bad="0"
+    for gid in $(seq ${first} ${last}); do
+        file="${prefix}${gid}"
+        if su -m ${user} -c "cat ${prefix}${gid} >/dev/null 2>&1"; then
+            good="$((${good} + 1))"
+        else
+            bad="$((${bad} + 1))"
+        fi
+    done
+
+    echo "${good} ${bad}"
+}
+
 cleanup
 
 # prepare the users and groups
@@ -32,16 +79,12 @@ Linux)
 esac
 
 # create a user that belongs to many groups
-for GID in $(seq  -f '%6.0f' ${NEW_GID} ${LAST_GID})
+for GID in $(seq ${NEW_GID} ${LAST_GID})
 do
         groupadd -o -g ${GID} ${NEW_USER}-${GID}
         NEW_GIDS="${NEW_GIDS},${NEW_USER}-${GID}"
 done
 TEST useradd -o -M -u ${NEW_UID} -g ${NEW_GID} -G ${NEW_USER}-${NEW_GIDS} ${NEW_USER}
-
-# It's not guaranteed that the latest added group will be returned as the last
-# group for the user. To be sure, we take the latest group returned by 'id'
-LAST_GID="$(id -G ${NEW_USER} | tr ' ' '\n' | tail -1)"
 
 # preparation done, start the tests
 
@@ -62,25 +105,24 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 su -m ${NEW_USER} -c "stat $N0/. > /dev/null"
 TEST [ $? -eq 0 ]
 
-# create a file that only a user in a high-group can access
-echo 'Hello World!' > $N0/README
-chgrp ${LAST_GID} $N0/README
-chmod 0640 $N0/README
+# create one file for each group of the user
+TEST create_files "${NEW_GID}" "${LAST_GID}" "${N0}/file."
 
-#su -m ${NEW_USER} -c "cat $N0/README 2>&1 > /dev/null"
-su -m ${NEW_USER} -c "cat $N0/README"
-ret=$?
+# try to access all files as the user
+RES=($(access_files "${NEW_GID}" "${LAST_GID}" "${N0}/file." "${NEW_USER}"))
+
+TEST [[ ${RES[0]} -gt 0 ]]
 
 case $OSTYPE in
 Linux)  # Linux NFS fails with big GID
-        if [ $ret -ne 0 ] ; then
+        if [ ${RES[1]} -ne 0 ] ; then
             res="Y"
         else
             res="N"
         fi
         ;;
 *)      # Other systems should cope better
-        if [ $ret -eq 0 ] ; then
+        if [ ${RES[1]} -eq 0 ] ; then
             res="Y"
         else
             res="N"
@@ -89,21 +131,22 @@ Linux)  # Linux NFS fails with big GID
 esac
 TEST [ "x$res" = "xY" ]
 
-# This passes only on build.gluster.org, not reproducible on other machines?!
-#su -m ${NEW_USER}  -c "cat $M0/README 2>&1 > /dev/null"
-#TEST [ $? -ne 0 ]
-
 # enable server.manage-gids and things should work
 TEST $CLI volume set $V0 server.manage-gids on
 
-su -m ${NEW_USER} -c "cat $N0/README 2>&1 > /dev/null"
-TEST [ $? -eq 0 ]
-su -m ${NEW_USER} -c "cat $M0/README 2>&1 > /dev/null"
-TEST [ $? -eq 0 ]
+RES=($(access_files "${NEW_GID}" "${LAST_GID}" "${N0}/file." "${NEW_USER}"))
+
+TEST [[ ${RES[0]} -gt 0 ]]
+TEST [[ ${RES[1]} -eq 0 ]]
+
+RES=($(access_files "${NEW_GID}" "${LAST_GID}" "${M0}/file." "${NEW_USER}"))
+
+TEST [[ ${RES[0]} -gt 0 ]]
+TEST [[ ${RES[1]} -eq 0 ]]
 
 # cleanup
 userdel --force ${NEW_USER}
-for GID in $(seq  -f '%6.0f' ${NEW_GID} ${LAST_GID})
+for GID in $(seq ${NEW_GID} ${LAST_GID})
 do
         groupdel ${NEW_USER}-${GID}
 done
