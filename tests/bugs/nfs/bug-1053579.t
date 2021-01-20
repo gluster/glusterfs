@@ -4,6 +4,8 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
+SCRIPT_TIMEOUT=500
+
 #G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST
 
 function create_files() {
