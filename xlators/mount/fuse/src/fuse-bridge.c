@@ -6909,23 +6909,21 @@ init(xlator_t *this_xl)
 
     /* What you need to find with we do 'df -h' */
     cmd_args = &this_xl->ctx->cmd_args;
+    char *subdir = cmd_args->subdir_mount ? cmd_args->subdir_mount : "";
     if (cmd_args->fs_display_name) {
-        strncpy(fsname, cmd_args->fs_display_name, PATH_MAX);
+        snprintf(fsname, PATH_MAX, "%s%s", cmd_args->fs_display_name, subdir);
     } else {
         if (cmd_args->volfile_server) {
-            strncpy(fsname, cmd_args->volfile_server, PATH_MAX);
-            strncat(fsname, ":", PATH_MAX - 1);
-            strncat(fsname, cmd_args->volfile_id, PATH_MAX - 1);
+            snprintf(fsname, PATH_MAX, "%s:%s%s", cmd_args->volfile_server,
+                     cmd_args->volfile_id, subdir);
         } else {
             /* Do we need file path ? */
-            strncpy(fsname, "glusterfs:", PATH_MAX);
             /* volfile-id is mandatory anyways, else we can also write file path
              */
-            strncat(fsname, cmd_args->volfile_id, PATH_MAX - 1);
+            snprintf(fsname, PATH_MAX, "glusterfs:%s%s", cmd_args->volfile_id,
+                     subdir);
         }
     }
-    if (cmd_args->subdir_mount)
-        strncat(fsname, cmd_args->subdir_mount, PATH_MAX - 1);
 
     priv->fdtable = gf_fd_fdtable_alloc();
     if (priv->fdtable == NULL) {
