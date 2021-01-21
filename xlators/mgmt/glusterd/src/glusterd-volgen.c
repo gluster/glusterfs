@@ -2848,6 +2848,7 @@ validate_user_xlator_position(dict_t *this, char *key, data_t *value,
                               void *unused)
 {
     int ret = -1;
+    int i = 0;
 
     if (!value)
         goto out;
@@ -2863,7 +2864,7 @@ validate_user_xlator_position(dict_t *this, char *key, data_t *value,
 
     int num_xlators = sizeof(server_graph_table) /
                       sizeof(server_graph_table[0]);
-    for (int i = 0; i < num_xlators; i++) {
+    for (i = 0; i < num_xlators; i++) {
         if (server_graph_table[i].dbg_key &&
             strcmp(value_str, server_graph_table[i].dbg_key) == 0) {
             ret = 0;
