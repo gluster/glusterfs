@@ -1979,6 +1979,7 @@ added_user_xlator(void *myframe)
     char *key = NULL;
     char *value = NULL;
     char *added_xlator = NULL;
+    int i = 0;
 
     /*
      * HACK:
@@ -2009,7 +2010,7 @@ added_user_xlator(void *myframe)
 
             int size = sizeof(server_xlators) / sizeof(server_xlators[0]);
 
-            for (int i = 0; i < size; i++) {
+            for (i = 0; i < size; i++) {
                 if (strcmp(value, server_xlators[i]) == 0) {
                     added_xlator = gf_strdup(key);
                     break;
