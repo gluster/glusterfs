@@ -6493,7 +6493,7 @@ shard_common_remove_xattr(call_frame_t *frame, xlator_t *this,
                             xdata);
         else
             STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->removexattr, loc, name,
+                            FIRST_CHILD(this)->fops->fremovexattr, fd, name,
                             xdata);
         return 0;
     }
@@ -6993,6 +6993,41 @@ err:
     return 0;
 }
 
+static inline void
+shard_common_unwind_based_on_fop(call_frame_t *frame, xlator_t *this,
+                                 glusterfs_fop_t fop, fd_t *fd,
+                                 struct iovec *vector, int32_t count,
+                                 off_t offset, uint32_t flags, size_t len,
+                                 struct iobref *iobref, dict_t *xdata)
+{
+    switch (fop) {
+        case GF_FOP_WRITE:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->writev, fd, vector, count,
+                            offset, flags, iobref, xdata);
+            break;
+        case GF_FOP_FALLOCATE:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fallocate, fd, flags,
+                            offset, len, xdata);
+            break;
+        case GF_FOP_ZEROFILL:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->zerofill, fd, offset, len,
+                            xdata);
+            break;
+        case GF_FOP_DISCARD:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->discard, fd, offset, len,
+                            xdata);
+            break;
+        default:
+            gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
+                   "Invalid fop id = %d", fop);
+            break;
+    }
+}
+
 int
 shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
                                glusterfs_fop_t fop, fd_t *fd,
@@ -7006,32 +7041,8 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     shard_local_t *local = NULL;
 
     if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
-        switch (fop) {
-            case GF_FOP_WRITE:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->writev, fd, vector,
-                                count, offset, flags, iobref, xdata);
-                break;
-            case GF_FOP_FALLOCATE:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->fallocate, fd, flags,
-                                offset, len, xdata);
-                break;
-            case GF_FOP_ZEROFILL:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->zerofill, fd, offset,
-                                len, xdata);
-                break;
-            case GF_FOP_DISCARD:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->discard, fd, offset,
-                                len, xdata);
-                break;
-            default:
-                gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
-                       "Invalid fop id = %d", fop);
-                break;
-        }
+        shard_common_unwind_based_on_fop(frame, this, fop, fd, vector, count,
+                                         offset, flags, len, iobref, xdata);
         return 0;
     }
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
@@ -7044,32 +7055,8 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     }
 
     if (!block_size) {
-        switch (fop) {
-            case GF_FOP_WRITE:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->writev, fd, vector,
-                                count, offset, flags, iobref, xdata);
-                break;
-            case GF_FOP_FALLOCATE:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->fallocate, fd, flags,
-                                offset, len, xdata);
-                break;
-            case GF_FOP_ZEROFILL:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->zerofill, fd, offset,
-                                len, xdata);
-                break;
-            case GF_FOP_DISCARD:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->discard, fd, offset,
-                                len, xdata);
-                break;
-            default:
-                gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
-                       "Invalid fop id = %d", fop);
-                break;
-        }
+        shard_common_unwind_based_on_fop(frame, this, fop, fd, vector, count,
+                                         offset, flags, len, iobref, xdata);
         return 0;
     }
 
