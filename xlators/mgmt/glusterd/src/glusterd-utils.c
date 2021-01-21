@@ -14610,6 +14610,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
     glusterd_brickinfo_t *brickinfo = NULL;
     addrinfo_list_t *pre_list = NULL;
     addrinfo_list_t *pre_list_tmp1 = NULL;
+    addrinfo_list_t *pre_list_tmp2 = NULL;
     int count = 0;
 
     const char failed_string[2048] =
@@ -14626,6 +14627,11 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         "behavior. ";
 
     ai_list = MALLOC(sizeof(addrinfo_list_t));
+    if (ai_list == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+               "failed to allocate memory");
+        goto out;
+    }
     ai_list->info = NULL;
     CDS_INIT_LIST_HEAD(&ai_list->list);
 
@@ -14823,25 +14829,29 @@ found_bad_brick_order:
 
     ret = -1;
 out:
-    ai_list_tmp2 = NULL;
     GF_FREE(brick_list_ptr);
-    cds_list_for_each_entry(pre_list_tmp1, &pre_list->list, list)
-    {
-        if (pre_list_tmp1->info)
-            freeaddrinfo(pre_list_tmp1->info);
-        free(ai_list_tmp2);
-        ai_list_tmp2 = pre_list_tmp1;
+    if (pre_list != NULL) {
+        cds_list_for_each_entry_safe(pre_list_tmp1, pre_list_tmp2,
+                                     &pre_list->list, list)
+        {
+            if (pre_list_tmp1->info)
+                freeaddrinfo(pre_list_tmp1->info);
+            FREE(pre_list_tmp1);
+        }
+        FREE(pre_list);
     }
-    free(pre_list);
-    cds_list_for_each_entry(ai_list_tmp1, &ai_list->list, list)
-    {
-        if (ai_list_tmp1->info)
-            freeaddrinfo(ai_list_tmp1->info);
-        free(ai_list_tmp2);
-        ai_list_tmp2 = ai_list_tmp1;
+
+    if (ai_list != NULL) {
+        cds_list_for_each_entry_safe(ai_list_tmp1, ai_list_tmp2, &ai_list->list,
+                                     list)
+        {
+            if (ai_list_tmp1->info)
+                freeaddrinfo(ai_list_tmp1->info);
+            FREE(ai_list_tmp1);
+        }
+        FREE(ai_list);
     }
-    free(ai_list);
-    free(ai_list_tmp2);
+
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
 }
