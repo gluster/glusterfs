@@ -48,8 +48,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}4
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}5
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}6
 
-TEST $CLI volume set $V0 user.xlator.hoge unknown  ## currently, prev xlname is not validated
-TEST ! grep -q 'user/hoge' ${SERVER_VOLFILE}
+TEST ! $CLI volume set $V0 user.xlator.hoge unknown
+TEST grep -q 'user/hoge' ${SERVER_VOLFILE} # When the CLI fails, the volfile is not modified.
 
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0

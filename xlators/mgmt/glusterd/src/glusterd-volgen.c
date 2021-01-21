@@ -2844,6 +2844,42 @@ out:
 }
 
 static int
+validate_user_xlator_position(dict_t *this, char *key, data_t *value,
+                              void *unused)
+{
+    int ret = -1;
+
+    if (!value)
+        goto out;
+
+    if (fnmatch("user.xlator.*.*", key, 0) == 0) {
+        ret = 0;
+        goto out;
+    }
+
+    char *value_str = data_to_str(value);
+    if (!value_str)
+        goto out;
+
+    int num_xlators = sizeof(server_graph_table) /
+                      sizeof(server_graph_table[0]);
+    for (int i = 0; i < num_xlators; i++) {
+        if (server_graph_table[i].dbg_key &&
+            strcmp(value_str, server_graph_table[i].dbg_key) == 0) {
+            ret = 0;
+            goto out;
+        }
+    }
+
+out:
+    if (ret == -1)
+        gf_log("glusterd", GF_LOG_ERROR, "invalid user xlator position %s = %s",
+               key, value->data);
+
+    return ret;
+}
+
+static int
 check_and_add_user_xl(volgen_graph_t *graph, dict_t *set_dict, char *volname,
                       char *prev_xlname)
 {
@@ -2870,6 +2906,12 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *xlator = NULL;
     char *loglevel = NULL;
     int i = 0;
+
+    if (dict_foreach_fnmatch(set_dict, "user.xlator.*",
+                             validate_user_xlator_position, NULL) < 0) {
+        ret = -EINVAL;
+        goto out;
+    }
 
     i = sizeof(server_graph_table) / sizeof(server_graph_table[0]) - 1;
 
