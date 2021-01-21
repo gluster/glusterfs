@@ -45,7 +45,7 @@
     1 /* MIN is the fresh start op-version, mostly                             \
          should not change */
 #define GD_OP_VERSION_MAX                                                      \
-    GD_OP_VERSION_9_0 /* MAX VERSION is the maximum                            \
+    GD_OP_VERSION_10_0 /* MAX VERSION is the maximum                           \
                          count in VME table, should                            \
                          keep changing with                                    \
                          introduction of newer                                 \
@@ -124,6 +124,8 @@
 
 #define GD_OP_VERSION_9_0 90000 /* Op-version for GlusterFS 9.0 */
 
+#define GD_OP_VERSION_10_0 100000 /* Op-version for GlusterFS 10.0 */
+
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
 
 #include "glusterfs/xlator.h"
@@ -185,4 +187,6 @@ int
 gf_global_mem_acct_enable_get(void);
 int
 gf_global_mem_acct_enable_set(int val);
+
+extern glusterfs_ctx_t *global_ctx;
 #endif /* !_GLOBALS_H */

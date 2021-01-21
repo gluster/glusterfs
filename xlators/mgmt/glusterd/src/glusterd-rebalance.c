@@ -60,10 +60,7 @@ glusterd_defrag_start_validate(glusterd_volinfo_t *volinfo, char *op_errstr,
                                size_t len, glusterd_op_t op)
 {
     int ret = -1;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     /* Check only if operation is not remove-brick */
     if ((GD_OP_REMOVE_BRICK != op) && !gd_is_remove_brick_committed(volinfo)) {
@@ -102,12 +99,8 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
     int ret = 0;
     char pidfile[PATH_MAX];
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int pid = -1;
-
-    this = THIS;
-    if (!this)
-        return 0;
 
     priv = this->private;
     if (!priv)
@@ -196,7 +189,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
                              size_t len, int cmd, defrag_cbk_fn_t cbk,
                              glusterd_op_t op)
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
     glusterd_defrag_info_t *defrag = NULL;
     runner_t runner = {
@@ -224,9 +217,6 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     };
     char *volfileserver = NULL;
     char *localtime_logging = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
@@ -389,13 +379,6 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     };
     int ret = -1;
     glusterd_defrag_info_t *defrag = volinfo->rebal.defrag;
-    glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
-    priv = this->private;
-    GF_ASSERT(priv);
 
     // rebalance process is not started
     if (!defrag)
@@ -403,7 +386,7 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
 
     options = dict_new();
     if (!options) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
     }
 
@@ -498,11 +481,9 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
     char msg[2048] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(req);
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -592,17 +573,13 @@ static int
 glusterd_brick_validation(dict_t *dict, char *key, data_t *value, void *data)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
     glusterd_volinfo_t *volinfo = data;
     glusterd_brickinfo_t *brickinfo = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = glusterd_volume_brickinfo_get_by_brick(value->data, volinfo,
                                                  &brickinfo, _gf_false);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_BRICK_NOT_FOUND,
+        gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_BRICK_NOT_FOUND,
                "Incorrect brick %s for "
                "volume %s",
                value->data, volinfo->volname);
@@ -610,7 +587,7 @@ glusterd_brick_validation(dict_t *dict, char *key, data_t *value, void *data)
     }
 
     if (!brickinfo->decommissioned) {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_BRICK_NOT_FOUND,
+        gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, GD_MSG_BRICK_NOT_FOUND,
                "Incorrect brick %s for "
                "volume %s",
                value->data, volinfo->volname);
@@ -630,10 +607,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
     char *task_id_str = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(req_dict);
@@ -722,10 +696,7 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
     char msg[2048] = {0};
     glusterd_volinfo_t *volinfo = NULL;
     char *task_id_str = NULL;
-    xlator_t *this = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -869,12 +840,9 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_brickinfo_t *tmp = NULL;
     gf_boolean_t volfile_update = _gf_false;
     char *task_id_str = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uint32_t commit_hash;
     int32_t is_force = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1032,10 +1000,7 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
     glusterd_volinfo_t *volinfo = NULL;
     char *task_id_str = NULL;
     dict_t *op_ctx = NULL;
-    xlator_t *this = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1188,12 +1153,9 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     gf_boolean_t volfile_update = _gf_false;
     char *task_id_str = NULL;
     dict_t *ctx = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uint32_t commit_hash;
     int32_t is_force = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {
@@ -1376,10 +1338,8 @@ glusterd_defrag_event_notify_handle(dict_t *dict)
     char *volname = NULL;
     char *volname_ptr = NULL;
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);

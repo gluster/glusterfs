@@ -171,6 +171,7 @@ typedef struct glusterd_friend_req_ctx_ {
     rpcsvc_request_t *req;
     int port;
     dict_t *vols;
+    dict_t *peer_ver;  // Dictionary to save peer ver data
 } glusterd_friend_req_ctx_t;
 
 typedef struct glusterd_friend_update_ctx_ {

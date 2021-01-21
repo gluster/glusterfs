@@ -1134,7 +1134,7 @@ dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict,
                        dict_t *xdata);
 int
-gf_defrag_status_get(dht_conf_t *conf, dict_t *dict);
+gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status);
 
 int
 gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output);
@@ -1144,9 +1144,7 @@ gf_defrag_start(void *this);
 
 int32_t
 gf_defrag_handle_hardlink(xlator_t *this, loc_t *loc, int *fop_errno);
-int
-dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
-                 int flag, int *fop_errno);
+
 int
 dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this,
                          dht_layout_t **layout_int);

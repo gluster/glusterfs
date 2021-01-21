@@ -550,7 +550,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
 {
     int ret = 0;
     cmd_args_t *cmd_args = NULL;
-    xlator_t *master = NULL;
+    xlator_t *root = NULL;
 
     cmd_args = &ctx->cmd_args;
     if (!cmd_args->mount_point) {
@@ -564,31 +564,31 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         return -1;
     }
 
-    master = GF_CALLOC(1, sizeof(*master), gfd_mt_xlator_t);
-    if (!master)
+    root = GF_CALLOC(1, sizeof(*root), gfd_mt_xlator_t);
+    if (!root)
         goto err;
 
-    master->name = gf_strdup("fuse");
-    if (!master->name)
+    root->name = gf_strdup("fuse");
+    if (!root->name)
         goto err;
 
-    if (xlator_set_type(master, "mount/fuse") == -1) {
+    if (xlator_set_type(root, "mount/fuse") == -1) {
         gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_8,
                 "MOUNT-POINT=%s", cmd_args->mount_point, NULL);
         goto err;
     }
 
-    master->ctx = ctx;
-    master->options = dict_new();
-    if (!master->options)
+    root->ctx = ctx;
+    root->options = dict_new();
+    if (!root->options)
         goto err;
 
-    ret = set_fuse_mount_options(ctx, master->options);
+    ret = set_fuse_mount_options(ctx, root->options);
     if (ret)
         goto err;
 
     if (cmd_args->fuse_mountopts) {
-        ret = dict_set_static_ptr(master->options, ZR_FUSE_MOUNTOPTS,
+        ret = dict_set_static_ptr(root->options, ZR_FUSE_MOUNTOPTS,
                                   cmd_args->fuse_mountopts);
         if (ret < 0) {
             gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_3,
@@ -597,19 +597,19 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         }
     }
 
-    ret = xlator_init(master);
+    ret = xlator_init(root);
     if (ret) {
         gf_msg_debug("glusterfsd", 0, "failed to initialize fuse translator");
         goto err;
     }
 
-    ctx->primary = master;
+    ctx->root = root;
 
     return 0;
 
 err:
-    if (master) {
-        xlator_destroy(master);
+    if (root) {
+        xlator_destroy(root);
     }
 
     return 1;
@@ -1465,7 +1465,7 @@ cleanup_and_exit(int signum)
         /* Call fini() of FUSE xlator first:
          * so there are no more requests coming and
          * 'umount' of mount point is done properly */
-        trav = ctx->primary;
+        trav = ctx->root;
         if (trav && trav->fini) {
             THIS = trav;
             trav->fini(trav);

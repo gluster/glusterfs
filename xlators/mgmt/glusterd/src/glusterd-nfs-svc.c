@@ -145,21 +145,18 @@ int
 glusterd_nfssvc_reconfigure()
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t identical = _gf_false;
     gf_boolean_t vol_started = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
     /* not an error, or a (very) soft error at best */
     if (sys_access(XLATORDIR "/nfs/server.so", R_OK) != 0) {
-        gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_GNFS_XLATOR_NOT_INSTALLED,
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_GNFS_XLATOR_NOT_INSTALLED,
                "nfs/server.so xlator is not installed");
         ret = 0;
         goto out;
@@ -222,7 +219,7 @@ glusterd_nfssvc_reconfigure()
     ret = priv->nfs_svc.manager(&(priv->nfs_svc), NULL, PROC_START_NO_WAIT);
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 #endif

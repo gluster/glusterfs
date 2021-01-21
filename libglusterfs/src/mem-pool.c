@@ -310,13 +310,13 @@ __gf_free(void *free_ptr)
     struct mem_header *header = NULL;
     bool last_ref = false;
 
+    if (!free_ptr)
+        return;
+
     if (!gf_mem_acct_enabled()) {
         FREE(free_ptr);
         return;
     }
-
-    if (!free_ptr)
-        return;
 
     gf_free_sanitize(free_ptr);
     ptr = free_ptr - GF_MEM_HEADER_SIZE;
@@ -368,20 +368,12 @@ struct mem_pool *
 mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
                 unsigned long count, char *name)
 {
-    struct mem_pool *new;
-
-    new = GF_MALLOC(sizeof(struct mem_pool), gf_common_mt_mem_pool);
-    if (!new)
-        return NULL;
-
-    new->sizeof_type = sizeof_type;
-    return new;
+    return (struct mem_pool *)(sizeof_type);
 }
 
 void
 mem_pool_destroy(struct mem_pool *pool)
 {
-    GF_FREE(pool);
 }
 
 #else /* !GF_DISABLE_MEMPOOL */
@@ -839,25 +831,19 @@ mem_get_from_pool(struct mem_pool *mem_pool)
     return retval;
 }
 
-#endif /* GF_DISABLE_MEMPOOL */
-
 void *
-mem_get0(struct mem_pool *mem_pool)
+mem_get_calloc(struct mem_pool *mem_pool)
 {
     void *ptr = mem_get(mem_pool);
     if (ptr) {
-#if defined(GF_DISABLE_MEMPOOL)
-        memset(ptr, 0, mem_pool->sizeof_type);
-#else
         memset(ptr, 0, AVAILABLE_SIZE(mem_pool->pool->power_of_two));
-#endif
     }
 
     return ptr;
 }
 
 void *
-mem_get(struct mem_pool *mem_pool)
+mem_get_malloc(struct mem_pool *mem_pool)
 {
     if (!mem_pool) {
         gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
@@ -865,9 +851,6 @@ mem_get(struct mem_pool *mem_pool)
         return NULL;
     }
 
-#if defined(GF_DISABLE_MEMPOOL)
-    return GF_MALLOC(mem_pool->sizeof_type, gf_common_mt_mem_pool);
-#else
     pooled_obj_hdr_t *retval = mem_get_from_pool(mem_pool);
     if (!retval) {
         return NULL;
@@ -876,15 +859,11 @@ mem_get(struct mem_pool *mem_pool)
     GF_ATOMIC_INC(mem_pool->active);
 
     return retval + 1;
-#endif /* GF_DISABLE_MEMPOOL */
 }
 
 void
-mem_put(void *ptr)
+mem_put_pool(void *ptr)
 {
-#if defined(GF_DISABLE_MEMPOOL)
-    GF_FREE(ptr);
-#else
     pooled_obj_hdr_t *hdr;
     per_thread_pool_list_t *pool_list;
     per_thread_pool_t *pt_pool;
@@ -928,5 +907,6 @@ mem_put(void *ptr)
         (void)pthread_spin_unlock(&pool_list->lock);
         free(hdr);
     }
-#endif /* GF_DISABLE_MEMPOOL */
 }
+
+#endif /* GF_DISABLE_MEMPOOL */

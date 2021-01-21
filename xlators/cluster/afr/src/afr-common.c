@@ -1576,7 +1576,6 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
     int i = 0;
     int idx = afr_index_for_transaction_type(type);
     void *pending_raw = NULL;
-    int pending[3];
     int ret = 0;
 
     priv = this->private;
@@ -1585,9 +1584,8 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
         ret = dict_get_ptr(xdata, priv->pending_key[i], &pending_raw);
         if (ret) /* no pending flags */
             continue;
-        memcpy(pending, pending_raw, sizeof(pending));
 
-        if (ntoh32(pending[idx]))
+        if (*((int *)pending_raw + idx))
             accused[i] = 1;
     }
 
@@ -3039,7 +3037,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         /* If we were called from glfsheal and there is still a gfid
          * mismatch, succeed the lookup and let glfsheal print the
          * response via gfid-heal-msg.*/
-        if (!dict_get_str_sizen(local->xattr_req, "gfid-heal-msg",
+        if (!dict_get_str_sizen(local->xattr_rsp, "gfid-heal-msg",
                                 &gfid_heal_msg))
             goto cant_interpret;
 
@@ -3094,7 +3092,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         goto error;
     }
 
-    ret = dict_get_str_sizen(local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
+    ret = dict_get_str_sizen(local->xattr_rsp, "gfid-heal-msg", &gfid_heal_msg);
     if (!ret) {
         ret = dict_set_str_sizen(local->replies[read_subvol].xdata,
                                  "gfid-heal-msg", gfid_heal_msg);
@@ -3303,7 +3301,6 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
     int idx = -1;
     afr_private_t *priv = NULL;
     void *pending_raw = NULL;
-    int *pending_int = NULL;
     int i = 0;
 
     priv = this->private;
@@ -3311,9 +3308,7 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
 
     if (dict_get_ptr(xdata, AFR_DIRTY, &pending_raw) == 0) {
         if (pending_raw) {
-            pending_int = pending_raw;
-
-            if (ntoh32(pending_int[idx]))
+            if (*((int *)pending_raw + idx))
                 return _gf_true;
         }
     }
@@ -3323,9 +3318,7 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
             continue;
         if (!pending_raw)
             continue;
-        pending_int = pending_raw;
-
-        if (ntoh32(pending_int[idx]))
+        if (*((int *)pending_raw + idx))
             return _gf_true;
     }
 
@@ -3441,9 +3434,12 @@ afr_lookup_selfheal_wrap(void *opaque)
     local = frame->local;
     this = frame->this;
     loc_pargfid(&local->loc, pargfid);
+    if (!local->xattr_rsp)
+        local->xattr_rsp = dict_new();
 
     ret = afr_selfheal_name(frame->this, pargfid, local->loc.name,
-                            &local->cont.lookup.gfid_req, local->xattr_req);
+                            &local->cont.lookup.gfid_req, local->xattr_req,
+                            local->xattr_rsp);
     if (ret == -EIO)
         goto unwind;
 
@@ -3459,7 +3455,8 @@ afr_lookup_selfheal_wrap(void *opaque)
     return 0;
 
 unwind:
-    AFR_STACK_UNWIND(lookup, frame, -1, EIO, NULL, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(lookup, frame, -1, EIO, NULL, NULL, local->xattr_rsp,
+                     NULL);
     return 0;
 }
 
@@ -4109,62 +4106,17 @@ afr_release(xlator_t *this, fd_t *fd)
     return 0;
 }
 
-afr_fd_ctx_t *
-__afr_fd_ctx_get(fd_t *fd, xlator_t *this)
-{
-    uint64_t ctx = 0;
-    int ret = 0;
-    afr_fd_ctx_t *fd_ctx = NULL;
-
-    ret = __fd_ctx_get(fd, this, &ctx);
-
-    if (ret < 0) {
-        ret = __afr_fd_ctx_set(this, fd);
-        if (ret < 0)
-            goto out;
-
-        ret = __fd_ctx_get(fd, this, &ctx);
-        if (ret < 0)
-            goto out;
-    }
-
-    fd_ctx = (afr_fd_ctx_t *)(long)ctx;
-out:
-    return fd_ctx;
-}
-
-afr_fd_ctx_t *
-afr_fd_ctx_get(fd_t *fd, xlator_t *this)
-{
-    afr_fd_ctx_t *fd_ctx = NULL;
-
-    LOCK(&fd->lock);
-    {
-        fd_ctx = __afr_fd_ctx_get(fd, this);
-    }
-    UNLOCK(&fd->lock);
-
-    return fd_ctx;
-}
-
-int
+static afr_fd_ctx_t *
 __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
 {
     afr_private_t *priv = NULL;
     int ret = -1;
-    uint64_t ctx = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
     int i = 0;
 
     VALIDATE_OR_GOTO(this->private, out);
-    VALIDATE_OR_GOTO(fd, out);
 
     priv = this->private;
-
-    ret = __fd_ctx_get(fd, this, &ctx);
-
-    if (ret == 0)
-        goto out;
 
     fd_ctx = GF_CALLOC(1, sizeof(afr_fd_ctx_t), gf_afr_mt_afr_fd_ctx_t);
     if (!fd_ctx) {
@@ -4193,9 +4145,42 @@ __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
     if (ret)
         gf_msg_debug(this->name, 0, "failed to set fd ctx (%p)", fd);
 out:
-    if (ret && fd_ctx)
+    if (ret && fd_ctx) {
         _afr_cleanup_fd_ctx(this, fd_ctx);
-    return ret;
+        fd_ctx = NULL;
+    }
+    return fd_ctx;
+}
+
+afr_fd_ctx_t *
+__afr_fd_ctx_get(fd_t *fd, xlator_t *this)
+{
+    uint64_t ctx = 0;
+    int ret = 0;
+    afr_fd_ctx_t *fd_ctx = NULL;
+
+    ret = __fd_ctx_get(fd, this, &ctx);
+
+    if (ret < 0) {
+        fd_ctx = __afr_fd_ctx_set(this, fd);
+    } else {
+        fd_ctx = (afr_fd_ctx_t *)(long)ctx;
+    }
+    return fd_ctx;
+}
+
+afr_fd_ctx_t *
+afr_fd_ctx_get(fd_t *fd, xlator_t *this)
+{
+    afr_fd_ctx_t *fd_ctx = NULL;
+
+    LOCK(&fd->lock);
+    {
+        fd_ctx = __afr_fd_ctx_get(fd, this);
+    }
+    UNLOCK(&fd->lock);
+
+    return fd_ctx;
 }
 
 /* {{{ flush */
@@ -5347,17 +5332,17 @@ afr_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     local->cont.lk.cmd = cmd;
     local->cont.lk.user_flock = *flock;
     local->cont.lk.ret_flock = *flock;
-    if (xdata)
+    if (xdata) {
         local->xdata_req = dict_ref(xdata);
-
-    if (afr_is_lock_mode_mandatory(xdata)) {
-        ret = synctask_new(this->ctx->env, afr_lk_transaction,
-                           afr_lk_transaction_cbk, frame, frame);
-        if (ret) {
-            op_errno = ENOMEM;
-            goto out;
+        if (afr_is_lock_mode_mandatory(xdata)) {
+            ret = synctask_new(this->ctx->env, afr_lk_transaction,
+                               afr_lk_transaction_cbk, frame, frame);
+            if (ret) {
+                op_errno = ENOMEM;
+                goto out;
+            }
+            return 0;
         }
-        return 0;
     }
 
     STACK_WIND_COOKIE(frame, afr_lk_cbk, (void *)(long)0, priv->children[i],
@@ -7866,8 +7851,6 @@ afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv, int child)
     ret = dict_get_ptr(dict, priv->pending_key[child], (void *)&pending);
     if (ret == 0) {
         for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
-            /* Not doing a ntoh32(pending) as we just want to check
-             * if it is non-zero or not. */
             if (pending[i]) {
                 return _gf_true;
             }

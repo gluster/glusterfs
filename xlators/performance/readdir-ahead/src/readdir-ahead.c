@@ -1181,7 +1181,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         goto out;
 
-    ret = xlator_mem_acct_init(this, gf_rda_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_rda_mt_end);
 
     if (ret != 0)
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, READDIR_AHEAD_MSG_NO_MEMORY,

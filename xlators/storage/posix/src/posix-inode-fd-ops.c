@@ -825,17 +825,19 @@ out:
     return ret;
 }
 
-char *
-_page_aligned_alloc(size_t size, char **aligned_buf)
+static char *
+_page_aligned_alloc(size_t size, char **aligned_buf, gf_boolean_t calloc)
 {
     char *alloc_buf = NULL;
     char *buf = NULL;
 
-    alloc_buf = GF_CALLOC(1, (size + ALIGN_SIZE), gf_posix_mt_char);
+    alloc_buf = GF_MALLOC((size + ALIGN_SIZE), gf_posix_mt_char);
     if (!alloc_buf)
         goto out;
     /* page aligned buffer */
     buf = GF_ALIGN_BUF(alloc_buf, ALIGN_SIZE);
+    if (calloc)
+        memset(buf, 0, size);
     *aligned_buf = buf;
 out:
     return alloc_buf;
@@ -872,7 +874,7 @@ _posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
     if (!vector)
         return -1;
     if (o_direct) {
-        alloc_buf = _page_aligned_alloc(vect_size, &iov_base);
+        alloc_buf = _page_aligned_alloc(vect_size, &iov_base, _gf_true);
         if (!alloc_buf) {
             GF_FREE(vector);
             return -1;
@@ -1239,7 +1241,8 @@ posix_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
         if (ret == -1) {
             ret = -errno;
@@ -1613,7 +1616,8 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     pfd->flags = flags;
     pfd->fd = _fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
         if (op_ret == -1) {
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
@@ -1710,7 +1714,8 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     _fd = pfd->fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, _fd, &preop);
         if (op_ret == -1) {
             op_errno = errno;
@@ -1726,9 +1731,9 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             op_errno = EIO;
             goto out;
         }
+        posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     }
 
-    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     op_ret = sys_pread(_fd, iobuf->ptr, size, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -1811,7 +1816,7 @@ err:
     return op_ret;
 }
 
-int32_t
+static int32_t
 __posix_writev(int fd, struct iovec *vector, int count, off_t startoff,
                int odirect)
 {
@@ -1832,7 +1837,7 @@ __posix_writev(int fd, struct iovec *vector, int count, off_t startoff,
             max_buf_size = vector[idx].iov_len;
     }
 
-    alloc_buf = _page_aligned_alloc(max_buf_size, &buf);
+    alloc_buf = _page_aligned_alloc(max_buf_size, &buf, _gf_false);
     if (!alloc_buf) {
         op_ret = -errno;
         goto err;
@@ -2914,9 +2919,11 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         goto out;
     }
 
-    ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
-    if (ret) {
-        gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+    if (xdata) {
+        ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
+        if (ret) {
+            gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+        }
     }
 
     if (sync_backend_xattrs) {
@@ -5749,7 +5756,7 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     /* When READDIR_FILTER option is set to on, we can filter out
      * directory's entry from the entry->list.
      */
-    ret = dict_get_int32(dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
+    ret = dict_get_int32_sizen(dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
 
     LOCK(&fd->lock);
     {
@@ -5858,7 +5865,7 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     priv = this->private;
 
-    alloc_buf = _page_aligned_alloc(len, &buf);
+    alloc_buf = _page_aligned_alloc(len, &buf, _gf_false);
     if (!alloc_buf) {
         op_errno = ENOMEM;
         goto out;
@@ -5879,7 +5886,8 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     _fd = pfd->fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, _fd, &preop);
         if (op_ret == -1) {
             op_errno = errno;
@@ -5929,7 +5937,8 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             goto out;
         }
     }
-    weak_checksum = gf_rsync_weak_checksum((unsigned char *)buf, (size_t)ret);
+    weak_checksum = gf_rsync_weak_checksum((unsigned char *)buf,
+                                           (size_t)bytes_read);
 
     if (priv->fips_mode_rchecksum) {
         ret = dict_set_int32(rsp_xdata, "fips-mode-rchecksum", 1);

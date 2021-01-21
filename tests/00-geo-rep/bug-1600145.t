@@ -15,24 +15,24 @@ TEST pidof glusterd
 
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
-master=$GMV0
+primary=$GMV0
 SH0="127.0.0.1"
-slave=${SH0}::${GSV0}
+secondary=${SH0}::${GSV0}
 num_active=2
 num_passive=2
-master_mnt=$M0
-slave_mnt=$M1
+primary_mnt=$M0
+secondary_mnt=$M1
 
 ############################################################
 #SETUP VOLUMES AND GEO-REPLICATION
 ############################################################
 
-##create_and_start_master_volume
+##create_and_start_primary_volume
 TEST $CLI volume create $GMV0 replica 2 $H0:$B0/${GMV0}{1,2};
 gluster v set all cluster.brick-multiplex on
 TEST $CLI volume start $GMV0
 
-##create_and_start_slave_volume
+##create_and_start_secondary_volume
 TEST $CLI volume create $GSV0 replica 2 $H0:$B0/${GSV0}{1,2};
 TEST $CLI volume start $GSV0
 
@@ -47,16 +47,16 @@ TEST glusterfs -s $H0 --volfile-id $META_VOL $META_MNT
 ############################################################
 
 #Create geo-rep session
-TEST create_georep_session $master $slave
+TEST create_georep_session $primary $secondary
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $master $slave config gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary config gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Config gluster-command-dir
-TEST $GEOREP_CLI $master $slave config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+TEST $GEOREP_CLI $primary $secondary config secondary-gluster-command-dir ${GLUSTER_CMD_DIR}
 
 #Enable_metavolume
-TEST $GEOREP_CLI $master $slave config use_meta_volume true
+TEST $GEOREP_CLI $primary $secondary config use_meta_volume true
 
 #Wait for common secret pem file to be created
 EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_common_secret_file
@@ -70,7 +70,7 @@ brick_pid=`ps -aef | grep glusterfsd | grep -v "shared_storage" | grep -v grep |
 n=$(grep -Fc "changelog" /proc/$brick_pid/net/unix)
 
 #Start_georep
-TEST $GEOREP_CLI $master $slave start
+TEST $GEOREP_CLI $primary $secondary start
 
 EXPECT_WITHIN $GEO_REP_TIMEOUT  1 check_status_num_rows "Active"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  1 check_status_num_rows "Passive"
@@ -82,7 +82,7 @@ let expected=n+2
 TEST [ "$c" -eq "$expected" ]
 
 #Kill the "Active" brick
-brick=$($GEOREP_CLI $master $slave status | grep -F "Active" | awk {'print $3'})
+brick=$($GEOREP_CLI $primary $secondary status | grep -F "Active" | awk {'print $3'})
 cat /proc/$brick_pid/net/unix | grep "changelog"
 TEST kill_brick $GMV0 $H0 $brick
 #Expect geo-rep status to be "Faulty"
@@ -97,10 +97,10 @@ c=$(grep -Fc "changelog" /proc/$brick_pid/net/unix)
 TEST [ "$c" -eq "$n" ]
 
 #Stop Geo-rep
-TEST $GEOREP_CLI $master $slave stop
+TEST $GEOREP_CLI $primary $secondary stop
 
 #Delete Geo-rep
-TEST $GEOREP_CLI $master $slave delete
+TEST $GEOREP_CLI $primary $secondary delete
 
 #Cleanup authorized keys
 sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' ~/.ssh/authorized_keys

@@ -66,6 +66,41 @@ struct posix_aio_cb {
     off_t offset;
 };
 
+static struct posix_aio_cb *
+posix_aio_cb_init(call_frame_t *frame, fd_t *fd, int _fd, int op)
+{
+    struct posix_aio_cb *paiocb;
+
+    paiocb = GF_CALLOC(1, sizeof(*paiocb), gf_posix_mt_paiocb);
+    if (!paiocb)
+        return NULL;
+
+    paiocb->frame = frame;
+    paiocb->fd = fd_ref(fd);
+    paiocb->_fd = _fd;
+    paiocb->op = op;
+
+    paiocb->iocb.data = paiocb;
+    paiocb->iocb.aio_fildes = _fd;
+    paiocb->iocb.aio_reqprio = 0;
+
+    return paiocb;
+}
+
+static void
+posix_aio_cb_fini(struct posix_aio_cb *paiocb)
+{
+    if (paiocb) {
+        if (paiocb->iobuf)
+            iobuf_unref(paiocb->iobuf);
+        if (paiocb->iobref)
+            iobref_unref(paiocb->iobref);
+        if (paiocb->fd)
+            fd_unref(paiocb->fd);
+        GF_FREE(paiocb);
+    }
+}
+
 int
 posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
 {
@@ -79,11 +114,12 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
     int op_ret = -1;
     int op_errno = 0;
     struct iovec iov;
-    struct iobref *iobref = NULL;
     int ret = 0;
     off_t offset = 0;
     struct posix_private *priv = NULL;
     fd_t *fd = NULL;
+
+    GF_ASSERT(paiocb);
 
     frame = paiocb->frame;
     this = frame->this;
@@ -115,14 +151,14 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
     op_ret = res;
     op_errno = 0;
 
-    iobref = iobref_new();
-    if (!iobref) {
+    paiocb->iobref = iobref_new();
+    if (!paiocb->iobref) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto out;
     }
 
-    iobref_add(iobref, iobuf);
+    iobref_add(paiocb->iobref, iobuf);
 
     iov.iov_base = iobuf_ptr(iobuf);
     iov.iov_len = op_ret;
@@ -135,16 +171,9 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
 
 out:
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1, &postbuf,
-                        iobref, NULL);
-    if (iobuf)
-        iobuf_unref(iobuf);
-    if (iobref)
-        iobref_unref(iobref);
+                        paiocb->iobref, NULL);
 
-    if (paiocb->fd)
-        fd_unref(paiocb->fd);
-
-    GF_FREE(paiocb);
+    posix_aio_cb_fini(paiocb);
 
     return 0;
 }
@@ -155,7 +184,6 @@ posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
     int32_t op_errno = EINVAL;
     int _fd = -1;
-    struct iobuf *iobuf = NULL;
     struct posix_fd *pfd = NULL;
     int ret = -1;
     struct posix_aio_cb *paiocb = NULL;
@@ -183,30 +211,22 @@ posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto err;
     }
 
-    iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
-    if (!iobuf) {
-        op_errno = ENOMEM;
-        goto err;
-    }
-
-    paiocb = GF_CALLOC(1, sizeof(*paiocb), gf_posix_mt_paiocb);
+    paiocb = posix_aio_cb_init(frame, fd, _fd, GF_FOP_READ);
     if (!paiocb) {
         op_errno = ENOMEM;
         goto err;
     }
 
-    paiocb->frame = frame;
-    paiocb->iobuf = iobuf;
-    paiocb->offset = offset;
-    paiocb->fd = fd_ref(fd);
-    paiocb->_fd = _fd;
-    paiocb->op = GF_FOP_READ;
+    paiocb->iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
+    if (!paiocb->iobuf) {
+        op_errno = ENOMEM;
+        goto err;
+    }
 
-    paiocb->iocb.data = paiocb;
-    paiocb->iocb.aio_fildes = _fd;
+    paiocb->offset = offset;
+
     paiocb->iocb.aio_lio_opcode = IO_CMD_PREAD;
-    paiocb->iocb.aio_reqprio = 0;
-    paiocb->iocb.u.c.buf = iobuf_ptr(iobuf);
+    paiocb->iocb.u.c.buf = iobuf_ptr(paiocb->iobuf);
     paiocb->iocb.u.c.nbytes = size;
     paiocb->iocb.u.c.offset = offset;
 
@@ -230,14 +250,8 @@ posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 err:
     STACK_UNWIND_STRICT(readv, frame, -1, op_errno, 0, 0, 0, 0, 0);
-    if (iobuf)
-        iobuf_unref(iobuf);
 
-    if (paiocb) {
-        if (paiocb->fd)
-            fd_unref(paiocb->fd);
-        GF_FREE(paiocb);
-    }
+    posix_aio_cb_fini(paiocb);
 
     return 0;
 }
@@ -260,11 +274,7 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
     struct posix_private *priv = NULL;
     fd_t *fd = NULL;
 
-    if (!paiocb) {
-        op_ret = -1;
-        op_errno = EINVAL;
-        goto out;
-    }
+    GF_ASSERT(paiocb);
 
     frame = paiocb->frame;
     this = frame->this;
@@ -301,13 +311,7 @@ out:
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, &prebuf, &postbuf,
                         NULL);
 
-    if (paiocb) {
-        if (paiocb->iobref)
-            iobref_unref(paiocb->iobref);
-        if (paiocb->fd)
-            fd_unref(paiocb->fd);
-        GF_FREE(paiocb);
-    }
+    posix_aio_cb_fini(paiocb);
 
     return 0;
 }
@@ -340,23 +344,16 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     }
     _fd = pfd->fd;
 
-    paiocb = GF_CALLOC(1, sizeof(*paiocb), gf_posix_mt_paiocb);
+    paiocb = posix_aio_cb_init(frame, fd, _fd, GF_FOP_WRITE);
     if (!paiocb) {
         op_errno = ENOMEM;
         goto err;
     }
 
-    paiocb->frame = frame;
     paiocb->offset = offset;
-    paiocb->fd = fd_ref(fd);
-    paiocb->_fd = _fd;
-    paiocb->op = GF_FOP_WRITE;
 
-    paiocb->iocb.data = paiocb;
-    paiocb->iocb.aio_fildes = _fd;
     paiocb->iobref = iobref_ref(iobref);
     paiocb->iocb.aio_lio_opcode = IO_CMD_PWRITEV;
-    paiocb->iocb.aio_reqprio = 0;
     paiocb->iocb.u.v.vec = iov;
     paiocb->iocb.u.v.nr = count;
     paiocb->iocb.u.v.offset = offset;
@@ -391,13 +388,128 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
 err:
     STACK_UNWIND_STRICT(writev, frame, -1, op_errno, 0, 0, 0);
 
-    if (paiocb) {
-        if (paiocb->iobref)
-            iobref_unref(paiocb->iobref);
-        if (paiocb->fd)
-            fd_unref(paiocb->fd);
-        GF_FREE(paiocb);
+    posix_aio_cb_fini(paiocb);
+
+    return 0;
+}
+
+int
+posix_aio_fsync_complete(struct posix_aio_cb *paiocb, int res, int res2)
+{
+    call_frame_t *frame = NULL;
+    xlator_t *this = NULL;
+    struct iatt prebuf = {
+        0,
+    };
+    struct iatt postbuf = {
+        0,
+    };
+    int _fd = -1;
+    int op_ret = -1;
+    int op_errno = 0;
+    int ret = 0;
+    fd_t *fd = NULL;
+
+    GF_ASSERT(paiocb);
+
+    frame = paiocb->frame;
+    this = frame->this;
+    prebuf = paiocb->prebuf;
+    fd = paiocb->fd;
+    _fd = paiocb->_fd;
+
+    if (res < 0) {
+        op_ret = -1;
+        op_errno = -res;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSYNC_FAILED,
+               "%s(async) failed fd=%d (%d)",
+               (paiocb->iocb.aio_lio_opcode == IO_CMD_FDSYNC ? "fdatasync"
+                                                             : "fsync"),
+               _fd, res);
+        goto out;
     }
+
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    if (ret != 0) {
+        op_ret = -1;
+        op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
+               "fstat failed on fd=%d", _fd);
+        goto out;
+    }
+
+    op_ret = res;
+    op_errno = 0;
+
+out:
+    STACK_UNWIND_STRICT(fsync, frame, op_ret, op_errno, &prebuf, &postbuf,
+                        NULL);
+
+    posix_aio_cb_fini(paiocb);
+
+    return 0;
+}
+
+int
+posix_aio_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
+                dict_t *xdata)
+{
+    int32_t op_errno = EINVAL;
+    int _fd = -1, ret = -1;
+    struct posix_fd *pfd = NULL;
+    struct posix_aio_cb *paiocb = NULL;
+    struct posix_private *priv = NULL;
+    struct iocb *iocb = NULL;
+
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(this, err);
+    VALIDATE_OR_GOTO(fd, err);
+
+    priv = this->private;
+
+    ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
+               "pfd is NULL from fd=%p", fd);
+        goto err;
+    }
+
+    _fd = pfd->fd;
+
+    paiocb = posix_aio_cb_init(frame, fd, _fd, GF_FOP_FSYNC);
+    if (!paiocb) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    paiocb->iocb.aio_lio_opcode = datasync ? IO_CMD_FDSYNC : IO_CMD_FSYNC;
+
+    iocb = &paiocb->iocb;
+
+    ret = posix_fdstat(this, fd->inode, _fd, &paiocb->prebuf);
+    if (ret != 0) {
+        op_errno = errno;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
+               "fstat failed on fd=%p", fd);
+        goto err;
+    }
+
+    ret = io_submit(priv->ctxp, 1, &iocb);
+
+    if (ret != 1) {
+        op_errno = -ret;
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_IO_SUBMIT_FAILED,
+               "io_submit() returned %d,gfid=%s", ret,
+               uuid_utoa(fd->inode->gfid));
+        goto err;
+    }
+
+    return 0;
+
+err:
+    STACK_UNWIND_STRICT(fsync, frame, -1, op_errno, 0, 0, 0);
+
+    posix_aio_cb_fini(paiocb);
 
     return 0;
 }
@@ -441,6 +553,9 @@ posix_aio_thread(void *data)
                 case GF_FOP_WRITE:
                     posix_aio_writev_complete(paiocb, event->res, event->res2);
                     break;
+                case GF_FOP_FSYNC:
+                    posix_aio_fsync_complete(paiocb, event->res, event->res2);
+                    break;
                 default:
                     gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_UNKNOWN_OP,
                            "unknown op %d found in piocb", paiocb->op);
@@ -481,9 +596,6 @@ posix_aio_init(xlator_t *this)
         io_destroy(priv->ctxp);
         goto out;
     }
-
-    this->fops->readv = posix_aio_readv;
-    this->fops->writev = posix_aio_writev;
 out:
     return ret;
 }
@@ -508,6 +620,7 @@ posix_aio_on(xlator_t *this)
     if (priv->aio_capable) {
         this->fops->readv = posix_aio_readv;
         this->fops->writev = posix_aio_writev;
+        this->fops->fsync = posix_aio_fsync;
     }
 
     return ret;
@@ -518,11 +631,12 @@ posix_aio_off(xlator_t *this)
 {
     this->fops->readv = posix_readv;
     this->fops->writev = posix_writev;
+    this->fops->fsync = posix_fsync;
 
     return 0;
 }
 
-#else
+#else /* no HAVE_LIBAIO */
 
 int
 posix_aio_on(xlator_t *this)
@@ -553,4 +667,4 @@ __posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
     return;
 }
 
-#endif
+#endif /* HAVE_LIBAIO */

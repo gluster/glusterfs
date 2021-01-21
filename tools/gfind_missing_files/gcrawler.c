@@ -8,15 +8,15 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <stdio.h>
+#include <assert.h>
+#include <dirent.h>
 #include <errno.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <glusterfs/locking.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include <assert.h>
-#include <glusterfs/locking.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <glusterfs/compat.h>
 #include <glusterfs/list.h>
@@ -55,7 +55,7 @@
     } while (0)
 
 int debug = 0;
-const char *slavemnt = NULL;
+const char *secondarymnt = NULL;
 int workers = 0;
 
 struct stats {
@@ -383,8 +383,8 @@ xworker_do_crawl(struct xwork *xwork, struct dirjob *job)
             continue;
         }
 
-        (void)snprintf(gfid_path, sizeof(gfid_path), "%s/.gfid/%s", slavemnt,
-                       entry->d_name);
+        (void)snprintf(gfid_path, sizeof(gfid_path), "%s/.gfid/%s",
+                       secondarymnt, entry->d_name);
         ret = sys_lstat(gfid_path, &statbuf);
 
         if (ret && errno == ENOENT) {
@@ -393,7 +393,8 @@ xworker_do_crawl(struct xwork *xwork, struct dirjob *job)
         }
 
         if (ret && errno != ENOENT) {
-            err("stat on slave failed(%s): %s\n", gfid_path, strerror(errno));
+            err("stat on secondary failed(%s): %s\n", gfid_path,
+                strerror(errno));
             goto out;
         }
     }
@@ -531,7 +532,7 @@ parse_and_validate_args(int argc, char *argv[])
     char *slv_mnt = NULL;
 
     if (argc != 4) {
-        err("Usage: %s <DIR> <SLAVE-VOL-MOUNT> <CRAWL-THREAD-COUNT>\n",
+        err("Usage: %s <DIR> <SECONDARY-VOL-MOUNT> <CRAWL-THREAD-COUNT>\n",
             argv[0]);
         return NULL;
     }
@@ -557,7 +558,7 @@ parse_and_validate_args(int argc, char *argv[])
         err("%s: %s\n", slv_mnt, strerror(errno));
         return NULL;
     }
-    slavemnt = argv[2];
+    secondarymnt = argv[2];
 
     workers = atoi(argv[3]);
     if (workers <= 0)

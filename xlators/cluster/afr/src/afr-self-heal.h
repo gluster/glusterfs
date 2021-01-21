@@ -126,7 +126,7 @@ afr_throttled_selfheal(call_frame_t *frame, xlator_t *this);
 
 int
 afr_selfheal_name(xlator_t *this, uuid_t gfid, const char *name, void *gfid_req,
-                  dict_t *xdata);
+                  dict_t *req, dict_t *rsp);
 
 int
 afr_selfheal_data(call_frame_t *frame, xlator_t *this, fd_t *fd);
@@ -356,7 +356,8 @@ int
 afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                             inode_t *inode, uuid_t pargfid, const char *bname,
                             int src_idx, int child_idx,
-                            unsigned char *locked_on, int *src, dict_t *xdata);
+                            unsigned char *locked_on, int *src, dict_t *req,
+                            dict_t *rsp);
 int
 afr_mark_source_sinks_if_file_empty(xlator_t *this, unsigned char *sources,
                                     unsigned char *sinks,

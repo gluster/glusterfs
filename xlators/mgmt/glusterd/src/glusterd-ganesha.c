@@ -157,11 +157,9 @@ glusterd_is_ganesha_cluster()
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t ret_bool = _gf_false;
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("ganesha", this, out);
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
@@ -254,11 +252,9 @@ glusterd_op_stage_set_ganesha(dict_t *dict, char **op_errstr)
     char *value = NULL;
     char *str = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(dict);
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -280,13 +276,13 @@ glusterd_op_stage_set_ganesha(dict_t *dict, char **op_errstr)
     if (strcmp(value, "enable") == 0) {
         ret = start_ganesha(op_errstr);
         if (ret) {
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_NFS_GNS_START_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_NFS_GNS_START_FAIL,
                    "Could not start NFS-Ganesha");
         }
     } else {
         ret = stop_ganesha(op_errstr);
         if (ret)
-            gf_msg_debug(THIS->name, 0,
+            gf_msg_debug(this->name, 0,
                          "Could not stop "
                          "NFS-Ganesha.");
     }
@@ -309,14 +305,12 @@ int
 glusterd_op_set_ganesha(dict_t *dict, char **errstr)
 {
     int ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     char *key = NULL;
     char *value = NULL;
     char *next_version = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
 
     priv = this->private;
@@ -353,7 +347,7 @@ glusterd_op_set_ganesha(dict_t *dict, char **errstr)
     }
     ret = glusterd_get_next_global_opt_version_str(priv->opts, &next_version);
     if (ret) {
-        gf_msg_debug(THIS->name, 0,
+        gf_msg_debug(this->name, 0,
                      "Could not fetch "
                      " global op version");
         goto out;
@@ -389,10 +383,9 @@ check_host_list(void)
     glusterd_conf_t *priv = NULL;
     char *hostname, *hostlist;
     gf_boolean_t ret = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    priv = THIS->private;
+    priv = this->private;
     GF_ASSERT(priv);
 
     hostlist = parsing_ganesha_ha_conf("HA_CLUSTER_NODES");
@@ -480,12 +473,10 @@ ganesha_manage_export(dict_t *dict, char *value,
     glusterd_volinfo_t *volinfo = NULL;
     dict_t *vol_opts = NULL;
     char *volname = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t option = _gf_false;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
 
     GF_ASSERT(value);
@@ -710,10 +701,11 @@ teardown(gf_boolean_t run_teardown, char **op_errstr)
     };
     int ret = 1;
     glusterd_volinfo_t *volinfo = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     dict_t *vol_opts = NULL;
 
-    priv = THIS->private;
+    priv = this->private;
 
     ret = tear_down_cluster(run_teardown);
     if (ret == -1) {
@@ -728,7 +720,7 @@ teardown(gf_boolean_t run_teardown, char **op_errstr)
                     CONFDIR, NULL);
     ret = runner_run(&runner);
     if (ret)
-        gf_msg_debug(THIS->name, 0,
+        gf_msg_debug(this->name, 0,
                      "Could not clean up"
                      " NFS-Ganesha related config");
 
@@ -739,21 +731,21 @@ teardown(gf_boolean_t run_teardown, char **op_errstr)
         unexported, hence setting the appropriate keys */
         ret = dict_set_str(vol_opts, "features.cache-invalidation", "off");
         if (ret)
-            gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_DICT_SET_FAILED,
                    "Could not set features.cache-invalidation "
                    "to off for %s",
                    volinfo->volname);
 
         ret = dict_set_str(vol_opts, "ganesha.enable", "off");
         if (ret)
-            gf_msg(THIS->name, GF_LOG_WARNING, errno, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_DICT_SET_FAILED,
                    "Could not set ganesha.enable to off for %s",
                    volinfo->volname);
 
         ret = glusterd_store_volinfo(volinfo,
                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_SET_FAIL,
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLINFO_SET_FAIL,
                    "failed to store volinfo for %s", volinfo->volname);
     }
 out:

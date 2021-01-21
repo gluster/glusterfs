@@ -29,7 +29,7 @@ import libgfchangelog
 
 import repce
 from repce import RepceServer, RepceClient
-from master import gmaster_builder
+from primary import gprimary_builder
 import syncdutils
 from syncdutils import (GsyncdError, select, privileged, funcode,
                         entry2pb, gauxpfx, errno_wrap, lstat,
@@ -302,7 +302,7 @@ class Server(object):
         Geo-rep worker crashes and restarts. entry_stime is updated after
         processing every changelog file. On failure and restart, worker only
         have to reprocess the last changelog for Entry ops.
-        Xattr Key: <PFX>.<MASTERVOL_UUID>.<SLAVEVOL_UUID>.entry_stime
+        Xattr Key: <PFX>.<PRIMARYVOL_UUID>.<SECONDARYVOL_UUID>.entry_stime
         """
         try:
             val = Xattr.lgetxattr(path,
@@ -368,7 +368,7 @@ class Server(object):
         the difference b/w this and set_xtime() being
         set_xtime() being overloaded to set the xtime
         on the brick (this method sets xtime on the
-        remote slave)
+        remote secondary)
         """
         Xattr.lsetxattr(
             path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']),
@@ -378,7 +378,7 @@ class Server(object):
     def entry_ops(cls, entries):
         pfx = gauxpfx()
         logging.debug('entries: %s' % repr(entries))
-        dist_count = rconf.args.master_dist_count
+        dist_count = rconf.args.primary_dist_count
 
         def entry_purge(op, entry, gfid, e, uid, gid):
             # This is an extremely racy code and needs to be fixed ASAP.
@@ -388,7 +388,7 @@ class Server(object):
             # The race here is between the GFID check and the purge.
 
             # If the entry or the gfid of the file to be deleted is not present
-            # on slave, we can ignore the unlink/rmdir
+            # on secondary, we can ignore the unlink/rmdir
             if isinstance(lstat(entry), int) or \
                isinstance(lstat(os.path.join(pfx, gfid)), int):
                 return
@@ -400,7 +400,7 @@ class Server(object):
             if op == 'UNLINK':
                 er = errno_wrap(os.unlink, [entry], [ENOENT, ESTALE], [EBUSY])
                 # EISDIR is safe error, ignore. This can only happen when
-                # unlink is sent from master while fixing gfid conflicts.
+                # unlink is sent from primary while fixing gfid conflicts.
                 if er != EISDIR:
                     return er
 
@@ -415,11 +415,11 @@ class Server(object):
             slv_entry_info['gfid_mismatch'] = False
             slv_entry_info['name_mismatch'] = False
             slv_entry_info['dst'] = dst
-            slv_entry_info['slave_isdir'] = False
-            slv_entry_info['slave_name'] = None
-            slv_entry_info['slave_gfid'] = None
-            # We do this for failing fops on Slave
-            # Master should be logging this
+            slv_entry_info['secondary_isdir'] = False
+            slv_entry_info['secondary_name'] = None
+            slv_entry_info['secondary_gfid'] = None
+            # We do this for failing fops on Secondary
+            # Primary should be logging this
             if cmd_ret is None:
                 return False
 
@@ -440,13 +440,13 @@ class Server(object):
                     st = lstat(en)
                     if not isinstance(st, int):
                         if st and stat.S_ISDIR(st.st_mode):
-                            slv_entry_info['slave_isdir'] = True
+                            slv_entry_info['secondary_isdir'] = True
                             dir_name = get_slv_dir_path(slv_host, slv_volume,
                                                         disk_gfid)
-                            slv_entry_info['slave_name'] = dir_name
+                            slv_entry_info['secondary_name'] = dir_name
                         else:
-                            slv_entry_info['slave_isdir'] = False
-                    slv_entry_info['slave_gfid'] = disk_gfid
+                            slv_entry_info['secondary_isdir'] = False
+                    slv_entry_info['secondary_gfid'] = disk_gfid
                     failures.append((e, cmd_ret, slv_entry_info))
                 else:
                     return False
@@ -578,12 +578,12 @@ class Server(object):
                                             e['mode'], e['uid'], e['gid'])
                 elif (isinstance(lstat(en), int) or
                       not matching_disk_gfid(gfid, en)):
-                    # If gfid of a directory exists on slave but path based
+                    # If gfid of a directory exists on secondary but path based
                     # create is getting EEXIST. This means the directory is
-                    # renamed in master but recorded as MKDIR during hybrid
+                    # renamed in primary but recorded as MKDIR during hybrid
                     # crawl. Get the directory path by reading the backend
                     # symlink and trying to rename to new name as said by
-                    # master.
+                    # primary.
                     logging.info(lf("Special case: rename on mkdir",
                                     gfid=gfid, entry=repr(entry)))
                     src_entry = get_slv_dir_path(slv_host, slv_volume, gfid)
@@ -594,9 +594,9 @@ class Server(object):
                         slv_entry_info['gfid_mismatch'] = False
                         slv_entry_info['name_mismatch'] = True
                         slv_entry_info['dst'] = False
-                        slv_entry_info['slave_isdir'] = True
-                        slv_entry_info['slave_gfid'] = gfid
-                        slv_entry_info['slave_entry'] = src_entry
+                        slv_entry_info['secondary_isdir'] = True
+                        slv_entry_info['secondary_gfid'] = gfid
+                        slv_entry_info['secondary_entry'] = src_entry
 
                         failures.append((e, EEXIST, slv_entry_info))
             elif op == 'LINK':
@@ -693,7 +693,7 @@ class Server(object):
                         else:
                             # We are here which means matching_disk_gfid for
                             # both source and destination has returned false
-                            # and distribution count for master vol is greater
+                            # and distribution count for primary vol is greater
                             # then one. Which basically says both the source and
                             # destination exist and not hardlinks.
                             # So we are safe to go ahead with rename here.
@@ -829,8 +829,8 @@ class Mounter(object):
     @classmethod
     def get_glusterprog(cls):
         gluster_cmd_dir = gconf.get("gluster-command-dir")
-        if rconf.args.subcmd == "slave":
-            gluster_cmd_dir = gconf.get("slave-gluster-command-dir")
+        if rconf.args.subcmd == "secondary":
+            gluster_cmd_dir = gconf.get("secondary-gluster-command-dir")
         return os.path.join(gluster_cmd_dir, cls.glusterprog)
 
     def umount_l(self, d):
@@ -928,24 +928,24 @@ class Mounter(object):
                     mntpt = mntdata[:-1]
                     assert(mntpt)
 
-                    umount_master = False
-                    umount_slave = False
+                    umount_primary = False
+                    umount_secondary = False
                     if rconf.args.subcmd == "worker" \
                        and not unshare_propagation_supported() \
                        and not gconf.get("access-mount"):
-                        umount_master = True
-                    if rconf.args.subcmd == "slave" \
-                       and not gconf.get("slave-access-mount"):
-                        umount_slave = True
+                        umount_primary = True
+                    if rconf.args.subcmd == "secondary" \
+                       and not gconf.get("secondary-access-mount"):
+                        umount_secondary = True
 
-                    if mounted and (umount_master or umount_slave):
+                    if mounted and (umount_primary or umount_secondary):
                         po = self.umount_l(mntpt)
                         po.terminate_geterr(fail_on_err=False)
                         if po.returncode != 0:
                             po.errlog()
                             rv = po.returncode
                         logging.debug("Lazy umount done: %s" % mntpt)
-                    if umount_master or umount_slave:
+                    if umount_primary or umount_secondary:
                         self.cleanup_mntpt(mntpt)
             except:
                 logging.exception('mount cleanup failure:')
@@ -1087,11 +1087,11 @@ class GLUSTER(object):
 
     """scheme class for gluster:// urls
 
-    can be used to represent a gluster slave server
-    on slave side, or interface to a remote gluster
-    slave on master side, or to represent master
-    (slave-ish features come from the mixins, master
-    functionality is outsourced to GMaster from master)
+    can be used to represent a gluster secondary server
+    on secondary side, or interface to a remote gluster
+    secondary on primary side, or to represent primary
+    (secondary-ish features come from the mixins, primary
+    functionality is outsourced to GPrimary from primary)
     """
     server = GLUSTERServer
 
@@ -1121,12 +1121,12 @@ class GLUSTER(object):
         mounter = label and MountbrokerMounter or DirectMounter
 
         log_file = gconf.get("gluster-log-file")
-        if rconf.args.subcmd == "slave":
-            log_file = gconf.get("slave-gluster-log-file")
+        if rconf.args.subcmd == "secondary":
+            log_file = gconf.get("secondary-gluster-log-file")
 
         log_level = gconf.get("gluster-log-level")
-        if rconf.args.subcmd == "slave":
-            log_level = gconf.get("slave-gluster-log-level")
+        if rconf.args.subcmd == "secondary":
+            log_level = gconf.get("secondary-gluster-log-level")
 
         params = gconf.get("gluster-params").split() + \
             ['log-level=' + log_level] + \
@@ -1138,22 +1138,22 @@ class GLUSTER(object):
         logging.info(lf("Mounted gluster volume",
                         duration="%.4f" % (time.time() - t0)))
 
-    def gmaster_instantiate_tuple(self, slave):
+    def gprimary_instantiate_tuple(self, secondary):
         """return a tuple of the 'one shot' and the 'main crawl'
         class instance"""
-        return (gmaster_builder('xsync')(self, slave),
-                gmaster_builder()(self, slave),
-                gmaster_builder('changeloghistory')(self, slave))
+        return (gprimary_builder('xsync')(self, secondary),
+                gprimary_builder()(self, secondary),
+                gprimary_builder('changeloghistory')(self, secondary))
 
-    def service_loop(self, slave=None):
+    def service_loop(self, secondary=None):
         """enter service loop
 
-        - if slave given, instantiate GMaster and
+        - if secondary given, instantiate GPrimary and
           pass control to that instance, which implements
-          master behavior
+          primary behavior
         - else do that's what's inherited
         """
-        if rconf.args.subcmd == "slave":
+        if rconf.args.subcmd == "secondary":
             if gconf.get("use-rsync-xattrs") and not privileged():
                 raise GsyncdError(
                     "using rsync for extended attributes is not supported")
@@ -1163,15 +1163,15 @@ class GLUSTER(object):
             t = syncdutils.Thread(target=lambda: (repce.service_loop(),
                                                   syncdutils.finalize()))
             t.start()
-            logging.info("slave listening")
-            if gconf.get("slave-timeout") and gconf.get("slave-timeout") > 0:
+            logging.info("secondary listening")
+            if gconf.get("secondary-timeout") and gconf.get("secondary-timeout") > 0:
                 while True:
                     lp = self.server.last_keep_alive
-                    time.sleep(gconf.get("slave-timeout"))
+                    time.sleep(gconf.get("secondary-timeout"))
                     if lp == self.server.last_keep_alive:
                         logging.info(
                             lf("connection inactive, stopping",
-                               timeout=gconf.get("slave-timeout")))
+                               timeout=gconf.get("secondary-timeout")))
                         break
             else:
                 select((), (), ())
@@ -1208,48 +1208,48 @@ class GLUSTER(object):
             def linkto_check(cls, e):
                 return super(brickserver, cls).linkto_check(e)
 
-        # define {,set_}xtime in slave, thus preempting
+        # define {,set_}xtime in secondary, thus preempting
         # the call to remote, so that it takes data from
         # the local brick
-        slave.server.xtime = types.MethodType(
+        secondary.server.xtime = types.MethodType(
             lambda _self, path, uuid: (
                 brickserver.xtime(path,
-                                  uuid + '.' + rconf.args.slave_id)
+                                  uuid + '.' + rconf.args.secondary_id)
             ),
-            slave.server)
-        slave.server.stime = types.MethodType(
+            secondary.server)
+        secondary.server.stime = types.MethodType(
             lambda _self, path, uuid: (
                 brickserver.stime(path,
-                                  uuid + '.' + rconf.args.slave_id)
+                                  uuid + '.' + rconf.args.secondary_id)
             ),
-            slave.server)
-        slave.server.entry_stime = types.MethodType(
+            secondary.server)
+        secondary.server.entry_stime = types.MethodType(
             lambda _self, path, uuid: (
                 brickserver.entry_stime(
                     path,
-                    uuid + '.' + rconf.args.slave_id)
+                    uuid + '.' + rconf.args.secondary_id)
             ),
-            slave.server)
-        slave.server.set_stime = types.MethodType(
+            secondary.server)
+        secondary.server.set_stime = types.MethodType(
             lambda _self, path, uuid, mark: (
                 brickserver.set_stime(path,
-                                      uuid + '.' + rconf.args.slave_id,
+                                      uuid + '.' + rconf.args.secondary_id,
                                       mark)
             ),
-            slave.server)
-        slave.server.set_entry_stime = types.MethodType(
+            secondary.server)
+        secondary.server.set_entry_stime = types.MethodType(
             lambda _self, path, uuid, mark: (
                 brickserver.set_entry_stime(
                     path,
-                    uuid + '.' + rconf.args.slave_id,
+                    uuid + '.' + rconf.args.secondary_id,
                     mark)
             ),
-            slave.server)
+            secondary.server)
 
-        (g1, g2, g3) = self.gmaster_instantiate_tuple(slave)
-        g1.master.server = brickserver
-        g2.master.server = brickserver
-        g3.master.server = brickserver
+        (g1, g2, g3) = self.gprimary_instantiate_tuple(secondary)
+        g1.primary.server = brickserver
+        g2.primary.server = brickserver
+        g3.primary.server = brickserver
 
         # bad bad bad: bad way to do things like this
         # need to make this elegant
@@ -1260,8 +1260,8 @@ class GLUSTER(object):
                               rconf.args.local_node,
                               rconf.args.local_path,
                               rconf.args.local_node_id,
-                              rconf.args.master,
-                              rconf.args.slave)
+                              rconf.args.primary,
+                              rconf.args.secondary)
         status.reset_on_worker_start()
 
         try:
@@ -1323,7 +1323,7 @@ class SSH(object):
 
     """scheme class for ssh:// urls
 
-    interface to remote slave on master side
+    interface to remote secondary on primary side
     implementing an ssh based proxy
     """
 
@@ -1359,11 +1359,11 @@ class SSH(object):
             raise GsyncdError(
                 "RePCe major version mismatch: local %s, remote %s" %
                 (exrv, rv))
-        slavepath = "/proc/%d/cwd" % self.server.pid()
-        self.slaveurl = ':'.join([self.remote_addr, slavepath])
+        secondarypath = "/proc/%d/cwd" % self.server.pid()
+        self.secondaryurl = ':'.join([self.remote_addr, secondarypath])
 
     def connect_remote(self):
-        """connect to inner slave url through outer ssh url
+        """connect to inner secondary url through outer ssh url
 
         Wrap the connecting utility in ssh.
 
@@ -1384,7 +1384,7 @@ class SSH(object):
                                  self.remote_addr,
                                  self.volume)
 
-        logging.info("Initializing SSH connection between master and slave...")
+        logging.info("Initializing SSH connection between primary and secondary...")
         t0 = time.time()
 
         extra_opts = []
@@ -1395,44 +1395,44 @@ class SSH(object):
         if gconf.get("use-rsync-xattrs"):
             extra_opts.append('--use-rsync-xattrs')
 
-        args_to_slave = [gconf.get("ssh-command")] + \
+        args_to_secondary = [gconf.get("ssh-command")] + \
             gconf.get("ssh-options").split() + \
             ["-p", str(gconf.get("ssh-port"))] + \
             rconf.ssh_ctl_args + [self.remote_addr] + \
-            [remote_gsyncd, "slave"] + \
+            [remote_gsyncd, "secondary"] + \
             extra_opts + \
-            [rconf.args.master, rconf.args.slave] + \
+            [rconf.args.primary, rconf.args.secondary] + \
             [
-                '--master-node', rconf.args.local_node,
-                '--master-node-id', rconf.args.local_node_id,
-                '--master-brick', rconf.args.local_path,
+                '--primary-node', rconf.args.local_node,
+                '--primary-node-id', rconf.args.local_node_id,
+                '--primary-brick', rconf.args.local_path,
                 '--local-node', rconf.args.resource_remote,
                 '--local-node-id', rconf.args.resource_remote_id] + \
             [
-                # Add all config arguments here, slave gsyncd will not use
-                # config file in slave side, so all overriding options should
+                # Add all config arguments here, secondary gsyncd will not use
+                # config file in secondary side, so all overriding options should
                 # be sent as arguments
-                '--slave-timeout', str(gconf.get("slave-timeout")),
-                '--slave-log-level', gconf.get("slave-log-level"),
-                '--slave-gluster-log-level',
-                gconf.get("slave-gluster-log-level"),
-                '--slave-gluster-command-dir',
-                gconf.get("slave-gluster-command-dir"),
-                '--master-dist-count',
-                str(gconf.get("master-distribution-count"))]
+                '--secondary-timeout', str(gconf.get("secondary-timeout")),
+                '--secondary-log-level', gconf.get("secondary-log-level"),
+                '--secondary-gluster-log-level',
+                gconf.get("secondary-gluster-log-level"),
+                '--secondary-gluster-command-dir',
+                gconf.get("secondary-gluster-command-dir"),
+                '--primary-dist-count',
+                str(gconf.get("primary-distribution-count"))]
 
-        if gconf.get("slave-access-mount"):
-            args_to_slave.append('--slave-access-mount')
+        if gconf.get("secondary-access-mount"):
+            args_to_secondary.append('--secondary-access-mount')
 
         if rconf.args.debug:
-            args_to_slave.append('--debug')
+            args_to_secondary.append('--debug')
 
-        po = Popen(args_to_slave,
+        po = Popen(args_to_secondary,
                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE)
         rconf.transport = po
         self.start_fd_client(po.stdout, po.stdin)
-        logging.info(lf("SSH connection between master and slave established.",
+        logging.info(lf("SSH connection between primary and secondary established.",
                         duration="%.4f" % (time.time() - t0)))
 
     def rsync(self, files, *args, **kw):
@@ -1478,7 +1478,7 @@ class SSH(object):
             gconf.get("rsync-options").split() + \
             extra_rsync_flags + ['.'] + \
             ["-e", " ".join(rsync_ssh_opts)] + \
-            [self.slaveurl]
+            [self.secondaryurl]
 
         log_rsync_performance = gconf.getr("log-rsync-performance", False)
 
@@ -1539,7 +1539,7 @@ class SSH(object):
         if not files:
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
-        (host, rdir) = self.slaveurl.split(':')
+        (host, rdir) = self.secondaryurl.split(':')
 
         tar_cmd = ["tar"] + \
             ["--sparse", "-cf", "-", "--files-from", "-"]

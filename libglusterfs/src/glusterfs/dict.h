@@ -147,9 +147,9 @@ data_t *
 dict_get(dict_t *this, char *key);
 data_t *
 dict_getn(dict_t *this, char *key, const int keylen);
-void
+gf_boolean_t
 dict_del(dict_t *this, char *key);
-void
+gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen);
 int
 dict_reset(dict_t *dict);
@@ -417,4 +417,9 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result);
 
 int
 dict_serialized_length_lk(dict_t *this);
+
+int32_t
+dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
+                               char **specific_key_arr, dict_t **specific_dict,
+                               int totkeycount);
 #endif

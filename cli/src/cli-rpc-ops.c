@@ -67,6 +67,8 @@ char *cli_vol_task_status_str[] = {"not started",
                                    "fix-layout stopped",
                                    "fix-layout completed",
                                    "fix-layout failed",
+                                   "reset due to replace-brick",
+                                   "reset due to reset-brick",
                                    "unknown"};
 
 static int32_t
@@ -675,9 +677,8 @@ out:
 
 static void
 gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
-                              int stripe_count, int replica_count,
-                              int disperse_count, int redundancy_count,
-                              int arbiter_count)
+                              int replica_count, int disperse_count,
+                              int redundancy_count, int arbiter_count)
 {
     if (type == GF_CLUSTER_TYPE_NONE) {
         cli_out("Number of Bricks: %d", brick_count);
@@ -686,8 +687,7 @@ gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
                 (brick_count / dist_count), disperse_count - redundancy_count,
                 redundancy_count, brick_count);
     } else {
-        /* For both replicate and stripe, dist_count is
-           good enough */
+        /* For replicate, dist_count is good enough */
         if (arbiter_count == 0) {
             cli_out("Number of Bricks: %d x %d = %d",
                     (brick_count / dist_count), dist_count, brick_count);
@@ -711,7 +711,6 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int32_t type = 0;
     int32_t brick_count = 0;
     int32_t dist_count = 0;
-    int32_t stripe_count = 0;
     int32_t replica_count = 0;
     int32_t disperse_count = 0;
     int32_t redundancy_count = 0;
@@ -859,16 +858,6 @@ xml_output:
         if (ret)
             goto out;
 
-        keylen = snprintf(key, sizeof(key), "volume%d.stripe_count", i);
-        ret = dict_get_int32n(dict, key, keylen, &stripe_count);
-        if (ret)
-            goto out;
-
-        keylen = snprintf(key, sizeof(key), "volume%d.replica_count", i);
-        ret = dict_get_int32n(dict, key, keylen, &replica_count);
-        if (ret)
-            goto out;
-
         keylen = snprintf(key, sizeof(key), "volume%d.disperse_count", i);
         ret = dict_get_int32n(dict, key, keylen, &disperse_count);
         if (ret)
@@ -904,7 +893,7 @@ xml_output:
         if (ret)
             goto out;
 
-        // Distributed (stripe/replicate/stripe-replica) setups
+        // Distributed (replicate) setups
         vol_type = get_vol_type(type, dist_count, brick_count);
 
         cli_out("Volume Name: %s", volname);
@@ -913,9 +902,9 @@ xml_output:
         cli_out("Status: %s", cli_vol_status_str[status]);
         cli_out("Snapshot Count: %d", snap_count);
 
-        gf_cli_print_number_of_bricks(
-            type, brick_count, dist_count, stripe_count, replica_count,
-            disperse_count, redundancy_count, arbiter_count);
+        gf_cli_print_number_of_bricks(type, brick_count, dist_count,
+                                      replica_count, disperse_count,
+                                      redundancy_count, arbiter_count);
 
         cli_out("Transport-type: %s",
                 ((transport == 0) ? "tcp"
@@ -4586,9 +4575,9 @@ gf_cli_gsync_config_command(dict_t *dict)
     };
     char *subop = NULL;
     char *gwd = NULL;
-    char *slave = NULL;
+    char *secondary = NULL;
     char *confpath = NULL;
-    char *master = NULL;
+    char *primary = NULL;
     char *op_name = NULL;
     int ret = -1;
     char conf_path[PATH_MAX] = "";
@@ -4602,11 +4591,11 @@ gf_cli_gsync_config_command(dict_t *dict)
     }
 
     if (dict_get_str_sizen(dict, "glusterd_workdir", &gwd) != 0 ||
-        dict_get_str_sizen(dict, "slave", &slave) != 0)
+        dict_get_str_sizen(dict, "secondary", &secondary) != 0)
         return -1;
 
-    if (dict_get_str_sizen(dict, "master", &master) != 0)
-        master = NULL;
+    if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+        primary = NULL;
     if (dict_get_str_sizen(dict, "op_name", &op_name) != 0)
         op_name = NULL;
 
@@ -4622,9 +4611,9 @@ gf_cli_gsync_config_command(dict_t *dict)
     runner_add_args(&runner, GSYNCD_PREFIX "/gsyncd", "-c", NULL);
     runner_argprintf(&runner, "%s", confpath);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
-    if (master)
-        runner_argprintf(&runner, ":%s", master);
-    runner_add_arg(&runner, slave);
+    if (primary)
+        runner_argprintf(&runner, ":%s", primary);
+    runner_add_arg(&runner, secondary);
     runner_argprintf(&runner, "--config-%s", subop);
     if (op_name)
         runner_add_arg(&runner, op_name);
@@ -4678,7 +4667,7 @@ gf_cli_print_status(char **title_values, gf_gsync_status_t **sts_vals,
 
     cli_out(" ");
 
-    /* setting the title "NODE", "MASTER", etc. from title_values[]
+    /* setting the title "NODE", "PRIMARY", etc. from title_values[]
        and printing the same */
     for (j = 0; j < number_of_fields; j++) {
         if ((!is_detail) && (j > status_fields)) {
@@ -4755,17 +4744,17 @@ out:
 int
 gf_gsync_status_t_comparator(const void *p, const void *q)
 {
-    char *slavekey1 = NULL;
-    char *slavekey2 = NULL;
+    char *secondaryKey1 = NULL;
+    char *secondaryKey2 = NULL;
 
-    slavekey1 = get_struct_variable(20, (*(gf_gsync_status_t **)p));
-    slavekey2 = get_struct_variable(20, (*(gf_gsync_status_t **)q));
-    if (!slavekey1 || !slavekey2) {
+    secondaryKey1 = get_struct_variable(20, (*(gf_gsync_status_t **)p));
+    secondaryKey2 = get_struct_variable(20, (*(gf_gsync_status_t **)q));
+    if (!secondaryKey1 || !secondaryKey2) {
         gf_log("cli", GF_LOG_ERROR, "struct member empty.");
         return 0;
     }
 
-    return strcmp(slavekey1, slavekey2);
+    return strcmp(secondaryKey1, secondaryKey2);
 }
 
 static int
@@ -4800,7 +4789,7 @@ gf_cli_read_status_data(dict_t *dict, gf_gsync_status_t **sts_vals,
         }
     }
 
-    /* Sort based on Session Slave */
+    /* Sort based on Session Secondary */
     qsort(sts_vals, gsync_count, sizeof(gf_gsync_status_t *),
           gf_gsync_status_t_comparator);
 
@@ -4817,14 +4806,14 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
     int spacing[16] = {0};
     int num_of_fields = 16;
     char errmsg[1024] = "";
-    char *master = NULL;
-    char *slave = NULL;
-    static char *title_values[] = {"MASTER NODE",
-                                   "MASTER VOL",
-                                   "MASTER BRICK",
-                                   "SLAVE USER",
-                                   "SLAVE",
-                                   "SLAVE NODE",
+    char *primary = NULL;
+    char *secondary = NULL;
+    static char *title_values[] = {"PRIMARY NODE",
+                                   "PRIMARY VOL",
+                                   "PRIMARY BRICK",
+                                   "SECONDARY USER",
+                                   "SECONDARY",
+                                   "SECONDARY NODE",
                                    "STATUS",
                                    "CRAWL STATUS",
                                    "LAST_SYNCED",
@@ -4840,19 +4829,19 @@ gf_cli_gsync_status_output(dict_t *dict, gf_boolean_t is_detail)
     /* Checks if any session is active or not */
     ret = dict_get_int32_sizen(dict, "gsync-count", &gsync_count);
     if (ret) {
-        ret = dict_get_str_sizen(dict, "master", &master);
+        ret = dict_get_str_sizen(dict, "primary", &primary);
 
-        ret = dict_get_str_sizen(dict, "slave", &slave);
+        ret = dict_get_str_sizen(dict, "secondary", &secondary);
 
-        if (master) {
-            if (slave)
+        if (primary) {
+            if (secondary)
                 snprintf(errmsg, sizeof(errmsg),
                          "No active geo-replication sessions between %s"
                          " and %s",
-                         master, slave);
+                         primary, secondary);
             else
                 snprintf(errmsg, sizeof(errmsg),
-                         "No active geo-replication sessions for %s", master);
+                         "No active geo-replication sessions for %s", primary);
         } else
             snprintf(errmsg, sizeof(errmsg),
                      "No active geo-replication sessions");
@@ -5113,8 +5102,8 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     dict_t *dict = NULL;
     char *gsync_status = NULL;
-    char *master = NULL;
-    char *slave = NULL;
+    char *primary = NULL;
+    char *secondary = NULL;
     int32_t type = 0;
     gf_boolean_t status_detail = _gf_false;
 
@@ -5172,27 +5161,27 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
         case GF_GSYNC_OPTION_TYPE_STOP:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
 
             cli_out(
                 "%s " GEOREP " session between %s & %s has been successful",
                 type == GF_GSYNC_OPTION_TYPE_START ? "Starting" : "Stopping",
-                master, slave);
+                primary, secondary);
             break;
 
         case GF_GSYNC_OPTION_TYPE_PAUSE:
         case GF_GSYNC_OPTION_TYPE_RESUME:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
 
             cli_out("%s " GEOREP " session between %s & %s has been successful",
                     type == GF_GSYNC_OPTION_TYPE_PAUSE ? "Pausing" : "Resuming",
-                    master, slave);
+                    primary, secondary);
             break;
 
         case GF_GSYNC_OPTION_TYPE_CONFIG:
@@ -5206,23 +5195,23 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
             break;
 
         case GF_GSYNC_OPTION_TYPE_DELETE:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
             cli_out("Deleting " GEOREP
                     " session between %s & %s has been successful",
-                    master, slave);
+                    primary, secondary);
             break;
 
         case GF_GSYNC_OPTION_TYPE_CREATE:
-            if (dict_get_str_sizen(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str_sizen(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str_sizen(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str_sizen(dict, "secondary", &secondary) != 0)
+                secondary = "???";
             cli_out("Creating " GEOREP
                     " session between %s & %s has been successful",
-                    master, slave);
+                    primary, secondary);
             break;
 
         default:
@@ -5488,7 +5477,7 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
         }
         if (profile_info[i].fop_hits) {
             cli_out(
-                "%10.2lf %10.2lf us %10.2lf us %10.2lf us"
+                "%10.2lf %10.2lf ns %10.2lf ns %10.2lf ns"
                 " %14" PRId64 " %11s",
                 profile_info[i].percentage_avg_latency,
                 profile_info[i].avg_latency, profile_info[i].min_latency,
@@ -7114,12 +7103,21 @@ cli_print_volume_status_tasks(dict_t *dict)
         ret = dict_get_str(dict, key, &task_id_str);
         if (ret)
             return;
-        cli_out("%-20s : %-20s", "ID", task_id_str);
 
         snprintf(key, sizeof(key), "task%d.status", i);
         ret = dict_get_int32(dict, key, &status);
-        if (ret)
+        if (ret) {
+            cli_out("%-20s : %-20s", "ID", task_id_str);
             return;
+        }
+
+        if (!strcmp(op, "Rebalance") &&
+            (status == GF_DEFRAG_STATUS_RESET_DUE_REPLACE_BRC ||
+             status == GF_DEFRAG_STATUS_RESET_DUE_RESET_BRC)) {
+            task_id_str = "None";
+        }
+
+        cli_out("%-20s : %-20s", "ID", task_id_str);
 
         snprintf(task, sizeof(task), "task%d", i);
 

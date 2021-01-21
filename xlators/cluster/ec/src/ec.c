@@ -205,7 +205,7 @@ __ec_destroy_private(xlator_t *this)
 int32_t
 mem_acct_init(xlator_t *this)
 {
-    if (xlator_mem_acct_init(this, ec_mt_end + 1) != 0) {
+    if (xlator_mem_acct_init(this, ec_mt_end) != 0) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_NO_MEMORY,
                "Memory accounting initialization "
                "failed.");

@@ -343,7 +343,8 @@ __inode_ctx_free(inode_t *inode)
         if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
             if (xl && !xl->call_cleanup && xl->cbks->forget) {
-                old_THIS = THIS;
+                if (!old_THIS)
+                    old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->forget(xl, inode);
                 THIS = old_THIS;
@@ -391,11 +392,13 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode)
         if (inode->_ctx[index].xl_key) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
 
-            old_THIS = THIS;
-            THIS = xl;
-            if (xl->cbks->ictxmerge)
+            if (xl->cbks->ictxmerge) {
+                if (!old_THIS)
+                    old_THIS = THIS;
+                THIS = xl;
                 xl->cbks->ictxmerge(xl, fd, inode, linked_inode);
-            THIS = old_THIS;
+                THIS = old_THIS;
+            }
         }
     }
 }
@@ -413,8 +416,10 @@ __inode_passivate(inode_t *inode)
     dentry_t *dentry = NULL;
     dentry_t *t = NULL;
 
+    GF_ASSERT(!inode->in_lru_list);
     list_move_tail(&inode->list, &inode->table->lru);
     inode->table->lru_size++;
+    inode->in_lru_list = _gf_true;
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
@@ -562,7 +567,10 @@ __inode_ref(inode_t *inode, bool is_invalidate)
             inode->in_invalidate_list = false;
             inode->table->invalidate_size--;
         } else {
+            GF_ASSERT(inode->table->lru_size > 0);
+            GF_ASSERT(inode->in_lru_list);
             inode->table->lru_size--;
+            inode->in_lru_list = _gf_false;
         }
         if (is_invalidate) {
             inode->in_invalidate_list = true;
@@ -701,6 +709,8 @@ inode_new(inode_table_t *table)
         {
             list_add(&inode->list, &table->lru);
             table->lru_size++;
+            GF_ASSERT(!inode->in_lru_list);
+            inode->in_lru_list = _gf_true;
             __inode_ref(inode, false);
         }
         pthread_mutex_unlock(&table->lock);
@@ -1197,10 +1207,10 @@ inode_invalidate(inode_t *inode)
     }
 
     /*
-     * The master xlator is not in the graph but it can define an invalidate
+     * The root xlator is not in the graph but it can define an invalidate
      * handler.
      */
-    xl = inode->table->xl->ctx->primary;
+    xl = inode->table->xl->ctx->root;
     if (xl && xl->cbks->invalidate) {
         old_THIS = THIS;
         THIS = xl;
@@ -1212,11 +1222,13 @@ inode_invalidate(inode_t *inode)
 
     xl = inode->table->xl->graph->first;
     while (xl) {
-        old_THIS = THIS;
-        THIS = xl;
-        if (xl->cbks->invalidate)
+        if (xl->cbks->invalidate) {
+            if (!old_THIS)
+                old_THIS = THIS;
+            THIS = xl;
             ret = xl->cbks->invalidate(xl, inode);
-        THIS = old_THIS;
+            THIS = old_THIS;
+        }
 
         if (ret)
             break;
@@ -1564,6 +1576,7 @@ inode_table_prune(inode_table_t *table)
         lru_size = table->lru_size;
         while (lru_size > (table->lru_limit)) {
             if (list_empty(&table->lru)) {
+                GF_ASSERT(0);
                 gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
                                  LG_MSG_INVALID_INODE_LIST,
                                  "Empty inode lru list found"
@@ -1574,6 +1587,7 @@ inode_table_prune(inode_table_t *table)
 
             lru_size--;
             entry = list_entry(table->lru.next, inode_t, list);
+            GF_ASSERT(entry->in_lru_list);
             /* The logic of invalidation is required only if invalidator_fn
                is present */
             if (table->invalidator_fn) {
@@ -1591,6 +1605,7 @@ inode_table_prune(inode_table_t *table)
             }
 
             table->lru_size--;
+            entry->in_lru_list = _gf_false;
             __inode_retire(entry);
             ret++;
         }
@@ -1646,6 +1661,7 @@ __inode_table_init_root(inode_table_t *table)
 
     list_add(&root->list, &table->lru);
     table->lru_size++;
+    root->in_lru_list = _gf_true;
 
     iatt.ia_gfid[15] = 1;
     iatt.ia_ino = 1;
@@ -1907,8 +1923,11 @@ inode_table_destroy(inode_table_t *inode_table)
         while (!list_empty(&inode_table->lru)) {
             trav = list_first_entry(&inode_table->lru, inode_t, list);
             inode_forget_atomic(trav, 0);
+            GF_ASSERT(inode_table->lru_size > 0);
+            GF_ASSERT(trav->in_lru_list);
             __inode_retire(trav);
             inode_table->lru_size--;
+            trav->in_lru_list = _gf_false;
         }
 
         /* Same logic for invalidate list */
@@ -2640,22 +2659,21 @@ inode_ctx_size(inode_t *inode)
                 continue;
 
             xl = (xlator_t *)(long)inode->_ctx[i].xl_key;
-            old_THIS = THIS;
-            THIS = xl;
 
             /* If inode ref is taken when THIS is global xlator,
              * the ctx xl_key is set, but the value is NULL.
              * For global xlator the cbks can be NULL, hence check
              * for the same */
-            if (!xl->cbks) {
-                THIS = old_THIS;
+            if (!xl->cbks)
                 continue;
-            }
 
-            if (xl->cbks->ictxsize)
+            if (xl->cbks->ictxsize) {
+                if (!old_THIS)
+                    old_THIS = THIS;
+                THIS = xl;
                 size += xl->cbks->ictxsize(xl, inode);
-
-            THIS = old_THIS;
+                THIS = old_THIS;
+            }
         }
     }
     UNLOCK(&inode->lock);

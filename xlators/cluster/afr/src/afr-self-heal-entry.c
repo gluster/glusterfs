@@ -399,7 +399,7 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
             (ia_type == replies[i].poststat.ia_type)) {
             ret = afr_gfid_split_brain_source(this, replies, inode, pargfid,
                                               bname, src_idx, i, locked_on, src,
-                                              NULL);
+                                              NULL, NULL);
             if (ret)
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        "Skipping conservative merge on the "
@@ -474,7 +474,7 @@ __afr_selfheal_merge_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 
     /* In case of type mismatch / unable to resolve gfid mismatch on the
-     * entry, return -1.*/
+     * entry, return -EIO.*/
     ret = afr_selfheal_detect_gfid_and_type_mismatch(
         this, replies, inode, fd->inode->gfid, name, source, locked_on, &src);
 
@@ -532,9 +532,6 @@ static gf_boolean_t
 is_full_heal_marker_present(xlator_t *this, dict_t *xdata, int idx)
 {
     int i = 0;
-    int pending[3] = {
-        0,
-    };
     void *pending_raw = NULL;
     afr_private_t *priv = NULL;
 
@@ -554,8 +551,7 @@ is_full_heal_marker_present(xlator_t *this, dict_t *xdata, int idx)
         if (!pending_raw)
             continue;
 
-        memcpy(pending, pending_raw, sizeof(pending));
-        if (ntoh32(pending[idx]))
+        if (*((int *)pending_raw + idx))
             return _gf_true;
     }
 
@@ -905,7 +901,7 @@ afr_selfheal_entry_do_subvol(call_frame_t *frame, xlator_t *this, fd_t *fd,
                 break;
             }
 
-            if (ret == -1) {
+            if (ret == -EIO) {
                 /* gfid or type mismatch. */
                 mismatch = _gf_true;
                 ret = 0;
@@ -1072,7 +1068,7 @@ afr_selfheal_entry_do(call_frame_t *frame, xlator_t *this, fd_t *fd, int source,
         else
             ret = afr_selfheal_entry_do_subvol(frame, this, fd, i);
 
-        if (ret == -1) {
+        if (ret == -EIO) {
             /* gfid or type mismatch. */
             mismatch = _gf_true;
             ret = 0;

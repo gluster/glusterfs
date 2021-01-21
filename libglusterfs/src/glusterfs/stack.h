@@ -289,10 +289,8 @@ get_the_pt_fop(void *base_fop, int fop_idx)
                      frame->root, old_THIS->name, THIS->name);                 \
         /* Need to capture counts at leaf node */                              \
         if (!next_xl->pass_through && !next_xl->children) {                    \
-            GF_ATOMIC_INC(next_xl->stats.total.metrics[opn].fop);              \
-            GF_ATOMIC_INC(next_xl->stats.interval.metrics[opn].fop);           \
-            GF_ATOMIC_INC(next_xl->stats.total.count);                         \
-            GF_ATOMIC_INC(next_xl->stats.interval.count);                      \
+            GF_ATOMIC_INC(next_xl->stats[opn].total_fop);                      \
+            GF_ATOMIC_INC(next_xl->stats[opn].interval_fop);                   \
         }                                                                      \
                                                                                \
         if (next_xl->pass_through) {                                           \
@@ -354,10 +352,8 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             timespec_now(&_new->begin);                                        \
         _new->op = get_fop_index_from_fn((_new->this), (fn));                  \
         if (!obj->pass_through) {                                              \
-            GF_ATOMIC_INC(obj->stats.total.metrics[_new->op].fop);             \
-            GF_ATOMIC_INC(obj->stats.interval.metrics[_new->op].fop);          \
-            GF_ATOMIC_INC(obj->stats.total.count);                             \
-            GF_ATOMIC_INC(obj->stats.interval.count);                          \
+            GF_ATOMIC_INC(obj->stats[_new->op].total_fop);                     \
+            GF_ATOMIC_INC(obj->stats[_new->op].interval_fop);                  \
         } else {                                                               \
             /* we want to get to the actual fop to call */                     \
             next_xl_fn = get_the_pt_fop(&obj->pass_through_fops->stat,         \
@@ -417,8 +413,8 @@ get_the_pt_fop(void *base_fop, int fop_idx)
                 timespec_now(&_parent->end);                                   \
         }                                                                      \
         if (op_ret < 0) {                                                      \
-            GF_ATOMIC_INC(THIS->stats.total.metrics[frame->op].cbk);           \
-            GF_ATOMIC_INC(THIS->stats.interval.metrics[frame->op].cbk);        \
+            GF_ATOMIC_INC(THIS->stats[frame->op].total_fop_cbk);               \
+            GF_ATOMIC_INC(THIS->stats[frame->op].interval_fop_cbk);            \
         }                                                                      \
         fn(_parent, frame->cookie, _parent->this, op_ret, op_errno, params);   \
         THIS = old_THIS;                                                       \

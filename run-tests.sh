@@ -170,6 +170,12 @@ function check_dependencies()
         MISSING="$MISSING netstat"
     fi
 
+    # Check for killall
+    env killall --version > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        MISSING="$MISSING killall"
+    fi
+
     # check for psutil python package
     test `uname -s` == "Darwin" || test `uname -s` == "FreeBSD" && {
         pip show psutil | grep -q psutil >/dev/null 2>&1

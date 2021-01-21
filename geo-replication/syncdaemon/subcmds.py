@@ -32,15 +32,15 @@ def subcmd_monitor_status(args):
 def subcmd_status(args):
     from gsyncdstatus import GeorepStatus
 
-    master_name = args.master.replace(":", "")
-    slave_data = args.slave.replace("ssh://", "")
+    primary_name = args.primary.replace(":", "")
+    secondary_data = args.secondary.replace("ssh://", "")
 
     brick_status = GeorepStatus(gconf.get("state-file"),
                                 "",
                                 args.local_path,
                                 "",
-                                master_name,
-                                slave_data,
+                                primary_name,
+                                secondary_data,
                                 gconf.get("pid-file"))
     checkpoint_time = gconf.get("checkpoint", 0)
     brick_status.print_status(checkpoint_time=checkpoint_time,
@@ -54,9 +54,9 @@ def subcmd_monitor(args):
 
     monitor.startup(go_daemon)
     Popen.init_errhandler()
-    local = GLUSTER("localhost", args.master)
-    slavehost, slavevol = args.slave.split("::")
-    remote = SSH(slavehost, slavevol)
+    local = GLUSTER("localhost", args.primary)
+    secondaryhost, secondaryvol = args.secondary.split("::")
+    remote = SSH(secondaryhost, secondaryvol)
     return monitor.monitor(local, remote)
 
 
@@ -72,13 +72,13 @@ def subcmd_worker(args):
 
     Popen.init_errhandler()
     fcntl.fcntl(args.feedback_fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-    local = GLUSTER("localhost", args.master)
-    slave_url, slavevol = args.slave.split("::")
-    if "@" not in slave_url:
-        slavehost = args.resource_remote
+    local = GLUSTER("localhost", args.primary)
+    secondary_url, secondaryvol = args.secondary.split("::")
+    if "@" not in secondary_url:
+        secondaryhost = args.resource_remote
     else:
-        slavehost = "%s@%s" % (slave_url.split("@")[0], args.resource_remote)
-    remote = SSH(slavehost, slavevol)
+        secondaryhost = "%s@%s" % (secondary_url.split("@")[0], args.resource_remote)
+    remote = SSH(secondaryhost, secondaryvol)
     remote.connect_remote()
     local.connect()
     logging.info("Worker spawn successful. Acknowledging back to monitor")
@@ -86,12 +86,12 @@ def subcmd_worker(args):
     local.service_loop(remote)
 
 
-def subcmd_slave(args):
+def subcmd_secondary(args):
     from resource import GLUSTER, Popen
 
     Popen.init_errhandler()
-    slavevol = args.slave.split("::")[-1]
-    local = GLUSTER("localhost", slavevol)
+    secondaryvol = args.secondary.split("::")[-1]
+    local = GLUSTER("localhost", secondaryvol)
 
     local.connect()
     local.service_loop()
@@ -116,28 +116,28 @@ def subcmd_voluuidget(args):
     vix, err = po.communicate()
     if po.returncode != 0:
         logging.info(lf("Volume info failed, unable to get "
-                        "volume uuid of slavevol, "
+                        "volume uuid of secondaryvol, "
                         "returning empty string",
-                        slavevol=args.volname,
-                        slavehost=args.host,
+                        secondaryvol=args.volname,
+                        secondaryhost=args.host,
                         error=po.returncode))
         return ""
     vi = XET.fromstring(vix)
     if vi.find('opRet').text != '0':
-        logging.info(lf("Unable to get volume uuid of slavevol, "
+        logging.info(lf("Unable to get volume uuid of secondaryvol, "
                         "returning empty string",
-                        slavevol=args.volname,
-                        slavehost=args.host,
+                        secondaryvol=args.volname,
+                        secondaryhost=args.host,
                         error=vi.find('opErrstr').text))
         return ""
 
     try:
         voluuid = vi.find("volInfo/volumes/volume/id").text
     except (ParseError, AttributeError, ValueError) as e:
-        logging.info(lf("Parsing failed to volume uuid of slavevol, "
+        logging.info(lf("Parsing failed to volume uuid of secondaryvol, "
                         "returning empty string",
-                        slavevol=args.volname,
-                        slavehost=args.host,
+                        secondaryvol=args.volname,
+                        secondaryhost=args.host,
                         error=e))
         voluuid = ""
 
@@ -210,8 +210,8 @@ def subcmd_delete(args):
         for p in args.paths:
             if p != "":
                 # set stime to (0,0) to trigger full volume content resync
-                # to slave on session recreation
-                # look at master.py::Xcrawl   hint: zero_zero
+                # to secondary on session recreation
+                # look at primary.py::Xcrawl   hint: zero_zero
                 errno_wrap(Xattr.lsetxattr,
                            (p, stime_xattr_prefix + ".stime",
                             struct.pack("!II", 0, 0)),

@@ -462,22 +462,26 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
         for (i = 0; i < fd->xl_count; i++) {
             if (fd->_ctx[i].key) {
                 xl = fd->_ctx[i].xl_key;
-                old_THIS = THIS;
-                THIS = xl;
-                if (!xl->call_cleanup && xl->cbks->releasedir)
+                if (!xl->call_cleanup && xl->cbks->releasedir) {
+                    if (!old_THIS)
+                        old_THIS = THIS;
+                    THIS = xl;
                     xl->cbks->releasedir(xl, fd);
-                THIS = old_THIS;
+                    THIS = old_THIS;
+                }
             }
         }
     } else {
         for (i = 0; i < fd->xl_count; i++) {
             if (fd->_ctx[i].key) {
                 xl = fd->_ctx[i].xl_key;
-                old_THIS = THIS;
-                THIS = xl;
-                if (!xl->call_cleanup && xl->cbks->release)
+                if (!xl->call_cleanup && xl->cbks->release) {
+                    if (!old_THIS)
+                        old_THIS = THIS;
+                    THIS = xl;
                     xl->cbks->release(xl, fd);
-                THIS = old_THIS;
+                    THIS = old_THIS;
+                }
             }
         }
     }
@@ -539,20 +543,17 @@ fd_unref(fd_t *fd)
         return;
     }
 
-    LOCK(&fd->inode->lock);
-    {
-        refcount = GF_ATOMIC_DEC(fd->refcount);
-        if (refcount == 0) {
+    refcount = GF_ATOMIC_DEC(fd->refcount);
+    if (refcount == 0) {
+        LOCK(&fd->inode->lock);
+        {
             if (!list_empty(&fd->inode_list)) {
                 list_del_init(&fd->inode_list);
                 fd->inode->active_fd_count--;
                 bound = _gf_true;
             }
         }
-    }
-    UNLOCK(&fd->inode->lock);
-
-    if (refcount == 0) {
+        UNLOCK(&fd->inode->lock);
         fd_destroy(fd, bound);
     }
 

@@ -30,7 +30,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_quota_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_quota_mt_end);
 
     if (0 != ret) {
         gf_log(this->name, GF_LOG_WARNING,

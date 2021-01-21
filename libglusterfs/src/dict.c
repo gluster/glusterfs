@@ -50,7 +50,13 @@ struct dict_cmp {
 static data_t *
 get_new_data()
 {
-    data_t *data = mem_get(THIS->ctx->dict_data_pool);
+    data_t *data = NULL;
+
+    if (global_ctx) {
+        data = mem_get(global_ctx->dict_data_pool);
+    } else {
+        data = mem_get(THIS->ctx->dict_data_pool);
+    }
 
     if (!data)
         return NULL;
@@ -601,28 +607,29 @@ dict_key_count(dict_t *this)
     return ret;
 }
 
-void
+gf_boolean_t
 dict_del(dict_t *this, char *key)
 {
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", key);
-        return;
+        return _gf_false;
     }
 
     return dict_deln(this, key, strlen(key));
 }
 
-void
+gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen)
 {
     int hashval = 0;
     uint32_t hash;
+    gf_boolean_t rc = _gf_false;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", key);
-        return;
+        return rc;
     }
 
     hash = (uint32_t)XXH64(key, keylen, 0);
@@ -664,6 +671,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
                 mem_put(pair);
             }
             this->count--;
+            rc = _gf_true;
             break;
         }
 
@@ -673,10 +681,32 @@ dict_deln(dict_t *this, char *key, const int keylen)
 
     UNLOCK(&this->lock);
 
-    return;
+    return rc;
 }
 
-void
+/* removes and free all data_pair_t elements.
+ * has to be called with this->lock held */
+static void
+dict_clear_data(dict_t *this)
+{
+    data_pair_t *curr = this->members_list;
+    data_pair_t *next = NULL;
+
+    while (curr != NULL) {
+        next = curr->next;
+        data_unref(curr->value);
+        GF_FREE(curr->key);
+        if (curr == &this->free_pair) {
+            this->free_pair.key = NULL;
+        } else {
+            mem_put(curr);
+        }
+        curr = next;
+    }
+    this->count = this->totkvlen = 0;
+}
+
+static void
 dict_destroy(dict_t *this)
 {
     if (!this) {
@@ -685,28 +715,13 @@ dict_destroy(dict_t *this)
         return;
     }
 
-    data_pair_t *pair = this->members_list;
-    data_pair_t *prev = this->members_list;
     glusterfs_ctx_t *ctx = NULL;
     uint64_t current_max = 0;
-    uint32_t total_pairs = 0;
+    uint32_t total_pairs = this->count;
 
     LOCK_DESTROY(&this->lock);
 
-    while (prev) {
-        pair = pair->next;
-        data_unref(prev->value);
-        GF_FREE(prev->key);
-        if (prev != &this->free_pair) {
-            mem_put(prev);
-        } else {
-            this->free_pair.key = NULL;
-        }
-        total_pairs++;
-        prev = pair;
-    }
-
-    this->totkvlen = 0;
+    dict_clear_data(this);
     if (this->members != &this->members_internal) {
         mem_put(this->members);
     }
@@ -1460,7 +1475,16 @@ dict_reset(dict_t *dict)
                          "dict is NULL");
         goto out;
     }
-    dict_foreach(dict, dict_remove_foreach_fn, NULL);
+
+    int i;
+    LOCK(&dict->lock);
+
+    dict_clear_data(dict);
+    for (i = 0; i < dict->hash_size; i++)
+        dict->members[i] = NULL;
+    dict->members_list = NULL;
+
+    UNLOCK(&dict->lock);
     ret = 0;
 out:
     return ret;
@@ -3486,4 +3510,162 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
 unlock:
     UNLOCK(&dict->lock);
     return 0;
+}
+
+/* Popluate specific dictionary on the basis of passed key array at the
+   time of unserialize buffer
+*/
+int32_t
+dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
+                               char **suffix_key_arr, dict_t **specific_dict,
+                               int totkeycount)
+{
+    char *buf = orig_buf;
+    int ret = -1;
+    int32_t count = 0;
+    int i = 0;
+    int j = 0;
+
+    data_t *value = NULL;
+    char *key = NULL;
+    int32_t keylen = 0;
+    int32_t vallen = 0;
+    int32_t hostord = 0;
+    xlator_t *this = NULL;
+    int32_t keylenarr[totkeycount];
+
+    this = THIS;
+    GF_ASSERT(this);
+
+    if (!buf) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "buf is null!");
+        goto out;
+    }
+
+    if (size == 0) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "size is 0!");
+        goto out;
+    }
+
+    if (!fill) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "fill is null!");
+        goto out;
+    }
+
+    if (!*fill) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "*fill is null!");
+        goto out;
+    }
+
+    if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
+        gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                         "undersized buffer "
+                         "passed. available (%lu) < required (%lu)",
+                         (long)(orig_buf + size), (long)(buf + DICT_HDR_LEN));
+        goto out;
+    }
+
+    memcpy(&hostord, buf, sizeof(hostord));
+    count = ntoh32(hostord);
+    buf += DICT_HDR_LEN;
+
+    if (count < 0) {
+        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
+                "count=%d", count, NULL);
+        goto out;
+    }
+
+    /* Compute specific key length and save in array */
+    for (i = 0; i < totkeycount; i++) {
+        keylenarr[i] = strlen(suffix_key_arr[i]);
+    }
+
+    for (i = 0; i < count; i++) {
+        if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized "
+                             "buffer passed. available (%lu) < "
+                             "required (%lu)",
+                             (long)(orig_buf + size),
+                             (long)(buf + DICT_DATA_HDR_KEY_LEN));
+            goto out;
+        }
+        memcpy(&hostord, buf, sizeof(hostord));
+        keylen = ntoh32(hostord);
+        buf += DICT_DATA_HDR_KEY_LEN;
+
+        if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized "
+                             "buffer passed. available (%lu) < "
+                             "required (%lu)",
+                             (long)(orig_buf + size),
+                             (long)(buf + DICT_DATA_HDR_VAL_LEN));
+            goto out;
+        }
+        memcpy(&hostord, buf, sizeof(hostord));
+        vallen = ntoh32(hostord);
+        buf += DICT_DATA_HDR_VAL_LEN;
+
+        if ((keylen < 0) || (vallen < 0)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized length passed "
+                             "key:%d val:%d",
+                             keylen, vallen);
+            goto out;
+        }
+        if ((buf + keylen) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized buffer passed. "
+                             "available (%lu) < required (%lu)",
+                             (long)(orig_buf + size), (long)(buf + keylen));
+            goto out;
+        }
+        key = buf;
+        buf += keylen + 1; /* for '\0' */
+
+        if ((buf + vallen) > (orig_buf + size)) {
+            gf_msg_callingfn("dict", GF_LOG_ERROR, 0, LG_MSG_UNDERSIZED_BUF,
+                             "undersized buffer passed. "
+                             "available (%lu) < required (%lu)",
+                             (long)(orig_buf + size), (long)(buf + vallen));
+            goto out;
+        }
+        value = get_new_data();
+
+        if (!value) {
+            ret = -1;
+            goto out;
+        }
+        value->len = vallen;
+        value->data = gf_memdup(buf, vallen);
+        value->data_type = GF_DATA_TYPE_STR_OLD;
+        value->is_static = _gf_false;
+        buf += vallen;
+
+        ret = dict_addn(*fill, key, keylen, value);
+        if (ret < 0) {
+            data_destroy(value);
+            goto out;
+        }
+        for (j = 0; j < totkeycount; j++) {
+            if (keylen > keylenarr[j]) {
+                if (!strcmp(key + keylen - keylenarr[j], suffix_key_arr[j])) {
+                    ret = dict_addn(*specific_dict, key, keylen, value);
+                    break;
+                }
+            }
+        }
+
+        if (ret < 0)
+            goto out;
+    }
+
+    ret = 0;
+out:
+    return ret;
 }

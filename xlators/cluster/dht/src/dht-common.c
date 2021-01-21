@@ -5256,7 +5256,7 @@ dht_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 
         if (!ret && key && local->mds_subvol && dht_match_xattr(key)) {
             STACK_WIND(frame, dht_mds_getxattr_cbk, local->mds_subvol,
-                       local->mds_subvol->fops->fgetxattr, fd, key, NULL);
+                       local->mds_subvol->fops->fgetxattr, fd, key, xdata);
 
             return 0;
         }
@@ -5268,7 +5268,7 @@ dht_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
     for (i = 0; i < cnt; i++) {
         subvol = layout->list[i].xlator;
         STACK_WIND(frame, dht_getxattr_cbk, subvol, subvol->fops->fgetxattr, fd,
-                   key, NULL);
+                   key, xdata);
     }
     return 0;
 
@@ -10964,7 +10964,7 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                     goto unlock;
                 if ((cmd == GF_DEFRAG_CMD_STATUS) ||
                     (cmd == GF_DEFRAG_CMD_DETACH_STATUS))
-                    gf_defrag_status_get(conf, output);
+                    gf_defrag_status_get(conf, output, _gf_false);
                 else if (cmd == GF_DEFRAG_CMD_DETACH_START)
                     defrag->cmd = GF_DEFRAG_CMD_DETACH_START;
                 else if (cmd == GF_DEFRAG_CMD_STOP ||
@@ -11337,8 +11337,32 @@ int
 dht_pt_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *key, dict_t *xdata)
 {
+    int op_errno = EINVAL;
+    dht_local_t *local = NULL;
+
+    VALIDATE_OR_GOTO(frame, err);
+    VALIDATE_OR_GOTO(this, err);
+    VALIDATE_OR_GOTO(loc, err);
+    VALIDATE_OR_GOTO(loc->inode, err);
+    VALIDATE_OR_GOTO(this->private, err);
+
+    local = dht_local_init(frame, loc, NULL, GF_FOP_GETXATTR);
+    if (!local) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    if (key &&
+        strncmp(key, DHT_SUBVOL_STATUS_KEY, SLEN(DHT_SUBVOL_STATUS_KEY)) == 0) {
+        dht_vgetxattr_subvol_status(frame, this, key);
+        return 0;
+    }
+
     STACK_WIND(frame, dht_pt_getxattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->getxattr, loc, key, xdata);
+    return 0;
+err:
+    DHT_STACK_UNWIND(getxattr, frame, -1, op_errno, NULL, NULL);
     return 0;
 }
 

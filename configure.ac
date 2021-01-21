@@ -493,7 +493,7 @@ AC_SUBST(OCF_SUBDIR)
 
 AC_ARG_WITH([server],
             [AS_HELP_STRING([--without-server], [do not build server components])],
-            [with_server='no'],
+            [with_server=$withval],
             [with_server='yes'],
             )
 AM_CONDITIONAL([WITH_SERVER], [test x$with_server = xyes])
@@ -638,13 +638,6 @@ AC_SUBST(ZLIB_LIBS)
 AC_CHECK_HEADERS([linux/falloc.h])
 
 AC_CHECK_HEADERS([linux/oom.h], AC_DEFINE(HAVE_LINUX_OOM_H, 1, [have linux/oom.h]))
-
-dnl Mac OS X does not have spinlocks
-AC_CHECK_FUNC([pthread_spin_init], [have_spinlock=yes])
-if test "x${have_spinlock}" = "xyes"; then
-   AC_DEFINE(HAVE_SPINLOCK, 1, [define if found spinlock])
-fi
-AC_SUBST(HAVE_SPINLOCK)
 
 dnl some os may not have GNU defined strnlen function
 AC_CHECK_FUNC([strnlen], [have_strnlen=yes])
@@ -1351,6 +1344,24 @@ case $host_os in
         ;;
 esac
 
+# LTO section
+AC_ARG_ENABLE([lto],
+              AC_HELP_STRING([--disable-lto],
+                             [Disable buidling with LTO]))
+
+LTO_BUILD=no
+AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
+    CC_VER=`"$CC" -dumpversion 2>/dev/null`
+    AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
+        GF_CFLAGS="${GF_CFLAGS} -flto"
+        GF_LDFLAGS="${GF_LDFLAGS} -flto"
+        LTO_BUILD=yes
+        AC_MSG_NOTICE([building with LTO])],
+        [AC_MSG_NOTICE([not using LTO for gcc_ver=$CC_VER]) ]) 
+    ], [
+    AC_MSG_NOTICE([LTO is disabled])
+])
+
 # Default value for sbindir
 prefix_temp=$prefix
 exec_prefix_temp=$exec_prefix
@@ -1728,6 +1739,7 @@ echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo "Enable Brick Mux     : $USE_BRICKMUX"
+echo "Building with LTO    : $LTO_BUILD"
 echo
 
 # dnl Note: ${X^^} capitalization assumes bash >= 4.x

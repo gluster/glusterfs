@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <fnmatch.h>
 #include <uuid/uuid.h>
+#include <urcu/compiler.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG
@@ -443,14 +444,20 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
+void
+gf_assert(void);
+
 #ifdef DEBUG
 #define GF_ASSERT(x) assert(x);
 #else
 #define GF_ASSERT(x)                                                           \
     do {                                                                       \
-        if (!(x)) {                                                            \
+        if (caa_unlikely(!(x))) {                                              \
+            gf_assert();                                                       \
             gf_msg_callingfn("", GF_LOG_ERROR, 0, LG_MSG_ASSERTION_FAILED,     \
-                             "Assertion failed: " #x);                         \
+                             "Assertion failed: To attach gdb and coredump,"   \
+                             " Run the script under "                          \
+                             "\"glusterfs/extras/debug/gfcore.py\"");          \
         }                                                                      \
     } while (0)
 #endif
@@ -1182,6 +1189,10 @@ char *
 get_ip_from_addrinfo(struct addrinfo *addr, char **ip);
 
 int
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm));
+
+int
 close_fds_except(int *fdv, size_t count);
 
 int
@@ -1239,18 +1250,11 @@ gf_tvdiff(struct timeval *start, struct timeval *end)
 
 /* Return delta value in nanoseconds. */
 
-static inline double
+static inline int64_t
 gf_tsdiff(struct timespec *start, struct timespec *end)
 {
-    struct timespec t;
-
-    if (start->tv_nsec > end->tv_nsec)
-        t.tv_sec = end->tv_sec - 1, t.tv_nsec = end->tv_nsec + 1000000000;
-    else
-        t.tv_sec = end->tv_sec, t.tv_nsec = end->tv_nsec;
-
-    return (double)(t.tv_sec - start->tv_sec) * 1e9 +
-           (double)(t.tv_nsec - start->tv_nsec);
+    return (int64_t)(end->tv_sec - start->tv_sec) * GF_SEC_IN_NS +
+           (int64_t)(end->tv_nsec - start->tv_nsec);
 }
 
 #endif /* _COMMON_UTILS_H */

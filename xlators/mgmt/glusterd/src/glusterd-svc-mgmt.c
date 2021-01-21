@@ -53,7 +53,7 @@ glusterd_svc_init_common(glusterd_svc_t *svc, char *svc_name, char *workdir,
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char pidfile[PATH_MAX] = {
         0,
     };
@@ -68,9 +68,6 @@ glusterd_svc_init_common(glusterd_svc_t *svc, char *svc_name, char *workdir,
     };
     char volfileid[256] = {0};
     char *volfileserver = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -134,12 +131,7 @@ glusterd_svc_init(glusterd_svc_t *svc, char *svc_name)
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
-
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     glusterd_svc_build_rundir(svc_name, priv->rundir, rundir, sizeof(rundir));
@@ -157,7 +149,7 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
         0,
     };
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char valgrind_logfile[PATH_MAX] = {0};
     char *localtime_logging = NULL;
     char *log_level = NULL;
@@ -166,9 +158,6 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
         0,
     };
     int32_t len = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
@@ -345,10 +334,7 @@ glusterd_svc_common_rpc_notify(glusterd_conn_t *conn, rpc_clnt_event_t event)
 {
     int ret = 0;
     glusterd_svc_t *svc = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     /* Get the parent onject i.e. svc using list_entry macro */
     svc = cds_list_entry(conn, glusterd_svc_t, conn);
@@ -405,11 +391,8 @@ glusterd_muxsvc_common_rpc_notify(glusterd_svc_proc_t *mux_proc,
     int ret = 0;
     glusterd_svc_t *svc = NULL;
     glusterd_svc_t *tmp = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t need_logging = _gf_false;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!mux_proc) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_GET_FAIL,
@@ -483,7 +466,7 @@ glusterd_muxsvc_conn_init(glusterd_conn_t *conn, glusterd_svc_proc_t *mux_proc,
     glusterd_svc_t *svc = NULL;
 
     options = dict_new();
-    if (!this || !options)
+    if (!options)
         goto out;
 
     svc = cds_list_entry(conn, glusterd_svc_t, conn);

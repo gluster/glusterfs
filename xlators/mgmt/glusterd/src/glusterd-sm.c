@@ -106,6 +106,8 @@ glusterd_destroy_friend_req_ctx(glusterd_friend_req_ctx_t *ctx)
 
     if (ctx->vols)
         dict_unref(ctx->vols);
+    if (ctx->peer_ver)
+        dict_unref(ctx->peer_ver);
     GF_FREE(ctx->hostname);
     GF_FREE(ctx);
 }
@@ -124,7 +126,7 @@ glusterd_broadcast_friend_delete(char *hostname, uuid_t uuid)
 {
     int ret = 0;
     rpc_clnt_procedure_t *proc = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_friend_update_ctx_t ctx = {
         {0},
     };
@@ -137,7 +139,6 @@ glusterd_broadcast_friend_delete(char *hostname, uuid_t uuid)
     int keylen;
     int32_t count = 0;
 
-    this = THIS;
     priv = this->private;
 
     GF_ASSERT(priv);
@@ -309,11 +310,10 @@ glusterd_ac_friend_add(glusterd_friend_sm_event_t *event, void *ctx)
     rpc_clnt_procedure_t *proc = NULL;
     call_frame_t *frame = NULL;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(event);
 
-    this = THIS;
     conf = this->private;
 
     GF_ASSERT(conf);
@@ -360,7 +360,7 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
     rpc_clnt_procedure_t *proc = NULL;
     call_frame_t *frame = NULL;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_probe_ctx_t *probe_ctx = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     dict_t *dict = NULL;
@@ -368,10 +368,6 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
     GF_ASSERT(ctx);
 
     probe_ctx = ctx;
-
-    this = THIS;
-
-    GF_ASSERT(this);
 
     conf = this->private;
 
@@ -460,14 +456,13 @@ glusterd_ac_send_friend_remove_req(glusterd_friend_sm_event_t *event,
     rpc_clnt_procedure_t *proc = NULL;
     call_frame_t *frame = NULL;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
     glusterd_probe_ctx_t *ctx = NULL;
     glusterd_friend_sm_event_t *new_event = NULL;
 
     GF_ASSERT(event);
 
-    this = THIS;
     conf = this->private;
 
     GF_ASSERT(conf);
@@ -555,7 +550,7 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
     glusterd_peerinfo_t *cur_peerinfo = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     rpc_clnt_procedure_t *proc = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_friend_update_ctx_t ev_ctx = {{0}};
     glusterd_conf_t *priv = NULL;
     dict_t *friends = NULL;
@@ -567,7 +562,6 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
 
     GF_ASSERT(event);
 
-    this = THIS;
     priv = this->private;
 
     GF_ASSERT(priv);
@@ -663,7 +657,7 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
     glusterd_peerinfo_t *cur_peerinfo = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     rpc_clnt_procedure_t *proc = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_friend_update_ctx_t ev_ctx = {{0}};
     glusterd_conf_t *priv = NULL;
     dict_t *friends = NULL;
@@ -675,7 +669,6 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
 
     GF_ASSERT(event);
 
-    this = THIS;
     priv = this->private;
 
     GF_ASSERT(priv);
@@ -954,11 +947,8 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
     int status = 0;
     int32_t op_ret = -1;
     int32_t op_errno = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *hostname = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(ctx);
     ev_ctx = ctx;
@@ -995,8 +985,8 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
     // Build comparison logic here.
     pthread_mutex_lock(&conf->import_volumes);
     {
-        ret = glusterd_compare_friend_data(ev_ctx->vols, &status,
-                                           event->peername);
+        ret = glusterd_compare_friend_data(ev_ctx->vols, ev_ctx->peer_ver,
+                                           &status, event->peername);
         if (ret) {
             pthread_mutex_unlock(&conf->import_volumes);
             goto out;
@@ -1459,11 +1449,9 @@ glusterd_friend_sm()
     gf_boolean_t is_await_conn = _gf_false;
     gf_boolean_t quorum_action = _gf_false;
     glusterd_friend_sm_state_t old_state = GD_FRIEND_STATE_DEFAULT;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

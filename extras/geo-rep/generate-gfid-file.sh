@@ -1,5 +1,5 @@
 #!/bin/bash
-#Usage: generate-gfid-file.sh <master-volfile-server:master-volume> <path-to-get-gfid.sh> <output-file> [dirs-list-file]
+#Usage: generate-gfid-file.sh <primary-volfile-server:primary-volume> <path-to-get-gfid.sh> <output-file> [dirs-list-file]
 
 function get_gfids()
 {
@@ -25,7 +25,7 @@ function mount_client()
 
     i=$(stat -c '%i' $T);
 
-    [ "x$i" = "x1" ] || fatal "could not mount volume $MASTER on $T";
+    [ "x$i" = "x1" ] || fatal "could not mount volume $PRIMARY on $T";
 
     cd $T;
     rm -f $OUTPUT;
@@ -43,7 +43,7 @@ function mount_client()
 
     cd -;
 
-    umount $T || fatal "could not umount $MASTER from $T";
+    umount $T || fatal "could not umount $PRIMARY from $T";
 
     rmdir $T || warn "rmdir of $T failed";
 }
@@ -51,12 +51,12 @@ function mount_client()
 
 function main()
 {
-    SLAVE=$1
+    SECONDARY=$1
     GET_GFID_CMD=$2
     OUTPUT=$3
 
-    VOLFILE_SERVER=`echo $SLAVE | sed -e 's/\(.*\):.*/\1/'`
-    VOLUME_NAME=`echo $SLAVE | sed -e 's/.*:\(.*\)/\1/'`
+    VOLFILE_SERVER=`echo $SECONDARY | sed -e 's/\(.*\):.*/\1/'`
+    VOLUME_NAME=`echo $SECONDARY | sed -e 's/.*:\(.*\)/\1/'`
 
     if [ "$#" -lt 4 ]
     then

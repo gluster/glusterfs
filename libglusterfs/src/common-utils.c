@@ -76,6 +76,8 @@ char *vol_type_str[] = {
     "Distributed-Disperse",
 };
 
+gf_boolean_t gf_signal_on_assert = false;
+
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 
@@ -87,6 +89,14 @@ char *xattrs_to_heal[] = {"user.",
                           GF_SELINUX_XATTR_KEY,
                           GF_XATTR_MDATA_KEY,
                           NULL};
+
+void
+gf_assert(void)
+{
+    if (gf_signal_on_assert) {
+        raise(SIGCONT);
+    }
+}
 
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
@@ -855,11 +865,6 @@ gf_dump_config_flags()
     gf_msg_plain_nomem(GF_LOG_ALERT, "setfsid 1");
 #endif
 
-/* define if found spinlock */
-#ifdef HAVE_SPINLOCK
-    gf_msg_plain_nomem(GF_LOG_ALERT, "spinlock 1");
-#endif
-
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #ifdef HAVE_SYS_EPOLL_H
     gf_msg_plain_nomem(GF_LOG_ALERT, "epoll.h 1");
@@ -887,16 +892,7 @@ gf_dump_config_flags()
 
 /* Define to the full name and version of this package. */
 #ifdef PACKAGE_STRING
-    {
-        char *msg = NULL;
-        int ret = -1;
-
-        ret = gf_asprintf(&msg, "package-string: %s", PACKAGE_STRING);
-        if (ret >= 0) {
-            gf_msg_plain_nomem(GF_LOG_ALERT, msg);
-            GF_FREE(msg);
-        }
-    }
+    gf_msg_plain_nomem(GF_LOG_ALERT, "package-string: " PACKAGE_STRING);
 #endif
 
     return;
@@ -4069,6 +4065,7 @@ gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
     sigdelset(&set, SIGSYS);
     sigdelset(&set, SIGFPE);
     sigdelset(&set, SIGABRT);
+    sigdelset(&set, SIGCONT);
 
     pthread_sigmask(SIG_BLOCK, &set, &old);
 
@@ -5159,7 +5156,8 @@ gf_fop_int(char *fop)
 }
 
 int
-close_fds_except(int *fdv, size_t count)
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm))
 {
     int i = 0;
     size_t j = 0;
@@ -5196,7 +5194,7 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
     sys_closedir(d);
 #else  /* !GF_LINUX_HOST_OS */
@@ -5216,10 +5214,22 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
 #endif /* !GF_LINUX_HOST_OS */
     return 0;
+}
+
+static void
+closer_close(int fd, void *prm)
+{
+    sys_close(fd);
+}
+
+int
+close_fds_except(int *fdv, size_t count)
+{
+    return close_fds_except_custom(fdv, count, NULL, closer_close);
 }
 
 /**

@@ -38,9 +38,8 @@ glusterd_bitdsvc_create_volfile()
     };
     int ret = -1;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -51,12 +50,9 @@ glusterd_bitdsvc_create_volfile()
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                "Failed to create volfile");
-        goto out;
     }
 
-out:
     gf_msg_debug(this->name, 0, "Returning %d", ret);
-
     return ret;
 }
 
@@ -64,10 +60,7 @@ int
 glusterd_bitdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
 {
     int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     if (!svc->inited) {
         ret = glusterd_bitdsvc_init(svc);
@@ -108,7 +101,7 @@ out:
     if (ret)
         gf_event(EVENT_SVC_MANAGER_FAILED, "svc_name=%s", svc->name);
 
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
 
     return ret;
 }
@@ -145,12 +138,9 @@ int
 glusterd_bitdsvc_reconfigure()
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t identical = _gf_false;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -201,6 +191,6 @@ manager:
     ret = priv->bitd_svc.manager(&(priv->bitd_svc), NULL, PROC_START_NO_WAIT);
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }

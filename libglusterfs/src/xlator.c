@@ -359,7 +359,7 @@ xlator_dynload_apis(xlator_t *xl)
            sizeof(uint32_t) * GF_MAX_RELEASES);
 
     for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-        gf_latency_reset(&xl->stats.interval.latencies[i]);
+        gf_latency_reset(&xl->stats[i].latencies);
     }
 
     ret = 0;
@@ -600,14 +600,12 @@ __xlator_init(xlator_t *xl)
 
     /* initialize the metrics related locks */
     for (fop_idx = 0; fop_idx < GF_FOP_MAXVALUE; fop_idx++) {
-        GF_ATOMIC_INIT(xl->stats.total.metrics[fop_idx].fop, 0);
-        GF_ATOMIC_INIT(xl->stats.total.metrics[fop_idx].cbk, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].total_fop, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].total_fop_cbk, 0);
 
-        GF_ATOMIC_INIT(xl->stats.interval.metrics[fop_idx].fop, 0);
-        GF_ATOMIC_INIT(xl->stats.interval.metrics[fop_idx].cbk, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].interval_fop, 0);
+        GF_ATOMIC_INIT(xl->stats[fop_idx].interval_fop_cbk, 0);
     }
-    GF_ATOMIC_INIT(xl->stats.total.count, 0);
-    GF_ATOMIC_INIT(xl->stats.interval.count, 0);
 
     xlator_init_lock();
     handle_default_options(xl, xl->options);
@@ -847,11 +845,11 @@ xlator_members_free(xlator_t *xl)
 /* This function destroys all the xlator members except for the
  * xlator strcuture and its mem accounting field.
  *
- * If otherwise, it would destroy the master xlator object as well
+ * If otherwise, it would destroy the root xlator object as well
  * its mem accounting, which would mean after calling glusterfs_graph_destroy()
- * there cannot be any reference to GF_FREE() from the master xlator, this is
+ * there cannot be any reference to GF_FREE() from the root xlator, this is
  * not possible because of the following dependencies:
- * - glusterfs_ctx_t will have mem pools allocated by the master xlators
+ * - glusterfs_ctx_t will have mem pools allocated by the root xlators
  * - xlator objects will have references to those mem pools(g: dict)
  *
  * Ordering the freeing in any of the order will also not solve the dependency:

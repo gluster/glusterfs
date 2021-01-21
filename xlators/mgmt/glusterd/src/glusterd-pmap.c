@@ -434,7 +434,6 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
     int port = 0;
     int ret = -1;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_port_by_brick_req);
@@ -478,14 +477,12 @@ __gluster_pmap_brickbyport(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
-    xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_brick_by_port_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
@@ -519,13 +516,11 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
     };
     int ret = -1;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_pmap_signin_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
@@ -561,7 +556,7 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
@@ -570,8 +565,6 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
         0,
     };
 
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, fail);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, fail);
 
@@ -582,14 +575,14 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
-    rsp.op_ret = pmap_registry_remove(THIS, args.port, args.brick,
+    rsp.op_ret = pmap_registry_remove(this, args.port, args.brick,
                                       GF_PMAP_PORT_BRICKSERVER, req->trans,
                                       _gf_false);
 
     ret = glusterd_get_brickinfo(THIS, args.brick, args.port, &brickinfo);
     if (args.rdma_port) {
         snprintf(brick_path, PATH_MAX, "%s.rdma", args.brick);
-        rsp.op_ret = pmap_registry_remove(THIS, args.rdma_port, brick_path,
+        rsp.op_ret = pmap_registry_remove(this, args.rdma_port, brick_path,
                                           GF_PMAP_PORT_BRICKSERVER, req->trans,
                                           _gf_false);
     }
