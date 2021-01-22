@@ -5314,8 +5314,7 @@ shard_post_lookup_readv_handler(call_frame_t *frame, xlator_t *this)
 
         vec.iov_base = iobuf->ptr;
         vec.iov_len = 0;
-        local->iobref = iobref_new();
-        iobref_add(local->iobref, iobuf);
+        local->iobref = add_iobuf_to_new_iobref(iobuf);
         iobuf_unref(iobuf);
 
         SHARD_STACK_UNWIND(readv, frame, 0, 0, &vec, 1, &local->prebuf,
@@ -5343,13 +5342,8 @@ shard_post_lookup_readv_handler(call_frame_t *frame, xlator_t *this)
     if (!iobuf)
         goto err;
 
-    local->iobref = iobref_new();
+    local->iobref = add_iobuf_to_new_iobref(iobuf);
     if (!local->iobref) {
-        iobuf_unref(iobuf);
-        goto err;
-    }
-
-    if (iobref_add(local->iobref, iobuf) != 0) {
         iobuf_unref(iobuf);
         goto err;
     }

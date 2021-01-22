@@ -487,17 +487,10 @@ nlm4svc_submit_reply(rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
     }
     outmsg.iov_len = msglen;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iob);
     if (iobref == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobref");
-        goto ret;
-    }
-
-    ret = iobref_add(iobref, iob);
-    if (ret) {
-        gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "Failed to add iob to iobref");
         goto ret;
     }
 
@@ -1196,17 +1189,10 @@ nlm4svc_send_granted(struct nlm4_notify_args *ncf)
      */
     outmsg.iov_len = xdr_serialize_nlm4_testargs(outmsg, &testargs);
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (iobref == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobref");
-        goto ret;
-    }
-
-    ret = iobref_add(iobref, iobuf);
-    if (ret) {
-        gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "Failed to add iob to iobref");
         goto ret;
     }
 

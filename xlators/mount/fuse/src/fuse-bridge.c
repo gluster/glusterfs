@@ -3080,7 +3080,7 @@ fuse_write_resume(fuse_state_t *state)
 {
     struct iobref *iobref = NULL;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(state->iobuf);
     if (!iobref) {
         gf_log("glusterfs-fuse", GF_LOG_ERROR,
                "%" PRIu64 ": WRITE iobref allocation failed",
@@ -3090,8 +3090,6 @@ fuse_write_resume(fuse_state_t *state)
         free_fuse_state(state);
         return;
     }
-
-    iobref_add(iobref, state->iobuf);
 
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
            "%" PRIu64 ": WRITE (%p, size=%" GF_PRI_SIZET ", offset=%" PRId64

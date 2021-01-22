@@ -6072,16 +6072,8 @@ glfs_anonymous_pwritev(struct glfs *fs, struct glfs_object *object,
         goto out;
     }
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref) {
-        iobuf_unref(iobuf);
-        errno = ENOMEM;
-        ret = -1;
-        goto out;
-    }
-
-    ret = iobref_add(iobref, iobuf);
-    if (ret) {
         iobuf_unref(iobuf);
         iobref_unref(iobref);
         errno = ENOMEM;

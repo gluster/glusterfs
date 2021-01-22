@@ -114,15 +114,13 @@ changelog_rpc_sumbit_req(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         };
 
         if (!iobref) {
-            iobref = iobref_new();
+            iobref = add_iobuf_to_new_iobref(iobuf);
             if (!iobref) {
                 goto out;
             }
 
             new_iobref = 1;
         }
-
-        iobref_add(iobref, iobuf);
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len = iobuf_size(iobuf);
@@ -229,20 +227,18 @@ changelog_rpc_sumbit_reply(rpcsvc_request_t *req, void *arg,
     if (!req)
         goto return_ret;
 
-    if (!iobref) {
-        iobref = iobref_new();
-        if (!iobref)
-            goto return_ret;
-        new_iobref = 1;
-    }
-
     iob = __changelog_rpc_serialize_reply(req, arg, &iov, xdrproc);
     if (!iob)
         gf_smsg("", GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_SUBMIT_REPLY_FAILED,
                 NULL);
-    else
-        iobref_add(iobref, iob);
-
+    else {
+        if (!iobref) {
+            iobref = add_iobuf_to_new_iobref(iob);
+            if (!iobref)
+                goto return_ret;
+            new_iobref = 1;
+        }
+    }
     ret = rpcsvc_submit_generic(req, &iov, 1, payload, payloadcount, iobref);
 
     if (new_iobref)

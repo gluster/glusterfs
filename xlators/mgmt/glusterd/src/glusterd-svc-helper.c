@@ -851,12 +851,10 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref) {
         goto err;
     }
-
-    iobref_add(iobref, iobuf);
 
     /* Create the xdr payload */
     ret = xdr_serialize_generic(iov, req, (xdrproc_t)xdr_gd1_mgmt_brick_op_req);

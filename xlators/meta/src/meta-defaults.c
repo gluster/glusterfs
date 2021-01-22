@@ -133,13 +133,8 @@ meta_default_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (!iobuf)
         return default_readv_failure_cbk(frame, ENOMEM);
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref) {
-        iobuf_unref(iobuf);
-        return default_readv_failure_cbk(frame, ENOMEM);
-    }
-
-    if (iobref_add(iobref, iobuf) != 0) {
         iobref_unref(iobref);
         iobuf_unref(iobuf);
         return default_readv_failure_cbk(frame, ENOMEM);

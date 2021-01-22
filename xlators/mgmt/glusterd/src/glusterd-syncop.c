@@ -173,15 +173,13 @@ gd_syncop_submit_request(struct rpc_clnt *rpc, void *req, void *local,
     if (!iobuf)
         goto out;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref)
         goto out;
 
     frame = create_frame(THIS, THIS->ctx->pool);
     if (!frame)
         goto out;
-
-    iobref_add(iobref, iobuf);
 
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);

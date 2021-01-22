@@ -1771,9 +1771,7 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     vec.iov_base = iobuf->ptr;
     vec.iov_len = op_ret;
 
-    iobref = iobref_new();
-
-    iobref_add(iobref, iobuf);
+    iobref = add_iobuf_to_new_iobref(iobuf);
 
     /*
      *  readv successful, and we need to get the stat of the file

@@ -151,14 +151,12 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res)
     op_ret = res;
     op_errno = 0;
 
-    paiocb->iobref = iobref_new();
+    paiocb->iobref = add_iobuf_to_new_iobref(iobuf);
     if (!paiocb->iobref) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto out;
     }
-
-    iobref_add(paiocb->iobref, iobuf);
 
     iov.iov_base = iobuf_ptr(iobuf);
     iov.iov_len = op_ret;

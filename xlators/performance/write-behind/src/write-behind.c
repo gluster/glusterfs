@@ -1329,17 +1329,8 @@ __wb_collapse_small_writes(wb_conf_t *conf, wb_request_t *holder,
             goto out;
         }
 
-        iobref = iobref_new();
+        iobref = add_iobuf_to_new_iobref(iobuf);
         if (iobref == NULL) {
-            iobuf_unref(iobuf);
-            goto out;
-        }
-
-        ret = iobref_add(iobref, iobuf);
-        if (ret != 0) {
-            gf_msg(req->wb_inode->this->name, GF_LOG_WARNING, -ret,
-                   WRITE_BEHIND_MSG_INVALID_ARGUMENT,
-                   "cannot add iobuf (%p) into iobref (%p)", iobuf, iobref);
             iobuf_unref(iobuf);
             iobref_unref(iobref);
             goto out;

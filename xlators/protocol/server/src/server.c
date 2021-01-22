@@ -98,22 +98,20 @@ server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         client = frame->root->client;
     }
 
-    if (!iobref) {
-        iobref = iobref_new();
-        if (!iobref) {
-            goto ret;
-        }
-
-        new_iobref = 1;
-    }
-
     iob = gfs_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
         gf_smsg("", GF_LOG_ERROR, 0, PS_MSG_SERIALIZE_REPLY_FAILED, NULL);
         goto ret;
     }
 
-    iobref_add(iobref, iob);
+    if (!iobref) {
+        iobref = add_iobuf_to_new_iobref(iob);
+        if (!iobref) {
+            goto ret;
+        }
+
+        new_iobref = 1;
+    }
 
     /* Then, submit the message for transmission. */
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);

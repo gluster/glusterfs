@@ -1245,14 +1245,12 @@ rpcsvc_request_submit(rpcsvc_t *rpc, rpc_transport_t *trans,
     iov.iov_len = ret;
     count = 1;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref) {
         ret = -1;
         gf_log("rpcsvc", GF_LOG_WARNING, "Failed to create iobref");
         goto out;
     }
-
-    iobref_add(iobref, iobuf);
 
     ret = rpcsvc_callback_submit(rpc, trans, prog, procnum, &iov, count,
                                  iobref);
@@ -1302,15 +1300,13 @@ rpcsvc_callback_submit(rpcsvc_t *rpc, rpc_transport_t *trans,
         goto out;
     }
     if (!iobref) {
-        iobref = iobref_new();
+        iobref = add_iobuf_to_new_iobref(request_iob);
         if (!iobref) {
             gf_log("rpcsvc", GF_LOG_WARNING, "Failed to create iobref");
             goto out;
         }
         new_iobref = 1;
     }
-
-    iobref_add(iobref, request_iob);
 
     req.msg.rpchdr = &rpchdr;
     req.msg.rpchdrcount = 1;
@@ -1530,15 +1526,13 @@ rpcsvc_submit_generic(rpcsvc_request_t *req, struct iovec *proghdr,
     }
 
     if (!iobref) {
-        iobref = iobref_new();
+        iobref = add_iobuf_to_new_iobref(replyiob);
         if (!iobref) {
             goto disconnect_exit;
         }
 
         new_iobref = 1;
     }
-
-    iobref_add(iobref, replyiob);
 
     /* cache the request in the duplicate request cache for appropriate ops */
     if ((req->reply) && (rpcsvc_need_drc(req))) {

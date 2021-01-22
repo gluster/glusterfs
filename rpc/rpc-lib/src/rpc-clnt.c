@@ -1634,16 +1634,6 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     memset(rpcreq, 0, sizeof(*rpcreq));
     memset(&req, 0, sizeof(req));
 
-    if (!iobref) {
-        iobref = iobref_new();
-        if (!iobref) {
-            ret = -1;
-            goto out;
-        }
-
-        new_iobref = 1;
-    }
-
     callid = GF_ATOMIC_INC(rpc->xid);
 
     rpcreq->prog = prog;
@@ -1665,7 +1655,15 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
         goto out;
     }
 
-    iobref_add(iobref, request_iob);
+    if (!iobref) {
+        iobref = add_iobuf_to_new_iobref(request_iob);
+        if (!iobref) {
+            ret = -1;
+            goto out;
+        }
+
+        new_iobref = 1;
+    }
 
     req.msg.rpchdr = &rpchdr;
     req.msg.rpchdrcount = 1;

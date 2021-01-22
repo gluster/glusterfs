@@ -72,16 +72,12 @@ ec_update_write(ec_fop_data_t *fop, uintptr_t mask, off_t offset, uint64_t size)
     struct iovec vector;
     int32_t err = -ENOMEM;
 
-    iobref = iobref_new();
-    if (iobref == NULL) {
-        goto out;
-    }
     iobuf = iobuf_get(fop->xl->ctx->iobuf_pool);
     if (iobuf == NULL) {
         goto out;
     }
-    err = iobref_add(iobref, iobuf);
-    if (err != 0) {
+    iobref = add_iobuf_to_new_iobref(iobuf);
+    if (iobref == NULL) {
         goto out;
     }
 

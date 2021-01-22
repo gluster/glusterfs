@@ -203,11 +203,6 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
 
-    iobref = iobref_new();
-    if (!iobref) {
-        goto out;
-    }
-
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
@@ -216,7 +211,10 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
             goto out;
         };
 
-        iobref_add(iobref, iobuf);
+        iobref = add_iobuf_to_new_iobref(iobuf);
+        if (!iobref) {
+            goto out;
+        }
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len = iobuf_pagesize(iobuf);

@@ -2344,9 +2344,7 @@ svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     vec.iov_base = iobuf->ptr;
     vec.iov_len = ret;
 
-    iobref = iobref_new();
-
-    iobref_add(iobref, iobuf);
+    iobref = add_iobuf_to_new_iobref(iobuf);
     glfs_iatt_from_statx(&stbuf, &fstatbuf);
     gf_uuid_copy(stbuf.ia_gfid, fd->inode->gfid);
     svs_fill_ino_from_gfid(&stbuf);

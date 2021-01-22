@@ -662,15 +662,8 @@ nfs3svc_submit_reply(rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc)
         goto ret;
     }
 
-    iobref = iobref_new();
-    if (!iobref) {
-        gf_msg(GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "failed on iobref_new()");
-        goto ret;
-    }
-
-    ret = iobref_add(iobref, iob);
-    if (ret) {
+    iobref = add_iobuf_to_new_iobref(iob);
+    if (iobref == NULL) {
         gf_msg(GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to add iob to iobref");
         goto ret;

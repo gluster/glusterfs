@@ -562,7 +562,7 @@ glusterd_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         };
 
         if (!iobref) {
-            iobref = iobref_new();
+            iobref = add_iobuf_to_new_iobref(iobuf);
             if (!iobref) {
                 gf_smsg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                         NULL);
@@ -571,8 +571,6 @@ glusterd_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
             new_iobref = 1;
         }
-
-        iobref_add(iobref, iobuf);
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len = iobuf_pagesize(iobuf);
@@ -667,23 +665,21 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
         goto out;
     }
 
-    if (!iobref) {
-        iobref = iobref_new();
-        if (!iobref) {
-            gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
-                   "out of memory");
-            goto out;
-        }
-
-        new_iobref = 1;
-    }
-
     iob = glusterd_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_SERIALIZE_MSG_FAIL,
                "Failed to serialize reply");
     } else {
-        iobref_add(iobref, iob);
+        if (!iobref) {
+            iobref = add_iobuf_to_new_iobref(iob);
+            if (!iobref) {
+                gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                       "out of memory");
+                goto out;
+            }
+
+            new_iobref = 1;
+        }
     }
 
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
@@ -6099,7 +6095,7 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY, NULL);
         goto free_iobref;
@@ -6112,7 +6108,6 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
         goto free_iobref;
     }
 
-    iobref_add(iobref, iobuf);
     /*
      * Drop our reference to the iobuf.  The iobref should already have
      * one after iobref_add, so when we unref that we'll free the iobuf as

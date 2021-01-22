@@ -168,14 +168,12 @@ posix_io_uring_readv_complete(struct posix_uring_ctx *ctx, int32_t res)
     op_ret = res;
     op_errno = 0;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto out;
     }
-
-    iobref_add(iobref, iobuf);
 
     iov.iov_base = iobuf_ptr(iobuf);
     iov.iov_len = op_ret;

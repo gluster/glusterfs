@@ -182,14 +182,6 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
 
     GF_ASSERT(frame->this);
 
-    iobref = iobref_new();
-    if (!iobref) {
-        gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM, SVS_MSG_NO_MEMORY,
-               "failed to allocate "
-               "new iobref");
-        goto out;
-    }
-
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
@@ -198,7 +190,13 @@ svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
             goto out;
         }
 
-        iobref_add(iobref, iobuf);
+        iobref = add_iobuf_to_new_iobref(iobuf);
+        if (!iobref) {
+            gf_msg(frame->this->name, GF_LOG_WARNING, ENOMEM, SVS_MSG_NO_MEMORY,
+                   "failed to allocate "
+                   "new iobref");
+            goto out;
+        }
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len = iobuf_pagesize(iobuf);

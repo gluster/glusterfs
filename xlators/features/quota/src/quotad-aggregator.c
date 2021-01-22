@@ -88,15 +88,6 @@ quotad_aggregator_submit_reply(call_frame_t *frame, rpcsvc_request_t *req,
         frame->local = NULL;
     }
 
-    if (!iobref) {
-        iobref = iobref_new();
-        if (!iobref) {
-            goto ret;
-        }
-
-        new_iobref = 1;
-    }
-
     iob = quotad_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
         gf_msg("", GF_LOG_ERROR, 0, Q_MSG_DICT_SERIALIZE_FAIL,
@@ -104,7 +95,14 @@ quotad_aggregator_submit_reply(call_frame_t *frame, rpcsvc_request_t *req,
         goto ret;
     }
 
-    iobref_add(iobref, iob);
+    if (!iobref) {
+        iobref = add_iobuf_to_new_iobref(iob);
+        if (!iobref) {
+            goto ret;
+        }
+
+        new_iobref = 1;
+    }
 
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
 

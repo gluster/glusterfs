@@ -768,6 +768,22 @@ iobref_new()
 }
 
 struct iobref *
+add_iobuf_to_new_iobref(struct iobuf *iobuf)
+{
+    struct iobref *iobref = NULL;
+
+    GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
+    iobref = iobref_new();
+    GF_VALIDATE_OR_GOTO("iobuf", iobref, out);
+    iobref->iobrefs[0] = iobuf;
+    iobref->used++;
+    GF_ATOMIC_INC(iobuf->ref);
+
+out:
+    return iobref;
+}
+
+struct iobref *
 iobref_ref(struct iobref *iobref)
 {
     GF_VALIDATE_OR_GOTO("iobuf", iobref, out);
@@ -1119,16 +1135,8 @@ iobuf_copy(struct iobuf_pool *iobuf_pool, const struct iovec *iovec_src,
         goto out;
     }
 
-    *iobref = iobref_new();
+    *iobref = add_iobuf_to_new_iobref(*iobuf);
     if (!(*iobref)) {
-        iobuf_unref(*iobuf);
-        errno = ENOMEM;
-        ret = -1;
-        goto out;
-    }
-
-    ret = iobref_add(*iobref, *iobuf);
-    if (ret) {
         iobuf_unref(*iobuf);
         iobref_unref(*iobref);
         errno = ENOMEM;

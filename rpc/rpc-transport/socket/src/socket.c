@@ -1606,15 +1606,13 @@ __socket_read_vectored_request(rpc_transport_t *this,
                 }
 
                 if (in->iobref == NULL) {
-                    in->iobref = iobref_new();
+                    in->iobref = add_iobuf_to_new_iobref(iobuf);
                     if (in->iobref == NULL) {
                         ret = -1;
                         iobuf_unref(iobuf);
                         break;
                     }
                 }
-
-                iobref_add(in->iobref, iobuf);
 
                 in->payload_vector.iov_base = iobuf_ptr(iobuf);
                 frag->fragcurrent = iobuf_ptr(iobuf);
@@ -1807,7 +1805,7 @@ __socket_read_accepted_successful_reply(rpc_transport_t *this)
                 }
 
                 if (in->iobref == NULL) {
-                    in->iobref = iobref_new();
+                    in->iobref = add_iobuf_to_new_iobref(iobuf);
                     if (in->iobref == NULL) {
                         ret = -1;
                         iobuf_unref(iobuf);
@@ -1815,11 +1813,7 @@ __socket_read_accepted_successful_reply(rpc_transport_t *this)
                     }
                 }
 
-                ret = iobref_add(in->iobref, iobuf);
                 iobuf_unref(iobuf);
-                if (ret < 0) {
-                    goto out;
-                }
 
                 in->payload_vector.iov_base = iobuf_ptr(iobuf);
                 in->payload_vector.iov_len = size;
@@ -1937,7 +1931,7 @@ __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
                 }
 
                 if (in->iobref == NULL) {
-                    in->iobref = iobref_new();
+                    in->iobref = add_iobuf_to_new_iobref(iobuf);
                     if (in->iobref == NULL) {
                         ret = -1;
                         iobuf_unref(iobuf);
@@ -1945,11 +1939,7 @@ __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
                     }
                 }
 
-                ret = iobref_add(in->iobref, iobuf);
                 iobuf_unref(iobuf);
-                if (ret < 0) {
-                    goto out;
-                }
 
                 in->payload_vector.iov_base = iobuf_ptr(iobuf);
                 in->payload_vector.iov_len = size;

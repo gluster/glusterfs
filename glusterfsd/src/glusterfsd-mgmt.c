@@ -235,21 +235,18 @@ glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
         goto out;
     }
 
-    if (!iobref) {
-        iobref = iobref_new();
-        if (!iobref) {
-            gf_log(THIS->name, GF_LOG_ERROR, "out of memory");
-            goto out;
-        }
-
-        new_iobref = 1;
-    }
-
     iob = glusterfs_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
         gf_log_callingfn(THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
     } else {
-        iobref_add(iobref, iob);
+        if (!iobref) {
+            iobref = add_iobuf_to_new_iobref(iob);
+            if (!iobref) {
+                gf_log(THIS->name, GF_LOG_ERROR, "out of memory");
+                goto out;
+            }
+            new_iobref = 1;
+        }
     }
 
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
@@ -2087,11 +2084,6 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
 
-    iobref = iobref_new();
-    if (!iobref) {
-        goto out;
-    }
-
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
@@ -2100,7 +2092,10 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
             goto out;
         };
 
-        iobref_add(iobref, iobuf);
+        iobref = add_iobuf_to_new_iobref(iobuf);
+        if (!iobref) {
+            goto out;
+        }
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len = iobuf_pagesize(iobuf);
