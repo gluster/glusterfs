@@ -120,6 +120,8 @@ changelog_rpc_sumbit_req(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
             }
 
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iobuf);
         }
 
         iov.iov_base = iobuf->ptr;
@@ -237,6 +239,8 @@ changelog_rpc_sumbit_reply(rpcsvc_request_t *req, void *arg,
             if (!iobref)
                 goto return_ret;
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iob);
         }
     }
     ret = rpcsvc_submit_generic(req, &iov, 1, payload, payloadcount, iobref);

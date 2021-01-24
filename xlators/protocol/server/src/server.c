@@ -111,6 +111,8 @@ server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         }
 
         new_iobref = 1;
+    } else {
+        iobref_add(iobref, iob);
     }
 
     /* Then, submit the message for transmission. */

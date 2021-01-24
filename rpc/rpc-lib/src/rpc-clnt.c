@@ -1663,6 +1663,8 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
         }
 
         new_iobref = 1;
+    } else {
+        iobref_add(iobref, request_iob);
     }
 
     req.msg.rpchdr = &rpchdr;

@@ -570,6 +570,8 @@ glusterd_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
             }
 
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iobuf);
         }
 
         iov.iov_base = iobuf->ptr;
@@ -679,6 +681,8 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
             }
 
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iob);
         }
     }
 

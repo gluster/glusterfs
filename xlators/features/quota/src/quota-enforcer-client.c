@@ -76,6 +76,8 @@ quota_enforcer_submit_request(void *req, call_frame_t *frame,
             }
 
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iobuf);
         }
 
         iov.iov_base = iobuf->ptr;

@@ -102,6 +102,8 @@ quotad_aggregator_submit_reply(call_frame_t *frame, rpcsvc_request_t *req,
         }
 
         new_iobref = 1;
+    } else {
+        iobref_add(iobref, iob);
     }
 
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);

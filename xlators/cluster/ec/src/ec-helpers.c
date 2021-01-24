@@ -146,13 +146,20 @@ ec_buffer_alloc(xlator_t *xl, size_t size, struct iobref **piobref, void **ptr)
     }
 
     iobref = *piobref;
-    iobref = add_iobuf_to_new_iobref(iobuf);
-    if (iobref != NULL) {
-        if (iobref != *piobref) {
-            iobref_unref(iobref);
+    if (iobref == NULL) {
+        iobref = add_iobuf_to_new_iobref(iobuf);
+        if (iobref == NULL) {
+            goto out;
         }
-        iobref = NULL;
-        goto out;
+    } else {
+        ret = iobref_add(iobref, iobuf);
+        if (ret != 0) {
+            if (iobref != *piobref) {
+                iobref_unref(iobref);
+            }
+            iobref = NULL;
+            goto out;
+        }
     }
 
     GF_ASSERT(EC_ALIGN_CHECK(iobuf->ptr, EC_METHOD_WORD_SIZE));

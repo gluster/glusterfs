@@ -40,6 +40,8 @@ cli_quotad_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
             }
 
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iobuf);
         }
 
         iov.iov_base = iobuf->ptr;

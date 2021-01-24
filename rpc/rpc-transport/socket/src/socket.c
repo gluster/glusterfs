@@ -1612,6 +1612,8 @@ __socket_read_vectored_request(rpc_transport_t *this,
                         iobuf_unref(iobuf);
                         break;
                     }
+                } else {
+                    iobref_add(in->iobref, iobuf);
                 }
 
                 in->payload_vector.iov_base = iobuf_ptr(iobuf);

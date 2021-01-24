@@ -246,6 +246,8 @@ glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
                 goto out;
             }
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iob);
         }
     }
 
