@@ -165,61 +165,6 @@ out:
     return 0;
 }
 
-int
-dht_linkfile_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno,
-                        struct iatt *preparent, struct iatt *postparent,
-                        dict_t *xdata)
-{
-    dht_local_t *local = NULL;
-    xlator_t *subvol = NULL;
-    char gfid[GF_UUID_BUF_SIZE] = {0};
-
-    local = frame->local;
-    subvol = cookie;
-
-    if (op_ret == -1) {
-        gf_uuid_unparse(local->loc.gfid, gfid);
-        gf_smsg(this->name, GF_LOG_INFO, op_errno, DHT_MSG_UNLINK_FAILED,
-                "path=%s", local->loc.path, "gfid=%s", gfid, "subvolume=%s",
-                subvol->name, NULL);
-    }
-
-    DHT_STACK_DESTROY(frame);
-
-    return 0;
-}
-
-int
-dht_linkfile_unlink(call_frame_t *frame, xlator_t *this, xlator_t *subvol,
-                    loc_t *loc)
-{
-    call_frame_t *unlink_frame = NULL;
-    dht_local_t *unlink_local = NULL;
-
-    unlink_frame = copy_frame(frame);
-    if (!unlink_frame) {
-        goto err;
-    }
-
-    /* Using non-fop value here, as anyways, 'local->fop' is not used in
-       this particular case */
-    unlink_local = dht_local_init(unlink_frame, loc, NULL, GF_FOP_MAXVALUE);
-    if (!unlink_local) {
-        goto err;
-    }
-
-    STACK_WIND_COOKIE(unlink_frame, dht_linkfile_unlink_cbk, subvol, subvol,
-                      subvol->fops->unlink, &unlink_local->loc, 0, NULL);
-
-    return 0;
-err:
-    if (unlink_frame)
-        DHT_STACK_DESTROY(unlink_frame);
-
-    return -1;
-}
-
 xlator_t *
 dht_linkfile_subvol(xlator_t *this, inode_t *inode, struct iatt *stbuf,
                     dict_t *xattr)
