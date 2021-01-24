@@ -784,9 +784,6 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 xlator_t *
 dht_linkfile_subvol(xlator_t *this, inode_t *inode, struct iatt *buf,
                     dict_t *xattr);
-int
-dht_linkfile_unlink(call_frame_t *frame, xlator_t *this, xlator_t *subvol,
-                    loc_t *loc);
 
 int
 dht_layouts_init(xlator_t *this, dht_conf_t *conf);
