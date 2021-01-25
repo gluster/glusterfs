@@ -36,7 +36,6 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     char *eventstr = NULL;
     va_list arguments;
     char *msg = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     char *host = NULL;
     struct addrinfo hints;
     struct addrinfo *result = NULL;
@@ -44,27 +43,24 @@ _gf_event(eventtypes_t event, const char *fmt, ...)
     xlator_t *this = THIS;
     char *volfile_server_transport = NULL;
 
-    /* Global context */
-    ctx = this->ctx;
-
     if (event < 0 || event >= EVENT_LAST) {
         ret = EVENT_ERROR_INVALID_INPUTS;
         goto out;
     }
 
-    if (ctx) {
-        volfile_server_transport = ctx->cmd_args.volfile_server_transport;
+    if (global_ctx) {
+        volfile_server_transport = global_ctx->cmd_args.volfile_server_transport;
     }
     if (!volfile_server_transport) {
         volfile_server_transport = "tcp";
     }
 
     /* host = NULL returns localhost */
-    if (ctx && ctx->cmd_args.volfile_server &&
+    if (global_ctx && global_ctx->cmd_args.volfile_server &&
         (strcmp(volfile_server_transport, "unix"))) {
         /* If it is client code then volfile_server is set
            use that information to push the events. */
-        host = ctx->cmd_args.volfile_server;
+        host = global_ctx->cmd_args.volfile_server;
     }
 
     memset(&hints, 0, sizeof(hints));

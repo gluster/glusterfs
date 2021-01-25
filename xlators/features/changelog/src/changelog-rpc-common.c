@@ -28,7 +28,7 @@ changelog_rpc_poller(void *arg)
 {
     xlator_t *this = arg;
 
-    (void)gf_event_dispatch(this->ctx->event_pool);
+    (void)gf_event_dispatch(global_ctx->event_pool);
     return NULL;
 }
 
@@ -108,7 +108,7 @@ changelog_rpc_sumbit_req(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         };
@@ -162,7 +162,7 @@ changelog_invoke_rpc(xlator_t *this, struct rpc_clnt *rpc,
     if (!this || !prog)
         goto error_return;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_CREATE_FRAME_FAILED,
                 NULL);
@@ -314,7 +314,7 @@ changelog_rpc_server_init(xlator_t *this, char *sockfile, void *cbkdata,
     if (ret)
         goto dealloc_dict;
 
-    rpc = rpcsvc_init(this, this->ctx, options, 8);
+    rpc = rpcsvc_init(this, global_ctx, options, 8);
     if (rpc == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_START_ERROR,
                 NULL);

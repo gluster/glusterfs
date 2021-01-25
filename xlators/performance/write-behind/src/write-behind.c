@@ -1142,7 +1142,7 @@ wb_fulfill_head(wb_inode_t *wb_inode, wb_request_t *head)
             goto err;
     }
 
-    frame = create_frame(wb_inode->this, wb_inode->this->ctx->pool);
+    frame = create_frame(wb_inode->this, global_ctx->pool);
     if (!frame)
         goto err;
 
@@ -1324,7 +1324,7 @@ __wb_collapse_small_writes(wb_conf_t *conf, wb_request_t *holder,
         req_len = iov_length(req->stub->args.vector, req->stub->args.count);
 
         required_size = max((conf->page_size), (holder_len + req_len));
-        iobuf = iobuf_get2(req->wb_inode->this->ctx->iobuf_pool, required_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, required_size);
         if (iobuf == NULL) {
             goto out;
         }

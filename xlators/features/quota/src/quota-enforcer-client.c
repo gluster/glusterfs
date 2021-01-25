@@ -64,7 +64,7 @@ quota_enforcer_submit_request(void *req, call_frame_t *frame,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         }
@@ -210,7 +210,7 @@ out:
 
             retry_delay.tv_sec = 5;
             retry_delay.tv_nsec = 0;
-            timer = gf_timer_call_after(this->ctx, retry_delay,
+            timer = gf_timer_call_after(global_ctx, retry_delay,
                                         _quota_enforcer_lookup, (void *)frame);
             if (timer == NULL) {
                 gf_log(this->name, GF_LOG_WARNING,

@@ -54,7 +54,7 @@ cli_cmd_getspec_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GETSPEC];
     if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame) {
             ret = -1;
             goto out;
@@ -99,7 +99,7 @@ cli_cmd_pmap_b2p_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PMAP_PORTBYBRICK];
     if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame) {
             ret = -1;
             goto out;
@@ -138,7 +138,7 @@ cli_cmd_fsm_log_cbk(struct cli_state *state, struct cli_cmd_word *word,
         name = (char *)words[3];
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_FSM_LOG];
     if (proc && proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame)
             goto out;
         ret = proc->fn(frame, THIS, (void *)name);
@@ -162,7 +162,7 @@ cli_cmd_getwd_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GETWD];
     if (proc && proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame)
             goto out;
         ret = proc->fn(frame, THIS, NULL);
@@ -222,7 +222,7 @@ cli_cmd_mount_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_MOUNT];
     if (proc && proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame)
             goto out;
         ret = proc->fn(frame, THIS, dataa);
@@ -266,7 +266,7 @@ cli_cmd_umount_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_UMOUNT];
     if (proc && proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame) {
             gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
             ret = -1;
@@ -306,7 +306,7 @@ cli_cmd_uuid_get_cbk(struct cli_state *state, struct cli_cmd_word *word,
     }
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_UUID_GET];
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -360,7 +360,7 @@ cli_cmd_uuid_reset_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_UUID_RESET];
 
     this = THIS;
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -514,7 +514,7 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYS_EXEC];
     if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame) {
             gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
             ret = -1;
@@ -575,7 +575,7 @@ cli_cmd_copy_file_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_COPY_FILE];
     if (proc && proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame) {
             gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
             ret = -1;

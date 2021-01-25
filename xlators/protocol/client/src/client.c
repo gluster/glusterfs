@@ -92,13 +92,12 @@ int
 client_notify_dispatch_uniq(xlator_t *this, int32_t event, void *data, ...)
 {
     clnt_conf_t *conf = this->private;
-    glusterfs_ctx_t *ctx = this->ctx;
     glusterfs_graph_t *graph = this->graph;
 
-    pthread_mutex_lock(&ctx->notify_lock);
+    pthread_mutex_lock(&global_ctx->notify_lock);
     {
-        while (ctx->notifying)
-            pthread_cond_wait(&ctx->notify_cond, &ctx->notify_lock);
+        while (global_ctx->notifying)
+            pthread_cond_wait(&global_ctx->notify_cond, &global_ctx->notify_lock);
 
         if (client_is_last_child_down(this, event, data) && graph) {
             pthread_mutex_lock(&graph->mutex);
@@ -112,7 +111,7 @@ client_notify_dispatch_uniq(xlator_t *this, int32_t event, void *data, ...)
             pthread_mutex_unlock(&graph->mutex);
         }
     }
-    pthread_mutex_unlock(&ctx->notify_lock);
+    pthread_mutex_unlock(&global_ctx->notify_lock);
 
     if (conf->last_sent_event == event)
         return 0;
@@ -129,17 +128,16 @@ int
 client_notify_dispatch(xlator_t *this, int32_t event, void *data, ...)
 {
     int ret = -1;
-    glusterfs_ctx_t *ctx = this->ctx;
 
     clnt_conf_t *conf = this->private;
 
-    pthread_mutex_lock(&ctx->notify_lock);
+    pthread_mutex_lock(&global_ctx->notify_lock);
     {
-        while (ctx->notifying)
-            pthread_cond_wait(&ctx->notify_cond, &ctx->notify_lock);
-        ctx->notifying = 1;
+        while (global_ctx->notifying)
+            pthread_cond_wait(&global_ctx->notify_cond, &global_ctx->notify_lock);
+        global_ctx->notifying = 1;
     }
-    pthread_mutex_unlock(&ctx->notify_lock);
+    pthread_mutex_unlock(&global_ctx->notify_lock);
 
     /* We assume that all translators in the graph handle notification
      * events in sequence.
@@ -154,12 +152,12 @@ client_notify_dispatch(xlator_t *this, int32_t event, void *data, ...)
      */
     conf->last_sent_event = event;
 
-    pthread_mutex_lock(&ctx->notify_lock);
+    pthread_mutex_lock(&global_ctx->notify_lock);
     {
-        ctx->notifying = 0;
-        pthread_cond_signal(&ctx->notify_cond);
+        global_ctx->notifying = 0;
+        pthread_cond_signal(&global_ctx->notify_cond);
     }
-    pthread_mutex_unlock(&ctx->notify_lock);
+    pthread_mutex_unlock(&global_ctx->notify_lock);
 
     /* Please avoid any code that access xlator object here
      * Because for a child down event, once we do the signal
@@ -208,7 +206,7 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
 
     if (req && xdrproc) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         }
@@ -2369,14 +2367,14 @@ client_check_remote_host(xlator_t *this, dict_t *options)
         gf_smsg(this->name, GF_LOG_INFO, EINVAL, PC_MSG_REMOTE_HOST_NOT_SET,
                 NULL);
 
-        if (!this->ctx->cmd_args.volfile_server) {
+        if (!global_ctx->cmd_args.volfile_server) {
             gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_NOREMOTE_HOST,
                     NULL);
             goto out;
         }
 
         ret = dict_set_str_sizen(options, "remote-host",
-                                 this->ctx->cmd_args.volfile_server);
+                                 global_ctx->cmd_args.volfile_server);
         if (ret == -1) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_REMOTE_HOST_SET_FAILED,
                     NULL);
@@ -2517,7 +2515,7 @@ client_check_event_threads(xlator_t *this, clnt_conf_t *conf, int32_t old,
         return 0;
 
     conf->event_threads = new;
-    return gf_event_reconfigure_threads(this->ctx->event_pool,
+    return gf_event_reconfigure_threads(global_ctx->event_pool,
                                         conf->event_threads);
 }
 

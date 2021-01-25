@@ -307,7 +307,7 @@ ec_method_init(xlator_t *xl, ec_matrix_list_t *list, uint32_t columns,
     INIT_LIST_HEAD(&list->lru);
     int32_t err;
 
-    list->pool = mem_pool_new_fn(xl->ctx,
+    list->pool = mem_pool_new_fn(global_ctx,
                                  sizeof(ec_matrix_t) +
                                      sizeof(ec_matrix_row_t) * columns +
                                      sizeof(uint32_t) * columns * columns,

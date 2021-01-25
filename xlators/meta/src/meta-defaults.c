@@ -129,7 +129,7 @@ meta_default_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (!meta_fd->size)
         meta_file_fill(this, fd);
 
-    iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, size);
     if (!iobuf)
         return default_readv_failure_cbk(frame, ENOMEM);
 

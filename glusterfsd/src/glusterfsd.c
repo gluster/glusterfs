@@ -578,7 +578,6 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    root->ctx = ctx;
     root->options = dict_new();
     if (!root->options)
         goto err;
@@ -637,14 +636,10 @@ get_volfp(glusterfs_ctx_t *ctx)
 static int
 gf_remember_backup_volfile_server(char *arg)
 {
-    glusterfs_ctx_t *ctx = NULL;
     cmd_args_t *cmd_args = NULL;
     int ret = -1;
 
-    ctx = glusterfsd_ctx;
-    if (!ctx)
-        goto out;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args)
         goto out;
@@ -662,15 +657,13 @@ out:
 static int
 gf_remember_xlator_option(char *arg)
 {
-    glusterfs_ctx_t *ctx = NULL;
     cmd_args_t *cmd_args = NULL;
     xlator_cmdline_option_t *option = NULL;
     int ret = -1;
     char *dot = NULL;
     char *equals = NULL;
 
-    ctx = glusterfsd_ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     option = GF_CALLOC(1, sizeof(xlator_cmdline_option_t),
                        gfd_mt_xlator_cmdline_option_t);
@@ -1401,15 +1394,12 @@ should_call_fini(glusterfs_ctx_t *ctx, xlator_t *trav)
 void
 cleanup_and_exit(int signum)
 {
-    glusterfs_ctx_t *ctx = NULL;
     xlator_t *trav = NULL;
     xlator_t *top;
     xlator_t *victim;
     xlator_list_t **trav_p;
 
-    ctx = glusterfsd_ctx;
-
-    if (!ctx)
+    if (!global_ctx)
         return;
 
     /* To take or not to take the mutex here and in the other
@@ -1427,28 +1417,28 @@ cleanup_and_exit(int signum)
      * cascade of SIGSEGVs and other re-entrancy issues.
      */
 
-    gf_log_disable_suppression_before_exit(ctx);
+    gf_log_disable_suppression_before_exit(global_ctx);
 
     gf_msg_callingfn("", GF_LOG_WARNING, 0, glusterfsd_msg_32,
                      "received signum (%d), shutting down", signum);
 
-    if (ctx->cleanup_started)
+    if (global_ctx->cleanup_started)
         return;
-    pthread_mutex_lock(&ctx->cleanup_lock);
+    pthread_mutex_lock(&global_ctx->cleanup_lock);
     {
-        ctx->cleanup_started = 1;
+        global_ctx->cleanup_started = 1;
 
         /* signout should be sent to all the bricks in case brick mux is enabled
          * and multiple brick instances are attached to this process
          */
-        if (ctx->active) {
-            top = ctx->active->first;
+        if (global_ctx->active) {
+            top = global_ctx->active->first;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 victim = (*trav_p)->xlator;
-                rpc_clnt_mgmt_pmap_signout(ctx, victim->name);
+                rpc_clnt_mgmt_pmap_signout(global_ctx, victim->name);
             }
         } else {
-            rpc_clnt_mgmt_pmap_signout(ctx, NULL);
+            rpc_clnt_mgmt_pmap_signout(global_ctx, NULL);
         }
 
         /* below part is a racy code where the rpcsvc object is freed.
@@ -1465,13 +1455,13 @@ cleanup_and_exit(int signum)
         /* Call fini() of FUSE xlator first:
          * so there are no more requests coming and
          * 'umount' of mount point is done properly */
-        trav = ctx->root;
+        trav = global_ctx->root;
         if (trav && trav->fini) {
             THIS = trav;
             trav->fini(trav);
         }
 
-        glusterfs_pidfile_cleanup(ctx);
+        glusterfs_pidfile_cleanup(global_ctx);
 
 #if 0
         /* TODO: Properly do cleanup_and_exit(), with synchronization */
@@ -1503,17 +1493,15 @@ static void
 reincarnate(int signum)
 {
     int ret = 0;
-    glusterfs_ctx_t *ctx = NULL;
     cmd_args_t *cmd_args = NULL;
 
-    ctx = glusterfsd_ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     gf_msg_trace("gluster", 0, "received reincarnate request (sig:HUP)");
 
     if (cmd_args->volfile_server) {
         gf_smsg("glusterfsd", GF_LOG_INFO, 0, glusterfsd_msg_11, NULL);
-        ret = glusterfs_volfile_fetch(ctx);
+        ret = glusterfs_volfile_fetch(global_ctx);
     }
 
     /* Also, SIGHUP should do logrotate */
@@ -2606,8 +2594,6 @@ main(int argc, char *argv[])
     ret = glusterfs_globals_init(ctx);
     if (ret)
         return ret;
-
-    THIS->ctx = ctx;
 
     ret = glusterfs_ctx_defaults_init(ctx);
     if (ret)

@@ -568,7 +568,7 @@ __afr_selfheal_data_finalize_source(
                      "client-pid=%d;"
                      "subvol=%s;type=data;"
                      "file=%s",
-                     this->ctx->cmd_args.client_pid, this->name,
+                     global_ctx->cmd_args.client_pid, this->name,
                      uuid_utoa(inode->gfid));
             return -EIO;
         }

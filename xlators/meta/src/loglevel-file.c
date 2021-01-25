@@ -18,7 +18,7 @@
 static int
 loglevel_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)
 {
-    strprintf(strfd, "%d\n", this->ctx->log.loglevel);
+    strprintf(strfd, "%d\n", global_ctx->log.loglevel);
 
     return strfd->size;
 }
@@ -30,7 +30,7 @@ loglevel_file_write(xlator_t *this, fd_t *fd, struct iovec *iov, int count)
 
     level = strtol(iov[0].iov_base, NULL, 0);
     if (level >= GF_LOG_NONE && level <= GF_LOG_TRACE)
-        gf_log_set_loglevel(this->ctx, level);
+        gf_log_set_loglevel(global_ctx, level);
 
     return iov_length(iov, count);
 }

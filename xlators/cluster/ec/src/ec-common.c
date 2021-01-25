@@ -1990,7 +1990,7 @@ ec_lock_timer_cancel(xlator_t *xl, ec_lock_t *lock)
     timer_link = lock->timer->data;
     GF_ASSERT(timer_link != NULL);
 
-    if (gf_timer_call_cancel(xl->ctx, lock->timer) < 0) {
+    if (gf_timer_call_cancel(global_ctx, lock->timer) < 0) {
         /* It's too late to avoid the execution of the timer callback.
          * Since we need to be sure that the callback has access to all
          * needed resources, we cannot resume the execution of the
@@ -2641,7 +2641,7 @@ ec_unlock_timer_del(ec_lock_link_t *link)
                   list_empty(&lock->owners) && list_empty(&lock->waiting) &&
                   list_empty(&lock->frozen));
 
-        gf_timer_call_cancel(link->fop->xl->ctx, lock->timer);
+        gf_timer_call_cancel(global_ctx, lock->timer);
         lock->timer = NULL;
 
         /* Any fop being processed from now on, will need to wait
@@ -2726,7 +2726,7 @@ ec_lock_delay_create(ec_lock_link_t *link)
 
     delay.tv_sec = ec_eager_lock_timeout(fop->xl->private, lock);
     delay.tv_nsec = 0;
-    lock->timer = gf_timer_call_after(fop->xl->ctx, delay, ec_unlock_timer_cbk,
+    lock->timer = gf_timer_call_after(global_ctx, delay, ec_unlock_timer_cbk,
                                       link);
     if (lock->timer == NULL) {
         gf_msg(fop->xl->name, GF_LOG_WARNING, ENOMEM,

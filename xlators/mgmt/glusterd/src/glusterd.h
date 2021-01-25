@@ -769,18 +769,18 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
     } while (0)
 
 #define RCU_READ_LOCK                                                          \
-    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
+    pthread_mutex_lock(&(global_ctx)->cleanup_lock);                            \
     {                                                                          \
         rcu_read_lock();                                                       \
     }                                                                          \
-    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+    pthread_mutex_unlock(&(global_ctx)->cleanup_lock);
 
 #define RCU_READ_UNLOCK                                                        \
-    pthread_mutex_lock(&(THIS->ctx)->cleanup_lock);                            \
+    pthread_mutex_lock(&(global_ctx)->cleanup_lock);                            \
     {                                                                          \
         rcu_read_unlock();                                                     \
     }                                                                          \
-    pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
+    pthread_mutex_unlock(&(global_ctx)->cleanup_lock);
 
 #define GLUSTERD_DUMP_PEERS(head, member, xpeers)                              \
     do {                                                                       \

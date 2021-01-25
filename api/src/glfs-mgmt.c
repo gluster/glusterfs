@@ -41,9 +41,7 @@ glfs_process_volfp(struct glfs *fs, FILE *fp)
     glusterfs_graph_t *graph = NULL;
     int ret = -1;
     xlator_t *trav = NULL;
-    glusterfs_ctx_t *ctx = NULL;
 
-    ctx = fs->ctx;
     graph = glusterfs_graph_construct(fp);
     if (!graph) {
         gf_smsg("glfs", GF_LOG_ERROR, errno, API_MSG_GRAPH_CONSTRUCT_FAILED,
@@ -59,13 +57,13 @@ glfs_process_volfp(struct glfs *fs, FILE *fp)
         }
     }
 
-    ret = glusterfs_graph_prepare(graph, ctx, fs->volname);
+    ret = glusterfs_graph_prepare(graph, global_ctx, fs->volname);
     if (ret) {
         glusterfs_graph_destroy(graph);
         goto out;
     }
 
-    ret = glusterfs_graph_activate(graph, ctx);
+    ret = glusterfs_graph_activate(graph, global_ctx);
 
     if (ret) {
         glusterfs_graph_destroy(graph);
@@ -79,7 +77,7 @@ out:
     if (fp)
         fclose(fp);
 
-    if (!ctx->active) {
+    if (!global_ctx->active) {
         ret = -1;
     }
 
@@ -259,23 +257,13 @@ mgmt_get_volinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     call_frame_t *frame = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     struct glfs *fs = NULL;
     struct syncargs *args;
 
     frame = myframe;
-    ctx = frame->this->ctx;
     args = frame->local;
 
-    if (!ctx) {
-        gf_smsg(frame->this->name, GF_LOG_ERROR, EINVAL, API_MSG_NULL,
-                "context", NULL);
-        errno = EINVAL;
-        ret = -1;
-        goto out;
-    }
-
-    fs = ((xlator_t *)ctx->root)->private;
+    fs = ((xlator_t *)global_ctx->root)->private;
 
     if (-1 == req->rpc_status) {
         gf_smsg(frame->this->name, GF_LOG_ERROR, EINVAL,
@@ -423,14 +411,12 @@ int
 glfs_get_volume_info(struct glfs *fs)
 {
     call_frame_t *frame = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     struct syncargs args = {
         0,
     };
     int ret = 0;
 
-    ctx = fs->ctx;
-    frame = create_frame(THIS, ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         gf_smsg("glfs", GF_LOG_ERROR, ENOMEM, API_MSG_FRAME_CREAT_FAILED, NULL);
         ret = -1;
@@ -461,7 +447,6 @@ glfs_get_volume_info_rpc(call_frame_t *frame, xlator_t *this, struct glfs *fs)
         0,
     }};
     int ret = 0;
-    glusterfs_ctx_t *ctx = NULL;
     dict_t *dict = NULL;
     int32_t flags = 0;
 
@@ -469,8 +454,6 @@ glfs_get_volume_info_rpc(call_frame_t *frame, xlator_t *this, struct glfs *fs)
         ret = -1;
         goto out;
     }
-
-    ctx = fs->ctx;
 
     dict = dict_new();
     if (!dict) {
@@ -496,7 +479,7 @@ glfs_get_volume_info_rpc(call_frame_t *frame, xlator_t *this, struct glfs *fs)
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
 
-    ret = mgmt_submit_request(&req, frame, ctx, &clnt_handshake_prog,
+    ret = mgmt_submit_request(&req, frame, global_ctx, &clnt_handshake_prog,
                               GF_HNDSK_GET_VOLUME_INFO, mgmt_get_volinfo_cbk,
                               (xdrproc_t)xdr_gf_get_volume_info_req);
 out:
@@ -544,7 +527,6 @@ glfs_mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     call_frame_t *frame = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int ret = 0;
     ssize_t size = 0;
     FILE *tmpfp = NULL;
@@ -556,17 +538,7 @@ glfs_mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char template[] = "/tmp/gfapi.volfile.XXXXXX";
 
     frame = myframe;
-    ctx = frame->this->ctx;
-
-    if (!ctx) {
-        gf_smsg(frame->this->name, GF_LOG_ERROR, EINVAL, API_MSG_NULL,
-                "context", NULL);
-        errno = EINVAL;
-        ret = -1;
-        goto out;
-    }
-
-    fs = ((xlator_t *)ctx->root)->private;
+    fs = ((xlator_t *)global_ctx->root)->private;
 
     if (-1 == req->rpc_status) {
         ret = -1;
@@ -618,7 +590,7 @@ glfs_mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gf_log(frame->this->name, GF_LOG_INFO,
            "Received list of available volfile servers: %s", servers_list);
 
-    ret = gf_process_getspec_servers_list(&ctx->cmd_args, servers_list);
+    ret = gf_process_getspec_servers_list(&global_ctx->cmd_args, servers_list);
     if (ret) {
         gf_log(frame->this->name, GF_LOG_ERROR,
                "Failed (%s) to process servers list: %s", strerror(errno),
@@ -678,7 +650,7 @@ volfile:
      */
 
     pthread_mutex_lock(&fs->mutex);
-    ret = gf_volfile_reconfigure(fs->oldvollen, tmpfp, fs->ctx, fs->oldvolfile);
+    ret = gf_volfile_reconfigure(fs->oldvollen, tmpfp, global_ctx, fs->oldvolfile);
     pthread_mutex_unlock(&fs->mutex);
 
     if (ret == 0) {
@@ -718,12 +690,12 @@ out:
         glfs_init_done(fs, -1);
     }
 
-    if (ret && ctx && !ctx->active) {
+    if (ret && global_ctx && !global_ctx->active) {
         /* Do it only for the first time */
         /* Failed to get the volume file, something wrong,
            restart the process */
         gf_smsg("glfs-mgmt", GF_LOG_ERROR, EINVAL, API_MSG_GET_VOLFILE_FAILED,
-                "key=%s", ctx->cmd_args.volfile_id, NULL);
+                "key=%s", global_ctx->cmd_args.volfile_id, NULL);
         if (!need_retry) {
             if (!errno)
                 errno = EINVAL;
@@ -748,11 +720,9 @@ glfs_volfile_fetch(struct glfs *fs)
     };
     int ret = -1;
     call_frame_t *frame = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     dict_t *dict = NULL;
 
-    ctx = fs->ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     req.key = cmd_args->volfile_id;
     req.flags = 0;
@@ -779,7 +749,7 @@ glfs_volfile_fetch(struct glfs *fs)
     }
 
     /* Ask for a list of volfile (glusterd2 only) servers */
-    if (GF_CLIENT_PROCESS == ctx->process_mode) {
+    if (GF_CLIENT_PROCESS == global_ctx->process_mode) {
         req.flags = req.flags | GF_GETSPEC_FLAG_SERVERS_LIST;
     }
 
@@ -791,13 +761,13 @@ glfs_volfile_fetch(struct glfs *fs)
         goto out;
     }
 
-    frame = create_frame(THIS, ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
     }
 
-    ret = mgmt_submit_request(&req, frame, ctx, &clnt_handshake_prog,
+    ret = mgmt_submit_request(&req, frame, global_ctx, &clnt_handshake_prog,
                               GF_HNDSK_GETSPEC, glfs_mgmt_getspec_cbk,
                               (xdrproc_t)xdr_gf_getspec_req);
 out:
@@ -813,34 +783,27 @@ static int
 mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 void *data)
 {
-    xlator_t *this = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     server_cmdline_t *server = NULL;
     rpc_transport_t *rpc_trans = NULL;
     struct glfs *fs = NULL;
     int ret = 0;
     struct dnscache6 *dnscache = NULL;
 
-    this = mydata;
     rpc_trans = rpc->conn.trans;
 
-    ctx = this->ctx;
-    if (!ctx)
-        goto out;
-
-    fs = ((xlator_t *)ctx->root)->private;
+    fs = ((xlator_t *)global_ctx->root)->private;
 
     switch (event) {
         case RPC_CLNT_DISCONNECT:
-            if (!ctx->active) {
+            if (!global_ctx->active) {
                 if (rpc_trans->connect_failed)
                     gf_smsg("glfs-mgmt", GF_LOG_ERROR, 0,
                             API_MSG_REMOTE_HOST_CONN_FAILED, "server=%s",
-                            ctx->cmd_args.volfile_server, NULL);
+                            global_ctx->cmd_args.volfile_server, NULL);
                 else
                     gf_smsg("glfs-mgmt", GF_LOG_INFO, 0,
                             API_MSG_REMOTE_HOST_CONN_FAILED, "server=%s",
-                            ctx->cmd_args.volfile_server, NULL);
+                            global_ctx->cmd_args.volfile_server, NULL);
 
                 if (!rpc->disabled) {
                     /*
@@ -852,8 +815,8 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         break;
                     }
                 }
-                server = ctx->cmd_args.curr_server;
-                if (server->list.next == &ctx->cmd_args.volfile_servers) {
+                server = global_ctx->cmd_args.curr_server;
+                if (server->list.next == &global_ctx->cmd_args.volfile_servers) {
                     errno = ENOTCONN;
                     gf_smsg("glfs-mgmt", GF_LOG_INFO, ENOTCONN,
                             API_MSG_VOLFILE_SERVER_EXHAUST, NULL);
@@ -861,10 +824,10 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                     break;
                 }
                 server = list_entry(server->list.next, typeof(*server), list);
-                ctx->cmd_args.curr_server = server;
-                ctx->cmd_args.volfile_server_port = server->port;
-                ctx->cmd_args.volfile_server = server->volfile_server;
-                ctx->cmd_args.volfile_server_transport = server->transport;
+                global_ctx->cmd_args.curr_server = server;
+                global_ctx->cmd_args.volfile_server_port = server->port;
+                global_ctx->cmd_args.volfile_server = server->volfile_server;
+                global_ctx->cmd_args.volfile_server_transport = server->transport;
 
                 ret = dict_set_str(rpc_trans->options, "transport-type",
                                    server->transport);
@@ -933,12 +896,12 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             break;
         case RPC_CLNT_CONNECT:
             ret = glfs_volfile_fetch(fs);
-            if (ret && (ctx->active == NULL)) {
+            if (ret && (global_ctx->active == NULL)) {
                 /* Do it only for the first time */
                 /* Exit the process.. there are some wrong options */
                 gf_smsg("glfs-mgmt", GF_LOG_ERROR, EINVAL,
                         API_MSG_GET_VOLFILE_FAILED, "key=%s",
-                        ctx->cmd_args.volfile_id, NULL);
+                        global_ctx->cmd_args.volfile_id, NULL);
                 errno = EINVAL;
                 glfs_init_done(fs, -1);
             }
@@ -947,7 +910,7 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         default:
             break;
     }
-out:
+
     return 0;
 }
 
@@ -976,12 +939,10 @@ glfs_mgmt_init(struct glfs *fs)
     int ret = -1;
     int port = GF_DEFAULT_BASE_PORT;
     char *host = NULL;
-    glusterfs_ctx_t *ctx = NULL;
 
-    ctx = fs->ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
-    if (ctx->mgmt)
+    if (global_ctx->mgmt)
         return 0;
 
     options = dict_new();
@@ -1035,11 +996,11 @@ glfs_mgmt_init(struct glfs *fs)
         goto out;
     }
 
-    ctx->notify = glusterfs_mgmt_notify;
+    global_ctx->notify = glusterfs_mgmt_notify;
 
     /* This value should be set before doing the 'rpc_clnt_start()' as
        the notify function uses this variable */
-    ctx->mgmt = rpc;
+    global_ctx->mgmt = rpc;
 
     ret = rpc_clnt_start(rpc);
 out:

@@ -1367,17 +1367,16 @@ out:
 static void
 posix_add_fd_to_cleanup(xlator_t *this, struct posix_fd *pfd)
 {
-    glusterfs_ctx_t *ctx = this->ctx;
     struct posix_private *priv = this->private;
 
     pfd->xl = this;
-    pthread_mutex_lock(&ctx->fd_lock);
+    pthread_mutex_lock(&global_ctx->fd_lock);
     {
-        list_add_tail(&pfd->list, &ctx->janitor_fds);
+        list_add_tail(&pfd->list, &global_ctx->janitor_fds);
         priv->rel_fdcount++;
-        pthread_cond_signal(&ctx->fd_cond);
+        pthread_cond_signal(&global_ctx->fd_cond);
     }
-    pthread_mutex_unlock(&ctx->fd_lock);
+    pthread_mutex_unlock(&global_ctx->fd_lock);
 }
 
 int32_t
@@ -1706,7 +1705,7 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto out;
     }
 
-    iobuf = iobuf_get_page_aligned(this->ctx->iobuf_pool, size, ALIGN_SIZE);
+    iobuf = iobuf_get_page_aligned(global_ctx->iobuf_pool, size, ALIGN_SIZE);
     if (!iobuf) {
         op_errno = ENOMEM;
         goto out;

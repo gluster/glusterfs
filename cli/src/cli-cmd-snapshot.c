@@ -47,7 +47,7 @@ cli_cmd_snapshot_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (frame == NULL) {
         ret = -1;
         goto out;

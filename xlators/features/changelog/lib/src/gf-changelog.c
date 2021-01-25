@@ -185,25 +185,6 @@ free_pool:
     return -1;
 }
 
-/* TODO: cleanup ctx defaults */
-void
-gf_changelog_cleanup_this(xlator_t *this)
-{
-    glusterfs_ctx_t *ctx = NULL;
-
-    if (!this)
-        return;
-
-    ctx = this->ctx;
-    syncenv_destroy(ctx->env);
-    free(ctx);
-
-    this->private = NULL;
-    this->ctx = NULL;
-
-    mem_pools_fini();
-}
-
 static int
 gf_changelog_init_context()
 {
@@ -216,7 +197,6 @@ gf_changelog_init_context()
     if (glusterfs_globals_init(ctx))
         goto free_ctx;
 
-    THIS->ctx = ctx;
     if (gf_changelog_ctx_defaults_init(ctx))
         goto free_ctx;
 
@@ -227,7 +207,6 @@ gf_changelog_init_context()
 
 free_ctx:
     free(ctx);
-    THIS->ctx = NULL;
 error_return:
     return -1;
 }
@@ -449,10 +428,10 @@ static int
 gf_changelog_setup_logging(xlator_t *this, char *logfile, int loglevel)
 {
     /* passing ident as NULL means to use default ident for syslog */
-    if (gf_log_init(this->ctx, logfile, NULL))
+    if (gf_log_init(global_ctx, logfile, NULL))
         return -1;
 
-    gf_log_set_loglevel(this->ctx, (loglevel == -1) ? GF_LOG_INFO : loglevel);
+    gf_log_set_loglevel(global_ctx, (loglevel == -1) ? GF_LOG_INFO : loglevel);
     return 0;
 }
 
@@ -465,14 +444,12 @@ gf_changelog_set_primary(xlator_t *primary, void *xl)
     gf_private_t *priv = NULL;
 
     this = xl;
-    if (!this || !this->ctx) {
+    if (!this) {
         ret = gf_changelog_init_primary();
         if (ret)
             return -1;
         this = THIS;
     }
-
-    primary->ctx = this->ctx;
 
     INIT_LIST_HEAD(&primary->volume_options);
     SAVE_THIS(THIS);

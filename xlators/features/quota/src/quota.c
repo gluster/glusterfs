@@ -879,7 +879,7 @@ quota_build_ancestry(inode_t *inode, quota_ancestry_built_t ancestry_cbk,
     if (fd == NULL)
         goto err;
 
-    new_frame = create_frame(this, this->ctx->pool);
+    new_frame = create_frame(this, global_ctx->pool);
     if (new_frame == NULL)
         goto err;
 

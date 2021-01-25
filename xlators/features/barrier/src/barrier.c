@@ -429,7 +429,7 @@ __barrier_disable(xlator_t *this, struct list_head *queue)
     GF_ASSERT(priv);
 
     if (priv->timer) {
-        ret = gf_timer_call_cancel(this->ctx, priv->timer);
+        ret = gf_timer_call_cancel(global_ctx, priv->timer);
         priv->timer = NULL;
     }
 
@@ -443,7 +443,7 @@ __barrier_enable(xlator_t *this, barrier_priv_t *priv)
 {
     int ret = -1;
 
-    priv->timer = gf_timer_call_after(this->ctx, priv->timeout, barrier_timeout,
+    priv->timer = gf_timer_call_after(global_ctx, priv->timeout, barrier_timeout,
                                       (void *)this);
     if (!priv->timer) {
         gf_log(this->name, GF_LOG_CRITICAL,

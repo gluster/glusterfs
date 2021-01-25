@@ -194,7 +194,6 @@ create_primary(struct glfs *fs)
         goto err;
     }
 
-    primary->ctx = fs->ctx;
     primary->private = fs;
     primary->options = dict_new();
     if (!primary->options)
@@ -207,7 +206,7 @@ create_primary(struct glfs *fs)
         goto err;
     }
 
-    fs->ctx->root = primary;
+    global_ctx->root = primary;
     THIS = primary;
 
     return 0;
@@ -226,7 +225,7 @@ get_volfp(struct glfs *fs)
     cmd_args_t *cmd_args = NULL;
     FILE *specfp = NULL;
 
-    cmd_args = &fs->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
         gf_smsg("glfs", GF_LOG_ERROR, errno, API_MSG_VOLFILE_OPEN_FAILED,
@@ -246,14 +245,14 @@ glfs_volumes_init(struct glfs *fs)
     cmd_args_t *cmd_args = NULL;
     int ret = 0;
 
-    cmd_args = &fs->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!vol_assigned(cmd_args))
         return -1;
 
     if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
-        fs->ctx->secure_mgmt = 1;
-        fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+        global_ctx->secure_mgmt = 1;
+        global_ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
 
     if (cmd_args->volfile_server) {
@@ -306,7 +305,7 @@ pub_glfs_set_xlator_option(struct glfs *fs, const char *xlator, const char *key,
     if (!option->value)
         goto enomem;
 
-    list_add(&option->cmd_args, &fs->ctx->cmd_args.xlator_options);
+    list_add(&option->cmd_args, &global_ctx->cmd_args.xlator_options);
 
     __GLFS_EXIT_FS;
 
@@ -350,7 +349,7 @@ pub_glfs_unset_volfile_server(struct glfs *fs, const char *transport,
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
 
-    cmd_args = &fs->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (transport) {
         transport_val = gf_strdup(transport);
@@ -408,7 +407,7 @@ pub_glfs_set_volfile_server(struct glfs *fs, const char *transport,
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
 
-    cmd_args = &fs->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
     cmd_args->max_connect_attempts = 1;
 
     server_host = gf_strdup(host);
@@ -720,11 +719,7 @@ glfs_fd_bind(struct glfs_fd *glfd)
 static void *
 glfs_poller(void *data)
 {
-    struct glfs *fs = NULL;
-
-    fs = data;
-
-    gf_event_dispatch(fs->ctx->event_pool);
+    gf_event_dispatch(global_ctx->event_pool);
 
     return NULL;
 }
@@ -781,9 +776,6 @@ glfs_init_global_ctx()
 
     pthread_mutex_lock(&global_ctx_mutex);
     {
-        if (global_xlator.ctx)
-            goto unlock;
-
         ctx = glusterfs_ctx_new();
         if (!ctx) {
             ret = -1;
@@ -793,12 +785,9 @@ glfs_init_global_ctx()
         gf_log_globals_init(ctx, GF_LOG_NONE);
 
         global_ctx = ctx;
-        global_xlator.ctx = global_ctx;
-
         ret = glusterfs_ctx_defaults_init(ctx);
         if (ret) {
             global_ctx = NULL;
-            global_xlator.ctx = NULL;
             goto unlock;
         }
     }
@@ -876,15 +865,14 @@ label:
     if (ret)
         goto out;
 
-    fs->ctx = ctx;
-    fs->ctx->process_mode = GF_CLIENT_PROCESS;
+    global_ctx->process_mode = GF_CLIENT_PROCESS;
 
     ret = glfs_set_logging(fs, "/dev/null", 0);
     if (ret)
         goto out;
 
-    fs->ctx->cmd_args.volfile_id = gf_strdup(volname);
-    if (!(fs->ctx->cmd_args.volfile_id)) {
+    global_ctx->cmd_args.volfile_id = gf_strdup(volname);
+    if (!(global_ctx->cmd_args.volfile_id)) {
         ret = -1;
         goto out;
     }
@@ -894,10 +882,10 @@ label:
     ret = prctl(PR_GET_NAME, (unsigned long)pname, 0, 0, 0);
 #endif
     if (ret)
-        fs->ctx->cmd_args.process_name = gf_strdup("gfapi");
+        global_ctx->cmd_args.process_name = gf_strdup("gfapi");
     else {
         snprintf(msg, sizeof(msg), "gfapi.%s", pname);
-        fs->ctx->cmd_args.process_name = gf_strdup(msg);
+        global_ctx->cmd_args.process_name = gf_strdup(msg);
     }
     ret = 0;
 
@@ -931,7 +919,7 @@ priv_glfs_new_from_ctx(glusterfs_ctx_t *ctx)
     if (!fs)
         goto out;
 
-    fs->ctx = ctx;
+    global_ctx = ctx;
 
 out:
     return fs;
@@ -979,7 +967,7 @@ pub_glfs_set_volfile(struct glfs *fs, const char *volfile)
 {
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &fs->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (vol_assigned(cmd_args))
         return -1;
@@ -1001,23 +989,23 @@ pub_glfs_set_logging(struct glfs *fs, const char *logfile, int loglevel)
     __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
 
     if (!logfile) {
-        ret = gf_set_log_file_path(&fs->ctx->cmd_args, fs->ctx);
+        ret = gf_set_log_file_path(&global_ctx->cmd_args, global_ctx);
         if (ret)
             goto out;
-        tmplog = fs->ctx->cmd_args.log_file;
+        tmplog = global_ctx->cmd_args.log_file;
     } else {
         tmplog = (char *)logfile;
     }
 
     /* finish log set parameters before init */
     if (loglevel >= 0)
-        gf_log_set_loglevel(fs->ctx, loglevel);
+        gf_log_set_loglevel(global_ctx, loglevel);
 
-    ret = gf_log_init(fs->ctx, tmplog, NULL);
+    ret = gf_log_init(global_ctx, tmplog, NULL);
     if (ret)
         goto out;
 
-    ret = gf_log_inject_timer_event(fs->ctx);
+    ret = gf_log_inject_timer_event(global_ctx);
     if (ret)
         goto out;
 
@@ -1103,7 +1091,7 @@ glfs_init_async(struct glfs *fs, glfs_init_cbk cbk)
 {
     int ret = -1;
 
-    if (!fs || !fs->ctx) {
+    if (!fs || !global_ctx) {
         gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_FS_NOT_INIT, NULL);
         errno = EINVAL;
         return ret;
@@ -1124,7 +1112,7 @@ pub_glfs_init(struct glfs *fs)
 
     DECLARE_OLD_THIS;
 
-    if (!fs || !fs->ctx) {
+    if (!fs || !global_ctx) {
         gf_smsg("glfs", GF_LOG_ERROR, EINVAL, API_MSG_FS_NOT_INIT, NULL);
         errno = EINVAL;
         return ret;
@@ -1233,7 +1221,6 @@ pub_glfs_fini(struct glfs *fs)
     int ret = -1;
     int countdown = 100;
     xlator_t *subvol = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *graph = NULL;
     call_pool_t *call_pool = NULL;
     int fs_init = 0;
@@ -1247,18 +1234,13 @@ pub_glfs_fini(struct glfs *fs)
         goto invalid_fs;
     }
 
-    ctx = fs->ctx;
-    if (!ctx) {
-        goto free_fs;
+    THIS = global_ctx->root;
+
+    if (global_ctx->mgmt) {
+        rpc_clnt_disable(global_ctx->mgmt);
     }
 
-    THIS = fs->ctx->root;
-
-    if (ctx->mgmt) {
-        rpc_clnt_disable(ctx->mgmt);
-    }
-
-    call_pool = fs->ctx->pool;
+    call_pool = global_ctx->pool;
 
     /* Wake up any suspended synctasks */
     while (!list_empty(&fs->waitq)) {
@@ -1279,7 +1261,7 @@ pub_glfs_fini(struct glfs *fs)
                              "pin_refcnt - %d",
                              call_pool->cnt, fs->pin_refcnt);
 
-                ctx->cleanup_started = 1;
+                global_ctx->cleanup_started = 1;
                 pthread_mutex_unlock(&fs->mutex);
                 break;
             }
@@ -1289,7 +1271,6 @@ pub_glfs_fini(struct glfs *fs)
     }
 
     /* leaked frames may exist, we ignore */
-
     /*We deem glfs_fini as successful if there are no pending frames in the call
      *pool*/
     ret = (call_pool->cnt == 0) ? 0 : -1;
@@ -1344,7 +1325,7 @@ pub_glfs_fini(struct glfs *fs)
         glfs_subvol_done(fs, subvol);
     }
 
-    ctx->cleanup_started = 1;
+    global_ctx->cleanup_started = 1;
 
     if (fs_init != 0) {
         /* Destroy all the inode tables of all the graphs.
@@ -1358,47 +1339,46 @@ pub_glfs_fini(struct glfs *fs)
          *   the cleanup during graph switch is implemented to perform
          *   inode table destroy.
          */
-        inode_table_destroy_all(ctx);
+        inode_table_destroy_all(global_ctx);
 
         /* Call fini() of all the xlators in the active graph
          * NOTE:
          * - xlator fini() should be called before destroying any of
          *   the threads. (eg: fini() in protocol-client uses timer
          *   thread) */
-        glusterfs_graph_deactivate(ctx->active);
+        glusterfs_graph_deactivate(global_ctx->active);
 
         /* Join the syncenv_processor threads and cleanup
          * syncenv resources*/
-        syncenv_destroy(ctx->env);
+        syncenv_destroy(global_ctx->env);
 
         /* Join the poller thread */
-        if (gf_event_dispatch_destroy(ctx->event_pool) < 0)
+        if (gf_event_dispatch_destroy(global_ctx->event_pool) < 0)
             ret = -1;
     }
 
     /* Avoid dispatching events to mgmt after freed,
      * unreference mgmt after the event_dispatch_destroy */
-    if (ctx->mgmt) {
-        rpc_clnt_unref(ctx->mgmt);
-        ctx->mgmt = NULL;
+    if (global_ctx->mgmt) {
+        rpc_clnt_unref(global_ctx->mgmt);
+        global_ctx->mgmt = NULL;
     }
 
     /* log infra has to be brought down before destroying
      * timer registry, as logging uses timer infra
      */
-    if (gf_log_fini(ctx) != 0)
+    if (gf_log_fini(global_ctx) != 0)
         ret = -1;
 
     /* Join the timer thread */
     if (fs_init != 0) {
-        gf_timer_registry_destroy(ctx);
+        gf_timer_registry_destroy(global_ctx);
     }
 
     /* Destroy the context and the global pools */
-    if (glusterfs_ctx_destroy(ctx) != 0)
+    if (glusterfs_ctx_destroy(global_ctx) != 0)
         ret = -1;
 
-free_fs:
     glfs_free_from_ctx(fs);
 
     /*
@@ -1478,7 +1458,7 @@ priv_glfs_setfspid(struct glfs *fs, pid_t pid)
     cmd_args_t *cmd_args = NULL;
     int ret = 0;
 
-    cmd_args = &fs->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
     cmd_args->client_pid = pid;
     cmd_args->client_pid_set = 1;
     ret = syncopctx_setfspid(&pid);
@@ -1596,20 +1576,17 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_sysrq, 3.10.0)
 int
 pub_glfs_sysrq(struct glfs *fs, char sysrq)
 {
-    glusterfs_ctx_t *ctx = NULL;
     int ret = 0;
     int msg_len;
     char msg[1024] = {
         0,
     }; /* should not exceed 1024 chars */
 
-    if (!fs || !fs->ctx) {
+    if (!fs || !global_ctx) {
         ret = -1;
         errno = EINVAL;
         goto out;
     }
-
-    ctx = fs->ctx;
 
     switch (sysrq) {
         case GLFS_SYSRQ_HELP: {
@@ -1629,7 +1606,7 @@ pub_glfs_sysrq(struct glfs *fs, char sysrq)
             break;
         }
         case GLFS_SYSRQ_STATEDUMP:
-            gf_proc_dump_info(SIGUSR1, ctx);
+            gf_proc_dump_info(SIGUSR1, global_ctx);
             break;
         default:
             gf_smsg("glfs", GF_LOG_ERROR, ENOTSUP, API_MSG_INVALID_SYSRQ,
@@ -1785,10 +1762,10 @@ pub_glfs_set_statedump_path(struct glfs *fs, const char *path)
     }
 
     /* If set, it needs to be freed, so we don't have leak */
-    GF_FREE(fs->ctx->statedump_path);
+    GF_FREE(global_ctx->statedump_path);
 
-    fs->ctx->statedump_path = gf_strdup(path);
-    if (!fs->ctx->statedump_path) {
+    global_ctx->statedump_path = gf_strdup(path);
+    if (!global_ctx->statedump_path) {
         gf_log("glfs", GF_LOG_ERROR,
                "%s: failed to set statedump path, no memory", path);
         errno = ENOMEM;

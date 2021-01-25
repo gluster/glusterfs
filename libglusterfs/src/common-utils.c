@@ -4504,7 +4504,7 @@ gf_backtrace_save(char *buf)
     char *bt = NULL;
 
     if (!buf) {
-        bt = THIS->ctx->btbuf;
+        bt = global_ctx->btbuf;
         GF_ASSERT(bt);
 
     } else {

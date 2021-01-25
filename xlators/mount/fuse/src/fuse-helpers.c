@@ -130,7 +130,7 @@ get_fuse_state(xlator_t *this, fuse_in_header_t *finh)
     state->active_subvol = active_subvol;
     state->itable = active_subvol->itable;
 
-    state->pool = this->ctx->pool;
+    state->pool = global_ctx->pool;
     state->finh = finh;
     state->this = this;
 

@@ -472,7 +472,7 @@ fuse_resolve_fd(fuse_state_t *state)
         resolve->op_ret = -1;
         resolve->op_errno = EBADF;
     } else if (state->active_subvol != active_subvol) {
-        ret = synctask_new(state->this->ctx->env, fuse_migrate_fd_task, NULL,
+        ret = synctask_new(global_ctx->env, fuse_migrate_fd_task, NULL,
                            NULL, state);
 
         fd_migration_error = fuse_migrate_fd_error(state->this, basefd);

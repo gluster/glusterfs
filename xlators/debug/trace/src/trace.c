@@ -3411,7 +3411,7 @@ init(xlator_t *this)
     }
 
 setloglevel:
-    gf_log_set_loglevel(this->ctx, conf->trace_log_level);
+    gf_log_set_loglevel(global_ctx, conf->trace_log_level);
     this->private = conf;
     ret = 0;
 out:

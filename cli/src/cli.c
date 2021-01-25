@@ -249,7 +249,7 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         };
@@ -811,8 +811,6 @@ main(int argc, char *argv[])
     ret = glusterfs_globals_init(ctx);
     if (ret)
         return ret;
-
-    THIS->ctx = ctx;
 
     ret = glusterfs_ctx_defaults_init(ctx);
     if (ret)

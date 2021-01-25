@@ -179,7 +179,7 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
 
         runinit(&runner);
 
-        if (this->ctx->cmd_args.vgtool != _gf_none) {
+        if (global_ctx->cmd_args.vgtool != _gf_none) {
             len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s.log",
                            svc->proc.logdir, svc->name);
             if ((len < 0) || (len >= PATH_MAX)) {
@@ -187,7 +187,7 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
                 goto unlock;
             }
 
-            if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+            if (global_ctx->cmd_args.vgtool == _gf_memcheck)
                 runner_add_args(&runner, "valgrind", "--leak-check=full",
                                 "--trace-children=yes", "--track-origins=yes",
                                 NULL);
@@ -215,7 +215,7 @@ glusterd_svc_start(glusterd_svc_t *svc, int flags, dict_t *cmdline)
             runner_add_arg(&runner, daemon_log_level);
         }
 
-        if (this->ctx->cmd_args.global_threading) {
+        if (global_ctx->cmd_args.global_threading) {
             runner_add_arg(&runner, "--global-threading");
         }
 

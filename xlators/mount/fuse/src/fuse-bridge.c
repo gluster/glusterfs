@@ -1035,7 +1035,7 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                "%" PRIu64 ": %s() %s => %" PRIu64, frame->root->unique,
                gf_fop_list[frame->root->op], state->loc.path, buf->ia_ino);
 
-        buf->ia_blksize = this->ctx->page_size;
+        buf->ia_blksize = global_ctx->page_size;
         gf_fuse_stat2attr(buf, &feo.attr, priv->enable_ino32);
 
         if (!buf->ia_ino) {
@@ -1287,7 +1287,7 @@ fuse_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", prebuf->ia_ino);
 
-        postbuf->ia_blksize = this->ctx->page_size;
+        postbuf->ia_blksize = global_ctx->page_size;
         gf_fuse_stat2attr(postbuf, &fao.attr, priv->enable_ino32);
 
         fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
@@ -1351,7 +1351,7 @@ fuse_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", buf->ia_ino);
 
-        buf->ia_blksize = this->ctx->page_size;
+        buf->ia_blksize = global_ctx->page_size;
         gf_fuse_stat2attr(buf, &fao.attr, priv->enable_ino32);
 
         fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
@@ -1697,7 +1697,7 @@ fuse_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op],
                state->loc.path ? state->loc.path : "ERR", statpost->ia_ino);
 
-        statpost->ia_blksize = this->ctx->page_size;
+        statpost->ia_blksize = global_ctx->page_size;
         gf_fuse_stat2attr(statpost, &fao.attr, priv->enable_ino32);
 
         fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
@@ -2503,7 +2503,7 @@ fuse_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             */
             buf->ia_type = state->loc.inode->ia_type;
         }
-        buf->ia_blksize = this->ctx->page_size;
+        buf->ia_blksize = global_ctx->page_size;
 
         inode_rename(state->loc.parent->table, state->loc.parent,
                      state->loc.name, state->loc2.parent, state->loc2.name,
@@ -2687,7 +2687,7 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                frame->root->unique, gf_fop_list[frame->root->op],
                state->loc.path, fd, buf->ia_ino);
 
-        buf->ia_blksize = this->ctx->page_size;
+        buf->ia_blksize = global_ctx->page_size;
         gf_fuse_stat2attr(buf, &feo.attr, priv->enable_ino32);
 
         linked_inode = inode_link(inode, state->loc.parent, state->loc.name,
@@ -3775,7 +3775,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!entry->inode)
             goto next_entry;
 
-        entry->d_stat.ia_blksize = this->ctx->page_size;
+        entry->d_stat.ia_blksize = global_ctx->page_size;
         gf_fuse_stat2attr(&entry->d_stat, &feo->attr, priv->enable_ino32);
 
         linked_inode = inode_link(entry->inode, state->fd->inode, entry->d_name,
@@ -5843,7 +5843,7 @@ fuse_handle_graph_switch(xlator_t *this, xlator_t *old_subvol,
     int32_t ret = -1;
     fuse_graph_switch_args_t *args = NULL;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (frame == NULL) {
         goto out;
     }
@@ -5857,7 +5857,7 @@ fuse_handle_graph_switch(xlator_t *this, xlator_t *old_subvol,
     args->old_subvol = old_subvol;
     args->new_subvol = new_subvol;
 
-    ret = synctask_new(this->ctx->env, fuse_graph_switch_task, NULL, frame,
+    ret = synctask_new(global_ctx->env, fuse_graph_switch_task, NULL, frame,
                        args);
     if (ret == -1) {
         gf_log(this->name, GF_LOG_WARNING,
@@ -6080,7 +6080,7 @@ fuse_thread_proc(void *data)
 
     THIS = this;
 
-    psize = ((struct iobuf_pool *)this->ctx->iobuf_pool)->default_page_size;
+    psize = ((struct iobuf_pool *)global_ctx->iobuf_pool)->default_page_size;
     priv->msg0_len_p = &msg0_size;
 
     for (;;) {
@@ -6136,7 +6136,7 @@ fuse_thread_proc(void *data)
            size from 'fuse', which is as of today 128KB. If we bring in
            support for higher block sizes support, then we should be
            changing this one too */
-        iobuf = iobuf_get(this->ctx->iobuf_pool);
+        iobuf = iobuf_get(global_ctx->iobuf_pool);
 
         /* Add extra 512 byte to the first iov so that it can
          * accommodate "ordinary" non-write requests. It's not
@@ -6666,7 +6666,6 @@ init(xlator_t *this_xl)
     int i = 0;
     int xl_name_allocated = 0;
     int fsname_allocated = 0;
-    glusterfs_ctx_t *ctx = NULL;
     gf_boolean_t sync_to_mount = _gf_false;
     gf_boolean_t fopen_keep_cache = _gf_false;
     char *mnt_args = NULL;
@@ -6676,10 +6675,6 @@ init(xlator_t *this_xl)
         return -1;
 
     if (this_xl->options == NULL)
-        return -1;
-
-    ctx = this_xl->ctx;
-    if (!ctx)
         return -1;
 
     options = this_xl->options;
@@ -6908,7 +6903,7 @@ init(xlator_t *this_xl)
         priv->congestion_threshold = priv->background_qlen;
     }
 
-    cmd_args = &this_xl->ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
     fsname = cmd_args->volfile;
     if (!fsname && cmd_args->volfile_server) {
         if (cmd_args->volfile_id) {
@@ -6975,7 +6970,7 @@ init(xlator_t *this_xl)
     }
 
     priv->fd = gf_fuse_mount(priv->mount_point, fsname, mnt_args,
-                             sync_to_mount ? &ctx->mnt_pid : NULL,
+                             sync_to_mount ? &global_ctx->mnt_pid : NULL,
                              priv->status_pipe[1]);
     if (priv->fd == -1)
         goto cleanup_exit;

@@ -129,7 +129,7 @@ gf_mem_acct_enabled(void)
     xlator_t *x = THIS;
     /* Low-level __gf_xxx() may be called
        before ctx is initialized. */
-    return x->ctx && x->ctx->mem_acct_enable;
+    return global_ctx && global_ctx->mem_acct_enable;
 }
 
 void *
@@ -639,11 +639,11 @@ mem_pool_destroy(struct mem_pool *pool)
         return;
 
     /* remove this pool from the owner (glusterfs_ctx_t) */
-    LOCK(&pool->ctx->lock);
+    LOCK(&global_ctx->lock);
     {
         list_del(&pool->owner);
     }
-    UNLOCK(&pool->ctx->lock);
+    UNLOCK(&global_ctx->lock);
 
     /* free this pool, but keep the mem_pool_shared */
     GF_FREE(pool);
@@ -701,7 +701,6 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
     if (!new)
         return NULL;
 
-    new->ctx = ctx;
     new->sizeof_type = sizeof_type;
     new->count = count;
     new->name = name;
@@ -714,11 +713,11 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
 #endif
     INIT_LIST_HEAD(&new->owner);
 
-    LOCK(&ctx->lock);
+    LOCK(&global_ctx->lock);
     {
         list_add(&new->owner, &ctx->mempool_list);
     }
-    UNLOCK(&ctx->lock);
+    UNLOCK(&global_ctx->lock);
 
     return new;
 }

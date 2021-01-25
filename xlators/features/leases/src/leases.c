@@ -928,7 +928,7 @@ leases_init_priv(xlator_t *this)
     GF_ASSERT(priv);
 
     if (!priv->timer_wheel) {
-        priv->timer_wheel = glusterfs_ctx_tw_get(this->ctx);
+        priv->timer_wheel = glusterfs_ctx_tw_get(global_ctx);
         if (!priv->timer_wheel) {
             ret = -1;
             goto out;
@@ -1038,7 +1038,7 @@ fini(xlator_t *this)
     }
 
     if (priv->timer_wheel) {
-        glusterfs_ctx_tw_put(this->ctx);
+        glusterfs_ctx_tw_put(global_ctx);
     }
 
     GF_FREE(priv);

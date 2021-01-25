@@ -437,7 +437,7 @@ quotad_aggregator_init(xlator_t *this)
         goto out;
 
     /* RPC related */
-    priv->rpcsvc = rpcsvc_init(this, this->ctx, this->options, 0);
+    priv->rpcsvc = rpcsvc_init(this, global_ctx, this->options, 0);
     if (priv->rpcsvc == NULL) {
         gf_msg(this->name, GF_LOG_WARNING, 0, Q_MSG_RPCSVC_INIT_FAILED,
                "creation of rpcsvc failed");

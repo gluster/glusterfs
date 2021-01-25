@@ -299,7 +299,7 @@ afr_fix_open(fd_t *fd, xlator_t *this)
     if (!call_count)
         goto out;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         goto out;
 

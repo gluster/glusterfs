@@ -336,7 +336,7 @@ synctask_wake(struct synctask *task)
     pthread_mutex_lock(&env->mutex);
     {
         if (task->timer != NULL) {
-            if (gf_timer_call_cancel(task->xl->ctx, task->timer) != 0) {
+            if (gf_timer_call_cancel(global_ctx, task->timer) != 0) {
                 goto unlock;
             }
 
@@ -453,7 +453,7 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
 
     newtask->frame = frame;
     if (!frame) {
-        newtask->opframe = create_frame(this, this->ctx->pool);
+        newtask->opframe = create_frame(this, global_ctx->pool);
         if (!newtask->opframe)
             goto err;
         set_lk_owner_from_ptr(&newtask->opframe->root->lk_owner,
@@ -653,7 +653,7 @@ synctask_timer(void *data)
 
     pthread_mutex_lock(&task->env->mutex);
 
-    gf_timer_call_cancel(task->xl->ctx, task->timer);
+    gf_timer_call_cancel(global_ctx, task->timer);
     task->timer = NULL;
 
     __synctask_wake(task);
@@ -699,7 +699,7 @@ synctask_switchto(struct synctask *task)
             __wait(task);
 
             if (task->delta != NULL) {
-                task->timer = gf_timer_call_after(task->xl->ctx, *task->delta,
+                task->timer = gf_timer_call_after(global_ctx, *task->delta,
                                                   synctask_timer, task);
             }
         }

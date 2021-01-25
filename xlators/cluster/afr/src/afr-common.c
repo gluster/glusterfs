@@ -636,11 +636,11 @@ __afr_lock_heal_synctask(xlator_t *this, afr_private_t *priv, int child)
         list_add_tail(&info->pos, &priv->lk_healq);
     }
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         return -1;
 
-    ret = synctask_new(this->ctx->env, afr_lock_heal, afr_lock_heal_done, frame,
+    ret = synctask_new(global_ctx->env, afr_lock_heal, afr_lock_heal_done, frame,
                        frame);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_LK_HEAL_DOM,
@@ -1399,7 +1399,7 @@ afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
         }
         ctx->spb_choice = -1;
         if (ctx->timer) {
-            gf_timer_call_cancel(this->ctx, ctx->timer);
+            gf_timer_call_cancel(global_ctx, ctx->timer);
             ctx->timer = NULL;
         }
         ret = 0;
@@ -1502,7 +1502,7 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
          */
         if (ctx->timer) {
             if (ctx->spb_choice == -1) {
-                if (!gf_timer_call_cancel(this->ctx, ctx->timer)) {
+                if (!gf_timer_call_cancel(global_ctx, ctx->timer)) {
                     ctx->timer = NULL;
                     timer_cancelled = _gf_true;
                 }
@@ -1522,7 +1522,7 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
         }
 
     reset_timer:
-        ret = gf_timer_call_cancel(this->ctx, ctx->timer);
+        ret = gf_timer_call_cancel(global_ctx, ctx->timer);
         if (ret != 0) {
             /* We need to bail out now instead of launching a new
              * timer. Otherwise the cbk of the previous timer event
@@ -1537,7 +1537,7 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
         timer_reset = _gf_true;
 
     set_timer:
-        ctx->timer = gf_timer_call_after(this->ctx, delta,
+        ctx->timer = gf_timer_call_after(global_ctx, delta,
                                          afr_set_split_brain_choice_cbk, inode);
         if (!ctx->timer) {
             ctx->spb_choice = old_spb_choice;
@@ -1830,7 +1830,7 @@ afr_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
             goto refresh_done;
         }
         heal_local->heal_frame = frame;
-        ret = synctask_new(this->ctx->env, afr_fav_child_reset_sink_xattrs,
+        ret = synctask_new(global_ctx->env, afr_fav_child_reset_sink_xattrs,
                            afr_fav_child_reset_sink_xattrs_cbk, heal_frame,
                            heal_frame);
         return 0;
@@ -3216,7 +3216,7 @@ afr_attempt_local_discovery(xlator_t *this, int32_t child_index)
     };
     afr_private_t *priv = this->private;
 
-    newframe = create_frame(this, this->ctx->pool);
+    newframe = create_frame(this, global_ctx->pool);
     if (!newframe) {
         return;
     }
@@ -3404,7 +3404,7 @@ afr_lookup_metadata_heal_check(call_frame_t *frame, xlator_t *this)
         goto out;
     }
 
-    ret = synctask_new(this->ctx->env, afr_lookup_sh_metadata_wrap,
+    ret = synctask_new(global_ctx->env, afr_lookup_sh_metadata_wrap,
                        afr_refresh_selfheal_done, heal, frame);
     if (ret)
         goto out;
@@ -3556,7 +3556,7 @@ name_heal:
     if (!heal)
         goto metadata_heal;
 
-    ret = synctask_new(this->ctx->env, afr_lookup_selfheal_wrap,
+    ret = synctask_new(global_ctx->env, afr_lookup_selfheal_wrap,
                        afr_refresh_selfheal_done, heal, frame);
     if (ret) {
         AFR_STACK_DESTROY(heal);
@@ -3759,7 +3759,7 @@ afr_discover_done(call_frame_t *frame, xlator_t *this)
     if (!gf_uuid_is_null(priv->ta_gfid))
         goto unwind;
 
-    ret = synctask_new(this->ctx->env, afr_ta_id_file_check,
+    ret = synctask_new(global_ctx->env, afr_ta_id_file_check,
                        afr_ta_id_file_check_cbk, NULL, this);
     if (ret)
         goto unwind;
@@ -4248,7 +4248,7 @@ afr_wakeup_same_fd_delayed_op(xlator_t *this, afr_lock_t *lock, fd_t *fd)
         local = list_entry(lock->post_op.next, afr_local_t,
                            transaction.owner_list);
         if (fd == local->fd) {
-            if (gf_timer_call_cancel(this->ctx, lock->delay_timer)) {
+            if (gf_timer_call_cancel(global_ctx, lock->delay_timer)) {
                 local = NULL;
             } else {
                 lock->delay_timer = NULL;
@@ -5335,7 +5335,7 @@ afr_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     if (xdata) {
         local->xdata_req = dict_ref(xdata);
         if (afr_is_lock_mode_mandatory(xdata)) {
-            ret = synctask_new(this->ctx->env, afr_lk_transaction,
+            ret = synctask_new(global_ctx->env, afr_lk_transaction,
                                afr_lk_transaction_cbk, frame, frame);
             if (ret) {
                 op_errno = ENOMEM;
@@ -5827,7 +5827,7 @@ __afr_launch_notify_timer(xlator_t *this, afr_private_t *priv)
     gf_msg_debug(this->name, 0, "Initiating child-down timer");
     delay.tv_sec = 10;
     delay.tv_nsec = 0;
-    priv->timer = gf_timer_call_after(this->ctx, delay, afr_notify_cbk, this);
+    priv->timer = gf_timer_call_after(global_ctx, delay, afr_notify_cbk, this);
     if (priv->timer == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_TIMER_CREATE_FAIL,
                "Cannot create timer for delayed initialization");
@@ -6048,7 +6048,7 @@ out:
                "going online.",
                child_xlator->name);
         gf_event(EVENT_AFR_SUBVOL_UP, "client-pid=%d; subvol=%s",
-                 this->ctx->cmd_args.client_pid, this->name);
+                 global_ctx->cmd_args.client_pid, this->name);
     } else {
         *event = GF_EVENT_SOME_DESCENDENT_UP;
     }
@@ -6126,7 +6126,7 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
                "offline until at least one of them "
                "comes back up.");
         gf_event(EVENT_AFR_SUBVOLS_DOWN, "client-pid=%d; subvol=%s",
-                 this->ctx->cmd_args.client_pid, this->name);
+                 global_ctx->cmd_args.client_pid, this->name);
     } else {
         *event = GF_EVENT_SOME_DESCENDENT_DOWN;
     }
@@ -6146,7 +6146,7 @@ afr_ta_lock_release_synctask(xlator_t *this)
         return;
     }
 
-    ret = synctask_new(this->ctx->env, afr_release_notify_lock_for_ta,
+    ret = synctask_new(global_ctx->env, afr_release_notify_lock_for_ta,
                        afr_ta_lock_release_done, ta_frame, this);
     if (ret) {
         STACK_DESTROY(ta_frame->root);
@@ -6389,7 +6389,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
         have_heard_from_all = __get_heard_from_all_status(this);
         if (!had_heard_from_all && have_heard_from_all) {
             if (priv->timer) {
-                gf_timer_call_cancel(this->ctx, priv->timer);
+                gf_timer_call_cancel(global_ctx, priv->timer);
                 priv->timer = NULL;
             }
             /* This is the first event which completes aggregation
@@ -6418,13 +6418,13 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
                    "Client-quorum is met");
             gf_event(EVENT_AFR_QUORUM_MET, "client-pid=%d; subvol=%s",
-                     this->ctx->cmd_args.client_pid, this->name);
+                     global_ctx->cmd_args.client_pid, this->name);
         }
         if (had_quorum && !has_quorum) {
             gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
                    "Client-quorum is not met");
             gf_event(EVENT_AFR_QUORUM_FAIL, "client-pid=%d; subvol=%s",
-                     this->ctx->cmd_args.client_pid, this->name);
+                     global_ctx->cmd_args.client_pid, this->name);
         }
     }
 
@@ -7765,7 +7765,7 @@ afr_ta_frame_create(xlator_t *this)
     call_frame_t *frame = NULL;
     void *lk_owner = NULL;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         return NULL;
     lk_owner = (void *)this;

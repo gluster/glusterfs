@@ -809,7 +809,6 @@ struct _xlator {
 
     /* Misc */
     eh_t *history; /* event history context */
-    glusterfs_ctx_t *ctx;
     glusterfs_graph_t *graph; /* not set for fuse */
     inode_table_t *itable;
     char init_succeeded;

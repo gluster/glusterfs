@@ -2234,7 +2234,7 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
     dict_t *req_dict = NULL;
     int ret = -1;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_smsg("glusterd", GF_LOG_WARNING, errno, GD_MSG_FRAME_CREATE_FAIL,
                 NULL);
@@ -2513,7 +2513,7 @@ glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
     glusterd_peerinfo_t *peerinfo = NULL;
     int ret = -1;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_smsg(this->name, GF_LOG_WARNING, errno, GD_MSG_FRAME_CREATE_FAIL,
                 NULL);

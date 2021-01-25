@@ -282,7 +282,7 @@ glusterd_client_statedump_submit_req(char *volname, char *target_ip, char *pid)
                              trans->peerinfo.identifier);
                 rpcsvc_request_submit(conf->rpc, trans, &glusterd_cbk_prog,
                                       GF_CBK_STATEDUMP, &statedump_req,
-                                      this->ctx, (xdrproc_t)xdr_gf_statedump);
+                                      global_ctx, (xdrproc_t)xdr_gf_statedump);
             }
         }
     }
@@ -1145,7 +1145,7 @@ glusterd_init_uds_listener(xlator_t *this)
     if (ret)
         goto out;
 
-    rpc = rpcsvc_init(this, this->ctx, options, 8);
+    rpc = rpcsvc_init(this, global_ctx, options, 8);
     if (rpc == NULL) {
         ret = -1;
         goto out;
@@ -1783,7 +1783,7 @@ init(xlator_t *this)
     ret = glusterd_rpcsvc_options_build(this->options);
     if (ret)
         goto out;
-    rpc = rpcsvc_init(this, this->ctx, this->options, 64);
+    rpc = rpcsvc_init(this, global_ctx, this->options, 64);
     if (rpc == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RPC_INIT_FAIL,
                "failed to init rpc");
@@ -1800,7 +1800,7 @@ init(xlator_t *this)
     /* Enable encryption for the TCP listener is management encryption is
      * enabled
      */
-    if (this->ctx->secure_mgmt) {
+    if (global_ctx->secure_mgmt) {
         ret = dict_set_str(this->options, "transport.socket.ssl-enabled", "on");
         if (ret != 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -1811,7 +1811,7 @@ init(xlator_t *this)
          * This is the only place where we want secure_srvr to reflect
          * the management-plane setting.
          */
-        this->ctx->secure_srvr = MGMT_SSL_ALWAYS;
+        global_ctx->secure_srvr = MGMT_SSL_ALWAYS;
     }
 
     /*
@@ -1947,7 +1947,7 @@ init(xlator_t *this)
     }
 
     /* Set option to run bricks on valgrind if enabled in glusterd.vol */
-    this->ctx->cmd_args.vgtool = vgtool;
+    global_ctx->cmd_args.vgtool = vgtool;
     ret = dict_get_str(this->options, "run-with-valgrind", &valgrind_str);
     if (ret < 0) {
         gf_msg_debug(this->name, 0, "cannot get run-with-valgrind value");
@@ -1956,11 +1956,11 @@ init(xlator_t *this)
         gf_boolean_t vg = _gf_false;
 
         if (!strcmp(valgrind_str, "memcheck"))
-            this->ctx->cmd_args.vgtool = _gf_memcheck;
+            global_ctx->cmd_args.vgtool = _gf_memcheck;
         else if (!strcmp(valgrind_str, "drd"))
-            this->ctx->cmd_args.vgtool = _gf_drd;
+            global_ctx->cmd_args.vgtool = _gf_drd;
         else if (!gf_string2boolean(valgrind_str, &vg))
-            this->ctx->cmd_args.vgtool = (vg ? _gf_memcheck : _gf_none);
+            global_ctx->cmd_args.vgtool = (vg ? _gf_memcheck : _gf_none);
         else
             gf_msg(this->name, GF_LOG_WARNING, EINVAL, GD_MSG_INVALID_ENTRY,
                    "run-with-valgrind is neither boolean"
@@ -2097,7 +2097,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("event-threads", workers, int32, out);
     if (workers > 0 && workers != conf->workers) {
         conf->workers = workers;
-        ret = gf_event_reconfigure_threads(this->ctx->event_pool, workers);
+        ret = gf_event_reconfigure_threads(global_ctx->event_pool, workers);
         if (ret)
             goto out;
     }

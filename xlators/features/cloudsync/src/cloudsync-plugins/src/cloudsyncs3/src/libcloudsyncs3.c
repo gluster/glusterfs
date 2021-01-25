@@ -400,7 +400,7 @@ aws_write_callback(void *dlbuf, size_t size, size_t nitems, void *mainframe)
     dliov.iov_base = (void *)dlbuf;
     dliov.iov_len = tsize;
 
-    ret = iobuf_copy(this->ctx->iobuf_pool, &dliov, 1, &iobref, &iobuf, &iov);
+    ret = iobuf_copy(global_ctx->iobuf_pool, &dliov, 1, &iobref, &iobuf, &iov);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "iobuf_copy failed");
         goto out;

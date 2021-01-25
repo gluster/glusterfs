@@ -111,7 +111,7 @@ cli_cmd_ganesha_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GANESHA];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -171,7 +171,7 @@ cli_cmd_get_state_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;

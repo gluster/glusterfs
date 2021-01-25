@@ -336,7 +336,6 @@ main(int argc, char **argv)
     if (glusterfs_globals_init(ctx))
         return 1;
 
-    THIS->ctx = ctx;
     ret = default_mem_acct_init(THIS);
     if (ret) {
         fprintf(stderr, "internal error: mem accounting failed\n");

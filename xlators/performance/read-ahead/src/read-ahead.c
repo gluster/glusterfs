@@ -1126,7 +1126,7 @@ init(xlator_t *this)
         goto out;
     }
 
-    conf->page_size = this->ctx->page_size;
+    conf->page_size = global_ctx->page_size;
 
     GF_OPTION_INIT("page-size", conf->page_size, size_uint64, out);
 

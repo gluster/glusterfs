@@ -17,7 +17,7 @@
 static int
 active_link_fill(xlator_t *this, inode_t *inode, strfd_t *strfd)
 {
-    strprintf(strfd, "%s", this->ctx->active->graph_uuid);
+    strprintf(strfd, "%s", global_ctx->active->graph_uuid);
 
     return 0;
 }

@@ -38,9 +38,6 @@ helper_xlator_init(uint32_t num_types)
                                sizeof(struct mem_acct_rec) + num_types);
     assert_non_null(xl->mem_acct);
 
-    xl->ctx = test_calloc(1, sizeof(glusterfs_ctx_t));
-    assert_non_null(xl->ctx);
-
     for (i = 0; i < num_types; i++) {
         ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
         assert_false(ret);

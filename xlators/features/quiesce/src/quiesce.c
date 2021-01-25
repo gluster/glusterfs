@@ -50,7 +50,7 @@ __gf_quiesce_start_timer(xlator_t *this, quiesce_priv_t *priv)
         timeout.tv_sec = priv->timeout;
         timeout.tv_nsec = 0;
 
-        priv->timer = gf_timer_call_after(this->ctx, timeout,
+        priv->timer = gf_timer_call_after(global_ctx, timeout,
                                           gf_quiesce_timeout, (void *)this);
         if (priv->timer == NULL) {
             gf_log(this->name, GF_LOG_ERROR, "Cannot create timer");
@@ -186,7 +186,7 @@ __gf_quiesce_perform_failover(xlator_t *this)
         goto out;
     }
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_msg_debug(this->name, 0, "failed to create the frame");
         ret = -1;

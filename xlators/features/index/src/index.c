@@ -1752,7 +1752,7 @@ index_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
         dict_get(xdata, "get-gfid-type")) {
         args.parent = fd->inode;
         args.entries = &entries;
-        ret = synctask_new(this->ctx->env, index_get_gfid_type, NULL, NULL,
+        ret = synctask_new(global_ctx->env, index_get_gfid_type, NULL, NULL,
                            &args);
     }
 done:
@@ -1860,7 +1860,7 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         }
     } else {
         args.path = index_subdir;
-        ret = synctask_new(this->ctx->env, index_wipe_index_subdir, NULL, NULL,
+        ret = synctask_new(global_ctx->env, index_wipe_index_subdir, NULL, NULL,
                            &args);
     }
 

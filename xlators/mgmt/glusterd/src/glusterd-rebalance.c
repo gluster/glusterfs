@@ -263,11 +263,11 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
              "rebalance");
     runinit(&runner);
 
-    if (this->ctx->cmd_args.vgtool != _gf_none) {
+    if (global_ctx->cmd_args.vgtool != _gf_none) {
         snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-%s-rebalance.log",
                  priv->logdir, volinfo->volname);
 
-        if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+        if (global_ctx->cmd_args.vgtool == _gf_memcheck)
             runner_add_args(&runner, "valgrind", "--leak-check=full",
                             "--trace-children=yes", "--track-origins=yes",
                             NULL);

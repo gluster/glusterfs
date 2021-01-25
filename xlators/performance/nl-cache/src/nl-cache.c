@@ -655,7 +655,7 @@ nlc_fini(xlator_t *this)
     conf = this->private;
     GF_FREE(conf);
 
-    glusterfs_ctx_tw_put(this->ctx);
+    glusterfs_ctx_tw_put(global_ctx);
 
     return;
 }
@@ -731,7 +731,7 @@ nlc_init(xlator_t *this)
     INIT_LIST_HEAD(&conf->lru);
     conf->last_child_down = gf_time();
 
-    conf->timer_wheel = glusterfs_ctx_tw_get(this->ctx);
+    conf->timer_wheel = glusterfs_ctx_tw_get(global_ctx);
     if (!conf->timer_wheel) {
         gf_msg(this->name, GF_LOG_ERROR, 0, NLC_MSG_NO_TIMER_WHEEL,
                "Initing the global timer wheel failed");

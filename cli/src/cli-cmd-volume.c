@@ -83,7 +83,7 @@ cli_cmd_volume_info_cbk(struct cli_state *state, struct cli_cmd_word *word,
     if (!local)
         goto out;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -171,7 +171,7 @@ cli_cmd_sync_volume_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYNC_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
         ret = -1;
@@ -237,7 +237,7 @@ cli_cmd_volume_create_cbk(struct cli_state *state, struct cli_cmd_word *word,
         }
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -318,7 +318,7 @@ cli_cmd_volume_delete_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -398,7 +398,7 @@ cli_cmd_volume_start_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_START_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -540,7 +540,7 @@ cli_cmd_volume_stop_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STOP_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -605,7 +605,7 @@ cli_cmd_volume_rename_cbk(struct cli_state *state, struct cli_cmd_word *word,
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_RENAME_VOLUME];
 
     if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame) {
             ret = -1;
             goto out;
@@ -657,7 +657,7 @@ cli_cmd_volume_defrag_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_DEFRAG_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -718,7 +718,7 @@ cli_cmd_volume_reset_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -776,7 +776,7 @@ cli_cmd_volume_profile_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PROFILE_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
         ret = -1;
@@ -841,7 +841,7 @@ cli_cmd_volume_set_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1079,7 +1079,7 @@ cli_cmd_volume_add_brick_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ADD_BRICK];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1119,7 +1119,7 @@ cli_get_soft_limit(dict_t *options, const char **words, dict_t *xdata)
     char *default_sl_dup = NULL;
     int ret = -1;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1317,7 +1317,7 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
     if (ret)
         goto out;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1474,7 +1474,7 @@ cli_cmd_bitrot_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out2;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1626,7 +1626,7 @@ cli_cmd_quota_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1800,7 +1800,7 @@ cli_cmd_volume_remove_brick_cbk(struct cli_state *state,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_REMOVE_BRICK];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1870,7 +1870,7 @@ cli_cmd_volume_reset_brick_cbk(struct cli_state *state,
         }
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1930,7 +1930,7 @@ cli_cmd_volume_replace_brick_cbk(struct cli_state *state,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -1988,7 +1988,7 @@ cli_cmd_volume_top_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_TOP_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
         ret = -1;
@@ -2043,7 +2043,7 @@ cli_cmd_log_rotate_cbk(struct cli_state *state, struct cli_cmd_word *word,
     if (ret)
         goto out;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
         ret = -1;
@@ -2163,7 +2163,7 @@ cli_cmd_volume_gsync_set_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (frame == NULL) {
         ret = -1;
         goto out;
@@ -2334,7 +2334,7 @@ cli_cmd_volume_status_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         gf_log(THIS->name, GF_LOG_ERROR, "failed to create frame");
         ret = -1;
@@ -2641,7 +2641,7 @@ cli_cmd_volume_heal_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -2706,7 +2706,7 @@ cli_cmd_volume_statedump_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_STATEDUMP_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -2741,7 +2741,7 @@ cli_cmd_volume_list_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LIST_VOLUME];
     if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
+        frame = create_frame(THIS, global_ctx->pool);
         if (!frame)
             goto out;
         ret = proc->fn(frame, THIS, NULL);
@@ -2798,7 +2798,7 @@ cli_cmd_volume_clearlocks_cbk(struct cli_state *state,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_CLRLOCKS_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -2855,7 +2855,7 @@ cli_cmd_volume_barrier_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_BARRIER_VOLUME];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -2909,7 +2909,7 @@ cli_cmd_volume_getopt_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GET_VOL_OPT];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;

@@ -78,7 +78,7 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     brick_req.dict.dict_len = 0;
 
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
-    iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, req_size);
     if (!iobuf)
         goto out;
 
@@ -113,7 +113,7 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     }
     pthread_mutex_unlock(&rpc->conn.lock);
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -221,7 +221,7 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    rpc = rpc_clnt_new(options, fs->ctx->root, "gf-attach-rpc", 0);
+    rpc = rpc_clnt_new(options, global_ctx->root, "gf-attach-rpc", 0);
     if (!rpc) {
         fprintf(stderr, "rpc_clnt_new failed\n");
         return EXIT_FAILURE;
@@ -237,5 +237,5 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    return send_brick_req(fs->ctx->root, rpc, argv[optind + 1], op);
+    return send_brick_req(global_ctx->root, rpc, argv[optind + 1], op);
 }

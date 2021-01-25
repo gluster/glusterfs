@@ -101,7 +101,7 @@ __chlog_barrier_disable(xlator_t *this, struct list_head *queue)
     GF_ASSERT(priv);
 
     if (priv->timer) {
-        gf_timer_call_cancel(this->ctx, priv->timer);
+        gf_timer_call_cancel(global_ctx, priv->timer);
         priv->timer = NULL;
     }
 
@@ -116,7 +116,7 @@ __chlog_barrier_enable(xlator_t *this, changelog_priv_t *priv)
 {
     int ret = -1;
 
-    priv->timer = gf_timer_call_after(this->ctx, priv->timeout,
+    priv->timer = gf_timer_call_after(global_ctx, priv->timeout,
                                       chlog_barrier_timeout, (void *)this);
     if (!priv->timer) {
         gf_smsg(this->name, GF_LOG_CRITICAL, 0,

@@ -3497,7 +3497,7 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     /* Enable encryption for the client connection if management encryption
      * is enabled
      */
-    if (this->ctx->secure_mgmt) {
+    if (global_ctx->secure_mgmt) {
         ret = dict_set_nstrn(options, "transport.socket.ssl-enabled",
                              SLEN("transport.socket.ssl-enabled"), "on",
                              SLEN("on"));
@@ -3507,7 +3507,7 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
             goto out;
         }
 
-        this->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+        global_ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
 
     ret = glusterd_rpc_create(&peerinfo->rpc, options, glusterd_peer_rpc_notify,
@@ -6238,7 +6238,6 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
     glusterd_peerctx_t *peerctx = NULL;
     gf_boolean_t quorum_action = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
-    glusterfs_ctx_t *ctx = NULL;
 
     uuid_t uuid;
 
@@ -6259,9 +6258,7 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
         default:
             break;
     }
-    ctx = this->ctx;
-    GF_VALIDATE_OR_GOTO(this->name, ctx, out);
-    if (ctx->cleanup_started) {
+    if (global_ctx->cleanup_started) {
         gf_log(this->name, GF_LOG_INFO,
                "glusterd already received a SIGTERM, "
                "dropping the event %d for peer %s",

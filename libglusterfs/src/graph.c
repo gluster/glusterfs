@@ -242,7 +242,6 @@ glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     if (!ixl)
         return -1;
 
-    ixl->ctx = ctx;
     ixl->graph = graph;
     ixl->options = dict_new();
     if (!ixl->options)
@@ -611,11 +610,6 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs graph meta failed");
         return -1;
-    }
-
-    /* XXX: this->ctx setting */
-    for (trav = graph->first; trav; trav = trav->next) {
-        trav->ctx = ctx;
     }
 
     /* XXX: DOB setting */
@@ -1307,7 +1301,7 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
     }
 
     /* TODO memory leaks everywhere need to free graph in case of error */
-    if (glusterfs_graph_prepare(graph, this->ctx, xl->name)) {
+    if (glusterfs_graph_prepare(graph, global_ctx, xl->name)) {
         gf_log(this->name, GF_LOG_WARNING,
                "failed to prepare graph for xlator %s", xl->name);
         return -EIO;
@@ -1333,7 +1327,7 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
              xl->volfile_id);
     memcpy(volfile_obj->volfile_checksum, sha256_hash,
            sizeof(volfile_obj->volfile_checksum));
-    list_add(&volfile_obj->volfile_list, &this->ctx->volfile_list);
+    list_add(&volfile_obj->volfile_list, &global_ctx->volfile_list);
 
     return 0;
 }
@@ -1356,7 +1350,6 @@ void *
 glusterfs_graph_cleanup(void *arg)
 {
     glusterfs_graph_t *graph = NULL;
-    glusterfs_ctx_t *ctx = THIS->ctx;
     int ret = -1;
     graph = arg;
 
@@ -1398,19 +1391,19 @@ glusterfs_graph_cleanup(void *arg)
      * all the notifier to exit. Because there should not be any threads
      * that access xl variables.
      */
-    pthread_mutex_lock(&ctx->notify_lock);
+    pthread_mutex_lock(&global_ctx->notify_lock);
     {
-        while (ctx->notifying)
-            pthread_cond_wait(&ctx->notify_cond, &ctx->notify_lock);
+        while (global_ctx->notifying)
+            pthread_cond_wait(&global_ctx->notify_cond, &global_ctx->notify_lock);
     }
-    pthread_mutex_unlock(&ctx->notify_lock);
+    pthread_mutex_unlock(&global_ctx->notify_lock);
 
-    pthread_mutex_lock(&ctx->cleanup_lock);
+    pthread_mutex_lock(&global_ctx->cleanup_lock);
     {
         glusterfs_graph_fini(graph);
         glusterfs_graph_destroy(graph);
     }
-    pthread_mutex_unlock(&ctx->cleanup_lock);
+    pthread_mutex_unlock(&global_ctx->cleanup_lock);
 out:
     return NULL;
 }
@@ -1434,7 +1427,6 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
     if (!ixl)
         goto out;
 
-    ixl->ctx = ctx;
     ixl->graph = parent_graph;
     ixl->options = dict_new();
     if (!ixl->options)

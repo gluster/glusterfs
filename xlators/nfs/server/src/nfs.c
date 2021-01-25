@@ -1088,7 +1088,7 @@ nfs_init_state(xlator_t *this)
         nfs->enable_nlm = _gf_false;
     }
 
-    nfs->rpcsvc = rpcsvc_init(this, this->ctx, this->options, fopspoolsize);
+    nfs->rpcsvc = rpcsvc_init(this, global_ctx, this->options, fopspoolsize);
     if (!nfs->rpcsvc) {
         ret = -1;
         gf_msg(GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RPC_INIT_FAIL,
@@ -1115,7 +1115,7 @@ nfs_init_state(xlator_t *this)
 
     GF_OPTION_INIT("nfs.event-threads", nfs->event_threads, uint32,
                    free_foppool);
-    gf_event_reconfigure_threads(this->ctx->event_pool, nfs->event_threads);
+    gf_event_reconfigure_threads(global_ctx->event_pool, nfs->event_threads);
 
     this->private = (void *)nfs;
     INIT_LIST_HEAD(&nfs->versions);
@@ -1338,7 +1338,7 @@ nfs_reconfigure_state(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("nfs.event-threads", nfs->event_threads, options, uint32,
                      out);
-    gf_event_reconfigure_threads(this->ctx->event_pool, nfs->event_threads);
+    gf_event_reconfigure_threads(global_ctx->event_pool, nfs->event_threads);
 
     ret = 0;
 out:

@@ -6473,7 +6473,7 @@ glusterd_schedule_brick_snapshot(dict_t *dict, dict_t *rsp_dict,
             snap_args->args = &args;
 
             ret = synctask_new(
-                this->ctx->env, glusterd_take_brick_snapshot_task,
+                global_ctx->env, glusterd_take_brick_snapshot_task,
                 glusterd_take_brick_snapshot_cbk, NULL, snap_args);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_CREATION_FAIL,

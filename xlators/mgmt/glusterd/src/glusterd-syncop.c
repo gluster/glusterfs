@@ -169,7 +169,7 @@ gd_syncop_submit_request(struct rpc_clnt *rpc, void *req, void *local,
         goto out;
 
     req_size = xdr_sizeof(xdrproc, req);
-    iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, req_size);
     if (!iobuf)
         goto out;
 
@@ -177,7 +177,7 @@ gd_syncop_submit_request(struct rpc_clnt *rpc, void *req, void *local,
     if (!iobref)
         goto out;
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame)
         goto out;
 

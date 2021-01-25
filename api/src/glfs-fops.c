@@ -1556,7 +1556,7 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
         goto out;
     }
 
-    ret = iobuf_copy(subvol->ctx->iobuf_pool, iovec, iovcnt, &iobref, &iobuf,
+    ret = iobuf_copy(global_ctx->iobuf_pool, iovec, iovcnt, &iobref, &iobuf,
                      &iov);
     if (ret)
         goto out;
@@ -1906,7 +1906,7 @@ glfs_pwritev_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
         goto out;
     }
 
-    ret = iobuf_copy(subvol->ctx->iobuf_pool, iovec, count, &iobref, &iobuf,
+    ret = iobuf_copy(global_ctx->iobuf_pool, iovec, count, &iobref, &iobuf,
                      gio->iov);
     if (ret)
         goto out;
@@ -5923,7 +5923,7 @@ glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
     if (!args)
         goto out;
 
-    ret = synctask_new(THIS->ctx->env, glfs_cbk_upcall_syncop,
+    ret = synctask_new(global_ctx->env, glfs_cbk_upcall_syncop,
                        glfs_upcall_syncop_cbk, NULL, args);
     /* should we retry incase of failure? */
     if (ret) {
@@ -5955,7 +5955,6 @@ GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_process_upcall_event, 3.7.0)
 void
 priv_glfs_process_upcall_event(struct glfs *fs, void *data)
 {
-    glusterfs_ctx_t *ctx = NULL;
     struct gf_upcall *upcall_data = NULL;
 
     DECLARE_OLD_THIS;
@@ -5973,10 +5972,8 @@ priv_glfs_process_upcall_event(struct glfs *fs, void *data)
      */
     pthread_mutex_lock(&fs->mutex);
     {
-        ctx = fs->ctx;
-
         /* if we're not interested in upcalls (anymore), skip them */
-        if (ctx->cleanup_started || !fs->cache_upcalls) {
+        if (global_ctx->cleanup_started || !fs->cache_upcalls) {
             pthread_mutex_unlock(&fs->mutex);
             goto out;
         }
@@ -6064,7 +6061,7 @@ glfs_anonymous_pwritev(struct glfs *fs, struct glfs_object *object,
 
     size = iov_length(iovec, iovcnt);
 
-    iobuf = iobuf_get2(subvol->ctx->iobuf_pool, size);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, size);
     if (!iobuf) {
         ret = -1;
         errno = ENOMEM;

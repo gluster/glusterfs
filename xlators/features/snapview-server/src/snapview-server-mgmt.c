@@ -85,17 +85,14 @@ svs_mgmt_init(xlator_t *this)
     int port = GF_DEFAULT_BASE_PORT;
     char *host = NULL;
     cmd_args_t *cmd_args = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     xlator_cmdline_option_t *opt = NULL;
 
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->ctx, out);
 
     priv = this->private;
 
-    ctx = this->ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     host = "localhost";
     if (cmd_args->volfile_server)
@@ -234,7 +231,6 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     call_frame_t *frame = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     dict_t *dict = NULL;
     char key[32] = {0};
@@ -255,15 +251,7 @@ mgmt_get_snapinfo_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     frame = myframe;
     this = frame->this;
-    ctx = frame->this->ctx;
     priv = this->private;
-
-    if (!ctx) {
-        errno = EINVAL;
-        gf_msg(frame->this->name, GF_LOG_ERROR, errno, SVS_MSG_NULL_CTX,
-               "NULL context");
-        goto out;
-    }
 
     if (-1 == req->rpc_status) {
         errno = EINVAL;
@@ -449,20 +437,13 @@ svs_get_snapshot_list(xlator_t *this)
     }};
     int ret = -1;
     dict_t *dict = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     call_frame_t *frame = NULL;
     svs_private_t *priv = NULL;
     gf_boolean_t frame_cleanup = _gf_true;
 
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
 
-    ctx = this->ctx;
-    if (!ctx) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_NULL_CTX, "ctx is NULL");
-        goto out;
-    }
-
-    frame = create_frame(this, ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_msg(this->name, GF_LOG_ERROR, 0, LG_MSG_FRAME_ERROR,
                "Error allocating frame");
@@ -495,7 +476,7 @@ svs_get_snapshot_list(xlator_t *this)
     }
 
     ret = svs_mgmt_submit_request(
-        &req, frame, ctx, &svs_clnt_handshake_prog, GF_HNDSK_GET_SNAPSHOT_INFO,
+        &req, frame, global_ctx, &svs_clnt_handshake_prog, GF_HNDSK_GET_SNAPSHOT_INFO,
         mgmt_get_snapinfo_cbk, (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
 
     if (ret) {

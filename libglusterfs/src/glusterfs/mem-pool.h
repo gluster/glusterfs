@@ -251,7 +251,6 @@ struct mem_pool {
     gf_atomic_t miss;       /* number of std allocs due to miss */
 #endif
     struct list_head owner; /* glusterfs_ctx_t->mempool_list */
-    glusterfs_ctx_t *ctx;   /* take ctx->lock when updating owner */
 
     struct mem_pool_shared *pool; /* the initial pool that was returned */
 };
@@ -332,7 +331,7 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
                 unsigned long count, char *name);
 
 #define mem_pool_new(type, count)                                              \
-    mem_pool_new_fn(THIS->ctx, sizeof(type), count, #type)
+    mem_pool_new_fn(global_ctx, sizeof(type), count, #type)
 
 #define mem_pool_new_ctx(ctx, type, count)                                     \
     mem_pool_new_fn(ctx, sizeof(type), count, #type)

@@ -36,7 +36,7 @@ get_quotad_aggregator_state(xlator_t *this, rpcsvc_request_t *req)
 
     state->itable = active_subvol->itable;
 
-    state->pool = this->ctx->pool;
+    state->pool = global_ctx->pool;
 
     return state;
 }

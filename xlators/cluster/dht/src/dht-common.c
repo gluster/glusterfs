@@ -635,7 +635,7 @@ dht_discover_complete(xlator_t *this, call_frame_t *discover_frame)
         else
             goto done;
 
-        heal_frame = create_frame(this, this->ctx->pool);
+        heal_frame = create_frame(this, global_ctx->pool);
         if (heal_frame) {
             heal_local = dht_local_init(heal_frame, &loc, NULL, 0);
             if (!heal_local)
@@ -649,7 +649,7 @@ dht_discover_complete(xlator_t *this, call_frame_t *discover_frame)
             heal_local->inode = inode_ref(loc.inode);
             heal_local->main_frame = main_frame;
             FRAME_SU_DO(heal_frame, dht_local_t);
-            ret = synctask_new(this->ctx->env, dht_heal_full_path,
+            ret = synctask_new(global_ctx->env, dht_heal_full_path,
                                dht_heal_full_path_done, heal_frame, heal_frame);
             if (!ret) {
                 loc_wipe(&loc);
@@ -890,7 +890,7 @@ dht_common_mark_mdsxattr(call_frame_t *frame, int *errst,
            To wind a call parallel need to create a new frame
         */
         if (mark_during_fresh_lookup) {
-            xattr_frame = create_frame(this, this->ctx->pool);
+            xattr_frame = create_frame(this, global_ctx->pool);
             if (!xattr_frame) {
                 ret = -1;
                 goto out;
@@ -1270,7 +1270,7 @@ dht_dir_xattr_heal(xlator_t *this, dht_local_t *local, int *op_errno)
     }
 
     gf_uuid_unparse(local->gfid, gfid_local);
-    copy = create_frame(this, this->ctx->pool);
+    copy = create_frame(this, global_ctx->pool);
     if (copy) {
         copy_local = dht_local_init(copy, &(local->loc), NULL, 0);
         if (!copy_local) {
@@ -1286,7 +1286,7 @@ dht_dir_xattr_heal(xlator_t *this, dht_local_t *local, int *op_errno)
             gf_uuid_copy(copy_local->loc.gfid, local->gfid);
             copy_local->mds_subvol = local->mds_subvol;
             FRAME_SU_DO(copy, dht_local_t);
-            ret = synctask_new(this->ctx->env, dht_dir_heal_xattrs,
+            ret = synctask_new(global_ctx->env, dht_dir_heal_xattrs,
                                dht_dir_heal_xattrs_done, copy, copy);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
@@ -8074,7 +8074,7 @@ dht_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (op_ret == -1) {
         /* Remove the linkto if exists */
         if (local->linked) {
-            cleanup_frame = create_frame(this, this->ctx->pool);
+            cleanup_frame = create_frame(this, global_ctx->pool);
             if (cleanup_frame) {
                 cleanup_local = dht_local_init(cleanup_frame, &local->loc2,
                                                NULL, 0);
@@ -8084,7 +8084,7 @@ dht_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 }
                 cleanup_local->link_subvol = local->link_subvol;
                 FRAME_SU_DO(cleanup_frame, dht_local_t);
-                ret = synctask_new(this->ctx->env, dht_remove_stale_linkto,
+                ret = synctask_new(global_ctx->env, dht_remove_stale_linkto,
                                    dht_remove_stale_linkto_cbk, cleanup_frame,
                                    cleanup_frame);
             }

@@ -894,7 +894,6 @@ static int
 __socket_server_bind(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     cmd_args_t *cmd_args = NULL;
     struct sockaddr_storage unix_addr = {0};
     int ret = -1;
@@ -904,8 +903,7 @@ __socket_server_bind(rpc_transport_t *this)
     int retries = 0;
 
     priv = this->private;
-    ctx = this->ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     ret = setsockopt(priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -1148,7 +1146,7 @@ __socket_reset(rpc_transport_t *this)
 
     memset(&priv->incoming, 0, sizeof(priv->incoming));
 
-    gf_event_unregister_close(this->ctx->event_pool, priv->sock, priv->idx);
+    gf_event_unregister_close(global_ctx->event_pool, priv->sock, priv->idx);
     if (priv->use_ssl && priv->ssl_ssl) {
         SSL_clear(priv->ssl_ssl);
         SSL_free(priv->ssl_ssl);
@@ -1328,7 +1326,7 @@ __socket_ioq_churn(rpc_transport_t *this)
 
     if (list_empty(&priv->ioq)) {
         /* all pending writes done, not interested in POLLOUT */
-        priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
+        priv->idx = gf_event_select_on(global_ctx->event_pool, priv->sock,
                                        priv->idx, -1, 0);
     }
 
@@ -1591,7 +1589,7 @@ __socket_read_vectored_request(rpc_transport_t *this,
         sp_state_read_proghdr_xdata:
             if (in->payload_vector.iov_base == NULL) {
                 size = RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read;
-                iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
+                iobuf = iobuf_get2(global_ctx->iobuf_pool, size);
                 if (!iobuf) {
                     ret = -1;
                     break;
@@ -1792,7 +1790,7 @@ __socket_read_accepted_successful_reply(rpc_transport_t *this)
             if (in->payload_vector.iov_base == NULL) {
                 size = (RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read);
 
-                iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
+                iobuf = iobuf_get2(global_ctx->iobuf_pool, size);
                 if (iobuf == NULL) {
                     ret = -1;
                     goto out;
@@ -1922,7 +1920,7 @@ __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
             if (in->payload_vector.iov_base == NULL) {
                 size = (RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read);
 
-                iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
+                iobuf = iobuf_get2(global_ctx->iobuf_pool, size);
                 if (iobuf == NULL) {
                     ret = -1;
                     goto out;
@@ -2367,7 +2365,7 @@ __socket_proto_state_machine(rpc_transport_t *this,
                 }
 
                 iobuf = iobuf_get2(
-                    this->ctx->iobuf_pool,
+                    global_ctx->iobuf_pool,
                     (in->total_bytes_read + sizeof(in->fraghdr)));
                 if (!iobuf) {
                     ret = -1;
@@ -2521,9 +2519,6 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
     int ret = -1;
     rpc_transport_pollin_t *pollin = NULL;
     socket_private_t *priv = this->private;
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = this->ctx;
 
     ret = socket_proto_state_machine(this, &pollin);
 
@@ -2536,7 +2531,7 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
     }
 
     if (notify_handled && (ret >= 0))
-        gf_event_handled(ctx->event_pool, priv->sock, priv->idx, priv->gen);
+        gf_event_handled(global_ctx->event_pool, priv->sock, priv->idx, priv->gen);
 
     if (pollin) {
         rpc_transport_ref(this);
@@ -2630,37 +2625,33 @@ static void
 ssl_rearm_event_fd(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int idx = -1;
     int gen = -1;
     int fd = -1;
 
     priv = this->private;
-    ctx = this->ctx;
 
     idx = priv->idx;
     gen = priv->gen;
     fd = priv->sock;
 
     if (priv->ssl_error_required == SSL_ERROR_WANT_READ)
-        gf_event_select_on(ctx->event_pool, fd, idx, 1, -1);
+        gf_event_select_on(global_ctx->event_pool, fd, idx, 1, -1);
     if (priv->ssl_error_required == SSL_ERROR_WANT_WRITE)
-        gf_event_select_on(ctx->event_pool, fd, idx, -1, 1);
-    gf_event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_select_on(global_ctx->event_pool, fd, idx, -1, 1);
+    gf_event_handled(global_ctx->event_pool, fd, idx, gen);
 }
 
 static int
 ssl_handle_server_connection_attempt(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int idx = -1;
     int gen = -1;
     int ret = -1;
     int fd = -1;
 
     priv = this->private;
-    ctx = this->ctx;
 
     idx = priv->idx;
     gen = priv->gen;
@@ -2680,8 +2671,8 @@ ssl_handle_server_connection_attempt(rpc_transport_t *this)
     ret = ssl_complete_connection(this);
     if (ret == 0) {
         /* nothing to do */
-        gf_event_select_on(ctx->event_pool, fd, idx, 1, 0);
-        gf_event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_select_on(global_ctx->event_pool, fd, idx, 1, 0);
+        gf_event_handled(global_ctx->event_pool, fd, idx, gen);
         ret = 1;
     } else {
         if (errno == EAGAIN) {
@@ -2701,13 +2692,11 @@ static int
 ssl_handle_client_connection_attempt(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int idx = -1;
     int ret = -1;
     int fd = -1;
 
     priv = this->private;
-    ctx = this->ctx;
 
     idx = priv->idx;
     fd = priv->sock;
@@ -2735,7 +2724,7 @@ ssl_handle_client_connection_attempt(rpc_transport_t *this)
         ret = ssl_complete_connection(this);
         if (ret == 0) {
             ret = socket_connect_finish(this);
-            gf_event_select_on(ctx->event_pool, fd, idx, 1, 0);
+            gf_event_select_on(global_ctx->event_pool, fd, idx, 1, 0);
             gf_log(this->name, GF_LOG_TRACE, ">>> completed client connect");
         } else {
             if (errno == EAGAIN) {
@@ -2761,14 +2750,12 @@ static int
 socket_handle_client_connection_attempt(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int idx = -1;
     int gen = -1;
     int ret = -1;
     int fd = -1;
 
     priv = this->private;
-    ctx = this->ctx;
 
     idx = priv->idx;
     gen = priv->gen;
@@ -2804,7 +2791,7 @@ socket_handle_client_connection_attempt(rpc_transport_t *this)
              * return 1
              */
             ret = 1;
-            gf_event_handled(ctx->event_pool, fd, idx, gen);
+            gf_event_handled(global_ctx->event_pool, fd, idx, gen);
         }
     }
     return ret;
@@ -2814,14 +2801,12 @@ static int
 socket_complete_connection(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int idx = -1;
     int gen = -1;
     int ret = -1;
     int fd = -1;
 
     priv = this->private;
-    ctx = this->ctx;
 
     idx = priv->idx;
     gen = priv->gen;
@@ -2840,7 +2825,7 @@ socket_complete_connection(rpc_transport_t *this)
              * socket_server_event_handler()
              */
             priv->accepted = _gf_true;
-            gf_event_handled(ctx->event_pool, fd, idx, gen);
+            gf_event_handled(global_ctx->event_pool, fd, idx, gen);
             ret = 1;
         } else {
             ret = socket_handle_client_connection_attempt(this);
@@ -2857,7 +2842,6 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;
     int ret = -1;
-    glusterfs_ctx_t *ctx = NULL;
     gf_boolean_t socket_closed = _gf_false, notify_handled = _gf_false;
 
     this = data;
@@ -2880,7 +2864,6 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
     THIS = this->xl;
     priv = this->private;
-    ctx = this->ctx;
 
     pthread_mutex_lock(&priv->out_lock);
     {
@@ -2968,7 +2951,7 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
             rpc_transport_unref(this);
 
     } else if (!notify_handled) {
-        gf_event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_handled(global_ctx->event_pool, fd, idx, gen);
     }
 
 out:
@@ -2989,17 +2972,14 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     };
     socklen_t addrlen = sizeof(new_sockaddr);
     socket_private_t *new_priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
 
     this = data;
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
     GF_VALIDATE_OR_GOTO("socket", this->xl, out);
-    GF_VALIDATE_OR_GOTO("socket", this->ctx, out);
 
     THIS = this->xl;
     priv = this->private;
-    ctx = this->ctx;
 
     if (event_thread_died) {
         rpc_transport_notify(this, RPC_TRANSPORT_EVENT_THREAD_DIED,
@@ -3029,7 +3009,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
         new_sock = sys_accept(priv->sock, SA(&new_sockaddr), &addrlen, aflags);
 
-        gf_event_handled(ctx->event_pool, fd, idx, gen);
+        gf_event_handled(global_ctx->event_pool, fd, idx, gen);
 
         if (new_sock < 0) {
             gf_log(this->name, GF_LOG_WARNING, "accept on %d failed (%s)",
@@ -3118,7 +3098,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
          */
         if (new_sockaddr.ss_family != AF_UNIX)
             new_trans->options = dict_ref(this->options);
-        new_trans->ctx = this->ctx;
+        new_trans->ctx = global_ctx;
 
         ret = socket_init(new_trans);
 
@@ -3141,7 +3121,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_trans->ops = this->ops;
         new_trans->init = this->init;
         new_trans->fini = this->fini;
-        new_trans->ctx = ctx;
+        new_trans->ctx = global_ctx;
         new_trans->xl = this->xl;
         new_trans->mydata = this->mydata;
         new_trans->notify = this->notify;
@@ -3197,7 +3177,7 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
 
             if (ret >= 0) {
                 new_priv->idx = gf_event_register(
-                    ctx->event_pool, new_sock, socket_event_handler, new_trans,
+                    global_ctx->event_pool, new_sock, socket_event_handler, new_trans,
                     1, 0, new_trans->notify_poller_death);
                 if (new_priv->idx == -1) {
                     ret = -1;
@@ -3331,7 +3311,6 @@ socket_connect(rpc_transport_t *this, int port)
     int sock = -1;
     socket_private_t *priv = NULL;
     socklen_t sockaddr_len = 0;
-    glusterfs_ctx_t *ctx = NULL;
     sa_family_t sa_family = {
         0,
     };
@@ -3350,7 +3329,6 @@ socket_connect(rpc_transport_t *this, int port)
     GF_VALIDATE_OR_GOTO("socket", this->private, err);
 
     priv = this->private;
-    ctx = this->ctx;
 
     if (!priv) {
         gf_log_callingfn(this->name, GF_LOG_WARNING,
@@ -3571,7 +3549,7 @@ socket_connect(rpc_transport_t *this, int port)
         refd = _gf_true;
 
         this->listener = this;
-        priv->idx = gf_event_register(ctx->event_pool, priv->sock,
+        priv->idx = gf_event_register(global_ctx->event_pool, priv->sock,
                                       socket_event_handler, this, 1, 1,
                                       this->notify_poller_death);
         if (priv->idx == -1) {
@@ -3627,7 +3605,6 @@ socket_listen(rpc_transport_t *this)
     struct sockaddr_storage sockaddr;
     socklen_t sockaddr_len = 0;
     peer_info_t *myinfo = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     sa_family_t sa_family = {
         0,
     };
@@ -3637,7 +3614,6 @@ socket_listen(rpc_transport_t *this)
 
     priv = this->private;
     myinfo = &this->myinfo;
-    ctx = this->ctx;
 
     pthread_mutex_lock(&priv->out_lock);
     {
@@ -3748,7 +3724,7 @@ socket_listen(rpc_transport_t *this)
 
         rpc_transport_ref(this);
 
-        priv->idx = gf_event_register(ctx->event_pool, priv->sock,
+        priv->idx = gf_event_register(global_ctx->event_pool, priv->sock,
                                       socket_server_event_handler, this, 1, 0,
                                       this->notify_poller_death);
 
@@ -3777,14 +3753,12 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
     char need_poll_out = 0;
     char need_append = 1;
     struct ioq *entry = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     socket_private_t *priv = NULL;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
     GF_VALIDATE_OR_GOTO("socket", this->private, out);
 
     priv = this->private;
-    ctx = this->ctx;
 
     pthread_mutex_lock(&priv->out_lock);
     {
@@ -3819,7 +3793,7 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
         }
         if (need_poll_out) {
             /* first entry to wait. continue writing on POLLOUT */
-            priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
+            priv->idx = gf_event_select_on(global_ctx->event_pool, priv->sock,
                                            priv->idx, -1, 1);
         }
     }
@@ -3937,7 +3911,7 @@ socket_throttle(rpc_transport_t *this, gf_boolean_t onoff)
          * registered fd mapping. */
 
         if (priv->connected == 1)
-            priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
+            priv->idx = gf_event_select_on(global_ctx->event_pool, priv->sock,
                                            priv->idx, (int)!onoff, -1);
     }
     pthread_mutex_unlock(&priv->out_lock);
@@ -4274,7 +4248,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                                   &cert_depth)) {
         }
     } else {
-        cert_depth = this->ctx->ssl_cert_depth;
+        cert_depth = global_ctx->ssl_cert_depth;
     }
     gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO : GF_LOG_DEBUG,
            "SSL support for MGMT is %s IO path is %s certificate depth is %d "
@@ -4605,8 +4579,8 @@ socket_init(rpc_transport_t *this)
                    "invalid value given for ssl-enabled boolean");
         }
     }
-    priv->mgmt_ssl = this->ctx->secure_mgmt;
-    priv->srvr_ssl = this->ctx->secure_srvr;
+    priv->mgmt_ssl = global_ctx->secure_mgmt;
+    priv->srvr_ssl = global_ctx->secure_srvr;
 
     ssl_setup_connection_params(this);
 out:

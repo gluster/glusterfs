@@ -115,7 +115,7 @@ cdc_alloc_iobuf_and_init_vec(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci,
 
     alloc_len = size ? size : ci->buffer_size;
 
-    iobuf = iobuf_get2(this->ctx->iobuf_pool, alloc_len);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, alloc_len);
     if (!iobuf)
         goto out;
 

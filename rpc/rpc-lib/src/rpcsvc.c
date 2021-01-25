@@ -342,7 +342,7 @@ rpcsvc_program_actor(rpcsvc_request_t *req)
         goto err;
     }
 
-    if (svc->xl->ctx->measure_latency) {
+    if (global_ctx->measure_latency) {
         timespec_now(&req->begin);
     }
 
@@ -807,7 +807,7 @@ rpcsvc_handle_rpc_call(rpcsvc_t *svc, rpc_transport_t *trans,
         }
 
         if (req->synctask) {
-            ret = synctask_new(THIS->ctx->env, (synctask_fn_t)actor_fn,
+            ret = synctask_new(global_ctx->env, (synctask_fn_t)actor_fn,
                                rpcsvc_check_and_reply_error, NULL, req);
         } else if (req->ownthread) {
             value = pthread_getspecific(req->prog->req_queue_key);
@@ -1182,7 +1182,7 @@ rpcsvc_callback_build_record(rpcsvc_t *rpc, int prognum, int progver,
      */
     xdr_size = xdr_sizeof((xdrproc_t)xdr_callmsg, &request);
 
-    request_iob = iobuf_get2(rpc->ctx->iobuf_pool, (xdr_size + payload));
+    request_iob = iobuf_get2(global_ctx->iobuf_pool, (xdr_size + payload));
     if (!request_iob) {
         goto out;
     }

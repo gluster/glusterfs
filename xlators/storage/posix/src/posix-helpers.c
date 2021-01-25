@@ -1538,7 +1538,7 @@ posix_janitor_task_initator(struct gf_tw_timer_list *timer, void *data,
 
     this = data;
 
-    ret = synctask_new(this->ctx->env, posix_janitor_task,
+    ret = synctask_new(global_ctx->env, posix_janitor_task,
                        posix_janitor_task_done, NULL, this);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
@@ -1562,7 +1562,7 @@ __posix_janitor_timer_start(xlator_t *this)
     timer->expires = priv->janitor_sleep_duration;
     timer->function = posix_janitor_task_initator;
     timer->data = this;
-    gf_tw_add_timer(glusterfs_ctx_tw_get(this->ctx), timer);
+    gf_tw_add_timer(glusterfs_ctx_tw_get(global_ctx), timer);
 
     return;
 }
@@ -1633,20 +1633,17 @@ posix_ctx_janitor_thread_proc(void *data)
 {
     xlator_t *xl;
     struct posix_fd *pfd;
-    glusterfs_ctx_t *ctx = NULL;
     struct posix_private *priv_fd;
 
-    ctx = data;
+    pthread_mutex_lock(&global_ctx->fd_lock);
 
-    pthread_mutex_lock(&ctx->fd_lock);
-
-    while ((pfd = janitor_get_next_fd(ctx)) != NULL) {
-        pthread_mutex_unlock(&ctx->fd_lock);
+    while ((pfd = janitor_get_next_fd(global_ctx)) != NULL) {
+        pthread_mutex_unlock(&global_ctx->fd_lock);
 
         xl = pfd->xl;
         posix_close_pfd(xl, pfd);
 
-        pthread_mutex_lock(&ctx->fd_lock);
+        pthread_mutex_lock(&global_ctx->fd_lock);
 
         priv_fd = xl->private;
         priv_fd->rel_fdcount--;
@@ -1654,7 +1651,7 @@ posix_ctx_janitor_thread_proc(void *data)
             pthread_cond_signal(&priv_fd->fd_cond);
     }
 
-    pthread_mutex_unlock(&ctx->fd_lock);
+    pthread_mutex_unlock(&global_ctx->fd_lock);
 
     return NULL;
 }
@@ -1663,25 +1660,22 @@ int
 posix_spawn_ctx_janitor_thread(xlator_t *this)
 {
     int ret = 0;
-    glusterfs_ctx_t *ctx = NULL;
 
-    ctx = this->ctx;
-
-    pthread_mutex_lock(&ctx->fd_lock);
+    pthread_mutex_lock(&global_ctx->fd_lock);
     {
-        if (ctx->pxl_count++ == 0) {
-            ret = gf_thread_create(&ctx->janitor, NULL,
-                                   posix_ctx_janitor_thread_proc, ctx,
+        if (global_ctx->pxl_count++ == 0) {
+            ret = gf_thread_create(&global_ctx->janitor, NULL,
+                                   posix_ctx_janitor_thread_proc, global_ctx,
                                    "posixctxjan");
 
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
                        "spawning janitor thread failed");
-                ctx->pxl_count--;
+                global_ctx->pxl_count--;
             }
         }
     }
-    pthread_mutex_unlock(&ctx->fd_lock);
+    pthread_mutex_unlock(&global_ctx->fd_lock);
 
     return ret;
 }
@@ -2155,7 +2149,6 @@ posix_health_check_thread_proc(void *data)
     xlator_list_t **trav_p = NULL;
     int count = 0;
     gf_boolean_t victim_found = _gf_false;
-    glusterfs_ctx_t *ctx = THIS->ctx;
     char file_path[PATH_MAX];
 
     /* prevent races when the interval is updated */
@@ -2215,13 +2208,13 @@ abort:
     /* Below code is use to ensure if brick multiplexing is enabled if
        count is more than 1 it means brick mux has enabled
     */
-    if (this->ctx->active) {
-        top = this->ctx->active->first;
-        LOCK(&ctx->volfile_lock);
+    if (global_ctx->active) {
+        top = global_ctx->active->first;
+        LOCK(&global_ctx->volfile_lock);
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             count++;
         }
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
     }
 
     if (count == 1) {
@@ -2241,7 +2234,7 @@ abort:
             kill(getpid(), SIGKILL);
 
     } else if (top) {
-        LOCK(&ctx->volfile_lock);
+        LOCK(&global_ctx->volfile_lock);
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             victim = (*trav_p)->xlator;
             if (!victim->call_cleanup &&
@@ -2250,7 +2243,7 @@ abort:
                 break;
             }
         }
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
         if (victim_found && !victim->cleanup_starting) {
             gf_log(THIS->name, GF_LOG_INFO,
                    "detaching not-only "
@@ -2352,7 +2345,6 @@ static void *
 posix_ctx_disk_thread_proc(void *data)
 {
     struct posix_private *priv = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     uint32_t interval = 0;
     struct posix_diskxl *pthis = NULL;
     xlator_t *this = NULL;
@@ -2360,7 +2352,6 @@ posix_ctx_disk_thread_proc(void *data)
         0,
     };
 
-    ctx = data;
     interval = 5;
 
     gf_msg_debug("glusterfs_ctx", 0,
@@ -2368,20 +2359,20 @@ posix_ctx_disk_thread_proc(void *data)
                  "interval = %d seconds",
                  interval);
 
-    pthread_mutex_lock(&ctx->xl_lock);
+    pthread_mutex_lock(&global_ctx->xl_lock);
     {
-        while (ctx->diskxl_count > 0) {
-            list_for_each_entry(pthis, &ctx->diskth_xl, list)
+        while (global_ctx->diskxl_count > 0) {
+            list_for_each_entry(pthis, &global_ctx->diskth_xl, list)
             {
                 pthis->is_use = _gf_true;
-                pthread_mutex_unlock(&ctx->xl_lock);
+                pthread_mutex_unlock(&global_ctx->xl_lock);
 
                 THIS = this = pthis->xl;
                 priv = this->private;
 
                 posix_disk_space_check(priv);
 
-                pthread_mutex_lock(&ctx->xl_lock);
+                pthread_mutex_lock(&global_ctx->xl_lock);
                 pthis->is_use = _gf_false;
                 /* Send a signal to posix_notify function */
                 if (pthis->detach_notify)
@@ -2390,11 +2381,11 @@ posix_ctx_disk_thread_proc(void *data)
 
             timespec_now_realtime(&sleep_till);
             sleep_till.tv_sec += 5;
-            (void)pthread_cond_timedwait(&ctx->xl_cond, &ctx->xl_lock,
+            (void)pthread_cond_timedwait(&global_ctx->xl_cond, &global_ctx->xl_lock,
                                          &sleep_till);
         }
     }
-    pthread_mutex_unlock(&ctx->xl_lock);
+    pthread_mutex_unlock(&global_ctx->xl_lock);
 
     return NULL;
 }
@@ -2403,7 +2394,6 @@ int
 posix_spawn_disk_space_check_thread(xlator_t *this)
 {
     int ret = 0;
-    glusterfs_ctx_t *ctx = this->ctx;
     struct posix_diskxl *pxl = NULL;
     struct posix_private *priv = this->private;
 
@@ -2417,26 +2407,26 @@ posix_spawn_disk_space_check_thread(xlator_t *this)
     }
     pthread_cond_init(&pxl->cond, NULL);
 
-    pthread_mutex_lock(&ctx->xl_lock);
+    pthread_mutex_lock(&global_ctx->xl_lock);
     {
-        if (ctx->diskxl_count++ == 0) {
-            ret = gf_thread_create(&ctx->disk_space_check, NULL,
-                                   posix_ctx_disk_thread_proc, ctx,
+        if (global_ctx->diskxl_count++ == 0) {
+            ret = gf_thread_create(&global_ctx->disk_space_check, NULL,
+                                   posix_ctx_disk_thread_proc, global_ctx,
                                    "posixctxres");
 
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
                        "spawning disk space check thread failed");
-                ctx->diskxl_count--;
-                pthread_mutex_unlock(&ctx->xl_lock);
+                global_ctx->diskxl_count--;
+                pthread_mutex_unlock(&global_ctx->xl_lock);
                 goto out;
             }
         }
         pxl->xl = this;
         priv->pxl = (void *)pxl;
-        list_add_tail(&pxl->list, &ctx->diskth_xl);
+        list_add_tail(&pxl->list, &global_ctx->diskth_xl);
     }
-    pthread_mutex_unlock(&ctx->xl_lock);
+    pthread_mutex_unlock(&global_ctx->xl_lock);
 
 out:
     if (ret) {

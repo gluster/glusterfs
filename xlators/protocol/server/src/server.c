@@ -443,7 +443,7 @@ server_rpc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event, void *data)
     this = xl;
     trans = data;
 
-    if (!this || !data || !this->ctx || !this->ctx->active) {
+    if (!this || !data || !global_ctx->active) {
         gf_msg_callingfn("server", GF_LOG_WARNING, 0, PS_MSG_RPC_NOTIFY_ERROR,
                          "Calling rpc_notify without initializing");
         goto out;
@@ -629,7 +629,6 @@ server_graph_janitor_threads(void *data)
     xlator_t *victim = NULL;
     xlator_t *this = NULL;
     server_conf_t *conf = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     char *victim_name = NULL;
     server_cleanup_xprt_arg_t *arg = NULL;
     gf_boolean_t victim_found = _gf_false;
@@ -648,11 +647,8 @@ server_graph_janitor_threads(void *data)
     THIS = arg->this;
     conf = this->private;
 
-    ctx = THIS->ctx;
-    GF_VALIDATE_OR_GOTO(this->name, ctx, out);
-
-    top = this->ctx->active->first;
-    LOCK(&ctx->volfile_lock);
+    top = global_ctx->active->first;
+    LOCK(&global_ctx->volfile_lock);
     for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
         victim = (*trav_p)->xlator;
         if (victim->cleanup_starting &&
@@ -665,8 +661,8 @@ server_graph_janitor_threads(void *data)
         }
     }
     if (victim_found)
-        glusterfs_delete_volfile_checksum(ctx, victim->volfile_id);
-    UNLOCK(&ctx->volfile_lock);
+        glusterfs_delete_volfile_checksum(global_ctx, victim->volfile_id);
+    UNLOCK(&global_ctx->volfile_lock);
     if (!victim_found) {
         gf_log(this->name, GF_LOG_ERROR,
                "victim brick %s is not"
@@ -682,20 +678,20 @@ server_graph_janitor_threads(void *data)
                " %s stack",
                victim->name);
         xlator_mem_cleanup(victim);
-        LOCK(&ctx->volfile_lock);
+        LOCK(&global_ctx->volfile_lock);
         {
             totchildcount = 0;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 totchildcount++;
                 break;
             }
-            if (!totchildcount && !ctx->destroy_ctx) {
-                ctx->destroy_ctx = _gf_true;
+            if (!totchildcount && !global_ctx->destroy_ctx) {
+                global_ctx->destroy_ctx = _gf_true;
                 destroy_ctx = _gf_true;
             }
         }
-        UNLOCK(&ctx->volfile_lock);
-        rpcsvc_autoscale_threads(ctx, conf->rpc, -1);
+        UNLOCK(&global_ctx->volfile_lock);
+        rpcsvc_autoscale_threads(global_ctx, conf->rpc, -1);
     }
 
 out:
@@ -704,17 +700,17 @@ out:
     if (!totchildcount && destroy_ctx) {
         gf_log(THIS->name, GF_LOG_INFO,
                "Going to Cleanup ctx pool memory and exit the process %s",
-               ctx->cmdlinestr);
-        syncenv_destroy(ctx->env);
-        ctx->env = NULL;
-        gf_event_dispatch_destroy(ctx->event_pool);
-        if (ctx->mgmt) {
-            rpc = ctx->mgmt;
+               global_ctx->cmdlinestr);
+        syncenv_destroy(global_ctx->env);
+        global_ctx->env = NULL;
+        gf_event_dispatch_destroy(global_ctx->event_pool);
+        if (global_ctx->mgmt) {
+            rpc = global_ctx->mgmt;
             rpc_clnt_connection_cleanup(&rpc->conn);
             rpc_clnt_unref(rpc);
         }
         server_cleanup(this, conf);
-        glusterfs_ctx_pool_destroy(ctx);
+        glusterfs_ctx_pool_destroy(global_ctx);
     }
     return NULL;
 }
@@ -775,7 +771,7 @@ _copy_auth_opt(dict_t *unused, char *key, data_t *value, void *xl_dict)
 int
 server_check_event_threads(xlator_t *this, server_conf_t *conf, int32_t new)
 {
-    struct event_pool *pool = this->ctx->event_pool;
+    struct event_pool *pool = global_ctx->event_pool;
     int target;
 
     target = new + pool->auto_thread_count;
@@ -873,8 +869,8 @@ server_reconfigure(xlator_t *this, dict_t *options)
         goto do_auth;
     }
     gf_path_strip_trailing_slashes(statedump_path);
-    GF_FREE(this->ctx->statedump_path);
-    this->ctx->statedump_path = gf_strdup(statedump_path);
+    GF_FREE(global_ctx->statedump_path);
+    global_ctx->statedump_path = gf_strdup(statedump_path);
 
 do_auth:
     if (!conf->auth_modules)
@@ -1081,9 +1077,9 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
     LOCK_DESTROY(&conf->itable_lock);
     pthread_mutex_destroy(&conf->mutex);
 
-    if (this->ctx->event_pool) {
+    if (global_ctx->event_pool) {
         /* Free the event pool */
-        (void)gf_event_pool_destroy(this->ctx->event_pool);
+        (void)gf_event_pool_destroy(global_ctx->event_pool);
     }
 
     if (dict_get_sizen(this->options, "config-directory")) {
@@ -1096,9 +1092,9 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
         conf->child_status = NULL;
     }
 
-    if (this->ctx->statedump_path) {
-        GF_FREE(this->ctx->statedump_path);
-        this->ctx->statedump_path = NULL;
+    if (global_ctx->statedump_path) {
+        GF_FREE(global_ctx->statedump_path);
+        global_ctx->statedump_path = NULL;
     }
 
     if (conf->auth_modules) {
@@ -1167,7 +1163,7 @@ server_init(xlator_t *this)
     GF_OPTION_INIT("statedump-path", statedump_path, path, out);
     if (statedump_path) {
         gf_path_strip_trailing_slashes(statedump_path);
-        this->ctx->statedump_path = gf_strdup(statedump_path);
+        global_ctx->statedump_path = gf_strdup(statedump_path);
     } else {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_SET_STATEDUMP_PATH_ERROR,
                 NULL);
@@ -1218,7 +1214,7 @@ server_init(xlator_t *this)
         conf->dync_auth = ret;
 
     /* RPC related */
-    conf->rpc = rpcsvc_init(this, this->ctx, this->options, 0);
+    conf->rpc = rpcsvc_init(this, global_ctx, this->options, 0);
     if (conf->rpc == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPCSVC_CREATE_FAILED, NULL);
         ret = -1;
@@ -1236,7 +1232,7 @@ server_init(xlator_t *this)
      * This is the only place where we want secure_srvr to reflect
      * the data-plane setting.
      */
-    this->ctx->secure_srvr = MGMT_SSL_COPY_IO;
+    global_ctx->secure_srvr = MGMT_SSL_COPY_IO;
 
     ret = dict_get_str_sizen(this->options, "transport-type", &transport_type);
     if (ret) {
@@ -1337,14 +1333,14 @@ server_init(xlator_t *this)
         }
     }
 #endif
-    if (!this->ctx->cmd_args.volfile_id) {
+    if (!global_ctx->cmd_args.volfile_id) {
         /* In some use cases this is a valid case, but
            document this to be annoying log in that case */
         gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_VOL_FILE_OPEN_FAILED,
                 NULL);
-        this->ctx->cmd_args.volfile_id = gf_strdup("gluster");
+        global_ctx->cmd_args.volfile_id = gf_strdup("gluster");
     }
-    FIRST_CHILD(this)->volfile_id = gf_strdup(this->ctx->cmd_args.volfile_id);
+    FIRST_CHILD(this)->volfile_id = gf_strdup(global_ctx->cmd_args.volfile_id);
 
     this->private = conf;
     ret = 0;
@@ -1495,7 +1491,7 @@ server_process_event_upcall(xlator_t *this, void *data)
                 continue;
 
             ret = rpcsvc_request_submit(conf->rpc, xprt, &server_cbk_prog,
-                                        cbk_procnum, up_req, this->ctx,
+                                        cbk_procnum, up_req, global_ctx,
                                         xdrproc);
             if (ret < 0) {
                 gf_msg_debug(this->name, 0,
@@ -1604,7 +1600,6 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
     xlator_list_t **trav_p = NULL;
     struct _child_status *tmp = NULL;
     gf_boolean_t victim_found = _gf_false;
-    glusterfs_ctx_t *ctx = NULL;
     gf_boolean_t xprt_found = _gf_false;
     uint64_t totxprt = 0;
     uint64_t totdisconnect = 0;
@@ -1614,7 +1609,6 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
     victim = data;
-    ctx = THIS->ctx;
 
     switch (event) {
         case GF_EVENT_UPCALL: {
@@ -1733,9 +1727,9 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                 GF_ATOMIC_SUB(victim->xprtrefcnt, (totxprt - totdisconnect));
 
             pthread_mutex_unlock(&conf->mutex);
-            if (this->ctx->active) {
-                top = this->ctx->active->first;
-                LOCK(&ctx->volfile_lock);
+            if (global_ctx->active) {
+                top = global_ctx->active->first;
+                LOCK(&global_ctx->volfile_lock);
                 for (trav_p = &top->children; *trav_p;
                      trav_p = &(*trav_p)->next) {
                     travxl = (*trav_p)->xlator;
@@ -1746,10 +1740,10 @@ server_notify(xlator_t *this, int32_t event, void *data, ...)
                     }
                 }
                 if (victim_found)
-                    glusterfs_delete_volfile_checksum(ctx, victim->volfile_id);
-                UNLOCK(&ctx->volfile_lock);
+                    glusterfs_delete_volfile_checksum(global_ctx, victim->volfile_id);
+                UNLOCK(&global_ctx->volfile_lock);
 
-                rpc_clnt_mgmt_pmap_signout(ctx, victim_name);
+                rpc_clnt_mgmt_pmap_signout(global_ctx, victim_name);
 
                 if (!xprt_found && victim_found) {
                     server_call_xlator_mem_cleanup(this, victim_name);

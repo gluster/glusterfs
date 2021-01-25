@@ -299,7 +299,7 @@ __afr_selfheal_metadata_finalize_source(call_frame_t *frame, xlator_t *this,
                      "client-pid=%d;"
                      "subvol=%s;"
                      "type=metadata;file=%s",
-                     this->ctx->cmd_args.client_pid, this->name,
+                     global_ctx->cmd_args.client_pid, this->name,
                      uuid_utoa(inode->gfid));
             return -EIO;
         }

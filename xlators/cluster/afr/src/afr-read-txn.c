@@ -247,7 +247,7 @@ afr_ta_read_txn_synctask(call_frame_t *frame, xlator_t *this)
                "Failed to create ta_frame");
         goto out;
     }
-    ret = synctask_new(this->ctx->env, afr_ta_read_txn, afr_ta_read_txn_done,
+    ret = synctask_new(global_ctx->env, afr_ta_read_txn, afr_ta_read_txn_done,
                        ta_frame, frame);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_THIN_ARB,

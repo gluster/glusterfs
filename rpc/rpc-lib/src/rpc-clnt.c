@@ -138,8 +138,8 @@ call_bail(void *data)
 
             /* Ref rpc as it's added to timer event queue */
             rpc_clnt_ref(clnt);
-            gf_timer_call_cancel(clnt->ctx, conn->timer);
-            conn->timer = gf_timer_call_after(clnt->ctx, timeout, call_bail,
+            gf_timer_call_cancel(global_ctx, conn->timer);
+            conn->timer = gf_timer_call_after(global_ctx, timeout, call_bail,
                                               (void *)clnt);
 
             if (conn->timer == NULL) {
@@ -215,7 +215,7 @@ __save_frame(struct rpc_clnt *rpc_clnt, call_frame_t *frame,
         timeout.tv_sec = 10;
         timeout.tv_nsec = 0;
         rpc_clnt_ref(rpc_clnt);
-        conn->timer = gf_timer_call_after(rpc_clnt->ctx, timeout, call_bail,
+        conn->timer = gf_timer_call_after(global_ctx, timeout, call_bail,
                                           (void *)rpc_clnt);
     }
 
@@ -378,7 +378,7 @@ rpc_clnt_reconnect(void *conn_ptr)
             goto out_unlock;
 
         if (conn->reconnect) {
-            if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
+            if (!gf_timer_call_cancel(global_ctx, conn->reconnect))
                 canceled_unref = _gf_true;
         }
         conn->reconnect = 0;
@@ -390,7 +390,7 @@ rpc_clnt_reconnect(void *conn_ptr)
             gf_log(conn->name, GF_LOG_TRACE, "attempting reconnect");
             (void)rpc_transport_connect(trans, conn->config.remote_port);
             rpc_clnt_ref(clnt);
-            conn->reconnect = gf_timer_call_after(clnt->ctx, ts,
+            conn->reconnect = gf_timer_call_after(global_ctx, ts,
                                                   rpc_clnt_reconnect, conn);
             if (!conn->reconnect) {
                 need_unref = _gf_true;
@@ -460,7 +460,7 @@ rpc_clnt_reconnect_cleanup(rpc_clnt_connection_t *conn)
     pthread_mutex_lock(&conn->lock);
     {
         if (conn->reconnect) {
-            ret = gf_timer_call_cancel(clnt->ctx, conn->reconnect);
+            ret = gf_timer_call_cancel(global_ctx, conn->reconnect);
             if (!ret) {
                 reconnect_unref = _gf_true;
                 conn->cleanup_gen++;
@@ -505,13 +505,13 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
 
         /* bailout logic cleanup */
         if (conn->timer) {
-            ret = gf_timer_call_cancel(clnt->ctx, conn->timer);
+            ret = gf_timer_call_cancel(global_ctx, conn->timer);
             if (!ret)
                 timer_unref = _gf_true;
             conn->timer = NULL;
         }
         if (conn->reconnect) {
-            ret = gf_timer_call_cancel(clnt->ctx, conn->reconnect);
+            ret = gf_timer_call_cancel(global_ctx, conn->reconnect);
             if (!ret)
                 reconnect_unref = _gf_true;
             conn->reconnect = NULL;
@@ -838,7 +838,7 @@ rpc_clnt_handle_disconnect(struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
             ts.tv_nsec = 0;
 
             rpc_clnt_ref(clnt);
-            conn->reconnect = gf_timer_call_after(clnt->ctx, ts,
+            conn->reconnect = gf_timer_call_after(global_ctx, ts,
                                                   rpc_clnt_reconnect, conn);
             if (conn->reconnect == NULL) {
                 gf_log(conn->name, GF_LOG_WARNING,
@@ -1082,7 +1082,6 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
 {
     int ret = -1;
     struct rpc_clnt *rpc = NULL;
-    glusterfs_ctx_t *ctx = owner->ctx;
 
     rpc = GF_CALLOC(1, sizeof(*rpc), gf_common_mt_rpcclnt_t);
     if (!rpc) {
@@ -1090,7 +1089,6 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
     }
 
     pthread_mutex_init(&rpc->lock, NULL);
-    rpc->ctx = ctx;
     rpc->owner = owner;
     GF_ATOMIC_INIT(rpc->xid, 1);
 
@@ -1114,7 +1112,7 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
         goto out;
     }
 
-    ret = rpc_clnt_connection_init(rpc, ctx, options, name);
+    ret = rpc_clnt_connection_init(rpc, global_ctx, options, name);
     if (ret == -1) {
         pthread_mutex_destroy(&rpc->lock);
         mem_pool_destroy(rpc->reqpool);
@@ -1491,7 +1489,7 @@ rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
     /* First, try to get a pointer into the buffer which the RPC
      * layer can use.
      */
-    request_iob = iobuf_get2(clnt->ctx->iobuf_pool, (xdr_size + hdrsize));
+    request_iob = iobuf_get2(global_ctx->iobuf_pool, (xdr_size + hdrsize));
     if (!request_iob) {
         goto out;
     }
@@ -1884,7 +1882,7 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
         rpc->disabled = 1;
 
         if (conn->timer) {
-            ret = gf_timer_call_cancel(rpc->ctx, conn->timer);
+            ret = gf_timer_call_cancel(global_ctx, conn->timer);
             /* If the event is not fired and it actually cancelled
              * the timer, do the unref else registered call back
              * function will take care of it.
@@ -1895,7 +1893,7 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
         }
 
         if (conn->reconnect) {
-            ret = gf_timer_call_cancel(rpc->ctx, conn->reconnect);
+            ret = gf_timer_call_cancel(global_ctx, conn->reconnect);
             if (!ret)
                 reconnect_unref = _gf_true;
             conn->reconnect = NULL;

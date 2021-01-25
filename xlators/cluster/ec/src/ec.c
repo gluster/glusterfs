@@ -157,7 +157,7 @@ __ec_destroy_private(xlator_t *this)
         LOCK(&ec->lock);
 
         if (ec->timer != NULL) {
-            gf_timer_call_cancel(this->ctx, ec->timer);
+            gf_timer_call_cancel(global_ctx, ec->timer);
             ec->timer = NULL;
         }
 
@@ -328,7 +328,7 @@ ec_up(xlator_t *this, ec_t *ec)
     char str1[32], str2[32];
 
     if (ec->timer != NULL) {
-        gf_timer_call_cancel(this->ctx, ec->timer);
+        gf_timer_call_cancel(global_ctx, ec->timer);
         ec->timer = NULL;
     }
 
@@ -347,7 +347,7 @@ ec_down(xlator_t *this, ec_t *ec)
     char str1[32], str2[32];
 
     if (ec->timer != NULL) {
-        gf_timer_call_cancel(this->ctx, ec->timer);
+        gf_timer_call_cancel(global_ctx, ec->timer);
         ec->timer = NULL;
     }
 
@@ -378,7 +378,7 @@ ec_notify_cbk(void *data)
             goto unlock;
         }
 
-        gf_timer_call_cancel(ec->xl->ctx, ec->timer);
+        gf_timer_call_cancel(global_ctx, ec->timer);
         ec->timer = NULL;
 
         /* The timeout has expired, so any subvolume that has not
@@ -428,7 +428,7 @@ ec_launch_notify_timer(xlator_t *this, ec_t *ec)
     gf_msg_debug(this->name, 0, "Initiating child-down timer");
     delay.tv_sec = 10;
     delay.tv_nsec = 0;
-    ec->timer = gf_timer_call_after(this->ctx, delay, ec_notify_cbk, ec);
+    ec->timer = gf_timer_call_after(global_ctx, delay, ec_notify_cbk, ec);
     if (ec->timer == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_TIMER_CREATE_FAIL,
                "Cannot create timer "

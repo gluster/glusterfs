@@ -181,7 +181,6 @@ typedef struct rpc_clnt {
 
     struct mem_pool *saved_frames_pool;
 
-    glusterfs_ctx_t *ctx;
     gf_atomic_t refcount;
     xlator_t *owner;
     int auth_value;

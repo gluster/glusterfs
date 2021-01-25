@@ -20,7 +20,7 @@ dump_mem_acct_details(xlator_t *xl, int fd)
     struct mem_acct_rec *mem_rec;
     int i = 0;
 
-    if (!xl || !xl->mem_acct || (xl->ctx->active != xl->graph))
+    if (!xl || !xl->mem_acct || (global_ctx->active != xl->graph))
         return;
 
     dprintf(fd, "# %s.%s.total.num_types %d\n", xl->type, xl->name,
@@ -88,7 +88,7 @@ dump_latency_and_count(xlator_t *xl, int fd)
     }
 
     /* Need 'fuse' data, and don't need all the old graph info */
-    if ((xl != xl->ctx->root) && (xl->ctx->active != xl->graph))
+    if ((xl != global_ctx->root) && (global_ctx->active != xl->graph))
         return;
 
     for (index = 0; index < GF_FOP_MAXVALUE; index++) {

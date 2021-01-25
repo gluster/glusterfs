@@ -298,7 +298,7 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
     }
     runinit(&runner);
 
-    if (this->ctx->cmd_args.vgtool != _gf_none) {
+    if (global_ctx->cmd_args.vgtool != _gf_none) {
         len = snprintf(valgrind_logfile, PATH_MAX, "%s/valgrind-snapd.log",
                        svc->proc.logdir);
         if ((len < 0) || (len >= PATH_MAX)) {
@@ -307,7 +307,7 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
             goto out;
         }
 
-        if (this->ctx->cmd_args.vgtool == _gf_memcheck)
+        if (global_ctx->cmd_args.vgtool == _gf_memcheck)
             runner_add_args(&runner, "valgrind", "--leak-check=full",
                             "--trace-children=yes", "--track-origins=yes",
                             NULL);

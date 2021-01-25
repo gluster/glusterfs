@@ -664,7 +664,7 @@ marker_create_frame(xlator_t *this, marker_local_t *local)
 {
     call_frame_t *frame = NULL;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
 
     if (!frame)
         return -1;
@@ -1750,7 +1750,7 @@ marker_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         goto err;
 
     local->frame = frame;
-    local->lk_frame = create_frame(this, this->ctx->pool);
+    local->lk_frame = create_frame(this, global_ctx->pool);
     if (local->lk_frame == NULL)
         goto err;
 
@@ -2521,7 +2521,7 @@ marker_do_xattr_cleanup(call_frame_t *frame, xlator_t *this, dict_t *xdata,
     MARKER_INIT_LOCAL(frame, local);
 
     loc_copy(&local->loc, loc);
-    ret = synctask_new(this->ctx->env, quota_xattr_cleaner,
+    ret = synctask_new(global_ctx->env, quota_xattr_cleaner,
                        quota_xattr_cleaner_cbk, frame, xdata);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,

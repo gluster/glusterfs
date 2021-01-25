@@ -735,7 +735,7 @@ fini(xlator_t *this)
 
     LOCK(&priv->lock);
     if (priv->timer != NULL) {
-        gf_timer_call_cancel(this->ctx, priv->timer);
+        gf_timer_call_cancel(global_ctx, priv->timer);
         priv->timer = NULL;
     }
     UNLOCK(&priv->lock);

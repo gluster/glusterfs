@@ -134,27 +134,26 @@ delete_posix_diskxl(xlator_t *this)
 {
     struct posix_private *priv = this->private;
     struct posix_diskxl *pxl = priv->pxl;
-    glusterfs_ctx_t *ctx = this->ctx;
     uint32_t count = 1;
 
     if (pxl) {
-        pthread_mutex_lock(&ctx->xl_lock);
+        pthread_mutex_lock(&global_ctx->xl_lock);
         {
             pxl->detach_notify = _gf_true;
             while (pxl->is_use)
-                pthread_cond_wait(&pxl->cond, &ctx->xl_lock);
+                pthread_cond_wait(&pxl->cond, &global_ctx->xl_lock);
             list_del_init(&pxl->list);
             priv->pxl = NULL;
-            count = --ctx->diskxl_count;
+            count = --global_ctx->diskxl_count;
             if (count == 0)
-                pthread_cond_signal(&ctx->xl_cond);
+                pthread_cond_signal(&global_ctx->xl_cond);
         }
-        pthread_mutex_unlock(&ctx->xl_lock);
+        pthread_mutex_unlock(&global_ctx->xl_lock);
         pthread_cond_destroy(&pxl->cond);
         GF_FREE(pxl);
         if (count == 0) {
-            pthread_join(ctx->disk_space_check, NULL);
-            ctx->disk_space_check = 0;
+            pthread_join(global_ctx->disk_space_check, NULL);
+            global_ctx->disk_space_check = 0;
         }
     }
 }
@@ -171,7 +170,6 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
     struct timespec sleep_till = {
         0,
     };
-    glusterfs_ctx_t *ctx = this->ctx;
 
     switch (event) {
         case GF_EVENT_PARENT_UP: {
@@ -187,7 +185,7 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                 pthread_mutex_lock(&priv->janitor_mutex);
                 {
                     priv->janitor_task_stop = _gf_true;
-                    ret = gf_tw_del_timer(this->ctx->tw->timer_wheel,
+                    ret = gf_tw_del_timer(global_ctx->tw->timer_wheel,
                                           priv->janitor);
                     if (!ret) {
                         timespec_now_realtime(&sleep_till);
@@ -207,13 +205,13 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
                 GF_FREE(priv->janitor);
             }
             priv->janitor = NULL;
-            pthread_mutex_lock(&ctx->fd_lock);
+            pthread_mutex_lock(&global_ctx->fd_lock);
             {
                 while (priv->rel_fdcount > 0) {
-                    pthread_cond_wait(&priv->fd_cond, &ctx->fd_lock);
+                    pthread_cond_wait(&priv->fd_cond, &global_ctx->fd_lock);
                 }
             }
-            pthread_mutex_unlock(&ctx->fd_lock);
+            pthread_mutex_unlock(&global_ctx->fd_lock);
 
             delete_posix_diskxl(this);
 
@@ -1271,7 +1269,6 @@ posix_fini(xlator_t *this)
 {
     struct posix_private *priv = this->private;
     gf_boolean_t health_check = _gf_false;
-    glusterfs_ctx_t *ctx = this->ctx;
     uint32_t count;
     int ret = 0;
     int i = 0;
@@ -1304,7 +1301,7 @@ posix_fini(xlator_t *this)
 
     if (priv->janitor) {
         /*TODO: Make sure the synctask is also complete */
-        ret = gf_tw_del_timer(this->ctx->tw->timer_wheel, priv->janitor);
+        ret = gf_tw_del_timer(global_ctx->tw->timer_wheel, priv->janitor);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_TIMER_DELETE_FAILED,
                    "Failed to delete janitor timer");
@@ -1313,30 +1310,30 @@ posix_fini(xlator_t *this)
         priv->janitor = NULL;
     }
 
-    pthread_mutex_lock(&ctx->fd_lock);
+    pthread_mutex_lock(&global_ctx->fd_lock);
     {
-        count = --ctx->pxl_count;
+        count = --global_ctx->pxl_count;
         if (count == 0) {
-            pthread_cond_signal(&ctx->fd_cond);
+            pthread_cond_signal(&global_ctx->fd_cond);
         }
     }
-    pthread_mutex_unlock(&ctx->fd_lock);
+    pthread_mutex_unlock(&global_ctx->fd_lock);
 
     if (count == 0) {
-        pthread_join(ctx->janitor, NULL);
+        pthread_join(global_ctx->janitor, NULL);
     }
 
-    pthread_mutex_lock(&ctx->xl_lock);
+    pthread_mutex_lock(&global_ctx->xl_lock);
     {
-        count = --ctx->diskxl_count;
+        count = --global_ctx->diskxl_count;
         if (count == 0)
-            pthread_cond_signal(&ctx->xl_cond);
+            pthread_cond_signal(&global_ctx->xl_cond);
     }
-    pthread_mutex_unlock(&ctx->xl_lock);
+    pthread_mutex_unlock(&global_ctx->xl_lock);
 
     if (count == 0) {
-        pthread_join(ctx->disk_space_check, NULL);
-        ctx->disk_space_check = 0;
+        pthread_join(global_ctx->disk_space_check, NULL);
+        global_ctx->disk_space_check = 0;
     }
 
     if (priv->fsyncer) {
