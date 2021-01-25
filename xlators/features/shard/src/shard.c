@@ -4087,6 +4087,16 @@ shard_create_marker_file_under_remove_me(call_frame_t *frame, xlator_t *this,
     SHARD_INODE_CREATE_INIT(this, bs, xattr_req, &local->newloc,
                             local->prebuf.ia_size, 0, err);
 
+    /* Mark this as an internal operation, so that in case of disk full,
+     * the marker file will be created as part of reserve space */
+    ret = dict_set_int32_sizen(xattr_req, GLUSTERFS_INTERNAL_FOP_KEY, 1);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+               "Failed to set key: %s on path %s", GLUSTERFS_INTERNAL_FOP_KEY,
+               local->newloc.path);
+        goto err;
+    }
+
     STACK_WIND(frame, shard_create_marker_file_under_remove_me_cbk,
                FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
                &local->newloc, 0, 0, 0644, xattr_req);
@@ -5847,6 +5857,16 @@ shard_mkdir_internal_dir(call_frame_t *frame, xlator_t *this,
     }
 
     SHARD_SET_ROOT_FS_ID(frame, local);
+
+    /* Mark this as an internal operation, so that in case of disk full
+     * the internal dir will be created as part of reserve space */
+    ret = dict_set_int32_sizen(xattr_req, GLUSTERFS_INTERNAL_FOP_KEY, 1);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+               "Failed to set key: %s on path %s", GLUSTERFS_INTERNAL_FOP_KEY,
+               loc->path);
+        goto err;
+    }
 
     STACK_WIND_COOKIE(frame, shard_mkdir_internal_dir_cbk, (void *)(long)type,
                       FIRST_CHILD(this), FIRST_CHILD(this)->fops->mkdir, loc,
