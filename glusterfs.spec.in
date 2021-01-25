@@ -53,6 +53,16 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with ipv6default
 %{?_with_ipv6default:%global _with_ipv6default --with-ipv6-default}
 
+# linux-io_uring
+# If you wish to compile an rpm without linux-io_uring support...
+# rpmbuild -ta  @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without-liburing
+%{?_without_liburing:%global _without_liburing --without-liburing}
+
+# Disable linux-io_uring on unsupported distros.
+%if ( 0%{?fedora} && 0%{?fedora} <= 32 ) || ( 0%{?rhel} && 0%{?rhel} <= 7 )
+%global _without_liburing --without-liburing
+%endif
+
 # libtirpc
 # if you wish to compile an rpm without TIRPC (i.e. use legacy glibc rpc)
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libtirpc
@@ -135,6 +145,7 @@
 %if 0%{?_without_server:1}
 %global _without_events --disable-events
 %global _without_georeplication --disable-georeplication
+%global _without_liburing --without-liburing
 %global _with_gnfs %{nil}
 %global _without_ocf --without-ocf
 %endif
@@ -278,6 +289,10 @@ BuildRequires:    libattr-devel
 
 %if (0%{?_with_firewalld:1})
 BuildRequires:    firewalld
+%endif
+
+%if ( 0%{!?_without_liburing:1} )
+BuildRequires:    liburing-devel
 %endif
 
 Obsoletes:        %{name}-common < %{version}-%{release}
@@ -843,6 +858,7 @@ done
         %{?_without_server} \
         %{?_without_syslog} \
         %{?_with_ipv6default} \
+        %{?_without_liburing} \
         %{?_without_libtirpc}
 
 # fix hardening and remove rpath in shlibs
@@ -1623,6 +1639,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Jan 29 2021 Ravishankar N <ravishankar@redhat.com>
+- add liburing-devel as a requirement.
+
 * Thu Nov 26 2020 Shwetha K Acharya <sacharya@redhat.com>
 - Add tar as dependency to georeplication rpm for RHEL version >= 8.3
 

@@ -1443,14 +1443,16 @@ if test -n "$LIBAIO"; then
    BUILD_LIBAIO=yes
 fi
 
-BUILD_LIBURING=no
-AC_CHECK_HEADERS([liburing.h])
-AC_CHECK_LIB([uring],[io_uring_queue_init],[LIBURING="-luring"])
+AC_ARG_WITH([liburing],
+            [AC_HELP_STRING([--without-liburing], [Disable io-uring feature in POSIX xlator.])],
+            [with_liburing="no"], [with_liburing="yes"])
 
-if test -n "$LIBURING"; then
-   AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled])
-   BUILD_LIBURING=yes
+if test "x${with_liburing}" = "xyes" ; then
+    AC_CHECK_HEADERS([liburing.h],
+                     [AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled]) LIBURING="-luring"],
+                     AC_MSG_ERROR([Install liburing library and headers or use --without-liburing]))
 fi
+
 dnl gnfs section
 BUILD_GNFS="no"
 RPCBIND_SERVICE=""
@@ -1715,7 +1717,7 @@ echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
-echo "Linux-io_uring       : $BUILD_LIBURING"
+echo "Linux-io_uring       : $with_liburing"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"
