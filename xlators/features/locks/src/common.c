@@ -434,6 +434,8 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
     pl_inode_t *pl_inode = NULL;
     int ret = 0;
 
+    GF_VALIDATE_OR_GOTO("posix-locks", inode, out);
+
     LOCK(&inode->lock);
     {
         ret = __inode_ctx_get(inode, this, &tmp_pl_inode);
@@ -490,6 +492,7 @@ unlock:
         pl_fetch_mlock_info_from_disk(this, pl_inode, local);
     }
 
+out:
     return pl_inode;
 }
 
