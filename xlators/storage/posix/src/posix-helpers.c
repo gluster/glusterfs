@@ -523,7 +523,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
         inode = _get_filler_inode(filler);
         if (!inode || gf_uuid_is_null(inode->gfid))
             goto out;
-        ret = dict_set_uint32(filler->xattr, key, inode->fd_count);
+        ret = dict_set_uint32(filler->xattr, key, inode->active_fd_count);
         if (ret < 0) {
             gf_msg(filler->this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
                    "Failed to set dictionary value for %s", key);

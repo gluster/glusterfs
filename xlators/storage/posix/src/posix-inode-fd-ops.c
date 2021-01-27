@@ -1903,7 +1903,7 @@ _fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
 
     if (dict_get(xdata, GLUSTERFS_ACTIVE_FD_COUNT)) {
         ret = dict_set_uint32(rsp_xdata, GLUSTERFS_ACTIVE_FD_COUNT,
-                              fd->inode->fd_count);
+                              fd->inode->active_fd_count);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
                    "%s: Failed to set "
@@ -2567,7 +2567,7 @@ posix_release(xlator_t *this, fd_t *fd)
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
 
-    if (fd->inode->fd_count == 0)
+    if (fd->inode->active_fd_count == 0)
         posix_unlink_renamed_file(this, fd->inode);
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
