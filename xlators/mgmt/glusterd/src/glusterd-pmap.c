@@ -233,7 +233,7 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt)
                    "Failed to add brick to the ports list");
     } else {
         tmp_brick = tmp_port->brickname;
-        asprintf(&tmp_port->brickname, "%s %s", tmp_brick, brickname);
+        ret = gf_asprintf(&tmp_port->brickname, "%s %s", tmp_brick, brickname);
     }
 
     return ret;
@@ -524,7 +524,7 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
     rsp.op_ret = pmap_port_remove(this, args.port, args.brick, req->trans,
                                   _gf_false);
 
-    ret = glusterd_get_brickinfo(THIS, args.brick, args.port, &brickinfo);
+    ret = glusterd_get_brickinfo(this, args.brick, args.port, &brickinfo);
     /* Update portmap status on brickinfo */
     if (!ret)
         brickinfo->port_registered = _gf_false;
