@@ -1971,7 +1971,7 @@ out:
 }
 
 static char *
-added_user_xlator(void *myframe)
+added_server_xlator(void *myframe)
 {
     call_frame_t *frame = NULL;
     cli_local_t *local = NULL;
@@ -1979,106 +1979,33 @@ added_user_xlator(void *myframe)
     char *key = NULL;
     char *value = NULL;
     char *added_xlator = NULL;
-    int i = 0;
-
-    /*
-     * HACK:
-     *  The server xlator list is also defined here, but it should
-     *  have a common definition with glusterd. However, we are hesitant
-     *  to include the internal header of glusterd.  If want to use the
-     *  shared definition, we need to make a big modification.
-     */
-    static char *server_xlators[] = {
-        "posix", "arbiter", "trash",     "changelog",  "bitrot-stub", "acl",
-        "locks", "leases",  "upcall",    "io-threads", "selinux",     "marker",
-        "index", "quota",   "namespace", "sdfs"};
 
     frame = myframe;
     local = frame->local;
     words = (char **)local->words;
 
     while (*words != NULL) {
-        if (fnmatch("user.xlator.*", *words, 0) == 0 &&
-            fnmatch("user.xlator.*.*" /* user xlator option key*/, *words, 0) ==
-                FNM_NOMATCH) {
+        if (strcmp("debug.trace", *words) == 0 ||
+            strcmp("debug.error-gen", *words) == 0 ||
+            (fnmatch("user.xlator.*", *words, 0) == 0 &&
+             fnmatch("user.xlator.*.*" /* user xlator option key*/, *words,
+                     0) == FNM_NOMATCH)) {
             key = *words;
             words++;
             value = *words;
 
-            if (value == NULL)
-                break;
-
-            int size = sizeof(server_xlators) / sizeof(server_xlators[0]);
-
-            for (i = 0; i < size; i++) {
-                if (strcmp(value, server_xlators[i]) == 0) {
-                    added_xlator = gf_strdup(key);
-                    break;
-                }
+            if (!value || strcmp("client", value) == 0) {
+                words++;
+                continue;
             }
-        }
 
+            added_xlator = gf_strdup(key);
+            break;
+        }
         words++;
     }
 
     return added_xlator;
-}
-
-static char *
-is_server_debug_xlator(void *myframe)
-{
-    call_frame_t *frame = NULL;
-    cli_local_t *local = NULL;
-    char **words = NULL;
-    char *key = NULL;
-    char *value = NULL;
-    char *debug_xlator = NULL;
-
-    frame = myframe;
-    local = frame->local;
-    words = (char **)local->words;
-
-    while (*words != NULL) {
-        if (strstr(*words, "trace") == NULL &&
-            strstr(*words, "error-gen") == NULL) {
-            words++;
-            continue;
-        }
-
-        key = *words;
-        words++;
-        value = *words;
-        if (value == NULL)
-            break;
-        if (strstr(value, "client")) {
-            words++;
-            continue;
-        } else {
-            if (!(strstr(value, "posix") || strstr(value, "acl") ||
-                  strstr(value, "locks") || strstr(value, "io-threads") ||
-                  strstr(value, "marker") || strstr(value, "index"))) {
-                words++;
-                continue;
-            } else {
-                debug_xlator = gf_strdup(key);
-                break;
-            }
-        }
-    }
-
-    return debug_xlator;
-}
-
-static char *
-added_server_xlator(void *myframe)
-{
-    char *xlator = NULL;
-
-    xlator = is_server_debug_xlator(myframe);
-    if (xlator)
-        return xlator;
-
-    return added_user_xlator(myframe);
 }
 
 static int
