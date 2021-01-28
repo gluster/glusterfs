@@ -2892,7 +2892,7 @@ check_and_add_user_xl(volgen_graph_t *graph, dict_t *set_dict, char *volname,
 
     if (dict_foreach_match(set_dict, check_user_xlator_position, prev_xlname,
                            insert_user_xlator_to_graph, &data) < 0) {
-        return 1;
+        return -1;
     }
 
 out:
