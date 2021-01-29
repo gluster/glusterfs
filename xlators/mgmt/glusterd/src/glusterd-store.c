@@ -2332,7 +2332,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     gf_store_iter_t *tmpiter = NULL;
     char *tmpvalue = NULL;
     char abspath[PATH_MAX] = {0};
-    struct pmap_registry *pmap = NULL;
     xlator_t *this = THIS;
     int brickid = 0;
     /* ta_brick_id initialization with 2 since ta-brick id starts with

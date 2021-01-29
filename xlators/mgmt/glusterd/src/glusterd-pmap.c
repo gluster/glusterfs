@@ -234,6 +234,8 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt)
     } else {
         tmp_brick = tmp_port->brickname;
         ret = gf_asprintf(&tmp_port->brickname, "%s %s", tmp_brick, brickname);
+        if (ret > 0)
+            ret = 0;
     }
 
     return ret;
@@ -464,12 +466,13 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
+    xlator_t *this = THIS;
     glusterd_brickinfo_t *brickinfo = NULL;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_pmap_signin_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
