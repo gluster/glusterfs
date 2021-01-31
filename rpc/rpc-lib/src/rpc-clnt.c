@@ -1618,7 +1618,9 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     char new_iobref = 0;
     uint64_t callid = 0;
     gf_boolean_t need_unref = _gf_false;
+    gf_boolean_t lock_flag = _gf_false;
     call_frame_t *cframe = frame;
+    struct saved_frame *save_frame = NULL;
 
     if (!rpc || !prog || !frame) {
         goto out;
@@ -1685,6 +1687,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     pthread_mutex_lock(&conn->lock);
     {
         if (conn->connected == 0) {
+            lock_flag = _gf_true;
             if (rpc->disabled)
                 goto unlock;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
@@ -1696,41 +1699,50 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
                        conn->config.remote_host, conn->config.remote_port);
                 goto unlock;
             }
+            lock_flag = _gf_false;
         }
-
-        ret = rpc_transport_submit_request(conn->trans, &req);
-        if (ret == -1) {
-            gf_log(conn->name, GF_LOG_WARNING,
-                   "failed to submit rpc-request "
-                   "(unique: %" PRIu64
-                   ", XID: 0x%x Program: %s, "
-                   "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
-                   cframe->root->unique, rpcreq->xid, rpcreq->prog->progname,
-                   rpcreq->prog->progver, rpcreq->procnum, conn->name);
-        } else if ((ret >= 0) && frame) {
-            /* Save the frame in queue */
-            __save_frame(rpc, frame, rpcreq);
-
-            /* A ref on rpc-clnt object is taken while registering
-             * call_bail to timer in __save_frame. If it fails to
-             * register, it needs an unref and should happen outside
-             * conn->lock which otherwise leads to deadlocks */
+        if (frame)
+            save_frame = __save_frame(rpc, frame, rpcreq);
+    }
+    pthread_mutex_unlock(&conn->lock);
+    ret = rpc_transport_submit_request(conn->trans, &req);
+    if (ret == -1) {
+        pthread_mutex_lock(&conn->lock);
+        {
+            list_del_init(&save_frame->list);
+        }
+        pthread_mutex_unlock(&conn->lock);
+        gf_log(conn->name, GF_LOG_WARNING,
+               "failed to submit rpc-request "
+               "(unique: %" PRIu64
+               ", XID: 0x%x Program: %s, "
+               "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
+               cframe->root->unique, rpcreq->xid, rpcreq->prog->progname,
+               rpcreq->prog->progver, rpcreq->procnum, conn->name);
+    } else if ((ret >= 0) && frame) {
+        /* A ref on rpc-clnt object is taken while registering
+         * call_bail to timer in __save_frame. If it fails to
+         * register, it needs an unref and should happen outside
+         * conn->lock which otherwise leads to deadlocks */
+        pthread_mutex_lock(&conn->lock);
+        {
             if (conn->timer == NULL)
                 need_unref = _gf_true;
-
             conn->msgcnt++;
-
-            gf_log("rpc-clnt", GF_LOG_TRACE,
-                   "submitted request "
-                   "(unique: %" PRIu64
-                   ", XID: 0x%x, Program: %s, "
-                   "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
-                   cframe->root->unique, rpcreq->xid, rpcreq->prog->progname,
-                   rpcreq->prog->progver, rpcreq->procnum, conn->name);
         }
+        pthread_mutex_unlock(&conn->lock);
+        gf_log("rpc-clnt", GF_LOG_TRACE,
+               "submitted request "
+               "(unique: %" PRIu64
+               ", XID: 0x%x, Program: %s, "
+               "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
+               cframe->root->unique, rpcreq->xid, rpcreq->prog->progname,
+               rpcreq->prog->progver, rpcreq->procnum, conn->name);
     }
+
 unlock:
-    pthread_mutex_unlock(&conn->lock);
+    if (lock_flag)
+        pthread_mutex_unlock(&conn->lock);
 
     if (need_unref)
         rpc_clnt_unref(rpc);

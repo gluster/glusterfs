@@ -1319,7 +1319,6 @@ __socket_ioq_churn(rpc_transport_t *this)
     while (!list_empty(&priv->ioq)) {
         /* pick next entry */
         entry = priv->ioq_next;
-
         ret = __socket_ioq_churn_entry(this, entry);
 
         if (ret != 0)
@@ -1374,12 +1373,10 @@ socket_event_poll_out(rpc_transport_t *this)
     int ret = -1;
 
     priv = this->private;
-
     pthread_mutex_lock(&priv->out_lock);
     {
         if (priv->connected == 1) {
             ret = __socket_ioq_churn(this);
-
             if (ret < 0) {
                 gf_log(this->name, GF_LOG_TRACE,
                        "__socket_ioq_churn returned -1; "
@@ -3776,6 +3773,7 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
     int ret = -1;
     char need_poll_out = 0;
     char need_append = 1;
+    char lock_flag = 1;
     struct ioq *entry = NULL;
     glusterfs_ctx_t *ctx = NULL;
     socket_private_t *priv = NULL;
@@ -3786,6 +3784,10 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
     priv = this->private;
     ctx = this->ctx;
 
+    entry = __socket_ioq_new(this, msg);
+    if (!entry)
+        goto out;
+
     pthread_mutex_lock(&priv->out_lock);
     {
         if (priv->connected != 1) {
@@ -3794,33 +3796,36 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
                        "not connected (priv->connected = %d)", priv->connected);
                 priv->submit_log = 1;
             }
+            __socket_ioq_entry_free(entry);
             goto unlock;
         }
 
         priv->submit_log = 0;
-        entry = __socket_ioq_new(this, msg);
-        if (!entry)
-            goto unlock;
-
         if (list_empty(&priv->ioq)) {
-            ret = __socket_ioq_churn_entry(this, entry);
-
-            if (ret == 0) {
+            pthread_mutex_unlock(&priv->out_lock);
+            lock_flag = 0;
+            ret = __socket_writev(this, entry->pending_vector,
+                                  entry->pending_count, &entry->pending_vector,
+                                  &entry->pending_count);
+            if (ret == 0)
                 need_append = 0;
-            }
-            if (ret > 0) {
+            if (ret > 0)
                 need_poll_out = 1;
+        }
+        if (ret == 0) {
+            GF_ASSERT(entry->pending_count == 0);
+            __socket_ioq_entry_free(entry);
+            goto out;
+        } else {
+            if (!lock_flag)
+                pthread_mutex_lock(&priv->out_lock);
+            if (need_append) {
+                list_add_tail(&entry->list, &priv->ioq);
+                ret = 0;
             }
-        }
-
-        if (need_append) {
-            list_add_tail(&entry->list, &priv->ioq);
-            ret = 0;
-        }
-        if (need_poll_out) {
-            /* first entry to wait. continue writing on POLLOUT */
-            priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
-                                           priv->idx, -1, 1);
+            if (need_poll_out)
+                priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
+                                               priv->idx, -1, 1);
         }
     }
 unlock:
