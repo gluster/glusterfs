@@ -1,4 +1,4 @@
-// clang-format off
+# clang-format off
 GEO_REP_TIMEOUT=120
 CHECK_MOUNT_TIMEOUT=50
 #check for mount point
