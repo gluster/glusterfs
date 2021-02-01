@@ -1994,13 +1994,13 @@ added_server_xlator(void *myframe)
             words++;
             value = *words;
 
-            if (!value || strcmp("client", value) == 0) {
-                words++;
-                continue;
-            }
+            if (!value)
+                break;
 
-            added_xlator = gf_strdup(key);
-            break;
+            if (strcmp("client", value) != 0) {
+                added_xlator = gf_strdup(key);
+                break;
+            }
         }
         words++;
     }
