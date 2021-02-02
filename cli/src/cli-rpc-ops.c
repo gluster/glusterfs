@@ -1970,42 +1970,119 @@ out:
     return ret;
 }
 
-static char *
-added_server_xlator(void *myframe)
+/*
+ * returns
+ *   1 : is server debug xlator
+ *   0 : is not server debug xlator
+ *  <0 : error
+ */
+static int
+is_server_debug_xlator(char *key, char *value)
+{
+    if (!key || !value)
+        return -1;
+
+    if (strcmp("debug.trace", key) == 0 ||
+        strcmp("debug.error-gen", key) == 0) {
+        if (strcmp("client", value) == 0)
+            return 0;
+        else
+            return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * returns
+ *   1 : is user xlator
+ *   0 : is not user xlator
+ *  <0 : error
+ */
+static int
+is_server_user_xlator(char *key, char *value)
+{
+    int ret = 0;
+
+    if (!key || !value)
+        return -1;
+
+    ret = fnmatch("user.xlator.*", key, 0);
+    if (ret < 0) {
+        ret = -1;
+        goto out;
+    } else if (ret == FNM_NOMATCH) {
+        ret = 0;
+        goto out;
+    }
+
+    ret = fnmatch("user.xlator.*.*", key, 0);
+    if (ret < 0) {
+        ret = -1;
+        goto out;
+    } else if (ret != FNM_NOMATCH) {  // this is user xlator's option key
+        ret = 0;
+        goto out;
+    }
+
+    ret = 1;
+
+out:
+    return ret;
+}
+
+static int
+added_server_xlator(void *myframe, char **added_xlator)
 {
     call_frame_t *frame = NULL;
     cli_local_t *local = NULL;
     char **words = NULL;
     char *key = NULL;
     char *value = NULL;
-    char *added_xlator = NULL;
+    int ret = 0;
 
     frame = myframe;
     local = frame->local;
     words = (char **)local->words;
 
     while (*words != NULL) {
-        if (strcmp("debug.trace", *words) == 0 ||
-            strcmp("debug.error-gen", *words) == 0 ||
-            (fnmatch("user.xlator.*", *words, 0) == 0 &&
-             fnmatch("user.xlator.*.*" /* user xlator option key*/, *words,
-                     0) == FNM_NOMATCH)) {
-            key = *words;
-            words++;
-            value = *words;
-
-            if (!value)
-                break;
-
-            if (strcmp("client", value) != 0) {
-                added_xlator = gf_strdup(key);
-                break;
-            }
-        }
+        key = *words;
         words++;
+        value = *words;
+
+        if (!value) {
+            break;
+        }
+
+        ret = is_server_debug_xlator(key, value);
+        if (ret < 0) {
+            gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
+                   "failed to check that debug xlator was added");
+            ret = -1;
+            goto out;
+        }
+
+        if (ret) {
+            *added_xlator = gf_strdup(key);
+            break;
+        }
+
+        ret = is_server_user_xlator(key, value);
+        if (ret < 0) {
+            gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
+                   "failed to check that user xlator was added");
+            ret = -1;
+            goto out;
+        }
+
+        if (ret) {
+            *added_xlator = gf_strdup(key);
+            break;
+        }
     }
 
-    return added_xlator;
+out:
+    return ret;
 }
 
 static int
@@ -2060,7 +2137,12 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
      * xlators such as trace/errorgen are provided in the set command,
      * warn the user.
      */
-    added_xlator = added_server_xlator(myframe);
+    ret = added_server_xlator(myframe, &added_xlator);
+    if (ret < 0) {
+        gf_log("cli", GF_LOG_ERROR,
+               "failed to check that server graph has been changed");
+        goto out;
+    }
 
     if (dict_get_str_sizen(dict, "help-str", &help_str) && !msg[0])
         snprintf(msg, sizeof(msg), "Set volume %s",
