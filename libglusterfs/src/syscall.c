@@ -187,7 +187,9 @@ sys_readdir(DIR *dir, struct dirent *de)
 ssize_t
 sys_readlink(const char *path, char *buf, size_t bufsiz)
 {
-    return FS_RET_CHECK(readlink(path, buf, bufsiz), errno);
+    int sz = readlink(path, buf, bufsiz);
+    buf[sz] = '\0';
+    return FS_RET_CHECK(sz, errno);
 }
 
 int
@@ -362,7 +364,9 @@ sys_writev(int fd, const struct iovec *iov, int iovcnt)
 ssize_t
 sys_read(int fd, void *buf, size_t count)
 {
-    return FS_RET_CHECK(read(fd, buf, count), errno);
+    int sz = read(fd, buf, count);
+    buf[sz] = '\0';
+    return FS_RET_CHECK(sz, errno);
 }
 
 ssize_t
