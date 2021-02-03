@@ -1927,31 +1927,21 @@ glusterd_snap_create_clone_common_prevalidate(
         }
 
         if (!glusterd_is_brick_started(brickinfo)) {
-            if (!clone && (flags & GF_CLI_FLAG_OP_FORCE)) {
-                gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_BRICK_DISCONNECTED,
-                       "brick %s:%s is not started", brickinfo->hostname,
-                       brickinfo->path);
-                brick_order++;
-                brick_count++;
-                continue;
-            }
             if (!clone) {
                 snprintf(err_str, PATH_MAX,
                          "One or more bricks are not running. "
                          "Please run volume status command to see "
                          "brick status.\n"
+                         "All bricks have to be online to take a snapshot."
                          "Please start the stopped brick "
-                         "and then issue snapshot create "
-                         "command or use [force] option in "
-                         "snapshot create to override this "
-                         "behavior.");
-                gf_smsg(this->name, GF_LOG_ERROR, errno,
-                        GD_MSG_BRICK_NOT_RUNNING,
-                        "Please run volume status command to see brick "
-                        "status.Please start the stopped brick and then issue "
-                        "snapshot create command or use 'force' option in "
-                        "snapshot create to override this behavior.",
-                        NULL);
+                         "and then issue snapshot create command.");
+                gf_smsg(
+                    this->name, GF_LOG_ERROR, errno, GD_MSG_BRICK_NOT_RUNNING,
+                    "Please run volume status command to see brick "
+                    "status. All bricks have to be online to take a snapshot."
+                    "Please start the stopped brick and then issue "
+                    "snapshot create command.",
+                    NULL);
             } else {
                 snprintf(err_str, PATH_MAX,
                          "One or more bricks are not running. "
