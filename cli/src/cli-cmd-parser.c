@@ -4317,7 +4317,6 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
     char key[PATH_MAX] = "";
     char *snapname = NULL;
     unsigned int cmdi = 2;
-    int flags = 0;
     /* cmdi is command index, here cmdi is "2" (gluster snapshot create)*/
 
     GF_ASSERT(words);
@@ -4448,23 +4447,14 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
             goto out;
         i++;
         /* point the index to next word.
-         * As description might be follwed by force option.
-         * Before that, check if wordcount limit is reached
+         * Check if wordcount limit is reached
+         * If wordcount limit is not reached then
+         * it is invalid syntax as the command ends with description.
          */
     }
 
-    if (strcmp(words[i], "force") == 0) {
-        flags = GF_CLI_FLAG_OP_FORCE;
-
-    } else {
-        ret = -1;
-        cli_err("Invalid Syntax.");
-        gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
-        goto out;
-    }
-
-    /* Check if the command has anything after "force" keyword */
-    if (++i < wordcount) {
+    /* Check if the command has anything after the description */
+    if (i < wordcount) {
         ret = -1;
         gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
         goto out;
@@ -4473,16 +4463,6 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
     ret = 0;
 
 out:
-    if (ret == 0) {
-        /*Adding force flag in either of the case i.e force set
-         * or unset*/
-        ret = dict_set_int32(dict, "flags", flags);
-        if (ret) {
-            gf_log("cli", GF_LOG_ERROR,
-                   "Could not save "
-                   "snap force option");
-        }
-    }
     return ret;
 }
 
