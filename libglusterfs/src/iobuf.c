@@ -459,7 +459,7 @@ __iobuf_get(struct iobuf_pool *iobuf_pool, const size_t page_size,
     if (!iobuf_arena)
         return NULL;
 
-    list_for_each_entry(iobuf, &iobuf_arena->passive_list, list) break;
+    iobuf = list_first_entry(&iobuf_arena->passive_list, struct iobuf, list);
 
     list_del(&iobuf->list);
     iobuf_arena->passive_cnt--;
