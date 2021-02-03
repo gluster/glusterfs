@@ -73,6 +73,7 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
     pid_t pid = -1;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
+    int tries;
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -110,9 +111,17 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
     if (flags != PROC_STOP_FORCE)
         goto out;
 
-    synclock_unlock(&conf->big_lock);
-    synctask_sleep(1);
-    synclock_lock(&conf->big_lock);
+    for (tries = 10; tries > 0; --tries) {
+        if (gf_is_service_running(proc->pidfile, &pid)) {
+            synclock_unlock(&conf->big_lock);
+            synctask_usleep(100000);
+            synclock_lock(&conf->big_lock);
+        } else {
+            ret = 0;
+            goto out;
+        }
+    }
+
     if (gf_is_service_running(proc->pidfile, &pid)) {
         ret = kill(pid, SIGKILL);
         if (ret) {
