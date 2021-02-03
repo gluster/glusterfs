@@ -5935,6 +5935,10 @@ dht_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr,
 
     tmp = dict_get(xattr, GF_XATTR_FIX_LAYOUT_KEY);
     if (tmp) {
+        if (!IA_ISDIR(loc->inode->ia_type)) {
+            op_errno = ENOTSUP;
+            goto err;
+        }
         ret = dict_get_uint32(xattr, "new-commit-hash", &new_hash);
         if (ret == 0) {
             gf_msg_debug(this->name, 0,
