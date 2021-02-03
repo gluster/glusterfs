@@ -1252,7 +1252,8 @@ out:
 
 static inode_t *
 shard_link_internal_dir_inode(shard_local_t *local, inode_t *inode,
-                              struct iatt *buf, shard_internal_dir_type_t type)
+                              xlator_t *this, struct iatt *buf,
+                              shard_internal_dir_type_t type)
 {
     inode_t *linked_inode = NULL;
     shard_priv_t *priv = NULL;
@@ -1260,7 +1261,7 @@ shard_link_internal_dir_inode(shard_local_t *local, inode_t *inode,
     inode_t **priv_inode = NULL;
     inode_t *parent = NULL;
 
-    priv = THIS->private;
+    priv = this->private;
 
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
@@ -1304,7 +1305,7 @@ shard_refresh_internal_dir_cbk(call_frame_t *frame, void *cookie,
     /* To-Do: Fix refcount increment per call to
      * shard_link_internal_dir_inode().
      */
-    linked_inode = shard_link_internal_dir_inode(local, inode, buf, type);
+    linked_inode = shard_link_internal_dir_inode(local, inode, this, buf, type);
     shard_inode_ctx_mark_dir_refreshed(linked_inode, this);
 out:
     shard_common_resolve_shards(frame, this, local->post_res_handler);
@@ -1393,7 +1394,7 @@ shard_lookup_internal_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
     }
 
-    link_inode = shard_link_internal_dir_inode(local, inode, buf, type);
+    link_inode = shard_link_internal_dir_inode(local, inode, this, buf, type);
     if (link_inode != inode) {
         shard_refresh_internal_dir(frame, this, type);
     } else {
@@ -3595,7 +3596,8 @@ shard_resolve_internal_dir(xlator_t *this, shard_local_t *local,
                        "Lookup on %s failed, exiting", bname);
             goto err;
         } else {
-            shard_link_internal_dir_inode(local, loc->inode, &stbuf, type);
+            shard_link_internal_dir_inode(local, loc->inode, this, &stbuf,
+                                          type);
         }
     }
     ret = 0;
@@ -3639,6 +3641,45 @@ shard_lookup_marker_entry(xlator_t *this, shard_local_t *local,
     ret = 0;
 err:
     loc_wipe(&loc);
+    return ret;
+}
+
+static int
+shard_nameless_lookup_base_file(xlator_t *this, char *gfid)
+{
+    int ret = 0;
+    loc_t loc = {
+        0,
+    };
+    dict_t *xattr_req = dict_new();
+    if (!xattr_req) {
+        ret = -1;
+        goto out;
+    }
+
+    loc.inode = inode_new(this->itable);
+    if (loc.inode == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = gf_uuid_parse(gfid, loc.gfid);
+    if (ret < 0)
+        goto out;
+
+    ret = dict_set_uint32(xattr_req, GF_UNLINKED_LOOKUP, 1);
+    if (ret < 0)
+        goto out;
+
+    ret = syncop_lookup(FIRST_CHILD(this), &loc, NULL, NULL, xattr_req, NULL);
+    if (ret < 0)
+        goto out;
+
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+    loc_wipe(&loc);
+
     return ret;
 }
 
@@ -3743,6 +3784,11 @@ shard_delete_shards(void *opaque)
                     if (ret < 0)
                         continue;
                 }
+
+                ret = shard_nameless_lookup_base_file(this, entry->d_name);
+                if (!ret)
+                    continue;
+
                 link_inode = inode_link(entry->inode, local->fd->inode,
                                         entry->d_name, &entry->d_stat);
 
@@ -4114,6 +4160,9 @@ err:
 int
 shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
 
+static int
+shard_unlink_handler_spawn(xlator_t *this);
+
 int
 shard_unlink_base_file_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
@@ -4135,7 +4184,7 @@ shard_unlink_base_file_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata)
             local->xattr_rsp = dict_ref(xdata);
         if (local->cleanup_required)
-            shard_start_background_deletion(this);
+            shard_unlink_handler_spawn(this);
     }
 
     if (local->entrylk_frame) {
@@ -5790,7 +5839,7 @@ shard_mkdir_internal_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    link_inode = shard_link_internal_dir_inode(local, inode, buf, type);
+    link_inode = shard_link_internal_dir_inode(local, inode, this, buf, type);
     if (link_inode != inode) {
         shard_refresh_internal_dir(frame, this, type);
     } else {
@@ -7104,6 +7153,132 @@ shard_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     return 0;
 }
 
+static void
+shard_unlink_wait(shard_unlink_thread_t *ti)
+{
+    struct timespec wait_till = {
+        0,
+    };
+
+    pthread_mutex_lock(&ti->mutex);
+    {
+        /* shard_unlink_handler() runs every 10 mins of interval */
+        wait_till.tv_sec = time(NULL) + 600;
+
+        while (!ti->rerun) {
+            if (pthread_cond_timedwait(&ti->cond, &ti->mutex, &wait_till) ==
+                ETIMEDOUT)
+                break;
+        }
+        ti->rerun = _gf_false;
+    }
+    pthread_mutex_unlock(&ti->mutex);
+}
+
+static void *
+shard_unlink_handler(void *data)
+{
+    shard_unlink_thread_t *ti = data;
+    xlator_t *this = ti->this;
+
+    THIS = this;
+
+    while (!ti->stop) {
+        shard_start_background_deletion(this);
+        shard_unlink_wait(ti);
+    }
+    return NULL;
+}
+
+static int
+shard_unlink_handler_spawn(xlator_t *this)
+{
+    int ret = 0;
+    shard_priv_t *priv = this->private;
+    shard_unlink_thread_t *ti = &priv->thread_info;
+
+    ti->this = this;
+
+    pthread_mutex_lock(&ti->mutex);
+    {
+        if (ti->running) {
+            pthread_cond_signal(&ti->cond);
+        } else {
+            ret = gf_thread_create(&ti->thread, NULL, shard_unlink_handler, ti,
+                                   "shard_unlink");
+            if (ret < 0) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to create \"shard_unlink\" thread");
+                goto unlock;
+            }
+            ti->running = _gf_true;
+        }
+
+        ti->rerun = _gf_true;
+    }
+unlock:
+    pthread_mutex_unlock(&ti->mutex);
+    return ret;
+}
+
+static int
+shard_unlink_handler_init(shard_unlink_thread_t *ti)
+{
+    int ret = 0;
+    xlator_t *this = THIS;
+
+    ret = pthread_mutex_init(&ti->mutex, NULL);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to init mutex for \"shard_unlink\" thread");
+        goto out;
+    }
+
+    ret = pthread_cond_init(&ti->cond, NULL);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to init cond var for \"shard_unlink\" thread");
+        pthread_mutex_destroy(&ti->mutex);
+        goto out;
+    }
+
+    ti->running = _gf_false;
+    ti->rerun = _gf_false;
+    ti->stop = _gf_false;
+
+out:
+    return -ret;
+}
+
+static void
+shard_unlink_handler_fini(shard_unlink_thread_t *ti)
+{
+    int ret = 0;
+    xlator_t *this = THIS;
+    if (!ti)
+        return;
+
+    pthread_mutex_lock(&ti->mutex);
+    if (ti->running) {
+        ti->rerun = _gf_true;
+        ti->stop = _gf_true;
+        pthread_cond_signal(&ti->cond);
+    }
+    pthread_mutex_unlock(&ti->mutex);
+
+    if (ti->running) {
+        ret = pthread_join(ti->thread, NULL);
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0, 0,
+                   "Failed to clean up shard unlink thread.");
+        ti->running = _gf_false;
+    }
+    ti->thread = 0;
+
+    pthread_cond_destroy(&ti->cond);
+    pthread_mutex_destroy(&ti->mutex);
+}
+
 int32_t
 mem_acct_init(xlator_t *this)
 {
@@ -7170,6 +7345,14 @@ init(xlator_t *this)
     this->private = priv;
     LOCK_INIT(&priv->lock);
     INIT_LIST_HEAD(&priv->ilist_head);
+
+    ret = shard_unlink_handler_init(&priv->thread_info);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to initialize resources for \"shard_unlink\" thread");
+        goto out;
+    }
+
     ret = 0;
 out:
     if (ret) {
@@ -7196,6 +7379,8 @@ fini(xlator_t *this)
     priv = this->private;
     if (!priv)
         goto out;
+
+    shard_unlink_handler_fini(&priv->thread_info);
 
     this->private = NULL;
     LOCK_DESTROY(&priv->lock);
