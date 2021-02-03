@@ -2064,6 +2064,12 @@ added_server_xlator(void *myframe, char **added_xlator)
 
         if (ret) {
             *added_xlator = gf_strdup(key);
+            if (!*added_xlator) {
+                gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
+                       "Out of memory");
+                ret = -1;
+                goto out;
+            }
             break;
         }
 
@@ -2077,6 +2083,12 @@ added_server_xlator(void *myframe, char **added_xlator)
 
         if (ret) {
             *added_xlator = gf_strdup(key);
+            if (!*added_xlator) {
+                gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
+                       "Out of memory");
+                ret = -1;
+                goto out;
+            }
             break;
         }
     }
