@@ -10,11 +10,11 @@
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/param.h> /* for PATH_MAX */
+#include <unistd.h>
 
 /* NOTE (USE_LIBGLUSTERFS):
  * ------------------------
@@ -24,14 +24,14 @@
  * We unconditionally pass then while building gsyncd binary.
  */
 #ifdef USE_LIBGLUSTERFS
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/globals.h>
 #include <glusterfs/defaults.h>
+#include <glusterfs/globals.h>
+#include <glusterfs/glusterfs.h>
 #endif
 
+#include "procdiggy.h"
 #include <glusterfs/common-utils.h>
 #include <glusterfs/run.h>
-#include "procdiggy.h"
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"
 #define _GSYNCD_DISPATCHED_ "_GSYNCD_DISPATCHED_"
@@ -246,6 +246,9 @@ invoke_rsync(int argc, char **argv)
     ret = sys_readlink(path, buf, sizeof(buf));
     if (ret == -1 || ret == sizeof(buf))
         goto error;
+
+    buf[ret] = '\0';
+
     if (strcmp(argv[argc - 1], "/") == 0 /* root dir cannot be a target */ ||
         (strcmp(argv[argc - 1], path) /* match against gluster target */ &&
          strcmp(argv[argc - 1], buf) /* match against file target */) != 0) {

@@ -187,9 +187,7 @@ sys_readdir(DIR *dir, struct dirent *de)
 ssize_t
 sys_readlink(const char *path, char *buf, size_t bufsiz)
 {
-    int sz = readlink(path, buf, bufsiz);
-    buf[sz] = '\0';
-    return FS_RET_CHECK(sz, errno);
+    return FS_RET_CHECK(readlink(path, buf, bufsiz), errno);
 }
 
 int
