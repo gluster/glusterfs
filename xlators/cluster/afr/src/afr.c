@@ -946,12 +946,12 @@ struct volume_options options[] = {
      .type = GF_OPTION_TYPE_INT,
      .min = 1,
      .max = 1024,
-     .default_value = "1",
+     .default_value = "8",
      .op_version = {1},
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
      .tags = {"replicate"},
-     .description = "Maximum number blocks per file for which self-heal "
-                    "process would be applied simultaneously."},
+     .description = "Maximum number of 128KB blocks per file for which "
+                    "self-heal process would be applied simultaneously."},
     {.key = {"metadata-self-heal"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "off",
