@@ -299,6 +299,7 @@ dht_decommissioned_remove(xlator_t *this, dht_conf_t *conf)
             conf->decommission_subvols_cnt--;
         }
     }
+    conf->decommission_in_progress = 0;
 }
 
 static void
@@ -493,9 +494,11 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     }
 
     if (dict_get_str(options, "decommissioned-bricks", &temp_str) == 0) {
-        ret = dht_parse_decommissioned_bricks(this, conf, temp_str);
-        if (ret == -1)
-            goto out;
+        if (!(conf->decommission_in_progress)) {
+            ret = dht_parse_decommissioned_bricks(this, conf, temp_str);
+            if (ret == -1)
+                goto out;
+        }
     } else {
         dht_decommissioned_remove(this, conf);
     }
