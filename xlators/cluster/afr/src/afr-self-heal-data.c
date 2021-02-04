@@ -353,6 +353,12 @@ afr_selfheal_data_do(call_frame_t *frame, xlator_t *this, fd_t *fd, int source,
     }
 
     block = 128 * 1024 * priv->data_self_heal_window_size;
+    if (HAS_HOLES((&replies[source].poststat))) {
+        /*Reduce the possibility of data-block allocations in case of files
+         * with holes. Correct way to fix it would be to use seek fop while
+         * healing data*/
+        block = 128 * 1024;
+    }
 
     type = afr_data_self_heal_type_get(priv, healed_sinks, source, replies);
 
