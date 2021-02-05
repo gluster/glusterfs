@@ -2053,7 +2053,6 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
     rpc_clnt_connection_t *conn = NULL;
     int pid = -1;
     int32_t len = 0;
-    int errno_tmp = 0;
     glusterd_brick_proc_t *brick_proc = NULL;
     char *inet_family = NULL;
     char *global_threading = NULL;
@@ -2114,7 +2113,6 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    errno_tmp = errno;
     /* Build the exp_path, before starting the glusterfsd even in
        valgrind mode. Otherwise all the glusterfsd processes start
        writing the valgrind log to the same file.
@@ -2272,11 +2270,9 @@ retry:
     if (wait) {
         synclock_unlock(&priv->big_lock);
         ret = runner_run(&runner);
-        if (ret)
-            ret = errno_tmp;
         synclock_lock(&priv->big_lock);
 
-        if (ret == EADDRINUSE) {
+        if (ret == -EADDRINUSE) {
             /* retry after getting a new port */
             gf_msg(this->name, GF_LOG_WARNING, -ret,
                    GD_MSG_SRC_BRICK_PORT_UNAVAIL,

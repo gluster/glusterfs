@@ -948,6 +948,7 @@ __socket_server_bind(rpc_transport_t *this)
                        this->myinfo.identifier, strerror(errno));
                 if (errno == EADDRINUSE) {
                     gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+                    ret = -EADDRINUSE;
                     sleep(1);
                     retries--;
                 } else {
@@ -957,19 +958,9 @@ __socket_server_bind(rpc_transport_t *this)
                 break;
             }
         }
-    } else {
-        ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
-                   this->myinfo.sockaddr_len);
+        if(ret != 0)
+            goto out;
 
-        if (ret != 0) {
-            gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
-                   this->myinfo.identifier, strerror(errno));
-            if (errno == EADDRINUSE) {
-                gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
-            }
-        }
-    }
-    if (AF_UNIX != SA(&this->myinfo.sockaddr)->sa_family) {
         if (getsockname(priv->sock, SA(&this->myinfo.sockaddr),
                         &this->myinfo.sockaddr_len) != 0) {
             gf_log(this->name, GF_LOG_WARNING,
@@ -984,6 +975,17 @@ __socket_server_bind(rpc_transport_t *this)
             gf_log(this->name, GF_LOG_INFO,
                    "process started listening on port (%d)",
                    cmd_args->brick_port);
+        }
+    } else {
+        ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
+                   this->myinfo.sockaddr_len);
+
+        if (ret != 0) {
+            gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
+                   this->myinfo.identifier, strerror(errno));
+            if (errno == EADDRINUSE) {
+                gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+            }
         }
     }
 
