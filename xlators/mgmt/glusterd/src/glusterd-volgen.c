@@ -46,6 +46,11 @@ struct gd_validate_reconf_opts {
 
 extern struct volopt_map_entry glusterd_volopt_map[];
 
+struct check_and_add_user_xlator_t {
+    volgen_graph_t *graph;
+    char *volname;
+};
+
 #define RPC_SET_OPT(XL, CLI_OPT, XLATOR_OPT, ERROR_CMD)                        \
     do {                                                                       \
         char *_value = NULL;                                                   \
@@ -2706,6 +2711,145 @@ out:
     return ret;
 }
 
+static gf_boolean_t
+check_user_xlator_position(dict_t *dict, char *key, data_t *value,
+                           void *prev_xlname)
+{
+    if (strncmp(key, "user.xlator.", SLEN("user.xlator.")) != 0) {
+        return false;
+    }
+
+    if (fnmatch("user.xlator.*.*", key, 0) == 0) {
+        return false;
+    }
+
+    char *value_str = data_to_str(value);
+    if (!value_str) {
+        return false;
+    }
+
+    if (strcmp(value_str, prev_xlname) == 0) {
+        gf_log("glusterd", GF_LOG_INFO,
+               "found insert position of user-xlator(%s)", key);
+        return true;
+    }
+
+    return false;
+}
+
+static int
+set_user_xlator_option(dict_t *set_dict, char *key, data_t *value, void *data)
+{
+    xlator_t *xl = data;
+    char *optname = strrchr(key, '.') + 1;
+
+    gf_log("glusterd", GF_LOG_DEBUG, "set user xlator option %s = %s", key,
+           value->data);
+
+    return xlator_set_option(xl, optname, strlen(optname), data_to_str(value));
+}
+
+static int
+insert_user_xlator_to_graph(dict_t *set_dict, char *key, data_t *value,
+                            void *action_data)
+{
+    int ret = -1;
+
+    struct check_and_add_user_xlator_t *data = action_data;
+
+    char *xlator_name = strrchr(key, '.') + 1;  // user.xlator.<xlator_name>
+    char *xlator_option_matcher = NULL;
+    char *type = NULL;
+    xlator_t *xl = NULL;
+
+    // convert optkey to xlator type
+    if (gf_asprintf(&type, "user/%s", xlator_name) < 0) {
+        gf_log("glusterd", GF_LOG_ERROR, "failed to generate user-xlator type");
+        goto out;
+    }
+
+    gf_log("glusterd", GF_LOG_INFO, "add user xlator=%s to graph", type);
+
+    xl = volgen_graph_add(data->graph, type, data->volname);
+    if (!xl) {
+        goto out;
+    }
+
+    ret = gf_asprintf(&xlator_option_matcher, "user.xlator.%s.*", xlator_name);
+    if (ret < 0) {
+        gf_log("glusterd", GF_LOG_ERROR,
+               "failed to generate user-xlator option matcher");
+        goto out;
+    }
+
+    dict_foreach_fnmatch(set_dict, xlator_option_matcher,
+                         set_user_xlator_option, xl);
+
+out:
+    if (type)
+        GF_FREE(type);
+    if (xlator_option_matcher)
+        GF_FREE(xlator_option_matcher);
+
+    return ret;
+}
+
+static int
+validate_user_xlator_position(dict_t *this, char *key, data_t *value,
+                              void *unused)
+{
+    int ret = -1;
+    int i = 0;
+
+    if (!value)
+        goto out;
+
+    if (fnmatch("user.xlator.*.*", key, 0) == 0) {
+        ret = 0;
+        goto out;
+    }
+
+    char *value_str = data_to_str(value);
+    if (!value_str)
+        goto out;
+
+    int num_xlators = sizeof(server_graph_table) /
+                      sizeof(server_graph_table[0]);
+    for (i = 0; i < num_xlators; i++) {
+        if (server_graph_table[i].dbg_key &&
+            strcmp(value_str, server_graph_table[i].dbg_key) == 0) {
+            ret = 0;
+            goto out;
+        }
+    }
+
+out:
+    if (ret == -1)
+        gf_log("glusterd", GF_LOG_ERROR, "invalid user xlator position %s = %s",
+               key, value->data);
+
+    return ret;
+}
+
+static int
+check_and_add_user_xl(volgen_graph_t *graph, dict_t *set_dict, char *volname,
+                      char *prev_xlname)
+{
+    if (!prev_xlname)
+        goto out;
+
+    struct check_and_add_user_xlator_t data = {.graph = graph,
+                                               .volname = volname};
+
+    if (dict_foreach_match(set_dict, check_user_xlator_position, prev_xlname,
+                           insert_user_xlator_to_graph, &data) < 0) {
+        return -1;
+    }
+
+out:
+    return 0;
+}
+
 static int
 server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                      dict_t *set_dict, void *param)
@@ -2714,6 +2858,12 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     char *xlator = NULL;
     char *loglevel = NULL;
     int i = 0;
+
+    if (dict_foreach_fnmatch(set_dict, "user.xlator.*",
+                             validate_user_xlator_position, NULL) < 0) {
+        ret = -EINVAL;
+        goto out;
+    }
 
     i = sizeof(server_graph_table) / sizeof(server_graph_table[0]) - 1;
 
@@ -2729,6 +2879,11 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         ret = check_and_add_debug_xl(graph, set_dict, volinfo->volname,
                                      server_graph_table[i].dbg_key);
+        if (ret)
+            goto out;
+
+        ret = check_and_add_user_xl(graph, set_dict, volinfo->volname,
+                                    server_graph_table[i].dbg_key);
         if (ret)
             goto out;
 
