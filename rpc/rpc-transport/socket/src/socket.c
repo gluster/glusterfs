@@ -958,7 +958,7 @@ __socket_server_bind(rpc_transport_t *this)
                 break;
             }
         }
-        if(ret != 0)
+        if (ret != 0)
             goto out;
 
         if (getsockname(priv->sock, SA(&this->myinfo.sockaddr),
