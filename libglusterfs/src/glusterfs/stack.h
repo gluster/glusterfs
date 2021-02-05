@@ -67,17 +67,16 @@ struct _call_frame {
     call_stack_t *root;   /* stack root */
     call_frame_t *parent; /* previous BP */
     struct list_head frames;
-    void *local;    /* local variables */
-    xlator_t *this; /* implicit object */
-    ret_fn_t ret;   /* op_return address */
-    int32_t ref_count;
-    gf_lock_t lock;
-    void *cookie; /* unique cookie */
-    gf_boolean_t complete;
-
-    glusterfs_fop_t op;
     struct timespec begin; /* when this frame was created */
     struct timespec end;   /* when this frame completed */
+    void *local;           /* local variables */
+    gf_lock_t lock;
+    void *cookie;   /* unique cookie */
+    xlator_t *this; /* implicit object */
+    ret_fn_t ret;   /* op_return address */
+
+    glusterfs_fop_t op;
+    int32_t complete;
     const char *wind_from;
     const char *wind_to;
     const char *unwind_from;
@@ -338,7 +337,6 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         LOCK(&frame->root->stack_lock);                                        \
         {                                                                      \
             list_add(&_new->frames, &frame->root->myframes);                   \
-            frame->ref_count++;                                                \
         }                                                                      \
         UNLOCK(&frame->root->stack_lock);                                      \
         fn##_cbk = rfn;                                                        \
@@ -392,7 +390,6 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         _parent = frame->parent;                                               \
         LOCK(&frame->root->stack_lock);                                        \
         {                                                                      \
-            _parent->ref_count--;                                              \
             if ((op_ret) < 0 && (op_errno) != frame->root->error) {            \
                 frame->root->err_xl = frame->this;                             \
                 frame->root->error = (op_errno);                               \

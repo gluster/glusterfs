@@ -127,7 +127,6 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
     }
 
     gf_proc_dump_write("frame", "%p", call_frame);
-    gf_proc_dump_write("ref_count", "%d", my_frame.ref_count);
     gf_proc_dump_write("translator", "%s", my_frame.this->name);
     gf_proc_dump_write("complete", "%d", my_frame.complete);
 
@@ -270,11 +269,6 @@ gf_proc_dump_call_frame_to_dict(call_frame_t *call_frame, char *prefix,
         return;
     memcpy(&tmp_frame, call_frame, sizeof(tmp_frame));
     UNLOCK(&call_frame->lock);
-
-    snprintf(key, sizeof(key), "%s.refcount", prefix);
-    ret = dict_set_int32(dict, key, tmp_frame.ref_count);
-    if (ret)
-        return;
 
     snprintf(key, sizeof(key), "%s.translator", prefix);
     ret = dict_set_dynstr(dict, key, gf_strdup(tmp_frame.this->name));
