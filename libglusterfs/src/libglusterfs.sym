@@ -1024,6 +1024,7 @@ synctask_new1
 synctask_set
 synctask_setid
 synctask_sleep
+synctask_usleep
 synctask_wake
 synctask_yield
 sys_access

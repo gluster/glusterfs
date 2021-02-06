@@ -297,6 +297,24 @@ synctask_sleep(int32_t secs)
     }
 }
 
+void
+synctask_usleep(int32_t usecs)
+{
+    struct timespec delta;
+    struct synctask *task;
+
+    task = synctask_get();
+
+    if (task == NULL) {
+        usleep(usecs);
+    } else {
+        delta.tv_sec = usecs / 1000000;
+        delta.tv_nsec = (usecs % 1000000) * 1000;
+
+        synctask_yield(task, &delta);
+    }
+}
+
 static void
 __synctask_wake(struct synctask *task)
 {
