@@ -2389,7 +2389,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {
         .key = "storage.reserve-check-interval",
         .voltype = "storage/posix",
-        .op_version = GD_OP_VERSION_4_0_0,
+        .op_version = GD_OP_VERSION_9_1,
     },
     {
         .option = "health-check-timeout",
