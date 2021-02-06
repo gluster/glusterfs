@@ -2361,12 +2361,6 @@ posix_ctx_disk_thread_proc(void *data)
     };
 
     ctx = data;
-    interval = 5;
-
-    gf_msg_debug("glusterfs_ctx", 0,
-                 "Ctx disk-space thread started, "
-                 "interval = %d seconds",
-                 interval);
 
     pthread_mutex_lock(&ctx->xl_lock);
     {
@@ -2389,7 +2383,7 @@ posix_ctx_disk_thread_proc(void *data)
             }
 
             timespec_now_realtime(&sleep_till);
-            sleep_till.tv_sec += 5;
+            sleep_till.tv_sec += priv->disk_reserve_check_interval;
             (void)pthread_cond_timedwait(&ctx->xl_cond, &ctx->xl_lock,
                                          &sleep_till);
         }
