@@ -1685,9 +1685,7 @@ mq_initiate_quota_task(void *opaque)
             goto out;
         }
 
-        if (prev_dirty == 0) {
-            ret = mq_mark_dirty(this, &parent_loc, 0);
-        } else {
+        if (prev_dirty != 0) {
             ret = mq_inode_ctx_get(parent_loc.inode, this, &parent_ctx);
             if (ret == 0)
                 mq_set_ctx_dirty_status(parent_ctx, _gf_false);
