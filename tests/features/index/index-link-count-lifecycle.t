@@ -69,9 +69,9 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count_shd $V0 0
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 EXPECT "^0$" get_value_from_brick_statedump $V0 $H0 $B0/brick0 "xattrop-pending-count"
-#Two heals would have completed making the count further -ve to -3
-EXPECT "^-3$" get_value_from_brick_statedump $V0 $H0 $B0/brick1 "xattrop-pending-count"
-EXPECT "^-3$" get_value_from_brick_statedump $V0 $H0 $B0/brick2 "xattrop-pending-count"
+#pending-count is never requested on disperse so it will be stuck at -1(i.e. cache is invalidated) after heal completes
+EXPECT "^-1$" get_value_from_brick_statedump $V0 $H0 $B0/brick1 "xattrop-pending-count"
+EXPECT "^-1$" get_value_from_brick_statedump $V0 $H0 $B0/brick2 "xattrop-pending-count"
 cleanup;
 
 #Same tests for distribute volume

@@ -389,16 +389,12 @@ check_delete_stale_index_file(xlator_t *this, char *filename, char *subdir)
 }
 
 static void
-index_set_link_count(index_priv_t *priv, int64_t count,
+index_set_link_count(index_priv_t *priv, int32_t count,
                      index_xattrop_type_t type)
 {
     switch (type) {
         case XATTROP:
-            LOCK(&priv->lock);
-            {
-                priv->pending_count = count;
-            }
-            UNLOCK(&priv->lock);
+            priv->pending_count = count;
             break;
         default:
             break;
@@ -406,16 +402,12 @@ index_set_link_count(index_priv_t *priv, int64_t count,
 }
 
 static void
-index_get_link_count(index_priv_t *priv, int64_t *count,
+index_get_link_count(index_priv_t *priv, int32_t *count,
                      index_xattrop_type_t type)
 {
     switch (type) {
         case XATTROP:
-            LOCK(&priv->lock);
-            {
-                *count = priv->pending_count;
-            }
-            UNLOCK(&priv->lock);
+            *count = priv->pending_count;
             break;
         default:
             break;
@@ -423,24 +415,22 @@ index_get_link_count(index_priv_t *priv, int64_t *count,
 }
 
 static void
-index_update_link_count(index_priv_t *priv, index_xattrop_type_t type,
-                        int count)
+index_update_link_count_cache(index_priv_t *priv, index_xattrop_type_t type,
+                              int link_count_delta)
 {
     switch (type) {
         case XATTROP:
             LOCK(&priv->lock);
             {
-                if (count == 1) {
+                if (priv->pending_count >= 0) {
+                    if (link_count_delta == -1) {
+                        priv->pending_count--;
+                    }
                     /*If this is the first xattrop, then pending_count needs to
                      * be updated for the next lstat/lookup with link-count
                      * xdata*/
                     if (priv->pending_count == 0) {
-                        priv->pending_count = -1;
-                    }
-                } else {
-                    priv->pending_count--;
-                    if (priv->pending_count == 0) {
-                        priv->pending_count--;
+                        priv->pending_count--; /*Invalidate cache*/
                     }
                 }
             }
@@ -677,7 +667,7 @@ index_add(xlator_t *this, uuid_t gfid, const char *subdir,
         goto out;
     ret = index_link_to_base(this, gfid_path, subdir);
     if (ret == 0) {
-        index_update_link_count(priv, type, 1);
+        index_update_link_count_cache(priv, type, 1);
     }
 out:
     return ret;
@@ -734,7 +724,7 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
 
     /* If errno is ENOENT then ret won't be zero */
     if (ret == 0) {
-        index_update_link_count(priv, type, -1);
+        index_update_link_count_cache(priv, type, -1);
     }
     ret = 0;
 out:
@@ -795,6 +785,7 @@ index_fill_zero_array(dict_t *d, char *k, data_t *v, void *adata)
     idx = index_find_xattr_type(d, k, v);
     if (idx == -1)
         return 0;
+
     /* If an xattr value is all-zero leave zfilled[idx] as -1 so that xattrop
      * index add/del won't happen */
     if (!memeqzero((const char *)v->data, v->len)) {
@@ -819,7 +810,7 @@ _check_key_is_zero_filled(dict_t *d, char *k, data_t *v, void *tmp)
      * zfilled[idx] will be 0(false) if value not zero.
      *              will be 1(true) if value is zero.
      */
-    if (mem_0filled((const char *)v->data, v->len)) {
+    if (!memeqzero((const char *)v->data, v->len)) {
         zfilled[idx] = 0;
         return 0;
     }
@@ -1306,21 +1297,21 @@ index_xattrop_do(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     else
         x_cbk = index_xattrop64_cbk;
 
-    // In wind phase bring the gfid into index. This way if the brick crashes
-    // just after posix performs xattrop before _cbk reaches index xlator
-    // we will still have the gfid in index.
+    /* In wind phase bring the gfid into index. This way if the brick crashes
+     * just after posix performs xattrop before _cbk reaches index xlator
+     * we will still have the gfid in index.
+     */
     memset(zfilled, -1, sizeof(zfilled));
 
-    /* Foreach xattr, set corresponding index of zfilled to 1
-     * zfilled[index] = 1 implies the xattr's value is zero filled
-     * and should be added in its corresponding subdir.
+    /* zfilled[index] = 0 implies the xattr's value is not zero filled
+     * and should be added in its corresponding index subdir.
      *
-     * zfilled should be set to 1 only for those index that
-     * exist in xattr variable. This is to distinguish
+     * zfilled should be set to 0 only for those index that
+     * exist in xattr variable and xattr value non-zero. This is to distinguish
      * between different types of volumes.
      * For e.g., if the check is not made,
-     * zfilled[DIRTY] is set to 1 for EC volumes,
-     * index file will be tried to create in indices/dirty dir
+     * zfilled[DIRTY] is set to 0 for EC volumes,
+     * index file will be created in indices/dirty dir
      * which doesn't exist for an EC volume.
      */
     ret = dict_foreach(xattr, index_fill_zero_array, zfilled);
@@ -1983,7 +1974,7 @@ out:
     return 0;
 }
 
-int64_t
+static int32_t
 index_fetch_link_count(xlator_t *this, index_xattrop_type_t type)
 {
     index_priv_t *priv = this->private;
@@ -2045,7 +2036,12 @@ index_fetch_link_count(xlator_t *this, index_xattrop_type_t type)
 out:
     if (dirp)
         (void)sys_closedir(dirp);
-    return count;
+
+    if (count > INT_MAX) {
+        count = INT_MAX;
+    }
+
+    return (int32_t)count;
 }
 
 dict_t *
@@ -2053,7 +2049,7 @@ index_fill_link_count(xlator_t *this, dict_t *xdata)
 {
     int ret = -1;
     index_priv_t *priv = NULL;
-    int64_t count = -1;
+    int32_t count = -1;
 
     priv = this->private;
     xdata = (xdata) ? dict_ref(xdata) : dict_new();
@@ -2333,7 +2329,7 @@ out:
     return ret;
 }
 
-int
+static int
 index_priv_dump(xlator_t *this)
 {
     index_priv_t *priv = NULL;
@@ -2343,8 +2339,7 @@ index_priv_dump(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section("%s", key_prefix);
-    gf_proc_dump_write("xattrop-pending-count", "%" PRId64,
-                       priv->pending_count);
+    gf_proc_dump_write("xattrop-pending-count", "%d", priv->pending_count);
 
     return 0;
 }
@@ -2364,7 +2359,7 @@ init(xlator_t *this)
 {
     int i = 0;
     int ret = -1;
-    int64_t count = -1;
+    int32_t count = -1;
     index_priv_t *priv = NULL;
     pthread_attr_t w_attr;
     gf_boolean_t mutex_inited = _gf_false;
