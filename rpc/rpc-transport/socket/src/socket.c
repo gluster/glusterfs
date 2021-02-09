@@ -949,6 +949,12 @@ __socket_server_bind(rpc_transport_t *this)
                 if (errno == EADDRINUSE) {
                     gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
                     ret = -EADDRINUSE;
+
+                    /* TODO: Remove this delay. It was added only to address
+                     * failures in the regression test suite, In a real
+                     * situation, if a port is in use when the process starts,
+                     * it most likely will remain in use during 10 seconds as
+                     * well.*/
                     sleep(1);
                     retries--;
                 } else {
@@ -958,7 +964,7 @@ __socket_server_bind(rpc_transport_t *this)
                 break;
             }
         }
-        if (ret != 0)
+        if (ret < 0)
             goto out;
 
         if (getsockname(priv->sock, SA(&this->myinfo.sockaddr),
@@ -4097,7 +4103,7 @@ threadid_func(CRYPTO_THREADID *id)
      */
     CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
 }
-#else  /* older openssl */
+#else /* older openssl */
 static unsigned long
 legacy_threadid_func(void)
 {
@@ -4353,7 +4359,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "DH ciphers are disabled.",
                        dh_param, ERR_error_string(err, NULL));
             }
-#else  /* HAVE_OPENSSL_DH_H */
+#else /* HAVE_OPENSSL_DH_H */
             BIO_free(bio);
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no DH support");
 #endif /* HAVE_OPENSSL_DH_H */
@@ -4380,7 +4386,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "ECDH ciphers are disabled.",
                        ec_curve, ERR_error_string(err, NULL));
             }
-#else  /* HAVE_OPENSSL_ECDH_H */
+#else /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
         }
