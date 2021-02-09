@@ -2363,9 +2363,10 @@ rebalance_task(void *data)
 }
 
 static int
-rebalance_task_completion(int op_ret, call_frame_t *sync_frame, void *data)
+rebalance_task_completion(int op_ret, call_frame_t *syncop_frame, void *data)
 {
     int32_t op_errno = EINVAL;
+    call_frame_t *setxattr_frame = data;
 
     if (op_ret == -1) {
         /* Failure of migration process, mostly due to write process.
@@ -2385,7 +2386,9 @@ rebalance_task_completion(int op_ret, call_frame_t *sync_frame, void *data)
         op_ret = -1;
     }
 
-    DHT_STACK_UNWIND(setxattr, sync_frame, op_ret, op_errno, NULL);
+    DHT_STACK_UNWIND(setxattr, setxattr_frame, op_ret, op_errno, NULL);
+    GF_ASSERT(syncop_frame->local == NULL);
+    STACK_DESTROY(syncop_frame->root);
     return 0;
 }
 
@@ -2393,9 +2396,22 @@ int
 dht_start_rebalance_task(xlator_t *this, call_frame_t *frame)
 {
     int ret = -1;
+    call_frame_t *syncop_frame = NULL;
+
+    syncop_frame = copy_frame(frame);
+    if (!syncop_frame) {
+        goto out;
+    }
+
+    syncop_frame->root->pid = GF_CLIENT_PID_DEFRAG;
+    set_lk_owner_from_ptr(&syncop_frame->root->lk_owner, syncop_frame->root);
 
     ret = synctask_new(this->ctx->env, rebalance_task,
-                       rebalance_task_completion, frame, frame);
+                       rebalance_task_completion, syncop_frame, frame);
+out:
+    if ((ret < 0) && syncop_frame) {
+        STACK_DESTROY(syncop_frame->root);
+    }
     return ret;
 }
 
