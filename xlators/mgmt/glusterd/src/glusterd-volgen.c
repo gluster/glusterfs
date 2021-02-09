@@ -2800,8 +2800,13 @@ validate_user_xlator_position(dict_t *this, char *key, data_t *value,
 {
     int ret = -1;
     int i = 0;
+    char *value_str = NULL;
 
     if (!value)
+        goto out;
+
+    value_str = data_to_str(value);
+    if (!value_str)
         goto out;
 
     if (fnmatch("user.xlator.*.*", key, 0) == 0) {
@@ -2809,12 +2814,9 @@ validate_user_xlator_position(dict_t *this, char *key, data_t *value,
         goto out;
     }
 
-    char *value_str = data_to_str(value);
-    if (!value_str)
-        goto out;
-
     int num_xlators = sizeof(server_graph_table) /
                       sizeof(server_graph_table[0]);
+
     for (i = 0; i < num_xlators; i++) {
         if (server_graph_table[i].dbg_key &&
             strcmp(value_str, server_graph_table[i].dbg_key) == 0) {
@@ -2826,7 +2828,7 @@ validate_user_xlator_position(dict_t *this, char *key, data_t *value,
 out:
     if (ret == -1)
         gf_log("glusterd", GF_LOG_ERROR, "invalid user xlator position %s = %s",
-               key, value->data);
+               key, value_str);
 
     return ret;
 }
