@@ -75,6 +75,10 @@ function rebalance_status_field {
         $CLI volume rebalance $1 status | awk '{print $7}' | sed -n 3p
 }
 
+function rebalanced_files_field {
+        $CLI volume rebalance $1 status | awk '{print $2}' | sed -n 3p
+}
+
 function fix-layout_status_field {
         #The fix-layout status can be up to 3 words, (ex:'fix-layout in progress'), hence the awk-print $2 thru $4.
         #But if the status is less than 3 words, it also prints the next field i.e the run_time_in_secs.(ex:'completed 3.00').
