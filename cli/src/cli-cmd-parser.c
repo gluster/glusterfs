@@ -4300,7 +4300,6 @@ out:
 }
 
 /* snapshot create <snapname> <vol-name(s)> [description <description>]
- *                                           [force]
  * @arg-0, dict     : Request Dictionary to be sent to server side.
  * @arg-1, words    : Contains individual words of CLI command.
  * @arg-2, wordcount: Contains number of words present in the CLI command.
@@ -4317,6 +4316,7 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
     char key[PATH_MAX] = "";
     char *snapname = NULL;
     unsigned int cmdi = 2;
+    int flags = 0;
     /* cmdi is command index, here cmdi is "2" (gluster snapshot create)*/
 
     GF_ASSERT(words);
@@ -4463,6 +4463,16 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
     ret = 0;
 
 out:
+    if (ret == 0) {
+        /*Adding force flag in either of the case i.e force set
+         * or unset*/
+        ret = dict_set_int32(dict, "flags", flags);
+        if (ret) {
+            gf_log("cli", GF_LOG_ERROR,
+                   "Could not save "
+                   "snap force option");
+        }
+    }
     return ret;
 }
 
