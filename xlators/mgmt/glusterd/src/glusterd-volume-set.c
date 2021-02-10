@@ -884,7 +884,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .validate_fn = validate_defrag_throttle_option,
         .flags = VOLOPT_FLAG_CLIENT_OPT,
     },
-
     {
         .key = "cluster.lock-migration",
         .voltype = "cluster/distribute",
@@ -894,7 +893,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .validate_fn = validate_lock_migration_option,
         .flags = VOLOPT_FLAG_CLIENT_OPT,
     },
-
     {
         .key = "cluster.force-migration",
         .voltype = "cluster/distribute",
@@ -1777,9 +1775,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .value = "on",
      .op_version = 2,
      .description = "enable/disable open-behind translator in the volume.",
-     .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT
-
-    },
+     .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT},
     {.key = "performance.quick-read",
      .voltype = "performance/quick-read",
      .option = "!perf",
@@ -1864,7 +1860,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .option = "cache-invalidation",
      .op_version = GD_OP_VERSION_3_9_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
-
     {.key = "performance.global-cache-invalidation",
      .voltype = "performance/md-cache",
      .option = "global-cache-invalidation",
@@ -1880,7 +1875,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .validate_fn = validate_uss,
      .description = "enable/disable User Serviceable Snapshots on the "
                     "volume."},
-
     {.key = "features.snapshot-directory",
      .voltype = "features/snapview-client",
      .op_version = GD_OP_VERSION_3_6_0,
@@ -1890,7 +1884,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .description = "Entry point directory for entering snapshot world. "
                     "Value can have only [0-9a-z-_] and starts with "
                     "dot (.) and cannot exceed 255 character"},
-
     {.key = "features.show-snapshot-directory",
      .voltype = "features/snapview-client",
      .op_version = GD_OP_VERSION_3_6_0,
@@ -1898,7 +1891,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .flags = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT,
      .description = "show entry point in readdir output of "
                     "snapdir-entry-path which is set by samba"},
-
     {.key = "features.tag-namespaces",
      .voltype = "features/namespace",
      .op_version = GD_OP_VERSION_4_1_0,
@@ -3102,7 +3094,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                        "access-control xlator in volume",
         .type = NO_DOC,
     },
-
     {.key = "cluster.use-anonymous-inode",
      .voltype = "cluster/replicate",
      .op_version = GD_OP_VERSION_9_0,

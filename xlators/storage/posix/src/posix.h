@@ -202,8 +202,6 @@ struct posix_private {
     pthread_t health_check;
 
     double disk_reserve;
-    /* seconds for check disk reversion  */
-    uint32_t disk_reserve_check_interval;
     pthread_t disk_space_check;
     uint32_t disk_space_full;
 

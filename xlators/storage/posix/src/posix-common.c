@@ -342,9 +342,9 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     int32_t create_mask = -1;
     int32_t create_directory_mask = -1;
     double old_disk_reserve = 0.0;
-
+    glusterfs_ctx_t *ctx = NULL;
     priv = this->private;
-
+    ctx = this->ctx;
     GF_OPTION_RECONF("brick-uid", uid, options, int32, out);
     GF_OPTION_RECONF("brick-gid", gid, options, int32, out);
     if (uid != -1 || gid != -1)
@@ -418,8 +418,8 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     old_disk_reserve = priv->disk_reserve;
     GF_OPTION_RECONF("reserve", priv->disk_reserve, options, percent_or_size,
                      out);
-    GF_OPTION_RECONF("reserve-check-interval", priv->disk_reserve_check_interval, options, uint32,
-                     out);
+    GF_OPTION_RECONF("reserve-check-interval", ctx->disk_reserve_check_interval,
+                     options, uint32, out);
     /* option can be any one of percent or bytes */
     priv->disk_unit = 0;
     if (priv->disk_reserve < 100.0)
@@ -674,7 +674,7 @@ posix_init(xlator_t *this)
     };
     int hdirfd = -1;
     char value;
-
+    glusterfs_ctx_t *ctx = this->ctx;
     dir_data = dict_get(this->options, "directory");
 
     if (this->children) {
@@ -1122,7 +1122,8 @@ posix_init(xlator_t *this)
     _private->disk_space_full = 0;
 
     GF_OPTION_INIT("reserve", _private->disk_reserve, percent_or_size, out);
-    GF_OPTION_INIT("reserve-check-interval", _private->disk_reserve_check_interval, uint32, out);
+    GF_OPTION_INIT("reserve-check-interval", ctx->disk_reserve_check_interval,
+                   uint32, out);
     /* option can be any one of percent or bytes */
     _private->disk_unit = 0;
     pthread_cond_init(&_private->fd_cond, NULL);
@@ -1456,7 +1457,7 @@ struct volume_options posix_options[] = {
      .min = 1,
      .default_value = "5",
      .validate = GF_OPT_VALIDATE_MIN,
-     .description =  "Interval in second to check disk reserve",
+     .description = "Interval in second to check disk reserve",
      .op_version = {GD_OP_VERSION_9_1},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"batch-fsync-mode"},

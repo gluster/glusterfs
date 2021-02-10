@@ -755,7 +755,7 @@ struct _glusterfs_ctx {
     pthread_mutex_t xl_lock;
     pthread_cond_t xl_cond;
     pthread_t disk_space_check;
-
+    uint32_t disk_reserve_check_interval;
     gf_boolean_t cleanup_starting;
     gf_boolean_t destroy_ctx;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
