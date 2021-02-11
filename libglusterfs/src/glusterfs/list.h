@@ -78,13 +78,16 @@ _list_del(struct list_head *old)
     old->prev->next = old->next;
 }
 
+#define LIST_POISON1 ((void *)0xdead000000000100)
+#define LIST_POISON2 ((void *)0xdead000000000122)
+
 static inline void
 list_del(struct list_head *old)
 {
     _list_del(old);
 
-    old->next = (void *)0x00100100;
-    old->prev = (void *)0x00200200;
+    old->next = (struct list_head *)LIST_POISON1;
+    old->prev = (struct list_head *)LIST_POISON2;
 }
 
 static inline void
