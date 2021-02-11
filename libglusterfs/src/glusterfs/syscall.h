@@ -123,6 +123,9 @@ int
 sys_fchmod(int fd, mode_t mode);
 
 int
+sys_lchmod(const char *path, mode_t mode);
+
+int
 sys_chown(const char *path, uid_t owner, gid_t group);
 
 int
