@@ -290,6 +290,12 @@ sys_fchmod(int fd, mode_t mode)
 }
 
 int
+sys_lchmod(const char *path, mode_t mode)
+{
+    return FS_RET_CHECK0(lchmod(path, mode), errno);
+}
+
+int
 sys_chown(const char *path, uid_t owner, gid_t group)
 {
     return FS_RET_CHECK0(chown(path, owner, group), errno);
