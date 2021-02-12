@@ -250,11 +250,15 @@ posix_do_chmod(xlator_t *this, const char *path, struct iatt *stbuf)
         mode_bit = (mode & priv->create_mask) | priv->force_create_mode;
         mode = posix_override_umask(mode, mode_bit);
     }
-    ret = lchmod(path, mode);
-    if ((ret == -1) && (errno == ENOSYS)) {
-        /* in Linux symlinks are always in mode 0777 and no
-           such call as lchmod exists.
-        */
+    ret = sys_lchmod(path, mode);
+    /* Before glibc 2.32, lchmod() was not implemented and calling it
+     * always returned ENOSYS. Starting with glibc 2.32 this request
+     * is using fchmodat() system call to implement it. However, linux
+     * doesn't support setting the mode for symlinks, so the system
+     * call returns EOPNOTSUPP (or ENOTSUP based on man page). We need
+     * to handle all cases. */
+    if ((ret < 0) &&
+        ((errno == ENOSYS) || (errno == EOPNOTSUPP) || (errno == ENOTSUP))) {
         gf_msg_debug(this->name, 0, "%s (%s)", path, strerror(errno));
         if (is_symlink) {
             ret = 0;
