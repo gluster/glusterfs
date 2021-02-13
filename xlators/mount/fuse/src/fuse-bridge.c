@@ -5099,6 +5099,29 @@ timed_response_loop(void *data)
     return NULL;
 }
 
+/*
+ * XXX non-Linux platforms might require a custom
+ * definition of GF_FUSE_MAX_PAGES
+ */
+#define GF_FUSE_MAX_PAGES_PRE_7_28 32
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+/* internal value (of FUSE_MAX_MAX_PAGES) ripped
+ * from Linux fuse driver as of 7.28
+ */
+#define GF_FUSE_MAX_PAGES 256
+#else
+/* internal value (of FUSE_MAX_PAGES_PER_REQ) ripped
+ * from Linux fuse driver prior to 7.28
+ */
+#define GF_FUSE_MAX_PAGES GF_FUSE_MAX_PAGES_PRE_7_28
+#endif
+
+static unsigned
+fuse_get_max_write(unsigned max_pages)
+{
+    return max_pages * sysconf(_SC_PAGESIZE);
+}
+
 static void
 fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
           struct iobuf *iobuf)
@@ -5139,8 +5162,18 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     fino.major = FUSE_KERNEL_VERSION;
     fino.minor = FUSE_KERNEL_MINOR_VERSION;
     fino.max_readahead = 1 << 17;
-    fino.max_write = 1 << 17;
     fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+    if (fini->minor >= 28) {
+        fino.flags |= FUSE_MAX_PAGES;
+        fino.max_write = fuse_get_max_write(GF_FUSE_MAX_PAGES);
+        priv->fuse_max_write = fuse_get_max_write(GF_FUSE_MAX_PAGES);
+        fino.max_pages = GF_FUSE_MAX_PAGES;
+    } else
+        fino.max_write = fuse_get_max_write(GF_FUSE_MAX_PAGES_PRE_7_28);
+#else
+    fino.max_write = fuse_get_max_write(GF_FUSE_MAX_PAGES);
+#endif
 #if FUSE_KERNEL_MINOR_VERSION >= 17
     if (fini->minor >= 17)
         fino.flags |= FUSE_FLOCK_LOCKS;
@@ -6021,7 +6054,11 @@ static fuse_handler_t *fuse_std_ops[] = {
 #endif
 
 #if FUSE_KERNEL_MINOR_VERSION >= 28
-    [FUSE_COPY_FILE_RANGE] = fuse_copy_file_range,
+    /* We add a dummy entry to reserve space.
+     * Optionally a proper handler shall be inserted
+     * in fuse_init().
+     */
+    [FUSE_COPY_FILE_RANGE] = fuse_enosys,
 #endif
 };
 
@@ -6073,14 +6110,12 @@ fuse_thread_proc(void *data)
     struct pollfd pfd[2] = {{
         0,
     }};
-    uint32_t psize;
 
     this = data;
     priv = this->private;
 
     THIS = this;
 
-    psize = ((struct iobuf_pool *)this->ctx->iobuf_pool)->default_page_size;
     priv->msg0_len_p = &msg0_size;
 
     for (;;) {
@@ -6132,11 +6167,7 @@ fuse_thread_proc(void *data)
         if (priv->init_recvd)
             fuse_graph_sync(this);
 
-        /* TODO: This place should always get maximum supported buffer
-           size from 'fuse', which is as of today 128KB. If we bring in
-           support for higher block sizes support, then we should be
-           changing this one too */
-        iobuf = iobuf_get(this->ctx->iobuf_pool);
+        iobuf = iobuf_get2(this->ctx->iobuf_pool, priv->fuse_max_write);
 
         /* Add extra 512 byte to the first iov so that it can
          * accommodate "ordinary" non-write requests. It's not
@@ -6160,7 +6191,7 @@ fuse_thread_proc(void *data)
         iov_in[1].iov_base = iobuf->ptr;
 
         iov_in[0].iov_len = msg0_size;
-        iov_in[1].iov_len = psize;
+        iov_in[1].iov_len = priv->fuse_max_write;
 
         res = sys_readv(priv->fd, iov_in, 2);
 
@@ -6362,6 +6393,10 @@ fuse_priv_dump(xlator_t *this)
     gf_proc_dump_write("invalidate_queue_length", "%" PRIu64,
                        private->invalidate_count);
     gf_proc_dump_write("use_readdirp", "%d", private->use_readdirp);
+    gf_proc_dump_write("flush_handle_interrupt", "%d",
+                       private->flush_handle_interrupt);
+    gf_proc_dump_write("handle_copy_file_range", "%d",
+                       private->handle_copy_file_range);
 
     return 0;
 }
@@ -6703,6 +6738,10 @@ init(xlator_t *this_xl)
     this_xl->private = (void *)priv;
     priv->mount_point = NULL;
     priv->fd = -1;
+    /* We set a default value that's alway workable;
+     * the final value will be negotiated in INIT
+     */
+    priv->fuse_max_write = fuse_get_max_write(GF_FUSE_MAX_PAGES_PRE_7_28);
 
     INIT_LIST_HEAD(&priv->invalidate_list);
     pthread_cond_init(&priv->invalidate_cond, NULL);
@@ -6885,6 +6924,9 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("flush-handle-interrupt", priv->flush_handle_interrupt, bool,
                    cleanup_exit);
 
+    GF_OPTION_INIT("handle-copy_file_range", priv->handle_copy_file_range, bool,
+                   cleanup_exit);
+
     GF_OPTION_INIT("fuse-dev-eperm-ratelimit-ns",
                    priv->fuse_dev_eperm_ratelimit_ns, uint32, cleanup_exit);
 
@@ -7002,6 +7044,13 @@ init(xlator_t *this_xl)
     pthread_mutex_init(&priv->sync_mutex, NULL);
     priv->event_recvd = 0;
 
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+    /* For testing purposes; the copy_file_range fop is not
+     * yet ready for prime time.
+     */
+    if (priv->handle_copy_file_range)
+        fuse_std_ops[FUSE_COPY_FILE_RANGE] = fuse_copy_file_range;
+#endif
     for (i = 0; i < FUSE_OP_HIGH; i++) {
         if (!fuse_std_ops[i])
             fuse_std_ops[i] = fuse_enosys;
@@ -7201,6 +7250,13 @@ struct volume_options options[] = {
         .default_value = "false",
         .description =
             "Handle iterrupts in FLUSH handler (for testing purposes).",
+    },
+    {
+        .key = {"handle-copy_file_range"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "false",
+        .description =
+            "Handle FUSE_COPY_FILE_RANGE message (for testing purposes).",
     },
     {
         .key = {"lru-limit"},

@@ -171,6 +171,7 @@ struct fuse_private {
     pthread_mutex_t interrupt_mutex;
 
     gf_boolean_t flush_handle_interrupt;
+    gf_boolean_t handle_copy_file_range;
     gf_boolean_t fuse_auto_inval;
 
     /* LRU Limit, if not set, default is 64k for now */
@@ -181,6 +182,9 @@ struct fuse_private {
     /* counters for fusdev errnos */
     uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
     pthread_mutex_t fusedev_errno_cnt_mutex;
+
+    /* how big write payload can be expected from kernel */
+    size_t fuse_max_write;
 };
 typedef struct fuse_private fuse_private_t;
 
