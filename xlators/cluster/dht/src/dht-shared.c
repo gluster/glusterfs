@@ -282,6 +282,7 @@ dht_parse_decommissioned_bricks(xlator_t *this, dht_conf_t *conf,
 
     ret = 0;
     conf->decommission_in_progress = 1;
+    conf->global_layout_version++;
 out:
     GF_FREE(dup_brick);
 
@@ -299,6 +300,7 @@ dht_decommissioned_remove(xlator_t *this, dht_conf_t *conf)
             conf->decommission_subvols_cnt--;
         }
     }
+    conf->global_layout_version++;
     conf->decommission_in_progress = 0;
 }
 
@@ -500,7 +502,8 @@ dht_reconfigure(xlator_t *this, dict_t *options)
                 goto out;
         }
     } else {
-        dht_decommissioned_remove(this, conf);
+        if (conf->decommission_in_progress)
+            dht_decommissioned_remove(this, conf);
     }
 
     dht_init_regex(this, options, "rsync-hash-regex", &conf->rsync_regex,
@@ -801,6 +804,7 @@ dht_init(xlator_t *this)
     }
 
     conf->gen = 1;
+    conf->global_layout_version = 1;
 
     this->local_pool = mem_pool_new(dht_local_t, 512);
     if (!this->local_pool) {

@@ -7823,7 +7823,6 @@ dht_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 {
     xlator_t *subvol = NULL;
     int op_errno = -1;
-    int i = 0;
     int ret = 0;
     dht_local_t *local = NULL;
     dht_conf_t *conf = NULL;
@@ -7850,6 +7849,19 @@ dht_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         goto err;
     }
 
+    /*
+     * when (layout->version < global_layout_version):
+       the layout may be outdated and needs to be refreshed
+       by calling a lookup on parent dir.
+       cases:
+        - decommission start or decommission stop + rebalance:
+          the client layout may not be in sync with disk layout because of lack
+     of lookup.
+
+        - internal gluster dir like .shard, where lookup revalidation is
+     missing.
+     */
+
     /* Post remove-brick, the client layout may not be in sync with
      * disk layout because of lack of lookup. Hence,a mknod call
      * may fall on the decommissioned brick.  Hence, if the
@@ -7862,56 +7874,60 @@ dht_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
      * non-decommissioned brick based on the new layout.
      */
 
-    if (conf->decommission_subvols_cnt) {
-        for (i = 0; i < conf->subvolume_cnt; i++) {
-            if (conf->decommissioned_bricks[i] &&
-                conf->decommissioned_bricks[i] == subvol) {
-                gf_msg_debug(this->name, 0,
-                             "hashed subvol:%s is "
-                             "part of decommission brick list for "
-                             "file: %s",
-                             subvol->name, loc->path);
+    dht_layout_t *layout = dht_layout_get(this, loc->parent);
 
-                /* dht_refresh_layout needs directory info in
-                 * local->loc. Hence, storing the parent_loc in
-                 * local->loc and storing the create context in
-                 * local->loc2. We will restore this information
-                 * in dht_creation do */
+    gf_msg_debug(this->name, 0,
+                 "layout=0x%x layout_version = %d "
+                 "global_layout_version = %d "
+                 "file: %s",
+                 layout, layout->version, conf->global_layout_version,
+                 loc->path);
 
-                ret = loc_copy(&local->loc2, &local->loc);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
-                           "loc_copy failed %s", loc->path);
+    if (layout->version < conf->global_layout_version) {
+        gf_msg_debug(this->name, 0,
+                     "detect layout_version (%d) <  "
+                     "global_layout_version (%d) "
+                     "for file: %s. calling lookup on parent.",
+                     layout->version, conf->global_layout_version, loc->path);
 
-                    goto err;
-                }
+        /* dht_refresh_layout needs directory info in
+         * local->loc. Hence, storing the parent_loc in
+         * local->loc and storing the create context in
+         * local->loc2. We will restore this information
+         * in dht_creation do */
 
-                local->params = dict_ref(params);
-                local->rdev = rdev;
-                local->mode = mode;
-                local->umask = umask;
+        ret = loc_copy(&local->loc2, &local->loc);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                   "loc_copy failed %s", loc->path);
 
-                loc_wipe(&local->loc);
-
-                ret = dht_build_parent_loc(this, &local->loc, loc, &op_errno);
-
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_LOC_FAILED,
-                           "parent loc build failed");
-                    goto err;
-                }
-
-                ret = dht_mknod_lock(frame, subvol);
-
-                if (ret < 0) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INODE_LK_ERROR,
-                           "locking parent failed");
-                    goto err;
-                }
-
-                goto done;
-            }
+            goto err;
         }
+
+        local->params = dict_ref(params);
+        local->rdev = rdev;
+        local->mode = mode;
+        local->umask = umask;
+
+        loc_wipe(&local->loc);
+
+        ret = dht_build_parent_loc(this, &local->loc, loc, &op_errno);
+
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_LOC_FAILED,
+                   "parent loc build failed");
+            goto err;
+        }
+
+        ret = dht_mknod_lock(frame, subvol);
+
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INODE_LK_ERROR,
+                   "locking parent failed");
+            goto err;
+        }
+
+        goto done;
     }
 
     dht_mknod_wind_to_avail_subvol(frame, this, subvol, loc, rdev, mode, umask,
@@ -8877,7 +8893,6 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     xlator_t *subvol = NULL;
     xlator_t *hashed_subvol = NULL;
     dht_local_t *local = NULL;
-    int i = 0;
     dht_conf_t *conf = NULL;
     int ret = 0;
 
@@ -8945,63 +8960,65 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         goto err;
     }
 
-    /* Post remove-brick, the client layout may not be in sync with
-     * disk layout because of lack of lookup. Hence,a create call
-     * may fall on the decommissioned brick.  Hence, if the
-     * hashed_subvol is part of decommissioned bricks  list, do a
-     * lookup on parent dir. If a fix-layout is already done by the
-     * remove-brick process, the parent directory layout will be in
-     * sync with that of the disk. If fix-layout is still ending
-     * on the parent directory, we can let the file get created on
-     * the decommissioned brick which will be eventually migrated to
-     * non-decommissioned brick based on the new layout.
+    /*
+     * when (layout->version < global_layout_version):
+       the layout may be outdated and needs to be refreshed
+       by calling a lookup on parent dir.
+       cases:
+            - decommission start or decommission stop + rebalance:
+              the client layout may not be in sync with disk layout because of
+     lack of lookup.
+
+            - internal gluster dir like .shard, where lookup revalidation is
+     missing.
      */
 
-    if (conf->decommission_subvols_cnt) {
-        for (i = 0; i < conf->subvolume_cnt; i++) {
-            if (conf->decommissioned_bricks[i] &&
-                conf->decommissioned_bricks[i] == subvol) {
-                gf_msg_debug(this->name, 0,
-                             "hashed subvol:%s is "
-                             "part of decommission brick list for "
-                             "file: %s",
-                             subvol->name, loc->path);
+    dht_layout_t *layout = dht_layout_get(this, loc->parent);
+    gf_msg_debug(this->name, 0,
+                 "layout_version = %d "
+                 "global_layout_version = %d "
+                 "file: %s",
+                 layout->version, conf->global_layout_version, loc->path);
 
-                /* dht_refresh_layout needs directory info in
-                 * local->loc. Hence, storing the parent_loc in
-                 * local->loc and storing the create context in
-                 * local->loc2. We will restore this information
-                 * in dht_creation do */
+    if (layout->version < conf->global_layout_version) {
+        gf_msg_debug(this->name, 0,
+                     "detect layout_version (%d) <  "
+                     "global_layout_version (%d) "
+                     "for file: %s. calling lookup on parent.",
+                     layout->version, conf->global_layout_version, loc->path);
 
-                ret = loc_copy(&local->loc2, &local->loc);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
-                           "loc_copy failed %s", loc->path);
+        /* dht_refresh_layout needs directory info in
+         * local->loc. Hence, storing the parent_loc in
+         * local->loc and storing the create context in
+         * local->loc2. We will restore this information
+         * in dht_creation do */
 
-                    goto err;
-                }
+        ret = loc_copy(&local->loc2, &local->loc);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                   "loc_copy failed %s", loc->path);
 
-                loc_wipe(&local->loc);
-
-                ret = dht_build_parent_loc(this, &local->loc, loc, &op_errno);
-
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_LOC_FAILED,
-                           "parent loc build failed");
-                    goto err;
-                }
-
-                ret = dht_create_lock(frame, subvol);
-
-                if (ret < 0) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INODE_LK_ERROR,
-                           "locking parent failed");
-                    goto err;
-                }
-
-                goto done;
-            }
+            goto err;
         }
+
+        loc_wipe(&local->loc);
+
+        ret = dht_build_parent_loc(this, &local->loc, loc, &op_errno);
+
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_LOC_FAILED,
+                   "parent loc build failed");
+            goto err;
+        }
+
+        ret = dht_create_lock(frame, subvol);
+
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INODE_LK_ERROR,
+                   "locking parent failed");
+            goto err;
+        }
+        goto done;
     }
 
     dht_create_wind_to_avail_subvol(frame, this, subvol, loc, flags, mode,

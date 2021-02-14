@@ -88,6 +88,7 @@ struct dht_layout {
     int type;
     gf_atomic_t ref; /* use with dht_conf_t->layout_lock */
     uint32_t search_unhashed;
+    int version;
     struct {
         int err; /* 0 = normal
                     -1 = dir exists and no xattr
@@ -520,6 +521,7 @@ struct dht_conf {
     dht_layout_t **dir_layouts;
     unsigned int search_unhashed;
     int gen;
+    int global_layout_version;
     dht_du_t *du_stats;
     double min_free_disk;
     double min_free_inodes;
