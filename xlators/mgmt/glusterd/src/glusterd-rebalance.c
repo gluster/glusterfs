@@ -217,6 +217,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     };
     char *volfileserver = NULL;
     char *localtime_logging = NULL;
+    int pid = -1;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", priv, out);
@@ -326,7 +327,11 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
 
     sleep(5);
 
-    ret = glusterd_rebalance_rpc_create(volinfo);
+    if (!gf_is_service_running(pidfile, &pid)) {
+        ret = glusterd_rebalance_rpc_create(volinfo);
+    } else {
+        gf_msg_debug(this->name, 0, "Rebalance process is already running.");
+    }
 
     // FIXME: this cbk is passed as NULL in all occurrences. May be
     // we never needed it.
