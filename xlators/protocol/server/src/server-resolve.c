@@ -55,9 +55,8 @@ resolve_gfid_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret == -1) {
         if (op_errno == ENOENT) {
-            gf_msg_debug(this->name, 0, "%s/%s: failed to resolve (%s)",
-                         uuid_utoa(resolve_loc->pargfid), resolve_loc->name,
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "%s/%s: failed to resolve",
+                         uuid_utoa(resolve_loc->pargfid), resolve_loc->name);
             if (resolve->type == RESOLVE_NOT) {
                 do {
                     inode = inode_grep(state->itable, resolve_loc->parent,
@@ -118,8 +117,8 @@ resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     if (op_ret == -1) {
         if (op_errno == ENOENT) {
-            gf_msg_debug(this->name, GF_LOG_DEBUG, "%s: failed to resolve (%s)",
-                         uuid_utoa(resolve_loc->gfid), strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "%s: failed to resolve ",
+                         uuid_utoa(resolve_loc->gfid));
         } else {
             gf_msg(this->name, GF_LOG_WARNING, op_errno,
                    PS_MSG_GFID_RESOLVE_FAILED, "%s: failed to resolve (%s)",

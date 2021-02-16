@@ -858,7 +858,7 @@ server4_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dict_foreach(state->dict, _gf_server_log_setxattr_failure, frame);
 
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
+            gf_msg_debug(THIS->name, op_errno, "Failed");
         } else {
             gf_smsg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
                     "client=%s", STACK_CLIENT_NAME(frame->root),
@@ -898,7 +898,7 @@ server4_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dict_foreach(state->dict, _gf_server_log_setxattr_failure, frame);
         }
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
+            gf_msg_debug(THIS->name, op_errno, "Failed: ");
         } else {
             gf_smsg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
                     "client=%s", STACK_CLIENT_NAME(frame->root),

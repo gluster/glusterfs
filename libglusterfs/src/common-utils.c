@@ -4722,10 +4722,8 @@ recursive_rmdir(const char *delete_path)
 
     dir = sys_opendir(delete_path);
     if (!dir) {
-        gf_msg_debug(this->name, 0,
-                     "Failed to open directory %s. "
-                     "Reason : %s",
-                     delete_path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed to open directory %s.",
+                     delete_path);
         ret = 0;
         goto out;
     }
@@ -4736,10 +4734,7 @@ recursive_rmdir(const char *delete_path)
         snprintf(path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
         ret = sys_lstat(path, &st);
         if (ret == -1) {
-            gf_msg_debug(this->name, 0,
-                         "Failed to stat entry %s :"
-                         " %s",
-                         path, strerror(errno));
+            gf_msg_debug(this->name, errno, "Failed to stat entry %s", path);
             (void)sys_closedir(dir);
             goto out;
         }
@@ -4750,10 +4745,7 @@ recursive_rmdir(const char *delete_path)
             ret = sys_unlink(path);
 
         if (ret) {
-            gf_msg_debug(this->name, 0,
-                         " Failed to remove %s. "
-                         "Reason : %s",
-                         path, strerror(errno));
+            gf_msg_debug(this->name, errno, " Failed to remove %s. ", path);
         }
 
         gf_msg_debug(this->name, 0, "%s %s",
@@ -4762,16 +4754,12 @@ recursive_rmdir(const char *delete_path)
 
     ret = sys_closedir(dir);
     if (ret) {
-        gf_msg_debug(this->name, 0,
-                     "Failed to close dir %s. Reason :"
-                     " %s",
-                     delete_path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed to close dir %s", delete_path);
     }
 
     ret = sys_rmdir(delete_path);
     if (ret) {
-        gf_msg_debug(this->name, 0, "Failed to rmdir: %s,err: %s", delete_path,
-                     strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed to rmdir: %s", delete_path);
     }
 
 out:

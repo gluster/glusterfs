@@ -3999,7 +3999,7 @@ glusterd_restore_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
     if (ret) {
         if (errno == ENOENT) {
             ret = 0;
-            gf_msg_debug(this->name, 0, "%s not found", src_path);
+            gf_msg_debug(this->name, errno, "%s not found", src_path);
         } else
             gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_FILE_OP_FAILED,
                    "Stat on %s failed with %s", src_path, strerror(errno));
