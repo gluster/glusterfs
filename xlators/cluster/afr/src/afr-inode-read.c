@@ -1011,11 +1011,13 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
                              newdict, local->xdata_rsp);
         }
 
-        dict_unref(newdict);
+        if (newdict != NULL) {
+            dict_unref(newdict);
+        }
     }
 }
 
-int32_t
+static int32_t
 afr_getxattr_lockinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *dict,
                           dict_t *xdata)
@@ -1026,7 +1028,7 @@ afr_getxattr_lockinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 afr_fgetxattr_lockinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *dict,
                            dict_t *xdata)
