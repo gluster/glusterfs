@@ -25,6 +25,10 @@
 #include "glusterfs/statedump.h"
 #include "glusterfs/libglusterfs-messages.h"
 
+/* when dict->hash_size = 1, the dict implemented as a doubly-linked list.
+ * in this case avoid hash calculation */
+#define LINK_LIST_IMP 1
+
 struct dict_cmp {
     dict_t *dict;
     gf_boolean_t (*value_ignore)(char *k);
@@ -351,7 +355,7 @@ dict_lookup_common(const dict_t *this, const char *key, const uint32_t hash)
     /* If the divisor is 1, the modulo is always 0,
      * in such case avoid hash calculation.
      */
-    if (this->hash_size != 1)
+    if (this->hash_size != LINK_LIST_IMP)
         hashval = hash % this->hash_size;
 
     for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
@@ -374,7 +378,9 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
     data_pair_t *tmp = NULL;
 
-    uint32_t hash = (uint32_t)XXH64(key, strlen(key), 0);
+    uint32_t hash = this->hash_size == LINK_LIST_IMP
+                        ? 0
+                        : (uint32_t)XXH64(key, strlen(key), 0);
 
     LOCK(&this->lock);
     {
@@ -396,7 +402,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     int hashval = 0;
     data_pair_t *pair;
     int key_free = 0;
-    uint32_t key_hash;
+    uint32_t key_hash = 0;
     int keylen;
 
     if (!key) {
@@ -405,7 +411,8 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
             return -1;
         }
         key_free = 1;
-        key_hash = (uint32_t)XXH64(key, keylen, 0);
+        if (this->hash_size != LINK_LIST_IMP)
+            key_hash = (uint32_t)XXH64(key, keylen, 0);
     } else {
         keylen = key_len;
         key_hash = hash;
@@ -502,7 +509,7 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
-    if (key) {
+    if (key && this->hash_size != LINK_LIST_IMP) {
         key_hash = (uint32_t)XXH64(key, keylen, 0);
     }
 
@@ -536,7 +543,7 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
-    if (key) {
+    if (key && this->hash_size != LINK_LIST_IMP) {
         key_hash = (uint32_t)XXH64(key, keylen, 0);
     }
 
@@ -565,15 +572,15 @@ data_t *
 dict_getn(dict_t *this, char *key, const int keylen)
 {
     data_pair_t *pair;
-    uint32_t hash;
+    uint32_t hash = 0;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
-
-    hash = (uint32_t)XXH64(key, keylen, 0);
+    if (this->hash_size != LINK_LIST_IMP)
+        hash = (uint32_t)XXH64(key, keylen, 0);
 
     LOCK(&this->lock);
     {
@@ -623,7 +630,7 @@ gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen)
 {
     int hashval = 0;
-    uint32_t hash;
+    uint32_t hash = 0;
     gf_boolean_t rc = _gf_false;
 
     if (!this || !key) {
@@ -631,15 +638,15 @@ dict_deln(dict_t *this, char *key, const int keylen)
                          "!this || key=%s", key);
         return rc;
     }
-
-    hash = (uint32_t)XXH64(key, keylen, 0);
+    if (this->hash_size != LINK_LIST_IMP)
+        hash = (uint32_t)XXH64(key, keylen, 0);
 
     LOCK(&this->lock);
 
     /* If the divisor is 1, the modulo is always 0,
      * in such case avoid hash calculation.
      */
-    if (this->hash_size != 1)
+    if (this->hash_size != LINK_LIST_IMP)
         hashval = hash % this->hash_size;
 
     data_pair_t *pair = this->members[hashval];
@@ -1524,9 +1531,10 @@ dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
 {
     data_pair_t *pair = NULL;
     int ret = -ENOENT;
-    uint32_t hash;
+    uint32_t hash = 0;
 
-    hash = (uint32_t)XXH64(key, keylen, 0);
+    if (this->hash_size != LINK_LIST_IMP)
+        hash = (uint32_t)XXH64(key, keylen, 0);
 
     LOCK(&this->lock);
     {
@@ -2126,7 +2134,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
     data_pair_t *pair = NULL;
     char *ptr = NULL;
     int hashval = 0;
-    uint32_t hash;
+    uint32_t hash = 0;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -2141,7 +2149,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
      */
     GF_ASSERT(flag >= 0 && flag < DICT_MAX_FLAGS);
 
-    hash = (uint32_t)XXH64(key, strlen(key), 0);
+    if (this->hash_size != LINK_LIST_IMP)
+        hash = (uint32_t)XXH64(key, strlen(key), 0);
     LOCK(&this->lock);
     {
         pair = dict_lookup_common(this, key, hash);
@@ -2865,9 +2874,9 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
 {
     data_pair_t *pair = NULL;
     int ret = -EINVAL;
-    uint32_t hash;
-    uint32_t replacekey_hash;
-    int replacekey_len;
+    uint32_t hash = 0;
+    uint32_t replacekey_hash = 0;
+    int replacekey_len = 0;
 
     /* replacing a key by itself is a NO-OP */
     if (strcmp(key, replace_key) == 0)
@@ -2879,10 +2888,11 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
         return ret;
     }
 
-    hash = (uint32_t)XXH64(key, strlen(key), 0);
-    replacekey_len = strlen(replace_key);
-    replacekey_hash = (uint32_t)XXH64(replace_key, replacekey_len, 0);
-
+    if (this->hash_size != LINK_LIST_IMP) {
+        hash = (uint32_t)XXH64(key, strlen(key), 0);
+        replacekey_len = strlen(replace_key);
+        replacekey_hash = (uint32_t)XXH64(replace_key, replacekey_len, 0);
+    }
     LOCK(&this->lock);
     {
         /* no need to data_ref(pair->value), dict_set_lk() does it */
@@ -3499,7 +3509,8 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
     LOCK(&dict->lock);
     {
         for (i = 0; strings[i]; i++) {
-            hash = (uint32_t)XXH64(strings[i], strlen(strings[i]), 0);
+            if (dict->hash_size != LINK_LIST_IMP)
+                hash = (uint32_t)XXH64(strings[i], strlen(strings[i]), 0);
             if (dict_lookup_common(dict, strings[i], hash)) {
                 *result = _gf_true;
                 goto unlock;
