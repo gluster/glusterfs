@@ -46,7 +46,7 @@ do
 
     key=`echo $line | cut -d ':' -f 1`
     if [ "$key" == "Hostname" ]; then
-        hostname=`echo $line | cut -d ':' -f 2 | xargs`
+        hostname=`echo $line | cut -d ' ' -f 2 | xargs`
     fi
 
     if [ "$key" == "State" ]; then
