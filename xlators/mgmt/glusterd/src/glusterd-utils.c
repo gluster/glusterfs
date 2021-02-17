@@ -120,6 +120,44 @@
         }                                                                      \
     } while (0)
 
+int
+glusterd_defrag_ref(glusterd_defrag_info_t *defrag)
+{
+    int refcnt = 0;
+
+    if (!defrag)
+        goto out;
+
+    LOCK(&defrag->lock);
+    {
+        refcnt = ++defrag->refcnt;
+    }
+    UNLOCK(&defrag->lock);
+
+out:
+    return refcnt;
+}
+
+int
+glusterd_defrag_unref(glusterd_defrag_info_t *defrag)
+{
+    int refcnt = -1;
+
+    if (!defrag)
+        goto out;
+
+    LOCK(&defrag->lock);
+    {
+        refcnt = --defrag->refcnt;
+        if (refcnt <= 0)
+            GF_FREE(defrag);
+    }
+    UNLOCK(&defrag->lock);
+
+out:
+    return refcnt;
+}
+
 gf_boolean_t
 is_brick_mx_enabled(void)
 {
@@ -9497,6 +9535,7 @@ glusterd_volume_defrag_restart(glusterd_volinfo_t *volinfo, char *op_errstr,
     char pidfile[PATH_MAX] = "";
     int ret = -1;
     pid_t pid = 0;
+    int refcnt = 0;
 
     priv = this->private;
     if (!priv)
@@ -9528,7 +9567,25 @@ glusterd_volume_defrag_restart(glusterd_volinfo_t *volinfo, char *op_errstr,
                              volinfo->volname);
                     goto out;
                 }
-                ret = glusterd_rebalance_rpc_create(volinfo);
+                refcnt = glusterd_defrag_ref(volinfo->rebal.defrag);
+                /* If refcnt value is 1 it means either defrag object is
+                   poulated by glusterd_rebalance_defrag_init or previous
+                   rpc creation was failed.If it is not 1 it means it(defrag)
+                   was populated at the time of start a rebalance daemon.
+                   We need to create a rpc object only while a previous
+                   rpc connection was not established successfully at the
+                   time of restart a rebalance daemon by
+                   glusterd_handle_defrag_start otherwise rebalance cli
+                   does not show correct status after just reboot a node and try
+                   to print the rebalance status because defrag object has been
+                   destroyed during handling of rpc disconnect.
+                */
+                if (refcnt == 1) {
+                    ret = glusterd_rebalance_rpc_create(volinfo);
+                } else {
+                    ret = 0;
+                    glusterd_defrag_unref(volinfo->rebal.defrag);
+                }
                 break;
             }
         case GF_DEFRAG_STATUS_NOT_STARTED:

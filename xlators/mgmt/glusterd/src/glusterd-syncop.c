@@ -1720,6 +1720,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         if (!rpc) {
             if (pending_node->type == GD_NODE_REBALANCE && pending_node->node) {
                 volinfo = pending_node->node;
+                glusterd_defrag_ref(volinfo->rebal.defrag);
                 ret = glusterd_rebalance_rpc_create(volinfo);
                 if (ret) {
                     ret = 0;

@@ -101,6 +101,7 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
     glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
     int pid = -1;
+    int refcnt = 0;
 
     priv = this->private;
     if (!priv)
@@ -136,11 +137,12 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
         }
 
         case RPC_CLNT_DISCONNECT: {
-            if (!defrag->connected)
-                return 0;
-
             LOCK(&defrag->lock);
             {
+                if (!defrag->connected) {
+                    UNLOCK(&defrag->lock);
+                    return 0;
+                }
                 defrag->connected = 0;
             }
             UNLOCK(&defrag->lock);
@@ -157,11 +159,11 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
             glusterd_defrag_rpc_put(defrag);
             if (defrag->cbk_fn)
                 defrag->cbk_fn(volinfo, volinfo->rebal.defrag_status);
-
-            GF_FREE(defrag);
+            refcnt = glusterd_defrag_unref(defrag);
             gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_REBALANCE_DISCONNECTED,
-                   "Rebalance process for volume %s has disconnected.",
-                   volinfo->volname);
+                   "Rebalance process for volume %s has disconnected"
+                   " and defrag refcnt is %d.",
+                   volinfo->volname, refcnt);
             break;
         }
         case RPC_CLNT_DESTROY:
@@ -323,7 +325,11 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
         gf_msg_debug("glusterd", 0, "rebalance command failed");
         goto out;
     }
-
+    /* Take reference before sleep to save defrag object cleanup while
+       glusterd_restart_rebalance call for other bricks by syncktask
+       at the time of restart a glusterd.
+    */
+    glusterd_defrag_ref(defrag);
     sleep(5);
 
     ret = glusterd_rebalance_rpc_create(volinfo);
@@ -379,6 +385,7 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     };
     int ret = -1;
     glusterd_defrag_info_t *defrag = volinfo->rebal.defrag;
+    struct rpc_clnt *rpc = NULL;
 
     // rebalance process is not started
     if (!defrag)
@@ -405,13 +412,21 @@ glusterd_rebalance_rpc_create(glusterd_volinfo_t *volinfo)
     }
 
     glusterd_volinfo_ref(volinfo);
-    ret = glusterd_rpc_create(&defrag->rpc, options, glusterd_defrag_notify,
-                              volinfo, _gf_true);
+    ret = glusterd_rpc_create(&rpc, options, glusterd_defrag_notify, volinfo,
+                              _gf_false);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_RPC_CREATE_FAIL,
                "Glusterd RPC creation failed");
         goto out;
     }
+    LOCK(&defrag->lock);
+    {
+        if (!defrag->rpc)
+            defrag->rpc = rpc;
+        else
+            rpc_clnt_unref(rpc);
+    }
+    UNLOCK(&defrag->lock);
     ret = 0;
 out:
     if (options)
