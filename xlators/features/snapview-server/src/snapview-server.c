@@ -954,9 +954,8 @@ svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
             op_errno = errno;
             if (errno == ENODATA) {
                 gf_msg_debug(this->name, errno,
-                             "getxattr on "
-                             "%s failed (ket: %s)",
-                             loc->path, name);
+                             "getxattr on %s failed (ket: %s)", loc->path,
+                             name);
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, op_errno,
                        SVS_MSG_GETXATTR_FAILED,

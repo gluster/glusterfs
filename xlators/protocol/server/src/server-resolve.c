@@ -117,7 +117,7 @@ resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     if (op_ret == -1) {
         if (op_errno == ENOENT) {
-            gf_msg_debug(this->name, op_errno, "%s: failed to resolve ",
+            gf_msg_debug(this->name, op_errno, "%s: failed to resolve",
                          uuid_utoa(resolve_loc->gfid));
         } else {
             gf_msg(this->name, GF_LOG_WARNING, op_errno,

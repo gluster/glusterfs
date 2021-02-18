@@ -7837,9 +7837,7 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
     ret = glusterd_add_inode_size_to_dict(dict, count);
 out:
     if (ret)
-        gf_msg_debug(this->name, errno,
-                     "Error adding brick"
-                     " detail to dict");
+        gf_msg_debug(this->name, errno, "Error adding brick detail to dict");
     return ret;
 }
 

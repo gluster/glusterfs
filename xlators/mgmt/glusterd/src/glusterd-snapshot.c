@@ -2616,8 +2616,7 @@ glusterd_do_lvm_snapshot_remove(glusterd_volinfo_t *snap_vol,
             break;
 
         gf_msg_debug(this->name, errno,
-                     "umount failed for "
-                     "path %s (brick: %s). Retry(%d)",
+                     "umount failed for path %s (brick: %s). Retry(%d)",
                      mount_pt, brickinfo->path, retry_count);
 
         /*

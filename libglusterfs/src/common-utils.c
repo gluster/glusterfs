@@ -4745,7 +4745,7 @@ recursive_rmdir(const char *delete_path)
             ret = sys_unlink(path);
 
         if (ret) {
-            gf_msg_debug(this->name, errno, " Failed to remove %s. ", path);
+            gf_msg_debug(this->name, errno, " Failed to remove %s.", path);
         }
 
         gf_msg_debug(this->name, 0, "%s %s",

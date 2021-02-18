@@ -2691,8 +2691,7 @@ glusterd_clearlocks_create_mount(glusterd_volinfo_t *volinfo, char **mntpt)
     tmpl = mkdtemp(template);
     if (!tmpl) {
         gf_msg_debug(THIS->name, errno,
-                     "Couldn't create temporary "
-                     "mount directory.");
+                     "Couldn't create temporary mount directory.");
         goto out;
     }
 

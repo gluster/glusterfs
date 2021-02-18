@@ -612,7 +612,7 @@ tear_down_cluster(gf_boolean_t run_teardown)
          */
         dir = sys_opendir(CONFDIR);
         if (!dir) {
-            gf_msg_debug(THIS->name, errno, "Failed to open directory %s. ",
+            gf_msg_debug(THIS->name, errno, "Failed to open directory %s.",
                          CONFDIR);
             ret = 0;
             goto out;
@@ -624,8 +624,8 @@ tear_down_cluster(gf_boolean_t run_teardown)
             snprintf(path, PATH_MAX, "%s/%s", CONFDIR, entry->d_name);
             ret = sys_lstat(path, &st);
             if (ret == -1) {
-                gf_msg_debug(THIS->name, errno,
-                             "Failed to stat entry %s :", path);
+                gf_msg_debug(THIS->name, errno, "Failed to stat entry %s",
+                             path);
                 goto out;
             }
 
@@ -641,7 +641,7 @@ tear_down_cluster(gf_boolean_t run_teardown)
                 ret = sys_unlink(path);
 
             if (ret) {
-                gf_msg_debug(THIS->name, errno, " Failed to remove %s. ", path);
+                gf_msg_debug(THIS->name, errno, "Failed to remove %s.", path);
             }
 
             gf_msg_debug(THIS->name, 0, "%s %s",
@@ -650,16 +650,14 @@ tear_down_cluster(gf_boolean_t run_teardown)
 
         ret = sys_closedir(dir);
         if (ret) {
-            gf_msg_debug(THIS->name, errno,
-                         "Failed to close dir %s. Reason :", CONFDIR);
+            gf_msg_debug(THIS->name, errno, "Failed to close dir %s", CONFDIR);
         }
         goto exit;
     }
 
 out:
     if (dir && sys_closedir(dir)) {
-        gf_msg_debug(THIS->name, errno,
-                     "Failed to close dir %s. Reason :", CONFDIR);
+        gf_msg_debug(THIS->name, errno, "Failed to close dir %s.", CONFDIR);
     }
 exit:
     return ret;

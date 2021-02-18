@@ -1313,10 +1313,7 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
         } else {
 #ifdef GF_DARWIN_HOST_OS
             if (errno == EINVAL) {
-                gf_msg_debug(this->name, errno,
-                             "fd=%d: key:%s "
-                             "error",
-                             fd, key);
+                gf_msg_debug(this->name, errno, "fd=%d: key:%s error", fd, key);
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                        "fd=%d: key:%s", fd, key);
@@ -1361,7 +1358,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
     /* check that it is valid directory handle */
     size = sys_lstat(hpath, &stbuf);
     if (size < 0) {
-        gf_msg_debug(this->name, errno, "%s: Handle stat failed: ", hpath);
+        gf_msg_debug(this->name, errno, "%s: Handle stat failed", hpath);
         goto out;
     }
 
@@ -1375,7 +1372,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
     size = posix_handle_path(this, gfid, NULL, newpath, sizeof(newpath));
     if (size <= 0) {
         if (errno == ENOENT) {
-            gf_msg_debug(this->name, ENOENT, "%s ", newpath);
+            gf_msg_debug(this->name, ENOENT, "Failed for path: %s", newpath);
             stale = _gf_true;
         }
         goto out;
@@ -1383,7 +1380,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
 
     size = sys_lgetxattr(newpath, GFID_XATTR_KEY, gfid_curr, 16);
     if (size < 0 && errno == ENOENT) {
-        gf_msg_debug(this->name, ENOENT, "%s ", newpath);
+        gf_msg_debug(this->name, ENOENT, "Failed for path: %s", newpath);
         stale = _gf_true;
     } else if (size == 16 && gf_uuid_compare(gfid, gfid_curr)) {
         gf_msg_debug(this->name, 0,

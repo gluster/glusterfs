@@ -303,9 +303,7 @@ ec_heal_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     ec_trace("WRITE_CBK", cookie, "ret=%d, errno=%d", op_ret, op_errno);
 
-    gf_msg_debug(fop->xl->name, op_errno,
-                 "%s: write op_ret %d"
-                 " at %" PRIu64,
+    gf_msg_debug(fop->xl->name, op_errno, "%s: write op_ret %d at %" PRIu64,
                  uuid_utoa(heal->fd->inode->gfid), op_ret, heal->offset);
 
     ec_heal_update(cookie, 0);
@@ -1307,7 +1305,7 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     ret = 0;
 out:
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, -ret, "%s/%s: heal failed ",
+        gf_msg_debug(ec->xl->name, -ret, "%s/%s: heal failed",
                      uuid_utoa(parent->gfid), name);
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
@@ -1863,7 +1861,7 @@ out:
     cluster_replies_wipe(replies, ec->nodes);
     cluster_replies_wipe(fstat_replies, ec->nodes);
     if (ret < 0) {
-        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed ",
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
                      uuid_utoa(fd->inode->gfid));
     } else {
         gf_msg_debug(ec->xl->name, 0,
@@ -1936,7 +1934,7 @@ out:
     if (xattrs)
         dict_unref(xattrs);
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed ",
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
                      uuid_utoa(fd->inode->gfid));
     return ret;
 }
@@ -2110,7 +2108,7 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     LOCK_DESTROY(&heal->lock);
     syncbarrier_destroy(heal->data);
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed ",
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
                      uuid_utoa(fd->inode->gfid));
     return ret;
 }
@@ -2150,7 +2148,7 @@ __ec_heal_trim_sinks(call_frame_t *frame, ec_t *ec, fd_t *fd,
 out:
     cluster_replies_wipe(replies, ec->nodes);
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed ",
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
                      uuid_utoa(fd->inode->gfid));
     return ret;
 }

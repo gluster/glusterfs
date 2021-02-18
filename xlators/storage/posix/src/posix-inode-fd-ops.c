@@ -186,8 +186,7 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         op_errno = errno;
         if (op_errno == ENOENT) {
             gf_msg_debug(this->name, op_errno,
-                         "lstat on gfid-handle %s (path: %s)"
-                         "failed",
+                         "lstat on gfid-handle %s (path: %s) failed",
                          real_path ? real_path : "<null>", loc->path);
         } else {
             gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_LSTAT_FAILED,
@@ -259,7 +258,7 @@ posix_do_chmod(xlator_t *this, const char *path, struct iatt *stbuf)
      * to handle all cases. */
     if ((ret < 0) &&
         ((errno == ENOSYS) || (errno == EOPNOTSUPP) || (errno == ENOTSUP))) {
-        gf_msg_debug(this->name, errno, "%s", path);
+        gf_msg_debug(this->name, errno, "Failed for path: %s", path);
         if (is_symlink) {
             ret = 0;
             goto out;
@@ -342,7 +341,7 @@ posix_do_utimes(xlator_t *this, const char *path, struct iatt *stbuf, int valid)
 
     ret = PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv);
     if ((ret == -1) && (errno == ENOSYS)) {
-        gf_msg_debug(this->name, errno, "%s ", path);
+        gf_msg_debug(this->name, errno, "Failed for path: %s", path);
         if (is_symlink) {
             ret = 0;
             goto out;
@@ -5053,13 +5052,11 @@ unlock:
         if (op_ret) {
             if (filler->real_path)
                 gf_msg_debug(this->name, -size,
-                             "dict_set_bin failed (path=%s): "
-                             "key=%s",
+                             "dict_set_bin failed (path=%s): key=%s",
                              filler->real_path, k);
             else
                 gf_msg_debug(this->name, -size,
-                             "dict_set_bin failed (gfid=%s): "
-                             "key=%s",
+                             "dict_set_bin failed (gfid=%s): key=%s",
                              uuid_utoa(filler->inode->gfid), k);
 
             op_ret = -1;
