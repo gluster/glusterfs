@@ -868,4 +868,10 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
                            int32_t sub_count, int flag);
 gf_boolean_t
 glusterd_gf_is_local_addr(char *hostname);
+
+int
+glusterd_defrag_ref(glusterd_defrag_info_t *defrag);
+
+int
+glusterd_defrag_unref(glusterd_defrag_info_t *defrag);
 #endif
