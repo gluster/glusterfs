@@ -491,9 +491,7 @@ fill_uuid(char *uuid, int size, struct timeval tv)
     }
 
     gf_time_fmt_tv(now_str, sizeof now_str, &tv, gf_timefmt_dirent);
-    snprintf(uuid, size, "%s-%d-%s", hostname, getpid(), now_str);
-
-    return;
+    gf_snprintf(uuid, size, "%s-%d-%s", hostname, getpid(), now_str);
 }
 
 static int

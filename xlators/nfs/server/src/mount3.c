@@ -1101,8 +1101,7 @@ __mnt3_fresh_lookup(mnt3_resolve_t *mres)
 {
     inode_unlink(mres->resolveloc.inode, mres->resolveloc.parent,
                  mres->resolveloc.name);
-    strncpy(mres->remainingdir, mres->resolveloc.path,
-            strlen(mres->resolveloc.path));
+    snprintf(mres->remainingdir, MNTPATHLEN, "%s", mres->resolveloc.path);
     nfs_loc_wipe(&mres->resolveloc);
     return __mnt3_resolve_subdir(mres);
 }

@@ -488,6 +488,12 @@ gf_assert(void);
          ? 0                                                                   \
          : 1)
 
+#define gf_snprintf(dest, size, fmt, ...)                                      \
+    do {                                                                       \
+        if (snprintf(dest, size, fmt, __VA_ARGS__) >= size)                    \
+            GF_ABORT();                                                        \
+    } while (0)
+
 union gf_sock_union {
     struct sockaddr_storage storage;
     struct sockaddr_in6 sin6;

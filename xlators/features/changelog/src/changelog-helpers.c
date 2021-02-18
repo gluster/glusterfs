@@ -1967,11 +1967,15 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t pgfid, char **path,
         gf_uuid_copy(pargfid, tmp_gfid);
     }
 
-    if (bname)
-        strncat(result, bname, strlen(bname) + 1);
-
-    *path = gf_strdup(result);
-
+    if (bname) {
+        len = gf_asprintf(path, "%s%s", result, bname);
+        if ((len < 0) || (len >= PATH_MAX)) {
+            GF_FREE(*path);
+            ret = -1;
+            goto out;
+        }
+    } else
+        *path = gf_strdup(result);
 out:
     return ret;
 }

@@ -4307,7 +4307,7 @@ glusterd_store_uuid_peerpath_set(glusterd_peerinfo_t *peerinfo, char *peerfpath,
 
     glusterd_store_peerinfo_dirpath_set(peerdir, sizeof(peerdir));
     gf_uuid_unparse(peerinfo->uuid, str);
-    snprintf(peerfpath, len, "%s/%s", peerdir, str);
+    gf_snprintf(peerfpath, len, "%s/%s", peerdir, str);
 }
 
 static void
@@ -4321,7 +4321,7 @@ glusterd_store_hostname_peerpath_set(glusterd_peerinfo_t *peerinfo,
     GF_ASSERT(len >= PATH_MAX);
 
     glusterd_store_peerinfo_dirpath_set(peerdir, sizeof(peerdir));
-    snprintf(peerfpath, len, "%s/%s", peerdir, peerinfo->hostname);
+    gf_snprintf(peerfpath, len, "%s/%s", peerdir, peerinfo->hostname);
 }
 
 int32_t

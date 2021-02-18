@@ -147,8 +147,8 @@ afr_handle_anon_inode_options(afr_private_t *priv, dict_t *options)
     GF_ASSERT(strlen(AFR_ANON_DIR_PREFIX) + strlen(volfile_id_str) <= NAME_MAX);
     /*anon_inode_name is not supposed to change once assigned*/
     if (!priv->anon_inode_name[0]) {
-        snprintf(priv->anon_inode_name, sizeof(priv->anon_inode_name), "%s-%s",
-                 AFR_ANON_DIR_PREFIX, volfile_id_str);
+        gf_snprintf(priv->anon_inode_name, sizeof(priv->anon_inode_name),
+                    "%s-%s", AFR_ANON_DIR_PREFIX, volfile_id_str);
         gf_uuid_parse(volfile_id_str, anon_inode_gfid);
         /*Flip a bit to make sure volfile-id and anon-gfid are not same*/
         anon_inode_gfid[0] ^= 1;
