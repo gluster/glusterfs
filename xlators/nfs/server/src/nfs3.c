@@ -361,7 +361,7 @@ nfs3_funge_webnfs_zerolen_fh(rpcsvc_request_t *req, struct nfs3_state *nfs3st,
     }
 
     /* glfs_resolve_at copied from UDP MNT support */
-    fs = glfs_new_from_ctx(fungexl->ctx);
+    fs = glfs_new_from_ctx(global_ctx);
     if (!fs) {
         gf_msg_trace(GF_NFS3, 0, "failed to create glfs instance");
         ret = -ENOENT;
@@ -610,7 +610,7 @@ nfs3_serialize_reply(rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc,
      */
     /* TODO: get rid of 'sfunc' and use 'xdrproc_t' so we
        can have 'xdr_sizeof' */
-    iob = iobuf_get(nfs3->iobpool);
+    iob = iobuf_get(global_ctx->iobuf_pool);
     if (!iob) {
         gf_msg(GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobuf");
@@ -2401,7 +2401,7 @@ nfs3svc_write(rpcsvc_request_t *req)
     }
 
     /* To ensure that the iobuf for the current record does not
-     * get returned to the iobpool, we need to keep a reference for
+     * get returned to the iobuf pool, we need to keep a reference for
      * ourselves because the RPC call handler who called us will unref its
      * own ref of the record's iobuf when it is done handling the request.
      */
@@ -5629,11 +5629,9 @@ nfs3_init_state(xlator_t *nfsx)
         goto ret;
     }
 
-    nfs3->iobpool = nfsx->ctx->iobuf_pool;
-
     localpool = nfs->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
     gf_msg_trace(GF_NFS3, 0, "local pool: %d", localpool);
-    nfs3->localpool = mem_pool_new_ctx(nfsx->ctx, nfs3_call_state_t, localpool);
+    nfs3->localpool = mem_pool_new_ctx(nfs3_call_state_t, localpool);
     if (!nfs3->localpool) {
         gf_msg(GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "local mempool creation failed");

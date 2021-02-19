@@ -335,7 +335,7 @@ glusterd_ac_friend_add(glusterd_friend_sm_event_t *event, void *ctx)
     }
     proc = &peerinfo->peer->proctable[GLUSTERD_FRIEND_ADD];
     if (proc->fn) {
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
         if (!frame) {
             RCU_READ_UNLOCK;
             goto out;
@@ -389,7 +389,7 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
     }
     proc = &peerinfo->peer->proctable[GLUSTERD_PROBE_QUERY];
     if (proc->fn) {
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
         if (!frame) {
             gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
                     NULL);
@@ -510,7 +510,7 @@ glusterd_ac_send_friend_remove_req(glusterd_friend_sm_event_t *event,
     }
     proc = &peerinfo->peer->proctable[GLUSTERD_FRIEND_REMOVE];
     if (proc->fn) {
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
         if (!frame) {
             gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
                     NULL);

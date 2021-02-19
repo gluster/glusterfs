@@ -52,12 +52,7 @@ get_new_data()
 {
     data_t *data = NULL;
 
-    if (global_ctx) {
-        data = mem_get(global_ctx->dict_data_pool);
-    } else {
-        data = mem_get(THIS->ctx->dict_data_pool);
-    }
-
+    data = mem_get(global_ctx->dict_data_pool);
     if (!data)
         return NULL;
 
@@ -70,7 +65,7 @@ get_new_data()
 static dict_t *
 get_new_dict_full(int size_hint)
 {
-    dict_t *dict = mem_get0(THIS->ctx->dict_pool);
+    dict_t *dict = mem_get0(global_ctx->dict_pool);
 
     if (!dict) {
         return NULL;
@@ -96,7 +91,7 @@ get_new_dict_full(int size_hint)
          * to fix this.
          */
         GF_ASSERT(size_hint <= (sizeof(data_pair_t) / sizeof(data_pair_t *)));
-        dict->members = mem_get0(THIS->ctx->dict_pair_pool);
+        dict->members = mem_get0(global_ctx->dict_pair_pool);
         if (!dict->members) {
             mem_put(dict);
             return NULL;
@@ -317,7 +312,7 @@ data_copy(data_t *old)
         return NULL;
     }
 
-    data_t *newdata = mem_get0(THIS->ctx->dict_data_pool);
+    data_t *newdata = mem_get0(global_ctx->dict_data_pool);
     if (!newdata) {
         return NULL;
     }
@@ -427,7 +422,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     }
 
     if (this->free_pair.key) { /* the free_pair is used */
-        pair = mem_get(THIS->ctx->dict_pair_pool);
+        pair = mem_get(global_ctx->dict_pair_pool);
         if (!pair) {
             if (key_free)
                 GF_FREE(key);
@@ -684,29 +679,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
     return rc;
 }
 
-/* removes and free all data_pair_t elements.
- * has to be called with this->lock held */
-static void
-dict_clear_data(dict_t *this)
-{
-    data_pair_t *curr = this->members_list;
-    data_pair_t *next = NULL;
-
-    while (curr != NULL) {
-        next = curr->next;
-        data_unref(curr->value);
-        GF_FREE(curr->key);
-        if (curr == &this->free_pair) {
-            this->free_pair.key = NULL;
-        } else {
-            mem_put(curr);
-        }
-        curr = next;
-    }
-    this->count = this->totkvlen = 0;
-}
-
-static void
+void
 dict_destroy(dict_t *this)
 {
     if (!this) {
@@ -715,13 +688,27 @@ dict_destroy(dict_t *this)
         return;
     }
 
-    glusterfs_ctx_t *ctx = NULL;
+    data_pair_t *pair = this->members_list;
+    data_pair_t *prev = this->members_list;
     uint64_t current_max = 0;
-    uint32_t total_pairs = this->count;
+    uint32_t total_pairs = 0;
 
     LOCK_DESTROY(&this->lock);
 
-    dict_clear_data(this);
+    while (prev) {
+        pair = pair->next;
+        data_unref(prev->value);
+        GF_FREE(prev->key);
+        if (prev != &this->free_pair) {
+            mem_put(prev);
+        } else {
+            this->free_pair.key = NULL;
+        }
+        total_pairs++;
+        prev = pair;
+    }
+
+    this->totkvlen = 0;
     if (this->members != &this->members_internal) {
         mem_put(this->members);
     }
@@ -729,7 +716,6 @@ dict_destroy(dict_t *this)
     free(this->extra_stdfree);
 
     /* update 'ctx->stats.dict.details' using max_count */
-    ctx = THIS->ctx;
 
     /* NOTE: below logic is not totaly race proof */
     /* thread0 and thread1 gets current_max as 10 */
@@ -739,12 +725,12 @@ dict_destroy(dict_t *this)
     /* thread0 then goes and sets it to 11 */
     /* As it is for information purpose only, no functionality will be
        broken by this, but a point to consider about ATOMIC macros. */
-    current_max = GF_ATOMIC_GET(ctx->stats.max_dict_pairs);
+    current_max = GF_ATOMIC_GET(global_ctx->stats.max_dict_pairs);
     if (current_max < this->max_count)
-        GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, this->max_count);
+        GF_ATOMIC_INIT(global_ctx->stats.max_dict_pairs, this->max_count);
 
-    GF_ATOMIC_ADD(ctx->stats.total_pairs_used, total_pairs);
-    GF_ATOMIC_INC(ctx->stats.total_dicts_used);
+    GF_ATOMIC_ADD(global_ctx->stats.total_pairs_used, total_pairs);
+    GF_ATOMIC_INC(global_ctx->stats.total_dicts_used);
 
     mem_put(this);
 
@@ -1475,16 +1461,7 @@ dict_reset(dict_t *dict)
                          "dict is NULL");
         goto out;
     }
-
-    int i;
-    LOCK(&dict->lock);
-
-    dict_clear_data(dict);
-    for (i = 0; i < dict->hash_size; i++)
-        dict->members[i] = NULL;
-    dict->members_list = NULL;
-
-    UNLOCK(&dict->lock);
+    dict_foreach(dict, dict_remove_foreach_fn, NULL);
     ret = 0;
 out:
     return ret;
@@ -2177,7 +2154,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
                 BIT_CLEAR((unsigned char *)(data->data), flag);
 
             if (this->free_pair.key) { /* the free pair is in use */
-                pair = mem_get0(THIS->ctx->dict_pair_pool);
+                pair = mem_get0(global_ctx->dict_pair_pool);
                 if (!pair) {
                     gf_smsg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
                             "dict pair", NULL);

@@ -394,7 +394,6 @@ typedef struct {
 } fuse_resolve_t;
 
 typedef struct {
-    void *pool;
     xlator_t *this;
     xlator_t *active_subvol;
     inode_table_t *itable;

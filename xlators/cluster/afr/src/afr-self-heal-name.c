@@ -198,7 +198,7 @@ afr_selfheal_name_type_mismatch_check(xlator_t *this, struct afr_reply *replies,
                          "file=<gfid:%s>/%s;count=2;"
                          "child-%d=%s;type-%d=%s;child-%d=%s;"
                          "type-%d=%s",
-                         this->ctx->cmd_args.client_pid, this->name,
+                         global_ctx->cmd_args.client_pid, this->name,
                          uuid_utoa(pargfid), bname, i, priv->children[i]->name,
                          i, gf_inode_type_to_str(inode_type1), type_idx,
                          priv->children[type_idx]->name, type_idx,

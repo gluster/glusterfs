@@ -347,7 +347,7 @@ rename_trash_directory(xlator_t *this)
 
     priv = this->private;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (frame == NULL) {
         gf_log(this->name, GF_LOG_ERROR, "failed to create frame");
         ret = ENOMEM;
@@ -731,7 +731,7 @@ create_or_rename_trash_directory(xlator_t *this)
 
     priv = this->private;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (frame == NULL) {
         gf_log(this->name, GF_LOG_ERROR, "failed to create frame");
         ret = ENOMEM;
@@ -771,7 +771,7 @@ create_internalop_directory(xlator_t *this)
 
     priv = this->private;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (frame == NULL) {
         gf_log(this->name, GF_LOG_ERROR, "failed to create frame");
         ret = ENOMEM;

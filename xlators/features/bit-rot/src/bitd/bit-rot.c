@@ -1135,7 +1135,7 @@ br_enact_signer(xlator_t *this, br_child_t *child, br_stub_init_t *stub)
 
     br_fill_brick_spec(brick, stub->export);
     ret = gf_changelog_register_generic(brick, 1, 1,
-                                        this->ctx->cmd_args.log_file, -1, this);
+                                        global_ctx->cmd_args.log_file, -1, this);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, BRB_MSG_REGISTER_FAILED, NULL);
         goto dealloc;
@@ -2014,7 +2014,7 @@ init(xlator_t *this)
     INIT_LIST_HEAD(&priv->bricks);
     INIT_LIST_HEAD(&priv->signing);
 
-    priv->timer_wheel = glusterfs_ctx_tw_get(this->ctx);
+    priv->timer_wheel = glusterfs_ctx_tw_get(global_ctx);
     if (!priv->timer_wheel) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_TIMER_WHEEL_UNAVAILABLE,
                 NULL);
@@ -2081,7 +2081,7 @@ fini(xlator_t *this)
     this->private = NULL;
     GF_FREE(priv);
 
-    glusterfs_ctx_tw_put(this->ctx);
+    glusterfs_ctx_tw_put(global_ctx);
 
     return;
 }

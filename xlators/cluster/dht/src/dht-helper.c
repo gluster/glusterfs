@@ -557,7 +557,7 @@ dht_check_and_open_fd_on_subvol(xlator_t *this, call_frame_t *frame)
     */
     local = frame->local;
 
-    ret = synctask_new(this->ctx->env, dht_check_and_open_fd_on_subvol_task,
+    ret = synctask_new(global_ctx->env, dht_check_and_open_fd_on_subvol_task,
                        dht_check_and_open_fd_on_subvol_complete, frame, frame);
 
     if (ret) {
@@ -1503,7 +1503,7 @@ dht_rebalance_complete_check(xlator_t *this, call_frame_t *frame)
 {
     int ret = -1;
 
-    ret = synctask_new(this->ctx->env, dht_migration_complete_check_task,
+    ret = synctask_new(global_ctx->env, dht_migration_complete_check_task,
                        dht_migration_complete_check_done, frame, frame);
     return ret;
 }
@@ -1781,7 +1781,7 @@ dht_rebalance_in_progress_check(xlator_t *this, call_frame_t *frame)
 {
     int ret = -1;
 
-    ret = synctask_new(this->ctx->env, dht_rebalance_inprogress_task,
+    ret = synctask_new(global_ctx->env, dht_rebalance_inprogress_task,
                        dht_inprogress_check_done, frame, frame);
     return ret;
 }

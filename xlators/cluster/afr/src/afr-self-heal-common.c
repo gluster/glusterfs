@@ -396,7 +396,7 @@ out:
                  "subvol=%s;type=gfid;file="
                  "<gfid:%s>/%s>;count=2;child-%d=%s;gfid-%d=%s;"
                  "child-%d=%s;gfid-%d=%s",
-                 this->ctx->cmd_args.client_pid, this->name, uuid_utoa(pargfid),
+                 global_ctx->cmd_args.client_pid, this->name, uuid_utoa(pargfid),
                  bname, child_idx, priv->children[child_idx]->name, child_idx,
                  uuid_utoa_r(replies[child_idx].poststat.ia_gfid, g1), src_idx,
                  priv->children[src_idx]->name, src_idx,
@@ -2336,7 +2336,7 @@ afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                      "subvol=%s;"
                      "type=file;gfid=%s;"
                      "ia_type-%d=%s;ia_type-%d=%s",
-                     this->ctx->cmd_args.client_pid, this->name,
+                     global_ctx->cmd_args.client_pid, this->name,
                      uuid_utoa(replies[i].poststat.ia_gfid), first_idx,
                      gf_inode_type_to_str(first.ia_type), i,
                      gf_inode_type_to_str(replies[i].poststat.ia_type));
@@ -2449,7 +2449,7 @@ afr_frame_create(xlator_t *this, int32_t *op_errno)
     afr_local_t *local = NULL;
     pid_t pid = GF_CLIENT_PID_SELF_HEALD;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         if (op_errno)
             *op_errno = ENOMEM;
@@ -2678,7 +2678,7 @@ afr_heal_synctask(xlator_t *this, afr_local_t *local)
     call_frame_t *heal_frame = NULL;
 
     heal_frame = local->heal_frame;
-    ret = synctask_new(this->ctx->env, afr_refresh_selfheal_wrap,
+    ret = synctask_new(global_ctx->env, afr_refresh_selfheal_wrap,
                        afr_refresh_heal_done, heal_frame, heal_frame);
     if (ret < 0)
         /* Heal not launched. Will be queued when the next inode

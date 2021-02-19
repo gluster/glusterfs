@@ -409,7 +409,7 @@ set_ns_from_fd(const char *fn, call_frame_t *frame, xlator_t *this, fd_t *fd)
         gf_log(this->name, GF_LOG_DEBUG, "    %s winding, looking for path",   \
                uuid_utoa(inode->gfid));                                        \
                                                                                \
-        new_frame = create_frame(this, this->ctx->pool);                       \
+        new_frame = create_frame(this, global_ctx->pool);                       \
         if (!new_frame) {                                                      \
             gf_log(this->name, GF_LOG_ERROR,                                   \
                    "Cannot allocate new call frame.");                         \

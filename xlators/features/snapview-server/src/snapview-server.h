@@ -121,9 +121,8 @@
     } while (0)
 
 int
-svs_mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
-                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
-                        xdrproc_t xdrproc);
+svs_mgmt_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
+                        int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int
 svs_get_snapshot_list(xlator_t *this);

@@ -76,7 +76,7 @@ ec_update_write(ec_fop_data_t *fop, uintptr_t mask, off_t offset, uint64_t size)
     if (iobref == NULL) {
         goto out;
     }
-    iobuf = iobuf_get(fop->xl->ctx->iobuf_pool);
+    iobuf = iobuf_get(global_ctx->iobuf_pool);
     if (iobuf == NULL) {
         goto out;
     }

@@ -1419,7 +1419,7 @@ afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
         data->frame = frame;
         loc_copy(&local->loc, loc);
         data->loc = &local->loc;
-        ret = synctask_new(this->ctx->env, afr_can_set_split_brain_choice,
+        ret = synctask_new(global_ctx->env, afr_can_set_split_brain_choice,
                            afr_set_split_brain_choice, NULL, data);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN_STATUS,
@@ -1522,7 +1522,7 @@ afr_handle_empty_brick(xlator_t *this, call_frame_t *frame, loc_t *loc,
         loc_copy(&data->loc, loc);
         data->empty_index = empty_index;
         data->op_type = op_type;
-        ret = synctask_new(this->ctx->env, _afr_handle_empty_brick,
+        ret = synctask_new(global_ctx->env, _afr_handle_empty_brick,
                            _afr_handle_empty_brick_cbk, NULL, data);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN_STATUS,

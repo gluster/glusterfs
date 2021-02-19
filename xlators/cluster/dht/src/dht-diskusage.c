@@ -113,7 +113,7 @@ dht_get_du_info_for_subvol(xlator_t *this, int subvol_idx)
     };
 
     conf = this->private;
-    pool = this->ctx->pool;
+    pool = global_ctx->pool;
 
     statfs_frame = create_frame(this, pool);
     if (!statfs_frame) {

@@ -19,7 +19,7 @@
 static int
 process_uuid_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)
 {
-    strprintf(strfd, "%s\n", this->ctx->process_uuid);
+    strprintf(strfd, "%s\n", global_ctx->process_uuid);
     return strfd->size;
 }
 

@@ -217,7 +217,7 @@ posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto err;
     }
 
-    paiocb->iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
+    paiocb->iobuf = iobuf_get2(global_ctx->iobuf_pool, size);
     if (!paiocb->iobuf) {
         op_errno = ENOMEM;
         goto err;

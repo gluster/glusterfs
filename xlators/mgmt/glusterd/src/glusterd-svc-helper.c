@@ -774,7 +774,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     brick_req.dict.dict_val = NULL;
     brick_req.dict.dict_len = 0;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_FRAME_CREATE_FAIL,
                 NULL);
@@ -843,7 +843,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     }
 
     req_size = xdr_sizeof((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
-    iobuf = iobuf_get2(rpc->ctx->iobuf_pool, req_size);
+    iobuf = iobuf_get2(global_ctx->iobuf_pool, req_size);
     if (!iobuf) {
         goto err;
     }

@@ -302,7 +302,7 @@ do_fd_cleanup(xlator_t *this, client_t *client, fdentry_t *fdentries,
         fd = fdentries[i].fd;
 
         if (fd != NULL) {
-            tmp_frame = create_frame(this, this->ctx->pool);
+            tmp_frame = create_frame(this, global_ctx->pool);
             if (tmp_frame == NULL) {
                 goto out;
             }
@@ -429,12 +429,11 @@ server_alloc_frame(rpcsvc_request_t *req)
     GF_VALIDATE_OR_GOTO("server", req, out);
     GF_VALIDATE_OR_GOTO("server", req->trans, out);
     GF_VALIDATE_OR_GOTO("server", req->svc, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
 
     client = req->trans->xl_private;
     GF_VALIDATE_OR_GOTO("server", client, out);
 
-    frame = create_frame(client->this, req->svc->ctx->pool);
+    frame = create_frame(client->this, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -482,7 +481,7 @@ get_frame_from_request(rpcsvc_request_t *req)
     client = req->trans->xl_private;
     this = req->trans->xl;
     priv = this->private;
-    clienttable = this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     for (i = 0; i < clienttable->max_clients; i++) {
         tmp_client = clienttable->cliententries[i].client;

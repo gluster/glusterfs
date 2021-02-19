@@ -174,7 +174,7 @@ struct _gf_async_control {
 extern gf_async_control_t gf_async_ctrl;
 
 int32_t
-gf_async_init(glusterfs_ctx_t *ctx);
+gf_async_init();
 
 void
 gf_async_fini(void);

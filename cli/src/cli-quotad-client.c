@@ -28,7 +28,7 @@ cli_quotad_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         };

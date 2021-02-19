@@ -3561,7 +3561,7 @@ mdc_register_xattr_inval(xlator_t *this)
         goto out;
     }
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, MD_CACHE_MSG_NO_MEMORY,
                "failed to create the frame");
@@ -3579,7 +3579,7 @@ mdc_register_xattr_inval(xlator_t *this)
 
     data->this = this;
     data->xattr = xattr;
-    ret = synctask_new(this->ctx->env, mdc_send_xattrs, mdc_send_xattrs_cbk,
+    ret = synctask_new(global_ctx->env, mdc_send_xattrs, mdc_send_xattrs_cbk,
                        frame, data);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_WARNING, errno,

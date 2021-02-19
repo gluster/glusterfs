@@ -104,29 +104,26 @@ log_rotate (int signum)
 static int
 logging_init (void)
 {
-        glusterfs_ctx_t *ctx;
         char log_file[PATH_MAX];
         int ret = -1;
 
-        ctx = glusterfs_ctx_new ();
-        if (!ctx) {
+        if (!glusterfs_ctx_new()) {
                 fprintf (stderr, "glusterfs_ctx_new failed\n");
                 goto out;
         }
 
-        ret = glusterfs_globals_init (ctx);
+        ret = glusterfs_globals_init ();
         if (ret) {
                 fprintf (stderr, "glusterfs_globals_init failed\n");
                 goto out;
         }
 
-        THIS->ctx = ctx;
         xlator_mem_acct_init (THIS, gf_common_mt_end);
 
         snprintf (log_file, PATH_MAX,
                   "%s/umountd.log", DEFAULT_LOG_FILE_DIRECTORY);
 
-        ret = gf_log_init (ctx, log_file, "umountd");
+        ret = gf_log_init (log_file, "umountd");
         if (ret) {
                 fprintf (stderr, "gf_log_init failed\n");
                 goto out;

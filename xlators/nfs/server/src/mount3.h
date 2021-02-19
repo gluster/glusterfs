@@ -128,9 +128,6 @@ struct mount3_state {
     /* The NFS state that this belongs to */
     struct nfs_state *nfs;
 
-    /* The buffers for all network IO are got from this pool. */
-    struct iobuf_pool *iobpool;
-
     /* List of exports, can be volumes or directories in those volumes. */
     struct list_head exportlist;
 

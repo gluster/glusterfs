@@ -130,7 +130,7 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
         return NULL;
     }
 
-    clienttable = this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     LOCK(&clienttable->lock);
     {
@@ -312,7 +312,7 @@ client_destroy(client_t *client)
         goto out;
     }
 
-    clienttable = client->this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     LOCK(&clienttable->lock);
     {
@@ -323,7 +323,7 @@ client_destroy(client_t *client)
     }
     UNLOCK(&clienttable->lock);
 
-    list_for_each_entry(gtrav, &client->this->ctx->graphs, list)
+    list_for_each_entry(gtrav, &global_ctx->graphs, list)
     {
         gf_client_destroy_recursive(gtrav->top, client);
     }
@@ -368,7 +368,7 @@ gf_client_disconnect(client_t *client)
     int ret = 0;
     glusterfs_graph_t *gtrav = NULL;
 
-    list_for_each_entry(gtrav, &client->this->ctx->graphs, list)
+    list_for_each_entry(gtrav, &global_ctx->graphs, list)
     {
         ret |= gf_client_disconnect_recursive(gtrav->top, client);
     }
@@ -606,7 +606,7 @@ gf_client_dump_fdtables_to_dict(xlator_t *this, dict_t *dict)
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
-    clienttable = this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     if (!clienttable)
         return -1;
@@ -652,7 +652,7 @@ gf_client_dump_fdtables(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
-    clienttable = this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     if (!clienttable)
         return -1;
@@ -716,7 +716,7 @@ gf_client_dump_inodes_to_dict(xlator_t *this, dict_t *dict)
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
-    clienttable = this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     if (!clienttable)
         return -1;
@@ -779,7 +779,7 @@ gf_client_dump_inodes(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
-    clienttable = this->ctx->clienttable;
+    clienttable = global_ctx->clienttable;
 
     if (!clienttable)
         goto out;

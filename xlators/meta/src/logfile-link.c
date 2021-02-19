@@ -17,7 +17,7 @@
 static int
 logfile_link_fill(xlator_t *this, inode_t *inode, strfd_t *strfd)
 {
-    strprintf(strfd, "%s", this->ctx->log.filename);
+    strprintf(strfd, "%s", global_ctx->log.filename);
 
     return 0;
 }

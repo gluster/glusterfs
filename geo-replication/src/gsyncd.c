@@ -330,16 +330,12 @@ main(int argc, char **argv)
     int j = 0;
 
 #ifdef USE_LIBGLUSTERFS
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = glusterfs_ctx_new();
-    if (!ctx)
+    if (!glusterfs_ctx_new())
         return ENOMEM;
 
-    if (glusterfs_globals_init(ctx))
+    if (glusterfs_globals_init())
         return 1;
 
-    THIS->ctx = ctx;
     ret = default_mem_acct_init(THIS);
     if (ret) {
         fprintf(stderr, "internal error: mem accounting failed\n");

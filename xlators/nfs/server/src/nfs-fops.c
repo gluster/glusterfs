@@ -193,7 +193,7 @@ nfs_create_frame(xlator_t *xl, nfs_user_t *nfu)
     if ((!xl) || (!nfu) || (nfu->ngrps > NFS_NGROUPS))
         return NULL;
 
-    frame = create_frame(xl, (call_pool_t *)xl->ctx->pool);
+    frame = create_frame(xl, global_ctx->pool);
     if (!frame)
         goto err;
     if (call_stack_alloc_groups(frame->root, nfu->ngrps) != 0) {

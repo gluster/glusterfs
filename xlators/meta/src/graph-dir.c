@@ -71,7 +71,7 @@ glusterfs_graph_lookup(xlator_t *this, const char *graph_uuid)
     glusterfs_graph_t *graph = NULL;
     glusterfs_graph_t *tmp = NULL;
 
-    list_for_each_entry(tmp, &this->ctx->graphs, list)
+    list_for_each_entry(tmp, &global_ctx->graphs, list)
     {
         if (strcmp(graph_uuid, tmp->graph_uuid) == 0) {
             graph = tmp;

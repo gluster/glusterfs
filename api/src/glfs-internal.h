@@ -175,8 +175,6 @@ struct glfs {
     char *volname;
     uuid_t vol_uuid;
 
-    glusterfs_ctx_t *ctx;
-
     pthread_t poller;
 
     glfs_init_cbk init_cbk;
@@ -440,7 +438,7 @@ glfs_process_upcall_event(struct glfs *fs, void *data)
             goto label;                                                        \
         }                                                                      \
         old_THIS = THIS;                                                       \
-        THIS = fs->ctx->root;                                                  \
+        THIS = global_ctx->root;                                               \
     } while (0)
 
 #define __GLFS_EXIT_FS                                                         \
@@ -456,7 +454,7 @@ glfs_process_upcall_event(struct glfs *fs, void *data)
             goto label;                                                        \
         }                                                                      \
         old_THIS = THIS;                                                       \
-        THIS = glfd->fd->inode->table->xl->ctx->root;                          \
+        THIS = global_ctx->root;                                               \
     } while (0)
 
 #define __GLFS_LOCK_WAIT(fs)                                                   \

@@ -1210,7 +1210,7 @@ inode_invalidate(inode_t *inode)
      * The root xlator is not in the graph but it can define an invalidate
      * handler.
      */
-    xl = inode->table->xl->ctx->root;
+    xl = global_ctx->root;
     if (xl && xl->cbks->invalidate) {
         old_THIS = THIS;
         THIS = xl;
@@ -1853,19 +1853,16 @@ inode_table_ctx_free(inode_table_t *table)
 }
 
 void
-inode_table_destroy_all(glusterfs_ctx_t *ctx)
+inode_table_destroy_all()
 {
     glusterfs_graph_t *trav_graph = NULL, *tmp = NULL;
     xlator_t *tree = NULL;
     inode_table_t *inode_table = NULL;
 
-    if (ctx == NULL)
-        goto out;
-
     /* TODO: Traverse ctx->graphs with in ctx->lock and also the other
      * graph additions and traversals in ctx->lock.
      */
-    list_for_each_entry_safe(trav_graph, tmp, &ctx->graphs, list)
+    list_for_each_entry_safe(trav_graph, tmp, &global_ctx->graphs, list)
     {
         tree = trav_graph->first;
         inode_table = tree->itable;
@@ -1873,7 +1870,7 @@ inode_table_destroy_all(glusterfs_ctx_t *ctx)
         if (inode_table)
             inode_table_destroy(inode_table);
     }
-out:
+
     return;
 }
 

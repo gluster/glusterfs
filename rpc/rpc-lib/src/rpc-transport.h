@@ -173,7 +173,6 @@ struct rpc_transport {
     void *mydata;
     pthread_mutex_t lock;
     gf_atomic_t refcount;
-    glusterfs_ctx_t *ctx;
     dict_t *options;
     char *name;
     void *dnscache;
@@ -262,7 +261,7 @@ int32_t
 rpc_transport_submit_reply(rpc_transport_t *this, rpc_transport_reply_t *reply);
 
 rpc_transport_t *
-rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *name);
+rpc_transport_load(dict_t *options, char *name);
 
 rpc_transport_t *
 rpc_transport_ref(rpc_transport_t *trans);

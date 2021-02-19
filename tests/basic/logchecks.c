@@ -113,11 +113,10 @@ main(int argc, char *argv[])
 
     unlink(GF_LOG_CONTROL_FILE);
     creat(GF_LOG_CONTROL_FILE, O_RDONLY);
-    ctx = glusterfs_ctx_new();
-    if (!ctx)
+    if (!glusterfs_ctx_new())
         return -1;
 
-    ret = glusterfs_globals_init(ctx);
+    ret = glusterfs_globals_init();
     if (ret) {
         printf("Error from glusterfs_globals_init [%s]\n", strerror(errno));
         return ret;
@@ -125,8 +124,6 @@ main(int argc, char *argv[])
 
     /* Pre init test, message should not be printed */
     gf_msg("logchecks", GF_LOG_ALERT, 0, logchecks_msg_19);
-
-    THIS->ctx = ctx;
 
     /* TEST 1: messages before initializing the log, goes to stderr
      * and syslog based on criticality */
@@ -137,7 +134,7 @@ main(int argc, char *argv[])
 
     /* TEST 2: messages post initialization, goes to glusterlog and
      * syslog based on severity */
-    ret = gf_log_init(ctx, TEST_FILENAME, "logchecks");
+    ret = gf_log_init(TEST_FILENAME, "logchecks");
     if (ret != 0) {
         printf("Error from gf_log_init [%s]\n", strerror(errno));
         return -1;
@@ -168,14 +165,14 @@ main(int argc, char *argv[])
 
     /* TEST 6: Change level */
     gf_msg("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
-    gf_log_set_loglevel(ctx, GF_LOG_CRITICAL);
+    gf_log_set_loglevel(GF_LOG_CRITICAL);
     gf_msg("logchecks", GF_LOG_ALERT, 0, logchecks_msg_15);
     go_log();
     gf_msg("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
 
     /* Reset to run with syslog */
     gf_log_set_logformat(gf_logformat_withmsgid);
-    gf_log_set_loglevel(ctx, GF_LOG_INFO);
+    gf_log_set_loglevel(GF_LOG_INFO);
 
     /* Run tests with logger changed to syslog */
     /* TEST 7: No more gluster logs */

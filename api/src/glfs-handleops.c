@@ -2182,7 +2182,6 @@ pub_glfs_h_poll_upcall(struct glfs *fs, struct glfs_upcall **up_arg)
     upcall_entry *u_list = NULL;
     upcall_entry *tmp = NULL;
     xlator_t *subvol = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     struct gf_upcall *upcall_data = NULL;
 
@@ -2206,9 +2205,7 @@ pub_glfs_h_poll_upcall(struct glfs *fs, struct glfs_upcall **up_arg)
      * 'glfs_fini'. Yet cross check if cleanup has started. */
     pthread_mutex_lock(&fs->mutex);
     {
-        ctx = fs->ctx;
-
-        if (ctx->cleanup_started) {
+        if (global_ctx->cleanup_started) {
             pthread_mutex_unlock(&fs->mutex);
             goto out;
         }

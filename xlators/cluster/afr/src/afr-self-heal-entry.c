@@ -422,7 +422,7 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
                      "subvol=%s;type=file;"
                      "file=<gfid:%s>/%s>;count=2;child-%d=%s;type-"
                      "%d=%s;child-%d=%s;type-%d=%s",
-                     this->ctx->cmd_args.client_pid, this->name,
+                     global_ctx->cmd_args.client_pid, this->name,
                      uuid_utoa(pargfid), bname, i, priv->children[i]->name, i,
                      gf_inode_type_to_str(replies[i].poststat.ia_type), src_idx,
                      priv->children[src_idx]->name, src_idx,

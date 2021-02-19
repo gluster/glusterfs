@@ -39,27 +39,25 @@ static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
 int need_emancipate = 0;
 
 int
-glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx);
+glusterfs_mgmt_pmap_signin(void);
 int
-glusterfs_volfile_fetch(glusterfs_ctx_t *ctx);
+glusterfs_volfile_fetch(void);
 int
-glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp);
+glusterfs_process_volfp(FILE *fp);
 int
-emancipate(glusterfs_ctx_t *ctx, int ret);
+emancipate(int ret);
 int
-glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum,
+glusterfs_process_svc_attach_volfp(FILE *fp, char *volfile_id, char *checksum,
                                    dict_t *dict);
 int
-glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp,
                                   gf_volfile_t *volfile_obj, char *checksum,
                                   dict_t *dict);
 int
-glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum,
+glusterfs_process_svc_attach_volfp(FILE *fp, char *volfile_id, char *checksum,
                                    dict_t *dict);
 int
-glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
+glusterfs_process_svc_detach(gf_volfile_t *volfile_obj);
 
 gf_boolean_t
 mgmt_is_multiplexed_daemon(char *name);
@@ -71,12 +69,9 @@ glusterfs_volume_top_perf(const char *brick_path, dict_t *dict,
 int
 mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
-    glusterfs_ctx_t *ctx = NULL;
-
-    ctx = glusterfsd_ctx;
     gf_log("mgmt", GF_LOG_INFO, "Volume file changed");
 
-    glusterfs_volfile_fetch(ctx);
+    glusterfs_volfile_fetch();
     return 0;
 }
 
@@ -84,7 +79,6 @@ int
 mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
                      dict_t *dict)
 {
-    glusterfs_ctx_t *ctx = NULL;
     int ret = 0;
     FILE *tmpfp = NULL;
     gf_volfile_t *volfile_obj = NULL;
@@ -96,15 +90,15 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
     char template[] = "/tmp/glfs.volfile.XXXXXX";
 
     glusterfs_compute_sha256((const unsigned char *)volfile, size, sha256_hash);
-    ctx = THIS->ctx;
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
-        list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        list_for_each_entry(volfile_obj, &global_ctx->volfile_list,
+                            volfile_list)
         {
             if (!strcmp(volfile_id, volfile_obj->vol_id)) {
                 if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
                             sizeof(volfile_obj->volfile_checksum))) {
-                    UNLOCK(&ctx->volfile_lock);
+                    UNLOCK(&global_ctx->volfile_lock);
                     gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_40,
                             NULL);
                     goto out;
@@ -117,7 +111,7 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
         /* coverity[secure_temp] mkstemp uses 0600 as the mode */
         tmp_fd = mkstemp(template);
         if (-1 == tmp_fd) {
-            UNLOCK(&ctx->volfile_lock);
+            UNLOCK(&global_ctx->volfile_lock);
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
                     "create template=%s", template, NULL);
             ret = -1;
@@ -151,18 +145,18 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
             /* There is no checksum in the list, which means simple attach
              * the volfile
              */
-            ret = glusterfs_process_svc_attach_volfp(ctx, tmpfp, volfile_id,
+            ret = glusterfs_process_svc_attach_volfp(tmpfp, volfile_id,
                                                      sha256_hash, dict);
             goto unlock;
         }
-        ret = glusterfs_mux_volfile_reconfigure(tmpfp, ctx, volfile_obj,
-                                                sha256_hash, dict);
+        ret = glusterfs_mux_volfile_reconfigure(tmpfp, volfile_obj, sha256_hash,
+                                                dict);
         if (ret < 0) {
             gf_msg_debug("glusterfsd-mgmt", EINVAL, "Reconfigure failed !!");
         }
     }
 unlock:
-    UNLOCK(&ctx->volfile_lock);
+    UNLOCK(&global_ctx->volfile_lock);
 out:
     if (tmpfp)
         fclose(tmpfp);
@@ -189,7 +183,7 @@ glusterfs_serialize_reply(rpcsvc_request_t *req, void *arg,
      * be serialized.
      */
     xdr_size = xdr_sizeof(xdrproc, arg);
-    iob = iobuf_get2(req->svc->ctx->iobuf_pool, xdr_size);
+    iob = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
     if (!iob) {
         gf_log(THIS->name, GF_LOG_ERROR, "Failed to get iobuf");
         goto ret;
@@ -309,7 +303,6 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         0,
     };
     ssize_t ret;
-    glusterfs_ctx_t *ctx = NULL;
     xlator_t *top = NULL;
     xlator_t *victim = NULL;
     xlator_t *tvictim = NULL;
@@ -328,8 +321,6 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
         req->rpc_err = GARBAGE_ARGS;
         return -1;
     }
-    ctx = glusterfsd_ctx;
-
     dict = dict_new();
     if (!dict) {
         return -1;
@@ -352,11 +343,11 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
             graceful_cleanup = _gf_false;
     }
 
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
         /* Find the xlator_list_t that points to our victim. */
-        if (glusterfsd_ctx->active) {
-            top = glusterfsd_ctx->active->first;
+        if (global_ctx->active) {
+            top = global_ctx->active->first;
             for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 victim = (*trav_p)->xlator;
                 if (!victim->cleanup_starting &&
@@ -397,22 +388,22 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     if (!still_bricks_attached && !graceful_cleanup) {
         gf_log(this->name, GF_LOG_INFO,
                "terminating after loss of last child %s", xlator_req.name);
-        rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
+        rpc_clnt_mgmt_pmap_signout(xlator_req.name);
         kill(getpid(), SIGTERM);
     } else {
         /* Check if detach brick is a last brick */
         if (!still_bricks_attached && graceful_cleanup)
-            ctx->cleanup_starting = 1;
+            global_ctx->cleanup_starting = 1;
         /* TODO cleanup sequence needs to be done properly for
            Quota and Changelog
         */
         if (victim->cleanup_starting)
             goto err;
 
-        rpc_clnt_mgmt_pmap_signout(glusterfsd_ctx, xlator_req.name);
+        rpc_clnt_mgmt_pmap_signout(xlator_req.name);
         victim->cleanup_starting = 1;
 
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
         lockflag = _gf_true;
 
         gf_log(this->name, GF_LOG_INFO,
@@ -423,7 +414,7 @@ glusterfs_handle_terminate(rpcsvc_request_t *req)
     }
 err:
     if (!lockflag)
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
     if (xlator_req.dict.dict_val)
         free(xlator_req.dict.dict_val);
     if (xlator_req.input.input_val)
@@ -515,7 +506,6 @@ glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
     xlator_t *any = NULL;
     xlator_t *xlator = NULL;
     glusterfs_graph_t *active = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     char msg[2048] = {
         0,
     };
@@ -553,9 +543,7 @@ glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
     }
 
 cont:
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-    active = ctx->active;
+    active = global_ctx->active;
     if (active == NULL) {
         gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
         ret = -1;
@@ -759,7 +747,6 @@ glusterfs_handle_translator_op(rpcsvc_request_t *req)
     char key[32] = {0};
     int len;
     char *xname = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
     xlator_t *this = NULL;
     int i = 0;
@@ -777,8 +764,7 @@ glusterfs_handle_translator_op(rpcsvc_request_t *req)
         goto out;
     }
 
-    ctx = glusterfsd_ctx;
-    active = ctx->active;
+    active = global_ctx->active;
     if (!active) {
         ret = -1;
         gf_smsg(this->name, GF_LOG_ERROR, EAGAIN, glusterfsd_msg_38,
@@ -865,7 +851,6 @@ glusterfs_handle_bitrot(rpcsvc_request_t *req)
     char xname[1024] = {
         0,
     };
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
     char *scrub_opt = NULL;
 
@@ -882,10 +867,7 @@ glusterfs_handle_bitrot(rpcsvc_request_t *req)
         goto out;
     }
 
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-
-    active = ctx->active;
+    active = global_ctx->active;
     if (!active) {
         req->rpc_err = GARBAGE_ARGS;
         goto out;
@@ -965,7 +947,6 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
     xlator_t *this = NULL;
     xlator_t *nextchild = NULL;
     glusterfs_graph_t *newgraph = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     xlator_t *srv_xl = NULL;
     server_conf_t *srv_conf = NULL;
 
@@ -973,8 +954,7 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
     this = THIS;
     GF_ASSERT(this);
 
-    ctx = this->ctx;
-    if (!ctx->cmd_args.volfile_id) {
+    if (!global_ctx->cmd_args.volfile_id) {
         gf_log(THIS->name, GF_LOG_ERROR,
                "No volfile-id provided, erroring out");
         return -1;
@@ -990,7 +970,7 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
     }
     ret = 0;
 
-    if (!this->ctx->active) {
+    if (!global_ctx->active) {
         gf_log(this->name, GF_LOG_WARNING,
                "got attach for %s but no active graph", xlator_req.name);
         goto post_unlock;
@@ -998,9 +978,9 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
 
     gf_log(this->name, GF_LOG_INFO, "got attach for %s", xlator_req.name);
 
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
-        ret = glusterfs_graph_attach(this->ctx->active, xlator_req.name,
+        ret = glusterfs_graph_attach(global_ctx->active, xlator_req.name,
                                      &newgraph);
         if (!ret && (newgraph && newgraph->first)) {
             nextchild = newgraph->first;
@@ -1013,9 +993,9 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
             /* we need a protocol/server xlator as
              * nextchild
              */
-            srv_xl = this->ctx->active->first;
+            srv_xl = global_ctx->active->first;
             srv_conf = (server_conf_t *)srv_xl->private;
-            rpcsvc_autoscale_threads(this->ctx, srv_conf->rpc, 1);
+            rpcsvc_autoscale_threads(srv_conf->rpc, 1);
         }
         if (ret) {
             ret = -1;
@@ -1030,7 +1010,7 @@ glusterfs_handle_attach(rpcsvc_request_t *req)
             ret = 0;
         }
     unlock:
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
     }
 post_unlock:
     if (xlator_req.dict.dict_val)
@@ -1106,7 +1086,6 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
     };
     ssize_t ret;
     gf_volfile_t *volfile_obj = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     gf_volfile_t *volfile_tmp = NULL;
 
     ret = xdr_to_generic(req->msg[0], &xlator_req,
@@ -1115,11 +1094,10 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
         req->rpc_err = GARBAGE_ARGS;
         return -1;
     }
-    ctx = glusterfsd_ctx;
-
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
-        list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        list_for_each_entry(volfile_obj, &global_ctx->volfile_list,
+                            volfile_list)
         {
             if (!strcmp(xlator_req.name, volfile_obj->vol_id)) {
                 volfile_tmp = volfile_obj;
@@ -1128,7 +1106,7 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
         }
 
         if (!volfile_tmp) {
-            UNLOCK(&ctx->volfile_lock);
+            UNLOCK(&global_ctx->volfile_lock);
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_041, "name=%s",
                     xlator_req.name, NULL);
             /*
@@ -1140,15 +1118,15 @@ glusterfs_handle_svc_detach(rpcsvc_request_t *req)
             goto out;
         }
         /* coverity[ORDER_REVERSAL] */
-        ret = glusterfs_process_svc_detach(ctx, volfile_tmp);
+        ret = glusterfs_process_svc_detach(volfile_tmp);
         if (ret) {
-            UNLOCK(&ctx->volfile_lock);
+            UNLOCK(&global_ctx->volfile_lock);
             gf_smsg("glusterfsd-mgmt", GF_LOG_ERROR, EINVAL, glusterfsd_msg_042,
                     NULL);
             goto out;
         }
     }
-    UNLOCK(&ctx->volfile_lock);
+    UNLOCK(&global_ctx->volfile_lock);
 out:
     glusterfs_terminate_response_send(req, ret);
     free(xlator_req.name);
@@ -1165,7 +1143,6 @@ glusterfs_handle_dump_metrics(rpcsvc_request_t *req)
         0,
     };
     xlator_t *this = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     char *filepath = NULL;
     int fd = -1;
     struct stat statbuf = {
@@ -1186,10 +1163,9 @@ glusterfs_handle_dump_metrics(rpcsvc_request_t *req)
         return -1;
     }
     ret = -1;
-    ctx = this->ctx;
 
     /* Infra for monitoring */
-    filepath = gf_monitor_metrics(ctx);
+    filepath = gf_monitor_metrics(global_ctx);
     if (!filepath)
         goto out;
 
@@ -1242,7 +1218,6 @@ glusterfs_handle_defrag(rpcsvc_request_t *req)
     xlator_t *any = NULL;
     dict_t *output = NULL;
     char msg[2048] = {0};
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
     xlator_t *this = NULL;
 
@@ -1250,10 +1225,7 @@ glusterfs_handle_defrag(rpcsvc_request_t *req)
     this = THIS;
     GF_ASSERT(this);
 
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-
-    active = ctx->active;
+    active = global_ctx->active;
     if (!active) {
         req->rpc_err = GARBAGE_ARGS;
         goto out;
@@ -1316,7 +1288,6 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
     gd1_mgmt_brick_op_rsp rsp = {
         0,
     };
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
     xlator_t *this = NULL;
     xlator_t *server_xl = NULL;
@@ -1362,19 +1333,8 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
         goto out;
     }
 
-    ctx = glusterfsd_ctx;
-    if (ctx == NULL) {
-        gf_log(this->name, GF_LOG_ERROR, "ctx returned NULL");
-        ret = -1;
-        goto out;
-    }
-    if (ctx->active == NULL) {
-        gf_log(this->name, GF_LOG_ERROR, "ctx->active returned NULL");
-        ret = -1;
-        goto out;
-    }
-    active = ctx->active;
-    if (ctx->active->first == NULL) {
+    active = global_ctx->active;
+    if (global_ctx->active->first == NULL) {
         gf_log(this->name, GF_LOG_ERROR,
                "ctx->active->first "
                "returned NULL");
@@ -1395,7 +1355,7 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
         case GF_CLI_STATUS_MEM:
             ret = 0;
             gf_proc_dump_mem_info_to_dict(output);
-            gf_proc_dump_mempool_info_to_dict(ctx, output);
+            gf_proc_dump_mempool_info_to_dict(output);
             break;
 
         case GF_CLI_STATUS_CLIENTS:
@@ -1414,7 +1374,7 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
 
         case GF_CLI_STATUS_CALLPOOL:
             ret = 0;
-            gf_proc_dump_pending_frames_to_dict(ctx->pool, output);
+            gf_proc_dump_pending_frames_to_dict(global_ctx->pool, output);
             break;
 
         default:
@@ -1466,8 +1426,6 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     gd1_mgmt_brick_op_rsp rsp = {
         0,
     };
-    glusterfs_ctx_t *ctx = NULL;
-    glusterfs_graph_t *active = NULL;
     xlator_t *any = NULL;
     xlator_t *node = NULL;
     xlator_t *subvol = NULL;
@@ -1510,15 +1468,12 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         goto out;
     }
 
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-    active = ctx->active;
-    if (active == NULL) {
+    if (global_ctx->active == NULL) {
         gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
         ret = -1;
         goto out;
     }
-    any = active->first;
+    any = global_ctx->active->first;
 
     if ((cmd & GF_CLI_STATUS_SHD) != 0)
         ret = gf_asprintf(&node_name, "%s", "glustershd");
@@ -1581,7 +1536,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         case GF_CLI_STATUS_MEM:
             ret = 0;
             gf_proc_dump_mem_info_to_dict(output);
-            gf_proc_dump_mempool_info_to_dict(ctx, output);
+            gf_proc_dump_mempool_info_to_dict(output);
             break;
 
         case GF_CLI_STATUS_CLIENTS:
@@ -1611,7 +1566,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
 
         case GF_CLI_STATUS_CALLPOOL:
             ret = 0;
-            gf_proc_dump_pending_frames_to_dict(ctx->pool, output);
+            gf_proc_dump_pending_frames_to_dict(global_ctx->pool, output);
             break;
 
         default:
@@ -1665,7 +1620,6 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
         0,
     };
     dict_t *dict = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
     xlator_t *any = NULL;
     xlator_t *nfs = NULL;
@@ -1698,10 +1652,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
         goto out;
     }
 
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-
-    active = ctx->active;
+    active = global_ctx->active;
     if (active == NULL) {
         gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
         ret = -1;
@@ -1772,7 +1723,7 @@ glusterfs_handle_volume_barrier_op(rpcsvc_request_t *req)
     xlator_t *any = NULL;
     dict_t *output = NULL;
     char msg[2048] = {0};
-    glusterfs_ctx_t *ctx = NULL;
+
     glusterfs_graph_t *active = NULL;
     xlator_t *this = NULL;
 
@@ -1780,10 +1731,7 @@ glusterfs_handle_volume_barrier_op(rpcsvc_request_t *req)
     this = THIS;
     GF_ASSERT(this);
 
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-
-    active = ctx->active;
+    active = global_ctx->active;
     if (!active) {
         req->rpc_err = GARBAGE_ARGS;
         goto out;
@@ -1847,7 +1795,6 @@ glusterfs_handle_barrier(rpcsvc_request_t *req)
     gd1_mgmt_brick_op_rsp brick_rsp = {
         0,
     };
-    glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
     xlator_t *top = NULL;
     xlator_t *xlator = NULL;
@@ -1865,9 +1812,7 @@ glusterfs_handle_barrier(rpcsvc_request_t *req)
         goto out;
     }
 
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-    active = ctx->active;
+    active = global_ctx->active;
     if (active == NULL) {
         gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
         ret = -1;
@@ -2074,9 +2019,8 @@ static struct rpcsvc_program glusterfs_mop_prog = {
 };
 
 int
-mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
-                    rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
-                    xdrproc_t xdrproc)
+mgmt_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
+                    int procnum, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
     int count = 0;
@@ -2095,7 +2039,7 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
 
-        iobuf = iobuf_get2(ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get2(global_ctx->iobuf_pool, xdr_size);
         if (!iobuf) {
             goto out;
         };
@@ -2116,8 +2060,8 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     }
 
     /* Send the msg */
-    ret = rpc_clnt_submit(ctx->mgmt, prog, procnum, cbkfn, &iov, count, NULL, 0,
-                          iobref, frame, NULL, 0, NULL, 0, NULL);
+    ret = rpc_clnt_submit(global_ctx->mgmt, prog, procnum, cbkfn, &iov, count,
+                          NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
 
 out:
     if (iobref)
@@ -2136,7 +2080,6 @@ mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     call_frame_t *frame = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int ret = 0, locked = 0;
     ssize_t size = 0;
     FILE *tmpfp = NULL;
@@ -2152,7 +2095,6 @@ mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char template[] = "/tmp/glfs.volfile.XXXXXX";
 
     frame = myframe;
-    ctx = frame->this->ctx;
 
     if (-1 == req->rpc_status) {
         ret = -1;
@@ -2203,7 +2145,7 @@ mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gf_log(frame->this->name, GF_LOG_INFO,
            "Received list of available volfile servers: %s", servers_list);
 
-    ret = gf_process_getspec_servers_list(&ctx->cmd_args, servers_list);
+    ret = gf_process_getspec_servers_list(&global_ctx->cmd_args, servers_list);
     if (ret) {
         gf_log(frame->this->name, GF_LOG_ERROR,
                "Failed (%s) to process servers list: %s", strerror(errno),
@@ -2213,7 +2155,7 @@ mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
 volfile:
     size = rsp.op_ret;
     volfile_id = frame->local;
-    if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name)) {
+    if (mgmt_is_multiplexed_daemon(global_ctx->cmd_args.process_name)) {
         ret = mgmt_process_volfile((const char *)rsp.spec, size, volfile_id,
                                    dict);
         goto post_graph_mgmt;
@@ -2223,16 +2165,17 @@ volfile:
     glusterfs_compute_sha256((const unsigned char *)rsp.spec, size,
                              sha256_hash);
 
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
         locked = 1;
 
-        list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        list_for_each_entry(volfile_obj, &global_ctx->volfile_list,
+                            volfile_list)
         {
             if (!strcmp(volfile_id, volfile_obj->vol_id)) {
                 if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
                             sizeof(volfile_obj->volfile_checksum))) {
-                    UNLOCK(&ctx->volfile_lock);
+                    UNLOCK(&global_ctx->volfile_lock);
                     gf_log(frame->this->name, GF_LOG_INFO,
                            "No change in volfile,"
                            "continuing");
@@ -2246,7 +2189,7 @@ volfile:
         /* coverity[secure_temp] mkstemp uses 0600 as the mode */
         tmp_fd = mkstemp(template);
         if (-1 == tmp_fd) {
-            UNLOCK(&ctx->volfile_lock);
+            UNLOCK(&global_ctx->volfile_lock);
             gf_smsg(frame->this->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
                     "create template=%s", template, NULL);
             ret = -1;
@@ -2285,13 +2228,13 @@ volfile:
          * Error occurred during the operation
          */
 
-        ret = glusterfs_volfile_reconfigure(tmpfp, ctx);
+        ret = glusterfs_volfile_reconfigure(tmpfp);
         if (ret == 0) {
             gf_log("glusterfsd-mgmt", GF_LOG_DEBUG,
                    "No need to re-load volfile, reconfigure done");
             if (!volfile_tmp) {
                 ret = -1;
-                UNLOCK(&ctx->volfile_lock);
+                UNLOCK(&global_ctx->volfile_lock);
                 gf_log("mgmt", GF_LOG_ERROR,
                        "Graph reconfigure succeeded with out having "
                        "checksum.");
@@ -2303,12 +2246,12 @@ volfile:
         }
 
         if (ret < 0) {
-            UNLOCK(&ctx->volfile_lock);
+            UNLOCK(&global_ctx->volfile_lock);
             gf_log("glusterfsd-mgmt", GF_LOG_DEBUG, "Reconfigure failed !!");
             goto post_unlock;
         }
 
-        ret = glusterfs_process_volfp(ctx, tmpfp);
+        ret = glusterfs_process_volfp(tmpfp);
         /* tmpfp closed */
         tmpfp = NULL;
         tmp_fd = -1;
@@ -2324,29 +2267,29 @@ volfile:
             }
 
             INIT_LIST_HEAD(&volfile_tmp->volfile_list);
-            volfile_tmp->graph = ctx->active;
-            list_add(&volfile_tmp->volfile_list, &ctx->volfile_list);
+            volfile_tmp->graph = global_ctx->active;
+            list_add(&volfile_tmp->volfile_list, &global_ctx->volfile_list);
             snprintf(volfile_tmp->vol_id, sizeof(volfile_tmp->vol_id), "%s",
                      volfile_id);
         }
         memcpy(volfile_tmp->volfile_checksum, sha256_hash,
                sizeof(volfile_tmp->volfile_checksum));
     }
-    UNLOCK(&ctx->volfile_lock);
+    UNLOCK(&global_ctx->volfile_lock);
 
     locked = 0;
 
 post_graph_mgmt:
     if (!is_mgmt_rpc_reconnect) {
         need_emancipate = 1;
-        glusterfs_mgmt_pmap_signin(ctx);
+        glusterfs_mgmt_pmap_signin();
         is_mgmt_rpc_reconnect = _gf_true;
     }
 
 out:
 
     if (locked)
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
 post_unlock:
     GF_FREE(frame->local);
     frame->local = NULL;
@@ -2364,12 +2307,12 @@ post_unlock:
         cleanup_and_exit(0);
     }
 
-    if (ret && ctx && !ctx->active) {
+    if (ret && !global_ctx->active) {
         /* Do it only for the first time */
         /* Failed to get the volume file, something wrong,
            restart the process */
         gf_log("mgmt", GF_LOG_ERROR, "failed to fetch volume file (key:%s)",
-               ctx->cmd_args.volfile_id);
+               global_ctx->cmd_args.volfile_id);
         cleanup_and_exit(0);
     }
 
@@ -2382,7 +2325,7 @@ post_unlock:
 }
 
 static int
-glusterfs_volfile_fetch_one(glusterfs_ctx_t *ctx, char *volfile_id)
+glusterfs_volfile_fetch_one(char *volfile_id)
 {
     cmd_args_t *cmd_args = NULL;
     gf_getspec_req req = {
@@ -2392,9 +2335,9 @@ glusterfs_volfile_fetch_one(glusterfs_ctx_t *ctx, char *volfile_id)
     call_frame_t *frame = NULL;
     dict_t *dict = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
     if (!volfile_id) {
-        volfile_id = ctx->cmd_args.volfile_id;
+        volfile_id = global_ctx->cmd_args.volfile_id;
         if (!volfile_id) {
             gf_log(THIS->name, GF_LOG_ERROR,
                    "No volfile-id provided, erroring out");
@@ -2402,7 +2345,7 @@ glusterfs_volfile_fetch_one(glusterfs_ctx_t *ctx, char *volfile_id)
         }
     }
 
-    frame = create_frame(THIS, ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -2445,7 +2388,7 @@ glusterfs_volfile_fetch_one(glusterfs_ctx_t *ctx, char *volfile_id)
     }
 
     /* Ask for a list of volfile (glusterd2 only) servers */
-    if (GF_CLIENT_PROCESS == ctx->process_mode) {
+    if (GF_CLIENT_PROCESS == global_ctx->process_mode) {
         req.flags = req.flags | GF_GETSPEC_FLAG_SERVERS_LIST;
     }
 
@@ -2466,7 +2409,7 @@ glusterfs_volfile_fetch_one(glusterfs_ctx_t *ctx, char *volfile_id)
         goto out;
     }
 
-    ret = mgmt_submit_request(&req, frame, ctx, &clnt_handshake_prog,
+    ret = mgmt_submit_request(&req, frame, &clnt_handshake_prog,
                               GF_HNDSK_GETSPEC, mgmt_getspec_cbk,
                               (xdrproc_t)xdr_gf_getspec_req);
 
@@ -2486,43 +2429,44 @@ out:
 }
 
 int
-glusterfs_volfile_fetch(glusterfs_ctx_t *ctx)
+glusterfs_volfile_fetch(void)
 {
     xlator_t *server_xl = NULL;
     xlator_list_t *trav;
     gf_volfile_t *volfile_obj = NULL;
     int ret = 0;
 
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
-        if (ctx->active &&
-            mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name)) {
-            list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        if (global_ctx->active &&
+            mgmt_is_multiplexed_daemon(global_ctx->cmd_args.process_name)) {
+            list_for_each_entry(volfile_obj, &global_ctx->volfile_list,
+                                volfile_list)
             {
-                ret |= glusterfs_volfile_fetch_one(ctx, volfile_obj->vol_id);
+                ret |= glusterfs_volfile_fetch_one(volfile_obj->vol_id);
             }
-            UNLOCK(&ctx->volfile_lock);
+            UNLOCK(&global_ctx->volfile_lock);
             return ret;
         }
 
-        if (ctx->active) {
-            server_xl = ctx->active->first;
+        if (global_ctx->active) {
+            server_xl = global_ctx->active->first;
             if (strcmp(server_xl->type, "protocol/server") != 0) {
                 server_xl = NULL;
             }
         }
         if (!server_xl) {
             /* Startup (ctx->active not set) or non-server. */
-            UNLOCK(&ctx->volfile_lock);
-            return glusterfs_volfile_fetch_one(ctx, ctx->cmd_args.volfile_id);
+            UNLOCK(&global_ctx->volfile_lock);
+            return glusterfs_volfile_fetch_one(global_ctx->cmd_args.volfile_id);
         }
 
         ret = 0;
         for (trav = server_xl->children; trav; trav = trav->next) {
-            ret |= glusterfs_volfile_fetch_one(ctx, trav->xlator->volfile_id);
+            ret |= glusterfs_volfile_fetch_one(trav->xlator->volfile_id);
         }
     }
-    UNLOCK(&ctx->volfile_lock);
+    UNLOCK(&global_ctx->volfile_lock);
     return ret;
 }
 
@@ -2606,7 +2550,6 @@ out:
 int32_t
 glusterfs_rebalance_event_notify(dict_t *dict)
 {
-    glusterfs_ctx_t *ctx = NULL;
     gf_event_notify_req req = {
         0,
     };
@@ -2614,10 +2557,9 @@ glusterfs_rebalance_event_notify(dict_t *dict)
     cmd_args_t *cmd_args = NULL;
     call_frame_t *frame = NULL;
 
-    ctx = glusterfsd_ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
-    frame = create_frame(THIS, ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
 
     req.op = GF_EN_DEFRAG_STATUS;
 
@@ -2633,7 +2575,7 @@ glusterfs_rebalance_event_notify(dict_t *dict)
         }
     }
 
-    ret = mgmt_submit_request(&req, frame, ctx, &clnt_handshake_prog,
+    ret = mgmt_submit_request(&req, frame, &clnt_handshake_prog,
                               GF_HNDSK_EVENT_NOTIFY,
                               glusterfs_rebalance_event_notify_cbk,
                               (xdrproc_t)xdr_gf_event_notify_req);
@@ -2646,8 +2588,6 @@ static int
 mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 void *data)
 {
-    xlator_t *this = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     int ret = 0;
     server_cmdline_t *server = NULL;
     rpc_transport_t *rpc_trans = NULL;
@@ -2657,9 +2597,7 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     static int log_ctr2;
     struct dnscache6 *dnscache = NULL;
 
-    this = mydata;
     rpc_trans = rpc->conn.trans;
-    ctx = this->ctx;
 
     switch (event) {
         case RPC_CLNT_DISCONNECT:
@@ -2667,12 +2605,12 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 GF_LOG_OCCASIONALLY(log_ctr1, "glusterfsd-mgmt", GF_LOG_ERROR,
                                     "failed to connect to remote-"
                                     "host: %s",
-                                    ctx->cmd_args.volfile_server);
+                                    global_ctx->cmd_args.volfile_server);
             } else {
                 GF_LOG_OCCASIONALLY(log_ctr1, "glusterfsd-mgmt", GF_LOG_INFO,
                                     "disconnected from remote-"
                                     "host: %s",
-                                    ctx->cmd_args.volfile_server);
+                                    global_ctx->cmd_args.volfile_server);
             }
 
             if (!rpc->disabled) {
@@ -2685,9 +2623,9 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                     break;
                 }
             }
-            server = ctx->cmd_args.curr_server;
-            if (server->list.next == &ctx->cmd_args.volfile_servers) {
-                if (!ctx->active) {
+            server = global_ctx->cmd_args.curr_server;
+            if (server->list.next == &global_ctx->cmd_args.volfile_servers) {
+                if (!global_ctx->active) {
                     need_term = 1;
                 }
                 emval = ENOTCONN;
@@ -2696,15 +2634,15 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 break;
             }
             server = list_entry(server->list.next, typeof(*server), list);
-            ctx->cmd_args.curr_server = server;
-            ctx->cmd_args.volfile_server = server->volfile_server;
+            global_ctx->cmd_args.curr_server = server;
+            global_ctx->cmd_args.volfile_server = server->volfile_server;
 
             ret = dict_set_str(rpc_trans->options, "remote-host",
                                server->volfile_server);
             if (ret != 0) {
                 gf_log("glusterfsd-mgmt", GF_LOG_ERROR,
                        "failed to set remote-host: %s", server->volfile_server);
-                if (!ctx->active) {
+                if (!global_ctx->active) {
                     need_term = 1;
                 }
                 emval = ENOTCONN;
@@ -2715,20 +2653,20 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                    server->volfile_server);
             break;
         case RPC_CLNT_CONNECT:
-            ret = glusterfs_volfile_fetch(ctx);
+            ret = glusterfs_volfile_fetch();
             if (ret) {
                 emval = ret;
-                if (!ctx->active) {
+                if (!global_ctx->active) {
                     need_term = 1;
                     gf_log("glusterfsd-mgmt", GF_LOG_ERROR,
                            "failed to fetch volume file (key:%s)",
-                           ctx->cmd_args.volfile_id);
+                           global_ctx->cmd_args.volfile_id);
                     break;
                 }
             }
 
             if (is_mgmt_rpc_reconnect)
-                glusterfs_mgmt_pmap_signin(ctx);
+                glusterfs_mgmt_pmap_signin();
 
             break;
         default:
@@ -2736,7 +2674,7 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     }
 
     if (need_term) {
-        emancipate(ctx, emval);
+        emancipate(emval);
         cleanup_and_exit(1);
     }
 
@@ -2768,16 +2706,16 @@ out:
 }
 
 int
-glusterfs_listener_init(glusterfs_ctx_t *ctx)
+glusterfs_listener_init()
 {
     cmd_args_t *cmd_args = NULL;
     rpcsvc_t *rpc = NULL;
     dict_t *options = NULL;
     int ret = -1;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
-    if (ctx->listener)
+    if (global_ctx->listener)
         return 0;
 
     if (!cmd_args->sock_file)
@@ -2791,7 +2729,7 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx)
     if (ret)
         goto out;
 
-    rpc = rpcsvc_init(THIS, ctx, options, 8);
+    rpc = rpcsvc_init(THIS, options, 8);
     if (rpc == NULL) {
         goto out;
     }
@@ -2811,7 +2749,7 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->listener = rpc;
+    global_ctx->listener = rpc;
 
 out:
     if (options)
@@ -2837,7 +2775,7 @@ glusterfs_mgmt_notify(int32_t op, void *data, ...)
 }
 
 int
-glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
+glusterfs_mgmt_init()
 {
     cmd_args_t *cmd_args = NULL;
     struct rpc_clnt *rpc = NULL;
@@ -2847,17 +2785,17 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
     char *host = NULL;
     xlator_cmdline_option_t *opt = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
     GF_VALIDATE_OR_GOTO(THIS->name, cmd_args->volfile_server, out);
 
-    if (ctx->mgmt)
+    if (global_ctx->mgmt)
         return 0;
 
     options = dict_new();
     if (!options)
         goto out;
 
-    LOCK_INIT(&ctx->volfile_lock);
+    LOCK_INIT(&global_ctx->volfile_lock);
 
     if (cmd_args->volfile_server_port)
         port = cmd_args->volfile_server_port;
@@ -2876,7 +2814,7 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
         goto out;
 
     /* Explicitly turn on encrypted transport. */
-    if (ctx->secure_mgmt) {
+    if (global_ctx->secure_mgmt) {
         ret = dict_set_dynstr_with_alloc(options,
                                          "transport.socket.ssl-enabled", "yes");
         if (ret) {
@@ -2886,7 +2824,7 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
             goto out;
         }
 
-        ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+        global_ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
 
     rpc = rpc_clnt_new(options, THIS, THIS->name, 8);
@@ -2910,11 +2848,11 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->notify = glusterfs_mgmt_notify;
+    global_ctx->notify = glusterfs_mgmt_notify;
 
     /* This value should be set before doing the 'rpc_clnt_start()' as
        the notify function uses this variable */
-    ctx->mgmt = rpc;
+    global_ctx->mgmt = rpc;
 
     ret = rpc_clnt_start(rpc);
 out:
@@ -2930,11 +2868,9 @@ mgmt_pmap_signin2_cbk(struct rpc_req *req, struct iovec *iov, int count,
     pmap_signin_rsp rsp = {
         0,
     };
-    glusterfs_ctx_t *ctx = NULL;
     call_frame_t *frame = NULL;
     int ret = 0;
 
-    ctx = glusterfsd_ctx;
     frame = myframe;
 
     if (-1 == req->rpc_status) {
@@ -2962,7 +2898,7 @@ mgmt_pmap_signin2_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = 0;
 out:
     if (need_emancipate)
-        emancipate(ctx, ret);
+        emancipate(ret);
 
     STACK_DESTROY(frame->root);
     return 0;
@@ -2982,14 +2918,12 @@ mgmt_pmap_signin_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     cmd_args_t *cmd_args = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     char brick_name[PATH_MAX] = {
         0,
     };
 
     frame = myframe;
-    ctx = glusterfsd_ctx;
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (-1 == req->rpc_status) {
         ret = -1;
@@ -3023,8 +2957,8 @@ mgmt_pmap_signin_cbk(struct rpc_req *req, struct iovec *iov, int count,
     pmap_req.port = cmd_args->brick_port2;
     pmap_req.brick = brick_name;
 
-    ret = mgmt_submit_request(&pmap_req, frame, ctx, &clnt_pmap_prog,
-                              GF_PMAP_SIGNIN, mgmt_pmap_signin2_cbk,
+    ret = mgmt_submit_request(&pmap_req, frame, &clnt_pmap_prog, GF_PMAP_SIGNIN,
+                              mgmt_pmap_signin2_cbk,
                               (xdrproc_t)xdr_pmap_signin_req);
     if (ret)
         goto out;
@@ -3033,14 +2967,14 @@ mgmt_pmap_signin_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (need_emancipate && (ret < 0 || !cmd_args->brick_port2))
-        emancipate(ctx, emancipate_ret);
+        emancipate(emancipate_ret);
 
     STACK_DESTROY(frame->root);
     return 0;
 }
 
 int
-glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
+glusterfs_mgmt_pmap_signin(void)
 {
     call_frame_t *frame = NULL;
     xlator_list_t **trav_p;
@@ -3052,7 +2986,7 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
     int emancipate_ret = -1;
     cmd_args_t *cmd_args = NULL;
 
-    cmd_args = &ctx->cmd_args;
+    cmd_args = &global_ctx->cmd_args;
 
     if (!cmd_args->brick_port || !cmd_args->brick_name) {
         gf_log("fsd-mgmt", GF_LOG_DEBUG,
@@ -3064,12 +2998,12 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
     req.port = cmd_args->brick_port;
     req.pid = (int)getpid(); /* only glusterd2 consumes this */
 
-    if (ctx->active) {
-        top = ctx->active->first;
+    if (global_ctx->active) {
+        top = global_ctx->active->first;
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-            frame = create_frame(THIS, ctx->pool);
+            frame = create_frame(THIS, global_ctx->pool);
             req.brick = (*trav_p)->xlator->name;
-            ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
+            ret = mgmt_submit_request(&req, frame, &clnt_pmap_prog,
                                       GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
                                       (xdrproc_t)xdr_pmap_signin_req);
             if (ret < 0) {
@@ -3083,6 +3017,6 @@ glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
 
 out:
     if (need_emancipate && ret < 0)
-        emancipate(ctx, emancipate_ret);
+        emancipate(emancipate_ret);
     return ret;
 }

@@ -164,7 +164,7 @@ rpc_transport_cleanup(rpc_transport_t *trans)
 }
 
 rpc_transport_t *
-rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
+rpc_transport_load(dict_t *options, char *trans_name)
 {
     struct rpc_transport *trans = NULL, *return_trans = NULL;
     char *name = NULL;
@@ -179,7 +179,6 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
     gf_boolean_t success = _gf_false;
 
     GF_VALIDATE_OR_GOTO("rpc-transport", options, fail);
-    GF_VALIDATE_OR_GOTO("rpc-transport", ctx, fail);
     GF_VALIDATE_OR_GOTO("rpc-transport", trans_name, fail);
 
     trans = GF_CALLOC(1, sizeof(struct rpc_transport),
@@ -191,7 +190,6 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
     if (!trans->name)
         goto fail;
 
-    trans->ctx = ctx;
     type = str;
 
     /* Backward compatibility */

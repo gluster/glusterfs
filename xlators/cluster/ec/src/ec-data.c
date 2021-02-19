@@ -135,7 +135,7 @@ ec_fop_data_allocate(call_frame_t *frame, xlator_t *this, int32_t id,
     if (frame != NULL) {
         fop->frame = copy_frame(frame);
     } else {
-        fop->frame = create_frame(this, this->ctx->pool);
+        fop->frame = create_frame(this, global_ctx->pool);
     }
     if (fop->frame == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_NO_MEMORY,

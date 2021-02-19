@@ -2583,7 +2583,7 @@ ec_heal_do(xlator_t *this, void *data, loc_t *loc, int32_t partial)
     if (fop->req_frame && !ec->shd.iamshd)
         blocking = _gf_true;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -2742,7 +2742,7 @@ ec_launch_heal(ec_t *ec, ec_fop_data_t *fop)
     int ret = 0;
     call_frame_t *frame = NULL;
 
-    frame = create_frame(ec->xl, ec->xl->ctx->pool);
+    frame = create_frame(ec->xl, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -2755,7 +2755,7 @@ ec_launch_heal(ec_t *ec, ec_fop_data_t *fop)
     /*Mark the fops as internal*/
     frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
 
-    ret = synctask_new(ec->xl->ctx->env, ec_synctask_heal_wrap, ec_heal_done,
+    ret = synctask_new(global_ctx->env, ec_synctask_heal_wrap, ec_heal_done,
                        frame, fop);
 out:
     if (ret < 0) {
@@ -2991,7 +2991,7 @@ ec_launch_replace_heal(ec_t *ec)
 {
     int ret = -1;
 
-    ret = synctask_new(ec->xl->ctx->env, ec_replace_brick_heal_wrap,
+    ret = synctask_new(global_ctx->env, ec_replace_brick_heal_wrap,
                        ec_replace_heal_done, NULL, ec);
 
     if (ret < 0) {
@@ -3324,7 +3324,7 @@ ec_get_heal_info(xlator_t *this, loc_t *entry_loc, dict_t **dict_rsp)
         need_heal = EC_HEAL_MUST;
         goto set_heal;
     }
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         goto out;
     }

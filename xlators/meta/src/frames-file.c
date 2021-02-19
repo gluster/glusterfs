@@ -28,7 +28,7 @@ frames_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)
     if (!this || !file || !strfd)
         return -1;
 
-    pool = this->ctx->pool;
+    pool = global_ctx->pool;
 
     strprintf(strfd, "{ \n\t\"Stack\": [\n");
 

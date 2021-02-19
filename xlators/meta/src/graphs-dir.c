@@ -33,7 +33,7 @@ graphs_dir_fill(xlator_t *this, inode_t *dir, struct meta_dirent **dp)
     int i = 0;
     struct meta_dirent *dirents = NULL;
 
-    list_for_each_entry(graph, &this->ctx->graphs, list) { graphs_count++; }
+    list_for_each_entry(graph, &global_ctx->graphs, list) { graphs_count++; }
 
     dirents = GF_CALLOC(sizeof(*dirents), graphs_count + 3,
                         gf_meta_mt_dirents_t);
@@ -41,7 +41,7 @@ graphs_dir_fill(xlator_t *this, inode_t *dir, struct meta_dirent **dp)
         return -1;
 
     i = 0;
-    list_for_each_entry(graph, &this->ctx->graphs, list)
+    list_for_each_entry(graph, &global_ctx->graphs, list)
     {
         dirents[i].name = gf_strdup(graph->graph_uuid);
         dirents[i].type = IA_IFDIR;

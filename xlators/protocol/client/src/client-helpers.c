@@ -876,7 +876,7 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     else
         goto out;
 
-    fr = create_frame(this, this->ctx->pool);
+    fr = create_frame(this, global_ctx->pool);
     if (fr == NULL) {
         goto out;
     }

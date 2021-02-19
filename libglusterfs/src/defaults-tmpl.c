@@ -156,8 +156,8 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
              * Handle case of CHILD_* & AUTH_FAILED event specially, send
              * it to fuse.
              */
-            if (!parent && this->ctx && this->ctx->root) {
-                xlator_notify(this->ctx->root, event, this->graph, NULL);
+            if (!parent && global_ctx->root) {
+                xlator_notify(global_ctx->root, event, this->graph, NULL);
             }
 
             while (parent) {
@@ -166,8 +166,8 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
                 parent = parent->next;
             }
 
-            if (event == GF_EVENT_CHILD_DOWN &&
-                !(this->ctx && this->ctx->root) && (graph->top == this)) {
+            if (event == GF_EVENT_CHILD_DOWN && !(global_ctx->root) &&
+                (graph->top == this)) {
                 /* Make sure this is not a daemon with root xlator */
                 pthread_mutex_lock(&graph->mutex);
                 {
@@ -183,8 +183,8 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_UPCALL: {
             xlator_list_t *parent = this->parents;
 
-            if (!parent && this->ctx && this->ctx->root)
-                xlator_notify(this->ctx->root, event, data, NULL);
+            if (!parent && global_ctx->root)
+                xlator_notify(global_ctx->root, event, data, NULL);
 
             while (parent) {
                 if (parent->xlator->init_succeeded)

@@ -314,7 +314,7 @@ _run_dir_scan_task(call_frame_t *frame, xlator_t *subvol, loc_t *parent,
     scan_data->qlen = qlen;
     scan_data->retval = retval;
 
-    ret = synctask_new(subvol->ctx->env, _dir_scan_job_fn, _dir_scan_job_fn_cbk,
+    ret = synctask_new(global_ctx->env, _dir_scan_job_fn, _dir_scan_job_fn_cbk,
                        frame, scan_data);
 out:
     if (ret < 0) {

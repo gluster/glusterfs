@@ -1502,7 +1502,7 @@ afr_handle_heal_xattrs(call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
         data->frame = frame;
         data->loc = loc;
-        ret = synctask_new(this->ctx->env, afr_get_split_brain_status,
+        ret = synctask_new(global_ctx->env, afr_get_split_brain_status,
                            afr_get_split_brain_status_cbk, NULL, data);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN_STATUS,

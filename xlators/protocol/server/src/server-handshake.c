@@ -244,7 +244,6 @@ server_setvolume(rpcsvc_request_t *req)
     rpc_transport_t *xprt = NULL;
     int32_t fop_version = 0;
     int32_t mgmt_version = 0;
-    glusterfs_ctx_t *ctx = NULL;
     struct _child_status *tmp = NULL;
     char *subdir_mount = NULL;
     char *client_name = NULL;
@@ -259,7 +258,6 @@ server_setvolume(rpcsvc_request_t *req)
         req->rpc_err = GARBAGE_ARGS;
         goto fail;
     }
-    ctx = THIS->ctx;
 
     this = req->svc->xl;
     /* this is to ensure config_params is populated with the first brick
@@ -298,20 +296,20 @@ server_setvolume(rpcsvc_request_t *req)
         goto fail;
     }
 
-    LOCK(&ctx->volfile_lock);
+    LOCK(&global_ctx->volfile_lock);
     {
         xl = get_xlator_by_name(this, name);
         if (!xl) {
             xlator_in_graph = _gf_false;
             xl = this;
         }
-        if (ctx->cleanup_starting) {
+        if (global_ctx->cleanup_starting) {
             cleanup_starting = _gf_true;
             op_ret = -1;
             op_errno = ENOENT;
         }
     }
-    UNLOCK(&ctx->volfile_lock);
+    UNLOCK(&global_ctx->volfile_lock);
     if (!xl || cleanup_starting) {
         ret = gf_asprintf(&msg, "remote-subvolume \"%s\" is not found", name);
         if (-1 == ret) {
@@ -647,7 +645,7 @@ server_setvolume(rpcsvc_request_t *req)
     }
     UNLOCK(&conf->itable_lock);
 
-    ret = dict_set_str(reply, "process-uuid", this->ctx->process_uuid);
+    ret = dict_set_str(reply, "process-uuid", global_ctx->process_uuid);
     if (ret)
         gf_msg_debug(this->name, 0, "failed to set 'process-uuid'");
 

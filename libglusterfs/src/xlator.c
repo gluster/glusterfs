@@ -724,10 +724,7 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     if (!xl)
         return -1;
 
-    if (!xl->ctx)
-        return -1;
-
-    if (!xl->ctx->mem_acct_enable)
+    if (!global_ctx->mem_acct_enable)
         return 0;
 
     xl->mem_acct = MALLOC(sizeof(struct mem_acct) +
@@ -824,7 +821,7 @@ xlator_members_free(xlator_t *xl)
 
     GF_FREE(xl->name);
     GF_FREE(xl->type);
-    if (!(xl->ctx && xl->ctx->cmd_args.vgtool != _gf_none) && xl->dlhandle)
+    if (!(global_ctx->cmd_args.vgtool != _gf_none) && xl->dlhandle)
         dlclose(xl->dlhandle);
     if (xl->options)
         dict_unref(xl->options);
@@ -951,19 +948,16 @@ xlator_mem_cleanup(xlator_t *this)
     xlator_t *trav = list->xlator;
     inode_table_t *inode_table = NULL;
     xlator_t *prev = trav;
-    glusterfs_ctx_t *ctx = NULL;
     xlator_list_t **trav_p = NULL;
     xlator_t *top = NULL;
     xlator_t *victim = NULL;
     glusterfs_graph_t *graph = NULL;
     gf_boolean_t graph_cleanup = _gf_false;
 
-    if (this->call_cleanup || !this->ctx)
+    if (this->call_cleanup)
         return;
 
     this->call_cleanup = 1;
-    ctx = this->ctx;
-
     inode_table = this->itable;
     if (inode_table) {
         inode_table_destroy(inode_table);
@@ -984,9 +978,9 @@ xlator_mem_cleanup(xlator_t *this)
 
     xlator_mem_free(this);
 
-    if (ctx->active) {
-        top = ctx->active->first;
-        LOCK(&ctx->volfile_lock);
+    if (global_ctx->active) {
+        top = global_ctx->active->first;
+        LOCK(&global_ctx->volfile_lock);
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             victim = (*trav_p)->xlator;
             if (victim->call_cleanup && !strcmp(victim->name, this->name)) {
@@ -995,12 +989,12 @@ xlator_mem_cleanup(xlator_t *this)
                 break;
             }
         }
-        UNLOCK(&ctx->volfile_lock);
+        UNLOCK(&global_ctx->volfile_lock);
     }
 
     if (graph_cleanup) {
         prev = this;
-        graph = ctx->active;
+        graph = global_ctx->active;
         pthread_mutex_lock(&graph->mutex);
         while (prev) {
             trav = prev->next;
@@ -1331,7 +1325,6 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
     int ret = -1;
     int log_level = -1;
     gf_boolean_t syslog_flag = 0;
-    glusterfs_ctx_t *ctx = NULL;
 
     if (!strcmp("trusted.glusterfs.syslog", name)) {
         ret = gf_bin_to_string(key, sizeof(key), value, size);
@@ -1370,7 +1363,7 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         gf_smsg("glusterfs", gf_log_get_loglevel(), 0, LG_MSG_SET_LOG_LEVEL,
                 "new-value=%d", log_level, "old-value=%d",
                 gf_log_get_loglevel(), NULL);
-        gf_log_set_loglevel(this->ctx, log_level);
+        gf_log_set_loglevel(log_level);
         ret = 0;
         goto out;
     }
@@ -1385,12 +1378,9 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         goto out;
     }
 
-    ctx = this->ctx;
-    if (!ctx)
+    if (!global_ctx->active)
         goto out;
-    if (!ctx->active)
-        goto out;
-    trav = ctx->active->top;
+    trav = global_ctx->active->top;
 
     while (trav) {
         snprintf(key, 1024, "trusted.glusterfs.%s.set-log-level", trav->name);
@@ -1463,12 +1453,12 @@ copy_opts_to_child(xlator_t *src, xlator_t *dst, char *glob)
 }
 
 int
-glusterfs_delete_volfile_checksum(glusterfs_ctx_t *ctx, const char *volfile_id)
+glusterfs_delete_volfile_checksum(const char *volfile_id)
 {
     gf_volfile_t *volfile_tmp = NULL;
     gf_volfile_t *volfile_obj = NULL;
 
-    list_for_each_entry(volfile_tmp, &ctx->volfile_list, volfile_list)
+    list_for_each_entry(volfile_tmp, &global_ctx->volfile_list, volfile_list)
     {
         if (!strcmp(volfile_id, volfile_tmp->vol_id)) {
             list_del_init(&volfile_tmp->volfile_list);

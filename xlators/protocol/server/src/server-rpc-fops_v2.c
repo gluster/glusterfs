@@ -4717,9 +4717,9 @@ server4_0_readdirp(rpcsvc_request_t *req)
      * and transport layer can send msgs bigger than current page-size.
      */
     headers_size = sizeof(struct rpc_msg) + sizeof(gfx_readdir_rsp);
-    if ((frame->this->ctx->page_size < args.size) ||
-        ((frame->this->ctx->page_size - args.size) < headers_size)) {
-        state->size = frame->this->ctx->page_size - headers_size;
+    if ((global_ctx->page_size < args.size) ||
+        ((global_ctx->page_size - args.size) < headers_size)) {
+        state->size = global_ctx->page_size - headers_size;
     } else {
         state->size = args.size;
     }
@@ -4767,9 +4767,9 @@ server4_0_readdir(rpcsvc_request_t *req)
      * and transport layer can send msgs bigger than current page-size.
      */
     headers_size = sizeof(struct rpc_msg) + sizeof(gfx_readdir_rsp);
-    if ((frame->this->ctx->page_size < args.size) ||
-        ((frame->this->ctx->page_size - args.size) < headers_size)) {
-        state->size = frame->this->ctx->page_size - headers_size;
+    if ((global_ctx->page_size < args.size) ||
+        ((global_ctx->page_size - args.size) < headers_size)) {
+        state->size = global_ctx->page_size - headers_size;
     } else {
         state->size = args.size;
     }

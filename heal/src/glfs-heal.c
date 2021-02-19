@@ -1664,8 +1664,8 @@ main(int argc, char **argv)
 
     if (!volfile_path) {
         if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
-            fs->ctx->secure_mgmt = 1;
-            fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
+            global_ctx->secure_mgmt = 1;
+            global_ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
         }
         if (socket_filepath != NULL) {
             ret = glfs_set_volfile_server(fs, "unix", socket_filepath, 0);

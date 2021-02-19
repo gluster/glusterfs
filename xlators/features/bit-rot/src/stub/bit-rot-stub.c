@@ -3337,7 +3337,7 @@ br_stub_send_ipc_fop(xlator_t *this, fd_t *fd, unsigned long releaseversion,
         goto dealloc_dict;
     }
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame) {
         gf_smsg(this->name, GF_LOG_WARNING, 0, BRS_MSG_CREATE_FRAME_FAILED,
                 NULL);

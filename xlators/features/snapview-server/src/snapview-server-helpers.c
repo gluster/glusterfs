@@ -524,13 +524,13 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
      * If the volfile server in global context is NULL, then localhost
      * is tried (like before).
      */
-    if (this->ctx->cmd_args.volfile_server) {
-        volfile_server = gf_strdup(this->ctx->cmd_args.volfile_server);
+    if (global_ctx->cmd_args.volfile_server) {
+        volfile_server = gf_strdup(global_ctx->cmd_args.volfile_server);
         if (!volfile_server) {
             gf_msg(this->name, GF_LOG_WARNING, ENOMEM,
                    SVS_MSG_VOLFILE_SERVER_GET_FAIL,
                    "failed to copy volfile server %s. ",
-                   this->ctx->cmd_args.volfile_server);
+                   global_ctx->cmd_args.volfile_server);
             ret = -1;
             goto out;
         }

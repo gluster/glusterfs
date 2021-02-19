@@ -1683,7 +1683,7 @@ glusterd_rpc_friend_update(call_frame_t *frame, xlator_t *this, void *data)
 
     gf_uuid_copy(req.uuid, MY_UUID);
 
-    dummy_frame = create_frame(this, this->ctx->pool);
+    dummy_frame = create_frame(this, global_ctx->pool);
     ret = glusterd_submit_request(peerinfo->rpc, &req, dummy_frame,
                                   peerinfo->peer, GLUSTERD_FRIEND_UPDATE, NULL,
                                   this, glusterd_friend_update_cbk,
@@ -1717,7 +1717,7 @@ glusterd_cluster_lock(call_frame_t *frame, xlator_t *this, void *data)
 
     glusterd_get_uuid(&req.uuid);
 
-    dummy_frame = create_frame(this, this->ctx->pool);
+    dummy_frame = create_frame(this, global_ctx->pool);
     if (!dummy_frame)
         goto out;
 
@@ -1782,7 +1782,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     if (!frame)
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
 
     if (!frame) {
         ret = -1;
@@ -1858,7 +1858,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     if (!frame)
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
 
     if (!frame) {
         ret = -1;
@@ -1903,7 +1903,7 @@ glusterd_cluster_unlock(call_frame_t *frame, xlator_t *this, void *data)
 
     glusterd_get_uuid(&req.uuid);
 
-    dummy_frame = create_frame(this, this->ctx->pool);
+    dummy_frame = create_frame(this, global_ctx->pool);
     if (!dummy_frame)
         goto out;
 
@@ -1969,7 +1969,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     if (!frame)
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
 
     if (!frame) {
         ret = -1;
@@ -2044,7 +2044,7 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     if (!frame)
-        frame = create_frame(this, this->ctx->pool);
+        frame = create_frame(this, global_ctx->pool);
 
     if (!frame) {
         ret = -1;
@@ -2248,7 +2248,7 @@ glusterd_brick_op(call_frame_t *frame, xlator_t *this, void *data)
 
     cds_list_for_each_entry(pending_node, &opinfo.pending_bricks, list)
     {
-        dummy_frame = create_frame(this, this->ctx->pool);
+        dummy_frame = create_frame(this, global_ctx->pool);
         if (!dummy_frame)
             continue;
 

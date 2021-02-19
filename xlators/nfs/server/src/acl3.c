@@ -168,7 +168,7 @@ acl3svc_submit_reply(rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
     /* First, get the io buffer into which the reply in arg will
      * be serialized.
      */
-    iob = iobuf_get(nfs3->iobpool);
+    iob = iobuf_get(global_ctx->iobuf_pool);
     if (!iob) {
         gf_msg(GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobuf");

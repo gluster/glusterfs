@@ -379,7 +379,7 @@ syncop_create_frame(xlator_t *this)
     int ngrps = -1;
     struct syncopctx *opctx = NULL;
 
-    frame = create_frame(this, this->ctx->pool);
+    frame = create_frame(this, global_ctx->pool);
     if (!frame)
         return NULL;
 

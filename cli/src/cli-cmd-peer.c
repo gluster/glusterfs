@@ -69,7 +69,7 @@ cli_cmd_peer_probe_cbk(struct cli_state *state, struct cli_cmd_word *word,
             }
     */
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -156,7 +156,7 @@ cli_cmd_peer_deprobe_cbk(struct cli_state *state, struct cli_cmd_word *word,
         goto out;
     }
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame) {
         ret = -1;
         goto out;
@@ -202,7 +202,7 @@ cli_cmd_peer_status_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LIST_FRIENDS];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame)
         goto out;
 
@@ -240,7 +240,7 @@ cli_cmd_pool_list_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_LIST_FRIENDS];
 
-    frame = create_frame(THIS, THIS->ctx->pool);
+    frame = create_frame(THIS, global_ctx->pool);
     if (!frame)
         goto out;
 

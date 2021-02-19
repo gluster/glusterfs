@@ -139,7 +139,7 @@ ec_buffer_alloc(xlator_t *xl, size_t size, struct iobref **piobref, void **ptr)
     struct iobuf *iobuf = NULL;
     int32_t ret = -ENOMEM;
 
-    iobuf = iobuf_get_page_aligned(xl->ctx->iobuf_pool, size,
+    iobuf = iobuf_get_page_aligned(global_ctx->iobuf_pool, size,
                                    EC_METHOD_WORD_SIZE);
     if (iobuf == NULL) {
         goto out;

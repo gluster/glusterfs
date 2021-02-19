@@ -102,7 +102,7 @@ mnt3svc_submit_reply(rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
      * be serialized.
      */
     /* TODO: use 'xdrproc_t' instead of 'sfunc' to get the xdr-size */
-    iob = iobuf_get(ms->iobpool);
+    iob = iobuf_get(global_ctx->iobuf_pool);
     if (!iob) {
         gf_msg(GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobuf");
@@ -2878,7 +2878,7 @@ __mnt3udp_get_export_subdir_inode(struct svc_req *req, char *subdir,
      * refer bugzilla for more details :
      * https://bugzilla.redhat.com/show_bug.cgi?id=1161573
      */
-    fs = glfs_new_from_ctx(exp->vol->ctx);
+    fs = glfs_new_from_ctx(global_ctx);
     if (!fs)
         return NULL;
 
@@ -3618,7 +3618,6 @@ mnt3_init_state(xlator_t *nfsx)
         return NULL;
     }
 
-    ms->iobpool = nfsx->ctx->iobuf_pool;
     ms->nfsx = nfsx;
     INIT_LIST_HEAD(&ms->exportlist);
     ret = mnt3_init_options(ms, nfsx->options);

@@ -468,7 +468,7 @@ nlm4svc_submit_reply(rpcsvc_request_t *req, void *arg, nlm4_serializer sfunc)
     /* First, get the io buffer into which the reply in arg will
      * be serialized.
      */
-    iob = iobuf_get(nfs3->iobpool);
+    iob = iobuf_get(global_ctx->iobuf_pool);
     if (!iob) {
         gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobuf");
@@ -660,7 +660,7 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
 
     cs->fd = fd;
 
-    frame = create_frame(cs->nfsx, cs->nfsx->ctx->pool);
+    frame = create_frame(cs->nfsx, global_ctx->pool);
     if (!frame) {
         gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "unable to create frame");
@@ -1183,7 +1183,7 @@ nlm4svc_send_granted(struct nlm4_notify_args *ncf)
     testargs.exclusive = cs->args.nlm4_lockargs.exclusive;
     testargs.alock = cs->args.nlm4_lockargs.alock;
 
-    iobuf = iobuf_get(cs->nfs3state->iobpool);
+    iobuf = iobuf_get(global_ctx->iobuf_pool);
     if (!iobuf) {
         gf_msg(GF_NLM, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to get iobuf");
@@ -2722,7 +2722,7 @@ nlm4svc_init(xlator_t *nfsx)
     timeout.tv_sec = nlm_grace_period;
     timeout.tv_nsec = 0;
 
-    gf_timer_call_after(nfsx->ctx, timeout, nlm_grace_period_over, NULL);
+    gf_timer_call_after(timeout, nlm_grace_period_over, NULL);
     nlm4_inited = _gf_true;
 
     if (options)
