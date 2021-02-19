@@ -6207,7 +6207,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
             rpc_clnt_unref(rpc);
             if (!ret) {
                 ret = port_brick_bind(this, other_brick->port, brickinfo->path,
-                                      NULL);
+                                      NULL, true);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, errno,
                            GD_PMAP_PORT_BIND_FAILED,
@@ -6796,7 +6796,8 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
             brickinfo->status != GF_BRICK_STARTED) {
             gf_log(this->name, GF_LOG_INFO,
                    "discovered already-running brick %s", brickinfo->path);
-            (void)port_brick_bind(this, brickinfo->port, brickinfo->path, NULL);
+            (void)port_brick_bind(this, brickinfo->port, brickinfo->path, NULL,
+                                  false);
             brickinfo->port_registered = _gf_true;
             /*
              * This will unfortunately result in a separate RPC

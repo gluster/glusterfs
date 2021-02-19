@@ -48,7 +48,8 @@ pmap_port_remove(xlator_t *this, int port, char *brickname, void *xprt,
 int
 pmap_registry_search(xlator_t *this, char *brickname, gf_boolean_t destroy);
 int
-port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt);
+port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
+                gf_boolean_t attach_req);
 int
 pmap_registry_search_by_xprt(xlator_t *this, void *xprt);
 int

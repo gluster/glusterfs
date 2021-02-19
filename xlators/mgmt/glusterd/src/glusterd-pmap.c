@@ -208,12 +208,17 @@ pmap_registry_search_by_xprt(xlator_t *this, void *xprt)
 }
 
 int
-port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt)
+port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
+                gf_boolean_t attach_req)
 {
     struct pmap_registry *pmap = NULL;
     struct pmap_ports *tmp_port = NULL;
     char *tmp_brick;
+    char *new_brickname;
+    char *entry;
+    size_t brickname_len;
     int ret = -1;
+    int found = 0;
 
     GF_ASSERT(this);
 
@@ -233,9 +238,30 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt)
                    "Failed to add brick to the ports list");
     } else {
         tmp_brick = tmp_port->brickname;
-        ret = gf_asprintf(&tmp_port->brickname, "%s %s", tmp_brick, brickname);
-        if (ret > 0)
+        if (attach_req) {
+            brickname_len = strlen(brickname);
+            entry = strstr(tmp_brick, brickname);
+            while (entry) {
+                found = 1;
+                if ((entry != tmp_brick) && (entry[-1] != ' '))
+                    found = 0;
+
+                if ((entry[brickname_len] != ' ') &&
+                    (entry[brickname_len] != '\0'))
+                    found = 0;
+
+                if (found)
+                    return 0;
+
+                entry = strstr(entry + brickname_len, brickname);
+            }
+        }
+        ret = gf_asprintf(&new_brickname, "%s %s", tmp_brick, brickname);
+        if (ret > 0) {
             ret = 0;
+            tmp_port->brickname = gf_strdup(new_brickname);
+            GF_FREE(tmp_brick);
+        }
     }
 
     return ret;
@@ -350,6 +376,7 @@ remove:
                     }
                 }
 
+                GF_FREE(tmp_port->brickname);
                 tmp_port->brickname = NULL;
                 tmp_port->xprt = NULL;
                 ret = 0;
@@ -476,7 +503,8 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
         goto fail;
     }
 
-    rsp.op_ret = port_brick_bind(this, args.port, args.brick, req->trans);
+    rsp.op_ret = port_brick_bind(this, args.port, args.brick, req->trans,
+                                 false);
 
     ret = glusterd_get_brickinfo(this, args.brick, args.port, &brickinfo);
     /* Update portmap status in brickinfo */
