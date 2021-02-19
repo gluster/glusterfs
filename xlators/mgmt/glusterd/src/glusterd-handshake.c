@@ -1106,9 +1106,12 @@ fail:
     GF_FREE(brick_name);
 
     rsp.op_ret = ret;
-    if (rsp.op_ret < 0)
+    if (rsp.op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MOUNT_REQ_FAIL,
                "Failed to mount the volume");
+        if (!op_errno)
+                op_errno = ENOENT;
+    }
 
     if (op_errno)
         rsp.op_errno = gf_errno_to_error(op_errno);
