@@ -149,11 +149,10 @@ glusterd_defrag_unref(glusterd_defrag_info_t *defrag)
     LOCK(&defrag->lock);
     {
         refcnt = --defrag->refcnt;
-        if (refcnt <= 0)
-            GF_FREE(defrag);
     }
     UNLOCK(&defrag->lock);
-
+    if (refcnt <= 0)
+        GF_FREE(defrag);
 out:
     return refcnt;
 }
