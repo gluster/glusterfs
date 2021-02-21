@@ -25,9 +25,11 @@
 #include "glusterfs/statedump.h"
 #include "glusterfs/libglusterfs-messages.h"
 
-/* when dict->hash_size = 1, the dict implemented as a doubly-linked list.
- * in this case avoid hash calculation */
-#define LINK_LIST_IMP 1
+/* dict_t is always initialized with hash_size = 1
+ * with this usage it's implemented as a doubly-linked list
+ * and the hash calculation done per operation is not necessary.
+ * using this macro to delimit blocks related to hash imp */
+#define DICT_LIST_IMP 1
 
 struct dict_cmp {
     dict_t *dict;
@@ -81,31 +83,31 @@ get_new_dict_full(int size_hint)
     }
 
     dict->hash_size = size_hint;
-    if (size_hint == 1) {
-        /*
-         * This is the only case we ever see currently.  If we ever
-         * need to support resizing the hash table, the resize function
-         * will have to take into account the possibility that
-         * "members" is not separately allocated (i.e. don't just call
-         * realloc() blindly.
-         */
-        dict->members = &dict->members_internal;
-    } else {
-        /*
-         * We actually need to allocate space for size_hint *pointers*
-         * but we actually allocate space for one *structure*.  Since
-         * a data_pair_t consists of five pointers, we're wasting four
-         * pointers' worth for N=1, and will overrun what we allocated
-         * for N>5.  If anybody ever starts using size_hint, we'll need
-         * to fix this.
-         */
-        GF_ASSERT(size_hint <= (sizeof(data_pair_t) / sizeof(data_pair_t *)));
-        dict->members = mem_get0(THIS->ctx->dict_pair_pool);
-        if (!dict->members) {
-            mem_put(dict);
-            return NULL;
-        }
+#if DICT_LIST_IMP
+    /*
+     * This is the only case we ever see currently.  If we ever
+     * need to support resizing the hash table, the resize function
+     * will have to take into account the possibility that
+     * "members" is not separately allocated (i.e. don't just call
+     * realloc() blindly.
+     */
+    dict->members = &dict->members_internal;
+#else
+    /*
+     * We actually need to allocate space for size_hint *pointers*
+     * but we actually allocate space for one *structure*.  Since
+     * a data_pair_t consists of five pointers, we're wasting four
+     * pointers' worth for N=1, and will overrun what we allocated
+     * for N>5.  If anybody ever starts using size_hint, we'll need
+     * to fix this.
+     */
+    GF_ASSERT(size_hint <= (sizeof(data_pair_t) / sizeof(data_pair_t *)));
+    dict->members = mem_get0(THIS->ctx->dict_pair_pool);
+    if (!dict->members) {
+        mem_put(dict);
+        return NULL;
     }
+#endif
 
     dict->free_pair.key = NULL;
     dict->totkvlen = 0;
@@ -117,7 +119,7 @@ get_new_dict_full(int size_hint)
 dict_t *
 dict_new(void)
 {
-    dict_t *dict = get_new_dict_full(1);
+    dict_t *dict = get_new_dict_full(DICT_LIST_IMP);
 
     if (dict)
         dict_ref(dict);
@@ -355,8 +357,9 @@ dict_lookup_common(const dict_t *this, const char *key, const uint32_t hash)
     /* If the divisor is 1, the modulo is always 0,
      * in such case avoid hash calculation.
      */
-    if (this->hash_size != LINK_LIST_IMP)
-        hashval = hash % this->hash_size;
+#if !DICT_LIST_IMP
+    hashval = hash % this->hash_size;
+#endif
 
     for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
         if (pair->key && (hash == pair->key_hash) && !strcmp(pair->key, key))
@@ -378,9 +381,11 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
     data_pair_t *tmp = NULL;
 
-    uint32_t hash = this->hash_size == LINK_LIST_IMP
-                        ? 0
-                        : (uint32_t)XXH64(key, strlen(key), 0);
+    uint32_t hash = 0;
+
+#if !DICT_LIST_IMP
+    hash = (uint32_t)XXH64(key, strlen(key), 0);
+#endif
 
     LOCK(&this->lock);
     {
@@ -411,8 +416,9 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
             return -1;
         }
         key_free = 1;
-        if (this->hash_size != LINK_LIST_IMP)
-            key_hash = (uint32_t)XXH64(key, keylen, 0);
+#if !DICT_LIST_IMP
+        key_hash = (uint32_t)XXH64(key, keylen, 0);
+#endif
     } else {
         keylen = key_len;
         key_hash = hash;
@@ -465,9 +471,9 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     /* If the divisor is 1, the modulo is always 0,
      * in such case avoid hash calculation.
      */
-    if (this->hash_size != 1) {
-        hashval = (key_hash % this->hash_size);
-    }
+#if !DICT_LIST_IMP
+    hashval = (key_hash % this->hash_size);
+#endif
     pair->hash_next = this->members[hashval];
     this->members[hashval] = pair;
 
@@ -509,9 +515,11 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
-    if (key && this->hash_size != LINK_LIST_IMP) {
+#if !DICT_LIST_IMP
+    if (key) {
         key_hash = (uint32_t)XXH64(key, keylen, 0);
     }
+#endif
 
     LOCK(&this->lock);
 
@@ -543,9 +551,11 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
-    if (key && this->hash_size != LINK_LIST_IMP) {
+#if !DICT_LIST_IMP
+    if (key) {
         key_hash = (uint32_t)XXH64(key, keylen, 0);
     }
+#endif
 
     LOCK(&this->lock);
 
@@ -579,8 +589,10 @@ dict_getn(dict_t *this, char *key, const int keylen)
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
-    if (this->hash_size != LINK_LIST_IMP)
-        hash = (uint32_t)XXH64(key, keylen, 0);
+
+#if !DICT_LIST_IMP
+    hash = (uint32_t)XXH64(key, keylen, 0);
+#endif
 
     LOCK(&this->lock);
     {
@@ -638,16 +650,19 @@ dict_deln(dict_t *this, char *key, const int keylen)
                          "!this || key=%s", key);
         return rc;
     }
-    if (this->hash_size != LINK_LIST_IMP)
-        hash = (uint32_t)XXH64(key, keylen, 0);
+
+#if !DICT_LIST_IMP
+    hash = (uint32_t)XXH64(key, keylen, 0);
+#endif
 
     LOCK(&this->lock);
 
     /* If the divisor is 1, the modulo is always 0,
      * in such case avoid hash calculation.
      */
-    if (this->hash_size != LINK_LIST_IMP)
-        hashval = hash % this->hash_size;
+#if !DICT_LIST_IMP
+    hashval = hash % this->hash_size;
+#endif
 
     data_pair_t *pair = this->members[hashval];
     data_pair_t *prev = NULL;
@@ -1533,8 +1548,9 @@ dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
     int ret = -ENOENT;
     uint32_t hash = 0;
 
-    if (this->hash_size != LINK_LIST_IMP)
-        hash = (uint32_t)XXH64(key, keylen, 0);
+#if !DICT_LIST_IMP
+    hash = (uint32_t)XXH64(key, keylen, 0);
+#endif
 
     LOCK(&this->lock);
     {
@@ -2149,8 +2165,10 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
      */
     GF_ASSERT(flag >= 0 && flag < DICT_MAX_FLAGS);
 
-    if (this->hash_size != LINK_LIST_IMP)
-        hash = (uint32_t)XXH64(key, strlen(key), 0);
+#if !DICT_LIST_IMP
+    hash = (uint32_t)XXH64(key, strlen(key), 0);
+#endif
+
     LOCK(&this->lock);
     {
         pair = dict_lookup_common(this, key, hash);
@@ -2208,7 +2226,9 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             pair->key_hash = hash;
             pair->value = data_ref(data);
             this->totkvlen += (strlen(key) + 1 + data->len);
+#if !DICT_LIST_IMP
             hashval = hash % this->hash_size;
+#endif
             pair->hash_next = this->members[hashval];
             this->members[hashval] = pair;
 
@@ -2888,11 +2908,12 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
         return ret;
     }
 
-    if (this->hash_size != LINK_LIST_IMP) {
-        hash = (uint32_t)XXH64(key, strlen(key), 0);
-        replacekey_len = strlen(replace_key);
-        replacekey_hash = (uint32_t)XXH64(replace_key, replacekey_len, 0);
-    }
+    replacekey_len = strlen(replace_key);
+#if !DICT_LIST_IMP
+    hash = (uint32_t)XXH64(key, strlen(key), 0);
+    replacekey_hash = (uint32_t)XXH64(replace_key, replacekey_len, 0);
+#endif
+
     LOCK(&this->lock);
     {
         /* no need to data_ref(pair->value), dict_set_lk() does it */
@@ -3509,8 +3530,9 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
     LOCK(&dict->lock);
     {
         for (i = 0; strings[i]; i++) {
-            if (dict->hash_size != LINK_LIST_IMP)
-                hash = (uint32_t)XXH64(strings[i], strlen(strings[i]), 0);
+#if !DICT_LIST_IMP
+            hash = (uint32_t)XXH64(strings[i], strlen(strings[i]), 0);
+#endif
             if (dict_lookup_common(dict, strings[i], hash)) {
                 *result = _gf_true;
                 goto unlock;
