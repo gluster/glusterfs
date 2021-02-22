@@ -6685,7 +6685,11 @@ glusterd_snapshot_clone_commit(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     glusterd_list_add_order(&snap_vol->vol_list, &priv->volumes,
                             glusterd_compare_volume_name);
 
-    ret = 0;
+    ret = glusterd_add_volume_to_hashtable(this, snapname, snap_vol);
+    if (ret)
+        gf_smsg(this->name, GF_LOG_ERROR, 0,
+                GD_MSG_ADD_VOLUME_TO_HASH_TABLE_FAILED, "Volume: %s", snapname,
+                NULL);
 
 out:
     if (ret) {
