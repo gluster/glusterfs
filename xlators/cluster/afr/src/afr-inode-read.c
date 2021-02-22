@@ -915,7 +915,6 @@ afr_update_local_dicts(call_frame_t *frame, dict_t *dict, dict_t *xdata)
         UNLOCK(&frame->lock);
     }
 
-
     if (dict != NULL) {
         if (dict_copy(dict, local->dict) < 0) {
             goto done;
