@@ -276,6 +276,10 @@ static struct argp_option gf_options[] = {
     {"fuse-dev-eperm-ratelimit-ns", ARGP_FUSE_DEV_EPERM_RATELIMIT_NS_KEY,
      "OPTIONS", OPTION_HIDDEN,
      "rate limit reading from fuse device upon EPERM failure"},
+    {"fs-display-name", ARGP_FUSE_DISPLAY_NAME_KEY, "DISPLAY-NAME",
+     OPTION_HIDDEN,
+     "Filesystem display name, shown with mount point (as source). Used with "
+     "commands like 'mount', 'df', etc."},
     {"brick-mux", ARGP_BRICK_MUX_KEY, 0, 0, "Enable brick mux. "},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
@@ -538,6 +542,11 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
     if (cmd_args->fuse_dev_eperm_ratelimit_ns) {
         DICT_SET_VAL(dict_set_uint32, options, "fuse-dev-eperm-ratelimit-ns",
                      cmd_args->fuse_dev_eperm_ratelimit_ns, glusterfsd_msg_3);
+    }
+
+    if (cmd_args->fs_display_name) {
+        DICT_SET_VAL(dict_set_dynstr, options, "fs-display-name",
+                     cmd_args->fs_display_name, glusterfsd_msg_3);
     }
 
     ret = 0;
@@ -1377,6 +1386,9 @@ parse_opts(int key, char *arg, struct argp_state *state)
                              arg);
             }
 
+            break;
+        case ARGP_FUSE_DISPLAY_NAME_KEY:
+            cmd_args->fs_display_name = gf_strdup(arg);
             break;
     }
     return 0;
