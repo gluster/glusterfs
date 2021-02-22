@@ -87,6 +87,8 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
     {NULL},
 };
 
+extern struct volopt_map_entry glusterd_volopt_map[];
+
 static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
 glusterd_op_info_t opinfo = {
@@ -2830,6 +2832,136 @@ out:
     return ret;
 }
 
+int
+glusterd_compare_bool_value(char *value_1, char *value_2)
+{
+    int ret = -1;
+    gf_boolean_t bool_val_1 = _gf_false, bool_val_2 = _gf_false;
+
+    ret = gf_string2boolean(value_1, &bool_val_1);
+    if (ret == -1) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+               "Invalid value entry");
+        goto out;
+    }
+
+    ret = gf_string2boolean(value_2, &bool_val_2);
+    if (ret == -1) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+               "Invalid value entry");
+        goto out;
+    }
+
+    if (bool_val_1 == bool_val_2)
+        ret = 1;
+    else
+        ret = 0;
+
+out:
+    return ret;
+}
+
+int
+glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
+                              char *input_value)
+{
+    struct volopt_map_entry *vme = NULL;
+    int ret = -1;
+    char *def_val = NULL;
+    int keylen;
+    glusterd_conf_t *priv = NULL;
+    xlator_t *this = THIS;
+
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, priv, out);
+
+    for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
+        if (!strcmp(vme->key, input_key)) {
+            /* First look for the key in the priv->opts for global option
+             * and then into vol_dict, if its not present then look for
+             * translator default value */
+            keylen = strlen(vme->key);
+            ret = dict_get_strn(priv->opts, vme->key, keylen, &def_val);
+            if (!def_val) {
+                ret = dict_get_strn(volinfo->dict, vme->key, keylen, &def_val);
+                if (ret == -ENOENT)
+                    def_val = glusterd_get_option_value(volinfo, vme->key);
+                if (!def_val) {
+                    if (vme->value) {
+                        def_val = vme->value;
+                    } else {
+                        ret = glusterd_get_value_for_vme_entry(vme, &def_val);
+                        if (ret)
+                            goto out;
+                        else if (ret == -2)
+                            continue;
+                    }
+                }
+            }
+        }
+    }
+
+    ret = glusterd_compare_bool_value(input_value, def_val);
+    def_val = NULL;
+
+out:
+    if (def_val)
+        GF_FREE(def_val);
+
+    return ret;
+}
+
+int
+glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
+                                char *value, char **errstr)
+{
+    int ind = 0;
+    int j = 0;
+    int match_cnt = 0;
+    int ret = -1;
+    char *err_s = NULL;
+    while (prohibited_clauses[ind]) {
+        if (!prohibited_clauses[ind][0].op)
+            break;
+        if (strcmp(prohibited_clauses[ind][0].val, CLAUSE_LABEL) == 0) {
+            err_s = gf_strdup(prohibited_clauses[ind][0].op);
+        } else {
+            match_cnt = 0;
+            j = 0;
+            while (j >= 0) {
+                if (!prohibited_clauses[ind][j].op)
+                    break;
+                if (key && strcmp(key, prohibited_clauses[ind][j].op) == 0) {
+                    ret = glusterd_compare_bool_value(
+                        value, prohibited_clauses[ind][j].val);
+                } else {
+                    ret = glusterd_compare_option_value(
+                        volinfo, prohibited_clauses[ind][j].op,
+                        prohibited_clauses[ind][j].val);
+                    if (ret == 1)
+                        match_cnt++;
+                }
+
+                j++;
+            }
+            if (match_cnt == j) {
+                *errstr = gf_strdup(err_s);
+                ret = -1;
+                goto out;
+            }
+        }
+
+        ind++;
+    }
+
+    ret = 0;
+
+out:
+    if (err_s)
+        GF_FREE(err_s);
+    return ret;
+}
+
 static int
 glusterd_op_set_volume(dict_t *dict, char **errstr)
 {
@@ -2992,12 +3124,23 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
         if (global_opt) {
             cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
             {
+                /* Check dependency of options before setting them */
+                ret = glusterd_dependency_chain_check(voliter, key, value,
+                                                      errstr);
+                if (ret)
+                    goto out;
+
                 value = gf_strdup(value);
                 ret = dict_set_dynstr(voliter->dict, key, value);
                 if (ret)
                     goto out;
             }
         } else {
+            /* Check dependency of options before setting them */
+            ret = glusterd_dependency_chain_check(volinfo, key, value, errstr);
+            if (ret)
+                goto out;
+
             ret = dict_set_dynstr(volinfo->dict, key, value);
             if (ret)
                 goto out;

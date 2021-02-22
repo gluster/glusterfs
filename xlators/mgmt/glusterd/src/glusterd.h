@@ -802,6 +802,64 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
                                                                                \
     } while (0)
 
+#define CLAUSE_LABEL "CLAUSE"
+
+struct opval_dep;
+typedef struct opval_dep opval_dep_t;
+
+struct opval_dep {
+    char *op;
+    char *val;
+};
+
+/*Prohibited option value pairs for the dependencies of an option */
+static const opval_dep_t prohibited_clauses[][5] = {
+    {{"performance.parallel-readdir depends on performance.readdir-ahead and "
+      "either of (dht.force-readdirp, performance.readdirp). Please check the "
+      "values of the dependencies",
+      CLAUSE_LABEL},
+     {
+         0,
+     }},
+    {{"performance.parallel-readdir", "on"},
+     {"dht.force-readdirp", "off"},
+     {"performance.force-readdirp", "off"},
+     {"performance.readdir-ahead", "off"},
+     {
+         0,
+     }},
+    {{"performance.parallel-readdir", "on"},
+     {"dht.force-readdirp", "on"},
+     {"performance.force-readdirp", "off"},
+     {"performance.readdir-ahead", "off"},
+     {
+         0,
+     }},
+    {{"performance.parallel-readdir", "on"},
+     {"dht.force-readdirp", "off"},
+     {"performance.force-readdirp", "on"},
+     {"performance.readdir-ahead", "off"},
+     {
+         0,
+     }},
+    {{"performance.parallel-readdir", "on"},
+     {"dht.force-readdirp", "on"},
+     {"performance.force-readdirp", "on"},
+     {"performance.readdir-ahead", "off"},
+     {
+         0,
+     }},
+    {{"performance.parallel-readdir", "on"},
+     {"dht.force-readdirp", "off"},
+     {"performance.force-readdirp", "off"},
+     {"performance.readdir-ahead", "on"},
+     {
+         0,
+     }},
+    {{
+        0,
+    }}};
+
 int
 glusterd_uuid_init();
 
