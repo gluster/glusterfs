@@ -8521,15 +8521,32 @@ dht_create_wind_to_avail_subvol(call_frame_t *frame, xlator_t *this,
 {
     dht_local_t *local = NULL;
     xlator_t *avail_subvol = NULL;
+    int lk_count = 0;
 
     local = frame->local;
 
     if (!dht_is_subvol_filled(this, subvol)) {
-        gf_msg_debug(this->name, 0, "creating %s on %s", loc->path,
-                     subvol->name);
-
-        dht_set_parent_layout_in_dict(loc, this, local);
-
+        lk_count = local->lock[0].layout.parent_layout.lk_count;
+        gf_msg_debug(this->name, 0, "creating %s on %s with lock_count %d",
+                     loc->path, subvol->name, lk_count);
+        /*The function dht_set_parent_layout_in_dict sets the layout
+          in dictionary and posix_create validates a layout before
+          creating a file.In case if parent layout does not match
+          with disk layout posix xlator throw an error but in case
+          if volume is shrunk layout has been changed by rebalance daemon
+          so we need to call this function only while a function is calling
+          without taking any lock otherwise we would not able to populate a
+          layout on disk in case if layout has changed.
+        */
+        if (!lk_count) {
+            dht_set_parent_layout_in_dict(loc, this, local);
+        } else {
+            /* Delete a key to avoid layout validate if it was set by
+               previous STACK_WIND attempt when a lock was not taken
+               by dht_create
+            */
+            (void)dict_del_sizen(local->params, GF_PREOP_PARENT_KEY);
+        }
         STACK_WIND_COOKIE(frame, dht_create_cbk, subvol, subvol,
                           subvol->fops->create, loc, flags, mode, umask, fd,
                           params);
@@ -8549,12 +8566,14 @@ dht_create_wind_to_avail_subvol(call_frame_t *frame, xlator_t *this,
 
             goto out;
         }
-
-        gf_msg_debug(this->name, 0, "creating %s on %s", loc->path,
-                     subvol->name);
-
-        dht_set_parent_layout_in_dict(loc, this, local);
-
+        lk_count = local->lock[0].layout.parent_layout.lk_count;
+        gf_msg_debug(this->name, 0, "creating %s on %s with lk_count %d",
+                     loc->path, subvol->name, lk_count);
+        if (!lk_count) {
+            dht_set_parent_layout_in_dict(loc, this, local);
+        } else {
+            (void)dict_del_sizen(local->params, GF_PREOP_PARENT_KEY);
+        }
         STACK_WIND_COOKIE(frame, dht_create_cbk, subvol, subvol,
                           subvol->fops->create, loc, flags, mode, umask, fd,
                           params);
