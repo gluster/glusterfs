@@ -1332,7 +1332,6 @@ __wb_collapse_small_writes(wb_conf_t *conf, wb_request_t *holder,
         iobref = add_iobuf_to_new_iobref(iobuf);
         if (iobref == NULL) {
             iobuf_unref(iobuf);
-            iobref_unref(iobref);
             goto out;
         }
 

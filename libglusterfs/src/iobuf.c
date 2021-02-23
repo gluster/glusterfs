@@ -1138,7 +1138,6 @@ iobuf_copy(struct iobuf_pool *iobuf_pool, const struct iovec *iovec_src,
     *iobref = add_iobuf_to_new_iobref(*iobuf);
     if (!(*iobref)) {
         iobuf_unref(*iobuf);
-        iobref_unref(*iobref);
         errno = ENOMEM;
         ret = -1;
         goto out;

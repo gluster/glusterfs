@@ -1306,6 +1306,8 @@ rpcsvc_callback_submit(rpcsvc_t *rpc, rpc_transport_t *trans,
             goto out;
         }
         new_iobref = 1;
+    } else {
+        iobref_add(iobref, request_iob);
     }
 
     req.msg.rpchdr = &rpchdr;
@@ -1532,6 +1534,8 @@ rpcsvc_submit_generic(rpcsvc_request_t *req, struct iovec *proghdr,
         }
 
         new_iobref = 1;
+    } else {
+        iobref_add(iobref, replyiob);
     }
 
     /* cache the request in the duplicate request cache for appropriate ops */

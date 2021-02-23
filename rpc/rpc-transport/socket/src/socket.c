@@ -1813,9 +1813,13 @@ __socket_read_accepted_successful_reply(rpc_transport_t *this)
                         iobuf_unref(iobuf);
                         goto out;
                     }
+                } else {
+                    ret = iobref_add(in->iobref, iobuf);
+                    iobuf_unref(iobuf);
+                    if (ret < 0) {
+                        goto out;
+                    }
                 }
-
-                iobuf_unref(iobuf);
 
                 in->payload_vector.iov_base = iobuf_ptr(iobuf);
                 in->payload_vector.iov_len = size;
@@ -1939,9 +1943,13 @@ __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
                         iobuf_unref(iobuf);
                         goto out;
                     }
+                } else {
+                    ret = iobref_add(in->iobref, iobuf);
+                    iobuf_unref(iobuf);
+                    if (ret < 0) {
+                        goto out;
+                    }
                 }
-
-                iobuf_unref(iobuf);
 
                 in->payload_vector.iov_base = iobuf_ptr(iobuf);
                 in->payload_vector.iov_len = size;
