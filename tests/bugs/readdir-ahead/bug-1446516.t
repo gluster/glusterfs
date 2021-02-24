@@ -10,8 +10,6 @@ TEST glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1..4}
 TEST $CLI volume start $V0
 
-TEST $CLI volume set $V0 readdir-ahead on
-
 TEST $CLI volume set $V0 parallel-readdir on
 
 TEST $CLI volume set $V0 rda-cache-limit 4GB

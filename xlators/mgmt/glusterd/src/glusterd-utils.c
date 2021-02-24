@@ -13172,9 +13172,8 @@ out:
 }
 
 int
-glusterd_get_value_for_vme_entry(void *vmep, char **def_val)
+glusterd_get_value_for_vme_entry(struct volopt_map_entry *vme, char **def_val)
 {
-    struct volopt_map_entry *vme = vmep;
     int ret = -1;
     char *key = NULL;
     xlator_t *this = THIS;

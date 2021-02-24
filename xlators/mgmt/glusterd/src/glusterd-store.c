@@ -3004,7 +3004,6 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
     char path[PATH_MAX] = {
         0,
     };
-    char *errstr = NULL;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     gf_store_iter_t *iter = NULL;
@@ -3258,8 +3257,6 @@ out:
         GF_FREE(key);
     if (value)
         GF_FREE(value);
-    if (errstr)
-        GF_FREE(errstr);
     return ret;
 }
 

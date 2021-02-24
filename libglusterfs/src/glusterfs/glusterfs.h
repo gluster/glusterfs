@@ -593,7 +593,10 @@ struct _cmd_args {
     bool brick_mux;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;
+<<<<<<< HEAD
     int dpndcy_chain_mode;
+=======
+>>>>>>> parent of dcd123194 (fuse: add an option to specify the mount display name (#1989))
 };
 typedef struct _cmd_args cmd_args_t;
 

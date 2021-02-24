@@ -87,8 +87,6 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
     {NULL},
 };
 
-extern struct volopt_map_entry glusterd_volopt_map[];
-
 static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
 glusterd_op_info_t opinfo = {

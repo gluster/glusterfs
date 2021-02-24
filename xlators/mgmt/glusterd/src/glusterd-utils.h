@@ -874,10 +874,4 @@ glusterd_defrag_ref(glusterd_defrag_info_t *defrag);
 
 int
 glusterd_defrag_unref(glusterd_defrag_info_t *defrag);
-
-char *
-glusterd_get_option_value(glusterd_volinfo_t *volinfo, char *key);
-
-int
-glusterd_get_value_for_vme_entry(void *vme, char **def_val);
 #endif
