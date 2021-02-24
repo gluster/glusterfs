@@ -6457,6 +6457,7 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
     int __ret = -1;
     local->op_ret = -1;
     local->op_errno = EUCLEAN;
+    local->op_result = INT64_MIN;
 
     __ret = syncbarrier_init(&local->barrier);
     if (__ret) {

@@ -481,6 +481,7 @@ typedef struct _afr_local {
 
     int32_t op_ret;
     int32_t op_errno;
+    int64_t op_result;
 
     int dirty[AFR_NUM_CHANGE_LOGS];
 

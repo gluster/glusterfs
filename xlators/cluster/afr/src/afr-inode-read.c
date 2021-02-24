@@ -960,8 +960,12 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
             lockinfo = dict_new();
             if (lockinfo == NULL) {
                 op_ret = -1;
+                op_errno = ENOMEM;
             } else {
                 op_ret = dict_unserialize(lockinfo_buf, len, &lockinfo);
+                if (op_ret < 0) {
+                    op_errno = ENOMEM;
+                }
             }
         }
     }
@@ -970,19 +974,32 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
         op_ret = afr_update_local_dicts(frame, lockinfo, xdata);
         if (lockinfo != NULL) {
             dict_unref(lockinfo);
+            op_errno = ENOMEM;
         }
     }
 
     if (op_ret < 0) {
-        local->op_ret = -1;
-        local->op_errno = ENOMEM;
+        op_ret = -op_errno;
+    }
+
+    if (CMM_LOAD_SHARED(local->op_result) == INT64_MIN) {
+        uatomic_cmpxchg(&local->op_result, INT64_MIN, op_ret);
     }
 
     if (uatomic_sub_return(&local->call_count, 1) == 0) {
+        if (local->op_result < 0) {
+            local->op_ret = -1;
+            local->op_errno = (int32_t)-local->op_result;
+            goto unwind;
+        }
+
+        local->op_ret = 0;
+        local->op_errno = 0;
+
         newdict = dict_new();
         if (!newdict) {
             local->op_ret = -1;
-            local->op_errno = op_errno = ENOMEM;
+            local->op_errno = ENOMEM;
             goto unwind;
         }
 
@@ -990,7 +1007,7 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
             local->dict, (char **)&lockinfo_buf, (unsigned int *)&len);
         if (op_ret != 0) {
             local->op_ret = -1;
-            local->op_errno = op_errno = ENOMEM;
+            local->op_errno = ENOMEM;
             goto unwind;
         }
 
@@ -998,24 +1015,18 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
                                  (void *)lockinfo_buf, len);
         if (op_ret < 0) {
             GF_FREE(lockinfo_buf);
-            local->op_ret = op_ret = -1;
-            local->op_errno = op_errno = -op_ret;
+            local->op_ret = -1;
+            local->op_errno = -op_ret;
             goto unwind;
         }
 
     unwind:
-        /* TODO: These unwinds use op_ret and op_errno instead of local->op_ret
-         *       and local->op_errno. This doesn't seem right because any
-         *       failure during processing of each answer could be silently
-         *       ignored. This is kept this was the old behavior and because
-         *       local->op_ret is initialized as -1 and local->op_errno is
-         *       initialized as EUCLEAN, which makes these values useless. */
         if (is_fgetxattr) {
-            AFR_STACK_UNWIND(fgetxattr, frame, op_ret, op_errno, newdict,
-                             local->xdata_rsp);
+            AFR_STACK_UNWIND(fgetxattr, frame, local->op_ret, local->op_errno,
+                             newdict, local->xdata_rsp);
         } else {
-            AFR_STACK_UNWIND(getxattr, frame, op_ret, op_errno, newdict,
-                             local->xdata_rsp);
+            AFR_STACK_UNWIND(getxattr, frame, local->op_ret, local->op_errno,
+                             newdict, local->xdata_rsp);
         }
 
         if (newdict != NULL) {
