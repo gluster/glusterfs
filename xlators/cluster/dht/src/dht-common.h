@@ -333,6 +333,11 @@ struct dht_local {
 
     dht_dir_transaction_t lock[2], *current;
 
+    /* for nested readdirs */
+    xlator_t *queue_xl;
+    off_t queue_offset;
+    uint32_t queue;
+
     /* inodelks during filerename for backward compatibility */
     dht_lock_t **rename_inodelk_backward_compatible;
 
