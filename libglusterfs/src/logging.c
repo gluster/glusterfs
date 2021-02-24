@@ -651,6 +651,10 @@ gf_log_init(void *data, const char *file, const char *ident)
         ctx->log.gf_log_logfile = NULL;
     }
 
+    if ((ctx->log.logger == gf_logger_syslog) &&
+        ctx->log.log_control_file_found && ctx->log.gf_log_syslog) {
+        return 0;
+    }
     if (strcmp(file, "-") == 0) {
         int dupfd = -1;
 

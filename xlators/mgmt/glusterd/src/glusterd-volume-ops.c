@@ -2727,9 +2727,16 @@ glusterd_clearlocks_mount(glusterd_volinfo_t *volinfo, char **xl_opts,
                                          volinfo->transport_type);
     runner_add_args(&runner, SBIN_DIR "/glusterfs", "-f", NULL);
     runner_argprintf(&runner, "%s", client_volfpath);
-    runner_add_arg(&runner, "-l");
-    runner_argprintf(&runner, "%s/%s-clearlocks-mnt.log", priv->logdir,
-                     volinfo->volname);
+
+    if (THIS->ctx->log.logger == gf_logger_syslog) {
+        runner_add_arg(&runner, "--logger");
+        runner_argprintf(&runner, "syslog");
+    } else {
+        runner_add_arg(&runner, "-l");
+        runner_argprintf(&runner, "%s/%s-clearlocks-mnt.log", priv->logdir,
+                         volinfo->volname);
+    }
+
     if (volinfo->memory_accounting)
         runner_add_arg(&runner, "--mem-accounting");
 

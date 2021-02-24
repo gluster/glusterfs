@@ -1622,10 +1622,11 @@ init(xlator_t *this)
     }
 
     snprintf(cmd_log_filename, PATH_MAX, "%s/cmd_history.log", logdir);
+
     ret = gf_cmd_log_init(cmd_log_filename);
 
     if (ret == -1) {
-        gf_msg("this->name", GF_LOG_CRITICAL, errno, GD_MSG_FILE_OP_FAILED,
+        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_FILE_OP_FAILED,
                "Unable to create cmd log file %s", cmd_log_filename);
         exit(1);
     }

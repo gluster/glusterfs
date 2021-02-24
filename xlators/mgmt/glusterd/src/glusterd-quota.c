@@ -356,6 +356,11 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
                         "--client-pid", QUOTA_CRAWL_PID, "-l", logfile,
                         mountdir, NULL);
 
+    if (THIS->ctx->log.logger == gf_logger_syslog) {
+        runner_add_arg(&runner, "--logger");
+        runner_argprintf(&runner, "syslog");
+    }
+
     synclock_unlock(&priv->big_lock);
     ret = runner_run_reuse(&runner);
     synclock_lock(&priv->big_lock);
