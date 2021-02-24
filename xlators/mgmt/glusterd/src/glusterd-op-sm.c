@@ -2832,42 +2832,35 @@ out:
     return ret;
 }
 
+// Compare 2 strings for boolean value
+
 int
-glusterd_compare_bool_value(char *value_1, char *value_2)
+glusterd_compare_bool_value(char *value_1, int value_2)
 {
     int ret = -1;
-    gf_boolean_t bool_val_1 = _gf_false, bool_val_2 = _gf_false;
+    gf_boolean_t bool_val_1 = _gf_false;
 
     ret = gf_string2boolean(value_1, &bool_val_1);
     if (ret == -1) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
                "Invalid value entry");
-        goto out;
     }
 
-    ret = gf_string2boolean(value_2, &bool_val_2);
-    if (ret == -1) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
-               "Invalid value entry");
-        goto out;
-    }
-
-    if (bool_val_1 == bool_val_2)
-        ret = 1;
+    if (!ret)
+        return bool_val_1 == value_2;
     else
-        ret = 0;
-
-out:
-    return ret;
+        return ret;
 }
+
+// Compare values in the set in the volume/cluster with that of the predicate
 
 int
 glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
-                              char *input_value)
+                              int input_value)
 {
     struct volopt_map_entry *vme = NULL;
     int ret = -1;
-    char *def_val = NULL;
+    char *deflt_val = NULL;
     int keylen;
     glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
@@ -2877,20 +2870,22 @@ glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
 
     for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
         if (!strcmp(vme->key, input_key)) {
-            /* First look for the key in the priv->opts for global option
-             * and then into vol_dict, if its not present then look for
-             * translator default value */
+            // First look for the key in the priv->opts for global option
             keylen = strlen(vme->key);
-            ret = dict_get_strn(priv->opts, vme->key, keylen, &def_val);
-            if (!def_val) {
-                ret = dict_get_strn(volinfo->dict, vme->key, keylen, &def_val);
+            ret = dict_get_strn(priv->opts, vme->key, keylen, &deflt_val);
+            if (!deflt_val) {
+                // Check for the option in the volinfo dict
+                ret = dict_get_strn(volinfo->dict, vme->key, keylen,
+                                    &deflt_val);
                 if (ret == -ENOENT)
-                    def_val = glusterd_get_option_value(volinfo, vme->key);
-                if (!def_val) {
+                    // Check for glusterd default values
+                    deflt_val = glusterd_get_option_value(volinfo, vme->key);
+                if (!deflt_val) {
                     if (vme->value) {
-                        def_val = vme->value;
+                        deflt_val = vme->value;
                     } else {
-                        ret = glusterd_get_value_for_vme_entry(vme, &def_val);
+                        // Check the option for tranlator default value
+                        ret = glusterd_get_value_for_vme_entry(vme, &deflt_val);
                         if (ret)
                             goto out;
                         else if (ret == -2)
@@ -2901,15 +2896,17 @@ glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
         }
     }
 
-    ret = glusterd_compare_bool_value(input_value, def_val);
-    def_val = NULL;
+    ret = glusterd_compare_bool_value(deflt_val, input_value);
+    deflt_val = NULL;
 
 out:
-    if (def_val)
-        GF_FREE(def_val);
+    if (deflt_val)
+        GF_FREE(deflt_val);
 
     return ret;
 }
+
+// Check the options set in the cluster/per-volume satisfy the dependency chain
 
 int
 glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
@@ -2920,30 +2917,48 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
     int match_cnt = 0;
     int ret = -1;
     char *err_s = NULL;
+
+    // Going through each of the predicates in the prohibhited_clauses list and
+    // comparing the values for each of the options for a volume
     while (prohibited_clauses[ind]) {
+        // Check if there are any predicates left in the list
         if (!prohibited_clauses[ind][0].op)
             break;
-        if (strcmp(prohibited_clauses[ind][0].val, CLAUSE_LABEL) == 0) {
+
+        // Copy the predicate clause, which should be logged in case of failure
+        if (prohibited_clauses[ind][0].val == CLAUSE_LABEL) {
             err_s = gf_strdup(prohibited_clauses[ind][0].op);
         } else {
             match_cnt = 0;
             j = 0;
             while (j >= 0) {
+                // Check the end of a list of options for single predicate
                 if (!prohibited_clauses[ind][j].op)
                     break;
+
+                // If the option being set now, is present in the
+                // prohibhited_clauses list
                 if (key && strcmp(key, prohibited_clauses[ind][j].op) == 0) {
                     ret = glusterd_compare_bool_value(
                         value, prohibited_clauses[ind][j].val);
                 } else {
+                    // Else, compare the value of an option in the predicate
+                    // with the value set for the volume
                     ret = glusterd_compare_option_value(
                         volinfo, prohibited_clauses[ind][j].op,
                         prohibited_clauses[ind][j].val);
-                    if (ret == 1)
-                        match_cnt++;
                 }
+
+                // If the value set in volume matches, the value listed in the
+                // predicate
+                if (ret == 1)
+                    match_cnt++;
 
                 j++;
             }
+
+            // If all the options in a predicate is satisfied, log the error
+            // along with the clause_label as the justification
             if (match_cnt == j) {
                 *errstr = gf_strdup(err_s);
                 ret = -1;
@@ -3124,7 +3139,7 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
         if (global_opt) {
             cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
             {
-                /* Check dependency of options before setting them */
+                /* Check dependency of a global option before setting them */
                 ret = glusterd_dependency_chain_check(voliter, key, value,
                                                       errstr);
                 if (ret)
@@ -3136,7 +3151,7 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
                     goto out;
             }
         } else {
-            /* Check dependency of options before setting them */
+            /* Check dependency of per-volume option before setting them */
             ret = glusterd_dependency_chain_check(volinfo, key, value, errstr);
             if (ret)
                 goto out;

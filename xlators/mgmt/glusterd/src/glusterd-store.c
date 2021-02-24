@@ -3199,15 +3199,15 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
 
     /* Check dependency of options already set */
     ret = glusterd_dependency_chain_check(volinfo, NULL, NULL, &errstr);
-    if (ret && !this->ctx->cmd_args.start_mode) {
+    if (ret && !this->ctx->cmd_args.dpndcy_chain_mode) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DEPNDCY_CHECK_FAIL, "%s.",
+               errstr);
+        goto out;
+    } else if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DEPNDCY_CHECK_FAIL,
                "%s. To bypass this check, start 'glusterd' in 'permissive' "
                "mode using 'glusterd --permissive=1' command. And, then fix "
                "the dependencies of the options.",
-               errstr);
-        goto out;
-    } else if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DEPNDCY_CHECK_FAIL, "%s.",
                errstr);
     }
 

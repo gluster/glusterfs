@@ -199,8 +199,9 @@ static struct argp_option gf_options[] = {
      "Enables thin mount and connects via gfproxyd daemon"},
     {"global-threading", ARGP_GLOBAL_THREADING_KEY, "BOOL", OPTION_ARG_OPTIONAL,
      "Use the global thread pool instead of io-threads"},
-    {"permissive", ARGP_START_MODE_KEY, "PERMISSIVE_MODE", 0,
-     "Enable permissive mode for glusterd"},
+    {"enforce-option-dependencies", ARGP_DPNDNCY_MODE_KEY,
+     "ENFORCE-OPTION-DEPENDENCIES", 0,
+     "Enforce option dependencies check for glusterd"},
     {0, 0, 0, 0, "Fuse options:"},
     {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL|auto",
      OPTION_ARG_OPTIONAL, "Specify direct I/O strategy [default: \"auto\"]"},
@@ -1389,16 +1390,18 @@ parse_opts(int key, char *arg, struct argp_state *state)
             cmd_args->fs_display_name = gf_strdup(arg);
             break;
 
-        case ARGP_START_MODE_KEY:
+        case ARGP_DPNDNCY_MODE_KEY:
             if (strcmp(arg, "1") == 0) {
-                cmd_args->start_mode = 1;
+                cmd_args->dpndcy_chain_mode = 1;
                 break;
             } else if (strcmp(arg, "0") == 0) {
-                cmd_args->start_mode = 0;
+                cmd_args->dpndcy_chain_mode = 0;
                 break;
             }
-
-            argp_failure(state, -1, 0, "unknown permissive mode %s", arg);
+            argp_failure(state, -1, 0,
+                         "unknown value for enforce-option-dependencies %s",
+                         arg);
+            break;
     }
     return 0;
 }
@@ -1687,7 +1690,7 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     cmd_args->log_format = gf_logformat_withmsgid;
     cmd_args->log_buf_size = GF_LOG_LRU_BUFSIZE_DEFAULT;
     cmd_args->log_flush_timeout = GF_LOG_FLUSH_TIMEOUT_DEFAULT;
-    cmd_args->start_mode = 1;
+    cmd_args->dpndcy_chain_mode = 0;
 
     cmd_args->mac_compat = GF_OPTION_DISABLE;
 #ifdef GF_DARWIN_HOST_OS

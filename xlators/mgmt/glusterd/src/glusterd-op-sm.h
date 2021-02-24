@@ -313,12 +313,12 @@ gd_set_commit_hash(dict_t *dict);
 
 int
 glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
-                              char *input_value);
+                              int input_value);
 
 int
 glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
                                 char *value, char **errstr);
 
 int
-glusterd_compare_bool_value(char *value_1, char *value_2);
+glusterd_compare_bool_value(char *value_1, int value_2);
 #endif

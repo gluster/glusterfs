@@ -802,57 +802,93 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
                                                                                \
     } while (0)
 
-#define CLAUSE_LABEL "CLAUSE"
-
 struct opval_dep;
 typedef struct opval_dep opval_dep_t;
 
+typedef enum {
+    OP_OFF = 0,
+    OP_ON,
+    CLAUSE_LABEL
+} optn_value;
+
+// Defines the structure of the prohibited_clause list
+
 struct opval_dep {
     char *op;
-    char *val;
+    optn_value val;
 };
 
-/*Prohibited option value pairs for the dependencies of an option */
+/* Prohibited option value pairs for the dependencies of an option
+
+A 2D array separated by a CLAUSE_LABEL, which consists of CNF rendered predicate
+logic statements, with negated ("prohibited") clauses.
+Each row contains a set of options, value pair which defines the NEGATIVE
+relation of the CLAUSE defined just before the corresponding chain of
+dependencies start.
+
+For example, in the following definition:
+    {"performance.parallel-readdir depends on performance.readdir-ahead and "
+     "either of (dht.force-readdirp, performance.readdirp). Please check the "
+     "values of the dependencies", 2} -> The string represents the clause or the
+    dependency chain which the options should have, if set per-volume and the
+    integer 2 represents a way to parse this string as a CLAUSE and not an
+    option (NOTE: 2 is the hardcoded value for denoting a CLAUSE in the list)
+
+    {
+        {"performance.parallel-readdir", 1 }, <-- Here, the string at 0th
+        postion represents a volume/cluster level option while, the integer 1 at
+        1st position depicts the value it should not have as per the CNF
+        rendered predicate
+        ....
+        { 0, } <-- Marks the end of a list
+    },
+
+To add a set of dependent options, please follow the same procedure/format as
+mentioned above
+*/
+
 static const opval_dep_t prohibited_clauses[][5] = {
-    {{"performance.parallel-readdir depends on performance.readdir-ahead and "
+    {// Clause: performance.parallel-readdir => (performance.readdir-ahead &&
+     // (dht.force-readdirp || performance.readdirp))
+     {"performance.parallel-readdir depends on performance.readdir-ahead and "
       "either of (dht.force-readdirp, performance.readdirp). Please check the "
       "values of the dependencies",
-      CLAUSE_LABEL},
+      2},  // Here, 2 represents the CLAUSE_LABEL
      {
          0,
      }},
-    {{"performance.parallel-readdir", "on"},
-     {"dht.force-readdirp", "off"},
-     {"performance.force-readdirp", "off"},
-     {"performance.readdir-ahead", "off"},
+    {{"performance.parallel-readdir", 1},
+     {"dht.force-readdirp", 0},
+     {"performance.force-readdirp", 0},
+     {"performance.readdir-ahead", 0},
      {
          0,
      }},
-    {{"performance.parallel-readdir", "on"},
-     {"dht.force-readdirp", "on"},
-     {"performance.force-readdirp", "off"},
-     {"performance.readdir-ahead", "off"},
+    {{"performance.parallel-readdir", 1},
+     {"dht.force-readdirp", 1},
+     {"performance.force-readdirp", 0},
+     {"performance.readdir-ahead", 0},
      {
          0,
      }},
-    {{"performance.parallel-readdir", "on"},
-     {"dht.force-readdirp", "off"},
-     {"performance.force-readdirp", "on"},
-     {"performance.readdir-ahead", "off"},
+    {{"performance.parallel-readdir", 1},
+     {"dht.force-readdirp", 0},
+     {"performance.force-readdirp", 1},
+     {"performance.readdir-ahead", 0},
      {
          0,
      }},
-    {{"performance.parallel-readdir", "on"},
-     {"dht.force-readdirp", "on"},
-     {"performance.force-readdirp", "on"},
-     {"performance.readdir-ahead", "off"},
+    {{"performance.parallel-readdir", 1},
+     {"dht.force-readdirp", 1},
+     {"performance.force-readdirp", 1},
+     {"performance.readdir-ahead", 0},
      {
          0,
      }},
-    {{"performance.parallel-readdir", "on"},
-     {"dht.force-readdirp", "off"},
-     {"performance.force-readdirp", "off"},
-     {"performance.readdir-ahead", "on"},
+    {{"performance.parallel-readdir", 1},
+     {"dht.force-readdirp", 0},
+     {"performance.force-readdirp", 0},
+     {"performance.readdir-ahead", 1},
      {
          0,
      }},
