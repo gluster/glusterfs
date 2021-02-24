@@ -805,11 +805,7 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
 struct opval_dep;
 typedef struct opval_dep opval_dep_t;
 
-typedef enum {
-    OP_OFF = 0,
-    OP_ON,
-    CLAUSE_LABEL
-} optn_value;
+typedef enum { OP_OFF = 0, OP_ON, CLAUSE_LABEL } optn_value;
 
 // Defines the structure of the prohibited_clause list
 
