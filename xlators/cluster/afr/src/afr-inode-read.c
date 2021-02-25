@@ -916,13 +916,13 @@ afr_update_local_dicts(call_frame_t *frame, dict_t *dict, dict_t *xdata)
     }
 
     if (dict != NULL) {
-        if (dict_copy(dict, local->dict) < 0) {
+        if (dict_copy(dict, local->dict) == NULL) {
             goto done;
         }
     }
 
     if (xdata != NULL) {
-        if (dict_copy(xdata, local->xdata_rsp) < 0) {
+        if (dict_copy(xdata, local->xdata_rsp) == NULL) {
             goto done;
         }
     }
