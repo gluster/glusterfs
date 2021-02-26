@@ -6659,6 +6659,7 @@ dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
                   fop_readdir_cbk_t cbk)
 {
     dht_local_t *local;
+    int32_t queue;
 
     local = frame->local;
 
@@ -6681,7 +6682,14 @@ dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
 
             /* If a new readdirp request has been added before returning
              * from winding, we process it. */
-        } while (uatomic_sub_return(&local->queue, 1) != 0);
+        } while ((queue = uatomic_sub_return(&local->queue, 1)) > 0);
+
+        if (queue < 0) {
+            /* A negative value means that an unwind has been called before
+             * returning from the previous wind. This means that 'local' is
+             * not needed anymore and must be destroyed. */
+            dht_local_wipe(frame->this, local);
+        }
     }
 }
 
@@ -6692,6 +6700,7 @@ dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
                    fop_readdirp_cbk_t cbk)
 {
     dht_local_t *local;
+    int32_t queue;
 
     local = frame->local;
 
@@ -6704,7 +6713,11 @@ dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
             STACK_WIND_COOKIE(frame, cbk, local->queue_xl, local->queue_xl,
                               local->queue_xl->fops->readdirp, local->fd,
                               local->size, local->queue_offset, local->xattr);
-        } while (uatomic_sub_return(&local->queue, 1) != 0);
+        } while ((queue = uatomic_sub_return(&local->queue, 1)) > 0);
+
+        if (queue < 0) {
+            dht_local_wipe(frame->this, local);
+        }
     }
 }
 
@@ -6995,6 +7008,17 @@ unwind:
     if (prev != dht_last_up_subvol(this))
         op_errno = 0;
 
+    /* If we are inside a recursive call (or not inside a recursive call but
+     * the cbk is completed before the wind returns), local->queue will be 1.
+     * In this case we cannot destroy 'local' because it will be needed by
+     * the caller of STACK_WIND. In this case, we decrease the value to let
+     * the caller know that the operation has terminated and it must destroy
+     * 'local'. If local->queue 0, we can destroy it here because there are
+     * no other users. */
+    if (uatomic_sub_return(&local->queue, 1) >= 0) {
+        frame->local = NULL;
+    }
+
     DHT_STACK_UNWIND(readdirp, frame, op_ret, op_errno, &entries, NULL);
 
     gf_dirent_free(&entries);
@@ -7113,6 +7137,17 @@ unwind:
     if (prev != dht_last_up_subvol(this))
         op_errno = 0;
 
+    /* If we are inside a recursive call (or not inside a recursive call but
+     * the cbk is completed before the wind returns), local->queue will be 1.
+     * In this case we cannot destroy 'local' because it will be needed by
+     * the caller of STACK_WIND. In this case, we decrease the value to let
+     * the caller know that the operation has terminated and it must destroy
+     * 'local'. If local->queue 0, we can destroy it here because there are
+     * no other users. */
+    if (uatomic_sub_return(&local->queue, 1) >= 0) {
+        frame->local = NULL;
+    }
+
     if (!skip_hashed_check) {
         DHT_STACK_UNWIND(readdir, frame, op_ret, op_errno, &entries, NULL);
         gf_dirent_free(&entries);
@@ -7120,6 +7155,7 @@ unwind:
     } else {
         DHT_STACK_UNWIND(readdir, frame, op_ret, op_errno, orig_entries, NULL);
     }
+
     return 0;
 }
 
