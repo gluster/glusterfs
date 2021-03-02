@@ -18,6 +18,7 @@ TEST ! $CLI volume create $V0 arbiter 1 replica 3 $H0:$B0/${V0}{0,1,2}
 
 # Incorrect values for replica and arbiter count.
 TEST ! $CLI volume create $V0  replica 3 arbiter 2 $H0:$B0/${V0}{0,1,2}
+TEST ! $CLI volume create $V0  replica 4 arbiter 1 $H0:$B0/${V0}{0,1,2,3}
 
 # Correct setup
 # Only documented value is replica=2 and arbiter=1.
