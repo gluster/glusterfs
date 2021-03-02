@@ -4447,14 +4447,27 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
             goto out;
         i++;
         /* point the index to next word.
-         * Check if wordcount limit is reached
-         * If wordcount limit is not reached then
-         * it is invalid syntax as the command ends with description.
+         * As description might be follwed by force option which is deprecated.
+         * Before that, check if wordcount limit is reached
          */
     }
 
+    if (strcmp(words[i], "force") == 0) {
+        ret = -1;
+        cli_err(
+            "\'force\' option is deprecated and"
+            "should not be used while creating snapshot");
+        gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
+        goto out;
+    } else {
+        ret = -1;
+        cli_err("Invalid Syntax.");
+        gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
+        goto out;
+    }
+
     /* Check if the command has anything after the description */
-    if (i < wordcount) {
+    if (++i < wordcount) {
         ret = -1;
         gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
         goto out;
