@@ -2825,13 +2825,12 @@ validate_user_xlator_position(dict_t *this, char *key, data_t *value,
 
 out:
     if (ret == -1)
-        if(!value){
-            gf_log("glusterd", GF_LOG_ERROR, "invalid user xlator position %s = NULL",
-                key);
-        }else{
-
-            gf_log("glusterd", GF_LOG_ERROR, "invalid user xlator position %s = %s",
-                key, value->data);
+        if (!value) {
+            gf_log("glusterd", GF_LOG_ERROR,
+                   "invalid user xlator position %s = NULL", key);
+        } else {
+            gf_log("glusterd", GF_LOG_ERROR,
+                   "invalid user xlator position %s = %s", key, value->data);
         }
 
     return ret;
