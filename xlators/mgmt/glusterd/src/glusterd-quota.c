@@ -1583,7 +1583,7 @@ glusterd_quotad_op(int opcode)
                 ret = glusterd_svc_stop(&(priv->quotad_svc), SIGTERM);
             else
                 ret = priv->quotad_svc.manager(&(priv->quotad_svc), NULL,
-                                               PROC_START);
+                                               PROC_START_NO_WAIT);
             break;
 
         default:
