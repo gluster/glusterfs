@@ -4422,6 +4422,7 @@ glusterd_gsync_read_frm_status(char *path, char *buf, size_t blen)
         return -1;
     }
     ret = sys_read(status_fd, buf, blen - 1);
+    buf[ret] = '\0';
     if (ret > 0) {
         size_t len = strnlen(buf, ret);
         /* Ensure there is a NUL byte and that it's not the first.  */
