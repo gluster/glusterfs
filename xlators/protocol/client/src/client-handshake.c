@@ -809,7 +809,8 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
             }
         } else {
-            strncpy(ctx->volume_id, volume_id, GF_UUID_BUF_SIZE);
+            strncpy(ctx->volume_id, volume_id, GF_UUID_BUF_SIZE - 1);
+            ctx->volume_id[GF_UUID_BUF_SIZE - 1] = '\0';
         }
     }
 
@@ -999,7 +1000,8 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
            It would be '0', but not '\0' :-) */
         if (!this->ctx->volume_id[0]) {
             strncpy(this->ctx->volume_id, this->graph->volume_id,
-                    GF_UUID_BUF_SIZE);
+                    GF_UUID_BUF_SIZE - 1);
+            this->ctx->volume_id[GF_UUID_BUF_SIZE - 1] = '\0';
         }
         if (this->ctx->volume_id[0]) {
             ret = dict_set_str(options, "volume-id", this->ctx->volume_id);
