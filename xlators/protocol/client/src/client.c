@@ -2665,6 +2665,9 @@ out:
     if (ret)
         this->fini(this);
 
+    if (conf) {
+        GF_FREE(conf);
+    }
     return ret;
 }
 
