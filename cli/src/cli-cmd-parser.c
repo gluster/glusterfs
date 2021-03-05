@@ -657,7 +657,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             if (words[index]) {
                 if (!strcmp(words[index], "arbiter")) {
                     ret = gf_string2int(words[index + 1], &arbiter_count);
-                    if ((ret == -1) || (arbiter_count != 1)) {
+                    if ((ret == -1) || (arbiter_count != 1) ||
+                        ((replica_count < 2) || (replica_count > 3))) {
                         cli_err(
                             "For arbiter "
                             "configuration, "
