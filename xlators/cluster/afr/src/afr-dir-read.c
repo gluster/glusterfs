@@ -163,7 +163,7 @@ afr_validate_read_subvol(inode_t *inode, xlator_t *this, int par_read_subvol)
     return 0;
 }
 
-static void
+static int32_t
 afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
                               int subvol, gf_dirent_t *entries, fd_t *fd)
 {
@@ -174,6 +174,7 @@ afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
     afr_private_t *priv = NULL;
     gf_boolean_t need_heal = _gf_false;
     gf_boolean_t validate_subvol = _gf_false;
+    int32_t count = 0;
 
     this = THIS;
     priv = this->private;
@@ -190,6 +191,7 @@ afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
 
         list_del_init(&entry->list);
         list_add_tail(&entry->list, &entries->list);
+        count++;
 
         if (!validate_subvol)
             continue;
@@ -203,6 +205,8 @@ afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
             }
         }
     }
+
+    return count;
 }
 
 int32_t
@@ -228,8 +232,9 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (op_ret >= 0)
-        afr_readdir_transform_entries(frame, subvol_entries, (long)cookie,
-                                      &entries, local->fd);
+        op_ret = afr_readdir_transform_entries(frame, subvol_entries,
+                                               (long)cookie, &entries,
+                                               local->fd);
 
     AFR_STACK_UNWIND(readdir, frame, op_ret, op_errno, &entries, xdata);
 
