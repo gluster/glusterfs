@@ -3753,8 +3753,9 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
         errno = 0;
     }
 
-    if (ret > 0)
+    if ((ret > 0) && !list_empty(&glfd->entries)) {
         glfd->next = list_entry(glfd->entries.next, gf_dirent_t, list);
+    }
 
     gf_dirent_free(&old);
 out:
