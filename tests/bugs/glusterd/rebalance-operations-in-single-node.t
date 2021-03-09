@@ -108,9 +108,15 @@ done
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}{5,6};
 
 #perform rebalance fix-layout
+TEST $CLI volume profile $V0 start
 TEST $CLI volume rebalance $V0 fix-layout start
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" fix-layout_status_field $V0;
+
+readdir_count=$($CLI volume profile $V0 info | grep -w READDIR | wc -l)
+readdirp_count=$($CLI volume profile $V0 info | grep -w READDIRP | wc -l)
+EXPECT_NOT "^0$" echo $readdir_count
+EXPECT "^0$" echo $readdirp_count
 
 #bug-1075087 - rebalance post add brick
 TEST mkdir $M0/dir{21..30};

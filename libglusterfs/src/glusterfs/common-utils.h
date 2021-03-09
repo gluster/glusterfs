@@ -1257,4 +1257,6 @@ gf_tsdiff(struct timespec *start, struct timespec *end)
            (int64_t)(end->tv_nsec - start->tv_nsec);
 }
 
+int
+gf_d_type_from_st_mode(mode_t st_mode);
 #endif /* _COMMON_UTILS_H */

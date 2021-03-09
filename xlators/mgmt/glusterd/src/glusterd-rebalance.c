@@ -289,7 +289,7 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
 
     runner_add_args(
         &runner, SBIN_DIR "/glusterfs", "-s", volfileserver, "--volfile-id",
-        volname, "--xlator-option", "*dht.use-readdirp=yes", "--xlator-option",
+        volname, "--xlator-option", "*dht.use-readdirp=no", "--xlator-option",
         "*dht.lookup-unhashed=yes", "--xlator-option",
         "*dht.assert-no-child-down=yes", "--xlator-option",
         "*dht.readdir-optimize=on", "--process-name", "rebalance", NULL);

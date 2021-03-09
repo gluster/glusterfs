@@ -3608,6 +3608,9 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     struct iatt iatt = {
         0,
     };
+    struct iatt entry_iatt = {
+        0,
+    };
     inode_t *linked_inode = NULL, *inode = NULL;
     dht_conf_t *conf = NULL;
     int perrno = 0;
@@ -3643,6 +3646,12 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         goto out;
     }
 
+    linked_inode = inode_link(loc->inode, loc->parent, loc->name, &iatt);
+
+    inode = loc->inode;
+    loc->inode = linked_inode;
+    inode_unref(inode);
+
     fd = fd_create(loc->inode, defrag->pid);
     if (!fd) {
         gf_log(this->name, GF_LOG_ERROR, "Failed to create fd");
@@ -3675,8 +3684,8 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     fd_bind(fd);
     INIT_LIST_HEAD(&entries.list);
 
-    while ((ret = syncop_readdirp(this, fd, 131072, offset, &entries, NULL,
-                                  NULL)) != 0) {
+    while ((ret = syncop_readdir(this, fd, 131072, offset, &entries, NULL,
+                                 NULL)) != 0) {
         if (ret < 0) {
             if (-ret == ENOENT || -ret == ESTALE) {
                 if (conf->decommission_subvols_cnt) {
@@ -3711,9 +3720,11 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
-            if (!IA_ISDIR(entry->d_stat.ia_type)) {
+
+            if ((DT_DIR != entry->d_type) && (DT_UNKNOWN != entry->d_type)) {
                 continue;
             }
+
             loc_wipe(&entry_loc);
 
             ret = dht_build_child_loc(this, &entry_loc, loc, entry->d_name);
@@ -3734,39 +3745,17 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 }
             }
 
-            if (gf_uuid_is_null(entry->d_stat.ia_gfid)) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "%s/%s"
-                       " gfid not present",
-                       loc->path, entry->d_name);
-                continue;
+            if (DT_UNKNOWN == entry->d_type) {
+                ret = syncop_lookup(this, &entry_loc, &entry_iatt, NULL, NULL,
+                                    NULL);
+                if ((ret == 0) && (entry_iatt.ia_type != IA_IFDIR)) {
+                    continue;
+                }
+                /*If it is directory, gf_defrag_fix_layout() call will again do
+                 * one more lookup. Not optimizing this part as all modern
+                 * filesystems populate entry->d_type. We can optimize it when
+                 * such a filesystem is found.*/
             }
-
-            gf_uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
-
-            /*In case the gfid stored in the inode by inode_link
-             * and the gfid obtained in the lookup differs, then
-             * client3_3_lookup_cbk will return ESTALE and proper
-             * error will be captured
-             */
-
-            linked_inode = inode_link(entry_loc.inode, loc->inode,
-                                      entry->d_name, &entry->d_stat);
-
-            inode = entry_loc.inode;
-            entry_loc.inode = linked_inode;
-            inode_unref(inode);
-
-            if (gf_uuid_is_null(loc->gfid)) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "%s/%s"
-                       " gfid not present",
-                       loc->path, entry->d_name);
-                defrag->total_failures++;
-                continue;
-            }
-
-            gf_uuid_copy(entry_loc.pargfid, loc->gfid);
 
             /* A return value of 2 means, either process_dir or
              * lookup of a dir failed. Hence, don't commit hash

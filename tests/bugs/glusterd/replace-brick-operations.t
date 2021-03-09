@@ -32,6 +32,8 @@ TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}2 $H0:$B0/${V0}3 commit force
 #bug-1242543-replace-brick validation
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
+#Make sure new brick comes online before doing replace-brick on next-brick.
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 # Replace brick1 without killing
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}1_new commit force
