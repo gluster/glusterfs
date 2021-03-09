@@ -3,12 +3,14 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../afr.rc
 cleanup;
 
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 3 $H0:$B0/brick{0,1,2}
 TEST $CLI volume set $V0 performance.stat-prefetch off
+TEST $CLI volume set $V0 performance.flush-behind off
 TEST $CLI volume start $V0
 TEST $CLI volume heal $V0 disable
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
@@ -18,6 +20,12 @@ EXPECT "^0$" get_value_from_brick_statedump $V0 $H0 $B0/brick0 "xattrop-pending-
 EXPECT "^0$" get_value_from_brick_statedump $V0 $H0 $B0/brick1 "xattrop-pending-count"
 EXPECT "^0$" get_value_from_brick_statedump $V0 $H0 $B0/brick2 "xattrop-pending-count"
 
+#No index file should be created when op succeeds on all bricks
+echo abc > $M0/abc
+TEST rm -f $M0/abc
+EXPECT "^0$" count_index_entries  $B0/brick0
+EXPECT "^0$" count_index_entries  $B0/brick1
+EXPECT "^0$" count_index_entries  $B0/brick2
 #When heal is needed xattrop-pending-count should reflect number of files to be healed
 TEST kill_brick $V0 $H0 $B0/brick0
 echo abc > $M0/a

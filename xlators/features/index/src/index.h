@@ -55,7 +55,7 @@ typedef struct index_priv {
     dict_t *dirty_watchlist;
     dict_t *pending_watchlist;
     dict_t *complete_watchlist;
-    int32_t pending_count;
+    int64_t pending_count;
     pthread_t thread;
     gf_boolean_t down;
     gf_atomic_t stub_cnt;

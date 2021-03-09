@@ -389,12 +389,16 @@ check_delete_stale_index_file(xlator_t *this, char *filename, char *subdir)
 }
 
 static void
-index_set_link_count(index_priv_t *priv, int32_t count,
+index_set_link_count(index_priv_t *priv, int64_t count,
                      index_xattrop_type_t type)
 {
     switch (type) {
         case XATTROP:
-            priv->pending_count = count;
+            LOCK(&priv->lock);
+            {
+                priv->pending_count = count;
+            }
+            UNLOCK(&priv->lock);
             break;
         default:
             break;
@@ -402,12 +406,16 @@ index_set_link_count(index_priv_t *priv, int32_t count,
 }
 
 static void
-index_get_link_count(index_priv_t *priv, int32_t *count,
+index_get_link_count(index_priv_t *priv, int64_t *count,
                      index_xattrop_type_t type)
 {
     switch (type) {
         case XATTROP:
-            *count = priv->pending_count;
+            LOCK(&priv->lock);
+            {
+                *count = priv->pending_count;
+            }
+            UNLOCK(&priv->lock);
             break;
         default:
             break;
@@ -1974,7 +1982,7 @@ out:
     return 0;
 }
 
-static int32_t
+static int64_t
 index_fetch_link_count(xlator_t *this, index_xattrop_type_t type)
 {
     index_priv_t *priv = this->private;
@@ -2037,11 +2045,7 @@ out:
     if (dirp)
         (void)sys_closedir(dirp);
 
-    if (count > INT_MAX) {
-        count = INT_MAX;
-    }
-
-    return (int32_t)count;
+    return count;
 }
 
 dict_t *
@@ -2049,7 +2053,7 @@ index_fill_link_count(xlator_t *this, dict_t *xdata)
 {
     int ret = -1;
     index_priv_t *priv = NULL;
-    int32_t count = -1;
+    int64_t count = -1;
 
     priv = this->private;
     xdata = (xdata) ? dict_ref(xdata) : dict_new();
@@ -2339,7 +2343,7 @@ index_priv_dump(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section("%s", key_prefix);
-    gf_proc_dump_write("xattrop-pending-count", "%d", priv->pending_count);
+    gf_proc_dump_write("xattrop-pending-count", "%"PRId64, priv->pending_count);
 
     return 0;
 }
@@ -2359,7 +2363,7 @@ init(xlator_t *this)
 {
     int i = 0;
     int ret = -1;
-    int32_t count = -1;
+    int64_t count = -1;
     index_priv_t *priv = NULL;
     pthread_attr_t w_attr;
     gf_boolean_t mutex_inited = _gf_false;
