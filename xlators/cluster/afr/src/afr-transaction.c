@@ -1034,7 +1034,7 @@ afr_fill_ta_loc(xlator_t *this, loc_t *loc, gf_boolean_t is_gfid_based_fop)
     afr_private_t *priv = NULL;
 
     priv = this->private;
-    loc->parent = inode_ref(priv->root_inode);
+    loc->parent = inode_ref(this->itable->root);
     gf_uuid_copy(loc->pargfid, loc->parent->gfid);
     loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
     if (is_gfid_based_fop && gf_uuid_is_null(priv->ta_gfid)) {
