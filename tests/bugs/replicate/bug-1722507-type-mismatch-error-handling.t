@@ -32,10 +32,7 @@ setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000001 $B0/$V0"0"/di
 setfattr -n trusted.afr.$V0-client-2 -v 0x000000000000000000000001 $B0/$V0"0"/dir
 
 # Add entry to xattrop dir to trigger index heal.
-xattrop_dir0=$(afr_get_index_path $B0/$V0"0")
-base_entry_b0=`ls $xattrop_dir0`
-gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/dir/))
-ln -s $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_str
+TEST create_brick_xattrop_entry $B0/$V0"0" dir
 EXPECT "^1$" get_pending_heal_count $V0
 
 # Remove the gfid xattr and the link file on one brick.
@@ -78,10 +75,7 @@ setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000001 $B0/$V0"0"/di
 setfattr -n trusted.afr.$V0-client-2 -v 0x000000000000000000000001 $B0/$V0"0"/dir
 
 # Add entry to xattrop dir to trigger index heal.
-xattrop_dir0=$(afr_get_index_path $B0/$V0"0")
-base_entry_b0=`ls $xattrop_dir0`
-gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/dir/))
-ln -s $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_str
+TEST create_brick_xattrop_entry $B0/$V0"0" dir
 EXPECT "^1$" get_pending_heal_count $V0
 
 # Remove the gfid xattr and the link file on two bricks.

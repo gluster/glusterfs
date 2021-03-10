@@ -14,9 +14,6 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST $CLI volume set $V0 self-heal-daemon off
 
-# Create base entry in indices/xattrop
-echo "Data" > $M0/FILE
-
 #------------------------------------------------------------------------------#
 TEST touch $M0/f1
 gfid_f1=$(gf_get_gfid_xattr $B0/${V0}0/f1)
@@ -54,8 +51,8 @@ TEST setfattr -x trusted.gfid $B0/${V0}1/dir/f2
 TEST rm $B0/${V0}1/.glusterfs/${gfid_str_f2:0:2}/${gfid_str_f2:2:2}/$gfid_str_f2
 
 #Now simulate setting of pending entry xattr on parent dir of 1st brick.
-TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000001 $B0/${V0}0/dir
-create_brick_xattrop_entry $B0/${V0}0 dir
+TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000010000000000000001 $B0/${V0}0/dir
+TEST create_brick_xattrop_entry $B0/${V0}0 dir
 
 # storage/posix considers that a file without gfid changed less than a second
 # before doesn't exist, so we need to wait for a second to force posix to

@@ -852,6 +852,19 @@ function check_brick_multiplex() {
         fi
 }
 
+function get_value_from_brick_statedump {
+    local vol="$1"
+    local host="$2"
+    local brick="$3"
+    local key="$4"
+
+    local statedump="$(generate_brick_statedump $vol $host $brick)"
+    value="$(grep "$key" $statedump | cut -f2 -d'=' | tail -1)"
+
+    rm -f "$statedump"
+    echo "$value"
+}
+
 function get_fd_count {
         local vol=$1
         local host=$2

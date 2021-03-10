@@ -316,16 +316,10 @@ $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
-#Create base entry in indices/xattrop
-echo "Data" > $M0/FILE
-rm -f $M0/FILE
-EXPECT "1" count_index_entries $B0/${V0}0
-EXPECT "1" count_index_entries $B0/${V0}1
-
 TEST $CLI volume stop $V0;
 
 #Create entries for fool_heal and fool_me to ensure they are fully healed and dirty xattrs erased, before triggering index heal
-create_brick_xattrop_entry $B0/${V0}0 fool_heal fool_me source_creations_heal/dir1
+TEST create_brick_xattrop_entry $B0/${V0}0 fool_heal fool_me source_creations_heal/dir1
 
 $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1

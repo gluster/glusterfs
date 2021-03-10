@@ -79,21 +79,11 @@ TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000010000000100000000 $B0/${V0
 
 #-------------------------------------------------------------------------------
 #Add entry to xattrop dir on first brick and check for split-brain.
-xattrop_dir0=$(afr_get_index_path $B0/$V0"0")
-base_entry_b0=`ls $xattrop_dir0`
-
-gfid_f1=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/file1))
-TEST ln  $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_f1
 
 gfid_f2_shard1=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/.shard/$gfid_f2.1))
-TEST ln  $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_f2_shard1
 
 gfid_f3=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/${V0}0/file3))
-gfid_f3_shard1=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/.shard/$gfid_f3.1))
-TEST ln $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_f3_shard1
-
-gfid_f4_shard1=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/.shard/$gfid_f4.1))
-TEST ln  $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_f4_shard1
+TEST create_brick_xattrop_entry $B0/$V0"0" file1 .shard/$gfid_f2.1 .shard/$gfid_f3.1 .shard/$gfid_f4.1
 
 #-------------------------------------------------------------------------------
 #gfid split-brain won't show up in split-brain count.
