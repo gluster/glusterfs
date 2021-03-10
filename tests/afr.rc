@@ -7,11 +7,27 @@ function create_brick_xattrop_entry {
         local params=`echo "$@" | cut -d' ' -f2-`
         echo $params
 
+        exit_val=0
         for file in $params
         do
                 gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $1/$file))
-                ln $xattrop_dir/$base_entry $xattrop_dir/$gfid_str
+                if [ -z "$base_entry"];
+                then
+                        touch $xattrop_dir/$gfid_str
+                else
+                        ln $xattrop_dir/$base_entry $xattrop_dir/$gfid_str
+                fi
+
+                if [ $? -ne 0 ];
+                then
+                        exit_val=1
+                fi
         done
+
+        if [ $exit_val -eq 1 ];
+        then
+                false
+        fi
 }
 
 function diff_dirs {
