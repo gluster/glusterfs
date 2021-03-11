@@ -6649,8 +6649,10 @@ dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
 {
     dht_local_t *local;
     int32_t queue;
+    xlator_t *this = NULL;
 
     local = frame->local;
+    this = frame->this;
 
     local->queue_xl = xl;
     local->queue_offset = offset;
@@ -6677,7 +6679,7 @@ dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
             /* A negative value means that an unwind has been called before
              * returning from the previous wind. This means that 'local' is
              * not needed anymore and must be destroyed. */
-            dht_local_wipe(frame->this, local);
+            dht_local_wipe(this, local);
         }
     }
 }
@@ -6690,8 +6692,10 @@ dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
 {
     dht_local_t *local;
     int32_t queue;
+    xlator_t *this = NULL;
 
     local = frame->local;
+    this = frame->this;
 
     local->queue_xl = xl;
     local->queue_offset = offset;
@@ -6705,7 +6709,10 @@ dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
         } while ((queue = uatomic_sub_return(&local->queue, 1)) > 0);
 
         if (queue < 0) {
-            dht_local_wipe(frame->this, local);
+            /* A negative value means that an unwind has been called before
+             * returning from the previous wind. This means that 'local' is
+             * not needed anymore and must be destroyed. */
+            dht_local_wipe(this, local);
         }
     }
 }
