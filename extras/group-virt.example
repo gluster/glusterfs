@@ -22,3 +22,4 @@ server.tcp-user-timeout=20
 server.keepalive-time=10
 server.keepalive-interval=2
 server.keepalive-count=5
+cluster.lookup-optimize=off
