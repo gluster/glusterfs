@@ -3103,4 +3103,9 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_9_0,
      .value = "yes",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
+
+    {.key = "rebalance.ensure-durability",
+     .voltype = "cluster/distribute",
+     .op_version = GD_OP_VERSION_10_0,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = NULL}};
