@@ -80,7 +80,7 @@ __iobuf_arena_init_iobufs(struct iobuf_arena *iobuf_arena)
 
         iobuf->ptr = iobuf_arena->mem_base + offset;
 
-        list_add(&iobuf->list, &iobuf_arena->passive.list);
+        list_add(&iobuf->list, &iobuf_arena->passive_list);
         iobuf_arena->passive_cnt++;
 
         offset += iobuf_arena->page_size;
@@ -153,8 +153,8 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     INIT_LIST_HEAD(&iobuf_arena->list);
     INIT_LIST_HEAD(&iobuf_arena->all_list);
-    INIT_LIST_HEAD(&iobuf_arena->active.list);
-    INIT_LIST_HEAD(&iobuf_arena->passive.list);
+    INIT_LIST_HEAD(&iobuf_arena->passive_list);
+    INIT_LIST_HEAD(&iobuf_arena->active_list);
     iobuf_arena->iobuf_pool = iobuf_pool;
 
     rounded_size = gf_iobuf_get_pagesize(page_size, &index);
@@ -303,8 +303,8 @@ iobuf_create_stdalloc_arena(struct iobuf_pool *iobuf_pool)
         goto err;
 
     INIT_LIST_HEAD(&iobuf_arena->list);
-    INIT_LIST_HEAD(&iobuf_arena->active.list);
-    INIT_LIST_HEAD(&iobuf_arena->passive.list);
+    INIT_LIST_HEAD(&iobuf_arena->passive_list);
+    INIT_LIST_HEAD(&iobuf_arena->active_list);
 
     iobuf_arena->iobuf_pool = iobuf_pool;
 
@@ -459,12 +459,12 @@ __iobuf_get(struct iobuf_pool *iobuf_pool, const size_t page_size,
     if (!iobuf_arena)
         return NULL;
 
-    list_for_each_entry(iobuf, &iobuf_arena->passive.list, list) break;
+    iobuf = list_first_entry(&iobuf_arena->passive_list, struct iobuf, list);
 
     list_del(&iobuf->list);
     iobuf_arena->passive_cnt--;
 
-    list_add(&iobuf->list, &iobuf_arena->active.list);
+    list_add(&iobuf->list, &iobuf_arena->active_list);
     iobuf_arena->active_cnt++;
 
     /* no resetting requied for this element */
@@ -672,7 +672,7 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
         iobuf->free_ptr = NULL;
     }
 
-    list_add(&iobuf->list, &iobuf_arena->passive.list);
+    list_add(&iobuf->list, &iobuf_arena->passive_list);
     iobuf_arena->passive_cnt++;
 
     if (iobuf_arena->active_cnt == 0) {
@@ -1022,7 +1022,7 @@ iobuf_arena_info_dump(struct iobuf_arena *iobuf_arena, const char *key_prefix)
     gf_proc_dump_write(key, "%d", iobuf_arena->max_active);
     gf_proc_dump_build_key(key, key_prefix, "page_size");
     gf_proc_dump_write(key, "%" GF_PRI_SIZET, iobuf_arena->page_size);
-    list_for_each_entry(trav, &iobuf_arena->active.list, list)
+    list_for_each_entry(trav, &iobuf_arena->active_list, list)
     {
         gf_proc_dump_build_key(key, key_prefix, "active_iobuf.%d", i++);
         gf_proc_dump_add_section("%s", key);

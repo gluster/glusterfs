@@ -1538,7 +1538,7 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
         ret = -1;
         errno = EINVAL;
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
-                "size >= %llu is not allowed", GF_UNIT_GB, NULL);
+                "Data size too large", "size = %llu", GF_UNIT_GB, NULL);
         goto out;
     }
 
@@ -3753,8 +3753,9 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
         errno = 0;
     }
 
-    if (ret > 0)
+    if ((ret > 0) && !list_empty(&glfd->entries)) {
         glfd->next = list_entry(glfd->entries.next, gf_dirent_t, list);
+    }
 
     gf_dirent_free(&old);
 out:

@@ -333,6 +333,7 @@ struct glusterd_defrag_info_ {
     uint64_t total_data;
     uint64_t num_files_lookedup;
     uint64_t total_failures;
+    int refcnt;
     gf_lock_t lock;
     int cmd;
     uint32_t connected;

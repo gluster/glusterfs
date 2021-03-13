@@ -249,8 +249,6 @@ ec_fop_data_release(ec_fop_data_t *fop)
         fop->frame->local = NULL;
         STACK_DESTROY(fop->frame->root);
 
-        LOCK_DESTROY(&fop->lock);
-
         if (fop->xdata != NULL) {
             dict_unref(fop->xdata);
         }
@@ -280,6 +278,8 @@ ec_fop_data_release(ec_fop_data_t *fop)
         ec = fop->xl->private;
         ec_handle_last_pending_fop_completion(fop, &notify);
         ec_handle_healers_done(fop);
+
+        LOCK_DESTROY(&fop->lock);
         mem_put(fop);
         if (notify) {
             ec_pending_fops_completed(ec);

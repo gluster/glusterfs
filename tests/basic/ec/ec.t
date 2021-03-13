@@ -11,12 +11,6 @@ function my_getfattr {
     getfattr --only-values -e text $* 2> /dev/null
 }
 
-function get_rep_count {
-    v=$(my_getfattr -n trusted.jbr.rep-count $1)
-    #echo $v > /dev/tty
-    echo $v
-}
-
 function create_file {
     dd if=/dev/urandom of=$1 bs=4k count=$2 conv=sync 2> /dev/null
 }

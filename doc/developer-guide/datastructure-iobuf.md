@@ -67,10 +67,10 @@ struct iobuf_arena {
         struct iobuf       *iobufs;     /* allocated iobufs list */
 
         int                 active_cnt;
-        struct iobuf        active;     /* head node iobuf
-                                           (unused by itself) */
+        struct list_head    passive_list;  /* list of passive iobufs */
+        struct list_head    active_list;   /* list of active iobufs */
+
         int                 passive_cnt;
-        struct iobuf        passive;    /* head node iobuf
                                            (unused by itself) */
         uint64_t            alloc_cnt;  /* total allocs in this pool */
         int                 max_active; /* max active buffers at a given time */

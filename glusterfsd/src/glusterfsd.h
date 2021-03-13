@@ -116,6 +116,7 @@ enum argp_option_keys {
     ARGP_BRICK_MUX_KEY = 193,
     ARGP_FUSE_DEV_EPERM_RATELIMIT_NS_KEY = 194,
     ARGP_FUSE_INVALIDATE_LIMIT_KEY = 195,
+    ARGP_FUSE_DISPLAY_NAME_KEY = 196,
 };
 
 struct _gfd_vol_top_priv {

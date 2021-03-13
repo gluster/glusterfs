@@ -6658,14 +6658,13 @@ init(xlator_t *this_xl)
     dict_t *options = NULL;
     char *value_string = NULL;
     cmd_args_t *cmd_args = NULL;
-    char *fsname = NULL;
+    char fsname[PATH_MAX] = "";
     fuse_private_t *priv = NULL;
     struct stat stbuf = {
         0,
     };
     int i = 0;
     int xl_name_allocated = 0;
-    int fsname_allocated = 0;
     glusterfs_ctx_t *ctx = NULL;
     gf_boolean_t sync_to_mount = _gf_false;
     gf_boolean_t fopen_keep_cache = _gf_false;
@@ -6908,31 +6907,23 @@ init(xlator_t *this_xl)
         priv->congestion_threshold = priv->background_qlen;
     }
 
+    /* What you need to find with we do 'df -h' */
     cmd_args = &this_xl->ctx->cmd_args;
-    fsname = cmd_args->volfile;
-    if (!fsname && cmd_args->volfile_server) {
-        if (cmd_args->volfile_id) {
-            int dir_len = 0;
-            if (cmd_args->subdir_mount)
-                dir_len = strlen(cmd_args->subdir_mount) + 1;
-            fsname = GF_MALLOC(strlen(cmd_args->volfile_server) + 1 +
-                                   strlen(cmd_args->volfile_id) + 1 + dir_len,
-                               gf_fuse_mt_fuse_private_t);
-            if (!fsname) {
-                gf_log("glusterfs-fuse", GF_LOG_ERROR, "Out of memory");
-                goto cleanup_exit;
-            }
-            fsname_allocated = 1;
-            strcpy(fsname, cmd_args->volfile_server);
-            strcat(fsname, ":");
-            strcat(fsname, cmd_args->volfile_id);
-            if (dir_len)
-                strcat(fsname, cmd_args->subdir_mount);
-        } else
-            fsname = cmd_args->volfile_server;
+    char *subdir = cmd_args->subdir_mount ? cmd_args->subdir_mount : "";
+    if (cmd_args->fs_display_name) {
+        snprintf(fsname, PATH_MAX, "%s%s", cmd_args->fs_display_name, subdir);
+    } else {
+        if (cmd_args->volfile_server) {
+            snprintf(fsname, PATH_MAX, "%s:%s%s", cmd_args->volfile_server,
+                     cmd_args->volfile_id, subdir);
+        } else {
+            /* Do we need file path ? */
+            /* volfile-id is mandatory anyways, else we can also write file path
+             */
+            snprintf(fsname, PATH_MAX, "glusterfs:%s%s", cmd_args->volfile_id,
+                     subdir);
+        }
     }
-    if (!fsname)
-        fsname = "glusterfs";
 
     priv->fdtable = gf_fd_fdtable_alloc();
     if (priv->fdtable == NULL) {
@@ -7014,16 +7005,12 @@ init(xlator_t *this_xl)
         priv->fuse_ops = fuse_dump_ops;
     }
 
-    if (fsname_allocated)
-        GF_FREE(fsname);
     GF_FREE(mnt_args);
     return 0;
 
 cleanup_exit:
     if (xl_name_allocated)
         GF_FREE(this_xl->name);
-    if (fsname_allocated)
-        GF_FREE(fsname);
     if (priv) {
         GF_FREE(priv->mount_point);
         if (priv->fd != -1)

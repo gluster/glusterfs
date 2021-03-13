@@ -7,18 +7,7 @@
 cleanup;
 
 function create_xattrop_entry {
-        local xattrop_dir0=$(afr_get_index_path $B0/brick0)
-        local xattrop_dir1=$(afr_get_index_path $B0/brick1)
-        local base_entry_b0=`ls $xattrop_dir0`
-        local base_entry_b1=`ls $xattrop_dir1`
-        local gfid_str
-
-        for file in "$@"
-        do
-                gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/brick0/$file))
-                ln $xattrop_dir0/$base_entry_b0 $xattrop_dir0/$gfid_str
-                ln $xattrop_dir1/$base_entry_b1 $xattrop_dir1/$gfid_str
-        done
+	create_brick_xattrop_entry $B0/brick0 "$@" && create_brick_xattrop_entry $B0/brick1 "$@" || exit 1
 }
 
 function is_heal_done {
@@ -154,15 +143,8 @@ TEST "echo def > $B0/brick1/v1-dirty.txt"
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000200000000000000000 $B0/brick0/v1-dirty.txt
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000100000000000000000 $B0/brick1/v1-dirty.txt
 
-#Create base entry in indices/xattrop
-echo "Data" > $M0/FILE
-rm -f $M0/FILE
-EXPECT "1" count_index_entries $B0/brick0
-EXPECT "1" count_index_entries $B0/brick1
-cd -
-
 #Create gfid hard links for all files before triggering index heals.
-create_xattrop_entry pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt
+TEST create_xattrop_entry pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt
 
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "~" print_pending_heals pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt

@@ -26,7 +26,7 @@
 #include "glusterfs/events.h"
 
 #define EVENT_HOST "127.0.0.1"
-#define EVENT_PORT 24009
+#define EVENT_PORT 55555
 
 int
 _gf_event(eventtypes_t event, const char *fmt, ...)
