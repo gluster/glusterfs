@@ -1017,17 +1017,17 @@ mq_update_size(xlator_t *this, loc_t *loc, quota_meta_t *delta)
     GF_VALIDATE_OR_GOTO("marker", loc->inode, out);
     GF_VALIDATE_OR_GOTO("marker", delta, out);
 
-    if (quota_meta_is_null(delta)) {
-        ret = 0;
-        goto out;
-    }
-
     ret = mq_inode_ctx_get(loc->inode, this, &ctx);
     if (ret < 0) {
         gf_log(this->name, GF_LOG_ERROR,
                "failed to get inode ctx for "
                "%s",
                loc->path);
+        goto out;
+    }
+
+    if (quota_meta_is_null(delta) && (ctx->dir_count != 0)) {
+        ret = 0;
         goto out;
     }
 
