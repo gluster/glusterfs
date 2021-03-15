@@ -1996,13 +1996,15 @@ glusterd_set_brick_socket_filepath(glusterd_volinfo_t *volinfo,
  */
 int32_t
 glusterd_brick_connect(glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *brickinfo, char *socketpath)
+                       glusterd_brickinfo_t *brickinfo, char *socketpath,
+                       glusterd_brickinfo_t *rpc_brick)
 {
     int ret = 0;
     char volume_id_str[64] = "";
     char *brickid = NULL;
     dict_t *options = NULL;
     struct rpc_clnt *rpc = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
@@ -2014,30 +2016,42 @@ glusterd_brick_connect(glusterd_volinfo_t *volinfo,
          * The default timeout of 30mins used for unreliable network
          * connections is too long for unix domain socket connections.
          */
-        options = dict_new();
-        if (!options) {
-            gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
-                    NULL);
-            goto out;
+        
+        if (!rpc_brick) {
+            options = dict_new();
+            if (!options) {
+                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+                        NULL);
+                goto out;
+            }
+
+            ret = rpc_transport_unix_options_build(options, socketpath, 600);
+            if (ret)
+                goto out;
+
+            uuid_utoa_r(volinfo->volume_id, volume_id_str);
+            ret = gf_asprintf(&brickid, "%s:%s:%s", volume_id_str,
+                              brickinfo->hostname, brickinfo->path);
+            if (ret < 0)
+                goto out;
+
+            ret = glusterd_rpc_create(&rpc, options, glusterd_brick_rpc_notify,
+                                      brickid, _gf_false);
+            if (ret) {
+                GF_FREE(brickid);
+                goto out;
+            }
+            brickinfo->rpc = rpc;
+        } else {
+            brickinfo->rpc = rpc_clnt_ref(rpc_brick->rpc);
+            gf_msg_debug(this->name, 0, "Connected to %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+
+            glusterd_set_brick_status(brickinfo, GF_BRICK_STARTED);
+
+            gf_event(EVENT_BRICK_CONNECTED, "peer=%s;volume=%s;brick=%s",
+                     brickinfo->hostname, volinfo->volname, brickinfo->path);
         }
-
-        ret = rpc_transport_unix_options_build(options, socketpath, 600);
-        if (ret)
-            goto out;
-
-        uuid_utoa_r(volinfo->volume_id, volume_id_str);
-        ret = gf_asprintf(&brickid, "%s:%s:%s", volume_id_str,
-                          brickinfo->hostname, brickinfo->path);
-        if (ret < 0)
-            goto out;
-
-        ret = glusterd_rpc_create(&rpc, options, glusterd_brick_rpc_notify,
-                                  brickid, _gf_false);
-        if (ret) {
-            GF_FREE(brickid);
-            goto out;
-        }
-        brickinfo->rpc = rpc;
     }
 out:
     if (options)
@@ -2353,7 +2367,7 @@ retry:
     brick_proc->brick_count++;
 
 connect:
-    ret = glusterd_brick_connect(volinfo, brickinfo, socketpath);
+    ret = glusterd_brick_connect(volinfo, brickinfo, socketpath, NULL);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_DISCONNECTED,
                "Failed to connect to brick %s:%s on %s", brickinfo->hostname,
@@ -6670,6 +6684,131 @@ out:
 }
 
 int
+match_brick_pid_socketpath(int pid, char *pid1_sockpath, int pid2)
+{
+    char pid2_sockpath[PATH_MAX] = "";
+    int ret = -1;
+
+    if ((pid <= 0) || (pid2 <= 0))
+        return ret;
+
+    if (pid2 == pid) {
+        ret = glusterd_get_sock_from_brick_pid(pid2, pid2_sockpath,
+                                               sizeof(pid2_sockpath));
+        if (!ret && !strncmp(pid1_sockpath, pid2_sockpath, sizeof(pid2_sockpath)))
+            return ret;
+    }
+
+    return ret;
+}
+
+/* This name was just getting too long, hence the abbreviations. */
+static glusterd_brickinfo_t *
+find_compat_rpc_brick_in_vol(glusterd_conf_t *conf, glusterd_volinfo_t *own_vol,
+                             glusterd_brickinfo_t *brickinfo, int pid, char *sockpath)
+{
+    glusterd_brickinfo_t *other_brick = NULL;
+    char pidfile2[PATH_MAX] = "";
+    int32_t pid2 = -1;
+    glusterd_volinfo_t *other_vol = NULL;
+    glusterd_snap_t *snap = NULL;
+
+    /* First find rpc compatible brick in own volume */
+    cds_list_for_each_entry(other_brick, &own_vol->bricks, brick_list)
+    {
+        if (other_brick == brickinfo) {
+            continue;
+        }
+        if (gf_uuid_compare(brickinfo->uuid, other_brick->uuid)) {
+            continue;
+        }
+        if (other_brick->status != GF_BRICK_STARTING &&
+            other_brick->status != GF_BRICK_STARTED) {
+            continue;
+        }
+
+        GLUSTERD_GET_BRICK_PIDFILE(pidfile2, own_vol, other_brick, conf);
+        if (sys_access(pidfile2, F_OK) == 0 &&
+            gf_is_service_running(pidfile2, &pid2)) {
+            if (match_brick_pid_socketpath(pid, sockpath, pid2))
+                continue;
+            if (other_brick->rpc)
+                return other_brick;
+        }
+    }
+
+    if (!own_vol->is_snap_volume) {
+        cds_list_for_each_entry(other_vol, &conf->volumes, vol_list)
+        {
+            if (other_vol == own_vol) {
+                continue;
+            }
+
+            cds_list_for_each_entry(other_brick, &other_vol->bricks, brick_list)
+            {
+                if (other_brick == brickinfo) {
+                    continue;
+                }
+                if (gf_uuid_compare(brickinfo->uuid, other_brick->uuid)) {
+                    continue;
+                }
+                if (other_brick->status != GF_BRICK_STARTING &&
+                    other_brick->status != GF_BRICK_STARTED) {
+                    continue;
+                }
+
+                GLUSTERD_GET_BRICK_PIDFILE(pidfile2, other_vol, other_brick,
+                                           conf);
+                if (sys_access(pidfile2, F_OK) == 0 &&
+                    gf_is_service_running(pidfile2, &pid2)) {
+                    if (match_brick_pid_socketpath(pid, sockpath, pid2))
+                        continue;
+                    if (other_brick->rpc)
+                        return other_brick;
+                }
+            }
+        }
+    } else {
+        cds_list_for_each_entry(snap, &conf->snapshots, snap_list)
+        {
+            cds_list_for_each_entry(other_vol, &snap->volumes, vol_list)
+            {
+                if (other_vol == own_vol) {
+                    continue;
+                }
+
+                cds_list_for_each_entry(other_brick, &other_vol->bricks,
+                                        brick_list)
+                {
+                    if (other_brick == brickinfo) {
+                        continue;
+                    }
+                    if (gf_uuid_compare(brickinfo->uuid, other_brick->uuid)) {
+                        continue;
+                    }
+                    if (other_brick->status != GF_BRICK_STARTING &&
+                        other_brick->status != GF_BRICK_STARTED) {
+                        continue;
+                    }
+
+                    GLUSTERD_GET_BRICK_PIDFILE(pidfile2, other_vol, other_brick,
+                                               conf);
+                    if (sys_access(pidfile2, F_OK) == 0 &&
+                        gf_is_service_running(pidfile2, &pid2)) {
+                        if (match_brick_pid_socketpath(pid, sockpath, pid2))
+                            continue;
+                        if (other_brick->rpc)
+                            return other_brick;
+                    }
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+int
 glusterd_brick_start(glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *brickinfo, gf_boolean_t wait,
                      gf_boolean_t only_connect)
@@ -6677,6 +6816,7 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
     int ret = -1;
     xlator_t *this = THIS;
     glusterd_brickinfo_t *other_brick;
+    glusterd_brickinfo_t *rpc_brick = NULL;
     glusterd_conf_t *conf = NULL;
     int32_t pid = -1;
     char pidfile[PATH_MAX] = "";
@@ -6684,6 +6824,7 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
     char *brickpath = NULL;
     glusterd_volinfo_t *other_vol;
     gf_boolean_t is_service_running = _gf_false;
+    gf_boolean_t is_brk_mx_enable = _gf_false;
     uuid_t volid = {
         0,
     };
@@ -6753,9 +6894,11 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
+    is_brk_mx_enable = is_brick_mx_enabled();
+
     is_service_running = gf_is_service_running(pidfile, &pid);
     if (is_service_running) {
-        if (is_brick_mx_enabled()) {
+        if (is_brk_mx_enable) {
             brickpath = search_brick_path_from_proc(pid, brickinfo->path);
             if (!brickpath) {
                 if (only_connect)
@@ -6805,7 +6948,7 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
              * same port (on another brick) and re-use that.
              * TBD: re-use RPC connection across bricks
              */
-            if (!is_brick_mx_enabled()) {
+            if (!is_brk_mx_enable) {
                 glusterd_set_brick_socket_filepath(
                     volinfo, brickinfo, socketpath, sizeof(socketpath));
                 /*
@@ -6826,7 +6969,15 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
                    "Using %s as sockfile for brick %s of volume %s ",
                    socketpath, brickinfo->path, volinfo->volname);
 
-            (void)glusterd_brick_connect(volinfo, brickinfo, socketpath);
+            if (is_brk_mx_enable) {
+                rpc_brick = find_compat_rpc_brick_in_vol(conf, volinfo,
+                                                         brickinfo, pid, socketpath);
+                (void)glusterd_brick_connect(volinfo, brickinfo, socketpath,
+                                             rpc_brick);
+            } else {
+                (void)glusterd_brick_connect(volinfo, brickinfo, socketpath,
+                                             NULL);
+            }
 
             ret = glusterd_brick_process_add_brick(brickinfo, NULL);
             if (ret) {
@@ -6842,7 +6993,8 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
              * other bricks, this brick can be considered as
              * compatible.
              */
-            brickinfo->status = GF_BRICK_STARTING;
+            if (!rpc_brick)
+                brickinfo->status = GF_BRICK_STARTING;
         }
         return 0;
     }

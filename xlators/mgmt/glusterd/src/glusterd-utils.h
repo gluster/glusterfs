@@ -351,7 +351,8 @@ int
 glusterd_clear_pending_nodes(struct cds_list_head *list);
 int32_t
 glusterd_brick_connect(glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *brickinfo, char *socketpath);
+                       glusterd_brickinfo_t *brickinfo, char *socketpath,
+                       glusterd_brickinfo_t *rpc_brick);
 int32_t
 glusterd_brick_disconnect(glusterd_brickinfo_t *brickinfo);
 int32_t
@@ -874,4 +875,7 @@ glusterd_defrag_ref(glusterd_defrag_info_t *defrag);
 
 int
 glusterd_defrag_unref(glusterd_defrag_info_t *defrag);
+
+int
+match_brick_pid_socketpath(int pid, char *pid1_sockpath, int pid2);
 #endif
