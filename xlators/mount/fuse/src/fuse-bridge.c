@@ -40,6 +40,9 @@ typedef struct fuse_uring_ctx {
     struct iobuf *iobuf;
 } fuse_uring_ctx_t;
 
+size_t msg0_size;
+uint32_t psize;
+
 static int gf_fuse_xattr_enotsup_log;
 
 void
@@ -6306,11 +6309,41 @@ fuse_dispatch(xlator_t *xl, gf_async_t *async)
 #define FUSE_EXTRA_ALLOC 512
 
 static int
-fuse_io_uring_prep_and_submit_sqe(fuse_private_t *priv, struct iovec *iovec,
-                                  struct iobuf *iobuf, fuse_uring_ctx_t *setctx)
+fuse_io_uring_prep_and_submit_sqe(fuse_private_t *priv, xlator_t *this,
+                                  struct iovec *iovec, fuse_uring_ctx_t *setctx)
 {
     int ret = 0;
     struct io_uring_sqe *sqe = NULL;
+    struct iobuf *iobuf = NULL;
+
+    /* TODO: This place should always get maximum supported buffer
+       size from 'fuse', which is as of today 128KB. If we bring in
+       support for higher block sizes support, then we should be
+       changing this one too */
+    iobuf = iobuf_get(this->ctx->iobuf_pool);
+
+    /* Add extra 512 byte to the first iov so that it can
+     * accommodate "ordinary" non-write requests. It's not
+     * guaranteed to be big enough, as SETXATTR and namespace
+     * operations with very long names may grow behind it,
+     * but it's good enough in most cases (and we can handle
+     * rest via realloc). */
+    iovec[0].iov_base = GF_MALLOC(
+        sizeof(fuse_async_t) + msg0_size + FUSE_EXTRA_ALLOC,
+        gf_fuse_mt_iov_base);
+
+    if (!iobuf || !iovec[0].iov_base) {
+        gf_log(this->name, GF_LOG_ERROR, "Out of memory");
+        if (iobuf)
+            iobuf_unref(iobuf);
+        GF_FREE(iovec[0].iov_base);
+        return -1;
+    }
+
+    iovec[1].iov_base = iobuf->ptr;
+
+    iovec[0].iov_len = msg0_size;
+    iovec[1].iov_len = psize;
 
     pthread_mutex_lock(&priv->sq_mutex);
     {
@@ -6542,13 +6575,9 @@ fuse_thread_proc(void *data)
     char *mount_point = NULL;
     xlator_t *this = NULL;
     fuse_private_t *priv = NULL;
-    struct iobuf *iobuf = NULL;
-    fuse_in_header_t *finh = NULL;
-    size_t msg0_size = sizeof(*finh) + sizeof(struct fuse_write_in);
     struct pollfd pfd[2] = {{
         0,
     }};
-    uint32_t psize;
     int ret = 0;
 
     this = data;
@@ -6569,6 +6598,7 @@ fuse_thread_proc(void *data)
         goto out;
     }
 
+    msg0_size = sizeof(fuse_in_header_t) + sizeof(struct fuse_write_in);
     psize = ((struct iobuf_pool *)this->ctx->iobuf_pool)->default_page_size;
     priv->msg0_len_p = &msg0_size;
 
@@ -6621,42 +6651,10 @@ fuse_thread_proc(void *data)
         if (priv->init_recvd)
             fuse_graph_sync(this);
 
-        /* TODO: This place should always get maximum supported buffer
-           size from 'fuse', which is as of today 128KB. If we bring in
-           support for higher block sizes support, then we should be
-           changing this one too */
-        iobuf = iobuf_get(this->ctx->iobuf_pool);
-
-        /* Add extra 512 byte to the first iov so that it can
-         * accommodate "ordinary" non-write requests. It's not
-         * guaranteed to be big enough, as SETXATTR and namespace
-         * operations with very long names may grow behind it,
-         * but it's good enough in most cases (and we can handle
-         * rest via realloc). */
-        iov_in[0].iov_base = GF_MALLOC(
-            sizeof(fuse_async_t) + msg0_size + FUSE_EXTRA_ALLOC,
-            gf_fuse_mt_iov_base);
-
-        if (!iobuf || !iov_in[0].iov_base) {
-            gf_log(this->name, GF_LOG_ERROR, "Out of memory");
-            if (iobuf)
-                iobuf_unref(iobuf);
-            GF_FREE(iov_in[0].iov_base);
-            sleep(10);
-            continue;
-        }
-
-        iov_in[1].iov_base = iobuf->ptr;
-
-        iov_in[0].iov_len = msg0_size;
-        iov_in[1].iov_len = psize;
-
-        ret = fuse_io_uring_prep_and_submit_sqe(priv, iov_in, iobuf, setctx);
+        ret = fuse_io_uring_prep_and_submit_sqe(priv, this, iov_in, setctx);
         if (ret < 0) {
             gf_log("this->name", GF_LOG_ERROR,
                    "Failed to submit the request, ret = %d", ret);
-            iobuf_unref(iobuf);
-            GF_FREE(iov_in[0].iov_base);
             sleep(10);
             continue;
         }

@@ -1451,7 +1451,6 @@ if test -n "$LIBURING"; then
    AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled])
    BUILD_LIBURING=yes
 fi
-
 dnl gnfs section
 BUILD_GNFS="no"
 RPCBIND_SERVICE=""
