@@ -2016,12 +2016,12 @@ glusterd_brick_connect(glusterd_volinfo_t *volinfo,
          * The default timeout of 30mins used for unreliable network
          * connections is too long for unix domain socket connections.
          */
-        
+
         if (!rpc_brick) {
             options = dict_new();
             if (!options) {
-                gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
-                        NULL);
+                gf_smsg(this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_CREATE_FAIL, NULL);
                 goto out;
             }
 
@@ -6695,7 +6695,8 @@ match_brick_pid_socketpath(int pid, char *pid1_sockpath, int pid2)
     if (pid2 == pid) {
         ret = glusterd_get_sock_from_brick_pid(pid2, pid2_sockpath,
                                                sizeof(pid2_sockpath));
-        if (!ret && !strncmp(pid1_sockpath, pid2_sockpath, sizeof(pid2_sockpath)))
+        if (!ret &&
+            !strncmp(pid1_sockpath, pid2_sockpath, sizeof(pid2_sockpath)))
             return ret;
     }
 
@@ -6705,7 +6706,8 @@ match_brick_pid_socketpath(int pid, char *pid1_sockpath, int pid2)
 /* This name was just getting too long, hence the abbreviations. */
 static glusterd_brickinfo_t *
 find_compat_rpc_brick_in_vol(glusterd_conf_t *conf, glusterd_volinfo_t *own_vol,
-                             glusterd_brickinfo_t *brickinfo, int pid, char *sockpath)
+                             glusterd_brickinfo_t *brickinfo, int pid,
+                             char *sockpath)
 {
     glusterd_brickinfo_t *other_brick = NULL;
     char pidfile2[PATH_MAX] = "";
@@ -6970,8 +6972,8 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
                    socketpath, brickinfo->path, volinfo->volname);
 
             if (is_brk_mx_enable) {
-                rpc_brick = find_compat_rpc_brick_in_vol(conf, volinfo,
-                                                         brickinfo, pid, socketpath);
+                rpc_brick = find_compat_rpc_brick_in_vol(
+                    conf, volinfo, brickinfo, pid, socketpath);
                 (void)glusterd_brick_connect(volinfo, brickinfo, socketpath,
                                              rpc_brick);
             } else {
