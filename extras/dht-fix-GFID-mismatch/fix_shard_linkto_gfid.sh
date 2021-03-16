@@ -262,7 +262,7 @@ run_per_subvol() {
 wait_for_all_subvol() 
 {
   
-  let timeout=300 #5min
+  let timeout=600 #10min
   let iter=0
   let counter=$subvols_cnt;
   
