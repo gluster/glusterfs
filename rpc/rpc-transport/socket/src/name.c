@@ -108,23 +108,25 @@ af_unix_client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,
     path_data = dict_get_sizen(this->options, "transport.socket.bind-path");
     if (path_data) {
         char *path = data_to_str(path_data);
-        if (!path || path_data->len > 108) { /* 108 = addr->sun_path length */
-            gf_log(this->name, GF_LOG_TRACE,
-                   "bind-path not specified for unix socket, "
-                   "letting connect to assign default value");
-            goto err;
-        }
-
-        addr = (struct sockaddr_un *)sockaddr;
 
         int count = 0;
+
         while (path[count] != '\0') {
             count++;
         }
 
+        addr = (struct sockaddr_un *)sockaddr;
+
         if (count <= 108) {
             strcpy(addr->sun_path, path);
             ret = bind(sock, (struct sockaddr *)addr, sockaddr_len);
+
+        } else { /* 108 = addr->sun_path length */
+
+            gf_log(this->name, GF_LOG_TRACE,
+                   "bind-path not specified for unix socket, "
+                   "letting connect to assign default value");
+            goto err;
         }
 
         if (ret == -1) {
