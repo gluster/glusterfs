@@ -26,6 +26,7 @@ enum gf_fuse_mem_types_ {
     gf_fuse_mt_pthread_t,
     gf_fuse_mt_timed_message_t,
     gf_fuse_mt_interrupt_record_t,
+#if HAVE_LIBURING
     gf_fuse_mt_uring_ctx,
     gf_fuse_mt_out_header_t,
     gf_fuse_mt_open_out_t,
@@ -37,6 +38,7 @@ enum gf_fuse_mem_types_ {
     gf_fuse_mt_write_out_t,
     gf_fuse_mt_lseek_out_t,
     gf_fuse_mt_lk_out_t,
+#endif
     gf_fuse_mt_end
 };
 #endif
