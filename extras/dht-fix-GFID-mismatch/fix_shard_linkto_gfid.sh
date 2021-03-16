@@ -92,7 +92,6 @@ init() {
         printf '%64s\n' | tr ' ' '-'
     done
     
-    rm -rf $WDIR;
     mkdir -p $WDIR; 
 }
 
@@ -250,8 +249,8 @@ run_per_subvol() {
             echo "node $host ---> start local run"
             (./$script_path -v $vol -r $bpath -s $i) &  
         else
-            scp $(pwd)/$script_path $host:/tmp/.
-            cmd="/tmp/fix_shard_linkto_gfid.sh -v $vol -r $bpath -s $i"
+            scp $(pwd)/$script_path $host:/tmp/fix_shard_linkto_gfid_$i.sh              
+            cmd="/tmp/fix_shard_linkto_gfid_$i.sh -v $vol -r $bpath -s $i"
             echo "node $host ---> start remote run"
             run_command_on_server "${host}" "${cmd}" &
         fi 
@@ -383,6 +382,7 @@ if [ -n "$brick_root" ] && [ -n "$hashed_subvol" ]; then
 fi
 
 #main flow
+rm -f $WDIR/*;
 run_per_subvol;
 wait_for_all_subvol;
 if [ "$dry_mode" = false ] ; then
