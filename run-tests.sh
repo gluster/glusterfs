@@ -293,10 +293,10 @@ function get_test_status ()
     # updating just this function with a better logic much simpler.
     Linux)
         result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" "$test_name" | \
-                 awk -F"," {'print $1'} | awk -F"=" {'print $2'}) ;;
+                 awk -F"," "{"'print $1'"}" | awk -F"=" "{"'print $2'"}") ;;
     NetBSD)
         result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" "$test_name" | \
-                 awk -F"," {'print $1'} | awk -F"=" {'print $2'}) ;;
+                 awk -F"," "{"'print $1'"}" | awk -F"=" "{"'print $2'"}") ;;
     *)
         result="ENABLED" ;;
     esac
@@ -320,10 +320,10 @@ function get_bug_list_for_disabled_test ()
     # updating just this function with a better logic much simpler.
     Linux)
         result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" "$test_name" | \
-                 awk -F"," {'print $2'} | awk -F"=" {'print $2'}) ;;
+                 awk -F"," "{"'print $2'"}" | awk -F"=" "{"'print $2'"}") ;;
     NetBSD)
         result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" "$test_name" | \
-                 awk -F"," {'print $2'} | awk -F"=" {'print $2'}) ;;
+                 awk -F"," "{"'print $2'"}" | awk -F"=" "{"'print $2'"}") ;;
     *)
         result="0000000" ;;
     esac
@@ -589,7 +589,7 @@ function parse_args ()
         esac
         shift
     done
-    tests="$@"
+    tests=( "$@" )
 }
 
 
@@ -618,5 +618,5 @@ if [ x"$head" != x"no" ]; then
         run_head_tests || exit 1
 fi
 if [ x"$head" != x"only" ]; then
-        run_tests "$tests" || exit 1
+        run_tests "${tests[@]}" || exit 1
 fi
