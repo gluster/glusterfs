@@ -1107,7 +1107,9 @@ struct volume_options dht_options[] = {
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",
      .description = "If disabled, rebalance will not fsync files after "
-                    "migration",
+                    "migration. Please note that this can lead to bad data if "
+                    "the data couldn't be synced by the brick machine's "
+                    "kernel, because of hardware failure etc.",
      .op_version = {GD_OP_VERSION_10_0},
      .level = OPT_STATUS_ADVANCED,
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
