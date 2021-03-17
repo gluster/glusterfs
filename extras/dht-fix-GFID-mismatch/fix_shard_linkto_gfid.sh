@@ -47,7 +47,7 @@ END
 }
 
 log() {
-     [ ! -z "$1" ] && echo "$1" >> $WDIR/fix_shard.log
+     [ ! -z "$1" ] && echo "$1" >> $work_dir/fix_shard.log
 }
 
 #---------------------------------------------------------------------
@@ -92,7 +92,8 @@ init() {
         printf '%64s\n' | tr ' ' '-'
     done
     
-    mkdir -p $WDIR; 
+    rm -rf $work_dir;
+    mkdir -p $work_dir; 
 }
 
 
@@ -132,7 +133,7 @@ logged_GFID_mismatch() {
     local dgfid=$3
     
     echo "file: $f - GFID linkto file differ from data file. logging."
-    printf "%-43s %-35s %-12s %-35s %-12s \n" $f, $lgfid, subvol_$hashed_subvol, $dgfid, subvol_$cached_subvol >> $REPORT_NAME_WIP_FILE$hashed_subvol
+    printf "%-43s %-35s %-12s %-35s %-12s \n" $f, $lgfid, subvol_$hashed_subvol, $dgfid, subvol_$cached_subvol >> $work_dir/$REPORT_NAME_WIP
     
     #fixing-script
     linkto_gfid_path=".glusterfs/${lgfid:2:2}/${lgfid:4:2}/${lgfid:2:8}-${lgfid:10:4}-${lgfid:14:4}-${lgfid:18:4}-${lgfid:22}" 
@@ -141,7 +142,7 @@ logged_GFID_mismatch() {
         host=$(echo ${bricks[$i]} | cut -d ":" -f 1)
         bpath=$(echo  ${bricks[$i]} | cut -f2 -d':')
 
-cat << EOT >> $FIX_SCRIPT$hashed_subvol
+cat << EOT >> $work_dir/$FIX_SCRIPT
 
 ssh $host << FIX
     cd $bpath/$shard_dir
@@ -161,10 +162,10 @@ run() {
     cd $brick_root/$shard_dir
     
 #prepare report and fix-script files
-    printf "%-43s %-35s %-12s %-35s %-12s \n" filename linkto-gfid subvol data-gfid subvol> $REPORT_NAME_WIP_FILE$hashed_subvol
-    printf '%140s\n' | tr ' ' '-' >> $REPORT_NAME_WIP_FILE$hashed_subvol
+    printf "%-43s %-35s %-12s %-35s %-12s \n" filename linkto-gfid subvol data-gfid subvol> $work_dir/$REPORT_NAME_WIP
+    printf '%140s\n' | tr ' ' '-' >> $work_dir/$REPORT_NAME_WIP
     
-cat <<EOT > $FIX_SCRIPT$hashed_subvol
+cat <<EOT > $work_dir/$FIX_SCRIPT
 #! /bin/bash
 EOT
     
@@ -194,7 +195,7 @@ EOT
         fi
     done
     
-    mv $REPORT_NAME_WIP_FILE$hashed_subvol $REPORT_NAME_FILE$hashed_subvol; 
+    mv $work_dir/$REPORT_NAME_WIP $work_dir/$REPORT_NAME_FILE; 
     return 0;
 }
 
@@ -283,21 +284,23 @@ wait_for_all_subvol()
         host=$(echo ${bricks[$b_0]} | cut -d ":" -f 1)
     
         if is_local_node $host; then 
-            if [  -e $REPORT_NAME_FILE$i ];then
+            if [  -e $work_dir/$i/$REPORT_NAME_FILE ];then
                 echo "subvol $i -->  detected as done"
-                mv $REPORT_NAME_FILE$i $WDIR/${REPORT_NAME}_subvol$i
+                mv $work_dir/$i/$REPORT_NAME_FILE $work_dir/${REPORT_NAME}_subvol$i
+                mv $work_dir/$i/$FIX_SCRIPT $work_dir/${FIX_SCRIPT}_$i; 
+                chmod +x $work_dir/$FIX_SCRIPT $work_dir/${FIX_SCRIPT}_$i;
                 subvol_stat[$i]=1;
                 ((counter-=1))
             fi        
         else
-            if ssh $host "test -e $REPORT_NAME_FILE$i"; then
+            if ssh $host "test -e $work_dir/$i/$REPORT_NAME_FILE"; then
                 echo "subvol $i -->  detected as done"
-                scp $host:$REPORT_NAME_FILE$i $WDIR/${REPORT_NAME}_subvol$i
+                scp $host:$work_dir/$i/$REPORT_NAME_FILE $work_dir/${REPORT_NAME}_subvol$i
                 subvol_stat[$i]=1;
                 ((counter-=1))
-                if ssh $host "test -e $FIX_SCRIPT$i"; then
-                     scp $host:$FIX_SCRIPT$i $FIX_SCRIPT$i
-                     chmod +x $FIX_SCRIPT$i
+                if ssh $host "test -e $work_dir/$i/$FIX_SCRIPT"; then
+                     scp $host:$work_dir/$i/$FIX_SCRIPT $work_dir/${FIX_SCRIPT}_${i}
+                     chmod +x $work_dir/${FIX_SCRIPT}_${i}
                 fi   
             fi
         fi
@@ -315,7 +318,7 @@ wait_for_all_subvol()
 
 #----------------------------------------------------
 run_fix() {
-    for f in $FIX_SCRIPT*; do 
+    for f in $work_dir/$FIX_SCRIPT*; do 
         echo "Running fix script $f"; 
         chmod +x $f
         bash -x $f
@@ -330,16 +333,17 @@ subvols_cnt=0
 bricks_per_subvol=0
 declare -a subvol_stat
 brick_root=""
-hashed_subvol=0
+hashed_subvol=""
 local_hostname=""
 dry_mode==true
 shard_dir=".shard"
 script_path=""
-WDIR="/tmp/dht/"
+BASE_DIR="/tmp/dht/"
+work_dir=$BASE_DIR
 REPORT_NAME="linkto_gfid_mismatch"
-REPORT_NAME_WIP_FILE=$WDIR$REPORT_NAME".work"
-REPORT_NAME_FILE=$WDIR$REPORT_NAME".out"
-FIX_SCRIPT=$WDIR/"FIX_gfid_subvol_"
+REPORT_NAME_WIP=$REPORT_NAME".work"
+REPORT_NAME_FILE=$REPORT_NAME".out"
+FIX_SCRIPT="FIX_gfid_subvol"
 
 
 while getopts "h?v:r:s:f" opt; do
@@ -363,6 +367,7 @@ while getopts "h?v:r:s:f" opt; do
     s)
        echo "-s was triggered, Parameter: $OPTARG"
        hashed_subvol=$OPTARG
+       work_dir=$work_dir/$hashed_subvol
        ;;
     esac
 done
@@ -382,7 +387,6 @@ if [ -n "$brick_root" ] && [ -n "$hashed_subvol" ]; then
 fi
 
 #main flow
-rm -f $WDIR/*;
 run_per_subvol;
 wait_for_all_subvol;
 if [ "$dry_mode" = false ] ; then
