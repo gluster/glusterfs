@@ -1818,19 +1818,23 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
 
     /* TODO: Sync the locks */
 
-    xdata = dict_new();
-    if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "%s: failed to set last-fsync flag on "
-               "%s (%s)",
-               loc->path, hashed_subvol->name, strerror(ENOMEM));
-    }
+    if (conf->ensure_durability) {
+        xdata = dict_new();
+        if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "%s: failed to set last-fsync flag on "
+                   "%s (%s)",
+                   loc->path, hashed_subvol->name, strerror(ENOMEM));
+        }
 
-    ret = syncop_fsync(hashed_subvol, dst_fd, 0, NULL, NULL, xdata, NULL);
-    if (ret) {
-        gf_log(this->name, GF_LOG_WARNING, "%s: failed to fsync on %s (%s)",
-               loc->path, hashed_subvol->name, strerror(-ret));
-        *fop_errno = -ret;
+        ret = syncop_fsync(hashed_subvol, dst_fd, 0, NULL, NULL, xdata, NULL);
+        if (ret) {
+            gf_log(this->name, GF_LOG_WARNING, "%s: failed to fsync on %s (%s)",
+                   loc->path, hashed_subvol->name, strerror(-ret));
+            *fop_errno = -ret;
+            ret = -1;
+            goto out;
+        }
     }
 
     /* Phase 2 - Data-Migration Complete, Housekeeping updates pending */

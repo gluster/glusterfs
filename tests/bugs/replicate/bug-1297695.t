@@ -22,7 +22,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 
 TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start
-TEST $CLI volume set $V0 ensure-durability off
+TEST $CLI volume set $V0 cluster.ensure-durability off
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 TEST mkdir $M0/dir
 TEST touch $M0/dir/file

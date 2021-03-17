@@ -615,6 +615,8 @@ struct dht_conf {
     gf_boolean_t do_weighting;
 
     gf_boolean_t randomize_by_gfid;
+
+    gf_boolean_t ensure_durability;
 };
 typedef struct dht_conf dht_conf_t;
 
