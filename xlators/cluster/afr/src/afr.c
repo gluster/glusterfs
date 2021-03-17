@@ -1186,7 +1186,10 @@ struct volume_options options[] = {
         .tags = {"replicate"},
         .description = "Afr performs fsyncs for transactions if this "
                        "option is on to make sure the changelogs/data is "
-                       "written to the disk",
+                       "written to the disk. Please note that disabling this "
+                       "option can lead to bad data if the data couldn't be "
+                       "synced by the brick machine's kernel, because of "
+                       "hardware failure etc.",
         .default_value = "on",
     },
     {
