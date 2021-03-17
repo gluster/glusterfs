@@ -126,7 +126,6 @@ af_unix_client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,
             gf_log(this->name, GF_LOG_ERROR,
                    "cannot bind to unix-domain socket %d (%s)", sock,
                    strerror(errno));
-            goto err;
         }
     } else {
         gf_log(this->name, GF_LOG_TRACE,
