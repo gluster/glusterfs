@@ -1450,14 +1450,7 @@ case $host_os in
                       AC_HELP_STRING([--disable-linux-io_uring],
                       [Disable io-uring in POSIX xlator.]))
 
-        # Don't build on our jenkins CentOS 7 machines. We can remove this
-        # centOS7 variable when we start using CentOS Stream where liburing is available.
-        if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
-            if grep "release 7" /etc/centos-release; then
-                centOS7=yes
-            fi
-        fi
-        if test "x$enable_linux_io_uring" != "xno" -a "x$centOS7" != "xyes"; then
+        if test "x$enable_linux_io_uring" != "xno" ; then
             AC_CHECK_HEADERS([liburing.h],
                              [AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled]) LIBURING="-luring"],
                              AC_MSG_ERROR([Install liburing library and headers or use --disable-linux-io_uring]))
