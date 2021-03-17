@@ -8,6 +8,7 @@
 # tests separately), exporting variables from env.rc is not harmful if
 # done here
 
+# shellcheck source=./tests/env.rc
 source ./tests/env.rc
 
 export TZ=UTC
@@ -108,78 +109,78 @@ function check_dependencies()
     MISSING=""
 
     # Check for dbench
-    env dbench --usage > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env dbench --usage > /dev/null 2>&1
+    then
         MISSING="$MISSING dbench"
     fi
 
     # Check for git
-    env git --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env git --version > /dev/null 2>&1
+    then
         MISSING="$MISSING git"
     fi
 
     # Check for nfs-utils (Linux-only: built-in NetBSD with different name)
-    if [ "x`uname -s`" = "xLinux" ] ; then
-      env mount.nfs -V > /dev/null 2>&1
-      if [ $? -ne 0 ]; then
+    if [ "x$(uname -s)" = "xLinux" ] ; then
+      if env mount.nfs -V > /dev/null 2>&1
+      then
           MISSING="$MISSING nfs-utils"
       fi
     fi
 
     # Check for netstat
-    env netstat --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env netstat --version > /dev/null 2>&1
+    then
         MISSING="$MISSING netstat"
     fi
 
     # Check for the Perl Test Harness
-    env prove --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env prove --version > /dev/null 2>&1
+    then
         MISSING="$MISSING perl-Test-Harness"
     fi
 
-    which json_verify > /dev/null
-    if [ $? -ne 0 ]; then
+    if which json_verify > /dev/null
+    then
         MISSING="$MISSING json_verify"
     fi
 
     # Check for XFS programs (Linux Only: NetBSD does without)
-    if [ "x`uname -s`" = "xLinux" ] ; then
-      env mkfs.xfs -V > /dev/null 2>&1
-      if [ $? -ne 0 ]; then
+    if [ "x$(uname -s)" = "xLinux" ] ; then
+      if env mkfs.xfs -V > /dev/null 2>&1
+      then
           MISSING="$MISSING xfsprogs"
       fi
     fi
 
     # Check for attr
-    env getfattr --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env getfattr --version > /dev/null 2>&1
+    then
         MISSING="$MISSING attr"
     fi
 
     # Check for pidof
-    pidof pidof > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if pidof pidof > /dev/null 2>&1
+    then
         MISSING="$MISSING pidof"
     fi
 
     # Check for netstat
-    env netstat --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env netstat --version > /dev/null 2>&1
+    then
         MISSING="$MISSING netstat"
     fi
 
     # Check for killall
-    env killall --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if env killall --version > /dev/null 2>&1
+    then
         MISSING="$MISSING killall"
     fi
 
     # check for psutil python package
-    test `uname -s` == "Darwin" || test `uname -s` == "FreeBSD" && {
-        pip show psutil | grep -q psutil >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
+    test "$(uname -s)" == "Darwin" || test "$(uname -s)" == "FreeBSD" && {
+        if pip show psutil | grep -q psutil >/dev/null 2>&1
+        then
             MISSING="$MISSING psutil"
         fi
     }
@@ -203,9 +204,9 @@ function check_dependencies()
 
 function check_location()
 {
-    regression_testsdir=$(dirname $0);
+    regression_testsdir="$(dirname "$0")";
 
-    if [ ! -f ${regression_testsdir}/tests/include.rc ]; then
+    if [ ! -f "${regression_testsdir}"/tests/include.rc ]; then
         echo "Aborting."
         echo
         echo "The tests/ subdirectory seems to be missing."
@@ -219,8 +220,8 @@ function check_location()
 function check_user()
 {
     # If we're not running as root, warn the user and abort
-    MYUID=`/usr/bin/id -u`
-    if [ 0${MYUID} -ne 0 ]; then
+    MYUID=$(/usr/bin/id -u)
+    if [ 0"${MYUID}" -ne 0 ]; then
         echo "Aborting."
         echo
         echo "The GlusterFS Test Framework must be run as root."
@@ -255,7 +256,7 @@ function match()
             match=0
             return $match
         fi
-        for a in $@ ; do
+        for a in "$@" ; do
             case "$t" in
                 *$a*)
                     match=0
@@ -291,10 +292,10 @@ function get_test_status ()
     # Because changing the key in all test files would be very big process
     # updating just this function with a better logic much simpler.
     Linux)
-        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" $test_name | \
+        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" "$test_name" | \
                  awk -F"," {'print $1'} | awk -F"=" {'print $2'}) ;;
     NetBSD)
-        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" $test_name | \
+        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" "$test_name" | \
                  awk -F"," {'print $1'} | awk -F"=" {'print $2'}) ;;
     *)
         result="ENABLED" ;;
@@ -318,10 +319,10 @@ function get_bug_list_for_disabled_test ()
     # Because changing the key in all test files would be very big process
     # updating just this function with a better logic much simpler.
     Linux)
-        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" $test_name | \
+        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" "$test_name" | \
                  awk -F"," {'print $2'} | awk -F"=" {'print $2'}) ;;
     NetBSD)
-        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" $test_name | \
+        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" "$test_name" | \
                  awk -F"," {'print $2'} | awk -F"=" {'print $2'}) ;;
     *)
         result="0000000" ;;
@@ -351,41 +352,41 @@ function run_tests()
     # This is not supported on centos6, but spuported on centos7
     # The flags is required for running the command in both flavors
     timeout_cmd_exists="yes"
-    timeout -k 1 10 echo "testing 'timeout' command"
-    if [ $? -ne 0 ]; then
+    if timeout -k 1 10 echo "testing 'timeout' command"
+    then
         timeout_cmd_exists="no"
     fi
 
-    all_tests=($(find ${regression_testsdir}/tests -name '*.t' | sort))
+    all_tests=($(find "${regression_testsdir}"/tests -name '*.t' | sort))
     all_tests_cnt=${#all_tests[@]}
     for t in "${all_tests[@]}" ; do
         old_cores=$(ls /*-*.core 2> /dev/null | wc -l)
         total_tests=$((total_tests+1))
-        if match $t "$@" ; then
+        if match "$t" "$@" ; then
             selected_tests=$((selected_tests+1))
             echo
             echo $section_separator "(${total_tests} / ${all_tests_cnt})" $section_separator
-            if [[ $(get_test_status $t) =~ "BAD_TEST" ]] && \
+            if [[ $(get_test_status "$t") =~ "BAD_TEST" ]] && \
                [[ $skip_bad_tests == "yes" ]]
             then
                 skipped_bad_tests=$((skipped_bad_tests+1))
                 echo "Skipping bad test file $t"
-                echo "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
+                echo "Reason: bug(s):" "$(get_bug_list_for_disabled_test "$t")"
                 echo $section_separator$section_separator
                 echo
                 continue
             fi
-            if [[ $(get_test_status $t) == "KNOWN_ISSUE" ]] && \
+            if [[ $(get_test_status "$t") == "KNOWN_ISSUE" ]] && \
                [[ $skip_known_bugs == "yes" ]]
             then
                 skipped_known_issue_tests=$((skipped_known_issue_tests+1))
                 echo "Skipping test file $t due to known issue"
-                echo "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
+                echo "Reason: bug(s):" "$(get_bug_list_for_disabled_test "$t")"
                 echo $section_separator$section_separator
                 echo
                 continue
             fi
-            if [[ $(get_test_status $t) == "NFS_TEST" ]] && \
+            if [[ $(get_test_status "$t") == "NFS_TEST" ]] && \
                [[ $nfs_tests == "no" ]]
             then
                 echo "Skipping nfs test file $t"
@@ -399,20 +400,20 @@ function run_tests()
 
             local cmd_timeout=$run_timeout;
             if [ ${timeout_cmd_exists} == "yes" ]; then
-                if [ $(grep -c "SCRIPT_TIMEOUT=" ${t}) == 1 ] ; then
-                    cmd_timeout=$(grep "SCRIPT_TIMEOUT=" ${t} | cut -f2 -d'=');
-                    echo "Timeout set is ${cmd_timeout}, default ${run_timeout}"
+                if [ "$(grep -c "SCRIPT_TIMEOUT=" "${t}")" == 1 ] ; then
+                    cmd_timeout=$(grep "SCRIPT_TIMEOUT=" "${t}" | cut -f2 -d'=');
+                    echo "Timeout set is {cmd_timeout}, default ${run_timeout}"
                 fi
-                timeout --foreground -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                timeout --foreground -k "${kill_after_time}" "${cmd_timeout}" prove -vmfe '/bin/bash' "${t}"
             else
-                prove -vmfe '/bin/bash' ${t}
+                prove -vmfe '/bin/bash' "${t}"
             fi
             TMP_RES=$?
-            ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
+            ELAPSEDTIMEMAP[$t]=$(($(date +%s) - "$starttime"))
             tar_logs "$t"
 
             # timeout always return 124 if it is actually a timeout.
-            if ((${TMP_RES} == 124)); then
+            if ((TMP_RES == 124)); then
                 echo "${t} timed out after ${cmd_timeout} seconds"
             fi
 
@@ -427,14 +428,14 @@ function run_tests()
                 echo ""
 
                 if [ ${timeout_cmd_exists} == "yes" ]; then
-                    timeout --foreground -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                    timeout --foreground -k "${kill_after_time}" "${cmd_timeout}" prove -vmfe '/bin/bash' "${t}"
                 else
-                    prove -vmfe '/bin/bash' ${t}
+                    prove -vmfe '/bin/bash' "${t}"
                 fi
                 TMP_RES=$?
                 tar_logs "$t"
 
-                if ((${TMP_RES} == 124)); then
+                if ((TMP_RES == 124)); then
                     echo "${t} timed out after ${cmd_timeout} seconds"
                 fi
 
@@ -490,23 +491,23 @@ function run_tests()
 
     # Output the errors into a file
     if [ ${RES} -ne 0 ] ; then
-        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
+        FAILED=$( echo "${FAILED}" | tr ' ' '\n' | sort -u )
         FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
         echo -e "\n$FAILED_COUNT test(s) failed \n${FAILED}" >> "${result_output}"
-        GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
+        GENERATED_CORE=$( echo  "${GENERATED_CORE}" | tr ' ' '\n' | sort -u )
         GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
         echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}" >> "${result_output}"
         cat "${result_output}"
     fi
-    TESTS_NEEDED_RETRY=$( echo ${TESTS_NEEDED_RETRY} | tr ' ' '\n' | sort -u )
+    TESTS_NEEDED_RETRY=$( echo "${TESTS_NEEDED_RETRY}" | tr ' ' '\n' | sort -u )
     RETRY_COUNT=$( echo -n "${TESTS_NEEDED_RETRY}" | grep -c '^' )
-    if [ ${RETRY_COUNT} -ne 0 ] ; then
+    if [ "${RETRY_COUNT}" -ne 0 ] ; then
         echo -e "\n${RETRY_COUNT} test(s) needed retry \n${TESTS_NEEDED_RETRY}" >> "${result_output}"
     fi
 
-    FLAKY_TESTS_FAILED=$( echo ${FLAKY} | tr ' ' '\n' | sort -u )
+    FLAKY_TESTS_FAILED=$( echo "${FLAKY}" | tr ' ' '\n' | sort -u )
     RETRY_COUNT=$( echo -n "${FLAKY_TESTS_FAILED}" | grep -c '^' )
-    if [ ${RETRY_COUNT} -ne 0 ] ; then
+    if [ "${RETRY_COUNT}" -ne 0 ] ; then
         echo -e "\n${RETRY_COUNT} flaky test(s) marked as success even though they failed \n${FLAKY_TESTS_FAILED}" >> "${result_output}"
     fi
 
@@ -518,14 +519,14 @@ function run_tests()
 
 function run_head_tests()
 {
-    [ -d ${regression_testsdir}/.git ] || return 0
+    [ -d "${regression_testsdir}"/.git ] || return 0
 
     # The git command needs $cwd to be within the repository, but run_tests
     # needs it to be back where we started.
-    pushd $regression_testsdir
+    pushd "$regression_testsdir" || exit
     git_cmd="git diff-tree --no-commit-id --name-only --diff-filter=ACMRTUXB"
     htests=$($git_cmd -r HEAD tests | grep '.t$')
-    popd
+    popd || exit
     [ -n "$htests" ] || return 0
 
     # Perhaps it's not ideal that we'll end up re-running these tests, but the
@@ -563,12 +564,12 @@ usage="no"
 
 function parse_args ()
 {
-    args=`getopt -u -l help frRcbkphHno:t: "$@"`
-    if ! [ $? -eq 0 ]; then
+    if ! args=$(getopt -u -l help frRcbkphHno:t: "$@")
+    then
 	show_usage
 	exit 1
     fi
-    set -- $args
+    set -- "$args"
     while [ $# -gt 0 ]; do
         case "$1" in
         -f)    force="yes" ;;
