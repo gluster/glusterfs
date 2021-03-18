@@ -1444,12 +1444,17 @@ if test -n "$LIBAIO"; then
 fi
 
 BUILD_LIBURING=no
-AC_CHECK_HEADERS([liburing.h])
-AC_CHECK_LIB([uring],[io_uring_queue_init],[LIBURING="-luring"])
+AC_ARG_ENABLE([liburing],
+              AC_HELP_STRING([--enable-liburing],
+                             [Enable iouring for system calls]))
+if test "x$enable_liburing" = "xyes"; then
+    AC_CHECK_HEADERS([liburing.h])
+    AC_CHECK_LIB([uring],[io_uring_queue_init],[LIBURING="-luring"])
 
-if test -n "$LIBURING"; then
-   AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled])
-   BUILD_LIBURING=yes
+    if test -n "$LIBURING"; then
+        AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled])
+        BUILD_LIBURING=yes
+    fi
 fi
 dnl gnfs section
 BUILD_GNFS="no"
