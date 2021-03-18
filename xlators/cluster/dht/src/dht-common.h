@@ -711,25 +711,21 @@ typedef struct dht_fd_ctx {
 #define DHT_STACK_UNWIND(fop, frame, params...)                                \
     do {                                                                       \
         dht_local_t *__local = NULL;                                           \
-        xlator_t *__xl = NULL;                                                 \
         if (frame) {                                                           \
-            __xl = frame->this;                                                \
             __local = frame->local;                                            \
             frame->local = NULL;                                               \
         }                                                                      \
         STACK_UNWIND_STRICT(fop, frame, params);                               \
-        dht_local_wipe(__xl, __local);                                         \
+        dht_local_wipe(__local);                                               \
     } while (0)
 
 #define DHT_STACK_DESTROY(frame)                                               \
     do {                                                                       \
         dht_local_t *__local = NULL;                                           \
-        xlator_t *__xl = NULL;                                                 \
-        __xl = frame->this;                                                    \
         __local = frame->local;                                                \
         frame->local = NULL;                                                   \
         STACK_DESTROY(frame->root);                                            \
-        dht_local_wipe(__xl, __local);                                         \
+        dht_local_wipe(__local);                                               \
     } while (0)
 
 #define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, post)            \
@@ -812,7 +808,7 @@ int
 dht_deitransform(xlator_t *this, uint64_t y, xlator_t **subvol);
 
 void
-dht_local_wipe(xlator_t *this, dht_local_t *local);
+dht_local_wipe(dht_local_t *local);
 dht_local_t *
 dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop);
 int
@@ -867,7 +863,7 @@ int
 dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout);
 ;
 void
-dht_layout_unref(xlator_t *this, dht_layout_t *layout);
+dht_layout_unref(dht_layout_t *layout);
 dht_layout_t *
 dht_layout_ref(xlator_t *this, dht_layout_t *layout);
 int

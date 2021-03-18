@@ -1920,7 +1920,7 @@ unlock:
         if (local->layout_mismatch) {
             /* Found layout mismatch in the directory, need to
                fix this in the inode context */
-            dht_layout_unref(this, local->layout);
+            dht_layout_unref(local->layout);
             local->layout = NULL;
             dht_lookup_directory(frame, this, &local->loc);
             return 0;
@@ -1929,7 +1929,7 @@ unlock:
         if (local->need_lookup_everywhere) {
             /* As the current layout gave ENOENT error, we would
                need a new layout */
-            dht_layout_unref(this, local->layout);
+            dht_layout_unref(local->layout);
             local->layout = NULL;
 
             /* We know that current cached subvol is no longer
@@ -3401,7 +3401,7 @@ dht_do_revalidate(call_frame_t *frame, xlator_t *this, loc_t *loc)
     /* Generation number has changed. This layout may be stale. */
     if (layout->gen && (layout->gen < conf->gen)) {
         gen = layout->gen;
-        dht_layout_unref(this, local->layout);
+        dht_layout_unref(local->layout);
         local->layout = NULL;
         local->cached_subvol = NULL;
 
@@ -6622,7 +6622,7 @@ dht_populate_inode_for_dentry(xlator_t *this, xlator_t *subvol,
     }
 
     if (layout)
-        dht_layout_unref(this, layout);
+        dht_layout_unref(layout);
 
 out:
     loc_wipe(&loc);
@@ -6649,10 +6649,8 @@ dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
 {
     dht_local_t *local;
     int32_t queue;
-    xlator_t *this = NULL;
 
     local = frame->local;
-    this = frame->this;
 
     local->queue_xl = xl;
     local->queue_offset = offset;
@@ -6679,7 +6677,7 @@ dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
             /* A negative value means that an unwind has been called before
              * returning from the previous wind. This means that 'local' is
              * not needed anymore and must be destroyed. */
-            dht_local_wipe(this, local);
+            dht_local_wipe(local);
         }
     }
 }
@@ -6692,10 +6690,8 @@ dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
 {
     dht_local_t *local;
     int32_t queue;
-    xlator_t *this = NULL;
 
     local = frame->local;
-    this = frame->this;
 
     local->queue_xl = xl;
     local->queue_offset = offset;
@@ -6712,7 +6708,7 @@ dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
             /* A negative value means that an unwind has been called before
              * returning from the previous wind. This means that 'local' is
              * not needed anymore and must be destroyed. */
-            dht_local_wipe(this, local);
+            dht_local_wipe(local);
         }
     }
 }
@@ -7878,7 +7874,7 @@ dht_guard_parent_layout_and_namespace(xlator_t *subvol, call_stub_t *stub)
     memcpy((void *)local->parent_disk_layout, (void *)parent_disk_layout,
            sizeof(local->parent_disk_layout));
 
-    dht_layout_unref(this, parent_layout);
+    dht_layout_unref(parent_layout);
     parent_layout = NULL;
 
     ret = dict_set_str(local->params, GF_PREOP_PARENT_KEY, conf->xattr_name);
@@ -7921,7 +7917,7 @@ err:
         GF_FREE(parent_disk_layout);
 
     if (parent_layout != NULL)
-        dht_layout_unref(this, parent_layout);
+        dht_layout_unref(parent_layout);
 
     return -1;
 }
@@ -8993,7 +8989,7 @@ dht_set_parent_layout_in_dict(loc_t *loc, xlator_t *this, dht_local_t *local)
     }
 
 err:
-    dht_layout_unref(this, parent_layout);
+    dht_layout_unref(parent_layout);
     return ret;
 }
 
@@ -9330,7 +9326,7 @@ dht_mkdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     memcpy((void *)local->parent_disk_layout, (void *)parent_disk_layout,
            sizeof(local->parent_disk_layout));
 
-    dht_layout_unref(this, parent_layout);
+    dht_layout_unref(parent_layout);
     parent_layout = NULL;
 
     ret = dict_set_str(params, GF_PREOP_PARENT_KEY, conf->xattr_name);
@@ -9372,7 +9368,7 @@ err:
         GF_FREE(parent_disk_layout);
 
     if (parent_layout != NULL)
-        dht_layout_unref(this, parent_layout);
+        dht_layout_unref(parent_layout);
 
     return 0;
 }
@@ -10925,7 +10921,7 @@ dht_forget(xlator_t *this, inode_t *inode)
 
     layout = ctx->layout;
     ctx->layout = NULL;
-    dht_layout_unref(this, layout);
+    dht_layout_unref(layout);
     GF_FREE(ctx);
 
     return 0;

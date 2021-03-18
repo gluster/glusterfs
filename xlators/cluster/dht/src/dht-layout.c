@@ -87,7 +87,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout)
     UNLOCK(&conf->layout_lock);
 
     if (!oldret) {
-        dht_layout_unref(this, old_layout);
+        dht_layout_unref(old_layout);
     }
     if (ret)
         GF_ATOMIC_DEC(layout->ref);
@@ -97,11 +97,11 @@ out:
 }
 
 void
-dht_layout_unref(xlator_t *this, dht_layout_t *layout)
+dht_layout_unref(dht_layout_t *layout)
 {
     int ref = 0;
 
-    if (!layout || layout->preset || !this->private)
+    if (!layout || layout->preset)
         return;
 
     ref = GF_ATOMIC_DEC(layout->ref);
