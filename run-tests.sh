@@ -252,7 +252,8 @@ function match()
         shift
         local a
         local match=1
-        if [ -z "$@" ]; then
+        local len=${#@}
+        if [[ $len -eq 0 ]]; then
             match=0
             return $match
         fi
@@ -357,10 +358,10 @@ function run_tests()
         timeout_cmd_exists="no"
     fi
 
-    all_tests=($(find "${regression_testsdir}"/tests -name '*.t' | sort))
+    mapfile -t all_tests < <(find "${regression_testsdir}"/tests -name '*.t' | sort)
     all_tests_cnt=${#all_tests[@]}
     for t in "${all_tests[@]}" ; do
-        old_cores=$(ls /*-*.core 2> /dev/null | wc -l)
+        old_cores=$(find /*-*.core 2> /dev/null | wc -l)
         total_tests=$((total_tests+1))
         if match "$t" "$@" ; then
             selected_tests=$((selected_tests+1))
@@ -454,7 +455,7 @@ function run_tests()
 		fi
             fi
 
-            new_cores=$(ls /*-*.core 2> /dev/null | wc -l)
+            new_cores=$(find /*-*.core 2> /dev/null | wc -l)
             if [ x"$new_cores" != x"$old_cores" ]; then
                 core_diff=$((new_cores-old_cores))
                 echo "$t: $core_diff new core files"
