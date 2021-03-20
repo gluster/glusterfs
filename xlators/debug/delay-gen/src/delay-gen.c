@@ -530,7 +530,7 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("delay-percentage", delay_percent, percent, out);
     GF_OPTION_INIT("enable", delay_enable_fops, str, out);
-    GF_OPTION_INIT("delay-duration", dg->delay_duration, int32, out);
+    GF_OPTION_INIT("delay-duration", dg->delay_duration, uint64, out);
 
     delay_gen_set_delay_ppm(dg, delay_percent);
 
