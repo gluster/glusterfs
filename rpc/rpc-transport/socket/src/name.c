@@ -116,13 +116,16 @@ af_unix_client_bind(rpc_transport_t *this, struct sockaddr *sockaddr,
         }
 
         addr = (struct sockaddr_un *)sockaddr;
-        strcpy(addr->sun_path, path);
+
+        strncpy(addr->sun_path, path, sizeof(addr->sun_path));
+        addr->sun_path[sizeof(addr->sun_path) - 1] = '\0';
+
         ret = bind(sock, (struct sockaddr *)addr, sockaddr_len);
+
         if (ret == -1) {
             gf_log(this->name, GF_LOG_ERROR,
                    "cannot bind to unix-domain socket %d (%s)", sock,
                    strerror(errno));
-            goto err;
         }
     } else {
         gf_log(this->name, GF_LOG_TRACE,
