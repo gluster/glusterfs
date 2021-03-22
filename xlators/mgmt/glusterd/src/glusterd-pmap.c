@@ -56,7 +56,7 @@ pmap_registry_new(glusterd_conf_t *priv)
 {
     struct pmap_registry *pmap = NULL;
 
-    pmap = GF_MALLOC(sizeof(*pmap), gf_common_mt_pmap_reg_t);
+    pmap = GF_MALLOC(sizeof(*pmap), gf_gld_mt_pmap_reg_t);
     if (!pmap)
         return NULL;
 
@@ -276,7 +276,7 @@ pmap_port_new(xlator_t *this, int port, char *brickname, void *xprt,
 {
     struct pmap_ports *tmp_port = NULL;
 
-    tmp_port = GF_MALLOC(sizeof(*tmp_port), gf_common_mt_pmap_port_t);
+    tmp_port = GF_MALLOC(sizeof(*tmp_port), gf_gld_mt_pmap_port_t);
     if (!tmp_port)
         return -1;
 
