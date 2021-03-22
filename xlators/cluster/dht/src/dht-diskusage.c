@@ -329,7 +329,7 @@ out:
     }
 
     if (layout)
-        dht_layout_unref(this, layout);
+        dht_layout_unref(layout);
     return avail_subvol;
 }
 
