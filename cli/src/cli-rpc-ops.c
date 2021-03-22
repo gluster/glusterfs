@@ -906,9 +906,9 @@ xml_output:
                                       replica_count, disperse_count,
                                       redundancy_count, arbiter_count);
 
-        cli_out("Transport-type: %s",
-                ((transport == 0) ? "tcp"
-                                  : (transport == 1) ? "rdma" : "tcp,rdma"));
+        cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
+                                       : (transport == 1) ? "rdma"
+                                                          : "tcp,rdma"));
         j = 1;
 
         GF_FREE(local->get_vol.volname);
@@ -1576,7 +1576,7 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
         sec = ((uint64_t)elapsed % 3600) % 60;
 
         if (fix_layout) {
-            cli_out("%35s %50s %8d:%d:%d", node_name, status_str, hrs, min,
+            cli_out("%35s %50s %8d:%02d:%02d", node_name, status_str, hrs, min,
                     sec);
         } else {
             if (size_str) {

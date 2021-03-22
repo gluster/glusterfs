@@ -7033,6 +7033,8 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     dht_conf_t *conf = NULL;
     dht_methods_t *methods = NULL;
     gf_boolean_t skip_hashed_check = _gf_false;
+    gf_boolean_t readdir_optimize = _gf_false;
+    gf_boolean_t add = _gf_false;
 
     INIT_LIST_HEAD(&entries.list);
 
@@ -7042,6 +7044,7 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, done);
 
+    readdir_optimize = conf->readdir_optimize;
     methods = &(conf->methods);
 
     if (op_ret <= 0)
@@ -7065,12 +7068,25 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         next_offset = orig_entry->d_off;
 
-        gf_msg_debug(this->name, 0, "%s: entry = %s, type = %d", prev->name,
-                     orig_entry->d_name, orig_entry->d_type);
-
         subvol = methods->layout_search(this, layout, orig_entry->d_name);
+        gf_msg_debug(this->name, 0, "%s: entry = %s, type = %d %p, %p",
+                     prev->name, orig_entry->d_name, orig_entry->d_type, subvol,
+                     prev);
 
-        if (!subvol || (subvol == prev)) {
+        /* a) If rebalance is running, pick from first_up_subvol
+         */
+        if (DT_ISDIR(orig_entry->d_type) && readdir_optimize) {
+            if (prev == local->first_up_subvol) {
+                add = _gf_true;
+            } else {
+                continue;
+            }
+        } else if (!subvol || (subvol == prev)) {
+            add = _gf_true;
+        }
+
+        if (add) {
+            add = _gf_false;
             entry = gf_dirent_for_name(orig_entry->d_name);
             if (!entry) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,

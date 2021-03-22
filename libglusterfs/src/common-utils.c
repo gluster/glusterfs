@@ -3325,7 +3325,7 @@ gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling)
 out:
     GF_FREE(ports_info);
 
-#else  /* FIXME: Non Linux Host */
+#else /* FIXME: Non Linux Host */
     ret = 0;
 #endif /* GF_LINUX_HOST_OS */
 
@@ -5197,7 +5197,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
             closer(i, prm);
     }
     sys_closedir(d);
-#else  /* !GF_LINUX_HOST_OS */
+#else /* !GF_LINUX_HOST_OS */
     struct rlimit rl;
     int ret = -1;
 
@@ -5431,6 +5431,30 @@ gf_d_type_from_ia_type(ia_type_t type)
         default:
             return DT_UNKNOWN;
     }
+}
+
+int
+gf_d_type_from_st_mode(mode_t st_mode)
+{
+    switch (st_mode & S_IFMT) {
+        case S_IFREG:
+            return DT_REG;
+        case S_IFDIR:
+            return DT_DIR;
+        case S_IFLNK:
+            return DT_LNK;
+        case S_IFBLK:
+            return DT_BLK;
+        case S_IFCHR:
+            return DT_CHR;
+        case S_IFIFO:
+            return DT_FIFO;
+        case S_IFSOCK:
+            return DT_SOCK;
+        default:
+            return DT_UNKNOWN;
+    }
+    return DT_UNKNOWN;
 }
 
 int
